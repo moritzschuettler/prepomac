@@ -62,7 +62,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="EnvironmentVariable.cs" />
-    <Compile Include="NetgenJob.cs" />
+    <Compile Include="ExecutableJob.cs" />
     <Compile Include="AnalysisJob.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
