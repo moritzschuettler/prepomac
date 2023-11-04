@@ -13,20 +13,16 @@ namespace FileInOut.Output.Calculix
     internal class CalLinearSpringSection : CalculixKeyword
     {
         // Variables                                                                                                                
-        private string _elementSetName;
-        private int _direction;
-        private double _stiffness;
+        private LinearSpringSection _linearSpringSection;
 
 
         // Properties                                                                                                               
 
 
         // Constructor                                                                                                              
-        public CalLinearSpringSection(string elementSetName, int direction, double stiffness)
+        public CalLinearSpringSection(LinearSpringSection linearSpringSection)
         {
-            _elementSetName = elementSetName;
-            _direction = direction;
-            _stiffness = stiffness;
+            _linearSpringSection = linearSpringSection;
         }
 
 
@@ -34,14 +30,14 @@ namespace FileInOut.Output.Calculix
         public override string GetKeywordString()
         {
             StringBuilder sb = new StringBuilder();
-            sb.AppendFormat("*Spring, Elset={0}{1}", _elementSetName, Environment.NewLine);
+            sb.AppendFormat("*Spring, Elset={0}{1}", _linearSpringSection.RegionName, Environment.NewLine);
             return sb.ToString();
         }
         public override string GetDataString()
         {
             StringBuilder sb = new StringBuilder();
-            sb.AppendFormat("{0}{1}", _direction, Environment.NewLine);
-            sb.AppendFormat("{0}{1}", _stiffness.ToCalculiX16String(true), Environment.NewLine);
+            sb.AppendFormat("{0}{1}", _linearSpringSection.Direction, Environment.NewLine);
+            sb.AppendFormat("{0}{1}", _linearSpringSection.Stiffness.Value.ToCalculiX16String(true), Environment.NewLine);
             return sb.ToString();
         }
     }
