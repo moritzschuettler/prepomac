@@ -22,10 +22,12 @@ namespace CaeMesh
         public LinearWedgeElement(int id, int[] nodeIds)
            : base(id, nodeIds)
         {
+            //if (nodeIds.Length != 6) throw new NotSupportedException();
         }
         public LinearWedgeElement(int id, int partId, int[] nodeIds)
             : base(id, partId, nodeIds)
         {
+            //if (nodeIds.Length != 6) throw new NotSupportedException();
         }
 
 
@@ -41,7 +43,7 @@ namespace CaeMesh
         }
         public override FeFaceName GetFaceNameFromSortedNodeIds(int[] nodeIds)
         {
-            // the node ids are sorted 
+            // The node ids are sorted 
             // S1 = 1-2-3   . 0-1-2   . 0-1-2  
             // S2 = 4-5-6   . 3-4-5   . 3-4-5  
             // S3 = 1-2-5-4 . 0-1-4-3 . 0-1-3-4
@@ -80,7 +82,7 @@ namespace CaeMesh
         }
         public override int[] GetVtkCellFromFaceName(FeFaceName faceName)
         {
-            // invert the surface normal to point outwards
+            // Invert the surface normal to point outwards
             // S1 = 1-2-3   . 0-1-2   . 0-2-1  
             // S2 = 4-5-6   . 3-4-5   . 3-4-5   - is already outwards
             // S3 = 1-2-5-4 . 0-1-4-3 . 0-1-4-3 - is already outwards
@@ -93,13 +95,13 @@ namespace CaeMesh
                 case FeFaceName.S2:
                     return new int[] { NodeIds[3], NodeIds[4], NodeIds[5] };
                 case FeFaceName.S3:
-                    //returnnew int[] { NodeIDs[0], NodeIDs[1], NodeIDs[4], NodeIDs[3] };
+                    //return new int[] { NodeIDs[0], NodeIDs[1], NodeIDs[4], NodeIDs[3] };
                     return new int[] { NodeIds[1], NodeIds[4], NodeIds[3], NodeIds[0] };
                 case FeFaceName.S4:
-                    //returnnew int[] { NodeIDs[1], NodeIDs[2], NodeIDs[5], NodeIDs[4] };
+                    //return new int[] { NodeIDs[1], NodeIDs[2], NodeIDs[5], NodeIDs[4] };
                     return new int[] { NodeIds[2], NodeIds[5], NodeIds[4], NodeIds[1] };
                 case FeFaceName.S5:
-                    //returnnew int[] { NodeIDs[2], NodeIDs[0], NodeIDs[3], NodeIDs[5] };
+                    //return new int[] { NodeIDs[2], NodeIDs[0], NodeIDs[3], NodeIDs[5] };
                     return new int[] { NodeIds[0], NodeIds[3], NodeIds[5], NodeIds[2] };
                 default:
                     throw new NotSupportedException();
@@ -107,7 +109,7 @@ namespace CaeMesh
         }
         public override int[][] GetAllVtkCells()
         {
-            // use Method: GetVtkCellFromFaceName(FeFaceName faceName)
+            // Use Method: GetVtkCellFromFaceName(FeFaceName faceName)
             int[][] cells = new int[5][];
 
             cells[0] = new int[] { NodeIds[0], NodeIds[2], NodeIds[1] };
