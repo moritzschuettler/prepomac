@@ -23,7 +23,11 @@ namespace CaeMesh.Meshing
     {
         [StandardValue("None", DisplayName = "None")]
         None,
+        [StandardValue("Gmsh", DisplayName = "Gmsh")]
+        Gmsh,
         [StandardValue("Netgen", DisplayName = "Netgen")]
         Netgen,
+        [StandardValue("Relocate3D", DisplayName = "Relocate 3D")]
+        Relocate3D,
     }
 }
