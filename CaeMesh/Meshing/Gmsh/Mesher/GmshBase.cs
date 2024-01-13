@@ -265,7 +265,7 @@ namespace CaeMesh
                             dz = Math.Abs(coorN[2] - coorG[2]);
                             if (dz <= minDistance)
                             {
-                                minDistance = Math.Sqrt(Math.Pow(dx, 2) + Math.Pow(dy, 2) + Math.Pow(dz, 2));
+                                minDistance = Math.Pow(dx, 2) + Math.Pow(dy, 2) + Math.Pow(dz, 2);
                                 minId = gmshEntry.Key;
                                 if (minDistance == 0) break;
                             }
@@ -286,7 +286,6 @@ namespace CaeMesh
             double min;
             double d2;
             int[] vertexIds;
-            int[] surfaceIds;
             double x;
             double y;
             double z;
@@ -365,9 +364,8 @@ namespace CaeMesh
             {
                 if (netgenEdgeIdEdgeId.TryGetValue(entry.Key, out edgeId))
                     edgeIdNumElements[edgeId] = entry.Value;
-                else
-                    edgeId = edgeId;
             }
+            //
             _gmshData.EdgeIdNumElements = edgeIdNumElements;
         }
         //

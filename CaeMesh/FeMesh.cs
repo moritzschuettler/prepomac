@@ -9494,19 +9494,17 @@ namespace CaeMesh
             int numberOfLayers2 = numberOfLayers * 2;
             int[] nodeIds;
             int[] edgeNodeIds;
-            double[] faceNormal;
             FeElement element;
             BasePart shellPart;
             MeshPart solidPart;
             string prevPartName;
-            Vec3D tmp;
-            Vec3D averageNormal;
-            List<Vec3D> nodeNormals;
             List<double[][]> connectedEdgesList = new List<double[][]>();
             CompareIntArray comparer = new CompareIntArray();
             HashSet<int[]> edgeKeys = new HashSet<int[]>(comparer);
             HashSet<int> newNodeIds = new HashSet<int>();
-            Dictionary<int, List<Vec3D>> nodeIdAllNodeNormals = new Dictionary<int, List<Vec3D>>();
+            Vec3D tmp;
+            Vec3D normal;
+            Dictionary<int, Vec3D> nodeIdNormal;
             //
             int nodeId;
             int elementCount;
@@ -9524,7 +9522,6 @@ namespace CaeMesh
                 //
                 elementCount = 1;
                 newNodeIds.Clear();
-                nodeIdAllNodeNormals.Clear();
                 newNodes.Clear();
                 newElements.Clear();
                 edgeKeys.Clear();
@@ -9533,15 +9530,6 @@ namespace CaeMesh
                 {
                     elementId = shellPart.Labels[i];
                     element = _elements[elementId];
-                    GetElementFaceCenterAndNormal(element, FeFaceName.S2, out _, out faceNormal, out _);
-                    // Collect all node normals
-                    for (int j = 0; j < element.NodeIds.Length; j++)
-                    {
-                        if (nodeIdAllNodeNormals.TryGetValue(element.NodeIds[j], out nodeNormals))
-                            nodeNormals.Add(new Vec3D(faceNormal));
-                        else
-                            nodeIdAllNodeNormals.Add(element.NodeIds[j], new List<Vec3D>() { new Vec3D(faceNormal) });
-                    }
                     // Create solid elements
                     for (int j = 0; j < numberOfLayers; j++)
                     {
@@ -9679,29 +9667,25 @@ namespace CaeMesh
                         elementCount++;
                     }
                 }
-                //
-                foreach (var entry in nodeIdAllNodeNormals)
+                // Create new nodes
+                nodeIdNormal = GetNodeNormals(shellPart);
+                foreach (var entry in nodeIdNormal)
                 {
-                    // Average all node normals
-                    averageNormal = new Vec3D();
-                    nodeNormals = entry.Value;
-                    foreach (var nodeNormal in nodeNormals) averageNormal += nodeNormal;
-                    averageNormal *= 1.0 / nodeNormals.Count();
-                    averageNormal.Normalize();
-                    // Create new nodes
+                    normal = entry.Value;
                     for (int i = 0; i < numberOfLayers2 + 1; i++)
                     {
                         nodeId = entry.Key + i * delta;
                         if (newNodeIds.Contains(nodeId))
                         {
                             tmp = new Vec3D(_nodes[entry.Key].Coor) +
-                                (offset - thickness / 2 + i * (thickness / numberOfLayers2)) * averageNormal;
+                                (offset - thickness / 2 + i * (thickness / numberOfLayers2)) * normal;
                             //
                             node = new FeNode(entry.Key + i * delta, tmp.Coor);
                             newNodes.Add(node.Id, node);
                         }
                     }
                 }
+                //
                 if (preview)
                 {
                     foreach (var edgeKey in edgeKeys)
@@ -9738,7 +9722,48 @@ namespace CaeMesh
             //
             return errors.ToArray();
         }
+        private Dictionary<int, Vec3D> GetNodeNormals(BasePart part)
+        {
+            int elementId;
+            double[] faceNormal;
+            FeElement element;
+            Vec3D averageNormal;
+            List<Vec3D> nodeNormals;
+            Dictionary<int, List<Vec3D>> nodeIdAllNodeNormals = new Dictionary<int, List<Vec3D>>();
+            //
+            if (part.PartType != PartType.Shell) return null;
+            //
+            for (int i = 0; i < part.Labels.Length; i++)
+            {
+                elementId = part.Labels[i];
+                element = _elements[elementId];
+                GetElementFaceCenterAndNormal(element, FeFaceName.S2, out _, out faceNormal, out _);
+                // Collect all node normals
+                for (int j = 0; j < element.NodeIds.Length; j++)
+                {
+                    if (nodeIdAllNodeNormals.TryGetValue(element.NodeIds[j], out nodeNormals))
+                        nodeNormals.Add(new Vec3D(faceNormal));
+                    else
+                        nodeIdAllNodeNormals.Add(element.NodeIds[j], new List<Vec3D>() { new Vec3D(faceNormal) });
+                }
+            }
+            Dictionary<int, Vec3D> nodeIdNodeNormal = new Dictionary<int, Vec3D>();
+            //
+            foreach (var entry in nodeIdAllNodeNormals)
+            {
+                // Average all node normals
+                averageNormal = new Vec3D();
+                nodeNormals = entry.Value;
+                foreach (var nodeNormal in nodeNormals) averageNormal += nodeNormal;
+                averageNormal *= 1.0 / nodeNormals.Count();
+                averageNormal.Normalize();
+                //
+                nodeIdNodeNormal.Add(entry.Key, averageNormal);
+            }
+            //
+            return nodeIdNodeNormal;
 
+        }
         // Clone
         public FeMesh DeepCopy()
         {
