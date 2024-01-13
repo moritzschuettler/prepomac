@@ -9496,8 +9496,7 @@ namespace CaeMesh
             int[] edgeNodeIds;
             FeElement element;
             BasePart shellPart;
-            MeshPart solidPart;
-            string prevPartName;
+            BasePart solidPart;
             List<double[][]> connectedEdgesList = new List<double[][]>();
             CompareIntArray comparer = new CompareIntArray();
             HashSet<int[]> edgeKeys = new HashSet<int[]>(comparer);
@@ -9514,6 +9513,7 @@ namespace CaeMesh
             Dictionary<int, FeNode> newNodes = new Dictionary<int, FeNode>();
             Dictionary<int, FeElement> newElements = new Dictionary<int, FeElement>();
             FeMesh mesh;
+            string[] importedPartNames;
             //
             foreach (string partName in partNames)
             {
@@ -9701,17 +9701,19 @@ namespace CaeMesh
                     mesh = new FeMesh(newNodes, newElements, _meshRepresentation, ImportOptions.DetectEdges);
                     mesh.ConvertLineFeElementsToEdges();
                     mesh.RemoveElementsByType<FeElement1D>();
-                    // Fix the name
-                    solidPart = (MeshPart)mesh.Parts.First().Value;
-                    prevPartName = solidPart.Name;
-                    solidPart.Name = shellPart.Name;                                // must be here
-                    mesh.Parts.Replace(prevPartName, solidPart.Name, solidPart);    // must be here
                     // Add the part
-                    AddMesh(mesh, _parts.Keys);
+                    importedPartNames = AddMesh(mesh, _parts.Keys);
+                    // Fix the name
+                    solidPart = (MeshPart)_parts[importedPartNames[0]];
+                    solidPart.Name = shellPart.Name;
+                    _parts.Replace(importedPartNames[0], solidPart.Name, solidPart);
                     // Fix the part id
-                    solidPart.PartId = shellPart.PartId;
-                    foreach (var solidElementId in solidPart.Labels) _elements[solidElementId].PartId = solidPart.PartId;
-                    // Fiy other properties
+                    if (solidPart.PartId != shellPart.PartId)
+                    {
+                        solidPart.PartId = shellPart.PartId;
+                        foreach (var solidElementId in solidPart.Labels) _elements[solidElementId].PartId = solidPart.PartId;
+                    }
+                    // Fix other properties
                     solidPart.Color = shellPart.Color;
                     solidPart.Offset = shellPart.Offset;
                     solidPart.SmoothShaded = shellPart.SmoothShaded;

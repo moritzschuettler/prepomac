@@ -194,7 +194,7 @@ namespace CaeGlobals
             {
                 TValue value;
                 if (_dictionary.TryGetValue(key, out value)) return value;
-                else throw new CaeException("The given key '" + key.ToString() + "' was not present in the dictionary.");
+                else  throw new CaeException("The given key '" + key.ToString() + "' was not present in the dictionary.");
             }
             set
             {
