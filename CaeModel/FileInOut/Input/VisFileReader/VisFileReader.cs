@@ -85,8 +85,8 @@ namespace FileInOut.Input
                     }
                     //
                     double max = bBox.GetDiagonal();
-                    int[] mergedNodes;
-                    MergeNodes(nodes, elements, surfaceIdNodeIds, edgeIdNodeIds, epsilon * max, out mergedNodes);
+                    int[] mergedNodeIds;
+                    MergeNodes(nodes, elements, surfaceIdNodeIds, edgeIdNodeIds, epsilon * max, out mergedNodeIds);
                     MergeEdgeElements(elements);
                     //
                     FeMesh mesh = new FeMesh(nodes, elements, MeshRepresentation.Geometry, importOptions);
@@ -267,7 +267,7 @@ namespace FileInOut.Input
                                        Dictionary<int, HashSet<int>> surfaceIdNodeIds,
                                        Dictionary<int, HashSet<int>> edgeIdNodeIds,
                                        double epsilon,
-                                       out int[] mergedNodes)
+                                       out int[] mergedNodeIds)
         {
             int count = 0;
             FeNode[] sortedNodes = new FeNode[nodes.Count];
@@ -285,7 +285,7 @@ namespace FileInOut.Input
                 for (int j = i + 1; j < sortedNodes.Length; j++)
                 {
                     if (oldIdNewIdMap.ContainsKey(sortedNodes[j].Id)) continue;   // this node was merged and does not exist anymore
-
+                    //
                     if (Math.Abs(sortedNodes[i].X - sortedNodes[j].X) < epsilon)
                     {
                         if (Math.Abs(sortedNodes[i].Y - sortedNodes[j].Y) < epsilon)
@@ -298,7 +298,7 @@ namespace FileInOut.Input
                     }
                     else
                     {
-                        break;
+                        break;  // since nodes are sortred by X if dX > epsilon break;
                     }
                 }
             }
@@ -320,9 +320,9 @@ namespace FileInOut.Input
                 //
                 for (int i = 1; i < sortedNodeIds.Length; i++) oldIdNewIdMap.Add(sortedNodeIds[i], sortedNodeIds[0]);
             }
-             // Remove unused nodes
-            mergedNodes = oldIdNewIdMap.Keys.ToArray();
-            foreach (int mergedNode in mergedNodes) nodes.Remove(mergedNode);
+            // Remove unused nodes
+            mergedNodeIds = oldIdNewIdMap.Keys.ToArray();
+            foreach (int mergedNode in mergedNodeIds) nodes.Remove(mergedNode);
             // Apply the map to the elements
             int newId;
             HashSet<int> nodeIds = new HashSet<int>();
@@ -369,7 +369,6 @@ namespace FileInOut.Input
                 entry.Value.Clear();
                 entry.Value.UnionWith(newIds);
             }
-
         }
         private static void MergeEdgeElements(Dictionary<int, FeElement> elements)
         {

@@ -3406,7 +3406,6 @@ namespace PrePoMax
             int edgeId;
             double length;
             int numElements;
-            int[] vertexNodeIds;
             HashSet<int> nodeIds = new HashSet<int>();
             gmshData.VertexNodeIdMeshSize = new Dictionary<int, double>();
             gmshData.EdgeIdNumElements = new Dictionary<int, int>();

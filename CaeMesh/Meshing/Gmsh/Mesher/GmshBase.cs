@@ -139,6 +139,12 @@ namespace CaeMesh
                     if (_isOCC && (gsi.TransfiniteThreeSided || gsi.TransfiniteFourSided))
                         //Gmsh.Mesh.SetTransfiniteAutomatic(gsi.TransfiniteAngleRad, recombine);
                         SetTransfiniteSurfaces(gsi.TransfiniteThreeSided, gsi.TransfiniteFourSided, transfiniteVolume, recombine);
+                    // Optimization On/Off
+                    int optimize = 1;
+                    if (gsi.OptimizeFirstOrderShell == GmshOptimizeFirstOrderShellEnum.None &&
+                        gsi.OptimizeFirstOrderSolid == GmshOptimizeFirstOrderSolidEnum.None &&
+                        gsi.OptimizeHighOrder == GmshOptimizeHighOrderEnum.None) optimize = 0;  
+                    Gmsh.Option.SetNumber("Mesh.Optimize", optimize);
                     //
                     if (gsi is ShellGmsh)
                         ShellGmsh(gsi, _gmshData.Preview);
@@ -275,7 +281,8 @@ namespace CaeMesh
             _gmshData.VertexNodeIdMeshSize = vertexIdMeshSize;
             // Edges                                                                                                                
             int edgeId;
-            int netGenEdgeId = -1;
+            int netgenEdgeId = -1;
+            int gmshEdgeId = -1;
             double min;
             double d2;
             int[] vertexIds;
@@ -287,53 +294,76 @@ namespace CaeMesh
             Vec3D cog;
             List<GmshIdLocation> idLocationList;
             Tuple<int, int>[] dimTags;
-            Dictionary<int, int> netGenEdgeIdEdgeId = new Dictionary<int, int>();
+            Dictionary<int, int> netgenEdgeIdEdgeId = new Dictionary<int, int>();
             Gmsh.Model.GetEntities(out dimTags, 1);
             // Renumber edge vertex node ids as keys
             CompareIntArray comparer = new CompareIntArray();
-            Dictionary<int[], List<GmshIdLocation>> edgeVertexNodeIdsEdgeId = new Dictionary<int[], List<GmshIdLocation>>(comparer);
+            GmshIdLocation edgeIdData;
+            List<GmshIdLocation> edgeIdDataList;
+            Dictionary<int[], List<GmshIdLocation>> edgeVertexNodeIdsEdgeId =
+                new Dictionary<int[], List<GmshIdLocation>>(comparer);
             foreach (var entry in _gmshData.EdgeVertexNodeIdsEdgeId)
             {
                 vertexIds = new int[entry.Key.Length];
                 for (int i = 0; i < vertexIds.Length; i++) vertexIds[i] = netGenIdGmshId[entry.Key[i]];
-                edgeVertexNodeIdsEdgeId[vertexIds] = entry.Value;
+                Array.Sort(vertexIds);
+                //
+                if (edgeVertexNodeIdsEdgeId.TryGetValue(vertexIds, out edgeIdDataList)) edgeIdDataList.AddRange(entry.Value);
+                else edgeVertexNodeIdsEdgeId.Add(vertexIds, entry.Value.ToList());  // create a copy to ba able to AddRange later
             }
             _gmshData.EdgeVertexNodeIdsEdgeId = edgeVertexNodeIdsEdgeId;
-            // Renumber edge ids
+            // Prepare Gmsh edge data by vertex ids
+            Dictionary<int[], List<GmshIdLocation>> gmshEdgeVertexNodeIdsEdgeId =
+                new Dictionary<int[], List<GmshIdLocation>>(comparer);
             foreach (var entry in dimTags)
             {
                 edgeId = entry.Item2;
-                Gmsh.Model.GetAdjacencies(1, edgeId, out surfaceIds, out vertexIds);
+                Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
                 Array.Sort(vertexIds);
                 Gmsh.Model.OCC.GetCenterOfMass(1, edgeId, out x, out y, out z);
                 xyz = new Vec3D(x, y, z);
                 //
-                if (_gmshData.EdgeVertexNodeIdsEdgeId.TryGetValue(vertexIds, out idLocationList))
+                edgeIdData = new GmshIdLocation() { Id = edgeId, Location = xyz.Coor };
+                if (gmshEdgeVertexNodeIdsEdgeId.TryGetValue(vertexIds, out edgeIdDataList)) edgeIdDataList.Add(edgeIdData);
+                else gmshEdgeVertexNodeIdsEdgeId.Add(vertexIds, new List<GmshIdLocation>() { edgeIdData });
+            }
+            // Renumber edge ids
+            foreach (var entry in _gmshData.EdgeVertexNodeIdsEdgeId)
+            {
+                vertexIds = entry.Key;
+                //
+                foreach (var edgeDataEntry in entry.Value)
                 {
-                    if (idLocationList.Count() == 1) netGenEdgeId = idLocationList[0].Id;
-                    else
+                    netgenEdgeId = edgeDataEntry.Id;
+                    xyz = new Vec3D(edgeDataEntry.Location);
+                    //
+                    if (gmshEdgeVertexNodeIdsEdgeId.TryGetValue(vertexIds, out idLocationList))
                     {
-                        min = double.MaxValue;
-                        foreach (var idLocation in idLocationList)
+                        if (idLocationList.Count() == 1) gmshEdgeId = idLocationList[0].Id;
+                        else
                         {
-                            cog = new Vec3D(idLocation.Location);
-                            d2 = (cog - xyz).Len2;
-                            if (d2 < min)
+                            min = double.MaxValue;
+                            foreach (var idLocation in idLocationList)
                             {
-                                min = d2;
-                                netGenEdgeId = idLocation.Id;
+                                cog = new Vec3D(idLocation.Location);
+                                d2 = (cog - xyz).Len2;
+                                if (d2 < min)
+                                {
+                                    min = d2;
+                                    gmshEdgeId = edgeDataEntry.Id;
+                                }
                             }
                         }
+                        //
+                        netgenEdgeIdEdgeId[netgenEdgeId] = gmshEdgeId;
                     }
-                    //
-                    netGenEdgeIdEdgeId[netGenEdgeId] = edgeId;
                 }
             }
             //
             Dictionary<int,int> edgeIdNumElements = new Dictionary<int, int>();
             foreach (var entry in _gmshData.EdgeIdNumElements)
             {
-                if (netGenEdgeIdEdgeId.TryGetValue(entry.Key, out edgeId))
+                if (netgenEdgeIdEdgeId.TryGetValue(entry.Key, out edgeId))
                     edgeIdNumElements[edgeId] = entry.Value;
                 else
                     edgeId = edgeId;

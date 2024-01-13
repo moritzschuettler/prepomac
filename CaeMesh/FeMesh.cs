@@ -3541,11 +3541,8 @@ namespace CaeMesh
                 visNodeIds = part.Visualization.GetNodeIds().ToArray();
                 for (int j = 0; j < visNodeIds.Length; j++) nodeIdVec[visNodeIds[j]] = new Vec3D(_nodes[visNodeIds[j]].Coor);
                 // Vertices
-                gmshData.VertexNodes = new Dictionary<int, FeNode>();
                 for (int j = 0; j < vis.VertexNodeIds.Length; j++)
-                {
                     gmshData.VertexNodes.Add(vis.VertexNodeIds[j], _nodes[vis.VertexNodeIds[j]]);
-                }
                 // Edges
                 for (int j = 0; j < vis.EdgeCount; j++)
                 {
