@@ -81,7 +81,8 @@ namespace PrePoMax.Forms
                 {
                     HighlightSelection();
                     _controller.PreviewThickenShellMesh(thickenShellMesh.PartNames, thickenShellMesh.Thickness,
-                                                        thickenShellMesh.NumberOfLayers, thickenShellMesh.Offset);
+                                                        thickenShellMesh.NumberOfLayers, thickenShellMesh.Offset,
+                                                        thickenShellMesh.KeepModelEdges);
                 }
             }
             catch (Exception ex)
@@ -102,7 +103,8 @@ namespace PrePoMax.Forms
             if (error != null) throw new CaeException(error);
             // Create
             _controller.ThickenShellMeshCommand(thickenShellMesh.PartNames, thickenShellMesh.Thickness,
-                                                thickenShellMesh.NumberOfLayers, thickenShellMesh.Offset);
+                                                thickenShellMesh.NumberOfLayers, thickenShellMesh.Offset,
+                                                thickenShellMesh.KeepModelEdges);
             //
             _controller.ClearSelectionHistoryAndCallSelectionChanged();
             // If all is successful close the ItemSetSelectionForm - except for OKAddNew

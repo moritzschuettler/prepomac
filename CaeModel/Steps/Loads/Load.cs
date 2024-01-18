@@ -113,6 +113,11 @@ namespace CaeModel
                         break;
                 }
             }
+            // Compatibility for version v1.3.5
+            if (_phaseDeg == null)
+            {
+                PhaseDeg = new EquationContainer(typeof(StringAngleDegConverter), 0);
+            }
         }
 
 

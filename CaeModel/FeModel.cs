@@ -1275,7 +1275,7 @@ namespace CaeModel
                 BasePart part;
                 foreach (var partName in thickenShellMesh.PartNames)
                 {
-                    part = _geometry.Parts[partName];
+                    _geometry.Parts.TryGetValue(partName, out part);
                     // Is mesh setup item defined on the mesh part
                     if (part == null) part = _mesh.Parts[partName];
                     if (part == null)
@@ -2164,7 +2164,6 @@ namespace CaeModel
             //
             return bdmModel;
         }
-        
         // ISerialization
         public void GetObjectData(SerializationInfo info, StreamingContext context)
         {

@@ -19,23 +19,25 @@ namespace PrePoMax.Commands
         private double _thickness;
         private int _numberOfLayers;
         private double _offset;
+        private bool _keepModelEdges;
 
 
         // Constructor                                                                                                              
-        public CThickenShellMesh(string[] partNames, double thickness, int numberOfLayers, double offset)
+        public CThickenShellMesh(string[] partNames, double thickness, int numberOfLayers, double offset, bool keepModelEdges)
             : base("Thicken shell mesh")
         {
             _partNames = partNames;
             _thickness = thickness;
             _numberOfLayers = numberOfLayers;
             _offset = offset;
+            _keepModelEdges = keepModelEdges;
         }
 
 
         // Methods                                                                                                                  
         public override bool Execute(Controller receiver)
         {
-            receiver.ThickenShellMesh(_partNames, _thickness, _numberOfLayers, _offset);
+            receiver.ThickenShellMesh(_partNames, _thickness, _numberOfLayers, _offset, _keepModelEdges);
             return true;
         }
 

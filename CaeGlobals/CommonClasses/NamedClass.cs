@@ -66,6 +66,7 @@ namespace CaeGlobals
         public NamedClass(SerializationInfo info, StreamingContext context)
         {
             int count = 0;
+            bool meshRefinement = false;
             foreach (SerializationEntry entry in info)
             {
                 switch (entry.Name)
@@ -82,9 +83,19 @@ namespace CaeGlobals
                         _internal = (bool)entry.Value; count++; break;
                     case "_checkName":
                         _checkName = (bool)entry.Value; count++; break;
+                    case "_maxH":
+                    case "_minH":
+                        meshRefinement = true; break;
                 }
             }
-            if (count != 6) throw new NotSupportedException();
+            //
+            if (count < 6)
+            {
+                // Compatibility v 1.4.0
+                if (meshRefinement && _name == null) _name = "Test";
+                //
+                else throw new NotSupportedException();
+            }
         }
 
 

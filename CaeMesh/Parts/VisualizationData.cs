@@ -932,6 +932,7 @@ namespace CaeMesh
         public int[] GetAllEdgeCellBaseCellIds()
         {
             bool found;
+            int cellId;
             int[] nodeIds;
             int[] baseCellIds = new int[_edgeCells.Length];
             // Set initial value to -1
@@ -939,21 +940,41 @@ namespace CaeMesh
             //
             for (int k = 0; k < _edgeCells.Length; k++)
             {
-                if (baseCellIds[k] < 0) // skip found cells
+                nodeIds = _edgeCells[k];
+                // For cells
+                for (int i = 0; i < _cellNeighboursOverCellEdge.Length; i++)
                 {
-                    nodeIds = _edgeCells[k];
-                    // For cells
-                    for (int i = 0; i < _cellNeighboursOverCellEdge.Length; i++)
+                    // For cell neighbors
+                    for (int j = 0; j < _cellNeighboursOverCellEdge[i].Length; j++)
                     {
-                        // For cell neighbours
+                        if (_cellNeighboursOverCellEdge[i][j] == -1)
+                        {
+                            found = true;
+                            for (int l = 0; l < nodeIds.Length; l++)
+                            {
+                                if (!_cells[i].Contains(nodeIds[l]))
+                                {
+                                    found = false;
+                                    break;
+                                }
+                            }
+                            if (found) baseCellIds[k] = i;
+                            //
+                            break;
+                        }
+                    }
+                    // Check if edge cell is shared with another cell or is it really an free edge cell
+                    if (baseCellIds[k] > -1)
+                    {
                         for (int j = 0; j < _cellNeighboursOverCellEdge[i].Length; j++)
                         {
-                            if (_cellNeighboursOverCellEdge[i][j] == -1)
+                            if (_cellNeighboursOverCellEdge[i][j] > -1)
                             {
                                 found = true;
+                                cellId = _cellNeighboursOverCellEdge[i][j];
                                 for (int l = 0; l < nodeIds.Length; l++)
                                 {
-                                    if (!_cells[i].Contains(nodeIds[l]))
+                                    if (!_cells[cellId].Contains(nodeIds[l]))
                                     {
                                         found = false;
                                         break;
@@ -961,14 +982,14 @@ namespace CaeMesh
                                 }
                                 if (found)
                                 {
-                                    baseCellIds[k] = i;
+                                    baseCellIds[k] = -1;    // it is not a free edge
                                     break;
                                 }
-                                else break;
                             }
                         }
-                        if (baseCellIds[k] > -1) break;
                     }
+                    //
+                    if (baseCellIds[k] > -1) break;
                 }
             }
             return baseCellIds;

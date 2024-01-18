@@ -3492,7 +3492,8 @@ namespace PrePoMax
                 if (meshSetupItems != null && meshSetupItems.Length > 0)
                 {
                     ThickenShellMesh tsm = (ThickenShellMesh)meshSetupItems[meshSetupItems.Length - 1];
-                    result &= PreviewThickenShellMesh(new string[] { partName }, tsm.Thickness, tsm.NumberOfLayers, tsm.Offset);
+                    result &= PreviewThickenShellMesh(new string[] { partName }, tsm.Thickness, tsm.NumberOfLayers, tsm.Offset,
+                                                      tsm.KeepModelEdges);
                 }
             }
             return result;
@@ -3635,7 +3636,7 @@ namespace PrePoMax
             bool jobCompleted;
             if (System.Diagnostics.Debugger.IsAttached)
             {
-                GmshBase gmsh = new GmshBase(gmshData, _form.WriteDataToOutput);
+                CaeMesh.GmshAPI gmsh = new CaeMesh.GmshAPI(gmshData, _form.WriteDataToOutput);
                 string error = gmsh.CreateMesh();
                 jobCompleted = error == null;
             }
@@ -3754,7 +3755,8 @@ namespace PrePoMax
                 if (meshSetupItems != null && meshSetupItems.Length > 0)
                 {
                     ThickenShellMesh tsm = (ThickenShellMesh)meshSetupItems[meshSetupItems.Length - 1];
-                    result &= ThickenShellMesh(new string[] { partName }, tsm.Thickness, tsm.NumberOfLayers, tsm.Offset);
+                    result &= ThickenShellMesh(new string[] { partName }, tsm.Thickness, tsm.NumberOfLayers, tsm.Offset,
+                                               tsm.KeepModelEdges);
                 }
             }
             return result;
@@ -3810,8 +3812,8 @@ namespace PrePoMax
             bool jobCompleted;
             if (System.Diagnostics.Debugger.IsAttached)
             {
-                GmshBase gmsh = new GmshBase(gmshData, _form.WriteDataToOutput);
-                string error = gmsh.CreateMesh();
+                CaeMesh.GmshAPI gmshAPI = new GmshAPI(gmshData, _form.WriteDataToOutput);
+                string error = gmshAPI.CreateMesh();
                 jobCompleted = error == null;
             }
             else
@@ -4049,7 +4051,7 @@ namespace PrePoMax
             bool debuggerAttached = System.Diagnostics.Debugger.IsAttached;
             if (debuggerAttached)
             {
-                GmshBase gmsh = new GmshBase(gmshData, _form.WriteDataToOutput);
+                GmshAPI gmsh = new GmshAPI(gmshData, _form.WriteDataToOutput);
                 error = gmsh.CreateMesh();
                 jobCompleted = error == null;
             }
@@ -4506,9 +4508,10 @@ namespace PrePoMax
             CRemeshElements comm = new CRemeshElements(remeshingParameters);
             _commands.AddAndExecute(comm);
         }
-        public void ThickenShellMeshCommand(string[] partNames, double thickness, int numberOfLayers, double offset)
+        public void ThickenShellMeshCommand(string[] partNames, double thickness, int numberOfLayers, double offset,
+                                            bool keepModelEdges)
         {
-            CThickenShellMesh comm = new CThickenShellMesh(partNames, thickness, numberOfLayers, offset);
+            CThickenShellMesh comm = new CThickenShellMesh(partNames, thickness, numberOfLayers, offset, keepModelEdges);
             _commands.AddAndExecute(comm);
         }
         public void UpdateNodalCoordinatesFromFileCommand(string fileName)
@@ -4717,15 +4720,34 @@ namespace PrePoMax
             }
             else throw new CaeException("Mesh generation failed.");
         }
-        public bool ThickenShellMesh(string[] partNames, double thickness, int numberOfLayers, double offset)
+        public bool ThickenShellMesh(string[] partNames, double thickness, int numberOfLayers, double offset,
+                                     bool keepModelEdges)
         {
             try
             {
                 _form.SetStateWorking("Creating...");
                 //
                 string[] errors = null;
+                //
+                SuppressExplodedView(partNames);
+                //
+                Dictionary<int, Vec3D> nodeIdNormal;
+                if (_model.Geometry.Parts.Keys.Intersect(partNames).Count() == partNames.Length)
+                {
+                    nodeIdNormal = _model.Geometry.GetNodeNormals(partNames, _model.Mesh, keepModelEdges,
+                                                                  GeNormalsFromGeometryAtMeshNodes);
+                }
+                else
+                {
+                    nodeIdNormal = _model.Mesh.GetNodeNormals(partNames, _model.Mesh, keepModelEdges,
+                                                              GeNormalsFromGeometryAtMeshNodes);
+                }
+                //
                 if (_model != null)
-                    errors = _model.Mesh.ThickenShellMesh(partNames, thickness, numberOfLayers, offset, false, out _);
+                    errors = _model.Mesh.ThickenShellMesh(partNames, nodeIdNormal, thickness, numberOfLayers, offset,
+                                                          false, out _);
+                //
+                ResumeExplodedViews(false);
                 // Update element type icon
                 foreach (var partName in partNames)
                 {
@@ -4753,12 +4775,31 @@ namespace PrePoMax
                 _form.SetStateReady("Creating...");
             }
         }
-        public bool PreviewThickenShellMesh(string[] partNames, double thickness, int numberOfLayers, double offset)
+        public bool PreviewThickenShellMesh(string[] partNames, double thickness, int numberOfLayers, double offset,
+                                            bool keepModelEdges)
         {
             string[] errors = null;
             double[][][] connectedEdges = null;
+            //
+            SuppressExplodedView(partNames);
+            //
+            Dictionary<int, Vec3D> nodeIdNormal;
+            if (_model.Geometry.Parts.Keys.Intersect(partNames).Count() == partNames.Length)
+            {
+                nodeIdNormal = _model.Geometry.GetNodeNormals(partNames, _model.Geometry, keepModelEdges,
+                                                              GeNormalsFromGeometryAtMeshNodes);
+            }
+            else
+            {
+                nodeIdNormal = _model.Mesh.GetNodeNormals(partNames, _model.Mesh, keepModelEdges,
+                                                          GeNormalsFromGeometryAtMeshNodes);
+            }
+            //
             if (_model != null)
-                errors = DisplayedMesh.ThickenShellMesh(partNames, thickness, numberOfLayers, offset, true, out connectedEdges);
+                errors = DisplayedMesh.ThickenShellMesh(partNames, nodeIdNormal, thickness, numberOfLayers, offset,
+                                                        true, out connectedEdges);
+            //
+            ResumeExplodedViews(false);
             //
             if (errors.Length > 0) throw new CaeException(errors[0]);
             //
@@ -4766,6 +4807,47 @@ namespace PrePoMax
             //
             return true;
         }
+        private Dictionary<int, List<Vec3D>> GeNormalsFromGeometryAtMeshNodes(GeometryPart part, FeMesh mesh)
+        {
+            CalculixSettings settings = _settings.Calculix;
+            if (settings.WorkDirectory == null || !Directory.Exists(settings.WorkDirectory))
+            {
+                MessageBoxes.ShowWorkDirectoryError();
+                return null;
+            }
+            //
+            string executable = Application.StartupPath + Globals.GmshMesher;
+            string brepFileName = Path.Combine(settings.WorkDirectory, Globals.BrepFileName);
+            //
+            if (File.Exists(brepFileName)) File.Delete(brepFileName);
+            //
+            SuppressExplodedView(new string[] { part.Name });
+            File.WriteAllText(brepFileName, part.CADFileData);
+            //
+            List<FeNode> nodes;
+            HashSet<int> nodeIds;
+            BasePart meshPart = mesh.Parts[part.Name];
+            Dictionary<int, FeNode[]> faceIdNodes = new Dictionary<int, FeNode[]>();
+            for (int i = 0; i < meshPart.Visualization.FaceCount; i++)
+            {
+                nodes = new List<FeNode>();
+                nodeIds = meshPart.Visualization.GetNodeIdsForSurfaceId(i);
+                foreach (var nodeId in nodeIds) nodes.Add(mesh.Nodes[nodeId]);
+                //
+                faceIdNodes.Add(FeMesh.GmshTopologyId(i, part.PartId), nodes.ToArray());
+            }
+            //
+            GmshData gmshData = new GmshData(brepFileName);
+            gmshData.FaceIdNodes = faceIdNodes;
+            _model.Geometry.GetPartTopologyForGmsh(part.Name, ref gmshData);
+            //
+            ResumeExplodedViews(false);
+            //
+            GmshAPI gmsh = new GmshAPI(gmshData, _form.WriteDataToOutput);
+            string error = gmsh.GetOccNormals();
+            return gmsh.GmshData.NodeIdNormals;
+        }
+        //
         public void UpdateNodalCoordinatesFromFile(string fileName)
         {
             FeModel newModel = new FeModel("Deformed");
@@ -13267,26 +13349,6 @@ namespace PrePoMax
                 ApplyLighting(data);
                 bool translate = false;
                 _form.AddOrientedFluxActor(data, symbolSize, true, translate);
-            }
-            return;
-        }
-        public void DrawCFluxSymbols_(string prefixName, CFlux cFlux, int[] nodeIds, double[][] symbolCoor, Color color,
-                                     int symbolSize, vtkRendererLayer layer)
-        {
-            // Flux symbols
-            if (symbolCoor.Length > 0)
-            {
-                double[][] normals = _model.Mesh.GetNodeNormals(nodeIds);
-                //
-                vtkMaxActorData data = new vtkMaxActorData();
-                data.Name = prefixName;
-                data.Color = color;
-                data.Layer = layer;
-                data.Geometry.Nodes.Coor = symbolCoor.ToArray();
-                data.Geometry.Nodes.Normals = normals.ToArray();
-                data.SectionViewPossible = false;
-                ApplyLighting(data);
-                _form.AddOrientedArrowsActor(data, symbolSize);
             }
             return;
         }

@@ -18,6 +18,7 @@ namespace CaeMesh
         private double _thickness;          //ISerializable
         private int _numberOfLayers;        //ISerializable
         private double _offset;             //ISerializable
+        private bool _keepModelEdges;       //ISerializable
 
 
         // Properties                                                                                                               
@@ -41,6 +42,7 @@ namespace CaeMesh
             }
         }
         public double Offset { get { return _offset; } set { _offset = value; } }
+        public bool KeepModelEdges { get { return _keepModelEdges; } set { _keepModelEdges = value; } }
 
 
         // Constructors                                                                                                             
@@ -69,6 +71,8 @@ namespace CaeMesh
                         _numberOfLayers = (int)entry.Value; break;
                     case "_offset":
                         _offset = (double)entry.Value; break;
+                    case "_keepModelEdges":
+                        _keepModelEdges = (bool)entry.Value; break;
                     default:
                         break;
                 }
@@ -83,6 +87,7 @@ namespace CaeMesh
             _thickness = 1;
             _numberOfLayers = 1;
             _offset = 0;
+            _keepModelEdges = true;
         }
         public void CopyFrom(ThickenShellMesh thickenShellMesh)
         {
@@ -92,6 +97,7 @@ namespace CaeMesh
             _thickness = thickenShellMesh.Thickness;
             _numberOfLayers = thickenShellMesh.NumberOfLayers;
             _offset = thickenShellMesh.Offset;
+            _keepModelEdges = thickenShellMesh.KeepModelEdges;
         }
         // ISerialization
         public new void GetObjectData(SerializationInfo info, StreamingContext context)
@@ -102,6 +108,7 @@ namespace CaeMesh
             info.AddValue("_thickness", _thickness, typeof(double));
             info.AddValue("_numberOfLayers", _numberOfLayers, typeof(int));
             info.AddValue("_offset", _offset, typeof(double));
+            info.AddValue("_keepModelEdges", _keepModelEdges, typeof(bool));
         }
 
     }

@@ -117,7 +117,7 @@
     <Compile Include="Meshing\Gmsh\Mesher\GmshEdge.cs" />
     <Compile Include="Meshing\Gmsh\Mesher\GmshVolume.cs" />
     <Compile Include="Meshing\Gmsh\Mesher\GmshData.cs" />
-    <Compile Include="Meshing\Gmsh\Mesher\GmshBase.cs" />
+    <Compile Include="Meshing\Gmsh\GmshAPI.cs" />
     <Compile Include="Meshing\Gmsh\SetupItems\ShellGmsh.cs" />
     <Compile Include="Meshing\Gmsh\SetupItems\TransfiniteMesh.cs" />
     <Compile Include="Meshing\Gmsh\SetupItems\TetrahedralGmsh.cs" />

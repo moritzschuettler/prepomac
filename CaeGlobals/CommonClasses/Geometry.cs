@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Octree;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -635,6 +636,28 @@ namespace CaeGlobals
             }
             // Otherwise we conclude case 2: the triangles overlap.
             else return 0;
+        }
+        //
+        public static Vec3D IntersectionPointOfThreePlanes(Vec3D n1, Vec3D n2, Vec3D n3, double d1, double d2, double d3)
+        {
+            Vec3D m1 = new Vec3D(n1.X, n2.X, n3.X);
+            Vec3D m2 = new Vec3D(n1.Y, n2.Y, n3.Y);
+            Vec3D m3 = new Vec3D(n1.Z, n2.Z, n3.Z);
+            //
+            Vec3D d = new Vec3D(d1, d2, d3);
+            //
+            Vec3D u = Vec3D.CrossProduct(m2, m3);
+            Vec3D v = Vec3D.CrossProduct(m1, d);
+            //
+            double k = Vec3D.DotProduct(m1, u);
+            //
+            if (Math.Abs(k) < 1E-6)
+            {
+                // Planes don't actually intersect in a point
+                return null;
+            }
+            //
+            return new Vec3D(Vec3D.DotProduct(d, u) / k, Vec3D.DotProduct(m3, v) / k, -Vec3D.DotProduct(m2, v) / k);
         }
     }
 }

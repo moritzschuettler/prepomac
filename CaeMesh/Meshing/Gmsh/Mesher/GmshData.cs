@@ -28,8 +28,8 @@ namespace CaeMesh
         public Dictionary<int, double> VertexNodeIdMeshSize;
         public Dictionary<int, int> EdgeIdNumElements;
         // Normals
-        public double[][] Coor;
-        public double[][] Normals;
+        public Dictionary<int, FeNode[]> FaceIdNodes;
+        public Dictionary<int, List<Vec3D>> NodeIdNormals;
 
 
         // Constructors                                                                                                             

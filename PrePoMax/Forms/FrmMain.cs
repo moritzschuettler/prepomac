@@ -8943,10 +8943,27 @@ namespace PrePoMax
         }
         private void TestNormals()
         {
-            GeometryPart part = _controller.GetGeometryPart("Shell_part-1");
-            double[][] coor = new double[][] { new double[] { 100, 0, 0 },
-                                               new double[] { 0, 100, 0 },
-                                               new double[] { 100, 1, 0 }};
+            string partName = "Shell_part-1";
+            _controller.SuppressExplodedView(new string[] { partName });
+            //
+            MeshPart part = _controller.GetModelPart(partName);
+            GeometryPart geometryPart = _controller.GetGeometryPart(partName);
+            //
+            Dictionary<int, FeNode[]> faceIdNodes = new Dictionary<int, FeNode[]>();
+            //
+            HashSet<int> nodeIds;
+            List<FeNode> nodes;
+            for (int i = 0; i < part.Visualization.FaceCount; i++)
+            {
+                nodes = new List<FeNode>();
+                nodeIds = part.Visualization.GetNodeIdsForSurfaceId(i);
+                foreach (var nodeId in nodeIds)
+                {
+                    nodes.Add(_controller.Model.Mesh.Nodes[nodeId]);
+                }
+                //
+                faceIdNodes.Add(FeMesh.GmshTopologyId(i, part.PartId), nodes.ToArray());
+            }
             //
             CalculixSettings settings = _controller.Settings.Calculix;
             if (settings.WorkDirectory == null || !Directory.Exists(settings.WorkDirectory))
@@ -8958,15 +8975,15 @@ namespace PrePoMax
             //
             if (File.Exists(brepFileName)) File.Delete(brepFileName);
             //
-            _controller.SuppressExplodedView(new string[] { part.Name });
-            File.WriteAllText(brepFileName, part.CADFileData);
+            File.WriteAllText(brepFileName, geometryPart.CADFileData);
             GmshData gmshData = new GmshData(brepFileName);
-            gmshData.Coor = coor;
+            gmshData.FaceIdNodes = faceIdNodes;
+            _controller.Model.Geometry.GetPartTopologyForGmsh(geometryPart.Name, ref gmshData);
             _controller.ResumeExplodedViews(false);
             //
-            GmshBase gmsh = new GmshBase(gmshData, WriteDataToOutput);
-            string error = gmsh.GetOccNormals();
-            double[][] normals = gmsh.GmshData.Normals;
+            GmshAPI gmshAPI = new GmshAPI(gmshData, WriteDataToOutput);
+            string error = gmshAPI.GetOccNormals();
+            Dictionary<int, List<Vec3D>> normals = gmshAPI.GmshData.NodeIdNormals;
         }
         private void TestSuperposition()
         {

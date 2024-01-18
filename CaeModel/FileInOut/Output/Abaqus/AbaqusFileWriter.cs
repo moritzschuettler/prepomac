@@ -122,6 +122,11 @@ namespace FileInOut.Output
                     if (elementTypes.ContainsKey("C3D15")) elementTypes["C3D15"].Add(entry.Value);
                     else elementTypes.Add("C3D15", new List<FeElement>() { entry.Value });
                 }
+                else if (entry.Value is ParabolicHexaElement)
+                {
+                    if (elementTypes.ContainsKey("C3D20")) elementTypes["C3D20"].Add(entry.Value);
+                    else elementTypes.Add("C3D20", new List<FeElement>() { entry.Value });
+                }
                 else
                     throw new NotImplementedException();
             }

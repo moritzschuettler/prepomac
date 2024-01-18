@@ -43,13 +43,24 @@ namespace PrePoMax.Forms
         [DescriptionAttribute("Enter the offset of the resulting solid mesh.")]
         [TypeConverter(typeof(StringLengthConverter))]
         public double Offset { get { return _thickenShellMesh.Offset; } set { _thickenShellMesh.Offset = value; } }
-        
+        //
+        [CategoryAttribute("Data")]
+        [OrderedDisplayName(4, 10, "Keep model edges")]
+        [DescriptionAttribute("If model edges are not kept the thicken direction is averaged from neighboring faces.")]
+        public bool KeepModelEdges
+        {
+            get { return _thickenShellMesh.KeepModelEdges; }
+            set { _thickenShellMesh.KeepModelEdges = value; }
+        }
+
 
         // Constructors                                                                                                             
         public ViewThickenShellMesh(ThickenShellMesh thickenShellMesh)
         {
             _thickenShellMesh = thickenShellMesh;               // 1 command
             _dctd = ProviderInstaller.Install(this);            // 2 command
+            //
+            _dctd.RenameBooleanPropertyToYesNo(nameof(KeepModelEdges));
         }
 
 

@@ -644,6 +644,7 @@
     <Compile Include="Forms\ViewMultiRegion.cs" />
     <Compile Include="Forms\ViewError.cs" />
     <Compile Include="Globals.cs" />
+    <Compile Include="GmshBase.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Collections\SectionViewsCollection.cs" />
