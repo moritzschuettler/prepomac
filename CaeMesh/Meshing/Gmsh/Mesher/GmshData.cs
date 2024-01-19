@@ -30,6 +30,8 @@ namespace CaeMesh
         // Normals
         public Dictionary<int, FeNode[]> FaceIdNodes;
         public Dictionary<int, List<Vec3D>> NodeIdNormals;
+        //
+        public double StlFeatureAngleDeg;
 
 
         // Constructors                                                                                                             

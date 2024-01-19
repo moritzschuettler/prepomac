@@ -9,6 +9,7 @@ using System::Runtime::InteropServices::Marshal;
 
 
 /* Instructions for adding functions
+double &                        ->  [System::Runtime::InteropServices::Out] double%
 const std::vector<int> &        ->  array<int>^
 const std::vector<double> &     ->  array<double>^
 const gmsh::vectorpair &        ->  array<System::Tuple<int, int>^>^
@@ -205,6 +206,27 @@ namespace GmshCommon {
                 downward = gcnew array<int>(downward_native.size());
                 if (downward_native.size() > 0)
                     Marshal::Copy(IntPtr(downward_native.data()), downward, 0, downward->Length);
+            }
+            static void GetBoundingBox(int dim, int tag,
+                [System::Runtime::InteropServices::Out] double% xmin, [System::Runtime::InteropServices::Out] double% ymin,
+                [System::Runtime::InteropServices::Out] double% zmin, [System::Runtime::InteropServices::Out] double% xmax,
+                [System::Runtime::InteropServices::Out] double% ymax, [System::Runtime::InteropServices::Out] double% zmax)
+            {
+                double xmin_native = 0;
+                double ymin_native = 0;
+                double zmin_native = 0;
+                double xmax_native = 0;
+                double ymax_native = 0;
+                double zmax_native = 0;
+                //
+                gmsh::model::getBoundingBox(dim, tag, xmin_native, ymin_native, zmin_native, xmax_native, ymax_native, zmax_native);
+                //
+                xmin = xmin_native;
+                ymin = ymin_native;
+                zmin = zmin_native;
+                xmax = xmax_native;
+                ymax = ymax_native;
+                zmax = zmax_native;
             }
             static int AddDiscreteEntity(int dim, int tag)
             {

@@ -3492,23 +3492,18 @@ namespace CaeMesh
             //
             return allPartNames.ToArray();
         }
-        public Dictionary<int, FeNode> GetPartVertexNodes_(string partName)
+        public string[] GetAllCADPartNames()
         {
-            FeNode node;
-            int[] vertexNodeIds;
-            Dictionary<int, FeNode> vertices = new Dictionary<int, FeNode>();
-            string[] partNames = GetMeshablePartNames(new string[] { partName });
-            //
-            for (int i = 0; i < partNames.Length; i++)
+            HashSet<string> CADPartNames = new HashSet<string>();
+            if (_meshRepresentation == MeshRepresentation.Geometry)
             {
-                vertexNodeIds = _parts[partNames[i]].Visualization.VertexNodeIds;
-                for (int j = 0; j < vertexNodeIds.Length; j++)
+                foreach (var entry in _parts)
                 {
-                    node = _nodes[vertexNodeIds[j]];
-                    vertices.Add(node.Id, node);
+                    if (entry.Value is CompoundGeometryPart cgp && cgp.IsCADPart) CADPartNames.UnionWith(cgp.SubPartNames);
+                    else if (entry.Value is GeometryPart gp && gp.IsCADPart) CADPartNames.Add(entry.Key);
                 }
             }
-            return vertices;
+            return CADPartNames.ToArray();
         }
         public void GetPartTopologyForGmsh(string partName, ref GmshData gmshData)
         {
@@ -3585,6 +3580,8 @@ namespace CaeMesh
             // Add 1 to prevent 0 * 10000 + 5 = 5
             return (itemId + 1) * 10000 + partId;
         }
+
+        
         // 3D - 2D
         public void UpdatePartsElementTypes(Dictionary<Type, HashSet<Enum>> elementTypeEnums)
         {

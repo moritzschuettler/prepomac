@@ -3802,6 +3802,7 @@ namespace PrePoMax
             gmshData.PartMeshingParameters = partMeshingParameters;
             gmshData.GmshSetupItems = meshSetupItems;
             gmshData.Preview = false;
+            gmshData.StlFeatureAngleDeg = _settings.General.EdgeAngle;
             _model.Geometry.GetPartTopologyForGmsh(part.Name, ref gmshData);
             GetMeshItemSizes(part.Name, ref gmshData);
             gmshData.WriteToFile(gmshDataFileName);
@@ -4720,6 +4721,38 @@ namespace PrePoMax
             }
             else throw new CaeException("Mesh generation failed.");
         }
+        public bool PreviewThickenShellMesh(string[] partNames, double thickness, int numberOfLayers, double offset,
+                                            bool keepModelEdges)
+        {
+            string[] errors = null;
+            double[][][] connectedEdges = null;
+            //
+            SuppressExplodedView(partNames);
+            //
+            Dictionary<int, Vec3D> nodeIdNormal;
+            if (_model.Geometry.GetAllCADPartNames().Intersect(partNames).Count() == partNames.Length)
+            {
+                nodeIdNormal = _model.Geometry.GetNodeNormals(partNames, _model.Geometry, keepModelEdges,
+                                                              GeNormalsFromGeometryAtMeshNodes);
+            }
+            else
+            {
+                nodeIdNormal = _model.Mesh.GetNodeNormals(partNames, _model.Mesh, keepModelEdges,
+                                                          GeNormalsFromGeometryAtMeshNodes);
+            }
+            //
+            if (_model != null)
+                errors = DisplayedMesh.ThickenShellMesh(partNames, nodeIdNormal, thickness, numberOfLayers, offset,
+                                                        true, out connectedEdges);
+            //
+            ResumeExplodedViews(false);
+            //
+            if (errors.Length > 0) throw new CaeException(errors[0]);
+            //
+            if (connectedEdges != null && connectedEdges.Length > 0) HighlightConnectedEdges(connectedEdges, false);
+            //
+            return true;
+        }
         public bool ThickenShellMesh(string[] partNames, double thickness, int numberOfLayers, double offset,
                                      bool keepModelEdges)
         {
@@ -4732,7 +4765,7 @@ namespace PrePoMax
                 SuppressExplodedView(partNames);
                 //
                 Dictionary<int, Vec3D> nodeIdNormal;
-                if (_model.Geometry.Parts.Keys.Intersect(partNames).Count() == partNames.Length)
+                if (_model.Geometry.GetAllCADPartNames().Intersect(partNames).Count() == partNames.Length)
                 {
                     nodeIdNormal = _model.Geometry.GetNodeNormals(partNames, _model.Mesh, keepModelEdges,
                                                                   GeNormalsFromGeometryAtMeshNodes);
@@ -4774,38 +4807,6 @@ namespace PrePoMax
             {
                 _form.SetStateReady("Creating...");
             }
-        }
-        public bool PreviewThickenShellMesh(string[] partNames, double thickness, int numberOfLayers, double offset,
-                                            bool keepModelEdges)
-        {
-            string[] errors = null;
-            double[][][] connectedEdges = null;
-            //
-            SuppressExplodedView(partNames);
-            //
-            Dictionary<int, Vec3D> nodeIdNormal;
-            if (_model.Geometry.Parts.Keys.Intersect(partNames).Count() == partNames.Length)
-            {
-                nodeIdNormal = _model.Geometry.GetNodeNormals(partNames, _model.Geometry, keepModelEdges,
-                                                              GeNormalsFromGeometryAtMeshNodes);
-            }
-            else
-            {
-                nodeIdNormal = _model.Mesh.GetNodeNormals(partNames, _model.Mesh, keepModelEdges,
-                                                          GeNormalsFromGeometryAtMeshNodes);
-            }
-            //
-            if (_model != null)
-                errors = DisplayedMesh.ThickenShellMesh(partNames, nodeIdNormal, thickness, numberOfLayers, offset,
-                                                        true, out connectedEdges);
-            //
-            ResumeExplodedViews(false);
-            //
-            if (errors.Length > 0) throw new CaeException(errors[0]);
-            //
-            if (connectedEdges != null && connectedEdges.Length > 0) HighlightConnectedEdges(connectedEdges, false);
-            //
-            return true;
         }
         private Dictionary<int, List<Vec3D>> GeNormalsFromGeometryAtMeshNodes(GeometryPart part, FeMesh mesh)
         {
