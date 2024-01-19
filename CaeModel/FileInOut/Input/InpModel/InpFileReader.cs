@@ -1701,6 +1701,8 @@ namespace FileInOut.Input
                     else if (keyword == "*FREQUENCY") step = GetFrequencyStep(dataSet);
                     else if (keyword == "*BUCKLE") step = GetBuckleStep(dataSet);
                     else if (keyword == "*HEAT TRANSFER") step = GetHeatTransferStep(dataSet);
+                    else if (keyword == "*UNCOUPLED TEMPERATURE-DISPLACEMENT") step = GetUncoupledTempDispStep(dataSet);
+                    else if (keyword == "*COUPLED TEMPERATURE-DISPLACEMENT") step = GetCoupledTempDispStep(dataSet);
                     else if (keyword == "*END STEP") break;
                     //
                     dataSetId++;
@@ -1843,6 +1845,8 @@ namespace FileInOut.Input
             string[] record1 = dataSet[0].Split(_splitterComma, StringSplitOptions.RemoveEmptyEntries);
             string[] record2;
             HeatTransferStep heatTransferStep = new HeatTransferStep("Heat");
+            heatTransferStep.SteadyState = false;
+            //
             for (int i = 1; i < record1.Length; i++)
             {
                 record2 = record1[i].Split(_splitterEqual, StringSplitOptions.RemoveEmptyEntries);
@@ -1873,6 +1877,89 @@ namespace FileInOut.Input
             }
             //
             return heatTransferStep;
+        }
+        private static UncoupledTempDispStep GetUncoupledTempDispStep(string[] dataSet)
+        {
+            //                                                                                                                      
+            // This method was added by Frank Ebing                                                                                 
+            //                                                                                                                      
+            string[] record1 = dataSet[0].Split(_splitterComma, StringSplitOptions.RemoveEmptyEntries);
+            string[] record2;
+            UncoupledTempDispStep uncoupledTempDispStep = new UncoupledTempDispStep("UncoupledTempDispStep");
+            uncoupledTempDispStep.SteadyState = false;
+            //
+            for (int i = 1; i < record1.Length; i++)
+            {
+                record2 = record1[i].Split(_splitterEqual, StringSplitOptions.RemoveEmptyEntries);
+                if (record2.Length == 2)
+                {
+                    if (record2[0].Trim().ToUpper() == "SOLVER")
+                        uncoupledTempDispStep.SolverType = GetSolverType(record2[1]);
+                    else if (record2[0].Trim().ToUpper() == "DELTMX")
+                        uncoupledTempDispStep.Deltmx = double.Parse(record2[1]);
+                }
+                if (record2.Length == 1)
+                {
+                    if (record2[0].Trim().ToUpper() == "DIRECT") uncoupledTempDispStep.Direct = true;
+                    else if (record2[0].Trim().ToUpper() == "STEADY STATE") uncoupledTempDispStep.SteadyState = true;
+                }
+            }
+            if (dataSet.Length == 2)
+            {
+                // If the second line exists the incrementation is Direct or Automatic
+                if (!uncoupledTempDispStep.Direct) uncoupledTempDispStep.IncrementationType = IncrementationTypeEnum.Automatic;
+                //
+                record2 = dataSet[1].Split(_splitterComma, StringSplitOptions.RemoveEmptyEntries);
+                //
+                if (record2.Length > 0) uncoupledTempDispStep.InitialTimeIncrement = double.Parse(record2[0]);
+                if (record2.Length > 1) uncoupledTempDispStep.TimePeriod = double.Parse(record2[1]);
+                if (record2.Length > 2) uncoupledTempDispStep.MinTimeIncrement = double.Parse(record2[2]);
+                if (record2.Length > 3) uncoupledTempDispStep.MaxTimeIncrement = double.Parse(record2[3]);
+            }
+            //
+            return uncoupledTempDispStep;
+        }
+        
+        private static CoupledTempDispStep GetCoupledTempDispStep(string[] dataSet)
+        {
+            //                                                                                                                      
+            // This method was added by Frank Ebing                                                                                 
+            //                                                                                                                      
+            string[] record1 = dataSet[0].Split(_splitterComma, StringSplitOptions.RemoveEmptyEntries);
+            string[] record2;
+            CoupledTempDispStep coupledTempDispStep = new CoupledTempDispStep("CoupledTempDispStep");
+            coupledTempDispStep.SteadyState = false;
+            //
+            for (int i = 1; i < record1.Length; i++)
+            {
+                record2 = record1[i].Split(_splitterEqual, StringSplitOptions.RemoveEmptyEntries);
+                if (record2.Length == 2)
+                {
+                    if (record2[0].Trim().ToUpper() == "SOLVER")
+                        coupledTempDispStep.SolverType = GetSolverType(record2[1]);
+                    else if (record2[0].Trim().ToUpper() == "DELTMX")
+                        coupledTempDispStep.Deltmx = double.Parse(record2[1]);
+                }
+                if (record2.Length == 1)
+                {
+                    if (record2[0].Trim().ToUpper() == "DIRECT") coupledTempDispStep.Direct = true;
+                    else if (record2[0].Trim().ToUpper() == "STEADY STATE") coupledTempDispStep.SteadyState = true;
+                }
+            }
+            if (dataSet.Length == 2)
+            {
+                // If the second line exists the incrementation is Direct or Automatic
+                if (!coupledTempDispStep.Direct) coupledTempDispStep.IncrementationType = IncrementationTypeEnum.Automatic;
+                //
+                record2 = dataSet[1].Split(_splitterComma, StringSplitOptions.RemoveEmptyEntries);
+                //
+                if (record2.Length > 0) coupledTempDispStep.InitialTimeIncrement = double.Parse(record2[0]);
+                if (record2.Length > 1) coupledTempDispStep.TimePeriod = double.Parse(record2[1]);
+                if (record2.Length > 2) coupledTempDispStep.MinTimeIncrement = double.Parse(record2[2]);
+                if (record2.Length > 3) coupledTempDispStep.MaxTimeIncrement = double.Parse(record2[3]);
+            }
+            //
+            return coupledTempDispStep;
         }
         private static SolverTypeEnum GetSolverType(string solverName)
         {
@@ -2268,11 +2355,12 @@ namespace FileInOut.Input
                 record1 = lines[1].Split(_splitterComma, StringSplitOptions.RemoveEmptyEntries);
                 if (record1.Length > 0)
                 {
-                    variables = (ElementFieldVariable)Enum.Parse(typeof(ElementFieldVariable), record1[0].ToUpper());
+                    variables = (ElementFieldVariable)Enum.Parse(typeof(ElementFieldVariable), record1[0].Trim().ToUpper());
                     for (int i = 1; i < record1.Length; i++)
                     {
-                        if (record1[i].ToUpper() == "NOE") continue;
-                        else variables |= (ElementFieldVariable)Enum.Parse(typeof(ElementFieldVariable), record1[i].ToUpper());
+                        record1[i] = record1[i].Trim().ToUpper();
+                        if (record1[i] != "NOE")
+                            variables |= (ElementFieldVariable)Enum.Parse(typeof(ElementFieldVariable), record1[i]);
                     }
                     ElementFieldOutput elementFieldOutput = new ElementFieldOutput(name, variables);
                     // Add to step
