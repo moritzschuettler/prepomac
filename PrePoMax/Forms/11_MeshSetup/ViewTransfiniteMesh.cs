@@ -22,16 +22,28 @@ namespace PrePoMax.Forms
         [CategoryAttribute("Data")]
         [OrderedDisplayName(3, 10, "Recombine")]
         [DescriptionAttribute("Apply recombination of triangles into quads.")]
+        [Id(4, 1)]
         public bool Recombine
         {
             get { return AlgorithmRecombine != GmshAlgorithmRecombineEnum.None; }
             set
             {
-                if (value) _gmshSetupItem.AlgorithmRecombine = GmshAlgorithmRecombineEnum.Simple;
-                else _gmshSetupItem.AlgorithmRecombine = GmshAlgorithmRecombineEnum.None;
+                if (value) _transfiniteMesh.AlgorithmRecombine = GmshAlgorithmRecombineEnum.Simple;
+                else _transfiniteMesh.AlgorithmRecombine = GmshAlgorithmRecombineEnum.None;
             }
         }
-       
+        //
+        [CategoryAttribute("Experimental For Pyramids")]
+        [OrderedDisplayName(0, 10, "Allow pyramid elements")]
+        [DescriptionAttribute("Select yes to allow the creation of pyramid elements.")]
+        [Id(1, 4)]
+        public bool AllowPrismElements
+        {
+            get { return _transfiniteMesh.AllowPyramidElements; }
+            set { _transfiniteMesh.AllowPyramidElements = value; }
+        }
+        //
+
 
         // Constructors                                                                                                             
         public ViewTransfiniteMesh(TransfiniteMesh transfiniteMesh)
@@ -40,6 +52,7 @@ namespace PrePoMax.Forms
             SetBase(_transfiniteMesh);
             //
             _dctd.RenameBooleanPropertyToYesNo(nameof(Recombine));
+            _dctd.RenameBooleanPropertyToYesNo(nameof(AllowPrismElements));
             //
             _dctd.GetProperty(nameof(AlgorithmMesh2D)).SetIsBrowsable(false);
             _dctd.GetProperty(nameof(AlgorithmMesh3D)).SetIsBrowsable(false);

@@ -1689,7 +1689,7 @@ namespace PrePoMax
         public void ExportToCalculix(string fileName, Dictionary<int, double[]> deformations = null)
         {
             SuppressExplodedView();
-            FileInOut.Output.CalculixFileWriter.Write(fileName, _model, deformations);
+            FileInOut.Output.CalculixFileWriter.Write(fileName, _model, _settings.Calculix.ConvertPyramidsTo, deformations);
             ResumeExplodedViews(false);
             //
             _form.WriteDataToOutput("Model exported to file: " + fileName);
@@ -1713,7 +1713,7 @@ namespace PrePoMax
                 }
                 newModel.Mesh.Parts = meshParts;
                 //
-                FileInOut.Output.CalculixFileWriter.Write(fileName, newModel);
+                FileInOut.Output.CalculixFileWriter.Write(fileName, newModel, _settings.Calculix.ConvertPyramidsTo);
                 ResumeExplodedViews(false);
                 //
                 _form.WriteDataToOutput("Deformed mesh exported to file: " + fileName);
@@ -1962,7 +1962,7 @@ namespace PrePoMax
                 MessageBoxes.ShowError("There is no model.");
                 return null;
             }
-            else return FileInOut.Output.CalculixFileWriter.GetModelKeywords(_model);
+            else return FileInOut.Output.CalculixFileWriter.GetModelKeywords(_model, _settings.Calculix.ConvertPyramidsTo);
         }
         public OrderedDictionary<int[], FileInOut.Output.Calculix.CalculixUserKeyword> GetCalculixUserKeywords()
         {
@@ -4049,12 +4049,11 @@ namespace PrePoMax
             //
             string error = null;
             bool jobCompleted;
-            bool debuggerAttached = System.Diagnostics.Debugger.IsAttached;
-            if (debuggerAttached)
+            if (System.Diagnostics.Debugger.IsAttached)
             {
                 GmshAPI gmsh = new GmshAPI(gmshData, _form.WriteDataToOutput);
                 error = gmsh.CreateMesh();
-                jobCompleted = error == null;
+                jobCompleted = (error == null);
             }
             else
             {
@@ -8922,7 +8921,7 @@ namespace PrePoMax
             {
                 SuppressExplodedView();
                 FeModel model = _model.PrepareBdmModel(deformations);
-                FileInOut.Output.CalculixFileWriter.Write(job.InputFileName, model, null);
+                FileInOut.Output.CalculixFileWriter.Write(job.InputFileName, model, _settings.Calculix.ConvertPyramidsTo, null);
                 ResumeExplodedViews(false);
             }
         }

@@ -17,10 +17,12 @@ namespace FileInOut.Output
     [Serializable]
     public static class CalculixFileWriter
     {
+        private static ConvertPyramidsToEnum _convertPyramidsToEnum;
         // Methods                                                                                                                  
-        static public void Write(string fileName, FeModel model, Dictionary<int, double[]> deformations = null)
+        static public void Write(string fileName, FeModel model, ConvertPyramidsToEnum convertPyramidsTo,
+                                 Dictionary<int, double[]> deformations = null)
         {
-            List<CalculixKeyword> keywords = GetAllKeywords(model, deformations);
+            List<CalculixKeyword> keywords = GetAllKeywords(model, convertPyramidsTo, deformations);
             // Write file
             StringBuilder sb = new StringBuilder();
             foreach (var keyword in keywords)
@@ -49,9 +51,10 @@ namespace FileInOut.Output
             File.WriteAllText(fileName, sb.ToString());
         }
         //
-        static public List<CalculixKeyword> GetAllKeywords(FeModel model, Dictionary<int, double[]> deformations = null)
+        static public List<CalculixKeyword> GetAllKeywords(FeModel model, ConvertPyramidsToEnum convertPyramidsTo,
+                                                           Dictionary<int, double[]> deformations = null)
         {
-            List<CalculixKeyword> keywords = GetModelKeywords(model, deformations);
+            List<CalculixKeyword> keywords = GetModelKeywords(model, convertPyramidsTo, deformations);
             // Add user keywords
             if (model.CalculixUserKeywords != null)
             {
@@ -64,7 +67,8 @@ namespace FileInOut.Output
             //
             return keywords;
         }
-        static public List<CalculixKeyword> GetModelKeywords(FeModel model, Dictionary<int, double[]> deformations = null)
+        static public List<CalculixKeyword> GetModelKeywords(FeModel model, ConvertPyramidsToEnum convertPyramidsTo,
+                                                             Dictionary<int, double[]> deformations = null)
         {
             // Only keywords from the model, not user keywords
             // Allways add a title keyword to get all possible keyword types to the keyword editor
@@ -113,7 +117,7 @@ namespace FileInOut.Output
             // Elements
             title = new CalTitle("Elements", "");
             keywords.Add(title);
-            AppendElements(model, additionalElementKeywords, title);
+            AppendElements(model, additionalElementKeywords, title, convertPyramidsTo);
             // Node sets
             title = new CalTitle("Node sets", "");
             keywords.Add(title);
@@ -512,7 +516,7 @@ namespace FileInOut.Output
         //
         static public void RemoveLostUserKeywords(FeModel model)
         {
-            List<CalculixKeyword> keywords = GetModelKeywords(model);
+            List<CalculixKeyword> keywords = GetModelKeywords(model, ConvertPyramidsToEnum.Wedges);
             // Add user keywords
             List<int[]> keywordKeysToRemove = new List<int[]>();
             if (model.CalculixUserKeywords != null)
@@ -597,7 +601,7 @@ namespace FileInOut.Output
 
         }
         static private void AppendElements(FeModel model, List<CalElement> additionalElements,
-                                           CalculixKeyword parent)
+                                           CalculixKeyword parent, ConvertPyramidsToEnum convertPyramidsTo)
         {
             if (model.Mesh != null)
             {

@@ -15,9 +15,11 @@ namespace CaeMesh
     public class TransfiniteMesh : GmshSetupItem, ISerializable
     {
         // Variables                                                                                                                
+        private bool _allowPyramidElements;
 
 
         // Properties                                                                                                               
+        public bool AllowPyramidElements { get { return _allowPyramidElements; } set { _allowPyramidElements = value; } }
 
 
         // Constructors                                                                                                             
@@ -50,6 +52,7 @@ namespace CaeMesh
         {
             base.Reset();
             AlgorithmRecombine = GmshAlgorithmRecombineEnum.Simple;
+            _allowPyramidElements = false;
         }
         public void CopyFrom(TransfiniteMesh transfiniteMesh)
         {

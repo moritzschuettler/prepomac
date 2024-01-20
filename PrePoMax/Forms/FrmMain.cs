@@ -8604,26 +8604,24 @@ namespace PrePoMax
             if (data == null) return;
             // 20 chars is an empty line with date
             if (data.Length == 0 && (outputLines.Length > 0 && outputLines.Last().Length == 20)) return;
-
+            //
             InvokeIfRequired(() =>
             {
                 data = data.Replace("\r\n", "\n");
                 data = data.Replace('\r', '\n');
                 string[] lines = data.Split('\n');
-
+                //
                 foreach (var line in lines) WriteLineToOutputWithDate(line);
-
+                //
                 timerOutput.Start();
             });
-            
-            
         }
         private void WriteLineToOutputWithDate(string data)
         {
             if (outputLines != null)
             {
                 int numColDate = 20;
-                int numCol = 150 + numColDate;
+                int numCol = (int)((tbOutput.Width - 60) / tbOutput.TextCharWidth);
                 int numRows = 100;      // number of displayed lines
                 //
                 List<string> lines = new List<string>(outputLines);

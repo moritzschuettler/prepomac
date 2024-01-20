@@ -84,6 +84,9 @@ namespace PrePoMax.Forms
                 _frmMaterial.VisibleChanged += _frmMaterial_VisibleChanged;
                 _frmMaterial.PrepareFormForPreview();
                 //
+                Material previewMaterial = (Material)cltvLibrary.SelectedNode.Tag.DeepClone();
+                _frmMaterial.Material = previewMaterial;
+                //
                 _yPadding = gbLibraries.Bottom - gbLibraryMaterials.Top;
                 //
                 gbLibraries.IsCollapsed = _collapsed;

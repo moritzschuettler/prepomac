@@ -47,7 +47,7 @@ namespace CaeMesh
         public override FeFaceName GetFaceNameFromSortedNodeIds(int[] nodeIds)
         {
             // The node ids are sorted 
-            // S1 = 1-4-3-2 . 0-3-2-1 . 0-1-2-3
+            // S1 = 1-2-3-4 . 0-1-2-3 . 0-1-2-3
             // S2 = 1-2-5   . 0-1-4   . 0-1-4  
             // S3 = 2-3-5   . 1-2-4   . 1-2-4  
             // S4 = 3-4-5   . 2-3-4   . 2-3-4  
@@ -61,7 +61,7 @@ namespace CaeMesh
         }
         public override int[] GetNodeIdsFromFaceName(FeFaceName faceName)
         {
-            // S1 = 1-4-3-2 . 0-3-2-1
+            // S1 = 1-2-3-4 . 0-1-2-3
             // S2 = 1-2-5   . 0-1-4  
             // S3 = 2-3-5   . 1-2-4  
             // S4 = 3-4-5   . 2-3-4  
@@ -69,7 +69,7 @@ namespace CaeMesh
             switch (faceName)
             {
                 case FeFaceName.S1:
-                    return new int[] { NodeIds[0], NodeIds[3], NodeIds[2], NodeIds[1] };
+                    return new int[] { NodeIds[0], NodeIds[1], NodeIds[2], NodeIds[3] };
                 case FeFaceName.S2:
                     return new int[] { NodeIds[0], NodeIds[1], NodeIds[4] };
                 case FeFaceName.S3:
@@ -85,7 +85,7 @@ namespace CaeMesh
         public override int[] GetVtkCellFromFaceName(FeFaceName faceName)
         {
             // Invert the surface normal to point outwards
-            // S1 = 1-4-3-2 . 0-3-2-1 . 0-3-2-1
+            // S1 = 1-2-3-4 . 0-1-2-3 . 0-3-2-1
             // S2 = 1-2-5   . 0-1-4   . 0-1-4  
             // S3 = 2-3-5   . 1-2-4   . 1-2-4  
             // S4 = 3-4-5   . 2-3-4   . 2-3-4  
@@ -137,7 +137,7 @@ namespace CaeMesh
                 // If three or more nodes were missed: break
                 if (i + 1 - count >= 3) break;
             }
-            // S1 = 1-4-3-2 . 0-3-2-1
+            // S1 = 1-2-3-4 . 0-1-2-3
             // S2 = 1-2-5   . 0-1-4  
             // S3 = 2-3-5   . 1-2-4  
             // S4 = 3-4-5   . 2-3-4  
@@ -146,7 +146,7 @@ namespace CaeMesh
             //
             if (count >= 3)
             {
-                if (faceNodeIds[0] && faceNodeIds[3] && faceNodeIds[2] && faceNodeIds[1])
+                if (faceNodeIds[0] && faceNodeIds[1] && faceNodeIds[2] && faceNodeIds[3])
                     faces.Add(FeFaceName.S1, GetArea(FeFaceName.S1, nodes));
                 if (faceNodeIds[0] && faceNodeIds[1] && faceNodeIds[4])
                     faces.Add(FeFaceName.S2, GetArea(FeFaceName.S2, nodes));
@@ -183,24 +183,53 @@ namespace CaeMesh
         public override double GetArea(FeFaceName faceName, Dictionary<int, FeNode> nodes)
         {
             int[] cell = GetVtkCellFromFaceName(faceName);
-            if (cell.Length == 3)   // faceName == FeFaceName.S1
-                return GeometryTools.TriangleArea(nodes[cell[0]], nodes[cell[1]], nodes[cell[2]]);
-            else
+            if (cell.Length == 4)   // faceName == FeFaceName.S1
                 return GeometryTools.RectangleArea(nodes[cell[0]], nodes[cell[1]], nodes[cell[2]], nodes[cell[3]]);
+            else
+                return GeometryTools.TriangleArea(nodes[cell[0]], nodes[cell[1]], nodes[cell[2]]);
         }
         public override double[] GetFaceCG(FeFaceName faceName, Dictionary<int, FeNode> nodes, out double area)
         {
             double[] cg;
             int[] cell = GetVtkCellFromFaceName(faceName);
-            if (cell.Length == 3)   // faceName == FeFaceName.S1
-                cg = GeometryTools.TriangleCG(nodes[cell[0]], nodes[cell[1]], nodes[cell[2]], out area);
-            else
+            if (cell.Length == 4)   // faceName == FeFaceName.S1
                 cg = GeometryTools.RectangleCG(nodes[cell[0]], nodes[cell[1]], nodes[cell[2]], nodes[cell[3]], out area);
+            else
+                cg = GeometryTools.TriangleCG(nodes[cell[0]], nodes[cell[1]], nodes[cell[2]], out area);
             return cg;
         }
         public override FeElement DeepCopy()
         {
             return new LinearPyramidElement(Id, PartId, NodeIds.ToArray());
+        }
+        //
+        public LinearWedgeElement ConvertToWedge()
+        {
+            int[] nodeIds = new int[6];
+            nodeIds[0] = NodeIds[0];
+            nodeIds[1] = NodeIds[4];
+            nodeIds[2] = NodeIds[1];
+            //
+            nodeIds[3] = NodeIds[3];
+            nodeIds[4] = NodeIds[4];
+            nodeIds[5] = NodeIds[2];
+            //
+            return new LinearWedgeElement(Id, nodeIds);
+        }
+        public LinearHexaElement ConvertToHex()
+        {
+            int[] nodeIds = new int[8];
+            nodeIds[0] = NodeIds[0];
+            nodeIds[1] = NodeIds[1];
+            nodeIds[2] = NodeIds[2];
+            nodeIds[3] = NodeIds[3];
+            //
+            nodeIds[4] = NodeIds[4];
+            nodeIds[5] = NodeIds[4];
+            nodeIds[6] = NodeIds[4];
+            nodeIds[7] = NodeIds[4];
+            //
+            return new LinearHexaElement(Id, nodeIds);
         }
     }
 }

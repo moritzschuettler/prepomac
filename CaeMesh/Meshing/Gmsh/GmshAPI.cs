@@ -128,7 +128,7 @@ namespace CaeMesh
                     Gmsh.Option.SetNumber("Mesh.Algorithm", (int)gsi.AlgorithmMesh2D);
                     // 3D meshing algorithm
                     Gmsh.Option.SetNumber("Mesh.Algorithm3D", (int)gsi.AlgorithmMesh3D);
-                    // Recombine
+                    // Recombine algorithm
                     bool recombine = gsi.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None;
                     if (recombine)
                     {
@@ -247,6 +247,10 @@ namespace CaeMesh
         }
         private void TetrahedralGmsh(GmshSetupItem gmshSetupItem, bool preview)
         {
+            bool recombine = gmshSetupItem.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None;
+            // Recombine all
+            if (recombine) Gmsh.Option.SetNumber("Mesh.RecombineAll", 1);
+            //
             if (preview) Gmsh.Model.Mesh.Generate(1);
             else Gmsh.Model.Mesh.Generate(3);
             // Optimize first order

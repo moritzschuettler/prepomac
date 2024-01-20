@@ -31,15 +31,32 @@ namespace UserControls
         private const int SB_THUMBPOSITION = 4;
         private const int SB_BOTTOM = 7;
         private const int SB_OFFSET = 13;
+        //
+        private double _textCharWidth;
 
 
         // Properties                                                                                                               
-       
+        public double TextCharWidth
+        {
+            get
+            {
+                if (_textCharWidth < 0)
+                {
+                    SizeF sizeA = TextRenderer.MeasureText("A", Font);
+                    SizeF sizeAA = TextRenderer.MeasureText("AA", Font);
+                    //
+                    _textCharWidth = sizeAA.Width - sizeA.Width;
+                }
+                return _textCharWidth;
+            }
+        }
 
         // Constructors                                                                                                             
         public AutoScrollTextBox()
         {
             InitializeComponent();
+            //
+            _textCharWidth = -1;
         }
 
 

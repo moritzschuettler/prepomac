@@ -60,6 +60,7 @@ namespace CaeGlobals
             return Convert.ToDouble(stringDoubleConverter.ConvertFrom(equation));
             //return Convert.ToDouble(Converter.ConvertFrom(equation));
         }
+        // Speedup ???
         //private TypeConverter Converter
         //{
         //    get
@@ -98,11 +99,19 @@ namespace CaeGlobals
         {
             try
             {
-                if (equation == null || equation.Trim() == "") equation = "0";
-                //
+                if (equation == null) equation = "0";
+                else
+                {
+                    equation = equation.Trim();
+                    if (equation.Length == 0) equation = "0";
+                }
+                // Remove the result from the equation
                 equation = equation.Split(new string[] { ";" }, StringSplitOptions.RemoveEmptyEntries)[0];
+                // Get the equation value
                 double equationValue = GetValueFromEquation(equation);
+                // Check the equation value
                 double checkedValue = _checkValue != null ? _checkValue(equationValue) : equationValue;
+                // If the check changed the value, apply changed value to the equation
                 if (equationValue != checkedValue)
                 {
                     _equation = GetEquationFromValue(checkedValue);
@@ -110,9 +119,13 @@ namespace CaeGlobals
                 }
                 else
                 {
+                    // If the equation changed, apply changed value to the equation
                     if (_equation != equation)
                     {
                         if (equation.StartsWith("=")) equation = equation.Replace(" ", "");
+                        // Add unit to the equation if there is none
+                        else if (equation == equationValue.ToString()) equation = GetEquationFromValue(equationValue);
+                        //
                         _equation = equation;
                         if (enableEquationChanged) _equationChanged?.Invoke();
                     }

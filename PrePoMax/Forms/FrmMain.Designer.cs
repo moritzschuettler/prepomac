@@ -1,4 +1,6 @@
-﻿namespace PrePoMax
+﻿using UserControls;
+
+namespace PrePoMax
 {
     partial class FrmMain
     {
@@ -205,7 +207,7 @@
             this.toolStripContainer1 = new System.Windows.Forms.ToolStripContainer();
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
             this.splitContainer2 = new System.Windows.Forms.SplitContainer();
-            this.tbOutput = new System.Windows.Forms.TextBox();
+            this.tbOutput = new AutoScrollTextBox();
             this.timerTest = new System.Windows.Forms.Timer(this.components);
             this.timerOutput = new System.Windows.Forms.Timer(this.components);
             this.tsbNew = new System.Windows.Forms.ToolStripButton();
@@ -4205,7 +4207,7 @@
         private System.Windows.Forms.ToolStripSeparator tsmiDividerView1;
         private System.Windows.Forms.ToolStripMenuItem tsmiViewHistory;
         private System.Windows.Forms.SplitContainer splitContainer2;
-        private System.Windows.Forms.TextBox tbOutput;
+        private AutoScrollTextBox tbOutput;
         private System.Windows.Forms.ToolStripMenuItem tsmiQuery;
         private System.Windows.Forms.ToolStripMenuItem tsmiShowWireframeEdges;
         private System.Windows.Forms.ToolStripButton tsbShowWireframeEdges;

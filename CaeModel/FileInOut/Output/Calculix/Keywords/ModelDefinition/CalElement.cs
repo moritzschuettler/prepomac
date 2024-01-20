@@ -22,10 +22,68 @@ namespace FileInOut.Output.Calculix
 
         // Constructor                                                                                                              
         public CalElement(string elementType, string elementSetName, List<FeElement> elements)
+            : this(elementType, elementSetName, elements, ConvertPyramidsToEnum.Wedges)
         {
-            _elementType = elementType;
-            _elementSetName = elementSetName;
-            _elements = elements;
+        }
+        public CalElement(string elementType, string elementSetName, List<FeElement> elements,
+                          ConvertPyramidsToEnum convertPyramidsTo)
+        {
+            if (elementType == "C3D5")
+            {
+                _elementSetName = elementSetName;
+                List<FeElement> collapsedElements = new List<FeElement>();
+                //
+                if (convertPyramidsTo == ConvertPyramidsToEnum.Wedges)
+                {
+                    _elementType = "C3D6";
+                    //
+                    foreach (var element in elements)
+                    {
+                        if (element is LinearPyramidElement lpe) collapsedElements.Add(lpe.ConvertToWedge());
+                    }
+                }
+                else // Hexahedrons
+                {
+                    _elementType = "C3D8";
+                    //
+                    foreach (var element in elements)
+                    {
+                        if (element is LinearPyramidElement lpe) collapsedElements.Add(lpe.ConvertToHex());
+                    }
+                }
+                _elements = collapsedElements;
+            }
+            else if (elementType == "C3D13")
+            {
+                _elementSetName = elementSetName;
+                List<FeElement> collapsedElements = new List<FeElement>();
+                //
+                if (convertPyramidsTo == ConvertPyramidsToEnum.Wedges)
+                {
+                    _elementType = "C3D15";
+                    //
+                    foreach (var element in elements)
+                    {
+                        if (element is ParabolicPyramidElement ppe) collapsedElements.Add(ppe.ConvertToWedge());
+                    }
+                }
+                else // Hexahedrons
+                {
+                    _elementType = "C3D20";
+                    //
+                    foreach (var element in elements)
+                    {
+                        if (element is ParabolicPyramidElement ppe) collapsedElements.Add(ppe.ConvertToHex());
+                    }
+                }
+                _elements = collapsedElements;
+            }
+            else
+            {
+                _elementType = elementType;
+                _elementSetName = elementSetName;
+                _elements = elements;
+            }
         }
 
 

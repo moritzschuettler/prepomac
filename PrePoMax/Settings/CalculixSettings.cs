@@ -7,11 +7,12 @@ using System.ComponentModel;
 using CaeGlobals;
 using System.IO;
 using CaeJob;
+using FileInOut.Output.Calculix;
 using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
+   [Serializable]
     public class CalculixSettings : ISettings
     {
         // Variables                                                                                                                
@@ -21,7 +22,7 @@ namespace PrePoMax
         private CaeModel.SolverTypeEnum _solverTypeEnum;
         private int _numCPUs;
         private List<EnvironmentVariable> _environmentVariables;
-
+        private ConvertPyramidsToEnum _convertPyramidsTo;
 
         // Properties                                                                                                               
         public string WorkDirectory 
@@ -68,6 +69,7 @@ namespace PrePoMax
             get { return _environmentVariables; }
             set { _environmentVariables = value; }
         }
+        public ConvertPyramidsToEnum ConvertPyramidsTo { get { return _convertPyramidsTo; } set { _convertPyramidsTo = value; } }
 
 
         // Constructors                                                                                                             
@@ -88,6 +90,7 @@ namespace PrePoMax
             _executable = null;
             _numCPUs = 1;
             _environmentVariables = null;
+            _convertPyramidsTo = ConvertPyramidsToEnum.Wedges;
         }
     }
 }

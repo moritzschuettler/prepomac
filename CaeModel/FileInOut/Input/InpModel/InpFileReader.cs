@@ -255,7 +255,7 @@ namespace FileInOut.Input
                 // Add indices of user keywords
                 int[] indices;
                 Stack<int> indexStack = new Stack<int>();
-                List<CalculixKeyword> keywords = Output.CalculixFileWriter.GetModelKeywords(model);
+                List<CalculixKeyword> keywords = Output.CalculixFileWriter.GetModelKeywords(model, ConvertPyramidsToEnum.Wedges);
                 indexedUserKeywords = new OrderedDictionary<int[], CalculixUserKeyword>("User Calculix keywords");
                 foreach (CalculixUserKeyword userKeyword in userKeywords)
                 {
@@ -722,10 +722,9 @@ namespace FileInOut.Input
                             break;
                         // Linear pyramid element
                         case "C3D5":
-                            if (System.Diagnostics.Debugger.IsAttached)
-                                element = GetLinearPyramidElement(ref i, lines, _splitter);
-                            else
-                                throw new Exception("The element type '" + elementType + "' is not supported.");
+                        case "C3D5I":
+                        case "C3D5R":
+                            element = GetLinearPyramidElement(ref i, lines, _splitter);
                             break;
                         // Linear wedge element
                         case "C3D6":
@@ -775,6 +774,12 @@ namespace FileInOut.Input
                         case "C3D15":
                         case "DC3D15":
                             element = GetParabolicWedgeElement(ref i, lines, _splitter);
+                            break;
+                        // Parabolic pyramid element
+                        case "C3D13":
+                        case "C3D13I":
+                        case "C3D13R":
+                            element = GetParabolicPyramidElement(ref i, lines, _splitter);
                             break;
                         // Parabolic hexahedron element
                         case "C3D20":
@@ -1919,7 +1924,6 @@ namespace FileInOut.Input
             //
             return uncoupledTempDispStep;
         }
-        
         private static CoupledTempDispStep GetCoupledTempDispStep(string[] dataSet)
         {
             //                                                                                                                      
@@ -2702,6 +2706,7 @@ namespace FileInOut.Input
         //  PARABOLIC ELEMENTS                                                                                                      
         private static ParabolicBeamElement GetParabolicBeamElement(ref int lineId, string[] lines, string[] splitter)
         {
+            // *ELEMENT, TYPE = T3D3
             // 1, 598, 1368, 1306
             int id;
             int[] nodeIds;
@@ -2711,6 +2716,7 @@ namespace FileInOut.Input
         }
         private static ParabolicTriangleElement GetParabolicTriangleElement(ref int lineId, string[] lines, string[] splitter)
         {
+            // *ELEMENT, TYPE = S6
             // 1, 598, 1368, 1306, 1291, 15 ,16
             int id;
             int[] nodeIds;
@@ -2721,8 +2727,8 @@ namespace FileInOut.Input
         private static ParabolicQuadrilateralElement GetParabolicQuadrilateralElement(ref int lineId, string[] lines,
                                                                                       string[] splitter)
         {
-            // 1, 5518, 5519, 4794, 5898, 19815, 19819, 19817, 
-            // 19816
+            // *ELEMENT, TYPE = S8
+            // 1, 5518, 5519, 4794, 5898, 19815, 19819, 19817, 19816
             int id;
             int[] nodeIds;
             GetElementIdAndNodeIds(8, ref lineId, lines, splitter, out id, out nodeIds);
@@ -2731,18 +2737,42 @@ namespace FileInOut.Input
         }
         private static ParabolicTetraElement GetParabolicTetraElement(ref int lineId, string[] lines, string[] splitter)
         {
-            // 1, 5518, 5519, 4794, 5898, 19815, 19819, 19817, 
-            // 19816, 19818, 19820
+            // *ELEMENT, TYPE = C3D10
+            // 1,1,10,47,19,37,57,78,72,9,45
             int id;
             int[] nodeIds;
             GetElementIdAndNodeIds(10, ref lineId, lines, splitter, out id, out nodeIds);
             //
             return new ParabolicTetraElement(id, nodeIds);
         }
+        private static ParabolicPyramidElement GetParabolicPyramidElement(ref int lineId, string[] lines, string[] splitter)
+        {
+            // *ELEMENT, TYPE = C3D13
+            // 1,1,10,47,19,37,57,78,72,9,45,
+            // 46,20,56
+            int id;
+            int[] gmshNodeIds;
+            GetElementIdAndNodeIds(13, ref lineId, lines, splitter, out id, out gmshNodeIds);
+            //
+            int[] nodeIds = new int[gmshNodeIds.Length];
+            Array.Copy(gmshNodeIds, nodeIds, 6);
+            //
+            nodeIds[8] = gmshNodeIds[6];
+            nodeIds[9] = gmshNodeIds[7];
+            nodeIds[6] = gmshNodeIds[8];
+            //
+            nodeIds[10] = gmshNodeIds[9];
+            nodeIds[7] = gmshNodeIds[10];
+            nodeIds[11] = gmshNodeIds[11];
+            nodeIds[12] = gmshNodeIds[12];
+            //
+            return new ParabolicPyramidElement(id, nodeIds);
+        }
         private static ParabolicWedgeElement GetParabolicWedgeElement(ref int lineId, string[] lines, string[] splitter)
         {
-            // 1, 5518, 5519, 4794, 5898, 19815, 19819, 19817, 
-            // 19816, 19818, 19820, 1, 2, 3, 4, 5
+            // *ELEMENT, TYPE = C3D15
+            // 1,1,10,47,19,37,57,78,72,9,45,
+            // 46,20,56,76,77
             int id;
             int[] nodeIds;
             GetElementIdAndNodeIds(15, ref lineId, lines, splitter, out id, out nodeIds);

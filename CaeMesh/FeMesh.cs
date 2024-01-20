@@ -430,6 +430,9 @@ namespace CaeMesh
                     case vtkCellType.VTK_TETRA:
                         mesh.Elements.Add(id, new LinearTetraElement(id, nodeIds) { PartId = partId });
                         break;
+                    case vtkCellType.VTK_PYRAMID:
+                        mesh.Elements.Add(id, new LinearPyramidElement(id, nodeIds) { PartId = partId });
+                        break;
                     case vtkCellType.VTK_WEDGE:
                         mesh.Elements.Add(id, new LinearWedgeElement(id, nodeIds) { PartId = partId });
                         break;
@@ -439,6 +442,9 @@ namespace CaeMesh
                     case vtkCellType.VTK_QUADRATIC_TETRA:
                         mesh.Elements.Add(id, new ParabolicTetraElement(id, nodeIds) { PartId = partId });
                         break;
+                    case vtkCellType.VTK_QUADRATIC_PYRAMID:
+                        mesh.Elements.Add(id, new ParabolicPyramidElement(id, nodeIds) { PartId = partId });
+                        break;
                     case vtkCellType.VTK_QUADRATIC_WEDGE:
                         mesh.Elements.Add(id, new ParabolicWedgeElement(id, nodeIds) { PartId = partId });
                         break;
@@ -446,6 +452,7 @@ namespace CaeMesh
                         mesh.Elements.Add(id, new ParabolicHexaElement(id, nodeIds) { PartId = partId });
                         break;
                     default:
+                        if (System.Diagnostics.Debugger.IsAttached) throw new NotSupportedException();
                         break;
                 }
             }
