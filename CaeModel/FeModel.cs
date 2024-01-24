@@ -1283,6 +1283,8 @@ namespace CaeModel
                     //
                     if (part.PartType != PartType.Shell)
                         return "The thicken shell feature can only be used on shell parts.";
+                    if (part.Visualization.IsNonManifold())
+                        return "The thicken shell feature can only be used on manifold shell parts.";
                 }
             }
             else return "No parts are defined for the thicken shell mesh setup item.";

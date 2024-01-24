@@ -4731,7 +4731,7 @@ namespace PrePoMax
             Dictionary<int, Vec3D> nodeIdNormal;
             if (_model.Geometry.GetAllCADPartNames().Intersect(partNames).Count() == partNames.Length)
             {
-                nodeIdNormal = _model.Geometry.GetNodeNormals(partNames, _model.Geometry, keepModelEdges,
+                nodeIdNormal = _model.Geometry.GetNodeNormals(partNames, DisplayedMesh, keepModelEdges,
                                                               GeNormalsFromGeometryAtMeshNodes);
             }
             else

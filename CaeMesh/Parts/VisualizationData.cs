@@ -1371,6 +1371,19 @@ namespace CaeMesh
             loopVertexIds.Remove(vertexId);
             return false;
         }
+        public bool IsNonManifold()
+        {
+            int[] edgeCount = new int[EdgeCount];
+            for (int i = 0; i < _faceEdgeIds.Length; i++)
+            {
+                for (int j = 0; j < _faceEdgeIds[i].Length; j++)
+                {
+                    edgeCount[_faceEdgeIds[i][j]]++;
+                    if (edgeCount[_faceEdgeIds[i][j]] > 2) return true;
+                }
+            }
+            return false;
+        }
 
         // Flip normals
         public void FlipTriangleNormals()
