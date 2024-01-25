@@ -855,10 +855,10 @@ namespace vtkControl
                                         Math.Min(b1[4], Math.Min(b2[4], b3[4])), Math.Max(b1[5], Math.Max(b2[5], b3[5]))};
             //
             double r = 0.5 * Math.Sqrt(Math.Pow(b[0] - b[1], 2) + Math.Pow(b[2] - b[3], 2) + Math.Pow(b[4] - b[5], 2)); // radius
+            r *= 1.05;
             double[] center = new double[] { (b[0] + b[1]) / 2, (b[2] + b[3]) / 2, (b[4] + b[5]) / 2 };
             //
             double[] pos = camera.GetPosition();
-            double[] focalPos = camera.GetFocalPoint();
             //
             double[] delta = new double[3]; // vector from camera position to the geometry center
             //
@@ -885,9 +885,14 @@ namespace vtkControl
             //
             //System.Diagnostics.Debug.WriteLine(string.Format("pos5 x: {0},  y: {1},  z: {2}", newPos[0], newPos[1], newPos[2]));
             //
-            newPos[0] = focalPos[0] + motionVector[0];
-            newPos[1] = focalPos[1] + motionVector[1];
-            newPos[2] = focalPos[2] + motionVector[2];
+            //double[] focalPos = camera.GetFocalPoint();
+            //newPos[0] = focalPos[0] + motionVector[0];
+            //newPos[1] = focalPos[1] + motionVector[1];
+            //newPos[2] = focalPos[2] + motionVector[2];
+            newPos[0] += normal[0];
+            newPos[1] += normal[1];
+            newPos[2] += normal[2];
+            //
             camera.SetFocalPoint(newPos[0], newPos[1], newPos[2]);
         }
         private void AdjustCameraDistance__(vtkRenderer renderer, vtkCamera camera)

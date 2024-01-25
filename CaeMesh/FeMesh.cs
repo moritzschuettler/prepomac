@@ -9837,7 +9837,7 @@ namespace CaeMesh
             Vec3D edgeTangent;
             Vec3D[] edgeTangentCellNormal;
             List<Vec3D[]> edgeTangentCellNormalList;
-            Dictionary<int, List<Vec3D[]>> nodeIdEdgeTangentCellNormal = new Dictionary<int, List<Vec3D[]>>();
+            Dictionary<int, List<Vec3D[]>> vertexNodeIdFreeEdgeTangentCellNormal = new Dictionary<int, List<Vec3D[]>>();
             // Find vertex node, its edge tangent vector and the element normal the edge belongs to
             foreach (var entry in mesh.Parts)
             {
@@ -9874,57 +9874,69 @@ namespace CaeMesh
                                 //
                                 edgeTangentCellNormal = new Vec3D[] { edgeTangent, new Vec3D(faceNormal) };
                                 //
-                                if (nodeIdEdgeTangentCellNormal.TryGetValue(nodeIds[j], out edgeTangentCellNormalList))
+                                if (vertexNodeIdFreeEdgeTangentCellNormal.TryGetValue(nodeIds[j], out edgeTangentCellNormalList))
                                     edgeTangentCellNormalList.Add(edgeTangentCellNormal);
                                 else
-                                    nodeIdEdgeTangentCellNormal.Add(nodeIds[j], new List<Vec3D[]> { edgeTangentCellNormal });
+                                    vertexNodeIdFreeEdgeTangentCellNormal.Add(nodeIds[j],
+                                                                              new List<Vec3D[]> { edgeTangentCellNormal });
                             }
                         }
                         
                     }
                 }
             }
-            //
+            // Merge normals with the same direction
+            CompareVec3D comparer = new CompareVec3D(0.5);
+            HashSet<Vec3D> mergedNormals = new HashSet<Vec3D>(comparer);
+            Dictionary<int, List<Vec3D>> nodeIdMergedNormals = new Dictionary<int, List<Vec3D>>();
             foreach (var entry in nodeIdNormals)
             {
+                mergedNormals.Clear();
+                mergedNormals.UnionWith(entry.Value);
+                nodeIdMergedNormals.Add(entry.Key, mergedNormals.ToList());
+            }
+            nodeIdNormals = nodeIdMergedNormals;
+            // Average normals
+            foreach (var entry in nodeIdNormals)
+            {
+                if (entry.Key == 7)
+                    normalAvg = null;
+
                 if (entry.Value.Count == 1) nodeIdNormal.Add(entry.Key, entry.Value[0]);
                 else
                 {
                     normalAvg = null;
-                    // Is it a free vertex node: offset both element face planes and intersect them firstly with the        
+                    // Is it a free vertex node: offset both element face planes and intersect them first with the          
                     // shell edge face 1 and secondly with the shell edge face 2; at the end average the resulting points   
-                    if (nodeIdEdgeTangentCellNormal.TryGetValue(entry.Key, out edgeTangentCellNormalList))
+                    if (vertexNodeIdFreeEdgeTangentCellNormal.TryGetValue(entry.Key, out edgeTangentCellNormalList))
                     {
-                        if (nodeIdEdgeTangentCellNormal.TryGetValue(entry.Key, out edgeTangentCellNormalList))
+                        p1 = new Vec3D(mesh.Nodes[entry.Key].Coor);
+                        //
+                        normals = new Vec3D[3];
+                        normals[0] = edgeTangentCellNormalList[0][1];
+                        normals[1] = edgeTangentCellNormalList[1][1];
+                        // A plane through edge 1 and element normal
+                        normals[2] = Vec3D.CrossProduct(edgeTangentCellNormalList[0][0], edgeTangentCellNormalList[0][1]);
+                        // Compute distance from offset plane to 0 - add normal to the p1 point to offset it
+                        d1 = Vec3D.DotProduct(normals[0], p1 + normals[0]);
+                        d2 = Vec3D.DotProduct(normals[1], p1 + normals[1]);
+                        d3 = Vec3D.DotProduct(normals[2], p1);
+                        //
+                        p2 = Geometry.IntersectionPointOfThreePlanes(normals[0], normals[1], normals[2], d1, d2, d3);
+                        if (p2 != null) normalAvg = p2 - p1;
+                        //
+                        if (normalAvg != null)
                         {
-                            p1 = new Vec3D(mesh.Nodes[entry.Key].Coor);
+                            // A plane through edge 2 and element normal
+                            normals[2] = Vec3D.CrossProduct(edgeTangentCellNormalList[1][0], edgeTangentCellNormalList[1][1]);
                             //
-                            normals = new Vec3D[3];
-                            normals[0] = edgeTangentCellNormalList[0][1];
-                            normals[1] = edgeTangentCellNormalList[1][1];
-                            // A plane through edge 1 and element normal
-                            normals[2] = Vec3D.CrossProduct(edgeTangentCellNormalList[0][0], edgeTangentCellNormalList[0][1]);
-                            // Compute distance from offset plane to 0 - add normal to the p1 point to offset it
-                            d1 = Vec3D.DotProduct(normals[0], p1 + normals[0]);
-                            d2 = Vec3D.DotProduct(normals[1], p1 + normals[1]);
                             d3 = Vec3D.DotProduct(normals[2], p1);
                             //
                             p2 = Geometry.IntersectionPointOfThreePlanes(normals[0], normals[1], normals[2], d1, d2, d3);
-                            if (p2 != null) normalAvg = p2 - p1;
-                            //
-                            if (normalAvg != null)
+                            if (p2 != null)
                             {
-                                // A plane through edge 2 and element normal
-                                normals[2] = Vec3D.CrossProduct(edgeTangentCellNormalList[1][0], edgeTangentCellNormalList[1][1]);
-                                //
-                                d3 = Vec3D.DotProduct(normals[2], p1);
-                                //
-                                p2 = Geometry.IntersectionPointOfThreePlanes(normals[0], normals[1], normals[2], d1, d2, d3);
-                                if (p2 != null)
-                                {
-                                    normalAvg += p2 - p1;
-                                    normalAvg *= 0.5;
-                                }
+                                normalAvg += p2 - p1;
+                                normalAvg *= 0.5;
                             }
                         }
                     }
@@ -9974,7 +9986,7 @@ namespace CaeMesh
                     if (keepEdges)
                     {
                         // Is it a free vertex node - compute the normal scaling factor only from the edge face normals
-                        if (nodeIdEdgeTangentCellNormal.TryGetValue(entry.Key, out edgeTangentCellNormalList))
+                        if (vertexNodeIdFreeEdgeTangentCellNormal.TryGetValue(entry.Key, out edgeTangentCellNormalList))
                             normals = new Vec3D[] { edgeTangentCellNormalList[0][1], edgeTangentCellNormalList[1][1] };
                         else normals = entry.Value.ToArray();
                         //

@@ -83,6 +83,7 @@
     <Compile Include="CommonClasses\MatrixInverse.cs" />
     <Compile Include="CommonClasses\OrderedDictionary.cs" />
     <Compile Include="Comparers\CompareDoubleArray.cs" />
+    <Compile Include="Comparers\CompareVec3D.cs" />
     <Compile Include="Comparers\CompareIntArray.cs" />
     <Compile Include="Equation\EquationString.cs" />
     <Compile Include="Equation\EquationContainer.cs" />
