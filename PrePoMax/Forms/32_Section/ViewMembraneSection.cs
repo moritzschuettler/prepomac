@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -30,7 +30,7 @@ namespace PrePoMax
         [CategoryAttribute("Data")]
         [OrderedDisplayName(3, 10, "Offset")]
         [DescriptionAttribute("Set the offset of the membrane mid-surface in regard to the selected geometry. "
-                              + "The unit is the shell thickness.")]
+                              + "The unit is the membrane thickness.")]
         [TypeConverter(typeof(EquationDoubleConverter))]
         public EquationString Offset
         {
