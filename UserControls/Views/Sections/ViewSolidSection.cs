@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -19,7 +19,7 @@ namespace UserControls
         // Properties                                                                                                               
         [CategoryAttribute("Data")]
         [OrderedDisplayName(3, 10, "Thickness")]
-        [DescriptionAttribute("Set the thickness in the case of 2D plain strain/stress state.")]
+        [DescriptionAttribute("Set the thickness in the case of 2D plane strain/stress state.")]
         [TypeConverter(typeof(EquationLengthConverter))]
         public EquationString Thickness
         {
