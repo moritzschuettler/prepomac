@@ -946,7 +946,7 @@ namespace CaeMesh
                                 if (d2 < min)
                                 {
                                     min = d2;
-                                    gmshEdgeId = edgeDataEntry.Id;
+                                    gmshEdgeId = idLocation.Id;
                                 }
                             }
                         }

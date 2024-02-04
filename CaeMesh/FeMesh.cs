@@ -5208,12 +5208,10 @@ namespace CaeMesh
             HashSet<int> allNodeIds = new HashSet<int>(nodeIds);
             HashSet<int> allElementIds = new HashSet<int>();
             //
-            bool parabolic;
             int minNumberOfNodesToContain;
             int countNodes;
             FeElement element;
             int vtkType;
-            bool added;
             int[][] vtkCells;
             //
             foreach (var entry in _elements)
@@ -5223,14 +5221,10 @@ namespace CaeMesh
                 if (partId > -1 && element.PartId != partId) continue;
                 //
                 vtkType = element.GetVtkCellType();
-                parabolic = FeElement.IsParabolic(element);
                 //
                 minNumberOfNodesToContain = 1;
                 //
-                if (containsEdge)
-                {
-                    minNumberOfNodesToContain = 2;
-                }
+                if (containsEdge) minNumberOfNodesToContain = 2;
                 else if (containsFace)
                 {
                     vtkCells = null;
@@ -5266,15 +5260,11 @@ namespace CaeMesh
                 countNodes = 0;
                 for (int i = 0; i < element.NodeIds.Length; i++)
                 {
-                    if (allNodeIds.Contains(element.NodeIds[i]))
-                    {
-                        countNodes++;
-                    }
+                    if (allNodeIds.Contains(element.NodeIds[i])) countNodes++;
                     if (countNodes >= minNumberOfNodesToContain) break;
                 }
                 //
-                if (countNodes >= minNumberOfNodesToContain)
-                    allElementIds.Add(entry.Key);
+                if (countNodes >= minNumberOfNodesToContain) allElementIds.Add(entry.Key);
             }
             // Return
             return allElementIds.ToArray();
@@ -9784,6 +9774,8 @@ namespace CaeMesh
             VisualizationData vis = part.Visualization;
             for (int i = 0; i < vis.FaceCount; i++)
             {
+                faceNodeIdNormals.Clear();
+                //
                 for (int j = 0; j < vis.CellIdsByFace[i].Length; j++)
                 {
                     elementId = vis.CellIds[vis.CellIdsByFace[i][j]];
@@ -9899,9 +9891,6 @@ namespace CaeMesh
             // Average normals
             foreach (var entry in nodeIdNormals)
             {
-                if (entry.Key == 7)
-                    normalAvg = null;
-
                 if (entry.Value.Count == 1) nodeIdNormal.Add(entry.Key, entry.Value[0]);
                 else
                 {

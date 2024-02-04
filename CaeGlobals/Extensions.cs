@@ -251,9 +251,15 @@ namespace CaeGlobals
         // Double
         public static string ToCalculiX16String(this double value, bool enforceSeparator = false)
         {
-            string result = value.ToString();
+            string result = value.ToString().ToUpper();
             if (result.Length > 16) result = value.ToString("E8");
-            else if (enforceSeparator && !result.Contains(".")) result += ".";
+            else if (enforceSeparator && !result.Contains("."))
+            {
+                int location = result.IndexOf("E");
+                // The first letter must not be E so > 0
+                if (location > 0) result = result.Insert(location, ".");
+                else result += ".";
+            }
             return result;
         }
         // String[]

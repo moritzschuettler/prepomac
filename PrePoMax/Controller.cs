@@ -4571,9 +4571,7 @@ namespace PrePoMax
                 // Redraw the geometry for update of the selection based sets
                 FeModelUpdate(UpdateType.DrawModel);
                 // Update sets - must be called with rendering off - SetStateWorking
-                UpdateNodeSetsBasedOnGeometry(false);
-                UpdateElementSetsBasedOnGeometry(false);
-                UpdateSurfacesBasedOnGeometry(false);
+                UpdateGeometryBasedItems(false);
                 // Update the sets and symbols
                 FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
                 //
@@ -4788,9 +4786,7 @@ namespace PrePoMax
                 // Redraw the geometry for update of the selection based sets
                 FeModelUpdate(UpdateType.DrawModel);
                 // Update sets - must be called with rendering off - SetStateWorking
-                UpdateNodeSetsBasedOnGeometry(false);
-                UpdateElementSetsBasedOnGeometry(false);
-                UpdateSurfacesBasedOnGeometry(false);
+                UpdateGeometryBasedItems(false);
                 // Update the sets and symbols
                 FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
                 //
@@ -8289,8 +8285,8 @@ namespace PrePoMax
                 }
                 // Surface
                 else if (load is DLoad || load is HydrostaticPressure || load is ImportedPressure || load is STLoad ||
-                         load is ShellEdgeLoad || load is PreTensionLoad || load is DFlux || load is FilmHeatTransfer ||
-                         load is RadiationHeatTransfer)
+                         load is ShellEdgeLoad || load is PreTensionLoad ||
+                         load is DFlux || load is FilmHeatTransfer || load is RadiationHeatTransfer)
                 {
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces, load.Name);
                     FeSurface surface = new FeSurface(name, load.CreationIds, load.CreationData.DeepClone());
@@ -8322,8 +8318,8 @@ namespace PrePoMax
                 else if (load is GravityLoad || load is CentrifLoad || load is BodyFlux)
                     RemoveElementSets(new string[] { load.RegionName });
                 else if (load is DLoad || load is HydrostaticPressure || load is ImportedPressure || load is STLoad ||
-                         load is ShellEdgeLoad || load is PreTensionLoad || load is DFlux || load is FilmHeatTransfer ||
-                         load is RadiationHeatTransfer)
+                         load is ShellEdgeLoad || load is PreTensionLoad ||
+                         load is DFlux || load is FilmHeatTransfer || load is RadiationHeatTransfer)
                     RemoveSurfaces(new string[] { load.RegionName }, false);
                 else throw new NotSupportedException();
             }

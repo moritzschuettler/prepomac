@@ -142,6 +142,7 @@
     <Compile Include="UnitSystem\EquationToString\EquationForcePerLengthDefaultConverter.cs" />
     <Compile Include="UnitSystem\EquationToString\EquationIntegerConverter.cs" />
     <Compile Include="UnitSystem\EquationToString\EquationLengthDOFConverter.cs" />
+    <Compile Include="UnitSystem\EquationToString\EquationMassConverter.cs" />
     <Compile Include="UnitSystem\EquationToString\EquationThermalConductivityConverter.cs" />
     <Compile Include="UnitSystem\EquationToString\EquationSpecificHeatConverter.cs" />
     <Compile Include="UnitSystem\EquationToString\EquationThermalExpansionConverter.cs" />

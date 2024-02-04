@@ -200,9 +200,13 @@ namespace CaeGlobals
             if (letterCount <= 0)
                 throw new CaeException("The name must contain at least one letter: '" + name + "'.");
         }
-        public static string GetErrorFreeName(string name)
+        public static string GetErrorFreeName(string name, string prefix)
         {
+            if (name == null || name.Length == 0) name = prefix;
             name = name.Replace(' ', '_');
+            if (char.IsDigit(name[0])) name = prefix + "-" + name;
+            if (name[0] == '_') name = prefix + name;
+            //
             byte[] bytes = Encoding.GetEncoding("ISO-8859-8").GetBytes(name);
             name = Encoding.UTF8.GetString(bytes);
             //
