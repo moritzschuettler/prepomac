@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -19,7 +19,7 @@ namespace PrePoMax
         // Properties                                                                                                               
         [CategoryAttribute("Data")]
         [OrderedDisplayName(6, 10, "Thickness")]
-        [DescriptionAttribute("Set the thickness for the 2D plain strain/stress elements. " +
+        [DescriptionAttribute("Set the thickness for the 2D plane strain/stress elements. " +
                               "For the mixed axisymmetric model the thickness of the plane stress elements must be " +
                               "defined for an angle of 360°.")]
         [TypeConverter(typeof(EquationLengthConverter))]
