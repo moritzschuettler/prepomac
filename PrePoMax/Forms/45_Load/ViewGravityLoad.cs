@@ -31,6 +31,12 @@ namespace PrePoMax
         [Id(4, 2)]
         public string ElementSetName { get { return _gLoad.RegionName; } set { _gLoad.RegionName = value; } }
         //
+        [CategoryAttribute("Region")]
+        [OrderedDisplayName(4, 10, "Mass section")]
+        [DescriptionAttribute("Select the mass section for the creation of the load.")]
+        [Id(5, 2)]
+        public string MassSectionName { get { return _gLoad.RegionName; } set { _gLoad.RegionName = value; } }
+        //
         [CategoryAttribute("Gravity components")]
         [OrderedDisplayName(0, 10, "F1")]
         [DescriptionAttribute("Value of the gravity component in the direction of the first axis.")]
@@ -80,6 +86,7 @@ namespace PrePoMax
             regionTypePropertyNamePairs.Add(RegionTypeEnum.Selection, nameof(SelectionHidden));
             regionTypePropertyNamePairs.Add(RegionTypeEnum.PartName, nameof(PartName));
             regionTypePropertyNamePairs.Add(RegionTypeEnum.ElementSetName, nameof(ElementSetName));
+            regionTypePropertyNamePairs.Add(RegionTypeEnum.MassSection, nameof(MassSectionName));
             //
             SetBase(_gLoad, regionTypePropertyNamePairs);
             DynamicCustomTypeDescriptor = ProviderInstaller.Install(this);
@@ -95,12 +102,14 @@ namespace PrePoMax
         {
             return _gLoad;
         }
-        public void PopulateDropDownLists(string[] partNames, string[] elementSetNames, string[] amplitudeNames)
+        public void PopulateDropDownLists(string[] partNames, string[] elementSetNames, string[] massSectionNames,
+                                          string[] amplitudeNames)
         {
             Dictionary<RegionTypeEnum, string[]> regionTypeListItemsPairs = new Dictionary<RegionTypeEnum, string[]>();
             regionTypeListItemsPairs.Add(RegionTypeEnum.Selection, new string[] { "Hidden" });
             regionTypeListItemsPairs.Add(RegionTypeEnum.PartName, partNames);
             regionTypeListItemsPairs.Add(RegionTypeEnum.ElementSetName, elementSetNames);
+            regionTypeListItemsPairs.Add(RegionTypeEnum.MassSection, massSectionNames);
             PopulateDropDownLists(regionTypeListItemsPairs);
             //
             PopulateAmplitudeNames(amplitudeNames);

@@ -38,7 +38,11 @@ namespace CaeGlobals
         Selection = 20,
         //
         [StandardValue("Contact pair")]
-        ContactPair = 30
+        ContactPair = 30,
+        //
+        [StandardValue("Mass section")]
+        MassSection = 40
+
     }
 
     public static class RegionTypeExtensionMethods
@@ -67,6 +71,8 @@ namespace CaeGlobals
                     return "Selection";
                 case RegionTypeEnum.ContactPair:
                     return "Contact pair";
+                case RegionTypeEnum.MassSection:
+                    return "Mass section";
                 default:
                     throw new NotSupportedException();
             }

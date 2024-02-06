@@ -7,7 +7,16 @@ using System.Threading.Tasks;
 
 namespace CaeMesh
 {
-    // 2D                                                                                                                           
+    // 0D                                                                                                                           
+    [Serializable]
+    public enum FeElementType0D
+    {
+        [StandardValue("None", Visible = false)]
+        None = 0,
+        Mass = 10,
+    }
+
+    // 1D                                                                                                                           
     [Serializable]
     public enum FeElementTypeGap
     {
@@ -47,7 +56,7 @@ namespace CaeMesh
         B32 = 11,
         B32R = 12,
     }
-    //
+    // 2D                                                                                                                           
     [Serializable]
     public enum FeElementTypeLinearTria
     {

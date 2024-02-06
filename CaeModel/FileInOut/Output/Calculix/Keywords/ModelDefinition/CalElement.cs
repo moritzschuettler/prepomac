@@ -28,6 +28,7 @@ namespace FileInOut.Output.Calculix
         public CalElement(string elementType, string elementSetName, List<FeElement> elements,
                           ConvertPyramidsToEnum convertPyramidsTo)
         {
+            // Linear pyramids
             if (elementType == "C3D5")
             {
                 _elementSetName = elementSetName;
@@ -53,6 +54,7 @@ namespace FileInOut.Output.Calculix
                 }
                 _elements = collapsedElements;
             }
+            // Parabolic pyramids
             else if (elementType == "C3D13")
             {
                 _elementSetName = elementSetName;

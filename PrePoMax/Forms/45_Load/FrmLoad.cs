@@ -427,6 +427,7 @@ namespace PrePoMax.Forms
             string[] solidFaceSurfaceNames = _controller.GetUserSurfaceNames(CaeMesh.FeSurfaceType.Element,
                                                                              CaeMesh.FeSurfaceFaceTypes.SolidFaces);
             string[] referencePointNames = _controller.GetReferencePointNames();
+            string[] massSectionNames = _controller.GetMassSectionNames();
             string[] amplitudeNames = _controller.GetAmplitudeNames();
             //
             if (partNames == null) partNames = new string[0];
@@ -435,6 +436,7 @@ namespace PrePoMax.Forms
             if (elementBasedSurfaceNames == null) elementBasedSurfaceNames = new string[0];
             if (shellEdgeSurfaceNames == null) shellEdgeSurfaceNames = new string[0];
             if (referencePointNames == null) referencePointNames = new string[0];
+            if (massSectionNames == null) massSectionNames = new string[0];
             if (amplitudeNames == null) amplitudeNames = new string[0];
             //
             if (_loadNames == null) throw new CaeException("The load names must be defined first.");
@@ -443,7 +445,8 @@ namespace PrePoMax.Forms
             string[] noEdgeSurfaceNames = elementBasedSurfaceNames.Except(shellEdgeSurfaceNames).ToArray();
             //
             PopulateListOfLoads(partNames, nodeSetNames, elementSetNames, referencePointNames, elementBasedSurfaceNames,
-                                solidFaceSurfaceNames, noEdgeSurfaceNames, shellEdgeSurfaceNames, amplitudeNames);
+                                solidFaceSurfaceNames, noEdgeSurfaceNames, shellEdgeSurfaceNames, massSectionNames,
+                                amplitudeNames);
             // Check if this step supports any loads
             if (lvTypes.Items.Count == 0) return false;
             // Create new load
@@ -581,9 +584,11 @@ namespace PrePoMax.Forms
                         CheckMissingValueRef(ref partNames, vgl.PartName, s => { vgl.PartName = s; });
                     else if (vgl.RegionType == RegionTypeEnum.ElementSetName.ToFriendlyString())
                         CheckMissingValueRef(ref elementSetNames, vgl.ElementSetName, s => { vgl.ElementSetName = s; });
+                    else if (vgl.RegionType == RegionTypeEnum.MassSection.ToFriendlyString())
+                        CheckMissingValueRef(ref massSectionNames, vgl.MassSectionName, s => { vgl.MassSectionName = s; });
                     else throw new NotSupportedException();
                     //
-                    vgl.PopulateDropDownLists(partNames, elementSetNames, amplitudeNames);
+                    vgl.PopulateDropDownLists(partNames, elementSetNames, massSectionNames, amplitudeNames);
                 }
                 else if (_viewLoad is ViewCentrifLoad vcfl)
                 {
@@ -594,6 +599,8 @@ namespace PrePoMax.Forms
                         CheckMissingValueRef(ref partNames, vcfl.PartName, s => { vcfl.PartName = s; });
                     else if (vcfl.RegionType == RegionTypeEnum.ElementSetName.ToFriendlyString())
                         CheckMissingValueRef(ref elementSetNames, vcfl.ElementSetName, s => { vcfl.ElementSetName = s; });
+                    else if (vcfl.RegionType == RegionTypeEnum.MassSection.ToFriendlyString())
+                        CheckMissingValueRef(ref massSectionNames, vcfl.MassSectionName, s => { vcfl.MassSectionName = s; });
                     else throw new NotSupportedException();
                     // Check for change in axisymmetric
                     bool isLoadAxiSymmetric = ((CentrifLoad)vcfl.GetBase()).Axisymmetric;
@@ -604,7 +611,7 @@ namespace PrePoMax.Forms
                         _propertyItemChanged = true;
                     }
                     //
-                    vcfl.PopulateDropDownLists(partNames, elementSetNames, amplitudeNames);
+                    vcfl.PopulateDropDownLists(partNames, elementSetNames, massSectionNames, amplitudeNames);
                 }
                 else if (_viewLoad is ViewPreTensionLoad vptl)
                 {
@@ -702,7 +709,8 @@ namespace PrePoMax.Forms
         private void PopulateListOfLoads(string[] partNames, string[] nodeSetNames, string[] elementSetNames, 
                                          string[] referencePointNames, string[] elementBasedSurfaceNames,
                                          string[] solidFaceSurfaceNames, string[] noEdgeSurfaceNames,
-                                         string[] shellEdgeSurfaceNames, string[] amplitudeNames)
+                                         string[] shellEdgeSurfaceNames, string[] massSectionNames,
+                                         string[] amplitudeNames)
         {
             Step step = _controller.GetStep(_stepName);
             System.Drawing.Color color = _controller.Settings.Pre.LoadSymbolColor;
@@ -827,7 +835,7 @@ namespace PrePoMax.Forms
             if (step.IsLoadSupported(gravityLoad))
             {
                 ViewGravityLoad vgl = new ViewGravityLoad(gravityLoad);
-                vgl.PopulateDropDownLists(partNames, elementSetNames, amplitudeNames);
+                vgl.PopulateDropDownLists(partNames, elementSetNames, massSectionNames, amplitudeNames);
                 vgl.Color = color;
                 item.Tag = vgl;
                 lvTypes.Items.Add(item);
@@ -841,7 +849,7 @@ namespace PrePoMax.Forms
             ViewCentrifLoad vcfl = new ViewCentrifLoad(centrifLoad);
             if (step.IsLoadSupported(gravityLoad))
             {
-                vcfl.PopulateDropDownLists(partNames, elementSetNames, amplitudeNames);
+                vcfl.PopulateDropDownLists(partNames, elementSetNames, massSectionNames, amplitudeNames);
                 vcfl.Color = color;
                 item.Tag = vcfl;
                 lvTypes.Items.Add(item);
@@ -978,6 +986,11 @@ namespace PrePoMax.Forms
                         FELoad.RegionType == RegionTypeEnum.ElementSetName)
                     {
                         _controller.Highlight3DObjects(new object[] { FELoad.RegionName });
+                    }
+                    else if (FELoad.RegionType == RegionTypeEnum.MassSection)
+                    {
+                        Section section = _controller.Model.Sections[FELoad.RegionName];
+                        _controller.Highlight3DObjects(new object[] { section.RegionName });
                     }
                     else if (FELoad.RegionType == RegionTypeEnum.Selection)
                     {

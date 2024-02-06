@@ -15,22 +15,9 @@ using System.Drawing;
 using System.ComponentModel;
 using System.Management;
 using System.Runtime.Serialization;
-using System.Reflection.Emit;
 using vtkControl;
-using System.Runtime.InteropServices;
-using System.IO.Ports;
-using System.Collections.ObjectModel;
-using System.Xml.Linq;
 using PrePoMax.Forms;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.TextBox;
-using System.Security.Policy;
-using System.Runtime.InteropServices.ComTypes;
-using UserControls;
 using PrePoMax.Commands;
-using System.Windows.Input;
-using PrePoMax.Properties;
-using System.Runtime.Remoting.Metadata.W3cXsd2001;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
 
 namespace PrePoMax
 {
@@ -6242,6 +6229,15 @@ namespace PrePoMax
         {
             return _model.Sections.Keys.ToArray();
         }
+        public string[] GetMassSectionNames()
+        {
+            List<string> massSectionNames = new List<string>();
+            foreach (var entry in _model.Sections)
+            {
+                if (entry.Value is MassSection) massSectionNames.Add(entry.Key);
+            }
+            return massSectionNames.ToArray();
+        }
         public void AddSection(Section section)
         {
             ConvertSelectionBasedSection(section);
@@ -6328,6 +6324,17 @@ namespace PrePoMax
                     section.RegionName = name;
                     section.RegionType = RegionTypeEnum.ElementSetName;
                 }
+                // Surface
+                else if (section is DistributedMassSection)
+                {
+                    name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces, section.Name);
+                    FeSurface surface = new FeSurface(name, section.CreationIds, section.CreationData.DeepClone());
+                    surface.Internal = true;
+                    AddSurface(surface);
+                    //
+                    section.RegionName = name;
+                    section.RegionType = RegionTypeEnum.SurfaceName;
+                }
                 else throw new NotSupportedException();
             }
             // Clear the creation data if not used
@@ -6345,6 +6352,10 @@ namespace PrePoMax
             {
                 if (section is SolidSection || section is ShellSection || section is MembraneSection)
                     RemoveElementSets(new string[] { section.RegionName });
+                else if (section is DistributedMassSection)
+                {
+                    RemoveSurfaces(new string[] { section.RegionName }, false);
+                }
                 else throw new NotSupportedException();
             }
         }
@@ -12780,15 +12791,26 @@ namespace PrePoMax
                 {
                     string[] partNames = null;
                     FeElementSet elementSet = null;
+                    Section section;
                     if (layer == vtkRendererLayer.Selection)
                     {
                         if (gLoad.RegionType == RegionTypeEnum.PartName)
                             count += HighlightModelParts(new string[] { gLoad.RegionName });
                         else if (gLoad.RegionType == RegionTypeEnum.ElementSetName)
                         {
-                            if (!_model.Mesh.ElementSets.ContainsKey(gLoad.RegionName)) return;
-                            elementSet = _model.Mesh.ElementSets[gLoad.RegionName];
-                            count += HighlightElementSets(new string[] { elementSet.Name });
+                            if (_model.Mesh.ElementSets.TryGetValue(gLoad.RegionName, out elementSet))
+                                count += HighlightElementSets(new string[] { elementSet.Name });
+                            else return;
+                        }
+                        else if (gLoad.RegionType == RegionTypeEnum.MassSection)
+                        {
+                            if (_model.Sections.TryGetValue(gLoad.RegionName, out section))
+                            {
+                                if (section is DistributedMassSection dms)
+                                    count += HighlightSurfaces(new string[] { section.RegionName });
+                                else throw new NotSupportedException();
+                            }
+                            else return;
                         }
                         else throw new NotSupportedException();
                     }
@@ -12804,6 +12826,18 @@ namespace PrePoMax
                             else throw new NotSupportedException();
                         }
                     }
+                    else if (gLoad.RegionType == RegionTypeEnum.MassSection)
+                    {
+                        if (_model.Sections.TryGetValue(gLoad.RegionName, out section))
+                        {
+                            if (section is DistributedMassSection dms)
+                            {
+                                FeSurface surface = _model.Mesh.Surfaces[dms.RegionName];
+                                nodeSet = _model.Mesh.NodeSets[surface.NodeSetName];
+                            }
+                            else throw new NotSupportedException();
+                        }
+                    }
                     if (nodeSet == null) nodeSet = _model.Mesh.GetNodeSetFromPartOrElementSetName(gLoad.RegionName, false);
                     //
                     if (nodeSet.Labels.Length > 0)
@@ -12811,16 +12845,31 @@ namespace PrePoMax
                 }
                 else if (load is CentrifLoad cfLoad)
                 {
+                    int[] elementIds;
+                    FeElement element;
+                    FeNodeSet nodeSet;
                     FeElementSet elementSet;
+                    Section section;
+                    Dictionary<int, bool> partIdIsVisibe;
                     if (layer == vtkRendererLayer.Selection)
                     {
                         if (cfLoad.RegionType == RegionTypeEnum.PartName)
                             count +=  HighlightModelParts(new string[] { cfLoad.RegionName });
                         else if (cfLoad.RegionType == RegionTypeEnum.ElementSetName)
                         {
-                            if (!_model.Mesh.ElementSets.ContainsKey(cfLoad.RegionName)) return;
-                            elementSet = _model.Mesh.ElementSets[cfLoad.RegionName];
-                            count += HighlightElementSets(new string[] { elementSet.Name });
+                            if (_model.Mesh.ElementSets.TryGetValue(cfLoad.RegionName, out elementSet))
+                                count += HighlightElementSets(new string[] { elementSet.Name });
+                            else return;
+                        }
+                        else if (cfLoad.RegionType == RegionTypeEnum.MassSection)
+                        {
+                            if (_model.Sections.TryGetValue(cfLoad.RegionName, out section))
+                            {
+                                if (section is DistributedMassSection dms)
+                                    count += HighlightSurfaces(new string[] { section.RegionName });
+                                else throw new NotSupportedException();
+                            }
+                            else return;
                         }
                         else throw new NotSupportedException();
                     }
@@ -12829,23 +12878,47 @@ namespace PrePoMax
                         if (cfLoad.RegionType == RegionTypeEnum.PartName && _model.Mesh.Parts[cfLoad.RegionName].Visible) count++;
                         else if (cfLoad.RegionType == RegionTypeEnum.ElementSetName)
                         {
-                            if (!_model.Mesh.ElementSets.ContainsKey(cfLoad.RegionName)) return;
-                            elementSet = _model.Mesh.ElementSets[cfLoad.RegionName];
-                            if (elementSet.CreatedFromParts)
+                            if (_model.Mesh.ElementSets.TryGetValue(cfLoad.RegionName, out elementSet))
                             {
-                                string[] partNames = _model.Mesh.GetPartNamesFromPartIds(elementSet.Labels);
-                                foreach (var partName in partNames) if (_model.Mesh.Parts[partName].Visible) { count++; break; }
-                            }
-                            else
-                            {
-                                Dictionary<int, bool> partVisibilities = new Dictionary<int, bool>();
-                                foreach (var part in _model.Mesh.Parts) partVisibilities.Add(part.Value.PartId, part.Value.Visible);
-                                FeElement element;
-                                foreach (var elementId in elementSet.Labels)
+                                if (elementSet.CreatedFromParts)
                                 {
-                                    element = _model.Mesh.Elements[elementId];
-                                    if (partVisibilities[element.PartId]) { count++; break; }
+                                    string[] partNames = _model.Mesh.GetPartNamesFromPartIds(elementSet.Labels);
+                                    foreach (var partName in partNames) if (_model.Mesh.Parts[partName].Visible) { count++; break; }
                                 }
+                                else
+                                {
+                                    partIdIsVisibe = new Dictionary<int, bool>();
+                                    foreach (var part in _model.Mesh.Parts)
+                                        partIdIsVisibe.Add(part.Value.PartId, part.Value.Visible);
+                                    //
+                                    foreach (var elementId in elementSet.Labels)
+                                    {
+                                        element = _model.Mesh.Elements[elementId];
+                                        if (partIdIsVisibe[element.PartId]) { count++; break; }
+                                    }
+                                }
+                            }
+                            else return;
+                        }
+                        else if (cfLoad.RegionType == RegionTypeEnum.MassSection)
+                        {
+                            if (_model.Sections.TryGetValue(cfLoad.RegionName, out section))
+                            {
+                                if (section is DistributedMassSection dms)
+                                {
+                                    elementIds = _model.Mesh.GetSurfaceElementIds(dms.RegionName);
+                                    //
+                                    partIdIsVisibe = new Dictionary<int, bool>();
+                                    foreach (var part in _model.Mesh.Parts)
+                                        partIdIsVisibe.Add(part.Value.PartId, part.Value.Visible);
+                                    //
+                                    foreach (var elementId in elementIds)
+                                    {
+                                        element = _model.Mesh.Elements[elementId];
+                                        if (partIdIsVisibe[element.PartId]) { count++; break; }
+                                    }
+                                }
+                                else throw new NotSupportedException();
                             }
                         }
                     }
@@ -14150,6 +14223,8 @@ namespace PrePoMax
                             bool backfaceCulling = sec is SolidSection;
                             HighlightElementSets(new string[] { sec.RegionName }, backfaceCulling);
                         }
+                        else if (sec.RegionType == RegionTypeEnum.SurfaceName)
+                            HighlightSurfaces(new string[] { sec.RegionName });
                         else throw new NotSupportedException();
                     }
                     else if (obj is Constraint c)
@@ -14582,16 +14657,19 @@ namespace PrePoMax
             ApplyLighting(data);
             _form.Add3DCells(data);
         }
-        public void HighlightSurfaces(string[] surfacesToSelect, bool useSecondaryHighlightColor = false)
+        public int HighlightSurfaces(string[] surfacesToSelect, bool useSecondaryHighlightColor = false)
         {
+            int count = 0;
             Color color = Color.Red;
             vtkRendererLayer layer = vtkRendererLayer.Selection;
             //
             foreach (var surfaceName in surfacesToSelect)
             {
-                DrawSurface("Highlight-Surface", surfaceName, color, layer, true, useSecondaryHighlightColor);
+                count += DrawSurface("Highlight-Surface", surfaceName, color, layer, true, useSecondaryHighlightColor);
                 DrawSurfaceEdge("Highlight-SurfaceEdges", surfaceName, color, layer, true, useSecondaryHighlightColor);
             }
+            //
+            return count;
         }
         public void HighlightReferencePoints(string[] referencePointsToSelect)
         {

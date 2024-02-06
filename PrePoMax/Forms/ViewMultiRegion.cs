@@ -66,7 +66,7 @@ namespace PrePoMax
                 _dctd.PopulateProperty(_regionTypePropertyNamePairs[entry.Key], entry.Value);
             // Prepare the region drop down list
             PopulateDropDownListForRegionType(regionTypeListItemsPairs);
-            // Update visible dorp down lists
+            // Update visible drop down lists
             UpdateRegionVisibility();
         }
         private void PopulateDropDownListForRegionType(Dictionary<RegionTypeEnum, string[]> regionTypeListItemsPairs)

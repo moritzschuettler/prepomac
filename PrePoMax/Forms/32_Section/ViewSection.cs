@@ -47,6 +47,11 @@ namespace PrePoMax
         [OrderedDisplayName(3, 10, "Element set")]
         [DescriptionAttribute("Select the element set for the creation of the section.")]
         public string ElementSetName { get { return _section.RegionName; } set { _section.RegionName = value; } }
+        //
+        [CategoryAttribute("Region")]
+        [OrderedDisplayName(4, 10, "Surface")]
+        [DescriptionAttribute("Select the surface for the creation of the load.")]
+        public string SurfaceName { get { return _section.RegionName; } set { _section.RegionName = value; } }
 
 
         // Constructors                                                                                                             
@@ -64,6 +69,7 @@ namespace PrePoMax
             regionTypePropertyNamePairs.Add(RegionTypeEnum.Selection, nameof(SelectionHidden));
             regionTypePropertyNamePairs.Add(RegionTypeEnum.PartName, nameof(PartName));
             regionTypePropertyNamePairs.Add(RegionTypeEnum.ElementSetName, nameof(ElementSetName));
+            regionTypePropertyNamePairs.Add(RegionTypeEnum.SurfaceName, nameof(SurfaceName));
             //
             base.SetBase(_section, regionTypePropertyNamePairs);
             base.DynamicCustomTypeDescriptor = ProviderInstaller.Install(this);
@@ -72,14 +78,21 @@ namespace PrePoMax
         {
             return _section;
         }
-        public void PopulateDropDownLists(string[] materialNames, string[] partNames, string[] elementSetNames)
+        public void PopulateDropDownLists(string[] materialNames, string[] partNames, string[] elementSetNames,
+                                          string[] surfaceNames)
         {
+            if (materialNames == null) materialNames = new string[0];
+            if (partNames == null) partNames = new string[0];
+            if (elementSetNames == null) elementSetNames = new string[0];
+            if (surfaceNames == null) surfaceNames = new string[0];
+            //
             base.DynamicCustomTypeDescriptor.PopulateProperty(() => this.MaterialName, materialNames);
             //
             Dictionary<RegionTypeEnum, string[]> regionTypeListItemsPairs = new Dictionary<RegionTypeEnum, string[]>();
             regionTypeListItemsPairs.Add(RegionTypeEnum.Selection, new string[] { "Hidden" });
             regionTypeListItemsPairs.Add(RegionTypeEnum.PartName, partNames);
             regionTypeListItemsPairs.Add(RegionTypeEnum.ElementSetName, elementSetNames);
+            regionTypeListItemsPairs.Add(RegionTypeEnum.SurfaceName, surfaceNames);
             base.PopulateDropDownLists(regionTypeListItemsPairs);
         }
         public override void UpdateRegionVisibility()

@@ -28,6 +28,7 @@ namespace PrePoMax.Forms
                 if (value is SolidSection sose) _viewSection = new ViewSolidSection(sose.DeepClone());
                 else if (value is ShellSection shse) _viewSection = new ViewShellSection(shse.DeepClone());
                 else if (value is MembraneSection mese) _viewSection = new ViewMembraneSection(mese.DeepClone());
+                else if (value is DistributedMassSection dmse) _viewSection = new ViewDistributedMassSection(dmse.DeepClone());
                 else throw new NotImplementedException();
             }
         }
@@ -120,6 +121,9 @@ namespace PrePoMax.Forms
                 (Section is ShellSection ss && ss.Thickness.Value <= 0) ||
                 (Section is MembraneSection ms && ms.Thickness.Value <= 0))
                 throw new CaeException("The section thickness must be larger than 0.");
+            //
+            if (Section is DistributedMassSection dms && dms.Mass.Value < 0)
+                throw new CaeException("The mass must be larger or equal to 0.");
             // Create
             if (_sectionToEditName == null)
             {
@@ -156,34 +160,36 @@ namespace PrePoMax.Forms
             string[] materialNames = _controller.GetMaterialNames();
             string[] partNames = _controller.GetModelPartNames();
             string[] elementSetNames = _controller.GetUserElementSetNames();
+            string[] surfaceNames = _controller.GetUserSurfaceNames();
+            if (surfaceNames == null) surfaceNames = new string[0];
             //
             if (_sectionNames == null)
                 throw new CaeException("The section names must be defined first.");
             //
-            PopulateListOfSections(materialNames, partNames, elementSetNames);
+            PopulateListOfSections(materialNames, partNames, elementSetNames, surfaceNames);
             // Create new section
             if (_sectionToEditName == null)
             {
                 lvTypes.Enabled = true;
                 _viewSection = null;
                 // Preselect
-                HashSet<PartType> partTypes = new HashSet<PartType>();
-                foreach (var entry in _controller.Model.Mesh.Parts) partTypes.Add(entry.Value.PartType);
-                // 3D
-                if (_controller.Model.Properties.ModelSpace == ModelSpaceEnum.ThreeD)
-                {
-                    if (partTypes.Count == 1)
-                    {
-                        if (partTypes.First() == PartType.Solid) _preselectIndex = 0;
-                        //else lvTypes.Items[0].Tag =
-                        //  new ViewError("There are no solid elements for the solid section definition.");
-                    }
-                }
-                // 2D
-                else if (_controller.Model.Properties.ModelSpace.IsTwoD())
-                {
-                    _preselectIndex = 0;
-                }
+                //HashSet<PartType> partTypes = new HashSet<PartType>();
+                //foreach (var entry in _controller.Model.Mesh.Parts) partTypes.Add(entry.Value.PartType);
+                //// 3D
+                //if (_controller.Model.Properties.ModelSpace == ModelSpaceEnum.ThreeD)
+                //{
+                //    if (partTypes.Count == 1)
+                //    {
+                //        if (partTypes.First() == PartType.Solid) _preselectIndex = 0;
+                //        //else lvTypes.Items[0].Tag =
+                //        //  new ViewError("There are no solid elements for the solid section definition.");
+                //    }
+                //}
+                //// 2D
+                //else if (_controller.Model.Properties.ModelSpace.IsTwoD())
+                //{
+                //    _preselectIndex = 0;
+                //}
             }
             // Edit existing section
             else
@@ -204,7 +210,7 @@ namespace PrePoMax.Forms
                         CheckMissingValueRef(ref elementSetNames, vss.ElementSetName, s => { vss.ElementSetName = s; });
                     else throw new NotSupportedException();
                     //
-                    _viewSection.PopulateDropDownLists(materialNames, partNames, elementSetNames);
+                    vss.PopulateDropDownLists(materialNames, partNames, elementSetNames, null);
                 }
                 else if (_viewSection is ViewShellSection vshs)
                 {
@@ -218,7 +224,7 @@ namespace PrePoMax.Forms
                         CheckMissingValueRef(ref elementSetNames, vshs.ElementSetName, s => { vshs.ElementSetName = s; });
                     else throw new NotSupportedException();
                     //
-                    _viewSection.PopulateDropDownLists(materialNames, partNames, elementSetNames);
+                    vshs.PopulateDropDownLists(materialNames, partNames, elementSetNames, null);
                 }
                 else if (_viewSection is ViewMembraneSection vms)
                 {
@@ -232,7 +238,18 @@ namespace PrePoMax.Forms
                         CheckMissingValueRef(ref elementSetNames, vms.ElementSetName, s => { vms.ElementSetName = s; });
                     else throw new NotSupportedException();
                     //
-                    _viewSection.PopulateDropDownLists(materialNames, partNames, elementSetNames);
+                    vms.PopulateDropDownLists(materialNames, partNames, elementSetNames, null);
+                }
+                else if (_viewSection is ViewDistributedMassSection dms)
+                {
+                    selectedId = 3;
+                    // Check for deleted entities
+                    if (dms.RegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
+                    else if (dms.RegionType == RegionTypeEnum.SurfaceName.ToFriendlyString())
+                        CheckMissingValueRef(ref surfaceNames, dms.SurfaceName, s => { dms.SurfaceName = s; });
+                    else throw new NotSupportedException();
+                    //
+                    dms.PopulateDropDownLists(null, null, null, surfaceNames);
                 }
                 else throw new NotSupportedException();
                 //
@@ -246,7 +263,8 @@ namespace PrePoMax.Forms
 
 
         // Methods                                                                                                                  
-        private void PopulateListOfSections(string[] materialNames, string[] partNames, string[] elementSetNames)
+        private void PopulateListOfSections(string[] materialNames, string[] partNames, string[] elementSetNames,
+                                            string[] surfaceNames)
         {
             ListViewItem item;
             bool twoD = _controller.Model.Properties.ModelSpace.IsTwoD();
@@ -256,10 +274,10 @@ namespace PrePoMax.Forms
             {
                 bool showThickness = _controller.Model.Properties.ModelSpace == ModelSpaceEnum.PlaneStress ||
                                      _controller.Model.Properties.ModelSpace == ModelSpaceEnum.PlaneStrain;
-                SolidSection ss = new SolidSection(GetSectionName("Solid"), materialNames[0], "",
+                SolidSection ss = new SolidSection(GetSectionName("Solid_Section"), materialNames[0], "",
                                                    RegionTypeEnum.Selection, 1, twoD);
                 ViewSolidSection vss = new ViewSolidSection(ss);
-                vss.PopulateDropDownLists(materialNames, partNames, elementSetNames);
+                vss.PopulateDropDownLists(materialNames, partNames, elementSetNames, null);
                 item.Tag = vss;
             }
             else item.Tag = new ViewError("There is no material defined for the solid section definition.");
@@ -268,10 +286,10 @@ namespace PrePoMax.Forms
             item = new ListViewItem("Shell Section");
             if (materialNames.Length > 0)
             {
-                ShellSection ss = new ShellSection(GetSectionName("Shell"), materialNames[0], "",
+                ShellSection ss = new ShellSection(GetSectionName("Shell_Section"), materialNames[0], "",
                                                    RegionTypeEnum.Selection, 1, twoD);
                 ViewShellSection vss = new ViewShellSection(ss);
-                vss.PopulateDropDownLists(materialNames, partNames, elementSetNames);
+                vss.PopulateDropDownLists(materialNames, partNames, elementSetNames, null);
                 item.Tag = vss;
             }
             else item.Tag = new ViewError("There is no material defined for the shell section definition.");
@@ -280,25 +298,34 @@ namespace PrePoMax.Forms
             item = new ListViewItem("Membrane Section");
             if (materialNames.Length > 0)
             {
-                MembraneSection ms = new MembraneSection(GetSectionName("Membrane"), materialNames[0], "",
+                MembraneSection ms = new MembraneSection(GetSectionName("Membrane_Section"), materialNames[0], "",
                                                          RegionTypeEnum.Selection, 1, twoD);
                 ViewMembraneSection vms = new ViewMembraneSection(ms);
-                vms.PopulateDropDownLists(materialNames, partNames, elementSetNames);
+                vms.PopulateDropDownLists(materialNames, partNames, elementSetNames, null);
                 item.Tag = vms;
             }
             else item.Tag = new ViewError("There is no material defined for the membrane section definition.");
             lvTypes.Items.Add(item);
+            // Distributed mass section
+            item = new ListViewItem("Distributed Mass");
+            DistributedMassSection dms = new DistributedMassSection(GetSectionName("Distributed_Mass"), "",
+                                                                    RegionTypeEnum.Selection, 0, twoD);
+            ViewDistributedMassSection vdms = new ViewDistributedMassSection(dms);
+            vdms.PopulateDropDownLists(null, null, null, surfaceNames);
+            item.Tag = vdms;
+            lvTypes.Items.Add(item);
         }
         private string GetSectionName(string name)
         {
-            return _sectionNames.GetNextNumberedKey(name + "_Section");
+            return _sectionNames.GetNextNumberedKey(name);
         }
         private bool CheckSectionElementTypes()
         {
             try
             {
                 if (Section == null) { }
-                else if (Section is SolidSection || Section is ShellSection || Section is MembraneSection)
+                else if (Section is SolidSection || Section is ShellSection || Section is MembraneSection ||
+                         Section is DistributedMassSection)
                 {
                     // 3D
                     if (_controller.Model.Properties.ModelSpace == ModelSpaceEnum.ThreeD)
@@ -321,6 +348,10 @@ namespace PrePoMax.Forms
                             else if (Section is MembraneSection && _controller.AreElementsAllShellElements(elementSet.Labels))
                                 return true;
                             else return false;  // must be here
+                        }
+                        else if (Section.RegionType == RegionTypeEnum.SurfaceName)
+                        {
+                            return true;
                         }
                         else if (Section.RegionType == RegionTypeEnum.Selection)
                         {
@@ -359,6 +390,10 @@ namespace PrePoMax.Forms
                                 return true;
                             else return false;
                         }
+                        else if (Section.RegionType == RegionTypeEnum.SurfaceName)
+                        {
+                            return true;
+                        }
                         else if (Section.RegionType == RegionTypeEnum.Selection)
                         {
                             if (Section.CreationIds != null)
@@ -396,9 +431,10 @@ namespace PrePoMax.Forms
                 //
                 if (_viewSection == null) { }
                 else if (_viewSection is ViewSolidSection || _viewSection is ViewShellSection ||
-                         _viewSection is ViewMembraneSection)
+                         _viewSection is ViewMembraneSection ||_viewSection is ViewDistributedMassSection)
                 {
-                    if (Section.RegionType == RegionTypeEnum.PartName || Section.RegionType == RegionTypeEnum.ElementSetName)
+                    if (Section.RegionType == RegionTypeEnum.PartName || Section.RegionType == RegionTypeEnum.ElementSetName ||
+                        Section.RegionType == RegionTypeEnum.SurfaceName)
                     {
                         _controller.Highlight3DObjects(new object[] { Section.RegionName });
                     }
@@ -436,6 +472,7 @@ namespace PrePoMax.Forms
                 else if (Section is SolidSection) _controller.SetSelectItemToPart();
                 else if (Section is ShellSection) _controller.SetSelectItemToGeometry();
                 else if (Section is MembraneSection) _controller.SetSelectItemToGeometry();
+                else if (Section is DistributedMassSection) _controller.SetSelectItemToSurface();
                 else throw new NotSupportedException();
             }
             else _controller.SetSelectByToOff();
@@ -445,7 +482,8 @@ namespace PrePoMax.Forms
         {
             if (Section != null && Section.RegionType == RegionTypeEnum.Selection)
             {
-                if (Section is SolidSection || Section is ShellSection || Section is MembraneSection)
+                if (Section is SolidSection || Section is ShellSection || Section is MembraneSection ||
+                    Section is DistributedMassSection)
                 {
                     Section.CreationIds = ids;
                     Section.CreationData = _controller.Selection.DeepClone();

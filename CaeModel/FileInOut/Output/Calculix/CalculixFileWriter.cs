@@ -11,6 +11,7 @@ using CaeGlobals;
 using Microsoft.SqlServer.Server;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Xml.Linq;
 
 namespace FileInOut.Output
 {
@@ -82,19 +83,27 @@ namespace FileInOut.Output
             List<SectionData> additionalSectionData = new List<SectionData>();
             List<BoundaryCondition> additionalBoundaryConditions = new List<BoundaryCondition>();
             List<double[]> equationParameters = new List<double[]>();
+            //
+            HashSet<string> reservedElementSetNames = new HashSet<string>();
+            reservedElementSetNames.UnionWith(model.Mesh.ElementSets.Keys);
+            reservedElementSetNames.UnionWith(model.Mesh.Parts.Keys);
             // Collect pre-tension loads
             OrderedDictionary<string, List<PreTensionLoad>> preTensionLoads;
             GetPretensionLoads(model, out preTensionLoads);
             // Collect compression only constraints
+            
             GetCompressionOnlyConstraintData(model, ref maxNodeId, ref maxElementId, ref additionalNodes, ref additionalNodeSets,
                                              ref additionalElementKeywords, ref additionalElementSets, ref additionalSectionData,
-                                             ref additionalBoundaryConditions, ref equationParameters);
+                                             ref additionalBoundaryConditions, ref equationParameters, ref reservedElementSetNames);
             // Prepare reference points
             Dictionary<string, int[]> referencePointsNodeIds;
             GetReferencePoints(model, preTensionLoads, ref maxNodeId, out referencePointsNodeIds);
             // Prepare point springs
             GetPointSprings(model, referencePointsNodeIds, ref maxElementId, ref additionalElementKeywords,
-                            ref additionalElementSets, ref additionalSectionData);
+                            ref additionalElementSets, ref additionalSectionData, ref reservedElementSetNames);
+            // Prepare mass sections
+            GetMassSections(model, ref maxElementId, ref additionalElementKeywords, ref additionalElementSets,
+                            ref additionalSectionData, ref reservedElementSetNames);
             //
             CalTitle title;
             List<CalculixKeyword> keywords = new List<CalculixKeyword>();
@@ -158,7 +167,7 @@ namespace FileInOut.Output
             title = new CalTitle("Contact pairs", "");
             keywords.Add(title);
             AppendContactPairs(model, title);
-            // Amplitudess
+            // Amplitudes
             title = new CalTitle("Amplitudes", "");
             keywords.Add(title);
             AppendAmplitudes(model, title);
@@ -186,7 +195,7 @@ namespace FileInOut.Output
                     if (entry.Value is PreTensionLoad ptl)
                     {
                         name = ptl.SurfaceName;
-                        if (!ptl.AutoComputeDirection) name += "@" + ptl.X.ToString() + ptl.Y.ToString() + ptl.Z.ToString();
+                        if (!ptl.AutoComputeDirection) name += "_" + ptl.X.ToString() + ptl.Y.ToString() + ptl.Z.ToString();
                         //
                         if (preTensionLoads.TryGetValue(name, out preTensionLoadsList)) preTensionLoadsList.Add(ptl);
                         else preTensionLoads.Add(name, new List<PreTensionLoad>() { ptl });
@@ -201,7 +210,8 @@ namespace FileInOut.Output
                                                              ref List<FeElementSet> additionalElementSets,
                                                              ref List<SectionData> additionalSectionData,
                                                              ref List<BoundaryCondition> additionalBoundaryConditions,
-                                                             ref List<double[]> equationParameters)
+                                                             ref List<double[]> equationParameters,
+                                                             ref HashSet<string> reservedElementSetNames)
         {
             HashSet<string> elementIdsHash = new HashSet<string>();
             //
@@ -223,7 +233,7 @@ namespace FileInOut.Output
             int newElementId = maxElementId;
             List<int> elementIds;
             string name;
-            
+            //
             FeNode node1;
             FeNode node2;
             List<int> bcNodeIds = new List<int>();
@@ -306,7 +316,9 @@ namespace FileInOut.Output
                             {
                                 normal = entry.Value;
                                 elementIds = new List<int>();
-                                name = co.Name + "_ElementSet" + count++;
+                                name = co.Name + "_ElementSet-" + count++;
+                                if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
+                                reservedElementSetNames.Add(name);
                                 // Node 1
                                 newNodeId++;
                                 bcNodeIds.Add(newNodeId);
@@ -387,7 +399,8 @@ namespace FileInOut.Output
         static private void GetPointSprings(FeModel model, Dictionary<string, int[]> referencePointsNodeIds, ref int maxElementId,
                                             ref List<CalElement> additionalElementKeywords,
                                             ref List<FeElementSet> additionalElementSets,
-                                            ref List<SectionData> additionalSectionData)
+                                            ref List<SectionData> additionalSectionData,
+                                            ref HashSet<string> reservedElementSetNames)
         {
             if (model.Mesh != null)
             {
@@ -402,9 +415,6 @@ namespace FileInOut.Output
                 FeNodeSet nodeSet;
                 List<FeElement> newElements;
                 List<FeElement> oneSpringElements;
-                HashSet<string> elementSetNames = new HashSet<string>(model.Mesh.ElementSets.Keys);
-                //
-                elementSetNames.UnionWith(model.Mesh.Parts.Keys);
                 // Collect point and surface springs
                 Dictionary<string, PointSpringData[]> activeSprings = new Dictionary<string, PointSpringData[]>();
                 foreach (var entry in model.Constraints)
@@ -430,8 +440,8 @@ namespace FileInOut.Output
                         {
                             // Name
                             name = psd.Name + "_DOF_" + directions[i];
-                            if (elementSetNames.Contains(name)) name = elementSetNames.GetNextNumberedKey(name);
-                            elementSetNames.Add(name);
+                            if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
+                            reservedElementSetNames.Add(name);
                             //
                             newElements = new List<FeElement>();
                             // Node id
@@ -475,12 +485,69 @@ namespace FileInOut.Output
                     }
                     // Add elements in sets
                     name = entry.Key + "_All";
-                    if (elementSetNames.Contains(name)) name = elementSetNames.GetNextNumberedKey(name);
-                    elementSetNames.Add(name);
+                    if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
+                    reservedElementSetNames.Add(name);
                     additionalElementKeywords.Add(new CalElement(FeElementTypeSpring.SPRING1.ToString(), name, oneSpringElements));
                 }
                 //
                 maxElementId = elementId;
+            }
+        }
+        static private void GetMassSections(FeModel model, ref int maxElementId, ref List<CalElement> additionalElementKeywords,
+                                            ref List<FeElementSet> additionalElementSets,
+                                            ref List<SectionData> additionalSectionData,
+                                            ref HashSet<string> reservedElementSetNames)
+        {
+            double aSum;
+            double nodalMassFactor;
+            string name;
+            List<int> elementIds;
+            FeElement element;
+            FeNodeSet nodeSet;
+            FeSurface surface;
+            MassSectionData massSectionData;
+            Dictionary<int, double> nodalValues;
+            CalElement calElement;
+            //
+            foreach (var entry in model.Sections)
+            {
+                if (entry.Value is MassSection ms)
+                {
+                    if (ms is DistributedMassSection dms)
+                    {
+                        elementIds = new List<int>();
+                        surface = model.Mesh.Surfaces[dms.RegionName];
+                        nodeSet = model.Mesh.NodeSets[surface.NodeSetName];
+                        model.GetDistributedNodalValuesFromSurface(surface.Name, out nodalValues, out aSum);
+                        nodalMassFactor = dms.Mass.Value / aSum;
+                        //
+                        foreach (var nodeId in nodeSet.Labels)
+                        {
+                            // Name
+                            name = dms.Name + "_NID_" + nodeId;
+                            if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
+                            reservedElementSetNames.Add(name);
+                            // Element keyword
+                            maxElementId++;
+                            element = new MassElement(maxElementId, new int[] { nodeId });
+                            calElement = new CalElement(FeElementType0D.Mass.ToString(), name, new List<FeElement> { element });
+                            additionalElementKeywords.Add(calElement);
+                            elementIds.Add(maxElementId);
+                            // Mass section
+                            massSectionData = new MassSectionData("NID_" + nodeId, name, nodalValues[nodeId] * nodalMassFactor);
+                            additionalSectionData.Add(massSectionData);
+                        }
+                        // Add elements in sets
+                        name = dms.Name + "_All";
+                        if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
+                        reservedElementSetNames.Add(name);
+                        //
+                        additionalElementSets.Add(new FeElementSet(name, elementIds.ToArray()));
+                        //
+                        dms.ElementSetName = name;  // temporary storage
+                    }
+                    else throw new NotSupportedException();
+                }
             }
         }
         static public bool AddUserKeywordByIndices(List<CalculixKeyword> keywords, int[] indices, CalculixKeyword userKeyword)
@@ -871,6 +938,7 @@ namespace FileInOut.Output
                     {
                         if (section is LinearSpringSectionData lssd) parent.AddKeyword(new CalLinearSpringSection(lssd));
                         else if (section is GapSectionData gsd) parent.AddKeyword(new CalGapSection(gsd));
+                        else if (section is MassSectionData msd) parent.AddKeyword(new CalMassSection(msd));
                     }
                 }
             }
@@ -882,6 +950,7 @@ namespace FileInOut.Output
                 if (section is SolidSection ss) parent.AddKeyword(new CalSolidSection(ss));
                 else if (section is ShellSection shs) parent.AddKeyword(new CalShellSection(shs));
                 else if (section is MembraneSection ms) parent.AddKeyword(new CalMembraneSection(ms));
+                else if (section is DistributedMassSection dms) { }
                 else throw new NotImplementedException();
             }
             else parent.AddKeyword(new CalDeactivated(section.Name));
@@ -1358,24 +1427,43 @@ namespace FileInOut.Output
                 }
                 else if (load is GravityLoad gl)
                 {
-                    CalGravityLoad gLoad = new CalGravityLoad(gl, complexLoadType);
+                    MassSection massSection; 
+                    GravityLoad glClone = gl.DeepClone();
+                    if (gl.RegionType == RegionTypeEnum.MassSection)
+                    {
+                        massSection = (MassSection)model.Sections[glClone.RegionName];
+                        glClone.RegionName = massSection.ElementSetName;
+                        massSection.ElementSetName = null;      // temporary storage
+                    }
+                    //
+                    CalGravityLoad gLoad = new CalGravityLoad(glClone, complexLoadType);
                     parent.AddKeyword(gLoad);
                 }
                 else if (load is CentrifLoad cfl)
                 {
-                    CalCentrifLoad cLoad = new CalCentrifLoad(cfl, complexLoadType);
+                    MassSection massSection;
+                    CentrifLoad cflClone = cfl.DeepClone();
+                    if (cfl.RegionType == RegionTypeEnum.MassSection)
+                    {
+                        massSection = (MassSection)model.Sections[cflClone.RegionName];
+                        cflClone.RegionName = massSection.ElementSetName;
+                        massSection.ElementSetName = null;      // temporary storage
+                    }
+                    //
+                    CalCentrifLoad cLoad = new CalCentrifLoad(cflClone, complexLoadType);
                     parent.AddKeyword(cLoad);
                 }
                 else if (load is PreTensionLoad ptl)
                 {
                     string name = ptl.SurfaceName;
-                    if (!ptl.AutoComputeDirection) name += "@" + ptl.X.ToString() + ptl.Y.ToString() + ptl.Z.ToString();
+                    if (!ptl.AutoComputeDirection) name += "_" + ptl.X.ToString() + ptl.Y.ToString() + ptl.Z.ToString();
                     //
                     CalculixKeyword calKey;
                     if (ptl.Type == PreTensionLoadType.Force)
                     {
                         int nodeId = referencePointsNodeIds[name][0];
-                        CLoad cLoad = new CLoad(ptl.Name, nodeId, ptl.GetMagnitudeValue(), 0, 0, ptl.TwoD, ptl.Complex, ptl.PhaseDeg.Value);
+                        CLoad cLoad = new CLoad(ptl.Name, nodeId, ptl.GetMagnitudeValue(), 0, 0, ptl.TwoD,
+                                                ptl.Complex, ptl.PhaseDeg.Value);
                         cLoad.AmplitudeName = ptl.AmplitudeName;
                         calKey = new CalCLoad(cLoad, referencePointsNodeIds, complexLoadType);
                     }

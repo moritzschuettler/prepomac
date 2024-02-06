@@ -284,6 +284,10 @@ namespace CaeModel
                         || (ms.RegionType == RegionTypeEnum.ElementSetName
                             && _mesh.ElementSets.ContainsValidKey(section.RegionName)));
                 }
+                else if (section is DistributedMassSection dms)
+                {
+                    valid = dms.RegionType == RegionTypeEnum.SurfaceName && _mesh.Surfaces.ContainsValidKey(section.RegionName);
+                }
                 else throw new NotSupportedException();
                 // Check equations
                 valid &= section.TryCheckEquations();
@@ -539,19 +543,19 @@ namespace CaeModel
             }
             else if (load is GravityLoad gl)
             {
-                valid = (gl.RegionType == RegionTypeEnum.PartName && _mesh.Parts.ContainsValidKey(gl.RegionName))
-                        || (gl.RegionType == RegionTypeEnum.ElementSetName
-                        && _mesh.ElementSets.ContainsValidKey(gl.RegionName)
-                        || (gl.RegionType == RegionTypeEnum.Selection && _mesh.GetPartNamesFromPartIds(gl.CreationIds) != null &&
-                           _mesh.GetPartNamesFromPartIds(gl.CreationIds).Length == gl.CreationIds.Length));
+                valid = (gl.RegionType == RegionTypeEnum.PartName && _mesh.Parts.ContainsValidKey(gl.RegionName)) ||
+                        (gl.RegionType == RegionTypeEnum.ElementSetName && _mesh.ElementSets.ContainsValidKey(gl.RegionName)) ||
+                        (gl.RegionType == RegionTypeEnum.MassSection && _sections.ContainsValidKey(gl.RegionName)) ||
+                        (gl.RegionType == RegionTypeEnum.Selection && _mesh.GetPartNamesFromPartIds(gl.CreationIds) != null &&
+                        _mesh.GetPartNamesFromPartIds(gl.CreationIds).Length == gl.CreationIds.Length);
             }
             else if (load is CentrifLoad cf)
             {
-                valid = (cf.RegionType == RegionTypeEnum.PartName && _mesh.Parts.ContainsValidKey(cf.RegionName))
-                        || (cf.RegionType == RegionTypeEnum.ElementSetName
-                        && _mesh.ElementSets.ContainsValidKey(cf.RegionName)
-                        || (cf.RegionType == RegionTypeEnum.Selection && _mesh.GetPartNamesFromPartIds(cf.CreationIds) != null &&
-                           _mesh.GetPartNamesFromPartIds(cf.CreationIds).Length == cf.CreationIds.Length));
+                valid = (cf.RegionType == RegionTypeEnum.PartName && _mesh.Parts.ContainsValidKey(cf.RegionName)) ||
+                        (cf.RegionType == RegionTypeEnum.ElementSetName && _mesh.ElementSets.ContainsValidKey(cf.RegionName)) ||
+                        (cf.RegionType == RegionTypeEnum.MassSection && _sections.ContainsValidKey(cf.RegionName)) ||
+                        (cf.RegionType == RegionTypeEnum.Selection && _mesh.GetPartNamesFromPartIds(cf.CreationIds) != null &&
+                        _mesh.GetPartNamesFromPartIds(cf.CreationIds).Length == cf.CreationIds.Length);
             }
             else if (load is PreTensionLoad ptl)
             {
@@ -613,6 +617,8 @@ namespace CaeModel
             //
             foreach (var entry in _sections)
             {
+                if (entry.Value is MassSection) continue;
+                //
                 if (entry.Value.RegionType == RegionTypeEnum.PartName)
                 {
                     foreach (var elementId in _mesh.Parts[entry.Value.RegionName].Labels)
