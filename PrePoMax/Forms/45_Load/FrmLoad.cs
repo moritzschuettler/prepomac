@@ -249,12 +249,14 @@ namespace PrePoMax.Forms
                 HighlightLoad();
             }
             else if (_viewLoad is ViewGravityLoad vgl &&
-                     (property == nameof(vgl.PartName) || property == nameof(vgl.ElementSetName)))
+                     (property == nameof(vgl.PartName) || property == nameof(vgl.ElementSetName) ||
+                      property == nameof(vgl.MassSectionName)))
             {
                 HighlightLoad();
             }
             else if (_viewLoad is ViewCentrifLoad vcfl &&
                      (property == nameof(vcfl.PartName) || property == nameof(vcfl.ElementSetName) ||
+                      property == nameof(vgl.MassSectionName) ||
                       property == nameof(vcfl.X) || property == nameof(vcfl.Y) || property == nameof(vcfl.Z)))
             {
                 HighlightLoad();

@@ -36,10 +36,6 @@ namespace PrePoMax
             _massSection = massSection;
             //
             SetBase(_massSection);
-            //
-            DynamicCustomTypeDescriptor.GetProperty(nameof(MaterialName)).SetIsBrowsable(false);
-            DynamicCustomTypeDescriptor.GetProperty(nameof(PartName)).SetIsBrowsable(false);
-            DynamicCustomTypeDescriptor.GetProperty(nameof(ElementSetName)).SetIsBrowsable(false);
         }
 
 

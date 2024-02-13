@@ -3080,7 +3080,7 @@ namespace CaeMesh
             //
             return part;
         }
-        public BasePart[] CreateBasePartsByTypeFromElementIds(int[] elementIds)
+        public BasePart[] CreateBasePartsByTypeFromElementIds(int[] elementIds, bool onlyVisible = false)
         {
             HashSet<Type>[] partElementTypes = new HashSet<Type>[3];
             HashSet<int>[] partNodeIds = new HashSet<int>[3];
@@ -3095,9 +3095,17 @@ namespace CaeMesh
             int index;
             FeElement element;
             //
+            bool[] partVisible = null;
+            if (onlyVisible)
+            {
+                partVisible = new bool[GetMaxPartId() + 1];
+                foreach (var entry in _parts) if (entry.Value.Visible) partVisible[entry.Value.PartId] = true;
+            }
             for (int i = 0; i < elementIds.Length; i++)
             {
                 element = _elements[elementIds[i]];
+                if (onlyVisible && !partVisible[element.PartId]) continue;
+                //
                 if (element is FeElement3D) index = 0;
                 else if (element is FeElement2D) index = 1;
                 else if (element is FeElement1D) index = 2;

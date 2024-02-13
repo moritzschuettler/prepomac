@@ -102,8 +102,8 @@ namespace FileInOut.Output
             GetPointSprings(model, referencePointsNodeIds, ref maxElementId, ref additionalElementKeywords,
                             ref additionalElementSets, ref additionalSectionData, ref reservedElementSetNames);
             // Prepare mass sections
-            GetMassSections(model, ref maxElementId, ref additionalElementKeywords, ref additionalElementSets,
-                            ref additionalSectionData, ref reservedElementSetNames);
+            GetMassSections(model, referencePointsNodeIds, ref maxElementId, ref additionalElementKeywords,
+                            ref additionalElementSets, ref additionalSectionData, ref reservedElementSetNames);
             //
             CalTitle title;
             List<CalculixKeyword> keywords = new List<CalculixKeyword>();
@@ -493,18 +493,21 @@ namespace FileInOut.Output
                 maxElementId = elementId;
             }
         }
-        static private void GetMassSections(FeModel model, ref int maxElementId, ref List<CalElement> additionalElementKeywords,
+        static private void GetMassSections(FeModel model, Dictionary<string, int[]> referencePointsNodeIds,
+                                            ref int maxElementId, ref List<CalElement> additionalElementKeywords,
                                             ref List<FeElementSet> additionalElementSets,
                                             ref List<SectionData> additionalSectionData,
                                             ref HashSet<string> reservedElementSetNames)
         {
             double aSum;
             double nodalMassFactor;
+            double nodalMass;
             string name;
             List<int> elementIds;
             FeElement element;
             FeNodeSet nodeSet;
             FeSurface surface;
+            FeReferencePoint referencePoint;
             MassSectionData massSectionData;
             Dictionary<int, double> nodalValues;
             CalElement calElement;
@@ -513,7 +516,65 @@ namespace FileInOut.Output
             {
                 if (entry.Value is MassSection ms)
                 {
-                    if (ms is DistributedMassSection dms)
+                    if (ms is PointMassSection pms)
+                    {
+                        if (pms.RegionType == RegionTypeEnum.NodeSetName)
+                        {
+                            elementIds = new List<int>();
+                            nodeSet = model.Mesh.NodeSets[pms.RegionName];
+                            nodalMass = pms.Mass.Value;
+                            //
+                            foreach (var nodeId in nodeSet.Labels)
+                            {
+                                // Name
+                                name = pms.Name + "_NID_" + nodeId;
+                                if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
+                                reservedElementSetNames.Add(name);
+                                // Element keyword
+                                maxElementId++;
+                                element = new MassElement(maxElementId, new int[] { nodeId });
+                                calElement = new CalElement(FeElementType0D.Mass.ToString(), name, new List<FeElement> { element });
+                                additionalElementKeywords.Add(calElement);
+                                elementIds.Add(maxElementId);
+                                // Mass section
+                                massSectionData = new MassSectionData("NID_" + nodeId, name, nodalMass);
+                                additionalSectionData.Add(massSectionData);
+                            }
+                            // Add elements in sets
+                            name = pms.Name + "_All";
+                            if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
+                            reservedElementSetNames.Add(name);
+                            //
+                            additionalElementSets.Add(new FeElementSet(name, elementIds.ToArray()));
+                            //
+                            pms.ElementSetName = name;  // temporary storage
+                        }
+                        else if (pms.RegionType == RegionTypeEnum.ReferencePointName)
+                        {
+                            elementIds = new List<int>();
+                            referencePoint = model.Mesh.ReferencePoints[pms.RegionName];
+                            int nodeId = referencePointsNodeIds[referencePoint.Name][0];
+                            nodalMass = pms.Mass.Value;
+                            
+                            // Name
+                            name = pms.Name + "_RP_" + referencePoint.Name;
+                            if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
+                            reservedElementSetNames.Add(name);
+                            // Element keyword
+                            maxElementId++;
+                            element = new MassElement(maxElementId, new int[] { nodeId });
+                            calElement = new CalElement(FeElementType0D.Mass.ToString(), name, new List<FeElement> { element });
+                            additionalElementKeywords.Add(calElement);
+                            elementIds.Add(maxElementId);
+                            // Mass section
+                            massSectionData = new MassSectionData("NID_" + nodeId, name, nodalMass);
+                            additionalSectionData.Add(massSectionData);
+                            // Add elements in sets
+                            pms.ElementSetName = name;  // temporary storage
+                        }
+                        else throw new NotSupportedException();
+                    }
+                    else if (ms is DistributedMassSection dms)
                     {
                         elementIds = new List<int>();
                         surface = model.Mesh.Surfaces[dms.RegionName];
@@ -534,7 +595,8 @@ namespace FileInOut.Output
                             additionalElementKeywords.Add(calElement);
                             elementIds.Add(maxElementId);
                             // Mass section
-                            massSectionData = new MassSectionData("NID_" + nodeId, name, nodalValues[nodeId] * nodalMassFactor);
+                            nodalMass = nodalValues[nodeId] * nodalMassFactor;
+                            massSectionData = new MassSectionData("NID_" + nodeId, name, nodalMass);
                             additionalSectionData.Add(massSectionData);
                         }
                         // Add elements in sets
@@ -950,6 +1012,7 @@ namespace FileInOut.Output
                 if (section is SolidSection ss) parent.AddKeyword(new CalSolidSection(ss));
                 else if (section is ShellSection shs) parent.AddKeyword(new CalShellSection(shs));
                 else if (section is MembraneSection ms) parent.AddKeyword(new CalMembraneSection(ms));
+                else if (section is PointMassSection pms) { }
                 else if (section is DistributedMassSection dms) { }
                 else throw new NotImplementedException();
             }

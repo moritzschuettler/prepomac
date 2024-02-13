@@ -78,6 +78,7 @@ namespace PrePoMax
                 if (_nodeSymbolSize < 1) _nodeSymbolSize = 1;
             }
         }
+        public int HighlightNodeSymbolSize { get { return _nodeSymbolSize + 3; } }
         public bool DrawSymbolEdges
         {
             get { return _drawSymbolEdges; }

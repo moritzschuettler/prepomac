@@ -44,14 +44,24 @@ namespace PrePoMax
         public string PartName { get { return _section.RegionName; } set { _section.RegionName = value; } }
         //
         [CategoryAttribute("Region")]
-        [OrderedDisplayName(3, 10, "Element set")]
+        [OrderedDisplayName(3, 10, "Node set")]
+        [DescriptionAttribute("Select the node set for the creation of the section.")]
+        public string NodeSetName { get { return _section.RegionName; } set { _section.RegionName = value; } }
+        //
+        [CategoryAttribute("Region")]
+        [OrderedDisplayName(4, 10, "Element set")]
         [DescriptionAttribute("Select the element set for the creation of the section.")]
         public string ElementSetName { get { return _section.RegionName; } set { _section.RegionName = value; } }
         //
         [CategoryAttribute("Region")]
-        [OrderedDisplayName(4, 10, "Surface")]
-        [DescriptionAttribute("Select the surface for the creation of the load.")]
+        [OrderedDisplayName(5, 10, "Surface")]
+        [DescriptionAttribute("Select the surface for the creation of the section.")]
         public string SurfaceName { get { return _section.RegionName; } set { _section.RegionName = value; } }
+        //
+        [CategoryAttribute("Region")]
+        [OrderedDisplayName(6, 10, "Reference point")]
+        [DescriptionAttribute("Select the reference point for the creation of the section.")]
+        public string ReferencePointName { get { return _section.RegionName; } set { _section.RegionName = value; } }
 
 
         // Constructors                                                                                                             
@@ -68,7 +78,9 @@ namespace PrePoMax
             Dictionary<RegionTypeEnum, string> regionTypePropertyNamePairs = new Dictionary<RegionTypeEnum, string>();
             regionTypePropertyNamePairs.Add(RegionTypeEnum.Selection, nameof(SelectionHidden));
             regionTypePropertyNamePairs.Add(RegionTypeEnum.PartName, nameof(PartName));
+            regionTypePropertyNamePairs.Add(RegionTypeEnum.NodeSetName, nameof(NodeSetName));
             regionTypePropertyNamePairs.Add(RegionTypeEnum.ElementSetName, nameof(ElementSetName));
+            regionTypePropertyNamePairs.Add(RegionTypeEnum.ReferencePointName, nameof(ReferencePointName));
             regionTypePropertyNamePairs.Add(RegionTypeEnum.SurfaceName, nameof(SurfaceName));
             //
             base.SetBase(_section, regionTypePropertyNamePairs);
@@ -78,21 +90,25 @@ namespace PrePoMax
         {
             return _section;
         }
-        public void PopulateDropDownLists(string[] materialNames, string[] partNames, string[] elementSetNames,
-                                          string[] surfaceNames)
+        public void PopulateDropDownLists(string[] materialNames, string[] partNames, string[] nodeSetNames,
+                                          string[] elementSetNames, string[] surfaceNames, string[] referencePointNames)
         {
             if (materialNames == null) materialNames = new string[0];
             if (partNames == null) partNames = new string[0];
+            if (nodeSetNames == null) nodeSetNames = new string[0];
             if (elementSetNames == null) elementSetNames = new string[0];
             if (surfaceNames == null) surfaceNames = new string[0];
+            if (referencePointNames == null) referencePointNames = new string[0];
             //
             base.DynamicCustomTypeDescriptor.PopulateProperty(() => this.MaterialName, materialNames);
             //
             Dictionary<RegionTypeEnum, string[]> regionTypeListItemsPairs = new Dictionary<RegionTypeEnum, string[]>();
             regionTypeListItemsPairs.Add(RegionTypeEnum.Selection, new string[] { "Hidden" });
             regionTypeListItemsPairs.Add(RegionTypeEnum.PartName, partNames);
+            regionTypeListItemsPairs.Add(RegionTypeEnum.NodeSetName, nodeSetNames);
             regionTypeListItemsPairs.Add(RegionTypeEnum.ElementSetName, elementSetNames);
             regionTypeListItemsPairs.Add(RegionTypeEnum.SurfaceName, surfaceNames);
+            regionTypeListItemsPairs.Add(RegionTypeEnum.ReferencePointName, referencePointNames);
             base.PopulateDropDownLists(regionTypeListItemsPairs);
         }
         public override void UpdateRegionVisibility()

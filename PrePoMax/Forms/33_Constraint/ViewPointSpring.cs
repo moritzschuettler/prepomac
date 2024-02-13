@@ -28,11 +28,7 @@ namespace PrePoMax
         [OrderedDisplayName(2, 10, "Reference point")]
         [DescriptionAttribute("Select the reference point for the creation of the constraint definition.")]
         [Id(3, 2)]
-        public string ReferencePointName
-        {
-            get { return _spring.RegionName; }
-            set { _spring.RegionName = value; }
-        }
+        public string ReferencePointName { get { return _spring.RegionName; } set { _spring.RegionName = value; } }
 
 
         // Constructors                                                                                                             

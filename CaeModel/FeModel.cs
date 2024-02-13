@@ -279,10 +279,15 @@ namespace CaeModel
                 }
                 else if (section is MembraneSection ms)
                 {
-                    valid = _materials.ContainsValidKey(section.MaterialName)
-                        && ((ms.RegionType == RegionTypeEnum.PartName && _mesh.Parts.ContainsValidKey(section.RegionName))
-                        || (ms.RegionType == RegionTypeEnum.ElementSetName
-                            && _mesh.ElementSets.ContainsValidKey(section.RegionName)));
+                    valid = _materials.ContainsValidKey(section.MaterialName) &&
+                        ((ms.RegionType == RegionTypeEnum.PartName && _mesh.Parts.ContainsValidKey(section.RegionName)) ||
+                         (ms.RegionType == RegionTypeEnum.ElementSetName && _mesh.ElementSets.ContainsValidKey(section.RegionName)));
+                }
+                else if (section is PointMassSection pms)
+                {
+                    valid = (pms.RegionType == RegionTypeEnum.NodeSetName && _mesh.NodeSets.ContainsValidKey(section.RegionName) ||
+                             pms.RegionType == RegionTypeEnum.ReferencePointName &&
+                             _mesh.ReferencePoints.ContainsValidKey(section.RegionName));
                 }
                 else if (section is DistributedMassSection dms)
                 {
