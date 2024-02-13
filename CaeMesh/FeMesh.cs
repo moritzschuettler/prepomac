@@ -70,6 +70,7 @@ namespace CaeMesh
         public OrderedDictionary<string, FeSurface> Surfaces
         {
             get { return _surfaces; }
+            set { _surfaces = value; }
         }
         public OrderedDictionary<string, FeReferencePoint> ReferencePoints
         {
@@ -7845,6 +7846,32 @@ namespace CaeMesh
                 faceCenter[2] /= nodes.Length;
                 // Element normal to inside
                 faceNormal = ComputeNormalFromFaceCellNodes(nodes[0], nodes[1], nodes[2]).Coor;
+                //
+                shellElement = false;
+            }
+            else if (element is LinearPyramidElement || element is ParabolicPyramidElement)
+            {
+                nodeIds = element.GetNodeIdsFromFaceName(faceName);
+                //
+                if (faceName == FeFaceName.S1) nodes = new FeNode[4];
+                else nodes = new FeNode[3];
+                //
+                faceCenter = new double[3];
+                for (int i = 0; i < nodes.Length; i++)
+                {
+                    nodes[i] = mesh.Nodes[nodeIds[i]];
+                    faceCenter[0] += nodes[i].X;
+                    faceCenter[1] += nodes[i].Y;
+                    faceCenter[2] += nodes[i].Z;
+                }
+                faceCenter[0] /= nodes.Length;
+                faceCenter[1] /= nodes.Length;
+                faceCenter[2] /= nodes.Length;
+                // Element normal to inside
+                if (faceName == FeFaceName.S1)
+                    faceNormal = ComputeNormalFromFaceCellNodes(nodes[0], nodes[1], nodes[2], nodes[3]).Coor;
+                // Element normal to inside
+                else faceNormal = ComputeNormalFromFaceCellNodes(nodes[0], nodes[1], nodes[2]).Coor;
                 //
                 shellElement = false;
             }

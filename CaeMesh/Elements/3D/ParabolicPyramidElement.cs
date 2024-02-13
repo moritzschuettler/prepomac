@@ -60,10 +60,10 @@ namespace CaeMesh
             // The parameter node ids is sorted 
             // Only first three/four nodes are important for face determination
             // S1 = 1-2-3-4-6-7-8-9 . 0-1-2-3-5-6-7-8 . 0-1-2-3-5-6-7-8 
-            // S2 = 1-2-5-6-11-10   . 0-1-4-5-10-9    . 0-1-4-5-9-10    
-            // S3 = 2-3-5-7-12-11   . 1-2-4-6-11-10   . 1-2-4-6-10-11   
-            // S4 = 3-4-5-8-13-12   . 2-3-4-7-12-11   . 2-3-4-7-11-12   
-            // S5 = 1-5-4-10-13-9   . 0-4-3-9-12-8    . 0-3-4-8-9-12    
+            // S2 = 1-5-2-10-11-6   . 0-4-1-9-10-5    . 0-1-4-5-9-10    
+            // S3 = 2-5-3-11-12-7   . 1-4-2-10-11-6   . 1-2-4-6-10-11   
+            // S4 = 3-5-4-12-13-8   . 2-4-3-11-12-7   . 2-3-4-7-11-12   
+            // S5 = 4-5-1-13-10-9   . 3-4-0-12-9-8    . 0-3-4-8-9-12    
 
             if (nodeIds[2] == 2) return FeFaceName.S1;
             else if (nodeIds[1] == 1) return FeFaceName.S2;
@@ -75,23 +75,23 @@ namespace CaeMesh
         public override int[] GetNodeIdsFromFaceName(FeFaceName faceName)
         {
             // S1 = 1-2-3-4-6-7-8-9 . 0-1-2-3-5-6-7-8
-            // S2 = 1-2-5-6-11-10   . 0-1-4-5-10-9   
-            // S3 = 2-3-5-7-12-11   . 1-2-4-6-11-10  
-            // S4 = 3-4-5-8-13-12   . 2-3-4-7-12-11  
-            // S5 = 1-5-4-10-13-9   . 0-4-3-9-12-8   
+            // S2 = 1-5-2-10-11-6   . 0-4-1-9-10-5   
+            // S3 = 2-5-3-11-12-7   . 1-4-2-10-11-6  
+            // S4 = 3-5-4-12-13-8   . 2-4-3-11-12-7  
+            // S5 = 4-5-1-13-10-9   . 3-4-0-12-9-8   
             switch (faceName)
             {
                 case FeFaceName.S1:
                     return new int[] { NodeIds[0], NodeIds[1], NodeIds[2], NodeIds[3], NodeIds[5], NodeIds[6],
                                        NodeIds[7], NodeIds[8] };
                 case FeFaceName.S2:
-                    return new int[] { NodeIds[0], NodeIds[1], NodeIds[4], NodeIds[5], NodeIds[10], NodeIds[9] };
+                    return new int[] { NodeIds[0], NodeIds[4], NodeIds[1], NodeIds[9], NodeIds[10], NodeIds[5] };
                 case FeFaceName.S3:
-                    return new int[] { NodeIds[1], NodeIds[2], NodeIds[4], NodeIds[6], NodeIds[11], NodeIds[10] };
+                    return new int[] { NodeIds[1], NodeIds[4], NodeIds[2], NodeIds[10], NodeIds[11], NodeIds[6] };
                 case FeFaceName.S4:
-                    return new int[] { NodeIds[2], NodeIds[3], NodeIds[4], NodeIds[7], NodeIds[12], NodeIds[11] };
+                    return new int[] { NodeIds[2], NodeIds[4], NodeIds[3], NodeIds[11], NodeIds[12], NodeIds[7] };
                 case FeFaceName.S5:
-                    return new int[] { NodeIds[0], NodeIds[4], NodeIds[3], NodeIds[9], NodeIds[12], NodeIds[8] };
+                    return new int[] { NodeIds[3], NodeIds[4], NodeIds[0], NodeIds[12], NodeIds[9], NodeIds[8] };
                 default:
                     throw new NotSupportedException();
             }
@@ -100,10 +100,10 @@ namespace CaeMesh
         {
             // Invert the surface normal to point outwards
             // S1 = 1-2-3-4-6-7-8-9 . 0-1-2-3-5-6-7-8 . 0-3-2-1-8-7-6-5
-            // S2 = 1-2-5-6-11-10   . 0-1-4-5-10-9    . 0-1-4-5-10-9   
-            // S3 = 2-3-5-7-12-11   . 1-2-4-6-11-10   . 1-2-4-6-11-10  
-            // S4 = 3-4-5-8-13-12   . 2-3-4-7-12-11   . 2-3-4-7-12-11  
-            // S5 = 1-5-4-10-13-9   . 0-4-3-9-12-8    . 0-4-3-9-12-8   
+            // S2 = 1-5-2-10-11-6   . 0-4-1-9-10-5    . 0-1-4-5-10-9   
+            // S3 = 2-5-3-11-12-7   . 1-4-2-10-11-6   . 1-2-4-6-11-10  
+            // S4 = 3-5-4-12-13-8   . 2-4-3-11-12-7   . 2-3-4-7-12-11  
+            // S5 = 4-5-1-13-10-9   . 3-4-0-12-9-8    . 3-0-4-8-9-12   
             switch (faceName)
             {
                 case FeFaceName.S1:
@@ -116,7 +116,7 @@ namespace CaeMesh
                 case FeFaceName.S4:
                     return new int[] { NodeIds[2], NodeIds[3], NodeIds[4], NodeIds[7], NodeIds[12], NodeIds[11] };
                 case FeFaceName.S5:
-                    return new int[] { NodeIds[0], NodeIds[4], NodeIds[3], NodeIds[9], NodeIds[12], NodeIds[8] };
+                    return new int[] { NodeIds[3], NodeIds[0], NodeIds[4], NodeIds[8], NodeIds[9], NodeIds[12] };
                 default:
                     throw new NotSupportedException();
             }
@@ -125,14 +125,14 @@ namespace CaeMesh
         {
             // Use Method: GetVtkCellFromFaceName(FeFaceName faceName)
             int[][] cells = new int[5][];
-
+            //
             cells[0] = new int[] { NodeIds[0], NodeIds[3], NodeIds[2], NodeIds[1], NodeIds[8], NodeIds[7],
                                    NodeIds[6], NodeIds[5] };
             cells[1] = new int[] { NodeIds[0], NodeIds[1], NodeIds[4], NodeIds[5], NodeIds[10], NodeIds[9] };
             cells[2] = new int[] { NodeIds[1], NodeIds[2], NodeIds[4], NodeIds[6], NodeIds[11], NodeIds[10] };
             cells[3] = new int[] { NodeIds[2], NodeIds[3], NodeIds[4], NodeIds[7], NodeIds[12], NodeIds[11] };
-            cells[4] = new int[] { NodeIds[0], NodeIds[4], NodeIds[3], NodeIds[9], NodeIds[12], NodeIds[8] };
-
+            cells[4] = new int[] { NodeIds[3], NodeIds[0], NodeIds[4], NodeIds[8], NodeIds[9], NodeIds[12] };
+            //
             return cells;
         }
         public override Dictionary<FeFaceName, double> GetFaceNamesAndAreasFromNodeSet(HashSet<int> nodeSet,
@@ -155,23 +155,23 @@ namespace CaeMesh
                 if (i + 1 - count >= 3) break;
             }
             // S1 = 1-2-3-4-6-7-8-9 . 0-1-2-3-5-6-7-8
-            // S2 = 1-2-5-6-11-10   . 0-1-4-5-10-9   
-            // S3 = 2-3-5-7-12-11   . 1-2-4-6-11-10  
-            // S4 = 3-4-5-8-13-12   . 2-3-4-7-12-11  
-            // S5 = 1-5-4-10-13-9   . 0-4-3-9-12-8   
+            // S2 = 1-5-2-10-11-6   . 0-4-1-9-10-5   
+            // S3 = 2-5-3-11-12-7   . 1-4-2-10-11-6  
+            // S4 = 3-5-4-12-13-8   . 2-4-3-11-12-7  
+            // S5 = 4-5-1-13-10-9   . 3-4-0-12-9-8   
             Dictionary<FeFaceName, double> faces = new Dictionary<FeFaceName, double>();
             //
             if (count >= 3)
             {
                 if (faceNodeIds[0] && faceNodeIds[1] && faceNodeIds[2] && faceNodeIds[3])
                     faces.Add(FeFaceName.S1, GetArea(FeFaceName.S1, nodes));
-                if (faceNodeIds[0] && faceNodeIds[1] && faceNodeIds[4])
+                if (faceNodeIds[0] && faceNodeIds[4] && faceNodeIds[1])
                     faces.Add(FeFaceName.S2, GetArea(FeFaceName.S2, nodes));
-                if (faceNodeIds[1] && faceNodeIds[2] && faceNodeIds[4])
+                if (faceNodeIds[1] && faceNodeIds[4] && faceNodeIds[2])
                     faces.Add(FeFaceName.S3, GetArea(FeFaceName.S3, nodes));
-                if (faceNodeIds[2] && faceNodeIds[3] && faceNodeIds[4])
+                if (faceNodeIds[2] && faceNodeIds[4] && faceNodeIds[3])
                     faces.Add(FeFaceName.S4, GetArea(FeFaceName.S4, nodes));
-                if (faceNodeIds[0] && faceNodeIds[4] && faceNodeIds[3])
+                if (faceNodeIds[3] && faceNodeIds[4] && faceNodeIds[0])
                     faces.Add(FeFaceName.S5, GetArea(FeFaceName.S5, nodes));
             }
             //

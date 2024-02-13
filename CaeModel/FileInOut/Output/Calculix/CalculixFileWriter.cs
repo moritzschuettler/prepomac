@@ -71,116 +71,129 @@ namespace FileInOut.Output
         static public List<CalculixKeyword> GetModelKeywords(FeModel model, ConvertPyramidsToEnum convertPyramidsTo,
                                                              Dictionary<int, double[]> deformations = null)
         {
-            // Only keywords from the model, not user keywords
-            // Allways add a title keyword to get all possible keyword types to the keyword editor
-            //
-            int maxNodeId = model.Mesh.MaxNodeId;
-            int maxElementId = model.Mesh.MaxElementId;
-            List<FeNode> additionalNodes = new List<FeNode>();
-            List<FeNodeSet> additionalNodeSets = new List<FeNodeSet>();
-            List<CalElement> additionalElementKeywords = new List<CalElement>();
-            List<FeElementSet> additionalElementSets = new List<FeElementSet>();
-            List<SectionData> additionalSectionData = new List<SectionData>();
-            List<BoundaryCondition> additionalBoundaryConditions = new List<BoundaryCondition>();
-            List<double[]> equationParameters = new List<double[]>();
-            //
-            HashSet<string> reservedElementSetNames = new HashSet<string>();
-            reservedElementSetNames.UnionWith(model.Mesh.ElementSets.Keys);
-            reservedElementSetNames.UnionWith(model.Mesh.Parts.Keys);
-            // Collect pre-tension loads
-            OrderedDictionary<string, List<PreTensionLoad>> preTensionLoads;
-            GetPretensionLoads(model, out preTensionLoads);
-            // Collect compression only constraints
-            
-            GetCompressionOnlyConstraintData(model, ref maxNodeId, ref maxElementId, ref additionalNodes, ref additionalNodeSets,
-                                             ref additionalElementKeywords, ref additionalElementSets, ref additionalSectionData,
-                                             ref additionalBoundaryConditions, ref equationParameters, ref reservedElementSetNames);
-            // Prepare reference points
-            Dictionary<string, int[]> referencePointsNodeIds;
-            GetReferencePoints(model, preTensionLoads, ref maxNodeId, out referencePointsNodeIds);
-            // Prepare point springs
-            GetPointSprings(model, referencePointsNodeIds, ref maxElementId, ref additionalElementKeywords,
-                            ref additionalElementSets, ref additionalSectionData, ref reservedElementSetNames);
-            // Prepare mass sections
-            GetMassSections(model, referencePointsNodeIds, ref maxElementId, ref additionalElementKeywords,
-                            ref additionalElementSets, ref additionalSectionData, ref reservedElementSetNames);
-            //
-            CalTitle title;
-            List<CalculixKeyword> keywords = new List<CalculixKeyword>();
-            // Heading
-            title = new CalTitle("Heading", "");
-            keywords.Add(title);
-            AppendHeading(model, title);
-            // Submodel
-            string[] nodeSetNames = GetAllSubmodelNodeSetNames(model);
-            if (nodeSetNames.Length > 0)
+            // Clone surfaces
+            OrderedDictionary<string, FeSurface> clonedSurfaces = model.Mesh.Surfaces.DeepClone();
+            try
             {
-                title = new CalTitle("Submodel", "");
+                // Only keywords from the model, not user keywords
+                // Always add a title keyword to get all possible keyword types to the keyword editor
+                int maxNodeId = model.Mesh.MaxNodeId;
+                int maxElementId = model.Mesh.MaxElementId;
+                List<FeNode> additionalNodes = new List<FeNode>();
+                List<FeNodeSet> additionalNodeSets = new List<FeNodeSet>();
+                List<CalElement> additionalElementKeywords = new List<CalElement>();
+                List<FeElementSet> additionalElementSets = new List<FeElementSet>();
+                Dictionary<string, int[]> referencePointsNodeIds;
+                List<SectionData> additionalSectionData = new List<SectionData>();
+                List<BoundaryCondition> additionalBoundaryConditions = new List<BoundaryCondition>();
+                OrderedDictionary<string, List<PreTensionLoad>> preTensionLoads;
+                List<double[]> equationParameters = new List<double[]>();
+                //
+                HashSet<string> reservedElementSetNames = new HashSet<string>();
+                reservedElementSetNames.UnionWith(model.Mesh.ElementSets.Keys);
+                reservedElementSetNames.UnionWith(model.Mesh.Parts.Keys);
+                // Collect pre-tension loads to use them in reference point preparation
+                GetPretensionLoads(model, out preTensionLoads);
+                // Prepare reference points
+                GetReferencePoints(model, preTensionLoads, ref maxNodeId, out referencePointsNodeIds);
+                // Fiy pyramid surfaces
+                FixPyramidSurfaces(model, convertPyramidsTo, ref additionalElementSets, ref reservedElementSetNames);
+                // Prepare mass sections
+                GetMassSections(model, referencePointsNodeIds, ref maxElementId, ref additionalElementKeywords,
+                                ref additionalElementSets, ref additionalSectionData, ref reservedElementSetNames);
+                // Prepare point springs
+                GetPointSprings(model, referencePointsNodeIds, ref maxElementId, ref additionalElementKeywords,
+                                ref additionalElementSets, ref additionalSectionData, ref reservedElementSetNames);
+                // Collect compression only constraints
+                GetCompressionOnlyConstraintData(model, ref maxNodeId, ref maxElementId, ref additionalNodes, ref additionalNodeSets,
+                                                 ref additionalElementKeywords, ref additionalElementSets, ref additionalSectionData,
+                                                 ref additionalBoundaryConditions, ref equationParameters, ref reservedElementSetNames);
+                //
+                CalTitle title;
+                List<CalculixKeyword> keywords = new List<CalculixKeyword>();
+                // Heading
+                title = new CalTitle("Heading", "");
                 keywords.Add(title);
-                AppendSubmodel(model, nodeSetNames, title);
+                AppendHeading(model, title);
+                // Submodel
+                string[] nodeSetNames = GetAllSubmodelNodeSetNames(model);
+                if (nodeSetNames.Length > 0)
+                {
+                    title = new CalTitle("Submodel", "");
+                    keywords.Add(title);
+                    AppendSubmodel(model, nodeSetNames, title);
+                }
+                // Nodes
+                title = new CalTitle("Nodes", "");
+                keywords.Add(title);
+                AppendNodes(model, additionalNodes, referencePointsNodeIds, deformations, title);
+                // Elements
+                title = new CalTitle("Elements", "");
+                keywords.Add(title);
+                AppendElements(model, additionalElementKeywords, title, convertPyramidsTo);
+                // Node sets
+                title = new CalTitle("Node sets", "");
+                keywords.Add(title);
+                AppendNodeSets(model, additionalNodeSets, referencePointsNodeIds, title);
+                // Element sets
+                title = new CalTitle("Element sets", "");
+                keywords.Add(title);
+                AppendElementSets(model, additionalElementSets, title);
+                // Surfaces
+                title = new CalTitle("Surfaces", "");
+                keywords.Add(title);
+                AppendSurfaces(model, title);
+                // Physical constants
+                title = new CalTitle("Physical constants", "");
+                keywords.Add(title);
+                AppendPhysicalConstants(model, title);
+                // Materials
+                title = new CalTitle("Materials", "");
+                keywords.Add(title);
+                AppendMaterials(model, title);
+                // Sections
+                title = new CalTitle("Sections", "");
+                keywords.Add(title);
+                AppendSections(model, additionalSectionData, title);
+                // Pre-tension sections
+                title = new CalTitle("Pre-tension sections", "");
+                keywords.Add(title);
+                AppendPreTensionSections(preTensionLoads, referencePointsNodeIds, title);
+                // Constraints
+                title = new CalTitle("Constraints", "");
+                keywords.Add(title);
+                AppendConstraints(model, referencePointsNodeIds, equationParameters, title);
+                // Surface interactions
+                title = new CalTitle("Surface interactions", "");
+                keywords.Add(title);
+                AppendSurfaceInteractions(model, title);
+                // Contact pairs
+                title = new CalTitle("Contact pairs", "");
+                keywords.Add(title);
+                AppendContactPairs(model, title);
+                // Amplitudes
+                title = new CalTitle("Amplitudes", "");
+                keywords.Add(title);
+                AppendAmplitudes(model, title);
+                // Initial conditions
+                title = new CalTitle("Initial conditions", "");
+                keywords.Add(title);
+                AppendInitialConditions(model, title);
+                // Steps
+                title = new CalTitle("Steps", "");
+                keywords.Add(title);
+                AppendSteps(model, additionalBoundaryConditions, referencePointsNodeIds, title);
+                //
+                return keywords;
             }
-            // Nodes
-            title = new CalTitle("Nodes", "");
-            keywords.Add(title);
-            AppendNodes(model, additionalNodes, referencePointsNodeIds, deformations, title);
-            // Elements
-            title = new CalTitle("Elements", "");
-            keywords.Add(title);
-            AppendElements(model, additionalElementKeywords, title, convertPyramidsTo);
-            // Node sets
-            title = new CalTitle("Node sets", "");
-            keywords.Add(title);
-            AppendNodeSets(model, additionalNodeSets, referencePointsNodeIds, title);
-            // Element sets
-            title = new CalTitle("Element sets", "");
-            keywords.Add(title);
-            AppendElementSets(model, additionalElementSets, title);
-            // Surfaces
-            title = new CalTitle("Surfaces", "");
-            keywords.Add(title);
-            AppendSurfaces(model, title);
-            // Physical constants
-            title = new CalTitle("Physical constants", "");
-            keywords.Add(title);
-            AppendPhysicalConstants(model, title);
-            // Materials
-            title = new CalTitle("Materials", "");
-            keywords.Add(title);
-            AppendMaterials(model, title);
-            // Sections
-            title = new CalTitle("Sections", "");
-            keywords.Add(title);
-            AppendSections(model, additionalSectionData, title);
-            // Pre-tension sections
-            title = new CalTitle("Pre-tension sections", "");
-            keywords.Add(title);
-            AppendPreTensionSections(preTensionLoads, referencePointsNodeIds, title);
-            // Constraints
-            title = new CalTitle("Constraints", "");
-            keywords.Add(title);
-            AppendConstraints(model, referencePointsNodeIds, equationParameters, title);
-            // Surface interactions
-            title = new CalTitle("Surface interactions", "");
-            keywords.Add(title);
-            AppendSurfaceInteractions(model, title);
-            // Contact pairs
-            title = new CalTitle("Contact pairs", "");
-            keywords.Add(title);
-            AppendContactPairs(model, title);
-            // Amplitudes
-            title = new CalTitle("Amplitudes", "");
-            keywords.Add(title);
-            AppendAmplitudes(model, title);
-            // Initial conditions
-            title = new CalTitle("Initial conditions", "");
-            keywords.Add(title);
-            AppendInitialConditions(model, title);
-            // Steps
-            title = new CalTitle("Steps", "");
-            keywords.Add(title);
-            AppendSteps(model, additionalBoundaryConditions, referencePointsNodeIds, title);
-            //
-            return keywords;
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+            finally
+            {
+                model.Mesh.Surfaces = clonedSurfaces;
+            }
         }
         static private void GetPretensionLoads(FeModel model, out OrderedDictionary<string, List<PreTensionLoad>> preTensionLoads)
         {
@@ -201,6 +214,360 @@ namespace FileInOut.Output
                         else preTensionLoads.Add(name, new List<PreTensionLoad>() { ptl });
                     }
                 }
+            }
+        }
+        static private void GetReferencePoints(FeModel model, OrderedDictionary<string, List<PreTensionLoad>> preTensionLoads,
+                                               ref int maxNodeId, out Dictionary<string, int[]> referencePointsNodeIds)
+        {
+            referencePointsNodeIds = new Dictionary<string, int[]>();
+            if (model.Mesh != null)
+            {
+                // Fill reference point nodes
+                int id = maxNodeId;
+                foreach (var entry in model.Mesh.ReferencePoints)
+                {
+                    referencePointsNodeIds.Add(entry.Key, new int[] { id + 1, id + 2 });
+                    id += 2;
+                }
+                foreach (var entry in preTensionLoads)
+                {
+                    referencePointsNodeIds.Add(entry.Key, new int[] { id + 1 });
+                    id++;
+                }
+                //
+                maxNodeId = id;
+            }
+        }
+        static private void FixPyramidSurfaces(FeModel model, ConvertPyramidsToEnum convertPyramidsTo,
+                                               ref List<FeElementSet> additionalElementSets,
+                                               ref HashSet<string> reservedElementSetNames)
+        {
+            // Determine if there are any pyramids in the model
+            List<BasePart> pyramidContainingParts = new List<BasePart>();
+            foreach (var entry in model.Mesh.Parts)
+            {
+                if (entry.Value.ElementTypes.Contains(typeof(LinearPyramidElement)) ||
+                    entry.Value.ElementTypes.Contains(typeof(ParabolicPyramidElement)))
+                    pyramidContainingParts.Add(entry.Value);
+            }
+            //
+            if (pyramidContainingParts.Count > 0)
+            {
+                // Create a mapping from pyramid faces to wedge or hex faces
+                Dictionary<FeFaceName, FeFaceName> pyramidToNormalFaceName;
+                if (convertPyramidsTo == ConvertPyramidsToEnum.Wedges)
+                {
+                    pyramidToNormalFaceName = new Dictionary<FeFaceName, FeFaceName>() {{ FeFaceName.S1, FeFaceName.S5 },
+                                                                                        { FeFaceName.S2, FeFaceName.S1 },
+                                                                                        { FeFaceName.S3, FeFaceName.S4 },
+                                                                                        { FeFaceName.S4, FeFaceName.S2 },
+                                                                                        { FeFaceName.S5, FeFaceName.S3 }};
+                }
+                else if (convertPyramidsTo == ConvertPyramidsToEnum.Hexahedrons)
+                {
+                    pyramidToNormalFaceName = new Dictionary<FeFaceName, FeFaceName>() {{ FeFaceName.S1, FeFaceName.S1 },
+                                                                                        { FeFaceName.S2, FeFaceName.S3 },
+                                                                                        { FeFaceName.S3, FeFaceName.S4 },
+                                                                                        { FeFaceName.S4, FeFaceName.S5 },
+                                                                                        { FeFaceName.S5, FeFaceName.S6 }};
+                }
+                else throw new NotSupportedException();
+                //
+                Type elementType;
+                HashSet<int> elementIds = new HashSet<int>();
+                HashSet<int> allPyramidElementIds = new HashSet<int>();
+                foreach (var part in pyramidContainingParts) elementIds.UnionWith(part.Labels);
+                // Collect all pyramid element ids
+                foreach (var elementId in elementIds)
+                {
+                    elementType = model.Mesh.Elements[elementId].GetType();
+                    if (elementType == typeof(LinearPyramidElement) || elementType == typeof(ParabolicPyramidElement))
+                        allPyramidElementIds.Add(elementId);
+                }
+                //
+                bool needFixing;
+                string name;
+                FeFaceName faceName;
+                FeSurface surface;
+                FeSurface fixedSurface;
+                FeElementSet elementSet;
+                HashSet<int> normalElementsIds;
+                HashSet<int> pyramidElementsIds;
+                Dictionary<FeFaceName, HashSet<int>> faceNameElementIds;
+                foreach (var surfaceEntry in model.Mesh.Surfaces)
+                {
+                    // Determine if the surface contain pyramid elements
+                    needFixing = false;
+                    surface = surfaceEntry.Value;
+                    foreach (var entry in surface.ElementFaces)
+                    {
+                        elementSet = model.Mesh.ElementSets[entry.Value];
+                        if (allPyramidElementIds.Intersect(elementSet.Labels).Count() > 0)
+                        {
+                            needFixing = true;
+                            break;
+                        }
+                    }
+                    // If the surface contains pyramid elements
+                    if (needFixing)
+                    {
+                        // Collect pyramid and normal element ids separately
+                        faceNameElementIds = new Dictionary<FeFaceName, HashSet<int>>();
+                        foreach (var entry in surface.ElementFaces)
+                        {
+                            elementSet = model.Mesh.ElementSets[entry.Value];
+                            pyramidElementsIds = new HashSet<int>(allPyramidElementIds.Intersect(elementSet.Labels));
+                            normalElementsIds = new HashSet<int>(elementSet.Labels.Except(pyramidElementsIds));
+                            //
+                            if (normalElementsIds.Count > 0)
+                            {
+                                faceName = entry.Key;
+                                if (faceNameElementIds.TryGetValue(faceName, out elementIds)) elementIds.UnionWith(normalElementsIds);
+                                else faceNameElementIds.Add(faceName, normalElementsIds);
+                            }
+                            //
+                            if (pyramidElementsIds.Count > 0)
+                            {
+                                faceName = pyramidToNormalFaceName[entry.Key];
+                                if (faceNameElementIds.TryGetValue(faceName, out elementIds)) elementIds.UnionWith(pyramidElementsIds);
+                                else faceNameElementIds.Add(faceName, pyramidElementsIds);
+                            }
+                        }
+                        // Create new surface with the same name
+                        fixedSurface = new FeSurface(surface.Name);
+                        //
+                        foreach (var entry in faceNameElementIds)
+                        {
+                            // Get element set name
+                            name = surface.Name + "_Pyramid_" + entry.Key;
+                            if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
+                            reservedElementSetNames.Add(name);
+                            // Create new element set
+                            elementSet = new FeElementSet(name, entry.Value.ToArray());
+                            additionalElementSets.Add(elementSet);
+                            //
+                            fixedSurface.AddElementFace(entry.Key, elementSet.Name);
+                        }
+                        // Add fixed surface
+                        model.Mesh.Surfaces[fixedSurface.Name] = fixedSurface;
+                    }
+                }
+            }
+        }
+        static private void GetMassSections(FeModel model, Dictionary<string, int[]> referencePointsNodeIds,
+                                            ref int maxElementId, ref List<CalElement> additionalElementKeywords,
+                                            ref List<FeElementSet> additionalElementSets,
+                                            ref List<SectionData> additionalSectionData,
+                                            ref HashSet<string> reservedElementSetNames)
+        {
+            double aSum;
+            double nodalMassFactor;
+            double nodalMass;
+            string name;
+            List<int> elementIds;
+            FeElement element;
+            FeNodeSet nodeSet;
+            FeSurface surface;
+            FeReferencePoint referencePoint;
+            MassSectionData massSectionData;
+            Dictionary<int, double> nodalValues;
+            CalElement calElement;
+            //
+            foreach (var entry in model.Sections)
+            {
+                if (entry.Value is MassSection ms)
+                {
+                    if (ms is PointMassSection pms)
+                    {
+                        if (pms.RegionType == RegionTypeEnum.NodeSetName)
+                        {
+                            elementIds = new List<int>();
+                            nodeSet = model.Mesh.NodeSets[pms.RegionName];
+                            nodalMass = pms.Mass.Value;
+                            //
+                            foreach (var nodeId in nodeSet.Labels)
+                            {
+                                // Name
+                                name = pms.Name + "_NID_" + nodeId;
+                                if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
+                                reservedElementSetNames.Add(name);
+                                // Element keyword
+                                maxElementId++;
+                                element = new MassElement(maxElementId, new int[] { nodeId });
+                                calElement = new CalElement(FeElementType0D.Mass.ToString(), name, new List<FeElement> { element });
+                                additionalElementKeywords.Add(calElement);
+                                elementIds.Add(maxElementId);
+                                // Mass section
+                                massSectionData = new MassSectionData("NID_" + nodeId, name, nodalMass);
+                                additionalSectionData.Add(massSectionData);
+                            }
+                            // Add elements in sets
+                            name = pms.Name + "_All";
+                            if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
+                            reservedElementSetNames.Add(name);
+                            //
+                            additionalElementSets.Add(new FeElementSet(name, elementIds.ToArray()));
+                            //
+                            pms.ElementSetName = name;  // temporary storage
+                        }
+                        else if (pms.RegionType == RegionTypeEnum.ReferencePointName)
+                        {
+                            elementIds = new List<int>();
+                            referencePoint = model.Mesh.ReferencePoints[pms.RegionName];
+                            int nodeId = referencePointsNodeIds[referencePoint.Name][0];
+                            nodalMass = pms.Mass.Value;
+
+                            // Name
+                            name = pms.Name + "_RP_" + referencePoint.Name;
+                            if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
+                            reservedElementSetNames.Add(name);
+                            // Element keyword
+                            maxElementId++;
+                            element = new MassElement(maxElementId, new int[] { nodeId });
+                            calElement = new CalElement(FeElementType0D.Mass.ToString(), name, new List<FeElement> { element });
+                            additionalElementKeywords.Add(calElement);
+                            elementIds.Add(maxElementId);
+                            // Mass section
+                            massSectionData = new MassSectionData("NID_" + nodeId, name, nodalMass);
+                            additionalSectionData.Add(massSectionData);
+                            // Add elements in sets
+                            pms.ElementSetName = name;  // temporary storage
+                        }
+                        else throw new NotSupportedException();
+                    }
+                    else if (ms is DistributedMassSection dms)
+                    {
+                        elementIds = new List<int>();
+                        surface = model.Mesh.Surfaces[dms.RegionName];
+                        nodeSet = model.Mesh.NodeSets[surface.NodeSetName];
+                        model.GetDistributedNodalValuesFromSurface(surface.Name, out nodalValues, out aSum);
+                        nodalMassFactor = dms.Mass.Value / aSum;
+                        //
+                        foreach (var nodeId in nodeSet.Labels)
+                        {
+                            // Name
+                            name = dms.Name + "_NID_" + nodeId;
+                            if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
+                            reservedElementSetNames.Add(name);
+                            // Element keyword
+                            maxElementId++;
+                            element = new MassElement(maxElementId, new int[] { nodeId });
+                            calElement = new CalElement(FeElementType0D.Mass.ToString(), name, new List<FeElement> { element });
+                            additionalElementKeywords.Add(calElement);
+                            elementIds.Add(maxElementId);
+                            // Mass section
+                            nodalMass = nodalValues[nodeId] * nodalMassFactor;
+                            massSectionData = new MassSectionData("NID_" + nodeId, name, nodalMass);
+                            additionalSectionData.Add(massSectionData);
+                        }
+                        // Add elements in sets
+                        name = dms.Name + "_All";
+                        if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
+                        reservedElementSetNames.Add(name);
+                        //
+                        additionalElementSets.Add(new FeElementSet(name, elementIds.ToArray()));
+                        //
+                        dms.ElementSetName = name;  // temporary storage
+                    }
+                    else throw new NotSupportedException();
+                }
+            }
+        }
+        static private void GetPointSprings(FeModel model, Dictionary<string, int[]> referencePointsNodeIds, ref int maxElementId,
+                                            ref List<CalElement> additionalElementKeywords,
+                                            ref List<FeElementSet> additionalElementSets,
+                                            ref List<SectionData> additionalSectionData,
+                                            ref HashSet<string> reservedElementSetNames)
+        {
+            if (model.Mesh != null)
+            {
+                bool twoD = model.Properties.ModelSpace.IsTwoD();
+                int count;
+                int[] elementIds;
+                int[] refPointIds;
+                int[] directions;
+                double[] stiffnesses;
+                string name;
+                int elementId = maxElementId;
+                FeNodeSet nodeSet;
+                List<FeElement> newElements;
+                List<FeElement> oneSpringElements;
+                // Collect point and surface springs
+                Dictionary<string, PointSpringData[]> activeSprings = new Dictionary<string, PointSpringData[]>();
+                foreach (var entry in model.Constraints)
+                {
+                    if (entry.Value is PointSpring ps && ps.Active)
+                        activeSprings.Add(ps.Name, new PointSpringData[] { new PointSpringData(ps) });
+                    else if (entry.Value is SurfaceSpring ss && ss.Active)
+                        activeSprings.Add(ss.Name, model.GetPointSpringsFromSurfaceSpring(ss));
+                }
+                //
+                foreach (var entry in activeSprings)
+                {
+                    oneSpringElements = new List<FeElement>();
+                    //
+                    foreach (PointSpringData psd in entry.Value)
+                    {
+                        directions = psd.GetSpringDirections();
+                        stiffnesses = psd.GetSpringStiffnessValues();
+                        //
+                        if (directions.Length == 0) continue;
+                        //
+                        for (int i = 0; i < directions.Length; i++)
+                        {
+                            // Name
+                            name = psd.Name + "_DOF_" + directions[i];
+                            if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
+                            reservedElementSetNames.Add(name);
+                            //
+                            newElements = new List<FeElement>();
+                            // Node id
+                            if (psd.RegionType == RegionTypeEnum.NodeId)
+                            {
+                                newElements.Add(new LinearSpringElement(elementId + 1, new int[] { psd.NodeId }));
+                                elementId++;
+                            }
+                            // Node set
+                            else if (psd.RegionType == RegionTypeEnum.NodeSetName)
+                            {
+                                if (model.Mesh.NodeSets.TryGetValue(psd.RegionName, out nodeSet))
+                                {
+                                    foreach (var label in nodeSet.Labels)
+                                    {
+                                        newElements.Add(new LinearSpringElement(elementId + 1, new int[] { label }));
+                                        elementId++;
+                                    }
+                                }
+                            }
+                            // Reference point
+                            else if (psd.RegionType == RegionTypeEnum.ReferencePointName)
+                            {
+                                if (referencePointsNodeIds.TryGetValue(psd.RegionName, out refPointIds))
+                                {
+                                    newElements.Add(new LinearSpringElement(elementId + 1, new int[] { refPointIds[0] }));
+                                    elementId++;
+                                }
+                            }
+                            else throw new NotSupportedException();
+                            // Get element ids
+                            count = 0;
+                            elementIds = new int[newElements.Count];
+                            foreach (var element in newElements) elementIds[count++] = element.Id;
+                            // Add items
+                            additionalElementSets.Add(new FeElementSet(name, elementIds));
+                            additionalSectionData.Add(new LinearSpringSectionData("LinearSpringSection", name, directions[i],
+                                                                                  stiffnesses[i]));
+                            oneSpringElements.AddRange(newElements);
+                        }
+                    }
+                    // Add elements in sets
+                    name = entry.Key + "_All";
+                    if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
+                    reservedElementSetNames.Add(name);
+                    additionalElementKeywords.Add(new CalElement(FeElementTypeSpring.SPRING1.ToString(), name, oneSpringElements));
+                }
+                //
+                maxElementId = elementId;
             }
         }
         static private void GetCompressionOnlyConstraintData(FeModel model, ref int maxNodeId, ref int maxElementId,
@@ -373,244 +740,6 @@ namespace FileInOut.Output
             //
             maxNodeId = newNodeId;
             maxElementId = newElementId;
-        }
-        static private void GetReferencePoints(FeModel model, OrderedDictionary<string, List<PreTensionLoad>> preTensionLoads,
-                                               ref int maxNodeId, out Dictionary<string, int[]> referencePointsNodeIds)
-        {
-            referencePointsNodeIds = new Dictionary<string, int[]>();
-            if (model.Mesh != null)
-            {
-                // Fill reference point nodes
-                int id = maxNodeId;
-                foreach (var entry in model.Mesh.ReferencePoints)
-                {
-                    referencePointsNodeIds.Add(entry.Key, new int[] { id + 1, id + 2 });
-                    id += 2;
-                }
-                foreach (var entry in preTensionLoads)
-                {
-                    referencePointsNodeIds.Add(entry.Key, new int[] { id + 1 });
-                    id++;
-                }
-                //
-                maxNodeId = id;
-            }
-        }
-        static private void GetPointSprings(FeModel model, Dictionary<string, int[]> referencePointsNodeIds, ref int maxElementId,
-                                            ref List<CalElement> additionalElementKeywords,
-                                            ref List<FeElementSet> additionalElementSets,
-                                            ref List<SectionData> additionalSectionData,
-                                            ref HashSet<string> reservedElementSetNames)
-        {
-            if (model.Mesh != null)
-            {
-                bool twoD = model.Properties.ModelSpace.IsTwoD();
-                int count;
-                int[] elementIds;
-                int[] refPointIds;
-                int[] directions;
-                double[] stiffnesses;
-                string name;
-                int elementId = maxElementId;
-                FeNodeSet nodeSet;
-                List<FeElement> newElements;
-                List<FeElement> oneSpringElements;
-                // Collect point and surface springs
-                Dictionary<string, PointSpringData[]> activeSprings = new Dictionary<string, PointSpringData[]>();
-                foreach (var entry in model.Constraints)
-                {
-                    if (entry.Value is PointSpring ps && ps.Active)
-                        activeSprings.Add(ps.Name, new PointSpringData[] { new PointSpringData(ps) });
-                    else if (entry.Value is SurfaceSpring ss && ss.Active)
-                        activeSprings.Add(ss.Name, model.GetPointSpringsFromSurfaceSpring(ss));
-                }
-                //
-                foreach (var entry in activeSprings)
-                {
-                    oneSpringElements = new List<FeElement>();
-                    //
-                    foreach (PointSpringData psd in entry.Value)
-                    {
-                        directions = psd.GetSpringDirections();
-                        stiffnesses = psd.GetSpringStiffnessValues();
-                        //
-                        if (directions.Length == 0) continue;
-                        //
-                        for (int i = 0; i < directions.Length; i++)
-                        {
-                            // Name
-                            name = psd.Name + "_DOF_" + directions[i];
-                            if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
-                            reservedElementSetNames.Add(name);
-                            //
-                            newElements = new List<FeElement>();
-                            // Node id
-                            if (psd.RegionType == RegionTypeEnum.NodeId)
-                            {
-                                newElements.Add(new LinearSpringElement(elementId + 1, new int[] { psd.NodeId }));
-                                elementId++;
-                            }
-                            // Node set
-                            else if (psd.RegionType == RegionTypeEnum.NodeSetName)
-                            {
-                                if (model.Mesh.NodeSets.TryGetValue(psd.RegionName, out nodeSet))
-                                {
-                                    foreach (var label in nodeSet.Labels)
-                                    {
-                                        newElements.Add(new LinearSpringElement(elementId + 1, new int[] { label }));
-                                        elementId++;
-                                    }
-                                }
-                            }
-                            // Reference point
-                            else if (psd.RegionType == RegionTypeEnum.ReferencePointName)
-                            {
-                                if (referencePointsNodeIds.TryGetValue(psd.RegionName, out refPointIds))
-                                {
-                                    newElements.Add(new LinearSpringElement(elementId + 1, new int[] { refPointIds[0] }));
-                                    elementId++;
-                                }
-                            }
-                            else throw new NotSupportedException();
-                            // Get element ids
-                            count = 0;
-                            elementIds = new int[newElements.Count];
-                            foreach (var element in newElements) elementIds[count++] = element.Id;
-                            // Add items
-                            additionalElementSets.Add(new FeElementSet(name, elementIds));
-                            additionalSectionData.Add(new LinearSpringSectionData("LinearSpringSection", name, directions[i],
-                                                                                  stiffnesses[i]));
-                            oneSpringElements.AddRange(newElements);
-                        }
-                    }
-                    // Add elements in sets
-                    name = entry.Key + "_All";
-                    if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
-                    reservedElementSetNames.Add(name);
-                    additionalElementKeywords.Add(new CalElement(FeElementTypeSpring.SPRING1.ToString(), name, oneSpringElements));
-                }
-                //
-                maxElementId = elementId;
-            }
-        }
-        static private void GetMassSections(FeModel model, Dictionary<string, int[]> referencePointsNodeIds,
-                                            ref int maxElementId, ref List<CalElement> additionalElementKeywords,
-                                            ref List<FeElementSet> additionalElementSets,
-                                            ref List<SectionData> additionalSectionData,
-                                            ref HashSet<string> reservedElementSetNames)
-        {
-            double aSum;
-            double nodalMassFactor;
-            double nodalMass;
-            string name;
-            List<int> elementIds;
-            FeElement element;
-            FeNodeSet nodeSet;
-            FeSurface surface;
-            FeReferencePoint referencePoint;
-            MassSectionData massSectionData;
-            Dictionary<int, double> nodalValues;
-            CalElement calElement;
-            //
-            foreach (var entry in model.Sections)
-            {
-                if (entry.Value is MassSection ms)
-                {
-                    if (ms is PointMassSection pms)
-                    {
-                        if (pms.RegionType == RegionTypeEnum.NodeSetName)
-                        {
-                            elementIds = new List<int>();
-                            nodeSet = model.Mesh.NodeSets[pms.RegionName];
-                            nodalMass = pms.Mass.Value;
-                            //
-                            foreach (var nodeId in nodeSet.Labels)
-                            {
-                                // Name
-                                name = pms.Name + "_NID_" + nodeId;
-                                if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
-                                reservedElementSetNames.Add(name);
-                                // Element keyword
-                                maxElementId++;
-                                element = new MassElement(maxElementId, new int[] { nodeId });
-                                calElement = new CalElement(FeElementType0D.Mass.ToString(), name, new List<FeElement> { element });
-                                additionalElementKeywords.Add(calElement);
-                                elementIds.Add(maxElementId);
-                                // Mass section
-                                massSectionData = new MassSectionData("NID_" + nodeId, name, nodalMass);
-                                additionalSectionData.Add(massSectionData);
-                            }
-                            // Add elements in sets
-                            name = pms.Name + "_All";
-                            if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
-                            reservedElementSetNames.Add(name);
-                            //
-                            additionalElementSets.Add(new FeElementSet(name, elementIds.ToArray()));
-                            //
-                            pms.ElementSetName = name;  // temporary storage
-                        }
-                        else if (pms.RegionType == RegionTypeEnum.ReferencePointName)
-                        {
-                            elementIds = new List<int>();
-                            referencePoint = model.Mesh.ReferencePoints[pms.RegionName];
-                            int nodeId = referencePointsNodeIds[referencePoint.Name][0];
-                            nodalMass = pms.Mass.Value;
-                            
-                            // Name
-                            name = pms.Name + "_RP_" + referencePoint.Name;
-                            if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
-                            reservedElementSetNames.Add(name);
-                            // Element keyword
-                            maxElementId++;
-                            element = new MassElement(maxElementId, new int[] { nodeId });
-                            calElement = new CalElement(FeElementType0D.Mass.ToString(), name, new List<FeElement> { element });
-                            additionalElementKeywords.Add(calElement);
-                            elementIds.Add(maxElementId);
-                            // Mass section
-                            massSectionData = new MassSectionData("NID_" + nodeId, name, nodalMass);
-                            additionalSectionData.Add(massSectionData);
-                            // Add elements in sets
-                            pms.ElementSetName = name;  // temporary storage
-                        }
-                        else throw new NotSupportedException();
-                    }
-                    else if (ms is DistributedMassSection dms)
-                    {
-                        elementIds = new List<int>();
-                        surface = model.Mesh.Surfaces[dms.RegionName];
-                        nodeSet = model.Mesh.NodeSets[surface.NodeSetName];
-                        model.GetDistributedNodalValuesFromSurface(surface.Name, out nodalValues, out aSum);
-                        nodalMassFactor = dms.Mass.Value / aSum;
-                        //
-                        foreach (var nodeId in nodeSet.Labels)
-                        {
-                            // Name
-                            name = dms.Name + "_NID_" + nodeId;
-                            if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
-                            reservedElementSetNames.Add(name);
-                            // Element keyword
-                            maxElementId++;
-                            element = new MassElement(maxElementId, new int[] { nodeId });
-                            calElement = new CalElement(FeElementType0D.Mass.ToString(), name, new List<FeElement> { element });
-                            additionalElementKeywords.Add(calElement);
-                            elementIds.Add(maxElementId);
-                            // Mass section
-                            nodalMass = nodalValues[nodeId] * nodalMassFactor;
-                            massSectionData = new MassSectionData("NID_" + nodeId, name, nodalMass);
-                            additionalSectionData.Add(massSectionData);
-                        }
-                        // Add elements in sets
-                        name = dms.Name + "_All";
-                        if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
-                        reservedElementSetNames.Add(name);
-                        //
-                        additionalElementSets.Add(new FeElementSet(name, elementIds.ToArray()));
-                        //
-                        dms.ElementSetName = name;  // temporary storage
-                    }
-                    else throw new NotSupportedException();
-                }
-            }
         }
         static public bool AddUserKeywordByIndices(List<CalculixKeyword> keywords, int[] indices, CalculixKeyword userKeyword)
         {
@@ -794,7 +923,7 @@ namespace FileInOut.Output
                     //
                     foreach (var typeEntry in elementTypes)
                     {
-                        elementKeyword = new CalElement(typeEntry.Key, part.Name, typeEntry.Value);
+                        elementKeyword = new CalElement(typeEntry.Key, part.Name, typeEntry.Value, convertPyramidsTo);
                         parent.AddKeyword(elementKeyword);
                     }
                 }
@@ -916,13 +1045,13 @@ namespace FileInOut.Output
         {
             if (model.Mesh != null)
             {
-                CalSurface surface;
+                CalSurface calSurface;
                 foreach (var entry in model.Mesh.Surfaces)
                 {
                     if (entry.Value.Active && entry.Value.ElementFaces != null)
                     {
-                        surface = new CalSurface(entry.Value, model.Properties.ModelSpace.IsTwoD());
-                        parent.AddKeyword(surface);
+                        calSurface = new CalSurface(entry.Value, model.Properties.ModelSpace.IsTwoD());
+                        parent.AddKeyword(calSurface);
                     }
                     else parent.AddKeyword(new CalDeactivated(entry.Value.Name));
                 }
