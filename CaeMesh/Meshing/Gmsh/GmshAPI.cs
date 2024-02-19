@@ -13,6 +13,7 @@ using CaeGlobals;
 using System.Drawing.Printing;
 using System.Windows.Forms.VisualStyles;
 using System.Collections;
+using System.Diagnostics.CodeAnalysis;
 
 namespace CaeMesh
 {
@@ -647,6 +648,8 @@ namespace CaeMesh
             //
             int min;
             int max;
+            int sum;
+            int maxByRefinement;
             int numOfElements;
             int numOfNodes;
             HashSet<int> groupEdgeIds;
@@ -661,27 +664,36 @@ namespace CaeMesh
                 //
                 min = int.MaxValue;
                 max = -int.MaxValue;
+                maxByRefinement = -int.MaxValue;
+                sum = 0;
                 groupEdgeIds = new HashSet<int>();
+                //
                 foreach (var edgeNodeFromGroup in edgeGroup.Nodes)
                 {
+                    // Mesh refinement
                     if (_gmshData.EdgeIdNumElements.TryGetValue(edgeNodeFromGroup.Value.Id, out numOfElements)) // must be here
                     {
                         numOfNodes = numOfElements + 1;
-                        min = numOfNodes;
-                        max = numOfNodes;
-                        break;
+                        if (numOfNodes > maxByRefinement) maxByRefinement = numOfNodes;
                     }
                     else
                     {
-                        Gmsh.Model.Mesh.GetNodes(out nodeTagsIntPtr, out coor, 1, edgeNodeFromGroup.Value.Id, true, false);
-                        //
-                        numOfNodes = nodeTagsIntPtr.Length;      // for 2 nodes there is only 1 element
-                        if (numOfNodes < min) min = numOfNodes;
-                        if (numOfNodes > max) max = numOfNodes;
+                        // Only consider if there is no refinement found jet
+                        if (maxByRefinement < 0)
+                        {
+                            Gmsh.Model.Mesh.GetNodes(out nodeTagsIntPtr, out coor, 1, edgeNodeFromGroup.Value.Id, true, false);
+                            //
+                            numOfNodes = nodeTagsIntPtr.Length;      // for 2 nodes there is only 1 element
+                            if (numOfNodes < min) min = numOfNodes;
+                            if (numOfNodes > max) max = numOfNodes;
+                            sum += numOfNodes;
+                        }
                     }
                 }
                 //
-                numOfNodes = (int)Math.Round((min + max) / 2.0, 0, MidpointRounding.AwayFromZero);
+                if (maxByRefinement > 0) numOfNodes = maxByRefinement;
+                else numOfNodes = (int)Math.Round((double)sum / edgeGroup.Nodes.Count, 0, MidpointRounding.AwayFromZero);
+                //numOfNodes = (int)Math.Round((min + max) / 2.0, 0, MidpointRounding.AwayFromZero);
                 //
                 foreach (var edgeNodeFromGroup in edgeGroup.Nodes)
                 {
