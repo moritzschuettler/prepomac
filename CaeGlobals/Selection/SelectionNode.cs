@@ -46,7 +46,10 @@ namespace CaeGlobals
 
 
         // Methods                                                                                                                  
-
+        public void SetSelectOperation(vtkSelectOperation selectOpreation)
+        {
+            _selectOpreation = selectOpreation;
+        }
         // ISerialization
         public void GetObjectData(SerializationInfo info, StreamingContext context)
         {

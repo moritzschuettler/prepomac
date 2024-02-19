@@ -18,6 +18,7 @@ using System.Runtime.Serialization;
 using vtkControl;
 using PrePoMax.Forms;
 using PrePoMax.Commands;
+using System.IO.Ports;
 
 namespace PrePoMax
 {
@@ -5073,7 +5074,8 @@ namespace PrePoMax
         // Transform
         public void TranslateModelParts(string[] partNames, double[] translateVector, bool copy)
         {
-            if (!copy) ChangeAllSelectionsToIdSelections(partNames);
+            //if (!copy) ChangeAllSelectionsToIdSelections(partNames);
+            if (!copy) TranslateSelectionsContainingParts(partNames, translateVector);
             //
             string[] translatedPartNames = _model.Mesh.TranslateParts(partNames, translateVector, copy,
                                                                       _model.GetReservedPartNames());
@@ -5094,7 +5096,8 @@ namespace PrePoMax
         {
             if (IsExplodedViewActive()) throw new CaeException("The scaling can only be done when the exploded view is turned off.");
             //
-            if (!copy) ChangeAllSelectionsToIdSelections(partNames);
+            //if (!copy) ChangeAllSelectionsToIdSelections(partNames);
+            if (!copy) ScaleSelectionsContainingParts(partNames, scaleCenter, scaleFactors);
             //
             string[] scaledPartNames = _model.Mesh.ScaleParts(partNames, scaleCenter, scaleFactors, copy,
                                                               _model.GetReservedPartNames());
@@ -5112,7 +5115,8 @@ namespace PrePoMax
         }
         public void RotateModelParts(string[] partNames, double[] rotateCenter, double[] rotateAxis, double rotateAngle, bool copy)
         {
-            if (!copy) ChangeAllSelectionsToIdSelections(partNames);
+            //if (!copy) ChangeAllSelectionsToIdSelections(partNames);
+            if (!copy) RotateSelectionsContainingParts(partNames, rotateCenter, rotateAxis, rotateAngle);
             //
             string[] rotatedPartNames = _model.Mesh.RotateParts(partNames, rotateCenter, rotateAxis, rotateAngle, copy,
                                                                 _model.GetReservedPartNames());
@@ -5187,16 +5191,206 @@ namespace PrePoMax
             return removedPartIds;
         }
         //
-        private void ChangeAllSelectionsToIdSelections(string[] partNames)
+        private void TranslateSelectionsContainingParts(string[] partNames, double[] translateVector)
         {
-            MeshPart[] parts = new MeshPart[partNames.Length];
+            BasePart part;
+            FeNodeSet nodeSet;
+            FeElementSet elementSet;
+            FeSurface surface;
             for (int i = 0; i < partNames.Length; i++)
             {
-                parts[i] = _model.Mesh.Parts[partNames[i]] as MeshPart;
+                part = _model.Mesh.Parts[partNames[i]];
+                //
+                foreach (var entry in _model.Mesh.NodeSets)
+                {
+                    nodeSet = entry.Value;
+                    //
+                    TranslateSelection(nodeSet.CreationData, part.PartId, translateVector);
+                    TranslateSelection(nodeSet.ParentCreationData, part.PartId, translateVector);
+                }
+                //
+                foreach (var entry in _model.Mesh.ElementSets)
+                {
+                    elementSet = entry.Value;
+                    //
+                    TranslateSelection(elementSet.CreationData, part.PartId, translateVector);
+                    TranslateSelection(elementSet.ParentCreationData, part.PartId, translateVector);
+                }
+                //
+                foreach (var entry in _model.Mesh.Surfaces)
+                {
+                    surface = entry.Value;
+                    //
+                    TranslateSelection(surface.CreationData, part.PartId, translateVector);
+                    TranslateSelection(surface.ParentCreationData, part.PartId, translateVector);
+                }
             }
-            ChangeSelectedNodeSetsToIds(partNames, parts);
-            ChangeSelectedElementSetsToIds(partNames, parts);
-            ChangeSelectedSurfacesToIds(partNames, parts);
+        }
+        private void ScaleSelectionsContainingParts(string[] partNames, double[] scaleCenter, double[] scaleFactors)
+        {
+            BasePart part;
+            FeNodeSet nodeSet;
+            FeElementSet elementSet;
+            FeSurface surface;
+            for (int i = 0; i < partNames.Length; i++)
+            {
+                part = _model.Mesh.Parts[partNames[i]];
+                //
+                foreach (var entry in _model.Mesh.NodeSets)
+                {
+                    nodeSet = entry.Value;
+                    //
+                    ScaleSelection(nodeSet.CreationData, part.PartId, scaleCenter, scaleFactors);
+                    ScaleSelection(nodeSet.ParentCreationData, part.PartId, scaleCenter, scaleFactors);
+                }
+                //
+                foreach (var entry in _model.Mesh.ElementSets)
+                {
+                    elementSet = entry.Value;
+                    //
+                    ScaleSelection(elementSet.CreationData, part.PartId, scaleCenter, scaleFactors);
+                    ScaleSelection(elementSet.ParentCreationData, part.PartId, scaleCenter, scaleFactors);
+                }
+                //
+                foreach (var entry in _model.Mesh.Surfaces)
+                {
+                    surface = entry.Value;
+                    //
+                    ScaleSelection(surface.CreationData, part.PartId, scaleCenter, scaleFactors);
+                    ScaleSelection(surface.ParentCreationData, part.PartId, scaleCenter, scaleFactors);
+                }
+            }
+        }
+        private void RotateSelectionsContainingParts(string[] partNames, double[] rotateCenter, double[] rotateAxis,
+                                                     double rotateAngle)
+        {
+            BasePart part;
+            FeNodeSet nodeSet;
+            FeElementSet elementSet;
+            FeSurface surface;
+            for (int i = 0; i < partNames.Length; i++)
+            {
+                part = _model.Mesh.Parts[partNames[i]];
+                //
+                foreach (var entry in _model.Mesh.NodeSets)
+                {
+                    nodeSet = entry.Value;
+                    //
+                    RotateSelection(nodeSet.CreationData, part.PartId, rotateCenter, rotateAxis, rotateAngle);
+                    RotateSelection(nodeSet.ParentCreationData, part.PartId, rotateCenter, rotateAxis, rotateAngle);
+                }
+                //
+                foreach (var entry in _model.Mesh.ElementSets)
+                {
+                    elementSet = entry.Value;
+                    //
+                    RotateSelection(elementSet.CreationData, part.PartId, rotateCenter, rotateAxis, rotateAngle);
+                    RotateSelection(elementSet.ParentCreationData, part.PartId, rotateCenter, rotateAxis, rotateAngle);
+                }
+                //
+                foreach (var entry in _model.Mesh.Surfaces)
+                {
+                    surface = entry.Value;
+                    //
+                    RotateSelection(surface.CreationData, part.PartId, rotateCenter, rotateAxis, rotateAngle);
+                    RotateSelection(surface.ParentCreationData, part.PartId, rotateCenter, rotateAxis, rotateAngle);
+                }
+            }
+        }
+        //
+        private void TranslateSelection(Selection selection, int partId, double[] translateVector)
+        {
+            if (selection != null)
+            {
+                foreach (var node in selection.Nodes)
+                {
+                    if (node is SelectionNodeMouse snm && snm.PartIds.Contains(partId))
+                    {
+                        if (snm.PickedPoint != null)
+                        {
+                            snm.PickedPoint[0] += translateVector[0];
+                            snm.PickedPoint[1] += translateVector[1];
+                            snm.PickedPoint[2] += translateVector[2];
+                        }
+                        else if (snm.PlaneParameters != null)
+                        {
+                            for (int i = 0; i < snm.PlaneParameters.Length; i++)
+                            {
+                                snm.PlaneParameters[i][0] += translateVector[0];
+                                snm.PlaneParameters[i][1] += translateVector[1];
+                                snm.PlaneParameters[i][2] += translateVector[2];
+                            }
+                        }
+                        else throw new NotSupportedException();
+                    }
+                }
+            }
+        }
+        private void ScaleSelection(Selection selection, int partId, double[] scaleCenter, double[] scaleFactors)
+        {
+            if (selection != null)
+            {
+                foreach (var node in selection.Nodes)
+                {
+                    if (node is SelectionNodeMouse snm && snm.PartIds.Contains(partId))
+                    {
+                        if (snm.PickedPoint != null)
+                        {
+                            snm.PickedPoint[0] = scaleCenter[0] + (snm.PickedPoint[0] - scaleCenter[0]) * scaleFactors[0];
+                            snm.PickedPoint[1] = scaleCenter[1] + (snm.PickedPoint[1] - scaleCenter[1]) * scaleFactors[1];
+                            snm.PickedPoint[2] = scaleCenter[2] + (snm.PickedPoint[2] - scaleCenter[2]) * scaleFactors[2];
+                        }
+                        else if (snm.PlaneParameters != null)
+                        {
+                            for (int i = 0; i < snm.PlaneParameters.Length; i++)
+                            {
+                                snm.PlaneParameters[i][0] =
+                                    scaleCenter[0] + (snm.PlaneParameters[i][0] - scaleCenter[0]) * scaleFactors[0];
+                                snm.PlaneParameters[i][1] =
+                                    scaleCenter[1] + (snm.PlaneParameters[i][1] - scaleCenter[1]) * scaleFactors[1];
+                                snm.PlaneParameters[i][2] =
+                                    scaleCenter[2] + (snm.PlaneParameters[i][2] - scaleCenter[2]) * scaleFactors[2];
+                            }
+                        }
+                        else throw new NotSupportedException();
+                    }
+                }
+            }
+        }
+        private void RotateSelection(Selection selection, int partId, double[] rotateCenter, double[] rotateAxis,
+                                     double rotateAngle)
+        {
+            double[] point = new double[3];
+            double[] normal = new double[3];
+            //
+            if (selection != null)
+            {
+                foreach (var node in selection.Nodes)
+                {
+                    if (node is SelectionNodeMouse snm && snm.PartIds.Contains(partId))
+                    {
+                        if (snm.PickedPoint != null)
+                        {
+                            snm.PickedPoint = FeMesh.RotatePoint(snm.PickedPoint, rotateCenter, rotateAxis, rotateAngle);
+                        }
+                        else if (snm.PlaneParameters != null)
+                        {
+                            for (int i = 0; i < snm.PlaneParameters.Length; i++)
+                            {
+                                Array.Copy(snm.PlaneParameters[i], 0, point, 0, 3);
+                                Array.Copy(snm.PlaneParameters[i], 3, normal, 0, 3);
+                                //
+                                point = FeMesh.RotatePoint(point, rotateCenter, rotateAxis, rotateAngle);
+                                normal = FeMesh.RotatePoint(normal, rotateCenter, rotateAxis, rotateAngle);
+                                //
+                                Array.Copy(point, 0, snm.PlaneParameters[i], 0, 3);
+                                Array.Copy(normal, 0, snm.PlaneParameters[i], 3, 3);
+                            }
+                        }
+                        else throw new NotSupportedException();
+                    }
+                }
+            }
         }
 
         #endregion #################################################################################################################
@@ -6318,6 +6512,7 @@ namespace PrePoMax
                     FeNodeSet nodeSet = new FeNodeSet(name, section.CreationIds);
                     nodeSet.CreationData = section.CreationData.DeepClone();
                     nodeSet.Internal = true;
+                    nodeSet.ParentCreationData = section.CreationData;
                     AddNodeSet(nodeSet);
                     //
                     section.RegionName = name;
@@ -6331,6 +6526,7 @@ namespace PrePoMax
                     FeElementSet elementSet = new FeElementSet(name, section.CreationIds, createdByPart);
                     elementSet.CreationData = section.CreationData.DeepClone();
                     elementSet.Internal = true;
+                    elementSet.ParentCreationData = section.CreationData;
                     AddElementSet(elementSet);
                     //
                     section.RegionName = name;
@@ -6342,6 +6538,7 @@ namespace PrePoMax
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces, section.Name);
                     FeSurface surface = new FeSurface(name, section.CreationIds, section.CreationData.DeepClone());
                     surface.Internal = true;
+                    surface.ParentCreationData = section.CreationData;
                     AddSurface(surface);
                     //
                     section.RegionName = name;
@@ -6638,6 +6835,7 @@ namespace PrePoMax
                     FeNodeSet nodeSet = new FeNodeSet(name, ps.CreationIds);
                     nodeSet.CreationData = ps.CreationData.DeepClone();
                     nodeSet.Internal = true;
+                    nodeSet.ParentCreationData = ps.CreationData;
                     AddNodeSet(nodeSet, update);
                     //
                     ps.RegionName = name;
@@ -6659,6 +6857,7 @@ namespace PrePoMax
                                                            constraint.Name + CaeMesh.Globals.MasterNameSuffix);
                     FeSurface surface = new FeSurface(name, ss.CreationIds, ss.CreationData.DeepClone());
                     surface.Internal = true;
+                    surface.ParentCreationData = ss.CreationData;
                     AddSurface(surface, update);
                     //
                     ss.RegionName = name;
@@ -6680,6 +6879,7 @@ namespace PrePoMax
                                                            constraint.Name + CaeMesh.Globals.MasterNameSuffix);
                     FeSurface surface = new FeSurface(name, co.CreationIds, co.CreationData.DeepClone());
                     surface.Internal = true;
+                    surface.ParentCreationData = co.CreationData;
                     AddSurface(surface, update);
                     //
                     co.RegionName = name;
@@ -6701,6 +6901,7 @@ namespace PrePoMax
                     FeNodeSet nodeSet = new FeNodeSet(name, rb.CreationIds);
                     nodeSet.CreationData = rb.CreationData.DeepClone();
                     nodeSet.Internal = true;
+                    nodeSet.ParentCreationData = rb.CreationData;
                     AddNodeSet(nodeSet, update);
                     //
                     rb.RegionName = name;
@@ -6721,6 +6922,7 @@ namespace PrePoMax
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces, constraint.Name + CaeMesh.Globals.MasterNameSuffix);
                     FeSurface surface = new FeSurface(name, tie.MasterCreationIds, tie.MasterCreationData.DeepClone());
                     surface.Internal = true;
+                    surface.ParentCreationData = tie.MasterCreationData;
                     AddSurface(surface, update);
                     //
                     tie.MasterRegionName = name;
@@ -6738,6 +6940,7 @@ namespace PrePoMax
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces, constraint.Name + CaeMesh.Globals.SlaveNameSuffix);
                     FeSurface surface = new FeSurface(name, tie.SlaveCreationIds, tie.SlaveCreationData.DeepClone());
                     surface.Internal = true;
+                    surface.ParentCreationData = tie.SlaveCreationData;
                     AddSurface(surface, update);
                     //
                     tie.SlaveRegionName = name;
@@ -7194,6 +7397,7 @@ namespace PrePoMax
                 name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces, contactPair.Name + CaeMesh.Globals.MasterNameSuffix);
                 FeSurface surface = new FeSurface(name, contactPair.MasterCreationIds, contactPair.MasterCreationData.DeepClone());
                 surface.Internal = true;
+                surface.ParentCreationData = contactPair.MasterCreationData;
                 AddSurface(surface, update);
                 //
                 contactPair.MasterRegionName = name;
@@ -7211,6 +7415,7 @@ namespace PrePoMax
                 name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces, contactPair.Name + CaeMesh.Globals.SlaveNameSuffix);
                 FeSurface surface = new FeSurface(name, contactPair.SlaveCreationIds, contactPair.SlaveCreationData.DeepClone());
                 surface.Internal = true;
+                surface.ParentCreationData = contactPair.MasterCreationData;
                 AddSurface(surface, update);
                 //
                 contactPair.SlaveRegionName = name;
@@ -7494,6 +7699,7 @@ namespace PrePoMax
                     FeNodeSet nodeSet = new FeNodeSet(name, initialCondition.CreationIds);
                     nodeSet.CreationData = initialCondition.CreationData.DeepClone();
                     nodeSet.Internal = true;
+                    nodeSet.ParentCreationData = initialCondition.CreationData;
                     AddNodeSet(nodeSet);
                     //
                     initialCondition.RegionName = name;
@@ -7507,6 +7713,7 @@ namespace PrePoMax
                     FeElementSet elementSet = new FeElementSet(name, initialCondition.CreationIds, true);
                     elementSet.CreationData = initialCondition.CreationData.DeepClone();
                     elementSet.Internal = true;
+                    elementSet.ParentCreationData = initialCondition.CreationData;
                     AddElementSet(elementSet);
                     //
                     initialCondition.RegionName = name;
@@ -7764,6 +7971,7 @@ namespace PrePoMax
                     FeNodeSet nodeSet = new FeNodeSet(name, historyOutput.CreationIds);
                     nodeSet.CreationData = historyOutput.CreationData.DeepClone();
                     nodeSet.Internal = true;
+                    nodeSet.ParentCreationData = historyOutput.CreationData;
                     AddNodeSet(nodeSet);
                     //
                     historyOutput.RegionName = name;
@@ -7776,6 +7984,7 @@ namespace PrePoMax
                     FeElementSet elementSet = new FeElementSet(name, historyOutput.CreationIds);
                     elementSet.CreationData = historyOutput.CreationData.DeepClone();
                     elementSet.Internal = true;
+                    elementSet.ParentCreationData = historyOutput.CreationData;
                     AddElementSet(elementSet);
                     //
                     historyOutput.RegionName = name;
@@ -8076,8 +8285,37 @@ namespace PrePoMax
                     FeNodeSet nodeSet = new FeNodeSet(name, boundaryCondition.CreationIds);
                     nodeSet.CreationData = boundaryCondition.CreationData.DeepClone();
                     nodeSet.Internal = true;
+                    nodeSet.ParentCreationData = boundaryCondition.CreationData;
                     AddNodeSet(nodeSet);
                     //
+                    boundaryCondition.RegionName = name;
+                    boundaryCondition.RegionType = RegionTypeEnum.NodeSetName;
+                }
+                else throw new NotSupportedException();
+
+            }
+            // Clear the creation data if not used
+            else
+            {
+                boundaryCondition.CreationData = null;
+                boundaryCondition.CreationIds = null;
+            }
+        }
+        private void ConvertToSelectionBasedBoundaryCondition(BoundaryCondition boundaryCondition)
+        {
+            // Create a named set and convert a selection to a named set
+            if (boundaryCondition.RegionType == RegionTypeEnum.NodeSetName)
+            {
+                string name;
+                // Node set
+                if (boundaryCondition is FixedBC || boundaryCondition is DisplacementRotation ||
+                    boundaryCondition is SubmodelBC || boundaryCondition is TemperatureBC)
+                {
+                    name = boundaryCondition.RegionName;
+                    FeNodeSet nodeSet = _model.Mesh.NodeSets[name];
+                    //
+                    boundaryCondition.CreationData = nodeSet.CreationData;
+                    boundaryCondition.CreationIds = nodeSet.CreationIds;
                     boundaryCondition.RegionName = name;
                     boundaryCondition.RegionType = RegionTypeEnum.NodeSetName;
                 }
@@ -8291,6 +8529,7 @@ namespace PrePoMax
                     FeNodeSet nodeSet = new FeNodeSet(name, load.CreationIds);
                     nodeSet.CreationData = load.CreationData.DeepClone();
                     nodeSet.Internal = true;
+                    nodeSet.ParentCreationData = load.CreationData;
                     AddNodeSet(nodeSet);
                     //
                     load.RegionName = name;
@@ -8303,6 +8542,7 @@ namespace PrePoMax
                     FeElementSet elementSet = new FeElementSet(name, load.CreationIds, true);
                     elementSet.CreationData = load.CreationData.DeepClone();
                     elementSet.Internal = true;
+                    elementSet.ParentCreationData = load.CreationData;
                     AddElementSet(elementSet);
                     //
                     load.RegionName = name;
@@ -8316,6 +8556,7 @@ namespace PrePoMax
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces, load.Name);
                     FeSurface surface = new FeSurface(name, load.CreationIds, load.CreationData.DeepClone());
                     surface.Internal = true;
+                    surface.ParentCreationData = load.CreationData;
                     AddSurface(surface);
                     //
                     load.RegionName = name;
@@ -8498,6 +8739,7 @@ namespace PrePoMax
                         FeNodeSet nodeSet = new FeNodeSet(name, definedField.CreationIds);
                         nodeSet.CreationData = definedField.CreationData.DeepClone();
                         nodeSet.Internal = true;
+                        nodeSet.ParentCreationData = definedField.CreationData;
                         AddNodeSet(nodeSet);
                         //
                         definedField.RegionName = name;
@@ -9600,6 +9842,30 @@ namespace PrePoMax
             }
         }
         public void AddSelectionNode(SelectionNode node, bool highlight, bool callSelectionChanged)
+        {
+            SelectionNodeMouse singlePartSelection;
+            //
+            if (node is SelectionNodeMouse snm && snm.PartIds != null && snm.PartIds.Length > 0)
+            {
+                // Split mouse selection on multiple selections containing one part only
+                for (int i = 0; i < snm.PartIds.Length; i++)
+                {
+                    // Clone
+                    singlePartSelection = snm.DeepClone();
+                    singlePartSelection.SetPartId(snm.PartIds[i]);
+                    // Change operation to Add in making a new selection (opeartion = None)
+                    if (singlePartSelection.SelectOperation == vtkSelectOperation.None && i > 0)
+                        singlePartSelection.SetSelectOperation(vtkSelectOperation.Add);
+                    // Add selection
+                    if (i != snm.PartIds.Length - 1)
+                        AddSelectionNodeInternal(singlePartSelection, false, false);
+                    else
+                        AddSelectionNodeInternal(singlePartSelection, highlight, callSelectionChanged);
+                }
+            }
+            else AddSelectionNodeInternal(node, highlight, callSelectionChanged);
+        }
+        private void AddSelectionNodeInternal(SelectionNode node, bool highlight, bool callSelectionChanged)
         {
             // Set the current view for the selection;
             if (_selection.Nodes.Count == 0) SetSelectionView(_currentView);

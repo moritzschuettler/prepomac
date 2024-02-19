@@ -13,11 +13,14 @@ namespace CaeMesh
     {
         // Variables                                                                                                                
         protected int[] _labels;
+        //
+        public Selection ParentCreationData; // temporary storage 
+
 
         // Properties                                                                                                               
         [Browsable(false)]
         public int[] Labels { get { return _labels; } set { _labels = value; } }
-
+        //
         [CategoryAttribute("Data"),
         DisplayName("Count"),
         DescriptionAttribute("Number of items.")]

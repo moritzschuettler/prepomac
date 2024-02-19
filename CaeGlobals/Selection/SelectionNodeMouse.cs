@@ -94,6 +94,10 @@ namespace CaeGlobals
 
 
         // ISerialization
+        public void SetPartId(int partId)
+        {
+            _partIds = new int[] { partId };
+        }
         public void AddOffset(double[] offset)
         {
             if (offset == null) return;

@@ -16,6 +16,7 @@ namespace CaeMesh
         private double[] _centerOfGravity;
         private double[][] _boundingBox;
 
+
         // Properties                                                                                                               
         public Selection CreationData { get { return _creationData; } set { _creationData = value; } }
         public int[] CreationIds { get { return _creationIds; } set { _creationIds = value; } }

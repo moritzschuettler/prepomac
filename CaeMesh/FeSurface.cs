@@ -50,6 +50,8 @@ namespace CaeMesh
         private Dictionary<FeFaceName, string> _elementFaces;
         private Selection _creationData;
         private FeSurfaceFaceTypes _surfaceFaceTypes = FeSurfaceFaceTypes.Unknown;
+        //
+        public Selection ParentCreationData; // temporary storage 
 
 
         // Properties                                                                                                               

@@ -8909,22 +8909,21 @@ namespace CaeMesh
             foreach (var nodeId in nodeLabels)
             {
                 node = _nodes[nodeId];
-
-                // translate to origin
+                // Translate to origin
                 node.X -= rotateCenter[0];
                 node.Y -= rotateCenter[1];
                 node.Z -= rotateCenter[2];
-                // copy
+                // Copy
                 x = node.Coor;
-                // rotate
+                // Rotate
                 node.X = m[0][0] * x[0] + m[0][1] * x[1] + m[0][2] * x[2];
                 node.Y = m[1][0] * x[0] + m[1][1] * x[1] + m[1][2] * x[2];
                 node.Z = m[2][0] * x[0] + m[2][1] * x[1] + m[2][2] * x[2];
-                // translate to rotation center
+                // Translate to rotation center
                 node.X += rotateCenter[0];
                 node.Y += rotateCenter[1];
                 node.Z += rotateCenter[2];
-                // copy data
+                // Copy data
                 _nodes[nodeId] = node;
             }
             // Update node sets
@@ -8937,7 +8936,29 @@ namespace CaeMesh
             if (copy) return rotatedPartNames;
             else return null;
         }
-        private double[][] RotationMatrix(double[] rotateAxis, double rotateAngle)
+        public static double[] RotatePoint(double[] point, double[] rotateCenter, double[] rotateAxis, double rotateAngle)
+        {
+            double[] rotated = point.ToArray();
+            // Matrix
+            double[][] m = RotationMatrix(rotateAxis, rotateAngle);
+            // Translate to origin
+            rotated[0] -= rotateCenter[0];
+            rotated[1] -= rotateCenter[1];
+            rotated[2] -= rotateCenter[2];
+            // Copy
+            double[] x = rotated.ToArray();
+            // Rotate
+            rotated[0] = m[0][0] * x[0] + m[0][1] * x[1] + m[0][2] * x[2];
+            rotated[1] = m[1][0] * x[0] + m[1][1] * x[1] + m[1][2] * x[2];
+            rotated[2] = m[2][0] * x[0] + m[2][1] * x[1] + m[2][2] * x[2];
+            // Translate to rotation center
+            rotated[0] += rotateCenter[0];
+            rotated[1] += rotateCenter[1];
+            rotated[2] += rotateCenter[2];
+            // Return
+            return rotated;
+        }
+        private static double[][] RotationMatrix(double[] rotateAxis, double rotateAngle)
         {
             //https://stackoverflow.com/questions/6721544/circular-rotation-around-an-arbitrary-axis
             //https://en.wikipedia.org/wiki/Rotation_matrix#Rotation_matrix_from_axis_and_angle

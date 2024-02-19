@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using CaeModel;
 using CaeGlobals;
 using System.Windows.Forms;
+using CaeMesh;
 
 namespace PrePoMax.Forms
 {
@@ -243,7 +244,7 @@ namespace PrePoMax.Forms
             // Edit existing boundary condition
             else
             {
-                // Get and convert a converted load back to selection
+                // Get and convert a converted boundary condition back to selection
                 BoundaryCondition = _controller.GetBoundaryCondition(stepName, _boundaryConditionToEditName); // to clone
                 if (BoundaryCondition.CreationData != null)
                 {
