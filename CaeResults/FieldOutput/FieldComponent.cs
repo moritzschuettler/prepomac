@@ -48,8 +48,7 @@ namespace CaeResults
             bw.Write(component.Name);
             bw.Write(component.Invariant);
             bw.Write(component.Values.Length);
-            for (int i = 0; i < component.Values.Length; i++)
-                bw.Write(component.Values[i]);
+            for (int i = 0; i < component.Values.Length; i++) bw.Write(component.Values[i]);
         }
         public static FieldComponent ReadFromFile(System.IO.BinaryReader br)
         {

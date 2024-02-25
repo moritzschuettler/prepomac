@@ -70,7 +70,7 @@ namespace CaeModel
 
 
         // Constructors                                                                                                             
-        public FeModel(string name)
+        public FeModel(string name, UnitSystem unitSystem)
         {
             StringComparer sc = StringComparer.OrdinalIgnoreCase;
             //
@@ -88,7 +88,8 @@ namespace CaeModel
             _amplitudes = new OrderedDictionary<string, Amplitude>("Amplitudes", sc);
             _stepCollection = new StepCollection();
             _properties = new ModelProperties();
-            _unitSystem = new UnitSystem();
+            if (unitSystem == null) _unitSystem = new UnitSystem();
+            else _unitSystem = unitSystem;
             //
             UpdateNCalcParameters();
         }
@@ -189,7 +190,9 @@ namespace CaeModel
                 }
             }
             //
-            _parameters.OnDeserialization(null);
+            _unitSystem.SetConverterUnits();
+            //
+            _parameters.OnDeserialization(null);    // call it to load the dictionary immediately
             UpdateNCalcParameters();
         }
 
@@ -1167,9 +1170,8 @@ namespace CaeModel
         }
         public List<string> ImportMaterialsFromInpFile(string fileName, Action<string> WriteDataToOutput)
         {
-            FeModel model = new FeModel("Imported Materials");
+            FeModel model = new FeModel("Imported Materials", _unitSystem);
             model.Properties.ModelSpace = _properties.ModelSpace;
-            model.UnitSystem = _unitSystem;
             //
             FileInOut.Input.InpFileReader.Read(fileName,
                                                FileInOut.Input.ElementsToImport.Solid | FileInOut.Input.ElementsToImport.Shell,
@@ -2106,7 +2108,7 @@ namespace CaeModel
         public FeModel PrepareBdmModel(Dictionary<int, double[]> deformations)
         {
             // Mesh
-            FeModel bdmModel = new FeModel("BDMmodel");
+            FeModel bdmModel = new FeModel("BDMmodel", _unitSystem);
             bdmModel.Properties = _properties;
             bdmModel.SetMesh(_mesh.DeepCopy());
             // Materials

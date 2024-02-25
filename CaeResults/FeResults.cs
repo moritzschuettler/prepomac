@@ -160,7 +160,7 @@ namespace CaeResults
 
 
         // Constructor                                                                                                              
-        public FeResults(string fileName)
+        public FeResults(string fileName, UnitSystem unitSystem)
         {
             _fileName = fileName;
             _hashName = Tools.GetRandomString(8);
@@ -170,7 +170,8 @@ namespace CaeResults
             _fields = new OrderedDictionary<FieldData, Field>("Fields");
             _fieldDataHashField = new OrderedDictionary<string, Field>("HashFieldPairs");
             _history = null;
-            _unitSystem = new UnitSystem();
+            if (unitSystem == null) _unitSystem = new UnitSystem();
+            else _unitSystem = unitSystem;
             _deformationFieldOutputName = FOFieldNames.Disp;
             _complexResultChanged = false;
         }
@@ -3705,19 +3706,20 @@ namespace CaeResults
                 if (tang1 != null)
                 {
                     // Sorted time
-                    double[] sortedTime;
+                    double[] historySortedTime;
                     Dictionary<double, int> timeRowId;
-                    GetSortedTime(new HistoryResultComponent[] { tang1 }, out sortedTime, out timeRowId);
+                    GetSortedTime(new HistoryResultComponent[] { tang1 }, out historySortedTime, out timeRowId);
                     //
-                    int count = 0;
+                    int fieldIncrementsCount = 0;
                     int[] stepIds = GetAllStepIds();
                     for (int i = 0; i < stepIds.Length; i++)
                     {
                         int[] stepIncrementIds = GetStepIncrementIds(stepIds[i]);
-                        count += stepIncrementIds.Length;
+                        fieldIncrementsCount += stepIncrementIds.Length;
                     }
                     //
-                    if (sortedTime.Length == count - 1) return true; // -1 for Zero increment - Find all occurances!!!
+                    if (historySortedTime.Length == fieldIncrementsCount - 1) // -1 for Zero increment - Find all occurances!!!
+                        return true;
                 }
             }
             return false;
@@ -4332,8 +4334,18 @@ namespace CaeResults
                         case 6: faceName = FeFaceName.S6; break;
                         default: throw new NotSupportedException();
                     }
-                    element = _mesh.Elements[elementId];
-                    _mesh.GetElementFaceNormalAndArea(elementId, faceName, out faceNormal, out faceArea);
+                    //
+                    if (_mesh.Elements.TryGetValue(elementId, out element))
+                    {
+                        _mesh.GetElementFaceNormalAndArea(elementId, faceName, out faceNormal, out faceArea);
+                    }
+                    else if (elementId == -1) // fix for when no history output exists - Find all occurrences!!!
+                    {
+                        faceName = FeFaceName.S1;
+                        faceNormal = new double[] { 1, 0, 0 };
+                        faceArea = 0;
+                    }
+                    else throw new NotSupportedException();
                     //
                     normalAllEntry = new HistoryResultEntries(entry.Key, false);
                     normal1Entry = new HistoryResultEntries(entry.Key, false);
@@ -4352,6 +4364,7 @@ namespace CaeResults
                     normalComponents[1].Entries.Add(normal1Entry.Name, normal1Entry);
                     normalComponents[2].Entries.Add(normal2Entry.Name, normal2Entry);
                     normalComponents[3].Entries.Add(normal3Entry.Name, normal3Entry);
+                    
                 }
                 count++;
             }
@@ -4466,17 +4479,32 @@ namespace CaeResults
                         case 6: faceName = FeFaceName.S6; break;
                         default: throw new NotSupportedException();
                     }
-                    element = _mesh.Elements[elementId];
-                    _mesh.GetElementFaceNormalAndArea(elementId, faceName, out faceNormal, out faceArea);
                     //
-                    avgEntryData = new AvgEntryData();
-                    avgEntryData.NodeIds = element.GetNodeIdsFromFaceName(faceName);
-                    avgEntryData.SurfaceId = 0;
-                    avgEntryData.ElementId = elementId;
-                    avgEntryData.Area = faceArea;
-                    //
-                    valueIdAvgEntryData.Add(count, avgEntryData);
-                    historyValues[count] = GetAllEntryValues(entry.Value, timeRowId);
+                    if (_mesh.Elements.TryGetValue(elementId, out element))
+                    {
+                        _mesh.GetElementFaceNormalAndArea(elementId, faceName, out faceNormal, out faceArea);
+                        //
+                        avgEntryData = new AvgEntryData();
+                        avgEntryData.NodeIds = element.GetNodeIdsFromFaceName(faceName);
+                        avgEntryData.SurfaceId = 0;
+                        avgEntryData.ElementId = elementId;
+                        avgEntryData.Area = faceArea;
+                        //
+                        valueIdAvgEntryData.Add(count, avgEntryData);
+                        historyValues[count] = GetAllEntryValues(entry.Value, timeRowId);
+                    }
+                    else if (elementId == -1) // fix for when no history output exists - Find all occurrences!!!
+                    {
+                        avgEntryData = new AvgEntryData();
+                        avgEntryData.NodeIds = new int[0];
+                        avgEntryData.SurfaceId = 0;
+                        avgEntryData.ElementId = elementId;
+                        avgEntryData.Area = 0;
+                        //
+                        valueIdAvgEntryData.Add(count, avgEntryData);
+                        historyValues[count] = GetAllEntryValues(entry.Value, timeRowId);
+                    }
+                    else throw new NotSupportedException();
                 }
                 count++;
             }

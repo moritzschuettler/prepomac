@@ -8846,7 +8846,7 @@ namespace PrePoMax
             
 
             ImportedPressure pressure = (ImportedPressure)_controller.GetStep("Step-1").Loads["Imported_pressure-1"];
-            pressure.ImportPressure(_controller.Model.UnitSystem.UnitSystemType);
+            pressure.ImportPressure(_controller.Model.UnitSystem);
             //
             PartExchangeData allData = new PartExchangeData();
             _controller.Model.Mesh.GetAllNodesAndCells(out allData.Nodes.Ids, out allData.Nodes.Coor, out allData.Cells.Ids,
@@ -8889,7 +8889,7 @@ namespace PrePoMax
             //
             Dictionary<int, int> nodeIdsLookUp = new Dictionary<int, int>();
             for (int i = 0; i < allData.Nodes.Coor.Length; i++) nodeIdsLookUp.Add(allData.Nodes.Ids[i], i);
-            CaeResults.FeResults outResults = new CaeResults.FeResults("Imported_pressure-1");
+            CaeResults.FeResults outResults = new CaeResults.FeResults("Imported_pressure-1", _controller.Model.UnitSystem);
             //outResults.FileName = "Imported_pressure-1";
             outResults.SetMesh(_controller.Model.Mesh, nodeIdsLookUp);
             // Add distances

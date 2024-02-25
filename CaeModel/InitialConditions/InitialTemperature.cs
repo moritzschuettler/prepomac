@@ -30,7 +30,7 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
-        public FeResults GetPreview(FeMesh targetMesh, string resultName, UnitSystemType unitSystemType)
+        public FeResults GetPreview(FeMesh targetMesh, string resultName, UnitSystem unitSystem)
         {
             PartExchangeData allData = new PartExchangeData();
             targetMesh.GetAllNodesAndCells(out allData.Nodes.Ids, out allData.Nodes.Coor, out allData.Cells.Ids,
@@ -60,7 +60,7 @@ namespace CaeModel
             //
             Dictionary<int, int> nodeIdsLookUp = new Dictionary<int, int>();
             for (int i = 0; i < allData.Nodes.Coor.Length; i++) nodeIdsLookUp.Add(allData.Nodes.Ids[i], i);
-            FeResults results = new FeResults(resultName);
+            FeResults results = new FeResults(resultName, unitSystem);
             results.SetMesh(targetMesh, nodeIdsLookUp);
             // Add group
             FieldData fieldData = new FieldData(FOFieldNames.NdTemp);
@@ -74,8 +74,6 @@ namespace CaeModel
             Field field = new Field(fieldData.Name);
             field.AddComponent(FOComponentNames.T, values);
             results.AddField(fieldData, field);
-            // Unit system
-            results.UnitSystem = new UnitSystem(unitSystemType);
             //
             return results;
         }

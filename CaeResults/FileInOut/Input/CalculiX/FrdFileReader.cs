@@ -70,7 +70,7 @@ namespace CaeResults
                 Dictionary<int, string> materialIdMaterialName = null;
                 Dictionary<int, List<int>> materialIdElementIds = null;
                 //
-                FeResults result = new FeResults(fileName);
+                FeResults result = new FeResults(fileName, null);
                 Field field;
                 FieldData fieldData = null;
                 FieldData prevFieldData = null;
@@ -84,7 +84,7 @@ namespace CaeResults
                     {
                         result.HashName = GetHashName(dataSet);
                         result.DateTime = GetDateTime(dataSet);
-                        result.UnitSystem = GetUnitSystem(dataSet);
+                        result.UnitSystem = GetUnitSystem(dataSet); // calls SetConverterUnits on the UnitSystem
                         GetMaterialIdsAndNames(dataSet, out materialIdMaterialName, out gapMaterialIds, out springMaterialIds);
                     }
                     else if (setID.StartsWith("    2C")) // Nodes

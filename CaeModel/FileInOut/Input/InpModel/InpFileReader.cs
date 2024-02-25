@@ -244,7 +244,7 @@ namespace FileInOut.Input
                 //
                 model.ImportMesh(mesh, null, false, false);
                 // Add model items
-                foreach (var entry in referencePoints) mesh.ReferencePoints.Add(entry.Key, entry.Value);
+                foreach (var entry in referencePoints) model.Mesh.ReferencePoints.Add(entry.Key, entry.Value);
                 foreach (var entry in materials) model.Materials.Add(entry.Key, entry.Value);
                 foreach (var entry in sections) model.Sections.Add(entry.Key, entry.Value);
                 foreach (var entry in constraints) model.Constraints.Add(entry.Key, entry.Value);
@@ -1661,6 +1661,7 @@ namespace FileInOut.Input
             //
             // *STEP, NLGEOM,INC = 1000 -- CALCULIX
             bool nlgeom = false;
+            int frequency;
             int? maxIncrements = null;
             bool perturbation = false;
             string[] dataSet = null;
@@ -1725,7 +1726,16 @@ namespace FileInOut.Input
                     record1 = dataSet[0].Split(_splitterComma, StringSplitOptions.RemoveEmptyEntries);
                     string keyword = record1[0].Trim().ToUpper();
                     //
-                    if (keyword == "*BOUNDARY") AddStepBoundaryCondition(step, dataSet, mesh);
+                    if (keyword == "*OUTPUT" && record1.Length > 1)
+                    {
+                        record2 = record1[1].Split(_splitterEqual, StringSplitOptions.RemoveEmptyEntries);
+                        if (record2.Length > 1)
+                        {
+                            frequency = int.Parse(record2[1].Trim());
+                            step.OutputFrequency = frequency;
+                        }
+                    }
+                    else if (keyword == "*BOUNDARY") AddStepBoundaryCondition(step, dataSet, mesh);
                     else if (keyword == "*CLOAD") AddStepCLoad(step, mesh, dataSet);
                     else if (keyword == "*DLOAD") AddStepDLoad(step, dataSet);
                     //

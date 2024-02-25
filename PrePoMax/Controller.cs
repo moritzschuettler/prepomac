@@ -494,7 +494,7 @@ namespace PrePoMax
             // Exploded view
             _explodedViews.ClearModelExplodedViews();
             //
-            _model = new FeModel("Model-1");
+            _model = new FeModel("Model-1", null);
             SetNewModelProperties(_model.Properties.ModelSpace, _model.UnitSystem.UnitSystemType);   // update widgets
             //
             _annotateWithColor = AnnotateWithColorEnum.None;
@@ -690,7 +690,8 @@ namespace PrePoMax
         {
             try
             {
-                if (_allResults.CurrentResult == null) _allResults.Add(fileName, new FeResults(fileName));
+                if (_allResults.CurrentResult == null)
+                    _allResults.Add(fileName, new FeResults(fileName, _allResults.CurrentResult.UnitSystem));
                 // This is also called in AppendResults
                 _allResults.CurrentResult.SetHistory(DatFileReader.Read(fileName));
                 // Wear
@@ -800,7 +801,7 @@ namespace PrePoMax
         }
         private void OpenFoam(string fileName)
         {
-            FeResults results = OpenFoamFileReader.Read(fileName, _model.UnitSystem.UnitSystemType);
+            FeResults results = OpenFoamFileReader.Read(fileName, _model.UnitSystem);
             if (results == null) throw new CaeException("The results file cannot be read.");
             // Load results
             _form.Clear3D();
@@ -1615,7 +1616,7 @@ namespace PrePoMax
                 //
                 SuppressExplodedView();
                 //
-                using (BinaryWriter bw = new BinaryWriter(new MemoryStream()))
+                using (BinaryWriter bw = new BinaryWriter(new MemoryStream(10_000_000)))
                 using (FileStream fs = new FileStream(tmpFileName, FileMode.Create))
                 {
                     ResultsCollection allResults = null;
@@ -1687,7 +1688,7 @@ namespace PrePoMax
             if (_allResults.CurrentResult != null && _allResults.CurrentResult.Mesh != null)
             {
                 SuppressExplodedView();
-                FeModel newModel = new FeModel("Deformed");
+                FeModel newModel = new FeModel("Deformed", _allResults.CurrentResult.UnitSystem);
                 newModel.Properties.ModelSpace = ModelSpaceEnum.ThreeD;
                 newModel.Mesh.AddPartsFromMesh(_allResults.CurrentResult.Mesh, partNames, null, false, false);
                 // Change result parts to mesh parts
@@ -4834,7 +4835,7 @@ namespace PrePoMax
         //
         public void UpdateNodalCoordinatesFromFile(string fileName)
         {
-            FeModel newModel = new FeModel("Deformed");
+            FeModel newModel = new FeModel("Deformed", _model.UnitSystem);
             newModel.Properties.ModelSpace = _model.Properties.ModelSpace;
             newModel.ImportModelFromInpFile(fileName, _form.WriteDataToOutput);
             _model.Mesh.UpdateNodalCoordinatesFromMesh(newModel.Mesh);
@@ -7631,11 +7632,11 @@ namespace PrePoMax
                 FeResults results;
                 if (initialCondition is InitialTemperature it)
                 {
-                    results = it.GetPreview(_model.Mesh, initialConditionName, _model.UnitSystem.UnitSystemType);
+                    results = it.GetPreview(_model.Mesh, initialConditionName, _model.UnitSystem);
                 }
                 else if (initialCondition is InitialVelocity iv)
                 {
-                    results = iv.GetPreview(_model.Mesh, initialConditionName, _model.UnitSystem.UnitSystemType);
+                    results = iv.GetPreview(_model.Mesh, initialConditionName, _model.UnitSystem);
                 }
                 else throw new CaeException("It is not possible to preview this initial condition type.");
                 //
@@ -8461,15 +8462,15 @@ namespace PrePoMax
                 FeResults results;
                 if (load is DLoad dl)
                 {
-                    results = dl.GetPreview(_model.Mesh, stepName + "_" + loadName, _model.UnitSystem.UnitSystemType);
+                    results = dl.GetPreview(_model.Mesh, stepName + "_" + loadName, _model.UnitSystem);
                 }
                 else if (load is ImportedPressure ip)
                 {
-                    results = ip.GetPreview(_model.Mesh, stepName + "_" + loadName, _model.UnitSystem.UnitSystemType);
+                    results = ip.GetPreview(_model.Mesh, stepName + "_" + loadName, _model.UnitSystem);
                 }
                 else if (load is HydrostaticPressure hp)
                 {
-                    results = hp.GetPreview(_model.Mesh, stepName + "_" + loadName, _model.UnitSystem.UnitSystemType);
+                    results = hp.GetPreview(_model.Mesh, stepName + "_" + loadName, _model.UnitSystem);
                 }
                 else throw new CaeException("It is not possible to preview this load type.");
                 //
@@ -8696,7 +8697,7 @@ namespace PrePoMax
                 FeResults results;
                 if (definedField is DefinedTemperature dt)
                 {
-                    results = dt.GetPreview(_model.Mesh, stepName + "_" + definedFieldName, _model.UnitSystem.UnitSystemType);
+                    results = dt.GetPreview(_model.Mesh, stepName + "_" + definedFieldName, _model.UnitSystem);
                 }
                 else throw new CaeException("It is not possible to preview this defined field type.");
                 //
@@ -9013,8 +9014,8 @@ namespace PrePoMax
                 {
                     if (onlyCheckModel) _model.StepCollection.SetCheckModel();
                     else _model.StepCollection.SetRunAnalysis();
-
-                    if (_model.Properties.ModelType == ModelType.SlipWearModel)
+                    //
+                    if (_model.Properties.ModelType == ModelType.SlipWearModel && !onlyCheckModel)
                     {
                         return RunWearJob(inputFileName, job);
                     }
@@ -13574,7 +13575,7 @@ namespace PrePoMax
         public void DrawImportedPressureLoadSymbols(string prefixName, ImportedPressure ipLoad, Color color, int symbolSize,
                                                     vtkRendererLayer layer)
         {
-            if (!ipLoad.IsInitialized()) ipLoad.ImportPressure(_model.UnitSystem.UnitSystemType);
+            if (!ipLoad.IsInitialized()) ipLoad.ImportPressure(_model.UnitSystem);
             //
             FeSurface surface = _model.Mesh.Surfaces[ipLoad.SurfaceName];
             //

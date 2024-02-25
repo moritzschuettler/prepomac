@@ -739,6 +739,15 @@ namespace CaeResults
                     //
                     allValues.Add(values);
                 }
+                // Fix for when no history output exists - Find all occurrences!!!
+                if (dataSet.FieldName == HOFieldNames.RelativeContactDisplacement && allValues.Count == 0)
+                {
+                    locals.Add(false);
+                    // Set the element id to -1
+                    // Set the faceName to 1 equals to FeFaceName.S1
+                    // Set the values to the smallest possible value
+                    allValues.Add(new double[] { -1, 1, double.Epsilon, double.Epsilon, double.Epsilon });
+                }
                 dataSet.Locals = locals.ToArray();
                 dataSet.Values = allValues.ToArray();
                 dataSet.ComponentNames = componentNames.ToArray();
@@ -911,7 +920,6 @@ namespace CaeResults
             //
             return dataSet;
         }
-
         //
         static private void AddComplexFields(HistoryResults historyOutput)
         {

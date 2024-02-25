@@ -271,7 +271,7 @@ namespace CaeModel
             //
             return true;
         }
-        public FeResults GetPreview(FeMesh targetMesh, string resultName, UnitSystemType unitSystemType)
+        public FeResults GetPreview(FeMesh targetMesh, string resultName, UnitSystem unitSystem)
         {
             //
             PartExchangeData allData = new PartExchangeData();
@@ -298,7 +298,7 @@ namespace CaeModel
             //
             Dictionary<int, int> nodeIdsLookUp = new Dictionary<int, int>();
             for (int i = 0; i < allData.Nodes.Coor.Length; i++) nodeIdsLookUp.Add(allData.Nodes.Ids[i], i);
-            FeResults results = new FeResults(resultName);
+            FeResults results = new FeResults(resultName, unitSystem);
             results.SetMesh(targetMesh, nodeIdsLookUp);
             // Add distances
             FieldData fieldData = new FieldData(FOFieldNames.Imported);
@@ -312,8 +312,6 @@ namespace CaeModel
             Field field = new Field(fieldData.Name);
             field.AddComponent(FOComponentNames.PRESS, values);
             results.AddField(fieldData, field);
-            // Unit system
-            results.UnitSystem = new UnitSystem(unitSystemType);
             //
             return results;
         }

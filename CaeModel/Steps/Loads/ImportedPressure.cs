@@ -153,7 +153,7 @@ namespace CaeModel
         {
             return _interpolator != null;
         }
-        public void ImportPressure(UnitSystemType unitSystemType)
+        public void ImportPressure(UnitSystem unitSystem)
         {
             bool updateData = false;
             FileInfo fileInfo = new FileInfo(_fileName);
@@ -177,7 +177,8 @@ namespace CaeModel
             {
                 _oldFileInfo = fileInfo;
                 // Get results
-                FeResults results = OpenFoamFileReader.Read(_fileName, double.Parse(_pressureTime), _pressureVariableName, unitSystemType);
+                FeResults results =
+                    OpenFoamFileReader.Read(_fileName, double.Parse(_pressureTime), _pressureVariableName, unitSystem);
                 if (results == null) throw new CaeException("No pressure was imported.");
                 // Scale geometry
                 if (_geomScaleFactor.Value != 1) results.ScaleAllParts(_geomScaleFactor.Value);
@@ -197,9 +198,9 @@ namespace CaeModel
                 _interpolator = new ResultsInterpolator(results.GetAllNodesCellsAndValues(pressureData));
             }
         }
-        public FeResults GetPreview(FeMesh targetMesh, string resultName, UnitSystemType unitSystemType)
+        public FeResults GetPreview(FeMesh targetMesh, string resultName, UnitSystem unitSystem)
         {
-            ImportPressure(unitSystemType);
+            ImportPressure(unitSystem);
             //
             PartExchangeData allData = new PartExchangeData();
             targetMesh.GetAllNodesAndCells(out allData.Nodes.Ids, out allData.Nodes.Coor, out allData.Cells.Ids,
@@ -246,7 +247,7 @@ namespace CaeModel
             //
             Dictionary<int, int> nodeIdsLookUp = new Dictionary<int, int>();
             for (int i = 0; i < allData.Nodes.Coor.Length; i++) nodeIdsLookUp.Add(allData.Nodes.Ids[i], i);
-            FeResults results = new FeResults(resultName);
+            FeResults results = new FeResults(resultName, unitSystem);
             results.SetMesh(targetMesh, nodeIdsLookUp);
             // Add distances
             FieldData fieldData = new FieldData(FOFieldNames.Distance);
@@ -270,8 +271,6 @@ namespace CaeModel
             field = new Field(fieldData.Name);
             field.AddComponent(FOComponentNames.PRESS, values);
             results.AddField(fieldData, field);
-            // Unit system
-            results.UnitSystem = new UnitSystem(unitSystemType);
             //
             return results;
         }

@@ -28,7 +28,7 @@ namespace FileInOut.Output.Calculix
         public CalImportedPressureLoad(FeModel model, ImportedPressure load, ComplexLoadTypeEnum complexLoadType)
         {
             _load = load;
-            _load.ImportPressure(model.UnitSystem.UnitSystemType);
+            _load.ImportPressure(model.UnitSystem);
             //_cLoads = model.GetNodalCLoadsFromVariablePressureLoad(_load);
             _dLoads = model.GetNodalDLoadsFromVariablePressureLoad(_load);
             _complexLoadType = complexLoadType;

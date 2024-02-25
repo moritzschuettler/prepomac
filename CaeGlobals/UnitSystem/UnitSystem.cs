@@ -406,7 +406,6 @@ namespace CaeGlobals
                     default:
                         break;
                 }
-                
             }
             //
             SetUnits(unitSystemType);

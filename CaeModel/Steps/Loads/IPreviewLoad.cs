@@ -11,6 +11,6 @@ namespace CaeModel
 {
     public interface IPreviewable
     {
-        FeResults GetPreview(FeMesh targetMesh, string resultName, UnitSystemType unitSystemType);
+        FeResults GetPreview(FeMesh targetMesh, string resultName, UnitSystem unitSystem);
     }
 }
