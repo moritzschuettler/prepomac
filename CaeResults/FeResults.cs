@@ -15,6 +15,7 @@ using System.Runtime.CompilerServices;
 using System.Xml.Linq;
 using System.Collections;
 using System.IO;
+using System.IO.Compression;
 
 namespace CaeResults
 {
@@ -196,7 +197,7 @@ namespace CaeResults
         //}
 
         // Static methods                                                                                                           
-        public static void WriteToFile(FeResults results, System.IO.BinaryWriter bw)
+        public static void WriteToBinaryWriter(FeResults results, BinaryWriter bw)
         {
             if (results == null)
             {
@@ -208,7 +209,7 @@ namespace CaeResults
                 // Mesh
                 Dictionary<int, FeNode> tmp = results.Mesh.Nodes;
                 results.Mesh.Nodes = results._undeformedNodes;
-                FeMesh.WriteToBinaryFile(results.Mesh, bw);
+                FeMesh.WriteToBinaryWriter(results.Mesh, bw);
                 results.Mesh.Nodes = tmp;
                 // Node lookup
                 if (results._nodeIdsLookUp == null) bw.Write(-1);
@@ -253,7 +254,95 @@ namespace CaeResults
                 }
             }
         }
-        public static void ReadFromFile(FeResults results, System.IO.BinaryReader br, int version)
+        public static void WriteToFileStream(FeResults results, FileStream fileStream, CompressionLevel compressionLevel)
+        {
+            if (results == null)
+            {
+                // Write the result state
+                Tools.WriteIntToFileStream(fileStream, -1);
+            }
+            else
+            {
+                // Write the result state
+                Tools.WriteIntToFileStream(fileStream, 1);
+                // Write the results mesh data
+                using (BinaryWriter bw = new BinaryWriter(new MemoryStream()))
+                {
+                    Dictionary<int, FeNode> tmp = results.Mesh.Nodes;
+                    results.Mesh.Nodes = results._undeformedNodes;
+                    FeMesh.WriteToBinaryWriter(results.Mesh, bw);
+                    results.Mesh.Nodes = tmp;
+                    // Node lookup
+                    if (results._nodeIdsLookUp == null) bw.Write(-1);
+                    else
+                    {
+                        bw.Write(1);
+                        //
+                        bw.Write(results._nodeIdsLookUp.Count);
+                        foreach (var entry in results._nodeIdsLookUp)
+                        {
+                            bw.Write(entry.Key);
+                            bw.Write(entry.Value);
+                        }
+                    }
+                    // Rewind the writer
+                    bw.Flush();
+                    bw.BaseStream.Position = 0;
+                    // Compress the writer
+                    byte[] compressedData = Tools.Compress(bw.BaseStream, compressionLevel);
+                    // Write the length of the compressed data
+                    Tools.WriteIntToFileStream(fileStream, compressedData.Length);
+                    // Write the compressed data
+                    fileStream.Write(compressedData, 0, compressedData.Length);
+                }
+                // Fields
+                if (results._fields == null)
+                {
+                    // Write the field state
+                    Tools.WriteIntToFileStream(fileStream, -1);
+                }
+                else
+                {
+                    // Write the field state
+                    Tools.WriteIntToFileStream(fileStream, 1);
+                    // Set complex to real
+                    ComplexResultTypeEnum prevComplexResultType = results._complexResultType;
+                    float prevComplexAngleDeg = results._complexAngleDeg;
+                    results.SetComplexResultTypeAndAngle(ComplexResultTypeEnum.Real, 0);
+                    // Delete complex results
+                    results.RemoveComplexResults();
+                    // Write the number of fields
+                    Tools.WriteIntToFileStream(fileStream, results._fields.Count);
+                    //
+                    foreach (var entry in results._fields)
+                    {
+                        entry.Value.RemoveInvariants();
+                        //
+                        using (BinaryWriter bw = new BinaryWriter(new MemoryStream()))
+                        {
+                            FieldData.WriteToFile(entry.Key, bw);
+                            Field.WriteToFile(entry.Value, bw);
+                            // Rewind the writer
+                            bw.Flush();
+                            bw.BaseStream.Position = 0;
+                            // Compress the writer
+                            byte[] compressedData = Tools.Compress(bw.BaseStream, compressionLevel);
+                            // Write the length of the compressed data
+                            Tools.WriteIntToFileStream(fileStream, compressedData.Length);
+                            // Write the compressed data
+                            fileStream.Write(compressedData, 0, compressedData.Length);
+                        }
+                        //
+                        entry.Value.ComputeInvariants();
+                    }
+                    // Prepare complex
+                    results.PrepareComplexResults();
+                    // Reset complex
+                    results.SetComplexResultTypeAndAngle(prevComplexResultType, prevComplexAngleDeg);
+                }
+            }
+        }
+        public static void ReadFromBinaryReader(FeResults results, BinaryReader br, int version)
         {
             int numItems;
             FieldData fieldData;
@@ -263,7 +352,7 @@ namespace CaeResults
             if (exist == 1)
             {
                 // Mesh
-                FeMesh.ReadFromBinaryFile(results.Mesh, br, version);
+                FeMesh.ReadFromBinaryReader(results.Mesh, br, version);
                 results.InitializeUndeformedNodes();
                 // Node lookup
                 exist = br.ReadInt32();
@@ -287,6 +376,72 @@ namespace CaeResults
                         if (field != null)
                         {
                             //
+                            field.ComputeInvariants();
+                            //
+                            results.AddField(fieldData, field);
+                        }
+                    }
+                    // Prepare complex
+                    results.PrepareComplexResults();
+                    // Compatibility v1.5.3
+                    if (results._resultFieldOutputs == null)
+                        results._resultFieldOutputs = new OrderedDictionary<string, ResultFieldOutput>("ResultFieldOutputs");
+                }
+            }
+        }
+        public static void ReadFromFileStream(FeResults results, FileStream fileStream, int version)
+        {
+            int numItems;
+            int numOfBytes;
+            FieldData fieldData;
+            Field field;
+            byte[] compressedData;
+            // Read the result state
+            int exist = Tools.ReadIntFromFileStream(fileStream);
+            if (exist == 1)
+            {
+                // Mesh
+                numOfBytes = Tools.ReadIntFromFileStream(fileStream);
+                compressedData = new byte[numOfBytes];
+                fileStream.Read(compressedData, 0, compressedData.Length);
+                //
+                using (MemoryStream memoryStream = new MemoryStream(compressedData))
+                using (BinaryReader br = new BinaryReader(Tools.Decompress(memoryStream)))
+                {
+                    FeMesh.ReadFromBinaryReader(results.Mesh, br, version);
+                    //
+                    results.InitializeUndeformedNodes();
+                    // Node lookup
+                    exist = br.ReadInt32();
+                    if (exist == 1)
+                    {
+                        numItems = br.ReadInt32();
+                        results._nodeIdsLookUp = new Dictionary<int, int>();
+                        for (int i = 0; i < numItems; i++) results._nodeIdsLookUp.Add(br.ReadInt32(), br.ReadInt32());
+                    }
+                }
+                // Read the fields state
+                exist = Tools.ReadIntFromFileStream(fileStream);
+                if (exist == 1)
+                {
+                    numItems = Tools.ReadIntFromFileStream(fileStream);
+                    results._fields = new OrderedDictionary<FieldData, Field>("Fields");
+                    results._fieldDataHashField = new OrderedDictionary<string, Field>("HashFieldPairs");
+                    for (int i = 0; i < numItems; i++)
+                    {
+                        numOfBytes = Tools.ReadIntFromFileStream(fileStream);
+                        compressedData = new byte[numOfBytes];
+                        fileStream.Read(compressedData, 0, compressedData.Length);
+                        //
+                        using (MemoryStream memoryStream = new MemoryStream(compressedData))
+                        using (BinaryReader br = new BinaryReader(Tools.Decompress(memoryStream)))
+                        {
+                            fieldData = FieldData.ReadFromFile(br, version);
+                            field = Field.ReadFromFile(br, version);
+                        }
+                        //
+                        if (field != null)
+                        {
                             field.ComputeInvariants();
                             //
                             results.AddField(fieldData, field);

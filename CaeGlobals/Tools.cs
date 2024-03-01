@@ -11,6 +11,8 @@ using System.ComponentModel;
 using DynamicTypeDescriptor;
 using System.Linq.Expressions;
 using System.Diagnostics;
+using System.IO.Compression;
+using UnitsNet;
 
 namespace CaeGlobals
 {
@@ -23,8 +25,6 @@ namespace CaeGlobals
         //
         private static readonly float _radToDeg = (float)(180f / Math.PI);
         private static readonly float _degToRad = (float)(Math.PI / 180f);
-        
-        
         // Read clone from File
         public static T LoadDumpFromFile<T>(string fileName)
         {
@@ -57,6 +57,44 @@ namespace CaeGlobals
             T a = default;
             await Task.Run(() => a = LoadDumpFromFile<T>(fileName));
             return a;
+        }
+        //
+        public static void WriteIntToFileStream(FileStream fileStream, int value)
+        {
+            byte[] buffer = BitConverter.GetBytes(value);
+            if (buffer.Length != 4) throw new NotSupportedException();
+            fileStream.Write(buffer, 0, 4);
+        }
+        public static void WriteStringToFileStream(FileStream fileStream, string value)
+        {
+            WriteIntToFileStream(fileStream, value.Length);
+            WriteStringToFileStream(fileStream, value, value.Length);
+        }
+        public static void WriteStringToFileStream(FileStream fileStream, string value, int numOfBytes)
+        {
+            byte[] byteData = Encoding.ASCII.GetBytes(value);
+            byte[] buffer = new byte[numOfBytes];
+            byteData.CopyTo(buffer, 0);
+            //
+            fileStream.Write(buffer, 0, numOfBytes);
+        }
+        public static int ReadIntFromFileStream(FileStream fileStream)
+        {
+            byte[] buffer = new byte[4];
+            fileStream.Read(buffer, 0, buffer.Length);
+            return BitConverter.ToInt32(buffer, 0);
+        }
+        public static string ReadStringFromFileStream(FileStream fileStream)
+        {
+            int numOfBytes = ReadIntFromFileStream(fileStream);
+            return ReadStringFromFileStream(fileStream, numOfBytes);
+
+        }
+        public static string ReadStringFromFileStream(FileStream fileStream, int numOfBytes)
+        {
+            byte[] buffer = new byte[numOfBytes];
+            fileStream.Read(buffer, 0, buffer.Length);
+            return Encoding.ASCII.GetString(buffer);
         }
         //
         public static string GetLocalPath(string path)
@@ -100,6 +138,29 @@ namespace CaeGlobals
             while (repeate);
             //
             return System.IO.Path.Combine(path, System.IO.Path.ChangeExtension(hash, extension));
+        }
+        // Compression
+        public static byte[] Compress(Stream input, CompressionLevel compressionLevel)
+        {
+            using (var compressStream = new MemoryStream())
+            using (var compressor = new DeflateStream(compressStream, compressionLevel))
+            {
+                input.CopyTo(compressor);
+                compressor.Close();
+                return compressStream.ToArray();
+            }
+        }
+        public static Stream Decompress(Stream input)
+        {
+            var output = new MemoryStream();
+            //
+            using (var decompressor = new DeflateStream(input, CompressionMode.Decompress))
+            {
+                decompressor.CopyTo(output);
+            }
+            //
+            output.Position = 0;
+            return output;
         }
         // Rouding
         public static double RoundToSignificantDigits(double d, int digits)

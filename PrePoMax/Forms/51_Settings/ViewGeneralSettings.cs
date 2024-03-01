@@ -7,9 +7,23 @@ using System.ComponentModel;
 using CaeGlobals;
 using DynamicTypeDescriptor;
 using System.Drawing.Design;
+using System.IO.Compression;
 
 namespace PrePoMax.Settings
 {
+    [Serializable]
+    public enum CompressionEnum
+    {
+        [StandardValue("NoCompression", DisplayName = "No compression")]
+        NoCompression,
+        //
+        [StandardValue("Fastest", DisplayName = "Fastest")]
+        Fastest,
+        //
+        [StandardValue("Optimal", DisplayName = "Optimal")]
+        Optimal,
+    }
+    //
     [Serializable]
     public class ViewGeneralSettings : IViewSettings, IReset
     {
@@ -40,7 +54,28 @@ namespace PrePoMax.Settings
         }
         //
         [Category("General")]
-        [OrderedDisplayName(3, 10, "Default unit system")]
+        [OrderedDisplayName(3, 10, "Compress .pmx files")]
+        [Description("Select the .pmx file compression level.")]
+        public CompressionEnum Compression
+        {
+            get
+            {
+                if (_generalSettings.CompressionLevel == CompressionLevel.NoCompression) return CompressionEnum.NoCompression;
+                else if (_generalSettings.CompressionLevel == CompressionLevel.Fastest) return CompressionEnum.Fastest;
+                else if (_generalSettings.CompressionLevel == CompressionLevel.Optimal) return CompressionEnum.Optimal;
+                else throw new NotSupportedException();
+            }
+            set
+            {
+                if (value == CompressionEnum.NoCompression) _generalSettings.CompressionLevel = CompressionLevel.NoCompression;
+                else if (value == CompressionEnum.Fastest) _generalSettings.CompressionLevel = CompressionLevel.Fastest;
+                else if (value == CompressionEnum.Optimal) _generalSettings.CompressionLevel = CompressionLevel.Optimal;
+                else throw new NotSupportedException();
+            }
+        }
+        //
+        [Category("General")]
+        [OrderedDisplayName(4, 10, "Default unit system")]
         [Description("Select the default unit system for new models.")]
         public string UnitSystemType
         {

@@ -12,6 +12,7 @@ using Microsoft.SqlServer.Server;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Xml.Linq;
+using System.Diagnostics.Eventing.Reader;
 
 namespace FileInOut.Output
 {
@@ -73,6 +74,8 @@ namespace FileInOut.Output
         {
             // Clone surfaces
             OrderedDictionary<string, FeSurface> clonedSurfaces = model.Mesh.Surfaces.DeepClone();
+            OrderedDictionary<string, FeElementSet> clonedElementSets = model.Mesh.ElementSets.DeepClone();
+            FeMesh mesh = model.Mesh.DeepClone();
             try
             {
                 // Only keywords from the model, not user keywords
@@ -96,7 +99,7 @@ namespace FileInOut.Output
                 GetPretensionLoads(model, out preTensionLoads);
                 // Prepare reference points
                 GetReferencePoints(model, preTensionLoads, ref maxNodeId, out referencePointsNodeIds);
-                // Fiy pyramid surfaces
+                // Fix pyramid surfaces
                 FixPyramidSurfaces(model, convertPyramidsTo, ref additionalElementSets, ref reservedElementSetNames);
                 // Prepare mass sections
                 GetMassSections(model, referencePointsNodeIds, ref maxElementId, ref additionalElementKeywords,
@@ -105,9 +108,13 @@ namespace FileInOut.Output
                 GetPointSprings(model, referencePointsNodeIds, ref maxElementId, ref additionalElementKeywords,
                                 ref additionalElementSets, ref additionalSectionData, ref reservedElementSetNames);
                 // Collect compression only constraints
-                GetCompressionOnlyConstraintData(model, ref maxNodeId, ref maxElementId, ref additionalNodes, ref additionalNodeSets,
-                                                 ref additionalElementKeywords, ref additionalElementSets, ref additionalSectionData,
-                                                 ref additionalBoundaryConditions, ref equationParameters, ref reservedElementSetNames);
+                GetCompressionOnlyConstraintData(model, ref maxNodeId, ref maxElementId, ref additionalNodes,
+                                                 ref additionalNodeSets, ref additionalElementKeywords,
+                                                 ref additionalElementSets, ref additionalSectionData,
+                                                 ref additionalBoundaryConditions, ref equationParameters,
+                                                 ref reservedElementSetNames);
+                //
+                foreach (var elementSet in additionalElementSets) model.Mesh.ElementSets.Add(elementSet.Name, elementSet);
                 //
                 CalTitle title;
                 List<CalculixKeyword> keywords = new List<CalculixKeyword>();
@@ -192,6 +199,7 @@ namespace FileInOut.Output
             }
             finally
             {
+                model.Mesh.ElementSets = clonedElementSets;
                 model.Mesh.Surfaces = clonedSurfaces;
             }
         }

@@ -609,7 +609,10 @@ namespace PrePoMax
             }
             if (data == null) data = TryReadUncompressedPmx(fileName, out _model, out _allResults);
             if (data == null || data.Length < 3)
+            {
+                New();
                 throw new Exception("The file cannot be read. It is either corrupt or was created by a previous version.");
+            }
             // Get controller
             tmp = (Controller)data[0];
             // Commands
@@ -971,7 +974,6 @@ namespace PrePoMax
             model = null;
             allResults = null;
             fileVersion = null;
-            bool oldResults = false;
             try
             {
                 object[] data = null;
@@ -988,72 +990,141 @@ namespace PrePoMax
                         _form.WriteDataToOutput("Some items might not be loaded correctly. Check the model.");
                     }
                     //
-                    using (BinaryReader br = new BinaryReader(Decompress(fs)))
-                    {
-                        data = Tools.LoadDumpFromFile<object[]>(br);
-                        tmp = (Controller)data[0];
-                        model = tmp._model;
-                        // Compatibility v.1.3.5
-                        Selection selection;
-                        foreach (var entry in model.Geometry.Parts)
-                        {
-                            if (entry.Value is GeometryPart gp && gp.MeshingParameters != null)
-                            {
-                                gp.MeshingParameters.FactorMax = MeshingParameters.DefaultFactorMax;
-                                gp.MeshingParameters.FactorMin = MeshingParameters.DefaultFactorMin;
-                                gp.MeshingParameters.FactorHausdorff = MeshingParameters.DefaultFactorHausdorff;
-                                gp.MeshingParameters.SetCheckName(true);
-                                string name = model.Geometry.MeshSetupItems.GetNextNumberedKey("Meshing_Parameters");
-                                gp.MeshingParameters.Name = name;
-                                gp.MeshingParameters.Active = true;
-                                gp.MeshingParameters.Visible = true;
-                                gp.MeshingParameters.Valid = true;
-                                gp.MeshingParameters.Internal = false;
-                                //
-                                gp.MeshingParameters.CreationIds = new int[] { gp.PartId };
-                                selection = new Selection();
-                                selection.CurrentView = (int)ViewGeometryModelResults.Geometry;
-                                selection.SelectItem = vtkSelectItem.Part;
-                                selection.Add(new SelectionNodeIds(vtkSelectOperation.None, false,
-                                                                   gp.MeshingParameters.CreationIds));
-                                gp.MeshingParameters.CreationData = selection;
-                                //
-                                model.Geometry.MeshSetupItems.Add(gp.MeshingParameters.Name, gp.MeshingParameters.DeepClone());
-                                gp.MeshingParameters = null;
-                            }
-                        }
-                        // Compatibility v.1.3.3
-                        if (tmp._allResults == null)
-                        {
-                            oldResults = true;
-                            allResults = new ResultsCollection();
-                            if (tmp._results != null) allResults.Add(tmp._results.HashName, tmp._results);
-                        }
-                        else allResults = tmp._allResults;
-                        //
-                        string[] versions = fileVersion.Split(new string[] { " ", ".", "v" },
-                                                              StringSplitOptions.RemoveEmptyEntries);
-                        int major;
-                        int minor;
-                        int build;
-                        int.TryParse(versions[1], out major);
-                        int.TryParse(versions[2], out minor);
-                        int.TryParse(versions[3], out build);
-                        //
-                        int version = major * 1_000_000 + minor * 1000 + build;
-                        FeModel.ReadFromFile(model, br, version);
-                        //
-                        if (oldResults) FeResults.ReadFromFile(allResults.CurrentResult, br, version);
-                        else if (ResultsCollection.ReadFromFile(allResults, br, version)) ;
-                        else
-                        {
-                            _form.WriteDataToOutput("Warning: There were errors reading the results.");
-                            _form.WriteDataToOutput("Some results might not be loaded correctly. Check the results.");
-                        }
-                    }
+                    string[] versions = fileVersion.Split(new string[] { " ", ".", "v" },
+                                                          StringSplitOptions.RemoveEmptyEntries);
+                    int major;
+                    int minor;
+                    int build;
+                    int.TryParse(versions[1], out major);
+                    int.TryParse(versions[2], out minor);
+                    int.TryParse(versions[3], out build);
+                    //
+                    int version = major * 1_000_000 + minor * 1000 + build;
+                    //
+                    if (version < 2_000_006)
+                        data = TryReadCompressedPmxBefore_2_0_6(fs, version, out model, out allResults);
+                    else
+                        data = TryReadCompressedPmxAfter_2_0_6(fs, version, out model, out allResults);
                     //
                     model.UpdateMeshPartsElementTypes(true);
                 }
+                return data;
+            }
+            catch (Exception ex)
+            {
+                if (ex.Message == "IncompatibleVersion") return new object[] { ex.Message };
+                else return null;
+            }
+        }
+        private object[] TryReadCompressedPmxBefore_2_0_6(FileStream fs, int version, out FeModel model,
+                                                          out ResultsCollection allResults)
+        {
+            model = null;
+            allResults = null;
+            //
+            try
+            {
+                object[] data = null;
+                Controller tmp = null;
+                bool oldResults = false;
+                //
+                using (BinaryReader br = new BinaryReader(Tools.Decompress(fs)))
+                {
+                    data = Tools.LoadDumpFromFile<object[]>(br);
+                    tmp = (Controller)data[0];
+                    model = tmp._model;
+                    // Compatibility v.1.3.5
+                    Selection selection;
+                    foreach (var entry in model.Geometry.Parts)
+                    {
+                        if (entry.Value is GeometryPart gp && gp.MeshingParameters != null)
+                        {
+                            gp.MeshingParameters.FactorMax = MeshingParameters.DefaultFactorMax;
+                            gp.MeshingParameters.FactorMin = MeshingParameters.DefaultFactorMin;
+                            gp.MeshingParameters.FactorHausdorff = MeshingParameters.DefaultFactorHausdorff;
+                            gp.MeshingParameters.SetCheckName(true);
+                            string name = model.Geometry.MeshSetupItems.GetNextNumberedKey("Meshing_Parameters");
+                            gp.MeshingParameters.Name = name;
+                            gp.MeshingParameters.Active = true;
+                            gp.MeshingParameters.Visible = true;
+                            gp.MeshingParameters.Valid = true;
+                            gp.MeshingParameters.Internal = false;
+                            //
+                            gp.MeshingParameters.CreationIds = new int[] { gp.PartId };
+                            selection = new Selection();
+                            selection.CurrentView = (int)ViewGeometryModelResults.Geometry;
+                            selection.SelectItem = vtkSelectItem.Part;
+                            selection.Add(new SelectionNodeIds(vtkSelectOperation.None, false,
+                                                                gp.MeshingParameters.CreationIds));
+                            gp.MeshingParameters.CreationData = selection;
+                            //
+                            model.Geometry.MeshSetupItems.Add(gp.MeshingParameters.Name, gp.MeshingParameters.DeepClone());
+                            gp.MeshingParameters = null;
+                        }
+                    }
+                    // Compatibility v.1.3.3
+                    if (tmp._allResults == null)
+                    {
+                        oldResults = true;
+                        allResults = new ResultsCollection();
+                        if (tmp._results != null) allResults.Add(tmp._results.HashName, tmp._results);
+                    }
+                    else allResults = tmp._allResults;
+                    //
+                    FeModel.ReadFromBinaryReader(model, br, version);
+                    //
+                    if (oldResults) FeResults.ReadFromBinaryReader(allResults.CurrentResult, br, version);
+                    else if (ResultsCollection.ReadFromBinaryReader(allResults, br, version)) ;
+                    else
+                    {
+                        _form.WriteDataToOutput("Warning: There were errors reading the results.");
+                        _form.WriteDataToOutput("Some results might not be loaded correctly. Check the results.");
+                    }
+                }
+                //
+                return data;
+            }
+            catch (Exception ex)
+            {
+                if (ex.Message == "IncompatibleVersion") return new object[] { ex.Message };
+                else return null;
+            }
+        }
+        private object[] TryReadCompressedPmxAfter_2_0_6(FileStream fileStream, int version, out FeModel model,
+                                                          out ResultsCollection allResults)
+        {
+            model = null;
+            allResults = null;
+            //
+            try
+            {
+                object[] data = null;
+                Controller tmp = null;
+                //
+                byte[] buffer = new byte[4];
+                fileStream.Read(buffer, 0, buffer.Length);
+                int length = BitConverter.ToInt32(buffer, 0);
+                //
+                buffer = new byte[length];
+                fileStream.Read(buffer, 0, buffer.Length);
+                //
+                using (MemoryStream memoryStream = new MemoryStream(buffer))
+                using (BinaryReader br = new BinaryReader(Tools.Decompress(memoryStream)))
+                {
+                    data = Tools.LoadDumpFromFile<object[]>(br);
+                    tmp = (Controller)data[0];
+                    model = tmp._model;
+                    allResults = tmp._allResults;
+                    //
+                    FeModel.ReadFromBinaryReader(model, br, version);
+                    //
+                    if (!ResultsCollection.ReadFromFileStream(allResults, fileStream, version))
+                    {
+                        _form.WriteDataToOutput("Warning: There were errors reading the results.");
+                        _form.WriteDataToOutput("Some results might not be loaded correctly. Check the results.");
+                    }
+                }
+                //
                 return data;
             }
             catch (Exception ex)
@@ -1079,8 +1150,8 @@ namespace PrePoMax
                     model = tmp._model;
                     allResults.Add(tmp._results.FileName, tmp._results);
                     //
-                    FeModel.ReadFromFile(model, br, 0_000_000);
-                    FeResults.ReadFromFile(allResults.CurrentResult, br, 0_000_000);
+                    FeModel.ReadFromBinaryReader(model, br, 0_000_000);
+                    FeResults.ReadFromBinaryReader(allResults.CurrentResult, br, 0_000_000);
                 }
                 //
                 model.UpdateMeshPartsElementTypes(true);
@@ -1605,6 +1676,7 @@ namespace PrePoMax
             try
             {
                 _savingFile = true;
+                CompressionLevel compressionLevel = _settings.General.CompressionLevel;
                 //
                 PrepareForSaving(this);
                 bool[][] states = _form.GetTreeExpandCollapseState();
@@ -1616,40 +1688,42 @@ namespace PrePoMax
                 //
                 SuppressExplodedView();
                 //
-                using (BinaryWriter bw = new BinaryWriter(new MemoryStream(10_000_000)))
                 using (FileStream fs = new FileStream(tmpFileName, FileMode.Create))
                 {
                     ResultsCollection allResults = null;
                     bool saveResults = _settings.General.SaveResultsInPmx;
-                    // When controller (data[0]) is dumped to stream, the results should be null if selected
+                    // When controller (data[0]) is dumped to stream, the results should be null if set in settings
                     if (saveResults == false)
                     {
                         allResults = _allResults;
                         _allResults = new ResultsCollection();
                     }
-                    // Controller
-                    data.DumpToStream(bw);
-                    // Model - data is saved inside data[0]._model but without mesh data - speed up
-                    FeModel.WriteToFile(_model, bw);
+                    // Write program name and version to the file
+                    Tools.WriteStringToFileStream(fs, Globals.ProgramName, 32);
+                    // Prepare binary writer
+                    using (BinaryWriter bw = new BinaryWriter(new MemoryStream()))
+                    {
+                        // Dump everything to the stream
+                        data.DumpToStream(bw);
+                        // Write model mesh data - data is saved inside data[0]._model but without mesh data - speed up
+                        FeModel.WriteToBinaryWriter(_model, bw);
+                        // Rewind the writer
+                        bw.Flush();
+                        bw.BaseStream.Position = 0;
+                        // Compress the writer
+                        byte[] compressedData = Tools.Compress(bw.BaseStream, compressionLevel);
+                        // Write the length of the compressed data
+                        Tools.WriteIntToFileStream(fs, compressedData.Length);
+                        // Write the compressed data
+                        fs.Write(compressedData, 0, compressedData.Length);
+                    }
                     // Results - data is saved inside data[0]._results but without mesh data - speed up
-                    ResultsCollection.WriteToFile(_allResults, bw);
+                    ResultsCollection.WriteToFileStream(_allResults, fs, compressionLevel);
                     // After dumping restore the results
                     if (saveResults == false)
                     {
                         _allResults = allResults;
                     }
-                    //
-                    bw.Flush();
-                    bw.BaseStream.Position = 0;
-                    //
-                    byte[] compressedData = Compress(bw.BaseStream);
-                    //
-                    byte[] version = Encoding.ASCII.GetBytes(Globals.ProgramName);
-                    byte[] versionBuffer = new byte[32];
-                    version.CopyTo(versionBuffer, 0);
-                    //
-                    fs.Write(versionBuffer, 0, 32);
-                    fs.Write(compressedData, 0, compressedData.Length);
                 }
                 //
                 ResumeExplodedViews(false);
@@ -1874,29 +1948,6 @@ namespace PrePoMax
             ResumeExplodedViews(false);
             //
             return brepFileName;
-        }
-        //
-        private static byte[] Compress(Stream input)
-        {
-            using (var compressStream = new MemoryStream())
-            using (var compressor = new DeflateStream(compressStream, CompressionLevel.Fastest))
-            {
-                input.CopyTo(compressor);
-                compressor.Close();
-                return compressStream.ToArray();
-            }
-        }
-        private static Stream Decompress(Stream input)
-        {
-            var output = new MemoryStream();
-            //
-            using (var decompressor = new DeflateStream(input, CompressionMode.Decompress))
-            {
-                decompressor.CopyTo(output);
-            }
-            //
-            output.Position = 0;
-            return output;
         }
         // Recent
         private void AddFileNameToRecentFiles(string fileName)

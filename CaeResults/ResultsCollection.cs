@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -44,17 +46,31 @@ namespace CaeResults
                 if (entry.Value != null) CaeMesh.FeMesh.ResetAfterSaving(entry.Value.Mesh);
             }
         }
-        public static void WriteToFile(ResultsCollection allResults, System.IO.BinaryWriter bw)
+        public static void WriteToBinaryWriter(ResultsCollection allResults, BinaryWriter bw)
         {
             bw.Write(allResults.Count);
             //
             foreach (var entry in allResults._results)
             {
                 bw.Write(entry.Key);
-                FeResults.WriteToFile(entry.Value, bw);
+                FeResults.WriteToBinaryWriter(entry.Value, bw);
             }
         }
-        public static bool ReadFromFile(ResultsCollection allResults, System.IO.BinaryReader br, int version)
+        public static void WriteToFileStream(ResultsCollection allResults, FileStream fileStream,
+                                             CompressionLevel compressionLevel)
+        {
+            // Write the number of results
+            Tools.WriteIntToFileStream(fileStream, allResults.Count);
+            //
+            foreach (var entry in allResults._results)
+            {
+                // Write the results name
+                Tools.WriteStringToFileStream(fileStream, entry.Key);
+                // Write the results data
+                FeResults.WriteToFileStream(entry.Value, fileStream, compressionLevel);
+            }
+        }
+        public static bool ReadFromBinaryReader(ResultsCollection allResults, BinaryReader br, int version)
         {
             string resultsName;
             int numResults = br.ReadInt32();
@@ -72,7 +88,35 @@ namespace CaeResults
                         if (allResults.CurrentResult != null)
                         {
                             addedResultNames.Add(resultsName);
-                            FeResults.ReadFromFile(allResults.CurrentResult, br, version);
+                            FeResults.ReadFromBinaryReader(allResults.CurrentResult, br, version);
+                        }
+                    }
+                }
+            }
+            HashSet<string> failedResultNames = allResults._results.Keys.Except(addedResultNames).ToHashSet();
+            foreach (var failedResultName in failedResultNames) allResults._results.Remove(failedResultName);
+            //
+            return failedResultNames.Count == 0;
+        }
+        public static bool ReadFromFileStream(ResultsCollection allResults, FileStream fileStream, int version)
+        {
+            string resultsName;
+            int numResults = Tools.ReadIntFromFileStream(fileStream);
+            HashSet<string> addedResultNames = new HashSet<string>();
+            //
+            if (numResults > 0)
+            {
+                for (int i = 0; i < numResults; i++)
+                {
+                    resultsName = Tools.ReadStringFromFileStream(fileStream);
+                    // If something goes wrong the name is written incorrectly
+                    if (allResults._results.ContainsKey(resultsName))
+                    {
+                        allResults.SetCurrentResult(resultsName);
+                        if (allResults.CurrentResult != null)
+                        {
+                            addedResultNames.Add(resultsName);
+                            FeResults.ReadFromFileStream(allResults.CurrentResult, fileStream, version);
                         }
                     }
                 }

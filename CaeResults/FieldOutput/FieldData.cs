@@ -116,7 +116,6 @@ namespace CaeResults
         }
         public static FieldData ReadFromFile(System.IO.BinaryReader br, int version)
         {
-            //
             int fieldDataExists = br.ReadInt32();
             if (fieldDataExists == 1)
             {

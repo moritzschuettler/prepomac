@@ -63,15 +63,8 @@ namespace CaeMesh
         {
             get { return _nodeSets; }
         }
-        public OrderedDictionary<string, FeElementSet> ElementSets
-        {
-            get { return _elementSets; }
-        }
-        public OrderedDictionary<string, FeSurface> Surfaces
-        {
-            get { return _surfaces; }
-            set { _surfaces = value; }
-        }
+        public OrderedDictionary<string, FeElementSet> ElementSets { get { return _elementSets; } set { _elementSets = value; } }
+        public OrderedDictionary<string, FeSurface> Surfaces { get { return _surfaces; } set { _surfaces = value; } }
         public OrderedDictionary<string, FeReferencePoint> ReferencePoints
         {
             get { return _referencePoints; }
@@ -314,7 +307,7 @@ namespace CaeMesh
                 }
             }
         }
-        public static void WriteToBinaryFile(FeMesh mesh, System.IO.BinaryWriter bw)
+        public static void WriteToBinaryWriter(FeMesh mesh, System.IO.BinaryWriter bw)
         {
             if (mesh == null)
             {
@@ -370,7 +363,7 @@ namespace CaeMesh
                 }
             }
         }
-        public static void ReadFromBinaryFile(FeMesh mesh, System.IO.BinaryReader br, int version)
+        public static void ReadFromBinaryReader(FeMesh mesh, System.IO.BinaryReader br, int version)
         {
             // Nodes
             if (mesh.Nodes == null) mesh.Nodes = new Dictionary<int, FeNode>();

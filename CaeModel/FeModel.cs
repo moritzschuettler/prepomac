@@ -198,7 +198,7 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
-        public static void WriteToFile(FeModel model, BinaryWriter bw)
+        public static void WriteToBinaryWriter(FeModel model, BinaryWriter bw)
         {
             // Write geometry
             if (model == null || model.Geometry == null)
@@ -208,7 +208,7 @@ namespace CaeModel
             else
             {
                 bw.Write((int)1);
-                FeMesh.WriteToBinaryFile(model.Geometry, bw);
+                FeMesh.WriteToBinaryWriter(model.Geometry, bw);
             }
             // Write mesh
             if (model == null || model.Mesh == null)
@@ -218,22 +218,22 @@ namespace CaeModel
             else
             {
                 bw.Write((int)1);
-                FeMesh.WriteToBinaryFile(model.Mesh, bw);
+                FeMesh.WriteToBinaryWriter(model.Mesh, bw);
             }
         }
-        public static void ReadFromFile(FeModel model, BinaryReader br, int version)
+        public static void ReadFromBinaryReader(FeModel model, BinaryReader br, int version)
         {
             // Read geometry
             int geometryExists = br.ReadInt32();
             if (geometryExists == 1)
             {
-                FeMesh.ReadFromBinaryFile(model.Geometry, br, version);
+                FeMesh.ReadFromBinaryReader(model.Geometry, br, version);
             }
             // Read mesh
             int meshExists = br.ReadInt32();
             if (meshExists == 1)
             {
-                FeMesh.ReadFromBinaryFile(model.Mesh, br, version);
+                FeMesh.ReadFromBinaryReader(model.Mesh, br, version);
             }
         }
         // Check                                                                                    

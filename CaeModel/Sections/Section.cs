@@ -71,7 +71,10 @@ namespace CaeModel
                     case "Section+_thickness":          // Compatibility for version v1.4.0
                         // Compatibility for version v1.4.0
                         if (entry.Value is double value)
+                        {
+                            if (value == 0 && !(this is ShellSection || this is MembraneSection)) value = 1;
                             Thickness = new EquationContainer(typeof(StringLengthConverter), value);
+                        }
                         else
                             SetThickness((EquationContainer)entry.Value, false);
                         break;

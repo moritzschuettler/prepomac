@@ -8,6 +8,8 @@ using CaeGlobals;
 using System.IO;
 using System.Drawing;
 using System.Windows.Forms;
+using System.IO.Compression;
+using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
@@ -18,6 +20,7 @@ namespace PrePoMax
         private bool _openLastFile;
         private string _lastFileName;
         private bool _saveResultsInPmx;
+        private CompressionLevel _compressionLevel;
         private UnitSystemType _unitSystemType;
         private double _edgeAngle;
         //
@@ -35,6 +38,7 @@ namespace PrePoMax
         public bool OpenLastFile { get { return _openLastFile; } set { _openLastFile = value; } }
         public string LastFileName { get { return _lastFileName; } set { _lastFileName = value; } }
         public bool SaveResultsInPmx { get { return _saveResultsInPmx; } set { _saveResultsInPmx = value; } }
+        public CompressionLevel CompressionLevel { get { return _compressionLevel; } set { _compressionLevel = value; } }
         public UnitSystemType UnitSystemType { get { return _unitSystemType; } set { _unitSystemType = value; } }
         public double EdgeAngle
         {
@@ -46,6 +50,7 @@ namespace PrePoMax
                 else if (_edgeAngle > 90) _edgeAngle = 90;
             }
         }
+
 
         // Constructors                                                                                                             
         public GeneralSettings()
@@ -63,6 +68,7 @@ namespace PrePoMax
             _openLastFile = false;
             _lastFileName = null;
             _saveResultsInPmx = true;
+            _compressionLevel = CompressionLevel.NoCompression;
             _unitSystemType = UnitSystemType.MM_TON_S_C;
             _edgeAngle = 30;
             //

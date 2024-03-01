@@ -121,7 +121,7 @@ namespace CaeResults
                     field._components = new OrderedDictionary<string, FieldComponent>("Components");
                     for (int i = 0; i < numItems; i++)
                     {
-                        component = FieldComponent.ReadFromFile(br);
+                        component = FieldComponent.ReadFromFile(br, version);
                         field._components.Add(component.Name, component);
                     }
                 }
