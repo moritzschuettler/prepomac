@@ -72,7 +72,7 @@ namespace CaeResults
 
 
         // Static methods                                                                                                           
-        public static void WriteToFile(Field field, System.IO.BinaryWriter bw)
+        public static void WriteToBinaryWriter(Field field, System.IO.BinaryWriter bw)
         {
             if (field == null)
             {
@@ -90,7 +90,7 @@ namespace CaeResults
                     bw.Write((int)1);
                     //
                     bw.Write(field._components.Count);
-                    foreach (var entry in field._components) FieldComponent.WriteToFile(entry.Value, bw);
+                    foreach (var entry in field._components) FieldComponent.WriteToBinaryWriter(entry.Value, bw);
                 }
                 //
                 bw.Write(field.Complex);
@@ -102,7 +102,7 @@ namespace CaeResults
                 bw.Write(field.Internal);
             }
         }
-        public static Field ReadFromFile(System.IO.BinaryReader br, int version)
+        public static Field ReadFromBinaryReader(System.IO.BinaryReader br, int version)
         {
             int numItems;
             FieldComponent component;
@@ -121,7 +121,7 @@ namespace CaeResults
                     field._components = new OrderedDictionary<string, FieldComponent>("Components");
                     for (int i = 0; i < numItems; i++)
                     {
-                        component = FieldComponent.ReadFromFile(br, version);
+                        component = FieldComponent.ReadFromBinaryReader(br, version);
                         field._components.Add(component.Name, component);
                     }
                 }

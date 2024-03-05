@@ -47,7 +47,7 @@ namespace PrePoMax.Forms
             get { return _name; }
             set
             {
-                if (NamedClass.CheckName(value)) _name = value;
+                if (NamedClass.CheckName(value, null)) _name = value;
             }
         }
         //

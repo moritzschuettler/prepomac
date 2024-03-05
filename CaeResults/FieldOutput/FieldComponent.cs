@@ -42,14 +42,14 @@ namespace CaeResults
 
         
         // Static methods                                                                                                           
-        public static void WriteToFile(FieldComponent component, System.IO.BinaryWriter bw)
+        public static void WriteToBinaryWriter(FieldComponent component, System.IO.BinaryWriter bw)
         {
             bw.Write(component.Name);
             bw.Write(component.Invariant);
             bw.Write(component.Values.Length);
             for (int i = 0; i < component.Values.Length; i++) bw.Write(component.Values[i]);
         }
-        public static FieldComponent ReadFromFile(System.IO.BinaryReader br, int version)
+        public static FieldComponent ReadFromBinaryReader(System.IO.BinaryReader br, int version)
         {
             string name = br.ReadString();
             bool invariant = br.ReadBoolean();

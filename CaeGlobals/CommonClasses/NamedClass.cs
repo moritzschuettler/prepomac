@@ -12,12 +12,13 @@ namespace CaeGlobals
     public abstract class NamedClass //: ISerializable - this would mean that all derived classes must be Serializable !!!
     {
         // Variables                                                                                                                
-        protected string _name;             //ISerializable
-        protected bool _active;             //ISerializable
-        protected bool _visible;            //ISerializable
-        protected bool _valid;              //ISerializable
-        protected bool _internal;           //ISerializable
-        protected bool _checkName;          //ISerializable
+        protected string _name;                         //ISerializable
+        protected bool _active;                         //ISerializable
+        protected bool _visible;                        //ISerializable
+        protected bool _valid;                          //ISerializable
+        protected bool _internal;                       //ISerializable
+        protected bool _checkName;                      //ISerializable
+        protected HashSet<char> _additionalCharacters;  //ISerializable
 
 
         // Properties                                                                                                               
@@ -26,7 +27,7 @@ namespace CaeGlobals
             get { return _name; }
             set
             {
-                if (_checkName) CheckNameForErrors(ref value);
+                if (_checkName) CheckNameForErrors(ref value, _additionalCharacters);
                 _name = value;
             }
         }
@@ -42,7 +43,7 @@ namespace CaeGlobals
         //
         [Browsable(false)]
         public virtual bool Internal { get { return _internal; } set { _internal = value; } }
-
+        
 
         // Constructors                                                                                                             
         public NamedClass()
@@ -50,8 +51,13 @@ namespace CaeGlobals
         {
         }
         public NamedClass(string name)
+            : this(name, null)
+        {
+        }
+        public NamedClass(string name, HashSet<char> additionalCharacters)
         {
             _checkName = true;
+            _additionalCharacters = additionalCharacters;
             Name = name;
             //
             _active = true;
@@ -83,6 +89,8 @@ namespace CaeGlobals
                         _internal = (bool)entry.Value; count++; break;
                     case "_checkName":
                         _checkName = (bool)entry.Value; count++; break;
+                    case "_additionalCharacters":
+                        _additionalCharacters = (HashSet<char>)entry.Value; count++; break;
                     case "_maxH":
                     case "_minH":
                         meshRefinement = true; break;
@@ -100,26 +108,6 @@ namespace CaeGlobals
 
 
         // Static methods
-        public static string GetNewValueName1(ICollection<string> existingNames, string nameRoot, char splitter = '-')
-        {
-            int max = 0;
-            int tmp;
-            string[] parts;
-            foreach (var names in existingNames)
-            {
-                parts = names.Split(splitter);
-                if (parts.Length >= 2 && nameRoot.StartsWith(parts[0]))
-                {
-                    if (int.TryParse(parts.Last(), out tmp))
-                    {
-                        if (tmp > max) max = tmp;
-                    }
-                }
-            }
-            max++;
-            //
-            return nameRoot + max.ToString();
-        }
         public static string GetNameWithoutLastValue(string name, char splitter = '-')
         {
             int tmp;
@@ -143,17 +131,22 @@ namespace CaeGlobals
         public void CopyFrom(NamedClass namedClass)
         {
             _name = namedClass._name;
+            //
             _active = namedClass._active;
             _visible = namedClass._visible;
             _valid = namedClass._valid;
             _internal = namedClass._internal;
             _checkName = namedClass._checkName;
+            //
+            if (namedClass._additionalCharacters != null)
+                _additionalCharacters = new HashSet<char>(namedClass._additionalCharacters);
+            else _additionalCharacters = null;
         }
-        public static bool CheckName(string name)
+        public static bool CheckName(string name, HashSet<char> additionalCharacters)
         {
             try
             {
-                CheckNameForErrors(ref name);
+                CheckNameForErrors(ref name, additionalCharacters);
                 return true;
             }
             catch
@@ -161,11 +154,11 @@ namespace CaeGlobals
                 return false;
             }
         }
-        public static string CheckNameError(string name)
+        public static string CheckNameError(string name, HashSet<char> additionalCharacters)
         {
             try
             {
-                CheckNameForErrors(ref name);
+                CheckNameForErrors(ref name, additionalCharacters);
                 return null;
             }
             catch (Exception ex)
@@ -173,7 +166,7 @@ namespace CaeGlobals
                 return ex.Message;
             }
         }
-        public static void CheckNameForErrors(ref string name)
+        public static void CheckNameForErrors(ref string name, HashSet<char> additionalCharacters)
         {
             if (name == null) throw new CaeException("The name cannot be null.");
             if (name == "") throw new CaeException("The name cannot be an empty string.");
@@ -187,20 +180,28 @@ namespace CaeGlobals
             int letterCount = 0;
             int digitCount = 0;
             //
+            if (additionalCharacters == null) additionalCharacters = new HashSet<char>();
+            //
             for (int i = 0; i < name.Length; i++)
             {
                 c = name[i];
                 if (char.IsLetter(c)) letterCount++;
                 else if (char.IsDigit(c)) digitCount++;
-                else if (c != '_' && c != '-' && c != '(' && c != ')')
-                    throw new CaeException("The name can only contain a letter, a digit or characters: minus, " + 
-                                           "underscore and parenthesis: '" + name + "'.");
+                else if (c != '_' && c != '-' && c != '(' && c != ')' && !additionalCharacters.Contains(c))
+                {
+                    string allowedChars = "minus, underscore, parenthesis";
+                    foreach (var character in additionalCharacters) allowedChars += ", " + character;
+                    allowedChars += ":";
+                    //
+                    throw new CaeException("The name can only contain a letter, a digit or characters: " + 
+                                           allowedChars + " '" + name + "'.");
+                }
             }
             //
             if (letterCount <= 0)
                 throw new CaeException("The name must contain at least one letter: '" + name + "'.");
         }
-        public static string GetErrorFreeName(string name, string prefix)
+        public static string GetErrorFreeName(string name, string prefix, HashSet<char> additionalCharacters)
         {
             if (name == null || name.Length == 0) name = prefix;
             name = name.Replace(' ', '_');
@@ -213,7 +214,7 @@ namespace CaeGlobals
             string newName = "";
             for (int i = 0; i < name.Length; i++)
             {
-                if (CheckName(newName + name[i])) newName += name[i];
+                if (CheckName(newName + name[i], additionalCharacters)) newName += name[i];
                 else newName += "_";
             }
             return newName;
@@ -234,6 +235,7 @@ namespace CaeGlobals
             info.AddValue("_valid", _valid, typeof(bool));
             info.AddValue("_internal", _internal, typeof(bool));
             info.AddValue("_checkName", _checkName, typeof(bool));
+            info.AddValue("_additionalCharacters", _additionalCharacters, typeof(HashSet<char>));
         }
     }
 }

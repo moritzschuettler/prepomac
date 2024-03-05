@@ -6373,7 +6373,8 @@ namespace PrePoMax
             //
             if (_controller.OpenedFileName != null)
             {
-                job.Name = NamedClass.GetErrorFreeName(Path.GetFileNameWithoutExtension(_controller.OpenedFileName), "Analysis");
+                job.Name = NamedClass.GetErrorFreeName(Path.GetFileNameWithoutExtension(_controller.OpenedFileName),
+                                                       "Analysis", null);
             }
             //
             defaultJob.Add(job);

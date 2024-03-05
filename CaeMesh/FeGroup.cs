@@ -29,7 +29,11 @@ namespace CaeMesh
 
         // Constructors                                                                                                             
         public FeGroup(string name, int[] labels) 
-            : base(name)
+            : this(name, null, labels)
+        {
+        }
+        public FeGroup(string name, HashSet<char> additionalCharacters, int[] labels)
+            : base(name, additionalCharacters)
         {
             _labels = labels;
         }

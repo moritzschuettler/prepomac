@@ -28,7 +28,7 @@ namespace CaeMesh
 
         // Constructors                                                                                                             
         public FeElementSet(string name, int[] labels, bool createdFromParts = false)
-            : base(name, labels)
+            : base(name, new HashSet<char>() { '@' }, labels)
         {
             _creationData = null;
             _creationIds = null;

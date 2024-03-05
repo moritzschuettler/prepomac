@@ -15,7 +15,7 @@ namespace CaeMesh
             get { return _name; }
             set
             {
-                CaeGlobals.NamedClass.CheckNameForErrors(ref value);
+                CaeGlobals.NamedClass.CheckNameForErrors(ref value, null);
                 _name = value;
             }
         }

@@ -243,7 +243,7 @@ namespace CaeResults
                         entry.Value.RemoveInvariants();
                         //
                         FieldData.WriteToFile(entry.Key, bw);
-                        Field.WriteToFile(entry.Value, bw);
+                        Field.WriteToBinaryWriter(entry.Value, bw);
                         //
                         entry.Value.ComputeInvariants();
                     }
@@ -321,7 +321,7 @@ namespace CaeResults
                         using (BinaryWriter bw = new BinaryWriter(new MemoryStream()))
                         {
                             FieldData.WriteToFile(entry.Key, bw);
-                            Field.WriteToFile(entry.Value, bw);
+                            Field.WriteToBinaryWriter(entry.Value, bw);
                             // Rewind the writer
                             bw.Flush();
                             bw.BaseStream.Position = 0;
@@ -372,7 +372,7 @@ namespace CaeResults
                     for (int i = 0; i < numItems; i++)
                     {
                         fieldData = FieldData.ReadFromFile(br, version);
-                        field = Field.ReadFromFile(br, version);
+                        field = Field.ReadFromBinaryReader(br, version);
                         if (field != null)
                         {
                             //
@@ -437,7 +437,7 @@ namespace CaeResults
                         using (BinaryReader br = new BinaryReader(Tools.Decompress(memoryStream)))
                         {
                             fieldData = FieldData.ReadFromFile(br, version);
-                            field = Field.ReadFromFile(br, version);
+                            field = Field.ReadFromBinaryReader(br, version);
                         }
                         //
                         if (field != null)

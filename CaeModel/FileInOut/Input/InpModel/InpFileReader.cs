@@ -177,13 +177,13 @@ namespace FileInOut.Input
                     else if (keyword == "*NSET")
                     {
                         GetNodeOrElementSet("NSET", dataSet, mesh, out name, out ids);
-                        if (NamedClass.CheckNameError(name) != null) AddError(NamedClass.CheckNameError(name));
+                        if (NamedClass.CheckNameError(name, null) != null) AddError(NamedClass.CheckNameError(name, null));
                         else if (ids != null) mesh.AddNodeSet(new FeNodeSet(name, ids));
                     }
                     else if (keyword == "*ELSET")
                     {
                         GetNodeOrElementSet("ELSET", dataSet, mesh, out name, out ids);
-                        if (NamedClass.CheckNameError(name) != null) AddError(NamedClass.CheckNameError(name));
+                        if (NamedClass.CheckNameError(name, null) != null) AddError(NamedClass.CheckNameError(name, null));
                         else if (ids != null) mesh.AddElementSet(new FeElementSet(name, ids));
                     }
                     else if (keyword == "*SURFACE")
@@ -456,7 +456,7 @@ namespace FileInOut.Input
                     if (keyword == "*NSET")
                     {
                         GetNodeOrElementSet("NSET", dataSet, mesh, out name, out ids);
-                        if (NamedClass.CheckNameError(name) != null) AddError(NamedClass.CheckNameError(name));
+                        if (NamedClass.CheckNameError(name, null) != null) AddError(NamedClass.CheckNameError(name, null));
                         else if (ids != null)
                         {
                             nodeSetNamesList.Add(name);
