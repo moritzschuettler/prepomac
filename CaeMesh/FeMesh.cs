@@ -15,6 +15,7 @@ using System.Runtime.InteropServices;
 using System.Windows.Forms.VisualStyles;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Drawing;
+using static GmshCommon.Gmsh;
 
 namespace CaeMesh
 {
@@ -7675,6 +7676,12 @@ namespace CaeMesh
         public string[] GetElementSetNames()
         {
             return _elementSets.Keys.ToArray();
+        }
+        public HashSet<string> GetReservedElementSetNames()
+        {
+            HashSet<string> reservedElementSetNames = new HashSet<string>(_elementSets.Keys);
+            reservedElementSetNames.UnionWith(_parts.Keys);
+            return reservedElementSetNames;
         }
         public void GetElementFaceNormal(int elementId, FeFaceName faceName, out double[] faceNormal)
         {

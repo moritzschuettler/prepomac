@@ -26,7 +26,7 @@ namespace PrePoMax
         [StandardValue("NT", Description = "Temperatures.")]
         NT = 8,
         [StandardValue("RFL", Description = "External concentrated heat sources.")]
-        RFL = 16
+        RFL = 16,
     }
 
     [Serializable]

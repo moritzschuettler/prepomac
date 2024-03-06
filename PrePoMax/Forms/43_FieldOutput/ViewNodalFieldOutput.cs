@@ -30,7 +30,7 @@ namespace PrePoMax
         [StandardValue("PNT", Description = "Temperatures magnitude and phase.")]
         PNT = 32,
         [StandardValue("RFL", Description = "External concentrated heat sources.")]
-        RFL = 64
+        RFL = 64,
     }
 
     [Serializable]

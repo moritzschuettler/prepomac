@@ -24,7 +24,9 @@ namespace CaeModel
         ELSE = 64,
         ELKE = 128,
         EVOL = 256,
-        EBHE = 512
+        EBHE = 512,
+        //
+        SDV = 1073741824,
     }
 
     [Serializable]

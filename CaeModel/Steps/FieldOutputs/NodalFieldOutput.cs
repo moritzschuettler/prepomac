@@ -20,7 +20,7 @@ namespace CaeModel
         // Thermal
         NT = 16,
         PNT = 32,
-        RFL = 64
+        RFL = 64,
     }
 
     [Serializable]

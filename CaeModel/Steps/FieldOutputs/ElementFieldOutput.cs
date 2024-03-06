@@ -23,7 +23,9 @@ namespace CaeModel
         // Error
         ERR = 128,
         HER = 256,
-        ZZS = 512
+        ZZS = 512,
+        //
+        SDV = 1073741824,
     }
 
     [Serializable]

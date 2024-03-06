@@ -37,7 +37,10 @@ namespace PrePoMax
         [StandardValue("EVOL", Description = "Volume.")]
         EVOL = 256,
         [StandardValue("EBHE", Description = "Heating power.")]
-        EBHE = 512
+        EBHE = 512,
+        //
+        [StandardValue("SDV", Description = "Internal state variables.")]
+        SDV = 1073741824,
     }
 
     [Serializable]

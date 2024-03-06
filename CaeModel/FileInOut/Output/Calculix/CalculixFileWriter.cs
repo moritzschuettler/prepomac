@@ -73,9 +73,12 @@ namespace FileInOut.Output
                                                              Dictionary<int, double[]> deformations = null)
         {
             // Clone surfaces
-            OrderedDictionary<string, FeSurface> clonedSurfaces = model.Mesh.Surfaces.DeepClone();
-            OrderedDictionary<string, FeElementSet> clonedElementSets = model.Mesh.ElementSets.DeepClone();
-            FeMesh mesh = model.Mesh.DeepClone();
+            OrderedDictionary<string, FeSurface> originalSurfaces = model.Mesh.Surfaces;
+            OrderedDictionary<string, FeElementSet> originalElementSets = model.Mesh.ElementSets;
+            //
+            model.Mesh.Surfaces = originalSurfaces.DeepClone();
+            model.Mesh.ElementSets = originalElementSets.DeepClone();
+            //
             try
             {
                 // Only keywords from the model, not user keywords
@@ -85,36 +88,29 @@ namespace FileInOut.Output
                 List<FeNode> additionalNodes = new List<FeNode>();
                 List<FeNodeSet> additionalNodeSets = new List<FeNodeSet>();
                 List<CalElement> additionalElementKeywords = new List<CalElement>();
-                List<FeElementSet> additionalElementSets = new List<FeElementSet>();
                 Dictionary<string, int[]> referencePointsNodeIds;
                 List<SectionData> additionalSectionData = new List<SectionData>();
                 List<BoundaryCondition> additionalBoundaryConditions = new List<BoundaryCondition>();
                 OrderedDictionary<string, List<PreTensionLoad>> preTensionLoads;
                 List<double[]> equationParameters = new List<double[]>();
                 //
-                HashSet<string> reservedElementSetNames = new HashSet<string>();
-                reservedElementSetNames.UnionWith(model.Mesh.ElementSets.Keys);
-                reservedElementSetNames.UnionWith(model.Mesh.Parts.Keys);
                 // Collect pre-tension loads to use them in reference point preparation
                 GetPretensionLoads(model, out preTensionLoads);
                 // Prepare reference points
                 GetReferencePoints(model, preTensionLoads, ref maxNodeId, out referencePointsNodeIds);
                 // Fix pyramid surfaces
-                FixPyramidSurfaces(model, convertPyramidsTo, ref additionalElementSets, ref reservedElementSetNames);
+                FixPyramidSurfaces(model, convertPyramidsTo);
                 // Prepare mass sections
                 GetMassSections(model, referencePointsNodeIds, ref maxElementId, ref additionalElementKeywords,
-                                ref additionalElementSets, ref additionalSectionData, ref reservedElementSetNames);
+                                ref additionalSectionData);
                 // Prepare point springs
                 GetPointSprings(model, referencePointsNodeIds, ref maxElementId, ref additionalElementKeywords,
-                                ref additionalElementSets, ref additionalSectionData, ref reservedElementSetNames);
+                                ref additionalSectionData);
                 // Collect compression only constraints
                 GetCompressionOnlyConstraintData(model, ref maxNodeId, ref maxElementId, ref additionalNodes,
                                                  ref additionalNodeSets, ref additionalElementKeywords,
-                                                 ref additionalElementSets, ref additionalSectionData,
-                                                 ref additionalBoundaryConditions, ref equationParameters,
-                                                 ref reservedElementSetNames);
-                //
-                foreach (var elementSet in additionalElementSets) model.Mesh.ElementSets.Add(elementSet.Name, elementSet);
+                                                 ref additionalSectionData, ref additionalBoundaryConditions,
+                                                 ref equationParameters);
                 //
                 CalTitle title;
                 List<CalculixKeyword> keywords = new List<CalculixKeyword>();
@@ -145,7 +141,7 @@ namespace FileInOut.Output
                 // Element sets
                 title = new CalTitle("Element sets", "");
                 keywords.Add(title);
-                AppendElementSets(model, additionalElementSets, title);
+                AppendElementSets(model, title);
                 // Surfaces
                 title = new CalTitle("Surfaces", "");
                 keywords.Add(title);
@@ -199,8 +195,8 @@ namespace FileInOut.Output
             }
             finally
             {
-                model.Mesh.ElementSets = clonedElementSets;
-                model.Mesh.Surfaces = clonedSurfaces;
+                model.Mesh.ElementSets = originalElementSets;
+                model.Mesh.Surfaces = originalSurfaces;
             }
         }
         static private void GetPretensionLoads(FeModel model, out OrderedDictionary<string, List<PreTensionLoad>> preTensionLoads)
@@ -246,9 +242,7 @@ namespace FileInOut.Output
                 maxNodeId = id;
             }
         }
-        static private void FixPyramidSurfaces(FeModel model, ConvertPyramidsToEnum convertPyramidsTo,
-                                               ref List<FeElementSet> additionalElementSets,
-                                               ref HashSet<string> reservedElementSetNames)
+        static private void FixPyramidSurfaces(FeModel model, ConvertPyramidsToEnum convertPyramidsTo)
         {
             // Determine if there are any pyramids in the model
             List<BasePart> pyramidContainingParts = new List<BasePart>();
@@ -302,6 +296,8 @@ namespace FileInOut.Output
                 HashSet<int> normalElementsIds;
                 HashSet<int> pyramidElementsIds;
                 Dictionary<FeFaceName, HashSet<int>> faceNameElementIds;
+                HashSet<string> reservedElementSetNames = model.Mesh.GetReservedElementSetNames();
+                //
                 foreach (var surfaceEntry in model.Mesh.Surfaces)
                 {
                     // Determine if the surface contain pyramid elements
@@ -344,6 +340,7 @@ namespace FileInOut.Output
                         // Create new surface with the same name
                         fixedSurface = new FeSurface(surface.Name);
                         //
+                        
                         foreach (var entry in faceNameElementIds)
                         {
                             // Get element set name
@@ -352,7 +349,7 @@ namespace FileInOut.Output
                             reservedElementSetNames.Add(name);
                             // Create new element set
                             elementSet = new FeElementSet(name, entry.Value.ToArray());
-                            additionalElementSets.Add(elementSet);
+                            model.Mesh.ElementSets.Add(elementSet.Name, elementSet);
                             //
                             fixedSurface.AddElementFace(entry.Key, elementSet.Name);
                         }
@@ -364,9 +361,7 @@ namespace FileInOut.Output
         }
         static private void GetMassSections(FeModel model, Dictionary<string, int[]> referencePointsNodeIds,
                                             ref int maxElementId, ref List<CalElement> additionalElementKeywords,
-                                            ref List<FeElementSet> additionalElementSets,
-                                            ref List<SectionData> additionalSectionData,
-                                            ref HashSet<string> reservedElementSetNames)
+                                            ref List<SectionData> additionalSectionData)
         {
             double aSum;
             double nodalMassFactor;
@@ -375,11 +370,13 @@ namespace FileInOut.Output
             List<int> elementIds;
             FeElement element;
             FeNodeSet nodeSet;
+            FeElementSet elementSet;
             FeSurface surface;
             FeReferencePoint referencePoint;
             MassSectionData massSectionData;
             Dictionary<int, double> nodalValues;
             CalElement calElement;
+            HashSet<string> reservedElementSetNames = model.Mesh.GetReservedElementSetNames();
             //
             foreach (var entry in model.Sections)
             {
@@ -414,7 +411,8 @@ namespace FileInOut.Output
                             if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
                             reservedElementSetNames.Add(name);
                             //
-                            additionalElementSets.Add(new FeElementSet(name, elementIds.ToArray()));
+                            elementSet = new FeElementSet(name, elementIds.ToArray());
+                            model.Mesh.ElementSets.Add(elementSet.Name, elementSet);
                             //
                             pms.ElementSetName = name;  // temporary storage
                         }
@@ -473,7 +471,8 @@ namespace FileInOut.Output
                         if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
                         reservedElementSetNames.Add(name);
                         //
-                        additionalElementSets.Add(new FeElementSet(name, elementIds.ToArray()));
+                        elementSet = new FeElementSet(name, elementIds.ToArray());
+                        model.Mesh.ElementSets.Add(elementSet.Name, elementSet);
                         //
                         dms.ElementSetName = name;  // temporary storage
                     }
@@ -483,9 +482,7 @@ namespace FileInOut.Output
         }
         static private void GetPointSprings(FeModel model, Dictionary<string, int[]> referencePointsNodeIds, ref int maxElementId,
                                             ref List<CalElement> additionalElementKeywords,
-                                            ref List<FeElementSet> additionalElementSets,
-                                            ref List<SectionData> additionalSectionData,
-                                            ref HashSet<string> reservedElementSetNames)
+                                            ref List<SectionData> additionalSectionData)
         {
             if (model.Mesh != null)
             {
@@ -498,6 +495,7 @@ namespace FileInOut.Output
                 string name;
                 int elementId = maxElementId;
                 FeNodeSet nodeSet;
+                FeElementSet elementSet;
                 List<FeElement> newElements;
                 List<FeElement> oneSpringElements;
                 // Collect point and surface springs
@@ -509,6 +507,8 @@ namespace FileInOut.Output
                     else if (entry.Value is SurfaceSpring ss && ss.Active)
                         activeSprings.Add(ss.Name, model.GetPointSpringsFromSurfaceSpring(ss));
                 }
+                //
+                HashSet<string> reservedElementSetNames = model.Mesh.GetReservedElementSetNames();
                 //
                 foreach (var entry in activeSprings)
                 {
@@ -562,7 +562,8 @@ namespace FileInOut.Output
                             elementIds = new int[newElements.Count];
                             foreach (var element in newElements) elementIds[count++] = element.Id;
                             // Add items
-                            additionalElementSets.Add(new FeElementSet(name, elementIds));
+                            elementSet = new FeElementSet(name, elementIds);
+                            model.Mesh.ElementSets.Add(elementSet.Name, elementSet);
                             additionalSectionData.Add(new LinearSpringSectionData("LinearSpringSection", name, directions[i],
                                                                                   stiffnesses[i]));
                             oneSpringElements.AddRange(newElements);
@@ -582,11 +583,9 @@ namespace FileInOut.Output
                                                              ref List<FeNode> additionalNodes,
                                                              ref List<FeNodeSet> additionalNodeSets,
                                                              ref List<CalElement> additionalElementKeywords,
-                                                             ref List<FeElementSet> additionalElementSets,
                                                              ref List<SectionData> additionalSectionData,
                                                              ref List<BoundaryCondition> additionalBoundaryConditions,
-                                                             ref List<double[]> equationParameters,
-                                                             ref HashSet<string> reservedElementSetNames)
+                                                             ref List<double[]> equationParameters)
         {
             HashSet<string> elementIdsHash = new HashSet<string>();
             //
@@ -621,6 +620,7 @@ namespace FileInOut.Output
             double nodeStiffnessPerArea;
             double nodeForcePerArea;
             Dictionary<int, double> nodeIdNodeWeight;
+            HashSet<string> reservedElementSetNames = model.Mesh.GetReservedElementSetNames();
             // Get all nodes and their normals
             foreach (var constraintEntry in model.Constraints)
             {
@@ -718,7 +718,8 @@ namespace FileInOut.Output
                                 equationParameters.Add(new double[] { node2.Id, 2, 1, entry.Key, 2, -1 });
                                 equationParameters.Add(new double[] { node2.Id, 3, 1, entry.Key, 3, -1 });
                                 //
-                                additionalElementSets.Add(new FeElementSet(name, elementIds.ToArray()));
+                                elementSet = new FeElementSet(name, elementIds.ToArray());
+                                model.Mesh.ElementSets.Add(elementSet.Name, elementSet);
                                 // Scale to nodal area
                                 nodeStiffness = nodeStiffnessPerArea * nodeIdNodeWeight[entry.Key];
                                 nodeForce = nodeForcePerArea * nodeIdNodeWeight[entry.Key];
@@ -1030,13 +1031,11 @@ namespace FileInOut.Output
                 }
             }
         }
-        static private void AppendElementSets(FeModel model, List<FeElementSet> additionalElementSets, CalculixKeyword parent)
+        static private void AppendElementSets(FeModel model, CalculixKeyword parent)
         {
             if (model.Mesh != null)
             {
                 foreach (var entry in model.Mesh.ElementSets) AppendElementSet(model, entry.Value, parent);
-                // Additional element sets
-                foreach (var entry in additionalElementSets) AppendElementSet(model, entry, parent);
             }
         }
         static private void AppendElementSet(FeModel model, FeElementSet elementSet, CalculixKeyword parent)

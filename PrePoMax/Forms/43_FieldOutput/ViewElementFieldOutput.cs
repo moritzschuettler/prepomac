@@ -46,7 +46,10 @@ namespace PrePoMax
         HER = 256,
         //
         [StandardValue("ZZS", Description = "Zienkiewicz-Zhu improved stress. ERR and ZZS are mutually exclusive.")]
-        ZZS = 512
+        ZZS = 512,
+        //
+        [StandardValue("SDV", Description = "Internal state variables.")]
+        SDV = 1073741824,
     }
 
     [Serializable]
