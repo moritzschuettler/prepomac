@@ -2002,7 +2002,10 @@ namespace PrePoMax
                 MessageBoxes.ShowError("There is no model.");
                 return null;
             }
-            else return FileInOut.Output.CalculixFileWriter.GetModelKeywords(_model, _settings.Calculix.ConvertPyramidsTo);
+            else return FileInOut.Output.CalculixFileWriter.GetModelKeywords(_model,
+                                                                             _settings.Calculix.ConvertPyramidsTo,
+                                                                             null,
+                                                                             true);
         }
         public OrderedDictionary<int[], FileInOut.Output.Calculix.CalculixUserKeyword> GetCalculixUserKeywords()
         {

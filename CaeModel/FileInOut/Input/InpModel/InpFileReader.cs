@@ -66,6 +66,10 @@ namespace FileInOut.Input
                                                                                  "*HYPERFOAM",
                                                                                  "*MAGNETIC PERMEABILITY",
                                                                                  "*PLASTIC",
+
+                                                                                 "*MOHR COULOMB",
+                                                                                 "*MOHR COULOMB HARDENING",
+
                                                                                  "*SLIP WEAR",
                                                                                  "*SPECIFIC GAS CONSTANT",
                                                                                  "*SPECIFIC HEAT",
@@ -255,7 +259,8 @@ namespace FileInOut.Input
                 // Add indices of user keywords
                 int[] indices;
                 Stack<int> indexStack = new Stack<int>();
-                List<CalculixKeyword> keywords = Output.CalculixFileWriter.GetModelKeywords(model, ConvertPyramidsToEnum.Wedges);
+                List<CalculixKeyword> keywords = Output.CalculixFileWriter.GetModelKeywords(model, ConvertPyramidsToEnum.Wedges,
+                                                                                            null, true);
                 indexedUserKeywords = new OrderedDictionary<int[], CalculixUserKeyword>("User Calculix keywords");
                 foreach (CalculixUserKeyword userKeyword in userKeywords)
                 {
@@ -1193,7 +1198,6 @@ namespace FileInOut.Input
                     }
                 }
                 else _errors.Add("Material name not found: " + dataSet[0]);
-
                 //
                 return material;
             }

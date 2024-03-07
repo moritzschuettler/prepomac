@@ -1172,12 +1172,24 @@ namespace CaeModel
         {
             FeModel model = new FeModel("Imported Materials", _unitSystem);
             model.Properties.ModelSpace = _properties.ModelSpace;
+            // Add existing model materials to account for indexing of material user keywords
+            string existingMaterialName;
+            foreach (var entry in _materials)
+            {
+                existingMaterialName = "_internal_for_indices_" + entry.Key;
+                model.Materials.Add(existingMaterialName, entry.Value.DeepClone());
+            }
+            List<string> existingMaterialNames = model.Materials.Keys.ToList();
             //
             FileInOut.Input.InpFileReader.Read(fileName,
                                                FileInOut.Input.ElementsToImport.Solid | FileInOut.Input.ElementsToImport.Shell,
                                                model,
                                                WriteDataToOutput,
                                                out OrderedDictionary<int[], Calculix.CalculixUserKeyword>  indexedUserKeywords);
+            //
+            CalculixUserKeywords = indexedUserKeywords;
+            // Remove existing model materials
+            foreach (var materialName in existingMaterialNames) model.Materials.Remove(materialName);
             //
             string name;
             foreach (var entry in model.Materials)

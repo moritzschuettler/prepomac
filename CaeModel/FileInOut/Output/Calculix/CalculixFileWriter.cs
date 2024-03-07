@@ -43,7 +43,7 @@ namespace FileInOut.Output
             // Materials
             title = new CalTitle("Materials", "");
             keywords.Add(title);
-            AppendMaterials(model, title, materialNames);
+            AppendMaterials(model, title, materialNames, true);
             // Write file
             StringBuilder sb = new StringBuilder();
             foreach (var keyword in keywords)
@@ -70,7 +70,8 @@ namespace FileInOut.Output
             return keywords;
         }
         static public List<CalculixKeyword> GetModelKeywords(FeModel model, ConvertPyramidsToEnum convertPyramidsTo,
-                                                             Dictionary<int, double[]> deformations = null)
+                                                             Dictionary<int, double[]> deformations = null,
+                                                             bool addAllMaterials = false)
         {
             // Clone surfaces
             OrderedDictionary<string, FeSurface> originalSurfaces = model.Mesh.Surfaces;
@@ -78,6 +79,7 @@ namespace FileInOut.Output
             //
             model.Mesh.Surfaces = originalSurfaces.DeepClone();
             model.Mesh.ElementSets = originalElementSets.DeepClone();
+            Dictionary<int, FeElement> replacedElements = new Dictionary<int, FeElement>();
             //
             try
             {
@@ -99,7 +101,7 @@ namespace FileInOut.Output
                 // Prepare reference points
                 GetReferencePoints(model, preTensionLoads, ref maxNodeId, out referencePointsNodeIds);
                 // Fix pyramid surfaces
-                FixPyramidSurfaces(model, convertPyramidsTo);
+                FixPyramidSurfaces(model, convertPyramidsTo, ref replacedElements);
                 // Prepare mass sections
                 GetMassSections(model, referencePointsNodeIds, ref maxElementId, ref additionalElementKeywords,
                                 ref additionalSectionData);
@@ -153,7 +155,7 @@ namespace FileInOut.Output
                 // Materials
                 title = new CalTitle("Materials", "");
                 keywords.Add(title);
-                AppendMaterials(model, title);
+                AppendMaterials(model, title, null, addAllMaterials);
                 // Sections
                 title = new CalTitle("Sections", "");
                 keywords.Add(title);
@@ -197,6 +199,8 @@ namespace FileInOut.Output
             {
                 model.Mesh.ElementSets = originalElementSets;
                 model.Mesh.Surfaces = originalSurfaces;
+                //
+                foreach (var entry in replacedElements) model.Mesh.Elements[entry.Key] = entry.Value;
             }
         }
         static private void GetPretensionLoads(FeModel model, out OrderedDictionary<string, List<PreTensionLoad>> preTensionLoads)
@@ -242,7 +246,8 @@ namespace FileInOut.Output
                 maxNodeId = id;
             }
         }
-        static private void FixPyramidSurfaces(FeModel model, ConvertPyramidsToEnum convertPyramidsTo)
+        static private void FixPyramidSurfaces(FeModel model, ConvertPyramidsToEnum convertPyramidsTo,
+                                               ref Dictionary<int, FeElement> replacedElements)
         {
             // Determine if there are any pyramids in the model
             List<BasePart> pyramidContainingParts = new List<BasePart>();
@@ -276,15 +281,40 @@ namespace FileInOut.Output
                 else throw new NotSupportedException();
                 //
                 Type elementType;
+                FeElement element;
                 HashSet<int> elementIds = new HashSet<int>();
                 HashSet<int> allPyramidElementIds = new HashSet<int>();
                 foreach (var part in pyramidContainingParts) elementIds.UnionWith(part.Labels);
                 // Collect all pyramid element ids
                 foreach (var elementId in elementIds)
                 {
-                    elementType = model.Mesh.Elements[elementId].GetType();
+                    element = model.Mesh.Elements[elementId];
+                    elementType = element.GetType();
                     if (elementType == typeof(LinearPyramidElement) || elementType == typeof(ParabolicPyramidElement))
+                    {
                         allPyramidElementIds.Add(elementId);
+                        replacedElements.Add(element.Id, element);
+                        //
+                        if (element is LinearPyramidElement lpe)
+                        {
+                            if (convertPyramidsTo == ConvertPyramidsToEnum.Wedges)
+                                model.Mesh.Elements[elementId] = lpe.ConvertToWedge();
+                            else if (convertPyramidsTo == ConvertPyramidsToEnum.Hexahedrons)
+                                model.Mesh.Elements[elementId] = lpe.ConvertToHex();
+                            else
+                                throw new NotSupportedException();
+                        }
+                        else if (element is ParabolicPyramidElement ppe)
+                        {
+                            if (convertPyramidsTo == ConvertPyramidsToEnum.Wedges)
+                                model.Mesh.Elements[elementId] = ppe.ConvertToWedge();
+                            else if (convertPyramidsTo == ConvertPyramidsToEnum.Hexahedrons)
+                                model.Mesh.Elements[elementId] = ppe.ConvertToHex();
+                            else
+                                throw new NotSupportedException();
+                        }
+                        else throw new NotSupportedException();
+                    }
                 }
                 //
                 bool needFixing;
@@ -340,7 +370,6 @@ namespace FileInOut.Output
                         // Create new surface with the same name
                         fixedSurface = new FeSurface(surface.Name);
                         //
-                        
                         foreach (var entry in faceNameElementIds)
                         {
                             // Get element set name
@@ -783,7 +812,7 @@ namespace FileInOut.Output
         //
         static public void RemoveLostUserKeywords(FeModel model)
         {
-            List<CalculixKeyword> keywords = GetModelKeywords(model, ConvertPyramidsToEnum.Wedges);
+            List<CalculixKeyword> keywords = GetModelKeywords(model, ConvertPyramidsToEnum.Wedges, null, true);
             // Add user keywords
             List<int[]> keywordKeysToRemove = new List<int[]>();
             if (model.CalculixUserKeywords != null)
@@ -903,6 +932,9 @@ namespace FileInOut.Output
                         else if (part.LinearWedgeType != FeElementTypeLinearWedge.None &&
                             element is LinearWedgeElement)
                             type = part.LinearWedgeType.ToString();
+                        else if (part.LinearWedgeType == FeElementTypeLinearWedge.None &&   //
+                            element is LinearWedgeElement)                                  // converted pyramids
+                            type = FeElementTypeLinearWedge.C3D6.ToString();                //
                         else if (part.LinearHexaType != FeElementTypeLinearHexa.None &&
                             element is LinearHexaElement)
                             type = part.LinearHexaType.ToString();
@@ -921,6 +953,9 @@ namespace FileInOut.Output
                         else if (part.ParabolicWedgeType != FeElementTypeParabolicWedge.None &&
                             element is ParabolicWedgeElement)
                             type = part.ParabolicWedgeType.ToString();
+                        else if (part.ParabolicWedgeType != FeElementTypeParabolicWedge.None && //
+                            element is ParabolicWedgeElement)                                   // converted pyramids
+                            type = FeElementTypeParabolicWedge.C3D15.ToString();                //
                         else if (part.ParabolicHexaType != FeElementTypeParabolicHexa.None &&
                             element is ParabolicHexaElement)
                             type = part.ParabolicHexaType.ToString();
@@ -1064,10 +1099,14 @@ namespace FileInOut.Output
                 }
             }
         }
-        static private void AppendMaterials(FeModel model, CalculixKeyword parent, string[] materialNames = null)
+        static private void AppendMaterials(FeModel model, CalculixKeyword parent, string[] materialNames = null,
+                                            bool addAllMaterials = false)
         {
             CalMaterial material;
-            HashSet<string> activeMaterialNames = MaterialNamesUsedInActiveSections(model);
+            HashSet<string> activeMaterialNames;
+            //
+            if (addAllMaterials) activeMaterialNames = new HashSet<string>(model.Materials.Keys);
+            else activeMaterialNames = MaterialNamesUsedInActiveSections(model);
             //
             foreach (var entry in model.Materials)
             {
