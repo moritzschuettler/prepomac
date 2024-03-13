@@ -222,7 +222,7 @@ namespace CaeMesh
         }
         public override FeElement DeepCopy()
         {
-            return new ParabolicWedgeElement(Id, PartId, NodeIds.ToArray());
+            return new ParabolicPyramidElement(Id, PartId, NodeIds.ToArray());
         }
         //
         public ParabolicWedgeElement ConvertToWedge()

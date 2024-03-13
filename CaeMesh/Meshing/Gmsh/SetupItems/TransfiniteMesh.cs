@@ -15,7 +15,7 @@ namespace CaeMesh
     public class TransfiniteMesh : GmshSetupItem, ISerializable
     {
         // Variables                                                                                                                
-        private bool _allowPyramidElements;
+        private bool _allowPyramidElements;              // ISerializable
 
 
         // Properties                                                                                                               
@@ -40,6 +40,8 @@ namespace CaeMesh
             {
                 switch (entry.Name)
                 {
+                    case "_allowPyramidElements":
+                        _allowPyramidElements = (bool)entry.Value; break;
                     default:
                         break;
                 }
@@ -63,6 +65,7 @@ namespace CaeMesh
         {
             base.GetObjectData(info, context);
             // Using typeof() works also for null fields
+            info.AddValue("_allowPyramidElements", _allowPyramidElements, typeof(bool));
         }
     }
 }

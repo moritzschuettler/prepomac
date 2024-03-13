@@ -1233,7 +1233,7 @@ namespace CaeModel
                 mesh.ResetPartsColor();
             }
             //
-            string[] addedPartNames = _geometry.AddMesh(mesh, reservedPartNames);
+            string[] addedPartNames = _geometry.AddMesh(mesh, reservedPartNames, GetReservedPartIds());
             return addedPartNames;
         }
         public void ImportMesh(FeMesh mesh, ICollection<string> reservedPartNames, bool forceRenameParts = true,
@@ -1246,7 +1246,7 @@ namespace CaeModel
                 _mesh = new FeMesh(MeshRepresentation.Mesh);
                 mesh.ResetPartsColor();
             }
-            _mesh.AddMesh(mesh, reservedPartNames, forceRenameParts, renumberNodesAndElements);
+            _mesh.AddMesh(mesh, reservedPartNames, GetReservedPartIds(), forceRenameParts, renumberNodesAndElements);
         }
         // Setters                                                                                  
         public void SetMesh(FeMesh mesh)
@@ -1265,6 +1265,13 @@ namespace CaeModel
             if (_geometry != null && _geometry.Parts != null) reservedPartNames.UnionWith(_geometry.Parts.Keys);
             reservedPartNames.UnionWith(GetAllMeshEntityNames());
             return reservedPartNames;
+        }
+        public HashSet<int> GetReservedPartIds()
+        {
+            HashSet<int> reservedPartIds = new HashSet<int>();
+            if (_geometry != null && _geometry.Parts != null) reservedPartIds.UnionWith(_geometry.GetAllPartIds());
+            if (_mesh != null && _mesh.Parts != null) reservedPartIds.UnionWith(_mesh.GetAllPartIds());
+            return reservedPartIds;
         }
         // Mesh setup items
         public string IsMeshSetupItemProperlyDefined(MeshSetupItem meshSetupItem)

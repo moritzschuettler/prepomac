@@ -1362,7 +1362,7 @@ namespace PrePoMax
                 // Hide parts
                 HideGeometryParts(mergedPartNames);
                 // Add parts
-                _model.Geometry.AddPartsFromMesh(mesh, new string[] { geometryPart.Name }, null);
+                _model.Geometry.AddPartsFromMesh(mesh, new string[] { geometryPart.Name }, null, _model.GetReservedPartIds());
                 //
                 UpdateAfterImport(".stl");
                 //
@@ -1540,17 +1540,24 @@ namespace PrePoMax
                 _form.WriteDataToOutput("Nodes: " + numPoints);
                 _form.WriteDataToOutput("Elements: " + numElements);
             }
+            // Renumber mesh parts to geometry parts
+            bool renumbered = false;
+            foreach (var partName in partNames)
+            {
+                if (_model.Mesh.Parts.ContainsKey(partName) && _model.Geometry.Parts.ContainsKey(partName))
+                {
+                    _model.Mesh.ChangePartId(partName, _model.Geometry.Parts[partName].PartId);
+                    renumbered = true;
+                }
+            }
             // This is not executed for the first meshing                               
             // For geometry based sets the part id must remain the same after remesh    
-            bool renumbered = false;
             if (removedPartIds != null)
             {
                 for (int i = 0; i < removedPartIds.Length; i++)
                 {
-                    if (removedPartIds[i] != -1 && _model.Mesh.Parts.ContainsKey(partNames[i]))    // compound
+                    if (removedPartIds[i] != -1 && _model.Mesh.Parts.ContainsKey(partNames[i]))    // -1 for compound
                     {
-                        _model.Mesh.ChangePartId(partNames[i], removedPartIds[i]);
-                        renumbered = true;
                         // Set finite element types from previous meshing
                         GetModelPart(partNames[i]).SetElementTypeEnums(GetGeometryPart(partNames[i]).GetElementTypeEnums());
                     }
@@ -1764,7 +1771,7 @@ namespace PrePoMax
                 SuppressExplodedView();
                 FeModel newModel = new FeModel("Deformed", _allResults.CurrentResult.UnitSystem);
                 newModel.Properties.ModelSpace = ModelSpaceEnum.ThreeD;
-                newModel.Mesh.AddPartsFromMesh(_allResults.CurrentResult.Mesh, partNames, null, false, false);
+                newModel.Mesh.AddPartsFromMesh(_allResults.CurrentResult.Mesh, partNames, null, null, false, false);
                 // Change result parts to mesh parts
                 OrderedDictionary<string, BasePart> meshParts =
                     new OrderedDictionary<string, BasePart>("Base Parts", StringComparer.OrdinalIgnoreCase);
@@ -2573,7 +2580,7 @@ namespace PrePoMax
             if (stlFileNames.Count > 0)
             {
                 string[] scaledPartNames = _model.Geometry.ScaleParts(stlFileNames.ToArray(), scaleCenter, scaleFactors, copy,
-                                                                      _model.GetReservedPartNames());
+                                                                      _model.GetReservedPartNames(), _model.GetReservedPartIds());
                 if (copy)
                 {
                     foreach (var scaledPartName in scaledPartNames)
@@ -4767,8 +4774,6 @@ namespace PrePoMax
             string[] errors = null;
             double[][][] connectedEdges = null;
             //
-            SuppressExplodedView(partNames);
-            //
             Dictionary<int, Vec3D> nodeIdNormal;
             if (_model.Geometry.GetAllCADPartNames().Intersect(partNames).Count() == partNames.Length)
             {
@@ -4784,8 +4789,6 @@ namespace PrePoMax
             if (_model != null)
                 errors = DisplayedMesh.ThickenShellMesh(partNames, nodeIdNormal, thickness, numberOfLayers, offset,
                                                         true, out connectedEdges);
-            //
-            ResumeExplodedViews(false);
             //
             if (errors.Length > 0) throw new CaeException(errors[0]);
             //
@@ -5133,7 +5136,7 @@ namespace PrePoMax
             if (!copy) TranslateSelectionsContainingParts(partNames, translateVector);
             //
             string[] translatedPartNames = _model.Mesh.TranslateParts(partNames, translateVector, copy,
-                                                                      _model.GetReservedPartNames());
+                                                                      _model.GetReservedPartNames(), _model.GetReservedPartIds());
             //
             if (copy)
             {
@@ -5155,7 +5158,7 @@ namespace PrePoMax
             if (!copy) ScaleSelectionsContainingParts(partNames, scaleCenter, scaleFactors);
             //
             string[] scaledPartNames = _model.Mesh.ScaleParts(partNames, scaleCenter, scaleFactors, copy,
-                                                              _model.GetReservedPartNames());
+                                                              _model.GetReservedPartNames(), _model.GetReservedPartIds());
             if (copy)
             {
                 foreach (var partName in scaledPartNames)
@@ -5174,7 +5177,7 @@ namespace PrePoMax
             if (!copy) RotateSelectionsContainingParts(partNames, rotateCenter, rotateAxis, rotateAngle);
             //
             string[] rotatedPartNames = _model.Mesh.RotateParts(partNames, rotateCenter, rotateAxis, rotateAngle, copy,
-                                                                _model.GetReservedPartNames());
+                                                                _model.GetReservedPartNames(), _model.GetReservedPartIds());
             if (copy)
             {
                 foreach (var partName in rotatedPartNames)
@@ -10465,32 +10468,36 @@ namespace PrePoMax
             int[] ids = GetNodeIdsAtPoint(selectionNodeMouse, out elementId);
             bool shellFrontFace = DisplayedMesh.IsShellElementFrontFaceSelected(elementId, selectionNodeMouse.SelectionDirection);
             //
+            FrontBackBothFaceSideEnum faceSide;
+            if (shellFrontFace) faceSide = FrontBackBothFaceSideEnum.Front;
+            else faceSide = FrontBackBothFaceSideEnum.Back;
+            //
             if (selectionNodeMouse.SelectBy == vtkSelectBy.Node)
             {
                 elementIds = DisplayedMesh.GetElementIdsFromNodeIds(ids, false, false, false);
-                ids = DisplayedMesh.GetVisualizationFaceIds(ids, elementIds, false, false, shellFrontFace);
+                ids = DisplayedMesh.GetVisualizationFaceIds(ids, elementIds, false, false, faceSide);
             }
             else if (selectionNodeMouse.SelectBy == vtkSelectBy.Element)
             {
                 elementIds = DisplayedMesh.GetElementIdsFromNodeIds(ids, false, false, true);
-                ids = DisplayedMesh.GetVisualizationFaceIds(ids, elementIds, false, true, shellFrontFace);
+                ids = DisplayedMesh.GetVisualizationFaceIds(ids, elementIds, false, true, faceSide);
             }
             else if (selectionNodeMouse.SelectBy == vtkSelectBy.Part)
             {
                 elementIds = DisplayedMesh.GetElementIdsFromNodeIds(ids, false, true, false);
-                ids = DisplayedMesh.GetVisualizationFaceIds(ids, elementIds, false, true, shellFrontFace);
+                ids = DisplayedMesh.GetVisualizationFaceIds(ids, elementIds, false, true, faceSide);
             }
             else if (selectionNodeMouse.SelectBy == vtkSelectBy.Edge ||
                      selectionNodeMouse.SelectBy == vtkSelectBy.EdgeAngle)
             {
                 elementIds = DisplayedMesh.GetElementIdsFromNodeIds(ids, true, false, false);
-                ids = DisplayedMesh.GetVisualizationFaceIds(ids, elementIds, true, false, shellFrontFace);
+                ids = DisplayedMesh.GetVisualizationFaceIds(ids, elementIds, true, false, faceSide);
             }
             else if (selectionNodeMouse.SelectBy == vtkSelectBy.Surface ||
                      selectionNodeMouse.SelectBy == vtkSelectBy.SurfaceAngle)
             {
                 elementIds = DisplayedMesh.GetElementIdsFromNodeIds(ids, false, true, false);
-                ids = DisplayedMesh.GetVisualizationFaceIds(ids, elementIds, false, true, shellFrontFace);
+                ids = DisplayedMesh.GetVisualizationFaceIds(ids, elementIds, false, true, faceSide);
             }
             return ids;
         }
@@ -10676,14 +10683,15 @@ namespace PrePoMax
             {
                 nodeIds = GetNodeIdsFromFrustum(planeParameters, selectionPartNames, selectBy);
                 elementIds = GetElementIdsFromFrustum(planeParameters, selectionPartNames, selectBy);
-                int[] frontIds = DisplayedMesh.GetVisualizationFaceIds(nodeIds, elementIds, false, true, false); // select back face
-                ids = new int[2 * frontIds.Length];
-                // Add front faces to selection
-                for (int i = 0; i < frontIds.Length; i++)
-                {
-                    ids[i] = frontIds[i];                           // back faces: 10 * elementId + 0
-                    ids[frontIds.Length + i] = frontIds[i] + 1;     // front faces: 10 * elementId + 1
-                }
+                ids = DisplayedMesh.GetVisualizationFaceIds(nodeIds, elementIds, false, true,
+                                                            FrontBackBothFaceSideEnum.Both);
+                //ids = new int[2 * frontIds.Length];
+                //// Add front faces to selection
+                //for (int i = 0; i < frontIds.Length; i++)
+                //{
+                //    ids[i] = frontIds[i];                           // back faces: 10 * elementId + 0
+                //    ids[frontIds.Length + i] = frontIds[i] + 1;     // front faces: 10 * elementId + 1
+                //}
             }
             else if (selectBy == vtkSelectBy.Part)
             {
@@ -11079,7 +11087,8 @@ namespace PrePoMax
         {
             if (elementId < 0) return null;
             // Get all faces containing at least 1 node id
-            int[] faceIds = DisplayedMesh.GetVisualizationFaceIds(nodeIds, new int[] { elementId }, false, false, true);
+            int[] faceIds = DisplayedMesh.GetVisualizationFaceIds(nodeIds, new int[] { elementId }, false, false,
+                                                                  FrontBackBothFaceSideEnum.Front);
             //
             bool add;
             int[] cell = null;
@@ -11174,7 +11183,8 @@ namespace PrePoMax
         public vtkMaxActorData GetSurfaceActorDataByNodeIds(int[] nodeIds)
         {
             int[] elementIds = DisplayedMesh.GetElementIdsFromNodeIds(nodeIds, false, true, false);
-            int[] faceIds = DisplayedMesh.GetVisualizationFaceIds(nodeIds, elementIds, false, true, true);
+            int[] faceIds = DisplayedMesh.GetVisualizationFaceIds(nodeIds, elementIds, false, true,
+                                                                  FrontBackBothFaceSideEnum.Front);
             //
             int[][] cells = new int[faceIds.Length][];
             int count = 0;
@@ -11697,7 +11707,7 @@ namespace PrePoMax
             }
         }
         public vtkMaxActorData GetModelPartActorData(FeMesh mesh, BasePart part, vtkRendererLayer layer,
-                                                                Dictionary<int, int> elementIdColorId = null)
+                                                     Dictionary<int, int> elementIdColorId = null)
         {
             if (part is CompoundGeometryPart) return null;
             if (part.Labels.Length == 0) return null;
@@ -15291,7 +15301,7 @@ namespace PrePoMax
             }
         }
         //
-        public void HighlightSelection(bool clear = true, bool backfaceCulling = true, bool useSecondaryHighlightColor = false)
+        public void HighlightSelection(bool clear = true, bool backFaceCulling = true, bool useSecondaryHighlightColor = false)
         {
             if (clear) _form.Clear3DSelection();
             int[] ids = GetSelectionIds();
@@ -15307,7 +15317,7 @@ namespace PrePoMax
                 HighlightItemsBySurfaceIds(ids, useSecondaryHighlightColor);
             else if (_selection.SelectItem == vtkSelectItem.Geometry ||
                      _selection.SelectItem == vtkSelectItem.GeometrySurface)
-                HighlightItemsByGeometryIds(ids, backfaceCulling, useSecondaryHighlightColor);
+                HighlightItemsByGeometryIds(ids, backFaceCulling, useSecondaryHighlightColor);
             else if (_selection.SelectItem == vtkSelectItem.Part)
             {
                 string[] partNames = DisplayedMesh.GetPartNamesFromPartIds(ids);

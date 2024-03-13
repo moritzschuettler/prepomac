@@ -563,7 +563,7 @@ namespace CaeResults
         public string[] AddPartsFromMesh(FeMesh mesh, string[] partNames)
         {
             _mesh.Nodes = _undeformedNodes;
-            string[] addedPartNames = _mesh.AddPartsFromMesh(mesh, partNames, null, false);
+            string[] addedPartNames = _mesh.AddPartsFromMesh(mesh, partNames, null, null, false);
             InitializeUndeformedNodes();
             return addedPartNames;
         }

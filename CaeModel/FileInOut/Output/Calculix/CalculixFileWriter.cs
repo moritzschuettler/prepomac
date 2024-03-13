@@ -19,7 +19,10 @@ namespace FileInOut.Output
     [Serializable]
     public static class CalculixFileWriter
     {
+        // Variables                                                                                                                
         private static ConvertPyramidsToEnum _convertPyramidsToEnum;
+
+
         // Methods                                                                                                                  
         static public void Write(string fileName, FeModel model, ConvertPyramidsToEnum convertPyramidsTo,
                                  Dictionary<int, double[]> deformations = null)
@@ -381,6 +384,8 @@ namespace FileInOut.Output
                             model.Mesh.ElementSets.Add(elementSet.Name, elementSet);
                             //
                             fixedSurface.AddElementFace(entry.Key, elementSet.Name);
+                            //
+                            fixedSurface.NodeSetName = surface.NodeSetName;
                         }
                         // Add fixed surface
                         model.Mesh.Surfaces[fixedSurface.Name] = fixedSurface;
@@ -935,6 +940,9 @@ namespace FileInOut.Output
                         else if (part.LinearWedgeType == FeElementTypeLinearWedge.None &&   //
                             element is LinearWedgeElement)                                  // converted pyramids
                             type = FeElementTypeLinearWedge.C3D6.ToString();                //
+                        else if (part.LinearHexaType == FeElementTypeLinearHexa.None &&     //
+                            element is LinearHexaElement)                                   // converted pyramids
+                            type = FeElementTypeLinearHexa.C3D8.ToString();                 //
                         else if (part.LinearHexaType != FeElementTypeLinearHexa.None &&
                             element is LinearHexaElement)
                             type = part.LinearHexaType.ToString();
@@ -953,9 +961,12 @@ namespace FileInOut.Output
                         else if (part.ParabolicWedgeType != FeElementTypeParabolicWedge.None &&
                             element is ParabolicWedgeElement)
                             type = part.ParabolicWedgeType.ToString();
-                        else if (part.ParabolicWedgeType != FeElementTypeParabolicWedge.None && //
+                        else if (part.ParabolicWedgeType == FeElementTypeParabolicWedge.None && //
                             element is ParabolicWedgeElement)                                   // converted pyramids
                             type = FeElementTypeParabolicWedge.C3D15.ToString();                //
+                        else if (part.ParabolicHexaType == FeElementTypeParabolicHexa.None &&   //
+                            element is ParabolicHexaElement)                                    // converted pyramids
+                            type = FeElementTypeParabolicHexa.C3D20.ToString();                //
                         else if (part.ParabolicHexaType != FeElementTypeParabolicHexa.None &&
                             element is ParabolicHexaElement)
                             type = part.ParabolicHexaType.ToString();
