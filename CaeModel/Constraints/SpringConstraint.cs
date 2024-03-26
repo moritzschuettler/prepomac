@@ -11,7 +11,7 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
-    public abstract class SpringConstraint : Constraint, ISerializable
+    public abstract class SpringConstraint : Constraint, IMultiRegion, ISerializable
     {
         // Variables                                                                                                                
         private bool _checkPositive;        //ISerializable

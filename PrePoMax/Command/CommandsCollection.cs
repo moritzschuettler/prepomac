@@ -17,8 +17,6 @@ namespace PrePoMax.Commands
         protected int _currPositionIndex;
         protected Controller _controller;
         protected List<Command> _commands;
-        protected List<string> _history;
-        protected string _historyFileNameTxt;
         protected string _historyFileNameBin;
         protected ViewGeometryModelResults _previousView;
 
@@ -44,8 +42,6 @@ namespace PrePoMax.Commands
             _controller = controller;
             _currPositionIndex = -1;
             _commands = new List<Command>();
-            _history = new List<string>();
-            _historyFileNameTxt = Path.Combine(System.Windows.Forms.Application.StartupPath, Globals.HistoryFileName + ".txt");
             _historyFileNameBin = Path.Combine(System.Windows.Forms.Application.StartupPath, Globals.HistoryFileName + ".pmh");
             _previousView = ViewGeometryModelResults.Geometry;
             //
@@ -56,7 +52,6 @@ namespace PrePoMax.Commands
         {
             _currPositionIndex = commandsCollection._currPositionIndex;
             _commands = commandsCollection._commands;
-            _history = commandsCollection._history;
             _previousView = commandsCollection._previousView;
             //
             WriteToFile();
@@ -76,21 +71,36 @@ namespace PrePoMax.Commands
             //
             _commands.Add(command);
         }
-        private void AddToHistory(Command command)
+        private void CheckModelChanged(Command command)
         {
             if (command is CClear) return;
-            //
-            string data = command.GetCommandString();
-            //
-            _history.Add(data);
             //
             if (command is CSaveToPmx) { }
             else
             {
                 _controller.ModelChanged = true;
-                //
                 ModelChanged_ResetJobStatus?.Invoke();
             }
+        }
+        public void SetCommands(List<Command> commands)
+        {
+            _currPositionIndex = -1;
+            _commands.Clear();
+            //
+            foreach (Command command in commands)
+            {
+                // Add command
+                AddCommand(command);
+                //
+                _currPositionIndex++;
+            }
+            // Write to file
+            WriteToFile();
+            //
+            OnEnableDisableUndoRedo();
+            // Model changed
+            _controller.ModelChanged = true;
+            ModelChanged_ResetJobStatus?.Invoke();
         }
         private void ExecuteCommand(Command command, bool addCommand)
         {
@@ -101,8 +111,8 @@ namespace PrePoMax.Commands
             {
                 // Add command
                 if (addCommand) AddCommand(command);
-                // Add history
-                AddToHistory(command);
+                // Check model changed
+                CheckModelChanged(command);
                 // Write to file
                 WriteToFile();
                 //
@@ -114,7 +124,7 @@ namespace PrePoMax.Commands
             if (command is CSaveToPmx)
             {
                 command.Execute(_controller);
-                WriteToFile();  // repeate the write in order to save the hash
+                WriteToFile();  // repeat the write in order to save the hash
             }
         }
         public void ExecuteAllCommandsFromLastSave()
@@ -137,7 +147,6 @@ namespace PrePoMax.Commands
         {
             int count = 0;
             bool executeWithDialog;
-            _history.Clear();
             List<string> errors = new List<string>();
             //
             foreach (Command command in _commands)
@@ -182,8 +191,8 @@ namespace PrePoMax.Commands
                     {
                         errors.Add(command.Name + ": " + ex.Message);
                     }
-                    // Add history
-                    AddToHistory(command);
+                    // Check model changed
+                    CheckModelChanged(command);
                 }
                 else break;
             }
@@ -203,7 +212,7 @@ namespace PrePoMax.Commands
             //
             OnEnableDisableUndoRedo();
         }
-        public CSaveToPmx GetLastSaveCommnad()
+        public CSaveToPmx GetLastSaveCommand()
         {
             Command[] reversed = _commands.ToArray().Reverse().ToArray();   // must be like this
             //
@@ -219,15 +228,26 @@ namespace PrePoMax.Commands
         {
             _currPositionIndex = -1;
             _commands.Clear();
-            _history.Clear();
             _previousView = ViewGeometryModelResults.Geometry;
-
-            // write to file
+            // Write to file
             WriteToFile();
-
+            //
             OnEnableDisableUndoRedo();
-            
+            //
             ModelChanged_ResetJobStatus?.Invoke();
+        }
+        //
+        public void SaveToSeparateFiles(string folderName)
+        {
+            int i = 1;
+            string fileName;
+            foreach (var command in _commands)
+            {
+                if (i == 934)
+                    i = 934;
+                fileName = Path.Combine(folderName, i++.ToString().PadLeft(4, '0') + "_" + command.Name.Replace("/", "") + ".cmd");
+                command.DumpToFile(fileName);
+            }
         }
         // Undo / Redo
         public void Undo()
@@ -279,9 +299,7 @@ namespace PrePoMax.Commands
             if (_commands.Count > 1)
             {
                 // Write to files
-                File.WriteAllLines(_historyFileNameTxt, _history.ToArray());
                 _commands.DumpToFile(_historyFileNameBin);
-
                 // Use other file
                 string fileName = Tools.GetNonExistentRandomFileName(System.Windows.Forms.Application.StartupPath, "pmh");
                 _commands.DumpToFile(fileName);
@@ -296,17 +314,12 @@ namespace PrePoMax.Commands
             _currPositionIndex = _commands.Count - 1;
         }
         // History files
-        public string GetHistoryFileNameTxt()
-        {
-            return _historyFileNameTxt;
-        }
         public string GetHistoryFileNameBin()
         {
             return _historyFileNameBin;
         }
-        public void DeleteHistoryFiles()
+        public void DeleteHistoryFile()
         {
-            if (File.Exists(_historyFileNameTxt)) File.Delete(_historyFileNameTxt);
             if (File.Exists(_historyFileNameBin)) File.Delete(_historyFileNameBin);
         }
     }

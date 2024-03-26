@@ -34,7 +34,15 @@ namespace PrePoMax.Commands
         {
             return true;
         }
+        public string GetDateTime()
+        {
+            return _dateCreated.ToString("MM/dd/yy HH:mm:ss");
+        }
         public virtual string GetCommandString()
+        {
+            return GetBaseCommandString();
+        }
+        public string GetBaseCommandString()
         {
             return _dateCreated.ToString("MM/dd/yy HH:mm:ss") + "   " + _name + ": ";
         }

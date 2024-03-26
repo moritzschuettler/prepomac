@@ -15,7 +15,7 @@ namespace CaeGlobals
     public class StringDensityConverter : TypeConverter
     {
         // Variables                                                                                                                
-        protected static DensityUnit _densityUnit = DensityUnit.TonnePerCubicMillimeter;
+        protected static DensityUnit _densityUnit = DensityUnit.KilogramPerCubicMeter;
 
 
         // Properties                                                                                                               
@@ -24,8 +24,19 @@ namespace CaeGlobals
             set
             {
                 if (value == "") _densityUnit = (DensityUnit)MyUnit.NoUnit;
+                else if (value == MyUnit.PoundForceSquareSecondPerQuadInchAbbreviation)
+                    _densityUnit = MyUnit.PoundForceSquareSecondPerQuadInch;
                 else _densityUnit = Density.ParseUnit(value);
             }
+        }
+        public static string GetUnitAbbreviation(DensityUnit densityUnit)
+        {
+            string unit;
+            if ((int)densityUnit == MyUnit.NoUnit) unit = "";
+            else if (densityUnit == MyUnit.PoundForceSquareSecondPerQuadInch)
+                return MyUnit.PoundForceSquareSecondPerQuadInchAbbreviation;
+            else unit = Density.GetAbbreviation(densityUnit);
+            return unit;
         }
 
 
@@ -57,7 +68,8 @@ namespace CaeGlobals
                     if (value is double valueDouble)
                     {
                         string valueString = valueDouble.ToString();
-                        if ((int)_densityUnit != MyUnit.NoUnit) valueString += " " + UnitsNet.Density.GetAbbreviation(_densityUnit);
+                        string unit = GetUnitAbbreviation(_densityUnit);
+                        if (unit.Length > 0) valueString += " " + unit;
                         return valueString;
                     }
                 }
@@ -73,9 +85,38 @@ namespace CaeGlobals
         {
             try
             {
-                UnitsNet.Density density = UnitsNet.Density.Parse(valueWithUnitString);
-                if ((int)_densityUnit != MyUnit.NoUnit) density = density.ToUnit(_densityUnit);
-                return density.Value;
+                // 1 pound force = 4.44822162 newtons
+                // 1 s = 1 s
+                // 1 inch = 0.0254 meters
+                double conversion = 10686895.19;
+                double scale = 1;
+                valueWithUnitString = valueWithUnitString.Trim().Replace(" ", "");
+                // Check if it is given in unsupported units
+                if (valueWithUnitString.Contains(MyUnit.PoundForceSquareSecondPerQuadInchAbbreviation))
+                {
+                    valueWithUnitString = valueWithUnitString.Replace(MyUnit.PoundForceSquareSecondPerQuadInchAbbreviation,
+                                                                      Density.GetAbbreviation(DensityUnit.KilogramPerCubicMeter));
+                    scale = conversion;
+                }
+                // Check if it must be converted to unsupported units
+                double value;
+                if ((int)_densityUnit == MyUnit.NoUnit)
+                {
+                    Density density = Density.Parse(valueWithUnitString);
+                    value = (double)density.Value;
+                }
+                else if (_densityUnit == MyUnit.PoundForceSquareSecondPerQuadInch)
+                {
+                    Density density = Density.Parse(valueWithUnitString).ToUnit(DensityUnit.KilogramPerCubicMeter);
+                    if (scale == conversion) value = (double)density.Value;
+                    else value = scale * (double)density.Value / conversion;
+                }
+                else
+                {
+                    Density density = Density.Parse(valueWithUnitString).ToUnit(_densityUnit);
+                    value = scale * (double)density.Value;
+                }
+                return value;
             }
             catch (Exception ex)
             {
@@ -86,14 +127,17 @@ namespace CaeGlobals
         {
             string abb;
             string supportedUnitAbbreviations = "Supported density abbreviations: ";
-            var allUnits = UnitsNet.Density.Units;
+            var allUnits = Density.Units;
             for (int i = 0; i < allUnits.Length; i++)
             {
-                abb = UnitsNet.Density.GetAbbreviation(allUnits[i]);
+                abb = Density.GetAbbreviation(allUnits[i]);
                 if (abb != null) abb.Trim();
                 if (abb.Length > 0) supportedUnitAbbreviations += abb;
                 if (i != allUnits.Length - 1) supportedUnitAbbreviations += ", ";
             }
+            // My units
+            supportedUnitAbbreviations += ", " + MyUnit.PoundForceSquareSecondPerQuadInchAbbreviation;
+            //
             supportedUnitAbbreviations += ".";
             //
             return supportedUnitAbbreviations;

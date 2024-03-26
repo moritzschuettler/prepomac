@@ -334,12 +334,16 @@ namespace CaeMesh
             else if (gmshSetupItem.ElementSizeType == ElementSizeTypeEnum.MultiLayerd)
             {
                 numElements = gmshSetupItem.NumOfElementsPerLayer;
-                double sum = 0;
-                height = new double[gmshSetupItem.NormalizedLayerSizes.Length];
+                //
+                double sumSizes = 0;
+                for (int i = 0; i < gmshSetupItem.LayerSizes.Length; i++) sumSizes += gmshSetupItem.LayerSizes[i];
+                //
+                double sumHeight = 0;
+                height = new double[gmshSetupItem.LayerSizes.Length];
                 for (int i = 0; i < height.Length; i++)
                 {
-                    sum += gmshSetupItem.NormalizedLayerSizes[i];
-                    height[i] = sum;
+                    sumHeight += gmshSetupItem.LayerSizes[i] / sumSizes;
+                    height[i] = sumHeight;
                 }
             }
             else throw new NotSupportedException("ExtrudedElementSizeTypeEnumException");

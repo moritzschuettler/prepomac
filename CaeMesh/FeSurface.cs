@@ -45,13 +45,15 @@ namespace CaeMesh
         private FeSurfaceCreatedFrom _createdFrom;
         private string _nodeSetName;
         private string _createdFromNodeSetName;
-        private int[] _faceIds;                                                         // renumber on renumber elements ids
+        private int[] _faceIds;                                         // renumber on renumber elements ids
         private double _area;
         private Dictionary<FeFaceName, string> _elementFaces;
         private Selection _creationData;
         private FeSurfaceFaceTypes _surfaceFaceTypes = FeSurfaceFaceTypes.Unknown;
         //
-        public Selection ParentCreationData; // temporary storage 
+        private IMultiRegion _parentMultiRegion;                        // temporary storage 
+        private IMasterSlaveMultiRegion _parentMasterMultiRegion;       // temporary storage 
+        private IMasterSlaveMultiRegion _parentSlaveMultiRegion;        // temporary storage 
 
 
         // Properties                                                                                                               
@@ -85,6 +87,21 @@ namespace CaeMesh
         public Dictionary<FeFaceName, string> ElementFaces { get { return _elementFaces; } }
         public Selection CreationData { get { return _creationData; } set { _creationData = value; } }
         public FeSurfaceFaceTypes SurfaceFaceTypes { get { return _surfaceFaceTypes; } set { _surfaceFaceTypes = value; } }
+        public IMultiRegion ParentMultiRegion
+        { 
+            get { return _parentMultiRegion; }
+            set { _parentMultiRegion = value; _parentMasterMultiRegion = null; _parentSlaveMultiRegion = null; }
+        }
+        public IMasterSlaveMultiRegion ParentMasterMultiRegion
+        {
+            get { return _parentMasterMultiRegion; }
+            set { _parentMasterMultiRegion = value; _parentMultiRegion = null; _parentSlaveMultiRegion = null; }
+        }
+        public IMasterSlaveMultiRegion ParentSlaveMultiRegion
+        {
+            get { return _parentSlaveMultiRegion; }
+            set { _parentSlaveMultiRegion = value; _parentMultiRegion = null; _parentMasterMultiRegion = null; }
+        }
 
 
         // Constructors                                                                                                             

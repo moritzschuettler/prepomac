@@ -14,7 +14,7 @@ namespace CaeMesh
         // Variables                                                                                                                
         protected int[] _labels;
         //
-        public Selection ParentCreationData; // temporary storage 
+        public IMultiRegion ParentMultiRegion; // temporary storage 
 
 
         // Properties                                                                                                               

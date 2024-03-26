@@ -11,7 +11,7 @@ using System.Drawing;
 namespace CaeModel
 {
     [Serializable]
-    public class CompressionOnly : Constraint, ISerializable
+    public class CompressionOnly : Constraint, IMultiRegion, ISerializable
     {
         // Variables                                                                                                                
         private EquationContainer _springStiffness;                 //ISerializable

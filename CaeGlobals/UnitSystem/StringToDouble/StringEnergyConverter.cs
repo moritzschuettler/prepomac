@@ -89,7 +89,8 @@ namespace CaeGlobals
                 // Check if it is given in unsupported units
                 if (valueWithUnitString.Contains(MyUnit.PoundForceInchAbbreviation))
                 {
-                    valueWithUnitString = valueWithUnitString.Replace(MyUnit.PoundForceInchAbbreviation, "ft·lb");
+                    valueWithUnitString = valueWithUnitString.Replace(MyUnit.PoundForceInchAbbreviation,
+                                                                      Energy.GetAbbreviation(EnergyUnit.FootPound)); // "ft·lb"
                     scale = conversion;
                 }
                 // Check if it must be converted to unsupported units
@@ -129,6 +130,9 @@ namespace CaeGlobals
                 if (abb.Length > 0) supportedUnitAbbreviations += abb;
                 if (i != allUnits.Length - 1) supportedUnitAbbreviations += ", ";
             }
+            // My units
+            supportedUnitAbbreviations += ", " + MyUnit.PoundForceInchAbbreviation;
+            //
             supportedUnitAbbreviations += ".";
             //
             return supportedUnitAbbreviations;

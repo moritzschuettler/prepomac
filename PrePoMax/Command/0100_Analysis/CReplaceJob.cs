@@ -24,6 +24,7 @@ namespace PrePoMax.Commands
         {
             _oldJobName = oldJobName;
             _newJob = newJob.DeepClone();
+            _newJob.ClearFileContents();
         }
 
 

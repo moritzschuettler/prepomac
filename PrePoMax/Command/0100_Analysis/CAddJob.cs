@@ -8,6 +8,7 @@ using CaeModel;
 using CaeMesh;
 using CaeGlobals;
 using CaeJob;
+using PrePoMax.Forms;
 
 namespace PrePoMax.Commands
 {
@@ -23,6 +24,7 @@ namespace PrePoMax.Commands
             : base("Add analysis")
         {
             _job = job.DeepClone();
+            _job.ClearFileContents();
         }
 
 

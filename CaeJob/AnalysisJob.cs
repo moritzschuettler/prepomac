@@ -9,6 +9,9 @@ using System.Threading;
 using System.Management;
 using System.ComponentModel;
 using CaeGlobals;
+using System.Runtime.Serialization;
+using System.Security.RightsManagement;
+using System.Windows;
 
 namespace CaeJob
 {
@@ -26,20 +29,20 @@ namespace CaeJob
     }
 
     [Serializable]
-    public class AnalysisJob : NamedClass
+    public class AnalysisJob : NamedClass, ISerializable
     {
         // Variables                                                                                                                        
-        protected string _workDirectory;
-        protected string _executable;
-        protected string _argument;
-        protected bool _compatibilityMode;
-        protected JobStatus _jobStatus;
-        protected int _numCPUs;
-        protected List<EnvironmentVariable> _environmentVariables;
-        protected long _statusFileLength;
-        protected string _statusFileContents;
-        protected long _convergenceFileLength;
-        protected string _convergenceFileContents;
+        protected string _workDirectory;                                // ISerializable
+        protected string _executable;                                   // ISerializable
+        protected string _argument;                                     // ISerializable
+        protected bool _compatibilityMode;                              // ISerializable
+        protected JobStatus _jobStatus;                                 // ISerializable
+        protected int _numCPUs;                                         // ISerializable
+        protected List<EnvironmentVariable> _environmentVariables;      // ISerializable
+        protected long _statusFileLength;                               // ISerializable
+        protected string _statusFileContents;                           // ISerializable
+        protected long _convergenceFileLength;                          // ISerializable
+        protected string _convergenceFileContents;                      // ISerializable
         //
         [NonSerialized] private System.Windows.Threading.DispatcherTimer _timer;
         [NonSerialized] protected Stopwatch _watch;
@@ -170,7 +173,40 @@ namespace CaeJob
             _sbOutput = null;
             _sbAllOutput = null;
         }
-
+        public AnalysisJob(SerializationInfo info, StreamingContext context)
+            : base(info, context)
+        {
+            foreach (SerializationEntry entry in info)
+            {
+                switch (entry.Name)
+                {
+                    case "_workDirectory":
+                        _workDirectory = (string)entry.Value; break;
+                    case "_executable":
+                        _executable = (string)entry.Value; break;
+                    case "_argument":
+                        _argument = (string)entry.Value; break;
+                    case "_compatibilityMode":
+                        _compatibilityMode = (bool)entry.Value; break;
+                    case "_jobStatus":
+                        _jobStatus = (JobStatus)entry.Value; break;
+                    case "_numCPUs":
+                        _numCPUs = (int)entry.Value; break;
+                    case "_environmentVariables":
+                        _environmentVariables = (List<EnvironmentVariable>)entry.Value; break;
+                    case "_statusFileLength":
+                        _statusFileLength = (long)entry.Value; break;
+                    case "_statusFileContents":
+                        _statusFileContents = (string)entry.Value; break;
+                    case "_convergenceFileLength":
+                        _convergenceFileLength = (long)entry.Value; break;
+                    case "_convergenceFileContents":
+                        _convergenceFileContents = (string)entry.Value; break;
+                    default:
+                        break;
+                }
+            }
+        }
 
         // Event handlers                                                                                                           
         void Timer_Tick(object sender, EventArgs e)
@@ -550,7 +586,7 @@ namespace CaeJob
                 string statusFileName = Path.Combine(_workDirectory, Name + ".sta");
                 if (!File.Exists(statusFileName)) return;
                 //
-                long size = new System.IO.FileInfo(statusFileName).Length;
+                long size = new FileInfo(statusFileName).Length;
                 //
                 if (size != _statusFileLength)
                 {
@@ -593,7 +629,15 @@ namespace CaeJob
             {
             }
         }
-
+        //
+        public void ClearFileContents()
+        {
+            _statusFileContents = "";
+            _statusFileLength = 0;
+            _convergenceFileContents = "";
+            _convergenceFileLength = 0;
+        }
+        //
         public static bool IsAdministrator()
         {
             System.Security.Principal.WindowsIdentity identity = System.Security.Principal.WindowsIdentity.GetCurrent();
@@ -605,7 +649,7 @@ namespace CaeJob
         {
             _jobStatus = CaeJob.JobStatus.None;
         }
-
+        //
         private void SetEnvironmentVariables(ProcessStartInfo psi)
         {
             SetNumberOfProcessors(psi);
@@ -637,6 +681,23 @@ namespace CaeJob
             {
                 AppendDataToOutput("To add environmental variable '" + environmentVariable.Name + "' to the analysis the program must be run with elevated permisions (Run as administrator).");
             }
+        }
+        // ISerialization
+        public new void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            base.GetObjectData(info, context);
+            // Using typeof() works also for null fields
+            info.AddValue("_workDirectory", _workDirectory, typeof(string));
+            info.AddValue("_executable", _executable, typeof(string));
+            info.AddValue("_argument", _argument, typeof(string));
+            info.AddValue("_compatibilityMode", _compatibilityMode, typeof(bool));
+            info.AddValue("_jobStatus", _jobStatus, typeof(JobStatus));
+            info.AddValue("_numCPUs", _numCPUs, typeof(int));
+            info.AddValue("_environmentVariables", _environmentVariables, typeof(List<EnvironmentVariable>));
+            info.AddValue("_statusFileLength", _statusFileLength, typeof(long));
+            info.AddValue("_statusFileContents", _statusFileContents, typeof(string));
+            info.AddValue("_convergenceFileLength", _convergenceFileLength, typeof(long));
+            info.AddValue("_convergenceFileContents", _convergenceFileContents, typeof(string));
         }
     }
 }

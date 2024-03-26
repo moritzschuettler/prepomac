@@ -9,7 +9,6 @@ using System.Runtime.Serialization;
 using System.Runtime.Remoting.Contexts;
 using System.Text.RegularExpressions;
 
-
 namespace CaeModel
 {
     [Serializable]
@@ -28,7 +27,7 @@ namespace CaeModel
         // Properties                                                                                                               
         public EquationContainer PositionTolerance { get { return _positionTolerance; } set { SetPositionTolerance(value); } }
         public bool Adjust { get { return _adjust; } set { _adjust = value; } }       
-
+        
 
         // Constructors                                                                                                             
         public Tie(string name, string masterSurfaceName, RegionTypeEnum masterRegionType,

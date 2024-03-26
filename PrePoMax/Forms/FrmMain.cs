@@ -23,6 +23,7 @@ using PrePoMax.Commands;
 using System.Timers;
 using PrePoMax.Properties;
 using System.Runtime;
+using System.Runtime.InteropServices.ComTypes;
 
 namespace PrePoMax
 {
@@ -2055,9 +2056,23 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiViewHistory_Click(object sender, EventArgs e)
+        private void tsmiEditHistory_Click(object sender, EventArgs e)
         {
-            System.Diagnostics.Process.Start(_controller.GetHistoryFileNameTxt());
+            try
+            {
+                FrmEditCommands frmEditCommands = new FrmEditCommands(_controller.GetCommands());
+                CloseAllForms();
+                //SetFormLocation(frmEditCommands);
+                if (frmEditCommands.ShowDialog() ==  DialogResult.OK)
+                {
+                    _controller.SetCommands(frmEditCommands.Commands);
+                }
+                //SaveFormLocation(frmEditCommands);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
         }
         private void tsmiRegenerate_Click(object sender, EventArgs e)
         {
@@ -8836,7 +8851,8 @@ namespace PrePoMax
                 //_vtk.Export(GetFileNameToSaveAs());
                 //TestSpring();
                 //TestSuperposition();
-                TestNormals();
+                //TestNormals();
+
             }
             catch
             {
@@ -8939,6 +8955,11 @@ namespace PrePoMax
             //
             //if (timerTest.Enabled) timerTest.Stop();
             //else timerTest.Start();
+        }
+        private void TestWearResults()
+        {
+            string fileName = @"C:\Temp\Analysis-1.frd";
+            _controller.ReadFrdFileAsWear(fileName);
         }
         private void TestNormals()
         {

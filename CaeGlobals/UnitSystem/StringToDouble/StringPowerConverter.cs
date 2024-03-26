@@ -132,6 +132,9 @@ namespace CaeGlobals
                 if (abb.Length > 0) supportedUnitAbbreviations += abb;
                 if (i != allUnits.Length - 1) supportedUnitAbbreviations += ", ";
             }
+            // My units
+            supportedUnitAbbreviations += ", " + MyUnit.PoundForceInchPerSecondAbbreviation;
+            //
             supportedUnitAbbreviations += ".";
             //
             return supportedUnitAbbreviations;

@@ -143,7 +143,6 @@ namespace PrePoMax
                 }
             }
         }
-
         // Section view
         public bool IsSectionViewActive()
         {
@@ -302,8 +301,11 @@ namespace PrePoMax
                 else throw new NotSupportedException();
             }
         }
-
-
+        // Commands
+        public List<Command> GetCommands()
+        {
+            return _commands.Commands;
+        }
         // Setters                                                                                                                  
         public void SetSelectByToOff()
         {
@@ -344,6 +346,10 @@ namespace PrePoMax
         public void SetSelectItemToGeometrySurface()
         {
             SelectItem = vtkSelectItem.GeometrySurface;
+        }
+        public void SetCommands(List<Command> commands)
+        {
+            if (_commands != null) _commands.SetCommands(commands);
         }
 
 
@@ -436,17 +442,13 @@ namespace PrePoMax
         {
             _form.EnableDisableUndoRedo(undo, redo);
         }
-        public string GetHistoryFileNameTxt()
-        {
-            return _commands.GetHistoryFileNameTxt();
-        }
         public string GetHistoryFileNameBin()
         {
             return _commands.GetHistoryFileNameBin();
         }
         public void DeleteHistoryFiles()
         {
-            if (_commands != null) _commands.DeleteHistoryFiles();
+            if (_commands != null) _commands.DeleteHistoryFile();
         }
 
         #endregion #################################################################################################################
@@ -652,7 +654,7 @@ namespace PrePoMax
             //
             _commands.ReadFromFile(fileName);
             //
-            Commands.CSaveToPmx lastSave = _commands.GetLastSaveCommnad();
+            Commands.CSaveToPmx lastSave = _commands.GetLastSaveCommand();
             if (lastSave != null)
             {
                 Commands.CommandsCollection prevCommands = new Commands.CommandsCollection(this, _commands);
@@ -1688,6 +1690,8 @@ namespace PrePoMax
                 PrepareForSaving(this);
                 bool[][] states = _form.GetTreeExpandCollapseState();
                 OpenedFileName = fileName;
+                //
+                //_commands.SaveToSeparateFiles(Path.GetDirectoryName(fileName));
                 //
                 object[] data = new object[] { this, _jobs, states };
                 // Use a temporary file to save the data and copy it at the end
@@ -5264,7 +5268,6 @@ namespace PrePoMax
                     nodeSet = entry.Value;
                     //
                     TranslateSelection(nodeSet.CreationData, part.PartId, translateVector);
-                    TranslateSelection(nodeSet.ParentCreationData, part.PartId, translateVector);
                 }
                 //
                 foreach (var entry in _model.Mesh.ElementSets)
@@ -5272,7 +5275,6 @@ namespace PrePoMax
                     elementSet = entry.Value;
                     //
                     TranslateSelection(elementSet.CreationData, part.PartId, translateVector);
-                    TranslateSelection(elementSet.ParentCreationData, part.PartId, translateVector);
                 }
                 //
                 foreach (var entry in _model.Mesh.Surfaces)
@@ -5280,7 +5282,6 @@ namespace PrePoMax
                     surface = entry.Value;
                     //
                     TranslateSelection(surface.CreationData, part.PartId, translateVector);
-                    TranslateSelection(surface.ParentCreationData, part.PartId, translateVector);
                 }
             }
         }
@@ -5299,7 +5300,6 @@ namespace PrePoMax
                     nodeSet = entry.Value;
                     //
                     ScaleSelection(nodeSet.CreationData, part.PartId, scaleCenter, scaleFactors);
-                    ScaleSelection(nodeSet.ParentCreationData, part.PartId, scaleCenter, scaleFactors);
                 }
                 //
                 foreach (var entry in _model.Mesh.ElementSets)
@@ -5307,7 +5307,6 @@ namespace PrePoMax
                     elementSet = entry.Value;
                     //
                     ScaleSelection(elementSet.CreationData, part.PartId, scaleCenter, scaleFactors);
-                    ScaleSelection(elementSet.ParentCreationData, part.PartId, scaleCenter, scaleFactors);
                 }
                 //
                 foreach (var entry in _model.Mesh.Surfaces)
@@ -5315,7 +5314,6 @@ namespace PrePoMax
                     surface = entry.Value;
                     //
                     ScaleSelection(surface.CreationData, part.PartId, scaleCenter, scaleFactors);
-                    ScaleSelection(surface.ParentCreationData, part.PartId, scaleCenter, scaleFactors);
                 }
             }
         }
@@ -5335,7 +5333,6 @@ namespace PrePoMax
                     nodeSet = entry.Value;
                     //
                     RotateSelection(nodeSet.CreationData, part.PartId, rotateCenter, rotateAxis, rotateAngle);
-                    RotateSelection(nodeSet.ParentCreationData, part.PartId, rotateCenter, rotateAxis, rotateAngle);
                 }
                 //
                 foreach (var entry in _model.Mesh.ElementSets)
@@ -5343,7 +5340,6 @@ namespace PrePoMax
                     elementSet = entry.Value;
                     //
                     RotateSelection(elementSet.CreationData, part.PartId, rotateCenter, rotateAxis, rotateAngle);
-                    RotateSelection(elementSet.ParentCreationData, part.PartId, rotateCenter, rotateAxis, rotateAngle);
                 }
                 //
                 foreach (var entry in _model.Mesh.Surfaces)
@@ -5351,7 +5347,6 @@ namespace PrePoMax
                     surface = entry.Value;
                     //
                     RotateSelection(surface.CreationData, part.PartId, rotateCenter, rotateAxis, rotateAngle);
-                    RotateSelection(surface.ParentCreationData, part.PartId, rotateCenter, rotateAxis, rotateAngle);
                 }
             }
         }
@@ -5581,7 +5576,8 @@ namespace PrePoMax
             //
             if (_selection.SelectItem == vtkSelectItem.Node)
             {
-                nodeSet.Labels = GetSelectionIds();
+                nodeSet.CreationIds = GetSelectionIds();
+                nodeSet.Labels = nodeSet.CreationIds.ToArray();
             }
             else if (_selection.SelectItem == vtkSelectItem.Geometry)
             {
@@ -5593,6 +5589,11 @@ namespace PrePoMax
                 else throw new NotSupportedException();
             }
             else throw new NotSupportedException();
+            // Update parent creation ids to detect changes in function: StepCollection.MultiRegionChanged
+            if (nodeSet.ParentMultiRegion != null)
+                nodeSet.ParentMultiRegion.CreationIds = nodeSet.CreationIds.ToArray();
+            //
+            if (nodeSet.Labels == null || nodeSet.Labels.Length == 0) nodeSet.Valid = false;
             //
             _selection.Clear();
         }
@@ -5835,7 +5836,8 @@ namespace PrePoMax
             //
             if (_selection.SelectItem == vtkSelectItem.Element || _selection.SelectItem == vtkSelectItem.Part)
             {
-                elementSet.Labels = GetSelectionIds();
+                elementSet.CreationIds = GetSelectionIds();
+                elementSet.Labels = elementSet.CreationIds.ToArray();
             }
             else if (_selection.SelectItem == vtkSelectItem.Geometry)
             {
@@ -5847,6 +5849,11 @@ namespace PrePoMax
                 else throw new NotSupportedException();
             }
             else throw new NotSupportedException();
+            // Update parent creation ids to detect changes in function: StepCollection.MultiRegionChanged
+            if (elementSet.ParentMultiRegion != null)
+                elementSet.ParentMultiRegion.CreationIds = elementSet.CreationIds.ToArray();
+            //
+            if (elementSet.Labels == null || elementSet.Labels.Length == 0) elementSet.Valid = false;
             //
             _selection.Clear();
         }
@@ -5993,13 +6000,8 @@ namespace PrePoMax
         }
         public void AddSurface(FeSurface surface, bool update = true)
         {
-            if (surface.CreatedFrom == FeSurfaceCreatedFrom.Selection)
-            {
-                // In order for the Regenerate history to work perform the selection
-                _selection = surface.CreationData.DeepClone();
-                surface.FaceIds = GetSelectionIds();
-                _selection.Clear();
-            }
+            // In order for the Regenerate history to work perform the selection
+            if (surface.CreationData != null) ReselectSurface(surface);
             //
             AddSurfaceAndElementFaces(surface);
             //
@@ -6103,6 +6105,26 @@ namespace PrePoMax
             return DisplayedMesh.GetVisibleVisualizationFaceIds();
         }
         // Update
+        private void ReselectSurface(FeSurface surface)
+        {
+            if (surface.CreatedFrom == FeSurfaceCreatedFrom.Selection)
+            {
+                _selection = surface.CreationData.DeepClone();
+                //
+                surface.FaceIds = GetSelectionIds();
+                // Update parent creation ids to detect changes in function: StepCollection.MultiRegionChanged
+                if (surface.ParentMultiRegion != null)
+                    surface.ParentMultiRegion.CreationIds = surface.FaceIds.ToArray();
+                else if (surface.ParentMasterMultiRegion != null)
+                    surface.ParentMasterMultiRegion.MasterCreationIds = surface.FaceIds.ToArray();
+                else if (surface.ParentSlaveMultiRegion != null)
+                    surface.ParentSlaveMultiRegion.SlaveCreationIds = surface.FaceIds.ToArray();
+                //
+                if (surface.FaceIds == null || surface.FaceIds.Length == 0) surface.Valid = false;
+                //
+                _selection.Clear();
+            }
+        }
         public void UpdateSurfaceArea(FeSurface surface)
         {
             _model.Mesh.UpdateSurfaceArea(surface);
@@ -6570,7 +6592,7 @@ namespace PrePoMax
                     FeNodeSet nodeSet = new FeNodeSet(name, section.CreationIds);
                     nodeSet.CreationData = section.CreationData.DeepClone();
                     nodeSet.Internal = true;
-                    nodeSet.ParentCreationData = section.CreationData;
+                    nodeSet.ParentMultiRegion = section;
                     AddNodeSet(nodeSet);
                     //
                     section.RegionName = name;
@@ -6584,7 +6606,7 @@ namespace PrePoMax
                     FeElementSet elementSet = new FeElementSet(name, section.CreationIds, createdByPart);
                     elementSet.CreationData = section.CreationData.DeepClone();
                     elementSet.Internal = true;
-                    elementSet.ParentCreationData = section.CreationData;
+                    elementSet.ParentMultiRegion = section;
                     AddElementSet(elementSet);
                     //
                     section.RegionName = name;
@@ -6596,7 +6618,7 @@ namespace PrePoMax
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces, section.Name);
                     FeSurface surface = new FeSurface(name, section.CreationIds, section.CreationData.DeepClone());
                     surface.Internal = true;
-                    surface.ParentCreationData = section.CreationData;
+                    surface.ParentMultiRegion = section;
                     AddSurface(surface);
                     //
                     section.RegionName = name;
@@ -6893,7 +6915,7 @@ namespace PrePoMax
                     FeNodeSet nodeSet = new FeNodeSet(name, ps.CreationIds);
                     nodeSet.CreationData = ps.CreationData.DeepClone();
                     nodeSet.Internal = true;
-                    nodeSet.ParentCreationData = ps.CreationData;
+                    nodeSet.ParentMultiRegion = ps;
                     AddNodeSet(nodeSet, update);
                     //
                     ps.RegionName = name;
@@ -6915,7 +6937,7 @@ namespace PrePoMax
                                                            constraint.Name + CaeMesh.Globals.MasterNameSuffix);
                     FeSurface surface = new FeSurface(name, ss.CreationIds, ss.CreationData.DeepClone());
                     surface.Internal = true;
-                    surface.ParentCreationData = ss.CreationData;
+                    surface.ParentMultiRegion = ss;
                     AddSurface(surface, update);
                     //
                     ss.RegionName = name;
@@ -6937,7 +6959,7 @@ namespace PrePoMax
                                                            constraint.Name + CaeMesh.Globals.MasterNameSuffix);
                     FeSurface surface = new FeSurface(name, co.CreationIds, co.CreationData.DeepClone());
                     surface.Internal = true;
-                    surface.ParentCreationData = co.CreationData;
+                    surface.ParentMultiRegion = co;
                     AddSurface(surface, update);
                     //
                     co.RegionName = name;
@@ -6959,7 +6981,7 @@ namespace PrePoMax
                     FeNodeSet nodeSet = new FeNodeSet(name, rb.CreationIds);
                     nodeSet.CreationData = rb.CreationData.DeepClone();
                     nodeSet.Internal = true;
-                    nodeSet.ParentCreationData = rb.CreationData;
+                    nodeSet.ParentMultiRegion = rb;
                     AddNodeSet(nodeSet, update);
                     //
                     rb.RegionName = name;
@@ -6980,7 +7002,7 @@ namespace PrePoMax
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces, constraint.Name + CaeMesh.Globals.MasterNameSuffix);
                     FeSurface surface = new FeSurface(name, tie.MasterCreationIds, tie.MasterCreationData.DeepClone());
                     surface.Internal = true;
-                    surface.ParentCreationData = tie.MasterCreationData;
+                    surface.ParentMasterMultiRegion = tie;
                     AddSurface(surface, update);
                     //
                     tie.MasterRegionName = name;
@@ -6998,7 +7020,7 @@ namespace PrePoMax
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces, constraint.Name + CaeMesh.Globals.SlaveNameSuffix);
                     FeSurface surface = new FeSurface(name, tie.SlaveCreationIds, tie.SlaveCreationData.DeepClone());
                     surface.Internal = true;
-                    surface.ParentCreationData = tie.SlaveCreationData;
+                    surface.ParentSlaveMultiRegion = tie;
                     AddSurface(surface, update);
                     //
                     tie.SlaveRegionName = name;
@@ -7455,7 +7477,7 @@ namespace PrePoMax
                 name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces, contactPair.Name + CaeMesh.Globals.MasterNameSuffix);
                 FeSurface surface = new FeSurface(name, contactPair.MasterCreationIds, contactPair.MasterCreationData.DeepClone());
                 surface.Internal = true;
-                surface.ParentCreationData = contactPair.MasterCreationData;
+                surface.ParentMasterMultiRegion = contactPair;
                 AddSurface(surface, update);
                 //
                 contactPair.MasterRegionName = name;
@@ -7473,7 +7495,7 @@ namespace PrePoMax
                 name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces, contactPair.Name + CaeMesh.Globals.SlaveNameSuffix);
                 FeSurface surface = new FeSurface(name, contactPair.SlaveCreationIds, contactPair.SlaveCreationData.DeepClone());
                 surface.Internal = true;
-                surface.ParentCreationData = contactPair.MasterCreationData;
+                surface.ParentSlaveMultiRegion = contactPair;
                 AddSurface(surface, update);
                 //
                 contactPair.SlaveRegionName = name;
@@ -7757,7 +7779,7 @@ namespace PrePoMax
                     FeNodeSet nodeSet = new FeNodeSet(name, initialCondition.CreationIds);
                     nodeSet.CreationData = initialCondition.CreationData.DeepClone();
                     nodeSet.Internal = true;
-                    nodeSet.ParentCreationData = initialCondition.CreationData;
+                    nodeSet.ParentMultiRegion = initialCondition;
                     AddNodeSet(nodeSet);
                     //
                     initialCondition.RegionName = name;
@@ -7771,7 +7793,7 @@ namespace PrePoMax
                     FeElementSet elementSet = new FeElementSet(name, initialCondition.CreationIds, true);
                     elementSet.CreationData = initialCondition.CreationData.DeepClone();
                     elementSet.Internal = true;
-                    elementSet.ParentCreationData = initialCondition.CreationData;
+                    elementSet.ParentMultiRegion = initialCondition;
                     AddElementSet(elementSet);
                     //
                     initialCondition.RegionName = name;
@@ -8029,7 +8051,7 @@ namespace PrePoMax
                     FeNodeSet nodeSet = new FeNodeSet(name, historyOutput.CreationIds);
                     nodeSet.CreationData = historyOutput.CreationData.DeepClone();
                     nodeSet.Internal = true;
-                    nodeSet.ParentCreationData = historyOutput.CreationData;
+                    nodeSet.ParentMultiRegion = historyOutput;
                     AddNodeSet(nodeSet);
                     //
                     historyOutput.RegionName = name;
@@ -8042,7 +8064,7 @@ namespace PrePoMax
                     FeElementSet elementSet = new FeElementSet(name, historyOutput.CreationIds);
                     elementSet.CreationData = historyOutput.CreationData.DeepClone();
                     elementSet.Internal = true;
-                    elementSet.ParentCreationData = historyOutput.CreationData;
+                    elementSet.ParentMultiRegion = historyOutput;
                     AddElementSet(elementSet);
                     //
                     historyOutput.RegionName = name;
@@ -8343,14 +8365,13 @@ namespace PrePoMax
                     FeNodeSet nodeSet = new FeNodeSet(name, boundaryCondition.CreationIds);
                     nodeSet.CreationData = boundaryCondition.CreationData.DeepClone();
                     nodeSet.Internal = true;
-                    nodeSet.ParentCreationData = boundaryCondition.CreationData;
+                    nodeSet.ParentMultiRegion = boundaryCondition;
                     AddNodeSet(nodeSet);
                     //
                     boundaryCondition.RegionName = name;
                     boundaryCondition.RegionType = RegionTypeEnum.NodeSetName;
                 }
                 else throw new NotSupportedException();
-
             }
             // Clear the creation data if not used
             else
@@ -8587,7 +8608,7 @@ namespace PrePoMax
                     FeNodeSet nodeSet = new FeNodeSet(name, load.CreationIds);
                     nodeSet.CreationData = load.CreationData.DeepClone();
                     nodeSet.Internal = true;
-                    nodeSet.ParentCreationData = load.CreationData;
+                    nodeSet.ParentMultiRegion = load;
                     AddNodeSet(nodeSet);
                     //
                     load.RegionName = name;
@@ -8600,7 +8621,7 @@ namespace PrePoMax
                     FeElementSet elementSet = new FeElementSet(name, load.CreationIds, true);
                     elementSet.CreationData = load.CreationData.DeepClone();
                     elementSet.Internal = true;
-                    elementSet.ParentCreationData = load.CreationData;
+                    elementSet.ParentMultiRegion = load;
                     AddElementSet(elementSet);
                     //
                     load.RegionName = name;
@@ -8614,7 +8635,7 @@ namespace PrePoMax
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces, load.Name);
                     FeSurface surface = new FeSurface(name, load.CreationIds, load.CreationData.DeepClone());
                     surface.Internal = true;
-                    surface.ParentCreationData = load.CreationData;
+                    surface.ParentMultiRegion = load;
                     AddSurface(surface);
                     //
                     load.RegionName = name;
@@ -8797,7 +8818,7 @@ namespace PrePoMax
                         FeNodeSet nodeSet = new FeNodeSet(name, definedField.CreationIds);
                         nodeSet.CreationData = definedField.CreationData.DeepClone();
                         nodeSet.Internal = true;
-                        nodeSet.ParentCreationData = definedField.CreationData;
+                        nodeSet.ParentMultiRegion = definedField;
                         AddNodeSet(nodeSet);
                         //
                         definedField.RegionName = name;
@@ -9299,6 +9320,35 @@ namespace PrePoMax
                     else _wearResults.AddResults(results);
                 }
                 else job.Kill("The computation of wear variables failed.");
+            }
+        }
+        public void ReadFrdFileAsWear(string fileName)
+        {
+            string resultsFileFrd = fileName;
+            string resultsFileDat = fileName.Substring(0, fileName.Length - 4) + ".dat";
+            //
+            if (File.Exists(resultsFileFrd) && File.Exists(resultsFileDat))
+            {
+                FeResults results = FrdFileReader.Read(resultsFileFrd);
+                //
+                if (results == null || results.Mesh == null) throw new CaeException("Intermediate wear results do not exist.");
+                //
+                _model.GetMaterialAssignments(out _);
+                //
+                results.SetHistory(DatFileReader.Read(resultsFileDat));
+                //
+                int[] slipWearStepIds = _model.StepCollection.GetSlipWearStepIds();
+                if (results.ComputeWear(slipWearStepIds, _model.GetNodalSlipWearCoefficients(),
+                                        _model.Properties.NumOfSmoothingSteps, null))
+                {
+                    results.KeepOnlySelectedSlipWearResults(_model.StepCollection.GetStepIdDuration(),
+                                                            slipWearStepIds,
+                                                            _model.Properties.SlipWearResults);
+                    //
+                    if (_wearResults == null) _wearResults = results;
+                    else _wearResults.AddResults(results);
+                }
+                else throw new CaeException("Failed");
             }
         }
         private FeResults ReadBDMResults(AnalysisJob job)

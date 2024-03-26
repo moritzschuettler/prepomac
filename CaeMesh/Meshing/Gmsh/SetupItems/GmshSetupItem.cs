@@ -28,7 +28,7 @@ namespace CaeMesh
         private ElementSizeTypeEnum _elementSizeType;                       // ISerializable
         private double _elementScaleFactor;                                 // ISerializable
         private int _numberOfElements;                                      // ISerializable
-        private double[] _normalizedLayerSizes;                             // ISerializable
+        private double[] _layerSizes;                                       // ISerializable
         private int[] _numOfElementsPerLayer;                               // ISerializable
         private int _numberOfThreads;                                       // ISerializable
 
@@ -84,10 +84,10 @@ namespace CaeMesh
                 if (_numberOfElements < 1) _numberOfElements = 1;
             }
         }
-        public double[] NormalizedLayerSizes
+        public double[] LayerSizes
         {
-            get { return _normalizedLayerSizes; }
-            set { _normalizedLayerSizes = value; }
+            get { return _layerSizes; }
+            set { _layerSizes = value; }
         }
         public int[] NumOfElementsPerLayer
         {
@@ -151,8 +151,9 @@ namespace CaeMesh
                     case "_numberOfLayers":     // Compatibility for version v1.5.7
                     case "_numberOfElements":
                         _numberOfElements = (int)entry.Value; break;
-                    case "_normalizedLayerSizes":
-                        _normalizedLayerSizes = (double[])entry.Value; break;
+                    case "_normalizedLayerSizes":   // Compatibility for version v2.0.7
+                    case "_layerSizes":
+                        _layerSizes = (double[])entry.Value; break;
                     case "_numOfElementsPerLayer":
                         _numOfElementsPerLayer = (int[])entry.Value; break;
                     case "_numberOfThreads":
@@ -162,7 +163,7 @@ namespace CaeMesh
                 }
             }
             // Compatibility for version v1.5.7
-            if (_normalizedLayerSizes == null) _normalizedLayerSizes = new double[] { 1 };
+            if (_layerSizes == null) _layerSizes = new double[] { 1 };
             if (_numOfElementsPerLayer == null) _numOfElementsPerLayer = new int[] { 1 };
         }
 
@@ -185,7 +186,7 @@ namespace CaeMesh
             _elementSizeType = ElementSizeTypeEnum.ScaleFactor;
             _elementScaleFactor = 1;
             _numberOfElements = 1;
-            _normalizedLayerSizes = new double[] { 1 };
+            _layerSizes = new double[] { 1 };
             _numOfElementsPerLayer = new int[] { 1 };
             _numberOfThreads = 1;
         }
@@ -206,8 +207,8 @@ namespace CaeMesh
             _elementSizeType = gmshSetupItem._elementSizeType;
             _elementScaleFactor = gmshSetupItem._elementScaleFactor;
             _numberOfElements = gmshSetupItem._numberOfElements;
-            if (gmshSetupItem._normalizedLayerSizes != null) _normalizedLayerSizes = gmshSetupItem._normalizedLayerSizes.ToArray();
-            else _normalizedLayerSizes = null;
+            if (gmshSetupItem._layerSizes != null) _layerSizes = gmshSetupItem._layerSizes.ToArray();
+            else _layerSizes = null;
             if (gmshSetupItem._numOfElementsPerLayer != null) _numOfElementsPerLayer = gmshSetupItem._numOfElementsPerLayer.ToArray();
             else _numOfElementsPerLayer = null;
             _numberOfThreads = gmshSetupItem._numberOfThreads;
@@ -230,7 +231,7 @@ namespace CaeMesh
             info.AddValue("_elementSizeType", _elementSizeType, typeof(ElementSizeTypeEnum));
             info.AddValue("_elementScaleFactor", _elementScaleFactor, typeof(double));
             info.AddValue("_numberOfElements", _numberOfElements, typeof(int));
-            info.AddValue("_normalizedLayerSizes", _normalizedLayerSizes, typeof(double[]));
+            info.AddValue("_layerSizes", _layerSizes, typeof(double[]));
             info.AddValue("_numOfElementsPerLayer", _numOfElementsPerLayer, typeof(int[]));
             info.AddValue("_numberOfThreads", _numberOfThreads, typeof(int));
         }

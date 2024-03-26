@@ -13,5 +13,10 @@ namespace CaeGlobals
         RegionTypeEnum MasterRegionType { get; set; }
         string SlaveRegionName { get; set; }
         RegionTypeEnum SlaveRegionType { get; set; }
+        //
+        int[] MasterCreationIds { get; set; }
+        Selection MasterCreationData { get; set; }
+        int[] SlaveCreationIds { get; set; }
+        Selection SlaveCreationData { get; set; }
     }
 }

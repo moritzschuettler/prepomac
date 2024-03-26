@@ -1394,7 +1394,7 @@ namespace CaeModel
                 return "The extrude mesh setup item cannot use the quasi-structured quad algorithm.";
             //
             if (extrudeMesh.ElementSizeType == CaeMesh.Meshing.ElementSizeTypeEnum.MultiLayerd &&
-                (extrudeMesh.NormalizedLayerSizes.Length != extrudeMesh.NumOfElementsPerLayer.Length))
+                (extrudeMesh.LayerSizes.Length != extrudeMesh.NumOfElementsPerLayer.Length))
                 return "The number of layers must be equal for layer sizes and number of elements per layer.";
             //
             int[] selectedPartIds = FeMesh.GetPartIdsFromGeometryIds(extrudeMesh.CreationIds);
@@ -1520,7 +1520,7 @@ namespace CaeModel
                 return "The revolve mesh setup item cannot use the quasi-structured quad algorithm.";
             //
             if (revolveMesh.ElementSizeType == CaeMesh.Meshing.ElementSizeTypeEnum.MultiLayerd &&
-                (revolveMesh.NormalizedLayerSizes.Length != revolveMesh.NumOfElementsPerLayer.Length))
+                (revolveMesh.LayerSizes.Length != revolveMesh.NumOfElementsPerLayer.Length))
                 return "The number of layers must be equal for layer sizes and number of elements per layer.";
             //
             int[] selectedPartIds = FeMesh.GetPartIdsFromGeometryIds(revolveMesh.CreationIds);

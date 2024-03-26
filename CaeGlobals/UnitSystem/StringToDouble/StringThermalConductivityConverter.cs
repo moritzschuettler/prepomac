@@ -246,6 +246,9 @@ namespace CaeGlobals
             supportedUnitAbbreviations += StringLengthConverter.SupportedUnitAbbreviations();
             supportedUnitAbbreviations += Environment.NewLine + Environment.NewLine;
             supportedUnitAbbreviations += StringTemperatureConverter.SupportedDeltaUnitAbbreviations();
+            supportedUnitAbbreviations += Environment.NewLine + Environment.NewLine;
+            supportedUnitAbbreviations += "Additionally supported abbreviations: " + 
+                                          MyUnit.PoundForcePerSecondFahrenheitAbbreviation;
             return supportedUnitAbbreviations;
         }
     }

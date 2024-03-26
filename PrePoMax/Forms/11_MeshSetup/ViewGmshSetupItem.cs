@@ -159,18 +159,18 @@ namespace PrePoMax.Forms
         }
         //
         [CategoryAttribute("Element size in feature direction")]
-        [OrderedDisplayName(3, 10, "Normalized layer sizes")]
-        [DescriptionAttribute("Enter the normalized layer sizes separated by the semicolon ';' character as 0.2; 0.6; 0.2;")]
+        [OrderedDisplayName(3, 10, "Relative layer sizes")]
+        [DescriptionAttribute("Enter the relative layer sizes separated by the semicolon ';' character as 0.2; 0.6; 0.2;")]
         [Id(4, 3)]
         public string NormalizedLayerSizes
         {
             get
             {
                 string layerSizes = "";
-                for (int i = 0; i < _gmshSetupItem.NormalizedLayerSizes.Length; i++)
+                for (int i = 0; i < _gmshSetupItem.LayerSizes.Length; i++)
                 {
                     if (i != 0) layerSizes += " ";
-                    layerSizes += _gmshSetupItem.NormalizedLayerSizes[i] + ";";
+                    layerSizes += _gmshSetupItem.LayerSizes[i] + ";";
                 }
                 return layerSizes;
             }
@@ -188,12 +188,10 @@ namespace PrePoMax.Forms
                         sum += size;
                         sizes.Add(size);
                     }
-                    else throw new CaeException("Not all layer sizes can be converted to a numberic value.");
+                    else throw new CaeException("Not all layer sizes can be converted to a numeric value.");
                 }
                 //
-                if (Math.Abs(sum - 1) > 1E6) throw new CaeException("Normalized layer sizes must add up to 1.");
-                //
-                _gmshSetupItem.NormalizedLayerSizes = sizes.ToArray();
+                _gmshSetupItem.LayerSizes = sizes.ToArray();
             }
         }
         //
@@ -225,7 +223,7 @@ namespace PrePoMax.Forms
                         if (number < 1) number = 1;
                         numbers.Add(number);
                     }
-                    else throw new CaeException("Not all numbers of elements can be converted to a numberic value.");
+                    else throw new CaeException("Not all numbers of elements can be converted to a numeric value.");
                 }
                 //
                 _gmshSetupItem.NumOfElementsPerLayer = numbers.ToArray();

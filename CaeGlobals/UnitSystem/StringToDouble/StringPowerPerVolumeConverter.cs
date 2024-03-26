@@ -205,6 +205,9 @@ namespace CaeGlobals
             string supportedUnitAbbreviations = StringPowerConverter.SupportedUnitAbbreviations();
             supportedUnitAbbreviations += Environment.NewLine + Environment.NewLine;
             supportedUnitAbbreviations += StringVolumeConverter.SupportedUnitAbbreviations();
+            supportedUnitAbbreviations += Environment.NewLine + Environment.NewLine;
+            supportedUnitAbbreviations += "Additionally supported abbreviations: " +
+                                          MyUnit.PoundForcePerSquareInchSecondAbbreviation;
             return supportedUnitAbbreviations;
         }
     }

@@ -17,7 +17,7 @@ namespace CaeGlobals
         // Variables                                                                                                                
         protected static PowerUnit _powerUnit = PowerUnit.Watt;
         protected static AreaUnit _areaUnit = AreaUnit.SquareMeter;
-        protected static PowerPerAreaUnit _powerPerAreaUnit = MyUnit.PoundForcePerInchSecond;
+        protected static PowerPerAreaUnit _powerPerAreaUnit = (PowerPerAreaUnit)MyUnit.NoUnit;
         protected static string error = "Unable to parse quantity. Expected the form \"{value} {unit abbreviation}" +
                                         "\", such as \"5.5 m\". The spacing is optional.";
 
@@ -205,6 +205,9 @@ namespace CaeGlobals
             string supportedUnitAbbreviations = StringPowerConverter.SupportedUnitAbbreviations();
             supportedUnitAbbreviations += Environment.NewLine + Environment.NewLine;
             supportedUnitAbbreviations += StringAreaConverter.SupportedUnitAbbreviations();
+            supportedUnitAbbreviations += Environment.NewLine + Environment.NewLine;
+            supportedUnitAbbreviations += "Additionally supported abbreviations: " +
+                                          MyUnit.PoundForcePerInchSecondAbbreviation;
             return supportedUnitAbbreviations;
         }
     }
