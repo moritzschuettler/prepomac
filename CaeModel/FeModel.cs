@@ -244,8 +244,8 @@ namespace CaeModel
             //
             List<string> invalidItems = new List<string>();
             bool valid = false;
-            invalidItems.AddRange(_geometry.CheckValidity(items));
-            invalidItems.AddRange(_mesh.CheckValidity(items));
+            invalidItems.AddRange(_geometry.CheckValidity(items, IsMeshSetupItemProperlyDefined));
+            invalidItems.AddRange(_mesh.CheckValidity(items, IsMeshSetupItemProperlyDefined));
             // Materials
             Material material;
             foreach (var entry in _materials)

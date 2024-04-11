@@ -375,7 +375,7 @@ namespace vtkControl
             else _colors = new Color[0];
             if (labels != null) _labels = labels.ToArray();
             else _labels = new string[0];
-            // Replace _ and - for empty char
+            // Replace _ and - for space char
             for (int i = 0; i < _labels.Length; i++) _labels[i] = _labels[i].Replace('_', ' ').Replace('-', ' ');
             //
             _lookupTable = vtkLookupTable.New();

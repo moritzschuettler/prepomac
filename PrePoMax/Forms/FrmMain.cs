@@ -8852,7 +8852,7 @@ namespace PrePoMax
                 //TestSpring();
                 //TestSuperposition();
                 //TestNormals();
-
+                TestWearResults();
             }
             catch
             {
@@ -8958,7 +8958,7 @@ namespace PrePoMax
         }
         private void TestWearResults()
         {
-            string fileName = @"C:\Temp\Analysis-1.frd";
+            string fileName = @"C:\Temp\Ignatijev\Model8\Analysis-1.frd";
             _controller.ReadFrdFileAsWear(fileName);
         }
         private void TestNormals()

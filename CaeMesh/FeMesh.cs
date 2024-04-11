@@ -469,7 +469,8 @@ namespace CaeMesh
 
 
         // Methods                                                                                                                  
-        public string[] CheckValidity(List<Tuple<NamedClass, string>> items)
+        public string[] CheckValidity(List<Tuple<NamedClass, string>> items,
+                                      Func<MeshSetupItem, string> IsMeshSetupItemProperlyDefined)
         {
             // Tuple<NamedClass, string>   ...   Tuple<invalidItem, stepName>
             List<string> invalidItems = new List<string>();
@@ -634,6 +635,16 @@ namespace CaeMesh
                     if (!valid && rm.Active) invalidItems.Add("Revolve mesh: " + rm.Name);
                 }
                 else throw new NotSupportedException("MeshSetupItemTypeException");
+                //
+                if (IsMeshSetupItemProperlyDefined != null)
+                {
+                    string error = IsMeshSetupItemProperlyDefined(entry.Value);
+                    if (error != null)
+                    {
+                        entry.Value.Valid = false;
+                        invalidItems.Add("Mesh setup item: " + entry.Key);
+                    }
+                }
             }
             // Node set
             FeNodeSet nodeSet;

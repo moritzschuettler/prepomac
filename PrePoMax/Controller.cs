@@ -3148,7 +3148,8 @@ namespace PrePoMax
             }
         }
         // End Stl Part         
-        public void SwapGeometryPartsPosition(string partName1, string partName2, out GeometryPart part1, out GeometryPart part2)
+        public void SwapGeometryPartsDictionaryPositions(string partName1, string partName2,
+                                                         out GeometryPart part1, out GeometryPart part2)
         {
             part1 = (GeometryPart)_model.Geometry.Parts[partName1];
             part2 = (GeometryPart)_model.Geometry.Parts[partName2];
@@ -3166,7 +3167,7 @@ namespace PrePoMax
             GeometryPart part1;
             GeometryPart part2;
             string tmpName = _model.Geometry.Parts.GetNextNumberedKey("tmpName");
-            SwapGeometryPartsPosition(partName1, partName2, out part1, out part2);
+            SwapGeometryPartsDictionaryPositions(partName1, partName2, out part1, out part2);
             // Swap Ids
             int partId = part1.PartId;
             _model.Geometry.ChangePartId(partName1, part2.PartId);
@@ -3245,7 +3246,7 @@ namespace PrePoMax
                                                    "than before the regeneration.");
 
                         // Swap parts in the tree
-                        SwapGeometryPartsPosition(compoundPartName, importedCompoundPartName,
+                        SwapGeometryPartsDictionaryPositions(compoundPartName, importedCompoundPartName,
                                                   out GeometryPart p1, out GeometryPart p2);
                         // Delete old compound part
                         RemoveGeometryParts(new string[] { compoundPartName }, true);
