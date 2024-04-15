@@ -8,6 +8,8 @@ namespace CaeResults
 {
     struct DatDataSet
     {
+        public int StepId;
+        public int IncrementId;
         public double Time;
         public string FieldName;
         public string SetName;
@@ -20,7 +22,7 @@ namespace CaeResults
 
         public string GetHashKey()
         {
-            return FieldName + "_" + SetName + "_" + Time;
+            return FieldName + "_" + SetName + "_" + StepId + "_" + IncrementId + "_" + Time;
         }
     }
 }

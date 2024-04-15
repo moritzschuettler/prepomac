@@ -21,12 +21,16 @@ namespace CaeResults
         private static readonly string[] componentsSplitter = new string[] { " ", "," };
         private static readonly string[] dataSplitter = new string[] { " ", "for set", "and time" };
         private static readonly string[] signSplitter = new string[] { "-", "+" };
+        private static readonly string stepKey = "S T E P";
+        private static readonly string incrementKey = "INCREMENT";
+        private static readonly string entireModelKey = "ENTIRE_MODEL";
         private static readonly string steadyStateDynamicsKey =
             "P A R T I C I P A T I O N   F A C T O R S   F O R   F R E Q U E N C Y";
         public const string EigenvalueOutputKey = "E I G E N V A L U E   O U T P U T";
         public const string ParticipationFactorsKey = "P A R T I C I P A T I O N   F A C T O R S";
         public const string EffectiveModalMassKey = "E F F E C T I V E   M O D A L   M A S S";
         public const string TotalEffectiveMassKey = "T O T A L   E F F E C T I V E   M A S S";
+        public const string EigenvalueNumberKey = "E I G E N V A L U E    N U M B E R";
         //
         private static readonly Dictionary<string, string> compMapRP = new Dictionary<string, string>()
         {
@@ -71,10 +75,13 @@ namespace CaeResults
                 dataSetNames.Add(HOFieldNames.HeatGeneration);
                 dataSetNames.Add(HOFieldNames.TotalHeatGeneration);
                 // Frequency                                                            
+                dataSetNames.Add(stepKey);
+                dataSetNames.Add(incrementKey);
                 dataSetNames.Add(EigenvalueOutputKey);
                 dataSetNames.Add(ParticipationFactorsKey);
                 dataSetNames.Add(EffectiveModalMassKey);
                 dataSetNames.Add(TotalEffectiveMassKey);
+                dataSetNames.Add(EigenvalueNumberKey);
                 //dataSetNames.Add(HOFieldNames.EigenvalueOutput);
                 //dataSetNames.Add(HOFieldNames.ParticipationFactors);
                 //dataSetNames.Add(HOFieldNames.EffectiveModalMass);
@@ -110,8 +117,14 @@ namespace CaeResults
                                                                           out steadyStateDynamics);
                 Repair(dataSetLinesList, dataSetNames);
                 //
+                int len;
+                int stepId = -1;
+                int incrementId = -1;
+                int eigenvalueNumber = -1;
+                string tmp;
                 DatDataSet newDataSet;
                 DatDataSet existingDataSet;
+                Dictionary<double, double> timeFrequency = null;
                 OrderedDictionary<string, DatDataSet> dataSets = new OrderedDictionary<string, DatDataSet>("DataSets");
                 //
                 HistoryResults allHistoryResults = new HistoryResults("HistoryOutput");
@@ -126,20 +139,56 @@ namespace CaeResults
                     {
                         frequencyHistoryOutput.AppendSets(GetFrequencyDatDataSets(dataSetLines));
                     }
+                    // Save the step id
+                    else if (dataSetLines[0].StartsWith(stepKey))
+                    {
+                        len = stepKey.Length;
+                        tmp = dataSetLines[0].Substring(len, dataSetLines[0].Length - len);
+                        stepId = int.Parse(tmp);
+                        //
+                        eigenvalueNumber = -1;  // reset the eigenvalue number
+                    }
+                    // Save the increment id
+                    else if (dataSetLines[0].StartsWith(incrementKey))
+                    {
+                        len = incrementKey.Length;
+                        tmp = dataSetLines[0].Substring(len, dataSetLines[0].Length - len);
+                        incrementId = int.Parse(tmp);
+                    }
                     else
                     {
-                        newDataSet = GetDatDataSet(dataSetNames, dataSetLines, repairedSetNames);
-                        if (newDataSet.SetName == steadyStateDynamicsKey) continue;
-                        // Steady state dynamics
-                        if (steadyStateDynamics && dataSets.TryGetValue(newDataSet.GetHashKey(), out existingDataSet))
+                        // Save the eigenvalue number
+                        if (dataSetLines.Length == 1 && dataSetLines[0].StartsWith(EigenvalueNumberKey))
                         {
-                            existingDataSet.FieldName += HOFieldNames.ComplexRealSuffix;
-                            dataSets.Replace(newDataSet.GetHashKey(), existingDataSet.GetHashKey(), existingDataSet);
-                            //
-                            newDataSet.FieldName += HOFieldNames.ComplexImaginarySuffix;
+                            len = EigenvalueNumberKey.Length;
+                            tmp = dataSetLines[0].Substring(len, dataSetLines[0].Length - len);
+                            eigenvalueNumber = int.Parse(tmp);
                         }
-                        //
-                        if (newDataSet.FieldName != HOFieldNames.Error) dataSets.Add(newDataSet.GetHashKey(), newDataSet);
+                        else
+                        {
+                            // Read the dataset
+                            newDataSet = GetDatDataSet(dataSetNames, dataSetLines, repairedSetNames);
+                            if (stepId != -1) newDataSet.StepId = stepId;
+                            if (incrementId != -1) newDataSet.IncrementId = incrementId;
+                            if (newDataSet.SetName == steadyStateDynamicsKey) continue;
+                            // Steady state dynamics
+                            if (steadyStateDynamics && dataSets.TryGetValue(newDataSet.GetHashKey(), out existingDataSet))
+                            {
+                                existingDataSet.FieldName += HOFieldNames.ComplexRealSuffix;
+                                dataSets.Replace(newDataSet.GetHashKey(), existingDataSet.GetHashKey(), existingDataSet);
+                                //
+                                newDataSet.FieldName += HOFieldNames.ComplexImaginarySuffix;
+                            }
+                            // Fix the time if reported inside an eigenvalue number block from time to frequency
+                            if (eigenvalueNumber != -1 && newDataSet.Time == 1)
+                            {
+                                if (timeFrequency == null) timeFrequency = GetTimeFrequencyPairs(frequencyHistoryOutput);
+                                // Change the frequency step time to frequency
+                                if (timeFrequency != null) newDataSet.Time = timeFrequency[newDataSet.Time + eigenvalueNumber - 1];
+                            }
+                            // Add
+                            if (newDataSet.FieldName != HOFieldNames.Error) dataSets.Add(newDataSet.GetHashKey(), newDataSet);
+                        }
                     }
                 }
                 //
@@ -244,19 +293,28 @@ namespace CaeResults
                 }
                 else if (theName != null)
                 {
+
+                    if (theName == EigenvalueNumberKey)
+                        theName = EigenvalueNumberKey;
+
+
                     dataSet = new List<string> { lines[i] };
                     i++;
                     //
-                    while (i < lines.Length && lines[i].Length == 0) i++;    // skip empty lines
-                    //
-                    while (i < lines.Length)
+                    if (theName == stepKey || theName == incrementKey || theName == EigenvalueNumberKey) { }
+                    else
                     {
-                        if (lines[i].Length == 0 || lines[i].Contains("time")) break;    // last line is empty
-                        else dataSet.Add(lines[i]);
+                        while (i < lines.Length && lines[i].Length == 0) i++;    // skip empty lines
                         //
-                        i++;
+                        while (i < lines.Length)
+                        {
+                            if (lines[i].Length == 0 || lines[i].Contains("time")) break;    // last line is empty
+                            else dataSet.Add(lines[i]);
+                            //
+                            i++;
+                        }
+                        //
                     }
-                    //
                     dataSets.Add(dataSet.ToArray());
                 }
             }
@@ -632,7 +690,7 @@ namespace CaeResults
             //
             string[] tmp;
             HistoryResults historyResults = new HistoryResults("HistoryResults");
-            HistoryResultSet historyResultSet = new HistoryResultSet("ENTIRE_MODEL");
+            HistoryResultSet historyResultSet = new HistoryResultSet(entireModelKey);
             HistoryResultField historyResultField = new HistoryResultField(HOFieldNames.Frequency);
             HistoryResultComponent historyResultComponent = new HistoryResultComponent(entryName);
             HistoryResultComponent totalHistoryResultComponent = new HistoryResultComponent(totalEntryName);
@@ -679,6 +737,25 @@ namespace CaeResults
             }
             //
             return historyResults;
+        }
+        static private Dictionary<double, double> GetTimeFrequencyPairs(HistoryResults frequencyHistoryOutput)
+        {
+            HistoryResultSet hrs;
+            HistoryResultField hrf;
+            HistoryResultComponent hrc;
+            HistoryResultEntries hre;
+            Dictionary<double, double> timeFrequency = null;
+            //
+            if (frequencyHistoryOutput.Sets.TryGetValue(entireModelKey, out hrs) &&
+                hrs.Fields.TryGetValue(HOFieldNames.Frequency, out hrf) &&
+                hrf.Components.TryGetValue(HOFieldNames.EigenvalueOutput, out hrc) &&
+                hrc.Entries.TryGetValue(HOComponentNames.FREQUENCY, out hre))
+            {
+                timeFrequency = new Dictionary<double, double>();
+                for (int i = 0; i < hre.Time.Count; i++) timeFrequency.Add(hre.Time[i], hre.Values[i]);
+            }
+            //
+            return timeFrequency;
         }
         static private DatDataSet GetDatDataSet(List<string> dataSetNames, string[] dataSetLines,
                                                 Dictionary<string, string> repairedSetNames)
