@@ -34,9 +34,8 @@ namespace CaeResults
         private vtkControl.vtkMaxLocator _locator;
 
         // Constructor                                                                                                              
-        public ResultsInterpolator(PartExchangeData source)
+        public ResultsInterpolator(PartExchangeData source, int numBoxes = 10000000)
         {
-            int numBoxes = 10000000;
             _sourceBox = ComputeAllNodesBoundingBox(source);
             double l = _sourceBox.GetDiagonal() / 128;            
             //
@@ -44,7 +43,7 @@ namespace CaeResults
             _ny = (int)Math.Ceiling(_sourceBox.GetYSize() / l);
             _nz = (int)Math.Ceiling(_sourceBox.GetZSize() / l);
             int currNumBoxes = _nx * _ny * _nz;
-            double factor = Math.Pow(numBoxes / currNumBoxes, 0.333333);
+            double factor = Math.Pow((double)numBoxes / currNumBoxes, 0.333333);
             l /= factor;
             //
             _nx = (int)Math.Ceiling(_sourceBox.GetXSize() / l);
@@ -58,6 +57,150 @@ namespace CaeResults
             _cellBoxes = ComputeCellBoundingBoxes(source);
             _regionBoxes = SplitCellBoxesToRegions(_cellBoxes, _sourceBox, _nx, _ny, _nz);
             _triangles = TriangularCellsToTriangles(source);
+        }
+        public double GetSignedDistanceAt(double[] point)
+        {
+            int i;
+            int j;
+            int k;
+            int mini;
+            int maxi;
+            int minj;
+            int maxj;
+            int mink;
+            int maxk;
+            double[] sourceCoor;
+            int index;
+            BoundingBox bb;
+            Dictionary<int, BoundingBox> regions = new Dictionary<int, BoundingBox>();
+            int num;
+            int delta;
+            double d;
+            double minD;
+            Vec3D sourcePoint;
+            Vec3D closestPoint;
+            Vec3D bestPoint = new Vec3D();
+            Triangle triangle;
+            Triangle bestTriangle = null;
+            bool closer;
+            //
+            sourceCoor = point;
+            sourcePoint = new Vec3D(sourceCoor);
+            i = (int)Math.Floor((sourceCoor[0] - _sourceBox.MinX) / _deltaX);
+            j = (int)Math.Floor((sourceCoor[1] - _sourceBox.MinY) / _deltaY);
+            k = (int)Math.Floor((sourceCoor[2] - _sourceBox.MinZ) / _deltaZ);
+            if (i < 0) i = 0;
+            else if (i >= _nx) i = _nx - 1;
+            if (j < 0) j = 0;
+            else if (j >= _ny) j = _ny - 1;
+            if (k < 0) k = 0;
+            else if (k >= _nz) k = _nz - 1;
+            index = k * _nxy + j * _nx + i;
+            bb = _regionBoxes[index];
+            if (bb != null) regions.Add(index, bb);
+            //
+            delta = 0;
+            num = bb == null ? 0 : ((Dictionary<int, BoundingBox>)bb.Tag).Count;
+            // Add next layer of regions
+            while (num == 0 || delta < 1)
+            {
+                delta++;
+                mini = i - delta;
+                maxi = i + delta;
+                minj = j - delta;
+                maxj = j + delta;
+                mink = k - delta;
+                maxk = k + delta;
+                if (mini < 0) mini = 0;
+                if (maxi >= _nx) maxi = _nx - 1;
+                if (minj < 0) minj = 0;
+                if (maxj >= _ny) maxj = _ny - 1;
+                if (mink < 0) mink = 0;
+                if (maxk >= _nz) maxk = _nz - 1;
+                //
+                for (int kk = mink; kk <= maxk; kk++)
+                {
+                    for (int jj = minj; jj <= maxj; jj++)
+                    {
+                        for (int ii = mini; ii <= maxi; ii++)
+                        {
+                            index = kk * _nxy + jj * _nx + ii;
+                            if (!regions.ContainsKey(index))
+                            {
+                                bb = _regionBoxes[index];
+                                //
+                                if (bb != null && ((Dictionary<int, BoundingBox>)bb.Tag).Count > 0)
+                                {
+                                    regions.Add(index, bb);
+                                    num += ((Dictionary<int, BoundingBox>)bb.Tag).Count;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            //
+            minD = double.MaxValue;
+            HashSet<int> visitedTriangles = new HashSet<int>();
+            ClosestPointTypeEnum closestPointType;
+            Dictionary<Triangle, ClosestPointTypeEnum> bestTriangles = new Dictionary<Triangle, ClosestPointTypeEnum> ();
+            List<double> bestDistances = new List<double> ();
+            //
+            foreach (var regionEntry in regions)
+            {
+                if (regionEntry.Value.IsMaxOutsideDistance2SmallerThan(sourceCoor, minD))
+                {
+                    foreach (var entry in (Dictionary<int, BoundingBox>)regionEntry.Value.Tag)
+                    {
+                        if (visitedTriangles.Add(entry.Key))    // a single triangle might be in multiple regions
+                        {
+                            triangle = _triangles[entry.Key];
+                            if (entry.Value.IsMaxOutsideDistance2SmallerThan(sourceCoor, minD))
+                            {
+                                triangle.GetClosestPointTo(sourcePoint, minD, out closestPoint, out closestPointType);
+                                //
+                                if (closestPoint != null)
+                                {
+                                    d = (closestPoint - sourcePoint).Len2;
+                                    //
+                                    if (Math.Abs(d - minD) < 1E-9 * _sourceBox.GetDiagonal())
+                                    {
+                                        bestTriangles.Add(triangle, closestPointType);
+                                        bestDistances.Add(d);
+                                    }
+                                    else if (d < minD)
+                                    {
+                                        minD = d;
+                                        bestTriangle = triangle;
+                                        bestPoint.X = closestPoint.X;
+                                        bestPoint.Y = closestPoint.Y;
+                                        bestPoint.Z = closestPoint.Z;
+                                        //
+                                        bestTriangles.Clear();
+                                        bestTriangles.Add(triangle, closestPointType);
+                                        //
+                                        bestDistances.Clear();
+                                        bestDistances.Add(minD);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            //
+            Vec3D distanceVec = bestPoint - sourcePoint;
+            double direction = 1;
+            foreach (var entry in bestTriangles)
+            {
+                if (Vec3D.DotProduct(distanceVec, entry.Key.TriNorm) < 0)
+                {
+                    direction = -1;
+                    break;
+                }
+            }
+            //
+            return distanceVec.Len * Math.Sign(direction);
         }
         public void InterpolateAt(double[] point, InterpolatorEnum interpolator, out double[] distance, out double value)
         {
@@ -163,7 +306,7 @@ namespace CaeResults
                             if (interpolator == InterpolatorEnum.ClosestNode)
                                 closer = triangle.GetClosestNodeTo(sourcePoint, minD, out closestPoint);
                             else if (interpolator == InterpolatorEnum.ClosestPoint)
-                                closer = triangle.GetClosestPointTo(sourcePoint, minD, out closestPoint);
+                                closer = triangle.GetClosestPointTo(sourcePoint, minD, out closestPoint, out _);
                             else throw new NotSupportedException();
                             //
                             if (closer)
@@ -270,7 +413,7 @@ namespace CaeResults
                     if (interpolator == InterpolatorEnum.ClosestNode)
                         closer = triangle.GetClosestNodeTo(sourcePoint, minD, out closestPoint);
                     else if (interpolator == InterpolatorEnum.ClosestPoint)
-                        closer = triangle.GetClosestPointTo(sourcePoint, minD, out closestPoint);
+                        closer = triangle.GetClosestPointTo(sourcePoint, minD, out closestPoint, out _);
                     else throw new NotSupportedException();
                     //
                     if (closer)

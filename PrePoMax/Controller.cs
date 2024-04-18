@@ -19,6 +19,8 @@ using vtkControl;
 using PrePoMax.Forms;
 using PrePoMax.Commands;
 using System.IO.Ports;
+using FileInOut.Output;
+using System.Runtime.InteropServices;
 
 namespace PrePoMax
 {
@@ -1610,7 +1612,8 @@ namespace PrePoMax
                 List<double[][]> lines = new List<double[][]>();
                 double[][] line;
                 //
-                FeMesh mmgMesh = FileInOut.Input.MmgFileReader.Read(fileName, MeshRepresentation.Mesh);
+                FeMesh mmgMesh = FileInOut.Input.MmgFileReader.Read(fileName, FileInOut.Input.ElementsToImport.Shell,
+                                                                    MeshRepresentation.Mesh);
                 //
                 foreach (var entry in mmgMesh.Elements)
                 {
@@ -1873,22 +1876,23 @@ namespace PrePoMax
             //
             ResumeExplodedViews(false);
         }
-        public void ExportGeometryPartsAsMmgMesh(string[] partNames, string fileName)
+        public void ExportPartsAsMmgMesh(string[] partNames, string fileName)
         {
             string mmgFileName;
             string directory = Path.GetDirectoryName(fileName);
             string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
             string extension = Path.GetExtension(fileName);
-            GeometryPart part;
+            BasePart part;
+            FeMesh mesh = DisplayedMesh;
             //
             SuppressExplodedView(partNames);
             //
             foreach (var partName in partNames)
             {
-                part = (GeometryPart)_model.Geometry.Parts[partName];
+                part = mesh.Parts[partName];
                 if (partNames.Length == 1) mmgFileName = fileName;
                 else mmgFileName = Path.Combine(directory, fileNameWithoutExtension + "_" + partName + extension);
-                FileInOut.Output.MmgFileWriter.Write(mmgFileName, part, _model.Geometry, true, false);
+                FileInOut.Output.MmgFileWriter.Write(mmgFileName, part, mesh, true, false);
                 //
                 _form.WriteDataToOutput("Part " + partName + " exported to file: " + mmgFileName);
             }
@@ -2290,75 +2294,49 @@ namespace PrePoMax
         // COMMANDS ********************************************************************************
         public void ReplaceGeometryPartPropertiesCommand(string oldPartName, PartProperties newPartProperties)
         {
-            Commands.CReplaceGeometryPartProperties comm = new Commands.CReplaceGeometryPartProperties(oldPartName, newPartProperties);
+            CReplaceGeometryPartProperties comm = new CReplaceGeometryPartProperties(oldPartName, newPartProperties);
             _commands.AddAndExecute(comm);
         }
-        // Sub menu Transform
+        // Transform
         public void ScaleGeometryPartsCommand(string[] partNames, double[] scaleCenter, double[] scaleFactors, bool copy)
         {
-            Commands.CScaleGeometryParts comm = new Commands.CScaleGeometryParts(partNames, scaleCenter, scaleFactors, copy);
+            CScaleGeometryParts comm = new CScaleGeometryParts(partNames, scaleCenter, scaleFactors, copy);
             _commands.AddAndExecute(comm);
         }
         // End Transform
         public void HideGeometryPartsCommand(string[] partNames)
         {
-            Commands.CHideGeometryParts comm = new Commands.CHideGeometryParts(partNames);
+            CHideGeometryParts comm = new CHideGeometryParts(partNames);
             _commands.AddAndExecute(comm);
         }
         public void ShowGeometryPartsCommand(string[] partNames)
         {
-            Commands.CShowGeometryParts comm = new Commands.CShowGeometryParts(partNames);
+            CShowGeometryParts comm = new CShowGeometryParts(partNames);
             _commands.AddAndExecute(comm);
         }
         public void SetTransparencyForGeometryPartsCommand(string[] partNames, byte alpha)
         {
-            Commands.CSetTransparencyForGeometryParts comm = new Commands.CSetTransparencyForGeometryParts(partNames, alpha);
+            CSetTransparencyForGeometryParts comm = new CSetTransparencyForGeometryParts(partNames, alpha);
             _commands.AddAndExecute(comm);
         }
         public void RemoveGeometryPartsCommand(string[] partNames)
         {
-            Commands.CRemoveGeometryParts comm = new Commands.CRemoveGeometryParts(partNames);
+            CRemoveGeometryParts comm = new CRemoveGeometryParts(partNames);
             _commands.AddAndExecute(comm);
         }
-        // End Part
-        // CAD Part
-        public void FlipFaceOrientationsCommand(GeometrySelection geometrySelection)
-        {
-            Commands.CFlipFaceOrientations comm = new Commands.CFlipFaceOrientations(geometrySelection);
-            _commands.AddAndExecute(comm);
-        }
-        public void SplitAFaceUsingTwoPointsCommand(GeometrySelection surfaceSelection, GeometrySelection verticesSelection)
-        {
-            Commands.CSplitAFaceUsingTwoPoints comm = new Commands.CSplitAFaceUsingTwoPoints(surfaceSelection, verticesSelection);
-            _commands.AddAndExecute(comm);
-        }
-        // End CAD Part
-        // Stl Part
-        public void FindEdgesByAngleForGeometryPartsCommand(string[] partNames, double edgeAngle)
-        {
-            Commands.CFindEdgesByAngleForGeometryParts comm =
-                new Commands.CFindEdgesByAngleForGeometryParts(partNames, edgeAngle);
-            _commands.AddAndExecute(comm);
-        }
-        public void FlipStlPartSurfacesNormalCommand(string[] partNames)
-        {
-            Commands.FlipStlPartSurfacesNormal comm = new Commands.FlipStlPartSurfacesNormal(partNames);
-            _commands.AddAndExecute(comm);
-        }
-        // End Stl Part
         public void CreateAndImportCompoundPartCommand(string[] partNames)
         {
-            Commands.CCreateAndImportCompoundPart comm = new Commands.CCreateAndImportCompoundPart(partNames);
+            CCreateAndImportCompoundPart comm = new CCreateAndImportCompoundPart(partNames);
             _commands.AddAndExecute(comm);
         }
         public void RegenerateCompoundPartsCommand(string[] compoundPartNames)
         {
-            Commands.CRegenerateCompoundParts comm = new Commands.CRegenerateCompoundParts(compoundPartNames);
+            CRegenerateCompoundParts comm = new CRegenerateCompoundParts(compoundPartNames);
             _commands.AddAndExecute(comm);
         }
         public void SwapPartGeometriesCommand(string partName1, string partName2)
         {
-            Commands.CSwapPartGeometries comm = new Commands.CSwapPartGeometries(partName1, partName2);
+            CSwapPartGeometries comm = new CSwapPartGeometries(partName1, partName2);
             _commands.AddAndExecute(comm);
         }
         //******************************************************************************************
@@ -2415,7 +2393,6 @@ namespace PrePoMax
             }
             return parts.ToArray();
         }
-        //
         public GeometryPart[] GetSubParts(string compoundPartName)
         {
             BasePart part;
@@ -2498,7 +2475,6 @@ namespace PrePoMax
         }
 
         //******************************************************************************************
-        // Part
         public void ReplaceGeometryPartProperties(string oldPartName, PartProperties newPartProperties)
         {
             // Replace geometry part
@@ -2555,7 +2531,7 @@ namespace PrePoMax
                 }
             }
         }
-        // Sub menu Transform
+        // Transform
         public void ScaleGeometryParts(string[] partNames, double[] scaleCenter, double[] scaleFactors, bool copy)
         {
             if (IsExplodedViewActive()) throw new CaeException("The scaling can only be done when the exploded view is turned off.");
@@ -2826,328 +2802,6 @@ namespace PrePoMax
             //
             DrawGeometry(false);
         }
-        // End Part
-        // CAD Part
-        // Flip face
-        public void FlipFaceOrientations(GeometrySelection geometrySelection)
-        {
-            if (geometrySelection.CreationData != null)
-            {
-                // In order for the Regenerate history to work perform the selection
-                _selection = geometrySelection.CreationData.DeepClone();
-                geometrySelection.GeometryIds = GetSelectionIds();
-                _selection.Clear();
-            }
-            else throw new NotSupportedException("The geometry selection does not contain any selection data.");
-            // Flip
-            int[] itemTypePartIds;
-            GeometryType geomType;
-            HashSet<int> faceIds;
-            Dictionary<int, HashSet<int>> partIdFaceIds = new Dictionary<int, HashSet<int>>();
-            //
-            int countSolidFaces = 0;
-            foreach (int id in geometrySelection.GeometryIds)
-            {
-                itemTypePartIds = FeMesh.GetItemTypePartIdsFromGeometryId(id);
-                geomType = (GeometryType)itemTypePartIds[1];
-                // Surface
-                if (geomType == GeometryType.SolidSurface) countSolidFaces++;
-                else if (geomType.IsShellSurface())
-                {
-                    if (partIdFaceIds.TryGetValue(itemTypePartIds[2], out faceIds)) faceIds.Add(itemTypePartIds[0]);
-                    else partIdFaceIds.Add(itemTypePartIds[2], new HashSet<int>() { itemTypePartIds[0] });
-                }
-            }
-            //
-            if (partIdFaceIds.Keys.Count > 0)
-            {
-                BasePart part;
-                string brepFileName;
-                int numOfShellParts = 0;
-                foreach (var entry in partIdFaceIds)
-                {
-                    part = _model.Geometry.GetPartFromId(entry.Key);
-                    if (part != null && part is GeometryPart gp && gp.IsCADPart && part.PartType == PartType.Shell)
-                    {
-                        brepFileName = FlipPartFaceOrientations(gp, entry.Value.ToArray());
-                        //
-                        if (brepFileName != null) ReplacePartGeometryFromFile(gp, brepFileName, true);
-                        else ClearAllSelection();
-                        //
-                        numOfShellParts++;
-                    }
-                }
-                //
-                string warning = "Face orientations on solid parts or non-CAD parts cannot be flipped.";
-                if (numOfShellParts <= 0)
-                    MessageBoxes.ShowWarning(warning);
-                else if (countSolidFaces > 0)
-                    MessageBoxes.ShowWarning(warning + Environment.NewLine +
-                                             "Only face orientations on CAD shell parts were flipped.");
-            }
-            //
-            CheckAndUpdateModelValidity();
-        }
-        private string FlipPartFaceOrientations(GeometryPart part, int[] faceIds)
-        {
-            CalculixSettings settings = _settings.Calculix;
-            if (settings.WorkDirectory == null || !Directory.Exists(settings.WorkDirectory))
-            {
-                MessageBoxes.ShowWorkDirectoryError();
-                return null;
-            }
-            //
-            string executable = Application.StartupPath + Globals.NetGenMesher;
-            string inputBrepFileName = Path.Combine(settings.WorkDirectory, Globals.BrepFileName);
-            string outputBrepFileName = Path.Combine(settings.WorkDirectory, Globals.BrepFileName);
-            string faceIdsArgument = "";
-            foreach (var id in faceIds) faceIdsArgument += (id + 1) + " ";  // add 1 for the geometry counting
-            //
-            if (File.Exists(inputBrepFileName)) File.Delete(inputBrepFileName);
-            if (File.Exists(outputBrepFileName)) File.Delete(outputBrepFileName);
-            //
-            File.WriteAllText(inputBrepFileName, part.CADFileData);
-            //
-            string argument = "BREP_REVERSE_FACES " +
-                              "\"" + inputBrepFileName.ToUTF8() + "\" " +
-                              "\"" + outputBrepFileName.ToUTF8() + "\" " +
-                              faceIdsArgument;
-            //
-            _executableJob = new ExecutableJob(part.Name, executable, argument, settings.WorkDirectory);
-            _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
-            _executableJob.Submit();
-            // Job completed
-            if (_executableJob.JobStatus == JobStatus.OK) return outputBrepFileName;
-            else return null;
-        }
-        private bool ReplacePartGeometryFromFile(GeometryPart part, string fileName, bool keepGeometrySelections)
-        {
-            int count = 0;
-            string[] importedFileNames = null;
-            string extension = Path.GetExtension(fileName);
-            //
-            while (importedFileNames == null && count < 5)  // Check for timeout
-            {
-                if (extension == ".brep") importedFileNames = ImportBrepPartFile(fileName, false);
-                else if (extension == ".stl") importedFileNames = _model.ImportGeometryFromStlFile(fileName);
-                else throw new NotSupportedException();
-                count++;
-            }
-            if (importedFileNames == null)
-            {
-                throw new CaeException("Importing geometry file during the replace of the geometry part failed.");
-            }
-            else if (importedFileNames.Length == 1)
-            {
-                //_form.ScreenUpdating = false;
-                // Add the imported part to the model tree
-                UpdateAfterImport(extension);
-                // Copy old part properties to the new part
-                GeometryPart newPart = (GeometryPart)_model.Geometry.Parts[importedFileNames[0]];
-                newPart.Name = part.Name;
-                newPart.Color = part.Color;
-                // Switch old and new part in the dictionary
-                _model.Geometry.Parts.Replace(part.Name, newPart.Name, newPart);
-                part.Name = importedFileNames[0];
-                _model.Geometry.Parts.Replace(importedFileNames[0], part.Name, part);
-                // Remove old part
-                RemoveGeometryParts(new string[] { part.Name }, keepGeometrySelections);
-                _model.Geometry.ChangePartId(newPart.Name, part.PartId);
-                //
-                UpdateMeshSetupItems();
-                //
-                UpdateAfterImport(extension);
-                //
-                CheckAndUpdateModelValidity();
-                //_form.ScreenUpdating = true;
-            }
-            else
-            {
-                UpdateAfterImport(extension);
-                ClearAllSelection();
-            }
-            return true;
-        }
-        // Split a face using two points
-        public void SplitAFaceUsingTwoPoints(GeometrySelection surfaceSelection, GeometrySelection verticesSelection)
-        {
-            if (surfaceSelection.CreationData != null && verticesSelection.CreationData != null)
-            {
-                // In order for the Regenerate history to work perform the selection
-                _selection = surfaceSelection.CreationData.DeepClone();
-                surfaceSelection.GeometryIds = GetSelectionIds();
-                _selection.Clear();
-                //
-                _selection = verticesSelection.CreationData.DeepClone();
-                verticesSelection.GeometryIds = GetSelectionIds();
-                _selection.Clear();
-            }
-            else throw new NotSupportedException("The geometry selection does not contain any selection data.");
-            //
-            if (surfaceSelection.GeometryIds.Length != 1 || verticesSelection.GeometryIds.Length != 2)
-                throw new CaeException("The selection does not contain 1 face and 2 vertices.");
-            // Split
-            int faceId;
-            int node1Id;
-            int node2Id;
-            FeNode node1;
-            FeNode node2;
-            BasePart part1;
-            BasePart part2;
-            BasePart facePart;
-            int[] itemTypePartIds;
-            double[] offset;
-            itemTypePartIds = FeMesh.GetItemTypePartIdsFromGeometryId(surfaceSelection.GeometryIds[0]);
-            facePart = _model.Geometry.GetPartFromId(itemTypePartIds[2]);
-            faceId = itemTypePartIds[0];
-            //
-            itemTypePartIds = FeMesh.GetItemTypePartIdsFromGeometryId(verticesSelection.GeometryIds[0]);
-            part1 = _model.Geometry.GetPartFromId(itemTypePartIds[2]);
-            node1Id = part1.Visualization.VertexNodeIds[itemTypePartIds[0]];
-            //
-            itemTypePartIds = FeMesh.GetItemTypePartIdsFromGeometryId(verticesSelection.GeometryIds[1]);
-            part2 = _model.Geometry.GetPartFromId(itemTypePartIds[2]);
-            node2Id = part2.Visualization.VertexNodeIds[itemTypePartIds[0]];
-            //
-            node1 = _model.Geometry.Nodes[node1Id].DeepCopy();
-            node2 = _model.Geometry.Nodes[node2Id];
-            if (IsExplodedViewActive())
-            {
-                offset = part1.Offset;
-                node1.X -= offset[0];
-                node1.Y -= offset[1];
-                node1.Z -= offset[2];
-                //
-                offset = part2.Offset;
-                node2.X -= offset[0];
-                node2.Y -= offset[1];
-                node2.Z -= offset[2];
-            }
-            //
-            if (facePart != null && facePart is GeometryPart gp && gp.IsCADPart)
-            {
-                string brepFileName = SplitAFaceUsingTwoPoints(gp, faceId, node1, node2);
-                //
-                if (brepFileName != null) ReplacePartGeometryFromFile(gp, brepFileName, true);
-                else ClearAllSelection();
-            }
-            else MessageBoxes.ShowWarning("Faces on non-CAD parts cannot be split.");
-            //
-            CheckAndUpdateModelValidity();
-        }
-        private string SplitAFaceUsingTwoPoints(GeometryPart part, int faceId, FeNode node1, FeNode node2)
-        {
-            CalculixSettings settings = _settings.Calculix;
-            if (settings.WorkDirectory == null || !Directory.Exists(settings.WorkDirectory))
-            {
-                MessageBoxes.ShowError("The work directory does not exist.");
-                return null;
-            }
-            //
-            string executable = Application.StartupPath + Globals.NetGenMesher;
-            string inputBrepFileName = Path.Combine(settings.WorkDirectory, Globals.BrepFileName);
-            string outputBrepFileName = Path.Combine(settings.WorkDirectory, Globals.BrepFileName);
-            //
-            if (File.Exists(inputBrepFileName)) File.Delete(inputBrepFileName);
-            if (File.Exists(outputBrepFileName)) File.Delete(outputBrepFileName);
-            //
-            File.WriteAllText(inputBrepFileName, part.CADFileData);
-            //
-            string argument = "BREP_SPLIT_A_FACE_USING_TWO_POINTS " +
-                              "\"" + inputBrepFileName.ToUTF8() + "\" " +
-                              "\"" + outputBrepFileName.ToUTF8() + "\" " +
-                              (faceId + 1) + " " +
-                              node1.X + " " + node1.Y + " " + node1.Z + " " +
-                              node2.X + " " + node2.Y + " " + node2.Z;
-            //
-            _executableJob = new ExecutableJob(part.Name, executable, argument, settings.WorkDirectory);
-            _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
-            _executableJob.Submit();
-            // Job completed
-            if (_executableJob.JobStatus == JobStatus.OK) return outputBrepFileName;
-            else return null;
-        }
-        // End CAD Part
-        // Stl Part             
-        public void FindEdgesByAngleForGeometryParts(string[] partNames, double edgeAngle)
-        {
-            GeometryPart geometryPart;
-            foreach (var partName in partNames)
-            {
-                geometryPart = (GeometryPart)_model.Geometry.Parts[partName];
-                _model.Geometry.ExtractShellPartVisualization(geometryPart, geometryPart.IsCADPart, edgeAngle);
-                // Update
-                _form.UpdateTreeNode(ViewGeometryModelResults.Geometry, geometryPart.Name, geometryPart, null);
-            }
-            //
-            CheckAndUpdateModelValidity();
-            // Draw
-            DrawGeometry(false);
-        }
-        public void FlipStlPartSurfacesNormal(string[] partNames)
-        {
-            GeometryPart part;
-            LinearTriangleElement element;
-            foreach (var partName in partNames)
-            {
-                part = (GeometryPart)_model.Geometry.Parts[partName];
-                if (!part.IsCADPart && part.ElementTypes.Length == 1 &&
-                    part.ElementTypes[0] == typeof(LinearTriangleElement))
-                {
-                    foreach (var elementId in part.Labels)
-                    {
-                        element = (LinearTriangleElement)_model.Geometry.Elements[elementId];
-                        element.FlipNormal();
-                    }
-                    part.Visualization.FlipTriangleNormals();
-                }
-            }
-            //
-            CheckAndUpdateModelValidity();
-            //
-            DrawGeometry(false);
-        }
-        public void CropGeometryPartWithCylinder(string partName)
-        {
-            GeometryPart part = (GeometryPart)_model.Geometry.Parts[partName];
-            if (part != null)
-            {
-                CalculixSettings settings = _settings.Calculix;
-                string fileName = Path.Combine(settings.WorkDirectory, Globals.StlFileName);
-                //
-                _form.CropPartWithCylinder(partName, 10, fileName);
-                //
-                ReplacePartGeometryFromFile(part, fileName, true);
-            }
-        }
-        public void CropGeometryPartWithCube(string partName)
-        {
-            GeometryPart part = (GeometryPart)_model.Geometry.Parts[partName];
-            if (part != null)
-            {
-                CalculixSettings settings = _settings.Calculix;
-                string fileName = Path.Combine(settings.WorkDirectory, Globals.StlFileName);
-                //
-                _form.CropPartWithCube(partName, 300, fileName);
-                //
-                ReplacePartGeometryFromFile(part, fileName, true);
-            }
-        }
-        public void SmoothGeometryPart(string partName)
-        {
-            GeometryPart part = (GeometryPart)_model.Geometry.Parts[partName];
-            if (part != null)
-            {
-                CalculixSettings settings = _settings.Calculix;
-                string fileName = Path.Combine(settings.WorkDirectory, Globals.StlFileName);
-                //
-                _form.SmoothPart(partName, 0, fileName);
-                //
-                ImportFile(fileName, false);
-                //ReplacePartGeometryFromFile(part, fileName);
-            }
-        }
-        // End Stl Part         
         public void SwapGeometryPartsDictionaryPositions(string partName1, string partName2,
                                                          out GeometryPart part1, out GeometryPart part2)
         {
@@ -3322,6 +2976,419 @@ namespace PrePoMax
         {
             double[][] smallAngleVertexCoor = DisplayedMesh.GetVertexCoorWithLargeAngle(partNames, angleDeg);
             HighlightNodes(smallAngleVertexCoor);
+        }
+
+        #endregion #################################################################################################################
+
+        #region Geometry CAD part menu   ###########################################################################################
+        // COMMANDS ********************************************************************************
+        public void FlipFaceOrientationsCommand(GeometrySelection geometrySelection)
+        {
+            CFlipFaceOrientations comm = new CFlipFaceOrientations(geometrySelection);
+            _commands.AddAndExecute(comm);
+        }
+        public void SplitAFaceUsingTwoPointsCommand(GeometrySelection surfaceSelection, GeometrySelection verticesSelection)
+        {
+            CSplitAFaceUsingTwoPoints comm = new CSplitAFaceUsingTwoPoints(surfaceSelection, verticesSelection);
+            _commands.AddAndExecute(comm);
+        }
+        //******************************************************************************************
+        public void FlipFaceOrientations(GeometrySelection geometrySelection)
+        {
+            if (geometrySelection.CreationData != null)
+            {
+                // In order for the Regenerate history to work perform the selection
+                _selection = geometrySelection.CreationData.DeepClone();
+                geometrySelection.GeometryIds = GetSelectionIds();
+                _selection.Clear();
+            }
+            else throw new NotSupportedException("The geometry selection does not contain any selection data.");
+            // Flip
+            int[] itemTypePartIds;
+            GeometryType geomType;
+            HashSet<int> faceIds;
+            Dictionary<int, HashSet<int>> partIdFaceIds = new Dictionary<int, HashSet<int>>();
+            //
+            int countSolidFaces = 0;
+            foreach (int id in geometrySelection.GeometryIds)
+            {
+                itemTypePartIds = FeMesh.GetItemTypePartIdsFromGeometryId(id);
+                geomType = (GeometryType)itemTypePartIds[1];
+                // Surface
+                if (geomType == GeometryType.SolidSurface) countSolidFaces++;
+                else if (geomType.IsShellSurface())
+                {
+                    if (partIdFaceIds.TryGetValue(itemTypePartIds[2], out faceIds)) faceIds.Add(itemTypePartIds[0]);
+                    else partIdFaceIds.Add(itemTypePartIds[2], new HashSet<int>() { itemTypePartIds[0] });
+                }
+            }
+            //
+            if (partIdFaceIds.Keys.Count > 0)
+            {
+                BasePart part;
+                string brepFileName;
+                int numOfShellParts = 0;
+                foreach (var entry in partIdFaceIds)
+                {
+                    part = _model.Geometry.GetPartFromId(entry.Key);
+                    if (part != null && part is GeometryPart gp && gp.IsCADPart && part.PartType == PartType.Shell)
+                    {
+                        brepFileName = FlipPartFaceOrientations(gp, entry.Value.ToArray());
+                        //
+                        if (brepFileName != null) ReplacePartGeometryFromFile(gp, brepFileName, true);
+                        else ClearAllSelection();
+                        //
+                        numOfShellParts++;
+                    }
+                }
+                //
+                string warning = "Face orientations on solid parts or non-CAD parts cannot be flipped.";
+                if (numOfShellParts <= 0)
+                    MessageBoxes.ShowWarning(warning);
+                else if (countSolidFaces > 0)
+                    MessageBoxes.ShowWarning(warning + Environment.NewLine +
+                                             "Only face orientations on CAD shell parts were flipped.");
+            }
+            //
+            CheckAndUpdateModelValidity();
+        }
+        private string FlipPartFaceOrientations(GeometryPart part, int[] faceIds)
+        {
+            CalculixSettings settings = _settings.Calculix;
+            if (settings.WorkDirectory == null || !Directory.Exists(settings.WorkDirectory))
+            {
+                MessageBoxes.ShowWorkDirectoryError();
+                return null;
+            }
+            //
+            string executable = Application.StartupPath + Globals.NetGenMesher;
+            string inputBrepFileName = Path.Combine(settings.WorkDirectory, Globals.BrepFileName);
+            string outputBrepFileName = Path.Combine(settings.WorkDirectory, Globals.BrepFileName);
+            string faceIdsArgument = "";
+            foreach (var id in faceIds) faceIdsArgument += (id + 1) + " ";  // add 1 for the geometry counting
+            //
+            if (File.Exists(inputBrepFileName)) File.Delete(inputBrepFileName);
+            if (File.Exists(outputBrepFileName)) File.Delete(outputBrepFileName);
+            //
+            File.WriteAllText(inputBrepFileName, part.CADFileData);
+            //
+            string argument = "BREP_REVERSE_FACES " +
+                              "\"" + inputBrepFileName.ToUTF8() + "\" " +
+                              "\"" + outputBrepFileName.ToUTF8() + "\" " +
+                              faceIdsArgument;
+            //
+            _executableJob = new ExecutableJob(part.Name, executable, argument, settings.WorkDirectory);
+            _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
+            _executableJob.Submit();
+            // Job completed
+            if (_executableJob.JobStatus == JobStatus.OK) return outputBrepFileName;
+            else return null;
+        }
+        private bool ReplacePartGeometryFromFile(GeometryPart part, string fileName, bool keepGeometrySelections)
+        {
+            int count = 0;
+            string[] importedFileNames = null;
+            string extension = Path.GetExtension(fileName);
+            //
+            while (importedFileNames == null && count < 5)  // Check for timeout
+            {
+                if (extension == ".brep") importedFileNames = ImportBrepPartFile(fileName, false);
+                else if (extension == ".stl") importedFileNames = _model.ImportGeometryFromStlFile(fileName);
+                else throw new NotSupportedException();
+                count++;
+            }
+            if (importedFileNames == null)
+            {
+                throw new CaeException("Importing geometry file during the replace of the geometry part failed.");
+            }
+            else if (importedFileNames.Length == 1)
+            {
+                //_form.ScreenUpdating = false;
+                // Add the imported part to the model tree
+                UpdateAfterImport(extension);
+                // Copy old part properties to the new part
+                GeometryPart newPart = (GeometryPart)_model.Geometry.Parts[importedFileNames[0]];
+                newPart.Name = part.Name;
+                newPart.Color = part.Color;
+                // Switch old and new part in the dictionary
+                _model.Geometry.Parts.Replace(part.Name, newPart.Name, newPart);
+                part.Name = importedFileNames[0];
+                _model.Geometry.Parts.Replace(importedFileNames[0], part.Name, part);
+                // Remove old part
+                RemoveGeometryParts(new string[] { part.Name }, keepGeometrySelections);
+                _model.Geometry.ChangePartId(newPart.Name, part.PartId);
+                //
+                UpdateMeshSetupItems();
+                //
+                UpdateAfterImport(extension);
+                //
+                CheckAndUpdateModelValidity();
+                //_form.ScreenUpdating = true;
+            }
+            else
+            {
+                UpdateAfterImport(extension);
+                ClearAllSelection();
+            }
+            return true;
+        }
+        public void SplitAFaceUsingTwoPoints(GeometrySelection surfaceSelection, GeometrySelection verticesSelection)
+        {
+            if (surfaceSelection.CreationData != null && verticesSelection.CreationData != null)
+            {
+                // In order for the Regenerate history to work perform the selection
+                _selection = surfaceSelection.CreationData.DeepClone();
+                surfaceSelection.GeometryIds = GetSelectionIds();
+                _selection.Clear();
+                //
+                _selection = verticesSelection.CreationData.DeepClone();
+                verticesSelection.GeometryIds = GetSelectionIds();
+                _selection.Clear();
+            }
+            else throw new NotSupportedException("The geometry selection does not contain any selection data.");
+            //
+            if (surfaceSelection.GeometryIds.Length != 1 || verticesSelection.GeometryIds.Length != 2)
+                throw new CaeException("The selection does not contain 1 face and 2 vertices.");
+            // Split
+            int faceId;
+            int node1Id;
+            int node2Id;
+            FeNode node1;
+            FeNode node2;
+            BasePart part1;
+            BasePart part2;
+            BasePart facePart;
+            int[] itemTypePartIds;
+            double[] offset;
+            itemTypePartIds = FeMesh.GetItemTypePartIdsFromGeometryId(surfaceSelection.GeometryIds[0]);
+            facePart = _model.Geometry.GetPartFromId(itemTypePartIds[2]);
+            faceId = itemTypePartIds[0];
+            //
+            itemTypePartIds = FeMesh.GetItemTypePartIdsFromGeometryId(verticesSelection.GeometryIds[0]);
+            part1 = _model.Geometry.GetPartFromId(itemTypePartIds[2]);
+            node1Id = part1.Visualization.VertexNodeIds[itemTypePartIds[0]];
+            //
+            itemTypePartIds = FeMesh.GetItemTypePartIdsFromGeometryId(verticesSelection.GeometryIds[1]);
+            part2 = _model.Geometry.GetPartFromId(itemTypePartIds[2]);
+            node2Id = part2.Visualization.VertexNodeIds[itemTypePartIds[0]];
+            //
+            node1 = _model.Geometry.Nodes[node1Id].DeepCopy();
+            node2 = _model.Geometry.Nodes[node2Id];
+            if (IsExplodedViewActive())
+            {
+                offset = part1.Offset;
+                node1.X -= offset[0];
+                node1.Y -= offset[1];
+                node1.Z -= offset[2];
+                //
+                offset = part2.Offset;
+                node2.X -= offset[0];
+                node2.Y -= offset[1];
+                node2.Z -= offset[2];
+            }
+            //
+            if (facePart != null && facePart is GeometryPart gp && gp.IsCADPart)
+            {
+                string brepFileName = SplitAFaceUsingTwoPoints(gp, faceId, node1, node2);
+                //
+                if (brepFileName != null) ReplacePartGeometryFromFile(gp, brepFileName, true);
+                else ClearAllSelection();
+            }
+            else MessageBoxes.ShowWarning("Faces on non-CAD parts cannot be split.");
+            //
+            CheckAndUpdateModelValidity();
+        }
+        private string SplitAFaceUsingTwoPoints(GeometryPart part, int faceId, FeNode node1, FeNode node2)
+        {
+            CalculixSettings settings = _settings.Calculix;
+            if (settings.WorkDirectory == null || !Directory.Exists(settings.WorkDirectory))
+            {
+                MessageBoxes.ShowError("The work directory does not exist.");
+                return null;
+            }
+            //
+            string executable = Application.StartupPath + Globals.NetGenMesher;
+            string inputBrepFileName = Path.Combine(settings.WorkDirectory, Globals.BrepFileName);
+            string outputBrepFileName = Path.Combine(settings.WorkDirectory, Globals.BrepFileName);
+            //
+            if (File.Exists(inputBrepFileName)) File.Delete(inputBrepFileName);
+            if (File.Exists(outputBrepFileName)) File.Delete(outputBrepFileName);
+            //
+            File.WriteAllText(inputBrepFileName, part.CADFileData);
+            //
+            string argument = "BREP_SPLIT_A_FACE_USING_TWO_POINTS " +
+                              "\"" + inputBrepFileName.ToUTF8() + "\" " +
+                              "\"" + outputBrepFileName.ToUTF8() + "\" " +
+                              (faceId + 1) + " " +
+                              node1.X + " " + node1.Y + " " + node1.Z + " " +
+                              node2.X + " " + node2.Y + " " + node2.Z;
+            //
+            _executableJob = new ExecutableJob(part.Name, executable, argument, settings.WorkDirectory);
+            _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
+            _executableJob.Submit();
+            // Job completed
+            if (_executableJob.JobStatus == JobStatus.OK) return outputBrepFileName;
+            else return null;
+        }
+        
+        #endregion #################################################################################################################
+
+        #region Geometry Stl part menu   ###########################################################################################
+        // COMMANDS ********************************************************************************
+        public void FindEdgesByAngleForGeometryPartsCommand(string[] partNames, double edgeAngle)
+        {
+            CFindEdgesByAngleForGeometryParts comm = new CFindEdgesByAngleForGeometryParts(partNames, edgeAngle);
+            _commands.AddAndExecute(comm);
+        }
+        public void FlipStlPartSurfacesNormalCommand(string[] partNames)
+        {
+            FlipStlPartSurfacesNormal comm = new FlipStlPartSurfacesNormal(partNames);
+            _commands.AddAndExecute(comm);
+        }
+        public void DeleteStlPartFacesCommand(GeometrySelection geometrySelection)
+        {
+            CDeleteStlPartFacesCommand comm = new CDeleteStlPartFacesCommand(geometrySelection);
+            _commands.AddAndExecute(comm);
+        }
+        //******************************************************************************************
+        public void FindEdgesByAngleForGeometryParts(string[] partNames, double edgeAngle)
+        {
+            GeometryPart geometryPart;
+            foreach (var partName in partNames)
+            {
+                geometryPart = (GeometryPart)_model.Geometry.Parts[partName];
+                _model.Geometry.ExtractShellPartVisualization(geometryPart, geometryPart.IsCADPart, edgeAngle);
+                // Update
+                _form.UpdateTreeNode(ViewGeometryModelResults.Geometry, geometryPart.Name, geometryPart, null);
+            }
+            //
+            CheckAndUpdateModelValidity();
+            // Draw
+            DrawGeometry(false);
+        }
+        public void FlipStlPartSurfacesNormal(string[] partNames)
+        {
+            GeometryPart part;
+            LinearTriangleElement element;
+            foreach (var partName in partNames)
+            {
+                part = (GeometryPart)_model.Geometry.Parts[partName];
+                if (!part.IsCADPart && part.ElementTypes.Length == 1 &&
+                    part.ElementTypes[0] == typeof(LinearTriangleElement))
+                {
+                    foreach (var elementId in part.Labels)
+                    {
+                        element = (LinearTriangleElement)_model.Geometry.Elements[elementId];
+                        element.FlipNormal();
+                    }
+                    part.Visualization.FlipTriangleNormals();
+                }
+            }
+            //
+            CheckAndUpdateModelValidity();
+            //
+            DrawGeometry(false);
+        }
+        public void SmoothGeometryPart(string partName)
+        {
+            GeometryPart part = (GeometryPart)_model.Geometry.Parts[partName];
+            if (part != null)
+            {
+                CalculixSettings settings = _settings.Calculix;
+                string fileName = Path.Combine(settings.WorkDirectory, Globals.StlFileName);
+                //
+                _form.SmoothPart(partName, 0, fileName);
+                //
+                ImportFile(fileName, false);
+                //ReplacePartGeometryFromFile(part, fileName);
+            }
+        }
+        public void DeleteStlPartFaces(GeometrySelection geometrySelection)
+        {
+            if (geometrySelection.CreationData != null)
+            {
+                // In order for the Regenerate history to work perform the selection
+                _selection = geometrySelection.CreationData.DeepClone();
+                geometrySelection.GeometryIds = GetSelectionIds();
+                _selection.Clear();
+            }
+            else throw new NotSupportedException("The geometry selection does not contain any selection data.");
+            // Delete
+            int[] itemTypePartIds;
+            GeometryType geomType;
+            HashSet<int> faceIds;
+            Dictionary<int, HashSet<int>> partIdFaceIds = new Dictionary<int, HashSet<int>>();
+            //
+            int countSolidFaces = 0;
+            foreach (int id in geometrySelection.GeometryIds)
+            {
+                itemTypePartIds = FeMesh.GetItemTypePartIdsFromGeometryId(id);
+                geomType = (GeometryType)itemTypePartIds[1];
+                // Surface
+                if (geomType == GeometryType.SolidSurface) countSolidFaces++;
+                else if (geomType.IsShellSurface())
+                {
+                    if (partIdFaceIds.TryGetValue(itemTypePartIds[2], out faceIds)) faceIds.Add(itemTypePartIds[0]);
+                    else partIdFaceIds.Add(itemTypePartIds[2], new HashSet<int>() { itemTypePartIds[0] });
+                }
+            }
+            //
+            if (partIdFaceIds.Keys.Count > 0)
+            {
+                int numOfShellParts = 0;
+                BasePart part;
+                HashSet<int> selectedElementIds;
+                Dictionary<int, HashSet<int>> surfaceIdElementIds;
+                //
+                foreach (var entry in partIdFaceIds)
+                {
+                    part = _model.Geometry.GetPartFromId(entry.Key);
+                    if (part != null && part is GeometryPart gp && !gp.IsCADPart &&
+                        (part.PartType == PartType.Shell || part.PartType == PartType.SolidAsShell))
+                    {
+                        numOfShellParts++;
+                        //
+                        surfaceIdElementIds = part.Visualization.GetSurfaceIdElementIds();
+                        selectedElementIds = new HashSet<int>();
+                        foreach (var faceId in entry.Value) selectedElementIds.UnionWith(surfaceIdElementIds[faceId]);
+                        //
+                        _model.Geometry.RemoveElementsUpdatingVisualization(selectedElementIds);
+                    }
+                }
+                //
+                string warning = "Only faces of stl parts can be deleted using this function.";
+                if (numOfShellParts <= 0) MessageBoxes.ShowWarning(warning);
+            }
+            //
+            CheckAndUpdateModelValidity();
+            //
+            DrawGeometry(false);
+        }
+        public void CropGeometryPartWithCylinder(string partName)
+        {
+            GeometryPart part = (GeometryPart)_model.Geometry.Parts[partName];
+            if (part != null)
+            {
+                CalculixSettings settings = _settings.Calculix;
+                string fileName = Path.Combine(settings.WorkDirectory, Globals.StlFileName);
+                //
+                _form.CropPartWithCylinder(partName, 10, fileName);
+                //
+                ReplacePartGeometryFromFile(part, fileName, true);
+            }
+        }
+        public void CropGeometryPartWithCube(string partName)
+        {
+            GeometryPart part = (GeometryPart)_model.Geometry.Parts[partName];
+            if (part != null)
+            {
+                CalculixSettings settings = _settings.Calculix;
+                string fileName = Path.Combine(settings.WorkDirectory, Globals.StlFileName);
+                //
+                _form.CropPartWithCube(partName, 300, fileName);
+                //
+                ReplacePartGeometryFromFile(part, fileName, true);
+            }
         }
 
         #endregion #################################################################################################################
@@ -3983,7 +4050,8 @@ namespace PrePoMax
             // Job completed
             if (_executableJob.JobStatus == JobStatus.OK)
             {
-                FeMesh mesh = FileInOut.Input.MmgFileReader.Read(mmgOutFileName, MeshRepresentation.Geometry);
+                FeMesh mesh = FileInOut.Input.MmgFileReader.Read(mmgOutFileName, FileInOut.Input.ElementsToImport.Shell,
+                                                                 MeshRepresentation.Geometry);
                 GeometryPart partOut = (GeometryPart)mesh.Parts.First().Value;
                 //
                 if (File.Exists(mmgInFileName)) File.Delete(mmgInFileName);
@@ -4894,6 +4962,80 @@ namespace PrePoMax
             string error = gmsh.GetOccNormals();
             return gmsh.GmshData.NodeIdNormals;
         }
+        //
+        public void ExportSignedDistance(string fileName, string partForNodesName, string partForLevelSetName)
+        {
+            FeMesh mesh = DisplayedMesh;
+            BasePart partForNodes = mesh.Parts[partForNodesName];
+            BasePart partForLevelSet = mesh.Parts[partForLevelSetName];
+            PartExchangeData data = new PartExchangeData();
+            // Get only needed nodes and elements - renumbered
+            mesh.GetVisualizationNodesAndCells(partForLevelSet, out data.Nodes.Ids, out data.Nodes.Coor,
+                                               out data.Cells.Ids, out data.Cells.CellNodeIds,
+                                               out data.Cells.Types);
+            // Interpolator needs nodal values
+            data.Nodes.Values = new float[data.Nodes.Coor.Length];
+            //
+            ResultsInterpolator resultsInterpolator = new ResultsInterpolator(data, 100000);
+            Dictionary<int, double> nodeIdDistance = new Dictionary<int, double>();
+
+            double[] distances = new double[partForNodes.NodeLabels.Length];
+            //Parallel.For(0, partForNodes.NodeLabels.Length, i =>
+            for (int i = 0; i < partForNodes.NodeLabels.Length; i++)
+            {
+                if (partForNodes.NodeLabels[i] == 461)
+                    i = i;
+
+                distances[i] = resultsInterpolator.GetSignedDistanceAt(mesh.Nodes[partForNodes.NodeLabels[i]].Coor);
+            }
+            //);
+            for (int i = 0; i < partForNodes.NodeLabels.Length; i++) nodeIdDistance[partForNodes.NodeLabels[i]] = distances[i];
+            //
+            MmgFileWriter.WriteSolution(fileName, partForNodes, mesh, nodeIdDistance);
+            //
+            FeResults results;
+            results = GetSignedDistancePreview(mesh, nodeIdDistance, "SignedDistance", _model.UnitSystem);
+            //
+            SetResults(results);
+        }
+
+        public FeResults GetSignedDistancePreview(FeMesh targetMesh, Dictionary<int, double> nodeIdDistance,
+                                                  string resultName, UnitSystem unitSystem)
+        {
+            PartExchangeData allData = new PartExchangeData();
+            targetMesh.GetAllNodesAndCells(out allData.Nodes.Ids, out allData.Nodes.Coor, out allData.Cells.Ids,
+                                           out allData.Cells.CellNodeIds, out allData.Cells.Types);
+            //
+            double value;
+            float[] values1 = new float[allData.Nodes.Coor.Length];
+            //
+            for (int i = 0; i < allData.Nodes.Coor.Length; i++)
+            {
+                if (nodeIdDistance.TryGetValue(allData.Nodes.Ids[i], out value)) values1[i] = (float)value;
+                else values1[i] = float.NaN;
+            }
+            //
+            Dictionary<int, int> nodeIdsLookUp = new Dictionary<int, int>();
+            for (int i = 0; i < allData.Nodes.Coor.Length; i++) nodeIdsLookUp.Add(allData.Nodes.Ids[i], i);
+            FeResults results = new FeResults(resultName, unitSystem);
+            results.SetMesh(targetMesh, nodeIdsLookUp);
+            // Add group
+            FieldData fieldData = new FieldData(FOFieldNames.Distance);
+            fieldData.GlobalIncrementId = 1;
+            fieldData.StepType = StepTypeEnum.Static;
+            fieldData.Time = 1;
+            fieldData.MethodId = 1;
+            fieldData.StepId = 1;
+            fieldData.StepIncrementId = 1;
+            // Add values
+            Field field = new Field(fieldData.Name);
+            field.AddComponent(FOComponentNames.All, values1);
+            results.AddField(fieldData, field);
+            //
+            return results;
+        }
+
+
         //
         public void UpdateNodalCoordinatesFromFile(string fileName)
         {
@@ -11851,7 +11993,8 @@ namespace PrePoMax
             // Clears the contents
             _form.HideColorBar();   
             //
-            if (_currentView == ViewGeometryModelResults.Results && _viewResultsType == ViewResultsTypeEnum.ColorContours) return;
+            if (_currentView == ViewGeometryModelResults.Results && _viewResultsType == ViewResultsTypeEnum.ColorContours)
+                return;
             // Face orientation legend
             ColorSettings colorSettings = _settings.Color;
             if (_annotateWithColor == AnnotateWithColorEnum.FaceOrientation)

@@ -96,6 +96,7 @@
     <Compile Include="FileInOut\Input\CalculiX\FrdFileReader.cs" />
     <Compile Include="HistoryOutputs\ResultHistoryOutput.cs" />
     <Compile Include="HistoryOutputs\ResultHistoryOutputFromField.cs" />
+    <Compile Include="Interpolator\ClosestPointTypeEnum.cs" />
     <Compile Include="Interpolator\Plane.cs" />
     <Compile Include="Interpolator\Edge3.cs" />
     <Compile Include="Interpolator\Triangle.cs" />

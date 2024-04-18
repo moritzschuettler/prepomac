@@ -11,7 +11,27 @@ namespace FileInOut.Output
 {
     static public class MmgFileWriter
     {
-        public static void Write(string fileName, BasePart part, FeMesh mesh, bool keepModelEdges, bool keepVetexEdges)
+        public static void Write(string fileName, BasePart part, FeMesh mesh, bool keepModelEdges, bool keepVertexEdges)
+        {
+            if (part.PartType == PartType.Solid) Write3D(fileName, part, mesh, keepModelEdges, keepVertexEdges);
+            else if (part.PartType == PartType.Shell) Write2D(fileName, part, mesh, keepModelEdges, keepVertexEdges);
+            else throw new NotSupportedException();
+        }
+        public static void WriteSolution(string fileName, BasePart part, FeMesh mesh, Dictionary<int, double> nodeIdValue)
+        {
+            // File
+            StringBuilder sb = new StringBuilder();
+            WriteHeading(sb);
+            // Vertices order
+            List<double[]> nodeCoorNodeId = GetNodeCoorNodeId(part, mesh);
+            // Solution at vertices
+            WriteSolutionAtVertices(sb, nodeCoorNodeId, nodeIdValue);
+            // End
+            WriteEnd(sb);
+            //
+            File.WriteAllText(fileName, sb.ToString());
+        }
+        private static void Write2D(string fileName, BasePart part, FeMesh mesh, bool keepModelEdges, bool keepVertexEdges)
         {
             VisualizationData vis = part.Visualization;
             // File
@@ -19,13 +39,7 @@ namespace FileInOut.Output
             WriteHeading(sb);
             // Vertices
             Dictionary<int, int> oldNodeIdNewId;
-            FeNode node;
-            List<double[]> nodeCoorNodeId = new List<double[]>();
-            foreach (var nodeId in part.NodeLabels)
-            {
-                node = mesh.Nodes[nodeId];
-                nodeCoorNodeId.Add(new double[] { node.X, node.Y, node.Z, node.Id });
-            }
+            List<double[]> nodeCoorNodeId = GetNodeCoorNodeId(part, mesh);
             WriteVertices(sb, nodeCoorNodeId, out oldNodeIdNewId);
             // Corners
             List<int> cornerIds = new List<int>();
@@ -95,13 +109,108 @@ namespace FileInOut.Output
             {
                 if (cornerEntry.Value.Count == 2) requiredEdgeIds.UnionWith(cornerEntry.Value);
             }
-            if (keepVetexEdges) WriteRequiredEdges(sb, requiredEdgeIds.ToArray());
+            if (keepVertexEdges) WriteRequiredEdges(sb, requiredEdgeIds.ToArray());
             // End
             WriteEnd(sb);
             //
             File.WriteAllText(fileName, sb.ToString());
         }
-        public static void WriteShellElementsFix(string fileName, int[] elementIds, BasePart part, FeMesh mesh, bool keepModelEdges)
+        private static void Write3D(string fileName, BasePart part, FeMesh mesh, bool keepModelEdges, bool keepVertexEdges)
+        {
+            VisualizationData vis = part.Visualization;
+            // File
+            StringBuilder sb = new StringBuilder();
+            WriteHeading(sb);
+            // Vertices                                                             
+            Dictionary<int, int> oldNodeIdNewId;
+            List<double[]> nodeCoorNodeId = GetNodeCoorNodeId(part, mesh);
+            WriteVertices(sb, nodeCoorNodeId, out oldNodeIdNewId);
+            // Corners                                                              
+            List<int> cornerIds = new List<int>();
+            for (int i = 0; i < vis.VertexNodeIds.Length; i++) cornerIds.Add(oldNodeIdNewId[vis.VertexNodeIds[i]]);
+            WriteCorners(sb, cornerIds);
+            // Edges                                                                
+            int id1, id2;
+            int edgeId = 1;
+            List<int> edgeIds;
+            // Collect all edge cells connected to a vertex
+            Dictionary<int, List<int>> vertexEdgeIds = new Dictionary<int, List<int>>();
+            for (int i = 0; i < vis.VertexNodeIds.Length; i++)
+                vertexEdgeIds.Add(oldNodeIdNewId[vis.VertexNodeIds[i]], new List<int>());
+            //
+            List<int[]> edgeNodeIdsEdgeId = new List<int[]>();
+            for (int i = 0; i < vis.EdgeCellIdsByEdge.Length; i++)
+            {
+                for (int j = 0; j < vis.EdgeCellIdsByEdge[i].Length; j++)
+                {
+                    id1 = vis.EdgeCells[vis.EdgeCellIdsByEdge[i][j]][0];
+                    id2 = vis.EdgeCells[vis.EdgeCellIdsByEdge[i][j]][1];
+                    edgeNodeIdsEdgeId.Add(new int[] { oldNodeIdNewId[id1], oldNodeIdNewId[id2], i + 1 });
+                    //
+                    if (vertexEdgeIds.TryGetValue(id1, out edgeIds)) edgeIds.Add(edgeId);
+                    if (vertexEdgeIds.TryGetValue(id2, out edgeIds)) edgeIds.Add(edgeId);
+                    //
+                    edgeId++;
+                }
+            }
+            //
+            if (keepModelEdges) WriteEdges(sb, edgeNodeIdsEdgeId);
+            // Ridges - all edges are ridges                                        
+            int[] ridgeIds = new int[vis.EdgeCells.Length];
+            for (int i = 0; i < ridgeIds.Length; i++) ridgeIds[i] = i + 1;
+            WriteRidges(sb, ridgeIds);
+            // Required edges - keep edge cells connected to the vertices with only 2 edge cells: on the outside of the rectangle
+            HashSet<int> requiredEdgeIds = new HashSet<int>();
+            foreach (var cornerEntry in vertexEdgeIds)
+            {
+                if (cornerEntry.Value.Count == 2) requiredEdgeIds.UnionWith(cornerEntry.Value);
+            }
+            if (keepVertexEdges) WriteRequiredEdges(sb, requiredEdgeIds.ToArray());
+            // Triangles                                                            
+            int[] cell;
+            List<int[]> elementNodeIdsSurfaceId = new List<int[]>();
+            for (int i = 0; i < vis.CellIdsByFace.Length; i++)
+            {
+                for (int j = 0; j < vis.CellIdsByFace[i].Length; j++)
+                {
+                    cell = vis.Cells[vis.CellIdsByFace[i][j]];
+                    if (cell.Length == 3)
+                    {
+                        elementNodeIdsSurfaceId.Add(new int[] { oldNodeIdNewId[cell[0]],
+                                                                oldNodeIdNewId[cell[1]],
+                                                                oldNodeIdNewId[cell[2]],
+                                                                i + 1 });
+                    }
+                    else throw new NotSupportedException();
+                }
+            }
+            WriteTriangles(sb, elementNodeIdsSurfaceId);
+            // Tetrahedrons                                                         
+            int elementId;
+            FeElement element;
+            elementNodeIdsSurfaceId.Clear();
+            for (int i = 0; i < part.Labels.Length; i++)
+            {
+                elementId = part.Labels[i];
+                element = mesh.Elements[elementId];
+                if (element is LinearTetraElement)
+                {
+                    elementNodeIdsSurfaceId.Add(new int[] { oldNodeIdNewId[element.NodeIds[0]],
+                                                            oldNodeIdNewId[element.NodeIds[1]],
+                                                            oldNodeIdNewId[element.NodeIds[2]],
+                                                            oldNodeIdNewId[element.NodeIds[3]],
+                                                            part.PartId });
+                }
+                else throw new NotSupportedException();
+            }
+            WriteTetrahedrons(sb, elementNodeIdsSurfaceId);
+            // End                                                                  
+            WriteEnd(sb);
+            //
+            File.WriteAllText(fileName, sb.ToString());
+        }
+        public static void WriteShellElementsFix(string fileName, int[] elementIds, BasePart part, FeMesh mesh,
+                                                 bool keepModelEdges)
         {
             VisualizationData vis = part.Visualization;
             // File
@@ -109,13 +218,7 @@ namespace FileInOut.Output
             WriteHeading(sb);
             // Vertices
             Dictionary<int, int> oldNodeIdNewId;
-            FeNode node;
-            List<double[]> nodeCoorNodeId = new List<double[]>();
-            foreach (var nodeId in part.NodeLabels)
-            {
-                node = mesh.Nodes[nodeId];
-                nodeCoorNodeId.Add(new double[] { node.X, node.Y, node.Z, node.Id });
-            }
+            List<double[]> nodeCoorNodeId = GetNodeCoorNodeId(part, mesh);
             WriteVertices(sb, nodeCoorNodeId, out oldNodeIdNewId);
             // Corners
             List<int> cornerIds = new List<int>();
@@ -413,7 +516,21 @@ namespace FileInOut.Output
             sb.AppendLine("MeshVersionFormatted 2");
             sb.AppendLine("Dimension 3");
         }
-        private static void WriteVertices(StringBuilder sb, List<double[]> nodeCoorNodeId, out Dictionary<int, int> oldNodeIdNewId)
+        //
+        private static List<double[]> GetNodeCoorNodeId(BasePart part, FeMesh mesh)
+        {
+            // The same order is used for writing solution values
+            FeNode node;
+            List<double[]> nodeCoorNodeId = new List<double[]>(); 
+            foreach (var nodeId in part.NodeLabels)
+            {
+                node = mesh.Nodes[nodeId];
+                nodeCoorNodeId.Add(new double[] { node.X, node.Y, node.Z, node.Id });
+            }
+            return nodeCoorNodeId;
+        }
+        private static void WriteVertices(StringBuilder sb, List<double[]> nodeCoorNodeId,
+                                          out Dictionary<int, int> oldNodeIdNewId)
         {
             int count = 1;
             oldNodeIdNewId = new Dictionary<int, int>();
@@ -445,6 +562,67 @@ namespace FileInOut.Output
                 sb.AppendFormat("{0}{1}", cornerId, Environment.NewLine);
             }
         }
+        private static void WriteSolutionAtVertices(StringBuilder sb, List<double[]> nodeCoorNodeId,
+                                                    Dictionary<int, double> nodeIdValue)
+        {
+            if (nodeCoorNodeId == null || nodeCoorNodeId.Count == 0) return;
+            // Vertices
+            sb.AppendLine();
+            sb.AppendLine("SolAtVertices");
+            sb.AppendLine(nodeCoorNodeId.Count.ToString());
+            sb.AppendLine("1 1");
+            //
+            int nodeId;
+            double value;
+            foreach (var nodeData in nodeCoorNodeId)
+            {
+                nodeId = (int)nodeData[3];
+                value = (double)nodeIdValue[nodeId];
+                //
+                sb.AppendFormat("{0}{1}", value, Environment.NewLine);
+            }
+        }
+        //
+        private static void WriteEdges(StringBuilder sb, List<int[]> edgeCellEdgeId)
+        {
+            if (edgeCellEdgeId == null || edgeCellEdgeId.Count == 0) return;
+            //
+            sb.AppendLine();
+            sb.AppendLine("Edges");
+            sb.AppendLine(edgeCellEdgeId.Count.ToString());
+            foreach (var edgeData in edgeCellEdgeId)
+            {
+                sb.AppendFormat("{0} {1} {2}{3}", edgeData[0],
+                                                  edgeData[1],
+                                                  edgeData[2],
+                                                  Environment.NewLine);
+            }
+        }
+        private static void WriteRidges(StringBuilder sb, int[] ridgeIds)
+        {
+            if (ridgeIds == null || ridgeIds.Length == 0) return;
+            //
+            sb.AppendLine();
+            sb.AppendLine("Ridges");
+            sb.AppendLine(ridgeIds.Length.ToString());
+            for (int i = 0; i < ridgeIds.Length; i++)
+            {
+                sb.AppendFormat("{0}{1}", ridgeIds[i], Environment.NewLine);
+            }
+        }
+        private static void WriteRequiredEdges(StringBuilder sb, int[] requiredEdgeIds)
+        {
+            if (requiredEdgeIds == null || requiredEdgeIds.Length == 0) return;
+            //
+            sb.AppendLine();
+            sb.AppendLine("RequiredEdges");
+            sb.AppendLine(requiredEdgeIds.Length.ToString());
+            for (int i = 0; i < requiredEdgeIds.Length; i++)
+            {
+                sb.AppendFormat("{0}{1}", requiredEdgeIds[i], Environment.NewLine);
+            }
+        }
+        //
         private static void WriteTriangles(StringBuilder sb, List<int[]> elementNodeIdsElementId)
         {
             if (elementNodeIdsElementId == null || elementNodeIdsElementId.Count == 0) return;
@@ -492,45 +670,25 @@ namespace FileInOut.Output
                 sb.AppendFormat("{0}{1}", requiredTrianglesIds[i], Environment.NewLine);
             }
         }
-        private static void WriteEdges(StringBuilder sb, List<int[]> edgeCellEdgeId)
+        private static void WriteTetrahedrons(StringBuilder sb, List<int[]> elementNodeIdsElementId)
         {
-            if (edgeCellEdgeId == null || edgeCellEdgeId.Count == 0) return;
+            if (elementNodeIdsElementId == null || elementNodeIdsElementId.Count == 0) return;
             //
             sb.AppendLine();
-            sb.AppendLine("Edges");
-            sb.AppendLine(edgeCellEdgeId.Count.ToString());
-            foreach (var edgeData in edgeCellEdgeId)
-            {
-                sb.AppendFormat("{0} {1} {2}{3}", edgeData[0],
-                                                  edgeData[1],
-                                                  edgeData[2],
-                                                  Environment.NewLine);
-            }
-        }
-        private static void WriteRidges(StringBuilder sb, int[] ridgeIds)
-        {
-            if (ridgeIds == null || ridgeIds.Length == 0) return;
+            sb.AppendLine("Tetrahedra");
+            sb.AppendLine(elementNodeIdsElementId.Count.ToString());
             //
-            sb.AppendLine();
-            sb.AppendLine("Ridges");
-            sb.AppendLine(ridgeIds.Length.ToString());
-            for (int i = 0; i < ridgeIds.Length; i++)
+            foreach (var elementData in elementNodeIdsElementId)
             {
-                sb.AppendFormat("{0}{1}", ridgeIds[i], Environment.NewLine);
+                sb.AppendFormat("{0} {1} {2} {3} {4}{5}", elementData[0],
+                                                          elementData[1],
+                                                          elementData[2],
+                                                          elementData[3],
+                                                          elementData[4],
+                                                          Environment.NewLine);
             }
         }
-        private static void WriteRequiredEdges(StringBuilder sb, int[] requiredEdgeIds)
-        {
-            if (requiredEdgeIds == null || requiredEdgeIds.Length == 0) return;
-            //
-            sb.AppendLine();
-            sb.AppendLine("RequiredEdges");
-            sb.AppendLine(requiredEdgeIds.Length.ToString());
-            for (int i = 0; i < requiredEdgeIds.Length; i++)
-            {
-                sb.AppendFormat("{0}{1}", requiredEdgeIds[i], Environment.NewLine);
-            }
-        }
+        //
         private static void WriteEnd(StringBuilder sb)
         {
             sb.AppendLine();

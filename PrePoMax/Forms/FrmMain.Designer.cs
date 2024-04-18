@@ -195,11 +195,12 @@ namespace PrePoMax
             this.tsmiFlipFaceNormalCAD = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSplitAFaceUsingTwoPoints = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiStlPart = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiFindEdgesByAngleForGeometryParts = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiFlipStlPartSurfacesNormal = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiSmoothPart = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiCropWithCylinder = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiCropWithCube = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiFindStlEdgesByAngleForGeometryParts = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiFlipStlPartFaceNormal = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiSmoothStlPart = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiCropStlPartWithCylinder = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiCropStlPartWithCube = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiDeleteStlPartFaces = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerGeometry1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiCreateAndImportCompoundPart = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiRegenerateCompoundPart = new System.Windows.Forms.ToolStripMenuItem();
@@ -1925,49 +1926,57 @@ namespace PrePoMax
             // tsmiStlPart
             // 
             this.tsmiStlPart.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.tsmiFindEdgesByAngleForGeometryParts,
-            this.tsmiFlipStlPartSurfacesNormal,
-            this.tsmiSmoothPart,
-            this.tsmiCropWithCylinder,
-            this.tsmiCropWithCube});
+            this.tsmiFindStlEdgesByAngleForGeometryParts,
+            this.tsmiFlipStlPartFaceNormal,
+            this.tsmiSmoothStlPart,
+            this.tsmiDeleteStlPartFaces,
+            this.tsmiCropStlPartWithCylinder,
+            this.tsmiCropStlPartWithCube});
             this.tsmiStlPart.Name = "tsmiStlPart";
             this.tsmiStlPart.Size = new System.Drawing.Size(221, 22);
             this.tsmiStlPart.Text = "Stl Part";
             // 
-            // tsmiFindEdgesByAngleForGeometryParts
+            // tsmiFindStlEdgesByAngleForGeometryParts
             // 
-            this.tsmiFindEdgesByAngleForGeometryParts.Name = "tsmiFindEdgesByAngleForGeometryParts";
-            this.tsmiFindEdgesByAngleForGeometryParts.Size = new System.Drawing.Size(218, 22);
-            this.tsmiFindEdgesByAngleForGeometryParts.Text = "Find Model Edges by Angle";
-            this.tsmiFindEdgesByAngleForGeometryParts.Click += new System.EventHandler(this.tsmiFindEdgesByAngleForGeometryParts_Click);
+            this.tsmiFindStlEdgesByAngleForGeometryParts.Name = "tsmiFindStlEdgesByAngleForGeometryParts";
+            this.tsmiFindStlEdgesByAngleForGeometryParts.Size = new System.Drawing.Size(218, 22);
+            this.tsmiFindStlEdgesByAngleForGeometryParts.Text = "Find Model Edges by Angle";
+            this.tsmiFindStlEdgesByAngleForGeometryParts.Click += new System.EventHandler(this.tsmiFindStlEdgesByAngleForGeometryParts_Click);
             // 
-            // tsmiFlipStlPartSurfacesNormal
+            // tsmiFlipStlPartFaceNormal
             // 
-            this.tsmiFlipStlPartSurfacesNormal.Name = "tsmiFlipStlPartSurfacesNormal";
-            this.tsmiFlipStlPartSurfacesNormal.Size = new System.Drawing.Size(218, 22);
-            this.tsmiFlipStlPartSurfacesNormal.Text = "Flip Part Surfaces Normal";
-            this.tsmiFlipStlPartSurfacesNormal.Click += new System.EventHandler(this.tsmiFlipStlPartSurfacesNormal_Click);
+            this.tsmiFlipStlPartFaceNormal.Name = "tsmiFlipStlPartFaceNormal";
+            this.tsmiFlipStlPartFaceNormal.Size = new System.Drawing.Size(218, 22);
+            this.tsmiFlipStlPartFaceNormal.Text = "Flip Part Face Normals";
+            this.tsmiFlipStlPartFaceNormal.Click += new System.EventHandler(this.tsmiFlipStlPartFaceNormals_Click);
             // 
-            // tsmiSmoothPart
+            // tsmiSmoothStlPart
             // 
-            this.tsmiSmoothPart.Name = "tsmiSmoothPart";
-            this.tsmiSmoothPart.Size = new System.Drawing.Size(218, 22);
-            this.tsmiSmoothPart.Text = "Smooth Part";
-            this.tsmiSmoothPart.Click += new System.EventHandler(this.tsmiSmoothPart_Click);
+            this.tsmiSmoothStlPart.Name = "tsmiSmoothStlPart";
+            this.tsmiSmoothStlPart.Size = new System.Drawing.Size(218, 22);
+            this.tsmiSmoothStlPart.Text = "Smooth Part";
+            this.tsmiSmoothStlPart.Click += new System.EventHandler(this.tsmiSmoothStlPart_Click);
             // 
-            // tsmiCropWithCylinder
+            // tsmiCropStlPartWithCylinder
             // 
-            this.tsmiCropWithCylinder.Name = "tsmiCropWithCylinder";
-            this.tsmiCropWithCylinder.Size = new System.Drawing.Size(218, 22);
-            this.tsmiCropWithCylinder.Text = "Crop With Cylinder";
-            this.tsmiCropWithCylinder.Click += new System.EventHandler(this.tsmiCropWithCylinder_Click);
+            this.tsmiCropStlPartWithCylinder.Name = "tsmiCropStlPartWithCylinder";
+            this.tsmiCropStlPartWithCylinder.Size = new System.Drawing.Size(218, 22);
+            this.tsmiCropStlPartWithCylinder.Text = "Crop With Cylinder";
+            this.tsmiCropStlPartWithCylinder.Click += new System.EventHandler(this.tsmiCropStlPartWithCylinder_Click);
             // 
-            // tsmiCropWithCube
+            // tsmiCropStlPartWithCube
             // 
-            this.tsmiCropWithCube.Name = "tsmiCropWithCube";
-            this.tsmiCropWithCube.Size = new System.Drawing.Size(218, 22);
-            this.tsmiCropWithCube.Text = "Crop With Cube";
-            this.tsmiCropWithCube.Click += new System.EventHandler(this.tsmiCropWithCube_Click);
+            this.tsmiCropStlPartWithCube.Name = "tsmiCropStlPartWithCube";
+            this.tsmiCropStlPartWithCube.Size = new System.Drawing.Size(218, 22);
+            this.tsmiCropStlPartWithCube.Text = "Crop With Cube";
+            this.tsmiCropStlPartWithCube.Click += new System.EventHandler(this.tsmiCropStlPartWithCube_Click);
+            // 
+            // tsmiDeleteStlPartFaces
+            // 
+            this.tsmiDeleteStlPartFaces.Name = "tsmiDeleteStlPartFaces";
+            this.tsmiDeleteStlPartFaces.Size = new System.Drawing.Size(218, 22);
+            this.tsmiDeleteStlPartFaces.Text = "Delete Part Faces";
+            this.tsmiDeleteStlPartFaces.Click += new System.EventHandler(this.tsmiDeleteStlPartFaces_Click);
             // 
             // tsmiDividerGeometry1
             // 
@@ -4355,7 +4364,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiFlipFaceNormalCAD;
         private System.Windows.Forms.ToolStripMenuItem tsmiExportToMmgMesh;
         private System.Windows.Forms.ToolStripMenuItem tsmiSplitAFaceUsingTwoPoints;
-        private System.Windows.Forms.ToolStripMenuItem tsmiCropWithCylinder;
+        private System.Windows.Forms.ToolStripMenuItem tsmiCropStlPartWithCylinder;
         private System.Windows.Forms.ToolStripMenuItem tsmiExportToStereolitography;
         private System.Windows.Forms.ToolStripMenuItem tsmiDuplicateElementSet;
         private System.Windows.Forms.ToolStripMenuItem tsmiDuplicateNodeSet;
@@ -4373,14 +4382,14 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiAnnotateMaterials;
         private System.Windows.Forms.ToolStripMenuItem tsmiAnnotateSectionThicknesses;
         private System.Windows.Forms.ToolStripMenuItem tsmiRemeshElements;
-        private System.Windows.Forms.ToolStripMenuItem tsmiFindEdgesByAngleForGeometryParts;
+        private System.Windows.Forms.ToolStripMenuItem tsmiFindStlEdgesByAngleForGeometryParts;
         private System.Windows.Forms.ToolStripMenuItem tsmiFindEdgesByAngleForModelParts;
         private System.Windows.Forms.ToolStripMenuItem tsmiToolsParts;
         private System.Windows.Forms.ToolStripMenuItem tsmiPropagateBC;
         private System.Windows.Forms.ToolStripMenuItem tsmiPropagateHistoryOutput;
         private System.Windows.Forms.ToolStripMenuItem tsmiPropagateFieldOutput;
         private System.Windows.Forms.ToolStripMenuItem tsmiPropagateLoad;
-        private System.Windows.Forms.ToolStripMenuItem tsmiCropWithCube;
+        private System.Windows.Forms.ToolStripMenuItem tsmiCropStlPartWithCube;
         private System.Windows.Forms.ToolStripMenuItem tsmiSwapGeometryPartGeometries;
         private System.Windows.Forms.ToolStripButton tsbExplodedView;
         private System.Windows.Forms.ToolStripMenuItem tsmiExplodedView;
@@ -4409,8 +4418,8 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiRenumberAllElements;
         private System.Windows.Forms.ToolStripMenuItem tsmiStlPart;
         private System.Windows.Forms.ToolStripMenuItem cADPartToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem tsmiFlipStlPartSurfacesNormal;
-        private System.Windows.Forms.ToolStripMenuItem tsmiSmoothPart;
+        private System.Windows.Forms.ToolStripMenuItem tsmiFlipStlPartFaceNormal;
+        private System.Windows.Forms.ToolStripMenuItem tsmiSmoothStlPart;
         private System.Windows.Forms.ToolStripMenuItem tsmiRegenerateCompoundPart;
         private System.Windows.Forms.ToolStripMenuItem tsmiResultFieldOutput;
         private System.Windows.Forms.ToolStripMenuItem tsmiDeleteResultFieldOutput;
@@ -4497,6 +4506,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiExportToGmshMesh;
         private System.Windows.Forms.ToolStripMenuItem tsmiThickenShellMesh;
         private System.Windows.Forms.ToolStripMenuItem tsmiEditHistory;
+        private System.Windows.Forms.ToolStripMenuItem tsmiDeleteStlPartFaces;
     }
 }
 

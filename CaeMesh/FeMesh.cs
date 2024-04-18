@@ -1340,7 +1340,8 @@ namespace CaeMesh
             {
                 foreach (var entry in _parts)
                 {
-                    if (entry.Value != part) sharedNodes.UnionWith(entry.Value.Visualization.GetNodeIdsForAllEdges());
+                    if (entry.Value.Name != part.Name)
+                        sharedNodes.UnionWith(entry.Value.Visualization.GetNodeIdsForAllEdges());
                 }
             }
             //
@@ -1667,6 +1668,7 @@ namespace CaeMesh
                     if (entry.Value.Count != 2) vertexNodeIds.Add(entry.Key);
                 }
             }
+            else vertexNodeIds = part.NodeLabels.Intersect(vertexNodeIds).ToHashSet();  // only part nodes can be vertices
             // Find edge neighbours
             HashSet<int>[] edgeNeighboursHash = new HashSet<int>[allEdgeCells.Length];  
             foreach (var entry in nodeEdgeCellIds)
@@ -1699,7 +1701,7 @@ namespace CaeMesh
                     visitedEdgeCellIds.UnionWith(oneEdgeCells);
                 }
             }
-            //
+            // Use intersect if vertexNodeIds were 
             part.Visualization.VertexNodeIds = vertexNodeIds.ToArray();
             part.Visualization.EdgeCellIdsByEdge = edges.ToArray();
         }
@@ -2959,7 +2961,7 @@ namespace CaeMesh
             FeElementSet elementSet;
             FeElement element;
             List<string> newPartNames = new List<string>();
-            Dictionary<int, List<int>> elementIdsToRemove = new Dictionary<int, List<int>>();
+            Dictionary<int, List<int>> partIdElementIdsToRemove = new Dictionary<int, List<int>>();
             List<int> elementIds;
             for (int i = 0; i < elementSetNames.Length; i++)
             {
@@ -2974,8 +2976,8 @@ namespace CaeMesh
                         //
                         if (partId != -1)   // for contact elements in .cel files
                         {
-                            if (elementIdsToRemove.TryGetValue(partId, out elementIds)) elementIds.Add(elementId);
-                            else elementIdsToRemove.Add(partId, new List<int>() { elementId });
+                            if (partIdElementIdsToRemove.TryGetValue(partId, out elementIds)) elementIds.Add(elementId);
+                            else partIdElementIdsToRemove.Add(partId, new List<int>() { elementId });
                         }
                         //
                         element.PartId = maxPartId + i;
@@ -2989,18 +2991,24 @@ namespace CaeMesh
             int count = 0;
             BasePart part;
             BasePart newBasePart;
+            GeometryPart newGeometryPart;
             MeshPart newMeshPart;
             ResultPart newResultPart;
             List<FeElement1D> edgeElements = new List<FeElement1D>();
-            modifiedParts = new BasePart[elementIdsToRemove.Count];
-            foreach (var entry in elementIdsToRemove)
+            modifiedParts = new BasePart[partIdElementIdsToRemove.Count];
+            foreach (var entry in partIdElementIdsToRemove)
             {
                 part = partIdNamePairs[entry.Key];
                 part.Labels = part.Labels.Except(entry.Value).ToArray();
-                //
-                newBasePart = CreateBasePartFromElementIds(part.Labels);
+                // Overwrite default part name to prevent the search for common nodes with itself
+                newBasePart = CreateBasePartFromElementIds(part.Labels, part.Name);
                 edgeElements.AddRange(GetLineElementsFromEdges(newBasePart)); // get new free edges
-                if (part is MeshPart mp)
+                if (part is GeometryPart gp)
+                {
+                    newGeometryPart = new GeometryPart(newBasePart);
+                    newBasePart = newGeometryPart;
+                }
+                else if (part is MeshPart mp)
                 {
                     newMeshPart = new MeshPart(newBasePart);
                     newMeshPart.CopyActiveElementTypesFrom(mp);
@@ -3059,7 +3067,7 @@ namespace CaeMesh
             // Update bounding boxes
             ComputeBoundingBox();
         }
-        public BasePart CreateBasePartFromElementIds(int[] elementIds)
+        public BasePart CreateBasePartFromElementIds(int[] elementIds, string newPartName = null)
         {
             HashSet<Type> partElementTypes = new HashSet<Type>();
             HashSet<int> partNodeIds = new HashSet<int>();
@@ -3072,7 +3080,9 @@ namespace CaeMesh
                 partElementTypes.Add(element.GetType());
                 partNodeIds.UnionWith(element.NodeIds);
             }
-            BasePart part = new BasePart("Part-from-element-Ids", -1, partNodeIds.ToArray(),
+            //
+            if (newPartName == null) newPartName = "Part-from-element-Ids";
+            BasePart part = new BasePart(newPartName, -1, partNodeIds.ToArray(),
                                          partElementIds.ToArray(), partElementTypes.ToArray());
             //
             if (part.PartType == PartType.Solid)
@@ -7575,6 +7585,16 @@ namespace CaeMesh
             ComputeBoundingBox();
             //
             return unreferenced;
+        }
+        public void RemoveElementsUpdatingVisualization(IEnumerable<int> elementIds)
+        {
+            string elementSetName = GetReservedElementSetNames().GetNextNumberedKey("Elements_to_delete");
+            FeElementSet elementSet = new FeElementSet(elementSetName, elementIds.ToArray());
+            AddElementSet(elementSet);
+            CreatePartsFromElementSets(new string[] { elementSetName }, out _, out BasePart[] newParts);
+            string[] newPartNames = new string[newParts.Length];
+            for (int i = 0; i < newParts.Length; i++) newPartNames[i] = newParts[i].Name;
+            RemoveParts(newPartNames, out _, false);
         }
         //
         #endregion #################################################################################################################

@@ -101,14 +101,15 @@ namespace CaeResults
             // The closest point is in the triangle so project to the plane to find it
             return _triPlane.Project(p);
         }
-        public bool GetClosestPointTo(Vec3D p, double len2limit, out Vec3D closestPoint)
+        public bool GetClosestPointTo(Vec3D p, double len2limit, out Vec3D closestPoint, out ClosestPointTypeEnum closestPointType)
         {
             closestPoint = null;
+            closestPointType = ClosestPointTypeEnum.None;
             Vec3D v = p - _triPlane.Point;
             Vec3D d = _triPlane.Direction * Vec3D.DotProduct(v, _triPlane.Direction);
             double d2 = d.Len2;
             //
-            if (d2 >= len2limit) return false;
+            if (d2 > len2limit) return false;
             else
             {
                 // Find the projection of the point onto the edge
@@ -118,6 +119,7 @@ namespace CaeResults
                 if (uca > 1 && uab < 0)
                 {
                     closestPoint = A;
+                    closestPointType = ClosestPointTypeEnum.PointA;
                     return true;
                 }
                 //
@@ -126,34 +128,40 @@ namespace CaeResults
                 if (uab > 1 && ubc < 0)
                 {
                     closestPoint = B;
+                    closestPointType = ClosestPointTypeEnum.PointB;
                     return true;
                 }
                 //
                 if (ubc > 1 && uca < 0)
                 {
                     closestPoint = C;
+                    closestPointType = ClosestPointTypeEnum.PointC;
                     return true;
                 }
                 //
                 if (0 <= uab && uab <= 1 && !_planeAb.IsAbove(p))
                 {
                     closestPoint = EdgeAb.PointAt(uab);
+                    closestPointType = ClosestPointTypeEnum.EdgeAB;
                     return true;
                 }
                 //
                 if (0 <= ubc && ubc <= 1 && !_planeBc.IsAbove(p))
                 {
                     closestPoint = EdgeBc.PointAt(ubc);
+                    closestPointType = ClosestPointTypeEnum.EdgeBC;
                     return true;
                 }
                 //
                 if (0 <= uca && uca <= 1 && !_planeCa.IsAbove(p))
                 {
                     closestPoint = EdgeCa.PointAt(uca);
+                    closestPointType = ClosestPointTypeEnum.EdgeCA;
                     return true;
                 }
                 // The closest point is in the triangle so project to the plane to find it
                 closestPoint = p - d;
+                closestPointType = ClosestPointTypeEnum.Internal;
             }
             //
             return true;

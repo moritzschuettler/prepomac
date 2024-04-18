@@ -887,7 +887,8 @@ namespace CaeModel
         }
         public bool ImportMeshFromMmgFile(string fileName)
         {
-            FeMesh mesh = FileInOut.Input.MmgFileReader.Read(fileName, MeshRepresentation.Mesh);
+            FeMesh mesh = FileInOut.Input.MmgFileReader.Read3D(fileName, FileInOut.Input.ElementsToImport.All,
+                                                               MeshRepresentation.Mesh, true);
             //
             bool noErrors = true;
             foreach (var entry in mesh.Parts)
@@ -932,7 +933,7 @@ namespace CaeModel
             if (Path.GetExtension(fileName) == ".vol")
                 mesh = FileInOut.Input.VolFileReader.Read(fileName, elementsToImport, convertToSecondOrder);
             else if (Path.GetExtension(fileName) == ".mesh")
-                mesh = FileInOut.Input.MmgFileReader.Read(fileName, MeshRepresentation.Mesh, convertToSecondOrder);
+                mesh = FileInOut.Input.MmgFileReader.Read(fileName, elementsToImport, MeshRepresentation.Mesh, convertToSecondOrder);
             else if (Path.GetExtension(fileName) == ".inp")
                 mesh = FileInOut.Input.InpFileReader.ReadMesh(fileName, elementsToImport, convertToSecondOrder);
             else throw new NotSupportedException();
@@ -1031,7 +1032,8 @@ namespace CaeModel
             double max = part.BoundingBox.GetDiagonal();
             Dictionary<string, Dictionary<int, int>> partNameNewSurfIdOldSurfId = new Dictionary<string, Dictionary<int, int>>();
             Dictionary<string, Dictionary<int, int>> partNameNewEdgeIdOldEdgeId = new Dictionary<string, Dictionary<int, int>>();
-            FeMesh mmgMesh = FileInOut.Input.MmgFileReader.Read(fileName, MeshRepresentation.Mesh, convertToSecondOrder,
+            FeMesh mmgMesh = FileInOut.Input.MmgFileReader.Read(fileName, FileInOut.Input.ElementsToImport.Shell,
+                                                                MeshRepresentation.Mesh, convertToSecondOrder,
                                                                 _mesh.MaxNodeId + 1, _mesh.MaxElementId + 1,
                                                                 borderNodes, midNodes,
                                                                 epsilon * max,

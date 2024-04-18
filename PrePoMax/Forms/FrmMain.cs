@@ -476,8 +476,8 @@ namespace PrePoMax
             {
                 tsmiExportToGmshMesh.Visible = false;
                 tsmiTest.Visible = false;
-                tsmiCropWithCylinder.Visible = false;
-                tsmiCropWithCube.Visible = false;
+                tsmiCropStlPartWithCylinder.Visible = false;
+                tsmiCropStlPartWithCube.Visible = false;
             }
         }
         //
@@ -1660,13 +1660,24 @@ namespace PrePoMax
         {
             try
             {
-                _controller.CurrentView = ViewGeometryModelResults.Model;
+                //_controller.CurrentView = ViewGeometryModelResults.Geometry;
                 //
-                if (_controller.Model.Geometry != null && _controller.Model.Geometry.Parts != null)
+                if (_controller.CurrentView == ViewGeometryModelResults.Geometry)
                 {
-                    SelectMultipleEntities("Parts", _controller.GetGeometryParts(), SavePartsAsMmgMesh);
+                    if (_controller.Model.Geometry != null && _controller.Model.Geometry.Parts != null)
+                    {
+                        SelectMultipleEntities("Parts", _controller.GetGeometryParts(), SavePartsAsMmgMesh);
+                    }
+                    else throw new CaeException("No geometry to export.");
                 }
-                else throw new CaeException("No geometry to export.");
+                else if (_controller.CurrentView == ViewGeometryModelResults.Model)
+                {
+                    if (_controller.Model.Mesh != null && _controller.Model.Mesh.Parts != null)
+                    {
+                        SelectMultipleEntities("Parts", _controller.GetModelParts(), SavePartsAsMmgMesh);
+                    }
+                    else throw new CaeException("No mesh to export.");
+                }
             }
             catch (Exception ex)
             {
@@ -1878,7 +1889,7 @@ namespace PrePoMax
                         // The filter adds the extension to the file name
                         SetStateWorking(Globals.ExportingText);
                         //
-                        await Task.Run(() => _controller.ExportGeometryPartsAsMmgMesh(partNames, saveFileDialog.FileName));
+                        await Task.Run(() => _controller.ExportPartsAsMmgMesh(partNames, saveFileDialog.FileName));
                     }
                 }
             }
@@ -2729,7 +2740,7 @@ namespace PrePoMax
         }
         // End CAD Part
         // Stl Part
-        private void tsmiFindEdgesByAngleForGeometryParts_Click(object sender, EventArgs e)
+        private void tsmiFindStlEdgesByAngleForGeometryParts_Click(object sender, EventArgs e)
         {
             try
             {
@@ -2740,7 +2751,7 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiFlipStlPartSurfacesNormal_Click(object sender, EventArgs e)
+        private void tsmiFlipStlPartFaceNormals_Click(object sender, EventArgs e)
         {
             try
             {
@@ -2751,7 +2762,7 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiSmoothPart_Click(object sender, EventArgs e)
+        private void tsmiSmoothStlPart_Click(object sender, EventArgs e)
         {
             try
             {
@@ -2762,7 +2773,30 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiCropWithCylinder_Click(object sender, EventArgs e)
+        private async void tsmiDeleteStlPartFaces_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                await Task.Run(() =>
+                {
+                    _frmSelectGeometry.HideFormOnOK = false;
+                    _frmSelectGeometry.SelectionFilter = SelectGeometryEnum.Surface;
+                    _frmSelectGeometry.OnOKCallback = DeleteStlPartFaces;
+                    //
+                    InvokeIfRequired(() => { ShowForm(_frmSelectGeometry, "Select faces to delete", null); });
+                    while (_frmSelectGeometry.Visible) Thread.Sleep(100);
+                });
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+            finally
+            {
+                SetStateReady(Globals.FlippingNormalsText);
+            }
+        }
+        private void tsmiCropStlPartWithCylinder_Click(object sender, EventArgs e)
         {
             try
             {
@@ -2773,7 +2807,7 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiCropWithCube_Click(object sender, EventArgs e)
+        private void tsmiCropStlPartWithCube_Click(object sender, EventArgs e)
         {
             try
             {
@@ -2988,6 +3022,12 @@ namespace PrePoMax
             string desc = "Enter the face angle for model edges detection.";
             frmGetValue.PrepareForm("Find model edges: " + partNames.ToShortString(), "Angle", desc,
                                     CaeMesh.Globals.EdgeAngle, presetValues, new StringAngleDegConverter());
+        }
+        private void DeleteStlPartFaces(GeometrySelection geometrySelection)
+        {
+            SetStateWorking(Globals.FlippingNormalsText);
+            _controller.DeleteStlPartFacesCommand(geometrySelection);
+            SetStateReady(Globals.FlippingNormalsText);
         }
         // End Stl Part
         private async void CreateAndImportCompoundPart(string[] partNames)
@@ -8852,7 +8892,8 @@ namespace PrePoMax
                 //TestSpring();
                 //TestSuperposition();
                 //TestNormals();
-                TestWearResults();
+                //TestWearResults();
+                TestMmg();
             }
             catch
             {
@@ -8955,6 +8996,29 @@ namespace PrePoMax
             //
             //if (timerTest.Enabled) timerTest.Stop();
             //else timerTest.Start();
+        }
+        private void TestMmg()
+        {
+            string partName1 = "Solid_part-1";
+            string partName2 = "Solid_part-2";
+            string fileName = @"C:\Temp\mmg\tmp.sol";
+            //
+            _controller.ExportSignedDistance(fileName, partName2, partName1);
+            //
+            if (_controller.CurrentResult != null && _controller.CurrentResult.Mesh != null)
+            {
+                SetResultNames();
+                // Reset the previous step and increment
+                SetAllStepAndIncrementIds();
+                // Set last increment
+                SetDefaultStepAndIncrementIds();
+                // Show the selection in the results tree
+                SelectFirstComponentOfFirstFieldOutput();
+            }
+            // Set the representation which also calls Draw
+            _controller.ViewResultsType = ViewResultsTypeEnum.ColorContours;  // Draw
+            //
+            SetMenuAndToolStripVisibility();
         }
         private void TestWearResults()
         {
@@ -9247,6 +9311,6 @@ namespace PrePoMax
             }
         }
 
-       
+        
     }
 }

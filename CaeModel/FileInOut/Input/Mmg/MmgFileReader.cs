@@ -5,12 +5,18 @@ using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 using CaeMesh;
+using System.Xml.Linq;
+using System.Runtime.InteropServices;
+using CaeResults;
+using CaeGlobals;
 
 namespace FileInOut.Input
 {
     static public class MmgFileReader
     {
-        public static FeMesh Read(string fileName, MeshRepresentation meshRepresentation,
+        private static string[] _spaceSplitter = new string[] { " " };
+        public static FeMesh Read(string fileName, ElementsToImport elementsToImport,
+                                  MeshRepresentation meshRepresentation,
                                   bool convertToSecondOrder = false,
                                   int firstNodeId = 1,
                                   int firstElementId = 1,
@@ -22,132 +28,37 @@ namespace FileInOut.Input
         {
             if (File.Exists(fileName))
             {
-                FeNode node;
-                LinearBeamElement beam;
-                LinearTriangleElement triangle;
                 Dictionary<int, FeNode> nodes = new Dictionary<int, FeNode>();
                 Dictionary<int, FeElement> elements = new Dictionary<int, FeElement>();
                 HashSet<int> surfaceNodeIds;
-                HashSet<int> surfaceElementIds;
                 HashSet<int> edgeNodeIds;
-                HashSet<int> edgeElementIds;
-                Dictionary<int, HashSet<int>> surfaceIdElementIds = new Dictionary<int, HashSet<int>>();
+                Dictionary<int, HashSet<int>> surfaceIdElementIds = null;
                 Dictionary<int, HashSet<int>> surfaceIdNodeIds = new Dictionary<int, HashSet<int>>();
-                Dictionary<int, HashSet<int>> edgeIdElementIds = new Dictionary<int, HashSet<int>>();
+                Dictionary<int, HashSet<int>> edgeIdElementIds = null;
                 Dictionary<int, HashSet<int>> edgeIdNodeIds = new Dictionary<int, HashSet<int>>();
-                Dictionary<int, Dictionary<int, bool>> edgeIdNodeIdCount = new Dictionary<int, Dictionary<int, bool>>();
-                Dictionary<int, bool> nodeIdCount;
-                Dictionary<int, int> oldNodeIdNewNodeId = new Dictionary<int, int>();
+                Dictionary<int, Dictionary<int, bool>> edgeIdNodeIdCount = null;
+                Dictionary<int, int> oldNodeIdNewNodeId = null;
                 //
-                int numOfNodes;
-                int numOfElements;
-                int numOfEdges;
+                int nodeId = firstNodeId;
                 int elementId = firstElementId;
-                int possibleNodeId;
-                string[] splitter = new string[] { " " };
-                string[] tmp;
                 string[] lines = CaeGlobals.Tools.ReadAllLines(fileName);
-                int surfaceId;
-                int edgeId;
                 // Read
                 for (int i = 0; i < lines.Length; i++)
                 {
                     if (lines[i].ToUpper().StartsWith("VERTICES"))
                     {
-                        i++;
-                        if (i < lines.Length)
-                        {
-                            numOfNodes = int.Parse(lines[i]);
-                            i++;
-                            for (int j = 0; j < numOfNodes && i + j < lines.Length; j++)
-                            {
-                                tmp = lines[i + j].Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                                if (tmp.Length >= 3)
-                                {
-                                    node = new FeNode();
-                                    node.Id = j + firstNodeId;
-                                    node.X = double.Parse(tmp[0]);
-                                    node.Y = double.Parse(tmp[1]);
-                                    node.Z = double.Parse(tmp[2]);
-                                    possibleNodeId = int.Parse(tmp[3]);
-                                    // If the node id is not equal to 0 check if the node exists by coordinates
-                                    if (existingNodes != null && possibleNodeId != 0)
-                                        node.Id = GetExistingNodeId(node, possibleNodeId, existingNodes, epsilon);
-                                    nodes.Add(node.Id, node);
-                                    //
-                                    oldNodeIdNewNodeId.Add(j + 1, node.Id);
-                                }
-                            }
-                        }
+                        ReadVertices(lines, ref i, ref nodeId, existingNodes, epsilon, ref nodes, out oldNodeIdNewNodeId);
                     }
                     else if (lines[i].ToUpper().StartsWith("TRIANGLES"))
                     {
-                        i++;
-                        if (i < lines.Length)
-                        {
-                            numOfElements = int.Parse(lines[i]);
-                            i++;
-                            for (int j = 0; j < numOfElements && i + j < lines.Length; j++)
-                            {
-                                tmp = lines[i + j].Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                                if (tmp.Length >= 4)
-                                {
-                                    triangle = new LinearTriangleElement(elementId++, new int[3]);
-                                    triangle.NodeIds[0] = oldNodeIdNewNodeId[int.Parse(tmp[0])];
-                                    triangle.NodeIds[1] = oldNodeIdNewNodeId[int.Parse(tmp[1])];
-                                    triangle.NodeIds[2] = oldNodeIdNewNodeId[int.Parse(tmp[2])];
-                                    surfaceId = int.Parse(tmp[3]) - 1;
-                                    //
-                                    elements.Add(triangle.Id, triangle);
-                                    //
-                                    if (surfaceIdElementIds.TryGetValue(surfaceId, out surfaceElementIds))
-                                        surfaceElementIds.Add(triangle.Id);
-                                    else
-                                        surfaceIdElementIds.Add(surfaceId, new HashSet<int> { triangle.Id });
-                                }
-                            }
-                        }
+                        ReadTriangles(lines, ref i, ref elementId, oldNodeIdNewNodeId, ref elements, out surfaceIdElementIds);
                     }
                     else if (lines[i].ToUpper().StartsWith("EDGES"))
                     {
-                        i++;
-                        if (i < lines.Length)
-                        {
-                            numOfEdges = int.Parse(lines[i]);
-                            i++;
-                            for (int j = 0; j < numOfEdges && i + j < lines.Length; j++)
-                            {
-                                tmp = lines[i + j].Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                                if (tmp.Length >= 3)
-                                {
-                                    edgeId = int.Parse(tmp[2]);
-                                    if (edgeId > 0)
-                                    {
-                                        edgeId--;
-                                        //
-                                        if (!edgeIdNodeIdCount.TryGetValue(edgeId, out nodeIdCount))
-                                        {
-                                            nodeIdCount = new Dictionary<int, bool>();
-                                            edgeIdNodeIdCount.Add(edgeId, nodeIdCount);
-                                        }
-                                        //
-                                        beam = new LinearBeamElement(elementId++, new int[2]);
-                                        beam.NodeIds[0] = oldNodeIdNewNodeId[int.Parse(tmp[0])];
-                                        beam.NodeIds[1] = oldNodeIdNewNodeId[int.Parse(tmp[1])];
-                                        // If node already on the edge remove it
-                                        if (!nodeIdCount.Remove(beam.NodeIds[0])) nodeIdCount.Add(beam.NodeIds[0], true);
-                                        if (!nodeIdCount.Remove(beam.NodeIds[1])) nodeIdCount.Add(beam.NodeIds[1], true);
-                                        //
-                                        elements.Add(beam.Id, beam);
-                                        //
-                                        if (edgeIdElementIds.TryGetValue(edgeId, out edgeElementIds))
-                                            edgeElementIds.Add(beam.Id);
-                                        else
-                                            edgeIdElementIds.Add(edgeId, new HashSet<int> { beam.Id });
-                                    }
-                                }
-                            }
-                        }
+                        ReadEdges(lines, ref i, ref elementId, oldNodeIdNewNodeId, ref elements,
+                                  out edgeIdNodeIdCount, out edgeIdElementIds);
+                        //edgeIdNodeIdCount = new Dictionary<int, Dictionary<int, bool>>();
+                        //edgeIdElementIds = new Dictionary<int, HashSet<int>>();
                     }
                 }
                 // Count number of edges in an edge node
@@ -167,7 +78,6 @@ namespace FileInOut.Input
                     if (entry.Value > 1) vertexNodeIds.Add(entry.Key);
                 }
                 //
-
                 if (convertToSecondOrder) FeMesh.LinearToParabolic(ref nodes, ref elements, firstNodeId, existingMidNodes);
                 // Surface node ids
                 foreach (var entry in surfaceIdElementIds)
@@ -226,13 +136,307 @@ namespace FileInOut.Input
                 // Renumber edges                                                                        
                 mesh.RenumberVisualizationEdges(allPartsEdgeIdNodeIds, partNameNewEdgeIdOldEdgeId);
                 //
-                mesh.RemoveElementsByType<FeElement1D>();
+                if (elementsToImport != ElementsToImport.All)
+                {
+                    if (!elementsToImport.HasFlag(ElementsToImport.Beam)) mesh.RemoveElementsByType<FeElement1D>();
+                    if (!elementsToImport.HasFlag(ElementsToImport.Shell)) mesh.RemoveElementsByType<FeElement2D>();
+                    if (!elementsToImport.HasFlag(ElementsToImport.Solid)) mesh.RemoveElementsByType<FeElement3D>();
+                }
                 //
                 return mesh;
             }
             //
             return null;
         }
+
+        public static FeMesh Read3D(string fileName, ElementsToImport elementsToImport,
+                                    MeshRepresentation meshRepresentation,
+                                    bool convertToSecondOrder = false,
+                                    double epsilon = 1E-6)
+        {
+            if (File.Exists(fileName))
+            {
+                Dictionary<int, FeNode> nodes = new Dictionary<int, FeNode>();
+                Dictionary<int, FeElement> elements = new Dictionary<int, FeElement>();
+                Dictionary<int, int> oldNodeIdNewNodeId = null;
+                Dictionary<int, HashSet<int>> partIdElementIds = null;
+                //
+                int nodeId = 1;
+                int elementId = 1;
+                string[] lines = CaeGlobals.Tools.ReadAllLines(fileName);
+                // Read
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    if (lines[i].ToUpper().StartsWith("VERTICES"))
+                    {
+                        ReadVertices(lines, ref i, ref nodeId, null, epsilon, ref nodes, out oldNodeIdNewNodeId);
+                    }
+                    else if (lines[i].ToUpper().StartsWith("EDGES"))
+                    {
+                        ReadEdges(lines, ref i, ref elementId, oldNodeIdNewNodeId, ref elements, out _, out _);
+                    }
+                    else if (lines[i].ToUpper().StartsWith("TRIANGLES"))
+                    {
+                        ReadTriangles(lines, ref i, ref elementId, oldNodeIdNewNodeId, ref elements, out _);
+                    }
+                    else if (lines[i].ToUpper().StartsWith("TETRAHEDRA"))
+                    {
+                        ReadTetrahedrons(lines, ref i, ref elementId, oldNodeIdNewNodeId, ref elements, out partIdElementIds);
+                    }
+                }
+                // Count number of edges in an edge node
+                Dictionary<int, int> nodeIdEdgeCount = new Dictionary<int, int>();
+                foreach (var entry in elements)
+                {
+                    if (entry.Value is LinearBeamElement lbe)
+                    {
+                        if (nodeIdEdgeCount.ContainsKey(lbe.NodeIds[0])) nodeIdEdgeCount[lbe.NodeIds[0]]++;
+                        else nodeIdEdgeCount.Add(lbe.NodeIds[0], 1);
+                        if (nodeIdEdgeCount.ContainsKey(lbe.NodeIds[1])) nodeIdEdgeCount[lbe.NodeIds[1]]++;
+                        else nodeIdEdgeCount.Add(lbe.NodeIds[1], 1);
+                    }
+                }
+                // Get vertices
+                HashSet<int> vertexNodeIds = new HashSet<int>();
+                foreach (var entry in nodeIdEdgeCount)
+                {
+                    if (entry.Value > 2) vertexNodeIds.Add(entry.Key);
+                }
+                //
+                if (convertToSecondOrder) FeMesh.LinearToParabolic(ref nodes, ref elements);
+                //
+                FeMesh mesh = new FeMesh(nodes, elements, meshRepresentation, null, null, false,
+                                         ImportOptions.DetectEdges);
+                //
+                mesh.ConvertLineFeElementsToEdges(vertexNodeIds);
+                //
+                if (partIdElementIds != null && partIdElementIds.Count > 1)
+                {
+                    string name;
+                    FeElementSet elementSet;
+                    List<string> elementSetNames = new List<string>();
+                    foreach (var entry in partIdElementIds)
+                    {
+                        name = mesh.GetReservedElementSetNames().GetNextNumberedKey("Domain");
+                        elementSet = new FeElementSet(name, entry.Value.ToArray());
+                        mesh.AddElementSet(elementSet);
+                        elementSetNames.Add(name);
+                    }
+                    BasePart[] modifiedParts;
+                    BasePart[] newParts;
+                    mesh.CreatePartsFromElementSets(elementSetNames.ToArray(), out modifiedParts, out newParts);
+                    //
+                    List<string> partNamesToRemove = new List<string>();
+                    foreach (var modifiedPart in modifiedParts)
+                    {
+                        if (modifiedPart.Labels == null || modifiedPart.Labels.Length == 0)
+                            partNamesToRemove.Add(modifiedPart.Name);
+                    }
+                    mesh.RemoveParts(partNamesToRemove.ToArray(), out _, false);
+                    //
+                    string oldName;
+                    foreach (var part in newParts)
+                    {
+                        if (part.Name.StartsWith("From_"))
+                        {
+                            oldName = part.Name;
+                            part.Name = oldName.Replace("From_", "");
+                            mesh.Parts.Replace(oldName, part.Name, part);
+                        }
+                    }
+                }
+                //
+                if (elementsToImport != ElementsToImport.All)
+                {
+                    if (!elementsToImport.HasFlag(ElementsToImport.Beam)) mesh.RemoveElementsByType<FeElement1D>();
+                    if (!elementsToImport.HasFlag(ElementsToImport.Shell)) mesh.RemoveElementsByType<FeElement2D>();
+                    if (!elementsToImport.HasFlag(ElementsToImport.Solid)) mesh.RemoveElementsByType<FeElement3D>();
+                }
+                //
+                return mesh;
+            }
+            //
+            return null;
+        }
+        private static void ReadVertices(string[] lines, ref int currentLine, ref int nodeId,
+                                         Dictionary<int, FeNode> existingNodes,
+                                         double epsilon, ref Dictionary<int, FeNode> nodes, 
+                                         out Dictionary<int, int> oldNodeIdNewNodeId)
+        {
+            int numOfNodes;
+            int possibleNodeId;
+            string[] tmp;
+            FeNode node;
+            //
+            oldNodeIdNewNodeId = new Dictionary<int, int>();
+            currentLine++;
+            //
+            if (currentLine < lines.Length)
+            {
+                numOfNodes = int.Parse(lines[currentLine]);
+                currentLine++;
+                for (int j = 0; j < numOfNodes && currentLine + j < lines.Length; j++)
+                {
+                    tmp = lines[currentLine + j].Split(_spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+                    if (tmp.Length >= 3)
+                    {
+                        node = new FeNode();
+                        node.Id = nodeId++;
+                        node.X = double.Parse(tmp[0]);
+                        node.Y = double.Parse(tmp[1]);
+                        node.Z = double.Parse(tmp[2]);
+                        possibleNodeId = int.Parse(tmp[3]);
+                        // If the node id is not equal to 0 check if the node exists by coordinates
+                        if (existingNodes != null && possibleNodeId != 0)
+                            node.Id = GetExistingNodeId(node, possibleNodeId, existingNodes, epsilon);
+                        nodes.Add(node.Id, node);
+                        //
+                        oldNodeIdNewNodeId.Add(j + 1, node.Id);
+                    }
+                }
+            }
+        }
+        private static void ReadEdges(string[] lines, ref int currentLine, ref int elementId,
+                                      Dictionary<int, int> oldNodeIdNewNodeId,
+                                      ref Dictionary<int, FeElement> elements,
+                                      out Dictionary<int, Dictionary<int, bool>> edgeIdNodeIdCount,
+                                      out Dictionary<int, HashSet<int>> edgeIdElementIds)
+        {
+            int numOfEdges;
+            int edgeId;
+            string[] tmp;
+            LinearBeamElement beam;
+            Dictionary<int, bool> nodeIdCount;
+            HashSet<int> edgeElementIds;
+            //
+            edgeIdNodeIdCount = new Dictionary<int, Dictionary<int, bool>>();
+            edgeIdElementIds = new Dictionary<int, HashSet<int>>();
+            currentLine++;
+            //
+            if (currentLine < lines.Length)
+            {
+                numOfEdges = int.Parse(lines[currentLine]);
+                currentLine++;
+                for (int j = 0; j < numOfEdges && currentLine + j < lines.Length; j++)
+                {
+                    tmp = lines[currentLine + j].Split(_spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+                    if (tmp.Length >= 3)
+                    {
+                        edgeId = int.Parse(tmp[2]);
+                        //
+                        if (edgeId > 0)
+                        {
+                            edgeId--;
+                            //
+                            if (!edgeIdNodeIdCount.TryGetValue(edgeId, out nodeIdCount))
+                            {
+                                nodeIdCount = new Dictionary<int, bool>();
+                                edgeIdNodeIdCount.Add(edgeId, nodeIdCount);
+                            }
+                            //
+                            beam = new LinearBeamElement(elementId++, new int[2]);
+                            beam.NodeIds[0] = oldNodeIdNewNodeId[int.Parse(tmp[0])];
+                            beam.NodeIds[1] = oldNodeIdNewNodeId[int.Parse(tmp[1])];
+                            // If node already on the edge remove it
+                            if (!nodeIdCount.Remove(beam.NodeIds[0])) nodeIdCount.Add(beam.NodeIds[0], true);
+                            if (!nodeIdCount.Remove(beam.NodeIds[1])) nodeIdCount.Add(beam.NodeIds[1], true);
+                            //
+                            elements.Add(beam.Id, beam);
+                            //
+                            if (edgeIdElementIds.TryGetValue(edgeId, out edgeElementIds))
+                                edgeElementIds.Add(beam.Id);
+                            else
+                                edgeIdElementIds.Add(edgeId, new HashSet<int> { beam.Id });
+                        }
+                        //else if (System.Diagnostics.Debugger.IsAttached) throw new NotSupportedException();
+                    }
+                    else if (System.Diagnostics.Debugger.IsAttached) throw new NotSupportedException();
+                }
+            }
+        }
+        private static void ReadTriangles(string[] lines, ref int currentLine, ref int elementId,
+                                          Dictionary<int, int> oldNodeIdNewNodeId,
+                                          ref Dictionary<int, FeElement> elements,
+                                          out Dictionary<int, HashSet<int>> surfaceIdElementIds)
+        {
+            int numOfElements;
+            int surfaceId;
+            string[] tmp;
+            HashSet<int> surfaceElementIds;
+            LinearTriangleElement triangle;
+            //
+            surfaceIdElementIds = new Dictionary<int, HashSet<int>>();
+            currentLine++;
+            //
+            if (currentLine < lines.Length)
+            {
+                numOfElements = int.Parse(lines[currentLine]);
+                currentLine++;
+                for (int j = 0; j < numOfElements && currentLine + j < lines.Length; j++)
+                {
+                    tmp = lines[currentLine + j].Split(_spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+                    if (tmp.Length >= 4)
+                    {
+                        triangle = new LinearTriangleElement(elementId++, new int[3]);
+                        triangle.NodeIds[0] = oldNodeIdNewNodeId[int.Parse(tmp[0])];
+                        triangle.NodeIds[1] = oldNodeIdNewNodeId[int.Parse(tmp[1])];
+                        triangle.NodeIds[2] = oldNodeIdNewNodeId[int.Parse(tmp[2])];
+                        surfaceId = int.Parse(tmp[3]) - 1;
+                        //
+                        elements.Add(triangle.Id, triangle);
+                        //
+                        if (surfaceIdElementIds.TryGetValue(surfaceId, out surfaceElementIds))
+                            surfaceElementIds.Add(triangle.Id);
+                        else
+                            surfaceIdElementIds.Add(surfaceId, new HashSet<int> { triangle.Id });
+                    }
+                }
+            }
+        }
+        private static void ReadTetrahedrons(string[] lines, ref int currentLine, ref int elementId,
+                                             Dictionary<int, int> oldNodeIdNewNodeId,
+                                             ref Dictionary<int, FeElement> elements,
+                                             out Dictionary<int, HashSet<int>> partIdElementIds)
+        {
+            int numOfElements;
+            int partId;
+            string[] tmp;
+            HashSet<int> surfaceElementIds;
+            LinearTetraElement tetra;
+            //
+            partIdElementIds = new Dictionary<int, HashSet<int>>();
+            currentLine++;
+            //
+            if (currentLine < lines.Length)
+            {
+                numOfElements = int.Parse(lines[currentLine]);
+                currentLine++;
+                for (int j = 0; j < numOfElements && currentLine + j < lines.Length; j++)
+                {
+                    tmp = lines[currentLine + j].Split(_spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+                    if (tmp.Length >= 5)
+                    {
+                        tetra = new LinearTetraElement(elementId++, new int[4]);
+                        tetra.NodeIds[0] = oldNodeIdNewNodeId[int.Parse(tmp[0])];
+                        tetra.NodeIds[1] = oldNodeIdNewNodeId[int.Parse(tmp[1])];
+                        tetra.NodeIds[2] = oldNodeIdNewNodeId[int.Parse(tmp[2])];
+                        tetra.NodeIds[3] = oldNodeIdNewNodeId[int.Parse(tmp[3])];
+                        partId = int.Parse(tmp[4]);
+                        //
+                        elements.Add(tetra.Id, tetra);
+                        //
+                        if (partIdElementIds.TryGetValue(partId, out surfaceElementIds))
+                            surfaceElementIds.Add(tetra.Id);
+                        else
+                            partIdElementIds.Add(partId, new HashSet<int> { tetra.Id });
+                    }
+                }
+            }
+        }
+
+
+
+
         private static int GetExistingNodeId(FeNode node, int possibleId, Dictionary<int, FeNode> existingNodes, double epsilon)
         {
             FeNode node2;
