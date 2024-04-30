@@ -91,6 +91,9 @@
     <ApplicationIcon>main.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="FastColoredTextBox, Version=2.16.24.0, Culture=neutral, PublicKeyToken=fb8aa12b994ef61b, processorArchitecture=MSIL">
+      <HintPath>..\packages\FCTB.2.16.24\lib\FastColoredTextBox.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Design" />
@@ -165,6 +168,7 @@
     <Compile Include="Command\0050_Model\16_ReferencePoint\CRemoveReferencePoints.cs" />
     <Compile Include="Command\0050_Model\16_ReferencePoint\CReplaceReferencePoint.cs" />
     <Compile Include="Command\0050_Model\16_ReferencePoint\CShowReferencePoints.cs" />
+    <Compile Include="Command\0050_Model\CSplitPartMeshUsingSurface.cs" />
     <Compile Include="Command\0050_Model\CThickenShellMesh.cs" />
     <Compile Include="Command\0050_Model\CUpdateNodalCoordinatesFromFile.cs" />
     <Compile Include="Command\0050_Model\CRemeshElements.cs" />
@@ -299,10 +303,15 @@
     <Compile Include="Forms\11_MeshSetup\ViewGmshSetupItem.cs" />
     <Compile Include="Forms\11_MeshSetup\ViewExtrudeMesh.cs" />
     <Compile Include="Forms\11_MeshSetup\ViewMeshSetupItem.cs" />
+    <Compile Include="Forms\21_FEModel\KeywordAtNode.cs" />
+    <Compile Include="Forms\21_FEModel\FrmSplitPartMeshUsingSurface.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Forms\21_FEModel\FrmThickenShellMesh.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Forms\11_MeshSetup\ViewThickenShellMesh.cs" />
+    <Compile Include="Forms\21_FEModel\ViewSplitPartMeshData.cs" />
     <Compile Include="Forms\31_Material\ViewSlipWear.cs" />
     <Compile Include="Forms\32_Section\ViewPointMassSection.cs" />
     <Compile Include="Forms\32_Section\ViewMembraneSection.cs" />
@@ -705,6 +714,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\11_MeshSetup\FrmMeshSetupItem.resx">
       <DependentUpon>FrmMeshSetupItem.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\21_FEModel\FrmSplitPartMeshUsingSurface.resx">
+      <DependentUpon>FrmSplitPartMeshUsingSurface.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\21_FEModel\FrmThickenShellMesh.resx">
       <DependentUpon>FrmThickenShellMesh.cs</DependentUpon>

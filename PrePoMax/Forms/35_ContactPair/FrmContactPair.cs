@@ -208,11 +208,11 @@ namespace PrePoMax.Forms
                 if (ContactPair == null) { }
                 else if (ContactPair is ContactPair cp)
                 {
-                    if (property == nameof(ViewTie.MasterRegionType))
+                    if (property == nameof(ViewContactPair.MasterRegionType))
                     {
                         HighlightRegion(cp.MasterRegionType, cp.MasterRegionName, cp.MasterCreationData, true, false);      // master
                     }
-                    else if (property == nameof(ViewTie.SlaveRegionType))
+                    else if (property == nameof(ViewContactPair.SlaveRegionType))
                     {
                         HighlightRegion(cp.SlaveRegionType, cp.SlaveRegionName, cp.SlaveCreationData, true, true);          // slave
                     }
@@ -253,9 +253,9 @@ namespace PrePoMax.Forms
             //
             if (ContactPair != null && ContactPair is ContactPair cp)
             {
-                if (property == nameof(ViewTie.MasterRegionType) && cp.MasterRegionType == RegionTypeEnum.Selection)
+                if (property == nameof(ViewContactPair.MasterRegionType) && cp.MasterRegionType == RegionTypeEnum.Selection)
                     ItemSetDataEditor.SelectionForm.ShowIfHidden(this.Owner);
-                else if (property == nameof(ViewTie.SlaveRegionType) && cp.SlaveRegionType == RegionTypeEnum.Selection)
+                else if (property == nameof(ViewContactPair.SlaveRegionType) && cp.SlaveRegionType == RegionTypeEnum.Selection)
                     ItemSetDataEditor.SelectionForm.ShowIfHidden(this.Owner);
                 else ItemSetDataEditor.SelectionForm.Hide();
             }
@@ -272,8 +272,8 @@ namespace PrePoMax.Forms
             if (ContactPair == null) { }
             else if (ContactPair is ContactPair cp)
             {
-                if ((cp.MasterRegionType == RegionTypeEnum.Selection && property == nameof(ViewTie.MasterRegionType)) ||
-                    (cp.SlaveRegionType == RegionTypeEnum.Selection && property == nameof(ViewTie.SlaveRegionType)))
+                if ((cp.MasterRegionType == RegionTypeEnum.Selection && property == nameof(ViewContactPair.MasterRegionType)) ||
+                    (cp.SlaveRegionType == RegionTypeEnum.Selection && property == nameof(ViewContactPair.SlaveRegionType)))
                     _controller.SetSelectItemToSurface();
                 else
                     _controller.SetSelectByToOff();
@@ -298,13 +298,13 @@ namespace PrePoMax.Forms
             bool changed = false;
             if (ContactPair != null && ContactPair is ContactPair cp)
             {
-                if (property == nameof(ViewTie.MasterRegionType) && cp.MasterRegionType == RegionTypeEnum.Selection)
+                if (property == nameof(ViewContactPair.MasterRegionType) && cp.MasterRegionType == RegionTypeEnum.Selection)
                 {
                     cp.MasterCreationIds = ids;
                     cp.MasterCreationData = _controller.Selection.DeepClone();
                     changed = true;
                 }
-                else if (property == nameof(ViewTie.SlaveRegionType) && cp.SlaveRegionType == RegionTypeEnum.Selection)
+                else if (property == nameof(ViewContactPair.SlaveRegionType) && cp.SlaveRegionType == RegionTypeEnum.Selection)
                 {
                     cp.SlaveCreationIds = ids;
                     cp.SlaveCreationData = _controller.Selection.DeepClone();
@@ -338,12 +338,12 @@ namespace PrePoMax.Forms
             {
                 if (ContactPair is ContactPair cp)
                 {
-                    if (property == nameof(ViewTie.MasterRegionType) && cp.MasterRegionType == RegionTypeEnum.Selection)
+                    if (property == nameof(ViewContactPair.MasterRegionType) && cp.MasterRegionType == RegionTypeEnum.Selection)
                     {
                         if (cp.MasterCreationData != null) return cp.MasterCreationData.IsGeometryBased();
                         else return true;
                     }
-                    else if (property == nameof(ViewTie.SlaveRegionType) && cp.SlaveRegionType == RegionTypeEnum.Selection)
+                    else if (property == nameof(ViewContactPair.SlaveRegionType) && cp.SlaveRegionType == RegionTypeEnum.Selection)
                     {
                         if (cp.SlaveCreationData != null) return cp.SlaveCreationData.IsGeometryBased();
                         else return true;

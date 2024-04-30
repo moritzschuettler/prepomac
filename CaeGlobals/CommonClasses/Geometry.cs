@@ -61,21 +61,33 @@ namespace CaeGlobals
                 //
                 return (c1 - c2).Len;
             }
-            // Parellel or coincident lines
+            // Parallel or coincident lines on the same plane
             else
             {
-                double dist = Vec3D.CrossProduct(p1 - p2, p1 - (p2 + d2)).Len / d2.Len;
-                // Coincident lines - two poit to segment possibilities
-                if (dist == 0)
-                {
-                    return Math.Min(Math.Min((p1 - p2).Len, (p1 - (p2 + d2)).Len),
-                                    Math.Min(((p1 + d1) - p2).Len, ((p1 + d1) - (p2 + d2)).Len));
-                }
-                // Parellel lines
-                else
-                {
-                    return dist;
-                }
+                double dist;
+                dist = PointToSegmentDistance(a1, b1, b2);
+                dist = Math.Min(dist, PointToSegmentDistance(a2, b1, b2));
+                dist = Math.Min(dist, PointToSegmentDistance(b1, a1, a2));
+                dist = Math.Min(dist, PointToSegmentDistance(b2, a1, a2));
+
+                return dist;
+
+                //double paralelogramArea = Vec3D.CrossProduct(p1 - p2, p1 - (p2 + d2)).Len;
+                //double paralelogramHeight = paralelogramArea / d2.Len;
+                //if (paralelogramHeight < d2.Len * 1E-6)
+                //    paralelogramHeight = 0;
+
+                //// Coincident lines - two poit to segment possibilities
+                //if (paralelogramHeight == 0)
+                //{
+                //    return Math.Min(Math.Min((p1 - p2).Len, (p1 - (p2 + d2)).Len),
+                //                    Math.Min(((p1 + d1) - p2).Len, ((p1 + d1) - (p2 + d2)).Len));
+                //}
+                //// Parallel lines
+                //else
+                //{
+                //    return paralelogramHeight;
+                //}
             }
         }
         public static double PointToTriangleDistance(double[] point, double[][] triangle)

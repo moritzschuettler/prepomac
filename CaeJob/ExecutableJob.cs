@@ -132,16 +132,17 @@ namespace CaeJob
             _updateWatch.Start();
             //
             Run();
+            //
             RunCompleted();
         }
-        void bwStart_DoWork(object sender, DoWorkEventArgs e)
-        {
-            Run();
-        }
-        void bwStart_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
-        {
-            RunCompleted();
-        }
+        //void bwStart_DoWork(object sender, DoWorkEventArgs e)
+        //{
+        //    Run();
+        //}
+        //void bwStart_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        //{
+        //    RunCompleted();
+        //}
         private void Run()
         {
             if (!File.Exists(_executable)) throw new Exception("The file '" + _executable + "' does not exist.");
@@ -228,6 +229,37 @@ namespace CaeJob
                 }
                 _exe.Close();
             }
+        }
+        private void RunCompatible()
+        {
+            ProcessStartInfo psi = new ProcessStartInfo();
+            psi.FileName = _executable;
+            psi.Arguments = _argument;
+            psi.WorkingDirectory = _workDirectory;
+            psi.UseShellExecute = false;
+            //
+            //SetEnvironmentVariables(psi);
+            //
+            _exe = new Process();
+            _exe.StartInfo = psi;
+            _exe.Start();
+            //
+            int ms = 1000 * 3600 * 24 * 7 * 3; // 3 weeks
+            if (_exe.WaitForExit(ms))
+            {
+                // Process completed. Check process.ExitCode here.
+
+                // after Kill() _jobStatus is Killed
+                _jobStatus = JobStatus.OK;
+            }
+            else
+            {
+                // Timed out.
+                Kill("Time out.");
+                //Debug.WriteLine(DateTime.Now + "   Timeout proces: " + Name + " in: " + _workDirectory);
+                _jobStatus = JobStatus.TimedOut;
+            }
+            _exe.Close();
         }
         private void _exe_ErrorDataReceived(object sender, DataReceivedEventArgs e)
         {
@@ -344,8 +376,11 @@ namespace CaeJob
                 lock (_myLock)
                 {
                     //if (Tools.WaitForFileToUnlock(_outputFileName, 5000))
-                    File.AppendAllText(_outputFileName, OutputData);
-                    _sbOutput.Clear();
+                    if (_outputFileName != null)
+                    {
+                        File.AppendAllText(_outputFileName, OutputData);
+                        _sbOutput.Clear();
+                    }
                 }
             }
             catch { }

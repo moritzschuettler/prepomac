@@ -198,9 +198,8 @@ namespace CaeGlobals
             }
             set
             {
+                if (!_dictionary.ContainsKey(key)) _list.Add(key);
                 _dictionary[key] = value;
-                if (!_list.Contains(key))
-                    _list.Add(key);
             }
         }
 
@@ -263,7 +262,7 @@ namespace CaeGlobals
         /// 
         public void Add(TKey key, TValue value)
         {
-            if (_dictionary.ContainsKey(key) || _list.Contains(key))
+            if (_dictionary.ContainsKey(key))// || _list.Contains(key))
             {
                 string name = _name;
                 if (name != null && name.Length > 0) name += " ";
@@ -272,7 +271,6 @@ namespace CaeGlobals
             //
             _dictionary.Add(key, value);
             _list.Add(key);
-
         }
 
         /// <summary>
@@ -297,7 +295,7 @@ namespace CaeGlobals
         {
             if (index < 0 || index >= _list.Count) throw new IndexOutOfRangeException();
             //
-            if (_dictionary.ContainsKey(key) || _list.Contains(key))
+            if (_dictionary.ContainsKey(key)) // || _list.Contains(key))
             {
                 string name = _name;
                 if (name != null && name.Length > 0) name += " ";

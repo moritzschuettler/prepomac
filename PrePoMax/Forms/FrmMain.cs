@@ -24,6 +24,7 @@ using System.Timers;
 using PrePoMax.Properties;
 using System.Runtime;
 using System.Runtime.InteropServices.ComTypes;
+using System.Runtime.Remoting.Metadata.W3cXsd2001;
 
 namespace PrePoMax
 {
@@ -56,8 +57,9 @@ namespace PrePoMax
         private FrmCalculixKeywordEditor _frmCalculixKeywordEditor;
         private FrmPartProperties _frmPartProperties;
         private FrmBoundaryLayer _frmBoundaryLayer;
-        private FrmThickenShellMesh _frmThickenShellMesh;
         private FrmRemeshingParameters _frmRemeshingParameters;
+        private FrmThickenShellMesh _frmThickenShellMesh;
+        private FrmSplitPartMeshUsingSurface _frmSplitPartMeshUsingSurface;
         private FrmTranslate _frmTranslate;
         private FrmScale _frmScale;
         private FrmRotate _frmRotate;
@@ -339,11 +341,16 @@ namespace PrePoMax
                 _frmBoundaryLayer = new FrmBoundaryLayer(_controller);
                 AddFormToAllForms(_frmBoundaryLayer);
                 //
+                _frmRemeshingParameters = new FrmRemeshingParameters(_controller);
+                AddFormToAllForms(_frmRemeshingParameters);
+                //
                 _frmThickenShellMesh = new FrmThickenShellMesh(_controller);
                 AddFormToAllForms(_frmThickenShellMesh);
                 //
-                _frmRemeshingParameters = new FrmRemeshingParameters(_controller);
-                AddFormToAllForms(_frmRemeshingParameters);
+                //
+                _frmSplitPartMeshUsingSurface = new FrmSplitPartMeshUsingSurface(_controller);
+                _frmSplitPartMeshUsingSurface.SplitPartMeshUsingSurface += SplitPartMeshUsingSurface;
+                AddFormToAllForms(_frmSplitPartMeshUsingSurface);
                 //
                 _frmTranslate = new FrmTranslate(_controller);
                 AddFormToAllForms(_frmTranslate);
@@ -2564,7 +2571,6 @@ namespace PrePoMax
         #endregion
 
         #region Geometry ###########################################################################################################
-        // Part
         internal void tsmiEditGeometryPart_Click(object sender, EventArgs e)
         {
             try
@@ -2576,7 +2582,7 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        // Sub menu Transform
+        // Transform
         private void tsmiScaleGeometryParts_Click(object sender, EventArgs e)
         {
             try
@@ -2657,168 +2663,7 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        // End Part
-        // CAD Part
-        private async void tsmiFlipFaceNormalCAD_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                // Must be outside the await part otherwise causes screen flickering
-                AnnotateWithColorEnum _prevShowWithColor = _controller.AnnotateWithColor;
-                _controller.AnnotateWithColor = AnnotateWithColorEnum.FaceOrientation;
-                //
-                await Task.Run(() =>
-                {
-                    _frmSelectGeometry.HideFormOnOK = false;
-                    _frmSelectGeometry.SelectionFilter = SelectGeometryEnum.Surface;
-                    _frmSelectGeometry.OnOKCallback = FlipFaces;
-                    //
-                    InvokeIfRequired(() => { ShowForm(_frmSelectGeometry, "Select faces to flip", null); });
-                    while (_frmSelectGeometry.Visible) System.Threading.Thread.Sleep(100);
-                });
-                //
-                _controller.AnnotateWithColor = _prevShowWithColor;
-            }
-            catch (Exception ex)
-            {
-                ExceptionTools.Show(this, ex);
-            }
-            finally
-            {
-                SetStateReady(Globals.FlippingNormalsText);
-            }
-        }
-        private async void tsmiSplitAFaceUsingTwoPoints_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                await Task.Run(() =>
-                {
-                    GeometrySelection surfaceSelection;
-                    GeometrySelection verticesSelection;
-                    while (true)
-                    {
-                        // Get a surface to split
-                        _frmSelectGeometry.MaxNumberOfSelectedItems = 1;
-                        _frmSelectGeometry.SelectionFilter = SelectGeometryEnum.Surface;
-                        //
-                        InvokeIfRequired(() => { ShowForm(_frmSelectGeometry, "Select a face to split", null); });
-                        while (_frmSelectGeometry.Visible) System.Threading.Thread.Sleep(100);
-                        //
-                        if (_frmSelectGeometry.DialogResult == DialogResult.OK)
-                        {
-                            surfaceSelection = _frmSelectGeometry.GeometrySelection.DeepClone();
-                            // Get two vertices to split the surface
-                            _frmSelectGeometry.MaxNumberOfSelectedItems = 2;
-                            _frmSelectGeometry.SelectionFilter = SelectGeometryEnum.Vertex;
-                            //
-                            InvokeIfRequired(() => { ShowForm(_frmSelectGeometry, "Select splitting vertices", null); });
-                            while (_frmSelectGeometry.Visible) System.Threading.Thread.Sleep(100);
-                            //
-                            if (_frmSelectGeometry.DialogResult == DialogResult.OK)
-                            {
-                                verticesSelection = _frmSelectGeometry.GeometrySelection.DeepClone();
-                                //
-                                SetStateWorking(Globals.SplittingFacesText);
-                                _controller.SplitAFaceUsingTwoPointsCommand(surfaceSelection, verticesSelection);
-                                SetStateReady(Globals.SplittingFacesText);
-                            }
-                            else break;
-                        }
-                        else break;
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                ExceptionTools.Show(this, ex);
-            }
-            finally
-            {
-                SetStateReady(Globals.SplittingFacesText);
-            }
-        }
-        // End CAD Part
-        // Stl Part
-        private void tsmiFindStlEdgesByAngleForGeometryParts_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                SelectMultipleEntities("Parts", _controller.GetNonCADGeometryParts(), FindEdgesByAngleForGeometryParts);
-            }
-            catch (Exception ex)
-            {
-                ExceptionTools.Show(this, ex);
-            }
-        }
-        private void tsmiFlipStlPartFaceNormals_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                SelectMultipleEntities("Parts", _controller.GetNonCADGeometryParts(), FlipStlPartSurfacesNormal);
-            }
-            catch (Exception ex)
-            {
-                ExceptionTools.Show(this, ex);
-            }
-        }
-        private void tsmiSmoothStlPart_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                SelectOneEntity("Parts", _controller.GetNonCADGeometryParts(), _controller.SmoothGeometryPart);
-            }
-            catch (Exception ex)
-            {
-                ExceptionTools.Show(this, ex);
-            }
-        }
-        private async void tsmiDeleteStlPartFaces_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                await Task.Run(() =>
-                {
-                    _frmSelectGeometry.HideFormOnOK = false;
-                    _frmSelectGeometry.SelectionFilter = SelectGeometryEnum.Surface;
-                    _frmSelectGeometry.OnOKCallback = DeleteStlPartFaces;
-                    //
-                    InvokeIfRequired(() => { ShowForm(_frmSelectGeometry, "Select faces to delete", null); });
-                    while (_frmSelectGeometry.Visible) Thread.Sleep(100);
-                });
-            }
-            catch (Exception ex)
-            {
-                ExceptionTools.Show(this, ex);
-            }
-            finally
-            {
-                SetStateReady(Globals.FlippingNormalsText);
-            }
-        }
-        private void tsmiCropStlPartWithCylinder_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                SelectOneEntity("Parts", _controller.GetGeometryParts(), _controller.CropGeometryPartWithCylinder);
-            }
-            catch (Exception ex)
-            {
-                ExceptionTools.Show(this, ex);
-            }
-        }
-        private void tsmiCropStlPartWithCube_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                SelectOneEntity("Parts", _controller.GetGeometryParts(), _controller.CropGeometryPartWithCube);
-            }
-            catch (Exception ex)
-            {
-                ExceptionTools.Show(this, ex);
-            }
-        }
-        // End Stl Part
+        //
         private void tsmiCreateAndImportCompoundPart_Click(object sender, EventArgs e)
         {
             try
@@ -2867,13 +2712,12 @@ namespace PrePoMax
 
         }
         //                                                                                                                          
-        // Part
         private void EditGeometryPart(string partName)
         {
             _frmPartProperties.View = ViewGeometryModelResults.Geometry;
             ShowForm(_frmPartProperties, "Edit Part", partName);
         }
-        // Sub menu Transform
+        // Transform
         private void ScaleGeometryParts(string[] partNames)
         {
             SinglePointDataEditor.ParentForm = _frmScale;
@@ -2983,53 +2827,7 @@ namespace PrePoMax
             else MessageBoxes.ShowError("Selected parts belong to a compound part and cannot be deleted:" + Environment.NewLine +
                                         partNames.ToRows());
         }
-        // End Part
-        // CAD Part
-        private void FlipFaces(GeometrySelection geometrySelection)
-        {
-            SetStateWorking(Globals.FlippingNormalsText);
-            _controller.FlipFaceOrientationsCommand(geometrySelection);
-            SetStateReady(Globals.FlippingNormalsText);
-        }
-        // End CAD Part
-        // Stl Part
-        private void FlipStlPartSurfacesNormal(string[] partNames)
-        {
-            _controller.FlipStlPartSurfacesNormalCommand(partNames);
-        }
-        private void FindEdgesByAngleForGeometryParts(string[] partNames)
-        {
-            using (FrmGetValue frmGetValue = new FrmGetValue())
-            {
-                SetUpFrmGetValueForEdgeAngle(frmGetValue, partNames);
-                //
-                if (frmGetValue.ShowDialog() == DialogResult.OK)
-                {
-                    _controller.FindEdgesByAngleForGeometryPartsCommand(partNames, frmGetValue.Value);
-                }
-                SaveFormLocation(frmGetValue);
-            }
-        }
-        private void SetUpFrmGetValueForEdgeAngle(FrmGetValue frmGetValue, string[] partNames)
-        {
-            frmGetValue.NumOfDigits = 2;
-            frmGetValue.MinValue = 0;
-            frmGetValue.MaxValue = 90;
-            SetFormLocation(frmGetValue);
-            OrderedDictionary<string, double> presetValues =
-                new OrderedDictionary<string, double>("Preset Transparency Values", StringComparer.OrdinalIgnoreCase);
-            presetValues.Add("Default", CaeMesh.Globals.EdgeAngle);
-            string desc = "Enter the face angle for model edges detection.";
-            frmGetValue.PrepareForm("Find model edges: " + partNames.ToShortString(), "Angle", desc,
-                                    CaeMesh.Globals.EdgeAngle, presetValues, new StringAngleDegConverter());
-        }
-        private void DeleteStlPartFaces(GeometrySelection geometrySelection)
-        {
-            SetStateWorking(Globals.FlippingNormalsText);
-            _controller.DeleteStlPartFacesCommand(geometrySelection);
-            SetStateReady(Globals.FlippingNormalsText);
-        }
-        // End Stl Part
+        //
         private async void CreateAndImportCompoundPart(string[] partNames)
         {
             try
@@ -3130,6 +2928,215 @@ namespace PrePoMax
         }
 
         #endregion  ################################################################################################################
+
+        #region Geometry CAD part menu   ###########################################################################################
+        private async void tsmiFlipFaceNormalCAD_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                // Must be outside the await part otherwise causes screen flickering
+                AnnotateWithColorEnum _prevShowWithColor = _controller.AnnotateWithColor;
+                _controller.AnnotateWithColor = AnnotateWithColorEnum.FaceOrientation;
+                //
+                await Task.Run(() =>
+                {
+                    _frmSelectGeometry.HideFormOnOK = false;
+                    _frmSelectGeometry.SelectionFilter = SelectGeometryEnum.Surface;
+                    _frmSelectGeometry.OnOKCallback = FlipFaces;
+                    //
+                    InvokeIfRequired(() => { ShowForm(_frmSelectGeometry, "Select faces to flip", null); });
+                    while (_frmSelectGeometry.Visible) System.Threading.Thread.Sleep(100);
+                });
+                //
+                _controller.AnnotateWithColor = _prevShowWithColor;
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+            finally
+            {
+                SetStateReady(Globals.FlippingNormalsText);
+            }
+        }
+        private async void tsmiSplitAFaceUsingTwoPoints_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                await Task.Run(() =>
+                {
+                    GeometrySelection surfaceSelection;
+                    GeometrySelection verticesSelection;
+                    while (true)
+                    {
+                        // Get a surface to split
+                        _frmSelectGeometry.MaxNumberOfSelectedItems = 1;
+                        _frmSelectGeometry.SelectionFilter = SelectGeometryEnum.Surface;
+                        //
+                        InvokeIfRequired(() => { ShowForm(_frmSelectGeometry, "Select a face to split", null); });
+                        while (_frmSelectGeometry.Visible) System.Threading.Thread.Sleep(100);
+                        //
+                        if (_frmSelectGeometry.DialogResult == DialogResult.OK)
+                        {
+                            surfaceSelection = _frmSelectGeometry.GeometrySelection.DeepClone();
+                            // Get two vertices to split the surface
+                            _frmSelectGeometry.MaxNumberOfSelectedItems = 2;
+                            _frmSelectGeometry.SelectionFilter = SelectGeometryEnum.Vertex;
+                            //
+                            InvokeIfRequired(() => { ShowForm(_frmSelectGeometry, "Select splitting vertices", null); });
+                            while (_frmSelectGeometry.Visible) System.Threading.Thread.Sleep(100);
+                            //
+                            if (_frmSelectGeometry.DialogResult == DialogResult.OK)
+                            {
+                                verticesSelection = _frmSelectGeometry.GeometrySelection.DeepClone();
+                                //
+                                SetStateWorking(Globals.SplittingFacesText);
+                                _controller.SplitAFaceUsingTwoPointsCommand(surfaceSelection, verticesSelection);
+                                SetStateReady(Globals.SplittingFacesText);
+                            }
+                            else break;
+                        }
+                        else break;
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+            finally
+            {
+                SetStateReady(Globals.SplittingFacesText);
+            }
+        }
+        //
+        private void FlipFaces(GeometrySelection geometrySelection)
+        {
+            SetStateWorking(Globals.FlippingNormalsText);
+            _controller.FlipFaceOrientationsCommand(geometrySelection);
+            SetStateReady(Globals.FlippingNormalsText);
+        }
+
+        #endregion #################################################################################################################
+
+        #region Geometry Stl part menu   ###########################################################################################
+        private void tsmiFindStlEdgesByAngleForGeometryParts_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Parts", _controller.GetNonCADGeometryParts(), FindEdgesByAngleForGeometryParts);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiFlipStlPartFaceNormals_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Parts", _controller.GetNonCADGeometryParts(), FlipStlPartSurfacesNormal);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiSmoothStlPart_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectOneEntity("Parts", _controller.GetNonCADGeometryParts(), _controller.SmoothGeometryPart);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private async void tsmiDeleteStlPartFaces_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                await Task.Run(() =>
+                {
+                    _frmSelectGeometry.HideFormOnOK = false;
+                    _frmSelectGeometry.SelectionFilter = SelectGeometryEnum.Surface;
+                    _frmSelectGeometry.OnOKCallback = DeleteStlPartFaces;
+                    //
+                    InvokeIfRequired(() => { ShowForm(_frmSelectGeometry, "Select faces to delete", null); });
+                    while (_frmSelectGeometry.Visible) Thread.Sleep(100);
+                });
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+            finally
+            {
+                SetStateReady(Globals.DeletingFacesText);
+            }
+        }
+        private void tsmiCropStlPartWithCylinder_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectOneEntity("Parts", _controller.GetGeometryParts(), _controller.CropGeometryPartWithCylinder);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiCropStlPartWithCube_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectOneEntity("Parts", _controller.GetGeometryParts(), _controller.CropGeometryPartWithCube);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        //
+        private void FlipStlPartSurfacesNormal(string[] partNames)
+        {
+            _controller.FlipStlPartSurfacesNormalCommand(partNames);
+        }
+        private void FindEdgesByAngleForGeometryParts(string[] partNames)
+        {
+            using (FrmGetValue frmGetValue = new FrmGetValue())
+            {
+                SetUpFrmGetValueForEdgeAngle(frmGetValue, partNames);
+                //
+                if (frmGetValue.ShowDialog() == DialogResult.OK)
+                {
+                    _controller.FindEdgesByAngleForGeometryPartsCommand(partNames, frmGetValue.Value);
+                }
+                SaveFormLocation(frmGetValue);
+            }
+        }
+        private void SetUpFrmGetValueForEdgeAngle(FrmGetValue frmGetValue, string[] partNames)
+        {
+            frmGetValue.NumOfDigits = 2;
+            frmGetValue.MinValue = 0;
+            frmGetValue.MaxValue = 90;
+            SetFormLocation(frmGetValue);
+            OrderedDictionary<string, double> presetValues =
+                new OrderedDictionary<string, double>("Preset Transparency Values", StringComparer.OrdinalIgnoreCase);
+            presetValues.Add("Default", CaeMesh.Globals.EdgeAngle);
+            string desc = "Enter the face angle for model edges detection.";
+            frmGetValue.PrepareForm("Find model edges: " + partNames.ToShortString(), "Angle", desc,
+                                    CaeMesh.Globals.EdgeAngle, presetValues, new StringAngleDegConverter());
+        }
+        private void DeleteStlPartFaces(GeometrySelection geometrySelection)
+        {
+            SetStateWorking(Globals.DeletingFacesText);
+            _controller.DeleteStlPartFacesCommand(geometrySelection);
+            SetStateReady(Globals.DeletingFacesText);
+        }
+        
+        #endregion #################################################################################################################
 
         #region Mesh ###############################################################################################################
         // Mesh setup item
@@ -3481,6 +3488,21 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
+        private void tsmiSplitPartMeshUsingSurface_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                // Data editor
+                ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
+                ItemSetDataEditor.ParentForm = _frmSplitPartMeshUsingSurface;
+                //_frmSplitPartMeshUsingSurface.SetOnlyGeometrySelection(true);
+                ShowForm(_frmSplitPartMeshUsingSurface, "Split Part Mesh Using Surface", null);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
         private async void tsmiUpdateNodalCoordinatesFromFile_Click(object sender, EventArgs e)
         {
             try
@@ -3515,7 +3537,8 @@ namespace PrePoMax
             {
                 if (CheckValidity())
                 {
-                    _frmCalculixKeywordEditor = new FrmCalculixKeywordEditor();
+                    if (_frmCalculixKeywordEditor == null) _frmCalculixKeywordEditor = new FrmCalculixKeywordEditor();
+                    //
                     _frmCalculixKeywordEditor.Keywords = _controller.GetCalculixModelKeywords();
                     _frmCalculixKeywordEditor.UserKeywords = _controller.GetCalculixUserKeywords();
                     //
@@ -3556,14 +3579,6 @@ namespace PrePoMax
             _frmSelectItemSet.SetOnlyGeometrySelection(true);
             ShowForm(_frmBoundaryLayer, "Create Boundary Layer", null);
         }
-        private void ThickenShellMesh()
-        {
-            // Data editor
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmThickenShellMesh;
-            _frmSelectItemSet.SetOnlyGeometrySelection(true);
-            ShowForm(_frmThickenShellMesh, "Thicken Shell Mesh", null);
-        }
         private void RemeshElements()
         {
             if (_controller.Model == null || _controller.Model.Mesh == null) return;
@@ -3572,6 +3587,49 @@ namespace PrePoMax
             ItemSetDataEditor.ParentForm = _frmRemeshingParameters;
             _frmSelectItemSet.SetOnlyGeometrySelection(false);
             ShowForm(_frmRemeshingParameters, "Remeshing Parameters", null);
+        }
+        private void ThickenShellMesh()
+        {
+            // Data editor
+            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
+            ItemSetDataEditor.ParentForm = _frmThickenShellMesh;
+            _frmSelectItemSet.SetOnlyGeometrySelection(true);
+            ShowForm(_frmThickenShellMesh, "Thicken Shell Mesh", null);
+        }
+        private async void SplitPartMeshUsingSurface(SplitPartMeshData splitPartMeshData)
+        {
+            try
+            {
+                if (!_controller.ModelInitialized || _controller.Model.Mesh == null) return;
+                //
+                SetStateWorking(Globals.MeshingText, true);
+                await Task.Run(() => _controller.SplitPartMeshUsingSurfaceCommand(splitPartMeshData));
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+            finally
+            {
+                SetStateReady(Globals.MeshingText);
+            }
+        }
+        public void ShowSplitMeshResults()
+        {
+            if (_controller.CurrentResult != null && _controller.CurrentResult.Mesh != null)
+            {
+                SetResultNames();
+                // Reset the previous step and increment
+                SetAllStepAndIncrementIds();
+                // Set last increment
+                SetDefaultStepAndIncrementIds();
+                // Show the selection in the results tree
+                SelectFirstComponentOfFirstFieldOutput();
+            }
+            // Set the representation which also calls Draw
+            _controller.ViewResultsType = ViewResultsTypeEnum.ColorContours;  // Draw
+            //
+            SetMenuAndToolStripVisibility();
         }
         private void UpdateNodalCoordinatesFromFile()
         {
@@ -6959,6 +7017,8 @@ namespace PrePoMax
             if (_frmBoundaryLayer != null && _frmBoundaryLayer.Visible) _frmBoundaryLayer.SelectionChanged(ids);
             if (_frmRemeshingParameters != null && _frmRemeshingParameters.Visible) _frmRemeshingParameters.SelectionChanged(ids);
             if (_frmThickenShellMesh != null && _frmThickenShellMesh.Visible) _frmThickenShellMesh.SelectionChanged(ids);
+            if (_frmSplitPartMeshUsingSurface != null && _frmSplitPartMeshUsingSurface.Visible)
+                _frmSplitPartMeshUsingSurface.SelectionChanged(ids);
             if (_frmNodeSet != null && _frmNodeSet.Visible) _frmNodeSet.SelectionChanged(ids);
             if (_frmElementSet != null && _frmElementSet.Visible) _frmElementSet.SelectionChanged(ids);
             if (_frmSurface != null && _frmSurface.Visible) _frmSurface.SelectionChanged(ids);
@@ -9003,7 +9063,7 @@ namespace PrePoMax
             string partName2 = "Solid_part-2";
             string fileName = @"C:\Temp\mmg\tmp.sol";
             //
-            _controller.ExportSignedDistance(fileName, partName2, partName1);
+            //_controller.ExportSignedDistance(fileName, partName2, partName1);
             //
             if (_controller.CurrentResult != null && _controller.CurrentResult.Mesh != null)
             {
@@ -9311,6 +9371,7 @@ namespace PrePoMax
             }
         }
 
-        
+       
     }
 }
+

@@ -248,6 +248,10 @@ namespace CaeMesh
             MinZ -= offset;
             MaxZ += offset;
         }
+        public void InflateByDiagonal(double offsetFactor)
+        {
+            Inflate(GetDiagonal() * offsetFactor);
+        }
         public void InflateIfThinn(double offsetFactor)
         {
             if (IsThinnInAnyDirection())

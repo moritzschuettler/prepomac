@@ -110,6 +110,7 @@
     <Compile Include="Geometry\GeomVertex.cs" />
     <Compile Include="Geometry\GeomSurface.cs" />
     <Compile Include="Geometry\GeometryItem.cs" />
+    <Compile Include="Meshing\Common\SplitPartMeshData.cs" />
     <Compile Include="Meshing\Common\ThickenShellMesh.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshOptimizeFirstOrderShellEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshOptimizeHighOrderEnum.cs" />

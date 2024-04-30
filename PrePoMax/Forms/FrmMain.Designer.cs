@@ -198,9 +198,9 @@ namespace PrePoMax
             this.tsmiFindStlEdgesByAngleForGeometryParts = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiFlipStlPartFaceNormal = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSmoothStlPart = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiDeleteStlPartFaces = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiCropStlPartWithCylinder = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiCropStlPartWithCube = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiDeleteStlPartFaces = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerGeometry1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiCreateAndImportCompoundPart = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiRegenerateCompoundPart = new System.Windows.Forms.ToolStripMenuItem();
@@ -224,6 +224,7 @@ namespace PrePoMax
             this.tsmiCreateBoundaryLayer = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiRemeshElements = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiThickenShellMesh = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiSplitPartMeshUsingSurface = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiUpdateNodalCoordinatesFromFile = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerModel1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiNode = new System.Windows.Forms.ToolStripMenuItem();
@@ -1957,6 +1958,13 @@ namespace PrePoMax
             this.tsmiSmoothStlPart.Text = "Smooth Part";
             this.tsmiSmoothStlPart.Click += new System.EventHandler(this.tsmiSmoothStlPart_Click);
             // 
+            // tsmiDeleteStlPartFaces
+            // 
+            this.tsmiDeleteStlPartFaces.Name = "tsmiDeleteStlPartFaces";
+            this.tsmiDeleteStlPartFaces.Size = new System.Drawing.Size(218, 22);
+            this.tsmiDeleteStlPartFaces.Text = "Delete Part Faces";
+            this.tsmiDeleteStlPartFaces.Click += new System.EventHandler(this.tsmiDeleteStlPartFaces_Click);
+            // 
             // tsmiCropStlPartWithCylinder
             // 
             this.tsmiCropStlPartWithCylinder.Name = "tsmiCropStlPartWithCylinder";
@@ -1970,13 +1978,6 @@ namespace PrePoMax
             this.tsmiCropStlPartWithCube.Size = new System.Drawing.Size(218, 22);
             this.tsmiCropStlPartWithCube.Text = "Crop With Cube";
             this.tsmiCropStlPartWithCube.Click += new System.EventHandler(this.tsmiCropStlPartWithCube_Click);
-            // 
-            // tsmiDeleteStlPartFaces
-            // 
-            this.tsmiDeleteStlPartFaces.Name = "tsmiDeleteStlPartFaces";
-            this.tsmiDeleteStlPartFaces.Size = new System.Drawing.Size(218, 22);
-            this.tsmiDeleteStlPartFaces.Text = "Delete Part Faces";
-            this.tsmiDeleteStlPartFaces.Click += new System.EventHandler(this.tsmiDeleteStlPartFaces_Click);
             // 
             // tsmiDividerGeometry1
             // 
@@ -2037,7 +2038,7 @@ namespace PrePoMax
             this.tsmiDeleteMeshSetupItem});
             this.tsmiMeshSetupItem.Image = global::PrePoMax.Properties.Resources.Mesh_refinement;
             this.tsmiMeshSetupItem.Name = "tsmiMeshSetupItem";
-            this.tsmiMeshSetupItem.Size = new System.Drawing.Size(176, 22);
+            this.tsmiMeshSetupItem.Size = new System.Drawing.Size(180, 22);
             this.tsmiMeshSetupItem.Text = "Mesh Setup Item";
             // 
             // tsmiCreateMeshSetupItem
@@ -2076,7 +2077,7 @@ namespace PrePoMax
             // tsmiPreviewEdgeMesh
             // 
             this.tsmiPreviewEdgeMesh.Name = "tsmiPreviewEdgeMesh";
-            this.tsmiPreviewEdgeMesh.Size = new System.Drawing.Size(176, 22);
+            this.tsmiPreviewEdgeMesh.Size = new System.Drawing.Size(180, 22);
             this.tsmiPreviewEdgeMesh.Text = "Preview Edge Mesh";
             this.tsmiPreviewEdgeMesh.Click += new System.EventHandler(this.tsmiPreviewEdgeMesh_Click);
             // 
@@ -2084,7 +2085,7 @@ namespace PrePoMax
             // 
             this.tsmiCreateMesh.Image = global::PrePoMax.Properties.Resources.Part;
             this.tsmiCreateMesh.Name = "tsmiCreateMesh";
-            this.tsmiCreateMesh.Size = new System.Drawing.Size(176, 22);
+            this.tsmiCreateMesh.Size = new System.Drawing.Size(180, 22);
             this.tsmiCreateMesh.Text = "Create Mesh";
             this.tsmiCreateMesh.Click += new System.EventHandler(this.tsmiCreateMesh_Click);
             // 
@@ -2127,6 +2128,7 @@ namespace PrePoMax
             this.tsmiCreateBoundaryLayer,
             this.tsmiRemeshElements,
             this.tsmiThickenShellMesh,
+            this.tsmiSplitPartMeshUsingSurface,
             this.tsmiUpdateNodalCoordinatesFromFile});
             this.tsmiToolsParts.Name = "tsmiToolsParts";
             this.tsmiToolsParts.Size = new System.Drawing.Size(194, 22);
@@ -2159,6 +2161,13 @@ namespace PrePoMax
             this.tsmiThickenShellMesh.Size = new System.Drawing.Size(266, 22);
             this.tsmiThickenShellMesh.Text = "Thicken Shell Mesh";
             this.tsmiThickenShellMesh.Click += new System.EventHandler(this.tsmiThickenShellMesh_Click);
+            // 
+            // tsmiSplitPartMeshUsingSurface
+            // 
+            this.tsmiSplitPartMeshUsingSurface.Name = "tsmiSplitPartMeshUsingSurface";
+            this.tsmiSplitPartMeshUsingSurface.Size = new System.Drawing.Size(266, 22);
+            this.tsmiSplitPartMeshUsingSurface.Text = "Split Part Mesh Using Surface";
+            this.tsmiSplitPartMeshUsingSurface.Click += new System.EventHandler(this.tsmiSplitPartMeshUsingSurface_Click);
             // 
             // tsmiUpdateNodalCoordinatesFromFile
             // 
@@ -4507,6 +4516,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiThickenShellMesh;
         private System.Windows.Forms.ToolStripMenuItem tsmiEditHistory;
         private System.Windows.Forms.ToolStripMenuItem tsmiDeleteStlPartFaces;
+        private System.Windows.Forms.ToolStripMenuItem tsmiSplitPartMeshUsingSurface;
     }
 }
 

@@ -333,8 +333,6 @@ namespace PrePoMax.Forms
         // Methods                                                                                                                  
         public bool PrepareForm(string stepName, string materialToEditName)
         {
-            this.btnOKAddNew.Visible = materialToEditName == null;
-            //
             _propertyItemChanged = false;
             _materialNames = null;
             _materialToEditName = null;
@@ -346,6 +344,7 @@ namespace PrePoMax.Forms
             //
             _materialNames = _controller.GetMaterialNames();
             _materialToEditName = materialToEditName;
+            this.btnOKAddNew.Visible = _materialToEditName == null; // must be here
             // Initialize material properties
             TreeNode node;
             node = tvProperties.Nodes.Find("Density", true)[0];

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using CaeMesh;
 using CaeGlobals;
 using DynamicTypeDescriptor;
+using System.Collections.Concurrent;
 
 namespace CaeResults
 {
@@ -34,29 +35,112 @@ namespace CaeResults
         private vtkControl.vtkMaxLocator _locator;
 
         // Constructor                                                                                                              
-        public ResultsInterpolator(PartExchangeData source, int numBoxes = 10000000)
+        public ResultsInterpolator(PartExchangeData source)
         {
+            double avgCellBoxSize;
+            source = ConvertSourceToTriangularFaces(source);
+            _cellBoxes = ComputeCellBoundingBoxes(source, out avgCellBoxSize);
+            _triangles = TriangularCellsToTriangles(source);
+            //
             _sourceBox = ComputeAllNodesBoundingBox(source);
-            double l = _sourceBox.GetDiagonal() / 128;            
+            _sourceBox.InflateIfThinn(1E-6);
+            //
+            double l = avgCellBoxSize;
             //
             _nx = (int)Math.Ceiling(_sourceBox.GetXSize() / l);
             _ny = (int)Math.Ceiling(_sourceBox.GetYSize() / l);
             _nz = (int)Math.Ceiling(_sourceBox.GetZSize() / l);
+            //
             int currNumBoxes = _nx * _ny * _nz;
-            double factor = Math.Pow((double)numBoxes / currNumBoxes, 0.333333);
-            l /= factor;
+            int maxNumBoxes = 10_000_000;
+            if (currNumBoxes > maxNumBoxes)
+            {
+                double factor = Math.Pow((double)maxNumBoxes / currNumBoxes, 0.333333);
+                l /= factor;
+            }
             //
             _nx = (int)Math.Ceiling(_sourceBox.GetXSize() / l);
             _ny = (int)Math.Ceiling(_sourceBox.GetYSize() / l);
             _nz = (int)Math.Ceiling(_sourceBox.GetZSize() / l);
+            //
             _nxy = _nx * _ny;
             _deltaX = _sourceBox.GetXSize() / _nx;
             _deltaY = _sourceBox.GetYSize() / _ny;
             _deltaZ = _sourceBox.GetZSize() / _nz;
             //
-            _cellBoxes = ComputeCellBoundingBoxes(source);
             _regionBoxes = SplitCellBoxesToRegions(_cellBoxes, _sourceBox, _nx, _ny, _nz);
-            _triangles = TriangularCellsToTriangles(source);
+        }
+        public PartExchangeData ConvertSourceToTriangularFaces(PartExchangeData source)
+        {
+            PartExchangeData clone = source.DeepClone();
+            //
+            List<int> ids = new List<int>();
+            List<int[]> cellNodeIds = new List<int[]>();
+            List<int> cellTypes = new List<int>();
+            //
+            int[] cell;
+            int count = 0;
+            for (int i = 0; i < source.Cells.CellNodeIds.Length; i++)
+            {
+                cell = source.Cells.CellNodeIds[i];
+                if (cell.Length == 3)
+                {
+                    ids.Add(count++);
+                    cellNodeIds.Add(cell);
+                    cellTypes.Add((int)vtkCellType.VTK_TRIANGLE);
+                }
+                else if (cell.Length == 4)
+                {
+                    ids.Add(count++);
+                    ids.Add(count++);
+                    cellNodeIds.Add(new int[] { cell[0], cell[1], cell[2] });
+                    cellNodeIds.Add(new int[] { cell[0], cell[2], cell[3] });
+                    cellTypes.Add((int)vtkCellType.VTK_TRIANGLE);
+                    cellTypes.Add((int)vtkCellType.VTK_TRIANGLE);
+                }
+                else if (cell.Length == 6)
+                {
+                    ids.Add(count++);
+                    ids.Add(count++);
+                    ids.Add(count++);
+                    ids.Add(count++);
+                    cellNodeIds.Add(new int[] { cell[3], cell[5], cell[0] });
+                    cellNodeIds.Add(new int[] { cell[3], cell[4], cell[5] });
+                    cellNodeIds.Add(new int[] { cell[3], cell[1], cell[4] });
+                    cellNodeIds.Add(new int[] { cell[5], cell[4], cell[2] });
+                    cellTypes.Add((int)vtkCellType.VTK_TRIANGLE);
+                    cellTypes.Add((int)vtkCellType.VTK_TRIANGLE);
+                    cellTypes.Add((int)vtkCellType.VTK_TRIANGLE);
+                    cellTypes.Add((int)vtkCellType.VTK_TRIANGLE);
+                }
+                else if (cell.Length == 8)
+                {
+                    ids.Add(count++);
+                    ids.Add(count++);
+                    ids.Add(count++);
+                    ids.Add(count++);
+                    ids.Add(count++);
+                    ids.Add(count++);
+                    cellNodeIds.Add(new int[] { cell[7], cell[0], cell[4] });
+                    cellNodeIds.Add(new int[] { cell[7], cell[4], cell[6] });
+                    cellNodeIds.Add(new int[] { cell[7], cell[6], cell[3] });
+                    cellNodeIds.Add(new int[] { cell[5], cell[4], cell[1] });
+                    cellNodeIds.Add(new int[] { cell[5], cell[6], cell[4] });
+                    cellNodeIds.Add(new int[] { cell[5], cell[2], cell[6] });
+                    cellTypes.Add((int)vtkCellType.VTK_TRIANGLE);
+                    cellTypes.Add((int)vtkCellType.VTK_TRIANGLE);
+                    cellTypes.Add((int)vtkCellType.VTK_TRIANGLE);
+                    cellTypes.Add((int)vtkCellType.VTK_TRIANGLE);
+                    cellTypes.Add((int)vtkCellType.VTK_TRIANGLE);
+                    cellTypes.Add((int)vtkCellType.VTK_TRIANGLE);
+                }
+            }
+            //
+            clone.Cells.Ids = ids.ToArray();
+            clone.Cells.CellNodeIds = cellNodeIds.ToArray();
+            clone.Cells.Types = cellTypes.ToArray();
+            //
+            return clone;
         }
         public double GetSignedDistanceAt(double[] point)
         {
@@ -71,8 +155,9 @@ namespace CaeResults
             int maxk;
             double[] sourceCoor;
             int index;
-            BoundingBox bb;
-            Dictionary<int, BoundingBox> regions = new Dictionary<int, BoundingBox>();
+            BoundingBox regionBox;
+            BoundingBox cellBox;
+            HashSet<int> regions = new HashSet<int>();
             int num;
             int delta;
             double d;
@@ -96,12 +181,13 @@ namespace CaeResults
             if (k < 0) k = 0;
             else if (k >= _nz) k = _nz - 1;
             index = k * _nxy + j * _nx + i;
-            bb = _regionBoxes[index];
-            if (bb != null) regions.Add(index, bb);
+            regionBox = _regionBoxes[index];
+            if (regionBox != null) regions.Add(index);
             //
             delta = 0;
-            num = bb == null ? 0 : ((Dictionary<int, BoundingBox>)bb.Tag).Count;
+            num = regionBox == null ? 0 : ((Dictionary<int, BoundingBox>)regionBox.Tag).Count;
             // Add next layer of regions
+            HashSet<int> additionalRegions = new HashSet<int>();
             while (num == 0 || delta < 1)
             {
                 delta++;
@@ -125,14 +211,22 @@ namespace CaeResults
                         for (int ii = mini; ii <= maxi; ii++)
                         {
                             index = kk * _nxy + jj * _nx + ii;
-                            if (!regions.ContainsKey(index))
+                            if (!regions.Contains(index))
                             {
-                                bb = _regionBoxes[index];
+                                regionBox = _regionBoxes[index];
                                 //
-                                if (bb != null && ((Dictionary<int, BoundingBox>)bb.Tag).Count > 0)
+                                if (regionBox != null && regionBox.Tag is Dictionary<int, BoundingBox> cellIdCellBox &&
+                                    cellIdCellBox.Count > 0)
                                 {
-                                    regions.Add(index, bb);
-                                    num += ((Dictionary<int, BoundingBox>)bb.Tag).Count;
+                                    regions.Add(index);
+                                    num += cellIdCellBox.Count;
+                                    // In case the cell box is large it will prevent smaller closer cell boxes to be added to the
+                                    // region collection - so add all region boxes occupied by the cell box
+                                    foreach (var entry in cellIdCellBox)
+                                    {
+                                        cellBox = entry.Value;
+                                        regions.UnionWith((HashSet<int>)cellBox.Tag);
+                                    }
                                 }
                             }
                         }
@@ -146,11 +240,12 @@ namespace CaeResults
             Dictionary<Triangle, ClosestPointTypeEnum> bestTriangles = new Dictionary<Triangle, ClosestPointTypeEnum> ();
             List<double> bestDistances = new List<double> ();
             //
-            foreach (var regionEntry in regions)
+            foreach (var regionIndex in regions)
             {
-                if (regionEntry.Value.IsMaxOutsideDistance2SmallerThan(sourceCoor, minD))
+                regionBox = _regionBoxes[regionIndex];
+                if (regionBox.IsMaxOutsideDistance2SmallerThan(sourceCoor, minD))
                 {
-                    foreach (var entry in (Dictionary<int, BoundingBox>)regionEntry.Value.Tag)
+                    foreach (var entry in (Dictionary<int, BoundingBox>)regionBox.Tag)
                     {
                         if (visitedTriangles.Add(entry.Key))    // a single triangle might be in multiple regions
                         {
@@ -443,25 +538,32 @@ namespace CaeResults
             for (int i = 0; i < pData.Nodes.Coor.Length; i++) bb.IncludeCoorFast(pData.Nodes.Coor[i]);
             return bb;
         }
-        private static BoundingBox[] ComputeCellBoundingBoxes(PartExchangeData pData)
+        private static BoundingBox[] ComputeCellBoundingBoxes(PartExchangeData pData, out double size)
         {
+            size = 0;
             int[] cell;
             BoundingBox bb;
-            BoundingBox[] bBoxes = new BoundingBox[pData.Cells.Ids.Length];
+            BoundingBox[] cellBBoxes = new BoundingBox[pData.Cells.Ids.Length];
             //
             for (int i = 0; i < pData.Cells.CellNodeIds.Length; i++)
             {
                 cell = pData.Cells.CellNodeIds[i];
+                if (cell.Length != 3) throw new NotSupportedException();
                 bb = new BoundingBox();
                 bb.IncludeFirstCoor(pData.Nodes.Coor[cell[0]]);
                 bb.IncludeCoorFast(pData.Nodes.Coor[cell[1]]);
                 bb.IncludeCoorFast(pData.Nodes.Coor[cell[2]]);
-                if (cell.Length == 4 || cell.Length == 8) bb.IncludeCoorFast(pData.Nodes.Coor[cell[3]]);
+                bb.Tag = new HashSet<int>();
                 //
-                bBoxes[i] = bb;
+                //bb.InflateIfThinn(0.01);
+                //
+                cellBBoxes[i] = bb;
+                //
+                size += bb.GetDiagonal();
             }
+            size /= cellBBoxes.Length;
             //
-            return bBoxes;
+            return cellBBoxes;
         }
         private static BoundingBox[] SplitCellBoxesToRegions(BoundingBox[] cellBoxes, BoundingBox cellBoxesBox, 
                                                              int nx, int ny, int nz)
@@ -492,13 +594,14 @@ namespace CaeResults
             //    }
             //}
             //
-            int count = 0;
+            int cellId = 0;
             int mini;
             int maxi;
             int minj;
             int maxj;
             int mink;
             int maxk;
+            int regionIndex;
             // If cell box max value is on the border of the region division, the cell will be a member of both space regions
             foreach (var cellBox in cellBoxes)
             {
@@ -520,7 +623,8 @@ namespace CaeResults
                     {
                         for (int i = mini; i <= maxi; i++)
                         {
-                            bb = regions[k * nxy + j * nx + i];
+                            regionIndex = k * nxy + j * nx + i;
+                            bb = regions[regionIndex];
                             if (bb == null)
                             {
                                 bb = new BoundingBox();
@@ -531,14 +635,15 @@ namespace CaeResults
                                 bb.MinZ = cellBoxesBox.MinZ + k * deltaZ;
                                 bb.MaxZ = bb.MinZ + deltaZ;
                                 bb.Tag = new Dictionary<int, BoundingBox>();
-                                regions[k * nxy + j * nx + i] = bb;
+                                regions[regionIndex] = bb;
                             }
-                            ((Dictionary<int, BoundingBox>)bb.Tag).Add(count, cellBox);
+                            ((Dictionary<int, BoundingBox>)bb.Tag).Add(cellId, cellBox);
+                            ((HashSet<int>)cellBox.Tag).Add(regionIndex);
                         }
                     }
                 }
                 //
-                count++;
+                cellId++;
             }
             //
             return regions;

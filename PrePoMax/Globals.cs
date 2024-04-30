@@ -11,7 +11,7 @@ namespace PrePoMax
     {
         public static string HomePage = "https://prepomax.fs.um.si/";
         //
-        public static string ProgramName = "PrePoMax v2.0.8";
+        public static string ProgramName = "PrePoMax v2.0.9";
         //
         public static string ReadyText = "Ready";
         public static string OpeningText = "Opening...";
@@ -28,6 +28,7 @@ namespace PrePoMax
         public static string RegeneratingText = "Regenerating history...";
         public static string FlippingNormalsText = "Flipping normals...";
         public static string SplittingFacesText = "Splitting faces...";
+        public static string DeletingFacesText = "Deleting faces...";
         public static string ExplodePartsText = "Explode parts...";
         //
         public static string SettingsFileName = "settings.bin";
@@ -49,6 +50,7 @@ namespace PrePoMax
         //
         public static string NetGenMesher = @"\NetGen\NetGenMesher.exe";
         public static string MmgsMesher = @"\NetGen\mmgs.exe";
+        public static string Mmg3DMesher = @"\NetGen\mmg3d.exe";
         public static string GmshMesher = @"\lib\GmshMesher.exe";
         public static string VisFileName = "geometry.vis";
         public static string BrepFileName = "geometry.brep";

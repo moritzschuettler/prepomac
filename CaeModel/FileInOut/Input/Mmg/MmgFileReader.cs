@@ -41,6 +41,7 @@ namespace FileInOut.Input
                 //
                 int nodeId = firstNodeId;
                 int elementId = firstElementId;
+                int maxPartId = 1;
                 string[] lines = CaeGlobals.Tools.ReadAllLines(fileName);
                 // Read
                 for (int i = 0; i < lines.Length; i++)
@@ -49,16 +50,17 @@ namespace FileInOut.Input
                     {
                         ReadVertices(lines, ref i, ref nodeId, existingNodes, epsilon, ref nodes, out oldNodeIdNewNodeId);
                     }
-                    else if (lines[i].ToUpper().StartsWith("TRIANGLES"))
-                    {
-                        ReadTriangles(lines, ref i, ref elementId, oldNodeIdNewNodeId, ref elements, out surfaceIdElementIds);
-                    }
                     else if (lines[i].ToUpper().StartsWith("EDGES"))
                     {
                         ReadEdges(lines, ref i, ref elementId, oldNodeIdNewNodeId, ref elements,
                                   out edgeIdNodeIdCount, out edgeIdElementIds);
                         //edgeIdNodeIdCount = new Dictionary<int, Dictionary<int, bool>>();
                         //edgeIdElementIds = new Dictionary<int, HashSet<int>>();
+                    }
+                    else if (lines[i].ToUpper().StartsWith("TRIANGLES"))
+                    {
+                        ReadTriangles(lines, ref i, ref elementId, ref maxPartId, oldNodeIdNewNodeId, ref elements,
+                                      out surfaceIdElementIds);
                     }
                 }
                 // Count number of edges in an edge node
@@ -159,10 +161,10 @@ namespace FileInOut.Input
                 Dictionary<int, FeNode> nodes = new Dictionary<int, FeNode>();
                 Dictionary<int, FeElement> elements = new Dictionary<int, FeElement>();
                 Dictionary<int, int> oldNodeIdNewNodeId = null;
-                Dictionary<int, HashSet<int>> partIdElementIds = null;
                 //
                 int nodeId = 1;
                 int elementId = 1;
+                int maxParId = 1;
                 string[] lines = CaeGlobals.Tools.ReadAllLines(fileName);
                 // Read
                 for (int i = 0; i < lines.Length; i++)
@@ -177,11 +179,11 @@ namespace FileInOut.Input
                     }
                     else if (lines[i].ToUpper().StartsWith("TRIANGLES"))
                     {
-                        ReadTriangles(lines, ref i, ref elementId, oldNodeIdNewNodeId, ref elements, out _);
+                        ReadTriangles(lines, ref i, ref elementId, ref maxParId, oldNodeIdNewNodeId, ref elements, out _);
                     }
                     else if (lines[i].ToUpper().StartsWith("TETRAHEDRA"))
                     {
-                        ReadTetrahedrons(lines, ref i, ref elementId, oldNodeIdNewNodeId, ref elements, out partIdElementIds);
+                        ReadTetrahedrons(lines, ref i, ref elementId, ref maxParId, oldNodeIdNewNodeId, ref elements, out _);
                     }
                 }
                 // Count number of edges in an edge node
@@ -209,42 +211,6 @@ namespace FileInOut.Input
                                          ImportOptions.DetectEdges);
                 //
                 mesh.ConvertLineFeElementsToEdges(vertexNodeIds);
-                //
-                if (partIdElementIds != null && partIdElementIds.Count > 1)
-                {
-                    string name;
-                    FeElementSet elementSet;
-                    List<string> elementSetNames = new List<string>();
-                    foreach (var entry in partIdElementIds)
-                    {
-                        name = mesh.GetReservedElementSetNames().GetNextNumberedKey("Domain");
-                        elementSet = new FeElementSet(name, entry.Value.ToArray());
-                        mesh.AddElementSet(elementSet);
-                        elementSetNames.Add(name);
-                    }
-                    BasePart[] modifiedParts;
-                    BasePart[] newParts;
-                    mesh.CreatePartsFromElementSets(elementSetNames.ToArray(), out modifiedParts, out newParts);
-                    //
-                    List<string> partNamesToRemove = new List<string>();
-                    foreach (var modifiedPart in modifiedParts)
-                    {
-                        if (modifiedPart.Labels == null || modifiedPart.Labels.Length == 0)
-                            partNamesToRemove.Add(modifiedPart.Name);
-                    }
-                    mesh.RemoveParts(partNamesToRemove.ToArray(), out _, false);
-                    //
-                    string oldName;
-                    foreach (var part in newParts)
-                    {
-                        if (part.Name.StartsWith("From_"))
-                        {
-                            oldName = part.Name;
-                            part.Name = oldName.Replace("From_", "");
-                            mesh.Parts.Replace(oldName, part.Name, part);
-                        }
-                    }
-                }
                 //
                 if (elementsToImport != ElementsToImport.All)
                 {
@@ -354,13 +320,14 @@ namespace FileInOut.Input
                 }
             }
         }
-        private static void ReadTriangles(string[] lines, ref int currentLine, ref int elementId,
+        private static void ReadTriangles(string[] lines, ref int currentLine, ref int elementId, ref int maxPartId,
                                           Dictionary<int, int> oldNodeIdNewNodeId,
                                           ref Dictionary<int, FeElement> elements,
                                           out Dictionary<int, HashSet<int>> surfaceIdElementIds)
         {
             int numOfElements;
             int surfaceId;
+            int newMaxPartId = 0;
             string[] tmp;
             HashSet<int> surfaceElementIds;
             LinearTriangleElement triangle;
@@ -383,6 +350,11 @@ namespace FileInOut.Input
                         triangle.NodeIds[2] = oldNodeIdNewNodeId[int.Parse(tmp[2])];
                         surfaceId = int.Parse(tmp[3]) - 1;
                         //
+                        triangle.PartId = surfaceId + 1 + maxPartId + 1;
+                        if (triangle.PartId > newMaxPartId) newMaxPartId = triangle.PartId;
+                        //
+                        
+                        //
                         elements.Add(triangle.Id, triangle);
                         //
                         if (surfaceIdElementIds.TryGetValue(surfaceId, out surfaceElementIds))
@@ -392,17 +364,19 @@ namespace FileInOut.Input
                     }
                 }
             }
+            //
+            maxPartId = newMaxPartId;
         }
-        private static void ReadTetrahedrons(string[] lines, ref int currentLine, ref int elementId,
+        private static void ReadTetrahedrons(string[] lines, ref int currentLine, ref int elementId, ref int maxPartId,
                                              Dictionary<int, int> oldNodeIdNewNodeId,
                                              ref Dictionary<int, FeElement> elements,
                                              out Dictionary<int, HashSet<int>> partIdElementIds)
         {
             int numOfElements;
-            int partId;
+            int newMaxPartId = 0;
             string[] tmp;
-            HashSet<int> surfaceElementIds;
             LinearTetraElement tetra;
+            HashSet<int> surfaceElementIds;
             //
             partIdElementIds = new Dictionary<int, HashSet<int>>();
             currentLine++;
@@ -421,17 +395,20 @@ namespace FileInOut.Input
                         tetra.NodeIds[1] = oldNodeIdNewNodeId[int.Parse(tmp[1])];
                         tetra.NodeIds[2] = oldNodeIdNewNodeId[int.Parse(tmp[2])];
                         tetra.NodeIds[3] = oldNodeIdNewNodeId[int.Parse(tmp[3])];
-                        partId = int.Parse(tmp[4]);
+                        tetra.PartId = int.Parse(tmp[4]) + maxPartId + 1;
+                        if (tetra.PartId > newMaxPartId) newMaxPartId = tetra.PartId;
                         //
                         elements.Add(tetra.Id, tetra);
                         //
-                        if (partIdElementIds.TryGetValue(partId, out surfaceElementIds))
+                        if (partIdElementIds.TryGetValue(tetra.PartId, out surfaceElementIds))
                             surfaceElementIds.Add(tetra.Id);
                         else
-                            partIdElementIds.Add(partId, new HashSet<int> { tetra.Id });
+                            partIdElementIds.Add(tetra.PartId, new HashSet<int> { tetra.Id });
                     }
                 }
             }
+            //
+            maxPartId = newMaxPartId;
         }
 
 

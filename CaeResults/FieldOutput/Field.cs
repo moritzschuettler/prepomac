@@ -205,18 +205,33 @@ namespace CaeResults
         {
             DataTypeEnum dataType = FOFieldNames.GetDataType(_name);
             //
+            int count = 0;
             if (dataType == DataTypeEnum.Vector)
             {
-                _components.Remove(FOComponentNames.All);
+                count += _components.ContainsKey(FOComponentNames.All) ? 1 : 0;
+                if (_components.Count() - count == 3)
+                {
+                    _components.Remove(FOComponentNames.All);
+                }
             }
             else if (dataType == DataTypeEnum.Tensor)
             {
-                _components.Remove(FOComponentNames.Mises);
-                _components.Remove(FOComponentNames.Tresca);
-                _components.Remove(FOComponentNames.SgnMaxAbsPri);
-                _components.Remove(FOComponentNames.PrincipalMax);
-                _components.Remove(FOComponentNames.PrincipalMid);
-                _components.Remove(FOComponentNames.PrincipalMin);
+                count += _components.ContainsKey(FOComponentNames.Mises) ? 1 : 0;
+                count += _components.ContainsKey(FOComponentNames.Tresca) ? 1 : 0;
+                count += _components.ContainsKey(FOComponentNames.SgnMaxAbsPri) ? 1 : 0;
+                count += _components.ContainsKey(FOComponentNames.PrincipalMax) ? 1 : 0;
+                count += _components.ContainsKey(FOComponentNames.PrincipalMid) ? 1 : 0;
+                count += _components.ContainsKey(FOComponentNames.PrincipalMin) ? 1 : 0;
+                //
+                if (_components.Count - count == 6)
+                {
+                    _components.Remove(FOComponentNames.Mises);
+                    _components.Remove(FOComponentNames.Tresca);
+                    _components.Remove(FOComponentNames.SgnMaxAbsPri);
+                    _components.Remove(FOComponentNames.PrincipalMax);
+                    _components.Remove(FOComponentNames.PrincipalMid);
+                    _components.Remove(FOComponentNames.PrincipalMin);
+                }
             }
         }
         public void ComputeInvariants()

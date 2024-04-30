@@ -13,7 +13,7 @@ namespace CaeResults
     public class Triangle
     {
         // Variables                                                                                                                
-        public readonly int Id;
+        public int Id;
         public readonly Edge3 EdgeAb;
         public readonly Edge3 EdgeBc;
         public readonly Edge3 EdgeCa;

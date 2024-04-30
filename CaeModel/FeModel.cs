@@ -15,6 +15,7 @@ using System.Runtime.InteropServices;
 using static System.Collections.Specialized.BitVector32;
 using System.Net.NetworkInformation;
 using System.Xml.Linq;
+using FileInOut.Input;
 
 namespace CaeModel
 {
@@ -885,10 +886,11 @@ namespace CaeModel
             //
             ImportMesh(mesh, GetReservedPartNames(), true, false);
         }
-        public bool ImportMeshFromMmgFile(string fileName)
+        public bool ImportMeshFromMmgFile(string fileName,
+                                          ElementsToImport elementsToImport = ElementsToImport.All,
+                                          bool convertToSecondOrder = false)
         {
-            FeMesh mesh = FileInOut.Input.MmgFileReader.Read3D(fileName, FileInOut.Input.ElementsToImport.All,
-                                                               MeshRepresentation.Mesh, true);
+            FeMesh mesh = MmgFileReader.Read3D(fileName, elementsToImport, MeshRepresentation.Mesh, convertToSecondOrder);
             //
             bool noErrors = true;
             foreach (var entry in mesh.Parts)

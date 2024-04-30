@@ -25,7 +25,7 @@ namespace PrePoMax
         [Browsable(false)]
         public virtual string MasterRegionType
         {
-            // This function returns strings bacause using enum RegionType shows all items in the drop down box
+            // This function returns strings because using enum RegionType shows all items in the drop down box
             get
             {
                 if (_region == null) return "";
@@ -47,7 +47,7 @@ namespace PrePoMax
         [Browsable(false)]
         public virtual string SlaveRegionType
         {
-            // This function returns strings bacause using enum RegionType shows all items in the drop down box
+            // This function returns strings because using enum RegionType shows all items in the drop down box
             get
             {
                 if (_region == null || _region.SlaveRegionType == RegionTypeEnum.None) return "";

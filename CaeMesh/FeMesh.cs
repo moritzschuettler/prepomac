@@ -8620,7 +8620,8 @@ namespace CaeMesh
                 for (int i = 0; i < visualization.FaceEdgeIds.Length; i++)
                 {
                     distance = GetClosestUnConnectedEdgesDistanceOnFace(visualization, i);
-                    if (distance < min) min = distance;
+                    if (distance < min)
+                        min = distance;
                 }
             }
             return min;
@@ -8642,7 +8643,8 @@ namespace CaeMesh
                     // Get edge to edge distance; for connected edges the distance is -1
                     distance = EdgeToEdgeMinDistance(visualization, edge1Id, edge2Id);
                     //
-                    if (distance != -1 && distance < min) min = distance;
+                    if (distance != -1 && distance < min)
+                        min = distance;
                 }
             }
             return min;
@@ -8736,7 +8738,8 @@ namespace CaeMesh
                         b1 = _nodes[edge2Cells[j][0]].Coor;
                         b2 = _nodes[edge2Cells[j][1]].Coor;
                         distance = Geometry.SegmentToSegmentDistance(a1, a2, b1, b2);
-                        if (distance < min) min = distance;
+                        if (distance < min)
+                            min = distance;
                     }
                 }
                 return min;

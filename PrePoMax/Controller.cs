@@ -21,6 +21,8 @@ using PrePoMax.Commands;
 using System.IO.Ports;
 using FileInOut.Output;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 
 namespace PrePoMax
 {
@@ -2769,7 +2771,7 @@ namespace PrePoMax
                 }
             }
         }
-        public void RemoveGeometryParts(string[] partNames, bool keepGeometrySelections)
+        public void RemoveGeometryParts(string[] partNames, bool keepGeometrySelections, bool checkValidity = true)
         {
             BasePart part;
             HashSet<string> partNamesToRemove = new HashSet<string>();
@@ -2798,7 +2800,7 @@ namespace PrePoMax
             //
             foreach (var name in removedParts) _form.RemoveTreeNode<GeometryPart>(view, name, null);
             //
-            CheckAndUpdateModelValidity();
+            if (checkValidity) CheckAndUpdateModelValidity();
             //
             DrawGeometry(false);
         }
@@ -3115,7 +3117,7 @@ namespace PrePoMax
                 part.Name = importedFileNames[0];
                 _model.Geometry.Parts.Replace(importedFileNames[0], part.Name, part);
                 // Remove old part
-                RemoveGeometryParts(new string[] { part.Name }, keepGeometrySelections);
+                RemoveGeometryParts(new string[] { part.Name }, keepGeometrySelections, false);
                 _model.Geometry.ChangePartId(newPart.Name, part.PartId);
                 //
                 UpdateMeshSetupItems();
@@ -3230,7 +3232,7 @@ namespace PrePoMax
             if (_executableJob.JobStatus == JobStatus.OK) return outputBrepFileName;
             else return null;
         }
-        
+
         #endregion #################################################################################################################
 
         #region Geometry Stl part menu   ###########################################################################################
@@ -3454,9 +3456,9 @@ namespace PrePoMax
             else if (part.PartType == PartType.Shell && part is MeshPart)   // for remeshing
                 defaultMeshingParameters.UseMmg = true;
             //
-            defaultMeshingParameters.MaxH = CaeGlobals.Tools.RoundToSignificantDigits(diagonal * factorMax, 2);
-            defaultMeshingParameters.MinH = CaeGlobals.Tools.RoundToSignificantDigits(diagonal * factorMin, 2);
-            defaultMeshingParameters.Hausdorff = CaeGlobals.Tools.RoundToSignificantDigits(diagonal * factorHausdorff, 2);
+            defaultMeshingParameters.MaxH = Tools.RoundToSignificantDigits(diagonal * factorMax, 2);
+            defaultMeshingParameters.MinH = Tools.RoundToSignificantDigits(diagonal * factorMin, 2);
+            defaultMeshingParameters.Hausdorff = Tools.RoundToSignificantDigits(diagonal * factorHausdorff, 2);
             //
             return defaultMeshingParameters;
         }
@@ -4637,6 +4639,11 @@ namespace PrePoMax
             CThickenShellMesh comm = new CThickenShellMesh(partNames, thickness, numberOfLayers, offset, keepModelEdges);
             _commands.AddAndExecute(comm);
         }
+        public void SplitPartMeshUsingSurfaceCommand(SplitPartMeshData splitPartMeshData)
+        {
+            CSplitPartMeshUsingSurface comm = new CSplitPartMeshUsingSurface(splitPartMeshData);
+            _commands.AddAndExecute(comm);
+        }
         public void UpdateNodalCoordinatesFromFileCommand(string fileName)
         {
             CUpdateNodalCoordinatesFromFile comm = new CUpdateNodalCoordinatesFromFile(fileName);
@@ -4807,8 +4814,8 @@ namespace PrePoMax
             if (File.Exists(mmgSolFileName)) File.Delete(mmgSolFileName);
             //
             Dictionary<int[], FeNode> midNodes;
-            FileInOut.Output.MmgFileWriter.WriteShellElements(mmgInFileName, elementIds, part, _model.Mesh,
-                                                              remeshingParameters.KeepModelEdges, out midNodes);
+            MmgFileWriter.WriteShellElements(mmgInFileName, elementIds, part, _model.Mesh,
+                                             remeshingParameters.KeepModelEdges, out midNodes);
             //
             System.Diagnostics.PerformanceCounter ramCounter;
             ramCounter = new System.Diagnostics.PerformanceCounter("Memory", "Available MBytes");
@@ -4823,7 +4830,8 @@ namespace PrePoMax
                               "-hmin " + remeshingParameters.MinH + " " +
                               "-hausd " + remeshingParameters.Hausdorff + " " +
                               "-in \"" + mmgInFileName + "\" " +
-                              "-out \"" + mmgOutFileName + "\" ";
+                              "-out \"" + mmgOutFileName + "\" " +
+                              "-v 5 ";
             //
             _executableJob = new ExecutableJob(part.Name, executable, argument, settings.WorkDirectory);
             _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
@@ -4962,46 +4970,154 @@ namespace PrePoMax
             string error = gmsh.GetOccNormals();
             return gmsh.GmshData.NodeIdNormals;
         }
-        //
-        public void ExportSignedDistance(string fileName, string partForNodesName, string partForLevelSetName)
+        public void PreviewSplitPartMeshUsingSurface(SplitPartMeshData splitPartMeshData)
         {
+            BasePart basePart;
+            Dictionary<int, double> nodeIdDistance;
+            GetSplitPartMeshUsingSurfaceData(splitPartMeshData, out basePart, out nodeIdDistance);
+            //
             FeMesh mesh = DisplayedMesh;
-            BasePart partForNodes = mesh.Parts[partForNodesName];
-            BasePart partForLevelSet = mesh.Parts[partForLevelSetName];
-            PartExchangeData data = new PartExchangeData();
-            // Get only needed nodes and elements - renumbered
-            mesh.GetVisualizationNodesAndCells(partForLevelSet, out data.Nodes.Ids, out data.Nodes.Coor,
-                                               out data.Cells.Ids, out data.Cells.CellNodeIds,
-                                               out data.Cells.Types);
-            // Interpolator needs nodal values
-            data.Nodes.Values = new float[data.Nodes.Coor.Length];
-            //
-            ResultsInterpolator resultsInterpolator = new ResultsInterpolator(data, 100000);
-            Dictionary<int, double> nodeIdDistance = new Dictionary<int, double>();
-
-            double[] distances = new double[partForNodes.NodeLabels.Length];
-            //Parallel.For(0, partForNodes.NodeLabels.Length, i =>
-            for (int i = 0; i < partForNodes.NodeLabels.Length; i++)
-            {
-                if (partForNodes.NodeLabels[i] == 461)
-                    i = i;
-
-                distances[i] = resultsInterpolator.GetSignedDistanceAt(mesh.Nodes[partForNodes.NodeLabels[i]].Coor);
-            }
-            //);
-            for (int i = 0; i < partForNodes.NodeLabels.Length; i++) nodeIdDistance[partForNodes.NodeLabels[i]] = distances[i];
-            //
-            MmgFileWriter.WriteSolution(fileName, partForNodes, mesh, nodeIdDistance);
-            //
             FeResults results;
             results = GetSignedDistancePreview(mesh, nodeIdDistance, "SignedDistance", _model.UnitSystem);
             //
             SetResults(results);
+            //
+            _form.ShowSplitMeshResults();
         }
-
+        public bool SplitPartMeshUsingSurface(SplitPartMeshData splitPartMeshData)
+        {
+            CalculixSettings settings = _settings.Calculix;
+            if (settings.WorkDirectory == null || !Directory.Exists(settings.WorkDirectory))
+            {
+                MessageBoxes.ShowWorkDirectoryError();
+                return false;
+            }
+            //
+            string executable = Application.StartupPath + Globals.Mmg3DMesher;
+            string mmgInFileName = Path.Combine(settings.WorkDirectory, Globals.MmgMeshFileName);
+            string mmgOutFileName = Path.Combine(settings.WorkDirectory, Path.GetFileNameWithoutExtension(Globals.MmgMeshFileName) +
+                                                 ".o" + Path.GetExtension(Globals.MmgMeshFileName));
+            string mmgSolFileName = Path.Combine(settings.WorkDirectory,
+                                                 Path.GetFileNameWithoutExtension(Globals.MmgMeshFileName) +
+                                                 ".sol");
+            //
+            if (File.Exists(mmgInFileName)) File.Delete(mmgInFileName);
+            if (File.Exists(mmgOutFileName)) File.Delete(mmgOutFileName);
+            if (File.Exists(mmgSolFileName)) File.Delete(mmgSolFileName);
+            //
+            BasePart basePart;
+            Dictionary<int, double> nodeIdDistance;
+            GetSplitPartMeshUsingSurfaceData(splitPartMeshData, out basePart, out nodeIdDistance);
+            // In file
+            ExportPartsAsMmgMesh(new string[] { basePart.Name }, mmgInFileName);
+            // Sol file
+            FeMesh mesh = DisplayedMesh;
+            MmgFileWriter.WriteSolution(mmgSolFileName, basePart, mesh, nodeIdDistance);
+            //
+            System.Diagnostics.PerformanceCounter ramCounter;
+            ramCounter = new System.Diagnostics.PerformanceCounter("Memory", "Available MBytes");
+            //
+            string argument = "-ls " + //splitPartMeshData.Offset + " " +  // offset is applied in the signed distance field
+                              "-rmc " +
+                              "-optim " +
+                              "-m " + ramCounter.NextValue() * 0.9 + " " +
+                              "-hmax " + splitPartMeshData.MaxH + " " +
+                              "-hmin " + splitPartMeshData.MinH + " " +
+                              "-hausd " + splitPartMeshData.Hausdorff + " " +
+                              "-in \"" + mmgInFileName + "\" " +
+                              "-sol \"" + mmgSolFileName + "\" " +
+                              "-out \"" + mmgOutFileName + "\" " +
+                              "-v 5 ";  // this solves the problem of mmg not stopping
+            //
+            _executableJob = new ExecutableJob(basePart.Name, executable, argument, settings.WorkDirectory);
+            _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
+            _executableJob.Submit();
+            // Job completed
+            if (_executableJob.JobStatus == JobStatus.OK)
+            {
+                // Check if all elements are linear or all elements are parabolic
+                HashSet<bool> parabolic = new HashSet<bool>();
+                foreach (var elementType in basePart.ElementTypes) parabolic.Add(FeElement.IsParabolic(elementType));
+                if (parabolic.Count != 1) throw new NotSupportedException();
+                //
+                _model.ImportMeshFromMmgFile(mmgOutFileName, FileInOut.Input.ElementsToImport.Solid, parabolic.First());
+                //
+                HideModelParts(new string[] { basePart.Name });
+                //
+                UpdateAfterImport(".mesh");
+                //
+                return true;
+            }
+            else throw new CaeException("Mesh generation failed.");
+        }
+        private void GetSplitPartMeshUsingSurfaceData(SplitPartMeshData splitPartMeshData, out BasePart basePart,
+                                                      out Dictionary<int, double> nodeIdDistance)
+        {
+            basePart = null;
+            nodeIdDistance = new Dictionary<int, double>();
+            //
+            if (splitPartMeshData == null) { throw new NotSupportedException(); }
+            else if (splitPartMeshData is SplitPartMeshData sp)
+            {
+                // Base part
+                FeMesh mesh = DisplayedMesh;
+                if (sp.BasePartRegionType == RegionTypeEnum.Selection)
+                {
+                    if (sp.BasePartCreationIds == null || sp.BasePartCreationIds.Length == 0)
+                        throw new CaeException("The base part region must contain at least one item.");
+                    //
+                    else if (sp.BasePartCreationIds.Count() != 1)
+                        throw new CaeException("The base part region can only contain a single part.");
+                    //
+                    foreach (var geometryId in sp.BasePartCreationIds)
+                    {
+                        basePart = mesh.GetPartFromGeometryId(geometryId);
+                        if (basePart.PartType != PartType.Solid)
+                            throw new CaeException("The base part region can only contain a solid part.");
+                    }
+                }
+                else if (sp.BasePartRegionType == RegionTypeEnum.PartName)
+                {
+                    basePart = mesh.Parts[sp.BasePartRegionName];
+                }
+                else throw new NotSupportedException();
+                // Splitter surface
+                if (sp.SlaveRegionType == RegionTypeEnum.Selection &&
+                    (sp.SplitterSurfaceCreationIds == null || sp.SplitterSurfaceCreationIds.Length == 0))
+                    throw new CaeException("The splitter surface region must contain at least one item.");
+                //
+                int[] ids = sp.SplitterSurfaceCreationIds;
+                int[][] cells = GetSurfaceCellsByFaceIds(ids, out _);
+                //
+                SuppressExplodedView();
+                //
+                PartExchangeData data = new PartExchangeData();
+                data.Cells.CellNodeIds = cells;
+                data.Cells.Ids = new int[cells.Length];
+                for (int i = 0; i < cells.Length; i++) data.Cells.Ids[i] = i;
+                mesh.GetSurfaceGeometry(cells, out data.Nodes.Ids, out data.Nodes.Coor, out data.Cells.Types);
+                // Interpolator needs nodal values
+                data.Nodes.Values = new float[data.Nodes.Coor.Length];
+                //
+                ResultsInterpolator resultsInterpolator = new ResultsInterpolator(data);
+                double[] distances = new double[basePart.NodeLabels.Length];
+                //Parallel.For(0, partForNodes.NodeLabels.Length, i =>
+                for (int i = 0; i < basePart.NodeLabels.Length; i++)
+                {
+                    distances[i] = resultsInterpolator.GetSignedDistanceAt(mesh.Nodes[basePart.NodeLabels[i]].Coor) + 
+                                   splitPartMeshData.Offset;
+                }
+                //);
+                for (int i = 0; i < basePart.NodeLabels.Length; i++) nodeIdDistance[basePart.NodeLabels[i]] = distances[i];
+                //
+                ResumeExplodedViews(false);
+            }
+        }
         public FeResults GetSignedDistancePreview(FeMesh targetMesh, Dictionary<int, double> nodeIdDistance,
                                                   string resultName, UnitSystem unitSystem)
         {
+            SuppressExplodedView();
+            //
             PartExchangeData allData = new PartExchangeData();
             targetMesh.GetAllNodesAndCells(out allData.Nodes.Ids, out allData.Nodes.Coor, out allData.Cells.Ids,
                                            out allData.Cells.CellNodeIds, out allData.Cells.Types);
@@ -5032,11 +5148,10 @@ namespace PrePoMax
             field.AddComponent(FOComponentNames.All, values1);
             results.AddField(fieldData, field);
             //
+            ResumeExplodedViews(false);
+            //
             return results;
         }
-
-
-        //
         public void UpdateNodalCoordinatesFromFile(string fileName)
         {
             FeModel newModel = new FeModel("Deformed", _model.UnitSystem);
@@ -9794,7 +9909,7 @@ namespace PrePoMax
 
         #endregion #################################################################################################################
         
-        #region Result element set  ###################################################################################################
+        #region Result element set  ################################################################################################
         public string[] GetResultUserElementSetNames()
         {
             if (_allResults.CurrentResult != null && _allResults.CurrentResult.Mesh != null)
@@ -14857,7 +14972,7 @@ namespace PrePoMax
                     }
                     else if (obj is MeshPart mp)
                     {
-                        HighlightModelParts(new string[] { mp.Name });
+                        HighlightModelParts(new string[] { mp.Name }, false);
                     }
                     else if (obj is FeNodeSet ns)
                     {
@@ -14877,7 +14992,8 @@ namespace PrePoMax
                     }
                     else if (obj is Section sec)
                     {
-                        if (sec.RegionType == RegionTypeEnum.PartName) HighlightModelParts(new string[] { sec.RegionName });
+                        if (sec.RegionType == RegionTypeEnum.PartName)
+                            HighlightModelParts(new string[] { sec.RegionName }, false);
                         else if (sec.RegionType == RegionTypeEnum.NodeSetName)
                             HighlightNodeSets(new string[] { sec.RegionName });
                         else if (sec.RegionType == RegionTypeEnum.ElementSetName)
@@ -14902,7 +15018,7 @@ namespace PrePoMax
                     else if (obj is InitialCondition ic)
                     {
                         if (ic.RegionType == RegionTypeEnum.PartName)
-                            HighlightModelParts(new string[] { ic.RegionName });
+                            HighlightModelParts(new string[] { ic.RegionName }, false);
                         else if (ic.RegionType == RegionTypeEnum.NodeSetName)
                             HighlightNodeSets(new string[] { ic.RegionName });
                         else if (ic.RegionType == RegionTypeEnum.ElementSetName)

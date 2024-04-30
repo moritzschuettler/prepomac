@@ -174,7 +174,8 @@ namespace FileInOut.Output
                 for (int j = 0; j < vis.CellIdsByFace[i].Length; j++)
                 {
                     cell = vis.Cells[vis.CellIdsByFace[i][j]];
-                    if (cell.Length == 3)
+                    // Linear
+                    if (cell.Length == 3 || cell.Length == 6)   // reduce parabolic elements to linear
                     {
                         elementNodeIdsSurfaceId.Add(new int[] { oldNodeIdNewId[cell[0]],
                                                                 oldNodeIdNewId[cell[1]],
@@ -193,7 +194,7 @@ namespace FileInOut.Output
             {
                 elementId = part.Labels[i];
                 element = mesh.Elements[elementId];
-                if (element is LinearTetraElement)
+                if (element is LinearTetraElement || element is ParabolicTetraElement)
                 {
                     elementNodeIdsSurfaceId.Add(new int[] { oldNodeIdNewId[element.NodeIds[0]],
                                                             oldNodeIdNewId[element.NodeIds[1]],
