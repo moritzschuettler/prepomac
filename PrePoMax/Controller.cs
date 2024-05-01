@@ -1878,25 +1878,33 @@ namespace PrePoMax
             //
             ResumeExplodedViews(false);
         }
-        public void ExportPartsAsMmgMesh(string[] partNames, string fileName)
+        public void ExportPartsAsMmgMesh(string[] partNames, string fileName, bool combine = false)
         {
             string mmgFileName;
             string directory = Path.GetDirectoryName(fileName);
             string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
             string extension = Path.GetExtension(fileName);
-            BasePart part;
             FeMesh mesh = DisplayedMesh;
             //
             SuppressExplodedView(partNames);
             //
-            foreach (var partName in partNames)
+            if (combine)
             {
-                part = mesh.Parts[partName];
-                if (partNames.Length == 1) mmgFileName = fileName;
-                else mmgFileName = Path.Combine(directory, fileNameWithoutExtension + "_" + partName + extension);
-                FileInOut.Output.MmgFileWriter.Write(mmgFileName, part, mesh, true, false);
-                //
-                _form.WriteDataToOutput("Part " + partName + " exported to file: " + mmgFileName);
+                BasePart[] parts = new BasePart[partNames.Length];
+                for (int i = 0; i < partNames.Length; i++) parts[i] = mesh.Parts[partNames[i]];
+                MmgFileWriter.Write(fileName, parts, mesh, true, false);
+            }
+            else
+            {
+                foreach (var partName in partNames)
+                {
+                    BasePart part = mesh.Parts[partName];
+                    if (partNames.Length == 1) mmgFileName = fileName;
+                    else mmgFileName = Path.Combine(directory, fileNameWithoutExtension + "_" + partName + extension);
+                    MmgFileWriter.Write(mmgFileName, part, mesh, true, false);
+                    //
+                    _form.WriteDataToOutput("Part " + partName + " exported to file: " + mmgFileName);
+                }
             }
             //
             ResumeExplodedViews(false);
@@ -4972,9 +4980,8 @@ namespace PrePoMax
         }
         public void PreviewSplitPartMeshUsingSurface(SplitPartMeshData splitPartMeshData)
         {
-            BasePart basePart;
             Dictionary<int, double> nodeIdDistance;
-            GetSplitPartMeshUsingSurfaceData(splitPartMeshData, out basePart, out nodeIdDistance);
+            GetSplitPartMeshUsingSurfaceData(splitPartMeshData, out _, out nodeIdDistance);
             //
             FeMesh mesh = DisplayedMesh;
             FeResults results;
@@ -5000,19 +5007,27 @@ namespace PrePoMax
             string mmgSolFileName = Path.Combine(settings.WorkDirectory,
                                                  Path.GetFileNameWithoutExtension(Globals.MmgMeshFileName) +
                                                  ".sol");
+            string mmgMatFileName = Path.Combine(settings.WorkDirectory,
+                                                 Path.GetFileNameWithoutExtension(Globals.MmgMeshFileName) +
+                                                 ".mmg3d");
             //
             if (File.Exists(mmgInFileName)) File.Delete(mmgInFileName);
             if (File.Exists(mmgOutFileName)) File.Delete(mmgOutFileName);
             if (File.Exists(mmgSolFileName)) File.Delete(mmgSolFileName);
+            if (File.Exists(mmgMatFileName)) File.Delete(mmgMatFileName);
             //
-            BasePart basePart;
+            BasePart[] baseParts;
             Dictionary<int, double> nodeIdDistance;
-            GetSplitPartMeshUsingSurfaceData(splitPartMeshData, out basePart, out nodeIdDistance);
+            GetSplitPartMeshUsingSurfaceData(splitPartMeshData, out baseParts, out nodeIdDistance);
             // In file
-            ExportPartsAsMmgMesh(new string[] { basePart.Name }, mmgInFileName);
+            string[] basePartNames = new string[baseParts.Length];
+            for (int i = 0; i < baseParts.Length; i++) basePartNames[i] = baseParts[i].Name;
+            ExportPartsAsMmgMesh(basePartNames, mmgInFileName, true);
             // Sol file
             FeMesh mesh = DisplayedMesh;
-            MmgFileWriter.WriteSolution(mmgSolFileName, basePart, mesh, nodeIdDistance);
+            MmgFileWriter.WriteSolution(mmgSolFileName, baseParts, mesh, nodeIdDistance);
+            // Mat file
+            MmgFileWriter.WriteMaterial(mmgMatFileName, baseParts);
             //
             System.Diagnostics.PerformanceCounter ramCounter;
             ramCounter = new System.Diagnostics.PerformanceCounter("Memory", "Available MBytes");
@@ -5029,7 +5044,7 @@ namespace PrePoMax
                               "-out \"" + mmgOutFileName + "\" " +
                               "-v 5 ";  // this solves the problem of mmg not stopping
             //
-            _executableJob = new ExecutableJob(basePart.Name, executable, argument, settings.WorkDirectory);
+            _executableJob = new ExecutableJob("SplitMeshPart", executable, argument, settings.WorkDirectory);
             _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
             _executableJob.Submit();
             // Job completed
@@ -5037,12 +5052,16 @@ namespace PrePoMax
             {
                 // Check if all elements are linear or all elements are parabolic
                 HashSet<bool> parabolic = new HashSet<bool>();
-                foreach (var elementType in basePart.ElementTypes) parabolic.Add(FeElement.IsParabolic(elementType));
+                foreach (var part in baseParts)
+                {
+                    foreach (var elementType in part.ElementTypes)
+                        parabolic.Add(FeElement.IsParabolic(elementType));
+                }
                 if (parabolic.Count != 1) throw new NotSupportedException();
                 //
                 _model.ImportMeshFromMmgFile(mmgOutFileName, FileInOut.Input.ElementsToImport.Solid, parabolic.First());
                 //
-                HideModelParts(new string[] { basePart.Name });
+                HideModelParts(basePartNames);
                 //
                 UpdateAfterImport(".mesh");
                 //
@@ -5050,10 +5069,11 @@ namespace PrePoMax
             }
             else throw new CaeException("Mesh generation failed.");
         }
-        private void GetSplitPartMeshUsingSurfaceData(SplitPartMeshData splitPartMeshData, out BasePart basePart,
+        private void GetSplitPartMeshUsingSurfaceData(SplitPartMeshData splitPartMeshData, out BasePart[] baseParts,
                                                       out Dictionary<int, double> nodeIdDistance)
         {
-            basePart = null;
+            BasePart basePart;
+            HashSet<BasePart> allParts = new HashSet<BasePart>();
             nodeIdDistance = new Dictionary<int, double>();
             //
             if (splitPartMeshData == null) { throw new NotSupportedException(); }
@@ -5066,19 +5086,20 @@ namespace PrePoMax
                     if (sp.BasePartCreationIds == null || sp.BasePartCreationIds.Length == 0)
                         throw new CaeException("The base part region must contain at least one item.");
                     //
-                    else if (sp.BasePartCreationIds.Count() != 1)
-                        throw new CaeException("The base part region can only contain a single part.");
-                    //
                     foreach (var geometryId in sp.BasePartCreationIds)
                     {
                         basePart = mesh.GetPartFromGeometryId(geometryId);
                         if (basePart.PartType != PartType.Solid)
                             throw new CaeException("The base part region can only contain a solid part.");
+                        //
+                        allParts.Add(basePart);
                     }
                 }
                 else if (sp.BasePartRegionType == RegionTypeEnum.PartName)
                 {
                     basePart = mesh.Parts[sp.BasePartRegionName];
+                    //
+                    allParts.Add(basePart);
                 }
                 else throw new NotSupportedException();
                 // Splitter surface
@@ -5100,18 +5121,20 @@ namespace PrePoMax
                 data.Nodes.Values = new float[data.Nodes.Coor.Length];
                 //
                 ResultsInterpolator resultsInterpolator = new ResultsInterpolator(data);
-                double[] distances = new double[basePart.NodeLabels.Length];
-                //Parallel.For(0, partForNodes.NodeLabels.Length, i =>
-                for (int i = 0; i < basePart.NodeLabels.Length; i++)
+                HashSet<int> nodeIds = new HashSet<int>();
+                foreach (var part in allParts) nodeIds.UnionWith(part.NodeLabels);
+                double distance;
+                //
+                foreach (var nodeId in nodeIds)
                 {
-                    distances[i] = resultsInterpolator.GetSignedDistanceAt(mesh.Nodes[basePart.NodeLabels[i]].Coor) + 
-                                   splitPartMeshData.Offset;
+                    distance = resultsInterpolator.GetSignedDistanceAt(mesh.Nodes[nodeId].Coor) + splitPartMeshData.Offset;
+                    nodeIdDistance[nodeId] = distance;
                 }
-                //);
-                for (int i = 0; i < basePart.NodeLabels.Length; i++) nodeIdDistance[basePart.NodeLabels[i]] = distances[i];
                 //
                 ResumeExplodedViews(false);
             }
+            //
+            baseParts = allParts.ToArray();
         }
         public FeResults GetSignedDistancePreview(FeMesh targetMesh, Dictionary<int, double> nodeIdDistance,
                                                   string resultName, UnitSystem unitSystem)

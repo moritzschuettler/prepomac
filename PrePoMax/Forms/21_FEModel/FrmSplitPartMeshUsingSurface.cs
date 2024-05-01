@@ -90,7 +90,7 @@ namespace PrePoMax.Forms
         private void FrmSplitPartMeshUsingSurface_VisibleChanged(object sender, EventArgs e)
         {
             // Limit selection to the first selected part
-            _controller.Selection.LimitSelectionToFirstPart = Visible;
+            _controller.Selection.LimitSelectionToFirstPart = false;
             btnPreview.Enabled = true;
         }
         private void btnPreview_Click(object sender, EventArgs e)
@@ -257,8 +257,8 @@ namespace PrePoMax.Forms
                         if (sp.BasePartCreationIds == null || sp.BasePartCreationIds.Length == 0)
                             throw new CaeException("The base part region must contain at least one item.");
                         //
-                        else if (sp.BasePartCreationIds.Count() != 1)
-                            throw new CaeException("The base part region can only contain a single part.");
+                        //else if (sp.BasePartCreationIds.Count() != 1)
+                        //    throw new CaeException("The base part region can only contain a single part.");
                         //
                         foreach (var geometryId in sp.BasePartCreationIds)
                         {

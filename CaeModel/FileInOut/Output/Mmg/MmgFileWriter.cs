@@ -17,20 +17,6 @@ namespace FileInOut.Output
             else if (part.PartType == PartType.Shell) Write2D(fileName, part, mesh, keepModelEdges, keepVertexEdges);
             else throw new NotSupportedException();
         }
-        public static void WriteSolution(string fileName, BasePart part, FeMesh mesh, Dictionary<int, double> nodeIdValue)
-        {
-            // File
-            StringBuilder sb = new StringBuilder();
-            WriteHeading(sb);
-            // Vertices order
-            List<double[]> nodeCoorNodeId = GetNodeCoorNodeId(part, mesh);
-            // Solution at vertices
-            WriteSolutionAtVertices(sb, nodeCoorNodeId, nodeIdValue);
-            // End
-            WriteEnd(sb);
-            //
-            File.WriteAllText(fileName, sb.ToString());
-        }
         private static void Write2D(string fileName, BasePart part, FeMesh mesh, bool keepModelEdges, bool keepVertexEdges)
         {
             VisualizationData vis = part.Visualization;
@@ -39,7 +25,7 @@ namespace FileInOut.Output
             WriteHeading(sb);
             // Vertices
             Dictionary<int, int> oldNodeIdNewId;
-            List<double[]> nodeCoorNodeId = GetNodeCoorNodeId(part, mesh);
+            List<double[]> nodeCoorNodeId = GetNodeCoorNodeId(part.NodeLabels, mesh);
             WriteVertices(sb, nodeCoorNodeId, out oldNodeIdNewId);
             // Corners
             List<int> cornerIds = new List<int>();
@@ -123,7 +109,7 @@ namespace FileInOut.Output
             WriteHeading(sb);
             // Vertices                                                             
             Dictionary<int, int> oldNodeIdNewId;
-            List<double[]> nodeCoorNodeId = GetNodeCoorNodeId(part, mesh);
+            List<double[]> nodeCoorNodeId = GetNodeCoorNodeId(part.NodeLabels, mesh);
             WriteVertices(sb, nodeCoorNodeId, out oldNodeIdNewId);
             // Corners                                                              
             List<int> cornerIds = new List<int>();
@@ -182,7 +168,7 @@ namespace FileInOut.Output
                                                                 oldNodeIdNewId[cell[2]],
                                                                 i + 1 });
                     }
-                    else throw new NotSupportedException();
+                    else throw new CaeException("Mmg meshes only support triangular faces.");
                 }
             }
             WriteTriangles(sb, elementNodeIdsSurfaceId);
@@ -202,7 +188,7 @@ namespace FileInOut.Output
                                                             oldNodeIdNewId[element.NodeIds[3]],
                                                             part.PartId });
                 }
-                else throw new NotSupportedException();
+                else throw new CaeException("Mmg meshes only support tetrahedral volume elements.");
             }
             WriteTetrahedrons(sb, elementNodeIdsSurfaceId);
             // End                                                                  
@@ -210,6 +196,208 @@ namespace FileInOut.Output
             //
             File.WriteAllText(fileName, sb.ToString());
         }
+        public static void WriteSolution(string fileName, BasePart part, FeMesh mesh, Dictionary<int, double> nodeIdValue)
+        {
+            // File
+            StringBuilder sb = new StringBuilder();
+            WriteHeading(sb);
+            // Vertices order
+            List<double[]> nodeCoorNodeId = GetNodeCoorNodeId(part.NodeLabels, mesh);
+            // Solution at vertices
+            WriteSolutionAtVertices(sb, nodeCoorNodeId, nodeIdValue);
+            // End
+            WriteEnd(sb);
+            //
+            File.WriteAllText(fileName, sb.ToString());
+        }
+       
+        public static void Write(string fileName, BasePart[] parts, FeMesh mesh, bool keepModelEdges, bool keepVertexEdges)
+        {
+            // File
+            StringBuilder sb = new StringBuilder();
+            WriteHeading(sb);
+            // Vertices                                                             
+            HashSet<int> allNodeIds = new HashSet<int>();
+            foreach (var part in parts) allNodeIds.UnionWith(part.NodeLabels);
+            List<double[]> nodeCoorNodeId = GetNodeCoorNodeId(allNodeIds.ToArray(), mesh);
+            Dictionary<int, int> oldNodeIdNewId;
+            WriteVertices(sb, nodeCoorNodeId, out oldNodeIdNewId);
+            // Corners                                                              
+            HashSet<int> cornerIds = new HashSet<int>();
+            VisualizationData vis;
+            foreach (var part in parts)
+            {
+                vis = part.Visualization;
+                for (int i = 0; i < vis.VertexNodeIds.Length; i++) cornerIds.Add(oldNodeIdNewId[vis.VertexNodeIds[i]]);
+            }
+            WriteCorners(sb, cornerIds);
+
+
+            // Edges                                                                
+            int id1, id2;
+            int edgeId = 1;
+            int edgeSegmentId = 1;
+            List<int> edgeIds;
+            List<int> ridgeIds = new List<int>();
+            // Collect all edge cells connected to a vertex
+            Dictionary<int, List<int>> vertexEdgeIds = new Dictionary<int, List<int>>();
+            List<int[]> edgeNodeIdsEdgeId = new List<int[]>();
+            //
+            foreach (var part in parts)
+            {
+                vis = part.Visualization;
+                //
+                for (int i = 0; i < vis.VertexNodeIds.Length; i++)
+                {
+                    if (!vertexEdgeIds.ContainsKey(oldNodeIdNewId[vis.VertexNodeIds[i]]))
+                        vertexEdgeIds.Add(oldNodeIdNewId[vis.VertexNodeIds[i]], new List<int>());
+                }
+                //
+                for (int i = 0; i < vis.EdgeCellIdsByEdge.Length; i++)
+                {
+                    for (int j = 0; j < vis.EdgeCellIdsByEdge[i].Length; j++)
+                    {
+                        id1 = vis.EdgeCells[vis.EdgeCellIdsByEdge[i][j]][0];
+                        id2 = vis.EdgeCells[vis.EdgeCellIdsByEdge[i][j]][1];
+                        edgeNodeIdsEdgeId.Add(new int[] { oldNodeIdNewId[id1], oldNodeIdNewId[id2], edgeId });
+                        //
+                        if (vertexEdgeIds.TryGetValue(id1, out edgeIds)) edgeIds.Add(edgeSegmentId);
+                        if (vertexEdgeIds.TryGetValue(id2, out edgeIds)) edgeIds.Add(edgeSegmentId);
+                        //
+                        ridgeIds.Add(edgeSegmentId);
+                        //
+                        edgeSegmentId++;
+                    }
+                    edgeId++;
+                }
+                //
+            }
+            if (keepModelEdges) WriteEdges(sb, edgeNodeIdsEdgeId);
+            // Ridges - all edges are ridges                                        
+            WriteRidges(sb, ridgeIds.ToArray());
+            // Required edges - keep edge cells connected to the vertices with only 2 edge cells: on the outside of the rectangle
+            HashSet<int> requiredEdgeIds = new HashSet<int>();
+            foreach (var cornerEntry in vertexEdgeIds)
+            {
+                if (cornerEntry.Value.Count == 2) requiredEdgeIds.UnionWith(cornerEntry.Value);
+            }
+            if (keepVertexEdges) WriteRequiredEdges(sb, requiredEdgeIds.ToArray());
+            // Surface elements                                                     
+            int surfId = 1;
+            int[] cell;
+            List<int[]> triangleNodeIdsSurfaceId = new List<int[]>();
+            List<int[]> quadNodeIdsSurfaceId = new List<int[]>();
+            foreach (var part in parts)
+            {
+                vis = part.Visualization;
+                //
+                for (int i = 0; i < vis.CellIdsByFace.Length; i++)
+                {
+                    for (int j = 0; j < vis.CellIdsByFace[i].Length; j++)
+                    {
+                        cell = vis.Cells[vis.CellIdsByFace[i][j]];
+                        // Triangles
+                        if (cell.Length == 3 || cell.Length == 6)       // reduce parabolic elements to linear
+                        {
+                            triangleNodeIdsSurfaceId.Add(new int[] { oldNodeIdNewId[cell[0]],
+                                                                     oldNodeIdNewId[cell[1]],
+                                                                     oldNodeIdNewId[cell[2]],
+                                                                     surfId });
+                        }
+                        // Quads
+                        else if (cell.Length == 4 || cell.Length == 8)  // reduce parabolic elements to linear
+                        {
+                            quadNodeIdsSurfaceId.Add(new int[] { oldNodeIdNewId[cell[0]],
+                                                                 oldNodeIdNewId[cell[1]],
+                                                                 oldNodeIdNewId[cell[2]],
+                                                                 oldNodeIdNewId[cell[3]],
+                                                                 surfId });
+                        }
+                        else throw new NotSupportedException();
+                    }
+                    //
+                    surfId++;
+                }
+            }
+            WriteTriangles(sb, triangleNodeIdsSurfaceId);
+            WriteQuadrilaterals(sb, quadNodeIdsSurfaceId);
+            // Volume elements                                                      
+            int elementId;
+            FeElement element;
+            List<int[]> tetraNodeIdsSurfaceId = new List<int[]>();
+            List<int[]> hexaNodeIdsSurfaceId = new List<int[]>();
+            //
+            foreach (var part in parts)
+            {
+                for (int i = 0; i < part.Labels.Length; i++)
+                {
+                    elementId = part.Labels[i];
+                    element = mesh.Elements[elementId];
+                    if (element is LinearTetraElement || element is ParabolicTetraElement)
+                    {
+                        tetraNodeIdsSurfaceId.Add(new int[] { oldNodeIdNewId[element.NodeIds[0]],
+                                                              oldNodeIdNewId[element.NodeIds[1]],
+                                                              oldNodeIdNewId[element.NodeIds[2]],
+                                                              oldNodeIdNewId[element.NodeIds[3]],
+                                                              part.PartId });
+                    }
+                    //else if (element is LinearHexaElement || element is ParabolicHexaElement)
+                    //{
+                    //    hexaNodeIdsSurfaceId.Add(new int[] { oldNodeIdNewId[element.NodeIds[0]],
+                    //                                         oldNodeIdNewId[element.NodeIds[1]],
+                    //                                         oldNodeIdNewId[element.NodeIds[2]],
+                    //                                         oldNodeIdNewId[element.NodeIds[3]],
+                    //                                         oldNodeIdNewId[element.NodeIds[4]],
+                    //                                         oldNodeIdNewId[element.NodeIds[5]],
+                    //                                         part.PartId });
+                    //}
+                    else throw new CaeException("Mmg meshes only support tetrahedral volume elements.");
+                }
+            }
+            WriteTetrahedrons(sb, tetraNodeIdsSurfaceId);
+            WriteHexahedrons(sb, hexaNodeIdsSurfaceId);
+            // End                                                                  
+            WriteEnd(sb);
+            //
+            File.WriteAllText(fileName, sb.ToString());
+        }
+        public static void WriteSolution(string fileName, BasePart[] parts, FeMesh mesh, Dictionary<int, double> nodeIdValue)
+        {
+            // File
+            StringBuilder sb = new StringBuilder();
+            WriteHeading(sb);
+            // Vertices order
+            HashSet<int> nodeIds = new HashSet<int>();
+            foreach (var part in parts) nodeIds.UnionWith(part.NodeLabels);
+            List<double[]> nodeCoorNodeId = GetNodeCoorNodeId(nodeIds.ToArray(), mesh);
+            // Solution at vertices
+            WriteSolutionAtVertices(sb, nodeCoorNodeId, nodeIdValue);
+            // End
+            WriteEnd(sb);
+            //
+            File.WriteAllText(fileName, sb.ToString());
+        }
+        public static void WriteMaterial(string fileName, BasePart[] parts)
+        {
+            // File
+            StringBuilder sb = new StringBuilder();
+            //
+            sb.AppendLine("LSReferences");
+            sb.AppendLine(parts.Length.ToString());
+            sb.AppendLine();
+            //
+            int maxParId = -1;
+            foreach (var part in parts) if (part.PartId > maxParId) maxParId = part.PartId;
+            //
+            foreach (var part in parts)
+            {
+                sb.AppendFormat("{0} {1} {2}{3}", part.PartId, maxParId + 1, maxParId + 2, Environment.NewLine);
+                maxParId += 2;
+            }
+            //
+            File.WriteAllText(fileName, sb.ToString());
+        }
+        //
         public static void WriteShellElementsFix(string fileName, int[] elementIds, BasePart part, FeMesh mesh,
                                                  bool keepModelEdges)
         {
@@ -219,7 +407,7 @@ namespace FileInOut.Output
             WriteHeading(sb);
             // Vertices
             Dictionary<int, int> oldNodeIdNewId;
-            List<double[]> nodeCoorNodeId = GetNodeCoorNodeId(part, mesh);
+            List<double[]> nodeCoorNodeId = GetNodeCoorNodeId(part.NodeLabels, mesh);
             WriteVertices(sb, nodeCoorNodeId, out oldNodeIdNewId);
             // Corners
             List<int> cornerIds = new List<int>();
@@ -239,17 +427,17 @@ namespace FileInOut.Output
                     if (element is LinearTriangleElement || element is ParabolicTriangleElement)
                     {
                         triangleNodeIdsSurfaceId.Add(new int[] { oldNodeIdNewId[element.NodeIds[0]],
-                                                                     oldNodeIdNewId[element.NodeIds[1]],
-                                                                     oldNodeIdNewId[element.NodeIds[2]],
-                                                                     i + 1 });
+                                                                 oldNodeIdNewId[element.NodeIds[1]],
+                                                                 oldNodeIdNewId[element.NodeIds[2]],
+                                                                 i + 1 });
                     }
                     else if (element is LinearQuadrilateralElement || element is ParabolicQuadrilateralElement)
                     {
                         quadNodeIdsSurfaceId.Add(new int[] { oldNodeIdNewId[element.NodeIds[0]],
-                                                                 oldNodeIdNewId[element.NodeIds[1]],
-                                                                 oldNodeIdNewId[element.NodeIds[2]],
-                                                                 oldNodeIdNewId[element.NodeIds[3]],
-                                                                 i + 1 });
+                                                             oldNodeIdNewId[element.NodeIds[1]],
+                                                             oldNodeIdNewId[element.NodeIds[2]],
+                                                             oldNodeIdNewId[element.NodeIds[3]],
+                                                             i + 1 });
                     }
                     else throw new NotSupportedException();
                 }
@@ -518,12 +706,12 @@ namespace FileInOut.Output
             sb.AppendLine("Dimension 3");
         }
         //
-        private static List<double[]> GetNodeCoorNodeId(BasePart part, FeMesh mesh)
+        private static List<double[]> GetNodeCoorNodeId(int[] nodeIds, FeMesh mesh)
         {
             // The same order is used for writing solution values
             FeNode node;
             List<double[]> nodeCoorNodeId = new List<double[]>(); 
-            foreach (var nodeId in part.NodeLabels)
+            foreach (var nodeId in nodeIds)
             {
                 node = mesh.Nodes[nodeId];
                 nodeCoorNodeId.Add(new double[] { node.X, node.Y, node.Z, node.Id });
@@ -550,13 +738,13 @@ namespace FileInOut.Output
                 count++;
             }
         }
-        private static void WriteCorners(StringBuilder sb, List<int> cornerIds)
+        private static void WriteCorners(StringBuilder sb, IEnumerable<int> cornerIds)
         {
-            if (cornerIds == null || cornerIds.Count == 0) return;
+            if (cornerIds == null || cornerIds.Count() == 0) return;
             //
             sb.AppendLine();
             sb.AppendLine("Corners");
-            sb.AppendLine(cornerIds.Count.ToString());
+            sb.AppendLine(cornerIds.Count().ToString());
             //
             foreach (var cornerId in cornerIds)
             {
@@ -687,6 +875,26 @@ namespace FileInOut.Output
                                                           elementData[3],
                                                           elementData[4],
                                                           Environment.NewLine);
+            }
+        }
+        private static void WriteHexahedrons(StringBuilder sb, List<int[]> elementNodeIdsElementId)
+        {
+            if (elementNodeIdsElementId == null || elementNodeIdsElementId.Count == 0) return;
+            //
+            sb.AppendLine();
+            sb.AppendLine("Hexahedra");
+            sb.AppendLine(elementNodeIdsElementId.Count.ToString());
+            //
+            foreach (var elementData in elementNodeIdsElementId)
+            {
+                sb.AppendFormat("{0} {1} {2} {3} {4} {5} {6}{7}", elementData[0],
+                                                                  elementData[1],
+                                                                  elementData[2],
+                                                                  elementData[3],
+                                                                  elementData[4],
+                                                                  elementData[5],
+                                                                  elementData[6],
+                                                                  Environment.NewLine);
             }
         }
         //
