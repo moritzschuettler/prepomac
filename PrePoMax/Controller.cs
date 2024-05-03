@@ -4063,7 +4063,8 @@ namespace PrePoMax
                 FeMesh mesh = FileInOut.Input.MmgFileReader.Read(mmgOutFileName, FileInOut.Input.ElementsToImport.Shell,
                                                                  MeshRepresentation.Geometry);
                 GeometryPart partOut;
-                mesh.MergeGeometryParts(mesh.Parts.Keys.ToArray(), out partOut, out _);
+                if (mesh.Parts.Count == 1) partOut = (GeometryPart)mesh.Parts.First().Value;
+                else mesh.MergeGeometryParts(mesh.Parts.Keys.ToArray(), out partOut, out _);
                 //
                 if (File.Exists(mmgInFileName)) File.Delete(mmgInFileName);
                 if (File.Exists(mmgOutFileName)) File.Delete(mmgOutFileName);
