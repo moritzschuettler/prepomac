@@ -165,7 +165,7 @@ namespace FileInOut.Input
                 int nodeId = 1;
                 int elementId = 1;
                 int maxParId = 1;
-                string[] lines = CaeGlobals.Tools.ReadAllLines(fileName);
+                string[] lines = Tools.ReadAllLines(fileName);
                 // Read
                 for (int i = 0; i < lines.Length; i++)
                 {
@@ -186,6 +186,8 @@ namespace FileInOut.Input
                         ReadTetrahedrons(lines, ref i, ref elementId, ref maxParId, oldNodeIdNewNodeId, ref elements, out _);
                     }
                 }
+                // Get edges between faces
+                GetEdgesFromMaterialBoundaries(ref elementId, ref elements);
                 // Count number of edges in an edge node
                 Dictionary<int, int> nodeIdEdgeCount = new Dictionary<int, int>();
                 foreach (var entry in elements)
@@ -224,6 +226,7 @@ namespace FileInOut.Input
             //
             return null;
         }
+       
         private static void ReadVertices(string[] lines, ref int currentLine, ref int nodeId,
                                          Dictionary<int, FeNode> existingNodes,
                                          double epsilon, ref Dictionary<int, FeNode> nodes, 
@@ -410,8 +413,66 @@ namespace FileInOut.Input
             //
             maxPartId = newMaxPartId;
         }
-
-
+        //
+        private static void GetEdgesFromMaterialBoundaries(ref int elementId, ref Dictionary<int, FeElement> elements)
+        {
+            int id1;
+            int id2;
+            int[] key;
+            List<int> surfaceIds;
+            CompareIntArray comparer = new CompareIntArray();
+            HashSet<int[]> existingEdges = new HashSet<int[]>(comparer);
+            Dictionary<int[], List<int>> edgeSurfaceId = new Dictionary<int[], List<int>>(comparer);
+            //
+            foreach (var entry in elements)
+            {
+                if (entry.Value is LinearBeamElement existingBeam)
+                {
+                    id1 = existingBeam.NodeIds[0];
+                    id2 = existingBeam.NodeIds[1];
+                    if (id1 > id2) (id1, id2) = (id2, id1); // sort
+                    key = new int[] { id1, id2 };
+                    existingEdges.Add(key);
+                }
+                else if (entry.Value is LinearTriangleElement triangle)
+                {
+                    for (int i = 0; i < 3; i++)
+                    {
+                        id1 = triangle.NodeIds[i % 3];
+                        id2 = triangle.NodeIds[(i + 1) % 3];
+                        if (id1 > id2) (id1, id2) = (id2, id1); // sort
+                        key = new int[] { id1, id2 };
+                        //
+                        if (edgeSurfaceId.TryGetValue(key, out surfaceIds)) surfaceIds.Add(triangle.PartId);
+                        else edgeSurfaceId.Add(key, new List<int> { triangle.PartId });
+                    }
+                }
+            }
+            HashSet<int> uniqueSurfaceIds;
+            LinearBeamElement beam;
+            foreach (var entry in edgeSurfaceId)
+            {
+                if (!existingEdges.Contains(entry.Key))
+                {
+                    uniqueSurfaceIds = new HashSet<int>(entry.Value);
+                    // Free edge
+                    if (entry.Value.Count == 1)
+                    {
+                        beam = new LinearBeamElement(elementId++, entry.Key);
+                        elements.Add(beam.Id, beam);
+                    }
+                    // Internal surface edge
+                    else if (entry.Value.Count == 2 && uniqueSurfaceIds.Count == 1)
+                    { }
+                    // Edge
+                    else if (entry.Value.Count > 2 || uniqueSurfaceIds.Count > 1)
+                    {
+                        beam = new LinearBeamElement(elementId++, entry.Key);
+                        elements.Add(beam.Id, beam);
+                    }
+                }
+            }
+        }
 
 
         private static int GetExistingNodeId(FeNode node, int possibleId, Dictionary<int, FeNode> existingNodes, double epsilon)
@@ -450,3 +511,4 @@ namespace FileInOut.Input
         }
     }
 }
+

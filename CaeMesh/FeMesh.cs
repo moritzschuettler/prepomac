@@ -1312,16 +1312,22 @@ namespace CaeMesh
             int n = part.Labels.Length;
             int[] elementIds = part.Labels;
             //
-            int[] visualizationCellsIds = part.Labels;
+            int[] visualizationCellsIds = part.Labels.ToArray(); //copy
             int[][] visualizationCells = new int[n][];
+            int[][] edgeCells = new int[n][];
             //
             int count = 0;
-            foreach (var id in elementIds) visualizationCells[count++] = _elements[id].GetVtkNodeIds();
+            foreach (var id in elementIds)
+            {
+                visualizationCells[count] = _elements[id].GetVtkNodeIds();
+                edgeCells[count] = visualizationCells[count].ToArray(); // copy
+                count++;
+            }
             //
             part.Visualization.CellIds = visualizationCellsIds;
             part.Visualization.Cells = visualizationCells;
             // Model edges
-            part.Visualization.EdgeCells = visualizationCells;
+            part.Visualization.EdgeCells = edgeCells;
             HashSet<int> vertexNodeIds = ExtractVerticesFromEdgesByAngle(part, edgeAngle, true);
             //
             SplitVisualizationEdgesAndFaces(part, vertexNodeIds);

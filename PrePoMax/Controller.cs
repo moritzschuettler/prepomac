@@ -4036,7 +4036,7 @@ namespace PrePoMax
             //
             SuppressExplodedView(new string[] { part.Name });
             MeshingParameters meshingParameters = GetPartMeshingParameters(part.Name);
-            FileInOut.Output.MmgFileWriter.Write(mmgInFileName, part, _model.Geometry, meshingParameters.KeepModelEdges, false);
+            MmgFileWriter.Write(mmgInFileName, part, _model.Geometry, meshingParameters.KeepModelEdges, false);
             ResumeExplodedViews(false);
             //
             System.Diagnostics.PerformanceCounter ramCounter;
@@ -4062,13 +4062,14 @@ namespace PrePoMax
             {
                 FeMesh mesh = FileInOut.Input.MmgFileReader.Read(mmgOutFileName, FileInOut.Input.ElementsToImport.Shell,
                                                                  MeshRepresentation.Geometry);
-                GeometryPart partOut = (GeometryPart)mesh.Parts.First().Value;
+                GeometryPart partOut;
+                mesh.MergeGeometryParts(mesh.Parts.Keys.ToArray(), out partOut, out _);
                 //
                 if (File.Exists(mmgInFileName)) File.Delete(mmgInFileName);
                 if (File.Exists(mmgOutFileName)) File.Delete(mmgOutFileName);
                 if (File.Exists(mmgSolFileName)) File.Delete(mmgSolFileName);
                 //
-                FileInOut.Output.MmgFileWriter.Write(mmgInFileName, partOut, mesh, meshingParameters.KeepModelEdges, true);
+                MmgFileWriter.Write(mmgInFileName, partOut, mesh, meshingParameters.KeepModelEdges, true);
                 //
                 argument = "-nr " +
                            "-m " + ramCounter.NextValue() * 0.9 + " " +

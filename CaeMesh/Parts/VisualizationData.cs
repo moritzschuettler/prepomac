@@ -427,7 +427,6 @@ namespace CaeMesh
             // Edge cells
             if (_edgeCells != null)
             {
-
                 for (int i = 0; i < _edgeCells.Length; i++)
                 {
                     for (int j = 0; j < _edgeCells[i].Length; j++)
