@@ -32,7 +32,7 @@ namespace PrePoMax
         }
         public TempDataPoint(double temperature)
         {
-            _temperature = new EquationContainer(typeof(StringTemperatureFromConverter), temperature);
+            _temperature = new EquationContainer(typeof(StringTemperatureConverter), temperature); // must not use FROM converter
         }
         public TempDataPoint(EquationContainer temperature)
         {

@@ -34,7 +34,7 @@ namespace PrePoMax
         public ThermalConductivityDataPoint()
             : base(0)
         {
-            _thermalConductivity = new EquationContainer(typeof(StringThermalConductivityFromConverter), 0);
+            _thermalConductivity = new EquationContainer(typeof(StringThermalConductivityConverter), 0); // must not use FROM converter
         }
         public ThermalConductivityDataPoint(EquationContainer thermalConductivity, EquationContainer temperature)
             : base(temperature)

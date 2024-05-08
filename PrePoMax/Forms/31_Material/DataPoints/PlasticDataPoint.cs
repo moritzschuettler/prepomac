@@ -37,7 +37,7 @@ namespace PrePoMax
         public PlasticDataPoint()
             :base(0)
         {
-            _stress = new EquationContainer(typeof(StringPressureFromConverter), 0);
+            _stress = new EquationContainer(typeof(StringPressureConverter), 0); // must not use FROM converter
             _strain = new EquationContainer(typeof(StringDoubleConverter), 0);
         }
         public PlasticDataPoint(EquationContainer stress, EquationContainer strain, EquationContainer temperature)

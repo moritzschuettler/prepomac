@@ -107,6 +107,10 @@ namespace PrePoMax.Forms
                 e.SuppressKeyPress = true;  // no beep
             }
         }
+        private void tbDescription_TextChanged(object sender, EventArgs e)
+        {
+            _propertyItemChanged = true;
+        }
         private void cbTemperatureDependent_CheckedChanged(object sender, EventArgs e)
         {
             HideShowTemperature();

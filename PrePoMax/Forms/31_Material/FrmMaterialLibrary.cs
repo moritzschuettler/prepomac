@@ -19,7 +19,6 @@ namespace PrePoMax.Forms
         // Variables                                                                                                                
         private Controller _controller;
         private bool _modelChanged;
-        private UnitSystem _libraryUnitSystem;
         private FrmMaterial _frmMaterial;
         private int _yPadding;
         private object _previousControl;
@@ -39,7 +38,6 @@ namespace PrePoMax.Forms
             _modelChanged = false;
             _previousControl = null;
             //
-            _libraryUnitSystem = new UnitSystem(UnitSystemType.MM_TON_S_C);
             _controller.Model.UnitSystem.SetConverterUnits();
         }
 

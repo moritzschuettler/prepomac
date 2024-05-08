@@ -2216,20 +2216,29 @@ namespace UserControls
             else if (item is ResultFieldOutput) baseNode = _resultFieldOutputs;
             else baseNode = tree.Nodes[0];
             //
-            TreeNode[] tmp;
+            TreeNode[] tmpNodes;
             if (parentName != null)
             {
-                tmp = _steps.Nodes.Find(parentName, true);
-                if (tmp.Length > 1) throw new Exception("Node search failed. More than one step named: " + parentName);
-                baseNode = tmp[0];
+                tmpNodes = _steps.Nodes.Find(parentName, true);
+                int count = 0;
+                foreach (TreeNode tmpNode in tmpNodes)
+                {
+                    if (tmpNode.Nodes.Count > 0)
+                    {
+                        baseNode = tmpNode;
+                        count++;
+                    }
+                }
+                if (count > 1) throw new Exception("Node search failed. More than one step named: " + parentName);
+                baseNode = tmpNodes[0];
             }
             //
             bool nodeFound;
-            tmp = baseNode.Nodes.Find(itemName, true);
-            if (tmp.Length > 1)
+            tmpNodes = baseNode.Nodes.Find(itemName, true);
+            if (tmpNodes.Length > 1)
             {
                 nodeFound = false;
-                foreach (var treeNode in tmp)
+                foreach (var treeNode in tmpNodes)
                 {
                     if (treeNode.Tag != null && treeNode.Tag.GetType() == item.GetType())
                     {
@@ -2242,7 +2251,7 @@ namespace UserControls
             }
             else
             {
-                if (tmp.Length == 1) baseNode = tmp[0];
+                if (tmpNodes.Length == 1) baseNode = tmpNodes[0];
                 else baseNode = null;
             }
             //

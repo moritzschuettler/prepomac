@@ -31,7 +31,7 @@ namespace PrePoMax
         public SpecificHeatDataPoint()
             :base(0)
         {
-            _specificHeat = new EquationContainer(typeof(StringSpecificHeatFromConverter), 0);
+            _specificHeat = new EquationContainer(typeof(StringSpecificHeatConverter), 0); // must not use FROM converter
         }
         public SpecificHeatDataPoint(EquationContainer density, EquationContainer temperature)
             :base(temperature)

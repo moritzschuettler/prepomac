@@ -214,6 +214,7 @@
             this.tbDescription.Size = new System.Drawing.Size(350, 51);
             this.tbDescription.TabIndex = 3;
             this.tbDescription.Text = "1\r\n2\r\n3";
+            this.tbDescription.TextChanged += new System.EventHandler(this.tbDescription_TextChanged);
             // 
             // lDescription
             // 

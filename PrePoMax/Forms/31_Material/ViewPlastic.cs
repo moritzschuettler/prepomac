@@ -50,6 +50,7 @@ namespace PrePoMax
 
         // Methods                                                                                                                  
         public override MaterialProperty GetBase()
+        
         {
             int i = 0;
             EquationContainer[][] stressStrainTemp = new EquationContainer[_points.Count][];

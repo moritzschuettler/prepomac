@@ -33,7 +33,7 @@ namespace PrePoMax
         public ThermalExpansionDataPoint()
             :base(0)
         {
-            _thermalExpansion = new EquationContainer(typeof(StringThermalExpansionFromConverter), 0);
+            _thermalExpansion = new EquationContainer(typeof(StringThermalExpansionConverter), 0); // must not use FROM converter
         }
         public ThermalExpansionDataPoint(EquationContainer thermalExpansion, EquationContainer temperature)
             :base(temperature)

@@ -29,7 +29,7 @@ namespace PrePoMax
         public DensityDataPoint()
             :base(0)
         {
-            _density = new EquationContainer(typeof(StringDensityFromConverter), 0);
+            _density = new EquationContainer(typeof(StringDensityConverter), 0); // must not use FROM converter
         }
         public DensityDataPoint(EquationContainer density, EquationContainer temperature)
             :base(temperature)

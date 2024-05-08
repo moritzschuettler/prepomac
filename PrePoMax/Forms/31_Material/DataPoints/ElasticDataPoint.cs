@@ -37,7 +37,7 @@ namespace PrePoMax
         public ElasticDataPoint()
             :base(0)
         {
-            _youngsModulus = new EquationContainer(typeof(StringPressureFromConverter), 0);
+            _youngsModulus = new EquationContainer(typeof(StringPressureConverter), 0); // must not use FROM converter
             _poissonsRatio = new EquationContainer(typeof(StringDoubleConverter), 0);
         }
         public ElasticDataPoint(EquationContainer youngsModulus, EquationContainer poissonsRatio, EquationContainer temperature)
