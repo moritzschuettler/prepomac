@@ -8257,11 +8257,11 @@ namespace PrePoMax
         {
             HistoryOutput oldHistoryOutput = GetHistoryOutput(stepName, oldHistoryOutputName);
             // First check for a valid region since MultiRegionChanged changes the region type and region name
-            if ((!_model.RegionValid(oldHistoryOutput) || StepCollection.MultiRegionChanged(oldHistoryOutput, historyOutput)) &&
-                !propagated)
+            if (!_model.RegionValid(oldHistoryOutput) || StepCollection.MultiRegionChanged(oldHistoryOutput, historyOutput))
             {
                 DeleteSelectionBasedHistoryOutputSets(stepName, oldHistoryOutputName);
-                ConvertSelectionBasedHistoryOutput(historyOutput);
+                // If propagated it was already converted
+                if (!propagated) ConvertSelectionBasedHistoryOutput(historyOutput);
             }
             //
             _model.StepCollection.GetStep(stepName).HistoryOutputs.Replace(oldHistoryOutputName, historyOutput.Name,
@@ -8551,10 +8551,11 @@ namespace PrePoMax
         {
             BoundaryCondition oldBC = GetBoundaryCondition(stepName, oldBoundaryConditionName);
             // First check for a valid region since MultiRegionChanged changes the region type and region name
-            if ((!_model.RegionValid(oldBC) || StepCollection.MultiRegionChanged(oldBC, boundaryCondition)) && !propagated)
+            if (!_model.RegionValid(oldBC) || StepCollection.MultiRegionChanged(oldBC, boundaryCondition))
             {
                 DeleteSelectionBasedBoundaryConditionSets(stepName, oldBoundaryConditionName);
-                ConvertSelectionBasedBoundaryCondition(boundaryCondition);
+                // If propagated it was already converted
+                if (!propagated) ConvertSelectionBasedBoundaryCondition(boundaryCondition);
             }
             //
             if (_model.StepCollection.GetStep(stepName).ReplaceBoundaryCondition(oldBoundaryConditionName, boundaryCondition))
@@ -8776,10 +8777,11 @@ namespace PrePoMax
         {
             Load oldLoad = GetLoad(stepName, oldLoadName);
             // First check for a valid region since MultiRegionChanged changes the region type and region name
-            if ((!_model.RegionValid(oldLoad) || StepCollection.MultiRegionChanged(oldLoad, load)) && !propagated)
+            if (!_model.RegionValid(oldLoad) || StepCollection.MultiRegionChanged(oldLoad, load))
             {
                 DeleteSelectionBasedLoadSets(stepName, oldLoadName);
-                ConvertSelectionBasedLoad(load);
+                // If propagated it was already converted
+                if (!propagated) ConvertSelectionBasedLoad(load);
             }
             //
             if (_model.StepCollection.GetStep(stepName).ReplaceLoad(oldLoadName, load))
@@ -9011,11 +9013,11 @@ namespace PrePoMax
         {
             DefinedField oldDefinedField = GetDefinedField(stepName, oldDefinedFieldName);
             // First check for a valid region since MultiRegionChanged changes the region type and region name
-            if ((!_model.RegionValid(oldDefinedField) || StepCollection.MultiRegionChanged(oldDefinedField, definedField)) &&
-                !propagated)
+            if (!_model.RegionValid(oldDefinedField) || StepCollection.MultiRegionChanged(oldDefinedField, definedField))
             {
                 DeleteSelectionBasedDefinedFieldSets(stepName, oldDefinedFieldName);
-                ConvertSelectionBasedDefinedField(definedField);
+                // If propagated it was already converted
+                if (!propagated) ConvertSelectionBasedDefinedField(definedField);
             }
             //
             _model.StepCollection.GetStep(stepName).DefinedFields.Replace(oldDefinedFieldName, definedField.Name, definedField);
