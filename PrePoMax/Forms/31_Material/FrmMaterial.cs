@@ -164,21 +164,6 @@ namespace PrePoMax.Forms
             }
             _propertyItemChanged = true;
         }
-        private void btnRemove_Click(object sender, EventArgs e)
-        {
-            if (lvAddedProperties.SelectedItems.Count == 1)
-            {
-                ListViewItem item = lvAddedProperties.SelectedItems[0];                
-                int index = item.Index;
-                if (index == lvAddedProperties.Items.Count - 1) index--;
-                lvAddedProperties.Items.Remove(item);
-                //
-                if (lvAddedProperties.Items.Count > 0) lvAddedProperties.Items[index].Selected = true;
-                else ClearControls();
-                //
-                _propertyItemChanged = true;
-            }
-        }
         private void btnMoveUp_Click(object sender, EventArgs e)
         {
             try
@@ -210,6 +195,21 @@ namespace PrePoMax.Forms
             }
             catch
             { }
+        }
+        private void btnRemove_Click(object sender, EventArgs e)
+        {
+            if (lvAddedProperties.SelectedItems.Count == 1)
+            {
+                ListViewItem item = lvAddedProperties.SelectedItems[0];
+                int index = item.Index;
+                if (index == lvAddedProperties.Items.Count - 1) index--;
+                lvAddedProperties.Items.Remove(item);
+                //
+                if (lvAddedProperties.Items.Count > 0) lvAddedProperties.Items[index].Selected = true;
+                else ClearControls();
+                //
+                _propertyItemChanged = true;
+            }
         }
         //
         private void lvAddedProperties_SelectedIndexChanged(object sender, EventArgs e)

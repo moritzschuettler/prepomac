@@ -90,6 +90,10 @@
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\SurfaceInteraction\CalGapConductance.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\BC\CalTemperatureBC.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\CalModalDynamicsStep.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Controls\CalContactParameter.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Controls\CalResetParameter.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Controls\CalFieldParameter.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Controls\CalTimeIncrementationParameter.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\CalSteadyStateDynamicsStep.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\CalDynamicStep.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\CalHeatTransferStep.cs" />
@@ -158,6 +162,12 @@
     <Compile Include="Constraints\RigidBody.cs" />
     <Compile Include="Constraints\Constraint.cs" />
     <Compile Include="FeModel.cs" />
+    <Compile Include="Steps\Controls\ContactStepControlParameter.cs" />
+    <Compile Include="Steps\Controls\ResetStepControlParameter.cs" />
+    <Compile Include="Steps\Controls\StepControls.cs" />
+    <Compile Include="Steps\Controls\TimeIncrementationStepControlParameter - Copy.cs" />
+    <Compile Include="Steps\Controls\FieldStepControlParameter.cs" />
+    <Compile Include="Steps\Controls\StepControlParameter.cs" />
     <Compile Include="Steps\Damping\DampingRatioFromTo.cs" />
     <Compile Include="Steps\Damping\Damping.cs" />
     <Compile Include="Steps\Damping\ModalDamping.cs" />

@@ -99,6 +99,7 @@
             this.cmsTree = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.tsmiCreate = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiEdit = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiEditStepControls = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiQuery = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDuplicate = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiPropagate = new System.Windows.Forms.ToolStripMenuItem();
@@ -170,6 +171,7 @@
             this.cmsTree.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsmiCreate,
             this.tsmiEdit,
+            this.tsmiEditStepControls,
             this.tsmiQuery,
             this.tsmiDuplicate,
             this.tsmiPropagate,
@@ -218,7 +220,7 @@
             this.tsmiSpaceDelete,
             this.tsmiDelete});
             this.cmsTree.Name = "cmsTree";
-            this.cmsTree.Size = new System.Drawing.Size(212, 842);
+            this.cmsTree.Size = new System.Drawing.Size(212, 864);
             // 
             // tsmiCreate
             // 
@@ -233,6 +235,13 @@
             this.tsmiEdit.Size = new System.Drawing.Size(211, 22);
             this.tsmiEdit.Text = "Edit";
             this.tsmiEdit.Click += new System.EventHandler(this.tsmiEdit_Click);
+            // 
+            // tsmiEditStepControls
+            // 
+            this.tsmiEditStepControls.Name = "tsmiEditStepControls";
+            this.tsmiEditStepControls.Size = new System.Drawing.Size(211, 22);
+            this.tsmiEditStepControls.Text = "Edit Controls";
+            this.tsmiEditStepControls.Click += new System.EventHandler(this.tsmiEditStepControls_Click);
             // 
             // tsmiQuery
             // 
@@ -571,27 +580,28 @@
             this.ilIcons.Images.SetKeyName(19, "ContactPair.ico");
             this.ilIcons.Images.SetKeyName(20, "Amplitude.ico");
             this.ilIcons.Images.SetKeyName(21, "Initial_conditions.ico");
-            this.ilIcons.Images.SetKeyName(22, "Step.ico");
-            this.ilIcons.Images.SetKeyName(23, "History_output.ico");
-            this.ilIcons.Images.SetKeyName(24, "Field_output.ico");
-            this.ilIcons.Images.SetKeyName(25, "Bc.ico");
-            this.ilIcons.Images.SetKeyName(26, "Load.ico");
-            this.ilIcons.Images.SetKeyName(27, "Defined_field.ico");
-            this.ilIcons.Images.SetKeyName(28, "Analysis.ico");
-            this.ilIcons.Images.SetKeyName(29, "NoResult.ico");
-            this.ilIcons.Images.SetKeyName(30, "Running.ico");
-            this.ilIcons.Images.SetKeyName(31, "OK.ico");
-            this.ilIcons.Images.SetKeyName(32, "Warning.ico");
-            this.ilIcons.Images.SetKeyName(33, "Dots.ico");
-            this.ilIcons.Images.SetKeyName(34, "Dots_t.ico");
-            this.ilIcons.Images.SetKeyName(35, "Compound.ico");
-            this.ilIcons.Images.SetKeyName(36, "Compound_transparent.ico");
-            this.ilIcons.Images.SetKeyName(37, "Shell.ico");
-            this.ilIcons.Images.SetKeyName(38, "Shell_transparent.ico");
-            this.ilIcons.Images.SetKeyName(39, "Wire.ico");
-            this.ilIcons.Images.SetKeyName(40, "Wire_transparent.ico");
-            this.ilIcons.Images.SetKeyName(41, "Solid_transparent.ico");
-            this.ilIcons.Images.SetKeyName(42, "Solid.ico");
+            this.ilIcons.Images.SetKeyName(22, "Steps.ico");
+            this.ilIcons.Images.SetKeyName(23, "Step.ico");
+            this.ilIcons.Images.SetKeyName(24, "History_output.ico");
+            this.ilIcons.Images.SetKeyName(25, "Field_output.ico");
+            this.ilIcons.Images.SetKeyName(26, "Bc.ico");
+            this.ilIcons.Images.SetKeyName(27, "Load.ico");
+            this.ilIcons.Images.SetKeyName(28, "Defined_field.ico");
+            this.ilIcons.Images.SetKeyName(29, "Analysis.ico");
+            this.ilIcons.Images.SetKeyName(30, "NoResult.ico");
+            this.ilIcons.Images.SetKeyName(31, "Running.ico");
+            this.ilIcons.Images.SetKeyName(32, "OK.ico");
+            this.ilIcons.Images.SetKeyName(33, "Warning.ico");
+            this.ilIcons.Images.SetKeyName(34, "Dots.ico");
+            this.ilIcons.Images.SetKeyName(35, "Dots_t.ico");
+            this.ilIcons.Images.SetKeyName(36, "Compound.ico");
+            this.ilIcons.Images.SetKeyName(37, "Compound_transparent.ico");
+            this.ilIcons.Images.SetKeyName(38, "Shell.ico");
+            this.ilIcons.Images.SetKeyName(39, "Shell_transparent.ico");
+            this.ilIcons.Images.SetKeyName(40, "Wire.ico");
+            this.ilIcons.Images.SetKeyName(41, "Wire_transparent.ico");
+            this.ilIcons.Images.SetKeyName(42, "Solid_transparent.ico");
+            this.ilIcons.Images.SetKeyName(43, "Solid.ico");
             // 
             // ilStatusIcons
             // 
@@ -841,9 +851,9 @@
             treeNode25.SelectedImageKey = "Initial_conditions.ico";
             treeNode25.Text = "Initial Conditions";
             treeNode25.ToolTipText = "Initial Conditions";
-            treeNode26.ImageKey = "Step.ico";
+            treeNode26.ImageKey = "Steps.ico";
             treeNode26.Name = "Steps";
-            treeNode26.SelectedImageKey = "Step.ico";
+            treeNode26.SelectedImageKey = "Steps.ico";
             treeNode26.Text = "Steps";
             treeNode26.ToolTipText = "Steps";
             treeNode27.ImageKey = "Dots.ico";
@@ -1049,5 +1059,6 @@
         private System.Windows.Forms.ToolStripMenuItem tsmiQuery;
         private System.Windows.Forms.ToolStripMenuItem tsmiPreview;
         private System.Windows.Forms.ToolStripMenuItem tsmiCheckModel;
+        private System.Windows.Forms.ToolStripMenuItem tsmiEditStepControls;
     }
 }

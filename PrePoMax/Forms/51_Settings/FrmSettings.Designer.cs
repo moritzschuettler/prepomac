@@ -34,13 +34,13 @@
             System.Windows.Forms.ListViewItem listViewItem3 = new System.Windows.Forms.ListViewItem("3");
             this.gbProperties = new System.Windows.Forms.GroupBox();
             this.lvSettings = new UserControls.ListViewWithSelection();
+            this.colName = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.propertyGrid = new UserControls.TabEnabledPropertyGrid();
             this.cmsPropertyGrid = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.tsmiResetAll = new System.Windows.Forms.ToolStripMenuItem();
             this.btnOK = new System.Windows.Forms.Button();
             this.btnCancel = new System.Windows.Forms.Button();
             this.btnApply = new System.Windows.Forms.Button();
-            this.colName = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.gbProperties.SuspendLayout();
             this.cmsPropertyGrid.SuspendLayout();
             this.SuspendLayout();
@@ -84,6 +84,10 @@
             this.lvSettings.View = System.Windows.Forms.View.Details;
             this.lvSettings.SelectedIndexChanged += new System.EventHandler(this.lvSettings_SelectedIndexChanged);
             // 
+            // colName
+            // 
+            this.colName.Width = 27;
+            // 
             // propertyGrid
             // 
             this.propertyGrid.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
@@ -95,6 +99,7 @@
             this.propertyGrid.LineColor = System.Drawing.SystemColors.Control;
             this.propertyGrid.Location = new System.Drawing.Point(187, 22);
             this.propertyGrid.Name = "propertyGrid";
+            this.propertyGrid.ReadOnly = false;
             this.propertyGrid.Size = new System.Drawing.Size(517, 380);
             this.propertyGrid.TabIndex = 3;
             this.propertyGrid.ToolbarVisible = false;

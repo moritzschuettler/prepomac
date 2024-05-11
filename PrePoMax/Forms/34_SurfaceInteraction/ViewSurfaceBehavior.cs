@@ -21,7 +21,7 @@ namespace PrePoMax
         [Browsable(false)]
         public override string Name
         {
-            get { return "Surface behavior"; }
+            get { return "Surface Behavior"; }
         }
         //
         [Browsable(false)]

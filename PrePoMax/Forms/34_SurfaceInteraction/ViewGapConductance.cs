@@ -21,7 +21,7 @@ namespace PrePoMax
         [Browsable(false)]
         public override string Name
         {
-            get { return "Gap conductance"; }
+            get { return "Gap Conductance"; }
         }
         //
         [Browsable(false)]

@@ -460,6 +460,7 @@ namespace PrePoMax
             this.tbOutput = new UserControls.AutoScrollTextBox();
             this.timerTest = new System.Windows.Forms.Timer(this.components);
             this.timerOutput = new System.Windows.Forms.Timer(this.components);
+            this.tsmiEditStepControls = new System.Windows.Forms.ToolStripMenuItem();
             this.tsFile.SuspendLayout();
             this.tsViews.SuspendLayout();
             this.tsModel.SuspendLayout();
@@ -2038,7 +2039,7 @@ namespace PrePoMax
             this.tsmiDeleteMeshSetupItem});
             this.tsmiMeshSetupItem.Image = global::PrePoMax.Properties.Resources.Mesh_refinement;
             this.tsmiMeshSetupItem.Name = "tsmiMeshSetupItem";
-            this.tsmiMeshSetupItem.Size = new System.Drawing.Size(180, 22);
+            this.tsmiMeshSetupItem.Size = new System.Drawing.Size(176, 22);
             this.tsmiMeshSetupItem.Text = "Mesh Setup Item";
             // 
             // tsmiCreateMeshSetupItem
@@ -2077,7 +2078,7 @@ namespace PrePoMax
             // tsmiPreviewEdgeMesh
             // 
             this.tsmiPreviewEdgeMesh.Name = "tsmiPreviewEdgeMesh";
-            this.tsmiPreviewEdgeMesh.Size = new System.Drawing.Size(180, 22);
+            this.tsmiPreviewEdgeMesh.Size = new System.Drawing.Size(176, 22);
             this.tsmiPreviewEdgeMesh.Text = "Preview Edge Mesh";
             this.tsmiPreviewEdgeMesh.Click += new System.EventHandler(this.tsmiPreviewEdgeMesh_Click);
             // 
@@ -2085,7 +2086,7 @@ namespace PrePoMax
             // 
             this.tsmiCreateMesh.Image = global::PrePoMax.Properties.Resources.Part;
             this.tsmiCreateMesh.Name = "tsmiCreateMesh";
-            this.tsmiCreateMesh.Size = new System.Drawing.Size(180, 22);
+            this.tsmiCreateMesh.Size = new System.Drawing.Size(176, 22);
             this.tsmiCreateMesh.Text = "Create Mesh";
             this.tsmiCreateMesh.Click += new System.EventHandler(this.tsmiCreateMesh_Click);
             // 
@@ -3027,51 +3028,52 @@ namespace PrePoMax
             this.tsmiStep.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsmiCreateStep,
             this.tsmiEditStep,
+            this.tsmiEditStepControls,
             this.tsmiDuplicateStep,
             this.tsmiDividerStep2,
             this.tsmiDeleteStep});
             this.tsmiStep.Image = global::PrePoMax.Properties.Resources.Step;
             this.tsmiStep.Name = "tsmiStep";
-            this.tsmiStep.Size = new System.Drawing.Size(153, 22);
+            this.tsmiStep.Size = new System.Drawing.Size(180, 22);
             this.tsmiStep.Text = "Step";
             // 
             // tsmiCreateStep
             // 
             this.tsmiCreateStep.Name = "tsmiCreateStep";
-            this.tsmiCreateStep.Size = new System.Drawing.Size(124, 22);
+            this.tsmiCreateStep.Size = new System.Drawing.Size(180, 22);
             this.tsmiCreateStep.Text = "Create";
             this.tsmiCreateStep.Click += new System.EventHandler(this.tsmiCreateStep_Click);
             // 
             // tsmiEditStep
             // 
             this.tsmiEditStep.Name = "tsmiEditStep";
-            this.tsmiEditStep.Size = new System.Drawing.Size(124, 22);
+            this.tsmiEditStep.Size = new System.Drawing.Size(180, 22);
             this.tsmiEditStep.Text = "Edit";
             this.tsmiEditStep.Click += new System.EventHandler(this.tsmiEditStep_Click);
             // 
             // tsmiDuplicateStep
             // 
             this.tsmiDuplicateStep.Name = "tsmiDuplicateStep";
-            this.tsmiDuplicateStep.Size = new System.Drawing.Size(124, 22);
+            this.tsmiDuplicateStep.Size = new System.Drawing.Size(180, 22);
             this.tsmiDuplicateStep.Text = "Duplicate";
             this.tsmiDuplicateStep.Click += new System.EventHandler(this.tsmiDuplicateStep_Click);
             // 
             // tsmiDividerStep2
             // 
             this.tsmiDividerStep2.Name = "tsmiDividerStep2";
-            this.tsmiDividerStep2.Size = new System.Drawing.Size(121, 6);
+            this.tsmiDividerStep2.Size = new System.Drawing.Size(177, 6);
             // 
             // tsmiDeleteStep
             // 
             this.tsmiDeleteStep.Name = "tsmiDeleteStep";
-            this.tsmiDeleteStep.Size = new System.Drawing.Size(124, 22);
+            this.tsmiDeleteStep.Size = new System.Drawing.Size(180, 22);
             this.tsmiDeleteStep.Text = "Delete";
             this.tsmiDeleteStep.Click += new System.EventHandler(this.tsmiDeleteStep_Click);
             // 
             // tsmiDividerStep1
             // 
             this.tsmiDividerStep1.Name = "tsmiDividerStep1";
-            this.tsmiDividerStep1.Size = new System.Drawing.Size(150, 6);
+            this.tsmiDividerStep1.Size = new System.Drawing.Size(177, 6);
             // 
             // tsmiHistoryOutput
             // 
@@ -3084,7 +3086,7 @@ namespace PrePoMax
             this.tsmiDeleteHistoryOutput});
             this.tsmiHistoryOutput.Image = global::PrePoMax.Properties.Resources.History_output;
             this.tsmiHistoryOutput.Name = "tsmiHistoryOutput";
-            this.tsmiHistoryOutput.Size = new System.Drawing.Size(153, 22);
+            this.tsmiHistoryOutput.Size = new System.Drawing.Size(180, 22);
             this.tsmiHistoryOutput.Text = "History Output";
             // 
             // tsmiCreateHistoryOutput
@@ -3138,7 +3140,7 @@ namespace PrePoMax
             this.tsmiDeleteFieldOutput});
             this.tsmiFieldOutput.Image = global::PrePoMax.Properties.Resources.Field_output;
             this.tsmiFieldOutput.Name = "tsmiFieldOutput";
-            this.tsmiFieldOutput.Size = new System.Drawing.Size(153, 22);
+            this.tsmiFieldOutput.Size = new System.Drawing.Size(180, 22);
             this.tsmiFieldOutput.Text = "Field Output";
             // 
             // tsmiCreateFieldOutput
@@ -3195,7 +3197,7 @@ namespace PrePoMax
             this.tsmiDeleteBC});
             this.tsmiBC.Image = global::PrePoMax.Properties.Resources.Bc;
             this.tsmiBC.Name = "tsmiBC";
-            this.tsmiBC.Size = new System.Drawing.Size(153, 22);
+            this.tsmiBC.Size = new System.Drawing.Size(180, 22);
             this.tsmiBC.Text = "BC";
             // 
             // tsmiCreateBC
@@ -3274,7 +3276,7 @@ namespace PrePoMax
             this.tsmiDeleteLoad});
             this.tsmiLoad.Image = global::PrePoMax.Properties.Resources.Load;
             this.tsmiLoad.Name = "tsmiLoad";
-            this.tsmiLoad.Size = new System.Drawing.Size(153, 22);
+            this.tsmiLoad.Size = new System.Drawing.Size(180, 22);
             this.tsmiLoad.Text = "Load";
             // 
             // tsmiCreateLoad
@@ -3359,7 +3361,7 @@ namespace PrePoMax
             this.tsmiDeleteDefinedField});
             this.tsmiDefinedField.Image = global::PrePoMax.Properties.Resources.Defined_field;
             this.tsmiDefinedField.Name = "tsmiDefinedField";
-            this.tsmiDefinedField.Size = new System.Drawing.Size(153, 22);
+            this.tsmiDefinedField.Size = new System.Drawing.Size(180, 22);
             this.tsmiDefinedField.Text = "Defined Field";
             // 
             // tsmiCreateDefinedField
@@ -4030,6 +4032,13 @@ namespace PrePoMax
             // 
             this.timerOutput.Tick += new System.EventHandler(this.timerOutput_Tick);
             // 
+            // tsmiEditStepControls
+            // 
+            this.tsmiEditStepControls.Name = "tsmiEditStepControls";
+            this.tsmiEditStepControls.Size = new System.Drawing.Size(180, 22);
+            this.tsmiEditStepControls.Text = "Edit Controls";
+            this.tsmiEditStepControls.Click += new System.EventHandler(this.tsmiEditStepControls_Click);
+            // 
             // FrmMain
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
@@ -4517,6 +4526,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiEditHistory;
         private System.Windows.Forms.ToolStripMenuItem tsmiDeleteStlPartFaces;
         private System.Windows.Forms.ToolStripMenuItem tsmiSplitPartMeshUsingSurface;
+        private System.Windows.Forms.ToolStripMenuItem tsmiEditStepControls;
     }
 }
 

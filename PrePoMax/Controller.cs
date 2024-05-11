@@ -23,6 +23,7 @@ using FileInOut.Output;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
+using UserControls;
 
 namespace PrePoMax
 {
@@ -8111,22 +8112,28 @@ namespace PrePoMax
         // COMMANDS ********************************************************************************
         public void AddStepCommand(Step step, bool copyBCsAndLoads)
         {
-            Commands.CAddStep comm = new Commands.CAddStep(step.DeepClone(), copyBCsAndLoads);
+            CAddStep comm = new CAddStep(step.DeepClone(), copyBCsAndLoads);
             _commands.AddAndExecute(comm);
         }
         public void ReplaceStepCommand(string oldStepName, Step newStep)
         {
-            Commands.CReplaceStep comm = new Commands.CReplaceStep(oldStepName, newStep);
+            CReplaceStep comm = new CReplaceStep(oldStepName, newStep);
             _commands.AddAndExecute(comm);
         }
         public void DuplicateStepsCommand(string[] stepNames)
         {
-            Commands.CDuplicateSteps comm = new Commands.CDuplicateSteps(stepNames);
+            CDuplicateSteps comm = new CDuplicateSteps(stepNames);
             _commands.AddAndExecute(comm);
         }
         public void RemoveStepsCommand(string[] stepNames)
         {
-            Commands.CRemoveSteps comm = new Commands.CRemoveSteps(stepNames);
+            CRemoveSteps comm = new CRemoveSteps(stepNames);
+            _commands.AddAndExecute(comm);
+        }
+        //
+        public void ReplaceStepControlsCommand(string stepName, StepControls stepControls)
+        {
+            CReplaceStepControls comm = new CReplaceStepControls(stepName, stepControls);
             _commands.AddAndExecute(comm);
         }
         //******************************************************************************************
@@ -8198,6 +8205,14 @@ namespace PrePoMax
             }
             //
             FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+        }
+        //
+        public void ReplaceStepControls(string stepName, StepControls stepControls)
+        {
+            Step step = _model.StepCollection.GetStep(stepName);
+            step.StepControls = stepControls;
+            //
+            _form.UpdateTreeNode(ViewGeometryModelResults.Model, step.Name, step, null);
         }
 
         #endregion #################################################################################################################

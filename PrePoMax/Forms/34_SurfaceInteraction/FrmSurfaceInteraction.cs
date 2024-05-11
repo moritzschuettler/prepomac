@@ -227,7 +227,6 @@ namespace PrePoMax.Forms
             this.btnOKAddNew.Visible = surfaceInteractionToEditName == null;
             //
             _propertyItemChanged = false;
-            _propertyItemChanged = false;
             _surfraceInteractionNames = null;
             _surfaceInteractionToEditName = null;
             _surfaceInteraction = null;

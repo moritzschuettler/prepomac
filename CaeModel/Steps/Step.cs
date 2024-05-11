@@ -49,6 +49,7 @@ namespace CaeModel
         protected IncrementationTypeEnum _incrementationType;                           //ISerializable
         protected SolverTypeEnum _solverType;                                           //ISerializable
         protected int _outputFrequency;                                                 //ISerializable
+        protected StepControls _stepControls;                                           //ISerializable
 
 
         // Properties                                                                                                               
@@ -72,7 +73,8 @@ namespace CaeModel
                 _outputFrequency = value;
             }
         }
-
+        public StepControls StepControls { get { return _stepControls; } set { _stepControls = value; } }
+        
 
         // Constructors                                                                                                             
         public Step()
@@ -95,6 +97,7 @@ namespace CaeModel
             _maxIncrements = 100;
             _incrementationType = IncrementationTypeEnum.Default;
             _outputFrequency = int.MinValue;
+            _stepControls = new StepControls();
         }
         public Step(SerializationInfo info, StreamingContext context)
             :base(info, context)
@@ -103,6 +106,7 @@ namespace CaeModel
             // Compatibility for version v.1.3.5
             _runAnalysis = true;
             _outputFrequency = int.MinValue;
+            
             //
             foreach (SerializationEntry entry in info)
             {
@@ -133,6 +137,8 @@ namespace CaeModel
                         _solverType = (SolverTypeEnum)entry.Value; break;
                     case "_outputFrequency":
                         _outputFrequency = (int)entry.Value; break;
+                    case "_stepControls":
+                        _stepControls = (StepControls)entry.Value; break;
                         //default:
                         //    throw new NotSupportedException();
                 }
@@ -140,6 +146,8 @@ namespace CaeModel
             // Compatibility for version v.1.0.0
             if (_definedFields == null)
                 _definedFields = new OrderedDictionary<string, DefinedField>("Defined Fields", StringComparer.OrdinalIgnoreCase);
+            // Compatibility for version v.2.0.9
+            if (_stepControls == null) _stepControls = new StepControls();
         }
 
 
@@ -205,6 +213,11 @@ namespace CaeModel
             //
             _definedFields.Add(definedField.Name, definedField);
         }
+        public int GetNumberOfStepControls()
+        {
+            if (_stepControls != null && _stepControls.Parameters != null) return _stepControls.Parameters.Count;
+            else return 0;
+        }
 
         // ISerialization
         public new void GetObjectData(SerializationInfo info, StreamingContext context)
@@ -224,6 +237,7 @@ namespace CaeModel
             info.AddValue("_incrementationType", _incrementationType, typeof(IncrementationTypeEnum));
             info.AddValue("_solverType", _solverType, typeof(SolverTypeEnum));
             info.AddValue("_outputFrequency", _outputFrequency, typeof(int));
+            info.AddValue("_stepControls", _stepControls, typeof(StepControls));
         }
     }
 }

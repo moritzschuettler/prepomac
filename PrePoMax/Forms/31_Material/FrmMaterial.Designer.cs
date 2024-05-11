@@ -29,30 +29,30 @@
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
-            System.Windows.Forms.TreeNode treeNode1 = new System.Windows.Forms.TreeNode("Density");
-            System.Windows.Forms.TreeNode treeNode2 = new System.Windows.Forms.TreeNode("Slip Wear");
-            System.Windows.Forms.TreeNode treeNode3 = new System.Windows.Forms.TreeNode("General", new System.Windows.Forms.TreeNode[] {
-            treeNode1,
-            treeNode2});
-            System.Windows.Forms.TreeNode treeNode4 = new System.Windows.Forms.TreeNode("Elastic");
-            System.Windows.Forms.TreeNode treeNode5 = new System.Windows.Forms.TreeNode("Elasticity", new System.Windows.Forms.TreeNode[] {
-            treeNode4});
-            System.Windows.Forms.TreeNode treeNode6 = new System.Windows.Forms.TreeNode("Plastic");
-            System.Windows.Forms.TreeNode treeNode7 = new System.Windows.Forms.TreeNode("Plasticity", new System.Windows.Forms.TreeNode[] {
-            treeNode6});
-            System.Windows.Forms.TreeNode treeNode8 = new System.Windows.Forms.TreeNode("Thermal Expansion");
-            System.Windows.Forms.TreeNode treeNode9 = new System.Windows.Forms.TreeNode("Thermal Conductivity");
-            System.Windows.Forms.TreeNode treeNode10 = new System.Windows.Forms.TreeNode("Specific Heat");
-            System.Windows.Forms.TreeNode treeNode11 = new System.Windows.Forms.TreeNode("Thermal", new System.Windows.Forms.TreeNode[] {
-            treeNode8,
-            treeNode9,
-            treeNode10});
-            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle1 = new System.Windows.Forms.DataGridViewCellStyle();
-            System.Windows.Forms.ListViewItem listViewItem1 = new System.Windows.Forms.ListViewItem("1");
-            System.Windows.Forms.ListViewItem listViewItem2 = new System.Windows.Forms.ListViewItem("2");
-            System.Windows.Forms.ListViewItem listViewItem3 = new System.Windows.Forms.ListViewItem("3");
-            System.Windows.Forms.ListViewItem listViewItem4 = new System.Windows.Forms.ListViewItem("4");
-            System.Windows.Forms.ListViewItem listViewItem5 = new System.Windows.Forms.ListViewItem("5");
+            System.Windows.Forms.TreeNode treeNode12 = new System.Windows.Forms.TreeNode("Density");
+            System.Windows.Forms.TreeNode treeNode13 = new System.Windows.Forms.TreeNode("Slip Wear");
+            System.Windows.Forms.TreeNode treeNode14 = new System.Windows.Forms.TreeNode("General", new System.Windows.Forms.TreeNode[] {
+            treeNode12,
+            treeNode13});
+            System.Windows.Forms.TreeNode treeNode15 = new System.Windows.Forms.TreeNode("Elastic");
+            System.Windows.Forms.TreeNode treeNode16 = new System.Windows.Forms.TreeNode("Elasticity", new System.Windows.Forms.TreeNode[] {
+            treeNode15});
+            System.Windows.Forms.TreeNode treeNode17 = new System.Windows.Forms.TreeNode("Plastic");
+            System.Windows.Forms.TreeNode treeNode18 = new System.Windows.Forms.TreeNode("Plasticity", new System.Windows.Forms.TreeNode[] {
+            treeNode17});
+            System.Windows.Forms.TreeNode treeNode19 = new System.Windows.Forms.TreeNode("Thermal Expansion");
+            System.Windows.Forms.TreeNode treeNode20 = new System.Windows.Forms.TreeNode("Thermal Conductivity");
+            System.Windows.Forms.TreeNode treeNode21 = new System.Windows.Forms.TreeNode("Specific Heat");
+            System.Windows.Forms.TreeNode treeNode22 = new System.Windows.Forms.TreeNode("Thermal", new System.Windows.Forms.TreeNode[] {
+            treeNode19,
+            treeNode20,
+            treeNode21});
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle2 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.ListViewItem listViewItem6 = new System.Windows.Forms.ListViewItem("1");
+            System.Windows.Forms.ListViewItem listViewItem7 = new System.Windows.Forms.ListViewItem("2");
+            System.Windows.Forms.ListViewItem listViewItem8 = new System.Windows.Forms.ListViewItem("3");
+            System.Windows.Forms.ListViewItem listViewItem9 = new System.Windows.Forms.ListViewItem("4");
+            System.Windows.Forms.ListViewItem listViewItem10 = new System.Windows.Forms.ListViewItem("5");
             this.tvProperties = new UserControls.CodersLabTreeView();
             this.propertyGrid = new UserControls.TabEnabledPropertyGrid();
             this.btnOK = new System.Windows.Forms.Button();
@@ -94,43 +94,43 @@
             this.tvProperties.HighlightForeErrorColor = System.Drawing.Color.Red;
             this.tvProperties.Location = new System.Drawing.Point(6, 37);
             this.tvProperties.Name = "tvProperties";
-            treeNode1.Name = "Density";
-            treeNode1.Text = "Density";
-            treeNode1.ToolTipText = "Density";
-            treeNode2.Name = "Slip Wear";
-            treeNode2.Text = "Slip Wear";
-            treeNode2.ToolTipText = "Slip Wear";
-            treeNode3.Name = "General";
-            treeNode3.Text = "General";
-            treeNode4.Name = "Elastic";
-            treeNode4.Text = "Elastic";
-            treeNode4.ToolTipText = "Elastic";
-            treeNode5.Name = "Elasticity";
-            treeNode5.Text = "Elasticity";
-            treeNode5.ToolTipText = "Elasticity";
-            treeNode6.Name = "Plastic";
-            treeNode6.Text = "Plastic";
-            treeNode6.ToolTipText = "Plastic";
-            treeNode7.Name = "Plasticity";
-            treeNode7.Text = "Plasticity";
-            treeNode7.ToolTipText = "Plasticity";
-            treeNode8.Name = "Thermal Expansion";
-            treeNode8.Text = "Thermal Expansion";
-            treeNode8.ToolTipText = "Thermal Expansion";
-            treeNode9.Name = "Thermal Conductivity";
-            treeNode9.Text = "Thermal Conductivity";
-            treeNode9.ToolTipText = "Thermal Conductivity";
-            treeNode10.Name = "Specific Heat";
-            treeNode10.Text = "Specific Heat";
-            treeNode10.ToolTipText = "Specific Heat";
-            treeNode11.Name = "Thermal";
-            treeNode11.Text = "Thermal";
-            treeNode11.ToolTipText = "Thermal";
+            treeNode12.Name = "Density";
+            treeNode12.Text = "Density";
+            treeNode12.ToolTipText = "Density";
+            treeNode13.Name = "Slip Wear";
+            treeNode13.Text = "Slip Wear";
+            treeNode13.ToolTipText = "Slip Wear";
+            treeNode14.Name = "General";
+            treeNode14.Text = "General";
+            treeNode15.Name = "Elastic";
+            treeNode15.Text = "Elastic";
+            treeNode15.ToolTipText = "Elastic";
+            treeNode16.Name = "Elasticity";
+            treeNode16.Text = "Elasticity";
+            treeNode16.ToolTipText = "Elasticity";
+            treeNode17.Name = "Plastic";
+            treeNode17.Text = "Plastic";
+            treeNode17.ToolTipText = "Plastic";
+            treeNode18.Name = "Plasticity";
+            treeNode18.Text = "Plasticity";
+            treeNode18.ToolTipText = "Plasticity";
+            treeNode19.Name = "Thermal Expansion";
+            treeNode19.Text = "Thermal Expansion";
+            treeNode19.ToolTipText = "Thermal Expansion";
+            treeNode20.Name = "Thermal Conductivity";
+            treeNode20.Text = "Thermal Conductivity";
+            treeNode20.ToolTipText = "Thermal Conductivity";
+            treeNode21.Name = "Specific Heat";
+            treeNode21.Text = "Specific Heat";
+            treeNode21.ToolTipText = "Specific Heat";
+            treeNode22.Name = "Thermal";
+            treeNode22.Text = "Thermal";
+            treeNode22.ToolTipText = "Thermal";
             this.tvProperties.Nodes.AddRange(new System.Windows.Forms.TreeNode[] {
-            treeNode3,
-            treeNode5,
-            treeNode7,
-            treeNode11});
+            treeNode14,
+            treeNode16,
+            treeNode18,
+            treeNode22});
             this.tvProperties.SelectionBackColor = System.Drawing.SystemColors.Highlight;
             this.tvProperties.SelectionMode = UserControls.TreeViewSelectionMode.MultiSelectSameLevel;
             this.tvProperties.Size = new System.Drawing.Size(192, 185);
@@ -304,14 +304,14 @@
             // dgvData
             // 
             this.dgvData.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            dataGridViewCellStyle1.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
-            dataGridViewCellStyle1.BackColor = System.Drawing.SystemColors.Window;
-            dataGridViewCellStyle1.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
-            dataGridViewCellStyle1.ForeColor = System.Drawing.SystemColors.ControlText;
-            dataGridViewCellStyle1.SelectionBackColor = System.Drawing.SystemColors.Highlight;
-            dataGridViewCellStyle1.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
-            dataGridViewCellStyle1.WrapMode = System.Windows.Forms.DataGridViewTriState.False;
-            this.dgvData.DefaultCellStyle = dataGridViewCellStyle1;
+            dataGridViewCellStyle2.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            dataGridViewCellStyle2.BackColor = System.Drawing.SystemColors.Window;
+            dataGridViewCellStyle2.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
+            dataGridViewCellStyle2.ForeColor = System.Drawing.SystemColors.ControlText;
+            dataGridViewCellStyle2.SelectionBackColor = System.Drawing.SystemColors.Highlight;
+            dataGridViewCellStyle2.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
+            dataGridViewCellStyle2.WrapMode = System.Windows.Forms.DataGridViewTriState.False;
+            this.dgvData.DefaultCellStyle = dataGridViewCellStyle2;
             this.dgvData.Dock = System.Windows.Forms.DockStyle.Fill;
             this.dgvData.EnableCutMenu = true;
             this.dgvData.EnablePasteMenu = true;
@@ -397,11 +397,11 @@
             this.lvAddedProperties.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.None;
             this.lvAddedProperties.HideSelection = false;
             this.lvAddedProperties.Items.AddRange(new System.Windows.Forms.ListViewItem[] {
-            listViewItem1,
-            listViewItem2,
-            listViewItem3,
-            listViewItem4,
-            listViewItem5});
+            listViewItem6,
+            listViewItem7,
+            listViewItem8,
+            listViewItem9,
+            listViewItem10});
             this.lvAddedProperties.Location = new System.Drawing.Point(230, 37);
             this.lvAddedProperties.MultiSelect = false;
             this.lvAddedProperties.Name = "lvAddedProperties";

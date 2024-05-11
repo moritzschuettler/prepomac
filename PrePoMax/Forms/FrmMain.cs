@@ -76,6 +76,7 @@ namespace PrePoMax
         private FrmInitialCondition _frmInitialCondition;
         private FrmAmplitude _frmAmplitude;
         private FrmStep _frmStep;
+        private FrmStepControls _frmStepControls;
         private FrmHistoryOutput _frmHistoryOutput;
         private FrmFieldOutput _frmFieldOutput;
         private FrmBC _frmBoundaryCondition;
@@ -244,6 +245,7 @@ namespace PrePoMax
                 _modelTree.ClearSelectionEvent += Clear3DSelection;
                 _modelTree.CreateEvent += ModelTree_CreateEvent;
                 _modelTree.EditEvent += ModelTree_Edit;
+                _modelTree.EditStepControlsEvent += EditStepControls;
                 _modelTree.QueryEvent += ModelTree_Query;
                 _modelTree.DuplicateEvent += ModelTree_DuplicateEvent;
                 _modelTree.PropagateEvent += ModelTree_PropagateEvent;
@@ -400,6 +402,9 @@ namespace PrePoMax
                 //
                 _frmStep = new FrmStep(_controller);
                 AddFormToAllForms(_frmStep);
+                //
+                _frmStepControls = new FrmStepControls(_controller);
+                AddFormToAllForms(_frmStepControls);
                 //
                 _frmHistoryOutput = new FrmHistoryOutput(_controller);
                 AddFormToAllForms(_frmHistoryOutput);
@@ -5027,6 +5032,17 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
+        private void tsmiEditStepControls_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectOneEntity("Steps", _controller.GetAllSteps(), EditStepControls);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
         private void tsmiDuplicateStep_Click(object sender, EventArgs e)
         {
             try
@@ -5053,6 +5069,10 @@ namespace PrePoMax
         private void EditStep(string stepName)
         {
             ShowForm(_frmStep, "Edit Step", stepName);
+        }
+        private void EditStepControls(string stepName)
+        {
+            ShowForm(_frmStepControls, "Edit Step Controls", stepName, null);
         }
         private void DuplicateSteps(string[] stepNames)
         {

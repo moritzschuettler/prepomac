@@ -1550,11 +1550,29 @@ namespace FileInOut.Output
                         calStep.AddKeyword(calCoupledTempDispStep);
                     }
                     else throw new NotImplementedException();
+                    // Controls
+                    title = new CalTitle("Controls", "");
+                    calStep.AddKeyword(title);
+                    CalculixKeyword calParameter;
+                    foreach (var parameter in step.StepControls.Parameters)
+                    {
+                        if (parameter is ResetStepControlParameter rscp)
+                            calParameter = new CalResetParameter(rscp);
+                        else if (parameter is TimeIncrementationStepControlParameter tiscp)
+                            calParameter = new CalTimeIncrementationParameter(tiscp);
+                        else if (parameter is FieldStepControlParameter fscp)
+                            calParameter = new CalFieldParameter(fscp);
+                        else if (parameter is ContactStepControlParameter cscp)
+                            calParameter = new CalContactParameter(cscp);
+                        else throw new NotImplementedException();
+                        //
+                        title.AddKeyword(calParameter);
+                    }
                     // Frequency
                     title = new CalTitle("Output frequency", "");
                     calStep.AddKeyword(title);
                     CalOutput calOutput = new CalOutput(step.OutputFrequency);
-                    calStep.AddKeyword(calOutput);
+                    title.AddKeyword(calOutput);
                 }
                 else calStep.AddKeyword(new CalDeactivated(step.GetType().ToString()));
                 // Boundary conditions

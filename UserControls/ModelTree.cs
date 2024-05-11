@@ -26,6 +26,7 @@ namespace UserControls
     {
         public int Create;
         public int Edit;
+        public int EditStepControls;
         public int Query;
         public int Duplicate;
         public int Propagate;
@@ -84,7 +85,6 @@ namespace UserControls
         // Variables                                                                                                                
         private bool _screenUpdating;
         private bool _doubleClick;
-        private int _numUserKeywords;
         private const int WM_MOUSEMOVE = 0x0200;
         private bool _disableMouse;
         private bool _disableSelectionsChanged;
@@ -244,6 +244,7 @@ namespace UserControls
         //
         public event Action<string, string> CreateEvent;
         public event Action<NamedClass, string> EditEvent;
+        public event Action<string> EditStepControlsEvent;
         public event Action QueryEvent;
         public event Action<NamedClass[], string[]> DuplicateEvent;
         public event Action<NamedClass[], string[]> PropagateEvent;
@@ -437,6 +438,10 @@ namespace UserControls
             visible = menuFields.Edit == n;
             tsmiEdit.Visible = visible;
             oneAboveVisible |= visible;
+            // Edit step controls
+            visible = menuFields.EditStepControls == n;
+            tsmiEditStepControls.Visible = visible;
+            oneAboveVisible |= visible;
             // Query
             visible = menuFields.Query > 0;
             tsmiQuery.Visible = visible;
@@ -602,6 +607,8 @@ namespace UserControls
                           item is FeSurface)) { }
                 else menuFields.Edit++;
             }
+            // Edit step controls
+            if (item != null && item is Step) menuFields.EditStepControls++;
             // Query
             if (item != null && item is BasePart) menuFields.Query++;
             //Duplicate
@@ -848,7 +855,7 @@ namespace UserControls
                     {
                         string stepName = null;
                         if (selectedNode.Parent != null && selectedNode.Parent.Tag is Step)
-                            stepName = selectedNode.Parent.Text;
+                            stepName = selectedNode.Parent.Name;
                         //
                         CreateEvent?.Invoke(selectedNode.Name, stepName);
                     }
@@ -872,9 +879,27 @@ namespace UserControls
                 //
                 string stepName = null;
                 if (selectedNode.Parent != null && selectedNode.Parent.Parent != null && selectedNode.Parent.Parent.Tag is Step)
-                    stepName = selectedNode.Parent.Parent.Text;
+                    stepName = selectedNode.Parent.Parent.Name;
                 //
                 EditEvent?.Invoke((NamedClass)selectedNode.Tag, stepName);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiEditStepControls_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                CodersLabTreeView tree = GetActiveTree();
+                if (tree.SelectedNodes.Count != 1) return;
+                //
+                TreeNode selectedNode = tree.SelectedNodes[0];
+                //
+                if (selectedNode.Tag == null) return;
+                //
+                if (selectedNode.Tag is Step step) EditStepControlsEvent?.Invoke(step.Name);
             }
             catch (Exception ex)
             {
@@ -911,7 +936,7 @@ namespace UserControls
                     //
                     stepName = null;
                     if (selectedNode.Parent != null && selectedNode.Parent.Parent != null && selectedNode.Parent.Parent.Tag is Step)
-                        stepName = selectedNode.Parent.Parent.Text;
+                        stepName = selectedNode.Parent.Parent.Name;
                     //
                     if (stepNames == null) continue;
                     //
@@ -945,7 +970,7 @@ namespace UserControls
                     //
                     stepName = null;
                     if (selectedNode.Parent != null && selectedNode.Parent.Parent != null && selectedNode.Parent.Parent.Tag is Step)
-                        stepName = selectedNode.Parent.Parent.Text;
+                        stepName = selectedNode.Parent.Parent.Name;
                     //
                     if (stepNames == null) continue;
                     //
@@ -979,7 +1004,7 @@ namespace UserControls
                     //
                     stepName = null;
                     if (selectedNode.Parent != null && selectedNode.Parent.Parent != null && selectedNode.Parent.Parent.Tag is Step)
-                        stepName = selectedNode.Parent.Parent.Text;
+                        stepName = selectedNode.Parent.Parent.Name;
                     //
                     if (stepNames == null) continue;
                     //
@@ -1015,7 +1040,7 @@ namespace UserControls
                         items.Add((NamedClass)selectedNode.Tag);
                         stepName = null;
                         if (selectedNode.Parent != null && selectedNode.Parent.Parent != null && selectedNode.Parent.Parent.Tag is Step)
-                            stepName = selectedNode.Parent.Parent.Text;
+                            stepName = selectedNode.Parent.Parent.Name;
                         stepNames.Add(stepName);
                     }
                 }
@@ -1055,7 +1080,7 @@ namespace UserControls
                         items.Add((NamedClass)selectedNode.Tag);
                         stepName = null;
                         if (selectedNode.Parent != null && selectedNode.Parent.Parent != null && selectedNode.Parent.Parent.Tag is Step)
-                            stepName = selectedNode.Parent.Parent.Text;
+                            stepName = selectedNode.Parent.Parent.Name;
                         stepNames.Add(stepName);
                     }
                 }
@@ -1452,7 +1477,7 @@ namespace UserControls
                         stepName = null;
                         if (selectedNode.Parent != null && selectedNode.Parent.Parent != null
                             && selectedNode.Parent.Parent.Tag is Step)
-                            stepName = selectedNode.Parent.Parent.Text;
+                            stepName = selectedNode.Parent.Parent.Name;
                         stepNames.Add(stepName);
                     }
                 }
@@ -1499,7 +1524,7 @@ namespace UserControls
                     parentName = null;
                     if (selectedNode.Parent != null && selectedNode.Parent.Parent != null) 
                     {
-                        if (selectedNode.Parent.Parent.Tag is Step) parentName = selectedNode.Parent.Parent.Text;
+                        if (selectedNode.Parent.Parent.Tag is Step) parentName = selectedNode.Parent.Parent.Name;
                         else if (selectedNode.Parent.Tag is Field) parentName = selectedNode.Parent.Text;
                         else if (selectedNode.Parent.Tag is ResultFieldOutput) parentName = selectedNode.Parent.Text;
                         else if (selectedNode.Parent.Tag is HistoryResultSet) parentName = selectedNode.Parent.Text;
@@ -2409,10 +2434,10 @@ namespace UserControls
         private void AddSteps(List<Step> steps)
         {
             foreach (var step in steps) AddStep(step);
-
+            //
             if (_steps.Nodes.Count > 0) _steps.Text = _stepsName + " (" + _steps.Nodes.Count.ToString() + ")";
             else _steps.Text = _stepsName;
-
+            //
             _steps.Expand();
         }
         private TreeNode AddStep(Step step)
@@ -2581,6 +2606,10 @@ namespace UserControls
                                     else SetNodeImage(node, "Compound_transparent.ico");
                                 }
                             }
+                            else if (node.Tag is Step)
+                            {
+                                SetNodeImage(node, "Step.ico");
+                            }
                             else
                             {
                                 if (node.Nodes.Count == 0 || !node.IsExpanded) SetNodeImage(node, "Dots.ico");
@@ -2624,6 +2653,8 @@ namespace UserControls
                         }
                     }
                 }
+                // Set status of the step controls
+                if (item != null && item is Step) UpdateNumberOfStepControls(node);
             }
         }
         private void SetNodeImage(TreeNode node, string imageName)
@@ -2941,9 +2972,18 @@ namespace UserControls
         //                                                                                                                          
         public void SetNumberOfUserKeywords(int numOfUserKeywords)
         {
-            _numUserKeywords = numOfUserKeywords;
             _model.Text = _modelName;
-            if (_numUserKeywords > 0) _model.Text += " (User keywords: " + _numUserKeywords + ")";
+            if (numOfUserKeywords > 0) _model.Text += " (User Keywords: " + numOfUserKeywords + ")";
+        }
+
+        public void UpdateNumberOfStepControls(TreeNode stepNode)
+        {
+            if (stepNode != null && stepNode.Tag is Step step)
+            {
+                stepNode.Text = step.Name;
+                int numOfStepControls = step.GetNumberOfStepControls();
+                if (numOfStepControls > 0) stepNode.Text += " (Step Controls: " + numOfStepControls + ")";
+            }
         }
 
         //                                                                                                                          
