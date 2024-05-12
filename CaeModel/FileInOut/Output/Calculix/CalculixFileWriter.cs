@@ -1576,9 +1576,13 @@ namespace FileInOut.Output
                 }
                 else calStep.AddKeyword(new CalDeactivated(step.GetType().ToString()));
                 // Boundary conditions
-                if (step.Active && !(step is ModalDynamicsStep)) title = new CalTitle("Boundary conditions", "*Boundary, op=New");
-                else title = new CalTitle("Boundary conditions", "");
+                title = new CalTitle("Boundary conditions", "");
                 calStep.AddKeyword(title);
+                // Boundary op
+                if (step.Active && !(step is ModalDynamicsStep))
+                {
+                    title.AddKeyword(new CalOpParameter(OpKeywordEnum.Boundary, OpTypeEnum.New));
+                }
                 //
                 foreach (var bcEntry in step.BoundaryConditions)
                 {
@@ -1589,40 +1593,37 @@ namespace FileInOut.Output
                 // Additional boundary conditions
                 AppendAdditionalBoundaryConditions(model, step, additionalBoundaryConditions, referencePointsNodeIds, title);
                 // Loads
+                title = new CalTitle("Loads", "");
+                calStep.AddKeyword(title);
+                // Load op
                 if (step.Active)
                 {
-                    string data = "";
-                    if (step.IsLoadTypeSupported(typeof(CLoad))) data += "*Cload, op=New";
+                    if (step.IsLoadTypeSupported(typeof(CLoad)))
+                    {
+                        title.AddKeyword(new CalOpParameter(OpKeywordEnum.CLoad, OpTypeEnum.New));
+                    }
                     if (step.IsLoadTypeSupported(typeof(DLoad)))
                     {
-                        if (data.Length > 0) data += Environment.NewLine;
-                        data += "*Dload, op=New";
+                        title.AddKeyword(new CalOpParameter(OpKeywordEnum.DLoad, OpTypeEnum.New));
                     }
                     if (step.IsLoadTypeSupported(typeof(CFlux)))
                     {
-                        if (data.Length > 0) data += Environment.NewLine;
-                        data += "*Cflux, op=New";
+                        title.AddKeyword(new CalOpParameter(OpKeywordEnum.Cflux, OpTypeEnum.New));
                     }
                     if (step.IsLoadTypeSupported(typeof(DFlux)) && loadTypes.Contains(typeof(DFlux)))
                     {
-                        if (data.Length > 0) data += Environment.NewLine;
-                        data += "*Dflux, op=New";
+                        title.AddKeyword(new CalOpParameter(OpKeywordEnum.Dflux, OpTypeEnum.New));
                     }
                     if (step.IsLoadTypeSupported(typeof(FilmHeatTransfer)) && loadTypes.Contains(typeof(FilmHeatTransfer)))
                     {
-                        if (data.Length > 0) data += Environment.NewLine;
-                        data += "*Film, op=New";
+                        title.AddKeyword(new CalOpParameter(OpKeywordEnum.Film, OpTypeEnum.New));
                     }
                     if (step.IsLoadTypeSupported(typeof(RadiationHeatTransfer)) &&
                         loadTypes.Contains(typeof(RadiationHeatTransfer)))
                     {
-                        if (data.Length > 0) data += Environment.NewLine;
-                        data += "*Radiate, op=New";
+                        title.AddKeyword(new CalOpParameter(OpKeywordEnum.Radiate, OpTypeEnum.New));
                     }
-                    title = new CalTitle("Loads", data);
                 }
-                else title = new CalTitle("Loads", "");
-                calStep.AddKeyword(title);
                 //
                 foreach (var loadEntry in step.Loads)
                 {
