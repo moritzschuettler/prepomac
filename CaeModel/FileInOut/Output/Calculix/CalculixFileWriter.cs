@@ -1575,15 +1575,15 @@ namespace FileInOut.Output
                     title.AddKeyword(calOutput);
                 }
                 else calStep.AddKeyword(new CalDeactivated(step.GetType().ToString()));
-                // Boundary conditions
+                // Boundary conditions title
                 title = new CalTitle("Boundary conditions", "");
                 calStep.AddKeyword(title);
-                // Boundary op
+                // Boundary conditions op
                 if (step.Active && !(step is ModalDynamicsStep))
                 {
                     title.AddKeyword(new CalOpParameter(OpKeywordEnum.Boundary, OpTypeEnum.New));
                 }
-                //
+                // Boundary conditions
                 foreach (var bcEntry in step.BoundaryConditions)
                 {
                     if (step.Active && bcEntry.Value.Active)
@@ -1592,7 +1592,7 @@ namespace FileInOut.Output
                 }
                 // Additional boundary conditions
                 AppendAdditionalBoundaryConditions(model, step, additionalBoundaryConditions, referencePointsNodeIds, title);
-                // Loads
+                // Loads title
                 title = new CalTitle("Loads", "");
                 calStep.AddKeyword(title);
                 // Load op
@@ -1600,11 +1600,11 @@ namespace FileInOut.Output
                 {
                     if (step.IsLoadTypeSupported(typeof(CLoad)))
                     {
-                        title.AddKeyword(new CalOpParameter(OpKeywordEnum.CLoad, OpTypeEnum.New));
+                        title.AddKeyword(new CalOpParameter(OpKeywordEnum.Cload, OpTypeEnum.New));
                     }
                     if (step.IsLoadTypeSupported(typeof(DLoad)))
                     {
-                        title.AddKeyword(new CalOpParameter(OpKeywordEnum.DLoad, OpTypeEnum.New));
+                        title.AddKeyword(new CalOpParameter(OpKeywordEnum.Dload, OpTypeEnum.New));
                     }
                     if (step.IsLoadTypeSupported(typeof(CFlux)))
                     {
@@ -1624,18 +1624,22 @@ namespace FileInOut.Output
                         title.AddKeyword(new CalOpParameter(OpKeywordEnum.Radiate, OpTypeEnum.New));
                     }
                 }
-                //
+                // Loads
                 foreach (var loadEntry in step.Loads)
                 {
                     if (step.Active && loadEntry.Value.Active) AppendLoad(model, step, loadEntry.Value, referencePointsNodeIds,
                                                                           title);
                     else title.AddKeyword(new CalDeactivated(loadEntry.Value.Name));
                 }
-                // Defined fields
-                if (step.Active && step.DefinedFields.Count > 0) title = new CalTitle("Defined fields", "*Temperature, op=New");
-                else title = new CalTitle("Defined fields", "");
+                // Defined fields title
+                title = new CalTitle("Defined fields", "");
                 calStep.AddKeyword(title);
-                //
+                // Defined fields op
+                if (step.Active && step.DefinedFields.Count > 0)
+                {
+                    title.AddKeyword(new CalOpParameter(OpKeywordEnum.Temperature, OpTypeEnum.New));
+                }
+                // Defined fields
                 foreach (var definedFieldEntry in step.DefinedFields)
                 {
                     if (step.Active && definedFieldEntry.Value.Active) AppendDefinedField(model, definedFieldEntry.Value, title);

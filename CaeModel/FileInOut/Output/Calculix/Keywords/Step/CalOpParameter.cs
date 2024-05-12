@@ -13,12 +13,13 @@ namespace FileInOut.Output.Calculix
     {
         None,
         Boundary,
-        CLoad,
-        DLoad,
+        Cload,
+        Dload,
         Cflux,
         Dflux,
         Film,
-        Radiate
+        Radiate,
+        Temperature
 
     }
     //
@@ -56,7 +57,7 @@ namespace FileInOut.Output.Calculix
         public override string GetKeywordString()
         {
             StringBuilder sb = new StringBuilder();
-            sb.AppendFormat("*{0}, op={1}", _opKeyword, _opType);
+            sb.AppendFormat("*{0}, op={1}{2}", _opKeyword, _opType, Environment.NewLine);
             return sb.ToString();
         }
         public override string GetDataString()
