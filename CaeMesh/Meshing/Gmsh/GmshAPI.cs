@@ -123,6 +123,21 @@ namespace CaeMesh
                     }
                     //
                     Synchronize(); // must be here
+
+                    if (false)
+                    {
+                        int[] volumeTags = new int[] { 1 };
+                        int[] surfaceTags = new int[] { 10 };
+                        //
+                        Gmsh.Model.OCC.Defeature(volumeTags, surfaceTags, out outDimTags, true);
+                        //
+                        Synchronize();
+                        //
+                        Gmsh.Write(@"C:\Temp\defeature_out.stp");
+                        //
+                        return;
+                    }
+
                     // Mesh size
                     SetMeshSizes();
                     // 2D meshing algorithm

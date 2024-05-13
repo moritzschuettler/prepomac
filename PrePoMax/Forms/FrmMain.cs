@@ -25,6 +25,7 @@ using PrePoMax.Properties;
 using System.Runtime;
 using System.Runtime.InteropServices.ComTypes;
 using System.Runtime.Remoting.Metadata.W3cXsd2001;
+using System.Diagnostics;
 
 namespace PrePoMax
 {
@@ -657,6 +658,8 @@ namespace PrePoMax
                     _vtk.Dispose();
                     _vtk = null;
                 }
+                if (Debugger.IsAttached)
+                    Debugger.Break();
             }
             catch
             { }

@@ -868,6 +868,26 @@ namespace GmshCommon {
                 {
                     gmsh::model::occ::removeAllDuplicates();
                 }
+                
+                static void Defeature(array<int>^ volumeTags, array<int>^ surfaceTags,
+                    [System::Runtime::InteropServices::Out] array<System::Tuple<int, int>^>^% outDimTags,
+                    bool removeVolume)
+                {
+                    std::vector<int> volumeTags_native(volumeTags->Length);
+                    Marshal::Copy(volumeTags, 0, IntPtr(volumeTags_native.data()), volumeTags->Length);
+                    //
+                    std::vector<int> surfaceTags_native(surfaceTags->Length);
+                    Marshal::Copy(surfaceTags, 0, IntPtr(surfaceTags_native.data()), surfaceTags->Length);
+                    //
+                    gmsh::vectorpair outDimTags_native;
+                    //
+                    gmsh::model::occ::defeature(volumeTags_native, surfaceTags_native, outDimTags_native, removeVolume);
+                    //
+                    outDimTags = gcnew array<System::Tuple<int, int>^>(outDimTags_native.size());
+                    for (int i = 0; i < outDimTags_native.size(); ++i)
+                        outDimTags[i] = gcnew System::Tuple<int, int>(outDimTags_native[i].first, outDimTags_native[i].second);
+                }
+
                 static void Fragment(array<System::Tuple<int, int>^>^ objectDimTags, array<System::Tuple<int, int>^>^ toolDimTags,
                     [System::Runtime::InteropServices::Out] array<System::Tuple<int, int>^>^% outDimTags,
                     [System::Runtime::InteropServices::Out] array<array<System::Tuple<int, int>^>^>^% outDimTagsMap,
