@@ -10252,6 +10252,7 @@ namespace PrePoMax
         public void AddSelectionNode(SelectionNode node, bool highlight, bool callSelectionChanged)
         {
             SelectionNodeMouse singlePartSelection;
+            double[] partOffset;
             //
             if (node is SelectionNodeMouse snm && snm.PartIds != null && snm.PartIds.Length > 0)
             {
@@ -10260,7 +10261,9 @@ namespace PrePoMax
                 {
                     // Clone
                     singlePartSelection = snm.DeepClone();
-                    singlePartSelection.SetPartId(snm.PartIds[i]);
+                    if (snm.PartOffsets == null) partOffset = null;
+                    else partOffset = snm.PartOffsets[i];
+                    singlePartSelection.SetSinglePartSelection(snm.PartIds[i], partOffset);
                     // Change operation to Add in making a new selection (opeartion = None)
                     if (singlePartSelection.SelectOperation == vtkSelectOperation.None && i > 0)
                         singlePartSelection.SetSelectOperation(vtkSelectOperation.Add);
@@ -10604,6 +10607,7 @@ namespace PrePoMax
                 }
                 else
                 {
+                    // Select part by part to account for different part offsets of each part
                     HashSet<int> idsHash = new HashSet<int>();
                     for (int i = 0; i < partNames.Length; i++)
                     {
@@ -11095,16 +11099,23 @@ namespace PrePoMax
                 }
             }
             // Current exploded view
-            if (IsExplodedViewActive() && selectionNodeMouse.PartIds.Length > 0)
+            if (IsExplodedViewActive() && selectionNodeMouse.PartIds != null && selectionNodeMouse.PartIds.Length > 0)
             {
                 FeMesh mesh = DisplayedMesh;
                 if (partOffsets == null) partOffsets = new double[selectionNodeMouse.PartIds.Length][];
                 string[] partNames = mesh.GetPartNamesFromPartIds(selectionNodeMouse.PartIds);
                 //
-                for (int i = 0; i < partOffsets.Length; i++)
+                if (partOffsets.Length == partNames.Length) // some parts might be deleted
                 {
-                    if (partOffsets[i] == null) partOffsets[i] = new double[3];
-                    partOffsets[i] = (new Vec3D(partOffsets[i]) + new Vec3D(mesh.Parts[partNames[i]].Offset)).Coor;
+                    for (int i = 0; i < partOffsets.Length; i++)
+                    {
+                        if (partOffsets[i] == null) partOffsets[i] = new double[3];
+                        partOffsets[i] = (new Vec3D(partOffsets[i]) + new Vec3D(mesh.Parts[partNames[i]].Offset)).Coor;
+                    }
+                }
+                else
+                {
+                    partOffsets = null;
                 }
             }
             //

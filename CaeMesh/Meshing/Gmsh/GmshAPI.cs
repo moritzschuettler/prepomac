@@ -127,7 +127,7 @@ namespace CaeMesh
                     if (false)
                     {
                         int[] volumeTags = new int[] { 1 };
-                        int[] surfaceTags = new int[] { 10 };
+                        int[] surfaceTags = new int[] { 9, 10 };
                         //
                         Gmsh.Model.OCC.Defeature(volumeTags, surfaceTags, out outDimTags, true);
                         //

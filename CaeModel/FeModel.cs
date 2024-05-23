@@ -848,7 +848,7 @@ namespace CaeModel
         // Import                                                                                   
         public string[] ImportGeometryFromStlFile(string fileName)
         {
-            FeMesh mesh = FileInOut.Input.StlFileReader.Read(fileName);
+            FeMesh mesh = StlFileReader.Read(fileName);
             //
             string[] addedPartNames = ImportGeometry(mesh, GetReservedPartNames());
             //
@@ -856,15 +856,15 @@ namespace CaeModel
         }        
         public string[] ImportGeometryFromBrepFile(string visFileName, string brepFileName)
         {
-            FeMesh mesh = FileInOut.Input.VisFileReader.Read(visFileName);
+            FeMesh mesh = VisFileReader.Read(visFileName);
             //
-            if (mesh.Parts.Count > 1)
-                throw new Exception("The geometry contains more than one part.");
-            else if (mesh.Parts.Count <= 0)
+            //if (mesh.Parts.Count > 1)
+            //    throw new Exception("The geometry contains more than one part.");
+            //else if (mesh.Parts.Count <= 0)
             {
                 //throw new Exception("The geometry contains less than one part."); 
             }
-            else
+            //else
             {
                 if (mesh.Parts.GetValueByIndex(0) is GeometryPart gp)
                 {
@@ -881,8 +881,7 @@ namespace CaeModel
         }        
         public void ImportMeshFromVolFile(string fileName)
         {
-            FeMesh mesh = FileInOut.Input.VolFileReader.Read(fileName, FileInOut.Input.ElementsToImport.Shell |
-                                                                       FileInOut.Input.ElementsToImport.Solid);
+            FeMesh mesh = VolFileReader.Read(fileName, ElementsToImport.Shell | ElementsToImport.Solid);
             //
             ImportMesh(mesh, GetReservedPartNames(), true, false);
         }

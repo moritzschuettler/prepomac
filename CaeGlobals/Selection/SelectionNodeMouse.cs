@@ -91,12 +91,10 @@ namespace CaeGlobals
 
 
         // Methods                                                                                                                  
-
-
-        // ISerialization
-        public void SetPartId(int partId)
+        public void SetSinglePartSelection(int partId, double[] partOffset)
         {
             _partIds = new int[] { partId };
+            _partOffsets = partOffset == null ? null : new double[][] { partOffset };
         }
         public void AddOffset(double[] offset)
         {
@@ -138,6 +136,7 @@ namespace CaeGlobals
                 }
             }
         }
+        // ISerialization
         public new void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             base.GetObjectData(info, context);
