@@ -218,31 +218,83 @@ namespace CaeGlobals
             //
             return Math.Sqrt(VdistV2(point, closestPoint));
         }
-        public static double[][] ShrinkTriangle(double[][] triangle, double shrink)
+        public static double[][] ShrinkTriangle(double[][] triangle, double shrinkDistance)
         {
             double[][] shrinkTriangle = new double[3][];
             shrinkTriangle[0] = new double[3];
             shrinkTriangle[1] = new double[3];
             shrinkTriangle[2] = new double[3];
             //
+            double len;
+            double k;
             double[] tmp = new double[3];
             double[] center = new double[3];
-            double[] shrinkCenter = new double[3];
             //
             VpVpV(ref tmp, triangle[0], triangle[1], triangle[2]);
             VxS(ref center, tmp, 1.0 / 3.0);
-            VxS(ref shrinkCenter, center, shrink);
             //
-            VxS(ref tmp, triangle[0], (1 - shrink));
-            VpV(ref shrinkTriangle[0], tmp, shrinkCenter);
-            //
-            VxS(ref tmp, triangle[1], (1 - shrink));
-            VpV(ref shrinkTriangle[1], tmp, shrinkCenter);
-            //
-            VxS(ref tmp, triangle[2], (1 - shrink));
-            VpV(ref shrinkTriangle[2], tmp, shrinkCenter);
+            for (int i = 0; i < 3; i++)
+            {
+                VmV(ref tmp, center, triangle[i]);
+                len = Vlen(tmp);
+                k = Clamp(shrinkDistance / len, 0, 0.9);
+                VxS(ref tmp, tmp, k);
+                VpV(ref shrinkTriangle[i], triangle[i], tmp);
+            }
             //
             return shrinkTriangle;
+        }
+        public static double[][] OffsetTriangle(double[][] triangle, double shrink)
+        {
+            double[][] offsetTriangle = new double[3][];
+            offsetTriangle[0] = new double[3];
+            offsetTriangle[1] = new double[3];
+            offsetTriangle[2] = new double[3];
+            //
+            double[] ab = new double[3];
+            double[] bc = new double[3];
+            double[] ca = new double[3];
+            double[] n = new double[3];
+            double[] tab = new double[3];
+            double[] tbc = new double[3];
+            double[] tca = new double[3];
+            //
+            VmV(ref ab, triangle[1], triangle[0]);
+            VmV(ref bc, triangle[2], triangle[1]);
+            VmV(ref ca, triangle[0], triangle[2]);
+            VcrossV(ref n, ab, bc);
+            Vnorm(ref n, n);
+            // Edge tangent towards center
+            VcrossV(ref tab, n, ab);
+            Vnorm(ref tab, tab);
+            VcrossV(ref tbc, n, bc);
+            Vnorm(ref tbc, tbc);
+            VcrossV(ref tca, n, ca);
+            Vnorm(ref tca, tca);
+            // Offset directions
+            double[] da = new double[3];  // direction to the center of the triangle at the half angle
+            double[] db = new double[3];
+            double[] dc = new double[3];
+            VpV(ref da, tab, tca);
+            Vnorm(ref da, da);
+            VpV(ref db, tab, tbc);
+            Vnorm(ref db, db);
+            VpV(ref dc, tbc, tca);
+            Vnorm(ref dc, dc);
+            // Direction vector multiplied by k and projected to the edge tangential vector must be equal to 1: k*d*t=1
+            double ka = 1 / VdotV(da, tab);
+            double kb = 1 / VdotV(db, tbc);
+            double kc = 1 / VdotV(dc, tca);
+            //
+            VxS(ref da, da, ka);
+            VxS(ref db, db, kb);
+            VxS(ref dc, dc, kc);
+            //
+            VpV(ref offsetTriangle[0], triangle[0], da);
+            VpV(ref offsetTriangle[1], triangle[1], db);
+            VpV(ref offsetTriangle[2], triangle[2], dc);
+            //
+            return offsetTriangle;
         }
         public static double Clamp(double value, double min, double max)
         {
@@ -318,6 +370,10 @@ namespace CaeGlobals
                 Vr[1] = 0;
                 Vr[2] = 0;
             }
+        }
+        public static double Vlen(double[] V)
+        {
+            return Math.Sqrt(V[0] * V[0] + V[1] * V[1] + V[2] * V[2]);
         }
         public static void SegPoints(ref double[] VEC,
                                      ref double[] X, ref double[] Y,    // closest points
@@ -437,8 +493,8 @@ namespace CaeGlobals
         public static double TriDist(ref double[] P, ref double[] Q, double[][] S, double[][] T, bool onlyInternal)
         {
             // Compute vectors along the 6 sides
-            double[][] Sv = new double[][] { new double[] { 0, 0, 0 }, new double[3] { 0, 0, 0 }, new double[] { 0, 0, 0 } };
-            double[][] Tv = new double[][] { new double[] { 0, 0, 0 }, new double[3] { 0, 0, 0 }, new double[] { 0, 0, 0 } };
+            double[][] Sv = new double[][] { new double[] { 0, 0, 0 }, new double[] { 0, 0, 0 }, new double[] { 0, 0, 0 } };
+            double[][] Tv = new double[][] { new double[] { 0, 0, 0 }, new double[] { 0, 0, 0 }, new double[] { 0, 0, 0 } };
             double[] VEC = new double[3];
             //
             VmV(ref Sv[0], S[1], S[0]);

@@ -1044,14 +1044,14 @@ namespace CaeMesh
             partElementIds = new List<int>();
             partElementTypes = new HashSet<Type>();
             //
-            int partId = 0;
+            bool toManyPartsId = false;
+            int partId;
             HashSet<int> addedPartIds = new HashSet<int>();
             string name;
             BasePart part;
             List<int> sortedPartNodeIds;
             HashSet<string> inpElementTypeNames = null;
             HashSet<int> inpElementTypeSetLabels = null;
-
             // Extract parts
             foreach (var entry in _elements)
             {
@@ -1145,7 +1145,27 @@ namespace CaeMesh
                 // Add part
                 _parts.Add(name, part);
                 addedPartIds.Add(part.PartId);
+                //
+                if (part.PartId >= 9900)
+                {
+                    toManyPartsId = true;
+                    MessageBoxes.ShowWarning("The number of parts is too large. Only the first 9900 parts were created.");
+                    break;
+                }
             }
+            HashSet<int> elementIdsToRemove = new HashSet<int>();
+            if (toManyPartsId)
+            {
+                foreach (var entry in _elements)
+                {
+                    element = entry.Value;
+                    if (element.PartId == -1) elementIdsToRemove.Add(element.Id);
+                }
+                foreach (int elementIdToRemove in elementIdsToRemove)
+                    _elements.Remove(elementIdToRemove);
+            }
+            
+
             watch.Stop();
             // Bounding box of parts and mesh
             _boundingBox = new BoundingBox();

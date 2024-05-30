@@ -9597,6 +9597,7 @@ namespace PrePoMax
         {
             string resultsFileFrd = Path.Combine(job.WorkDirectory, job.Name + ".frd");
             string resultsFileDat = Path.Combine(job.WorkDirectory, job.Name + ".dat");
+            string resultsFileCel = Path.Combine(job.WorkDirectory, job.Name + ".cel");
             //
             if (File.Exists(resultsFileFrd) && File.Exists(resultsFileDat))
             {
@@ -9607,6 +9608,21 @@ namespace PrePoMax
                 _model.GetMaterialAssignments(out _);
                 //
                 results.SetHistory(DatFileReader.Read(resultsFileDat));
+                // Open .cel file
+                if (File.Exists(resultsFileCel))
+                {
+                    Dictionary<int, FeElement> elements;
+                    Dictionary<string, FeElementSet> elementSets;
+                    FileInOut.Input.InpFileReader.ReadCel(resultsFileCel, out elements, out elementSets);
+                    //
+                    if (elements != null)
+                    {
+                        Dictionary<string, FeNodeSet> nodeSets = GetNodeSetsFromCelElements(results.Mesh.Nodes,
+                                                                                            elements,
+                                                                                            elementSets);
+                        results.Mesh.NodeSets.AddRange(nodeSets);
+                    }
+                }
                 //
                 int[] slipWearStepIds = _model.StepCollection.GetSlipWearStepIds();
                 if (results.ComputeWear(slipWearStepIds, _model.GetNodalSlipWearCoefficients(),

@@ -96,7 +96,7 @@ namespace FileInOut.Input
         {
             WriteDataToOutputStatic = WriteDataToOutput;
             _errors = new List<string>();
-            indexedUserKeywords = new OrderedDictionary<int[], CalculixUserKeyword>("User calculix keywords");
+            indexedUserKeywords = new OrderedDictionary<int[], CalculixUserKeyword>("User Calculix keywords");
             //
             if (fileName != null && File.Exists(fileName))
             {

@@ -4365,16 +4365,19 @@ namespace CaeResults
             HashSet<int> nodeIds = new HashSet<int>();
             Dictionary<int, double[]> globalVectors = new Dictionary<int, double[]>();
             //
-            foreach (var entry in _nodeIdsLookUp)
+            if (vectors != null)
             {
-                xyz[0] = vectors[0][entry.Value];
-                xyz[1] = vectors[1][entry.Value];
-                xyz[2] = vectors[2][entry.Value];
-                //
-                if (xyz[0] != 0 || xyz[1] != 0 || xyz[2] != 0)
+                foreach (var entry in _nodeIdsLookUp)
                 {
-                    globalVectors.Add(entry.Key, new double[] { xyz[0], xyz[1], xyz[2] });
-                    nodeIds.Add(entry.Key);
+                    xyz[0] = vectors[0][entry.Value];
+                    xyz[1] = vectors[1][entry.Value];
+                    xyz[2] = vectors[2][entry.Value];
+                    //
+                    if (xyz[0] != 0 || xyz[1] != 0 || xyz[2] != 0)
+                    {
+                        globalVectors.Add(entry.Key, new double[] { xyz[0], xyz[1], xyz[2] });
+                        nodeIds.Add(entry.Key);
+                    }
                 }
             }
             //

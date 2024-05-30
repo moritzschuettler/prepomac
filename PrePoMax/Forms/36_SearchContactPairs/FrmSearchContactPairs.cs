@@ -308,11 +308,13 @@ namespace PrePoMax.Forms
             dgvData.DataSource = null;
             propertyGrid.SelectedObject = null;
             // Surface interaction
+            _selectedContactPairs.Clear();
             cbSurfaceInteraction.Items.Clear();
             //
             _surfaceInteractionNames = _controller.GetSurfaceInteractionNames();
             if (_surfaceInteractionNames.Length == 0) _surfaceInteractionNames = new string[] { missing };
-            foreach (string surfaceInteracionName in _surfaceInteractionNames) cbSurfaceInteraction.Items.Add(surfaceInteracionName);
+            foreach (string surfaceInteractionName in _surfaceInteractionNames)
+                cbSurfaceInteraction.Items.Add(surfaceInteractionName);
             cbSurfaceInteraction.SelectedIndex = 0;
             //
             cbSurfaceInteraction.DropDownWidth = DropDownWidth(cbSurfaceInteraction);

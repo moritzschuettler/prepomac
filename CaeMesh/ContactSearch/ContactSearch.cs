@@ -238,7 +238,6 @@ namespace CaeMesh
                                  cs2.GeometryType == GeometryType.ShellBackSurface);
 
             onlyInternal = false;
-
             // Use face cell ids or edge cell ids
             if (edgeSurface1)
             {
@@ -256,13 +255,6 @@ namespace CaeMesh
                 bb1 = bbs1[cell1Id];
                 //
                 if (bb1.Intersects(intersection))
-                //if (bb1.MaxX < intersection.MinX) continue;
-                //else if (bb1.MinX > intersection.MaxX) continue;
-                //else if (bb1.MaxY < intersection.MinY) continue;
-                //else if (bb1.MinY > intersection.MaxY) continue;
-                //else if (bb1.MaxZ < intersection.MinZ) continue;
-                //else if (bb1.MinZ > intersection.MaxZ) continue;
-                //else
                 {
                     // Use face cell ids or edge cell ids
                     if (edgeSurface2)
@@ -281,13 +273,6 @@ namespace CaeMesh
                         bb2 = bbs2[cell2Id];
                         //
                         if (bb1.Intersects(bb2))
-                        //if (bb1.MaxX < bb2.MinX) continue;
-                        //else if (bb1.MinX > bb2.MaxX) continue;
-                        //else if (bb1.MaxY < bb2.MinY) continue;
-                        //else if (bb1.MinY > bb2.MaxY) continue;
-                        //else if (bb1.MaxZ < bb2.MinZ) continue;
-                        //else if (bb1.MinZ > bb2.MaxZ) continue;
-                        //else
                         {
                             cell1 = cs1.GetCell(cell1Id);   // reverse cell ids for shell back faces or get shell edge cell
                             cell2 = cs2.GetCell(cell2Id);   // reverse cell ids for shell back faces or get shell edge cell
@@ -361,6 +346,8 @@ namespace CaeMesh
             //
             double[] a = new double[3];
             double[] b = new double[3];
+            double[] c = new double[3];
+            double[] d = new double[3];
             double[] n1 = new double[3];
             double[] n2 = new double[3];
             // Triangle 1
@@ -369,13 +356,14 @@ namespace CaeMesh
             Geometry.VcrossV(ref n1, a, b);
             Geometry.VxS(ref n1, n1, 1 / Math.Sqrt(Geometry.VdotV(n1, n1)));
             // Triangle 2
-            Geometry.VmV(ref a, t2[1], t2[0]);
-            Geometry.VmV(ref b, t2[2], t2[0]);
-            Geometry.VcrossV(ref n2, a, b);
+            Geometry.VmV(ref c, t2[1], t2[0]);
+            Geometry.VmV(ref d, t2[2], t2[0]);
+            Geometry.VcrossV(ref n2, c, d);
             Geometry.VxS(ref n2, n2, 1 / Math.Sqrt(Geometry.VdotV(n2, n2)));
             //
-            // 180° - the normals point in the opposite directions
-            ang = Math.PI - Math.Acos(Geometry.VdotV(n1, n2));
+            double vDotV = Geometry.Clamp(Geometry.VdotV(n1, n2), -1, 1);
+            // 180° - the normal point in the opposite directions
+            ang = Math.PI - Math.Acos(vDotV);
             if (ang < angleRad)
             {
                 // Closest points on triangles t1 and t2 are p adn q, respectively
@@ -387,7 +375,7 @@ namespace CaeMesh
                 //
                 if (dist < distance)
                 {
-                    // Check the orientraion of the triangle normals
+                    // Check the orientation of the triangle normal
                     if (dist > 0)
                     {
                         double ang1;
@@ -396,21 +384,20 @@ namespace CaeMesh
                         Geometry.VmV(ref pq, q, p);
                         Geometry.Vnorm(ref pq, pq);
                         ang1 = Geometry.VdotV(pq, n1);
-                        if (!penetrationPossible && ang1 < 0) return false;     // negative value means n1 poits away from q
+                        if (!penetrationPossible && ang1 < 0) return false;     // negative value means n1 points away from q
                         ang2 = Geometry.VdotV(pq, n2);
-                        if (!penetrationPossible && ang2 > 0) return false;     // positive value means n2 poits away from p
+                        if (!penetrationPossible && ang2 > 0) return false;     // positive value means n2 points away from p
                         // Check that the closest triangle points are one above the other
-                        // The angle between the closest direction vector and normals must be small < 5° = 0.995
+                        // The angle between the closest direction vector and normal must be small < 5° = 0.995
                         if (Math.Abs(ang1) < 0.995 && Math.Abs(ang2) < 0.995) return false;
                     }
-
-                    // Shrink the triangles and try again
-                    double[][] t1s = Geometry.ShrinkTriangle(t1, 0.5);
-                    double[][] t2s = Geometry.ShrinkTriangle(t2, 0.5);
+                    // Shrink the triangles and try again - the triangles should not overlap only over an vertex or an edge
+                    double[][] t1s = Geometry.ShrinkTriangle(t1, 3 * distance);
+                    double[][] t2s = Geometry.ShrinkTriangle(t2, 3 * distance);
                     dist = Geometry.TriDist(ref p, ref q, t1s, t2s, false);
                     if (dist > distance)
-                        return false;
-
+                      return false;
+                    //
                     return true;
                 }
             }
@@ -517,3 +504,4 @@ namespace CaeMesh
         }
     }
 }
+
