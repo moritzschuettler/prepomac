@@ -246,7 +246,7 @@ namespace FileInOut.Input
                     if (!elementsToImport.HasFlag(ElementsToImport.Solid)) mesh.RemoveElementsByType<FeElement3D>();
                 }
                 //
-                model.ImportMesh(mesh, null, false, false);
+                model.ImportMesh(mesh, model.GetReservedPartNames(), false, false);
                 // Add model items
                 foreach (var entry in referencePoints) model.Mesh.ReferencePoints.Add(entry.Key, entry.Value);
                 foreach (var entry in materials) model.Materials.Add(entry.Key, entry.Value);

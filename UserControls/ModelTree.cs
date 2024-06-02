@@ -1749,7 +1749,7 @@ namespace UserControls
                     else return -1;
                 }
                 //
-                baseNode.Parent.Expand();   // expand if called as function
+                if (baseNode.Parent != null) baseNode.Parent.Expand();   // expand if called as function
                 //
                 if (e.Button == MouseButtons.Left)
                 {

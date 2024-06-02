@@ -1161,15 +1161,15 @@ namespace CaeModel
         public List<string> ImportModelFromInpFile(string fileName, Action<string> WriteDataToOutput)
         {
             OrderedDictionary<int[], Calculix.CalculixUserKeyword> indexedUserKeywords;
-            FileInOut.Input.InpFileReader.Read(fileName,
-                                               FileInOut.Input.ElementsToImport.Solid | FileInOut.Input.ElementsToImport.Shell, 
-                                               this,
-                                               WriteDataToOutput,
-                                               out indexedUserKeywords);
+            InpFileReader.Read(fileName,
+                               ElementsToImport.Solid | ElementsToImport.Shell, 
+                               this,
+                               WriteDataToOutput,
+                               out indexedUserKeywords);
             //
             CalculixUserKeywords = indexedUserKeywords;
             //
-            return FileInOut.Input.InpFileReader.Errors;
+            return InpFileReader.Errors;
         }
         public List<string> ImportMaterialsFromInpFile(string fileName, Action<string> WriteDataToOutput)
         {
@@ -1184,11 +1184,11 @@ namespace CaeModel
             }
             List<string> existingMaterialNames = model.Materials.Keys.ToList();
             //
-            FileInOut.Input.InpFileReader.Read(fileName,
-                                               FileInOut.Input.ElementsToImport.Solid | FileInOut.Input.ElementsToImport.Shell,
-                                               model,
-                                               WriteDataToOutput,
-                                               out OrderedDictionary<int[], Calculix.CalculixUserKeyword>  indexedUserKeywords);
+            InpFileReader.Read(fileName,
+                               ElementsToImport.Solid | ElementsToImport.Shell,
+                               model,
+                               WriteDataToOutput,
+                               out OrderedDictionary<int[], Calculix.CalculixUserKeyword>  indexedUserKeywords);
             //
             CalculixUserKeywords = indexedUserKeywords;
             // Remove existing model materials
@@ -1210,18 +1210,17 @@ namespace CaeModel
                 _materials.Add(name, entry.Value);
             }
             //
-            return FileInOut.Input.InpFileReader.Errors;
+            return InpFileReader.Errors;
         }
         public void ImportMeshFromUnvFile(string fileName)
         {
-            FeMesh mesh = FileInOut.Input.UnvFileReader.Read(fileName, FileInOut.Input.ElementsToImport.Shell |
-                                                                       FileInOut.Input.ElementsToImport.Solid);
+            FeMesh mesh = UnvFileReader.Read(fileName, ElementsToImport.Shell | ElementsToImport.Solid);
             //
             ImportMesh(mesh, GetReservedPartNames(), true, false);
         }
         public void ImportMeshFromObjFile(string fileName)
         {
-            FeMesh mesh = FileInOut.Input.ObjFileReader.Read(fileName);
+            FeMesh mesh = ObjFileReader.Read(fileName);
             //
             ImportMesh(mesh, GetReservedPartNames(), true, false);
         }
