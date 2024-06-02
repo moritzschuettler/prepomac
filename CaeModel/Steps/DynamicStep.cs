@@ -69,7 +69,8 @@ namespace CaeModel
             {
                 AddFieldOutput(new NodalFieldOutput("NF-Output-1", NodalFieldVariable.RF | NodalFieldVariable.U |
                                                     NodalFieldVariable.V));
-                AddFieldOutput(new ElementFieldOutput("EF-Output-1", ElementFieldVariable.E | ElementFieldVariable.S));
+                AddFieldOutput(new ElementFieldOutput("EF-Output-1", ElementFieldVariable.E | ElementFieldVariable.S |
+                                                      ElementFieldVariable.ENER));
             }
         }
         //ISerializable
