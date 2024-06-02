@@ -66,6 +66,12 @@ namespace PrePoMax
             set { _constraint.Offset.Equation = value; }
         }
         //
+        [CategoryAttribute("Solution")]
+        [OrderedDisplayName(2, 9, "Non-linear")]
+        [DescriptionAttribute("Compression only support is linearized if a linear solution procedure is used.")]
+        [Id(1, 3)]
+        public bool NonLinear { get { return _constraint.NonLinear; } set { _constraint.NonLinear = value; } }
+        //
         [Category("Appearance")]
         [DisplayName("Color")]
         [Description("Select the constraint color.")]
@@ -90,6 +96,8 @@ namespace PrePoMax
                 CaeModel.GapSectionData.InitialSpringStiffness.ToString();
             StringForceDefaultConverter.SetInitialValue =
                 CaeModel.GapSectionData.InitialTensileForceAtNegativeInfinity.ToString();
+            //
+            DynamicCustomTypeDescriptor.RenameBooleanPropertyToYesNo(nameof(NonLinear));
         }
 
 

@@ -46,7 +46,7 @@ namespace FileInOut.Output
             // Materials
             title = new CalTitle("Materials", "");
             keywords.Add(title);
-            AppendMaterials(model, title, materialNames, true);
+            AppendMaterials(model, title, null, materialNames, true);
             // Write file
             StringBuilder sb = new StringBuilder();
             foreach (var keyword in keywords)
@@ -96,6 +96,7 @@ namespace FileInOut.Output
                 HashSet<string> additionalElementSetNames = new HashSet<string>();
                 Dictionary<string, int[]> referencePointsNodeIds;
                 List<SectionData> additionalSectionData = new List<SectionData>();
+                List<Material> additionalMaterials = new List<Material>();
                 List<BoundaryCondition> additionalBoundaryConditions = new List<BoundaryCondition>();
                 OrderedDictionary<string, List<PreTensionLoad>> preTensionLoads;
                 List<double[]> equationParameters = new List<double[]>();
@@ -116,7 +117,8 @@ namespace FileInOut.Output
                 GetCompressionOnlyConstraintData(model, ref maxNodeId, ref maxElementId, ref additionalNodes,
                                                  ref additionalNodeSets, ref additionalElementKeywords,
                                                  ref additionalElementSetNames, ref additionalSectionData,
-                                                 ref additionalBoundaryConditions, ref equationParameters);
+                                                 ref additionalMaterials, ref additionalBoundaryConditions,
+                                                 ref equationParameters);
                 //
                 CalTitle title;
                 List<CalculixKeyword> keywords = new List<CalculixKeyword>();
@@ -159,7 +161,7 @@ namespace FileInOut.Output
                 // Materials
                 title = new CalTitle("Materials", "");
                 keywords.Add(title);
-                AppendMaterials(model, title, null, addAllMaterials);
+                AppendMaterials(model, title, additionalMaterials, null, addAllMaterials);
                 // Sections
                 title = new CalTitle("Sections", "");
                 keywords.Add(title);
@@ -627,6 +629,7 @@ namespace FileInOut.Output
                                                              ref List<CalElement> additionalElementKeywords,
                                                              ref HashSet<string> additionalElementSetNames,
                                                              ref List<SectionData> additionalSectionData,
+                                                             ref List<Material> additionalMaterials,
                                                              ref List<BoundaryCondition> additionalBoundaryConditions,
                                                              ref List<double[]> equationParameters)
         {
@@ -635,6 +638,7 @@ namespace FileInOut.Output
             bool twoD = model.Properties.ModelSpace.IsTwoD();
             bool shellEdgeFace;
             bool shellElement;
+            bool nonLinear = false;
             double[] faceNormal;
             FeElement element;
             FeElementSet elementSet;
@@ -772,6 +776,8 @@ namespace FileInOut.Output
                                                                              nodeStiffness, nodeForce));
                             }
                         }
+                        //
+                        if (co.NonLinear) nonLinear = true;
                     }
                 }
             }
@@ -789,6 +795,14 @@ namespace FileInOut.Output
                 dr.U2.SetEquationFromValue(0);
                 dr.U3.SetEquationFromValue(0);
                 additionalBoundaryConditions.Add(dr);
+            }
+            // Materials
+            if (nonLinear)
+            {
+                Material material = new Material(model.Materials.GetNextNumberedKey("Internal_compression_only"));
+                material.AddProperty(new Elastic(new double[][] { new double[] { 1, 0, 0 } }));
+                material.AddProperty(new Plastic(new double[][] { new double[] { 0, 0, 0 } }));
+                additionalMaterials.Add(material);
             }
             //
             maxNodeId = newNodeId;
@@ -1182,67 +1196,79 @@ namespace FileInOut.Output
                 }
             }
         }
-        static private void AppendMaterials(FeModel model, CalculixKeyword parent, string[] materialNames = null,
+        static private void AppendMaterials(FeModel model, CalculixKeyword parent, 
+                                            List<Material> additionalMaterials,
+                                            string[] materialNames = null,
                                             bool addAllMaterials = false)
         {
-            CalMaterial material;
+            CalMaterial calMaterial;
             HashSet<string> activeMaterialNames;
             //
             if (addAllMaterials) activeMaterialNames = new HashSet<string>(model.Materials.Keys);
             else activeMaterialNames = MaterialNamesUsedInActiveSections(model);
             //
-            foreach (var entry in model.Materials)
+            List<Material> materials = model.Materials.Values.ToList();
+            if (additionalMaterials != null)
             {
-                if ((entry.Value.Active && activeMaterialNames.Contains(entry.Key)) ||
-                    (materialNames != null && materialNames.Contains(entry.Value.Name)))
+                foreach (var additionalMaterial in additionalMaterials)
                 {
-                    material = new CalMaterial(entry.Value);
-                    parent.AddKeyword(material);
+                    materials.Add(additionalMaterial);
+                    activeMaterialNames.Add(additionalMaterial.Name);
+                }
+            }
+            //
+            foreach (var material in materials)
+            {
+                if ((material.Active && activeMaterialNames.Contains(material.Name)) ||
+                    (materialNames != null && materialNames.Contains(material.Name)))
+                {
+                    calMaterial = new CalMaterial(material);
+                    parent.AddKeyword(calMaterial);
                     //
-                    foreach (var property in entry.Value.Properties)
+                    foreach (var property in material.Properties)
                     {
                         if (property is Density de)
                         {
-                            material.AddKeyword(new CalDensity(de, entry.Value.TemperatureDependent));
+                            calMaterial.AddKeyword(new CalDensity(de, material.TemperatureDependent));
                         }
                         else if (property is SlipWear sw)
                         {
                             if (materialNames != null)  // must be here
-                                material.AddKeyword(new CalSlipWear(sw, entry.Value.TemperatureDependent));
+                                calMaterial.AddKeyword(new CalSlipWear(sw, material.TemperatureDependent));
                         }
                         else if (property is Elastic el)
                         {
-                            material.AddKeyword(new CalElastic(el, entry.Value.TemperatureDependent));
+                            calMaterial.AddKeyword(new CalElastic(el, material.TemperatureDependent));
                         }
                         else if (property is ElasticWithDensity ewd)
                         {
                             Density density = new Density(new double[][] { new double[] { ewd.Density.Value } });
-                            material.AddKeyword(new CalDensity(density, entry.Value.TemperatureDependent));
+                            calMaterial.AddKeyword(new CalDensity(density, material.TemperatureDependent));
                             //
                             Elastic elastic = new Elastic(new double[][] { new double[] { ewd.YoungsModulus.Value,
                                                                                           ewd.PoissonsRatio.Value } });
-                            material.AddKeyword(new CalElastic(elastic, entry.Value.TemperatureDependent));
+                            calMaterial.AddKeyword(new CalElastic(elastic, material.TemperatureDependent));
                         }
                         else if (property is Plastic pl)
                         {
-                            material.AddKeyword(new CalPlastic(pl, entry.Value.TemperatureDependent));
+                            calMaterial.AddKeyword(new CalPlastic(pl, material.TemperatureDependent));
                         }
                         else if (property is ThermalExpansion te)
                         {
-                            material.AddKeyword(new CalThermalExpansion(te, entry.Value.TemperatureDependent));
+                            calMaterial.AddKeyword(new CalThermalExpansion(te, material.TemperatureDependent));
                         }
                         else if (property is ThermalConductivity tc)
                         {
-                            material.AddKeyword(new CalThermalConductivity(tc, entry.Value.TemperatureDependent));
+                            calMaterial.AddKeyword(new CalThermalConductivity(tc, material.TemperatureDependent));
                         }
                         else if (property is SpecificHeat sh)
                         {
-                            material.AddKeyword(new CalSpecificHeat(sh, entry.Value.TemperatureDependent));
+                            calMaterial.AddKeyword(new CalSpecificHeat(sh, material.TemperatureDependent));
                         }
                         else throw new NotImplementedException();
                     }
                 }
-                else if (materialNames == null) parent.AddKeyword(new CalDeactivated(entry.Value.Name));
+                else if (materialNames == null) parent.AddKeyword(new CalDeactivated(material.Name));
             }
             
         }

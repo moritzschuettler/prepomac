@@ -17,6 +17,7 @@ namespace CaeModel
         private EquationContainer _springStiffness;                 //ISerializable
         private EquationContainer _tensileForceAtNegativeInfinity;  //ISerializable
         private EquationContainer _offset;                          //ISerializable
+        private bool _nonLinear;                                    //ISerializable
 
 
         // Properties                                                                                                               
@@ -33,6 +34,7 @@ namespace CaeModel
             set { SetTensileForceAtNegativeInfinity(value); }
         }
         public EquationContainer Offset { get { return _offset; } set { SetOffset(value); } }
+        public bool NonLinear { get { return _nonLinear; } set { _nonLinear = value; } }
 
 
         // Constructors                                                                                                             
@@ -42,6 +44,7 @@ namespace CaeModel
             SpringStiffness = new EquationContainer(typeof(StringForcePerLengthDefaultConverter), double.NaN);
             TensileForceAtNegativeInfinity = new EquationContainer(typeof(StringForceDefaultConverter), double.NaN);
             Offset = new EquationContainer(typeof(StringLengthConverter), 0);
+            _nonLinear = false;
         }
         public CompressionOnly(SerializationInfo info, StreamingContext context)
            : base(info, context)
@@ -58,6 +61,9 @@ namespace CaeModel
                         break;
                     case "_offset":
                         SetOffset((EquationContainer)entry.Value, false);
+                        break;
+                    case "_nonLinear":
+                        _nonLinear = (bool)entry.Value;
                         break;
                     default:
                         break;
@@ -99,6 +105,7 @@ namespace CaeModel
             info.AddValue("_springStiffness", _springStiffness, typeof(EquationContainer));
             info.AddValue("_tensileForceAtNegInfinity", _tensileForceAtNegativeInfinity, typeof(EquationContainer));
             info.AddValue("_offset", _offset, typeof(EquationContainer));
+            info.AddValue("_nonLinear", _nonLinear, typeof(bool));
         }
     }
 }
