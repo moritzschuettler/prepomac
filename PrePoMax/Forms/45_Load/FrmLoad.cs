@@ -478,6 +478,9 @@ namespace PrePoMax.Forms
                 bool twoD = FELoad.TwoD;
                 // Convert the load to internal to hide it
                 LoadInternal(true);
+                // Check for deleted amplitudes
+                if (FELoad.AmplitudeName != null && FELoad.AmplitudeName != CaeModel.Load.DefaultAmplitudeName)
+                    CheckMissingValueRef(ref amplitudeNames, FELoad.AmplitudeName, a => { FELoad.AmplitudeName = a; });
                 //
                 int selectedId;
                 if (_viewLoad is ViewCLoad vcl)
@@ -563,7 +566,7 @@ namespace PrePoMax.Forms
                     else if (vstl.RegionType == RegionTypeEnum.SurfaceName.ToFriendlyString())
                         CheckMissingValueRef(ref surfaceNames, vstl.SurfaceName, s => { vstl.SurfaceName = s; });
                     else throw new NotSupportedException();
-                    //
+                    
                     vstl.PopulateDropDownLists(surfaceNames, amplitudeNames);
                 }
                 else if (_viewLoad is ViewShellEdgeLoad vsel)
