@@ -210,6 +210,9 @@ namespace PrePoMax.Forms
             {
                 if (co.RegionType == RegionTypeEnum.Selection && (co.CreationIds == null || co.CreationIds.Length == 0))
                     throw new CaeException("The compression only constraint region selection must contain at least one item.");
+                if (co.NonLinear == false && MessageBoxes.ShowWarningQuestion("Using a linear solution procedure will " +
+                    "linearize the compression only support. Continue?") == DialogResult.Cancel) 
+                        throw new CaeException("BreakOnApply");
             }
             //
             if (Constraint is RigidBody rb && rb.RegionType == RegionTypeEnum.Selection &&

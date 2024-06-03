@@ -67,7 +67,7 @@ namespace PrePoMax
         }
         //
         [CategoryAttribute("Solution")]
-        [OrderedDisplayName(2, 9, "Non-linear")]
+        [OrderedDisplayName(2, 9, "Nonlinear")]
         [DescriptionAttribute("Compression only support is linearized if a linear solution procedure is used.")]
         [Id(1, 3)]
         public bool NonLinear { get { return _constraint.NonLinear; } set { _constraint.NonLinear = value; } }

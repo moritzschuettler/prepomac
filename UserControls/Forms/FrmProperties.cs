@@ -84,7 +84,8 @@ namespace UserControls
             }
             catch (Exception ex)
             {
-                ExceptionTools.Show(this, ex);
+                if (ex is CaeException && ex.Message == "BreakOnApply") return;
+                else ExceptionTools.Show(this, ex);
             }
         }
         private void btnOKAddNew_Click(object sender, EventArgs e)

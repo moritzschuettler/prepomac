@@ -800,6 +800,7 @@ namespace FileInOut.Output
             if (nonLinear)
             {
                 Material material = new Material(model.Materials.GetNextNumberedKey("Internal_compression_only"));
+                material.AddProperty(new Density(new double[][] { new double[] { 1, 0 } }));
                 material.AddProperty(new Elastic(new double[][] { new double[] { 1, 0, 0 } }));
                 material.AddProperty(new Plastic(new double[][] { new double[] { 0, 0, 0 } }));
                 additionalMaterials.Add(material);
