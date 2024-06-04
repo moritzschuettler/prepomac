@@ -658,8 +658,6 @@ namespace PrePoMax
                     _vtk.Dispose();
                     _vtk = null;
                 }
-                if (Debugger.IsAttached)
-                    Debugger.Break();
             }
             catch
             { }

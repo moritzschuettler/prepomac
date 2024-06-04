@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -35,7 +36,13 @@ namespace PrePoMax
             //
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new FrmMain(args));
+            //
+            using (FrmMain mainForm = new FrmMain(args))
+            {
+                Application.Run(mainForm);
+            }
+            //
+            Process.GetCurrentProcess().Kill();
         }
     }
 }

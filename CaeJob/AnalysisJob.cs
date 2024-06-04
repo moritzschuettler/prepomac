@@ -544,7 +544,7 @@ namespace CaeJob
                 _jobStatus = JobStatus.Killed;
             }
         }
-        private static void KillAllProcessesSpawnedBy(UInt32 parentProcessId)
+        public static void KillAllProcessesSpawnedBy(UInt32 parentProcessId)
         {
             // NOTE: Process Ids are reused!
             ManagementObjectSearcher searcher = new ManagementObjectSearcher(
