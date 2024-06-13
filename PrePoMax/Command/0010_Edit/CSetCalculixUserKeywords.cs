@@ -14,7 +14,7 @@ using System.Runtime.Serialization;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CSetCalculixUserKeywords : Command, ISerializable
+    class CSetCalculixUserKeywords : PreprocessCommand, ISerializable
     {
         // Variables                                                                                                                
         private OrderedDictionary<int[], Calculix.CalculixUserKeyword> _userKeywords;   //ISerializable

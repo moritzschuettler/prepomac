@@ -43,6 +43,7 @@ namespace PrePoMax
         private string[] outputLines;
         private AdvisorControl _advisorControl;
         private KeyboardHook _keyboardHook;
+        private Dictionary<ViewGeometryModelResults, int> _selectedSymbolIndex;
         //
         private Point _formLocation;
         private List<Form> _allForms;
@@ -68,6 +69,7 @@ namespace PrePoMax
         private FrmElementSet _frmElementSet;
         private FrmSurface _frmSurface;
         private FrmReferencePoint _frmReferencePoint;
+        private FrmCoordinateSystem _frmCoordinateSystem;
         private FrmMaterial _frmMaterial;
         private FrmSection _frmSection;
         private FrmConstraint _frmConstraint;
@@ -280,10 +282,10 @@ namespace PrePoMax
                 // Strip menus
                 tsFile.Location = new Point(0, 0);
                 tsViews.Location = new Point(tsFile.Left + tsFile.Width, 0);
-                tsModel.Location = new Point(tsViews.Left + tsViews.Width, 0);
+                tsSymbols.Location = new Point(tsViews.Left + tsViews.Width, 0);
                 tsDeformationFactor.Location = new Point(0, tsFile.Height);
                 tsResults.Location = new Point(tsDeformationFactor.Left + tsDeformationFactor.Width, tsFile.Height);
-                tscbSymbolsForStep.SelectedIndexChanged += tscbSymbolsForStep_SelectedIndexChanged;
+                tscbSymbols.SelectedIndexChanged += tscbSymbols_SelectedIndexChanged;
                 // Controller
                 _controller = new Controller(this);
                 // Vtk
@@ -376,6 +378,9 @@ namespace PrePoMax
                 //
                 _frmReferencePoint = new FrmReferencePoint(_controller);
                 AddFormToAllForms(_frmReferencePoint);
+                //
+                _frmCoordinateSystem = new FrmCoordinateSystem(_controller);
+                AddFormToAllForms(_frmCoordinateSystem);
                 //
                 _frmMaterial = new FrmMaterial(_controller);
                 AddFormToAllForms(_frmMaterial);
@@ -716,7 +721,7 @@ namespace PrePoMax
             _modelTree.DisableMouse = unactive;
             menuStripMain.DisableMouseButtons = unactive;
             tsFile.DisableMouseButtons = unactive;
-            tsModel.Enabled = !unactive; // changing the symbols clears the selection - unwanted during selection
+            tsSymbols.Enabled = !unactive; // changing the symbols clears the selection - unwanted during selection
             // This gets also called from item selection form: by angle, by edge ...
             if (form.Visible == false)
             {
@@ -837,7 +842,8 @@ namespace PrePoMax
                 if (nodeName == _modelTree.NodeSetsName) tsmiCreateNodeSet_Click(null, null);
                 else if (nodeName == _modelTree.ElementSetsName) tsmiCreateElementSet_Click(null, null);
                 else if (nodeName == _modelTree.SurfacesName) tsmiCreateSurface_Click(null, null);
-                else if (nodeName == _modelTree.ReferencePointsName) tsmiCreateRP_Click(null, null);
+                else if (nodeName == _modelTree.ModelReferencePointsName) tsmiCreateModelReferencePoint_Click(null, null);
+                else if (nodeName == _modelTree.ModelCoordinateSystemsName) tsmiCreateModelCoordinateSystem_Click(null, null);
                 else if (nodeName == _modelTree.MaterialsName) tsmiCreateMaterial_Click(null, null);
                 else if (nodeName == _modelTree.SectionsName) tsmiCreateSection_Click(null, null);
                 else if (nodeName == _modelTree.ConstraintsName) tsmiCreateConstraint_Click(null, null);
@@ -846,8 +852,8 @@ namespace PrePoMax
                 else if (nodeName == _modelTree.AmplitudesName) tsmiCreateAmplitude_Click(null, null);
                 else if (nodeName == _modelTree.InitialConditionsName) tsmiCreateInitialCondition_Click(null, null);
                 else if (nodeName == _modelTree.StepsName) tsmiCreateStep_Click(null, null);
-                else if (nodeName == _modelTree.HistoryOutputsName && stepName != null) CreateHistoryOutput(stepName);
-                else if (nodeName == _modelTree.FieldOutputsName && stepName != null) CreateFieldOutput(stepName);
+                else if (nodeName == _modelTree.ModelHistoryOutputsName && stepName != null) CreateHistoryOutput(stepName);
+                else if (nodeName == _modelTree.ModelFieldOutputsName && stepName != null) CreateFieldOutput(stepName);
                 else if (nodeName == _modelTree.BoundaryConditionsName && stepName != null) CreateBoundaryCondition(stepName);
                 else if (nodeName == _modelTree.LoadsName && stepName != null) CreateLoad(stepName);
                 else if (nodeName == _modelTree.DefinedFieldsName && stepName != null) CreateDefinedField(stepName);
@@ -856,8 +862,10 @@ namespace PrePoMax
             else if (_controller.CurrentResult != null && _controller.CurrentResult.Mesh != null &&
                      _controller.CurrentView == ViewGeometryModelResults.Results)
             {
-                if (nodeName == _modelTree.FieldOutputsName) tsmiCreateResultFieldOutput_Click(null, null);
-                else if (nodeName == _modelTree.HistoryOutputsName) tsmiCreateResultHistoryOutput_Click(null, null);
+                if (nodeName == _modelTree.ResultReferencePointsName) tsmiCreateResultReferencePoint_Click(null, null);
+                else if (nodeName == _modelTree.ResultCoordinateSystemsName) tsmiCreateResultCoordinateSystem_Click(null, null);
+                else if (nodeName == _modelTree.ResultFieldOutputsName) tsmiCreateResultFieldOutput_Click(null, null);
+                else if (nodeName == _modelTree.ResultHistoryOutputsName) tsmiCreateResultHistoryOutput_Click(null, null);
             }
         }
         private void ModelTree_Edit(NamedClass namedClass, string stepName)
@@ -879,7 +887,8 @@ namespace PrePoMax
                 else if (namedClass is FeNodeSet) EditNodeSet(namedClass.Name);
                 else if (namedClass is FeElementSet) EditElementSet(namedClass.Name);
                 else if (namedClass is FeSurface) EditSurface(namedClass.Name);
-                else if (namedClass is FeReferencePoint) EditRP(namedClass.Name);
+                else if (namedClass is FeReferencePoint) EditModelReferencePoint(namedClass.Name);
+                else if (namedClass is CoordinateSystem) EditModelCoordinateSystem(namedClass.Name);
                 else if (namedClass is Material) EditMaterial(namedClass.Name);
                 else if (namedClass is Section) EditSection(namedClass.Name);
                 else if (namedClass is CaeModel.Constraint) EditConstraint(namedClass.Name);
@@ -899,6 +908,8 @@ namespace PrePoMax
             else if (_controller.CurrentView == ViewGeometryModelResults.Results)
             {
                 if (namedClass is ResultPart || namedClass is GeometryPart) EditResultPart(namedClass.Name);
+                else if (namedClass is FeReferencePoint) EditResultReferencePoint(namedClass.Name);
+                else if (namedClass is CoordinateSystem) EditResultCoordinateSystem(namedClass.Name);
                 else if (namedClass is ResultFieldOutput rfo) EditResultFieldOutput(rfo.Name);
                 else if (namedClass is HistoryResultData hd) ViewResultHistoryOutputData(hd);
                 else if (namedClass is FieldData) ShowLegendSettings();
@@ -919,23 +930,18 @@ namespace PrePoMax
                 ApplyActionOnItems<FeNodeSet>(items, DuplicateNodeSets);
                 ApplyActionOnItems<FeElementSet>(items, DuplicateElementSets);
                 ApplyActionOnItems<FeSurface>(items, DuplicateSurfaces);
-                ApplyActionOnItems<FeReferencePoint>(items, DuplicateReferencePoints);
+                ApplyActionOnItems<FeReferencePoint>(items, DuplicateModelReferencePoints);
+                ApplyActionOnItems<CoordinateSystem>(items, DuplicateModelCoordinateSystems);
                 //
                 ApplyActionOnItems<Material>(items, DuplicateMaterials);
-                //
                 ApplyActionOnItems<Section>(items, DuplicateSections);
-                //
                 ApplyActionOnItems<CaeModel.Constraint>(items, DuplicateConstraints);
-                //
                 ApplyActionOnItems<SurfaceInteraction>(items, DuplicateSurfaceInteractions);
                 ApplyActionOnItems<ContactPair>(items, DuplicateContactPairs);
-                //
                 ApplyActionOnItems<Amplitude>(items, DuplicateAmplitudes);
-                //
                 ApplyActionOnItems<InitialCondition>(items, DuplicateInitialConditions);
                 //
                 ApplyActionOnItems<Step>(items, DuplicateSteps);
-                //
                 ApplyActionOnItemsInStep<HistoryOutput>(items, stepNames, DuplicateHistoryOutputs);
                 ApplyActionOnItemsInStep<FieldOutput>(items, stepNames, DuplicateFieldOutputs);
                 ApplyActionOnItemsInStep<BoundaryCondition>(items, stepNames, DuplicateBoundaryConditions);
@@ -945,7 +951,10 @@ namespace PrePoMax
                 ApplyActionOnItems<AnalysisJob>(items, DuplicateAnalyses);
             }
             else if (_controller.CurrentView == ViewGeometryModelResults.Results)
-            { }
+            {
+                ApplyActionOnItems<FeReferencePoint>(items, DuplicateResultReferencePoints);
+                ApplyActionOnItems<CoordinateSystem>(items, DuplicateResultCoordinateSystems);
+            }
         }
         private void ModelTree_PropagateEvent(NamedClass[] items, string[] stepNames)
         {
@@ -1014,7 +1023,10 @@ namespace PrePoMax
             else if (_controller.CurrentView == ViewGeometryModelResults.Model)
             {
                 HideShowItems<MeshPart>(items, operation, HideModelParts, ShowModelParts, ShowOnlyModelParts);
-                HideShowItems<FeReferencePoint>(items, operation, HideRPs, ShowRPs, ShowOnlyRPs);
+                HideShowItems<FeReferencePoint>(items, operation, HideModelReferencePoints,
+                                                ShowModelReferencePoints, ShowOnlyModelReferencePoints);
+                HideShowItems<CoordinateSystem>(items, operation, HideModelCoordinateSystems,
+                                                ShowModelCoordinateSystems, ShowOnlyModelCoordinateSystems);
                 HideShowItems<CaeModel.Constraint>(items, operation, HideConstraints, ShowConstraints, ShowOnlyConstraints);
                 HideShowItems<ContactPair>(items, operation, HideContactPairs, ShowContactPairs, ShowOnlyContactPairs);
                 HideShowStepItems<BoundaryCondition>(items, operation, stepNames, HideBoundaryConditions, 
@@ -1025,6 +1037,10 @@ namespace PrePoMax
             {
                 HideShowItems<ResultPart>(items, operation, HideResultParts, ShowResultParts, ShowOnlyResultParts);
                 HideShowItems<GeometryPart>(items, operation, HideResultParts, ShowResultParts, ShowOnlyResultParts);
+                HideShowItems<FeReferencePoint>(items, operation, HideResultReferencePoints,
+                                                ShowResultReferencePoints, ShowOnlyResultReferencePoints);
+                HideShowItems<CoordinateSystem>(items, operation, HideResultCoordinateSystems,
+                                                ShowResultCoordinateSystems, ShowOnlyResultCoordinateSystems);
             }
         }
         private void ModelTree_SetTransparencyEvent(string[] partNames)
@@ -1061,7 +1077,8 @@ namespace PrePoMax
                 ApplyActionOnItems<FeNodeSet>(items, DeleteNodeSets);
                 ApplyActionOnItems<FeElementSet>(items, DeleteElementSets);
                 ApplyActionOnItems<FeSurface>(items, DeleteSurfaces);
-                ApplyActionOnItems<FeReferencePoint>(items, DeleteRPs);
+                ApplyActionOnItems<FeReferencePoint>(items, DeleteModelReferencePoints);
+                ApplyActionOnItems<CoordinateSystem>(items, DeleteModelCoordinateSystems);
                 ApplyActionOnItems<Material>(items, DeleteMaterials);
                 ApplyActionOnItems<Section>(items, DeleteSections);
                 ApplyActionOnItems<CaeModel.Constraint>(items, DeleteConstraints);
@@ -1085,6 +1102,8 @@ namespace PrePoMax
             {
                 ApplyActionOnItems<ResultPart>(items, DeleteResultParts);
                 ApplyActionOnItems<GeometryPart>(items, DeleteResultParts);
+                ApplyActionOnItems<FeReferencePoint>(items, DeleteResultReferencePoints);
+                ApplyActionOnItems<CoordinateSystem>(items, DeleteResultCoordinateSystems);
                 // First delete components and then field outputs
                 ApplyActionOnItemsInStep<FieldData>(items, parentNames, DeleteResultFieldOutputComponents);
                 ApplyActionOnItems<Field>(items, DeleteResultFieldOutputs);
@@ -1093,7 +1112,6 @@ namespace PrePoMax
                 DeleteResultHistoryResultComponents(items);
                 ApplyActionOnItemsInStep<HistoryResultField>(items, parentNames, DeleteResultHistoryResultFields);
                 ApplyActionOnItems<HistoryResultSet>(items, RemoveResultHistoryResultSets);
-                
             }
         }
         private void ModelTree_ActivateDeactivateEvent(NamedClass[] items, bool activate, string[] stepNames)
@@ -1214,9 +1232,10 @@ namespace PrePoMax
                 tsbSave.Enabled = false;
                 // Toolbar View
                 tsViews.DisableMouseButtons = true;
-                // Toolbar Model
+                // Toolbar Symbols
                 tslSymbols.Enabled = false;
-                tscbSymbolsForStep.Enabled = false;
+                tscbSymbols.Enabled = false;
+                UpdateSymbolsList();
                 // Toolbar Results
                 tsDeformationFactor.Enabled = false;
                 tsResults.Enabled = false;
@@ -1284,9 +1303,9 @@ namespace PrePoMax
                     tsmiAnalysis.Enabled = true;
                     // Toolbar View
                     tsViews.DisableMouseButtons = false;
-                    // Toolbar Model
+                    // Toolbar Symbols
                     tslSymbols.Enabled = true;
-                    tscbSymbolsForStep.Enabled = true;
+                    tscbSymbols.Enabled = true;
                     // Vtk
                     vtkVisible = true;
                 }
@@ -1297,6 +1316,9 @@ namespace PrePoMax
                     tsmiResults.Enabled = true;
                     // Toolbar View
                     tsViews.DisableMouseButtons = false;
+                    // Toolbar Symbols
+                    tslSymbols.Enabled = true;
+                    tscbSymbols.Enabled = true;
                     // Toolbar Results
                     tsDeformationFactor.Enabled = true;
                     tsResults.Enabled = true;
@@ -2258,6 +2280,21 @@ namespace PrePoMax
             catch (Exception ex)
             {
                 ExceptionTools.Show(this, ex);
+            }
+        }
+        private void TurnSectionViewOnOff()
+        {
+            try
+            {
+                _controller.TurnSectionViewOnOff();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+            finally
+            {
+                SetStateReady(Globals.ExplodePartsText);
             }
         }
         private void tsmiExplodedView_Click(object sender, EventArgs e)
@@ -4149,47 +4186,85 @@ namespace PrePoMax
 
         #endregion  ################################################################################################################
 
-        #region Reference point  ###################################################################################################
-        private void tsmiCreateRP_Click(object sender, EventArgs e)
+        #region Model Reference point  #############################################################################################
+        private void tsmiCreateModelReferencePoint_Click(object sender, EventArgs e)
         {
             try
             {
                 if (_controller.Model.Mesh == null) return;
                 //
-                ShowForm(_frmReferencePoint, "Create Reference Point", null);
+                ShowForm(_frmReferencePoint, "Create Model Reference Point", null);
             }
             catch (Exception ex)
             {
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiEditRP_Click(object sender, EventArgs e)
+        private void tsmiEditModelReferencePoint_Click(object sender, EventArgs e)
         {
             try
             {
-                SelectOneEntity("Reference points", _controller.GetAllReferencePoints(), EditRP);
+                SelectOneEntity("Model Reference Points", _controller.GetAllModelReferencePoints(), EditModelReferencePoint);
             }
             catch (Exception ex)
             {
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiDuplicateRP_Click(object sender, EventArgs e)
+        private void tsmiDuplicateModelReferencePoint_Click(object sender, EventArgs e)
         {
             try
             {
-                SelectMultipleEntities("Reference points", _controller.GetAllReferencePoints(), DuplicateReferencePoints);
+                SelectMultipleEntities("Model Reference Points", _controller.GetAllModelReferencePoints(),
+                                       DuplicateModelReferencePoints);
             }
             catch (Exception ex)
             {
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiDeleteRP_Click(object sender, EventArgs e)
+        private void tsmiHideModelReferencePoint_Click(object sender, EventArgs e)
         {
             try
             {
-                SelectMultipleEntities("Reference points", _controller.GetAllReferencePoints(), DeleteRPs);
+                SelectMultipleEntities("Model Reference Points", _controller.GetAllModelReferencePoints(),
+                                       HideModelReferencePoints);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiShowModelReferencePoint_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Model Reference Points", _controller.GetAllModelReferencePoints(),
+                                       ShowModelReferencePoints);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiShowOnlyModelReferencePoint_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Model Reference Points", _controller.GetAllModelReferencePoints(),
+                                       ShowOnlyModelReferencePoints);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiDeleteModelReferencePoint_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Model Reference Points", _controller.GetAllModelReferencePoints(),
+                                       DeleteModelReferencePoints);
             }
             catch (Exception ex)
             {
@@ -4197,35 +4272,158 @@ namespace PrePoMax
             }
         }
         //
-        private void EditRP(string referencePointName)
+        private void EditModelReferencePoint(string referencePointName)
         {
-            ShowForm(_frmReferencePoint, "Edit Reference Point", referencePointName);
+            ShowForm(_frmReferencePoint, "Edit Model Reference Point", referencePointName);
         }
-        private void DuplicateReferencePoints(string[] referencePointNames)
+        private void DuplicateModelReferencePoints(string[] referencePointNames)
         {
-            _controller.DuplicateReferencePointsCommand(referencePointNames);
+            _controller.DuplicateModelReferencePointsCommand(referencePointNames);
         }
-        private void HideRPs(string[] referencePointNames)
+        private void HideModelReferencePoints(string[] referencePointNames)
         {
-            _controller.HideReferencePointsCommand(referencePointNames);
+            _controller.HideModelReferencePointsCommand(referencePointNames);
         }
-        private void ShowRPs(string[] referencePointNames)
+        private void ShowModelReferencePoints(string[] referencePointNames)
         {
-            _controller.ShowReferencePointsCommand(referencePointNames);
+            _controller.ShowModelReferencePointsCommand(referencePointNames);
         }
-        private void ShowOnlyRPs(string[] referencePointNames)
+        private void ShowOnlyModelReferencePoints(string[] referencePointNames)
         {
-            HashSet<string> allNames = new HashSet<string>(_controller.Model.Mesh.ReferencePoints.Keys);
+            HashSet<string> allNames = new HashSet<string>(_controller.GetModelReferencePointNames());
             allNames.ExceptWith(referencePointNames);
-            _controller.HideReferencePointsCommand(allNames.ToArray());
-            _controller.ShowReferencePointsCommand(referencePointNames);
+            _controller.HideModelReferencePointsCommand(allNames.ToArray());
+            _controller.ShowModelReferencePointsCommand(referencePointNames);
         }
-        private void DeleteRPs(string[] referencePointNames)
+        private void DeleteModelReferencePoints(string[] referencePointNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected reference points?" + Environment.NewLine
+            if (MessageBoxes.ShowWarningQuestion("OK to delete selected model reference points?" + Environment.NewLine
                                                  + referencePointNames.ToRows()) == DialogResult.OK)
             {
-                _controller.RemoveReferencePointsCommand(referencePointNames);
+                _controller.RemoveModelReferencePointsCommand(referencePointNames);
+            }
+        }
+
+        #endregion  ################################################################################################################
+
+        #region Model Coordinate system  ###########################################################################################
+        private void tsmiCreateModelCoordinateSystem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SinglePointDataEditor.ParentForm = _frmCoordinateSystem;
+                SinglePointDataEditor.Controller = _controller;
+                ShowForm(_frmCoordinateSystem, "Create Model Coordinate System", null);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiEditModelCoordinateSystem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectOneEntity("Model Coordinate Systems", _controller.GetAllModelCoordinateSystems(),
+                                EditModelCoordinateSystem);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiDuplicateModelCoordinateSystem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Model Coordinate Systems", _controller.GetAllModelCoordinateSystems(),
+                                       DuplicateModelCoordinateSystems);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiHideModelCoordinateSystem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Model Coordinate Systems", _controller.GetAllModelCoordinateSystems(),
+                                       HideModelCoordinateSystems);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiShowModelCoordinateSystem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Model Coordinate Systems", _controller.GetAllModelCoordinateSystems(),
+                                       ShowModelCoordinateSystems);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiShowOnlyModelCoordinateSystem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Model Coordinate Systems", _controller.GetAllModelCoordinateSystems(),
+                                       ShowOnlyModelCoordinateSystems);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiDeleteModelCoordinateSystem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Model Coordinate Systems", _controller.GetAllModelCoordinateSystems(),
+                                       DeleteModelCoordinateSystems);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        //
+        private void EditModelCoordinateSystem(string coordinateSystemName)
+        {
+            SinglePointDataEditor.ParentForm = _frmCoordinateSystem;
+            SinglePointDataEditor.Controller = _controller;
+            ShowForm(_frmCoordinateSystem, "Edit Model Coordinate System", coordinateSystemName);
+        }
+        private void DuplicateModelCoordinateSystems(string[] coordinateSystemNames)
+        {
+            _controller.DuplicateModelCoordinateSystemsCommand(coordinateSystemNames);
+        }
+        private void HideModelCoordinateSystems(string[] coordinateSystemNames)
+        {
+            _controller.HideModelCoordinateSystemsCommand(coordinateSystemNames);
+        }
+        private void ShowModelCoordinateSystems(string[] coordinateSystemNames)
+        {
+            _controller.ShowModelCoordinateSystemsCommand(coordinateSystemNames);
+        }
+        private void ShowOnlyModelCoordinateSystems(string[] coordinateSystemNames)
+        {
+            HashSet<string> allNames = new HashSet<string>(_controller.Model.Mesh.CoordinateSystems.Keys);
+            allNames.ExceptWith(coordinateSystemNames);
+            _controller.HideModelCoordinateSystemsCommand(allNames.ToArray());
+            _controller.ShowModelCoordinateSystemsCommand(coordinateSystemNames);
+        }
+        private void DeleteModelCoordinateSystems(string[] coordinateSystemNames)
+        {
+            if (MessageBoxes.ShowWarningQuestion("OK to delete selected model coordinate systems?" + Environment.NewLine
+                                                 + coordinateSystemNames.ToRows()) == DialogResult.OK)
+            {
+                _controller.RemoveModelCoordinateSystemsCommand(coordinateSystemNames);
             }
         }
 
@@ -6750,6 +6948,249 @@ namespace PrePoMax
 
         #endregion  ################################################################################################################
 
+        #region Result Reference point  ############################################################################################
+        private void tsmiCreateResultReferencePoint_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (_controller.AllResults.CurrentResult.Mesh == null) return;
+                //
+                ShowForm(_frmReferencePoint, "Create Result Reference Point", null);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiEditResultReferencePoint_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectOneEntity("Result Reference Points", _controller.GetAllResultReferencePoints(), EditResultReferencePoint);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiDuplicateResultReferencePoint_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Result Reference Points", _controller.GetAllResultReferencePoints(),
+                                       DuplicateResultReferencePoints);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiHideResultReferencePoint_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Result Reference Points", _controller.GetAllResultReferencePoints(),
+                                       HideResultReferencePoints);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiShowResultReferencePoint_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Result Reference Points", _controller.GetAllResultReferencePoints(),
+                                       ShowResultReferencePoints);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiShowOnlyResultReferencePoint_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Result Reference Points", _controller.GetAllResultReferencePoints(),
+                                       ShowOnlyResultReferencePoints);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiDeleteResultReferencePoint_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Result Reference Points", _controller.GetAllResultReferencePoints(),
+                                       DeleteResultReferencePoints);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        //
+        private void EditResultReferencePoint(string referencePointName)
+        {
+            ShowForm(_frmReferencePoint, "Edit Result Reference Point", referencePointName);
+        }
+        private void DuplicateResultReferencePoints(string[] referencePointNames)
+        {
+            _controller.DuplicateResultReferencePointsCommand(referencePointNames);
+        }
+        private void HideResultReferencePoints(string[] referencePointNames)
+        {
+            _controller.HideResultReferencePointsCommand(referencePointNames);
+        }
+        private void ShowResultReferencePoints(string[] referencePointNames)
+        {
+            _controller.ShowResultReferencePointsCommand(referencePointNames);
+        }
+        private void ShowOnlyResultReferencePoints(string[] referencePointNames)
+        {
+            HashSet<string> allNames = new HashSet<string>(_controller.GetResultReferencePointNames());
+            allNames.ExceptWith(referencePointNames);
+            _controller.HideResultReferencePointsCommand(allNames.ToArray());
+            _controller.ShowResultReferencePointsCommand(referencePointNames);
+        }
+        private void DeleteResultReferencePoints(string[] referencePointNames)
+        {
+            if (MessageBoxes.ShowWarningQuestion("OK to delete selected result reference points?" + Environment.NewLine
+                                                 + referencePointNames.ToRows()) == DialogResult.OK)
+            {
+                _controller.RemoveResultReferencePointsCommand(referencePointNames);
+            }
+        }
+
+        #endregion  ################################################################################################################
+
+        #region Result Coordinate system  ##########################################################################################
+        private void tsmiCreateResultCoordinateSystem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SinglePointDataEditor.ParentForm = _frmCoordinateSystem;
+                SinglePointDataEditor.Controller = _controller;
+                ShowForm(_frmCoordinateSystem, "Create Result Coordinate System", null);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiEditResultCoordinateSystem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectOneEntity("Result Coordinate Systems", _controller.GetAllResultCoordinateSystems(),
+                                EditResultCoordinateSystem);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiDuplicateResultCoordinateSystem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Result Coordinate Systems", _controller.GetAllResultCoordinateSystems(),
+                                       DuplicateResultCoordinateSystems);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiHideResultCoordinateSystem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Result Coordinate Systems", _controller.GetAllResultCoordinateSystems(),
+                                       HideResultCoordinateSystems);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiShowResultCoordinateSystem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Result Coordinate Systems", _controller.GetAllResultCoordinateSystems(),
+                                       ShowResultCoordinateSystems);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiShowOnlyResultCoordinateSystem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Result Coordinate Systems", _controller.GetAllResultCoordinateSystems(),
+                                       ShowOnlyResultCoordinateSystems);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiDeleteResultCoordinateSystem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Result Coordinate Systems", _controller.GetAllResultCoordinateSystems(),
+                                       DeleteResultCoordinateSystems);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        //
+        private void EditResultCoordinateSystem(string coordinateSystemName)
+        {
+            SinglePointDataEditor.ParentForm = _frmCoordinateSystem;
+            SinglePointDataEditor.Controller = _controller;
+            ShowForm(_frmCoordinateSystem, "Edit Result Coordinate System", coordinateSystemName);
+        }
+        private void DuplicateResultCoordinateSystems(string[] coordinateSystemNames)
+        {
+            _controller.DuplicateResultCoordinateSystemsCommand(coordinateSystemNames);
+        }
+        private void HideResultCoordinateSystems(string[] coordinateSystemNames)
+        {
+            _controller.HideResultCoordinateSystemsCommand(coordinateSystemNames);
+        }
+        private void ShowResultCoordinateSystems(string[] coordinateSystemNames)
+        {
+            _controller.ShowResultCoordinateSystemsCommand(coordinateSystemNames);
+        }
+        private void ShowOnlyResultCoordinateSystems(string[] coordinateSystemNames)
+        {
+            HashSet<string> allNames = new HashSet<string>(_controller.AllResults.CurrentResult.Mesh.CoordinateSystems.Keys);
+            allNames.ExceptWith(coordinateSystemNames);
+            _controller.HideResultCoordinateSystemsCommand(allNames.ToArray());
+            _controller.ShowResultCoordinateSystemsCommand(coordinateSystemNames);
+        }
+        private void DeleteResultCoordinateSystems(string[] coordinateSystemNames)
+        {
+            if (MessageBoxes.ShowWarningQuestion("OK to delete selected result coordinate systems?" + Environment.NewLine
+                                                 + coordinateSystemNames.ToRows()) == DialogResult.OK)
+            {
+                _controller.RemoveResultCoordinateSystemsCommand(coordinateSystemNames);
+            }
+        }
+
+        #endregion  ################################################################################################################
+
         #region Result field output  ###############################################################################################
         private void tsmiCreateResultFieldOutput_Click(object sender, EventArgs e)
         {
@@ -6907,7 +7348,6 @@ namespace PrePoMax
             }
         }
         #endregion  ################################################################################################################
-       
 
         #region Help menu  #########################################################################################################
         private void tsmiHomePage_Click(object sender, EventArgs e)
@@ -7023,6 +7463,7 @@ namespace PrePoMax
             if (_frmScale != null && _frmScale.Visible) _frmScale.PickedIds(ids);
             if (_frmRotate != null && _frmRotate.Visible) _frmRotate.PickedIds(ids);
             if (_frmReferencePoint != null && _frmReferencePoint.Visible) _frmReferencePoint.PickedIds(ids);
+            if (_frmCoordinateSystem != null && _frmCoordinateSystem.Visible) _frmCoordinateSystem.PickedIds(ids);
             if (_frmQuery != null && _frmQuery.Visible) _frmQuery.PickedIds(ids);
             if (_frmTransformation != null && _frmTransformation.Visible) _frmTransformation.PickedIds(ids);
             //
@@ -7102,7 +7543,8 @@ namespace PrePoMax
         }
 
         #endregion  ################################################################################################################
-
+        //
+        #region Child form methods  ################################################################################################
         private void AddFormToAllForms(Form form)
         {
             form.StartPosition = FormStartPosition.Manual;
@@ -7187,6 +7629,8 @@ namespace PrePoMax
            });
         }
 
+        #endregion  ################################################################################################################
+
         // Toolbars                                                                                                                 
         #region File toolbar #######################################################################################################
         private void tsbNew_Click(object sender, EventArgs e)
@@ -7270,18 +7714,15 @@ namespace PrePoMax
             tsmiShowNoEdges_Click(null, null);
         }
         //
-        private void tsbSectionView_Click(object sender, EventArgs e)
+        private void tsbSectionView_MouseUp(object sender, MouseEventArgs e)
         {
-            tsmiSectionView_Click(null, null);
+            if (e.Button == MouseButtons.Left) TurnSectionViewOnOff();
+            else if (e.Button == MouseButtons.Right) tsmiSectionView_Click(null, null);
         }
         private void tsbExplodedView_MouseUp(object sender, MouseEventArgs e)
         {
             if (e.Button == MouseButtons.Left) TurnExplodedViewOnOff(true);
             else if (e.Button == MouseButtons.Right) tsmiExplodedView_Click(null, null);
-        }
-        private void tsbExplodedView_DoubleClick(object sender, EventArgs e)
-        {
-            tsmiExplodedView_Click(null, null);
         }
         //
         private void tsbHideAllParts_Click(object sender, EventArgs e)
@@ -7319,72 +7760,67 @@ namespace PrePoMax
             }
         }
         //
-        private void tscbSymbolsForStep_SelectedIndexChanged(object sender, System.EventArgs e)
+        #endregion  ################################################################################################################
+
+        #region Symbol toolbar  ####################################################################################################
+        private void tscbSymbols_SelectedIndexChanged(object sender, EventArgs e)
         {
             // If BC or load from one step-1 is selected its selection requires the step-1 to be selected.
-            // Changing og the step symbols is not possible -> Clear selection
+            // Changing the step symbols is not possible -> Clear selection
             _controller.ClearAllSelection();
             //
-            _controller.DrawSymbolsForStep(tscbSymbolsForStep.SelectedItem.ToString(), false);
+            _controller.DrawSymbols(tscbSymbols.SelectedItem.ToString(), false);
+            // Save the selected index
+            _selectedSymbolIndex[_controller.CurrentView] = tscbSymbols.SelectedIndex;
         }
-        public void UpdateSymbolsForStepList()
+        public void SelectLastSymbolName()
+        {
+            InvokeIfRequired(() =>
+            {
+                tscbSymbols.SelectedIndex = tscbSymbols.Items.Count - 1;
+            });
+        }
+        public void UpdateSymbolsList()
         {
             InvokeIfRequired(() =>
             {
                 ClearSymbolsDropDown();
-                tscbSymbolsForStep.Items.AddRange(_controller.GetStepNames());
-                tscbSymbolsForStep.SelectedIndex = tscbSymbolsForStep.Items.Count - 1;
+                if (_controller.CurrentView == ViewGeometryModelResults.Geometry) { }
+                else if (_controller.CurrentView == ViewGeometryModelResults.Model)
+                {
+                    tscbSymbols.Items.Add("Model");
+                    tscbSymbols.Items.AddRange(_controller.GetStepNames());
+                }
+                else if (_controller.CurrentView == ViewGeometryModelResults.Results)
+                    tscbSymbols.Items.Add("Results");
+                // Retrieve the selected index
+                int index = int.MaxValue;
+                if (_selectedSymbolIndex != null && !_selectedSymbolIndex.TryGetValue(_controller.CurrentView, out index))
+                {
+                    index = tscbSymbols.Items.Count - 1;
+                }
+                // Check the index
+                index = Math.Min(index, tscbSymbols.Items.Count - 1);
+                // Set the index
+                tscbSymbols.SelectedIndex = index;
             });
         }
-        public void UpdateOneStepInSymbolsForStepList(string oldStepName, string newStepName)
+        private void ClearSymbolsDropDown()
         {
-            InvokeIfRequired(() =>
-            {
-                int index = -1;
-                for (int i = 0; i < tscbSymbolsForStep.Items.Count; i++)
-                {
-                    if (tscbSymbolsForStep.Items[i].ToString() == oldStepName)
-                    {
-                        index = i;
-                        break;
-                    }
-                }
-                if (index != -1)
-                {
-                    tscbSymbolsForStep.Items[index] = newStepName;
-                }
-            });
-        }
-        public void RemoveOneStepInSymbolsForStepList(string stepName)
-        {
-            InvokeIfRequired(() =>
-            {
-                int selectedIndex = tscbSymbolsForStep.SelectedIndex;
-                //
-                int index = -1;
-                for (int i = 0; i < tscbSymbolsForStep.Items.Count; i++)
-                {
-                    if (tscbSymbolsForStep.Items[i].ToString() == stepName)
-                    {
-                        index = i;
-                        break;
-                    }
-                }
-                if (index != -1)
-                {
-                    tscbSymbolsForStep.Items.RemoveAt(index);
-                    if (index == selectedIndex) tscbSymbolsForStep.SelectedIndex = tscbSymbolsForStep.Items.Count - 1;
-                }
-            });
+            tscbSymbols.Items.Clear();
+            tscbSymbols.Items.Add("None");
+            tscbSymbols.SelectedIndexChanged -= tscbSymbols_SelectedIndexChanged;
+            tscbSymbols.SelectedIndex = 0;
+            tscbSymbols.SelectedIndexChanged += tscbSymbols_SelectedIndexChanged;
         }
         public void SelectOneStepInSymbolsForStepList(string stepName)
         {
             InvokeIfRequired(() =>
             {
                 int index = -1;
-                for (int i = 0; i < tscbSymbolsForStep.Items.Count; i++)
+                for (int i = 0; i < tscbSymbols.Items.Count; i++)
                 {
-                    if (tscbSymbolsForStep.Items[i].ToString() == stepName)
+                    if (tscbSymbols.Items[i].ToString() == stepName)
                     {
                         index = i;
                         break;
@@ -7392,11 +7828,12 @@ namespace PrePoMax
                 }
                 if (index != -1)
                 {
-                    tscbSymbolsForStep.SelectedIndexChanged -= tscbSymbolsForStep_SelectedIndexChanged;
-                    tscbSymbolsForStep.SelectedIndex = index;
-                    tscbSymbolsForStep.SelectedIndexChanged += tscbSymbolsForStep_SelectedIndexChanged;
+                    tscbSymbols.SelectedIndexChanged -= tscbSymbols_SelectedIndexChanged;
+                    tscbSymbols.SelectedIndex = index;
+                    _selectedSymbolIndex[_controller.CurrentView] = index;
+                    tscbSymbols.SelectedIndexChanged += tscbSymbols_SelectedIndexChanged;
                     //
-                    _controller.DrawSymbolsForStep(tscbSymbolsForStep.SelectedItem.ToString(), false); // do not highlight!
+                    _controller.DrawSymbols(tscbSymbols.SelectedItem.ToString(), false); // do not highlight!
                 }
             });
         }
@@ -7915,7 +8352,6 @@ namespace PrePoMax
         }
         #endregion  ################################################################################################################
 
-
         // Methods                                                                                                                  
         #region Methods
         public void SetTitle(string title)
@@ -8056,14 +8492,8 @@ namespace PrePoMax
                 tbOutput.Text = "";
                 ClearResults();
                 ClearAnnotationStatus();
+                _selectedSymbolIndex = new Dictionary<ViewGeometryModelResults, int>();
             });
-        }
-        private void ClearSymbolsDropDown()
-        {
-            tscbSymbolsForStep.Items.Clear();
-            tscbSymbolsForStep.Items.Add("None");
-            tscbSymbolsForStep.Items.Add("Model");
-            tscbSymbolsForStep.SelectedIndex = 1;
         }
         public void ClearResults()
         {
@@ -8081,9 +8511,9 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.Clear);
         }
-        public void ClearButKeepParts(string[] partNames)
+        public void ClearButKeepParts()
         {
-            InvokeIfRequired(_vtk.ClearButKeepParts, partNames);
+            InvokeIfRequired(_vtk.ClearButKeepParts);
         }
         public void ClearSelection()
         {
@@ -8199,6 +8629,14 @@ namespace PrePoMax
         {
             InvokeIfRequired(() => { tsbTransformation.Checked = status; });
         }
+        public void HideTransformedActors()
+        {
+            InvokeIfRequired(_vtk.HideTransformedActors);
+        }
+        public void ShowTransformedActors()
+        {
+            InvokeIfRequired(_vtk.ShowTransformedActors);
+        }
         //
         public void Add3DNodes(vtkControl.vtkMaxActorData actorData)
         {
@@ -8229,6 +8667,14 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.AddSphereActor, actorData, symbolSize);
         }
+        public void AddCoordinateAxis(vtkMaxActorData data, double symbolSize)
+        {
+            InvokeIfRequired(_vtk.AddCoordinateAxis, data, symbolSize);
+        }
+        public void AddTextActor(vtkMaxActorData data, double symbolSize)
+        {
+            InvokeIfRequired(_vtk.AddTextActor, data, symbolSize);
+        }
         public void AddOrientedDisplacementConstraintActor(vtkControl.vtkMaxActorData actorData, double symbolSize)
         {
             InvokeIfRequired(_vtk.AddOrientedDisplacementConstraintActor, actorData, symbolSize);
@@ -8258,6 +8704,8 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.AddOrientedFluxActor, actorData, symbolSize, center, invert);
         }
+        //
+       
         //
         public bool ContainsActor(string actorName)
         {
@@ -8419,7 +8867,10 @@ namespace PrePoMax
 
         #region Results  ###########################################################################################################
         // Results
-
+        public void SetFieldData(string name, string component)
+        {
+            SetFieldData(name, component, GetCurrentFieldOutputStepId(), GetCurrentFieldOutputStepIncrementId());
+        }
         public void SetFieldData(string name, string component, int stepId, int stepIncrementId)
         {
             FieldData fieldData = new FieldData(name, component, stepId, stepIncrementId);
@@ -8610,14 +9061,14 @@ namespace PrePoMax
         public void RegenerateTree(bool remeshing = false)
         {
             InvokeIfRequired(_modelTree.RegenerateTree, _controller.Model, _controller.Jobs, _controller.CurrentResult, remeshing);
-            InvokeIfRequired(UpdateSymbolsForStepList);
+            InvokeIfRequired(UpdateSymbolsList);
         }
         public void AddTreeNode(ViewGeometryModelResults view, NamedClass item, string parentName)
         {
             ViewType viewType = GetViewType(view);
             //
             InvokeIfRequired(_modelTree.AddTreeNode, viewType, item, parentName);
-            if (item is Step) UpdateSymbolsForStepList();
+            if (item is Step) UpdateSymbolsList();
         }
         public void UpdateTreeNode(ViewGeometryModelResults view, string oldItemName, NamedClass item, string parentName,
                                    bool updateSelection = true)
@@ -8625,7 +9076,7 @@ namespace PrePoMax
             ViewType viewType = GetViewType(view);
             //
             InvokeIfRequired(_modelTree.UpdateTreeNode, viewType, oldItemName, item, parentName, updateSelection);
-            if (item is Step) UpdateOneStepInSymbolsForStepList(oldItemName, item.Name);
+            if (item is Step) UpdateSymbolsList();
         }
         public void SwapTreeNode(ViewGeometryModelResults view, string firstItemName, NamedClass firstItem,
                                 string secondItemName, NamedClass secondItem, string parentName)
@@ -8641,7 +9092,7 @@ namespace PrePoMax
             ViewType viewType = GetViewType(view);
             //
             InvokeIfRequired(_modelTree.RemoveTreeNode<T>, viewType, nodeName, parentName);
-            if (typeof(T) == typeof(Step)) RemoveOneStepInSymbolsForStepList(nodeName);
+            if (typeof(T) == typeof(Step)) UpdateSymbolsList();
         }
         public bool[][] GetTreeExpandCollapseState()
         {
@@ -9392,7 +9843,7 @@ namespace PrePoMax
             }
         }
 
-       
+        
     }
 }
 

@@ -76,7 +76,7 @@ namespace PrePoMax.Commands
             if (command is CClear) return;
             //
             if (command is CSaveToPmx) { }
-            else
+            else if (command is PreprocessCommand)
             {
                 _controller.ModelChanged = true;
                 ModelChanged_ResetJobStatus?.Invoke();
@@ -151,6 +151,9 @@ namespace PrePoMax.Commands
             //
             foreach (Command command in _commands)
             {
+                if (!(command is PreprocessCommand))
+                    continue;
+                //
                 if (count++ <= _currPositionIndex)
                 {
                     // Write to form

@@ -10,7 +10,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CPropagateHisotryOutput : Command
+    class CPropagateHisotryOutput : PreprocessCommand
     {
         // Variables                                                                                                                
         private string _stepName;

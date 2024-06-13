@@ -77,6 +77,7 @@
     <Compile Include="FileInOut\Input\Mmg\MmgFileReader.cs" />
     <Compile Include="FileInOut\Input\ObjFileReader\ObjFileReader.cs" />
     <Compile Include="FileInOut\Output\Calculix\Enums\ConvertPyramidsToEnum.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalTransform.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalAmplitude.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalPhysicalConstants.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalAdditional.cs" />

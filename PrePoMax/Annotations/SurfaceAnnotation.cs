@@ -23,7 +23,7 @@ namespace PrePoMax
             : base(name)
         {
             _geometryId = geometryId;
-            _partId = FeMesh.GetPartIdFromGeometryId(geometryId);
+            _partIds = new int[] { FeMesh.GetPartIdFromGeometryId(geometryId) };
         }
 
 

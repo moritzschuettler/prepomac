@@ -30,8 +30,9 @@ namespace FileInOut.Output.Calculix
         {
             string lastIterations = _nodalFieldOutput.LastIterations ? ", Last iterations" : "";
             string contactElements = _nodalFieldOutput.ContactElements ? ", Contact elements" : "";
+            string global = !_nodalFieldOutput.Global ? ", Global=No" : "";
             //
-            return string.Format("*Node file{0}{1}{2}", lastIterations, contactElements, Environment.NewLine);
+            return string.Format("*Node file{0}{1}{2}{3}", lastIterations, contactElements, global, Environment.NewLine);
         }
         public override string GetDataString()
         {

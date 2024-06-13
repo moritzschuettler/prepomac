@@ -10,7 +10,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CReplaceAmplitude : Command
+    class CReplaceAmplitude : PreprocessCommand
     {
         // Variables                                                                                                                
         private string _oldAmplitudeName;

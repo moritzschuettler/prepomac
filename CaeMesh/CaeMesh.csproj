@@ -71,6 +71,7 @@
     <Compile Include="ContactSearch\GroupContactPairsByEnum.cs" />
     <Compile Include="ContactSearch\ContactSurface.cs" />
     <Compile Include="ContactSearch\MasterSlaveItem.cs" />
+    <Compile Include="CoordinateSystem.cs" />
     <Compile Include="Elements\0D\FeElement0D.cs" />
     <Compile Include="Elements\0D\MassElement.cs" />
     <Compile Include="Elements\1D\LinearGapElement.cs" />
@@ -88,7 +89,6 @@
     <Compile Include="Enums\MeshRepresentation.cs" />
     <Compile Include="ContactSearch\ContactSearch.cs" />
     <Compile Include="Extensions.cs" />
-    <Compile Include="FeReferencePoint.cs" />
     <Compile Include="Elements\3D\FeElement3D.cs" />
     <Compile Include="Elements\2D\FeElement2D.cs" />
     <Compile Include="Elements\1D\FeElement1D.cs" />
@@ -105,6 +105,7 @@
     <Compile Include="Elements\FeElementType.cs" />
     <Compile Include="FeGroup.cs" />
     <Compile Include="FeMesh.cs" />
+    <Compile Include="FeReferencePoint.cs" />
     <Compile Include="Geometry\GeometrySelection.cs" />
     <Compile Include="Geometry\GeomEdge.cs" />
     <Compile Include="Geometry\GeomVertex.cs" />

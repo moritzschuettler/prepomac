@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CImportFile : Command, ICommandWithDialog
+    class CImportFile : PreprocessCommand, ICommandWithDialog
     {
         // Variables                                                                                                                
         private string _fileName;

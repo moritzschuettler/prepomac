@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CRemeshElements : Command
+    class CRemeshElements : PreprocessCommand
     {
         // Variables                                                                                                                
         private RemeshingParameters _remeshingParameters;

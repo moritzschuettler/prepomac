@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CRemoveGeometryParts : Command
+    class CRemoveGeometryParts : PreprocessCommand
     {
         // Variables                                                                                                                
         private string[] _partNames;

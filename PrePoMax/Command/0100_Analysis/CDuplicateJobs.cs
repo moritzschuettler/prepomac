@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CDuplicateJobs : Command
+    class CDuplicateJobs : PreprocessCommand
     {
         // Variables                                                                                                                
         private string[] _jobNames;

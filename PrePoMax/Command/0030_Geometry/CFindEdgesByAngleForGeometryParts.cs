@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CFindEdgesByAngleForGeometryParts : Command
+    class CFindEdgesByAngleForGeometryParts : PreprocessCommand
     {
         // Variables                                                                                                                
         private string[] _partNames;

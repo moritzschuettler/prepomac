@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CCreateBoundaryLayer : Command
+    class CCreateBoundaryLayer : PreprocessCommand
     {
         // Variables                                                                                                                
         private int[] _geometryIds;

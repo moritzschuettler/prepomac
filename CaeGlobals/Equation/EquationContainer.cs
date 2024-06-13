@@ -112,17 +112,25 @@ namespace CaeGlobals
                 // Check the equation value
                 double checkedValue = _checkValue != null ? _checkValue(equationValue) : equationValue;
                 // If the check changed the value, apply changed value to the equation
-                if (equationValue != checkedValue)
+                if (equationValue != checkedValue && !(double.IsNaN(equationValue) && double.IsNaN(checkedValue)))
                 {
                     _equation = GetEquationFromValue(checkedValue);
                     if (enableEquationChanged) _equationChanged?.Invoke();
                 }
                 else
                 {
+                    bool isEquation = false;
+                    if (equation.StartsWith("="))
+                    {
+                        // Check invalid doubles
+                        if (double.IsNaN(equationValue)) throw new CaeException("The equation value is equal to NaN.");
+                        if (double.IsInfinity(equationValue)) throw new CaeException("The equation value is equal to infinity.");
+                        isEquation = true;
+                    }
                     // If the equation changed, apply changed value to the equation
                     if (_equation != equation)
                     {
-                        if (equation.StartsWith("=")) equation = equation.Replace(" ", "");
+                        if (isEquation) equation = equation.Replace(" ", "");
                         // Add unit to the equation if there is none
                         else if (equation == equationValue.ToString()) equation = GetEquationFromValue(equationValue);
                         //
@@ -151,7 +159,7 @@ namespace CaeGlobals
         }
         //
         public static void SetAndCheck(ref EquationContainer variable, EquationContainer value, Func<double, double> CheckValue,
-                                          bool check)
+                                       bool check)
         {
             SetAndCheck(ref variable, value, CheckValue, null, check);
         }
@@ -174,7 +182,7 @@ namespace CaeGlobals
         }
 
         public static void SetAndCheck(ref EquationContainer variable, EquationContainer value, Func<double, double> CheckValue,
-                                           Action EquationChangedCallback, bool check)
+                                       Action EquationChangedCallback, bool check)
         {
             if (value == null)
             {

@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CDuplicateMaterial : Command
+    class CDuplicateMaterial : PreprocessCommand
     {
         // Compatibility v1.4.0 - the name of the class is missing one s - CDuplicateMaterials
 

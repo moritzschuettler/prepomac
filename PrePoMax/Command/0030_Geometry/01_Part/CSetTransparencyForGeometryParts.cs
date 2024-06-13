@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CSetTransparencyForGeometryParts : Command
+    class CSetTransparencyForGeometryParts : PreprocessCommand
     {
         // Variables                                                                                                                
         private string[] _partNames;

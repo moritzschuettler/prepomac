@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CReplaceConstraint : Command
+    class CReplaceConstraint : PreprocessCommand
     {
         // Variables                                                                                                                
         private string _oldConstraintName;

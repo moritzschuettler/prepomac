@@ -21,6 +21,9 @@ namespace vtkControl
     {
         // Variables                                                                                                                
         public string Name;
+        public string ParentName;
+        public string Caption;
+        public bool IsAPart;
         public float NodeSize;
         public float LineWidth;
         public Color Color;
@@ -35,7 +38,7 @@ namespace vtkControl
         public bool ColorContours;
         public bool SmoothShaded;
         public bool DrawOnGeometry;
-        public bool UseSecondaryHighightColor;
+        public bool UseSecondaryHighlightColor;
         public vtkMaxActorRepresentation ActorRepresentation;
         public bool SectionViewPossible;
         //
@@ -48,6 +51,9 @@ namespace vtkControl
         public vtkMaxActorData()
         {
             Name = null;
+            ParentName = null;
+            Caption = null;
+            IsAPart = false;
             NodeSize = 1;
             LineWidth = 1;
             Color = Color.Empty;
@@ -62,7 +68,7 @@ namespace vtkControl
             ColorContours = false;
             SmoothShaded = false;
             DrawOnGeometry = false;
-            UseSecondaryHighightColor = false;
+            UseSecondaryHighlightColor = false;
             ActorRepresentation = vtkMaxActorRepresentation.Unknown;
             SectionViewPossible = true;
             //

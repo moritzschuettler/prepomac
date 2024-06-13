@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CReplaceStepControls : Command
+    class CReplaceStepControls : PreprocessCommand
     {
         // Variables                                                                                                                
         private string _stepName;

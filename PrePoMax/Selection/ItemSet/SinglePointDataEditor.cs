@@ -8,6 +8,7 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
 using System.Windows.Forms.Design;
+using PrePoMax.Forms;
 
 //using System.Windows.Forms.Design;
 
@@ -39,12 +40,12 @@ namespace PrePoMax
         public override object EditValue(ITypeDescriptorContext context, IServiceProvider provider, object value)
         {
             IWindowsFormsEditorService editorService = null;
-
+            //
             if (provider != null)
             {
                 editorService = provider.GetService(typeof(IWindowsFormsEditorService)) as IWindowsFormsEditorService;
             }
-
+            //
             if (editorService != null)
             {
                 _itemSetData = value as ItemSetData;
@@ -53,8 +54,10 @@ namespace PrePoMax
                 _controller.SelectBy = CaeGlobals.vtkSelectBy.QueryNode;
                 _controller.Selection.SelectItem = CaeGlobals.vtkSelectItem.Node;
                 _controller.ClearSelectionHistoryAndCallSelectionChanged();
+                //
+                if (_parentForm is FrmCoordinateSystem fcs) fcs.Highlight();
             }
-          
+            //
             return value;
         }
 

@@ -12,7 +12,7 @@ using CaeJob;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CReplaceJob : Command
+    class CReplaceJob : PreprocessCommand
     {
         // Variables                                                                                                                
         private string _oldJobName;

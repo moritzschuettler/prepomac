@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CThickenShellMesh : Command
+    class CThickenShellMesh : PreprocessCommand
     {
         // Variables                                                                                                                
         private string[] _partNames;

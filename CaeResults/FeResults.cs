@@ -1825,28 +1825,39 @@ namespace CaeResults
         }
         public void CopyMeshItemsFromMesh(FeMesh mesh)
         {
-            foreach (var nodeSet in mesh.NodeSets)
+            foreach (var entry in mesh.NodeSets)
             {
-                _mesh.NodeSets.Add(nodeSet.Key, nodeSet.Value.DeepClone());
+                _mesh.NodeSets.Add(entry.Key, entry.Value.DeepClone());
             }
             //
             string newName;
             FeElementSet newElementSet;
-            foreach (var elementSet in mesh.ElementSets)
+            foreach (var entry in mesh.ElementSets)
             {
-                if (_mesh.ElementSets.ContainsKey(elementSet.Key))
-                    newName = _mesh.ElementSets.GetNextNumberedKey(elementSet.Key);
-                else newName = elementSet.Key;
+                if (_mesh.ElementSets.ContainsKey(entry.Key))
+                    newName = _mesh.ElementSets.GetNextNumberedKey(entry.Key);
+                else newName = entry.Key;
                 //
-                newElementSet = elementSet.Value.DeepClone();
+                newElementSet = entry.Value.DeepClone();
                 newElementSet.Name = newName;
                 //
                 _mesh.ElementSets.Add(newElementSet.Name, newElementSet);
             }
             //
-            foreach (var surface in mesh.Surfaces)
+            foreach (var entry in mesh.Surfaces)
             {
-                _mesh.Surfaces.Add(surface.Key, surface.Value.DeepClone());
+                _mesh.Surfaces.Add(entry.Key, entry.Value.DeepClone());
+            }
+        }
+        public void CopyFeatureItemsFromMesh(FeMesh mesh)
+        {
+            foreach (var entry in mesh.ReferencePoints)
+            {
+                _mesh.ReferencePoints.Add(entry.Key, entry.Value.DeepClone());
+            }
+            foreach (var entry in mesh.CoordinateSystems)
+            {
+                _mesh.CoordinateSystems.Add(entry.Key, entry.Value.DeepClone());
             }
         }
         //
@@ -2568,6 +2579,7 @@ namespace CaeResults
             RemoveFields(new string[] { oldResultFieldOutputName });
             _resultFieldOutputs.Replace(oldResultFieldOutputName, resultFieldOutput.Name, resultFieldOutput);
             PrepareFieldsFromResultFieldOutput(resultFieldOutput);
+            
         }
         public void RemoveResultFieldOutputs(string[] fieldOutputNames)
         {
@@ -4220,7 +4232,10 @@ namespace CaeResults
             Dictionary<int, int[]> midNodeIdNeighbours = new Dictionary<int, int[]>();
             foreach (var entry in _mesh.Elements)
             {
-                if (entry.Value is ParabolicTetraElement pte)
+                if (entry.Value is LinearTetraElement ||
+                    entry.Value is LinearWedgeElement ||
+                    entry.Value is LinearHexaElement) { }
+                else if (entry.Value is ParabolicTetraElement pte)
                 {
                     if (!midNodeIdNeighbours.ContainsKey(pte.NodeIds[4]))
                         midNodeIdNeighbours.Add(pte.NodeIds[4], new int[] { pte.NodeIds[0], pte.NodeIds[1] });

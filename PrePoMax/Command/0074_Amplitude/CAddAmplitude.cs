@@ -10,7 +10,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CAddAmplitude : Command
+    class CAddAmplitude : PreprocessCommand
     {
         // Variables                                                                                                                
         private Amplitude _amplitude;

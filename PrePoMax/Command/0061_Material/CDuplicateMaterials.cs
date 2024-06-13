@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CDuplicateMaterials : Command
+    class CDuplicateMaterials : PreprocessCommand
     {
         // Variables                                                                                                                
         private string[] _materialNames;

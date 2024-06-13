@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CSplitPartMeshUsingSurface : Command
+    class CSplitPartMeshUsingSurface : PreprocessCommand
     {
         // Variables                                                                                                                
         private SplitPartMeshData _splitPartMeshData;

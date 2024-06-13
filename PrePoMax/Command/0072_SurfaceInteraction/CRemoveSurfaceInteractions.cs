@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CRemoveSurfaceInteractions : Command
+    class CRemoveSurfaceInteractions : PreprocessCommand
     {
         // Variables                                                                                                                
         private string[] _surfaceInteractionNames;

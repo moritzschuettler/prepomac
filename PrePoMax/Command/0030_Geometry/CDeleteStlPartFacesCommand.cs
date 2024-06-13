@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CDeleteStlPartFacesCommand : Command
+    class CDeleteStlPartFacesCommand : PreprocessCommand
     {
         // Variables                                                                                                                
         private GeometrySelection _geometrySelection;

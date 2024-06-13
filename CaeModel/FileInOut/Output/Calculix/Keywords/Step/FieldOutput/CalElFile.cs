@@ -28,13 +28,15 @@ namespace FileInOut.Output.Calculix
         // Methods                                                                                                                  
         public override string GetKeywordString()
         {
+            
             string lastIterations = _elementFieldOutput.LastIterations ? ", Last iterations" : "";
             string contactElements = _elementFieldOutput.ContactElements ? ", Contact elements" : "";
             string output = "";
             if (_elementFieldOutput.Output == ElementFieldOutputOutputEnum.TwoD) output += ", Output=2D";
             else if (_elementFieldOutput.Output == ElementFieldOutputOutputEnum.ThreeD) output += ", Output=3D";
+            string global = !_elementFieldOutput.Global ? ", Global=No" : "";
             //
-            return string.Format("*El file{0}{1}{2}{3}", lastIterations, contactElements, output,
+            return string.Format("*El file{0}{1}{2}{3}{4}", lastIterations, contactElements, output, global,
                                  Environment.NewLine);
         }
         public override string GetDataString()

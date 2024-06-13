@@ -46,7 +46,9 @@ namespace FileInOut.Output.Calculix
             string totals = "";
             if (_nodalHistoryOutput.TotalsType == TotalsTypeEnum.Yes) totals = ", Totals=Yes";
             else if (_nodalHistoryOutput.TotalsType == TotalsTypeEnum.Only) totals = ", Totals=Only";
-            return string.Format("*Node print{0}{1}{2}", _regionName, totals, Environment.NewLine);
+            string global = _nodalHistoryOutput.Global ? ", Global=Yes" : "";
+            //
+            return string.Format("*Node print{0}{1}{2}{3}", _regionName, totals, global, Environment.NewLine);
         }
         public override string GetDataString()
         {

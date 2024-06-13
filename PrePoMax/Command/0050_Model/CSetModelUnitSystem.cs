@@ -13,7 +13,7 @@ namespace PrePoMax.Commands
 {
     // Compatibility v1.1.1 - the command was renamed to CSetNewModelProperties
     [Serializable]
-    class CSetModelUnitSystem : Command
+    class CSetModelUnitSystem : PreprocessCommand
     {
         // Variables                                                                                                                
         private UnitSystemType _unitSystemType;

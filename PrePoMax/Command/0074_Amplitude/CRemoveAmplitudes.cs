@@ -9,7 +9,7 @@ using CaeModel;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CRemoveAmplitudes : Command
+    class CRemoveAmplitudes : PreprocessCommand
     {
         // Variables                                                                                                                
         private string[] _amplitudeNames;

@@ -64,9 +64,9 @@ namespace PrePoMax
             this.tsbShowAllParts = new System.Windows.Forms.ToolStripButton();
             this.tsbHideAllParts = new System.Windows.Forms.ToolStripButton();
             this.tsbInvertVisibleParts = new System.Windows.Forms.ToolStripButton();
-            this.tsModel = new UserControls.ToolStripFocus();
+            this.tsSymbols = new UserControls.ToolStripFocus();
             this.tslSymbols = new System.Windows.Forms.ToolStripLabel();
-            this.tscbSymbolsForStep = new System.Windows.Forms.ToolStripComboBox();
+            this.tscbSymbols = new System.Windows.Forms.ToolStripComboBox();
             this.tsDeformationFactor = new UserControls.ToolStripFocus();
             this.tslResultName = new System.Windows.Forms.ToolStripLabel();
             this.tscbResultNames = new System.Windows.Forms.ToolStripComboBox();
@@ -264,12 +264,27 @@ namespace PrePoMax
             this.tsmiDuplicateSurface = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerSurface1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiDeleteSurface = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiReferencePointTool = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiCreateRP = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiEditRP = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiDuplicateRP = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiRP = new System.Windows.Forms.ToolStripSeparator();
-            this.tsmiDeleteRP = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiModelFeatures = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiModelReferencePointTool = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiCreateModelReferencePoint = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiEditModelReferencePoint = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiDuplicateModelReferencePoint = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiModelRP1 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiHideModelReferencePoint = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiShowModelReferencePoint = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiShowOnlyModelReferencePoint = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiModelRP2 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiDeleteModelReferencePoint = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiModelCoordinateSystem = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiCreateModelCoordinateSystem = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiEditModelCoordinateSystem = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiDuplicateModelCoordinateSystem = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiDividerModelCoordinateSystem1 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiHideModelCoordinateSystem = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiShowModelCoordinateSystem = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiShowOnlyModelCoordinateSystem = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiDividerModelCoordinateSystem2 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiDeleteModelCoordinateSystem = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiProperty = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiMaterial = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiCreateMaterial = new System.Windows.Forms.ToolStripMenuItem();
@@ -338,6 +353,7 @@ namespace PrePoMax
             this.tsmiStep = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiCreateStep = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiEditStep = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiEditStepControls = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDuplicateStep = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerStep2 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiDeleteStep = new System.Windows.Forms.ToolStripMenuItem();
@@ -410,6 +426,26 @@ namespace PrePoMax
             this.tsmiColorContoursOn = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerResultPart3 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiDeleteResultParts = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiResultFeatures = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiResultReferencePoints = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiCreateResultReferencePoint = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiEditResultReferencePoint = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiDuplicateResultReferencePoint = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiDividerResultReferencePoints1 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiHideResultReferencePoint = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiShowResultReferencePoint = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiShowOnlyResultReferencePoint = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiDividerResultReferencePoints2 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiDeleteResultReferencePoint = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiResultCoordinateSystems = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiCreateResultCoordinateSystem = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiEditResultCoordinateSystem = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiDuplicateResultCoordinateSystem = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiHideResultCoordinateSystem = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiShowResultCoordinateSystem = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiShowOnlyResultCoordinateSystem = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiDeleteResultCoordinateSystem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripMenuItem2 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiDividerResults1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiResultFieldOutput = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiCreateResultFieldOutput = new System.Windows.Forms.ToolStripMenuItem();
@@ -460,10 +496,10 @@ namespace PrePoMax
             this.tbOutput = new UserControls.AutoScrollTextBox();
             this.timerTest = new System.Windows.Forms.Timer(this.components);
             this.timerOutput = new System.Windows.Forms.Timer(this.components);
-            this.tsmiEditStepControls = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripMenuItem3 = new System.Windows.Forms.ToolStripSeparator();
             this.tsFile.SuspendLayout();
             this.tsViews.SuspendLayout();
-            this.tsModel.SuspendLayout();
+            this.tsSymbols.SuspendLayout();
             this.tsDeformationFactor.SuspendLayout();
             this.tsResults.SuspendLayout();
             this.menuStripMain.SuspendLayout();
@@ -740,7 +776,7 @@ namespace PrePoMax
             this.tsbSectionView.Name = "tsbSectionView";
             this.tsbSectionView.Size = new System.Drawing.Size(23, 22);
             this.tsbSectionView.Text = "Section view";
-            this.tsbSectionView.Click += new System.EventHandler(this.tsbSectionView_Click);
+            this.tsbSectionView.MouseUp += new System.Windows.Forms.MouseEventHandler(this.tsbSectionView_MouseUp);
             // 
             // tsbExplodedView
             // 
@@ -812,18 +848,18 @@ namespace PrePoMax
             this.tsbInvertVisibleParts.Text = "Invert visible parts";
             this.tsbInvertVisibleParts.Click += new System.EventHandler(this.tsbInvertVisibleParts_Click);
             // 
-            // tsModel
+            // tsSymbols
             // 
-            this.tsModel.BackColor = System.Drawing.SystemColors.Control;
-            this.tsModel.DisableMouseButtons = false;
-            this.tsModel.Dock = System.Windows.Forms.DockStyle.None;
-            this.tsModel.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsSymbols.BackColor = System.Drawing.SystemColors.Control;
+            this.tsSymbols.DisableMouseButtons = false;
+            this.tsSymbols.Dock = System.Windows.Forms.DockStyle.None;
+            this.tsSymbols.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tslSymbols,
-            this.tscbSymbolsForStep});
-            this.tsModel.Location = new System.Drawing.Point(3, 0);
-            this.tsModel.Name = "tsModel";
-            this.tsModel.Size = new System.Drawing.Size(187, 25);
-            this.tsModel.TabIndex = 9;
+            this.tscbSymbols});
+            this.tsSymbols.Location = new System.Drawing.Point(3, 0);
+            this.tsSymbols.Name = "tsSymbols";
+            this.tsSymbols.Size = new System.Drawing.Size(187, 25);
+            this.tsSymbols.TabIndex = 9;
             // 
             // tslSymbols
             // 
@@ -831,15 +867,15 @@ namespace PrePoMax
             this.tslSymbols.Size = new System.Drawing.Size(52, 22);
             this.tslSymbols.Text = "Symbols";
             // 
-            // tscbSymbolsForStep
+            // tscbSymbols
             // 
-            this.tscbSymbolsForStep.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.tscbSymbolsForStep.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.tscbSymbolsForStep.Items.AddRange(new object[] {
+            this.tscbSymbols.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.tscbSymbols.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.tscbSymbols.Items.AddRange(new object[] {
             "None"});
-            this.tscbSymbolsForStep.Name = "tscbSymbolsForStep";
-            this.tscbSymbolsForStep.Size = new System.Drawing.Size(121, 25);
-            this.tscbSymbolsForStep.ToolTipText = "Select how symbols are displayed.";
+            this.tscbSymbols.Name = "tscbSymbols";
+            this.tscbSymbols.Size = new System.Drawing.Size(121, 25);
+            this.tscbSymbols.ToolTipText = "Select how symbols are displayed.";
             // 
             // tsDeformationFactor
             // 
@@ -2103,7 +2139,7 @@ namespace PrePoMax
             this.tsmiNodeSet,
             this.tsmiElementSet,
             this.tsmiSurface,
-            this.tsmiReferencePointTool});
+            this.tsmiModelFeatures});
             this.tsmiModel.Name = "tsmiModel";
             this.tsmiModel.Size = new System.Drawing.Size(53, 20);
             this.tsmiModel.Text = "Model";
@@ -2469,51 +2505,173 @@ namespace PrePoMax
             this.tsmiDeleteSurface.Text = "Delete";
             this.tsmiDeleteSurface.Click += new System.EventHandler(this.tsmiDeleteSurface_Click);
             // 
-            // tsmiReferencePointTool
+            // tsmiModelFeatures
             // 
-            this.tsmiReferencePointTool.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.tsmiCreateRP,
-            this.tsmiEditRP,
-            this.tsmiDuplicateRP,
-            this.tsmiRP,
-            this.tsmiDeleteRP});
-            this.tsmiReferencePointTool.Image = global::PrePoMax.Properties.Resources.Reference_point;
-            this.tsmiReferencePointTool.Name = "tsmiReferencePointTool";
-            this.tsmiReferencePointTool.Size = new System.Drawing.Size(194, 22);
-            this.tsmiReferencePointTool.Text = "Reference point";
+            this.tsmiModelFeatures.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmiModelReferencePointTool,
+            this.tsmiModelCoordinateSystem});
+            this.tsmiModelFeatures.Image = global::PrePoMax.Properties.Resources.Feature;
+            this.tsmiModelFeatures.Name = "tsmiModelFeatures";
+            this.tsmiModelFeatures.Size = new System.Drawing.Size(194, 22);
+            this.tsmiModelFeatures.Text = "Features";
             // 
-            // tsmiCreateRP
+            // tsmiModelReferencePointTool
             // 
-            this.tsmiCreateRP.Name = "tsmiCreateRP";
-            this.tsmiCreateRP.Size = new System.Drawing.Size(124, 22);
-            this.tsmiCreateRP.Text = "Create";
-            this.tsmiCreateRP.Click += new System.EventHandler(this.tsmiCreateRP_Click);
+            this.tsmiModelReferencePointTool.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmiCreateModelReferencePoint,
+            this.tsmiEditModelReferencePoint,
+            this.tsmiDuplicateModelReferencePoint,
+            this.tsmiModelRP1,
+            this.tsmiHideModelReferencePoint,
+            this.tsmiShowModelReferencePoint,
+            this.tsmiShowOnlyModelReferencePoint,
+            this.tsmiModelRP2,
+            this.tsmiDeleteModelReferencePoint});
+            this.tsmiModelReferencePointTool.Image = global::PrePoMax.Properties.Resources.Reference_point;
+            this.tsmiModelReferencePointTool.Name = "tsmiModelReferencePointTool";
+            this.tsmiModelReferencePointTool.Size = new System.Drawing.Size(174, 22);
+            this.tsmiModelReferencePointTool.Text = "Reference point";
             // 
-            // tsmiEditRP
+            // tsmiCreateModelReferencePoint
             // 
-            this.tsmiEditRP.Name = "tsmiEditRP";
-            this.tsmiEditRP.Size = new System.Drawing.Size(124, 22);
-            this.tsmiEditRP.Text = "Edit";
-            this.tsmiEditRP.Click += new System.EventHandler(this.tsmiEditRP_Click);
+            this.tsmiCreateModelReferencePoint.Name = "tsmiCreateModelReferencePoint";
+            this.tsmiCreateModelReferencePoint.Size = new System.Drawing.Size(131, 22);
+            this.tsmiCreateModelReferencePoint.Text = "Create";
+            this.tsmiCreateModelReferencePoint.Click += new System.EventHandler(this.tsmiCreateModelReferencePoint_Click);
             // 
-            // tsmiDuplicateRP
+            // tsmiEditModelReferencePoint
             // 
-            this.tsmiDuplicateRP.Name = "tsmiDuplicateRP";
-            this.tsmiDuplicateRP.Size = new System.Drawing.Size(124, 22);
-            this.tsmiDuplicateRP.Text = "Duplicate";
-            this.tsmiDuplicateRP.Click += new System.EventHandler(this.tsmiDuplicateRP_Click);
+            this.tsmiEditModelReferencePoint.Name = "tsmiEditModelReferencePoint";
+            this.tsmiEditModelReferencePoint.Size = new System.Drawing.Size(131, 22);
+            this.tsmiEditModelReferencePoint.Text = "Edit";
+            this.tsmiEditModelReferencePoint.Click += new System.EventHandler(this.tsmiEditModelReferencePoint_Click);
             // 
-            // tsmiRP
+            // tsmiDuplicateModelReferencePoint
             // 
-            this.tsmiRP.Name = "tsmiRP";
-            this.tsmiRP.Size = new System.Drawing.Size(121, 6);
+            this.tsmiDuplicateModelReferencePoint.Name = "tsmiDuplicateModelReferencePoint";
+            this.tsmiDuplicateModelReferencePoint.Size = new System.Drawing.Size(131, 22);
+            this.tsmiDuplicateModelReferencePoint.Text = "Duplicate";
+            this.tsmiDuplicateModelReferencePoint.Click += new System.EventHandler(this.tsmiDuplicateModelReferencePoint_Click);
             // 
-            // tsmiDeleteRP
+            // tsmiModelRP1
             // 
-            this.tsmiDeleteRP.Name = "tsmiDeleteRP";
-            this.tsmiDeleteRP.Size = new System.Drawing.Size(124, 22);
-            this.tsmiDeleteRP.Text = "Delete";
-            this.tsmiDeleteRP.Click += new System.EventHandler(this.tsmiDeleteRP_Click);
+            this.tsmiModelRP1.Name = "tsmiModelRP1";
+            this.tsmiModelRP1.Size = new System.Drawing.Size(128, 6);
+            // 
+            // tsmiHideModelReferencePoint
+            // 
+            this.tsmiHideModelReferencePoint.Image = global::PrePoMax.Properties.Resources.Hide;
+            this.tsmiHideModelReferencePoint.Name = "tsmiHideModelReferencePoint";
+            this.tsmiHideModelReferencePoint.Size = new System.Drawing.Size(131, 22);
+            this.tsmiHideModelReferencePoint.Text = "Hide";
+            this.tsmiHideModelReferencePoint.Click += new System.EventHandler(this.tsmiHideModelReferencePoint_Click);
+            // 
+            // tsmiShowModelReferencePoint
+            // 
+            this.tsmiShowModelReferencePoint.Image = global::PrePoMax.Properties.Resources.Show;
+            this.tsmiShowModelReferencePoint.Name = "tsmiShowModelReferencePoint";
+            this.tsmiShowModelReferencePoint.Size = new System.Drawing.Size(131, 22);
+            this.tsmiShowModelReferencePoint.Text = "Show";
+            this.tsmiShowModelReferencePoint.Click += new System.EventHandler(this.tsmiShowModelReferencePoint_Click);
+            // 
+            // tsmiShowOnlyModelReferencePoint
+            // 
+            this.tsmiShowOnlyModelReferencePoint.Image = global::PrePoMax.Properties.Resources.Show;
+            this.tsmiShowOnlyModelReferencePoint.Name = "tsmiShowOnlyModelReferencePoint";
+            this.tsmiShowOnlyModelReferencePoint.Size = new System.Drawing.Size(131, 22);
+            this.tsmiShowOnlyModelReferencePoint.Text = "Show Only";
+            this.tsmiShowOnlyModelReferencePoint.Click += new System.EventHandler(this.tsmiShowOnlyModelReferencePoint_Click);
+            // 
+            // tsmiModelRP2
+            // 
+            this.tsmiModelRP2.Name = "tsmiModelRP2";
+            this.tsmiModelRP2.Size = new System.Drawing.Size(128, 6);
+            // 
+            // tsmiDeleteModelReferencePoint
+            // 
+            this.tsmiDeleteModelReferencePoint.Name = "tsmiDeleteModelReferencePoint";
+            this.tsmiDeleteModelReferencePoint.Size = new System.Drawing.Size(131, 22);
+            this.tsmiDeleteModelReferencePoint.Text = "Delete";
+            this.tsmiDeleteModelReferencePoint.Click += new System.EventHandler(this.tsmiDeleteModelReferencePoint_Click);
+            // 
+            // tsmiModelCoordinateSystem
+            // 
+            this.tsmiModelCoordinateSystem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmiCreateModelCoordinateSystem,
+            this.tsmiEditModelCoordinateSystem,
+            this.tsmiDuplicateModelCoordinateSystem,
+            this.tsmiDividerModelCoordinateSystem1,
+            this.tsmiHideModelCoordinateSystem,
+            this.tsmiShowModelCoordinateSystem,
+            this.tsmiShowOnlyModelCoordinateSystem,
+            this.tsmiDividerModelCoordinateSystem2,
+            this.tsmiDeleteModelCoordinateSystem});
+            this.tsmiModelCoordinateSystem.Image = global::PrePoMax.Properties.Resources.CoordinateSystem;
+            this.tsmiModelCoordinateSystem.Name = "tsmiModelCoordinateSystem";
+            this.tsmiModelCoordinateSystem.Size = new System.Drawing.Size(174, 22);
+            this.tsmiModelCoordinateSystem.Text = "Coordinate System";
+            // 
+            // tsmiCreateModelCoordinateSystem
+            // 
+            this.tsmiCreateModelCoordinateSystem.Name = "tsmiCreateModelCoordinateSystem";
+            this.tsmiCreateModelCoordinateSystem.Size = new System.Drawing.Size(131, 22);
+            this.tsmiCreateModelCoordinateSystem.Text = "Create";
+            this.tsmiCreateModelCoordinateSystem.Click += new System.EventHandler(this.tsmiCreateModelCoordinateSystem_Click);
+            // 
+            // tsmiEditModelCoordinateSystem
+            // 
+            this.tsmiEditModelCoordinateSystem.Name = "tsmiEditModelCoordinateSystem";
+            this.tsmiEditModelCoordinateSystem.Size = new System.Drawing.Size(131, 22);
+            this.tsmiEditModelCoordinateSystem.Text = "Edit";
+            this.tsmiEditModelCoordinateSystem.Click += new System.EventHandler(this.tsmiEditModelCoordinateSystem_Click);
+            // 
+            // tsmiDuplicateModelCoordinateSystem
+            // 
+            this.tsmiDuplicateModelCoordinateSystem.Name = "tsmiDuplicateModelCoordinateSystem";
+            this.tsmiDuplicateModelCoordinateSystem.Size = new System.Drawing.Size(131, 22);
+            this.tsmiDuplicateModelCoordinateSystem.Text = "Duplicate";
+            this.tsmiDuplicateModelCoordinateSystem.Click += new System.EventHandler(this.tsmiDuplicateModelCoordinateSystem_Click);
+            // 
+            // tsmiDividerModelCoordinateSystem1
+            // 
+            this.tsmiDividerModelCoordinateSystem1.Name = "tsmiDividerModelCoordinateSystem1";
+            this.tsmiDividerModelCoordinateSystem1.Size = new System.Drawing.Size(128, 6);
+            // 
+            // tsmiHideModelCoordinateSystem
+            // 
+            this.tsmiHideModelCoordinateSystem.Image = global::PrePoMax.Properties.Resources.Hide;
+            this.tsmiHideModelCoordinateSystem.Name = "tsmiHideModelCoordinateSystem";
+            this.tsmiHideModelCoordinateSystem.Size = new System.Drawing.Size(131, 22);
+            this.tsmiHideModelCoordinateSystem.Text = "Hide";
+            this.tsmiHideModelCoordinateSystem.Click += new System.EventHandler(this.tsmiHideModelCoordinateSystem_Click);
+            // 
+            // tsmiShowModelCoordinateSystem
+            // 
+            this.tsmiShowModelCoordinateSystem.Image = global::PrePoMax.Properties.Resources.Show;
+            this.tsmiShowModelCoordinateSystem.Name = "tsmiShowModelCoordinateSystem";
+            this.tsmiShowModelCoordinateSystem.Size = new System.Drawing.Size(131, 22);
+            this.tsmiShowModelCoordinateSystem.Text = "Show";
+            this.tsmiShowModelCoordinateSystem.Click += new System.EventHandler(this.tsmiShowModelCoordinateSystem_Click);
+            // 
+            // tsmiShowOnlyModelCoordinateSystem
+            // 
+            this.tsmiShowOnlyModelCoordinateSystem.Image = global::PrePoMax.Properties.Resources.Show;
+            this.tsmiShowOnlyModelCoordinateSystem.Name = "tsmiShowOnlyModelCoordinateSystem";
+            this.tsmiShowOnlyModelCoordinateSystem.Size = new System.Drawing.Size(131, 22);
+            this.tsmiShowOnlyModelCoordinateSystem.Text = "Show Only";
+            this.tsmiShowOnlyModelCoordinateSystem.Click += new System.EventHandler(this.tsmiShowOnlyModelCoordinateSystem_Click);
+            // 
+            // tsmiDividerModelCoordinateSystem2
+            // 
+            this.tsmiDividerModelCoordinateSystem2.Name = "tsmiDividerModelCoordinateSystem2";
+            this.tsmiDividerModelCoordinateSystem2.Size = new System.Drawing.Size(128, 6);
+            // 
+            // tsmiDeleteModelCoordinateSystem
+            // 
+            this.tsmiDeleteModelCoordinateSystem.Name = "tsmiDeleteModelCoordinateSystem";
+            this.tsmiDeleteModelCoordinateSystem.Size = new System.Drawing.Size(131, 22);
+            this.tsmiDeleteModelCoordinateSystem.Text = "Delete";
+            this.tsmiDeleteModelCoordinateSystem.Click += new System.EventHandler(this.tsmiDeleteModelCoordinateSystem_Click);
             // 
             // tsmiProperty
             // 
@@ -3034,46 +3192,53 @@ namespace PrePoMax
             this.tsmiDeleteStep});
             this.tsmiStep.Image = global::PrePoMax.Properties.Resources.Step;
             this.tsmiStep.Name = "tsmiStep";
-            this.tsmiStep.Size = new System.Drawing.Size(180, 22);
+            this.tsmiStep.Size = new System.Drawing.Size(153, 22);
             this.tsmiStep.Text = "Step";
             // 
             // tsmiCreateStep
             // 
             this.tsmiCreateStep.Name = "tsmiCreateStep";
-            this.tsmiCreateStep.Size = new System.Drawing.Size(180, 22);
+            this.tsmiCreateStep.Size = new System.Drawing.Size(142, 22);
             this.tsmiCreateStep.Text = "Create";
             this.tsmiCreateStep.Click += new System.EventHandler(this.tsmiCreateStep_Click);
             // 
             // tsmiEditStep
             // 
             this.tsmiEditStep.Name = "tsmiEditStep";
-            this.tsmiEditStep.Size = new System.Drawing.Size(180, 22);
+            this.tsmiEditStep.Size = new System.Drawing.Size(142, 22);
             this.tsmiEditStep.Text = "Edit";
             this.tsmiEditStep.Click += new System.EventHandler(this.tsmiEditStep_Click);
+            // 
+            // tsmiEditStepControls
+            // 
+            this.tsmiEditStepControls.Name = "tsmiEditStepControls";
+            this.tsmiEditStepControls.Size = new System.Drawing.Size(142, 22);
+            this.tsmiEditStepControls.Text = "Edit Controls";
+            this.tsmiEditStepControls.Click += new System.EventHandler(this.tsmiEditStepControls_Click);
             // 
             // tsmiDuplicateStep
             // 
             this.tsmiDuplicateStep.Name = "tsmiDuplicateStep";
-            this.tsmiDuplicateStep.Size = new System.Drawing.Size(180, 22);
+            this.tsmiDuplicateStep.Size = new System.Drawing.Size(142, 22);
             this.tsmiDuplicateStep.Text = "Duplicate";
             this.tsmiDuplicateStep.Click += new System.EventHandler(this.tsmiDuplicateStep_Click);
             // 
             // tsmiDividerStep2
             // 
             this.tsmiDividerStep2.Name = "tsmiDividerStep2";
-            this.tsmiDividerStep2.Size = new System.Drawing.Size(177, 6);
+            this.tsmiDividerStep2.Size = new System.Drawing.Size(139, 6);
             // 
             // tsmiDeleteStep
             // 
             this.tsmiDeleteStep.Name = "tsmiDeleteStep";
-            this.tsmiDeleteStep.Size = new System.Drawing.Size(180, 22);
+            this.tsmiDeleteStep.Size = new System.Drawing.Size(142, 22);
             this.tsmiDeleteStep.Text = "Delete";
             this.tsmiDeleteStep.Click += new System.EventHandler(this.tsmiDeleteStep_Click);
             // 
             // tsmiDividerStep1
             // 
             this.tsmiDividerStep1.Name = "tsmiDividerStep1";
-            this.tsmiDividerStep1.Size = new System.Drawing.Size(177, 6);
+            this.tsmiDividerStep1.Size = new System.Drawing.Size(150, 6);
             // 
             // tsmiHistoryOutput
             // 
@@ -3086,7 +3251,7 @@ namespace PrePoMax
             this.tsmiDeleteHistoryOutput});
             this.tsmiHistoryOutput.Image = global::PrePoMax.Properties.Resources.History_output;
             this.tsmiHistoryOutput.Name = "tsmiHistoryOutput";
-            this.tsmiHistoryOutput.Size = new System.Drawing.Size(180, 22);
+            this.tsmiHistoryOutput.Size = new System.Drawing.Size(153, 22);
             this.tsmiHistoryOutput.Text = "History Output";
             // 
             // tsmiCreateHistoryOutput
@@ -3140,7 +3305,7 @@ namespace PrePoMax
             this.tsmiDeleteFieldOutput});
             this.tsmiFieldOutput.Image = global::PrePoMax.Properties.Resources.Field_output;
             this.tsmiFieldOutput.Name = "tsmiFieldOutput";
-            this.tsmiFieldOutput.Size = new System.Drawing.Size(180, 22);
+            this.tsmiFieldOutput.Size = new System.Drawing.Size(153, 22);
             this.tsmiFieldOutput.Text = "Field Output";
             // 
             // tsmiCreateFieldOutput
@@ -3197,7 +3362,7 @@ namespace PrePoMax
             this.tsmiDeleteBC});
             this.tsmiBC.Image = global::PrePoMax.Properties.Resources.Bc;
             this.tsmiBC.Name = "tsmiBC";
-            this.tsmiBC.Size = new System.Drawing.Size(180, 22);
+            this.tsmiBC.Size = new System.Drawing.Size(153, 22);
             this.tsmiBC.Text = "BC";
             // 
             // tsmiCreateBC
@@ -3276,7 +3441,7 @@ namespace PrePoMax
             this.tsmiDeleteLoad});
             this.tsmiLoad.Image = global::PrePoMax.Properties.Resources.Load;
             this.tsmiLoad.Name = "tsmiLoad";
-            this.tsmiLoad.Size = new System.Drawing.Size(180, 22);
+            this.tsmiLoad.Size = new System.Drawing.Size(153, 22);
             this.tsmiLoad.Text = "Load";
             // 
             // tsmiCreateLoad
@@ -3361,7 +3526,7 @@ namespace PrePoMax
             this.tsmiDeleteDefinedField});
             this.tsmiDefinedField.Image = global::PrePoMax.Properties.Resources.Defined_field;
             this.tsmiDefinedField.Name = "tsmiDefinedField";
-            this.tsmiDefinedField.Size = new System.Drawing.Size(180, 22);
+            this.tsmiDefinedField.Size = new System.Drawing.Size(153, 22);
             this.tsmiDefinedField.Text = "Defined Field";
             // 
             // tsmiCreateDefinedField
@@ -3507,6 +3672,7 @@ namespace PrePoMax
             // 
             this.tsmiResults.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsmiResultPart,
+            this.tsmiResultFeatures,
             this.tsmiDividerResults1,
             this.tsmiResultFieldOutput,
             this.tsmiResultHistoryOutput,
@@ -3534,7 +3700,7 @@ namespace PrePoMax
             this.tsmiDeleteResultParts});
             this.tsmiResultPart.Image = global::PrePoMax.Properties.Resources.Part;
             this.tsmiResultPart.Name = "tsmiResultPart";
-            this.tsmiResultPart.Size = new System.Drawing.Size(156, 22);
+            this.tsmiResultPart.Size = new System.Drawing.Size(180, 22);
             this.tsmiResultPart.Text = "Part";
             // 
             // tsmiEditResultPart
@@ -3613,10 +3779,170 @@ namespace PrePoMax
             this.tsmiDeleteResultParts.Text = "Delete";
             this.tsmiDeleteResultParts.Click += new System.EventHandler(this.tsmiDeleteResultParts_Click);
             // 
+            // tsmiResultFeatures
+            // 
+            this.tsmiResultFeatures.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmiResultReferencePoints,
+            this.tsmiResultCoordinateSystems});
+            this.tsmiResultFeatures.Image = global::PrePoMax.Properties.Resources.Feature;
+            this.tsmiResultFeatures.Name = "tsmiResultFeatures";
+            this.tsmiResultFeatures.Size = new System.Drawing.Size(180, 22);
+            this.tsmiResultFeatures.Text = "Features";
+            // 
+            // tsmiResultReferencePoints
+            // 
+            this.tsmiResultReferencePoints.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmiCreateResultReferencePoint,
+            this.tsmiEditResultReferencePoint,
+            this.tsmiDuplicateResultReferencePoint,
+            this.tsmiDividerResultReferencePoints1,
+            this.tsmiHideResultReferencePoint,
+            this.tsmiShowResultReferencePoint,
+            this.tsmiShowOnlyResultReferencePoint,
+            this.tsmiDividerResultReferencePoints2,
+            this.tsmiDeleteResultReferencePoint});
+            this.tsmiResultReferencePoints.Image = global::PrePoMax.Properties.Resources.Reference_point;
+            this.tsmiResultReferencePoints.Name = "tsmiResultReferencePoints";
+            this.tsmiResultReferencePoints.Size = new System.Drawing.Size(180, 22);
+            this.tsmiResultReferencePoints.Text = "Reference Points";
+            // 
+            // tsmiCreateResultReferencePoint
+            // 
+            this.tsmiCreateResultReferencePoint.Name = "tsmiCreateResultReferencePoint";
+            this.tsmiCreateResultReferencePoint.Size = new System.Drawing.Size(180, 22);
+            this.tsmiCreateResultReferencePoint.Text = "Create";
+            this.tsmiCreateResultReferencePoint.Click += new System.EventHandler(this.tsmiCreateResultReferencePoint_Click);
+            // 
+            // tsmiEditResultReferencePoint
+            // 
+            this.tsmiEditResultReferencePoint.Name = "tsmiEditResultReferencePoint";
+            this.tsmiEditResultReferencePoint.Size = new System.Drawing.Size(180, 22);
+            this.tsmiEditResultReferencePoint.Text = "Edit";
+            this.tsmiEditResultReferencePoint.Click += new System.EventHandler(this.tsmiEditResultReferencePoint_Click);
+            // 
+            // tsmiDuplicateResultReferencePoint
+            // 
+            this.tsmiDuplicateResultReferencePoint.Name = "tsmiDuplicateResultReferencePoint";
+            this.tsmiDuplicateResultReferencePoint.Size = new System.Drawing.Size(180, 22);
+            this.tsmiDuplicateResultReferencePoint.Text = "Duplicate";
+            this.tsmiDuplicateResultReferencePoint.Click += new System.EventHandler(this.tsmiDuplicateResultReferencePoint_Click);
+            // 
+            // tsmiDividerResultReferencePoints1
+            // 
+            this.tsmiDividerResultReferencePoints1.Name = "tsmiDividerResultReferencePoints1";
+            this.tsmiDividerResultReferencePoints1.Size = new System.Drawing.Size(177, 6);
+            // 
+            // tsmiHideResultReferencePoint
+            // 
+            this.tsmiHideResultReferencePoint.Image = global::PrePoMax.Properties.Resources.Hide;
+            this.tsmiHideResultReferencePoint.Name = "tsmiHideResultReferencePoint";
+            this.tsmiHideResultReferencePoint.Size = new System.Drawing.Size(180, 22);
+            this.tsmiHideResultReferencePoint.Text = "Hide";
+            this.tsmiHideResultReferencePoint.Click += new System.EventHandler(this.tsmiHideResultReferencePoint_Click);
+            // 
+            // tsmiShowResultReferencePoint
+            // 
+            this.tsmiShowResultReferencePoint.Image = global::PrePoMax.Properties.Resources.Show;
+            this.tsmiShowResultReferencePoint.Name = "tsmiShowResultReferencePoint";
+            this.tsmiShowResultReferencePoint.Size = new System.Drawing.Size(180, 22);
+            this.tsmiShowResultReferencePoint.Text = "Show";
+            this.tsmiShowResultReferencePoint.Click += new System.EventHandler(this.tsmiShowResultReferencePoint_Click);
+            // 
+            // tsmiShowOnlyResultReferencePoint
+            // 
+            this.tsmiShowOnlyResultReferencePoint.Image = global::PrePoMax.Properties.Resources.Show;
+            this.tsmiShowOnlyResultReferencePoint.Name = "tsmiShowOnlyResultReferencePoint";
+            this.tsmiShowOnlyResultReferencePoint.Size = new System.Drawing.Size(180, 22);
+            this.tsmiShowOnlyResultReferencePoint.Text = "Show Only";
+            this.tsmiShowOnlyResultReferencePoint.Click += new System.EventHandler(this.tsmiShowOnlyResultReferencePoint_Click);
+            // 
+            // tsmiDividerResultReferencePoints2
+            // 
+            this.tsmiDividerResultReferencePoints2.Name = "tsmiDividerResultReferencePoints2";
+            this.tsmiDividerResultReferencePoints2.Size = new System.Drawing.Size(177, 6);
+            // 
+            // tsmiDeleteResultReferencePoint
+            // 
+            this.tsmiDeleteResultReferencePoint.Name = "tsmiDeleteResultReferencePoint";
+            this.tsmiDeleteResultReferencePoint.Size = new System.Drawing.Size(180, 22);
+            this.tsmiDeleteResultReferencePoint.Text = "Delete";
+            this.tsmiDeleteResultReferencePoint.Click += new System.EventHandler(this.tsmiDeleteResultReferencePoint_Click);
+            // 
+            // tsmiResultCoordinateSystems
+            // 
+            this.tsmiResultCoordinateSystems.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmiCreateResultCoordinateSystem,
+            this.tsmiEditResultCoordinateSystem,
+            this.tsmiDuplicateResultCoordinateSystem,
+            this.toolStripMenuItem3,
+            this.tsmiHideResultCoordinateSystem,
+            this.tsmiShowResultCoordinateSystem,
+            this.tsmiShowOnlyResultCoordinateSystem,
+            this.toolStripMenuItem2,
+            this.tsmiDeleteResultCoordinateSystem});
+            this.tsmiResultCoordinateSystems.Image = global::PrePoMax.Properties.Resources.CoordinateSystem;
+            this.tsmiResultCoordinateSystems.Name = "tsmiResultCoordinateSystems";
+            this.tsmiResultCoordinateSystems.Size = new System.Drawing.Size(180, 22);
+            this.tsmiResultCoordinateSystems.Text = "Coordinate Systems";
+            // 
+            // tsmiCreateResultCoordinateSystem
+            // 
+            this.tsmiCreateResultCoordinateSystem.Name = "tsmiCreateResultCoordinateSystem";
+            this.tsmiCreateResultCoordinateSystem.Size = new System.Drawing.Size(180, 22);
+            this.tsmiCreateResultCoordinateSystem.Text = "Create";
+            this.tsmiCreateResultCoordinateSystem.Click += new System.EventHandler(this.tsmiCreateResultCoordinateSystem_Click);
+            // 
+            // tsmiEditResultCoordinateSystem
+            // 
+            this.tsmiEditResultCoordinateSystem.Name = "tsmiEditResultCoordinateSystem";
+            this.tsmiEditResultCoordinateSystem.Size = new System.Drawing.Size(180, 22);
+            this.tsmiEditResultCoordinateSystem.Text = "Edit";
+            this.tsmiEditResultCoordinateSystem.Click += new System.EventHandler(this.tsmiEditResultCoordinateSystem_Click);
+            // 
+            // tsmiDuplicateResultCoordinateSystem
+            // 
+            this.tsmiDuplicateResultCoordinateSystem.Name = "tsmiDuplicateResultCoordinateSystem";
+            this.tsmiDuplicateResultCoordinateSystem.Size = new System.Drawing.Size(180, 22);
+            this.tsmiDuplicateResultCoordinateSystem.Text = "Duplicate";
+            this.tsmiDuplicateResultCoordinateSystem.Click += new System.EventHandler(this.tsmiDuplicateResultCoordinateSystem_Click);
+            // 
+            // tsmiHideResultCoordinateSystem
+            // 
+            this.tsmiHideResultCoordinateSystem.Name = "tsmiHideResultCoordinateSystem";
+            this.tsmiHideResultCoordinateSystem.Size = new System.Drawing.Size(180, 22);
+            this.tsmiHideResultCoordinateSystem.Text = "Hide";
+            this.tsmiHideResultCoordinateSystem.Click += new System.EventHandler(this.tsmiHideResultCoordinateSystem_Click);
+            // 
+            // tsmiShowResultCoordinateSystem
+            // 
+            this.tsmiShowResultCoordinateSystem.Name = "tsmiShowResultCoordinateSystem";
+            this.tsmiShowResultCoordinateSystem.Size = new System.Drawing.Size(180, 22);
+            this.tsmiShowResultCoordinateSystem.Text = "Show";
+            this.tsmiShowResultCoordinateSystem.Click += new System.EventHandler(this.tsmiShowResultCoordinateSystem_Click);
+            // 
+            // tsmiShowOnlyResultCoordinateSystem
+            // 
+            this.tsmiShowOnlyResultCoordinateSystem.Name = "tsmiShowOnlyResultCoordinateSystem";
+            this.tsmiShowOnlyResultCoordinateSystem.Size = new System.Drawing.Size(180, 22);
+            this.tsmiShowOnlyResultCoordinateSystem.Text = "Show Only";
+            this.tsmiShowOnlyResultCoordinateSystem.Click += new System.EventHandler(this.tsmiShowOnlyResultCoordinateSystem_Click);
+            // 
+            // tsmiDeleteResultCoordinateSystem
+            // 
+            this.tsmiDeleteResultCoordinateSystem.Name = "tsmiDeleteResultCoordinateSystem";
+            this.tsmiDeleteResultCoordinateSystem.Size = new System.Drawing.Size(180, 22);
+            this.tsmiDeleteResultCoordinateSystem.Text = "Delete";
+            this.tsmiDeleteResultCoordinateSystem.Click += new System.EventHandler(this.tsmiDeleteResultCoordinateSystem_Click);
+            // 
+            // toolStripMenuItem2
+            // 
+            this.toolStripMenuItem2.Name = "toolStripMenuItem2";
+            this.toolStripMenuItem2.Size = new System.Drawing.Size(177, 6);
+            // 
             // tsmiDividerResults1
             // 
             this.tsmiDividerResults1.Name = "tsmiDividerResults1";
-            this.tsmiDividerResults1.Size = new System.Drawing.Size(153, 6);
+            this.tsmiDividerResults1.Size = new System.Drawing.Size(177, 6);
             // 
             // tsmiResultFieldOutput
             // 
@@ -3627,7 +3953,7 @@ namespace PrePoMax
             this.tsmiDeleteResultFieldOutput});
             this.tsmiResultFieldOutput.Image = global::PrePoMax.Properties.Resources.Field_output;
             this.tsmiResultFieldOutput.Name = "tsmiResultFieldOutput";
-            this.tsmiResultFieldOutput.Size = new System.Drawing.Size(156, 22);
+            this.tsmiResultFieldOutput.Size = new System.Drawing.Size(180, 22);
             this.tsmiResultFieldOutput.Text = "Field Output";
             // 
             // tsmiCreateResultFieldOutput
@@ -3664,7 +3990,7 @@ namespace PrePoMax
             this.tsmiDeleteResultHistoryOutput});
             this.tsmiResultHistoryOutput.Image = global::PrePoMax.Properties.Resources.History_output;
             this.tsmiResultHistoryOutput.Name = "tsmiResultHistoryOutput";
-            this.tsmiResultHistoryOutput.Size = new System.Drawing.Size(156, 22);
+            this.tsmiResultHistoryOutput.Size = new System.Drawing.Size(180, 22);
             this.tsmiResultHistoryOutput.Text = "History Output";
             // 
             // tsmiCreateResultHistoryOutput
@@ -3689,25 +4015,25 @@ namespace PrePoMax
             // tsmiDividerResults2
             // 
             this.tsmiDividerResults2.Name = "tsmiDividerResults2";
-            this.tsmiDividerResults2.Size = new System.Drawing.Size(153, 6);
+            this.tsmiDividerResults2.Size = new System.Drawing.Size(177, 6);
             // 
             // tsmiTransformation
             // 
             this.tsmiTransformation.Image = global::PrePoMax.Properties.Resources.Transformations;
             this.tsmiTransformation.Name = "tsmiTransformation";
-            this.tsmiTransformation.Size = new System.Drawing.Size(156, 22);
+            this.tsmiTransformation.Size = new System.Drawing.Size(180, 22);
             this.tsmiTransformation.Text = "Transformation";
             this.tsmiTransformation.Click += new System.EventHandler(this.tsmiTransformation_Click);
             // 
             // tsmiDividerResults3
             // 
             this.tsmiDividerResults3.Name = "tsmiDividerResults3";
-            this.tsmiDividerResults3.Size = new System.Drawing.Size(153, 6);
+            this.tsmiDividerResults3.Size = new System.Drawing.Size(177, 6);
             // 
             // tsmiAppendResults
             // 
             this.tsmiAppendResults.Name = "tsmiAppendResults";
-            this.tsmiAppendResults.Size = new System.Drawing.Size(156, 22);
+            this.tsmiAppendResults.Size = new System.Drawing.Size(180, 22);
             this.tsmiAppendResults.Text = "Append Results";
             this.tsmiAppendResults.Click += new System.EventHandler(this.tsmiAppendResults_Click);
             // 
@@ -3967,7 +4293,7 @@ namespace PrePoMax
             // 
             // toolStripContainer1.TopToolStripPanel
             // 
-            this.toolStripContainer1.TopToolStripPanel.Controls.Add(this.tsModel);
+            this.toolStripContainer1.TopToolStripPanel.Controls.Add(this.tsSymbols);
             this.toolStripContainer1.TopToolStripPanel.Controls.Add(this.tsDeformationFactor);
             this.toolStripContainer1.TopToolStripPanel.Controls.Add(this.tsFile);
             this.toolStripContainer1.TopToolStripPanel.Controls.Add(this.tsViews);
@@ -4032,12 +4358,10 @@ namespace PrePoMax
             // 
             this.timerOutput.Tick += new System.EventHandler(this.timerOutput_Tick);
             // 
-            // tsmiEditStepControls
+            // toolStripMenuItem3
             // 
-            this.tsmiEditStepControls.Name = "tsmiEditStepControls";
-            this.tsmiEditStepControls.Size = new System.Drawing.Size(180, 22);
-            this.tsmiEditStepControls.Text = "Edit Controls";
-            this.tsmiEditStepControls.Click += new System.EventHandler(this.tsmiEditStepControls_Click);
+            this.toolStripMenuItem3.Name = "toolStripMenuItem3";
+            this.toolStripMenuItem3.Size = new System.Drawing.Size(177, 6);
             // 
             // FrmMain
             // 
@@ -4062,8 +4386,8 @@ namespace PrePoMax
             this.tsFile.PerformLayout();
             this.tsViews.ResumeLayout(false);
             this.tsViews.PerformLayout();
-            this.tsModel.ResumeLayout(false);
-            this.tsModel.PerformLayout();
+            this.tsSymbols.ResumeLayout(false);
+            this.tsSymbols.PerformLayout();
             this.tsDeformationFactor.ResumeLayout(false);
             this.tsDeformationFactor.PerformLayout();
             this.tsResults.ResumeLayout(false);
@@ -4100,7 +4424,7 @@ namespace PrePoMax
 
         private UserControls.ToolStripFocus tsFile;
         private UserControls.ToolStripFocus tsViews;
-        private UserControls.ToolStripFocus tsModel;
+        private UserControls.ToolStripFocus tsSymbols;
         private UserControls.ToolStripFocus tsDeformationFactor;
         private UserControls.ToolStripFocus tsResults;
         private UserControls.MenuStripFocus menuStripMain;
@@ -4214,11 +4538,11 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiUndo;
         private System.Windows.Forms.ToolStripMenuItem tsmiRedo;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerEdit1;
-        private System.Windows.Forms.ToolStripMenuItem tsmiReferencePointTool;
-        private System.Windows.Forms.ToolStripMenuItem tsmiCreateRP;
-        private System.Windows.Forms.ToolStripSeparator tsmiRP;
-        private System.Windows.Forms.ToolStripMenuItem tsmiDeleteRP;
-        private System.Windows.Forms.ToolStripMenuItem tsmiEditRP;
+        private System.Windows.Forms.ToolStripMenuItem tsmiModelReferencePointTool;
+        private System.Windows.Forms.ToolStripMenuItem tsmiCreateModelReferencePoint;
+        private System.Windows.Forms.ToolStripSeparator tsmiModelRP1;
+        private System.Windows.Forms.ToolStripMenuItem tsmiDeleteModelReferencePoint;
+        private System.Windows.Forms.ToolStripMenuItem tsmiEditModelReferencePoint;
         private System.Windows.Forms.ToolStripMenuItem tsmiInteraction;
         private System.Windows.Forms.ToolStripMenuItem tsmiConstraint;
         private System.Windows.Forms.ToolStripMenuItem tsmiCreateConstraint;
@@ -4318,7 +4642,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiConvertElementSetsToMeshParts;
         private System.Windows.Forms.ToolStripSeparator toolStripViewSeparator4;
         private System.Windows.Forms.ToolStripLabel tslSymbols;
-        private System.Windows.Forms.ToolStripComboBox tscbSymbolsForStep;
+        private System.Windows.Forms.ToolStripComboBox tscbSymbols;
         private System.Windows.Forms.ToolStripMenuItem tsmiGeometryAnalyze;
         private System.Windows.Forms.ToolStripMenuItem tsmiHistoryOutput;
         private System.Windows.Forms.ToolStripMenuItem tsmiCreateHistoryOutput;
@@ -4504,7 +4828,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripSeparator tsmiDividerTools2;
         private System.Windows.Forms.ToolStripMenuItem tsmiRegenerateForRemeshing;
         private System.Windows.Forms.ToolStripMenuItem tsmiDuplicateSection;
-        private System.Windows.Forms.ToolStripMenuItem tsmiDuplicateRP;
+        private System.Windows.Forms.ToolStripMenuItem tsmiDuplicateModelReferencePoint;
         private System.Windows.Forms.ToolStripMenuItem tsmiDuplicateSurface;
         private System.Windows.Forms.ToolStripMenuItem tsmiDuplicateContactPair;
         private System.Windows.Forms.ToolStripMenuItem tsmiDuplicateAmplitude;
@@ -4527,6 +4851,42 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiDeleteStlPartFaces;
         private System.Windows.Forms.ToolStripMenuItem tsmiSplitPartMeshUsingSurface;
         private System.Windows.Forms.ToolStripMenuItem tsmiEditStepControls;
+        private System.Windows.Forms.ToolStripMenuItem tsmiModelFeatures;
+        private System.Windows.Forms.ToolStripMenuItem tsmiModelCoordinateSystem;
+        private System.Windows.Forms.ToolStripMenuItem tsmiCreateModelCoordinateSystem;
+        private System.Windows.Forms.ToolStripMenuItem tsmiEditModelCoordinateSystem;
+        private System.Windows.Forms.ToolStripMenuItem tsmiDuplicateModelCoordinateSystem;
+        private System.Windows.Forms.ToolStripSeparator tsmiDividerModelCoordinateSystem1;
+        private System.Windows.Forms.ToolStripMenuItem tsmiDeleteModelCoordinateSystem;
+        private System.Windows.Forms.ToolStripMenuItem tsmiResultFeatures;
+        private System.Windows.Forms.ToolStripMenuItem tsmiResultReferencePoints;
+        private System.Windows.Forms.ToolStripMenuItem tsmiCreateResultReferencePoint;
+        private System.Windows.Forms.ToolStripMenuItem tsmiEditResultReferencePoint;
+        private System.Windows.Forms.ToolStripMenuItem tsmiDuplicateResultReferencePoint;
+        private System.Windows.Forms.ToolStripSeparator tsmiDividerResultReferencePoints1;
+        private System.Windows.Forms.ToolStripMenuItem tsmiDeleteResultReferencePoint;
+        private System.Windows.Forms.ToolStripMenuItem tsmiResultCoordinateSystems;
+        private System.Windows.Forms.ToolStripMenuItem tsmiHideModelReferencePoint;
+        private System.Windows.Forms.ToolStripMenuItem tsmiShowModelReferencePoint;
+        private System.Windows.Forms.ToolStripMenuItem tsmiShowOnlyModelReferencePoint;
+        private System.Windows.Forms.ToolStripSeparator tsmiModelRP2;
+        private System.Windows.Forms.ToolStripMenuItem tsmiHideResultReferencePoint;
+        private System.Windows.Forms.ToolStripMenuItem tsmiShowResultReferencePoint;
+        private System.Windows.Forms.ToolStripMenuItem tsmiShowOnlyResultReferencePoint;
+        private System.Windows.Forms.ToolStripSeparator tsmiDividerResultReferencePoints2;
+        private System.Windows.Forms.ToolStripMenuItem tsmiHideModelCoordinateSystem;
+        private System.Windows.Forms.ToolStripMenuItem tsmiShowModelCoordinateSystem;
+        private System.Windows.Forms.ToolStripMenuItem tsmiShowOnlyModelCoordinateSystem;
+        private System.Windows.Forms.ToolStripSeparator tsmiDividerModelCoordinateSystem2;
+        private System.Windows.Forms.ToolStripMenuItem tsmiCreateResultCoordinateSystem;
+        private System.Windows.Forms.ToolStripMenuItem tsmiEditResultCoordinateSystem;
+        private System.Windows.Forms.ToolStripMenuItem tsmiDuplicateResultCoordinateSystem;
+        private System.Windows.Forms.ToolStripMenuItem tsmiHideResultCoordinateSystem;
+        private System.Windows.Forms.ToolStripMenuItem tsmiShowResultCoordinateSystem;
+        private System.Windows.Forms.ToolStripMenuItem tsmiShowOnlyResultCoordinateSystem;
+        private System.Windows.Forms.ToolStripMenuItem tsmiDeleteResultCoordinateSystem;
+        private System.Windows.Forms.ToolStripSeparator toolStripMenuItem2;
+        private System.Windows.Forms.ToolStripSeparator toolStripMenuItem3;
     }
 }
 

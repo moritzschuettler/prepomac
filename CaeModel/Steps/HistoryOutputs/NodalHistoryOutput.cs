@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.ComponentModel;
 using CaeGlobals;
+using System.Runtime.Serialization;
 
 namespace CaeModel
 {
@@ -22,10 +23,10 @@ namespace CaeModel
     }
 
     [Serializable]
-    public class NodalHistoryOutput : HistoryOutput
+    public class NodalHistoryOutput : HistoryOutput, ISerializable
     {
         // Variables                                                                                                                
-        private NodalHistoryVariable _variables;
+        private NodalHistoryVariable _variables;            //ISerializable
 
 
         // Properties                                                                                                               
@@ -38,8 +39,31 @@ namespace CaeModel
         {
             _variables = variables;
         }
+        public NodalHistoryOutput(SerializationInfo info, StreamingContext context)
+           : base(info, context)
+        {
+            foreach (SerializationEntry entry in info)
+            {
+                switch (entry.Name)
+                {
+                    case "_variables":
+                    case "NodalHistoryOutput+_variables":       // Compatibility v2.1.0
+                        _variables = (NodalHistoryVariable)entry.Value; break;
+                }
+            }
+        }
 
 
         // Methods                                                                                                                  
+
+
+        // ISerialization
+        public new void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            // Using typeof() works also for null fields
+            base.GetObjectData(info, context);
+            //
+            info.AddValue("_variables", _variables, typeof(NodalHistoryVariable));
+        }
     }
 }

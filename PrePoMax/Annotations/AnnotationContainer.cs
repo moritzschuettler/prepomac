@@ -234,8 +234,9 @@ namespace PrePoMax
                         annotation = entry.Value;
                         // First get the annotation data to determine if the annotation is valid
                         annotation.GetAnnotationData(out text, out arrowCoor);
-                        AnnotationBase.Controller.Form.AddArrowWidget(entry.Value.Name, text, numberFormat, arrowCoor, drawBackground,
-                                                                      drawBorder, annotation.IsAnnotationVisible());
+                        AnnotationBase.Controller.Form.AddArrowWidget(entry.Value.Name, text, numberFormat, arrowCoor,
+                                                                      drawBackground, drawBorder,
+                                                                      annotation.IsAnnotationVisible());
 
                     }
                     catch
@@ -299,7 +300,10 @@ namespace PrePoMax
                 List<AnnotationBase> annotationsToRemove = new List<AnnotationBase>();
                 foreach (var entry in annotations)
                 {
-                    if (partIds.Contains(entry.Value.PartId)) annotationsToRemove.Add(entry.Value);
+                    foreach (var partId in entry.Value.PartIds)
+                    {
+                        if (partIds.Contains(partId)) annotationsToRemove.Add(entry.Value);
+                    }
                 }
                 // Remove
                 foreach (var annotation in annotationsToRemove) annotations.Remove(annotation.Name);

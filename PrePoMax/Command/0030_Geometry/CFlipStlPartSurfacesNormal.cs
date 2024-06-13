@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class FlipStlPartSurfacesNormal : Command
+    class FlipStlPartSurfacesNormal : PreprocessCommand
     {
         // Variables                                                                                                                
         private string[] _partNames;

@@ -58,25 +58,8 @@ namespace PrePoMax.Forms
                     _plane = _controller.GetSectionViewPlane();
                     if (_plane == null)
                     {
-                        double[] vpn = _controller.GetViewPlaneNormal();
-                        double max = 0;
-                        int id = -1;
-                        for (int i = 0; i < 3; i++)
-                        {
-                            if (Math.Abs(vpn[i]) > max)
-                            {
-                                max = Math.Abs(vpn[i]);
-                                id = i;
-                            }
-                        }
-                        for (int i = 0; i < 3; i++)
-                        {
-                            if (i == id) vpn[i] = -Math.Round(vpn[i], MidpointRounding.AwayFromZero);
-                            else vpn[i] = 0;
-                        }
-                        //
-                        _sectionViewParameters.Point = GetBBCenter().Coor;
-                        _sectionViewParameters.Normal = vpn;
+                        _sectionViewParameters.Point = _controller.GetSectionViewBBCenter().Coor;
+                        _sectionViewParameters.Normal = _controller.GetDefaultSectionViewNormal();
                         //
                         PointOrNormalChanged();
                     }
@@ -125,7 +108,7 @@ namespace PrePoMax.Forms
         private void resetToolStripMenuItem_Click(object sender, EventArgs e)
         {
             _sectionViewParameters.Clear();
-            _sectionViewParameters.Point = GetBBCenter().Coor;
+            _sectionViewParameters.Point = _controller.GetSectionViewBBCenter().Coor;
             //
             PointOrNormalChanged();
         }
@@ -164,10 +147,10 @@ namespace PrePoMax.Forms
             //
             double ratio = (double)(hsbPosition.Value - hsbPosition.Minimum) / (hsbPosition.Maximum - hsbPosition.Minimum);
             ratio = 2 * ratio - 1;
-            Vec3D point = GetBBCenter() + _projHalfSize * ratio;
-            point.X = CaeGlobals.Tools.RoundToSignificantDigits(point.X, 6);
-            point.Y = CaeGlobals.Tools.RoundToSignificantDigits(point.Y, 6);
-            point.Z = CaeGlobals.Tools.RoundToSignificantDigits(point.Z, 6);
+            Vec3D point = _controller.GetSectionViewBBCenter() + _projHalfSize * ratio;
+            point.X = Tools.RoundToSignificantDigits(point.X, 6);
+            point.Y = Tools.RoundToSignificantDigits(point.Y, 6);
+            point.Z = Tools.RoundToSignificantDigits(point.Z, 6);
             _sectionViewParameters.Point = point.Coor;
             //
             timerUpdate.Start();    // use timer to speed things up
@@ -217,7 +200,7 @@ namespace PrePoMax.Forms
             //
             return true;
         }
-        
+        //
         public void PickedIds(int[] ids)
         {
             bool selectionFinished = false;
@@ -269,7 +252,7 @@ namespace PrePoMax.Forms
                 UpdateSectionView();
             }
         }
-
+        //
         private void PointOrNormalChanged()
         {
             SetScrollBarPositionFromPoint();
@@ -295,22 +278,13 @@ namespace PrePoMax.Forms
             _projHalfSize.Normalize();
             _projHalfSize = l * _projHalfSize;
         }
-        private Vec3D GetBBCenter()
-        {
-            double[] box = _controller.GetBoundingBox();
-            Vec3D center = new Vec3D();
-            center.X = CaeGlobals.Tools.RoundToSignificantDigits((box[0] + box[1]) / 2, 6);
-            center.Y = CaeGlobals.Tools.RoundToSignificantDigits((box[2] + box[3]) / 2, 6);
-            center.Z = CaeGlobals.Tools.RoundToSignificantDigits((box[4] + box[5]) / 2, 6);
-            return center;
-        }
         private void SetScrollBarPositionFromPoint()
         {
             try
             {
                 UpdateProjHalfSize();
                 //
-                Vec3D c = GetBBCenter();
+                Vec3D c = _controller.GetSectionViewBBCenter();
                 Vec3D n = new Vec3D(_sectionViewParameters.Normal);
                 n.Normalize();
                 //
@@ -338,8 +312,8 @@ namespace PrePoMax.Forms
                 //
                 propertyGrid.Refresh();     // must be here to update values
                 //
-                System.Diagnostics.Stopwatch watch = new System.Diagnostics.Stopwatch();
-                watch.Start();
+                //System.Diagnostics.Stopwatch watch = new System.Diagnostics.Stopwatch();
+                //watch.Start();
                 //
                 UpdateProjHalfSize();
                 //

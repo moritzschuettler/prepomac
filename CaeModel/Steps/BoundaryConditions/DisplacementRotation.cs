@@ -139,7 +139,7 @@ namespace CaeModel
             if (_twoD) return double.NaN;
             else return value;
         }
-
+        //
         public int[] GetConstrainedDirections()
         {
             List<int> directions = new List<int>();
@@ -221,6 +221,25 @@ namespace CaeModel
             else if (double.IsPositiveInfinity(value)) return DOFType.Fixed;
             else if (value == 0) return DOFType.Zero;
             else return DOFType.Prescribed;
+        }
+        public double[] GetPrescribedUDirection(CoordinateSystem coordinateSystem, double[] coor = null)
+        {
+            double u1 = 0;
+            double u2 = 0;
+            double u3 = 0;
+            if (GetDofType(1) == DOFType.Prescribed) u1 = U1.Value;
+            if (GetDofType(2) == DOFType.Prescribed) u2 = U2.Value;
+            if (GetDofType(3) == DOFType.Prescribed) u3 = U3.Value;
+            //
+            if (coordinateSystem == null) return new double[] { u1, u2, u3 };
+            else
+            {
+                Vec3D directionX = new Vec3D(GetDirectionX(coordinateSystem, coor));
+                Vec3D directionY = new Vec3D(GetDirectionY(coordinateSystem, coor));
+                Vec3D directionZ = new Vec3D(GetDirectionZ(coordinateSystem, coor));
+                Vec3D direction = u1 * directionX + u2 * directionY + u3 * directionZ;
+                return direction.Coor;
+            }
         }
         // IContainsEquations
         public override void CheckEquations()

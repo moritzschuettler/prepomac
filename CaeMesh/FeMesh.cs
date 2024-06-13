@@ -35,6 +35,7 @@ namespace CaeMesh
         private OrderedDictionary<string, FeElementSet> _elementSets;               //ISerializable
         private OrderedDictionary<string, FeSurface> _surfaces;                     //ISerializable
         private OrderedDictionary<string, FeReferencePoint> _referencePoints;       //ISerializable
+        private OrderedDictionary<string, CoordinateSystem> _coordinateSystems;     //ISerializable
         private int _maxNodeId;                                                     //ISerializable
         private int _maxElementId;                                                  //ISerializable
         private BoundingBox _boundingBox;                                           //ISerializable
@@ -70,6 +71,7 @@ namespace CaeMesh
         {
             get { return _referencePoints; }
         }
+        public OrderedDictionary<string, CoordinateSystem> CoordinateSystems { get { return _coordinateSystems; } }
         public int MaxNodeId
         {
             get { return _maxNodeId; }
@@ -135,6 +137,7 @@ namespace CaeMesh
             //
             _surfaces = new OrderedDictionary<string, FeSurface>("Surfaces", sc);
             _referencePoints = new OrderedDictionary<string, FeReferencePoint>("Reference Points", sc);
+            _coordinateSystems = new OrderedDictionary<string, CoordinateSystem>("Coordinate Systems", sc);
             //
             _parts = new OrderedDictionary<string, BasePart>("Base Parts", sc);
             ExtractPartsFast(inpElementTypeSets, partNamePrefix, importOptions);
@@ -178,6 +181,7 @@ namespace CaeMesh
             _elementSets = new OrderedDictionary<string, FeElementSet>("Element Sets", sc);
             _surfaces = new OrderedDictionary<string, FeSurface>("Surfaces", sc);
             _referencePoints = new OrderedDictionary<string, FeReferencePoint>("Reference Points", sc);
+            _coordinateSystems = new OrderedDictionary<string, CoordinateSystem>("Coordinate Systems", sc);
             //
             _maxNodeId = mesh._maxNodeId;
             _maxElementId = mesh._maxElementId;
@@ -259,6 +263,8 @@ namespace CaeMesh
                         else if (entry.Value == null) _referencePoints = null;
                         else throw new NotSupportedException();
                         break;
+                    case "_coordinateSystems":
+                        _coordinateSystems = (OrderedDictionary<string, CoordinateSystem>)entry.Value; break;
                     case "_maxNodeId":
                         _maxNodeId = (int)entry.Value; break;
                     case "_maxElementId":
@@ -279,6 +285,10 @@ namespace CaeMesh
             meshRefinements.OnDeserialization(null);
             foreach (var entry in meshingParameters) _meshSetupItems.Add(entry.Key, entry.Value);
             foreach (var entry in meshRefinements) _meshSetupItems.Add(entry.Key, entry.Value);
+            // Compatibility for version v.2.1.0
+            if (_coordinateSystems == null)
+                _coordinateSystems = new OrderedDictionary<string, CoordinateSystem>("Coordinate Systems", sc);
+
         }
 
 
@@ -718,6 +728,16 @@ namespace CaeMesh
                 //
                 SetItemValidity(referencePoint, valid, items);
                 if (!valid && referencePoint.Active) invalidItems.Add("Reference point: " + referencePoint.Name);
+            }
+            // Coordinate systems
+            CoordinateSystem coordinateSystem;
+            foreach (var entry in _coordinateSystems)
+            {
+                coordinateSystem = entry.Value;
+                valid = coordinateSystem.IsProperlyDefined();
+                //
+                SetItemValidity(coordinateSystem, valid, items);
+                if (!valid && coordinateSystem.Active) invalidItems.Add("Coordinate system: " + coordinateSystem.Name);
             }
             //
             return invalidItems.ToArray();
@@ -10162,6 +10182,7 @@ namespace CaeMesh
             info.AddValue("_elementSets", _elementSets, typeof(OrderedDictionary<string, FeElementSet>));
             info.AddValue("_surfaces", _surfaces, typeof(OrderedDictionary<string, FeSurface>));
             info.AddValue("_referencePoints", _referencePoints, typeof(OrderedDictionary<string, FeReferencePoint>));
+            info.AddValue("_coordinateSystems", _coordinateSystems, typeof(OrderedDictionary<string, CoordinateSystem>));
             info.AddValue("_maxNodeId", _maxNodeId, typeof(int));
             info.AddValue("_maxElementId", _maxElementId, typeof(int));
             info.AddValue("_boundingBox", _boundingBox, typeof(BoundingBox));

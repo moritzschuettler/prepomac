@@ -9,7 +9,7 @@ using CaeModel;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CRemoveLoads : Command
+    class CRemoveLoads : PreprocessCommand
     {
         // Variables                                                                                                                
         private string _stepName;

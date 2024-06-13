@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeMesh;
 using System.ComponentModel;
+using System.Runtime.Serialization;
 
 namespace CaeModel
 {
@@ -20,10 +21,10 @@ namespace CaeModel
     }
 
     [Serializable]
-    public class ContactFieldOutput : FieldOutput
+    public class ContactFieldOutput : FieldOutput, ISerializable
     {
         // Variables                                                                                                                
-        private ContactFieldVariable _variables;
+        private ContactFieldVariable _variables;        //ISerializable
 
 
         // Properties                                                                                                               
@@ -36,8 +37,30 @@ namespace CaeModel
         {
             _variables |= variables;
         }
+        public ContactFieldOutput(SerializationInfo info, StreamingContext context)
+           : base(info, context)
+        {
+            foreach (SerializationEntry entry in info)
+            {
+                switch (entry.Name)
+                {
+                    case "_variables":
+                    case "ContactFieldOutput+_variables":     // Compatibility v2.1.0
+                        _variables = (ContactFieldVariable)entry.Value; break;
+                }
+            }
+        }
 
 
         // Methods                                                                                                                  
+
+        // ISerialization
+        public new void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            // Using typeof() works also for null fields
+            base.GetObjectData(info, context);
+            //
+            info.AddValue("_variables", _variables, typeof(ContactFieldVariable));
+        }
     }
 }

@@ -31,9 +31,10 @@ namespace vtkControl
         protected bool _visibility;
         protected bool _borderVisibility;
         protected bool _backgroundVisibility;
+        protected bool _keepInsideVisibleBounds;
         protected bool _scaleBySectors;
         protected int _quadrant;
-        protected int[] _prewWindowSize;
+        protected int[] _prevWindowSize;
         protected double[] _position;
         protected double[] _size;
         protected vtkMaxWidgetPosition _widgetPosition;
@@ -54,8 +55,9 @@ namespace vtkControl
             _visibility = true;
             _borderVisibility = true;
             _backgroundVisibility = true;
+            _keepInsideVisibleBounds = true;
             _position = null;
-            _prewWindowSize = new int[] { 0, 0 };
+            _prevWindowSize = new int[] { 0, 0 };
             _scaleBySectors = true;
             //
             _position = new double[] { 100, 100 };
@@ -122,11 +124,11 @@ namespace vtkControl
         void renderWindow_ModifiedEvt(vtkObject sender, vtkObjectEventArgs e)
         {
             int[] windowSize = _renderer.GetSize();
-            if (windowSize[0] != _prewWindowSize[0] || windowSize[1] != _prewWindowSize[1])
+            if (windowSize[0] != _prevWindowSize[0] || windowSize[1] != _prevWindowSize[1])
             {
                 OnRenderWindowModified();
             }
-            _renderer.GetSize().CopyTo(_prewWindowSize, 0);
+            _renderer.GetSize().CopyTo(_prevWindowSize, 0);
         }
       
 
@@ -184,6 +186,14 @@ namespace vtkControl
                 if (_backgroundActor != null) _renderer.RemoveActor(_backgroundActor);
             }
         }
+        public virtual void KeepInsideVisibleBoundsOn()
+        {
+            _keepInsideVisibleBounds = true;
+        }
+        public virtual void KeepInsideVisibleBoundsOff()
+        {
+            _keepInsideVisibleBounds = false;
+        }
         //
         public virtual void OnRenderWindowModified()
         {
@@ -191,15 +201,15 @@ namespace vtkControl
             if (!_visibility) return;
 
             // set the widget position in relation to the windows borders
-            if (_position != null && _prewWindowSize[0] != 0 && _prewWindowSize[0] != 0)
+            if (_position != null && _prevWindowSize[0] != 0 && _prevWindowSize[0] != 0)
             {
                 int[] windowSize = _renderer.GetSize();
 
-                if (windowSize[0] != _prewWindowSize[0] || windowSize[1] != _prewWindowSize[1])
+                if (windowSize[0] != _prevWindowSize[0] || windowSize[1] != _prevWindowSize[1])
                 {
                     if (_widgetPosition == vtkMaxWidgetPosition.HorizontallyRelative)
                     {
-                        double center = (_position[0] + _size[0] / 2) / _prewWindowSize[0];
+                        double center = (_position[0] + _size[0] / 2) / _prevWindowSize[0];
                         _position[0] = windowSize[0] * center - _size[0] / 2;
                     }
                     else
@@ -209,11 +219,11 @@ namespace vtkControl
 
                         if (_quadrant == 2 || _quadrant == 3)
                         {
-                            dx = windowSize[0] - _prewWindowSize[0];
+                            dx = windowSize[0] - _prevWindowSize[0];
                         }
                         if (_quadrant == 3 || _quadrant == 4)
                         {
-                            dy = windowSize[1] - _prewWindowSize[1];
+                            dy = windowSize[1] - _prevWindowSize[1];
                         }
 
                         if (_scaleBySectors)
@@ -229,48 +239,48 @@ namespace vtkControl
         }
         public virtual void OnMovedOrSizeChanged()
         {
-            // triggered by moving the widget
+            // Triggered by moving the widget
             if (_renderer == null) return;
-
             // if this function is called when the renderer is not yet loaded, return
             int[] size = _renderer.GetSize();
             if (size[0] == 0 && size[1] == 0) return;
-
+            //
             double[] max = new double[] { size[0] - _size[0], size[1] - _size[1] };
-
+            //
             if (_widgetPosition == vtkMaxWidgetPosition.FromTopLeft)
             {
                 _position[1] = size[1] - _size[1] - _position[1];
             }
-
-            // check if widget fits into window to prevent looping
-            if (_size[0] < size[0] && _size[1] < size[1])
+            if (_keepInsideVisibleBounds)
             {
-                // prevent the widget from going off the window
-                if (_position[0] < 0 || _position[0] > max[0] || _position[1] < 0 || _position[1] > max[1])
+                // Check if widget fits into window to prevent looping
+                if (_size[0] < size[0] && _size[1] < size[1])
                 {
-                    if (_position[0] < 0) _position[0] = 0;
-                    else if (_position[0] > max[0]) _position[0] = max[0];
+                    // Prevent the widget from going off the window
+                    if (_position[0] < 0 || _position[0] > max[0] || _position[1] < 0 || _position[1] > max[1])
+                    {
+                        if (_position[0] < 0) _position[0] = 0;
+                        else if (_position[0] > max[0]) _position[0] = max[0];
 
-                    if (_position[1] < 0) _position[1] = 0;
-                    else if (_position[1] > max[1]) _position[1] = max[1];
+                        if (_position[1] < 0) _position[1] = 0;
+                        else if (_position[1] > max[1]) _position[1] = max[1];
+                    }
                 }
             }
-
+            //
             if (_widgetPosition == vtkMaxWidgetPosition.FromTopLeft)
             {
                 _position[1] = size[1] - _size[1] - _position[1];
             }
-
+            //
             double[] center = new double[] { _position[0] + _size[0] / 2, _position[1] + _size[1] / 2 };
-            
             // Determine the quadrant
             double[] rendererCenter = new double[] { size[0] * 0.5, size[1] * 0.5 }; // * 0.5 for the change to double
             if (center[0] < rendererCenter[0] && center[1] < rendererCenter[1]) _quadrant = 1;
             else if (center[0] > rendererCenter[0] && center[1] < rendererCenter[1]) _quadrant = 2;
             else if (center[0] > rendererCenter[0] && center[1] > rendererCenter[1]) _quadrant = 3;
             else if (center[0] < rendererCenter[0] && center[1] > rendererCenter[1]) _quadrant = 4;
-
+            //
             UpdateBorderGeometry();
         }
         public virtual void OnSizeChanged()

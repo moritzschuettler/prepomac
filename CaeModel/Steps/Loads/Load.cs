@@ -18,10 +18,12 @@ namespace CaeModel
         private Selection _creationData;                            //ISerializable
         protected bool _twoD;                                       //ISerializable
         protected string _amplitudeName;                            //ISerializable
+        protected string _coordinateSystemName;                     //ISerializable
         protected bool _complex;                                    //ISerializable
         protected EquationContainer _phaseDeg;                      //ISerializable
         protected Color _color;                                     //ISerializable
         public const string DefaultAmplitudeName = "Default";
+        public const string DefaultCoordinateSystemName = "Global";
 
 
         // Properties                                                                                                               
@@ -41,6 +43,19 @@ namespace CaeModel
             {
                 _amplitudeName = value;
                 if (_amplitudeName == DefaultAmplitudeName) _amplitudeName = null;
+            }
+        }
+        public string CoordinateSystemName
+        {
+            get
+            {
+                if (_coordinateSystemName == null) return DefaultCoordinateSystemName;
+                else return _coordinateSystemName;
+            }
+            set
+            {
+                _coordinateSystemName = value;
+                if (_coordinateSystemName == DefaultCoordinateSystemName) _coordinateSystemName = null;
             }
         }
         public bool Complex { get { return _complex; } set { _complex = value; } }
@@ -69,6 +84,7 @@ namespace CaeModel
             _creationData = null;
             _twoD = twoD;
             _amplitudeName = null;
+            _coordinateSystemName = null;
             _complex = complex;
             PhaseDeg = new EquationContainer(typeof(StringAngleDegConverter), phaseDeg);
             _color = Color.RoyalBlue;
@@ -95,6 +111,8 @@ namespace CaeModel
                     case "_amplitudeName":
                     case "Load+_amplitudeName":     // Compatibility for version v1.4.0
                         _amplitudeName = (string)entry.Value; break;
+                    case "_coordinateSystemName":
+                        _coordinateSystemName = (string)entry.Value; break;
                     case "_complex":
                     case "Load+_complex":           // Compatibility for version v1.4.0
                         _complex = (bool)entry.Value; break;
@@ -127,6 +145,25 @@ namespace CaeModel
             EquationContainer.SetAndCheck(ref _phaseDeg, value, CheckAngle, checkEquation);
         }
         //
+        public double[] GetDirectionX(CoordinateSystem coordinateSystem, double[] coor = null)
+        {
+            double[] direction = new double[] { 1, 0, 0 };
+            if (coordinateSystem != null) direction = coordinateSystem.DirectionX(coor);
+            return direction;
+        }
+        public double[] GetDirectionY(CoordinateSystem coordinateSystem, double[] coor = null)
+        {
+            double[] direction = new double[] { 0, 1, 0 };
+            if (coordinateSystem != null) direction = coordinateSystem.DirectionY(coor);
+            return direction;
+        }
+        public double[] GetDirectionZ(CoordinateSystem coordinateSystem, double[] coor = null)
+        {
+            double[] direction = new double[] { 0, 0, 1 };
+            if (coordinateSystem != null) direction = coordinateSystem.DirectionZ(coor);
+            return direction;
+        }
+        //
         private double CheckAngle(double value)
         {
             return Tools.GetPhase360(value);
@@ -155,6 +192,7 @@ namespace CaeModel
             info.AddValue("_creationData", _creationData, typeof(Selection));
             info.AddValue("_twoD", _twoD, typeof(bool));
             info.AddValue("_amplitudeName", _amplitudeName, typeof(string));
+            info.AddValue("_coordinateSystemName", _coordinateSystemName, typeof(string));
             info.AddValue("_complex", _complex, typeof(bool));
             info.AddValue("_phaseDeg", _phaseDeg, typeof(EquationContainer));
             info.AddValue("_color", _color, typeof(Color));

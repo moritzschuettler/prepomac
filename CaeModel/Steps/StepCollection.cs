@@ -253,6 +253,12 @@ namespace CaeModel
             foreach (var step in _steps) allNames.UnionWith(step.BoundaryConditions.Keys);
             return allNames.ToArray();
         }
+        public BoundaryCondition[] GetAllBoundaryConditions()
+        {
+            HashSet<BoundaryCondition> allBCs = new HashSet<BoundaryCondition>();
+            foreach (var step in _steps) allBCs.UnionWith(step.BoundaryConditions.Values);
+            return allBCs.ToArray();
+        }
         public string[] GetStepBoundaryConditionNames(string stepName)
         {
             foreach (var step in _steps)
@@ -368,6 +374,12 @@ namespace CaeModel
             HashSet<string> allNames = new HashSet<string>();
             foreach (var step in _steps) allNames.UnionWith(step.Loads.Keys);
             return allNames.ToArray();
+        }
+        public Load[] GetAllLoads()
+        {
+            HashSet<Load> allLoads = new HashSet<Load>();
+            foreach (var step in _steps) allLoads.UnionWith(step.Loads.Values);
+            return allLoads.ToArray();
         }
         public string[] GetStepLoadNames(string stepName)
         {

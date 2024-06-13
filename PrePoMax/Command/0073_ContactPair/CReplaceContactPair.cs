@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CReplaceContactPair : Command
+    class CReplaceContactPair : PreprocessCommand
     {
         // Variables                                                                                                                
         private string _oldContactPairName;

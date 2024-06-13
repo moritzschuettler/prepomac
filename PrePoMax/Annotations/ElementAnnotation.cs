@@ -22,7 +22,7 @@ namespace PrePoMax
             : base(name)
         {
             _elementId = elementId;
-            _partId = Controller.DisplayedMesh.Elements[_elementId].PartId;
+            _partIds = new int[] { Controller.DisplayedMesh.Elements[_elementId].PartId };
         }
 
 

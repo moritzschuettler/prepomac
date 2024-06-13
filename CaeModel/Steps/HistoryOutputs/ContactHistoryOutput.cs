@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.ComponentModel;
 using CaeGlobals;
+using System.Runtime.Serialization;
 
 namespace CaeModel
 {
@@ -23,10 +24,10 @@ namespace CaeModel
     }
 
     [Serializable]
-    public class ContactHistoryOutput : HistoryOutput
+    public class ContactHistoryOutput : HistoryOutput, ISerializable
     {
         // Variables                                                                                                                
-        private ContactHistoryVariable _variables;
+        private ContactHistoryVariable _variables;          //ISerializable
 
 
         // Properties                                                                                                               
@@ -39,8 +40,31 @@ namespace CaeModel
         {
             _variables = variables;
         }
+        public ContactHistoryOutput(SerializationInfo info, StreamingContext context)
+          : base(info, context)
+        {
+            foreach (SerializationEntry entry in info)
+            {
+                switch (entry.Name)
+                {
+                    case "_variables":
+                    case "ContactHistoryOutput+_variables":     // Compatibility v2.1.0
+                        _variables = (ContactHistoryVariable)entry.Value; break;
+                }
+            }
+        }
 
 
         // Methods                                                                                                                  
+
+
+        // ISerialization
+        public new void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            // Using typeof() works also for null fields
+            base.GetObjectData(info, context);
+            //
+            info.AddValue("_variables", _variables, typeof(ContactHistoryVariable));
+        }
     }
 }

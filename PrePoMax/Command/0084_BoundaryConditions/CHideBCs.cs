@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CHideBCs : Command
+    class CHideBCs : PreprocessCommand
     {
         // Variables                                                                                                                
         private string _stepName;

@@ -409,6 +409,9 @@ namespace CaeModel
                     // Amplitude
                     if (bc.AmplitudeName != BoundaryCondition.DefaultAmplitudeName &&
                         !_amplitudes.ContainsValidKey(bc.AmplitudeName)) valid = false;
+                    // Coordinate system
+                    if (bc.CoordinateSystemName != BoundaryCondition.DefaultCoordinateSystemName &&
+                        !_mesh.CoordinateSystems.ContainsValidKey(bc.CoordinateSystemName)) valid = false;
                     // Check equations
                     valid &= bc.TryCheckEquations();
                     //
@@ -435,8 +438,11 @@ namespace CaeModel
                         }
                     }
                     // Amplitude
-                    if (load.AmplitudeName != BoundaryCondition.DefaultAmplitudeName && 
+                    if (load.AmplitudeName != Load.DefaultAmplitudeName && 
                         !_amplitudes.ContainsValidKey(load.AmplitudeName)) valid = false;
+                    // Coordinate system
+                    if (load.CoordinateSystemName != Load.DefaultCoordinateSystemName &&
+                        !_mesh.CoordinateSystems.ContainsValidKey(load.CoordinateSystemName)) valid = false;
                     // Check equations
                     valid &= load.TryCheckEquations();
                     //

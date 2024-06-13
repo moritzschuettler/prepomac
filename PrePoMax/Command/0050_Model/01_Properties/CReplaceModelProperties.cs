@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CReplaceModelProperties : Command
+    class CReplaceModelProperties : PreprocessCommand
     {
         // Variables                                                                                                                
         private string _newModelName;

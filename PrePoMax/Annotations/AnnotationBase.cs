@@ -11,24 +11,24 @@ namespace PrePoMax
     public abstract class AnnotationBase : NamedClass
     {
         // Variables                                                                                                                
-        protected int _partId;
-        protected string _overridenText;
+        protected int[] _partIds;
+        protected string _overriddenText;
         //
         [NonSerialized] public static Controller Controller;
 
 
         // Properties                                                                                                               
-        public int PartId { get { return _partId; } set { _partId = value; } }
-        public bool IsTextOverridden { get { return _overridenText != null; } }
-        public string OverriddenText { get { return _overridenText; } set { _overridenText = value; } }
+        public int[] PartIds { get { return _partIds; } set { _partIds = value; } }
+        public bool IsTextOverridden { get { return _overriddenText != null; } }
+        public string OverriddenText { get { return _overriddenText; } set { _overriddenText = value; } }
 
 
         // Constructors                                                                                                             
         public AnnotationBase(string name)
             : base(name)
         {
-            _partId = -1;   // always visible
-            _overridenText = null;
+            _partIds = null;   // always visible
+            _overriddenText = null;
         }
 
 
@@ -37,13 +37,16 @@ namespace PrePoMax
         {
             if (this.Visible)
             {
-                if (_partId == -1) return true;
+                if (_partIds == null) return true;
                 //
                 CaeMesh.FeMesh mesh = Controller.DisplayedMesh;
                 if (mesh != null)
                 {
-                    CaeMesh.BasePart part = mesh.GetPartFromId(_partId);
-                    if (part != null && part.Visible) return true;
+                    foreach (var partId in _partIds)
+                    {
+                        CaeMesh.BasePart part = mesh.GetPartFromId(partId);
+                        if (part != null && part.Visible) return true;
+                    }
                 }
             }
             //
@@ -58,12 +61,12 @@ namespace PrePoMax
         }
         public string GetNotOverriddenAnnotationText()
         {
-            string tmp = _overridenText;
-            _overridenText = null;
+            string tmp = _overriddenText;
+            _overriddenText = null;
             //
             GetAnnotationData(out string text, out _);
             //
-            _overridenText = tmp;
+            _overriddenText = tmp;
             //
             return text;
         }
@@ -72,10 +75,13 @@ namespace PrePoMax
         {
             if (Controller.IsExplodedViewActive())
             {
-                CaeMesh.BasePart part = Controller.AllResults.CurrentResult.Mesh.GetPartFromId(_partId);
-                position.X += part.Offset[0];
-                position.Y += part.Offset[1];
-                position.Z += part.Offset[2];
+                if (_partIds != null && _partIds.Length > 0)
+                {
+                    CaeMesh.BasePart part = Controller.AllResults.CurrentResult.Mesh.GetPartFromId(_partIds[0]);
+                    position.X += part.Offset[0];
+                    position.Y += part.Offset[1];
+                    position.Z += part.Offset[2];
+                }
             }
         }
 

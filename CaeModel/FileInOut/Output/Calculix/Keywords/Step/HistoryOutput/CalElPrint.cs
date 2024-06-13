@@ -32,7 +32,9 @@ namespace FileInOut.Output.Calculix
             string totals = "";
             if (_elementHistoryOutput.TotalsType == TotalsTypeEnum.Yes) totals = ", Totals=Yes";
             else if (_elementHistoryOutput.TotalsType == TotalsTypeEnum.Only) totals = ", Totals=Only";
-            return string.Format("*El print{0}{1}{2}", regionName, totals, Environment.NewLine);
+            string global = _elementHistoryOutput.Global ? ", Global=Yes" : "";
+            //
+            return string.Format("*El print{0}{1}{2}{3}", regionName, totals, global, Environment.NewLine);
         }
         public override string GetDataString()
         {

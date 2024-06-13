@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CAddInitialCondition : Command
+    class CAddInitialCondition : PreprocessCommand
     {
         // Variables                                                                                                                
         private InitialCondition _initialCondition;

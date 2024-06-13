@@ -95,6 +95,9 @@ namespace FileInOut.Output
                 List<CalElement> additionalElementKeywords = new List<CalElement>();
                 HashSet<string> additionalElementSetNames = new HashSet<string>();
                 Dictionary<string, int[]> referencePointsNodeIds;
+                Dictionary<string, string[]> referencePointsNodeSetNames;
+                Dictionary<CoordinateSystem, HashSet<string>> coordinateSystemNodeSets =
+                    new Dictionary<CoordinateSystem, HashSet<string>>();
                 List<SectionData> additionalSectionData = new List<SectionData>();
                 List<Material> additionalMaterials = new List<Material>();
                 List<BoundaryCondition> additionalBoundaryConditions = new List<BoundaryCondition>();
@@ -104,7 +107,10 @@ namespace FileInOut.Output
                 // Collect pre-tension loads to use them in reference point preparation
                 GetPretensionLoads(model, out preTensionLoads);
                 // Prepare reference points
-                GetReferencePoints(model, preTensionLoads, ref maxNodeId, out referencePointsNodeIds);
+                GetReferencePoints(model, preTensionLoads, ref maxNodeId, ref additionalNodeSets,
+                                   out referencePointsNodeSetNames, out referencePointsNodeIds);
+                // Prepare coordinate system-node set pairs
+                GetCoordinateSystemNodeSet(model, referencePointsNodeSetNames, ref coordinateSystemNodeSets);
                 // Fix pyramid surfaces
                 FixPyramidSurfaces(model, convertPyramidsTo, ref replacedElements, ref additionalElementSetNames);
                 // Prepare mass sections
@@ -145,7 +151,7 @@ namespace FileInOut.Output
                 // Node sets
                 title = new CalTitle("Node sets", "");
                 keywords.Add(title);
-                AppendNodeSets(model, additionalNodeSets, referencePointsNodeIds, title);
+                AppendNodeSets(model, additionalNodeSets, title);
                 // Element sets
                 title = new CalTitle("Element sets", "");
                 keywords.Add(title);
@@ -158,6 +164,10 @@ namespace FileInOut.Output
                 title = new CalTitle("Physical constants", "");
                 keywords.Add(title);
                 AppendPhysicalConstants(model, title);
+                // Coordinate systems
+                title = new CalTitle("Coordinate systems", "");
+                keywords.Add(title);
+                AppendCoordinateSystems(coordinateSystemNodeSets, title);
                 // Materials
                 title = new CalTitle("Materials", "");
                 keywords.Add(title);
@@ -231,18 +241,47 @@ namespace FileInOut.Output
             }
         }
         static private void GetReferencePoints(FeModel model, OrderedDictionary<string, List<PreTensionLoad>> preTensionLoads,
-                                               ref int maxNodeId, out Dictionary<string, int[]> referencePointsNodeIds)
+                                               ref int maxNodeId, ref List<FeNodeSet> additionalNodeSets,
+                                               out Dictionary<string, string[]> referencePointsNodeSetNames,
+                                               out Dictionary<string, int[]> referencePointsNodeIds)
         {
+            HashSet<string> allNodeSetNames = new HashSet<string>(model.Mesh.NodeSets.Keys);
+            foreach (var nodeSet in additionalNodeSets) allNodeSetNames.Add(nodeSet.Name);
+            //
+            string[] nodeSetNames;
+            FeNodeSet rpNodeSet;
             referencePointsNodeIds = new Dictionary<string, int[]>();
+            referencePointsNodeSetNames = new Dictionary<string, string[]>();
             if (model.Mesh != null)
             {
                 // Fill reference point nodes
                 int id = maxNodeId;
+                FeReferencePoint rp;
                 foreach (var entry in model.Mesh.ReferencePoints)
                 {
+                    rp = entry.Value;
+                    // Check name
+                    rp.RefNodeSetName = rp.Name + FeReferencePoint.RefName + id + 1;
+                    if (allNodeSetNames.Contains(rp.RefNodeSetName))
+                        rp.RefNodeSetName = allNodeSetNames.GetNextNumberedKey(rp.RefNodeSetName);
+                    rp.RotNodeSetName = rp.Name + FeReferencePoint.RotName + id + 2;
+                    if (allNodeSetNames.Contains(rp.RotNodeSetName))
+                        rp.RotNodeSetName = allNodeSetNames.GetNextNumberedKey(rp.RotNodeSetName);
+                    //
+                    rpNodeSet = new FeNodeSet(rp.RefNodeSetName, new int[] { id + 1 });
+                    additionalNodeSets.Add(rpNodeSet);
+                    allNodeSetNames.Add(rpNodeSet.Name);
+                    //
+                    rpNodeSet = new FeNodeSet(rp.RotNodeSetName, new int[] { id + 2 });
+                    additionalNodeSets.Add(rpNodeSet);
+                    allNodeSetNames.Add(rpNodeSet.Name);
+                    //
+                    nodeSetNames = new string[] { rp.RefNodeSetName, rp.RotNodeSetName };
+                    referencePointsNodeSetNames.Add(entry.Key, nodeSetNames);
                     referencePointsNodeIds.Add(entry.Key, new int[] { id + 1, id + 2 });
                     id += 2;
                 }
+                //
                 foreach (var entry in preTensionLoads)
                 {
                     referencePointsNodeIds.Add(entry.Key, new int[] { id + 1 });
@@ -250,6 +289,96 @@ namespace FileInOut.Output
                 }
                 //
                 maxNodeId = id;
+            }
+        }
+        static private void GetCoordinateSystemNodeSet(FeModel model, Dictionary<string, string[]> referencePointsNodeSetNames,
+                                                       ref Dictionary<CoordinateSystem, HashSet<string>> coordinateSystemNodeSets)
+        {
+            if (model == null || model.StepCollection == null || model.Mesh.CoordinateSystems == null ||
+                model.Mesh.CoordinateSystems.Count() == 0) return;
+            //
+            string nodeSetName;
+            HashSet<string> nodeSetNames;
+            FeSurface surface;
+            FeReferencePoint referencePoint;
+            CoordinateSystem coordinateSystem;
+            // Boundary conditions
+            foreach (var boundaryCondition in model.StepCollection.GetAllBoundaryConditions())
+            {
+                if (boundaryCondition.Active && 
+                    model.Mesh.CoordinateSystems.TryGetValue(boundaryCondition.CoordinateSystemName, out coordinateSystem) &&
+                    coordinateSystem != null && boundaryCondition is DisplacementRotation displacementRotation)
+                {
+                    // Node set
+                    if (displacementRotation.RegionType == RegionTypeEnum.NodeSetName)
+                    {
+                        nodeSetName = displacementRotation.RegionName;
+                        if (coordinateSystemNodeSets.TryGetValue(coordinateSystem, out nodeSetNames))
+                            nodeSetNames.Add(nodeSetName);
+                        else coordinateSystemNodeSets.Add(coordinateSystem, new HashSet<string>() { nodeSetName });
+                    }
+                    // Surface
+                    else if (displacementRotation.RegionType == RegionTypeEnum.SurfaceName)
+                    {
+                        surface = model.Mesh.Surfaces[displacementRotation.RegionName];
+                        nodeSetName = surface.NodeSetName;
+                        if (coordinateSystemNodeSets.TryGetValue(coordinateSystem, out nodeSetNames))
+                            nodeSetNames.Add(nodeSetName);
+                        else coordinateSystemNodeSets.Add(coordinateSystem, new HashSet<string>() { nodeSetName });
+                    }
+                    // Reference point - user coordinate systems do not work for reference points
+                    else if (displacementRotation.RegionType == RegionTypeEnum.ReferencePointName)
+                    {
+                        //referencePoint = model.Mesh.ReferencePoints[displacementRotation.RegionName];
+                        //nodeSetName = referencePointsNodeSetNames[referencePoint.Name][0];
+                        ////
+                        //if (coordinateSystemNodeSets.TryGetValue(coordinateSystem, out nodeSetNames))
+                        //    nodeSetNames.Add(nodeSetName);
+                        //else coordinateSystemNodeSets.Add(coordinateSystem, new HashSet<string>() { nodeSetName });
+                    }
+                }
+            }
+            // Loads
+            foreach (var load in model.StepCollection.GetAllLoads())
+            {
+                if (load.Active &&
+                    model.Mesh.CoordinateSystems.TryGetValue(load.CoordinateSystemName, out coordinateSystem) &&
+                    coordinateSystem != null)
+                {
+                    if (load is CLoad cLoad)
+                    {
+                        // Node set
+                        if (load.RegionType == RegionTypeEnum.NodeSetName)
+                        {
+                            nodeSetName = load.RegionName;
+                            if (coordinateSystemNodeSets.TryGetValue(coordinateSystem, out nodeSetNames))
+                                nodeSetNames.Add(nodeSetName);
+                            else coordinateSystemNodeSets.Add(coordinateSystem, new HashSet<string>() { nodeSetName });
+                        }
+                        // Reference point
+                        else if (load.RegionType == RegionTypeEnum.ReferencePointName)
+                        {
+                            referencePoint = model.Mesh.ReferencePoints[load.RegionName];
+                            nodeSetName = referencePointsNodeSetNames[referencePoint.Name][0];
+                            //
+                            if (coordinateSystemNodeSets.TryGetValue(coordinateSystem, out nodeSetNames))
+                                nodeSetNames.Add(nodeSetName);
+                            else coordinateSystemNodeSets.Add(coordinateSystem, new HashSet<string>() { nodeSetName });
+                        }
+                    }
+                    else if (load is STLoad stLoad)
+                    {
+                        // Surface
+                        if (stLoad.RegionType == RegionTypeEnum.SurfaceName)
+                        {
+                            surface = model.Mesh.Surfaces[stLoad.RegionName];
+                            nodeSetName = surface.NodeSetName;
+                            if (coordinateSystemNodeSets.TryGetValue(coordinateSystem, out nodeSetNames))
+                                nodeSetNames.Add(nodeSetName);
+                            else coordinateSystemNodeSets.Add(coordinateSystem, new HashSet<string>() { nodeSetName });
+                        }
+                    }
+                }
             }
         }
         static private void FixPyramidSurfaces(FeModel model, ConvertPyramidsToEnum convertPyramidsTo,
@@ -1036,8 +1165,7 @@ namespace FileInOut.Output
             CalAdditional calAdditionalElements = new CalAdditional("Additional elements", sb.ToString());
             if (calAdditionalElements.GetDataString().Length > 0) parent.AddKeyword(calAdditionalElements);
         }
-        static private void AppendNodeSets(FeModel model, List<FeNodeSet> additionalNodeSets,
-                                           Dictionary<string, int[]> referencePointsNodeIds, CalculixKeyword parent)
+        static private void AppendNodeSets(FeModel model, List<FeNodeSet> additionalNodeSets, CalculixKeyword parent)
         {
             if (model.Mesh != null)
             {
@@ -1051,33 +1179,6 @@ namespace FileInOut.Output
                 FeReferencePoint rp;
                 FeNodeSet rpNodeSet;
                 CalNodeSet calNodeSet;
-                foreach (var entry in referencePointsNodeIds)
-                {
-                    if (model.Mesh.ReferencePoints.TryGetValue(entry.Key, out rp))
-                    {
-                        rp.RefNodeSetName = rp.Name + FeReferencePoint.RefName + entry.Value[0];
-                        rp.RotNodeSetName = rp.Name + FeReferencePoint.RotName + entry.Value[1];
-                        // Check name
-                        if (nodeSetNames.Contains(rp.RefNodeSetName))
-                        {
-                            rp.RefNodeSetName = nodeSetNames.GetNextNumberedKey(rp.RefNodeSetName);
-                            nodeSetNames.Add(rp.RefNodeSetName);
-                        }
-                        if (nodeSetNames.Contains(rp.RotNodeSetName))
-                        {
-                            rp.RotNodeSetName = nodeSetNames.GetNextNumberedKey(rp.RotNodeSetName);
-                            nodeSetNames.Add(rp.RotNodeSetName);
-                        }
-                        //
-                        rpNodeSet = new FeNodeSet(rp.RefNodeSetName, new int[] { entry.Value[0] });
-                        calNodeSet = new CalNodeSet(rpNodeSet);
-                        parent.AddKeyword(calNodeSet);
-                        //
-                        rpNodeSet = new FeNodeSet(rp.RotNodeSetName, new int[] { entry.Value[1] });
-                        calNodeSet = new CalNodeSet(rpNodeSet);
-                        parent.AddKeyword(calNodeSet);
-                    }
-                }
                 // Initial conditions
                 FeNodeSet nodeSet;
                 foreach (var entry in model.InitialConditions)
@@ -1196,6 +1297,25 @@ namespace FileInOut.Output
                     else parent.AddKeyword(new CalDeactivated(entry.Value.Name));
                 }
             }
+        }
+        static private void AppendPhysicalConstants(FeModel model, CalculixKeyword parent)
+        {
+            if (model != null)
+            {
+                CalPhysicalConstants calPhysicalConstants = new CalPhysicalConstants(model.Properties);
+                if (calPhysicalConstants.GetKeywordString().Length > 0) parent.AddKeyword(calPhysicalConstants);
+            }
+        }
+        static private void AppendCoordinateSystems(Dictionary<CoordinateSystem, HashSet<string>> coordinateSystemNodeSets,
+                                                    CalculixKeyword parent)
+        {
+            foreach (var entry in coordinateSystemNodeSets)
+            {
+                foreach (var nodeSetName in entry.Value)
+                {
+                    parent.AddKeyword(new CalTransform(entry.Key, nodeSetName));
+                }
+            }    
         }
         static private void AppendMaterials(FeModel model, CalculixKeyword parent, 
                                             List<Material> additionalMaterials,
@@ -1470,14 +1590,6 @@ namespace FileInOut.Output
                     }
                     else parent.AddKeyword(new CalDeactivated(entry.Value.Name));
                 }
-            }
-        }
-        static private void AppendPhysicalConstants(FeModel model, CalculixKeyword parent)
-        {
-            if (model != null)
-            {
-                CalPhysicalConstants calPhysicalConstants = new CalPhysicalConstants(model.Properties);
-                if (calPhysicalConstants.GetKeywordString().Length > 0) parent.AddKeyword(calPhysicalConstants);
             }
         }
         //

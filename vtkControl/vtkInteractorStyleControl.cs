@@ -144,6 +144,7 @@ namespace vtkControl
         public event Action<MouseEventArgs, bool, int, int> PointPickedOnLeftUpEvt;
         public event Action ClearCurrentMouseSelection;
         public event Action<object, MouseEventArgs> RightButtonPressEvent;
+        public event Action ZoomChangedEvent;
 
 
         // Constructors                                                                                                             
@@ -452,6 +453,8 @@ namespace vtkControl
                     widget.MouseWheelScrolled();
                 }
 
+                if (ZoomChangedEvent != null) ZoomChangedEvent();
+
                 this.GetInteractor().Modified();
                 this.GetInteractor().Render();
             }            
@@ -480,6 +483,8 @@ namespace vtkControl
                 {
                     widget.MouseWheelScrolled();
                 }
+
+                if (ZoomChangedEvent != null) ZoomChangedEvent();
 
                 this.GetInteractor().Modified();
                 this.GetInteractor().Render();                
@@ -1076,3 +1081,4 @@ namespace vtkControl
 
     }
 }
+

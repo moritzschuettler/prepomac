@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CSplitAFaceUsingTwoPoints : Command
+    class CSplitAFaceUsingTwoPoints : PreprocessCommand
     {
         // Variables                                                                                                                
         private GeometrySelection _surfaceSelection;

@@ -13,7 +13,7 @@ using PrePoMax.Forms;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CAddJob : Command
+    class CAddJob : PreprocessCommand
     {
         // Variables                                                                                                                
         private AnalysisJob _job;

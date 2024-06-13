@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CReplaceParameter : Command
+    class CReplaceParameter : PreprocessCommand
     {
         // Variables                                                                                                                
         private string _oldParameterName;

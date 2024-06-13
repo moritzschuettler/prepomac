@@ -170,9 +170,9 @@ namespace PrePoMax.Forms
                     _translateParameters.Y2 = node.Y;
                     _translateParameters.Z2 = node.Z;
                 }
-
+                //
                 propertyGrid.Refresh();
-
+                //
                 HighlightNodes();
             }
         }

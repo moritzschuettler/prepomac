@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CShowGeometryParts : Command
+    class CShowGeometryParts : PreprocessCommand
     {
         // Variables                                                                                                                
         private string[] _partNames;

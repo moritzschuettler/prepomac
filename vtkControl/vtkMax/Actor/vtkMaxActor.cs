@@ -17,6 +17,7 @@ namespace vtkControl
         //
         private vtkMapper _geometryMapper;
         // Actors
+        private vtkActor2D _caption;
         private vtkActor _geometry;
         private vtkActor _elementEdges;
         private vtkActor _modelEdges;
@@ -34,7 +35,9 @@ namespace vtkControl
         private vtkMaxActor _sectionViewActor;
         private List<vtkMaxActor> _copies;
         //
-        public vtkMaxActorRepresentation _actorRepresentation;
+        private bool _isAPart;
+        private vtkMaxActorRepresentation _actorRepresentation;
+        //
         private bool _visible;
         private bool _backfaceCulling;
         private System.Drawing.Color _color;
@@ -63,6 +66,7 @@ namespace vtkControl
             }
         }
         // Actors
+        public vtkActor2D Caption { get { return _caption; } set { _caption = value; } }
         public vtkActor Geometry
         {
             get { return _geometry; }
@@ -122,6 +126,8 @@ namespace vtkControl
         public vtkPointData FrustumPointData { get { return _frustumPointData; } }
         public vtkMaxActor SectionViewActor { get { return _sectionViewActor; } set { _sectionViewActor = value; } }
         public List<vtkMaxActor> Copies { get { return _copies; } }
+        //
+        public bool IsAPart { get { return _isAPart; } }
         public vtkMaxActorRepresentation ActorRepresentation
         {
             get { return _actorRepresentation; }
@@ -214,6 +220,8 @@ namespace vtkControl
             _frustumCellLocator = null;
             _sectionViewActor = null;
             _copies = new List<vtkMaxActor>();
+            //
+            _isAPart = false;
             _actorRepresentation = vtkMaxActorRepresentation.Unknown;
             _visible = true;
             _backfaceCulling = true;
@@ -279,14 +287,34 @@ namespace vtkControl
             _colorContours = data.ColorContours;
             _sectionViewPossible = data.SectionViewPossible;
             _drawOnGeometry = data.DrawOnGeometry;
-            _useSecondaryHighlightColor = data.UseSecondaryHighightColor;
+            _useSecondaryHighlightColor = data.UseSecondaryHighlightColor;
+            //
+            UpdateColor();
+        }
+        public vtkMaxActor(vtkMaxActorData data, vtkActor2D caption)
+            : this()
+        {
+            _name = data.Name;
+            _caption = caption;
+            //
+            _actorRepresentation = data.ActorRepresentation;
+            _backfaceCulling = data.BackfaceCulling;
+            _color = data.Color;
+            _backfaceColor = data.BackfaceColor;
+            _colorTable = data.ColorTable;
+            _ambient = data.Ambient;
+            _diffuse = data.Diffuse;
+            _colorContours = data.ColorContours;
+            _sectionViewPossible = data.SectionViewPossible;
+            _drawOnGeometry = data.DrawOnGeometry;
+            _useSecondaryHighlightColor = data.UseSecondaryHighlightColor;
             //
             UpdateColor();
         }
         public vtkMaxActor(vtkMaxActorData data, bool extractVisualizationSurface, bool createNodalActor)
             : this()
         {
-            this._name = data.Name;
+            _name = data.Name;
             //
             if ((data.Geometry.Cells.CellNodeIds == null && data.Geometry.Nodes.Coor != null) || createNodalActor)
             {
@@ -318,6 +346,7 @@ namespace vtkControl
             if (_modelEdgesProperty != null) _modelEdgesProperty.SetPointSize(data.NodeSize);
             if (_elementEdgesProperty != null) _elementEdgesProperty.SetPointSize(data.NodeSize);
             //
+            _isAPart = data.IsAPart;
             _actorRepresentation = data.ActorRepresentation;
             _backfaceCulling = data.BackfaceCulling;
             _color = data.Color;
@@ -328,14 +357,14 @@ namespace vtkControl
             _colorContours = data.ColorContours;
             _sectionViewPossible = data.SectionViewPossible;
             _drawOnGeometry = data.DrawOnGeometry;
-            _useSecondaryHighlightColor = data.UseSecondaryHighightColor;
+            _useSecondaryHighlightColor = data.UseSecondaryHighlightColor;
             //
             UpdateColor();
         }
         public vtkMaxActor(vtkMaxActor sourceActor)
           : this()
         {
-            this._name = sourceActor.Name;           
+            _name = sourceActor.Name;
             //
             if (sourceActor.MinNode != null) _minNode = new vtkMaxExtreemeNode(sourceActor.MinNode);
             if (sourceActor.MaxNode != null) _maxNode = new vtkMaxExtreemeNode(sourceActor.MaxNode);
@@ -413,6 +442,7 @@ namespace vtkControl
             // transformed copies
             _copies = new List<vtkMaxActor>(sourceActor.Copies);
             //
+            _isAPart = sourceActor.IsAPart;
             _actorRepresentation = sourceActor.ActorRepresentation;
             VtkMaxActorVisible = sourceActor.VtkMaxActorVisible;
             _backfaceCulling = sourceActor.BackfaceCulling;

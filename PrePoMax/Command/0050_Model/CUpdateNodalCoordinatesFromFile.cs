@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CUpdateNodalCoordinatesFromFile : Command
+    class CUpdateNodalCoordinatesFromFile : PreprocessCommand
     {
         // Variables                                                                                                                
         private string _fileName;

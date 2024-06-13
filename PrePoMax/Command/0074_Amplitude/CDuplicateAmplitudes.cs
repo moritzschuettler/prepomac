@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CDuplicateAmplitudes : Command
+    class CDuplicateAmplitudes : PreprocessCommand
     {
         // Variables                                                                                                                
         private string[] _amplitudeNames;

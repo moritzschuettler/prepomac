@@ -38,6 +38,7 @@ namespace FileInOut.Output.Calculix
             string masterSlave = "";
             if (_contactHistoryOutput.Variables.HasFlag(ContactHistoryVariable.CF))
                 masterSlave = ", Master=" + _masterName + ", Slave=" + _slaveName;
+            //
             return string.Format("*Contact print{0}{1}{2}", totals, masterSlave, Environment.NewLine);
         }
         public override string GetDataString()

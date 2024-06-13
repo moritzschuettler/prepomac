@@ -13,6 +13,8 @@ using CaeMesh;
 using CaeJob;
 using CaeResults;
 using System.Xml.Linq;
+using System.Security.Cryptography;
+using static CaeGlobals.Geometry2;
 
 namespace UserControls
 {
@@ -99,7 +101,9 @@ namespace UserControls
         private TreeNode _modelNodeSets;            //     3
         private TreeNode _modelElementSets;         //     3
         private TreeNode _modelSurfaces;            //     3
-        private TreeNode _referencePoints;          //     3
+        private TreeNode _modelFeatures;            //   2
+        private TreeNode _modelReferencePoints;     //     3
+        private TreeNode _modelCoordinateSystems;   //     3
         private TreeNode _materials;                //   2
         private TreeNode _sections;                 //   2
         private TreeNode _constraints;              //   2
@@ -111,11 +115,15 @@ namespace UserControls
         private TreeNode _steps;                    //   2
         private TreeNode _analyses;                 // 1
         // Results
-        private TreeNode _resultMesh;               // 1
-        private TreeNode _resultParts;              //   2
-        private TreeNode _resultNodeSets;           //   2
-        private TreeNode _resultElementSets;        //   2
-        private TreeNode _resultSurfaces;           //   2
+        private TreeNode _resultModel;              // 1
+        private TreeNode _resultMesh;               //   2
+        private TreeNode _resultParts;              //     3
+        private TreeNode _resultNodeSets;           //     3
+        private TreeNode _resultElementSets;        //     3
+        private TreeNode _resultSurfaces;           //     3
+        private TreeNode _resultFeatures;           //   2
+        private TreeNode _resultReferencePoints;    //     3
+        private TreeNode _resultCoordinateSystems;  //     3
         private TreeNode _results;                  // 1
         private TreeNode _resultFieldOutputs;       //   2
         private TreeNode _resultHistoryOutputs;     //   2
@@ -129,7 +137,9 @@ namespace UserControls
         private string _modelNodeSetsName = "Node Sets";
         private string _modelElementSetsName = "Element Sets";
         private string _modelSurfacesName = "Surfaces";
-        private string _referencePointsName = "Reference Points";
+        private string _modelFeaturesName = "Features";
+        private string _modelReferencePointsName = "Reference Points";
+        private string _modelCoordinateSystemsName = "Coordinate Systems";
         private string _materialsName = "Materials";
         private string _sectionsName = "Sections";
         private string _constraintsName = "Constraints";
@@ -139,18 +149,22 @@ namespace UserControls
         private string _amplitudesName = "Amplitudes";
         private string _initialConditionsName = "Initial Conditions";
         private string _stepsName = "Steps";
-        private string _fieldOutputsName = "Field Outputs";
-        private string _historyOutputsName = "History Outputs";
+        private string _modelFieldOutputsName = "Field Outputs";
+        private string _modelHistoryOutputsName = "History Outputs";
         private string _boundaryConditionsName = "BCs";
         private string _loadsName = "Loads";
         private string _definedFieldsName = "Defined Fields";
         private string _analysesName = "Analyses";
         // Results
+        private string _resultModelName = "Model";
         private string _resultMeshName = "Mesh";
         private string _resultPartsName = "Parts";
         private string _resultNodeSetsName = "Node Sets";
         private string _resultElementSetsName = "Element Sets";
         private string _resultSurfacesName = "Surfaces";
+        private string _resultFeaturesName = "Features";
+        private string _resultReferencePointsName = "Reference Points";
+        private string _resultCoordinateSystemsName = "Coordinate Systems";
         private string _resultsName = "Results";
         private string _resultFieldOutputsName = "Field Outputs";
         private string _resultHistoryOutputsName = "History Outputs";
@@ -220,7 +234,8 @@ namespace UserControls
         public string NodeSetsName { get { return _modelNodeSetsName; } }
         public string ElementSetsName { get { return _modelElementSetsName; } }
         public string SurfacesName { get { return _modelSurfacesName; } }
-        public string ReferencePointsName { get { return _referencePointsName; } }
+        public string ModelReferencePointsName { get { return _modelReferencePointsName; } }
+        public string ModelCoordinateSystemsName { get { return _modelCoordinateSystemsName; } }
         public string MaterialsName { get { return _materialsName; } }
         public string SectionsName { get { return _sectionsName; } }
         public string ConstraintsName { get { return _constraintsName; } }
@@ -229,12 +244,17 @@ namespace UserControls
         public string AmplitudesName { get { return _amplitudesName; } }
         public string InitialConditionsName { get { return _initialConditionsName; } }
         public string StepsName { get { return _stepsName; } }
-        public string HistoryOutputsName { get { return _historyOutputsName; } }
-        public string FieldOutputsName { get { return _fieldOutputsName; } }
+        public string ModelHistoryOutputsName { get { return _modelHistoryOutputsName; } }
+        public string ModelFieldOutputsName { get { return _modelFieldOutputsName; } }
         public string BoundaryConditionsName { get { return _boundaryConditionsName; } }
         public string LoadsName { get { return _loadsName; } }
         public string DefinedFieldsName { get { return _definedFieldsName; } }
         public string AnalysesName { get { return _analysesName; } }
+        //Results
+        public string ResultReferencePointsName { get { return _resultReferencePointsName; } }
+        public string ResultCoordinateSystemsName { get { return _resultCoordinateSystemsName; } }
+        public string ResultHistoryOutputsName { get { return _resultHistoryOutputsName; } }
+        public string ResultFieldOutputsName { get { return _resultFieldOutputsName; } }
 
 
         // Events                                                                                                                   
@@ -296,7 +316,9 @@ namespace UserControls
             _modelNodeSets = cltvModel.Nodes.Find(_modelNodeSetsName, true)[0];
             _modelElementSets = cltvModel.Nodes.Find(_modelElementSetsName, true)[0];
             _modelSurfaces = cltvModel.Nodes.Find(_modelSurfacesName, true)[0];
-            _referencePoints = cltvModel.Nodes.Find(_referencePointsName, true)[0];
+            _modelFeatures = cltvModel.Nodes.Find(_modelFeaturesName, true)[0];
+            _modelReferencePoints = cltvModel.Nodes.Find(_modelReferencePointsName, true)[0];
+            _modelCoordinateSystems = cltvModel.Nodes.Find(_modelCoordinateSystemsName, true)[0];
             _materials = cltvModel.Nodes.Find(_materialsName, true)[0];
             _sections = cltvModel.Nodes.Find(_sectionsName, true)[0];
             _constraints = cltvModel.Nodes.Find(_constraintsName, true)[0];
@@ -308,11 +330,15 @@ namespace UserControls
             _steps = cltvModel.Nodes.Find(_stepsName, true)[0];
             _analyses = cltvModel.Nodes.Find(_analysesName, true)[0];
             // Results
+            _resultModel = cltvResults.Nodes.Find(_resultModelName, true)[0];
             _resultMesh = cltvResults.Nodes.Find(_resultMeshName, true)[0];
             _resultParts = cltvResults.Nodes.Find(_resultPartsName, true)[0];
             _resultNodeSets = cltvResults.Nodes.Find(_resultNodeSetsName, true)[0];
             _resultElementSets = cltvResults.Nodes.Find(_resultElementSetsName, true)[0];
             _resultSurfaces = cltvResults.Nodes.Find(_resultSurfacesName, true)[0];
+            _resultFeatures = cltvResults.Nodes.Find(_resultFeaturesName, true)[0];
+            _resultReferencePoints = cltvResults.Nodes.Find(_resultReferencePointsName, true)[0];
+            _resultCoordinateSystems = cltvResults.Nodes.Find(_resultCoordinateSystemsName, true)[0];
             _results = cltvResults.Nodes.Find(_resultsName, true)[0];
             _resultFieldOutputs = cltvResults.Nodes.Find(_resultFieldOutputsName, true)[0];
             _resultHistoryOutputs = cltvResults.Nodes.Find(_resultHistoryOutputsName, true)[0];
@@ -327,7 +353,9 @@ namespace UserControls
             _modelNodeSets.StateImageKey = "Node_set";
             _modelElementSets.StateImageKey = "Element_set";
             _modelSurfaces.StateImageKey = "Surface";
-            _referencePoints.StateImageKey = "Reference_point";
+            _modelFeatures.StateImageKey = "Features";
+            _modelReferencePoints.StateImageKey = "Reference_point";
+            _modelCoordinateSystems.StateImageKey = "CoordinateSystem";
             _materials.StateImageKey = "Material";
             _sections.StateImageKey = "Section";
             _constraints.StateImageKey = "Constraints";
@@ -343,6 +371,9 @@ namespace UserControls
             _resultNodeSets.StateImageKey = "Node_set";
             _resultElementSets.StateImageKey = "Element_set";
             _resultSurfaces.StateImageKey = "Surface";
+            _resultFeatures.StateImageKey = "Features";
+            _resultReferencePoints.StateImageKey = "Reference_point";
+            _resultCoordinateSystems.StateImageKey = "CoordinateSystem";
             _resultFieldOutputs.StateImageKey = "Field_output";
             _resultHistoryOutputs.StateImageKey = "History_output";
             //
@@ -1610,7 +1641,9 @@ namespace UserControls
             _modelNodeSets.Nodes.Clear();
             _modelElementSets.Nodes.Clear();
             _modelSurfaces.Nodes.Clear();
-            _referencePoints.Nodes.Clear();
+            _modelFeatures.Nodes.Clear();
+            _modelReferencePoints.Nodes.Clear();
+            _modelCoordinateSystems.Nodes.Clear();
             _materials.Nodes.Clear();
             _sections.Nodes.Clear();
             _constraints.Nodes.Clear();
@@ -1620,7 +1653,7 @@ namespace UserControls
             _amplitudes.Nodes.Clear();
             _initialConditions.Nodes.Clear();
             _steps.Nodes.Clear();
-            _analyses.Nodes.Clear();            
+            _analyses.Nodes.Clear();
             //
             SetNumberOfUserKeywords(0);
             // Geometry
@@ -1631,7 +1664,9 @@ namespace UserControls
             _modelNodeSets.Text = _modelNodeSetsName;
             _modelElementSets.Text = _modelElementSetsName;
             _modelSurfaces.Text = _modelSurfacesName;
-            _referencePoints.Text = _referencePointsName;
+            _modelFeatures.Text = _modelFeaturesName;
+            _modelReferencePoints.Text = _modelReferencePointsName;
+            _modelCoordinateSystems.Text = _modelCoordinateSystemsName;
             _materials.Text = _materialsName;
             _sections.Text = _sectionsName;
             _constraints.Text = _constraintsName;
@@ -1654,7 +1689,9 @@ namespace UserControls
             _modelMesh.Nodes.Add(_modelNodeSets);
             _modelMesh.Nodes.Add(_modelElementSets);
             _modelMesh.Nodes.Add(_modelSurfaces);
-            _modelMesh.Nodes.Add(_referencePoints);
+            _model.Nodes.Add(_modelFeatures);
+            _modelFeatures.Nodes.Add(_modelReferencePoints);
+            _modelFeatures.Nodes.Add(_modelCoordinateSystems);
             _model.Nodes.Add(_materials);
             _model.Nodes.Add(_sections);
             _model.Nodes.Add(_constraints);
@@ -1689,11 +1726,15 @@ namespace UserControls
         {
             cltvResults.SelectedNodes.Clear();
             cltvResults.Nodes.Clear();
+            _resultModel.Nodes.Clear();
             _resultMesh.Nodes.Clear();
             _resultParts.Nodes.Clear();
             _resultNodeSets.Nodes.Clear();
             _resultElementSets.Nodes.Clear();
             _resultSurfaces.Nodes.Clear();
+            _resultFeatures.Nodes.Clear();
+            _resultReferencePoints.Nodes.Clear();
+            _resultCoordinateSystems.Nodes.Clear();
             _results.Nodes.Clear();
             _resultFieldOutputs.Nodes.Clear();
             _resultHistoryOutputs.Nodes.Clear();
@@ -1702,18 +1743,26 @@ namespace UserControls
             _resultNodeSets.Text = _resultNodeSetsName;
             _resultElementSets.Text = _resultElementSetsName;
             _resultSurfaces.Text = _resultSurfacesName;
-            _resultFieldOutputs.Text = _fieldOutputsName;
-            _resultHistoryOutputs.Text = _historyOutputsName;
+            _resultFeatures.Text = _resultFeaturesName;
+            _resultReferencePoints.Text = _resultReferencePointsName;
+            _resultCoordinateSystems.Text = _resultCoordinateSystemsName;
+            _resultFieldOutputs.Text = _resultFieldOutputsName;
+            _resultHistoryOutputs.Text = _resultHistoryOutputsName;
             // Fill the tree
-            cltvResults.Nodes.Add(_resultMesh);
+            cltvResults.Nodes.Add(_resultModel);
+            _resultModel.Nodes.Add(_resultMesh);
             _resultMesh.Nodes.Add(_resultParts);
             _resultMesh.Nodes.Add(_resultNodeSets);
             _resultMesh.Nodes.Add(_resultElementSets);
             _resultMesh.Nodes.Add(_resultSurfaces);
+            _resultModel.Nodes.Add(_resultFeatures);
+            _resultFeatures.Nodes.Add(_resultReferencePoints);
+            _resultFeatures.Nodes.Add(_resultCoordinateSystems);
             cltvResults.Nodes.Add(_results);
             _results.Nodes.Add(_resultFieldOutputs);
             _results.Nodes.Add(_resultHistoryOutputs);
             // Expand/Collapse
+            _resultModel.ExpandAll();
             _resultMesh.ExpandAll();
             _results.ExpandAll();
         }
@@ -1827,34 +1876,34 @@ namespace UserControls
                         // Mesh Parts
                         AddObjectsToNode(_modelPartsName, _modelParts, model.Mesh.Parts);
                         // Node sets
-                        AddObjectsToNode<string, CaeMesh.FeNodeSet>(_modelNodeSetsName, _modelNodeSets, model.Mesh.NodeSets);
+                        AddObjectsToNode(_modelNodeSetsName, _modelNodeSets, model.Mesh.NodeSets);
                         // Element sets
-                        AddObjectsToNode<string, CaeMesh.FeElementSet>(_modelElementSetsName, _modelElementSets, model.Mesh.ElementSets);
+                        AddObjectsToNode(_modelElementSetsName, _modelElementSets, model.Mesh.ElementSets);
                         // Surfaces
-                        AddObjectsToNode<string, CaeMesh.FeSurface>(_modelSurfacesName, _modelSurfaces, model.Mesh.Surfaces);
+                        AddObjectsToNode(_modelSurfacesName, _modelSurfaces, model.Mesh.Surfaces);
                         // Reference points
-                        AddObjectsToNode<string, CaeMesh.FeReferencePoint>(_referencePointsName, _referencePoints,
-                                                                           model.Mesh.ReferencePoints);
+                        AddObjectsToNode(_modelReferencePointsName, _modelReferencePoints, model.Mesh.ReferencePoints);
+                        // Coordinate systems
+                        AddObjectsToNode(_modelCoordinateSystemsName, _modelCoordinateSystems, model.Mesh.CoordinateSystems);
                     }
                     // Materials
-                    AddObjectsToNode<string, Material>(_materialsName, _materials, model.Materials);
+                    AddObjectsToNode(_materialsName, _materials, model.Materials);
                     // Sections
-                    AddObjectsToNode<string, Section>(_sectionsName, _sections, model.Sections);
+                    AddObjectsToNode(_sectionsName, _sections, model.Sections);
                     // Constraints
-                    AddObjectsToNode<string, Constraint>(_constraintsName, _constraints, model.Constraints);
+                    AddObjectsToNode(_constraintsName, _constraints, model.Constraints);
                     // Surface interactions
-                    AddObjectsToNode<string, SurfaceInteraction>(_surfaceInteractionsName, _surfaceInteractions,
-                                                                 model.SurfaceInteractions);
+                    AddObjectsToNode(_surfaceInteractionsName, _surfaceInteractions, model.SurfaceInteractions);
                     // Contact pairs
-                    AddObjectsToNode<string, ContactPair>(_contactPairsName, _contactPairs, model.ContactPairs);
+                    AddObjectsToNode(_contactPairsName, _contactPairs, model.ContactPairs);
                     // Amplitudes
-                    AddObjectsToNode<string, Amplitude>(_amplitudesName, _amplitudes, model.Amplitudes);
+                    AddObjectsToNode(_amplitudesName, _amplitudes, model.Amplitudes);
                     // Initial conditions
-                    AddObjectsToNode<string, InitialCondition>(_initialConditionsName, _initialConditions, model.InitialConditions);
+                    AddObjectsToNode(_initialConditionsName, _initialConditions, model.InitialConditions);
                     // Steps
                     AddSteps(model.StepCollection.StepsList);
                     // Analyses
-                    AddObjectsToNode<string, AnalysisJob>(_analysesName, _analyses, jobs);
+                    AddObjectsToNode(_analysesName, _analyses, jobs);
                     _analyses.ExpandAll();
                     // Results
                     if (results != null)
@@ -1862,13 +1911,17 @@ namespace UserControls
                         if (results.Mesh != null)
                         {
                             // Results parts
-                            AddObjectsToNode<string, BasePart>(_resultPartsName, _resultParts, results.Mesh.Parts);
+                            AddObjectsToNode(_resultPartsName, _resultParts, results.Mesh.Parts);
                             // Node sets
-                            AddObjectsToNode<string, FeNodeSet>(_resultNodeSetsName, _resultNodeSets, results.Mesh.NodeSets);
+                            AddObjectsToNode(_resultNodeSetsName, _resultNodeSets, results.Mesh.NodeSets);
                             // Element sets
-                            AddObjectsToNode<string, FeElementSet>(_resultElementSetsName, _resultElementSets, results.Mesh.ElementSets);
+                            AddObjectsToNode(_resultElementSetsName, _resultElementSets, results.Mesh.ElementSets);
                             // Surfaces
-                            AddObjectsToNode<string, FeSurface>(_resultSurfacesName, _resultSurfaces, results.Mesh.Surfaces);
+                            AddObjectsToNode(_resultSurfacesName, _resultSurfaces, results.Mesh.Surfaces);
+                            // Reference points
+                            AddObjectsToNode(_resultReferencePointsName, _resultReferencePoints, results.Mesh.ReferencePoints);
+                            // Coordinate systems
+                            AddObjectsToNode(_resultCoordinateSystemsName, _resultCoordinateSystems, results.Mesh.CoordinateSystems);
                             // Field outputs
                             string[] fieldNames;
                             string[][] allComponents;
@@ -1966,132 +2019,136 @@ namespace UserControls
             //
             if (item is MeshSetupItem)
             {
-                node = _meshSetupItems.Nodes.Add(item.Name);
+                parent = _meshSetupItems;
+                node = parent.Nodes.Add(item.Name);
                 node.Name = node.Text;
                 node.Tag = item;
-                parent = _meshSetupItems;
             }
             else if (item is MeshPart)
             {
-                node = _modelParts.Nodes.Add(item.Name);
+                parent = _modelParts;
+                node = parent.Nodes.Add(item.Name);
                 node.Name = node.Text;
                 node.Tag = item;
-                parent = _modelParts;
             }
             else if (item is FeNodeSet)
             {
-                node = _modelNodeSets.Nodes.Add(item.Name);
-                node.Name = node.Text;
-                node.Tag = item;
                 parent = _modelNodeSets;
+                node = parent.Nodes.Add(item.Name);
+                node.Name = node.Text;
+                node.Tag = item;
             }
             else if (item is FeElementSet)
             {
-                node = _modelElementSets.Nodes.Add(item.Name);
+                parent = _modelElementSets;
+                node = parent.Nodes.Add(item.Name);
                 node.Name = node.Text;
                 node.Tag = item;
-                parent = _modelElementSets;
-            }
-            else if (item is FeElementSet)
-            {
-                node = _modelElementSets.Nodes.Add(item.Name);
-                node.Name = node.Text;
-                node.Tag = item;
-                parent = _modelElementSets;
             }
             else if (item is FeSurface)
             {
-                node = _modelSurfaces.Nodes.Add(item.Name);
+                parent = _modelSurfaces;
+                node = parent.Nodes.Add(item.Name);
                 node.Name = node.Text;
                 node.Tag = item;
-                parent = _modelSurfaces;
             }
             else if (item is FeReferencePoint)
             {
-                node = _referencePoints.Nodes.Add(item.Name);
+                if (view == ViewType.Model) parent = _modelReferencePoints;
+                else if (view == ViewType.Results) parent = _resultReferencePoints;
+                else throw new NotSupportedException();
+                node = parent.Nodes.Add(item.Name);
                 node.Name = node.Text;
                 node.Tag = item;
-                parent = _referencePoints;
+            }
+            else if (item is CoordinateSystem)
+            {
+                if (view == ViewType.Model) parent = _modelCoordinateSystems;
+                else if (view == ViewType.Results) parent = _resultCoordinateSystems;
+                else throw new NotSupportedException();
+                node = parent.Nodes.Add(item.Name);
+                node.Name = node.Text;
+                node.Tag = item;
             }
             else if (item is Material)
             {
-                node = _materials.Nodes.Add(item.Name);
+                parent = _materials;
+                node = parent.Nodes.Add(item.Name);
                 node.Name = node.Text;
                 node.Tag = item;
-                parent = _materials;
             }
             else if (item is Section)
             {
-                node = _sections.Nodes.Add(item.Name);
+                parent = _sections;
+                node = parent.Nodes.Add(item.Name);
                 node.Name = node.Text;
                 node.Tag = item;
-                parent = _sections;
             }
             else if (item is Constraint)
             {
-                node = _constraints.Nodes.Add(item.Name);
+                parent = _constraints;
+                node = parent.Nodes.Add(item.Name);
                 node.Name = node.Text;
                 node.Tag = item;
-                parent = _constraints;
             }
             else if (item is SurfaceInteraction)
             {
-                node = _surfaceInteractions.Nodes.Add(item.Name);
+                parent = _surfaceInteractions;
+                node = parent.Nodes.Add(item.Name);
                 node.Name = node.Text;
                 node.Tag = item;
-                parent = _surfaceInteractions;
             }
             else if (item is ContactPair)
             {
-                node = _contactPairs.Nodes.Add(item.Name);
+                parent = _contactPairs;
+                node = parent.Nodes.Add(item.Name);
                 node.Name = node.Text;
                 node.Tag = item;
-                parent = _contactPairs;
             }
             else if (item is InitialCondition)
             {
-                node = _initialConditions.Nodes.Add(item.Name);
+                parent = _initialConditions;
+                node = parent.Nodes.Add(item.Name);
                 node.Name = node.Text;
                 node.Tag = item;
-                parent = _initialConditions;
             }
             else if (item is Amplitude)
             {
-                node = _amplitudes.Nodes.Add(item.Name);
+                parent = _amplitudes;
+                node = parent.Nodes.Add(item.Name);
                 node.Name = node.Text;
                 node.Tag = item;
-                parent = _amplitudes;
             }
             else if (item is Step)
             {
-                node = AddStep((Step)item);
                 parent = _steps;
+                node = AddStep((Step)item);
             }
             else if (item is HistoryOutput && parentName != null)
             {
                 tmp = _steps.Nodes.Find(parentName, true, true);
                 if (tmp.Length > 1) throw new Exception("Adding operation failed. More than one step named: " + parentName);
                 //
-                tmp = tmp[0].Nodes.Find(_historyOutputsName, true, true);
+                tmp = tmp[0].Nodes.Find(_modelHistoryOutputsName, true, true);
                 if (tmp.Length > 1) throw new Exception("Adding operation failed. There is no history output node to add to.");
                 //
-                node = tmp[0].Nodes.Add(item.Name);
+                parent = tmp[0];
+                node = parent.Nodes.Add(item.Name);
                 node.Name = node.Text;
                 node.Tag = item;
-                parent = tmp[0];
             }
             else if (item is FieldOutput && parentName != null)
             {
                 tmp = _steps.Nodes.Find(parentName, true, true);
                 if (tmp.Length > 1) throw new Exception("Adding operation failed. More than one step named: " + parentName);
                 //
-                tmp = tmp[0].Nodes.Find(_fieldOutputsName, true, true);
+                tmp = tmp[0].Nodes.Find(_modelFieldOutputsName, true, true);
                 if (tmp.Length > 1) throw new Exception("Adding operation failed. There is no field output node to add to.");
                 //
-                node = tmp[0].Nodes.Add(item.Name);
+                parent = tmp[0];
+                node = parent.Nodes.Add(item.Name);
                 node.Name = node.Text;
                 node.Tag = item;
-                parent = tmp[0];
             }
             else if (item is BoundaryCondition && parentName != null)
             {
@@ -2101,10 +2158,10 @@ namespace UserControls
                 tmp = tmp[0].Nodes.Find(_boundaryConditionsName, true, true);
                 if (tmp.Length > 1) throw new Exception("Adding operation failed. There is no bounday condition node to add to.");
                 //
-                node = tmp[0].Nodes.Add(item.Name);
+                parent = tmp[0];
+                node = parent.Nodes.Add(item.Name);
                 node.Name = node.Text;
                 node.Tag = item;
-                parent = tmp[0];
             }
             else if (item is Load && parentName != null)
             {
@@ -2114,10 +2171,10 @@ namespace UserControls
                 tmp = tmp[0].Nodes.Find(_loadsName, true, true);
                 if (tmp.Length > 1) throw new Exception("Adding operation failed. There is no load node to add to.");
                 //
-                node = tmp[0].Nodes.Add(item.Name);
+                parent = tmp[0];
+                node = parent.Nodes.Add(item.Name);
                 node.Name = node.Text;
                 node.Tag = item;
-                parent = tmp[0];
             }
             else if (item is DefinedField && parentName != null)
             {
@@ -2127,37 +2184,37 @@ namespace UserControls
                 tmp = tmp[0].Nodes.Find(_definedFieldsName, true, true);
                 if (tmp.Length > 1) throw new Exception("Adding operation failed. There is no defined field node to add to.");
                 //
-                node = tmp[0].Nodes.Add(item.Name);
+                parent = tmp[0];
+                node = parent.Nodes.Add(item.Name);
                 node.Name = node.Text;
                 node.Tag = item;
-                parent = tmp[0];
             }
             else if (item is AnalysisJob)
             {
-                node = _analyses.Nodes.Add(item.Name);
+                parent = _analyses;
+                node = parent.Nodes.Add(item.Name);
                 node.Name = node.Text;
                 node.Tag = item;
-                parent = _analyses;
             }
             else if (item is ResultPart)
             {
-                node = _resultParts.Nodes.Add(item.Name);
+                parent = _resultParts;
+                node = parent.Nodes.Add(item.Name);
                 node.Name = node.Text;
                 node.Tag = item;
-                parent = _resultParts;
             }
             else if (item is ResultFieldOutput rfo)
             {
                 SetFieldOutputAndComponentNames(new string[] { rfo.Name }, new string[][] { rfo.GetComponentNames() },
                                                 new ResultFieldOutput[] { rfo });
-                node = _resultFieldOutputs.Nodes[rfo.Name];
+                //
                 parent = _resultFieldOutputs;
-                //return;
+                node = parent.Nodes[rfo.Name];
             }
             else if (item is HistoryResultSet hrs)
             {
-                node = SetHistoryResultSet(hrs);
                 parent = _resultHistoryOutputs;
+                node = SetHistoryResultSet(hrs);
             }
             else throw new NotImplementedException();
             //
@@ -2449,14 +2506,14 @@ namespace UserControls
             //
             TreeNode tmp;
             // History outputs
-            tmp = stepNode.Nodes.Add(_historyOutputsName);
+            tmp = stepNode.Nodes.Add(_modelHistoryOutputsName);
             tmp.Name = tmp.Text;
-            AddObjectsToNode<string, HistoryOutput>(_historyOutputsName, tmp, step.HistoryOutputs);
+            AddObjectsToNode<string, HistoryOutput>(_modelHistoryOutputsName, tmp, step.HistoryOutputs);
             SetNodeImage(tmp, "History_output.ico");
             // Field outputs
-            tmp = stepNode.Nodes.Add(_fieldOutputsName);
+            tmp = stepNode.Nodes.Add(_modelFieldOutputsName);
             tmp.Name = tmp.Text;
-            AddObjectsToNode<string, FieldOutput>(_fieldOutputsName, tmp, step.FieldOutputs);
+            AddObjectsToNode<string, FieldOutput>(_modelFieldOutputsName, tmp, step.FieldOutputs);
             SetNodeImage(tmp, "Field_output.ico");
             // Boundary conditions
             tmp = stepNode.Nodes.Add(_boundaryConditionsName);
@@ -2693,7 +2750,7 @@ namespace UserControls
             _resultFieldOutputs.Expand();
             //
             int n = _resultFieldOutputs.Nodes.Count;
-            if (n > 0) _resultFieldOutputs.Text = _fieldOutputsName + " (" + n + ")";
+            if (n > 0) _resultFieldOutputs.Text = _resultFieldOutputsName + " (" + n + ")";
             // Add result field outputs
             foreach (var resultFieldOutput in resultFieldOutputs)
             {
@@ -2728,7 +2785,7 @@ namespace UserControls
             _resultHistoryOutputs.Expand();
             //
             int n = _resultHistoryOutputs.Nodes.Count;
-            if (n > 0) _resultHistoryOutputs.Text = _historyOutputsName + " (" + n + ")";
+            if (n > 0) _resultHistoryOutputs.Text = _resultHistoryOutputsName + " (" + n + ")";
         }
         private TreeNode SetHistoryResultSet(HistoryResultSet historyResultSet)
         {
@@ -2869,7 +2926,8 @@ namespace UserControls
             else if (node.TreeView == cltvModel && node.Name == _modelNodeSetsName) return true;
             else if (node.TreeView == cltvModel && node.Name == _modelElementSetsName) return true;
             else if (node.TreeView == cltvModel && node.Name == _modelSurfacesName) return true;
-            else if (node.Name == _referencePointsName) return true;
+            else if (node.Name == _modelReferencePointsName) return true;
+            else if (node.Name == _modelCoordinateSystemsName) return true;
             else if (node.Name == _materialsName) return true;
             else if (node.Name == _sectionsName) return true;
             else if (node.Name == _constraintsName) return true;
@@ -2878,8 +2936,8 @@ namespace UserControls
             else if (node.Name == _amplitudesName) return true;
             else if (node.Name == _initialConditionsName) return true;
             else if (node.Name == _stepsName) return true;
-            else if (node.Name == _historyOutputsName) return true;
-            else if (node.TreeView == cltvModel && node.Name == _fieldOutputsName) return true;
+            else if (node.Name == _modelHistoryOutputsName) return true;
+            else if (node.TreeView == cltvModel && node.Name == _modelFieldOutputsName) return true;
             else if (node.Name == _boundaryConditionsName) return true;
             else if (node.Name == _loadsName) return true;
             else if (node.Name == _definedFieldsName) return true;
@@ -2889,8 +2947,8 @@ namespace UserControls
             else if (node.TreeView == cltvResults && node.Name == _resultElementSetsName) return false;
             else if (node.TreeView == cltvResults && node.Name == _resultSurfacesName) return false;
             //
-            else if (node.TreeView == cltvResults && node.Name == _fieldOutputsName) return true;
-            else if (node.TreeView == cltvResults && node.Name == _historyOutputsName) return true;
+            else if (node.TreeView == cltvResults && node.Name == _resultFieldOutputsName) return true;
+            else if (node.TreeView == cltvResults && node.Name == _resultHistoryOutputsName) return true;
             //
             else return false;
         }
@@ -2901,6 +2959,7 @@ namespace UserControls
             else if (node.TreeView == cltvModel && node.Tag is FeElementSet) return true;
             else if (node.TreeView == cltvModel && node.Tag is FeSurface) return true;
             else if (node.TreeView == cltvModel && node.Tag is FeReferencePoint) return true;
+            else if (node.TreeView == cltvModel && node.Tag is CoordinateSystem) return true;
             else if (node.Tag is Material) return true;
             else if (node.Tag is Section) return true;
             else if (node.Tag is Constraint) return true;
@@ -2915,6 +2974,8 @@ namespace UserControls
             else if (node.Tag is Load) return true;
             else if (node.Tag is DefinedField) return true;
             else if (node.Tag is AnalysisJob) return true;
+            else if (node.TreeView == cltvResults && node.Tag is FeReferencePoint) return true;
+            else if (node.TreeView == cltvResults && node.Tag is CoordinateSystem) return true;
             else return false;
         }
         private bool CanPropagate(TreeNode node)
@@ -2947,6 +3008,7 @@ namespace UserControls
         {
             if (item is BasePart) return true;
             else if (item is FeReferencePoint) return true;
+            else if (item is CoordinateSystem) return true;
             else if (item is Constraint) return true;
             else if (item is ContactPair) return true;
             else if (item is BoundaryCondition) return true;

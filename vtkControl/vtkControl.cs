@@ -14,6 +14,10 @@ using System.Management;
 using System.Reflection.Emit;
 using System.Windows;
 using System.IO;
+using System.Management.Instrumentation;
+using static System.Windows.Forms.AxHost;
+using System.Security.Cryptography;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.TreeView;
 
 namespace vtkControl
 {
@@ -98,7 +102,6 @@ namespace vtkControl
         //
         private HashSet<string> _selectableActorsFilter;
         //
-
         private object myLock = new object();
 
 
@@ -1718,6 +1721,7 @@ namespace vtkControl
             _style.PointPickedOnLeftUpEvt += style_PointPickedOnLeftUpEvt;
             _style.ClearCurrentMouseSelection += ClearCurrentMouseSelection;
             _style.RightButtonPressEvent += style_RightButtonPressEvent;
+            _style.ZoomChangedEvent += _style_ZoomChangedEvent;
             _style.KeyPressEvt += style_KeyPressEvt;
             _style.LeaveEvt += style_LeaveEvt;
             _style.EnterEvt += style_EnterEvt;
@@ -1895,9 +1899,9 @@ namespace vtkControl
                 ambient = 0.6;
                 diffuse = 0.6;
             }
-            // if the point size was already set, do not change it
-            //if (actor.GeometryProperty.GetPointSize() <= 1)
-                actor.GeometryProperty.SetPointSize(actor.GeometryProperty.GetPointSize() + 2);
+            // If the point size was already set, do not change it
+            // If (actor.GeometryProperty.GetPointSize() <= 1)
+            actor.GeometryProperty.SetPointSize(actor.GeometryProperty.GetPointSize() + 2);
             //
             Color highlightColor;
             if (actor.UseSecondaryHighlightColor) highlightColor = _secondaryHighlightColor;
@@ -3117,6 +3121,105 @@ namespace vtkControl
             //
             if (_drawSymbolEdges || data.BackfaceColor != null) AddSymbolEdges(data, glyph.GetOutputPort());
         }
+        public void AddCoordinateAxis(vtkMaxActorData data, double symbolSize)
+        {
+            double relativeSize = 1;
+            //
+            if (symbolSize > _maxSymbolSize) _maxSymbolSize = symbolSize;
+            // Points
+            vtkPoints pointData = vtkPoints.New();
+            pointData.InsertNextPoint(data.Geometry.Nodes.Coor[0][0], data.Geometry.Nodes.Coor[0][1],
+                                      data.Geometry.Nodes.Coor[0][2]);
+            // Normals
+            vtkDoubleArray pointNormalsArray = vtkDoubleArray.New();
+            pointNormalsArray.SetNumberOfComponents(3);
+            pointNormalsArray.InsertNextTuple3(data.Geometry.Nodes.Normals[0][0], data.Geometry.Nodes.Normals[0][1],
+                                               data.Geometry.Nodes.Normals[0][2]);
+            // Poly data
+            vtkPolyData polyData = vtkPolyData.New();
+            polyData.SetPoints(pointData);
+            polyData.GetPointData().SetNormals(pointNormalsArray);
+            // Calculate the distance to the camera of each point.
+            vtkDistanceToCamera distanceToCamera = vtkDistanceToCamera.New();
+            distanceToCamera.SetInput(polyData);
+            distanceToCamera.SetScreenSize(symbolSize * relativeSize);
+            distanceToCamera.SetRenderer(_renderer);
+            // Line
+            vtkLineSource line = vtkLineSource.New();
+            line.SetPoint1(0, 0, 0);
+            line.SetPoint2(1, 0, 0);
+            // Cone
+            vtkConeSource cone = vtkConeSource.New();
+            cone.SetCenter(0.9, 0, 0);
+            cone.SetHeight(0.2 / relativeSize);
+            cone.SetRadius(0.08 / relativeSize);
+            cone.SetResolution(31);
+            // Append
+            vtkAppendPolyData appendFilter = vtkAppendPolyData.New();
+            appendFilter.AddInput(line.GetOutput());
+            appendFilter.AddInput(cone.GetOutput());
+            // Compute normals
+            vtkPolyDataNormals appendNormals = vtkPolyDataNormals.New();
+            appendNormals.SetInput(appendFilter.GetOutput());
+            appendNormals.Update();
+            // Transform
+            vtkTransform transform = vtkTransform.New();
+            // Transform filter
+            vtkTransformFilter transformFilter = vtkTransformFilter.New();
+            transformFilter.SetInput(appendFilter.GetOutput());
+            transformFilter.SetTransform(transform);
+            // Glyph
+            vtkGlyph3D glyph = vtkGlyph3D.New();
+            glyph.SetSourceConnection(transformFilter.GetOutputPort());
+            glyph.SetInputConnection(distanceToCamera.GetOutputPort());
+            glyph.SetVectorModeToUseNormal();
+            // Scale
+            glyph.ScalingOn();
+            glyph.SetScaleModeToScaleByScalar();
+            glyph.SetInputArrayToProcess(0, 0, 0, "vtkDataObject::FIELD_ASSOCIATION_POINTS", "DistanceToCamera");
+            glyph.SetScaleFactor(1.0);
+            glyph.OrientOn();
+            glyph.Update();
+            // Mapper
+            vtkPolyDataMapper mapper = vtkPolyDataMapper.New();
+            mapper.SetInputConnection(0, glyph.GetOutputPort());
+            mapper.ScalarVisibilityOff();
+            // Actor
+            data.Name += Globals.NameSeparator + "axis";
+            //
+            data.LineWidth = 2;
+            vtkMaxActor actor = new vtkMaxActor(data, mapper);
+            actor.Color = data.Color;
+            actor.GeometryProperty.SetRepresentationToSurface();
+            // Add
+            ApplySymbolFormattingToActor(actor);
+            AddActorGeometry(actor, data.Layer);
+            //
+            if (_drawSymbolEdges) AddSymbolEdges(data, glyph.GetOutputPort());
+        }
+        public void AddTextActor(vtkMaxActorData data, double symbolSize)
+        {
+            // Create an actor for the text
+            vtkCaptionActor2D captionActor = vtkCaptionActor2D.New();
+            captionActor.SetCaption(data.Caption);
+            captionActor.SetAttachmentPoint(data.Geometry.Nodes.Coor[0][0],
+                                            data.Geometry.Nodes.Coor[0][1],
+                                            data.Geometry.Nodes.Coor[0][2]);
+            captionActor.BorderOff();
+            vtkTextProperty tp = CreateNewTextProperty();
+            captionActor.SetCaptionTextProperty(tp);
+            captionActor.GetCaptionTextProperty().SetFontSize(10);
+            captionActor.LeaderOff();
+            captionActor.SetHeight(5.0 / 100);
+            //captionActor.ThreeDimensionalLeaderOff();
+            //
+            vtkMaxActor actor = new vtkMaxActor(data, captionActor);
+            // Actor
+            data.Name += Globals.NameSeparator + "caption";
+            // Add
+            ApplySymbolFormattingToActor(actor);
+            AddActorCaption(actor, data.Layer);
+        }
         public void AddOrientedDisplacementConstraintActor(vtkMaxActorData data, double symbolSize)
         {
             if (symbolSize > _maxSymbolSize) _maxSymbolSize = symbolSize;
@@ -3803,7 +3906,7 @@ namespace vtkControl
             }
             // Add
             AddActorGeometry(actor, data.Layer);
-        }        
+        }
         //
         private void AddActor(vtkMaxActor actor, vtkRendererLayer layer, bool canHaveElementEdges)
         {
@@ -3856,6 +3959,28 @@ namespace vtkControl
             }
             //
             ApplyEdgeVisibilityAndBackfaceCullingToActor(actor.Geometry, actor.GeometryProperty, layer);            
+        }
+        private void AddActorCaption(vtkMaxActor actor, vtkRendererLayer layer)
+        {
+            // Add actor
+            if (layer == vtkRendererLayer.Base)
+            {
+                if (actor.Name == null) actor.Name = (_actors.Count + 1).ToString();
+                _actors.Add(actor.Name, actor);
+                _renderer.AddActor(actor.Caption);
+            }
+            else if (layer == vtkRendererLayer.Overlay)
+            {
+                if (actor.Name == null) actor.Name = (_overlayActors.Count + 1).ToString();
+                //_overlayActors.Add(actor.Name, actor.Geometry);
+                _overlayRenderer.AddActor(actor.Caption);
+            }
+            else if (layer == vtkRendererLayer.Selection)
+            {
+                if (actor.Name == null) actor.Name = (_selectedActors.Count + 1).ToString();
+                _selectedActors.Add(actor);
+                _selectionRenderer.AddActor(actor.Caption);
+            }
         }
         private void AddActorEdges(vtkMaxActor actor, bool isModelEdge, vtkRendererLayer layer)
         {
@@ -4781,6 +4906,32 @@ namespace vtkControl
             _renderer.RemoveActor(actor.ElementEdges);
             _renderer.RemoveActor(actor.ModelEdges);
         }
+        public void HideTransformedActors()
+        {
+            foreach (var entry in _actors)
+            {
+                if (entry.Value.Copies != null)
+                {
+                    foreach (var actorCopy in entry.Value.Copies) HideShowActor(actorCopy, false);
+                }
+            }
+            ApplyEdgesVisibilityAndBackfaceCulling();
+            ApplyVisibilityToActorNodes();
+            //_style.AdjustCameraDistanceAndClipping();
+        }
+        public void ShowTransformedActors()
+        {
+            foreach (var entry in _actors)
+            {
+                if (entry.Value.Copies != null)
+                {
+                    foreach (var actorCopy in entry.Value.Copies) HideShowActor(actorCopy, entry.Value.VtkMaxActorVisible);
+                }
+            }
+            ApplyEdgesVisibilityAndBackfaceCulling();
+            ApplyVisibilityToActorNodes();
+            //_style.AdjustCameraDistanceAndClipping();
+        }
         //
         public void TransformAllMaxActors(vtkTransform transform, int numOfItems)
         {
@@ -4820,6 +4971,7 @@ namespace vtkControl
                 //
                 vtkMaxActor.FrustumCellLocator.SetDataSet(transformFilter.GetOutput());
             }
+
         }
         private void TransformActor(vtkActor actor, vtkTransform transform)
         {
@@ -4856,8 +5008,6 @@ namespace vtkControl
             return name;
         }
 
-        
-
         #endregion  ################################################################################################################
 
         #region Settings ###########################################################################################################
@@ -4866,15 +5016,12 @@ namespace vtkControl
             if (_coorSys == null) return;
             //
             _drawCoorSys = visibility;
-            if (_coorSys != null)
+            if (_drawCoorSys)
             {
-                if (_drawCoorSys)
-                {
-                    _coorSys.SetViewport(1 - 200f / Width, 0, 1, 200f / Height);
-                    _coorSys.SetEnabled(1);
-                }
-                else _coorSys.SetEnabled(0);
+                _coorSys.SetViewport(1 - 200f / Width, 0, 1, 200f / Height);
+                _coorSys.SetEnabled(1);
             }
+            else _coorSys.SetEnabled(0);
         }
         // Scale bar
         public void SetScaleWidgetVisibility(bool visibility)
@@ -5826,22 +5973,15 @@ namespace vtkControl
             ClearOverlay();
             RemoveSectionView();
         }
-        public void ClearButKeepParts(string[] partNames)
+        public void ClearButKeepParts()
         {
             vtkMaxActor actor;
             List<string> actorsToRemove = new List<string>();
-            // Add section cut actors if they exist
-            HashSet<string> partNamesToKeep = new HashSet<string>(partNames);
-            if (_sectionView)
-            {
-                for (int i = 0; i < partNames.Length; i++)
-                    partNamesToKeep.Add(GetSectionViewActorName(partNames[i]));
-            }
             //
             foreach (var entry in _actors)
             {
                 actor = entry.Value;
-                if (!partNamesToKeep.Contains(actor.Name))
+                if (!actor.IsAPart)
                 {
                     actorsToRemove.Add(actor.Name);
                     // Remove from renderer
@@ -5871,7 +6011,7 @@ namespace vtkControl
                 _mouseSelectionCurrentIds = null;
             }
             //
-            ClearCurrentMouseSelection();
+            ClearCurrentMouseSelection(false);
             // Actors
             foreach (var entry in _actors)
             {
@@ -5892,6 +6032,10 @@ namespace vtkControl
         }
         public void ClearCurrentMouseSelection()
         {
+            ClearCurrentMouseSelection(true);
+        }
+        public void ClearCurrentMouseSelection(bool render)
+        {
             if (_mouseSelectionActorCurrent != null)
             {
                 _selectionRenderer.RemoveActor(_mouseSelectionActorCurrent.Geometry);
@@ -5903,7 +6047,7 @@ namespace vtkControl
             _mouseSelectionCurrentIds = null;
             //
             if (_probeWidget != null && _probeWidget.GetVisibility() == 1) _probeWidget.VisibilityOff();
-            RenderScene();
+            if (render) RenderScene();
         }
         public void ClearOverlay()
         {
@@ -6160,7 +6304,10 @@ namespace vtkControl
         private void RenderScene()
         {
             if (_renderingOn)
+            {
                 this.Invalidate();
+                //Application.DoEvents();
+            }
         }
 
         // Tools
@@ -6691,6 +6838,14 @@ namespace vtkControl
 
 
         }
+        
+
+
+        private void _style_ZoomChangedEvent()
+        {
+            
+        }
     }
 }
+
 

@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CMergeByMasterSlaveConstraints : Command
+    class CMergeByMasterSlaveConstraints : PreprocessCommand
     {
         // Variables                                                                                                                
         private string[] _constraintNames;

@@ -37,8 +37,8 @@ namespace CaeMesh
         private FeReferencePointCreatedFrom _createdFrom;       //ISerializable
         private string _regionName;                 // new      //ISerializable
         private RegionTypeEnum _regionType;         // new      //ISerializable
-        [NonSerialized] private int[] _creationIds;             //IMultiRegion - no used
-        [NonSerialized] private Selection _creationData;        //IMultiRegion - no used
+        [NonSerialized] private int[] _creationIds;             //IMultiRegion - not used
+        [NonSerialized] private Selection _creationData;        //IMultiRegion - not used
         private int _createdFromRefNodeId1;                     //ISerializable
         private int _createdFromRefNodeId2;                     //ISerializable
         private string _refNodeSetName;                         //ISerializable
@@ -226,6 +226,10 @@ namespace CaeMesh
             _createdFromRefNodeId2 = -1;
             _regionName = null;
             _regionType = RegionTypeEnum.NodeSetName;
+        }
+        public void Reset()
+        {
+            Clear();
         }
         public double[] Coor()
         {

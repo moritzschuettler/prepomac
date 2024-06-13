@@ -12,7 +12,7 @@ using System.Runtime.Serialization;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CDuplicateLoads : Command
+    class CDuplicateLoads : PreprocessCommand
     {
         // Variables                                                                                                                
         private string _stepName;

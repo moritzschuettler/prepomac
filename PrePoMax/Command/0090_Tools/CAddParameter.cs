@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CAddParameter : Command
+    class CAddParameter : PreprocessCommand
     {
         // Variables                                                                                                                
         private EquationParameter _parameter;

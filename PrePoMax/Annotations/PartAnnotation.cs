@@ -20,7 +20,7 @@ namespace PrePoMax
         public PartAnnotation(string name, string partName)
             : base(name)
         {
-            _partId = Controller.DisplayedMesh.Parts[partName].PartId;
+            _partIds = new int[] { Controller.DisplayedMesh.Parts[partName].PartId };
         }
 
 
@@ -28,7 +28,7 @@ namespace PrePoMax
         public override void GetAnnotationData(out string text, out double[] coor)
         {
             FeMesh mesh = Controller.DisplayedMesh;
-            BasePart part = mesh.GetPartFromId(_partId);
+            BasePart part = mesh.GetPartFromId(_partIds[0]);
             if (part == null) throw new NotSupportedException();
             //
             double[][] nodeCoor = new double[part.NodeLabels.Length][];

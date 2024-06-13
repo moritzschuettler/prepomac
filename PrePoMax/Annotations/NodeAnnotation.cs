@@ -24,15 +24,16 @@ namespace PrePoMax
         {
             _nodeId = nodeId;
             //
+            HashSet<int> allPartIds = new HashSet<int>();
             CaeMesh.FeMesh mesh = Controller.DisplayedMesh;
             foreach (var entry in mesh.Parts)
             {
                 if (entry.Value.NodeLabels.Contains(_nodeId))
                 {
-                    _partId = entry.Value.PartId;
-                    break;
+                    allPartIds.Add(entry.Value.PartId);
                 }
             }
+            _partIds = allPartIds.ToArray();
         }
 
 

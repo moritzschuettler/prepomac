@@ -10,7 +10,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CPropagateBC : Command
+    class CPropagateBC : PreprocessCommand
     {
         // Variables                                                                                                                
         private string _stepName;

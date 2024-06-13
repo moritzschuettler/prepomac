@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CSetNewModelProperties : Command
+    class CSetNewModelProperties : PreprocessCommand
     {
         // Variables                                                                                                                
         private ModelSpaceEnum _modelSpace;

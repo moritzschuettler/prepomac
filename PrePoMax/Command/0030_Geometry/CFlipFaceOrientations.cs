@@ -12,7 +12,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CFlipFaceOrientations : Command
+    class CFlipFaceOrientations : PreprocessCommand
     {
         // Variables                                                                                                                
         private GeometrySelection _geometrySelection;

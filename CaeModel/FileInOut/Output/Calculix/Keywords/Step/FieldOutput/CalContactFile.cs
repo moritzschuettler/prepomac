@@ -29,8 +29,9 @@ namespace FileInOut.Output.Calculix
         public override string GetKeywordString()
         {
             string lastIterations = _contactFieldOutput.LastIterations ? ", Last iterations" : "";
+            string contactElements = _contactFieldOutput.ContactElements ? ", Contact elements" : "";
             //
-            return string.Format("*Contact file{0}{1}", lastIterations, Environment.NewLine);
+            return string.Format("*Contact file{0}{1}{2}", lastIterations, contactElements, Environment.NewLine);
         }
         public override string GetDataString()
         {
