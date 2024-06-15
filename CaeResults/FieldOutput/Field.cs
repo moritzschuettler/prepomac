@@ -41,12 +41,18 @@ namespace CaeResults
     public class Field : NamedClass
     {
         // Variables                                                                                                                
+        private DataTypeEnum _dataType;
         private OrderedDictionary<string,  FieldComponent> _components;
         private bool _complex;
         private DataStateEnum _dataState;
 
 
         // Properties                                                                                                               
+        public DataTypeEnum DataType
+        {
+            get { return _dataType == DataTypeEnum.None ? FOFieldNames.GetDataType(_name) : _dataType; }
+            set { _dataType = value; }
+        }
         public bool Complex { get { return _complex; } set { _complex = value; } }
         public DataStateEnum DataState { get { return _dataState; } set { _dataState = value; } }
 
@@ -59,6 +65,7 @@ namespace CaeResults
             //
             _complex = false;
             _dataState = DataStateEnum.OK;
+            _dataType = DataType;
         }
         public Field(Field field)
             : base(field)
@@ -66,6 +73,7 @@ namespace CaeResults
             _components = new OrderedDictionary<string, FieldComponent>("Components");
             foreach (var entry in field._components) _components.Add(entry.Key, new FieldComponent(entry.Value));   // copy
             //
+            _dataType = field._dataType;
             _complex = field._complex;
             _dataState = field._dataState;
         }
@@ -203,10 +211,8 @@ namespace CaeResults
         //
         public void RemoveInvariants()
         {
-            DataTypeEnum dataType = FOFieldNames.GetDataType(_name);
-            //
             int count = 0;
-            if (dataType == DataTypeEnum.Vector)
+            if (_dataType == DataTypeEnum.Vector)
             {
                 count += _components.ContainsKey(FOComponentNames.All) ? 1 : 0;
                 if (_components.Count() - count == 3)
@@ -214,7 +220,7 @@ namespace CaeResults
                     _components.Remove(FOComponentNames.All);
                 }
             }
-            else if (dataType == DataTypeEnum.Tensor)
+            else if (_dataType == DataTypeEnum.Tensor)
             {
                 count += _components.ContainsKey(FOComponentNames.Mises) ? 1 : 0;
                 count += _components.ContainsKey(FOComponentNames.Tresca) ? 1 : 0;
@@ -236,9 +242,8 @@ namespace CaeResults
         }
         public void ComputeInvariants()
         {
-            DataTypeEnum dataType = FOFieldNames.GetDataType(_name);
-            if (dataType == DataTypeEnum.Vector) ComputeVectorFieldInvariant();
-            else if (dataType == DataTypeEnum.Tensor) ComputeTensorFieldInvariant();
+            if (_dataType == DataTypeEnum.Vector) ComputeVectorFieldInvariant();
+            else if (_dataType == DataTypeEnum.Tensor) ComputeTensorFieldInvariant();
         }
         private void ComputeVectorFieldInvariant()
         {
@@ -367,14 +372,13 @@ namespace CaeResults
         //
         public void RemoveNonInvariants()
         {
-            DataTypeEnum dataType = FOFieldNames.GetDataType(_name);
             HashSet<string> componentNames = new HashSet<string>(_components.Keys);
             //
-            if (dataType == DataTypeEnum.Vector)
+            if (_dataType == DataTypeEnum.Vector)
             {
                 componentNames.Remove(FOComponentNames.All);
             }
-            else if (dataType == DataTypeEnum.Tensor)
+            else if (_dataType == DataTypeEnum.Tensor)
             {
                 componentNames.Remove(FOComponentNames.Mises);
                 componentNames.Remove(FOComponentNames.Tresca);
@@ -464,7 +468,6 @@ namespace CaeResults
                 }
             }
         }
-
     }
 }
 

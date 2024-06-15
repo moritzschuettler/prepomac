@@ -113,6 +113,7 @@
     <Compile Include="vtkInteractorStyleControl.cs" />
     <Compile Include="Enums\vtkRendererLayer.cs" />
     <Compile Include="vtkMax\Actor\vtkMaxActor.cs" />
+    <Compile Include="vtkMax\Actor\vtkMaxCaptionActor.cs" />
     <Compile Include="vtkMax\Animation\vtkMaxAnimationFrameData.cs" />
     <Compile Include="vtkMax\Actor\vtkMaxExtreemeNode.cs" />
     <Compile Include="vtkMax\Animation\vtkMaxActorAnimationData.cs" />

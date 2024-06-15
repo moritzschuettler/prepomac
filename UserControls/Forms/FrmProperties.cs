@@ -150,7 +150,11 @@ namespace UserControls
         protected virtual void OnHideOrClose()
         {
             _controller_SelectionClear?.Invoke();
-            if (_hideOnClose) Hide();
+            if (_hideOnClose)
+            {
+                this.Enabled = true;    // if Esc key is pressed during selection the form is not enabled
+                Hide();
+            }
             else Close();
         }
         protected virtual bool OnPrepareForm(string stepName, string itemToEditName) { return true; }

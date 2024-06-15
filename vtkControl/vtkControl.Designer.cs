@@ -474,8 +474,10 @@ namespace vtkControl
             this.Name = "vtkControl";
             this.Size = new System.Drawing.Size(475, 326);
             this.Load += new System.EventHandler(this.vtkControl_Load);
+            this.EnabledChanged += new System.EventHandler(this.vtkControl_EnabledChanged);
             this.Resize += new System.EventHandler(this.vtkControl_Resize);
             this.ResumeLayout(false);
+
         }
 
         #endregion

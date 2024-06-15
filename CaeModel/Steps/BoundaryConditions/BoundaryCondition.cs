@@ -150,21 +150,21 @@ namespace CaeModel
             EquationContainer.SetAndCheck(ref _phaseDeg, value, CheckAngle, checkEquation);
         }
         //
-        public double[] GetDirectionX(CoordinateSystem coordinateSystem, double[] coor = null)
+        public Vec3D GetDirectionX(CoordinateSystem coordinateSystem, double[] coor = null)
         {
-            double[] direction = new double[] { 1, 0, 0 };
+            Vec3D direction = new Vec3D(1, 0, 0);
             if (coordinateSystem != null) direction = coordinateSystem.DirectionX(coor);
             return direction;
         }
-        public double[] GetDirectionY(CoordinateSystem coordinateSystem, double[] coor = null)
+        public Vec3D GetDirectionY(CoordinateSystem coordinateSystem, double[] coor = null)
         {
-            double[] direction = new double[] { 0, 1, 0 };
+            Vec3D direction = new Vec3D(0, 1, 0);
             if (coordinateSystem != null) direction = coordinateSystem.DirectionY(coor);
             return direction;
         }
-        public double[] GetDirectionZ(CoordinateSystem coordinateSystem, double[] coor = null)
+        public Vec3D GetDirectionZ(CoordinateSystem coordinateSystem, double[] coor = null)
         {
-            double[] direction = new double[] { 0, 0, 1 };
+            Vec3D direction = new Vec3D(0, 0, 1);
             if (coordinateSystem != null) direction = coordinateSystem.DirectionZ(coor);
             return direction;
         }

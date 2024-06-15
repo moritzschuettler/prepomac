@@ -17,8 +17,8 @@ namespace CaeResults
 
 
         // Properties                                                                                                               
-        public abstract string[] GetParentFieldNames();
-        public abstract string[] GetParentComponentNames();
+        public abstract string[] GetParentFieldNames();     // for dependency check
+        public abstract string[] GetParentComponentNames(); // for dependency check
         public abstract string[] GetComponentNames();
 
 

@@ -15,6 +15,7 @@ using CaeResults;
 using System.Xml.Linq;
 using System.Security.Cryptography;
 using static CaeGlobals.Geometry2;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.TextBox;
 
 namespace UserControls
 {
@@ -2242,6 +2243,13 @@ namespace UserControls
             baseNode.Name = item.Name;
             baseNode.Tag = item;
             //
+            if (item is ResultFieldOutput rfo)
+            {
+                // Delete and recreate the node
+                baseNode.Parent.Nodes.Remove(baseNode);
+                baseNode = SetFieldOutputAndComponentNames(new string[] { rfo.Name }, new string[][] { rfo.GetComponentNames() },
+                                                           new ResultFieldOutput[] { rfo });
+            }
             SetNodeStatus(baseNode);
             // Update selection
             if (updateSelection)
@@ -2724,10 +2732,10 @@ namespace UserControls
         }
 
         // Results                                                                                                                  
-        private void SetFieldOutputAndComponentNames(string[] fieldNames, string[][] components,
+        private TreeNode SetFieldOutputAndComponentNames(string[] fieldNames, string[][] components,
                                                      ResultFieldOutput[] resultFieldOutputs)
         {
-            TreeNode node;
+            TreeNode node = null;
             TreeNode child;
             for (int i = 0; i < fieldNames.Length; i++)
             {
@@ -2758,6 +2766,7 @@ namespace UserControls
                 if (node != null) node.Tag = resultFieldOutput;    // overwrite Field with ResultFieldOutput
                 SetNodeStatus(node);
             }
+            return node;
         }
         public void SelectFirstComponentOfFirstFieldOutput()
         {

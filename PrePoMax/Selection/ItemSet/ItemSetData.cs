@@ -13,7 +13,8 @@ namespace PrePoMax
     {
         NumberOfItems,
         SelectSinglePoint,
-        SelectTwoPoints
+        SelectTwoPoints,
+        SelectThreePoints,
     }
 
     public class ItemSetData
@@ -70,6 +71,10 @@ namespace PrePoMax
             else if (_toStringType == ItemSetDataToStringType.SelectTwoPoints)
             {
                 return "Select two points";
+            }
+            else if (_toStringType == ItemSetDataToStringType.SelectThreePoints)
+            {
+                return "Select three points";
             }
             else throw new NotSupportedException();
         }

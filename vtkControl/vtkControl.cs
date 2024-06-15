@@ -18,6 +18,7 @@ using System.Management.Instrumentation;
 using static System.Windows.Forms.AxHost;
 using System.Security.Cryptography;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.TreeView;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 
 namespace vtkControl
 {
@@ -72,7 +73,7 @@ namespace vtkControl
         //
         private Dictionary<string, vtkMaxActor> _actors;
         private List<vtkMaxActor> _selectedActors;
-        private Dictionary<string, vtkActor> _overlayActors;
+        private Dictionary<string, vtkMaxActor> _overlayActors;
         private Dictionary<string, vtkMaxActor[]> _animationActors;
         private vtkMaxAnimationFrameData _animationFrameData;
         private bool _animationAcceleration;
@@ -263,7 +264,7 @@ namespace vtkControl
             //
             _actors = new Dictionary<string, vtkMaxActor>();
             _selectedActors = new List<vtkMaxActor>();
-            _overlayActors = new Dictionary<string, vtkActor>();
+            _overlayActors = new Dictionary<string, vtkMaxActor>();
             _animationActors = new Dictionary<string, vtkMaxActor[]>();
             _animationFrameData = null;
             _primaryHighlightColor = Color.Red;
@@ -308,6 +309,7 @@ namespace vtkControl
             if (_coorSys != null ) SetCoorSysVisibility(_drawCoorSys);
             if (_renderer != null)
             {
+                SetAllCaptionPositions();
                 //float scale = vtkTextActor.GetFontScale(_renderer);
                 //Console.WriteLine(scale.ToString());
 
@@ -327,6 +329,10 @@ namespace vtkControl
         private void vtkControl_Load(object sender, EventArgs e)
         {
             InitializeControl();
+        }
+        private void vtkControl_EnabledChanged(object sender, EventArgs e)
+        {
+            if (Enabled) SetAllCaptionPositions();
         }
         //
         void _renderWindowInteractor_ModifiedEvt(vtkObject sender, vtkObjectEventArgs e)
@@ -569,6 +575,10 @@ namespace vtkControl
                     Controller_ActorsPicked?.Invoke(e, ModifierKeys, new string[] { GetActorName(pickedActor) });
                 }
             }
+        }
+        private void style_ZoomChangedEvent()
+        {
+            SetAllCaptionPositions();
         }
 
         #region Selection  #########################################################################################################
@@ -1721,7 +1731,7 @@ namespace vtkControl
             _style.PointPickedOnLeftUpEvt += style_PointPickedOnLeftUpEvt;
             _style.ClearCurrentMouseSelection += ClearCurrentMouseSelection;
             _style.RightButtonPressEvent += style_RightButtonPressEvent;
-            _style.ZoomChangedEvent += _style_ZoomChangedEvent;
+            _style.ZoomChangedEvent += style_ZoomChangedEvent;
             _style.KeyPressEvt += style_KeyPressEvt;
             _style.LeaveEvt += style_LeaveEvt;
             _style.EnterEvt += style_EnterEvt;
@@ -1916,6 +1926,21 @@ namespace vtkControl
             actor.GeometryProperty.SetOpacity(1);
             //property.BackfaceCullingOn();
             actor.Geometry.PickableOff();
+        }
+        private void ApplySelectionFormattingToCaptionActor(vtkMaxCaptionActor actor)
+        {
+            Color highlightColor;
+            if (actor.UseSecondaryHighlightColor) highlightColor = _secondaryHighlightColor;
+            else highlightColor = _primaryHighlightColor;
+            //
+            vtkTextProperty tp;
+            if (actor.Caption is vtkCaptionActor2D ca2D)
+            {
+                tp = ca2D.GetCaptionTextProperty();
+                tp.SetColor(highlightColor.R / 255d, highlightColor.G / 255d, highlightColor.B / 255d);
+                tp.BoldOn();
+                ca2D.SetCaptionTextProperty(tp);
+            }
         }
         private void ApplySymbolFormattingToActor(vtkMaxActor actor)
         {
@@ -2191,7 +2216,9 @@ namespace vtkControl
             // Overlay
             foreach (var entry in _overlayActors)
             {
-                ApplyEdgeVisibilityAndBackfaceCullingToActor(entry.Value, entry.Value.GetProperty(), vtkRendererLayer.Overlay);
+                if (entry.Value.Geometry != null)   // null is for Caption actor
+                    ApplyEdgeVisibilityAndBackfaceCullingToActor(entry.Value.Geometry, entry.Value.Geometry.GetProperty(),
+                                                                 vtkRendererLayer.Overlay);
             }
             //
             RenderScene();
@@ -3147,12 +3174,12 @@ namespace vtkControl
             // Line
             vtkLineSource line = vtkLineSource.New();
             line.SetPoint1(0, 0, 0);
-            line.SetPoint2(1, 0, 0);
+            line.SetPoint2(1 * relativeSize, 0, 0);
             // Cone
             vtkConeSource cone = vtkConeSource.New();
-            cone.SetCenter(0.9, 0, 0);
-            cone.SetHeight(0.2 / relativeSize);
-            cone.SetRadius(0.08 / relativeSize);
+            cone.SetCenter(0.9 * relativeSize, 0, 0);
+            cone.SetHeight(0.2 * relativeSize);
+            cone.SetRadius(0.08 * relativeSize);
             cone.SetResolution(31);
             // Append
             vtkAppendPolyData appendFilter = vtkAppendPolyData.New();
@@ -3202,23 +3229,64 @@ namespace vtkControl
             // Create an actor for the text
             vtkCaptionActor2D captionActor = vtkCaptionActor2D.New();
             captionActor.SetCaption(data.Caption);
-            captionActor.SetAttachmentPoint(data.Geometry.Nodes.Coor[0][0],
-                                            data.Geometry.Nodes.Coor[0][1],
-                                            data.Geometry.Nodes.Coor[0][2]);
+            captionActor.GetPositionCoordinate().SetValue(data.Geometry.Nodes.Coor[1][0],
+                                                          data.Geometry.Nodes.Coor[1][1],
+                                                          data.Geometry.Nodes.Coor[1][2]);
+            captionActor.GetPositionCoordinate().SetCoordinateSystemToWorld();
             captionActor.BorderOff();
             vtkTextProperty tp = CreateNewTextProperty();
+            tp.SetFontSize((int)(12 * symbolSize / 50));
             captionActor.SetCaptionTextProperty(tp);
-            captionActor.GetCaptionTextProperty().SetFontSize(10);
+            captionActor.GetTextActor().SetTextScaleModeToNone();
             captionActor.LeaderOff();
-            captionActor.SetHeight(5.0 / 100);
-            //captionActor.ThreeDimensionalLeaderOff();
             //
-            vtkMaxActor actor = new vtkMaxActor(data, captionActor);
-            // Actor
             data.Name += Globals.NameSeparator + "caption";
+            // Actor
+            vtkMaxCaptionActor actor = new vtkMaxCaptionActor(data, captionActor);
+            actor.Position = data.Geometry.Nodes.Coor[0];
+            actor.OffsetVector = data.Geometry.Nodes.Normals[0];
+            if (actor.OffsetVector != null)
+            {
+                actor.OffsetVector[0] *= 0.9 * symbolSize;
+                actor.OffsetVector[1] *= 0.9 * symbolSize;
+                actor.OffsetVector[2] *= 0.9 * symbolSize;
+            }
             // Add
-            ApplySymbolFormattingToActor(actor);
             AddActorCaption(actor, data.Layer);
+            //
+            SetAllCaptionPositions();
+        }
+        private void SetAllCaptionPositions()
+        {
+            double size = vtkInteractorStyleControl.DisplayToWorldScale(_renderer, 1);
+            //
+            foreach (var entry in _actors)
+            {
+                if (entry.Value is vtkMaxCaptionActor ca) SetCaptionPositions(ca, size);
+            }
+            foreach (var entry in _overlayActors)
+            {
+                if (entry.Value is vtkMaxCaptionActor ca) SetCaptionPositions(ca, size);
+            }
+            foreach (var entry in _selectedActors)
+            {
+                if (entry is vtkMaxCaptionActor ca) SetCaptionPositions(ca, size);
+            }
+        }
+        private void SetCaptionPositions(vtkMaxCaptionActor vtkMaxCaptionActor, double size)
+        {
+            double[] position = vtkMaxCaptionActor.Position;
+            double[] offset = vtkMaxCaptionActor.OffsetVector;
+            //
+            if (offset != null && offset.Length == 3)
+            {
+                double[] pos = new double[3];
+                pos[0] = position[0] + size * offset[0];
+                pos[1] = position[1] + size * offset[1];
+                pos[2] = position[2] + size * offset[2];
+                //
+                vtkMaxCaptionActor.Caption.GetPositionCoordinate().SetValue(pos[0], pos[1], pos[2]);
+            }
         }
         public void AddOrientedDisplacementConstraintActor(vtkMaxActorData data, double symbolSize)
         {
@@ -3937,7 +4005,7 @@ namespace vtkControl
             else if (layer == vtkRendererLayer.Overlay)
             {
                 if (actor.Name == null) actor.Name = (_overlayActors.Count + 1).ToString();
-                _overlayActors.Add(actor.Name, actor.Geometry);
+                _overlayActors.Add(actor.Name, actor);
                 _overlayRenderer.AddActor(actor.Geometry);
                 //
                 if (actor.Geometry.GetPickable() == 1)
@@ -3960,26 +4028,28 @@ namespace vtkControl
             //
             ApplyEdgeVisibilityAndBackfaceCullingToActor(actor.Geometry, actor.GeometryProperty, layer);            
         }
-        private void AddActorCaption(vtkMaxActor actor, vtkRendererLayer layer)
+        private void AddActorCaption(vtkMaxCaptionActor actor, vtkRendererLayer layer)
         {
             // Add actor
             if (layer == vtkRendererLayer.Base)
             {
                 if (actor.Name == null) actor.Name = (_actors.Count + 1).ToString();
                 _actors.Add(actor.Name, actor);
-                _renderer.AddActor(actor.Caption);
+                _renderer.AddActor2D(actor.Caption);
             }
             else if (layer == vtkRendererLayer.Overlay)
             {
                 if (actor.Name == null) actor.Name = (_overlayActors.Count + 1).ToString();
-                //_overlayActors.Add(actor.Name, actor.Geometry);
-                _overlayRenderer.AddActor(actor.Caption);
+                _overlayActors.Add(actor.Name, actor);
+                _overlayRenderer.AddActor2D(actor.Caption);
             }
             else if (layer == vtkRendererLayer.Selection)
             {
                 if (actor.Name == null) actor.Name = (_selectedActors.Count + 1).ToString();
                 _selectedActors.Add(actor);
-                _selectionRenderer.AddActor(actor.Caption);
+                // Caption 2d actors are added to overlay renderer since no text is rendered in selectionRenderer !!!
+                _overlayRenderer.AddActor2D(actor.Caption);
+                ApplySelectionFormattingToCaptionActor(actor);
             }
         }
         private void AddActorEdges(vtkMaxActor actor, bool isModelEdge, vtkRendererLayer layer)
@@ -4005,7 +4075,7 @@ namespace vtkControl
             }
             else if (layer == vtkRendererLayer.Overlay)
             {
-                _overlayActors.Add(actor.Name, actor.Geometry);
+                _overlayActors.Add(actor.Name, actor);
                 //
                 if (isModelEdge) _overlayRenderer.AddActor(actor.ModelEdges);
                 else _overlayRenderer.AddActor(actor.ElementEdges);
@@ -4239,10 +4309,10 @@ namespace vtkControl
                 }
             }
             // Overlay actors
-            vtkActor actor;
+            vtkMaxActor actor;
             foreach (var name in actorNames)
             {
-                if (_overlayActors.TryGetValue(name, out actor)) actor.VisibilityOn();
+                if (_overlayActors.TryGetValue(name, out actor)) actor.VtkMaxActorVisible = true;
             }
             //
             if (updateColorContours) UpdateScalarFormatting();
@@ -5950,6 +6020,7 @@ namespace vtkControl
             //
             foreach (var entry in _actors)
             {
+                if (entry.Value is vtkMaxCaptionActor ca) _renderer.RemoveActor2D(ca.Caption);
                 _renderer.RemoveActor(entry.Value.Geometry);
                 _renderer.RemoveActor(entry.Value.ElementEdges);
                 _renderer.RemoveActor(entry.Value.ModelEdges);
@@ -6020,11 +6091,21 @@ namespace vtkControl
             // Actors and edges - leave mouse
             foreach (vtkMaxActor actor in _selectedActors)
             {
-                _selectionRenderer.RemoveActor(actor.Geometry);
-                _selectionRenderer.RemoveActor(actor.ElementEdges);
-                //
-                _renderer.RemoveActor(actor.Geometry);
-                _renderer.RemoveActor(actor.ElementEdges);
+                if (actor is vtkMaxCaptionActor ca)
+                {
+                    _renderer.RemoveActor2D(ca.Caption);
+                    // Caption 2d actors are added to overlay renderer since no text is rendered in selectionRenderer !!!
+                    _overlayRenderer.RemoveActor2D(ca.Caption);     
+                    _selectionRenderer.RemoveActor2D(ca.Caption);
+                }
+                else
+                {
+                    _renderer.RemoveActor(actor.Geometry);
+                    _renderer.RemoveActor(actor.ElementEdges);
+                    //
+                    _selectionRenderer.RemoveActor(actor.Geometry);
+                    _selectionRenderer.RemoveActor(actor.ElementEdges);
+                }
             }
             _selectedActors.Clear();
             //
@@ -6054,7 +6135,8 @@ namespace vtkControl
             _maxSymbolSize = 0;
             foreach (var entry in _overlayActors)
             {
-                _overlayRenderer.RemoveActor(entry.Value);
+                if (entry.Value is vtkMaxCaptionActor ca) _overlayRenderer.RemoveActor(ca.Caption);
+                else _overlayRenderer.RemoveActor2D(entry.Value.Geometry);
             }
             _overlayActors.Clear();
             RenderScene();
@@ -6841,10 +6923,10 @@ namespace vtkControl
         
 
 
-        private void _style_ZoomChangedEvent()
-        {
-            
-        }
+       
+        
+
+       
     }
 }
 

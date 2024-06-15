@@ -170,12 +170,6 @@ namespace PrePoMax.Forms
         // Methods                                                                                                                  
         public void PickedIds(int[] ids)
         {
-            this.Enabled = true;
-            // Disable selection
-            _controller.SetSelectByToOff();
-            _controller.Selection.SelectItem = vtkSelectItem.None;
-            _controller.ClearSelectionHistoryAndCallSelectionChanged();
-            //
             if (ids != null && ids.Length == 1)
             {
                 FeNode node = _controller.DisplayedMesh.Nodes[ids[0]];
@@ -183,8 +177,16 @@ namespace PrePoMax.Forms
                 _scaleParameters.CenterX = node.X;
                 _scaleParameters.CenterY = node.Y;
                 _scaleParameters.CenterZ = node.Z;
+                // Disable selection
+                this.Enabled = true;
+                _controller.SetSelectByToOff();
+                _controller.Selection.SelectItem = vtkSelectItem.None;
                 //
                 propertyGrid.Refresh();
+                //
+                _propertyItemChanged = true;
+                //
+                _controller.ClearSelectionHistory();
                 //
                 HighlightNodes();
             }

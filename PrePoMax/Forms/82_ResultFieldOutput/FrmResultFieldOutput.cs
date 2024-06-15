@@ -38,6 +38,8 @@ namespace PrePoMax.Forms
                                                                             ref _propertyItemChanged);
                 else if (clone is ResultFieldOutputEnvelope rfoe)
                     _viewResultFieldOutput = new ViewResultFieldOutputEnvelope(rfoe);
+                else if (clone is ResultFieldOutputCoordinateSystemTransform rfocst)
+                    _viewResultFieldOutput = new ViewResultFieldOutputCoordinateSystemTransform(rfocst);
                 else throw new NotImplementedException();
             }
         }
@@ -129,6 +131,9 @@ namespace PrePoMax.Forms
             else if (_viewResultFieldOutput is ViewResultFieldOutputEnvelope vrfoe)
             {
             }
+            else if (_viewResultFieldOutput is ViewResultFieldOutputCoordinateSystemTransform vrfosct)
+            {
+            }
             //
             base.OnPropertyGridPropertyValueChanged();
         }
@@ -146,6 +151,7 @@ namespace PrePoMax.Forms
         protected override void OnApply(bool onOkAddNew)
         {
             if (propertyGrid.SelectedObject == null) throw new CaeException("No item selected.");
+            if (propertyGrid.SelectedObject is ViewError ve) throw new CaeException(ve.Message);
             //
             _viewResultFieldOutput = (ViewResultFieldOutput)propertyGrid.SelectedObject;
             // Check if the name exists
@@ -164,6 +170,17 @@ namespace PrePoMax.Forms
                 {
                     if (entry.Value == 0) throw new CaeException("All limit values must be different from 0.");
                 }
+            }
+            // Check for vector or tensor field
+            if (_viewResultFieldOutput is ViewResultFieldOutputCoordinateSystemTransform vrfocst)
+            {
+                string[] componentNames = _controller.CurrentResult.GetAllComponentNames();
+                if (componentNames == null ||  componentNames.Length == 0)
+                    throw new CaeException("The selected field output has no components.");
+                FieldData fieldData = _controller.CurrentResult.GetFieldData(vrfocst.FieldName, componentNames[0], 1, 1, true);
+                Field field = _controller.CurrentResult.GetField(fieldData);
+                if (field.DataType != DataTypeEnum.Vector && field.DataType != DataTypeEnum.Tensor)
+                    throw new CaeException("Only vector or tensor field output can be transformed.");
             }
             // Create
             if (_resultFieldOutputToEditName == null)
@@ -200,11 +217,12 @@ namespace PrePoMax.Forms
             //
             string[] partNames = _controller.GetResultPartNames();
             string[] elementSetNames = _controller.GetResultUserElementSetNames();
+            string[] coordinateSystemNames = _controller.GetResultCoordinateSystemNames();
             //
             if (_resultFieldOutputNames == null)
                 throw new CaeException("The field output names must be defined first.");
             //
-            PopulateListOfResultFieldOutputs(filedNameComponentNames, partNames, elementSetNames);
+            PopulateListOfResultFieldOutputs(filedNameComponentNames, partNames, elementSetNames, coordinateSystemNames);
             //
             if (resultFieldOutputToEditName == null)
             {
@@ -243,6 +261,18 @@ namespace PrePoMax.Forms
                     //
                     vrfoe.PopulateDropDownLists(filedNameComponentNames);
                 }
+                else if (_viewResultFieldOutput is ViewResultFieldOutputCoordinateSystemTransform vrfcst)
+                {
+                    selectedId = 2;
+                    // Check
+                    string[] fieldNames = filedNameComponentNames.Keys.ToArray();
+                    CheckMissingValueRef(ref fieldNames, vrfcst.FieldName, s => { vrfcst.FieldName = s; });
+                    //
+                    CheckMissingValueRef(ref coordinateSystemNames, vrfcst.CoordinateSystemName, 
+                                         s => { vrfcst.CoordinateSystemName = s; });
+                    //
+                    vrfcst.PopulateDropDownLists(filedNameComponentNames, coordinateSystemNames);
+                }
                 else throw new NotSupportedException();
                 //
 
@@ -259,28 +289,71 @@ namespace PrePoMax.Forms
 
         // Methods                                                                                                                  
         private void PopulateListOfResultFieldOutputs(Dictionary<string, string[]> filedNameComponentNames,
-                                                      string[] partNames, string[] elementSetNames)
+                                                      string[] partNames, string[] elementSetNames,
+                                                      string[] coordinateSystemNames)
         {
+            string firstFieldName = null;
+            string firstComponentName = null;
+            //
+            if (filedNameComponentNames.Count > 0)
+            {
+                foreach (var entry in filedNameComponentNames)
+                {
+                    if (entry.Value != null && entry.Value.Length > 0)
+                    {
+                        firstFieldName = entry.Key;
+                        firstComponentName = entry.Value[0];
+                        break;
+                    }
+                }
+            }
             // Populate list view
             ListViewItem item;
             // Limit
             item = new ListViewItem("Limit");
-            ResultFieldOutputLimit rfosf = new ResultFieldOutputLimit(GetResultFieldOutputName("Limit"),
-                                                                                    FOFieldNames.Stress,
-                                                                                    FOComponentNames.Mises);
-            ViewResultFieldOutputLimit vrfosf = new ViewResultFieldOutputLimit(rfosf, partNames, elementSetNames,
-                                                                                             ref _propertyItemChanged);
-            vrfosf.PopulateDropDownLists(filedNameComponentNames);
-            item.Tag = vrfosf;
+            if (firstFieldName != null && firstComponentName != null)
+            {
+                ResultFieldOutputLimit rfosf = new ResultFieldOutputLimit(GetResultFieldOutputName("Limit"),
+                                                                                        FOFieldNames.Stress,
+                                                                                        FOComponentNames.Mises);
+                ViewResultFieldOutputLimit vrfosf = new ViewResultFieldOutputLimit(rfosf, partNames, elementSetNames,
+                                                                                                 ref _propertyItemChanged);
+                vrfosf.PopulateDropDownLists(filedNameComponentNames);
+                item.Tag = vrfosf;
+            }
+            else item.Tag = new ViewError("There are not field outputs or components for the creation of the field output.");
             lvTypes.Items.Add(item);
             // Envelope
             item = new ListViewItem("Envelope");
-            ResultFieldOutputEnvelope rfoe = new ResultFieldOutputEnvelope(GetResultFieldOutputName("Envelope"),
+            if (firstFieldName != null && firstComponentName != null)
+            {
+                ResultFieldOutputEnvelope rfoe = new ResultFieldOutputEnvelope(GetResultFieldOutputName("Envelope"),
                                                                            FOFieldNames.Stress,
                                                                            FOComponentNames.Mises);
-            ViewResultFieldOutputEnvelope vrfoe = new ViewResultFieldOutputEnvelope(rfoe);
-            vrfoe.PopulateDropDownLists(filedNameComponentNames);
-            item.Tag = vrfoe;
+                ViewResultFieldOutputEnvelope vrfoe = new ViewResultFieldOutputEnvelope(rfoe);
+                vrfoe.PopulateDropDownLists(filedNameComponentNames);
+                item.Tag = vrfoe;
+            }
+            else item.Tag = new ViewError("There are not field outputs or components for the creation of the field output.");
+            lvTypes.Items.Add(item);
+            // Transform
+            item = new ListViewItem("Coordinate System Transform");
+            if (firstFieldName != null && firstComponentName != null)
+            {
+                if (coordinateSystemNames.Length > 0)
+                {
+                    ResultFieldOutputCoordinateSystemTransform rfocst =
+                        new ResultFieldOutputCoordinateSystemTransform(GetResultFieldOutputName("Transform"),
+                                                                       filedNameComponentNames.First().Key,
+                                                                       coordinateSystemNames[0]);
+                    ViewResultFieldOutputCoordinateSystemTransform vrfocst =
+                        new ViewResultFieldOutputCoordinateSystemTransform(rfocst);
+                    vrfocst.PopulateDropDownLists(filedNameComponentNames, coordinateSystemNames);
+                    item.Tag = vrfocst;
+                }
+                else item.Tag = new ViewError("There is no coordinate system defined for the field output creation.");
+            }
+            else item.Tag = new ViewError("There are not field outputs or components for the creation of the field output.");
             lvTypes.Items.Add(item);
         }
         private string GetResultFieldOutputName(string name)
@@ -293,7 +366,18 @@ namespace PrePoMax.Forms
         }
         private void SetTabPages(object item)
         {
-            if (item is ViewResultFieldOutputLimit vrfol)
+            if (item is ViewError ve)
+            {
+                // Clear
+                dgvData.DataSource = null;
+                dgvData.Columns.Clear();
+                tcProperties.TabPages.Clear();
+                //
+                tcProperties.TabPages.Add(_pages[0]);   // properites
+                //
+                propertyGrid.SelectedObject = ve;
+            }
+            else if (item is ViewResultFieldOutputLimit vrfol)
             {
                 // Clear
                 dgvData.DataSource = null;
@@ -326,6 +410,17 @@ namespace PrePoMax.Forms
                 tcProperties.TabPages.Add(_pages[0]);   // properites
                 //
                 _viewResultFieldOutput = vrfoe;
+            }
+            else if (item is ViewResultFieldOutputCoordinateSystemTransform vrfocst)
+            {
+                // Clear
+                dgvData.DataSource = null;
+                dgvData.Columns.Clear();
+                tcProperties.TabPages.Clear();
+                //
+                tcProperties.TabPages.Add(_pages[0]);   // properites
+                //
+                _viewResultFieldOutput = vrfocst;
             }
             else throw new NotImplementedException();
         }

@@ -19,21 +19,12 @@ namespace CaeMesh
         //[StandardValue("BetweenTwoPoints", Description = "Between two points", DisplayName = "Between two points")]
         Cylindrical,
     }
-    [Serializable]
-    public enum CoordinateSystemCreatedFromEnum
-    {
-        [StandardValue("CenterXY", Description = "Center; X-axis; XY-plane", DisplayName = "Center; X-axis; XY-plane")]
-        CenterXY,
-        [StandardValue("Circle", Description = "From circle by 3 points", DisplayName = "From circle by 3 points")]
-        Circle,
-    }
 
     [Serializable]
     public class CoordinateSystem : NamedClass, ISerializable, IContainsEquations
     {
         // Variables                                                                                                                
         private CoordinateSystemTypeEnum _type;                 //ISerializable
-        private CoordinateSystemCreatedFromEnum _createdFrom;   //ISerializable
         private EquationContainer _x1;                          //ISerializable
         private EquationContainer _y1;                          //ISerializable
         private EquationContainer _z1;                          //ISerializable
@@ -53,15 +44,6 @@ namespace CaeMesh
 
         // Properties                                                                                                               
         public CoordinateSystemTypeEnum Type { get { return _type; } set { _type = value; } }
-        public CoordinateSystemCreatedFromEnum CreatedFrom
-        {
-            get { return _createdFrom; }
-            set
-            {
-                _createdFrom = value;
-                EquationChanged();
-            }
-        }
         public EquationContainer X1 { get { return _x1; } set { SetX1(value); } }
         public EquationContainer Y1 { get { return _y1; } set { SetY1(value); } }
         public EquationContainer Z1 { get { return _z1; } set { SetZ1(value); } }
@@ -92,8 +74,6 @@ namespace CaeMesh
                 {
                     case "_type":
                         _type = (CoordinateSystemTypeEnum)entry.Value; break;
-                    case "_createdFrom":
-                        _createdFrom = (CoordinateSystemCreatedFromEnum)entry.Value; break;
                     case "_x1":
                         SetX1((EquationContainer)entry.Value, false); break;
                     case "_y1":
@@ -166,43 +146,21 @@ namespace CaeMesh
         }
         private void EquationChanged()
         {
-            if (_createdFrom == CoordinateSystemCreatedFromEnum.CenterXY)
-            {
-                Vec3D p1 = new Vec3D(Point1());
-                Vec3D p2 = new Vec3D(Point2());
-                Vec3D p3 = new Vec3D(Point3());
-                // Center
-                _center = new Vec3D(p1.Coor);
-                // Direction x
-                _dx = p2 - p1;
-                _dx.Normalize();
-                // Direction z
-                Vec3D d3 = p3 - p1;
-                _dz = Vec3D.CrossProduct(_dx, d3);
-                _dz.Normalize();
-                // Direction y
-                _dy = Vec3D.CrossProduct(_dz, _dx);
-                _dy.Normalize();
-            }
-            else if (_createdFrom == CoordinateSystemCreatedFromEnum.Circle)
-            {
-                Vec3D p1 = new Vec3D(Point1());
-                Vec3D p2 = new Vec3D(Point2());
-                Vec3D p3 = new Vec3D(Point3());
-                Vec3D.GetCircle(p1, p2, p3, out double r, out Vec3D center, out Vec3D axis);
-                //
-                // Center
-                _center = new Vec3D(center.Coor);
-                // Direction x
-                _dx = p1 - center;
-                _dx.Normalize();
-                // Direction z
-                _dz = axis;
-                _dz.Normalize();
-                // Direction y
-                _dy = Vec3D.CrossProduct(_dz, _dx);
-                _dy.Normalize();
-            }
+            Vec3D p1 = new Vec3D(Point1());
+            Vec3D p2 = new Vec3D(Point2());
+            Vec3D p3 = new Vec3D(Point3());
+            // Center
+            _center = p1;
+            // Direction x
+            _dx = p2 - p1;
+            _dx.Normalize();
+            // Direction z
+            Vec3D d3 = p3 - p1;
+            _dz = Vec3D.CrossProduct(_dx, d3);
+            _dz.Normalize();
+            // Direction y
+            _dy = Vec3D.CrossProduct(_dz, _dx);
+            _dy.Normalize();
         }
 
         // IContainsEquations
@@ -277,11 +235,11 @@ namespace CaeMesh
         {
             return new double[] { _x3.Value, _y3.Value, _z3.Value };
         }
-        public double[] DirectionX(double[] coor = null)
+        public Vec3D DirectionX(double[] coor = null)
         {
             if (_dx == null) EquationChanged();
             if (coor == null || coor.Length != 3 || (coor[0] == 0 && coor[1] == 0 && coor[2] == 0) ||
-                _type == CoordinateSystemTypeEnum.Rectangular) return _dx.Coor.ToArray();
+                _type == CoordinateSystemTypeEnum.Rectangular) return _dx;
             // Cylindrical point not equal to (0, 0, 0)
             else
             {
@@ -291,27 +249,27 @@ namespace CaeMesh
                 double k = Vec3D.DotProduct(dx, _dz); // project on x-y plane
                 Vec3D projDx = dx - k * _dz;
                 projDx.Normalize();
-                return projDx.Coor;
+                return projDx;
             }
         }
-        public double[] DirectionY(double[] coor = null)
+        public Vec3D DirectionY(double[] coor = null, Vec3D dx = null)
         {
             if (_dy == null) EquationChanged();
             if (coor == null || coor.Length != 3 || (coor[0] == 0 && coor[1] == 0 && coor[2] == 0) ||
-                _type == CoordinateSystemTypeEnum.Rectangular) return _dy.Coor.ToArray();
+                _type == CoordinateSystemTypeEnum.Rectangular) return _dy;
             // Cylindrical point not equal to (0, 0, 0)
             else
             {
-                Vec3D dx = new Vec3D(DirectionX(coor));
+                if (dx == null) dx = DirectionX(coor);
                 Vec3D dy = Vec3D.CrossProduct(_dz, dx);
                 dy.Normalize();
-                return dy.Coor;
+                return dy;
             }
         }
-        public double[] DirectionZ(double[] coor = null)
+        public Vec3D DirectionZ(double[] coor = null)
         {
             if (_dz == null) EquationChanged();
-            return _dz.Coor.ToArray();
+            return _dz;
         }
         public bool IsProperlyDefined()
         {
@@ -326,7 +284,6 @@ namespace CaeMesh
             base.GetObjectData(info, context);
             //
             info.AddValue("_type", _type, typeof(CoordinateSystemTypeEnum));
-            info.AddValue("_createdFrom", _createdFrom, typeof(CoordinateSystemCreatedFromEnum));
             info.AddValue("_x1", _x1, typeof(EquationContainer));
             info.AddValue("_y1", _y1, typeof(EquationContainer));
             info.AddValue("_z1", _z1, typeof(EquationContainer));

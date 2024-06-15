@@ -11,45 +11,44 @@ namespace vtkControl
     public class vtkMaxActor
     {
         // Variables                                                                                                                
-        private string _name;
-        private vtkMaxExtreemeNode _minNode;
-        private vtkMaxExtreemeNode _maxNode;
+        protected string _name;
+        protected vtkMaxExtreemeNode _minNode;
+        protected vtkMaxExtreemeNode _maxNode;
         //
-        private vtkMapper _geometryMapper;
-        // Actors
-        private vtkActor2D _caption;
-        private vtkActor _geometry;
-        private vtkActor _elementEdges;
-        private vtkActor _modelEdges;
-        private vtkActor _nodes;
+        protected vtkMapper _geometryMapper;
+        protected vtkActor _geometry;
+        protected vtkActor _elementEdges;
+        protected vtkActor _modelEdges;
+        protected vtkActor _nodes;
         //
-        private vtkProperty _geometryProperty;
-        private vtkProperty _elementEdgesProperty;
-        private vtkProperty _modelEdgesProperty;
-        private vtkProperty _nodesProperty;
+        protected vtkProperty _geometryProperty;
+        protected vtkProperty _elementEdgesProperty;
+        protected vtkProperty _modelEdgesProperty;
+        protected vtkProperty _nodesProperty;
         //
-        private vtkPointData _geometryPointData;
-        private vtkCellLocator _cellLocator;          // for surface picking
-        private vtkCellLocator _frustumCellLocator;   // for volume picking
-        private vtkPointData _frustumPointData;
-        private vtkMaxActor _sectionViewActor;
-        private List<vtkMaxActor> _copies;
+        protected vtkPointData _geometryPointData;
+        protected vtkCellLocator _cellLocator;          // for surface picking
+        protected vtkCellLocator _frustumCellLocator;   // for volume picking
+        protected vtkPointData _frustumPointData;
+        protected vtkMaxActor _sectionViewActor;
+        protected List<vtkMaxActor> _copies;
         //
-        private bool _isAPart;
-        private vtkMaxActorRepresentation _actorRepresentation;
+        protected bool _isAPart;
+        protected vtkMaxActorRepresentation _actorRepresentation;
         //
-        private bool _visible;
-        private bool _backfaceCulling;
-        private System.Drawing.Color _color;
-        private System.Drawing.Color _backfaceColor;
-        private System.Drawing.Color[] _colorTable;
-        private double _ambient;
-        private double _diffuse;
-        private bool _colorContours;
-        private bool _sectionViewPossible;
-        private bool _drawOnGeometry;
-        private bool _useSecondaryHighlightColor;
+        protected bool _visible;
+        protected bool _backfaceCulling;
+        protected System.Drawing.Color _color;
+        protected System.Drawing.Color _backfaceColor;
+        protected System.Drawing.Color[] _colorTable;
+        protected double _ambient;
+        protected double _diffuse;
+        protected bool _colorContours;
+        protected bool _sectionViewPossible;
+        protected bool _drawOnGeometry;
+        protected bool _useSecondaryHighlightColor;
 
+        
 
         // Properties                                                                                                               
         public string Name { get { return _name; } set { _name = value; } }
@@ -66,7 +65,6 @@ namespace vtkControl
             }
         }
         // Actors
-        public vtkActor2D Caption { get { return _caption; } set { _caption = value; } }
         public vtkActor Geometry
         {
             get { return _geometry; }
@@ -133,13 +131,13 @@ namespace vtkControl
             get { return _actorRepresentation; }
             set { _actorRepresentation = value; }
         }
-        public bool VtkMaxActorVisible
+        public virtual bool VtkMaxActorVisible
         {
             get { return _visible; }
             set
             {
                 _visible = value;
-                _geometry.SetVisibility(_visible ? 1 : 0);    // to base vtkActor
+                if (_geometry != null) _geometry.SetVisibility(_visible ? 1 : 0);    // to base vtkActor
             }
         }
         public bool BackfaceCulling { get { return _backfaceCulling; } set { _backfaceCulling = value; } }
@@ -291,26 +289,7 @@ namespace vtkControl
             //
             UpdateColor();
         }
-        public vtkMaxActor(vtkMaxActorData data, vtkActor2D caption)
-            : this()
-        {
-            _name = data.Name;
-            _caption = caption;
-            //
-            _actorRepresentation = data.ActorRepresentation;
-            _backfaceCulling = data.BackfaceCulling;
-            _color = data.Color;
-            _backfaceColor = data.BackfaceColor;
-            _colorTable = data.ColorTable;
-            _ambient = data.Ambient;
-            _diffuse = data.Diffuse;
-            _colorContours = data.ColorContours;
-            _sectionViewPossible = data.SectionViewPossible;
-            _drawOnGeometry = data.DrawOnGeometry;
-            _useSecondaryHighlightColor = data.UseSecondaryHighlightColor;
-            //
-            UpdateColor();
-        }
+        
         public vtkMaxActor(vtkMaxActorData data, bool extractVisualizationSurface, bool createNodalActor)
             : this()
         {
@@ -1584,7 +1563,7 @@ namespace vtkControl
         }
 
         // Color and visuals
-        public void UpdateColor()
+        public virtual void UpdateColor()
         {
             double opacity = _color.A / 255d;
             // Custom coloring of elements: sections, materials...

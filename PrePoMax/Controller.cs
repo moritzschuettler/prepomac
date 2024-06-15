@@ -12926,7 +12926,6 @@ namespace PrePoMax
                 // do not throw an error - it might cancel a procedure
             }
         }
-
         // Reference points
         public void DrawAllReferencePoints()
         {
@@ -12968,6 +12967,7 @@ namespace PrePoMax
             }
             catch { } // do not show the exception to the user
         }
+        // Coordinate systems
         public void DrawAllCoordinateSystems()
         {
             FeMesh mesh = DisplayedMesh;
@@ -12992,20 +12992,30 @@ namespace PrePoMax
                 data.Name = coordinateSystem.Name + "_x";
                 data.Color = Color.FromArgb(180, 4, 38);
                 data.Layer = layer;
-                data.Geometry.Nodes.Coor = new double[][] { coordinateSystem.Center() };
-                data.Geometry.Nodes.Normals = new double[][] { coordinateSystem.DirectionX() };
+                data.Geometry.Nodes.Coor = new double[][] { coordinateSystem.Center(), coordinateSystem.Center() };
+                data.Geometry.Nodes.Coor[1][0] += 1;
+                data.Geometry.Nodes.Normals = new double[][] { coordinateSystem.DirectionX().Coor };
                 ApplyLighting(data);
                 _form.AddCoordinateAxis(data, symbolSize);
                 //
+                data.Caption = "1";
+                _form.AddTextActor(data, symbolSize);
+                //
                 data.Name = coordinateSystem.Name + "_y";
                 data.Color = Color.FromArgb(33, 225, 38);
-                data.Geometry.Nodes.Normals = new double[][] { coordinateSystem.DirectionY() };
+                data.Geometry.Nodes.Normals = new double[][] { coordinateSystem.DirectionY().Coor };
                 _form.AddCoordinateAxis(data, symbolSize);
+                //
+                data.Caption = "2";
+                _form.AddTextActor(data, symbolSize);
                 //
                 data.Name = coordinateSystem.Name + "_z";
                 data.Color = Color.FromArgb(58, 76, 192);
-                data.Geometry.Nodes.Normals = new double[][] { coordinateSystem.DirectionZ() };
+                data.Geometry.Nodes.Normals = new double[][] { coordinateSystem.DirectionZ().Coor };
                 _form.AddCoordinateAxis(data, symbolSize);
+                //
+                data.Caption = "3";
+                _form.AddTextActor(data, symbolSize);
                 //
                 //data.Name = coordinateSystem.Name;
                 //data.Caption = coordinateSystem.Name;
@@ -13551,6 +13561,7 @@ namespace PrePoMax
                                                     CoordinateSystem coordinateSystem, double[][] symbolCoor,
                                                     Color color, int symbolSize, vtkRendererLayer layer)
         {
+            if (symbolCoor.Length == 0) return;
             // Reduce the coor for cylindrical coordinate system
             if (coordinateSystem != null && coordinateSystem.Type == CoordinateSystemTypeEnum.Cylindrical)
             {
@@ -13571,19 +13582,19 @@ namespace PrePoMax
             {
                 if (dispRot.GetDofType(1) == DOFType.Zero || dispRot.GetDofType(1) == DOFType.Fixed)
                 {
-                    normalX = dispRot.GetDirectionX(coordinateSystem, symbolCoor[i]);
+                    normalX = dispRot.GetDirectionX(coordinateSystem, symbolCoor[i]).Coor;
                     allCoor.Add(symbolCoor[i]);
                     allNormals.Add(normalX);
                 }
                 if (dispRot.GetDofType(2) == DOFType.Zero || dispRot.GetDofType(2) == DOFType.Fixed)
                 {
-                    normalY = dispRot.GetDirectionY(coordinateSystem, symbolCoor[i]);
+                    normalY = dispRot.GetDirectionY(coordinateSystem, symbolCoor[i]).Coor;
                     allCoor.Add(symbolCoor[i]);
                     allNormals.Add(normalY);
                 }
                 if (dispRot.GetDofType(3) == DOFType.Zero || dispRot.GetDofType(3) == DOFType.Fixed)
                 {
-                    normalZ = dispRot.GetDirectionZ(coordinateSystem, symbolCoor[i]);
+                    normalZ = dispRot.GetDirectionZ(coordinateSystem, symbolCoor[i]).Coor;
                     allCoor.Add(symbolCoor[i]);
                     allNormals.Add(normalZ);
                 }

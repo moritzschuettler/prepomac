@@ -16,6 +16,8 @@ using System.Xml.Linq;
 using System.Collections;
 using System.IO;
 using System.IO.Compression;
+using static CaeGlobals.Geometry2;
+using System.Numerics;
 
 namespace CaeResults
 {
@@ -509,6 +511,10 @@ namespace CaeResults
                             // Parent components
                             names = new HashSet<string>(filedNameComponentNames[rfoe.FieldName]);
                             valid &= names.Contains(rfoe.ComponentName);
+                        }
+                        else if (resultFieldOutput is ResultFieldOutputCoordinateSystemTransform rfocst)
+                        {
+                            valid &= _mesh.CoordinateSystems.ContainsValidKey(rfocst.CoordinateSystemName);
                         }
                         else throw new NotSupportedException();
                     }
@@ -1980,7 +1986,7 @@ namespace CaeResults
                 result.Valid = false;
                 return result;
             }
-            // Zero increment - Find all occurances!!!
+            // Zero increment - Find all occurrences!!!
             else if (stepId == 1 && stepIncrementId == 0)
             {
                 result = new FieldData(name, component, stepId, stepIncrementId);
@@ -2509,6 +2515,7 @@ namespace CaeResults
         {
             FieldData fieldData;
             FieldData newFieldData = null;
+            Field sourceField;
             Field newField;
             //
             string newFieldName;
@@ -2540,6 +2547,17 @@ namespace CaeResults
                         sourceComponentName = rfoe.ComponentName;
                         newFieldName = rfoe.Name;
                         newComponentNames = rfoe.GetComponentNames();
+                        fieldData = GetFieldData(sourceFieldName, sourceComponentName, entry.Key, incrementId, true);
+                        unit = GetFieldUnitAbbrevation(fieldData);
+                    }
+                    else if (resultFieldOutput is ResultFieldOutputCoordinateSystemTransform rfocst)
+                    {
+                        rfocst.SetComponentNames(GetFieldComponentNames(rfocst.FieldName));
+                        //
+                        sourceFieldName = rfocst.FieldName;
+                        sourceComponentName = rfocst.GetComponentNames()[0];
+                        newFieldName = rfocst.Name;
+                        newComponentNames = rfocst.GetComponentNames();
                         fieldData = GetFieldData(sourceFieldName, sourceComponentName, entry.Key, incrementId, true);
                         unit = GetFieldUnitAbbrevation(fieldData);
                     }
@@ -2579,7 +2597,6 @@ namespace CaeResults
             RemoveFields(new string[] { oldResultFieldOutputName });
             _resultFieldOutputs.Replace(oldResultFieldOutputName, resultFieldOutput.Name, resultFieldOutput);
             PrepareFieldsFromResultFieldOutput(resultFieldOutput);
-            
         }
         public void RemoveResultFieldOutputs(string[] fieldOutputNames)
         {
@@ -2654,7 +2671,7 @@ namespace CaeResults
         private void ComputeFieldFromResultFieldOutput(ResultFieldOutput resultFieldOutput, int stepId, int stepIncrementId)
         {
             FieldData sourceFieldData;
-            Field sourceField;
+            Field sourceField = null;
             //
             string[] componentNames;
             float[][] values;
@@ -2671,6 +2688,13 @@ namespace CaeResults
                 componentNames = rfoe.GetComponentNames();
                 values = ComputeFieldFromResultFieldOutputEnvelope(rfoe);
             }
+            else if (resultFieldOutput is ResultFieldOutputCoordinateSystemTransform rfocst)
+            {
+                sourceFieldData = GetFieldData(rfocst.FieldName, rfocst.GetComponentNames()[0], stepId, stepIncrementId, true);
+                sourceField = GetField(sourceFieldData);
+                componentNames = rfocst.GetComponentNames();
+                values = ComputeFieldFromResultFieldOutputCoordinateSystemTransform(rfocst, sourceField);
+            }
             else throw new NotSupportedException();
             //
             int count = 0;
@@ -2683,11 +2707,12 @@ namespace CaeResults
                 newField = GetField(newFieldData, false);
                 newComponent = new FieldComponent(newFieldData.Component, values[count++]);
                 newField.ReplaceComponent(newComponent.Name, newComponent);
+                newField.DataType = sourceField != null ? sourceField.DataType : DataTypeEnum.None;
                 newField.DataState = DataStateEnum.OK;
                 ReplaceOrAddField(newFieldData, newField);
             }
         }
-        private float[][] ComputeFieldFromResultFieldOutputLimit(ResultFieldOutputLimit resultFieldOutputLimit, Field sourceField)
+        private float[][] ComputeFieldFromResultFieldOutputLimit(ResultFieldOutputLimit resultFieldOutput, Field sourceField)
         {
             int resultsNodeId;
             float itemLimit;
@@ -2697,16 +2722,16 @@ namespace CaeResults
             //
             if (sourceField != null)
             {
-                valuesRatio = sourceField.GetComponentValues(resultFieldOutputLimit.ComponentName);
+                valuesRatio = sourceField.GetComponentValues(resultFieldOutput.ComponentName);
                 if (valuesRatio != null)
                 {
                     limits = new float[valuesRatio.Length];
                     //
-                    if (resultFieldOutputLimit.LimitPlotBasedOn == LimitPlotBasedOnEnum.Parts)
+                    if (resultFieldOutput.LimitPlotBasedOn == LimitPlotBasedOnEnum.Parts)
                     {
                         // Collect limits for parts
                         BasePart part;
-                        foreach (var itemEntry in resultFieldOutputLimit.ItemNameLimit)
+                        foreach (var itemEntry in resultFieldOutput.ItemNameLimit)
                         {
                             if (_mesh.Parts.TryGetValue(itemEntry.Key, out part))
                             {
@@ -2717,18 +2742,17 @@ namespace CaeResults
                                 {
                                     resultsNodeId = _nodeIdsLookUp[nodeId];
                                     if (limits[resultsNodeId] != 0)
-                                        limits[resultsNodeId] = Math.Min(limits[resultsNodeId],
-                                                                                itemLimit);
+                                        limits[resultsNodeId] = Math.Min(limits[resultsNodeId], itemLimit);
                                     else limits[resultsNodeId] = itemLimit;
                                 }
                             }
                         }
                     }
-                    else if (resultFieldOutputLimit.LimitPlotBasedOn == LimitPlotBasedOnEnum.ElementSets)
+                    else if (resultFieldOutput.LimitPlotBasedOn == LimitPlotBasedOnEnum.ElementSets)
                     {
                         // Collect limits for element sets
                         FeElementSet elementSet;
-                        foreach (var itemEntry in resultFieldOutputLimit.ItemNameLimit)
+                        foreach (var itemEntry in resultFieldOutput.ItemNameLimit)
                         {
                             if (_mesh.ElementSets.TryGetValue(itemEntry.Key, out elementSet) ||
                                 itemEntry.Key == ResultFieldOutputLimit.AllElementsName)
@@ -2770,7 +2794,7 @@ namespace CaeResults
             //
             return new float[][] { valuesRatio, valuesSafety };
         }
-        private float[][] ComputeFieldFromResultFieldOutputEnvelope(ResultFieldOutputEnvelope resultFieldOutputEnvelope)
+        private float[][] ComputeFieldFromResultFieldOutputEnvelope(ResultFieldOutputEnvelope resultFieldOutput)
         {
             FieldData sourceFieldData;
             Field sourceField;
@@ -2790,13 +2814,13 @@ namespace CaeResults
                 for (int i = 0; i < entry.Value.Length; i++)
                 {
                     stepIncrementId = entry.Value[i];
-                    sourceFieldData = GetFieldData(resultFieldOutputEnvelope.FieldName, resultFieldOutputEnvelope.ComponentName,
+                    sourceFieldData = GetFieldData(resultFieldOutput.FieldName, resultFieldOutput.ComponentName,
                                                    stepId, stepIncrementId, true);
                     sourceField = GetField(sourceFieldData);
                     //
                     if (sourceField != null)
                     {
-                        values = sourceField.GetComponentValues(resultFieldOutputEnvelope.ComponentName);
+                        values = sourceField.GetComponentValues(resultFieldOutput.ComponentName);
                         if (values != null) allValues.Add(values);
                     }
                 }
@@ -2828,6 +2852,192 @@ namespace CaeResults
             }
             //
             return new float[][] { max, min, average };
+        }
+        private float[][] ComputeFieldFromResultFieldOutputCoordinateSystemTransform(
+            ResultFieldOutputCoordinateSystemTransform resultFieldOutput, Field sourceField)
+        {
+            float[][] values = null;
+            CoordinateSystem coordinateSystem;
+            _mesh.CoordinateSystems.TryGetValue(resultFieldOutput.CoordinateSystemName, out coordinateSystem);
+            //
+            if (sourceField != null && coordinateSystem != null)
+            {
+                int resultNodeId;
+                int numOfComponents;
+                string[] componentNames;
+                float[][] sourceValues;
+                double[] coor;
+                Vec3D dx;
+                Vec3D dy;
+                Vec3D dz;
+                Vec3D vector = new Vec3D();
+                Matrix4x4 tensor;
+                Matrix4x4 rotation;
+                Matrix4x4 rotationT;
+
+                double[][] tensor1;
+                double[][] rotation1;
+
+                FeNode node;
+                Field resultField = new Field(sourceField);
+                DataTypeEnum dataType = sourceField.DataType;
+                // Remove invariants
+                resultField.RemoveInvariants();
+                // Prepare arrays
+                componentNames = resultField.GetComponentNames();
+                numOfComponents = componentNames.Length;
+                values = new float[numOfComponents][];
+                sourceValues = new float[numOfComponents][];
+                // Get source values
+                for (int i = 0; i < numOfComponents; i++)
+                {
+                    sourceValues[i] = resultField.GetComponentValues(componentNames[i]);
+                    values[i] = new float[sourceValues[i].Length];
+                }
+                // Remove components
+                for (int i = 0; i < numOfComponents; i++) resultField.RemoveComponent(componentNames[i]);
+                // Scalar
+                if (dataType == DataTypeEnum.Scalar)
+                {
+                }
+                // Vector
+                else if (dataType == DataTypeEnum.Vector)
+                {
+                    foreach (var entry in _undeformedNodes)
+                    {
+                        node = entry.Value;
+                        resultNodeId = _nodeIdsLookUp[node.Id];
+                        // Node coordinates
+                        coor = node.Coor;
+                        // Coordinate system directions at node
+                        dx = coordinateSystem.DirectionX(coor);
+                        dy = coordinateSystem.DirectionY(coor, dx); // using dx for speed
+                        dz = coordinateSystem.DirectionZ(coor);
+                        // Vector
+                        vector.X = sourceValues[0][resultNodeId];
+                        vector.Y = sourceValues[1][resultNodeId];
+                        vector.Z = sourceValues[2][resultNodeId];
+                        // Project vector on coordinate directions
+                        values[0][resultNodeId] = (float)Vec3D.DotProduct(vector, dx);
+                        values[1][resultNodeId] = (float)Vec3D.DotProduct(vector, dy);
+                        values[2][resultNodeId] = (float)Vec3D.DotProduct(vector, dz);
+                    }
+                    // Add components
+                    for (int i = 0; i < numOfComponents; i++) resultField.AddComponent(componentNames[i], values[i]);
+                }
+                // Tensor
+                else if (dataType == DataTypeEnum.Tensor)
+                {
+                    tensor1 = Matrix.MatrixCreate(3, 3);
+                    rotation1 = Matrix.MatrixCreate(3, 3);
+                    foreach (var entry in _undeformedNodes)
+                    {
+                        node = entry.Value;
+                        resultNodeId = _nodeIdsLookUp[node.Id];
+                        // Node coordinates
+                        coor = node.Coor;
+                        // Coordinate system directions at node
+                        dx = coordinateSystem.DirectionX(coor);
+                        dy = coordinateSystem.DirectionY(coor, dx); // using dx for speed
+                        dz = coordinateSystem.DirectionZ(coor);
+                        // Tensor
+                        tensor1[0][0] = sourceValues[0][resultNodeId];
+                        tensor1[1][1] = sourceValues[1][resultNodeId];
+                        tensor1[2][2] = sourceValues[2][resultNodeId];
+                        tensor1[0][1] = sourceValues[3][resultNodeId];
+                        tensor1[1][0] = sourceValues[3][resultNodeId];
+                        tensor1[1][2] = sourceValues[4][resultNodeId];
+                        tensor1[2][1] = sourceValues[4][resultNodeId];
+                        tensor1[0][2] = sourceValues[5][resultNodeId];
+                        tensor1[2][0] = sourceValues[5][resultNodeId];
+                        // Rotation matrix
+                        rotation1[0][0] = (float)dx.X;
+                        rotation1[0][1] = (float)dx.Y;
+                        rotation1[0][2] = (float)dx.Z;
+                        rotation1[1][0] = (float)dy.X;
+                        rotation1[1][1] = (float)dy.Y;
+                        rotation1[1][2] = (float)dy.Z;
+                        rotation1[2][0] = (float)dz.X;
+                        rotation1[2][1] = (float)dz.Y;
+                        rotation1[2][2] = (float)dz.Z;
+                        // T' = R*T*RT - rotate tensor
+                        tensor1 = Matrix.MatrixProduct(rotation1, tensor1);
+                        rotation1 = Matrix.MatrixTranspose(rotation1);
+                        tensor1 = Matrix.MatrixProduct(tensor1, rotation1);
+                        //
+                        values[0][resultNodeId] = (float)tensor1[0][0];
+                        values[1][resultNodeId] = (float)tensor1[1][1];
+                        values[2][resultNodeId] = (float)tensor1[2][2];
+                        values[3][resultNodeId] = (float)tensor1[0][1];
+                        values[4][resultNodeId] = (float)tensor1[1][2];
+                        values[5][resultNodeId] = (float)tensor1[2][0];
+                    }
+
+                    //Tensor - faster
+                    //tensor = Matrix4x4.Identity;
+                    //rotation = Matrix4x4.Identity;
+                    //foreach (var entry in _undeformedNodes)
+                    //{
+                    //    node = entry.Value;
+                    //    resultNodeId = _nodeIdsLookUp[node.Id];
+                    //    // Node coordinates
+                    //    coor = node.Coor;
+                    //    // Coordinate system directions at node
+                    //    dx = coordinateSystem.DirectionX(coor);
+                    //    dy = coordinateSystem.DirectionY(coor, dx); // using dx for speed
+                    //    dz = coordinateSystem.DirectionZ(coor);
+                    //    // Tensor
+                    //    tensor.M11 = sourceValues[0][resultNodeId];
+                    //    tensor.M22 = sourceValues[1][resultNodeId];
+                    //    tensor.M33 = sourceValues[2][resultNodeId];
+                    //    tensor.M12 = sourceValues[3][resultNodeId];
+                    //    tensor.M21 = sourceValues[3][resultNodeId];
+                    //    tensor.M23 = sourceValues[4][resultNodeId];
+                    //    tensor.M32 = sourceValues[4][resultNodeId];
+                    //    tensor.M13 = sourceValues[5][resultNodeId];
+                    //    tensor.M31 = sourceValues[5][resultNodeId];
+                    //    // Rotation matrix
+                    //    rotation.M11 = (float)dx.X;
+                    //    rotation.M12 = (float)dx.Y;
+                    //    rotation.M13 = (float)dx.Z;
+                    //    rotation.M21 = (float)dy.X;
+                    //    rotation.M22 = (float)dy.Y;
+                    //    rotation.M23 = (float)dy.Z;
+                    //    rotation.M31 = (float)dz.X;
+                    //    rotation.M32 = (float)dz.Y;
+                    //    rotation.M33 = (float)dz.Z;
+                    //    //
+                    //    //Matrix4x4.Invert(rotation, out rotationT);
+                    //    rotationT = Matrix4x4.Transpose(rotation);
+                    //    //
+                    //    //tensor = Matrix4x4.Multiply(rotation, rotationT);
+                    //    // T' = R*T*RT
+                    //    tensor = Matrix4x4.Multiply(rotation, tensor);
+                    //    tensor = Matrix4x4.Multiply(tensor, rotationT);
+                    //    // Project vector on coordinate directions
+                    //    values[0][resultNodeId] = tensor.M11;
+                    //    values[1][resultNodeId] = tensor.M22;
+                    //    values[2][resultNodeId] = tensor.M33;
+                    //    values[3][resultNodeId] = tensor.M12;
+                    //    values[4][resultNodeId] = tensor.M23;
+                    //    values[5][resultNodeId] = tensor.M31;
+                    //}
+
+
+                    // Add components
+                    for (int i = 0; i < numOfComponents; i++) resultField.AddComponent(componentNames[i], values[i]);
+                }
+                else throw new NotSupportedException();
+                // Compute invariants
+                resultField.ComputeInvariants();
+                // Get all component values
+                componentNames = resultField.GetComponentNames();
+                numOfComponents = componentNames.Length;
+                values = new float[numOfComponents][];
+                for (int i = 0; i < numOfComponents; i++) values[i] = resultField.GetComponentValues(componentNames[i]);
+            }
+            //
+            return values;
         }
         private List<ResultFieldOutput> GetResultFieldOutputIndependencyList()
         {

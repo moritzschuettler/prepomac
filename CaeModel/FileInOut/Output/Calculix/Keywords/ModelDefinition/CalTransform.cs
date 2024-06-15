@@ -45,13 +45,13 @@ namespace FileInOut.Output.Calculix
             //
             if (_coordinateSystem.Type == CoordinateSystemTypeEnum.Rectangular)
             {
-                a = _coordinateSystem.DirectionX();
-                b = _coordinateSystem.DirectionY();
+                a = _coordinateSystem.DirectionX().Coor;
+                b = _coordinateSystem.DirectionY().Coor;
             }
             else if (_coordinateSystem.Type == CoordinateSystemTypeEnum.Cylindrical)
             {
                 a = _coordinateSystem.Center();
-                b = _coordinateSystem.DirectionZ();
+                b = _coordinateSystem.DirectionZ().Coor;
             }
             else throw new NotSupportedException();
             //

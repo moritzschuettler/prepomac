@@ -18,6 +18,7 @@ namespace PrePoMax.Forms
         private FeReferencePoint _referencePoint;
         private int _numOfNodeSets;
         private int _numOfSurfaces;
+        private ItemSetData _pointItemSetData;
 
 
         // Properties                                                                                                               
@@ -39,28 +40,56 @@ namespace PrePoMax.Forms
                 if (value != _referencePoint.CreatedFrom)
                 {
                     _referencePoint.CreatedFrom = value;
+                    //
+                    if (value == FeReferencePointCreatedFrom.OnPoint)
+                        _pointItemSetData.ToStringType = ItemSetDataToStringType.SelectSinglePoint;
+                    else if (value == FeReferencePointCreatedFrom.BetweenTwoPoints)
+                        _pointItemSetData.ToStringType = ItemSetDataToStringType.SelectTwoPoints;
+                    else if (value == FeReferencePointCreatedFrom.CircleCenter)
+                        _pointItemSetData.ToStringType = ItemSetDataToStringType.SelectThreePoints;
+                    //
                     SetPropertiesVisibility();
                 }
             }
         }
         //
+
+        //
         [Category("Region")]
-        [OrderedDisplayName(2, 10, "Region type")]
-        [Description("Select the region type for the creation of the reference point.")]
+        [OrderedDisplayName(2, 10, "By selection")]
+        [DescriptionAttribute("Use selection for the creation of the reference point.")]
+        [EditorAttribute(typeof(SinglePointDataEditor), typeof(UITypeEditor))]
         [Id(2, 2)]
+        public ItemSetData PointCenterItemSet
+        {
+            get { return _pointItemSetData; }
+            set
+            {
+                if (value != _pointItemSetData) _pointItemSetData = value;
+            }
+        }
+
+
+        [Category("Region")]
+        [OrderedDisplayName(3, 10, "Region type")]
+        [Description("Select the region type for the creation of the reference point.")]
+        [Id(3, 2)]
         public override string RegionType { get { return base.RegionType; } set { base.RegionType = value; } }
         //
         [Category("Region")]
-        [OrderedDisplayName(3, 10, "Node set")]
+        [OrderedDisplayName(4, 10, "Node set")]
         [Description("Select the node set for the creation of the reference point.")]
-        [Id(3, 2)]
+        [Id(4, 2)]
         public string NodeSetName { get { return _referencePoint.RegionName; } set { _referencePoint.RegionName = value; } }
         //
         [Category("Region")]
-        [OrderedDisplayName(4, 10, "Surface")]
+        [OrderedDisplayName(5, 10, "Surface")]
         [Description("Select the surface for the creation of the reference point.")]
-        [Id(4, 2)]
+        [Id(5, 2)]
         public string SurfaceName { get { return _referencePoint.RegionName; } set { _referencePoint.RegionName = value; } }
+
+       
+
         //
         [Category("Coordinates")]
         [DisplayName("X")]
@@ -97,6 +126,9 @@ namespace PrePoMax.Forms
             // The order is important
             _referencePoint = referencePoint;
             //
+            _pointItemSetData = new ItemSetData(); // needed to display ItemSetData.ToString()
+            _pointItemSetData.ToStringType = ItemSetDataToStringType.SelectSinglePoint;
+            //
             Dictionary<RegionTypeEnum, string> regionTypePropertyNamePairs = new Dictionary<RegionTypeEnum, string>();
             regionTypePropertyNamePairs.Add(RegionTypeEnum.NodeSetName, nameof(NodeSetName));
             regionTypePropertyNamePairs.Add(RegionTypeEnum.SurfaceName, nameof(SurfaceName));
@@ -129,10 +161,11 @@ namespace PrePoMax.Forms
         {
             DynamicCustomTypeDescriptor dctd = base.DynamicCustomTypeDescriptor;
             //
-            if (CreatedFrom == FeReferencePointCreatedFrom.Selection ||
+            if (CreatedFrom == FeReferencePointCreatedFrom.OnPoint ||
                 CreatedFrom == FeReferencePointCreatedFrom.BetweenTwoPoints ||
                 CreatedFrom == FeReferencePointCreatedFrom.CircleCenter)
             {
+                dctd.GetProperty(nameof(PointCenterItemSet)).SetIsBrowsable(true);
                 dctd.GetProperty(nameof(RegionType)).SetIsBrowsable(false);
                 dctd.GetProperty(nameof(NodeSetName)).SetIsBrowsable(false);
                 dctd.GetProperty(nameof(SurfaceName)).SetIsBrowsable(false);
@@ -142,6 +175,7 @@ namespace PrePoMax.Forms
             }
             else
             {
+                dctd.GetProperty(nameof(PointCenterItemSet)).SetIsBrowsable(false);
                 dctd.GetProperty(nameof(RegionType)).SetIsBrowsable(true);
                 //
                 if (_numOfNodeSets > 0 && _referencePoint.RegionType == RegionTypeEnum.NodeSetName)

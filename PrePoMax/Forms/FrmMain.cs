@@ -4193,6 +4193,8 @@ namespace PrePoMax
             {
                 if (_controller.Model.Mesh == null) return;
                 //
+                SinglePointDataEditor.ParentForm = _frmReferencePoint;
+                SinglePointDataEditor.Controller = _controller;
                 ShowForm(_frmReferencePoint, "Create Model Reference Point", null);
             }
             catch (Exception ex)
@@ -4274,7 +4276,9 @@ namespace PrePoMax
         //
         private void EditModelReferencePoint(string referencePointName)
         {
-            ShowForm(_frmReferencePoint, "Edit Model Reference Point", referencePointName);
+            SinglePointDataEditor.ParentForm = _frmReferencePoint;
+            SinglePointDataEditor.Controller = _controller;
+            ShowForm(_frmReferencePoint, "Edit Reference Point", referencePointName);
         }
         private void DuplicateModelReferencePoints(string[] referencePointNames)
         {
@@ -4397,7 +4401,7 @@ namespace PrePoMax
         {
             SinglePointDataEditor.ParentForm = _frmCoordinateSystem;
             SinglePointDataEditor.Controller = _controller;
-            ShowForm(_frmCoordinateSystem, "Edit Model Coordinate System", coordinateSystemName);
+            ShowForm(_frmCoordinateSystem, "Edit Coordinate System", coordinateSystemName);
         }
         private void DuplicateModelCoordinateSystems(string[] coordinateSystemNames)
         {
@@ -6955,6 +6959,8 @@ namespace PrePoMax
             {
                 if (_controller.AllResults.CurrentResult.Mesh == null) return;
                 //
+                SinglePointDataEditor.ParentForm = _frmReferencePoint;
+                SinglePointDataEditor.Controller = _controller;
                 ShowForm(_frmReferencePoint, "Create Result Reference Point", null);
             }
             catch (Exception ex)
@@ -7036,7 +7042,9 @@ namespace PrePoMax
         //
         private void EditResultReferencePoint(string referencePointName)
         {
-            ShowForm(_frmReferencePoint, "Edit Result Reference Point", referencePointName);
+            SinglePointDataEditor.ParentForm = _frmReferencePoint;
+            SinglePointDataEditor.Controller = _controller;
+            ShowForm(_frmReferencePoint, "Edit Reference Point", referencePointName);
         }
         private void DuplicateResultReferencePoints(string[] referencePointNames)
         {
@@ -7159,7 +7167,7 @@ namespace PrePoMax
         {
             SinglePointDataEditor.ParentForm = _frmCoordinateSystem;
             SinglePointDataEditor.Controller = _controller;
-            ShowForm(_frmCoordinateSystem, "Edit Result Coordinate System", coordinateSystemName);
+            ShowForm(_frmCoordinateSystem, "Edit Coordinate System", coordinateSystemName);
         }
         private void DuplicateResultCoordinateSystems(string[] coordinateSystemNames)
         {

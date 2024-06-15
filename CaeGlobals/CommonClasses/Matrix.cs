@@ -188,7 +188,7 @@ namespace CaeGlobals
 
         // ----------------------------------------------------------------
 
-        static double[][] MatrixCreate(int rows, int cols)
+        public static double[][] MatrixCreate(int rows, int cols)
         {
             double[][] result = new double[rows][];
             for (int i = 0; i < rows; ++i)
@@ -212,6 +212,20 @@ namespace CaeGlobals
                 for (int j = 0; j < bCols; ++j) // each col of B
                     for (int k = 0; k < aCols; ++k) // could use k < bRows
                         result[i][j] += matrixA[i][k] * matrixB[k][j];
+
+            return result;
+        }
+
+        public static double[][] MatrixTranspose(double[][] matrix)
+        {
+            int aRows = matrix.Length;
+            int aCols = matrix[0].Length;
+
+            double[][] result = MatrixCreate(aCols, aRows);
+
+            for (int i = 0; i < aRows; ++i) // each row of A
+                for (int j = 0; j < aCols; ++j) // each col of B
+                    result[j][i] = matrix[i][j];
 
             return result;
         }

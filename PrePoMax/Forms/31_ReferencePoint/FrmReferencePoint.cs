@@ -240,72 +240,135 @@ namespace PrePoMax.Forms
         // Methods                                                                                                                  
         public void PickedIds(int[] ids)
         {
-            if (ids != null)
+            Vec3D center = null;
+            FeMesh mesh = GetMesh();
+            //
+            bool finished = false;
+            FeReferencePoint rp = ReferencePoint;
+            string propertyName = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
+            if (propertyName == nameof(_viewReferencePoint.PointCenterItemSet))
             {
-                FeReferencePoint rp = ReferencePoint;
-                FeMesh mesh = GetMesh();
-                //
-                bool clear = false;
-                bool finished = false;
-                if (rp.CreatedFrom == FeReferencePointCreatedFrom.Selection)
+                if (rp.CreatedFrom == FeReferencePointCreatedFrom.OnPoint && ids.Length == 1)
                 {
-                    if (ids.Length == 0) clear = true;
-                    else if (ids.Length == 1)
-                    {
-                        FeNode node = mesh.Nodes[ids[0]];
-                        _viewReferencePoint.X = new EquationString(node.X.ToString());
-                        _viewReferencePoint.Y = new EquationString(node.Y.ToString());
-                        _viewReferencePoint.Z = new EquationString(node.Z.ToString());
-                        finished = true;
-                    }
-                    else clear = true;
+                    center = new Vec3D(mesh.Nodes[ids[0]].Coor);
+                    finished = true;
                 }
-                else if (rp.CreatedFrom == FeReferencePointCreatedFrom.BetweenTwoPoints)
+                else if (rp.CreatedFrom == FeReferencePointCreatedFrom.BetweenTwoPoints && ids.Length == 2)
                 {
-                    if (ids.Length == 0) clear = true;
-                    else if (ids.Length == 1) { }
-                    else if (ids.Length == 2)
-                    {
-                        FeNode node1 = mesh.Nodes[ids[0]];
-                        FeNode node2 = mesh.Nodes[ids[1]];
-                        _viewReferencePoint.X = new EquationString(((node1.X + node2.X) / 2).ToString());
-                        _viewReferencePoint.Y = new EquationString(((node1.Y + node2.Y) / 2).ToString());
-                        _viewReferencePoint.Z = new EquationString(((node1.Z + node2.Z) / 2).ToString());
-                        finished = true;
-                    }
-                    else clear = true;
+                    Vec3D v1 = new Vec3D(mesh.Nodes[ids[0]].Coor);
+                    Vec3D v2 = new Vec3D(mesh.Nodes[ids[1]].Coor);
+                    center = (v1 + v2) * 0.5;
+                    finished = true;
                 }
-                else if (rp.CreatedFrom == FeReferencePointCreatedFrom.CircleCenter)
+                else if (rp.CreatedFrom == FeReferencePointCreatedFrom.CircleCenter && ids.Length == 3)
                 {
-                    if (ids.Length == 0) clear = true;
-                    else if (ids.Length == 1) { }
-                    else if (ids.Length == 2) { }
-                    else if (ids.Length == 3)
-                    {
-                        Vec3D v1 = new Vec3D(mesh.Nodes[ids[0]].Coor);
-                        Vec3D v2 = new Vec3D(mesh.Nodes[ids[1]].Coor);
-                        Vec3D v3 = new Vec3D(mesh.Nodes[ids[2]].Coor);
-                        Vec3D.GetCircle(v1, v2, v3, out double r, out Vec3D center, out Vec3D axis);
-                        _viewReferencePoint.X = new EquationString(center.X.ToString());
-                        _viewReferencePoint.Y = new EquationString(center.Y.ToString());
-                        _viewReferencePoint.Z = new EquationString(center.Z.ToString());
-                        finished = true;
-                    }
-                    else clear = true;
+                    Vec3D v1 = new Vec3D(mesh.Nodes[ids[0]].Coor);
+                    Vec3D v2 = new Vec3D(mesh.Nodes[ids[1]].Coor);
+                    Vec3D v3 = new Vec3D(mesh.Nodes[ids[2]].Coor);
+                    Vec3D.GetCircle(v1, v2, v3, out double r, out center, out Vec3D axis);
+                    finished = true;
                 }
-                else clear = true;
                 //
                 if (finished)
                 {
-                    propertyGrid.Refresh();
-                    //
-                    _propertyItemChanged = true;
+                    rp.X.SetEquationFromValue(center.X, true);
+                    rp.Y.SetEquationFromValue(center.Y, true);
+                    rp.Z.SetEquationFromValue(center.Z, true);
                 }
-                //
-                if (finished || clear) _controller.ClearSelectionHistory();    // resets the number of picked ids
-                if (finished || clear) HighlightReferencePoint();
-
             }
+            //
+            if (finished)
+            {
+                // Disable selection
+                this.Enabled = true;
+                _controller.SetSelectByToOff();
+                _controller.Selection.SelectItem = vtkSelectItem.None;
+                //
+                propertyGrid.Refresh();
+                //
+                _propertyItemChanged = true;
+                //
+                _controller.ClearSelectionHistory();    // must be here to reset the number of picked ids
+                //
+                HighlightReferencePoint();
+            }
+
+
+
+
+
+
+
+
+
+
+
+
+            //if (ids != null)
+            //{
+            //    FeReferencePoint rp = ReferencePoint;
+            //    FeMesh mesh = GetMesh();
+            //    //
+            //    bool clear = false;
+            //    bool finished = false;
+            //    if (rp.CreatedFrom == FeReferencePointCreatedFrom.OnPoint)
+            //    {
+            //        if (ids.Length == 0) clear = true;
+            //        else if (ids.Length == 1)
+            //        {
+            //            FeNode node = mesh.Nodes[ids[0]];
+            //            _viewReferencePoint.X = new EquationString(node.X.ToString());
+            //            _viewReferencePoint.Y = new EquationString(node.Y.ToString());
+            //            _viewReferencePoint.Z = new EquationString(node.Z.ToString());
+            //            finished = true;
+            //        }
+            //        else clear = true;
+            //    }
+            //    else if (rp.CreatedFrom == FeReferencePointCreatedFrom.BetweenTwoPoints)
+            //    {
+            //        if (ids.Length == 0) clear = true;
+            //        else if (ids.Length == 1) { }
+            //        else if (ids.Length == 2)
+            //        {
+            //            FeNode node1 = mesh.Nodes[ids[0]];
+            //            FeNode node2 = mesh.Nodes[ids[1]];
+            //            _viewReferencePoint.X = new EquationString(((node1.X + node2.X) / 2).ToString());
+            //            _viewReferencePoint.Y = new EquationString(((node1.Y + node2.Y) / 2).ToString());
+            //            _viewReferencePoint.Z = new EquationString(((node1.Z + node2.Z) / 2).ToString());
+            //            finished = true;
+            //        }
+            //        else clear = true;
+            //    }
+            //    else if (rp.CreatedFrom == FeReferencePointCreatedFrom.CircleCenter)
+            //    {
+            //        if (ids.Length == 0) clear = true;
+            //        else if (ids.Length == 1) { }
+            //        else if (ids.Length == 2) { }
+            //        else if (ids.Length == 3)
+            //        {
+            //            Vec3D v1 = new Vec3D(mesh.Nodes[ids[0]].Coor);
+            //            Vec3D v2 = new Vec3D(mesh.Nodes[ids[1]].Coor);
+            //            Vec3D v3 = new Vec3D(mesh.Nodes[ids[2]].Coor);
+            //            Vec3D.GetCircle(v1, v2, v3, out double r, out Vec3D center, out Vec3D axis);
+            //            _viewReferencePoint.X = new EquationString(center.X.ToString());
+            //            _viewReferencePoint.Y = new EquationString(center.Y.ToString());
+            //            _viewReferencePoint.Z = new EquationString(center.Z.ToString());
+            //            finished = true;
+            //        }
+            //        else clear = true;
+            //    }
+            //    else clear = true;
+            //    //
+            //    if (finished)
+            //    {
+            //        propertyGrid.Refresh();
+            //        //
+            //        _propertyItemChanged = true;
+            //    }
+            //    //
+            //    if (finished || clear) _controller.ClearSelectionHistory();    // resets the number of picked ids
+            //    if (finished || clear) HighlightReferencePoint();
+            //}
         }
         private string GetReferencePointName()
         {
@@ -328,18 +391,20 @@ namespace PrePoMax.Forms
         }
         private void SetSelectItemAndSelection()
         {
-            if (ReferencePoint is null) { }
-            else if (ReferencePoint.CreatedFrom == FeReferencePointCreatedFrom.Selection ||
-                     ReferencePoint.CreatedFrom == FeReferencePointCreatedFrom.BetweenTwoPoints ||
-                     ReferencePoint.CreatedFrom == FeReferencePointCreatedFrom.CircleCenter)
-            {
-                _controller.SelectBy = vtkSelectBy.Node; // this disables the selection with area ...
-                _controller.SetSelectItemToNode();
-            }
-            else
-            {
-                TurnOffSelection();
-            }
+            //if (ReferencePoint is null) { }
+            //else if (ReferencePoint.CreatedFrom == FeReferencePointCreatedFrom.OnPoint ||
+            //         ReferencePoint.CreatedFrom == FeReferencePointCreatedFrom.BetweenTwoPoints ||
+            //         ReferencePoint.CreatedFrom == FeReferencePointCreatedFrom.CircleCenter)
+            //{
+            //    _controller.SelectBy = vtkSelectBy.Node; // this disables the selection with area ...
+            //    _controller.SetSelectItemToNode();
+            //}
+            //else
+            //{
+            //    TurnOffSelection();
+            //}
+
+            TurnOffSelection();
             _controller.ClearSelectionHistoryAndCallSelectionChanged();
         }
         private void ReferencePointInternal(bool toInternal)

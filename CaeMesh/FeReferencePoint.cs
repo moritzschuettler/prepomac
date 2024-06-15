@@ -13,8 +13,8 @@ namespace CaeMesh
     [Serializable]
     public enum FeReferencePointCreatedFrom
     {
-        [StandardValue("Selection", Description = "Selection/Coordinates", DisplayName = "Selection/Coordinates")]
-        Selection,
+        [StandardValue("OnPoint", Description = "On point", DisplayName = "On point")]
+        OnPoint,
         [StandardValue("BetweenTwoPoints", Description = "Between two points", DisplayName = "Between two points")]
         BetweenTwoPoints,
         [StandardValue("CircleCenter", Description = "Circle center by 3 points", DisplayName = "Circle center by 3 points")]
@@ -93,7 +93,7 @@ namespace CaeMesh
             Clear();
             //
             _twoD = false;
-            _createdFrom = FeReferencePointCreatedFrom.Selection;
+            _createdFrom = FeReferencePointCreatedFrom.OnPoint;
             //
             _x.SetEquationFromValue(x);
             _y.SetEquationFromValue(y);
@@ -221,7 +221,7 @@ namespace CaeMesh
         }
         private void ClearKeepCoordinates()
         {
-            _createdFrom = FeReferencePointCreatedFrom.Selection;
+            _createdFrom = FeReferencePointCreatedFrom.OnPoint;
             _createdFromRefNodeId1 = -1;
             _createdFromRefNodeId2 = -1;
             _regionName = null;

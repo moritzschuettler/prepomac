@@ -112,7 +112,8 @@ namespace CaeGlobals
                 // Check the equation value
                 double checkedValue = _checkValue != null ? _checkValue(equationValue) : equationValue;
                 // If the check changed the value, apply changed value to the equation
-                if (equationValue != checkedValue && !(double.IsNaN(equationValue) && double.IsNaN(checkedValue)))
+                if (equationValue != checkedValue && !(double.IsNaN(equationValue) && double.IsNaN(checkedValue)) &&
+                    !(double.IsInfinity(equationValue) && double.IsInfinity(checkedValue)))
                 {
                     _equation = GetEquationFromValue(checkedValue);
                     if (enableEquationChanged) _equationChanged?.Invoke();
@@ -132,7 +133,8 @@ namespace CaeGlobals
                     {
                         if (isEquation) equation = equation.Replace(" ", "");
                         // Add unit to the equation if there is none
-                        else if (equation == equationValue.ToString()) equation = GetEquationFromValue(equationValue);
+                        else if (double.TryParse(equation, out double number) && number == equationValue)
+                            equation = GetEquationFromValue(equationValue);
                         //
                         _equation = equation;
                         if (enableEquationChanged) _equationChanged?.Invoke();

@@ -110,8 +110,6 @@ namespace PrePoMax.Forms
         {
             string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
             //
-            if (property == nameof(_viewCoordinateSystem.CreatedFrom)) { }
-            //
             HighlightCoordinateSystem();
             //
             base.OnPropertyGridPropertyValueChanged();
@@ -212,55 +210,66 @@ namespace PrePoMax.Forms
         // Methods                                                                                                                  
         public void PickedIds(int[] ids)
         {
-            this.Enabled = true;
-            // Disable selection
-            _controller.SetSelectByToOff();
-            _controller.Selection.SelectItem = vtkSelectItem.None;
-            //
+            FeNode node1;
+            Vec3D center = null;
             FeMesh mesh = GetMesh();
-            if (ids != null && ids.Length == 1)
+            CoordinateSystem cs = CoordinateSystem;
+            //
+            bool finished = false;
+            string propertyName = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
+            if (propertyName == nameof(_viewCoordinateSystem.PointCenterItemSet))
             {
-                FeNode node = mesh.Nodes[ids[0]];
-                double x = node.X;
-                double y = node.Y;
-                double z = node.Z;
+                if (_viewCoordinateSystem.SelectionMethod == PointSelectionMethodEnum.OnPoint && ids.Length == 1)
+                {
+                    center = new Vec3D(mesh.Nodes[ids[0]].Coor);
+                    finished = true;
+                }
+                else if (_viewCoordinateSystem.SelectionMethod == PointSelectionMethodEnum.BetweenTwoPoints && ids.Length == 2)
+                {
+                    Vec3D v1 = new Vec3D(mesh.Nodes[ids[0]].Coor);
+                    Vec3D v2 = new Vec3D(mesh.Nodes[ids[1]].Coor);
+                    center = (v1 + v2) * 0.5;
+                    finished = true;
+                }
+                else if (_viewCoordinateSystem.SelectionMethod == PointSelectionMethodEnum.CircleCenter && ids.Length == 3)
+                {
+                    Vec3D v1 = new Vec3D(mesh.Nodes[ids[0]].Coor);
+                    Vec3D v2 = new Vec3D(mesh.Nodes[ids[1]].Coor);
+                    Vec3D v3 = new Vec3D(mesh.Nodes[ids[2]].Coor);
+                    Vec3D.GetCircle(v1, v2, v3, out double r, out center, out Vec3D axis);
+                    finished = true;
+                }
                 //
-                CoordinateSystem cs = _viewCoordinateSystem.GetBase();
-                string propertyName = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
-                if (propertyName == nameof(_viewCoordinateSystem.Point1ItemSet))
+                if (finished)
                 {
-                    double deltaX = x - cs.X1.Value;
-                    double deltaY = y - cs.Y1.Value;
-                    double deltaZ = z - cs.Z1.Value;
-                    //
-                    cs.X1.SetEquationFromValue(x, true);
-                    cs.Y1.SetEquationFromValue(y, true);
-                    cs.Z1.SetEquationFromValue(z, true);
-                    //
-                    if (cs.CreatedFrom == CoordinateSystemCreatedFromEnum.CenterXY)
-                    {
-                        cs.X2.SetEquationFromValue(cs.X2.Value + deltaX, true);
-                        cs.Y2.SetEquationFromValue(cs.Y2.Value + deltaY, true);
-                        cs.Z2.SetEquationFromValue(cs.Z2.Value + deltaZ, true);
-                        //
-                        cs.X3.SetEquationFromValue(cs.X3.Value + deltaX, true);
-                        cs.Y3.SetEquationFromValue(cs.Y3.Value + deltaY, true);
-                        cs.Z3.SetEquationFromValue(cs.Z3.Value + deltaZ, true);
-                    }
+                    cs.X1.SetEquationFromValue(center.X, true);
+                    cs.Y1.SetEquationFromValue(center.Y, true);
+                    cs.Z1.SetEquationFromValue(center.Z, true);
                 }
-                else if (propertyName == nameof(_viewCoordinateSystem.Point2ItemSet))
-                {
-                    cs.X2.SetEquationFromValue(x, true);
-                    cs.Y2.SetEquationFromValue(y, true);
-                    cs.Z2.SetEquationFromValue(z, true);
-                }
-                else if (propertyName == nameof(_viewCoordinateSystem.Point3ItemSet))
-                {
-                    cs.X3.SetEquationFromValue(x, true);
-                    cs.Y3.SetEquationFromValue(y, true);
-                    cs.Z3.SetEquationFromValue(z, true);
-                }
-                else return;
+            }
+            else if (propertyName == nameof(_viewCoordinateSystem.PointXItemSet) && ids.Length == 1)
+            {
+                node1 = mesh.Nodes[ids[0]];
+                cs.X2.SetEquationFromValue(node1.X, true);
+                cs.Y2.SetEquationFromValue(node1.Y, true);
+                cs.Z2.SetEquationFromValue(node1.Z, true);
+                finished = true;
+            }
+            else if (propertyName == nameof(_viewCoordinateSystem.PointXYItemSet) && ids.Length == 1)
+            {
+                node1 = mesh.Nodes[ids[0]];
+                cs.X3.SetEquationFromValue(node1.X, true);
+                cs.Y3.SetEquationFromValue(node1.Y, true);
+                cs.Z3.SetEquationFromValue(node1.Z, true);
+                finished = true;  
+            }
+            //
+            if (finished)
+            {
+                // Disable selection
+                this.Enabled = true;
+                _controller.SetSelectByToOff();
+                _controller.Selection.SelectItem = vtkSelectItem.None;
                 //
                 propertyGrid.Refresh();
                 //

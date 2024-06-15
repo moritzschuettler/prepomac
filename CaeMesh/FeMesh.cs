@@ -713,7 +713,7 @@ namespace CaeMesh
             foreach (var entry in _referencePoints)
             {
                 referencePoint = entry.Value;
-                validFromCoordinates = referencePoint.CreatedFrom == FeReferencePointCreatedFrom.Selection ||
+                validFromCoordinates = referencePoint.CreatedFrom == FeReferencePointCreatedFrom.OnPoint ||
                                        referencePoint.CreatedFrom == FeReferencePointCreatedFrom.BetweenTwoPoints ||
                                        referencePoint.CreatedFrom == FeReferencePointCreatedFrom.CircleCenter;
                 validFromBB = (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.BoundingBoxCenter &&
