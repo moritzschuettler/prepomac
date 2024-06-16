@@ -32,25 +32,21 @@ namespace vtkControl
 
 
         // Constructors                                                                                                             
-        public vtkMaxCaptionActor(vtkMaxActorData data, vtkActor2D caption)
+        public vtkMaxCaptionActor(string name, Color color, vtkActor2D vtkCaptionActor)
             : base()
         {
-            _name = data.Name;
-            _caption = caption;
+            _name = name;
+            _caption = vtkCaptionActor;
             //
-            _actorRepresentation = data.ActorRepresentation;
-            _backfaceCulling = data.BackfaceCulling;
-            _color = data.Color;
-            _backfaceColor = data.BackfaceColor;
-            _colorTable = data.ColorTable;
-            _ambient = data.Ambient;
-            _diffuse = data.Diffuse;
-            _colorContours = data.ColorContours;
-            _sectionViewPossible = data.SectionViewPossible;
-            _drawOnGeometry = data.DrawOnGeometry;
-            _useSecondaryHighlightColor = data.UseSecondaryHighlightColor;
-            //
-            UpdateColor();
+            _actorRepresentation = vtkMaxActorRepresentation.Unknown;
+            _backfaceCulling = true;
+            _color = color;
+            _backfaceColor = Color.Black;
+            _colorTable = null;
+            _colorContours = false;
+            _sectionViewPossible = false;
+            _drawOnGeometry = false;
+            _useSecondaryHighlightColor = false;
         }
     }
 }

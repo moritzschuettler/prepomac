@@ -43,6 +43,7 @@ namespace CaeMesh
         private int _createdFromRefNodeId2;                     //ISerializable
         private string _refNodeSetName;                         //ISerializable
         private string _rotNodeSetName;                         //ISerializable
+        private bool _nameVisible;                              //ISerializable
         private bool _twoD;                                     //ISerializable
         private Color _color;                                   //ISerializable
 
@@ -71,6 +72,7 @@ namespace CaeMesh
         public int CreatedFromRefNodeId2 { get { return _createdFromRefNodeId2; } set { _createdFromRefNodeId2 = value; } }
         public string RefNodeSetName { get { return _refNodeSetName; } set { _refNodeSetName = value; } }
         public string RotNodeSetName { get { return _rotNodeSetName; } set { _rotNodeSetName = value; } }
+        public bool NameVisible { get { return _nameVisible; } set { _nameVisible = value; } }
         public bool TwoD { get { return _twoD; } }
         public Color Color { get { return _color; } set { _color = value; } }
 
@@ -149,6 +151,8 @@ namespace CaeMesh
                         _refNodeSetName = (string)entry.Value; break;
                     case "_rotNodeSetName":
                         _rotNodeSetName = (string)entry.Value; break;
+                    case "_nameVisible":
+                        _nameVisible = (bool)entry.Value; break;
                     case "_twoD":
                         _twoD = (bool)entry.Value; break;
                     case "_color":
@@ -217,6 +221,7 @@ namespace CaeMesh
             else _z.SetEquationFromValue(0);
             //
             ClearKeepCoordinates();
+            _nameVisible = true;
             _color = Color.Yellow;
         }
         private void ClearKeepCoordinates()
@@ -264,6 +269,7 @@ namespace CaeMesh
             info.AddValue("_createdFromRefNodeId2", _createdFromRefNodeId2, typeof(int));
             info.AddValue("_refNodeSetName", _refNodeSetName, typeof(string));
             info.AddValue("_rotNodeSetName", _rotNodeSetName, typeof(string));
+            info.AddValue("_nameVisible", _nameVisible, typeof(bool));
             info.AddValue("_twoD", _twoD, typeof(bool));
             info.AddValue("_color", _color, typeof(Color));
         }

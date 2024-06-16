@@ -1938,7 +1938,7 @@ namespace vtkControl
             {
                 tp = ca2D.GetCaptionTextProperty();
                 tp.SetColor(highlightColor.R / 255d, highlightColor.G / 255d, highlightColor.B / 255d);
-                tp.BoldOn();
+                //tp.BoldOn();
                 ca2D.SetCaptionTextProperty(tp);
             }
         }
@@ -3224,37 +3224,69 @@ namespace vtkControl
             //
             if (_drawSymbolEdges) AddSymbolEdges(data, glyph.GetOutputPort());
         }
-        public void AddTextActor(vtkMaxActorData data, double symbolSize)
+        public void AddCaptionActor(string name, string caption, Color color, double[] position,
+                                    double[] offsetVector, double fontScaleFactor, vtkRendererLayer layer)
         {
             // Create an actor for the text
             vtkCaptionActor2D captionActor = vtkCaptionActor2D.New();
-            captionActor.SetCaption(data.Caption);
-            captionActor.GetPositionCoordinate().SetValue(data.Geometry.Nodes.Coor[1][0],
-                                                          data.Geometry.Nodes.Coor[1][1],
-                                                          data.Geometry.Nodes.Coor[1][2]);
-            captionActor.GetPositionCoordinate().SetCoordinateSystemToWorld();
-            captionActor.BorderOff();
+            // Text
             vtkTextProperty tp = CreateNewTextProperty();
-            tp.SetFontSize((int)(12 * symbolSize / 50));
+            if (caption == "1")
+            {
+                tp.SetFontFamilyToCourier();
+                fontScaleFactor *= 1.2;
+            }
+            tp.SetFontSize((int)(tp.GetFontSize() * fontScaleFactor));
             captionActor.SetCaptionTextProperty(tp);
             captionActor.GetTextActor().SetTextScaleModeToNone();
-            captionActor.LeaderOff();
+            captionActor.SetCaption(caption);
             //
-            data.Name += Globals.NameSeparator + "caption";
+            captionActor.GetPositionCoordinate().SetValue(position[0], position[1], position[2]);
+            captionActor.GetPositionCoordinate().SetCoordinateSystemToWorld();
+            //
+            captionActor.LeaderOff();
+            captionActor.BorderOff();
+            //
             // Actor
-            vtkMaxCaptionActor actor = new vtkMaxCaptionActor(data, captionActor);
-            actor.Position = data.Geometry.Nodes.Coor[0];
-            actor.OffsetVector = data.Geometry.Nodes.Normals[0];
-            if (actor.OffsetVector != null)
-            {
-                actor.OffsetVector[0] *= 0.9 * symbolSize;
-                actor.OffsetVector[1] *= 0.9 * symbolSize;
-                actor.OffsetVector[2] *= 0.9 * symbolSize;
-            }
+            vtkMaxCaptionActor actor = new vtkMaxCaptionActor(name, color, captionActor);
+            actor.Position = position;
+            if (offsetVector != null && offsetVector.Length == 3) actor.OffsetVector = offsetVector;
             // Add
-            AddActorCaption(actor, data.Layer);
+            AddActorCaption(actor, layer);
             //
             SetAllCaptionPositions();
+        }
+        public void AddTextActor(vtkMaxActorData data, double symbolSize)
+        {
+            //// Create an actor for the text
+            //vtkCaptionActor2D captionActor = vtkCaptionActor2D.New();
+            //captionActor.SetCaption(data.Caption);
+            //captionActor.GetPositionCoordinate().SetValue(data.Geometry.Nodes.Coor[1][0],
+            //                                              data.Geometry.Nodes.Coor[1][1],
+            //                                              data.Geometry.Nodes.Coor[1][2]);
+            //captionActor.GetPositionCoordinate().SetCoordinateSystemToWorld();
+            //captionActor.BorderOff();
+            //vtkTextProperty tp = CreateNewTextProperty();
+            //tp.SetFontSize((int)(12 * symbolSize / 50d));
+            //captionActor.SetCaptionTextProperty(tp);
+            //captionActor.GetTextActor().SetTextScaleModeToNone();
+            //captionActor.LeaderOff();
+            ////
+            //data.Name += Globals.NameSeparator + "caption";
+            //// Actor
+            //vtkMaxCaptionActor actor = new vtkMaxCaptionActor(data, captionActor);
+            //actor.Position = data.Geometry.Nodes.Coor[0];
+            //if (data.Geometry.Nodes.Normals != null && data.Geometry.Nodes.Normals[0] != null)
+            //{
+            //    actor.OffsetVector = data.Geometry.Nodes.Normals[0];
+            //    actor.OffsetVector[0] *= 0.9 * symbolSize;
+            //    actor.OffsetVector[1] *= 0.9 * symbolSize;
+            //    actor.OffsetVector[2] *= 0.9 * symbolSize;
+            //}
+            //// Add
+            //AddActorCaption(actor, data.Layer);
+            ////
+            //SetAllCaptionPositions();
         }
         private void SetAllCaptionPositions()
         {
@@ -3286,6 +3318,7 @@ namespace vtkControl
                 pos[2] = position[2] + size * offset[2];
                 //
                 vtkMaxCaptionActor.Caption.GetPositionCoordinate().SetValue(pos[0], pos[1], pos[2]);
+                vtkMaxCaptionActor.Caption.SetWidth(20);
             }
         }
         public void AddOrientedDisplacementConstraintActor(vtkMaxActorData data, double symbolSize)

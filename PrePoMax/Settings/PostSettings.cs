@@ -100,7 +100,7 @@ namespace PrePoMax
         {
             _deformationFieldOutputName = CaeResults.FeResults.GetPossibleDeformationFieldOutputNames()[0];
             _undeformedModelType = UndeformedModelTypeEnum.WireframeBody;
-            _undeformedWireModelColor = Color.Black;
+            _undeformedWireModelColor = Color.FromArgb(128, Color.Black);
             _undeformedSolidModelColor = Color.FromArgb(128, Color.Gray);
             //
             _showMinValueLocation = false;

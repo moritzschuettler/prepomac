@@ -34,6 +34,7 @@ namespace CaeMesh
         private EquationContainer _x3;                          //ISerializable
         private EquationContainer _y3;                          //ISerializable
         private EquationContainer _z3;                          //ISerializable
+        private bool _nameVisible;                              //ISerializable
         private bool _twoD;                                     //ISerializable
         private Color _color;                                   //ISerializable
         [NonSerialized] private Vec3D _center;
@@ -53,6 +54,7 @@ namespace CaeMesh
         public EquationContainer X3 { get { return _x3; } set { SetX3(value); } }
         public EquationContainer Y3 { get { return _y3; } set { SetY3(value); } }
         public EquationContainer Z3 { get { return _z3; } set { SetZ3(value); } }
+        public bool NameVisible { get { return _nameVisible; } set { _nameVisible = value; } }
         public bool TwoD { get { return _twoD; } }
         public Color Color { get { return _color; } set { _color = value; } }
 
@@ -92,6 +94,8 @@ namespace CaeMesh
                         SetY3((EquationContainer)entry.Value, false); break;
                     case "_z3":
                         SetZ3((EquationContainer)entry.Value, false); break;
+                    case "_nameVisible":
+                        _nameVisible = (bool)entry.Value; break;
                     case "_twoD":
                         _twoD = (bool)entry.Value; break;
                     case "_color":
@@ -209,6 +213,7 @@ namespace CaeMesh
             if (_z3 == null) _z3 = new EquationContainer(typeof(StringLengthConverter), 0);
             else _z3.SetEquationFromValue(0);
             //
+            _nameVisible = true;
             _twoD = false;
             _color = Color.Yellow;
             //
@@ -293,6 +298,7 @@ namespace CaeMesh
             info.AddValue("_x3", _x3, typeof(EquationContainer));
             info.AddValue("_y3", _y3, typeof(EquationContainer));
             info.AddValue("_z3", _z3, typeof(EquationContainer));
+            info.AddValue("_nameVisible", _nameVisible, typeof(bool));
             info.AddValue("_twoD", _twoD, typeof(bool));
             info.AddValue("_color", _color, typeof(Color));
         }

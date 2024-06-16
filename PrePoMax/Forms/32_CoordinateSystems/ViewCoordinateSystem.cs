@@ -38,6 +38,12 @@ namespace PrePoMax.Forms
         [Id(2, 1)]
         public CoordinateSystemTypeEnum Type { get { return _coordinateSystem.Type; } set { _coordinateSystem.Type = value; } }
         //
+        [Category("Data")]
+        [OrderedDisplayName(2, 10, "Name visible")]
+        [DescriptionAttribute("Display the name of the coordinate system.")]
+        [Id(3, 1)]
+        public bool NameVisible { get { return _coordinateSystem.NameVisible; } set { _coordinateSystem.NameVisible = value; } }
+        //
         [Category("Center")]
         [OrderedDisplayName(0, 10, "Selection method")]
         [DescriptionAttribute("Choose the selection method.")]
@@ -266,6 +272,8 @@ namespace PrePoMax.Forms
             //
             if (_coordinateSystem.TwoD) _coordinateSystem.Type = CoordinateSystemTypeEnum.Rectangular;
             _dctd.GetProperty(nameof(Type)).SetIsReadOnly(_coordinateSystem.TwoD);
+            //
+            _dctd.RenameBooleanPropertyToYesNo(nameof(NameVisible));
         }
 
 

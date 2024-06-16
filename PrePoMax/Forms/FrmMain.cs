@@ -8683,6 +8683,11 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.AddTextActor, data, symbolSize);
         }
+        public void AddCaptionActor(string name, string caption, Color color, double[] position,
+                                    double[] offsetVector, double fontScaleFactor, vtkRendererLayer layer)
+        {
+            InvokeIfRequired(_vtk.AddCaptionActor, name, caption, color, position, offsetVector, fontScaleFactor, layer);
+        }
         public void AddOrientedDisplacementConstraintActor(vtkControl.vtkMaxActorData actorData, double symbolSize)
         {
             InvokeIfRequired(_vtk.AddOrientedDisplacementConstraintActor, actorData, symbolSize);

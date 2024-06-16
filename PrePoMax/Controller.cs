@@ -12964,6 +12964,15 @@ namespace PrePoMax
                 DrawNodes(referencePoint.Name + Globals.NameSeparator + "Border", coor, colorBorder, layer, nodeSize,
                           false, false);
                 DrawNodes(referencePoint.Name, coor, color, layer, nodeSize - 3, false, false);
+                // Name
+                if (referencePoint.NameVisible)
+                {
+                    int symbolSize = _settings.Pre.SymbolSize;
+                    double fontScaleFactor = 0.9 * symbolSize / 50d;
+                    string caption = referencePoint.Name.Replace('-', ' ').Replace('_', ' ');
+                    _form.AddCaptionActor(referencePoint.Name + "_name", caption, Color.Black, coor[0], null,
+                                          fontScaleFactor, layer);
+                }
             }
             catch { } // do not show the exception to the user
         }
@@ -12986,41 +12995,55 @@ namespace PrePoMax
                       !coordinateSystem.Internal) || layer == vtkRendererLayer.Selection)) return;
                 //
                 int symbolSize = _settings.Pre.SymbolSize;
-                //
+                double fontScaleFactor = 0.9 * symbolSize / 50d;
+                double[] position;
+                double[] offsetVector;
+                // Axis 1
                 vtkMaxActorData data = new vtkMaxActorData();
-                if (layer == vtkRendererLayer.Selection) data.Name = "Highlight_";
-                data.Name = coordinateSystem.Name + "_x";
+                data.Name = coordinateSystem.Name + "_1";
                 data.Color = Color.FromArgb(180, 4, 38);
                 data.Layer = layer;
-                data.Geometry.Nodes.Coor = new double[][] { coordinateSystem.Center(), coordinateSystem.Center() };
-                data.Geometry.Nodes.Coor[1][0] += 1;
+                data.Geometry.Nodes.Coor = new double[][] { coordinateSystem.Center() };
                 data.Geometry.Nodes.Normals = new double[][] { coordinateSystem.DirectionX().Coor };
                 ApplyLighting(data);
                 _form.AddCoordinateAxis(data, symbolSize);
-                //
-                data.Caption = "1";
-                _form.AddTextActor(data, symbolSize);
-                //
-                data.Name = coordinateSystem.Name + "_y";
+                // Axis label 1
+                position = data.Geometry.Nodes.Coor[0];
+                offsetVector = new double[] { 0.9 * symbolSize * data.Geometry.Nodes.Normals[0][0],
+                                              0.9 * symbolSize * data.Geometry.Nodes.Normals[0][1],
+                                              0.9 * symbolSize * data.Geometry.Nodes.Normals[0][2]};
+                _form.AddCaptionActor(data.Name + "_label", "1", Color.Black, position, offsetVector, fontScaleFactor, layer);
+                // Axis 2
+                data.Name = coordinateSystem.Name + "_2";
                 data.Color = Color.FromArgb(33, 225, 38);
                 data.Geometry.Nodes.Normals = new double[][] { coordinateSystem.DirectionY().Coor };
                 _form.AddCoordinateAxis(data, symbolSize);
-                //
-                data.Caption = "2";
-                _form.AddTextActor(data, symbolSize);
-                //
-                data.Name = coordinateSystem.Name + "_z";
+                // Axis label 2
+                offsetVector = new double[] { 0.9 * symbolSize * data.Geometry.Nodes.Normals[0][0],
+                                              0.9 * symbolSize * data.Geometry.Nodes.Normals[0][1],
+                                              0.9 * symbolSize * data.Geometry.Nodes.Normals[0][2]};
+                _form.AddCaptionActor(data.Name + "_label", "2", Color.Black, position, offsetVector, fontScaleFactor, layer);
+                // Axis 3
+                data.Name = coordinateSystem.Name + "_3";
                 data.Color = Color.FromArgb(58, 76, 192);
                 data.Geometry.Nodes.Normals = new double[][] { coordinateSystem.DirectionZ().Coor };
                 _form.AddCoordinateAxis(data, symbolSize);
+                // Axis label 3
+                offsetVector = new double[] { 0.9 * symbolSize * data.Geometry.Nodes.Normals[0][0],
+                                              0.9 * symbolSize * data.Geometry.Nodes.Normals[0][1],
+                                              0.9 * symbolSize * data.Geometry.Nodes.Normals[0][2]};
+                _form.AddCaptionActor(data.Name + "_label", "3", Color.Black, position, offsetVector, fontScaleFactor, layer);
                 //
-                data.Caption = "3";
+                data.Caption = coordinateSystem.Name.Replace('-', ' ').Replace('_', ' ');
+                data.Geometry.Nodes.Normals = null;
                 _form.AddTextActor(data, symbolSize);
-                //
-                //data.Name = coordinateSystem.Name;
-                //data.Caption = coordinateSystem.Name;
-                //data.Color = Color.Black;
-                //_form.AddTextActor(data, symbolSize);
+                // Name
+                if (coordinateSystem.NameVisible)
+                {
+                    string caption = coordinateSystem.Name.Replace('-', ' ').Replace('_', ' ');
+                    _form.AddCaptionActor(coordinateSystem.Name + "_name", caption, Color.Black, position, null,
+                                          fontScaleFactor, layer);
+                }
                 //
                 _form.AdjustCameraDistanceAndClipping();
             }

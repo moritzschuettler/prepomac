@@ -23,10 +23,17 @@ namespace PrePoMax.Forms
 
         // Properties                                                                                                               
         [Category("Data")]
-        [DisplayName("Name")]
+        [OrderedDisplayName(0, 10, "Name")]
         [Description("Name of the reference point.")]
         [Id(1, 1)]
         public string Name { get { return _referencePoint.Name; } set { _referencePoint.Name = value; } }
+        //
+        [Category("Data")]
+        [OrderedDisplayName(1, 10, "Name visible")]
+        [DescriptionAttribute("Display the name of the reference point.")]
+        [Id(2, 1)]
+        public bool NameVisible { get { return _referencePoint.NameVisible; } set { _referencePoint.NameVisible = value; } }
+        //
         //
         [Category("Region")]
         [OrderedDisplayName(1, 10, "Create by/from")]
@@ -53,8 +60,6 @@ namespace PrePoMax.Forms
             }
         }
         //
-
-        //
         [Category("Region")]
         [OrderedDisplayName(2, 10, "By selection")]
         [DescriptionAttribute("Use selection for the creation of the reference point.")]
@@ -68,8 +73,7 @@ namespace PrePoMax.Forms
                 if (value != _pointItemSetData) _pointItemSetData = value;
             }
         }
-
-
+        //
         [Category("Region")]
         [OrderedDisplayName(3, 10, "Region type")]
         [Description("Select the region type for the creation of the reference point.")]
@@ -87,9 +91,6 @@ namespace PrePoMax.Forms
         [Description("Select the surface for the creation of the reference point.")]
         [Id(5, 2)]
         public string SurfaceName { get { return _referencePoint.RegionName; } set { _referencePoint.RegionName = value; } }
-
-       
-
         //
         [Category("Coordinates")]
         [DisplayName("X")]
@@ -154,6 +155,8 @@ namespace PrePoMax.Forms
             //
             _numOfNodeSets = nodeSetNames.Length;
             _numOfSurfaces = surfaceNames.Length;
+            //
+            DynamicCustomTypeDescriptor.RenameBooleanPropertyToYesNo(nameof(NameVisible));
             //
             SetPropertiesVisibility();
         }
