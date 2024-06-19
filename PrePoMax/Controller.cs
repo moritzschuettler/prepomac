@@ -13034,9 +13034,12 @@ namespace PrePoMax
                 double fontScaleFactor = 0.9 * symbolSize / 50d;
                 double[] position;
                 double[] offsetVector;
+                string[] labels = null;
+                if (coordinateSystem.Type == CoordinateSystemTypeEnum.Rectangular) labels = new string[] { "X", "Y", "Z" };
+                else if (coordinateSystem.Type == CoordinateSystemTypeEnum.Cylindrical) labels = new string[] { "R", "T", "Z" };
                 // Axis 1
                 vtkMaxActorData data = new vtkMaxActorData();
-                data.Name = coordinateSystem.Name + "_1";
+                data.Name = coordinateSystem.Name + "_" + labels[0];
                 data.Color = Color.FromArgb(180, 4, 38);
                 data.Layer = layer;
                 data.Geometry.Nodes.Coor = new double[][] { coordinateSystem.Center() };
@@ -13048,9 +13051,10 @@ namespace PrePoMax
                 offsetVector = new double[] { 0.9 * symbolSize * data.Geometry.Nodes.Normals[0][0],
                                               0.9 * symbolSize * data.Geometry.Nodes.Normals[0][1],
                                               0.9 * symbolSize * data.Geometry.Nodes.Normals[0][2]};
-                _form.AddCaptionActor(data.Name + "_label", "1", Color.Black, position, offsetVector, fontScaleFactor, layer);
+                _form.AddCaptionActor(data.Name + "_label", labels[0], Color.Black, position,
+                                      offsetVector, fontScaleFactor, layer);
                 // Axis 2
-                data.Name = coordinateSystem.Name + "_2";
+                data.Name = coordinateSystem.Name + "_" + labels[1];
                 data.Color = Color.FromArgb(33, 225, 38);
                 data.Geometry.Nodes.Normals = new double[][] { coordinateSystem.DirectionY().Coor };
                 _form.AddCoordinateAxis(data, symbolSize);
@@ -13058,9 +13062,10 @@ namespace PrePoMax
                 offsetVector = new double[] { 0.9 * symbolSize * data.Geometry.Nodes.Normals[0][0],
                                               0.9 * symbolSize * data.Geometry.Nodes.Normals[0][1],
                                               0.9 * symbolSize * data.Geometry.Nodes.Normals[0][2]};
-                _form.AddCaptionActor(data.Name + "_label", "2", Color.Black, position, offsetVector, fontScaleFactor, layer);
+                _form.AddCaptionActor(data.Name + "_label", labels[1], Color.Black, position,
+                                      offsetVector, fontScaleFactor, layer);
                 // Axis 3
-                data.Name = coordinateSystem.Name + "_3";
+                data.Name = coordinateSystem.Name + "_" + labels[2];
                 data.Color = Color.FromArgb(58, 76, 192);
                 data.Geometry.Nodes.Normals = new double[][] { coordinateSystem.DirectionZ().Coor };
                 _form.AddCoordinateAxis(data, symbolSize);
@@ -13068,7 +13073,8 @@ namespace PrePoMax
                 offsetVector = new double[] { 0.9 * symbolSize * data.Geometry.Nodes.Normals[0][0],
                                               0.9 * symbolSize * data.Geometry.Nodes.Normals[0][1],
                                               0.9 * symbolSize * data.Geometry.Nodes.Normals[0][2]};
-                _form.AddCaptionActor(data.Name + "_label", "3", Color.Black, position, offsetVector, fontScaleFactor, layer);
+                _form.AddCaptionActor(data.Name + "_label", labels[2], Color.Black, position,
+                                      offsetVector, fontScaleFactor, layer);
                 // Name
                 if (coordinateSystem.NameVisible)
                 {
