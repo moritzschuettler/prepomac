@@ -15,14 +15,12 @@ namespace CaeGlobals
     public static class MyNCalc
     {
         // Variables                                                                                                                
-        public static Dictionary<string, double> ExistingParameters = null;
+        public static OrderedDictionary<string, double> ExistingParameters = null;
 
 
         // Methods                                                                                                                  
         static public double ConvertFromString(string valueString, Func<string, double> ConvertToCurrentUnits)
         {
-            //var list = Trace.Listeners;
-            //
             double valueDouble;
             valueString = valueString.Trim();
             //
@@ -57,6 +55,28 @@ namespace CaeGlobals
             }
             //
             return valueDouble;
+        }
+        static public bool HasErrors(string equation, out HashSet<string> parameterNames)
+        {
+            double valueDouble;
+            parameterNames = null;
+            //
+            equation = equation.Trim();
+            //
+            if (equation.Length == 0 || equation == "=") return false;
+            if (!double.TryParse(equation, out valueDouble))
+            {
+                if (equation.StartsWith("="))
+                {
+                    equation = equation.Substring(1, equation.Length - 1);
+                    Expression e = GetExpression(equation);
+                    parameterNames = GetParameters(equation);
+                    return e.HasErrors(); 
+                }
+                else return false;
+            }
+            //
+            return false;
         }
         static public Expression GetExpression(string expression)
         {

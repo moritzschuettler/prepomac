@@ -531,6 +531,7 @@
     <Compile Include="Forms\83_ResultHistoryOutput\FrmResultHistoryOutput.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutputFromEquation.cs" />
     <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutputFromField.cs" />
     <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutput.cs" />
     <Compile Include="Forms\84_Transformation\FrmTransformation.cs">

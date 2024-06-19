@@ -18,6 +18,7 @@ using System.IO;
 using System.IO.Compression;
 using static CaeGlobals.Geometry2;
 using System.Numerics;
+using System.Linq.Expressions;
 
 namespace CaeResults
 {
@@ -3168,9 +3169,9 @@ namespace CaeResults
         public void AddResultHistoryOutput(ResultHistoryOutput resultHistoryOutput)
         {
             _resultHistoryOutputs.Add(resultHistoryOutput.Name, resultHistoryOutput);
-            PrepareHistorySetsFromResultHistoryOutput(resultHistoryOutput);
+            GetHistorySetsFromResultHistoryOutput(resultHistoryOutput);
         }
-        public void PrepareHistorySetsFromResultHistoryOutput(ResultHistoryOutput resultHistoryOutput)
+        public void GetHistorySetsFromResultHistoryOutput(ResultHistoryOutput resultHistoryOutput)
         {
             // Compatibility for version v1.2.1
             if (_history == null) _history = new HistoryResults("Tmp");
@@ -3179,111 +3180,225 @@ namespace CaeResults
             //
             if (resultHistoryOutput is ResultHistoryOutputFromField rhoff)
             {
-                // Collect node ids
-                int[] nodeIds = null;
-                if (rhoff.RegionType == RegionTypeEnum.NodeSetName)
+                historyResultSet = GetHistorySetFromField(rhoff);
+            }
+            else if (resultHistoryOutput is ResultHistoryOutputFromEquation rhofe)
+            {
+                historyResultSet = GetHistorySetFromEquation(rhofe);
+            }
+            // Add
+            if (historyResultSet != null)
+            {
+                _history.Sets.Add(historyResultSet.Name, historyResultSet);
+                resultHistoryOutput.HistoryResultSet = historyResultSet;
+            }
+        }
+        private HistoryResultSet GetHistorySetFromField(ResultHistoryOutputFromField resultHistoryOutput)
+        {
+            // Collect node ids
+            int[] nodeIds = null;
+            HistoryResultSet historyResultSet = null;
+            //
+            if (resultHistoryOutput.RegionType == RegionTypeEnum.NodeSetName)
+            {
+                nodeIds = _mesh.NodeSets[resultHistoryOutput.RegionName].Labels;
+            }
+            else if (resultHistoryOutput.RegionType == RegionTypeEnum.SurfaceName)
+            {
+                string nodeSetName = _mesh.Surfaces[resultHistoryOutput.RegionName].NodeSetName;
+                nodeIds = _mesh.NodeSets[nodeSetName].Labels;
+            }
+            else if (resultHistoryOutput.RegionType == RegionTypeEnum.Selection)
+            {
+                nodeIds = resultHistoryOutput.CreationIds;
+            }
+            //
+            if (nodeIds != null)
+            {
+                HistoryResultField historyResultField = new HistoryResultField(resultHistoryOutput.FieldName);
+                // Create history result components
+                List<HistoryResultComponent> components = new List<HistoryResultComponent>();
+                foreach (var componentName in resultHistoryOutput.ComponentNames)
+                    components.Add(new HistoryResultComponent(componentName));
+                // Prepare component entries
+                string name;
+                foreach (var newComponent in components)
                 {
-                    nodeIds = _mesh.NodeSets[rhoff.RegionName].Labels;
-                }
-                else if (rhoff.RegionType == RegionTypeEnum.SurfaceName)
-                {
-                    string nodeSetName = _mesh.Surfaces[rhoff.RegionName].NodeSetName;
-                    nodeIds = _mesh.NodeSets[nodeSetName].Labels;
-                }
-                else if (rhoff.RegionType == RegionTypeEnum.Selection)
-                {
-                    nodeIds = rhoff.CreationIds;
-                }
-                //
-                if (nodeIds != null)
-                {
-                    HistoryResultField historyResultField = new HistoryResultField(rhoff.FieldName);
-                    // Create history result components
-                    List<HistoryResultComponent> components = new List<HistoryResultComponent>();
-                    foreach (var componentName in rhoff.ComponentNames) components.Add(new HistoryResultComponent(componentName));
-                    // Prepare component entries
-                    string name;
-                    foreach (var newComponent in components)
+                    newComponent.Entries = new Dictionary<string, HistoryResultEntries>();
+                    for (int i = 0; i < nodeIds.Length; i++)
                     {
-                        newComponent.Entries = new Dictionary<string, HistoryResultEntries>();
-                        for (int i = 0; i < nodeIds.Length; i++)
-                        {
-                            name = nodeIds[i].ToString();
-                            newComponent.Entries.Add(name, new HistoryResultEntries(name, false));
-                        }
+                        name = nodeIds[i].ToString();
+                        newComponent.Entries.Add(name, new HistoryResultEntries(name, false));
                     }
-                    // Get all existing increments
-                    Dictionary<int, int[]> existingStepIncrementIds = GetExistingIncrementIds(rhoff.FieldName,
-                        components[0].Name, rhoff.StepId, rhoff.StepIncrementId);
-                    //
-                    foreach (var component in components)
+                }
+                // Get all existing increments
+                Dictionary<int, int[]> existingStepIncrementIds = GetExistingIncrementIds(resultHistoryOutput.FieldName,
+                    components[0].Name, resultHistoryOutput.StepId, resultHistoryOutput.StepIncrementId);
+                //
+                string unit;
+                foreach (var component in components)
+                {
+                    if (resultHistoryOutput.Harmonic) GetHarmonicFromHistoryOutput(nodeIds, resultHistoryOutput, component);
+                    else
                     {
-                        if (rhoff.Harmonic) GetHarmonicFromHistoryOutput(nodeIds, rhoff, component);
-                        else
+                        float[] values;
+                        int resultNodeId;
+                        Field field;
+                        FieldData fieldData;
+                        // Set complex
+                        ComplexResultTypeEnum prevComplexResultType = _complexResultType;
+                        float prevComplexAngleDeg = _complexAngleDeg;
+                        SetComplexResultTypeAndAngle(resultHistoryOutput.ComplexResultType, (float)resultHistoryOutput.ComplexAngleDeg);
+                        //
+                        foreach (var existingStepEntry in existingStepIncrementIds)
                         {
-                            float[] values;
-                            int resultNodeId;
-                            Field field;
-                            FieldData fieldData;
-                            // Set complex
-                            ComplexResultTypeEnum prevComplexResultType = _complexResultType;
-                            float prevComplexAngleDeg = _complexAngleDeg;
-                            SetComplexResultTypeAndAngle(rhoff.ComplexResultType, (float)rhoff.ComplexAngleDeg);
-                            //
-                            foreach (var existingStepEntry in existingStepIncrementIds)
+                            foreach (var incrementId in existingStepEntry.Value)
                             {
-                                foreach (var incrementId in existingStepEntry.Value)
+                                fieldData = GetFieldData(resultHistoryOutput.FieldName, component.Name,
+                                                         existingStepEntry.Key, incrementId);
+                                field = GetField(fieldData);
+                                // Filter complex components only to complex field outputs
+                                if (resultHistoryOutput.ComplexResultType != ComplexResultTypeEnum.Real && !field.Complex) continue;
+                                //
+                                if (field != null)
                                 {
-                                    fieldData = GetFieldData(rhoff.FieldName, component.Name, existingStepEntry.Key, incrementId);
-                                    field = GetField(fieldData);
-                                    // Filter complex components only to complex field outputs
-                                    if (rhoff.ComplexResultType != ComplexResultTypeEnum.Real && !field.Complex) continue;
-                                    //
-                                    if (field != null)
+                                    values = field.GetComponentValues(component.Name);
+                                    if (values != null)
                                     {
-                                        values = field.GetComponentValues(component.Name);
-                                        if (values != null)
+                                        for (int i = 0; i < nodeIds.Length; i++)
                                         {
-                                            for (int i = 0; i < nodeIds.Length; i++)
-                                            {
-                                                name = nodeIds[i].ToString();
-                                                resultNodeId = _nodeIdsLookUp[nodeIds[i]];
-                                                component.Entries[name].Add(fieldData.Time, values[resultNodeId]);
-                                            }
+                                            name = nodeIds[i].ToString();
+                                            resultNodeId = _nodeIdsLookUp[nodeIds[i]];
+                                            component.Entries[name].Add(fieldData.Time, values[resultNodeId]);
                                         }
                                     }
                                 }
                             }
-                            // Reset complex
-                            SetComplexResultTypeAndAngle(prevComplexResultType, prevComplexAngleDeg);
-                            // Set phase unit
-                            if (rhoff.ComplexResultType == ComplexResultTypeEnum.Phase ||
-                                rhoff.ComplexResultType == ComplexResultTypeEnum.AngleAtMax ||
-                                rhoff.ComplexResultType == ComplexResultTypeEnum.AngleAtMin)
-                            {
-                                component.Unit = StringAngleDegConverter.GetUnitAbbreviation();
-                            }
                         }
-                        // Add component to field
-                        historyResultField.Components.Add(component.Name, component);
+                        // Reset complex
+                        SetComplexResultTypeAndAngle(prevComplexResultType, prevComplexAngleDeg);
+                        // Set phase unit
+                        if (resultHistoryOutput.ComplexResultType == ComplexResultTypeEnum.Phase ||
+                            resultHistoryOutput.ComplexResultType == ComplexResultTypeEnum.AngleAtMax ||
+                            resultHistoryOutput.ComplexResultType == ComplexResultTypeEnum.AngleAtMin)
+                        {
+                            unit = StringAngleDegConverter.GetUnitAbbreviation();
+                        }
+                        else
+                        {
+                            GetHistoryUnitConverterAndAbbrevation(resultHistoryOutput.FieldName, component.Name, 0, 0,
+                                                                  out _, out unit);
+                        }
+                        component.Unit = unit;
                     }
-                    //
-                    historyResultSet = new HistoryResultSet(rhoff.Name);
-                    historyResultSet.Harmonic = rhoff.Harmonic;
-                    historyResultSet.Fields.Add(historyResultField.Name, historyResultField);
-                    //
-                    if (rhoff.OutputNodeCoordinates != OutputNodeCoordinatesEnum.Off)
-                    {
-                        HistoryResultField coordinatesField =
-                            GetNodeCoordinatesHistoryResultField(nodeIds, rhoff.OutputNodeCoordinates, existingStepIncrementIds);
-                        historyResultSet.Fields.Add(coordinatesField.Name, coordinatesField);
-                    }
-                    //
-                    _history.Sets.Add(historyResultSet.Name, historyResultSet);
+                    // Add component to field
+                    historyResultField.Components.Add(component.Name, component);
+                }
+                //
+                historyResultSet = new HistoryResultSet(resultHistoryOutput.Name);
+                historyResultSet.Harmonic = resultHistoryOutput.Harmonic;
+                historyResultSet.Fields.Add(historyResultField.Name, historyResultField);
+                //
+                if (resultHistoryOutput.OutputNodeCoordinates != OutputNodeCoordinatesEnum.Off)
+                {
+                    HistoryResultField coordinatesField = GetNodeCoordinatesHistoryResultField(nodeIds, 
+                        resultHistoryOutput.OutputNodeCoordinates, existingStepIncrementIds);
+                    historyResultSet.Fields.Add(coordinatesField.Name, coordinatesField);
                 }
             }
-            // Add link to history result set
-            if (historyResultSet != null) resultHistoryOutput.HistoryResultSet = historyResultSet;
+            //
+            return historyResultSet;
+        }
+        private HistoryResultSet GetHistorySetFromEquation(ResultHistoryOutputFromEquation resultHistoryOutput)
+        {
+            Dictionary<string, HistoryResultComponent> parameterNameHisotryComponent;
+            CheckResultHistoryOutputEquation(resultHistoryOutput.Equation, out parameterNameHisotryComponent);
+            //
+            double[][] values;
+            List<double> time = null;
+            HashSet<string> units = new HashSet<string>();
+            Dictionary<string, double[][]> paramenterNameValues = new Dictionary<string, double[][]>();
+            // Collect all component values in a matrix form
+            int col;
+            int row;
+            int numCol = parameterNameHisotryComponent.First().Value.Entries.Count();
+            int numRow = parameterNameHisotryComponent.First().Value.Entries.First().Value.Values.Count();
+            //
+            bool entryNamesEqual = true;
+            string[] entryNames = new string[numCol];
+            //
+            if (parameterNameHisotryComponent.Count > 0)
+            {
+                foreach (var componentEntry in parameterNameHisotryComponent)
+                {
+                    col = 0;
+                    values = new double[numRow][];
+                    for (int i = 0; i < numRow; i++) values[i] = new double[numCol];
+                    //
+                    foreach (var entry in componentEntry.Value.Entries)
+                    {
+                        // Get entry names
+                        if (entryNamesEqual)
+                        {
+                            if (entryNames[col] == null) entryNames[col] = entry.Key;
+                            else if (entryNames[col] != entry.Key) entryNamesEqual = false;
+                        }
+                        // Get time
+                        if (time == null) time = entry.Value.Time;
+                        // Get values
+                        row = 0;
+                        foreach (double value in entry.Value.Values)
+                        {
+                            values[row++][col] = value;
+                        }
+                        col++;
+                    }
+                    paramenterNameValues.Add(componentEntry.Key, values);
+                    //
+                    units.Add(componentEntry.Value.Unit);
+                }
+            }
+            // Evaluate the equation
+            values = new double[numRow][];
+            for (int i = 0; i < numRow; i++)
+            {
+                values[i] = new double[numCol];
+                for (int j = 0; j<numCol; j++)
+                {
+                    // Set parameter values
+                    foreach (var entry in paramenterNameValues)
+                        MyNCalc.ExistingParameters[entry.Key] = entry.Value[i][j];
+                    values[i][j] = MyNCalc.ConvertFromString(resultHistoryOutput.Equation, null);
+                }
+            }
+            // Create result history set
+            HistoryResultEntries historyResultEntries;
+            HistoryResultComponent historyResultComponent = new HistoryResultComponent("VALUE");
+            historyResultComponent.Unit = units.Count == 1 ? units.First() : "/"; ;
+            // Entry names
+            if (!entryNamesEqual)
+            {
+                for (int i = 0; i < numCol; i++) entryNames[i] = (i + 1).ToString();
+            }
+            //
+            for (int j = 0; j < numCol; j++)
+            {
+                historyResultEntries = new HistoryResultEntries(entryNames[j], false);
+                // Set time
+                historyResultEntries.Time = time;
+                // Set values
+                for (int i = 0; i < numRow; i++) historyResultEntries.Values.Add(values[i][j]);
+                //
+                historyResultComponent.Entries.Add(historyResultEntries.Name, historyResultEntries);
+            }
+            // Field
+            HistoryResultField historyResultField = new HistoryResultField("EQUATION");
+            historyResultField.Components.Add(historyResultComponent.Name, historyResultComponent);
+            // Set
+            HistoryResultSet historyResultSet = new HistoryResultSet(resultHistoryOutput.Name);
+            historyResultSet.Fields.Add(historyResultField.Name, historyResultField);
+            //
+            return historyResultSet;
         }
         private HistoryResultField GetNodeCoordinatesHistoryResultField(int[] nodeIds, OutputNodeCoordinatesEnum nodeCoorType,
                                                                         Dictionary<int, int[]> existingStepIncrementIds)
@@ -3699,7 +3814,7 @@ namespace CaeResults
         {
             RemoveResultHistoryResultSets(new string[] { oldResultHistoryOutputName });
             _resultHistoryOutputs.Replace(oldResultHistoryOutputName, resultHistoryOutput.Name, resultHistoryOutput);
-            PrepareHistorySetsFromResultHistoryOutput(resultHistoryOutput);
+            GetHistorySetsFromResultHistoryOutput(resultHistoryOutput);
         }
         public void RemoveResultHistoryOutputs(string[] resultHistoryOutputNames)
         {
@@ -3754,6 +3869,84 @@ namespace CaeResults
                 {
                     _history.Sets[historyResultSetName].Fields[historyResultFieldName].Components.Remove(componentToRemove);
                 }
+            }
+        }
+        // Equation
+        public string[] GetPossibleEquationParameters()
+        {
+            string separator = ResultHistoryOutputFromEquation.EquationSeparator;
+            string variable;
+            List<string> possibleEquationParameters = new List<string>();
+            foreach (var setEntry in _history.Sets)
+            {
+                foreach (var fieldEntry in setEntry.Value.Fields)
+                {
+                    foreach (var componentEntry in fieldEntry.Value.Components)
+                    {
+                        variable = setEntry.Key + separator + fieldEntry.Key + separator + componentEntry.Key;
+                        possibleEquationParameters.Add(variable);
+                    }
+                }
+            }
+            return possibleEquationParameters.ToArray();
+        }
+        public string CheckResultHistoryOutputEquation(string equation,
+            out Dictionary<string, HistoryResultComponent> parameterNameHisotryComponent)
+        {
+            parameterNameHisotryComponent = new Dictionary<string, HistoryResultComponent>();
+            //
+            try
+            {
+                int count = 1;
+                string[] possibleEquationParameters = GetPossibleEquationParameters();
+                MyNCalc.ExistingParameters = new OrderedDictionary<string, double>("Parameters");
+                foreach (var possibleParameter in possibleEquationParameters)
+                {
+                    MyNCalc.ExistingParameters.Add(possibleParameter, count++ * 0.111);
+                }
+                //
+                HashSet<string> parameterNames;
+                bool hasErrors = MyNCalc.HasErrors(equation, out parameterNames);
+                //
+                if (parameterNames == null || parameterNames.Count == 0)
+                    throw new CaeException("At least one history output component must be used in the equation.");
+                //
+                string[] tmp;
+                string[] splitter = new string[] { ResultHistoryOutputFromEquation.EquationSeparator };
+                HistoryResultComponent historyResultComponent;
+                HistoryResultEntries historyResultEntry;
+                //
+                int numItems = -1;
+                HashSet<string> entryNames = null;
+                int numIncrements = -1;
+                foreach (var parameterName in parameterNames)
+                {
+                    tmp = parameterName.Split(splitter, StringSplitOptions.None);
+                    if (tmp.Length != 3) continue;
+                    //
+                    historyResultComponent = _history.Sets[tmp[0]].Fields[tmp[1]].Components[tmp[2]];
+                    if (numItems == -1) numItems = historyResultComponent.Entries.Count();
+                    else if (numItems != historyResultComponent.Entries.Count())
+                        throw new CaeException("All selected history output components must contain the same number of items.");
+                    //
+                    if (entryNames == null) entryNames = new HashSet<string>(historyResultComponent.Entries.Keys);
+                    else if (entryNames.Union(historyResultComponent.Entries.Keys).Count() != entryNames.Count)
+                        throw new CaeException("All selected history output components must contain the same items.");
+                    //
+                    historyResultEntry = historyResultComponent.Entries.First().Value;
+                    //
+                    if (numIncrements == -1) numIncrements = historyResultEntry.Values.Count();
+                    else if (numIncrements != historyResultEntry.Values.Count())
+                        throw new CaeException("All selected history output components must contain the same number " +
+                                               "of time increments.");
+                    //
+                    parameterNameHisotryComponent.Add(parameterName, historyResultComponent);
+                }
+                return null;
+            }
+            catch (Exception ex)
+            {
+                return ex.Message;
             }
         }
 

@@ -57,8 +57,12 @@ namespace PrePoMax
             _regionTypePropertyNamePairs = regionTypePropertyNamePairs;
             //
             _regionNameRegionTypePairs = new Dictionary<string, RegionTypeEnum>();
-            foreach (var entry in _regionTypePropertyNamePairs)
-                _regionNameRegionTypePairs.Add(entry.Key.ToFriendlyString(), entry.Key);
+            //
+            if (_regionTypePropertyNamePairs != null)
+            {
+                foreach (var entry in _regionTypePropertyNamePairs)
+                    _regionNameRegionTypePairs.Add(entry.Key.ToFriendlyString(), entry.Key);
+            }
         }
         public void PopulateDropDownLists(Dictionary<RegionTypeEnum, string[]> regionTypeListItemsPairs)
         {

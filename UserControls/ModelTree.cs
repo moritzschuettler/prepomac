@@ -2238,7 +2238,7 @@ namespace UserControls
                 //
                 GetTree(view).SelectedNode = node;
                 // Expand for propagate
-                while (node.Parent != null)
+                while (node != null && node.Parent != null)
                 {
                     node = node.Parent;
                     if (!node.IsExpanded) node.Expand();
@@ -2866,6 +2866,8 @@ namespace UserControls
             TreeNode node3;
             for (int i = 0; i < historyResultSets.Length; i++)
             {
+                if (historyResultSets[i] == null) continue;
+                //
                 if (indices == null) node1 = _resultHistoryOutputs.Nodes.Add(historyResultSets[i].Name);
                 else
                 {

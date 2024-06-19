@@ -7308,13 +7308,15 @@ namespace PrePoMax
             if (_controller.CurrentResult == null || _controller.CurrentResult.Mesh == null) return;
             if (_controller.CurrentResult.GetAllFiledNameComponentNames().Count == 0) return;
             // Data editor
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;            
+            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
             ItemSetDataEditor.ParentForm = _frmResultHistoryOutput;
             _frmSelectItemSet.SetOnlyGeometrySelection(false);
             ShowForm(_frmResultHistoryOutput, "Create History Output", null);
         }
         private void EditResultHistoryOutput(string resultHistoryOutputName)
         {
+            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
+            ItemSetDataEditor.ParentForm = _frmResultHistoryOutput;
             ShowForm(_frmResultHistoryOutput, "Edit History Output", resultHistoryOutputName);
         }
         public void DeleteResultHistoryOutputs(string[] resultHistoryOutputNames)

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using CaeResults;
 using CaeGlobals;
 using System.Windows.Forms;
+using CaeModel;
 
 namespace PrePoMax.Forms
 {
@@ -26,6 +27,8 @@ namespace PrePoMax.Forms
             {
                 if (value is ResultHistoryOutputFromField rhoff) _viewResultHistoryOutput =
                         new ViewResultHistoryOutputFromField(rhoff.DeepClone(), _controller.CurrentResult.ContainsComplexResults());
+                else if (value is ResultHistoryOutputFromEquation rhofe) _viewResultHistoryOutput =
+                        new ViewResultHistoryOutputFromEquation(rhofe.DeepClone());
                 else throw new NotImplementedException();
             }
         }
@@ -66,6 +69,7 @@ namespace PrePoMax.Forms
                 object itemTag = lvTypes.SelectedItems[0].Tag;
                 if (itemTag is ViewError) _viewResultHistoryOutput = null;
                 else if (itemTag is ViewResultHistoryOutputFromField vrhoff) _viewResultHistoryOutput = vrhoff;
+                else if (itemTag is ViewResultHistoryOutputFromEquation vrhofe) _viewResultHistoryOutput = vrhofe;
                 else throw new NotImplementedException();
                 //
                 ShowHideSelectionForm();
@@ -92,6 +96,8 @@ namespace PrePoMax.Forms
             {
                 HighlightHistoryOutput();
             }
+            else if (_viewResultHistoryOutput is ViewResultHistoryOutputFromEquation vrhofe)
+            { }
             //
             base.OnPropertyGridPropertyValueChanged();
         }
@@ -102,12 +108,19 @@ namespace PrePoMax.Forms
             _viewResultHistoryOutput = (ViewResultHistoryOutput)propertyGrid.SelectedObject;
             //
             if (ResultHistoryOutput == null) throw new CaeException("No history output was selected.");
-            //
+            // Check if the name exists
+            CheckName(_resultHistoryOutputToEditName, ResultHistoryOutput.Name, _resultHistoryOutputSetNames, "history output");
+            // Check selection
             if (ResultHistoryOutput.RegionType == RegionTypeEnum.Selection &&
                 (ResultHistoryOutput.CreationIds == null || ResultHistoryOutput.CreationIds.Length == 0))
                 throw new CaeException("The history output selection must contain at least one item.");
-            // Check if the name exists
-            CheckName(_resultHistoryOutputToEditName, ResultHistoryOutput.Name, _resultHistoryOutputSetNames, "history output");
+            // Check equation
+            if (ResultHistoryOutput is ResultHistoryOutputFromEquation rhofe)
+            {
+                string error = _controller.CurrentResult.CheckResultHistoryOutputEquation(rhofe.Equation, out _);
+                if (error != null) throw new CaeException(error);
+            }
+
             // Create
             if (_resultHistoryOutputToEditName == null)
             {
@@ -188,10 +201,17 @@ namespace PrePoMax.Forms
                         MessageBoxes.ShowWarning("Some selected components no longer exist. The selected components were " +
                             "cnaged to existing ones");
                     }
-                    //
+                    // Populate
                     vrhoff.PopulateDropDownLists(nodeSetNames, surfaceNames, filedNameComponentNames, stepIdStepIncrementIds);
                 }
+                else if (_viewResultHistoryOutput is ViewResultHistoryOutputFromEquation vrhofe)
+                {
+                    selectedId = 1;
+                    // Populate
+                    vrhofe.PopulateDropDownLists();
+                }
                 else throw new NotSupportedException();
+                //
                 lvTypes.Items[selectedId].Tag = _viewResultHistoryOutput;
                 _preselectIndex = selectedId;
             }
@@ -208,16 +228,22 @@ namespace PrePoMax.Forms
                                                   Dictionary<int, int[]> stepIdStepIncrementIds) 
         {
             ListViewItem item;
-            // Node output
-            item = new ListViewItem("History output from field output");
             FieldData fieldData = _controller.CurrentFieldData;
-            ResultHistoryOutputFromField rhoff = new ResultHistoryOutputFromField(GetHistoryOutputName("FF"),
-                                                                                  fieldData.Name, null,
-                                                                                  "", RegionTypeEnum.Selection);
+            // History output from field output
+            item = new ListViewItem("History output from field output");
+            ResultHistoryOutputFromField rhoff =
+                new ResultHistoryOutputFromField(GetHistoryOutputName("FF"), fieldData.Name, null, "", RegionTypeEnum.Selection);
             ViewResultHistoryOutputFromField vrhoff =
                 new ViewResultHistoryOutputFromField(rhoff, _controller.CurrentResult.ContainsComplexResults());
             vrhoff.PopulateDropDownLists(nodeSetNames, surfaceNames, filedNameComponentNames, stepIdStepIncrementIds);
             item.Tag = vrhoff;
+            lvTypes.Items.Add(item);
+            // History output from equation
+            item = new ListViewItem("History output from equation");
+            ResultHistoryOutputFromEquation rhofe = new ResultHistoryOutputFromEquation(GetHistoryOutputName("FF"), "=[FFH_Output-1.DISP.U1]+[FFH_Output-1.DISP.U2]");
+            ViewResultHistoryOutputFromEquation vrhofe = new ViewResultHistoryOutputFromEquation(rhofe);
+            vrhofe.PopulateDropDownLists();
+            item.Tag = vrhofe;
             lvTypes.Items.Add(item);
         }
         private string GetHistoryOutputName(string prefix)
@@ -250,6 +276,8 @@ namespace PrePoMax.Forms
                     }
                     else throw new NotImplementedException();
                 }
+                else if (ResultHistoryOutput is ResultHistoryOutputFromEquation)
+                { }
                 else throw new NotSupportedException();
             }
             catch { }
