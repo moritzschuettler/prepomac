@@ -18,6 +18,7 @@ namespace CaeResults
         private string _regionName;
         private int[] _creationIds;
         private Selection _creationData;
+        private HistoryResultSet historyResultSet;
 
 
         // Properties                                                                                                               
@@ -25,6 +26,8 @@ namespace CaeResults
         public RegionTypeEnum RegionType { get { return _regionType; } set { _regionType = value; } }
         public int[] CreationIds { get { return _creationIds; } set { _creationIds = value; } }
         public Selection CreationData { get { return _creationData; } set { _creationData = value; } }
+        public HistoryResultSet HistoryResultSet { get { return historyResultSet; } set { historyResultSet = value; } }
+
 
         // Constructors                                                                                                             
         public ResultHistoryOutput(string name, string regionName, RegionTypeEnum regionType)

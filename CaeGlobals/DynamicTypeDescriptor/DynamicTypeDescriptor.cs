@@ -1575,6 +1575,23 @@ namespace DynamicTypeDescriptor
                 else sva.DisplayName = falseName;
             }
         }
+        public void RenameMultiChoiceEnumProperty(string propertyName, Dictionary<MultiChoiceEnum, string[]> valueData)
+        {
+            string[] data;
+            MultiChoiceEnum enumVal;
+            CustomPropertyDescriptor cpd = GetProperty(propertyName);
+            foreach (StandardValueAttribute sv in cpd.StatandardValues)
+            {
+                enumVal = (MultiChoiceEnum)Enum.ToObject(typeof(MultiChoiceEnum), sv.Value);
+                if (valueData.TryGetValue(enumVal, out data))
+                {
+                    sv.DisplayName = valueData[enumVal][0];
+                    sv.Description = valueData[enumVal][1];
+                    sv.Visible = true;
+                }
+                else sv.Visible = false;
+            }
+        }
         //
         public void PopulateProperty<T>(Expression<Func<T>> propertyLambda, string[] values, bool addBlankIfEmpty = true,
                                         int numOfItemsToBeBrowsable = 1)

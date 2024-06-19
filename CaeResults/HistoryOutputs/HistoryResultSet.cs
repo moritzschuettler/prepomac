@@ -45,6 +45,15 @@ namespace CaeResults
                 else _fields.Add(entry.Key, entry.Value);
             }
         }
+        public Dictionary<string, string[]> GetFieldNameComponentNames()
+        {
+            Dictionary<string, string[]> fieldNameComponentNames = new Dictionary<string, string[]>();
+            foreach (var entry in _fields)
+            {
+                fieldNameComponentNames.Add(entry.Key, entry.Value.Components.Keys.ToArray());
+            }
+            return fieldNameComponentNames;
+        }
 
     }
 }

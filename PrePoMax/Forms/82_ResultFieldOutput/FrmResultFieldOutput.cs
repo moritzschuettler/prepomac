@@ -163,10 +163,10 @@ namespace PrePoMax.Forms
                 throw new CaeException("The selected dependent field output creates a cyclic reference!");
             }
             // Check for zero limits
-            if (_viewResultFieldOutput is ViewResultFieldOutputLimit vrfosf)
+            if (_viewResultFieldOutput is ViewResultFieldOutputLimit vrfol)
             {
-                ResultFieldOutputLimit rfosf = (ResultFieldOutputLimit)vrfosf.GetBase();
-                foreach (var entry in rfosf.ItemNameLimit)
+                ResultFieldOutputLimit rfol = (ResultFieldOutputLimit)vrfol.GetBase();
+                foreach (var entry in rfol.ItemNameLimit)
                 {
                     if (entry.Value == 0) throw new CaeException("All limit values must be different from 0.");
                 }
@@ -213,7 +213,7 @@ namespace PrePoMax.Forms
             Dictionary<string, string[]> filedNameComponentNames =
                 _controller.CurrentResult.GetAllVisibleFiledNameComponentNames();
             // Remove self
-            if (resultFieldOutputToEditName != null) filedNameComponentNames.Remove(resultFieldOutputToEditName);
+            if (_resultFieldOutputToEditName != null) filedNameComponentNames.Remove(_resultFieldOutputToEditName);
             //
             string[] partNames = _controller.GetResultPartNames();
             string[] elementSetNames = _controller.GetResultUserElementSetNames();
@@ -224,7 +224,7 @@ namespace PrePoMax.Forms
             //
             PopulateListOfResultFieldOutputs(filedNameComponentNames, partNames, elementSetNames, coordinateSystemNames);
             //
-            if (resultFieldOutputToEditName == null)
+            if (_resultFieldOutputToEditName == null)
             {
                 lvTypes.Enabled = true;
                 _viewResultFieldOutput = null;
@@ -235,7 +235,7 @@ namespace PrePoMax.Forms
             }
             else
             {
-                ResultFieldOutput = _controller.GetResultFieldOutput(resultFieldOutputToEditName); // to clone
+                ResultFieldOutput = _controller.GetResultFieldOutput(_resultFieldOutputToEditName); // to clone
                 _propertyItemChanged = !ResultFieldOutput.Valid;
                 //
                 int selectedId;
@@ -274,8 +274,6 @@ namespace PrePoMax.Forms
                     vrfcst.PopulateDropDownLists(filedNameComponentNames, coordinateSystemNames);
                 }
                 else throw new NotSupportedException();
-                //
-
                 //
                 lvTypes.Items[selectedId].Tag = _viewResultFieldOutput;
                 _preselectIndex = selectedId;

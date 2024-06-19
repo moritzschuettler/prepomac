@@ -149,7 +149,7 @@ namespace PrePoMax.Forms
                 foreach (var parameter in _parameters)
                 {
                     parameterNames.Add(parameter.Name);
-                        
+                    //
                     if (_controller.Model.Parameters.TryGetValue(parameter.Name, out existingParameter))
                     {
                         if (parameter.EquationStr == existingParameter.EquationStr) { }

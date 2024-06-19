@@ -16,6 +16,7 @@ using System.Xml.Linq;
 using System.Security.Cryptography;
 using static CaeGlobals.Geometry2;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.TextBox;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace UserControls
 {
@@ -1560,6 +1561,7 @@ namespace UserControls
                         else if (selectedNode.Parent.Tag is Field) parentName = selectedNode.Parent.Text;
                         else if (selectedNode.Parent.Tag is ResultFieldOutput) parentName = selectedNode.Parent.Text;
                         else if (selectedNode.Parent.Tag is HistoryResultSet) parentName = selectedNode.Parent.Text;
+                        else if (selectedNode.Parent.Tag is ResultHistoryOutput) parentName = selectedNode.Parent.Text;
                     }
                     parentNames.Add(parentName);
                 }
@@ -1934,10 +1936,12 @@ namespace UserControls
                             {
                                 allComponents[i] = results.GetFieldComponentNames(fieldNames[i]);
                             }
-                            SetFieldOutputAndComponentNames(fieldNames, allComponents, results.GetResultFieldOutputs());
+                            CreateOverwriteFieldOutputNodes(fieldNames, allComponents, results.GetResultFieldOutputs());
                         }
                         //
-                        if (results.GetHistory() != null) SetHistoryResults(results.GetHistory());
+                        if (results.GetHistory() != null)
+                            CreateOverwriteHistoryOutputNodes(results.GetHistory().Sets.Values.ToArray(),
+                                                              results.GetResultHistoryOutputs());
                     }
                 }
                 //
@@ -2014,286 +2018,332 @@ namespace UserControls
             if (!_screenUpdating) return;
             if (item.Internal) return;
             //
-            TreeNode node;
-            TreeNode parent;
-            TreeNode[] tmp;
-            //
-            if (item is MeshSetupItem)
+            CodersLabTreeView tree = GetTree(view);
+            try
             {
-                parent = _meshSetupItems;
-                node = parent.Nodes.Add(item.Name);
-                node.Name = node.Text;
-                node.Tag = item;
-            }
-            else if (item is MeshPart)
-            {
-                parent = _modelParts;
-                node = parent.Nodes.Add(item.Name);
-                node.Name = node.Text;
-                node.Tag = item;
-            }
-            else if (item is FeNodeSet)
-            {
-                parent = _modelNodeSets;
-                node = parent.Nodes.Add(item.Name);
-                node.Name = node.Text;
-                node.Tag = item;
-            }
-            else if (item is FeElementSet)
-            {
-                parent = _modelElementSets;
-                node = parent.Nodes.Add(item.Name);
-                node.Name = node.Text;
-                node.Tag = item;
-            }
-            else if (item is FeSurface)
-            {
-                parent = _modelSurfaces;
-                node = parent.Nodes.Add(item.Name);
-                node.Name = node.Text;
-                node.Tag = item;
-            }
-            else if (item is FeReferencePoint)
-            {
-                if (view == ViewType.Model) parent = _modelReferencePoints;
-                else if (view == ViewType.Results) parent = _resultReferencePoints;
-                else throw new NotSupportedException();
-                node = parent.Nodes.Add(item.Name);
-                node.Name = node.Text;
-                node.Tag = item;
-            }
-            else if (item is CoordinateSystem)
-            {
-                if (view == ViewType.Model) parent = _modelCoordinateSystems;
-                else if (view == ViewType.Results) parent = _resultCoordinateSystems;
-                else throw new NotSupportedException();
-                node = parent.Nodes.Add(item.Name);
-                node.Name = node.Text;
-                node.Tag = item;
-            }
-            else if (item is Material)
-            {
-                parent = _materials;
-                node = parent.Nodes.Add(item.Name);
-                node.Name = node.Text;
-                node.Tag = item;
-            }
-            else if (item is Section)
-            {
-                parent = _sections;
-                node = parent.Nodes.Add(item.Name);
-                node.Name = node.Text;
-                node.Tag = item;
-            }
-            else if (item is Constraint)
-            {
-                parent = _constraints;
-                node = parent.Nodes.Add(item.Name);
-                node.Name = node.Text;
-                node.Tag = item;
-            }
-            else if (item is SurfaceInteraction)
-            {
-                parent = _surfaceInteractions;
-                node = parent.Nodes.Add(item.Name);
-                node.Name = node.Text;
-                node.Tag = item;
-            }
-            else if (item is ContactPair)
-            {
-                parent = _contactPairs;
-                node = parent.Nodes.Add(item.Name);
-                node.Name = node.Text;
-                node.Tag = item;
-            }
-            else if (item is InitialCondition)
-            {
-                parent = _initialConditions;
-                node = parent.Nodes.Add(item.Name);
-                node.Name = node.Text;
-                node.Tag = item;
-            }
-            else if (item is Amplitude)
-            {
-                parent = _amplitudes;
-                node = parent.Nodes.Add(item.Name);
-                node.Name = node.Text;
-                node.Tag = item;
-            }
-            else if (item is Step)
-            {
-                parent = _steps;
-                node = AddStep((Step)item);
-            }
-            else if (item is HistoryOutput && parentName != null)
-            {
-                tmp = _steps.Nodes.Find(parentName, true, true);
-                if (tmp.Length > 1) throw new Exception("Adding operation failed. More than one step named: " + parentName);
+                tree.SuspendLayout();
+                tree.BeginUpdate();
                 //
-                tmp = tmp[0].Nodes.Find(_modelHistoryOutputsName, true, true);
-                if (tmp.Length > 1) throw new Exception("Adding operation failed. There is no history output node to add to.");
+                TreeNode node;
+                TreeNode parent;
+                TreeNode[] tmp;
                 //
-                parent = tmp[0];
-                node = parent.Nodes.Add(item.Name);
-                node.Name = node.Text;
-                node.Tag = item;
+                if (item is MeshSetupItem)
+                {
+                    parent = _meshSetupItems;
+                    node = parent.Nodes.Add(item.Name);
+                    node.Name = node.Text;
+                    node.Tag = item;
+                }
+                else if (item is MeshPart)
+                {
+                    parent = _modelParts;
+                    node = parent.Nodes.Add(item.Name);
+                    node.Name = node.Text;
+                    node.Tag = item;
+                }
+                else if (item is FeNodeSet)
+                {
+                    parent = _modelNodeSets;
+                    node = parent.Nodes.Add(item.Name);
+                    node.Name = node.Text;
+                    node.Tag = item;
+                }
+                else if (item is FeElementSet)
+                {
+                    parent = _modelElementSets;
+                    node = parent.Nodes.Add(item.Name);
+                    node.Name = node.Text;
+                    node.Tag = item;
+                }
+                else if (item is FeSurface)
+                {
+                    parent = _modelSurfaces;
+                    node = parent.Nodes.Add(item.Name);
+                    node.Name = node.Text;
+                    node.Tag = item;
+                }
+                else if (item is FeReferencePoint)
+                {
+                    if (view == ViewType.Model) parent = _modelReferencePoints;
+                    else if (view == ViewType.Results) parent = _resultReferencePoints;
+                    else throw new NotSupportedException();
+                    node = parent.Nodes.Add(item.Name);
+                    node.Name = node.Text;
+                    node.Tag = item;
+                }
+                else if (item is CoordinateSystem)
+                {
+                    if (view == ViewType.Model) parent = _modelCoordinateSystems;
+                    else if (view == ViewType.Results) parent = _resultCoordinateSystems;
+                    else throw new NotSupportedException();
+                    node = parent.Nodes.Add(item.Name);
+                    node.Name = node.Text;
+                    node.Tag = item;
+                }
+                else if (item is Material)
+                {
+                    parent = _materials;
+                    node = parent.Nodes.Add(item.Name);
+                    node.Name = node.Text;
+                    node.Tag = item;
+                }
+                else if (item is Section)
+                {
+                    parent = _sections;
+                    node = parent.Nodes.Add(item.Name);
+                    node.Name = node.Text;
+                    node.Tag = item;
+                }
+                else if (item is Constraint)
+                {
+                    parent = _constraints;
+                    node = parent.Nodes.Add(item.Name);
+                    node.Name = node.Text;
+                    node.Tag = item;
+                }
+                else if (item is SurfaceInteraction)
+                {
+                    parent = _surfaceInteractions;
+                    node = parent.Nodes.Add(item.Name);
+                    node.Name = node.Text;
+                    node.Tag = item;
+                }
+                else if (item is ContactPair)
+                {
+                    parent = _contactPairs;
+                    node = parent.Nodes.Add(item.Name);
+                    node.Name = node.Text;
+                    node.Tag = item;
+                }
+                else if (item is InitialCondition)
+                {
+                    parent = _initialConditions;
+                    node = parent.Nodes.Add(item.Name);
+                    node.Name = node.Text;
+                    node.Tag = item;
+                }
+                else if (item is Amplitude)
+                {
+                    parent = _amplitudes;
+                    node = parent.Nodes.Add(item.Name);
+                    node.Name = node.Text;
+                    node.Tag = item;
+                }
+                else if (item is Step)
+                {
+                    parent = _steps;
+                    node = AddStep((Step)item);
+                }
+                else if (item is HistoryOutput && parentName != null)
+                {
+                    tmp = _steps.Nodes.Find(parentName, true, true);
+                    if (tmp.Length > 1) throw new Exception("Adding operation failed. More than one step named: " + parentName);
+                    //
+                    tmp = tmp[0].Nodes.Find(_modelHistoryOutputsName, true, true);
+                    if (tmp.Length > 1) throw new Exception("Adding operation failed. There is no history output node to add to.");
+                    //
+                    parent = tmp[0];
+                    node = parent.Nodes.Add(item.Name);
+                    node.Name = node.Text;
+                    node.Tag = item;
+                }
+                else if (item is FieldOutput && parentName != null)
+                {
+                    tmp = _steps.Nodes.Find(parentName, true, true);
+                    if (tmp.Length > 1) throw new Exception("Adding operation failed. More than one step named: " + parentName);
+                    //
+                    tmp = tmp[0].Nodes.Find(_modelFieldOutputsName, true, true);
+                    if (tmp.Length > 1) throw new Exception("Adding operation failed. There is no field output node to add to.");
+                    //
+                    parent = tmp[0];
+                    node = parent.Nodes.Add(item.Name);
+                    node.Name = node.Text;
+                    node.Tag = item;
+                }
+                else if (item is BoundaryCondition && parentName != null)
+                {
+                    tmp = _steps.Nodes.Find(parentName, true, true);
+                    if (tmp.Length > 1) throw new Exception("Adding operation failed. More than one step named: " + parentName);
+                    //
+                    tmp = tmp[0].Nodes.Find(_boundaryConditionsName, true, true);
+                    if (tmp.Length > 1) throw new Exception("Adding operation failed. There is no bounday condition node to add to.");
+                    //
+                    parent = tmp[0];
+                    node = parent.Nodes.Add(item.Name);
+                    node.Name = node.Text;
+                    node.Tag = item;
+                }
+                else if (item is Load && parentName != null)
+                {
+                    tmp = _steps.Nodes.Find(parentName, true, true);
+                    if (tmp.Length > 1) throw new Exception("Adding operation failed. More than one step named: " + parentName);
+                    //
+                    tmp = tmp[0].Nodes.Find(_loadsName, true, true);
+                    if (tmp.Length > 1) throw new Exception("Adding operation failed. There is no load node to add to.");
+                    //
+                    parent = tmp[0];
+                    node = parent.Nodes.Add(item.Name);
+                    node.Name = node.Text;
+                    node.Tag = item;
+                }
+                else if (item is DefinedField && parentName != null)
+                {
+                    tmp = _steps.Nodes.Find(parentName, true, true);
+                    if (tmp.Length > 1) throw new Exception("Adding operation failed. More than one step named: " + parentName);
+                    //
+                    tmp = tmp[0].Nodes.Find(_definedFieldsName, true, true);
+                    if (tmp.Length > 1) throw new Exception("Adding operation failed. There is no defined field node to add to.");
+                    //
+                    parent = tmp[0];
+                    node = parent.Nodes.Add(item.Name);
+                    node.Name = node.Text;
+                    node.Tag = item;
+                }
+                else if (item is AnalysisJob)
+                {
+                    parent = _analyses;
+                    node = parent.Nodes.Add(item.Name);
+                    node.Name = node.Text;
+                    node.Tag = item;
+                }
+                else if (item is ResultPart)
+                {
+                    parent = _resultParts;
+                    node = parent.Nodes.Add(item.Name);
+                    node.Name = node.Text;
+                    node.Tag = item;
+                }
+                else if (item is ResultFieldOutput rfo)
+                {
+                    CreateOverwriteFieldOutputNodes(new string[] { rfo.Name }, new string[][] { rfo.GetComponentNames() },
+                                                    new ResultFieldOutput[] { rfo });
+                    //
+                    parent = _resultFieldOutputs;
+                    node = parent.Nodes[rfo.Name];
+                }
+                else if (item is ResultHistoryOutput hro)
+                {
+                    CreateOverwriteHistoryOutputNodes(new HistoryResultSet[] { hro.HistoryResultSet },
+                                                      new ResultHistoryOutput[] { hro });
+                    parent = _resultHistoryOutputs;
+                    node = parent.Nodes[hro.Name];
+                }
+                else throw new NotImplementedException();
+                //
+                parent.Text = parent.Name;
+                if (parent.Nodes.Count > 0) parent.Text += " (" + parent.Nodes.Count + ")";
+                //
+                SetNodeStatus(node);
+                //
+                GetTree(view).SelectedNode = node;
+                // Expand for propagate
+                while (node.Parent != null)
+                {
+                    node = node.Parent;
+                    if (!node.IsExpanded) node.Expand();
+                }
             }
-            else if (item is FieldOutput && parentName != null)
+            catch { }
+            finally
             {
-                tmp = _steps.Nodes.Find(parentName, true, true);
-                if (tmp.Length > 1) throw new Exception("Adding operation failed. More than one step named: " + parentName);
-                //
-                tmp = tmp[0].Nodes.Find(_modelFieldOutputsName, true, true);
-                if (tmp.Length > 1) throw new Exception("Adding operation failed. There is no field output node to add to.");
-                //
-                parent = tmp[0];
-                node = parent.Nodes.Add(item.Name);
-                node.Name = node.Text;
-                node.Tag = item;
-            }
-            else if (item is BoundaryCondition && parentName != null)
-            {
-                tmp = _steps.Nodes.Find(parentName, true, true);
-                if (tmp.Length > 1) throw new Exception("Adding operation failed. More than one step named: " + parentName);
-                //
-                tmp = tmp[0].Nodes.Find(_boundaryConditionsName, true, true);
-                if (tmp.Length > 1) throw new Exception("Adding operation failed. There is no bounday condition node to add to.");
-                //
-                parent = tmp[0];
-                node = parent.Nodes.Add(item.Name);
-                node.Name = node.Text;
-                node.Tag = item;
-            }
-            else if (item is Load && parentName != null)
-            {
-                tmp = _steps.Nodes.Find(parentName, true, true);
-                if (tmp.Length > 1) throw new Exception("Adding operation failed. More than one step named: " + parentName);
-                //
-                tmp = tmp[0].Nodes.Find(_loadsName, true, true);
-                if (tmp.Length > 1) throw new Exception("Adding operation failed. There is no load node to add to.");
-                //
-                parent = tmp[0];
-                node = parent.Nodes.Add(item.Name);
-                node.Name = node.Text;
-                node.Tag = item;
-            }
-            else if (item is DefinedField && parentName != null)
-            {
-                tmp = _steps.Nodes.Find(parentName, true, true);
-                if (tmp.Length > 1) throw new Exception("Adding operation failed. More than one step named: " + parentName);
-                //
-                tmp = tmp[0].Nodes.Find(_definedFieldsName, true, true);
-                if (tmp.Length > 1) throw new Exception("Adding operation failed. There is no defined field node to add to.");
-                //
-                parent = tmp[0];
-                node = parent.Nodes.Add(item.Name);
-                node.Name = node.Text;
-                node.Tag = item;
-            }
-            else if (item is AnalysisJob)
-            {
-                parent = _analyses;
-                node = parent.Nodes.Add(item.Name);
-                node.Name = node.Text;
-                node.Tag = item;
-            }
-            else if (item is ResultPart)
-            {
-                parent = _resultParts;
-                node = parent.Nodes.Add(item.Name);
-                node.Name = node.Text;
-                node.Tag = item;
-            }
-            else if (item is ResultFieldOutput rfo)
-            {
-                SetFieldOutputAndComponentNames(new string[] { rfo.Name }, new string[][] { rfo.GetComponentNames() },
-                                                new ResultFieldOutput[] { rfo });
-                //
-                parent = _resultFieldOutputs;
-                node = parent.Nodes[rfo.Name];
-            }
-            else if (item is HistoryResultSet hrs)
-            {
-                parent = _resultHistoryOutputs;
-                node = SetHistoryResultSet(hrs);
-            }
-            else throw new NotImplementedException();
-            //
-            parent.Text = parent.Name;
-            if (parent.Nodes.Count > 0) parent.Text += " (" + parent.Nodes.Count + ")";
-            //
-            SetNodeStatus(node);
-            //
-            GetTree(view).SelectedNode = node;
-            // Expand for propagate
-            while (node.Parent != null)
-            {
-                node = node.Parent;
-                if (!node.IsExpanded) node.Expand();
+                tree.EndUpdate();
+                tree.ResumeLayout();
             }
         }
         public void UpdateTreeNode(ViewType view, string oldItemName, NamedClass item, string parentName, bool updateSelection)
         {
             if (!_screenUpdating) return;   // must be here; when _screenUpdating = false the function add tree node is not working
             //
-            TreeNode baseNode = FindTreeNode(view, oldItemName, item, parentName);
-            if (baseNode == null) return;
-            //
-            baseNode.Text = item.Name;
-            baseNode.Name = item.Name;
-            baseNode.Tag = item;
-            //
-            if (item is ResultFieldOutput rfo)
+            CodersLabTreeView tree = GetTree(view);
+            try
             {
-                // Delete and recreate the node
-                baseNode.Parent.Nodes.Remove(baseNode);
-                baseNode = SetFieldOutputAndComponentNames(new string[] { rfo.Name }, new string[][] { rfo.GetComponentNames() },
-                                                           new ResultFieldOutput[] { rfo });
-            }
-            SetNodeStatus(baseNode);
-            // Update selection
-            if (updateSelection)
-            {
-                CodersLabTreeView tree = GetTree(view);
+                tree.SuspendLayout();
+                tree.BeginUpdate();
                 //
-                if (tree != null && tree.SelectedNodes.Contains(baseNode)) UpdateHighlight();    // update only once
-                else tree.SelectedNode = baseNode; // for job the tree is null
-                // Expand for propagate
-                while (baseNode.Parent != null)
+                TreeNode baseNode = FindTreeNode(view, oldItemName, item, parentName);
+                if (baseNode == null) return;
+                //
+                if (item is ResultFieldOutput rfo)
                 {
-                    baseNode = baseNode.Parent;
-                    if (!baseNode.IsExpanded) baseNode.Expand();
+                    int[] indices = new int[] { baseNode.Index };
+                    CreateOverwriteFieldOutputNodes(new string[] { rfo.Name }, new string[][] { rfo.GetComponentNames() },
+                                                    new ResultFieldOutput[] { rfo }, indices);
                 }
+                else if (item is ResultHistoryOutput rho)
+                {
+                    int[] indices = new int[] { baseNode.Index };
+                    CreateOverwriteHistoryOutputNodes(new HistoryResultSet[] { rho.HistoryResultSet },
+                                                      new ResultHistoryOutput[] { rho }, indices);
+                }
+                else
+                {
+                    baseNode.Text = item.Name;
+                    baseNode.Name = item.Name;
+                    baseNode.Tag = item;
+                }
+                SetNodeStatus(baseNode);
+                // Update selection
+                if (updateSelection)
+                {
+                    if (tree != null && tree.SelectedNodes.Contains(baseNode)) UpdateHighlight();    // update only once
+                    else tree.SelectedNode = baseNode; // for job the tree is null
+                                                       // Expand for propagate
+                    while (baseNode.Parent != null)
+                    {
+                        baseNode = baseNode.Parent;
+                        if (!baseNode.IsExpanded) baseNode.Expand();
+                    }
+                }
+            }
+            catch { }
+            finally
+            {
+                tree.EndUpdate();
+                tree.ResumeLayout();
             }
         }
         public void SwapTreeNodes(ViewType view, string firstItemName, NamedClass firstItem,
                                   string secondItemName, NamedClass secondItem, string parentName)
         {
-            TreeNode firstNode = FindTreeNode(view, firstItemName, firstItem, parentName);
-            if (firstNode == null) return;
-            //
-            TreeNode secondNode = FindTreeNode(view, secondItemName, secondItem, parentName);
-            if (secondNode == null) return;
-            //
-            if (firstNode.Parent != secondNode.Parent) return;
-            //
-            TreeNode parent = firstNode.Parent;
-            //
-            int firstIndex = firstNode.Index;
-            int secondIndex = secondNode.Index;
-            //
-            firstNode.Remove();
-            secondNode.Remove();
-            //
-            if (firstIndex < secondIndex)
+            CodersLabTreeView tree = GetTree(view);
+            try
             {
-                parent.Nodes.Insert(firstIndex, secondNode);
-                parent.Nodes.Insert(secondIndex, firstNode);
+                tree.SuspendLayout();
+                tree.BeginUpdate();
+                //
+                TreeNode firstNode = FindTreeNode(view, firstItemName, firstItem, parentName);
+                if (firstNode == null) return;
+                //
+                TreeNode secondNode = FindTreeNode(view, secondItemName, secondItem, parentName);
+                if (secondNode == null) return;
+                //
+                if (firstNode.Parent != secondNode.Parent) return;
+                //
+                TreeNode parent = firstNode.Parent;
+                //
+                int firstIndex = firstNode.Index;
+                int secondIndex = secondNode.Index;
+                //
+                firstNode.Remove();
+                secondNode.Remove();
+                //
+                if (firstIndex < secondIndex)
+                {
+                    parent.Nodes.Insert(firstIndex, secondNode);
+                    parent.Nodes.Insert(secondIndex, firstNode);
+                }
+                else
+                {
+                    parent.Nodes.Insert(secondIndex, firstNode);
+                    parent.Nodes.Insert(firstIndex, secondNode);
+                }
             }
-            else
+            catch { }
+            finally
             {
-                parent.Nodes.Insert(secondIndex, firstNode);
-                parent.Nodes.Insert(firstIndex, secondNode);
+                tree.EndUpdate();
+                tree.ResumeLayout();
             }
         }
         private TreeNode FindTreeNode(ViewType view, string itemName, NamedClass item, string parentName)
@@ -2304,6 +2354,7 @@ namespace UserControls
             if (item is MeshSetupItem) baseNode = _meshSetupItems;
             else if (item is AnalysisJob) baseNode = _analyses;
             else if (item is ResultFieldOutput) baseNode = _resultFieldOutputs;
+            else if (item is ResultHistoryOutput) baseNode = _resultHistoryOutputs;
             else baseNode = tree.Nodes[0];
             //
             TreeNode[] tmpNodes;
@@ -2352,84 +2403,101 @@ namespace UserControls
             if (!_screenUpdating) return;
             //
             CodersLabTreeView tree = GetTree(view);
-            // No parent
-            TreeNode baseNode = null;
-            if (typeof(T) == typeof(MeshSetupItem)) baseNode = _meshSetupItems;
-            else if (typeof(T) == typeof(AnalysisJob)) baseNode = _analyses;
             //
-            else if (typeof(T) == typeof(Field)) baseNode = _resultFieldOutputs;
-            else if (typeof(T) == typeof(ResultFieldOutput)) baseNode = _resultFieldOutputs;
-            else if (typeof(T) == typeof(HistoryResultSet)) baseNode = _resultHistoryOutputs;
-            else baseNode = tree.Nodes[0];
-            // Find parent
-            TreeNode[] tmp;
-            int count;
-            if (parentName != null)
+            try
             {
-                if (view == ViewType.Model) tmp = _steps.Nodes.Find(parentName, true, true);
-                else if (view == ViewType.Results)
+                tree.SuspendLayout();
+                tree.BeginUpdate();
+                //
+                // No parent
+                TreeNode baseNode = null;
+                if (typeof(T) == typeof(MeshSetupItem)) baseNode = _meshSetupItems;
+                else if (typeof(T) == typeof(AnalysisJob)) baseNode = _analyses;
+                //
+                else if (typeof(T) == typeof(Field)) baseNode = _resultFieldOutputs;
+                else if (typeof(T) == typeof(ResultFieldOutput)) baseNode = _resultFieldOutputs;
+                else if (typeof(T) == typeof(HistoryResultSet)) baseNode = _resultHistoryOutputs;
+                else if (typeof(T) == typeof(ResultHistoryOutput)) baseNode = _resultHistoryOutputs;
+                else baseNode = tree.Nodes[0];
+                // Find parent
+                TreeNode[] tmp;
+                int count;
+                if (parentName != null)
                 {
-                    if (typeof(T) == typeof(FieldData)) tmp = _resultFieldOutputs.Nodes.Find(parentName, true, true);
-                    else if (typeof(T) == typeof(HistoryResultField))
-                        tmp = _resultHistoryOutputs.Nodes.Find(parentName, true, true);
-                    else if (typeof(T) == typeof(HistoryResultData))
+                    if (view == ViewType.Model) tmp = _steps.Nodes.Find(parentName, true, true);
+                    else if (view == ViewType.Results)
                     {
-                        string[] split = parentName.Split(new string[] { "@@@" }, StringSplitOptions.None);
-                        if (split.Length == 2)
+                        if (typeof(T) == typeof(FieldData)) tmp = _resultFieldOutputs.Nodes.Find(parentName, true, true);
+                        else if (typeof(T) == typeof(HistoryResultField))
+                            tmp = _resultHistoryOutputs.Nodes.Find(parentName, true, true);
+                        else if (typeof(T) == typeof(HistoryResultData))
                         {
-                            tmp = _resultHistoryOutputs.Nodes.Find(split[0], true, true);
-                            if (tmp.Length == 1) tmp = tmp[0].Nodes.Find(split[1], true, true);
+                            string[] split = parentName.Split(new string[] { "@@@" }, StringSplitOptions.None);
+                            if (split.Length == 2)
+                            {
+                                tmp = _resultHistoryOutputs.Nodes.Find(split[0], true, true);
+                                if (tmp.Length == 1) tmp = tmp[0].Nodes.Find(split[1], true, true);
+                                else throw new NotSupportedException();
+                            }
                             else throw new NotSupportedException();
                         }
                         else throw new NotSupportedException();
                     }
                     else throw new NotSupportedException();
-                }
-                else throw new NotSupportedException();
-                //
-                if (tmp.Length > 1)
-                {
-                    count = 0;
-                    for (int i = 0; i < tmp.Length; i++)
+                    //
+                    if (tmp.Length > 1)
                     {
-                        if (tmp[i].Nodes.Find(nodeName, true).Length > 0)
+                        count = 0;
+                        for (int i = 0; i < tmp.Length; i++)
                         {
-                            tmp[0] = tmp[i];
-                            count++;
+                            if (tmp[i].Nodes.Find(nodeName, true).Length > 0)
+                            {
+                                tmp[0] = tmp[i];
+                                count++;
+                            }
                         }
+                        if (count > 1) throw new Exception("Tree update failed. More than one parent named: " + parentName);
                     }
-                    if (count > 1) throw new Exception("Tree update failed. More than one parent named: " + parentName);
+                    baseNode = tmp[0];
                 }
-                baseNode = tmp[0];
-            }
-            //
-            tmp = baseNode.Nodes.Find(nodeName, true, true);
-            count = 0;
-            //
-            for (int i = 0; i < tmp.Length; i++)
-            {
-                if (tmp[i].Tag is T)
+                //
+                tmp = baseNode.Nodes.Find(nodeName, true, true);
+                count = 0;
+                //
+                for (int i = 0; i < tmp.Length; i++)
                 {
-                    tmp[0] = tmp[i];
-                    count++;
+                    if (tmp[i].Tag is T)
+                    {
+                        tmp[0] = tmp[i];
+                        count++;
+                    }
                 }
+                //
+                if (count > 1) throw new Exception("Tree update failed. More than one tree node named: " + nodeName);
+                if (count < 1) throw new Exception("Tree update failed. There is no tree node named: " + nodeName);
+                //
+                TreeNode parent = tmp[0].Parent;
+                //
+                tmp[0].Remove();
+                //
+                _disableSelectionsChanged = true;
+                tree.SelectedNodes.Remove(tmp[0]);
+                _disableSelectionsChanged = false;
+                //
+                parent.Text = parent.Name;
+                if (parent.Tag is Field || parent.Tag is ResultFieldOutput ||
+                    parent.Tag is HistoryResultSet || parent.Tag is HistoryResultField || parent.Tag is ResultHistoryOutput)
+                {
+                    SetNodeStatus(parent);  // remove dotted T icon
+                }
+                else if (parent.Nodes.Count > 0) parent.Text += " (" + parent.Nodes.Count + ")";
             }
-            //
-            if (count > 1) throw new Exception("Tree update failed. More than one tree node named: " + nodeName);
-            if (count < 1) throw new Exception("Tree update failed. There is no tree node named: " + nodeName);
-            //
-            TreeNode parent = tmp[0].Parent;
-            //
-            tmp[0].Remove();
-            //
-            _disableSelectionsChanged = true;
-            tree.SelectedNodes.Remove(tmp[0]);
-            _disableSelectionsChanged = false;
-            //
-            parent.Text = parent.Name;
-            if (parent.Tag is Field || parent.Tag is HistoryResultSet || parent.Tag is HistoryResultField)
-                SetNodeStatus(parent);  // remove dotted T icon
-            else if (parent.Nodes.Count > 0) parent.Text += " (" + parent.Nodes.Count + ")";
+            catch { }
+            finally
+            {
+                tree.EndUpdate();
+                tree.ResumeLayout();
+            }
         }
         private void AddObjectsToNode<TKey, TVal>(string initialNodeName, TreeNode node, IDictionary<TKey, TVal> dictionary,
                                                   bool countNodes = true)
@@ -2732,14 +2800,20 @@ namespace UserControls
         }
 
         // Results                                                                                                                  
-        private TreeNode SetFieldOutputAndComponentNames(string[] fieldNames, string[][] components,
-                                                     ResultFieldOutput[] resultFieldOutputs)
+        private void CreateOverwriteFieldOutputNodes(string[] fieldNames, string[][] components,
+                                                     ResultFieldOutput[] resultFieldOutputs, int[] indices = null)
         {
-            TreeNode node = null;
+            TreeNode node;
             TreeNode child;
             for (int i = 0; i < fieldNames.Length; i++)
             {
-                node = _resultFieldOutputs.Nodes.Add(fieldNames[i]);
+                if (indices == null) node = _resultFieldOutputs.Nodes.Add(fieldNames[i]);
+                else
+                {
+                    node = _resultFieldOutputs.Nodes[indices[i]];
+                    node.Nodes.Clear();
+                    node.Text = fieldNames[i];
+                }
                 node.Name = node.Text;
                 node.Tag = new Field(fieldNames[i]);
                 SetNodeImage(node, "Dots.ico");
@@ -2766,7 +2840,6 @@ namespace UserControls
                 if (node != null) node.Tag = resultFieldOutput;    // overwrite Field with ResultFieldOutput
                 SetNodeStatus(node);
             }
-            return node;
         }
         public void SelectFirstComponentOfFirstFieldOutput()
         {
@@ -2784,48 +2857,58 @@ namespace UserControls
                 }
             }
         }
-        private void SetHistoryResults(HistoryResults historyResult)
+        private void CreateOverwriteHistoryOutputNodes(HistoryResultSet[] historyResultSets,
+                                                       ResultHistoryOutput[] resultHistoryOutputs,
+                                                       int[] indices = null)
         {
-            foreach (var setEntry in historyResult.Sets)
+            TreeNode node1;
+            TreeNode node2;
+            TreeNode node3;
+            for (int i = 0; i < historyResultSets.Length; i++)
             {
-                SetHistoryResultSet(setEntry.Value);
+                if (indices == null) node1 = _resultHistoryOutputs.Nodes.Add(historyResultSets[i].Name);
+                else
+                {
+                    node1 = _resultHistoryOutputs.Nodes[indices[i]];
+                    node1.Nodes.Clear();
+                    node1.Text = historyResultSets[i].Name;
+                }
+                node1.Name = node1.Text;
+                node1.Tag = historyResultSets[i];
+                SetNodeImage(node1, "Dots.ico");
+                //
+                foreach (var fieldEntry in historyResultSets[i].Fields)
+                {
+                    node2 = node1.Nodes.Add(fieldEntry.Key);
+                    node2.Name = node2.Text;
+                    node2.Tag = fieldEntry.Value;
+                    SetNodeImage(node2, "Dots.ico");
+                    //
+                    foreach (var componentEntry in fieldEntry.Value.Components)
+                    {
+                        node3 = node2.Nodes.Add(componentEntry.Key);
+                        node3.Name = node3.Text;
+                        node3.Tag = new HistoryResultData(historyResultSets[i].Name, fieldEntry.Key, componentEntry.Key); // to view
+                        SetNodeImage(node3, "Dots.ico");
+                    }
+                    if (node2.Nodes.Count > 0) node2.Expand();
+                }
+                if (node1.Nodes.Count > 0) node1.Expand();
             }
             //
             _resultHistoryOutputs.Expand();
             //
             int n = _resultHistoryOutputs.Nodes.Count;
             if (n > 0) _resultHistoryOutputs.Text = _resultHistoryOutputsName + " (" + n + ")";
-        }
-        private TreeNode SetHistoryResultSet(HistoryResultSet historyResultSet)
-        {
-            TreeNode node1;
-            TreeNode node2;
-            TreeNode node3;
-            //
-            node1 = _resultHistoryOutputs.Nodes.Add(historyResultSet.Name);
-            node1.Name = node1.Text;
-            node1.Tag = historyResultSet;
-            SetNodeImage(node1, "Dots.ico");
-            //
-            foreach (var fieldEntry in historyResultSet.Fields)
+            // Add result history outputs
+            TreeNode node;
+            foreach (var resultHistoryOutput in resultHistoryOutputs)
             {
-                node2 = node1.Nodes.Add(fieldEntry.Key);
-                node2.Name = node2.Text;
-                node2.Tag = fieldEntry.Value;
-                SetNodeImage(node2, "Dots.ico");
-                //
-                foreach (var componentEntry in fieldEntry.Value.Components)
-                {
-                    node3 = node2.Nodes.Add(componentEntry.Key);
-                    node3.Name = node3.Text;
-                    node3.Tag = new HistoryResultData(historyResultSet.Name, fieldEntry.Key, componentEntry.Key); // for edit
-                    SetNodeImage(node3, "Dots.ico");
-                }
+                node = _resultHistoryOutputs.Nodes[resultHistoryOutput.Name];
+                if (node != null) node.Tag = resultHistoryOutput;    // overwrite Field with ResultFieldOutput
+                SetNodeStatus(node);
             }
-            //
-            return node1;
         }
-
         // Expand/Collapse                                                                                                          
         private CodersLabTreeView GetActiveTree()
         {

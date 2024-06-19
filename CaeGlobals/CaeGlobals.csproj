@@ -86,6 +86,8 @@
     <Compile Include="Comparers\CompareDoubleArray.cs" />
     <Compile Include="Comparers\CompareVec3D.cs" />
     <Compile Include="Comparers\CompareIntArray.cs" />
+    <Compile Include="DynamicTypeDescriptor\MultiChoiceContainer.cs" />
+    <Compile Include="DynamicTypeDescriptor\MultiChoiceEnum.cs" />
     <Compile Include="Equation\EquationString.cs" />
     <Compile Include="Equation\EquationContainer.cs" />
     <Compile Include="DynamicTypeDescriptor\CustomComponentModel.cs" />

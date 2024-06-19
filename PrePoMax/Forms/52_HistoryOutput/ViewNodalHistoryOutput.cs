@@ -51,7 +51,7 @@ namespace PrePoMax
             }
             set
             {
-                _historyOutput.Variables = (CaeModel.NodalHistoryVariable)value;
+                _historyOutput.Variables = (NodalHistoryVariable)value;
             }
         }
         //

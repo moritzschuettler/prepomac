@@ -441,11 +441,12 @@ namespace PrePoMax
             this.tsmiCreateResultCoordinateSystem = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiEditResultCoordinateSystem = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDuplicateResultCoordinateSystem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripMenuItem3 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiHideResultCoordinateSystem = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiShowResultCoordinateSystem = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiShowOnlyResultCoordinateSystem = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiDeleteResultCoordinateSystem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItem2 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiDeleteResultCoordinateSystem = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerResults1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiResultFieldOutput = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiCreateResultFieldOutput = new System.Windows.Forms.ToolStripMenuItem();
@@ -496,7 +497,7 @@ namespace PrePoMax
             this.tbOutput = new UserControls.AutoScrollTextBox();
             this.timerTest = new System.Windows.Forms.Timer(this.components);
             this.timerOutput = new System.Windows.Forms.Timer(this.components);
-            this.toolStripMenuItem3 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiEditResultHistoryOutput = new System.Windows.Forms.ToolStripMenuItem();
             this.tsFile.SuspendLayout();
             this.tsViews.SuspendLayout();
             this.tsSymbols.SuspendLayout();
@@ -3803,40 +3804,40 @@ namespace PrePoMax
             this.tsmiDeleteResultReferencePoint});
             this.tsmiResultReferencePoints.Image = global::PrePoMax.Properties.Resources.Reference_point;
             this.tsmiResultReferencePoints.Name = "tsmiResultReferencePoints";
-            this.tsmiResultReferencePoints.Size = new System.Drawing.Size(180, 22);
+            this.tsmiResultReferencePoints.Size = new System.Drawing.Size(179, 22);
             this.tsmiResultReferencePoints.Text = "Reference Points";
             // 
             // tsmiCreateResultReferencePoint
             // 
             this.tsmiCreateResultReferencePoint.Name = "tsmiCreateResultReferencePoint";
-            this.tsmiCreateResultReferencePoint.Size = new System.Drawing.Size(180, 22);
+            this.tsmiCreateResultReferencePoint.Size = new System.Drawing.Size(131, 22);
             this.tsmiCreateResultReferencePoint.Text = "Create";
             this.tsmiCreateResultReferencePoint.Click += new System.EventHandler(this.tsmiCreateResultReferencePoint_Click);
             // 
             // tsmiEditResultReferencePoint
             // 
             this.tsmiEditResultReferencePoint.Name = "tsmiEditResultReferencePoint";
-            this.tsmiEditResultReferencePoint.Size = new System.Drawing.Size(180, 22);
+            this.tsmiEditResultReferencePoint.Size = new System.Drawing.Size(131, 22);
             this.tsmiEditResultReferencePoint.Text = "Edit";
             this.tsmiEditResultReferencePoint.Click += new System.EventHandler(this.tsmiEditResultReferencePoint_Click);
             // 
             // tsmiDuplicateResultReferencePoint
             // 
             this.tsmiDuplicateResultReferencePoint.Name = "tsmiDuplicateResultReferencePoint";
-            this.tsmiDuplicateResultReferencePoint.Size = new System.Drawing.Size(180, 22);
+            this.tsmiDuplicateResultReferencePoint.Size = new System.Drawing.Size(131, 22);
             this.tsmiDuplicateResultReferencePoint.Text = "Duplicate";
             this.tsmiDuplicateResultReferencePoint.Click += new System.EventHandler(this.tsmiDuplicateResultReferencePoint_Click);
             // 
             // tsmiDividerResultReferencePoints1
             // 
             this.tsmiDividerResultReferencePoints1.Name = "tsmiDividerResultReferencePoints1";
-            this.tsmiDividerResultReferencePoints1.Size = new System.Drawing.Size(177, 6);
+            this.tsmiDividerResultReferencePoints1.Size = new System.Drawing.Size(128, 6);
             // 
             // tsmiHideResultReferencePoint
             // 
             this.tsmiHideResultReferencePoint.Image = global::PrePoMax.Properties.Resources.Hide;
             this.tsmiHideResultReferencePoint.Name = "tsmiHideResultReferencePoint";
-            this.tsmiHideResultReferencePoint.Size = new System.Drawing.Size(180, 22);
+            this.tsmiHideResultReferencePoint.Size = new System.Drawing.Size(131, 22);
             this.tsmiHideResultReferencePoint.Text = "Hide";
             this.tsmiHideResultReferencePoint.Click += new System.EventHandler(this.tsmiHideResultReferencePoint_Click);
             // 
@@ -3844,7 +3845,7 @@ namespace PrePoMax
             // 
             this.tsmiShowResultReferencePoint.Image = global::PrePoMax.Properties.Resources.Show;
             this.tsmiShowResultReferencePoint.Name = "tsmiShowResultReferencePoint";
-            this.tsmiShowResultReferencePoint.Size = new System.Drawing.Size(180, 22);
+            this.tsmiShowResultReferencePoint.Size = new System.Drawing.Size(131, 22);
             this.tsmiShowResultReferencePoint.Text = "Show";
             this.tsmiShowResultReferencePoint.Click += new System.EventHandler(this.tsmiShowResultReferencePoint_Click);
             // 
@@ -3852,19 +3853,19 @@ namespace PrePoMax
             // 
             this.tsmiShowOnlyResultReferencePoint.Image = global::PrePoMax.Properties.Resources.Show;
             this.tsmiShowOnlyResultReferencePoint.Name = "tsmiShowOnlyResultReferencePoint";
-            this.tsmiShowOnlyResultReferencePoint.Size = new System.Drawing.Size(180, 22);
+            this.tsmiShowOnlyResultReferencePoint.Size = new System.Drawing.Size(131, 22);
             this.tsmiShowOnlyResultReferencePoint.Text = "Show Only";
             this.tsmiShowOnlyResultReferencePoint.Click += new System.EventHandler(this.tsmiShowOnlyResultReferencePoint_Click);
             // 
             // tsmiDividerResultReferencePoints2
             // 
             this.tsmiDividerResultReferencePoints2.Name = "tsmiDividerResultReferencePoints2";
-            this.tsmiDividerResultReferencePoints2.Size = new System.Drawing.Size(177, 6);
+            this.tsmiDividerResultReferencePoints2.Size = new System.Drawing.Size(128, 6);
             // 
             // tsmiDeleteResultReferencePoint
             // 
             this.tsmiDeleteResultReferencePoint.Name = "tsmiDeleteResultReferencePoint";
-            this.tsmiDeleteResultReferencePoint.Size = new System.Drawing.Size(180, 22);
+            this.tsmiDeleteResultReferencePoint.Size = new System.Drawing.Size(131, 22);
             this.tsmiDeleteResultReferencePoint.Text = "Delete";
             this.tsmiDeleteResultReferencePoint.Click += new System.EventHandler(this.tsmiDeleteResultReferencePoint_Click);
             // 
@@ -3882,62 +3883,67 @@ namespace PrePoMax
             this.tsmiDeleteResultCoordinateSystem});
             this.tsmiResultCoordinateSystems.Image = global::PrePoMax.Properties.Resources.CoordinateSystem;
             this.tsmiResultCoordinateSystems.Name = "tsmiResultCoordinateSystems";
-            this.tsmiResultCoordinateSystems.Size = new System.Drawing.Size(180, 22);
+            this.tsmiResultCoordinateSystems.Size = new System.Drawing.Size(179, 22);
             this.tsmiResultCoordinateSystems.Text = "Coordinate Systems";
             // 
             // tsmiCreateResultCoordinateSystem
             // 
             this.tsmiCreateResultCoordinateSystem.Name = "tsmiCreateResultCoordinateSystem";
-            this.tsmiCreateResultCoordinateSystem.Size = new System.Drawing.Size(180, 22);
+            this.tsmiCreateResultCoordinateSystem.Size = new System.Drawing.Size(131, 22);
             this.tsmiCreateResultCoordinateSystem.Text = "Create";
             this.tsmiCreateResultCoordinateSystem.Click += new System.EventHandler(this.tsmiCreateResultCoordinateSystem_Click);
             // 
             // tsmiEditResultCoordinateSystem
             // 
             this.tsmiEditResultCoordinateSystem.Name = "tsmiEditResultCoordinateSystem";
-            this.tsmiEditResultCoordinateSystem.Size = new System.Drawing.Size(180, 22);
+            this.tsmiEditResultCoordinateSystem.Size = new System.Drawing.Size(131, 22);
             this.tsmiEditResultCoordinateSystem.Text = "Edit";
             this.tsmiEditResultCoordinateSystem.Click += new System.EventHandler(this.tsmiEditResultCoordinateSystem_Click);
             // 
             // tsmiDuplicateResultCoordinateSystem
             // 
             this.tsmiDuplicateResultCoordinateSystem.Name = "tsmiDuplicateResultCoordinateSystem";
-            this.tsmiDuplicateResultCoordinateSystem.Size = new System.Drawing.Size(180, 22);
+            this.tsmiDuplicateResultCoordinateSystem.Size = new System.Drawing.Size(131, 22);
             this.tsmiDuplicateResultCoordinateSystem.Text = "Duplicate";
             this.tsmiDuplicateResultCoordinateSystem.Click += new System.EventHandler(this.tsmiDuplicateResultCoordinateSystem_Click);
+            // 
+            // toolStripMenuItem3
+            // 
+            this.toolStripMenuItem3.Name = "toolStripMenuItem3";
+            this.toolStripMenuItem3.Size = new System.Drawing.Size(128, 6);
             // 
             // tsmiHideResultCoordinateSystem
             // 
             this.tsmiHideResultCoordinateSystem.Name = "tsmiHideResultCoordinateSystem";
-            this.tsmiHideResultCoordinateSystem.Size = new System.Drawing.Size(180, 22);
+            this.tsmiHideResultCoordinateSystem.Size = new System.Drawing.Size(131, 22);
             this.tsmiHideResultCoordinateSystem.Text = "Hide";
             this.tsmiHideResultCoordinateSystem.Click += new System.EventHandler(this.tsmiHideResultCoordinateSystem_Click);
             // 
             // tsmiShowResultCoordinateSystem
             // 
             this.tsmiShowResultCoordinateSystem.Name = "tsmiShowResultCoordinateSystem";
-            this.tsmiShowResultCoordinateSystem.Size = new System.Drawing.Size(180, 22);
+            this.tsmiShowResultCoordinateSystem.Size = new System.Drawing.Size(131, 22);
             this.tsmiShowResultCoordinateSystem.Text = "Show";
             this.tsmiShowResultCoordinateSystem.Click += new System.EventHandler(this.tsmiShowResultCoordinateSystem_Click);
             // 
             // tsmiShowOnlyResultCoordinateSystem
             // 
             this.tsmiShowOnlyResultCoordinateSystem.Name = "tsmiShowOnlyResultCoordinateSystem";
-            this.tsmiShowOnlyResultCoordinateSystem.Size = new System.Drawing.Size(180, 22);
+            this.tsmiShowOnlyResultCoordinateSystem.Size = new System.Drawing.Size(131, 22);
             this.tsmiShowOnlyResultCoordinateSystem.Text = "Show Only";
             this.tsmiShowOnlyResultCoordinateSystem.Click += new System.EventHandler(this.tsmiShowOnlyResultCoordinateSystem_Click);
-            // 
-            // tsmiDeleteResultCoordinateSystem
-            // 
-            this.tsmiDeleteResultCoordinateSystem.Name = "tsmiDeleteResultCoordinateSystem";
-            this.tsmiDeleteResultCoordinateSystem.Size = new System.Drawing.Size(180, 22);
-            this.tsmiDeleteResultCoordinateSystem.Text = "Delete";
-            this.tsmiDeleteResultCoordinateSystem.Click += new System.EventHandler(this.tsmiDeleteResultCoordinateSystem_Click);
             // 
             // toolStripMenuItem2
             // 
             this.toolStripMenuItem2.Name = "toolStripMenuItem2";
-            this.toolStripMenuItem2.Size = new System.Drawing.Size(177, 6);
+            this.toolStripMenuItem2.Size = new System.Drawing.Size(128, 6);
+            // 
+            // tsmiDeleteResultCoordinateSystem
+            // 
+            this.tsmiDeleteResultCoordinateSystem.Name = "tsmiDeleteResultCoordinateSystem";
+            this.tsmiDeleteResultCoordinateSystem.Size = new System.Drawing.Size(131, 22);
+            this.tsmiDeleteResultCoordinateSystem.Text = "Delete";
+            this.tsmiDeleteResultCoordinateSystem.Click += new System.EventHandler(this.tsmiDeleteResultCoordinateSystem_Click);
             // 
             // tsmiDividerResults1
             // 
@@ -3959,26 +3965,26 @@ namespace PrePoMax
             // tsmiCreateResultFieldOutput
             // 
             this.tsmiCreateResultFieldOutput.Name = "tsmiCreateResultFieldOutput";
-            this.tsmiCreateResultFieldOutput.Size = new System.Drawing.Size(108, 22);
+            this.tsmiCreateResultFieldOutput.Size = new System.Drawing.Size(180, 22);
             this.tsmiCreateResultFieldOutput.Text = "Create";
             this.tsmiCreateResultFieldOutput.Click += new System.EventHandler(this.tsmiCreateResultFieldOutput_Click);
             // 
             // tsmiEditResultFieldOutput
             // 
             this.tsmiEditResultFieldOutput.Name = "tsmiEditResultFieldOutput";
-            this.tsmiEditResultFieldOutput.Size = new System.Drawing.Size(108, 22);
+            this.tsmiEditResultFieldOutput.Size = new System.Drawing.Size(180, 22);
             this.tsmiEditResultFieldOutput.Text = "Edit";
             this.tsmiEditResultFieldOutput.Click += new System.EventHandler(this.tsmiEditResultFieldOutput_Click);
             // 
             // tsmiDividerResultFieldOutput1
             // 
             this.tsmiDividerResultFieldOutput1.Name = "tsmiDividerResultFieldOutput1";
-            this.tsmiDividerResultFieldOutput1.Size = new System.Drawing.Size(105, 6);
+            this.tsmiDividerResultFieldOutput1.Size = new System.Drawing.Size(177, 6);
             // 
             // tsmiDeleteResultFieldOutput
             // 
             this.tsmiDeleteResultFieldOutput.Name = "tsmiDeleteResultFieldOutput";
-            this.tsmiDeleteResultFieldOutput.Size = new System.Drawing.Size(108, 22);
+            this.tsmiDeleteResultFieldOutput.Size = new System.Drawing.Size(180, 22);
             this.tsmiDeleteResultFieldOutput.Text = "Delete";
             this.tsmiDeleteResultFieldOutput.Click += new System.EventHandler(this.tsmiDeleteResultFieldOutput_Click);
             // 
@@ -3986,6 +3992,7 @@ namespace PrePoMax
             // 
             this.tsmiResultHistoryOutput.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsmiCreateResultHistoryOutput,
+            this.tsmiEditResultHistoryOutput,
             this.tsmiDividerResultHistoryOutput1,
             this.tsmiDeleteResultHistoryOutput});
             this.tsmiResultHistoryOutput.Image = global::PrePoMax.Properties.Resources.History_output;
@@ -3996,19 +4003,19 @@ namespace PrePoMax
             // tsmiCreateResultHistoryOutput
             // 
             this.tsmiCreateResultHistoryOutput.Name = "tsmiCreateResultHistoryOutput";
-            this.tsmiCreateResultHistoryOutput.Size = new System.Drawing.Size(108, 22);
+            this.tsmiCreateResultHistoryOutput.Size = new System.Drawing.Size(180, 22);
             this.tsmiCreateResultHistoryOutput.Text = "Create";
             this.tsmiCreateResultHistoryOutput.Click += new System.EventHandler(this.tsmiCreateResultHistoryOutput_Click);
             // 
             // tsmiDividerResultHistoryOutput1
             // 
             this.tsmiDividerResultHistoryOutput1.Name = "tsmiDividerResultHistoryOutput1";
-            this.tsmiDividerResultHistoryOutput1.Size = new System.Drawing.Size(105, 6);
+            this.tsmiDividerResultHistoryOutput1.Size = new System.Drawing.Size(177, 6);
             // 
             // tsmiDeleteResultHistoryOutput
             // 
             this.tsmiDeleteResultHistoryOutput.Name = "tsmiDeleteResultHistoryOutput";
-            this.tsmiDeleteResultHistoryOutput.Size = new System.Drawing.Size(108, 22);
+            this.tsmiDeleteResultHistoryOutput.Size = new System.Drawing.Size(180, 22);
             this.tsmiDeleteResultHistoryOutput.Text = "Delete";
             this.tsmiDeleteResultHistoryOutput.Click += new System.EventHandler(this.tsmiDeleteResultHistoryOutput_Click);
             // 
@@ -4358,10 +4365,12 @@ namespace PrePoMax
             // 
             this.timerOutput.Tick += new System.EventHandler(this.timerOutput_Tick);
             // 
-            // toolStripMenuItem3
+            // tsmiEditResultHistoryOutput
             // 
-            this.toolStripMenuItem3.Name = "toolStripMenuItem3";
-            this.toolStripMenuItem3.Size = new System.Drawing.Size(177, 6);
+            this.tsmiEditResultHistoryOutput.Name = "tsmiEditResultHistoryOutput";
+            this.tsmiEditResultHistoryOutput.Size = new System.Drawing.Size(180, 22);
+            this.tsmiEditResultHistoryOutput.Text = "Edit";
+            this.tsmiEditResultHistoryOutput.Click += new System.EventHandler(this.tsmiEditResultHistoryOutput_Click);
             // 
             // FrmMain
             // 
@@ -4887,6 +4896,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiDeleteResultCoordinateSystem;
         private System.Windows.Forms.ToolStripSeparator toolStripMenuItem2;
         private System.Windows.Forms.ToolStripSeparator toolStripMenuItem3;
+        private System.Windows.Forms.ToolStripMenuItem tsmiEditResultHistoryOutput;
     }
 }
 

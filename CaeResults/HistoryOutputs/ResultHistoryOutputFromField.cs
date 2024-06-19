@@ -20,8 +20,12 @@ namespace CaeResults
     public class ResultHistoryOutputFromField : ResultHistoryOutput
     {
         // Variables                                                                                                                
+        public readonly static string AllComponents = "All components";
+        public readonly static string AllSteps = "All steps";
+        public readonly static string AllIncrements = "All increments";
+        //
         private string _fieldName;
-        private string _componentName;
+        private string[] _componentNames;
         private ComplexResultTypeEnum _complexResultType;
         private double _complexAngleDeg;    // must be double
         private int _stepId;
@@ -32,7 +36,7 @@ namespace CaeResults
 
         // Properties                                                                                                               
         public string FieldName { get { return _fieldName; } set { _fieldName = value; } }
-        public string ComponentName { get { return _componentName; } set { _componentName = value; } }
+        public string[] ComponentNames { get { return _componentNames; } set { _componentNames = value; } }
         public ComplexResultTypeEnum ComplexResultType { get { return _complexResultType; } set { _complexResultType = value; } }
         public double ComplexAngleDeg { get { return _complexAngleDeg; } set { _complexAngleDeg = value; } }
         public int StepId { get { return _stepId; } set { _stepId = value; } }
@@ -46,12 +50,12 @@ namespace CaeResults
 
 
         // Constructors                                                                                                             
-        public ResultHistoryOutputFromField(string name, string filedName, string componentName,
+        public ResultHistoryOutputFromField(string name, string filedName, string[] componentNames,
                                             string regionName, RegionTypeEnum regionType)
             : base(name, regionName, regionType)
         {
             _fieldName = filedName;
-            _componentName = componentName;
+            _componentNames = componentNames;
             _complexResultType = ComplexResultTypeEnum.Real;
             _stepId = -1;
             _stepIncrementId = -1;

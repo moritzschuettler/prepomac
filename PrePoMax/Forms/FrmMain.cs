@@ -911,6 +911,7 @@ namespace PrePoMax
                 else if (namedClass is FeReferencePoint) EditResultReferencePoint(namedClass.Name);
                 else if (namedClass is CoordinateSystem) EditResultCoordinateSystem(namedClass.Name);
                 else if (namedClass is ResultFieldOutput rfo) EditResultFieldOutput(rfo.Name);
+                else if (namedClass is ResultHistoryOutput rho) EditResultHistoryOutput(rho.Name);
                 else if (namedClass is HistoryResultData hd) ViewResultHistoryOutputData(hd);
                 else if (namedClass is FieldData) ShowLegendSettings();
             }
@@ -7277,6 +7278,17 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
+        private void tsmiEditResultHistoryOutput_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectOneEntity("History Outputs", _controller.GetResultHistoryOutputs(), EditResultHistoryOutput);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
         private void tsmiDeleteResultHistoryOutput_Click(object sender, EventArgs e)
         {
             try
@@ -7299,6 +7311,10 @@ namespace PrePoMax
             ItemSetDataEditor.ParentForm = _frmResultHistoryOutput;
             _frmSelectItemSet.SetOnlyGeometrySelection(false);
             ShowForm(_frmResultHistoryOutput, "Create History Output", null);
+        }
+        private void EditResultHistoryOutput(string resultHistoryOutputName)
+        {
+            ShowForm(_frmResultHistoryOutput, "Edit History Output", resultHistoryOutputName);
         }
         public void RemoveResultHistoryResultSets(string[] historyResultSetNames)
         {
@@ -8678,10 +8694,6 @@ namespace PrePoMax
         public void AddCoordinateAxis(vtkMaxActorData data, double symbolSize)
         {
             InvokeIfRequired(_vtk.AddCoordinateAxis, data, symbolSize);
-        }
-        public void AddTextActor(vtkMaxActorData data, double symbolSize)
-        {
-            InvokeIfRequired(_vtk.AddTextActor, data, symbolSize);
         }
         public void AddCaptionActor(string name, string caption, Color color, double[] position,
                                     double[] offsetVector, double fontScaleFactor, vtkRendererLayer layer)

@@ -9400,17 +9400,17 @@ namespace PrePoMax
         // COMMANDS ********************************************************************************
         public void AddParameterCommand(EquationParameter parameter)
         {
-            Commands.CAddParameter comm = new Commands.CAddParameter(parameter);
+            CAddParameter comm = new CAddParameter(parameter);
             _commands.AddAndExecute(comm);
         }
         public void ReplaceParameterCommand(string oldParameterName, EquationParameter newParameter)
         {
-            Commands.CReplaceParameter comm = new Commands.CReplaceParameter(oldParameterName, newParameter);
+            CReplaceParameter comm = new CReplaceParameter(oldParameterName, newParameter);
             _commands.AddAndExecute(comm);
         }
         public void RemoveParametersCommand(string[] parameterNames)
         {
-            Commands.CRemoveParameters comm = new Commands.CRemoveParameters(parameterNames);
+            CRemoveParameters comm = new CRemoveParameters(parameterNames);
             _commands.AddAndExecute(comm);
         }
         //******************************************************************************************
@@ -10524,9 +10524,27 @@ namespace PrePoMax
         //
         public void AddResultHistoryOutput(ResultHistoryOutput resultHistoryOutput)
         {
-            HistoryResultSet historyResultSet = _allResults.CurrentResult.AddResultHistoryOutput(resultHistoryOutput);
+            _allResults.CurrentResult.AddResultHistoryOutput(resultHistoryOutput);
             //
-            _form.AddTreeNode(ViewGeometryModelResults.Results, historyResultSet, null);
+            _form.AddTreeNode(ViewGeometryModelResults.Results, resultHistoryOutput, null);
+        }
+        public ResultHistoryOutput[] GetResultHistoryOutputs()
+        {
+            return _allResults.CurrentResult.GetResultHistoryOutputs();
+        }
+        public ResultHistoryOutput GetResultHistoryOutput(string resultHistoryOutputName)
+        {
+            return _allResults.CurrentResult.GetResultHistoryOutput(resultHistoryOutputName);
+        }
+        public void ReplaceResultHistoryOutput(string oldResultHistoryOutputName, ResultHistoryOutput resultHistoryOutput)
+        {
+            _allResults.CurrentResult.ReplaceResultHistoryOutput(oldResultHistoryOutputName, resultHistoryOutput);
+            //
+            //SetFieldAndComponent(resultHistoryOutput);
+            //
+            _form.UpdateTreeNode(ViewGeometryModelResults.Results, oldResultHistoryOutputName, resultHistoryOutput, null);
+            //
+            FeResultsUpdate(UpdateType.Check);
         }
         // Remove
         public void RemoveResultHistoryResultSets(string[] historyResultSetNames)
@@ -13033,10 +13051,6 @@ namespace PrePoMax
                                               0.9 * symbolSize * data.Geometry.Nodes.Normals[0][1],
                                               0.9 * symbolSize * data.Geometry.Nodes.Normals[0][2]};
                 _form.AddCaptionActor(data.Name + "_label", "3", Color.Black, position, offsetVector, fontScaleFactor, layer);
-                //
-                data.Caption = coordinateSystem.Name.Replace('-', ' ').Replace('_', ' ');
-                data.Geometry.Nodes.Normals = null;
-                _form.AddTextActor(data, symbolSize);
                 // Name
                 if (coordinateSystem.NameVisible)
                 {

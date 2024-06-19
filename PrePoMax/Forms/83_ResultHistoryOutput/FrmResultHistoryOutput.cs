@@ -12,19 +12,19 @@ namespace PrePoMax.Forms
     class FrmResultHistoryOutput : UserControls.FrmPropertyListView, IFormBase, IFormItemSetDataParent, IFormHighlight
     {
         // Variables                                                                                                                
-        private string[] _historyOutputSetNames;
-        private string _historyOutputToEditName;
-        private ViewResultHistoryOutput _viewHistoryOutput;
+        private string[] _resultHistoryOutputSetNames;
+        private string _resultHistoryOutputToEditName;
+        private ViewResultHistoryOutput _viewResultHistoryOutput;
         private Controller _controller;
 
 
         // Properties                                                                                                               
         public  ResultHistoryOutput ResultHistoryOutput
         {
-            get { return _viewHistoryOutput != null ? _viewHistoryOutput.GetBase() : null; }
+            get { return _viewResultHistoryOutput != null ? _viewResultHistoryOutput.GetBase() : null; }
             set
             {
-                if (value is ResultHistoryOutputFromField rhoff) _viewHistoryOutput =
+                if (value is ResultHistoryOutputFromField rhoff) _viewResultHistoryOutput =
                         new ViewResultHistoryOutputFromField(rhoff.DeepClone(), _controller.CurrentResult.ContainsComplexResults());
                 else throw new NotImplementedException();
             }
@@ -37,7 +37,7 @@ namespace PrePoMax.Forms
             InitializeComponent();
             //
             _controller = controller;
-            _viewHistoryOutput = null;
+            _viewResultHistoryOutput = null;
         }
         private void InitializeComponent()
         {
@@ -64,8 +64,8 @@ namespace PrePoMax.Forms
             if (lvTypes.SelectedItems != null && lvTypes.SelectedItems.Count > 0)
             {
                 object itemTag = lvTypes.SelectedItems[0].Tag;
-                if (itemTag is ViewError) _viewHistoryOutput = null;
-                else if (itemTag is ViewResultHistoryOutputFromField vrhoff) _viewHistoryOutput = vrhoff;
+                if (itemTag is ViewError) _viewResultHistoryOutput = null;
+                else if (itemTag is ViewResultHistoryOutputFromField vrhoff) _viewResultHistoryOutput = vrhoff;
                 else throw new NotImplementedException();
                 //
                 ShowHideSelectionForm();
@@ -80,13 +80,13 @@ namespace PrePoMax.Forms
         {
             string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
             //
-            if (property == nameof(_viewHistoryOutput.RegionType))
+            if (property == nameof(_viewResultHistoryOutput.RegionType))
             {
                 ShowHideSelectionForm();
                 //
                 HighlightHistoryOutput();
             }
-            else if (_viewHistoryOutput is ViewResultHistoryOutputFromField vrhoff &&
+            else if (_viewResultHistoryOutput is ViewResultHistoryOutputFromField vrhoff &&
                      (property == nameof(vrhoff.NodeSetName) ||
                       property == nameof(vrhoff.SurfaceName)))
             {
@@ -99,7 +99,7 @@ namespace PrePoMax.Forms
         {
             if (propertyGrid.SelectedObject is ViewError ve) throw new CaeException(ve.Message);
             //
-            _viewHistoryOutput = (ViewResultHistoryOutput)propertyGrid.SelectedObject;
+            _viewResultHistoryOutput = (ViewResultHistoryOutput)propertyGrid.SelectedObject;
             //
             if (ResultHistoryOutput == null) throw new CaeException("No history output was selected.");
             //
@@ -107,11 +107,16 @@ namespace PrePoMax.Forms
                 (ResultHistoryOutput.CreationIds == null || ResultHistoryOutput.CreationIds.Length == 0))
                 throw new CaeException("The history output selection must contain at least one item.");
             // Check if the name exists
-            CheckName(_historyOutputToEditName, ResultHistoryOutput.Name, _historyOutputSetNames, "history output");
+            CheckName(_resultHistoryOutputToEditName, ResultHistoryOutput.Name, _resultHistoryOutputSetNames, "history output");
             // Create
-            if (_historyOutputToEditName == null)
+            if (_resultHistoryOutputToEditName == null)
             {
                 _controller.AddResultHistoryOutput(ResultHistoryOutput);
+            }
+            // Replace
+            else if (_propertyItemChanged)
+            {
+                _controller.ReplaceResultHistoryOutput(_resultHistoryOutputToEditName, ResultHistoryOutput);
             }
             // If all is successful close the ItemSetSelectionForm - except for OKAddNew
             if (!onOkAddNew) ItemSetDataEditor.SelectionForm.Hide();
@@ -129,37 +134,67 @@ namespace PrePoMax.Forms
             //
             _propertyItemChanged = false;
             _stepName = null;
-            _historyOutputSetNames = null;
-            _historyOutputToEditName = null;
-            _viewHistoryOutput = null;
+            _resultHistoryOutputSetNames = null;
+            _resultHistoryOutputToEditName = null;
+            _viewResultHistoryOutput = null;
             lvTypes.Items.Clear();
             propertyGrid.SelectedObject = null;
             //
             _stepName = stepName;
-            _historyOutputSetNames = _controller.GetResultHistoryOutputSetNames();
-            _historyOutputToEditName = historyOutputToEditName;
+            _resultHistoryOutputSetNames = _controller.GetResultHistoryOutputSetNames();
+            _resultHistoryOutputToEditName = historyOutputToEditName;
             string[] nodeSetNames = _controller.GetResultUserNodeSetNames();
             string[] surfaceNames = _controller.GetResultUserSurfaceNames();
             Dictionary<string, string[]> filedNameComponentNames =
                 _controller.CurrentResult.GetAllVisibleFiledNameComponentNames();
             Dictionary<int, int[]> stepIdStepIncrementIds = _controller.CurrentResult.GetAllExistingIncrementIds();
             //
-            if (_historyOutputSetNames == null)
+            if (_resultHistoryOutputSetNames == null)
                 throw new CaeException("The history output names must be defined first.");
             // Populate list view
             PopulateListOfHistoryOutputs(nodeSetNames, surfaceNames, filedNameComponentNames, stepIdStepIncrementIds);
             // Create new history output
-            if (_historyOutputToEditName == null)
+            if (_resultHistoryOutputToEditName == null)
             {
                 lvTypes.Enabled = true;
-                _viewHistoryOutput = null;
+                _viewResultHistoryOutput = null;
                 //
                 if (lvTypes.Items.Count == 1) _preselectIndex = 0;
                 //
                 HighlightHistoryOutput(); // must be here if called from the menu
             }
             // Edit existing history output
-            else throw new NotSupportedException();
+            else
+            {
+                ResultHistoryOutput = _controller.GetResultHistoryOutput(_resultHistoryOutputToEditName); // to clone
+                _propertyItemChanged = !ResultHistoryOutput.Valid;
+                //
+                int selectedId;
+                if (_viewResultHistoryOutput is ViewResultHistoryOutputFromField vrhoff)
+                {
+                    selectedId = 0;
+                    // Check
+                    string[] fieldNames = filedNameComponentNames.Keys.ToArray();
+                    CheckMissingValueRef(ref fieldNames, vrhoff.FieldName, s => { vrhoff.FieldName = s; });
+                    string[] componentNames = filedNameComponentNames[vrhoff.FieldName];
+                    ResultHistoryOutputFromField hroff = (ResultHistoryOutputFromField)vrhoff.GetBase();
+                    string[] selectedComponentNames = hroff.ComponentNames;
+                    string[] intersection = componentNames.Intersect(selectedComponentNames).ToArray();
+                    if (intersection.Length != selectedComponentNames.Length)
+                    {
+                        if (intersection.Length > 0) hroff.ComponentNames = intersection;
+                        else hroff.ComponentNames = componentNames;
+                        //
+                        MessageBoxes.ShowWarning("Some selected components no longer exist. The selected components were " +
+                            "cnaged to existing ones");
+                    }
+                    //
+                    vrhoff.PopulateDropDownLists(nodeSetNames, surfaceNames, filedNameComponentNames, stepIdStepIncrementIds);
+                }
+                else throw new NotSupportedException();
+                lvTypes.Items[selectedId].Tag = _viewResultHistoryOutput;
+                _preselectIndex = selectedId;
+            }
             //
             ShowHideSelectionForm();
             //
@@ -177,7 +212,7 @@ namespace PrePoMax.Forms
             item = new ListViewItem("History output from field output");
             FieldData fieldData = _controller.CurrentFieldData;
             ResultHistoryOutputFromField rhoff = new ResultHistoryOutputFromField(GetHistoryOutputName("FF"),
-                                                                                  fieldData.Name, fieldData.Component,
+                                                                                  fieldData.Name, null,
                                                                                   "", RegionTypeEnum.Selection);
             ViewResultHistoryOutputFromField vrhoff =
                 new ViewResultHistoryOutputFromField(rhoff, _controller.CurrentResult.ContainsComplexResults());
@@ -187,7 +222,7 @@ namespace PrePoMax.Forms
         }
         private string GetHistoryOutputName(string prefix)
         {
-            return _historyOutputSetNames.GetNextNumberedKey(prefix + "H_Output");
+            return _resultHistoryOutputSetNames.GetNextNumberedKey(prefix + "H_Output");
         }
         private void HighlightHistoryOutput()
         {
@@ -195,7 +230,7 @@ namespace PrePoMax.Forms
             {
                 _controller.ClearSelectionHistory();
                 //
-                if (_viewHistoryOutput == null) { }
+                if (_viewResultHistoryOutput == null) { }
                 else if (ResultHistoryOutput is ResultHistoryOutputFromField)
                 {
                     if (ResultHistoryOutput.RegionType == RegionTypeEnum.NodeSetName ||

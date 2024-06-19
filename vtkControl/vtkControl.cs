@@ -1872,6 +1872,7 @@ namespace vtkControl
         // Formatting
         private void ApplySelectionFormattingToActor(vtkMaxActor actor)
         {
+            if (actor == null || actor.GeometryMapper == null) return;
             // Get actor cell type
             vtkCellTypes types = vtkCellTypes.New();
             actor.GeometryMapper.GetInput().GetCellTypes(types);
@@ -2654,6 +2655,8 @@ namespace vtkControl
             //else _renderer.ResetCamera();
             //
             _style.ResetClippingRange();
+            //
+            SetAllCaptionPositions();
         }
         //
         private int GetClosestIsoDirectionQuadrant(double[] camera)
@@ -3231,22 +3234,24 @@ namespace vtkControl
             vtkCaptionActor2D captionActor = vtkCaptionActor2D.New();
             // Text
             vtkTextProperty tp = CreateNewTextProperty();
+            captionActor.SetCaption(caption);
             if (caption == "1")
             {
                 tp.SetFontFamilyToCourier();
                 fontScaleFactor *= 1.2;
             }
             tp.SetFontSize((int)(tp.GetFontSize() * fontScaleFactor));
+            //tp.SetJustificationToLeft();
+            //tp.SetVerticalJustificationToCentered();
             captionActor.SetCaptionTextProperty(tp);
             captionActor.GetTextActor().SetTextScaleModeToNone();
-            captionActor.SetCaption(caption);
             //
             captionActor.GetPositionCoordinate().SetValue(position[0], position[1], position[2]);
             captionActor.GetPositionCoordinate().SetCoordinateSystemToWorld();
             //
             captionActor.LeaderOff();
             captionActor.BorderOff();
-            //
+            //captionActor.SetWidth(0.01);
             // Actor
             vtkMaxCaptionActor actor = new vtkMaxCaptionActor(name, color, captionActor);
             actor.Position = position;
@@ -3255,38 +3260,6 @@ namespace vtkControl
             AddActorCaption(actor, layer);
             //
             SetAllCaptionPositions();
-        }
-        public void AddTextActor(vtkMaxActorData data, double symbolSize)
-        {
-            //// Create an actor for the text
-            //vtkCaptionActor2D captionActor = vtkCaptionActor2D.New();
-            //captionActor.SetCaption(data.Caption);
-            //captionActor.GetPositionCoordinate().SetValue(data.Geometry.Nodes.Coor[1][0],
-            //                                              data.Geometry.Nodes.Coor[1][1],
-            //                                              data.Geometry.Nodes.Coor[1][2]);
-            //captionActor.GetPositionCoordinate().SetCoordinateSystemToWorld();
-            //captionActor.BorderOff();
-            //vtkTextProperty tp = CreateNewTextProperty();
-            //tp.SetFontSize((int)(12 * symbolSize / 50d));
-            //captionActor.SetCaptionTextProperty(tp);
-            //captionActor.GetTextActor().SetTextScaleModeToNone();
-            //captionActor.LeaderOff();
-            ////
-            //data.Name += Globals.NameSeparator + "caption";
-            //// Actor
-            //vtkMaxCaptionActor actor = new vtkMaxCaptionActor(data, captionActor);
-            //actor.Position = data.Geometry.Nodes.Coor[0];
-            //if (data.Geometry.Nodes.Normals != null && data.Geometry.Nodes.Normals[0] != null)
-            //{
-            //    actor.OffsetVector = data.Geometry.Nodes.Normals[0];
-            //    actor.OffsetVector[0] *= 0.9 * symbolSize;
-            //    actor.OffsetVector[1] *= 0.9 * symbolSize;
-            //    actor.OffsetVector[2] *= 0.9 * symbolSize;
-            //}
-            //// Add
-            //AddActorCaption(actor, data.Layer);
-            ////
-            //SetAllCaptionPositions();
         }
         private void SetAllCaptionPositions()
         {
@@ -3318,7 +3291,6 @@ namespace vtkControl
                 pos[2] = position[2] + size * offset[2];
                 //
                 vtkMaxCaptionActor.Caption.GetPositionCoordinate().SetValue(pos[0], pos[1], pos[2]);
-                vtkMaxCaptionActor.Caption.SetWidth(20);
             }
         }
         public void AddOrientedDisplacementConstraintActor(vtkMaxActorData data, double symbolSize)

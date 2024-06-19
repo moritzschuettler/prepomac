@@ -14,9 +14,9 @@ namespace PrePoMax
     public class ViewResultHistoryOutputFromField : ViewResultHistoryOutput
     {
         // Variables                                                                                                                
-        private readonly static string _all = "All";
         private bool _complexVisible;
         private ResultHistoryOutputFromField _historyOutput;
+        private MultiChoiceContainer _componentContainer;
         private Dictionary<string, string[]> _filedNameComponentNames;
         private Dictionary<string, string[]> _stepIdStepIncrementIds;
 
@@ -41,9 +41,21 @@ namespace PrePoMax
         }
         //
         [CategoryAttribute("Data")]
-        [OrderedDisplayName(2, 10, "Component name")]
-        [DescriptionAttribute("Component name for the history output.")]
-        public string ComponentName { get { return _historyOutput.ComponentName; } set { _historyOutput.ComponentName = value; } }
+        [OrderedDisplayName(2, 10, "Components")]
+        [DescriptionAttribute("Component names for the history output.")]
+        public MultiChoiceEnum ComponentNames
+        {
+            get
+            {
+                if (_componentContainer == null) return MultiChoiceEnum.Num1;   // at initialization
+                else return _componentContainer.MultiChoice;
+            }
+            set
+            {
+                _componentContainer.MultiChoice = value;
+                _historyOutput.ComponentNames = _componentContainer.Names;
+            }
+        }
         //
         [CategoryAttribute("Data")]
         [OrderedDisplayName(3, 10, "Complex")]
@@ -75,12 +87,12 @@ namespace PrePoMax
         {
             get
             {
-                if (_historyOutput.StepId == -1) return _all;
+                if (_historyOutput.StepId == -1) return ResultHistoryOutputFromField.AllSteps;
                 else return _historyOutput.StepId.ToString();
             }
             set
             {
-                if (value == _all) _historyOutput.StepId = -1;
+                if (value == ResultHistoryOutputFromField.AllSteps) _historyOutput.StepId = -1;
                 else
                 {
                     if (int.TryParse(value, out int stepId)) _historyOutput.StepId = stepId;
@@ -97,12 +109,12 @@ namespace PrePoMax
         {
             get
             {
-                if (_historyOutput.StepIncrementId == -1) return _all;
+                if (_historyOutput.StepIncrementId == -1) return ResultHistoryOutputFromField.AllIncrements;
                 else return _historyOutput.StepIncrementId.ToString();
             }
             set
             {
-                if (value == _all) _historyOutput.StepIncrementId = -1;
+                if (value == ResultHistoryOutputFromField.AllIncrements) _historyOutput.StepIncrementId = -1;
                 else
                 {
                     if (int.TryParse(value, out int incrementId)) _historyOutput.StepIncrementId = incrementId;
@@ -173,16 +185,25 @@ namespace PrePoMax
             regionTypeListItemsPairs.Add(RegionTypeEnum.NodeSetName, nodeSetNames);
             regionTypeListItemsPairs.Add(RegionTypeEnum.SurfaceName, surfaceNames);
             base.PopulateDropDownLists(regionTypeListItemsPairs);
-            //
-            _filedNameComponentNames = filedNameComponentNames;
+            // Add "All components" to the field-component dictionary
+            List<string> componentNames;
+            _filedNameComponentNames = new Dictionary<string, string[]>();
+            foreach (var fieldEntry in filedNameComponentNames)
+            {
+                //componentNames = new List<string>() { ResultHistoryOutputFromField.AllComponents };
+                componentNames = new List<string>();
+                foreach (var componentName in fieldEntry.Value) componentNames.Add(componentName);
+                if (componentNames.Count > 0) _filedNameComponentNames.Add(fieldEntry.Key, componentNames.ToArray());
+            }
             DynamicCustomTypeDescriptor.PopulateProperty(nameof(FieldName), _filedNameComponentNames.Keys.ToArray());
             UpdateComponents();
-            //
+            // Add "All steps" and "All increments" to the step increment dictionary
             List<string> incrementIds;
-            _stepIdStepIncrementIds = new Dictionary<string, string[]> { { _all, new string[] { _all } } };
+            _stepIdStepIncrementIds = new Dictionary<string, string[]> { { ResultHistoryOutputFromField.AllSteps,
+                new string[] { ResultHistoryOutputFromField.AllSteps } } };
             foreach (var stepEntry in stepIdStepIncrementIds)
             {
-                incrementIds = new List<string>() { _all };
+                incrementIds = new List<string>() { ResultHistoryOutputFromField.AllIncrements };
                 foreach (var incrementId in stepEntry.Value) incrementIds.Add(incrementId.ToString());
                 _stepIdStepIncrementIds.Add(stepEntry.Key.ToString(), incrementIds.ToArray());
             }
@@ -195,8 +216,10 @@ namespace PrePoMax
             string[] componentNames;
             if (_filedNameComponentNames.TryGetValue(FieldName, out componentNames) && componentNames.Length > 0)
             {
-                DynamicCustomTypeDescriptor.PopulateProperty(nameof(ComponentName), componentNames);
-                if (!componentNames.Contains(ComponentName)) ComponentName = componentNames[0];
+                _componentContainer = new MultiChoiceContainer(componentNames, componentNames);
+                DynamicCustomTypeDescriptor.RenameMultiChoiceEnumProperty(nameof(ComponentNames), _componentContainer.EnumData);
+                //
+                _historyOutput.ComponentNames = _componentContainer.Names;
             }
         }
         private void UpdateStepIncrements()
@@ -216,10 +239,10 @@ namespace PrePoMax
             bool visible = ComplexResultType == ComplexResultTypeEnum.RealAtAngle;
             //
             dctd.GetProperty(nameof(ComplexAngleDeg)).SetIsBrowsable(visible);
-            visible = StepId != _all;
+            visible = StepId != ResultHistoryOutputFromField.AllSteps;
             dctd.GetProperty(nameof(StepIncrementId)).SetIsBrowsable(visible);
             visible = _complexVisible && ComplexResultType == ComplexResultTypeEnum.Real &&
-                      visible && StepIncrementId != _all;
+                      visible && StepIncrementId != ResultHistoryOutputFromField.AllSteps;
             dctd.GetProperty(nameof(Harmonic)).SetIsBrowsable(visible);
         }
     }
