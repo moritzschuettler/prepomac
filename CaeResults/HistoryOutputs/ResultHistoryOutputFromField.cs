@@ -20,7 +20,6 @@ namespace CaeResults
     public class ResultHistoryOutputFromField : ResultHistoryOutput
     {
         // Variables                                                                                                                
-        public readonly static string AllComponents = "All components";
         public readonly static string AllSteps = "All steps";
         public readonly static string AllIncrements = "All increments";
         //

@@ -2595,6 +2595,10 @@ namespace CaeResults
         {
             return _resultFieldOutputs.Values.ToArray();
         }
+        public bool ContainsResultFieldOutput(string resultFieldOutputName)
+        {
+            return _resultFieldOutputs.ContainsKey(resultFieldOutputName);
+        }
         public void ReplaceAllResultFieldOutputs()
         {
             foreach (var entry in _resultFieldOutputs.ToArray()) ReplaceResultFieldOutput(entry.Key, entry.Value);
@@ -3104,10 +3108,6 @@ namespace CaeResults
             return resultList;
         }
         //
-        public bool ContainsResultFieldOutput(string resultFieldOutputName)
-        {
-            return _resultFieldOutputs.ContainsKey(resultFieldOutputName);
-        }
         public bool AreResultFieldOutputsInCyclicDependance(string oldResultFieldOutputName, ResultFieldOutput resultFieldOutput)
         {
             Dictionary<string, ResultFieldOutput> resultFieldOutputs = new Dictionary<string, ResultFieldOutput>();
@@ -3691,11 +3691,20 @@ namespace CaeResults
             timeRowId = new Dictionary<double, int>();
             for (int i = 0; i < sortedTime.Length; i++) timeRowId.Add(sortedTime[i], i);
         }
+        public bool ContainsResultHistoryOutput(string resultHistoryOutputName)
+        {
+            return _resultHistoryOutputs.ContainsKey(resultHistoryOutputName);
+        }
         public void ReplaceResultHistoryOutput(string oldResultHistoryOutputName, ResultHistoryOutput resultHistoryOutput)
         {
             RemoveResultHistoryResultSets(new string[] { oldResultHistoryOutputName });
             _resultHistoryOutputs.Replace(oldResultHistoryOutputName, resultHistoryOutput.Name, resultHistoryOutput);
             PrepareHistorySetsFromResultHistoryOutput(resultHistoryOutput);
+        }
+        public void RemoveResultHistoryOutputs(string[] resultHistoryOutputNames)
+        {
+            RemoveResultHistoryResultSets(resultHistoryOutputNames);
+            foreach (var historyOutputName in resultHistoryOutputNames) _resultHistoryOutputs.Remove(historyOutputName);
         }
         public void RemoveResultHistoryResultSets(string[] historyResultSetNames)
         {
@@ -3747,6 +3756,7 @@ namespace CaeResults
                 }
             }
         }
+
         // Scaled results values
         public void GetNodesAndValues(FieldData fieldData, int[] nodeIds, out double[][] nodeCoor, out float[] values)
         {

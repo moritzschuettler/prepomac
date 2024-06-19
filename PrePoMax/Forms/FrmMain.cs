@@ -1112,7 +1112,8 @@ namespace PrePoMax
                 //
                 DeleteResultHistoryResultComponents(items);
                 ApplyActionOnItemsInStep<HistoryResultField>(items, parentNames, DeleteResultHistoryResultFields);
-                ApplyActionOnItems<HistoryResultSet>(items, RemoveResultHistoryResultSets);
+                ApplyActionOnItems<HistoryResultSet>(items, DeleteResultHistoryOutputs);
+                ApplyActionOnItems<ResultHistoryOutput>(items, DeleteResultHistoryOutputs);
             }
         }
         private void ModelTree_ActivateDeactivateEvent(NamedClass[] items, bool activate, string[] stepNames)
@@ -7294,7 +7295,7 @@ namespace PrePoMax
             try
             {
                 SelectMultipleEntities("History Outputs", _controller.GetResultHistoryOutputsAsNamedItems(),
-                                       RemoveResultHistoryResultSets);
+                                       DeleteResultHistoryOutputs);
             }
             catch (Exception ex)
             {
@@ -7316,12 +7317,12 @@ namespace PrePoMax
         {
             ShowForm(_frmResultHistoryOutput, "Edit History Output", resultHistoryOutputName);
         }
-        public void RemoveResultHistoryResultSets(string[] historyResultSetNames)
+        public void DeleteResultHistoryOutputs(string[] resultHistoryOutputNames)
         {
             if (MessageBoxes.ShowWarningQuestion("OK to delete selected history outputs?" + Environment.NewLine
-                                                 + historyResultSetNames.ToRows()) == DialogResult.OK)
+                                                 + resultHistoryOutputNames.ToRows()) == DialogResult.OK)
             {
-                _controller.RemoveResultHistoryResultSets(historyResultSetNames);
+                _controller.RemoveResultHistoryOutputs(resultHistoryOutputNames);
             }
         }
         public void DeleteResultHistoryResultFields(string historyResultSetName, string[] historyResultFieldNames)
@@ -7340,7 +7341,7 @@ namespace PrePoMax
             //
             foreach (var item in items)
             {
-                if (item is CaeResults.HistoryResultData hrd)
+                if (item is HistoryResultData hrd)
                 {
                     if (parentParentItemNames.TryGetValue(hrd.SetName, out parentItemNames))
                     {

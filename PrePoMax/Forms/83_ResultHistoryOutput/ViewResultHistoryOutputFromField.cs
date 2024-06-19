@@ -185,18 +185,17 @@ namespace PrePoMax
             regionTypeListItemsPairs.Add(RegionTypeEnum.NodeSetName, nodeSetNames);
             regionTypeListItemsPairs.Add(RegionTypeEnum.SurfaceName, surfaceNames);
             base.PopulateDropDownLists(regionTypeListItemsPairs);
-            // Add "All components" to the field-component dictionary
+            // Components
             List<string> componentNames;
             _filedNameComponentNames = new Dictionary<string, string[]>();
             foreach (var fieldEntry in filedNameComponentNames)
             {
-                //componentNames = new List<string>() { ResultHistoryOutputFromField.AllComponents };
                 componentNames = new List<string>();
                 foreach (var componentName in fieldEntry.Value) componentNames.Add(componentName);
                 if (componentNames.Count > 0) _filedNameComponentNames.Add(fieldEntry.Key, componentNames.ToArray());
             }
             DynamicCustomTypeDescriptor.PopulateProperty(nameof(FieldName), _filedNameComponentNames.Keys.ToArray());
-            UpdateComponents();
+            UpdateComponents(_historyOutput.ComponentNames);
             // Add "All steps" and "All increments" to the step increment dictionary
             List<string> incrementIds;
             _stepIdStepIncrementIds = new Dictionary<string, string[]> { { ResultHistoryOutputFromField.AllSteps,
@@ -211,12 +210,13 @@ namespace PrePoMax
             //
             UpdateStepIncrements();
         }
-        private void UpdateComponents()
+        private void UpdateComponents(string[] selectedComponentNames = null)
         {
             string[] componentNames;
             if (_filedNameComponentNames.TryGetValue(FieldName, out componentNames) && componentNames.Length > 0)
             {
-                _componentContainer = new MultiChoiceContainer(componentNames, componentNames);
+                if (selectedComponentNames == null) selectedComponentNames = componentNames;
+                _componentContainer = new MultiChoiceContainer(componentNames, selectedComponentNames);
                 DynamicCustomTypeDescriptor.RenameMultiChoiceEnumProperty(nameof(ComponentNames), _componentContainer.EnumData);
                 //
                 _historyOutput.ComponentNames = _componentContainer.Names;

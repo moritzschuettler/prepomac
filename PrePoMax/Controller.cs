@@ -10479,10 +10479,7 @@ namespace PrePoMax
             _form.ClearActiveTreeSelection();   // prevents errors on _form.RemoveTreeNode
             //
             ViewGeometryModelResults view = ViewGeometryModelResults.Results;
-            foreach (var name in fieldOutputNames)
-            {
-                nameDeleteAction[name](view, name, null);
-            }
+            foreach (var name in fieldOutputNames) nameDeleteAction[name](view, name, null);
             //
             if (_allResults.CurrentResult.GetAllComponentNames().Length > 0) _form.SelectFirstComponentOfFirstFieldOutput();
             //
@@ -10547,6 +10544,27 @@ namespace PrePoMax
             FeResultsUpdate(UpdateType.Check);
         }
         // Remove
+        public void RemoveResultHistoryOutputs(string[] historyOutputNames)
+        {
+            Dictionary<string, Action<ViewGeometryModelResults, string, string>> nameDeleteAction =
+                new Dictionary<string, Action<ViewGeometryModelResults, string, string>>();
+            foreach (var name in historyOutputNames)
+            {
+                if (_allResults.CurrentResult.ContainsResultHistoryOutput(name))
+                    nameDeleteAction.Add(name, _form.RemoveTreeNode<ResultHistoryOutput>);
+                else nameDeleteAction.Add(name, _form.RemoveTreeNode<HistoryResultSet>);
+            }
+            //
+            _allResults.CurrentResult.RemoveResultHistoryOutputs(historyOutputNames);
+            _form.ClearActiveTreeSelection();   // prevents errors on _form.RemoveTreeNode
+            //
+            ViewGeometryModelResults view = ViewGeometryModelResults.Results;
+            foreach (var name in historyOutputNames) nameDeleteAction[name](view, name, null);
+            //
+            //if (_allResults.CurrentResult.GetAllComponentNames().Length > 0) _form.SelectFirstComponentOfFirstFieldOutput();
+            //
+            FeResultsUpdate(UpdateType.Check);
+        }
         public void RemoveResultHistoryResultSets(string[] historyResultSetNames)
         {
             _allResults.CurrentResult.RemoveResultHistoryResultSets(historyResultSetNames);
@@ -15764,6 +15782,10 @@ namespace PrePoMax
                     {
                         HighlightCoordinateSystem(cs);
                     }
+                    else if (obj is ResultHistoryOutput rho)
+                    {
+                        HighlightResultHistoryOutput(rho);
+                    }
                 }
             }
             catch { }
@@ -16207,6 +16229,25 @@ namespace PrePoMax
             int symbolSize = _settings.Pre.SymbolSize;
             int nodeSize = _settings.Pre.HighlightNodeSymbolSize;
             DrawLoad("Highlight", load, Color.Red, symbolSize, nodeSize, vtkRendererLayer.Selection, false);
+        }
+        public void HighlightResultHistoryOutput(ResultHistoryOutput resultHistoryOutput)
+        {
+            if (resultHistoryOutput is ResultHistoryOutputFromField)
+            {
+                if (resultHistoryOutput.RegionType == RegionTypeEnum.NodeSetName ||
+                    resultHistoryOutput.RegionType == RegionTypeEnum.SurfaceName)
+                {
+                    Highlight3DObjects(new object[] { resultHistoryOutput.RegionName });
+                }
+                else if (resultHistoryOutput.RegionType == RegionTypeEnum.Selection)
+                {
+                    if (resultHistoryOutput.CreationData != null)
+                    {
+                        Selection = resultHistoryOutput.CreationData.DeepClone();
+                        HighlightSelection();
+                    }
+                }
+            }
         }
         public void HighlightConnectedLines(double[][] lineNodeCoor)
         {
