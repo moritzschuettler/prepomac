@@ -13,6 +13,7 @@ namespace CaeResults
         public double Time;
         public string FieldName;
         public string SetName;
+        public string BaseSetName;
         public string[] ComponentNames;
         public bool[] Locals;
         /// <summary>

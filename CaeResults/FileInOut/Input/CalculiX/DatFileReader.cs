@@ -606,7 +606,7 @@ namespace CaeResults
         {
             string[] tmp;
             string newName = setName;
-            if (setName.StartsWith(CaeMesh.Globals.InternalSelectionName.ToUpper()))
+            if (setName.StartsWith(Globals.InternalSelectionName.ToUpper()))
             {
                 if (!repairedSetNames.TryGetValue(setName, out newName))
                 {
@@ -626,7 +626,7 @@ namespace CaeResults
                     repairedSetNames.Add(setName, newName);
                 }
             }
-            else if (setName.StartsWith(CaeMesh.Globals.InternalName.ToUpper()))
+            else if (setName.StartsWith(Globals.InternalName.ToUpper()))
             {
                 if (!repairedSetNames.TryGetValue(setName, out newName))
                 {
@@ -788,6 +788,7 @@ namespace CaeResults
                 componentNames = tmp2.ToList();
                 //
                 tmp2 = tmp[2].Split(dataSplitter, StringSplitOptions.RemoveEmptyEntries);
+                dataSet.BaseSetName = tmp2[0];
                 dataSet.SetName = RepairSetName(tmp2[0].Trim(), repairedSetNames);
                 dataSet.Time = double.Parse(tmp2[1]);
                 //
@@ -885,7 +886,6 @@ namespace CaeResults
             string id;
             double time;
             double[] values;
-            string noSuffixName;
             //
             foreach (var dataSet in dataSets)
             {
@@ -896,6 +896,7 @@ namespace CaeResults
                 if (!historyOutput.Sets.TryGetValue(repairedDataSet.SetName, out set))
                 {
                     set = new HistoryResultSet(repairedDataSet.SetName);
+                    set.BaseSetName = repairedDataSet.BaseSetName;
                     historyOutput.Sets.Add(set.Name, set);
                 }
                 // Get or create a field

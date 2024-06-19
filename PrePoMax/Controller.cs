@@ -15782,6 +15782,10 @@ namespace PrePoMax
                     {
                         HighlightCoordinateSystem(cs);
                     }
+                    else if (obj is HistoryResultSet hrs)
+                    {
+                        HighlightHistoryResultSet(hrs);
+                    }
                     else if (obj is ResultHistoryOutput rho)
                     {
                         HighlightResultHistoryOutput(rho);
@@ -16229,6 +16233,18 @@ namespace PrePoMax
             int symbolSize = _settings.Pre.SymbolSize;
             int nodeSize = _settings.Pre.HighlightNodeSymbolSize;
             DrawLoad("Highlight", load, Color.Red, symbolSize, nodeSize, vtkRendererLayer.Selection, false);
+        }
+        public void HighlightHistoryResultSet(HistoryResultSet historyResultSet)
+        {
+            if (historyResultSet.BaseSetName != null && Model != null && Model.Mesh != null)
+            {
+                if (_model.Mesh.ReferencePoints.ContainsKey(historyResultSet.Name))
+                    HighlightReferencePoints(new string[] { historyResultSet.Name });
+                else if (_model.Mesh.NodeSets.ContainsKey(historyResultSet.BaseSetName))
+                    HighlightNodeSets(new string[] { historyResultSet.BaseSetName });
+                else if (_model.Mesh.ElementSets.ContainsKey(historyResultSet.BaseSetName))
+                    HighlightElementSets(new string[] { historyResultSet.BaseSetName }, false);
+            }
         }
         public void HighlightResultHistoryOutput(ResultHistoryOutput resultHistoryOutput)
         {

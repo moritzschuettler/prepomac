@@ -14,11 +14,12 @@ namespace CaeResults
         // Variables                                                                                                                
         protected bool _harmonic;
         protected Dictionary<string, HistoryResultField> _fields;
-
+        protected string _baseSetName;
 
         // Properties                                                                                                               
         public bool Harmonic { get { return _harmonic; } set { _harmonic = value; } }
         public Dictionary<string, HistoryResultField> Fields { get { return _fields; } set { _fields = value; } }
+        public string BaseSetName { get { return _baseSetName; } set { _baseSetName = value; } }
 
 
         // Constructor                                                                                                              
@@ -29,6 +30,7 @@ namespace CaeResults
             _name = name;
             _harmonic = false;
             _fields = new Dictionary<string, HistoryResultField>();
+            _baseSetName = null;
         }
 
 
