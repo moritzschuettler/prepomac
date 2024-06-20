@@ -117,10 +117,12 @@ namespace PrePoMax.Forms
             // Check equation
             if (ResultHistoryOutput is ResultHistoryOutputFromEquation rhofe)
             {
-                string error = _controller.CurrentResult.CheckResultHistoryOutputEquation(rhofe.Equation, out _);
+                HashSet<string> parentNames;
+                string error = _controller.CurrentResult.CheckResultHistoryOutputEquation(rhofe.Equation, out parentNames, out _);
                 if (error != null) throw new CaeException(error);
+                if (parentNames.Contains(rhofe.Name)) throw new CaeException("The equation must not contain a self reference.");
+                rhofe.SetParentNames(parentNames.ToArray());
             }
-
             // Create
             if (_resultHistoryOutputToEditName == null)
             {

@@ -5,20 +5,23 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeMesh;
 using CaeGlobals;
+using System.Runtime.Serialization;
+using vtkControl;
 
 namespace CaeResults
 {
     [Serializable]
-    public class HistoryResultSet : NamedClass
+    public class HistoryResultSet : NamedClass, ISerializable
     {
         // Variables                                                                                                                
-        protected bool _harmonic;
-        protected Dictionary<string, HistoryResultField> _fields;
-        protected string _baseSetName;
+        protected bool _harmonic;                                           //ISerializable
+        protected OrderedDictionary<string, HistoryResultField> _fields;    //ISerializable
+        protected string _baseSetName;                                      //ISerializable
+
 
         // Properties                                                                                                               
         public bool Harmonic { get { return _harmonic; } set { _harmonic = value; } }
-        public Dictionary<string, HistoryResultField> Fields { get { return _fields; } set { _fields = value; } }
+        public OrderedDictionary<string, HistoryResultField> Fields { get { return _fields; } set { _fields = value; } }
         public string BaseSetName { get { return _baseSetName; } set { _baseSetName = value; } }
 
 
@@ -29,10 +32,34 @@ namespace CaeResults
             _checkName = false;
             _name = name;
             _harmonic = false;
-            _fields = new Dictionary<string, HistoryResultField>();
+            _fields = new OrderedDictionary<string, HistoryResultField>("Fields", StringComparer.OrdinalIgnoreCase);
             _baseSetName = null;
         }
-
+        //ISerializable
+        public HistoryResultSet(SerializationInfo info, StreamingContext context)
+            : base(info, context)
+        {
+            foreach (SerializationEntry entry in info)
+            {
+                switch (entry.Name)
+                {
+                    case "_harmonic":
+                        _harmonic = (bool)entry.Value; break;
+                    case "_fields":
+                        // Compatibility v2.1.0
+                        if (entry.Value is Dictionary<string, HistoryResultField> oldFields)
+                        {
+                            oldFields.OnDeserialization(null);
+                            _fields = new OrderedDictionary<string, HistoryResultField>("Fields", oldFields,
+                                StringComparer.OrdinalIgnoreCase);
+                        }
+                        else _fields = (OrderedDictionary<string, HistoryResultField>)entry.Value;
+                        break;
+                    case "_baseSetName":
+                        _baseSetName = (string)entry.Value; break;
+                }
+            }
+        }
 
         // Static methods                                                                                                           
 
@@ -55,6 +82,17 @@ namespace CaeResults
                 fieldNameComponentNames.Add(entry.Key, entry.Value.Components.Keys.ToArray());
             }
             return fieldNameComponentNames;
+        }
+
+        // ISerialization
+        public new void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            // Using typeof() works also for null fields
+            base.GetObjectData(info, context);
+            //
+            info.AddValue("_harmonic", _harmonic, typeof(bool));
+            info.AddValue("_fields", _fields, typeof(OrderedDictionary<string, HistoryResultField>));
+            info.AddValue("_baseSetName", _baseSetName, typeof(string));
         }
 
     }

@@ -5,18 +5,19 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeMesh;
 using CaeGlobals;
+using System.Runtime.Serialization;
 
 namespace CaeResults
 {
     [Serializable]
-    public class HistoryResultEntries : NamedClass
+    public class HistoryResultEntries : NamedClass, ISerializable
     {
         // Variables                                                                                                                
-        private List<double> _time;
-        private List<double> _values;
-        private List<int> _count;
-        private bool _local;
-        private string _unit;
+        private List<double> _time;             //ISerializable
+        private List<double> _values;           //ISerializable
+        private List<int> _count;               //ISerializable
+        private bool _local;                    //ISerializable
+        private string _unit;                   //ISerializable
 
 
         // Properties                                                                                                               
@@ -38,6 +39,27 @@ namespace CaeResults
             _count = new List<int>();
             _local = local;
             _unit = null;
+        }
+        //ISerializable
+        public HistoryResultEntries(SerializationInfo info, StreamingContext context)
+            : base(info, context)
+        {
+            foreach (SerializationEntry entry in info)
+            {
+                switch (entry.Name)
+                {
+                    case "_time":
+                        _time = (List<double>)entry.Value; break;
+                    case "_values":
+                        _values = (List<double>)entry.Value; break;
+                    case "_count":
+                        _count = (List<int>)entry.Value; break;
+                    case "_local":
+                        _local = (bool)entry.Value; break;
+                    case "_unit":
+                        _unit = (string)entry.Value; break;
+                }
+            }
         }
 
 
@@ -105,5 +127,17 @@ namespace CaeResults
             }
         }
 
+        // ISerialization
+        public new void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            // Using typeof() works also for null fields
+            base.GetObjectData(info, context);
+            //
+            info.AddValue("_time", _time, typeof(List<double>));
+            info.AddValue("_values", _values, typeof(List<double>));
+            info.AddValue("_count", _count, typeof(List<int>));
+            info.AddValue("_local", _local, typeof(bool));
+            info.AddValue("_unit", _unit, typeof(string));
+        }
     }
 }

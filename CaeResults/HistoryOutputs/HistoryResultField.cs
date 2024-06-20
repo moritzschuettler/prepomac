@@ -30,7 +30,7 @@ namespace CaeResults
         {
             _checkName = false;
             _name = name;
-            _components = new OrderedDictionary<string, HistoryResultComponent>("Components");
+            _components = new OrderedDictionary<string, HistoryResultComponent>("Components", StringComparer.OrdinalIgnoreCase);
         }
         //ISerializable
         public HistoryResultField(SerializationInfo info, StreamingContext context)
@@ -44,8 +44,9 @@ namespace CaeResults
                         // Compatibility v1.3.5
                         if (entry.Value is Dictionary<string, HistoryResultComponent> oldComponents)
                         {
-                            _components = new OrderedDictionary<string, HistoryResultComponent>("Components");
-                            _components.AddRange(oldComponents);
+                            oldComponents.OnDeserialization(null);
+                            _components = new OrderedDictionary<string, HistoryResultComponent>("Components", oldComponents,
+                                StringComparer.OrdinalIgnoreCase);
                         }
                         else _components = (OrderedDictionary<string, HistoryResultComponent>)entry.Value;
                         break;

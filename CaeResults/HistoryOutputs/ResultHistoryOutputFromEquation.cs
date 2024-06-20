@@ -14,6 +14,7 @@ namespace CaeResults
         // Variables                                                                                                                
         public static string EquationSeparator = ".";
         private string _equation;
+        private string[] _parentNames;
 
 
         // Properties                                                                                                               
@@ -25,9 +26,18 @@ namespace CaeResults
             : base(name, "", RegionTypeEnum.None)
         {
             _equation = equation;
+            _parentNames = null;
         }
 
 
         // Methods                                                                                                                  
+        public void SetParentNames(string[] parentNames)
+        {
+            _parentNames = parentNames;
+        }
+        public override string[] GetParentNames()
+        {
+            return _parentNames;
+        }
     }
 }

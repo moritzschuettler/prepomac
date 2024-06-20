@@ -5,19 +5,20 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeMesh;
 using CaeGlobals;
+using System.Runtime.Serialization;
 
 namespace CaeResults
 {
     [Serializable]
-    public class HistoryResults : NamedClass
+    public class HistoryResults : NamedClass, ISerializable
     {
         
         // Variables                                                                                                                
-        protected Dictionary<string, HistoryResultSet> _sets;
+        protected OrderedDictionary<string, HistoryResultSet> _sets;           //ISerializable
 
 
         // Properties                                                                                                               
-        public Dictionary<string, HistoryResultSet> Sets { get { return _sets; } set { _sets = value; } }
+        public OrderedDictionary<string, HistoryResultSet> Sets { get { return _sets; } set { _sets = value; } }
 
 
         // Constructor                                                                                                              
@@ -29,7 +30,28 @@ namespace CaeResults
         public HistoryResults(string name)
             : base(name)
         {
-            _sets = new Dictionary<string, HistoryResultSet>();
+            _sets = new OrderedDictionary<string, HistoryResultSet>("Sets", StringComparer.OrdinalIgnoreCase);
+        }
+        //ISerializable
+        public HistoryResults(SerializationInfo info, StreamingContext context)
+            : base(info, context)
+        {
+            foreach (SerializationEntry entry in info)
+            {
+                switch (entry.Name)
+                {
+                    case "_sets":
+                        // Compatibility v2.1.0
+                        if (entry.Value is Dictionary<string, HistoryResultSet> oldSets)
+                        {
+                            oldSets.OnDeserialization(null);
+                            _sets = new OrderedDictionary<string, HistoryResultSet>("Sets", oldSets,
+                                StringComparer.OrdinalIgnoreCase);
+                        }
+                        else _sets = (OrderedDictionary<string, HistoryResultSet>)entry.Value;
+                        break;
+                }
+            }
         }
 
 
@@ -45,6 +67,15 @@ namespace CaeResults
                 if (_sets.TryGetValue(entry.Key, out set)) set.AppendFields(entry.Value);
                 else _sets.Add(entry.Key, entry.Value);
             }
+        }
+
+        // ISerialization
+        public new void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            // Using typeof() works also for null fields
+            base.GetObjectData(info, context);
+            //
+            info.AddValue("_sets", _sets, typeof(OrderedDictionary<string, HistoryResultSet>));
         }
 
     }

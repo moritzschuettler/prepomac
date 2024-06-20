@@ -47,6 +47,7 @@ namespace CaeResults
             set { _outputNodeCoordinates = value; }
         }
 
+        
 
         // Constructors                                                                                                             
         public ResultHistoryOutputFromField(string name, string filedName, string[] componentNames,
@@ -64,5 +65,9 @@ namespace CaeResults
 
 
         // Methods                                                                                                                  
+        public override string[] GetParentNames()
+        {
+            return new string[] { _fieldName };
+        }
     }
 }

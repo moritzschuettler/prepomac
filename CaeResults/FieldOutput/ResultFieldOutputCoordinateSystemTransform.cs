@@ -34,13 +34,9 @@ namespace CaeResults
 
 
         // Methods                                                                                                                  
-        public override string[] GetParentFieldNames()
+        public override string[] GetParentNames()
         {
             return new string[] { _fieldName };
-        }
-        public override string[] GetParentComponentNames()
-        {
-            return new string[] { };
         }
         public void SetComponentNames(string[] componentNames)
         {

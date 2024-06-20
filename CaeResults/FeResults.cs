@@ -483,13 +483,13 @@ namespace CaeResults
                 // Parent fields
                 Dictionary<string, string[]> filedNameComponentNames = GetAllVisibleFiledNameComponentNames();
                 HashSet<string> names = new HashSet<string>(filedNameComponentNames.Keys);
-                names.IntersectWith(resultFieldOutput.GetParentFieldNames());
-                valid &= names.Count == resultFieldOutput.GetParentFieldNames().Length;
+                names.IntersectWith(resultFieldOutput.GetParentNames());
+                valid &= names.Count == resultFieldOutput.GetParentNames().Length;
                 //
                 if (valid)
                 {
                     // Check parents for validity
-                    foreach (var name in resultFieldOutput.GetParentFieldNames())
+                    foreach (var name in resultFieldOutput.GetParentNames())
                     {
                         if (_resultFieldOutputs.TryGetValue(name, out existingResultFieldOutput))
                             valid &= existingResultFieldOutput.Valid;
@@ -3066,7 +3066,7 @@ namespace CaeResults
                 //
                 allNames.Clear();
                 allNames.Add(rfo.Name);
-                parentFieldNames = rfo.GetParentFieldNames();
+                parentFieldNames = rfo.GetParentNames();
                 allNames.UnionWith(parentFieldNames);
                 // Add nodes
                 foreach (var name in allNames)
@@ -3140,7 +3140,7 @@ namespace CaeResults
             ResultFieldOutput resultFieldOutput;
             if (resultFieldOutputs.TryGetValue(name, out resultFieldOutput))
             {
-                string[] parents = resultFieldOutput.GetParentFieldNames();
+                string[] parents = resultFieldOutput.GetParentNames();
                 if (parents == null) return false;
                 //
                 bool result;
@@ -3224,7 +3224,7 @@ namespace CaeResults
                 string name;
                 foreach (var newComponent in components)
                 {
-                    newComponent.Entries = new Dictionary<string, HistoryResultEntries>();
+                    newComponent.Entries.Clear();
                     for (int i = 0; i < nodeIds.Length; i++)
                     {
                         name = nodeIds[i].ToString();
@@ -3311,8 +3311,10 @@ namespace CaeResults
         }
         private HistoryResultSet GetHistorySetFromEquation(ResultHistoryOutputFromEquation resultHistoryOutput)
         {
+            HashSet<string> parentNames;
             Dictionary<string, HistoryResultComponent> parameterNameHisotryComponent;
-            CheckResultHistoryOutputEquation(resultHistoryOutput.Equation, out parameterNameHisotryComponent);
+            CheckResultHistoryOutputEquation(resultHistoryOutput.Equation, out parentNames, out parameterNameHisotryComponent);
+            resultHistoryOutput.SetParentNames(parentNames.ToArray());
             //
             double[][] values;
             List<double> time = null;
@@ -3421,7 +3423,7 @@ namespace CaeResults
                 string name;
                 foreach (var newComponent in allComponents)
                 {
-                    newComponent.Entries = new Dictionary<string, HistoryResultEntries>();
+                    newComponent.Entries.Clear();
                     for (int i = 0; i < nodeIds.Length; i++)
                     {
                         name = nodeIds[i].ToString();
@@ -3874,9 +3876,10 @@ namespace CaeResults
         // Equation
         public string[] GetPossibleEquationParameters()
         {
-            string separator = ResultHistoryOutputFromEquation.EquationSeparator;
             string variable;
+            string separator = ResultHistoryOutputFromEquation.EquationSeparator;
             List<string> possibleEquationParameters = new List<string>();
+            //
             foreach (var setEntry in _history.Sets)
             {
                 foreach (var fieldEntry in setEntry.Value.Fields)
@@ -3888,11 +3891,13 @@ namespace CaeResults
                     }
                 }
             }
+            //
             return possibleEquationParameters.ToArray();
         }
-        public string CheckResultHistoryOutputEquation(string equation,
+        public string CheckResultHistoryOutputEquation(string equation, out HashSet<string> parentNames,
             out Dictionary<string, HistoryResultComponent> parameterNameHisotryComponent)
         {
+            parentNames = new HashSet<string>();
             parameterNameHisotryComponent = new Dictionary<string, HistoryResultComponent>();
             //
             try
@@ -3940,8 +3945,13 @@ namespace CaeResults
                         throw new CaeException("All selected history output components must contain the same number " +
                                                "of time increments.");
                     //
+                    parentNames.Add(tmp[0]);
                     parameterNameHisotryComponent.Add(parameterName, historyResultComponent);
                 }
+                //
+                if (parentNames.Count == 0)
+                    throw new CaeException("The equation must contain at least one history output reference.");
+                //
                 return null;
             }
             catch (Exception ex)

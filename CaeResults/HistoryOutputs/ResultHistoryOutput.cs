@@ -41,6 +41,7 @@ namespace CaeResults
 
 
         // Methods                                                                                                                  
+        public abstract string[] GetParentNames();     // for dependency check
 
 
     }

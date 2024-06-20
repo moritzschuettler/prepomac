@@ -129,7 +129,7 @@ namespace CaeModel
                         {
                             // Compatibility for version v.0.5.1
                             md.OnDeserialization(null);
-                            _materials = new OrderedDictionary<string, Material>("", md, sc);
+                            _materials = new OrderedDictionary<string, Material>("Materials", md, sc);
                         }
                         else if (entry.Value is OrderedDictionary<string, Material> mod) _materials = mod;
                         else if (entry.Value == null) _materials = null;
@@ -140,7 +140,7 @@ namespace CaeModel
                         {
                             // Compatibility for version v.0.5.1
                             sd.OnDeserialization(null);
-                            _sections = new OrderedDictionary<string, Section>("", sd, sc);
+                            _sections = new OrderedDictionary<string, Section>("Sections", sd, sc);
                         }
                         else if (entry.Value is OrderedDictionary<string, Section> sod) _sections = sod;
                         else if (entry.Value == null) _sections = null;
@@ -151,7 +151,7 @@ namespace CaeModel
                         {
                             // Compatibility for version v.0.5.1
                             cd.OnDeserialization(null);
-                            _constraints = new OrderedDictionary<string, Constraint>("", cd, sc);
+                            _constraints = new OrderedDictionary<string, Constraint>("Constraints", cd, sc);
                         }
                         else if (entry.Value is OrderedDictionary<string, Constraint> cod) _constraints = cod;
                         else if (entry.Value == null) _constraints = null;
@@ -172,7 +172,7 @@ namespace CaeModel
                         {
                             // Compatibility for version v.0.5.1
                             cukd.OnDeserialization(null);
-                            _calculixUserKeywords = new OrderedDictionary<int[], Calculix.CalculixUserKeyword>("", cukd);
+                            _calculixUserKeywords = new OrderedDictionary<int[], Calculix.CalculixUserKeyword>("Keywords", cukd);
                         }
                         else if (entry.Value is OrderedDictionary<int[], Calculix.CalculixUserKeyword> cukod)
                             _calculixUserKeywords = cukod;
