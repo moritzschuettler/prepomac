@@ -122,6 +122,12 @@ namespace PrePoMax.Forms
                 if (error != null) throw new CaeException(error);
                 if (parentNames.Contains(rhofe.Name)) throw new CaeException("The equation must not contain a self reference.");
                 rhofe.SetParentNames(parentNames.ToArray());
+                // Cyclic reference
+                if (_controller.CurrentResult.AreResultHistoryOutputsInCyclicDependance(
+                    _resultHistoryOutputToEditName, _viewResultHistoryOutput.GetBase()))
+                {
+                    throw new CaeException("The selected equation creates a cyclic reference.");
+                }
             }
             // Create
             if (_resultHistoryOutputToEditName == null)

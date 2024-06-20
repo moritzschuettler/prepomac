@@ -476,11 +476,11 @@ namespace CaeResults
             bool valid;
             // Result field outputs
             ResultFieldOutput existingResultFieldOutput;
-            List<ResultFieldOutput> independencyList = GetResultFieldOutputIndependencyList();
-            foreach (var resultFieldOutput in independencyList)
+            List<ResultFieldOutput> fieldIindependencySequence = GetResultFieldOutputIndependencySequence();
+            foreach (var resultFieldOutput in fieldIindependencySequence)
             {
                 valid = true;
-                // Parent fields
+                // Parent names
                 Dictionary<string, string[]> filedNameComponentNames = GetAllVisibleFiledNameComponentNames();
                 HashSet<string> names = new HashSet<string>(filedNameComponentNames.Keys);
                 names.IntersectWith(resultFieldOutput.GetParentNames());
@@ -532,7 +532,63 @@ namespace CaeResults
                 SetItemValidity(resultFieldOutput, valid, items);
                 if (!valid && resultFieldOutput.Active) invalidItems.Add("Field output: " + resultFieldOutput.Name);
             }
-            //
+            // Result history outputs
+            ResultHistoryOutput existingResultHistoryOutput;
+            List<ResultHistoryOutput> historyIndependencySequence = GetResultHistoryOutputIndependencySequence();
+            foreach (var resultHistoryOutput in historyIndependencySequence)
+            {
+                valid = true;
+                // Parent names
+                HashSet<string> names = new HashSet<string>(_history.Sets.Keys, StringComparer.OrdinalIgnoreCase);
+                names.IntersectWith(resultHistoryOutput.GetParentNames());
+                valid &= names.Count == resultHistoryOutput.GetParentNames().Length;
+                //
+                if (valid)
+                {
+                    // Check parents for validity
+                    foreach (var name in resultHistoryOutput.GetParentNames())
+                    {
+                        if (_resultHistoryOutputs.TryGetValue(name, out existingResultHistoryOutput))
+                            valid &= existingResultHistoryOutput.Valid;
+                    }
+                    //
+                    //if (valid)
+                    //{
+                    //    if (resultHistoryOutput is ResultFieldOutputLimit rfol)
+                    //    {
+                    //        // Parent components
+                    //        names = new HashSet<string>(filedNameComponentNames[rfol.FieldName]);
+                    //        valid &= names.Contains(rfol.ComponentName);
+                    //        //
+                    //        if (rfol.LimitPlotBasedOn == LimitPlotBasedOnEnum.Parts)
+                    //            names = new HashSet<string>(_mesh.Parts.Keys);
+                    //        else if (rfol.LimitPlotBasedOn == LimitPlotBasedOnEnum.ElementSets)
+                    //        {
+                    //            names = new HashSet<string>(_mesh.ElementSets.Keys);
+                    //            names.Add(ResultFieldOutputLimit.AllElementsName);
+                    //        }
+                    //        else throw new NotSupportedException();
+                    //        //
+                    //        names.IntersectWith(rfol.ItemNameLimit.Keys);
+                    //        valid &= names.Count == rfol.ItemNameLimit.Count;
+                    //    }
+                    //    else if (resultHistoryOutput is ResultFieldOutputEnvelope rfoe)
+                    //    {
+                    //        // Parent components
+                    //        names = new HashSet<string>(filedNameComponentNames[rfoe.FieldName]);
+                    //        valid &= names.Contains(rfoe.ComponentName);
+                    //    }
+                    //    else if (resultHistoryOutput is ResultFieldOutputCoordinateSystemTransform rfocst)
+                    //    {
+                    //        valid &= _mesh.CoordinateSystems.ContainsValidKey(rfocst.CoordinateSystemName);
+                    //    }
+                    //    else throw new NotSupportedException();
+                    //}
+                }
+                //
+                SetItemValidity(resultHistoryOutput, valid, items);
+                if (!valid && resultHistoryOutput.Active) invalidItems.Add("History output: " + resultHistoryOutput.Name);
+            }
             return invalidItems.ToArray();
         }
         private void SetItemValidity(NamedClass item, bool validity, List<Tuple<NamedClass, string>> items)
@@ -2667,7 +2723,7 @@ namespace CaeResults
         }
         private void ComputeResultFieldOutput(FieldData fieldData)
         {
-            List<ResultFieldOutput> independencyList = GetResultFieldOutputIndependencyList();
+            List<ResultFieldOutput> independencyList = GetResultFieldOutputIndependencySequence();
             //
             foreach (var entry in _resultFieldOutputs)
             {
@@ -3051,7 +3107,7 @@ namespace CaeResults
             //
             return values;
         }
-        private List<ResultFieldOutput> GetResultFieldOutputIndependencyList()
+        private List<ResultFieldOutput> GetResultFieldOutputIndependencySequence()
         {
             string[] parentFieldNames;
             HashSet<string> allNames = new HashSet<string>();
@@ -3098,10 +3154,10 @@ namespace CaeResults
             //    }
             //}
             //
-            List<string> independencyList = dependencyGraph.GetIndependencyList();
+            List<string> independencySequence = dependencyGraph.GetIndependencyList();
             //
             List<ResultFieldOutput> resultList = new List<ResultFieldOutput>();
-            foreach (var name in independencyList)
+            foreach (var name in independencySequence)
             {
                 if (_resultFieldOutputs.TryGetValue(name, out rfo)) resultList.Add(rfo);
             }
@@ -3376,7 +3432,7 @@ namespace CaeResults
             // Create result history set
             HistoryResultEntries historyResultEntries;
             HistoryResultComponent historyResultComponent = new HistoryResultComponent("VALUE");
-            historyResultComponent.Unit = units.Count == 1 ? units.First() : "/"; ;
+            historyResultComponent.Unit = units.Count == 1 ? units.First() : "/";
             // Entry names
             if (!entryNamesEqual)
             {
@@ -3873,6 +3929,63 @@ namespace CaeResults
                 }
             }
         }
+        private List<ResultHistoryOutput> GetResultHistoryOutputIndependencySequence()
+        {
+            string[] parentHistoryNames;
+            HashSet<string> allNames = new HashSet<string>();
+            ResultHistoryOutput rho;
+            Node<string> node;
+            Graph<string> dependencyGraph = new Graph<string>();
+            Dictionary<string, Node<string>> nodes = new Dictionary<string, Node<string>>();
+            //
+            foreach (var entry in _resultHistoryOutputs)
+            {
+                rho = entry.Value;
+                //
+                allNames.Clear();
+                allNames.Add(rho.Name);
+                parentHistoryNames = rho.GetParentNames();
+                allNames.UnionWith(parentHistoryNames);
+                // Add nodes
+                foreach (var name in allNames)
+                {
+                    if (!nodes.ContainsKey(name))
+                    {
+                        node = new Node<string>(name);
+                        nodes.Add(name, node);
+                        dependencyGraph.AddNode(node);
+                    }
+                }
+                // Add connections
+                foreach (var parentHistoryName in parentHistoryNames)
+                {
+                    dependencyGraph.AddDirectedEdge(nodes[rho.Name], nodes[parentHistoryName]);
+                }
+            }
+            // Use only one sub-graph - NOT WORKING FOR DIRECTED GRAPHS
+            //if (resultHistoryOutput != null)
+            //{
+            //    List<Graph<string>> subGraphs = dependencyGraph.GetConnectedSubgraphs();
+            //    foreach (var subGraph in subGraphs)
+            //    {
+            //        if (subGraph.Contains(resultHistoryOutput.Name))
+            //        {
+            //            dependencyGraph = subGraph;
+            //            break;
+            //        }
+            //    }
+            //}
+            //
+            List<string> independencySequence = dependencyGraph.GetIndependencyList();
+            //
+            List<ResultHistoryOutput> resultList = new List<ResultHistoryOutput>();
+            foreach (var name in independencySequence)
+            {
+                if (_resultHistoryOutputs.TryGetValue(name, out rho)) resultList.Add(rho);
+            }
+            //
+            return resultList;
+        }
         // Equation
         public string[] GetPossibleEquationParameters()
         {
@@ -3958,6 +4071,54 @@ namespace CaeResults
             {
                 return ex.Message;
             }
+        }
+        public bool AreResultHistoryOutputsInCyclicDependance(string oldResultHistoryOutputName,
+                                                              ResultHistoryOutput resultHistoryOutput)
+        {
+            Dictionary<string, ResultHistoryOutput> resultHistoryOutputs = new Dictionary<string, ResultHistoryOutput>();
+            foreach (var entry in _resultHistoryOutputs)
+            {
+                if (entry.Key != oldResultHistoryOutputName)
+                    resultHistoryOutputs.Add(entry.Key, entry.Value);
+            }
+            resultHistoryOutputs.Add(resultHistoryOutput.Name, resultHistoryOutput);
+            //
+            return AreResultHistoryOutputsInCyclicDependance(resultHistoryOutputs);
+        }
+        private bool AreResultHistoryOutputsInCyclicDependance(Dictionary<string, ResultHistoryOutput> resultHistoryOutputs)
+        {
+            int count = 0;
+            bool result;
+            foreach (var entry in resultHistoryOutputs)
+            {
+                result = RecursiveCheck(ref count, entry.Value.Name, entry.Value.Name, resultHistoryOutputs);
+                if (result) return true;
+            }
+            return false;
+        }
+        private bool RecursiveCheck(ref int count, string firstName, string name,
+                                    Dictionary<string, ResultHistoryOutput> resultHistoryOutputs)
+        {
+            if (count > 1000) return true;
+            //
+            ResultHistoryOutput resultHistoryOutput;
+            if (resultHistoryOutputs.TryGetValue(name, out resultHistoryOutput))
+            {
+                string[] parents = resultHistoryOutput.GetParentNames();
+                if (parents == null) return false;
+                //
+                bool result;
+                foreach (string parent in parents)
+                {
+                    if (parent == firstName) return true;
+                    //
+                    count++;
+                    result = RecursiveCheck(ref count, firstName, parent, resultHistoryOutputs);
+                    if (result) return true;
+                    count--;
+                }
+            }
+            return false;
         }
 
         // Scaled results values

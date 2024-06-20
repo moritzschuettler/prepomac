@@ -160,7 +160,7 @@ namespace PrePoMax.Forms
             if (_controller.CurrentResult.AreResultFieldOutputsInCyclicDependance(
                 _resultFieldOutputToEditName, _viewResultFieldOutput.GetBase()))
             {
-                throw new CaeException("The selected dependent field output creates a cyclic reference!");
+                throw new CaeException("The selected dependent field output creates a cyclic reference.");
             }
             // Check for zero limits
             if (_viewResultFieldOutput is ViewResultFieldOutputLimit vrfol)
