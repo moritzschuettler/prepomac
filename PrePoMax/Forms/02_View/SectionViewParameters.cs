@@ -21,7 +21,7 @@ namespace PrePoMax.Forms
         private ItemSetData _normalItemSetData;
         private double[] _point;
         private double[] _normal;
-        private bool _invertColors = false;
+        private bool _lightenColors = true;
         private bool _useSingleColor = false;
         private Color _sectionColor = Color.LightGreen;
 
@@ -102,16 +102,16 @@ namespace PrePoMax.Forms
         //
         //
         [Category("Appearance")]
-        [OrderedDisplayName(0, 10, "Invert section colors")]
-        [Description("Select Yes to invert section colors.")]
+        [OrderedDisplayName(0, 10, "Lighten section colors")]
+        [Description("Select Yes to lighten section colors.")]
         [Id(1, 3)]
-        public bool InvertColors
+        public bool LightenColors
         {
-            get { return _invertColors; }
+            get { return _lightenColors; }
             set
             {
-                _invertColors = value;
-                if (_invertColors) _useSingleColor = false;
+                _lightenColors = value;
+                if (_lightenColors) _useSingleColor = false;
                 UpdateVisibility();
             }
         }
@@ -125,7 +125,7 @@ namespace PrePoMax.Forms
             set
             {
                 _useSingleColor = value;
-                if (_useSingleColor) _invertColors = false;
+                if (_useSingleColor) _lightenColors = false;
                 UpdateVisibility();
             }
         }
@@ -165,7 +165,7 @@ namespace PrePoMax.Forms
             _normalItemSetData = new ItemSetData(); // needed to display ItemSetData.ToString()
             _normalItemSetData.ToStringType = ItemSetDataToStringType.SelectTwoPoints;
             //
-            _dctd.RenameBooleanPropertyToYesNo(nameof(InvertColors));
+            _dctd.RenameBooleanPropertyToYesNo(nameof(LightenColors));
             _dctd.RenameBooleanPropertyToYesNo(nameof(UseSingleColor));
             //
             UpdateVisibility();

@@ -8607,14 +8607,14 @@ namespace PrePoMax
             InvokeIfRequired(_vtk.UpdateScalarsAndCameraAndRedraw);
         }
         // Section view
-        public void CreateSectionView(double[] point, double[] normal, bool invertColors, Color sectionColor)
+        public void CreateSectionView(double[] point, double[] normal, bool lightenColors, Color sectionColor)
         {
-            InvokeIfRequired(_vtk.CreateSectionView, point, normal, invertColors, sectionColor);
+            InvokeIfRequired(_vtk.CreateSectionView, point, normal, lightenColors, sectionColor);
             InvokeIfRequired(() => { tsbSectionView.Checked = true; });
         }
-        public void UpdateSectionView(double[] point, double[] normal, bool invertColors, Color sectionColor)
+        public void UpdateSectionView(double[] point, double[] normal, bool lightenColors, Color sectionColor)
         {
-            InvokeIfRequired(_vtk.UpdateSectionView, point, normal, invertColors, sectionColor);
+            InvokeIfRequired(_vtk.UpdateSectionView, point, normal, lightenColors, sectionColor);
             InvokeIfRequired(() => { tsbSectionView.Checked = true; });
         }
         public void RemoveSectionView()

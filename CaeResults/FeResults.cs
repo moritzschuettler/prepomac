@@ -475,21 +475,23 @@ namespace CaeResults
             List<string> invalidItems = new List<string>();
             bool valid;
             // Result field outputs
+            HashSet<string> names;
             ResultFieldOutput existingResultFieldOutput;
             List<ResultFieldOutput> fieldIindependencySequence = GetResultFieldOutputIndependencySequence();
+            Dictionary<string, string[]> filedNameComponentNames = GetAllVisibleFiledNameComponentNames();
+            //
             foreach (var resultFieldOutput in fieldIindependencySequence)
             {
                 valid = true;
-                // Parent names
-                Dictionary<string, string[]> filedNameComponentNames = GetAllVisibleFiledNameComponentNames();
-                HashSet<string> names = new HashSet<string>(filedNameComponentNames.Keys);
-                names.IntersectWith(resultFieldOutput.GetParentNames());
-                valid &= names.Count == resultFieldOutput.GetParentNames().Length;
+                names = new HashSet<string>(filedNameComponentNames.Keys);
+                string[] parentNames = resultFieldOutput.GetParentNames();
+                names.IntersectWith(parentNames);
+                valid &= names.Count == parentNames.Length;
                 //
                 if (valid)
                 {
                     // Check parents for validity
-                    foreach (var name in resultFieldOutput.GetParentNames())
+                    foreach (var name in parentNames)
                     {
                         if (_resultFieldOutputs.TryGetValue(name, out existingResultFieldOutput))
                             valid &= existingResultFieldOutput.Valid;
@@ -524,6 +526,9 @@ namespace CaeResults
                         else if (resultFieldOutput is ResultFieldOutputCoordinateSystemTransform rfocst)
                         {
                             valid &= _mesh.CoordinateSystems.ContainsValidKey(rfocst.CoordinateSystemName);
+                            DataTypeEnum dataType = GetFieldDataType(rfocst.FieldName);
+                            valid &= dataType == DataTypeEnum.Vector || dataType == DataTypeEnum.Tensor;
+                            valid &= DoesFieldContainsAllNecessaryComponents(rfocst.FieldName);
                         }
                         else throw new NotSupportedException();
                     }
@@ -535,55 +540,46 @@ namespace CaeResults
             // Result history outputs
             ResultHistoryOutput existingResultHistoryOutput;
             List<ResultHistoryOutput> historyIndependencySequence = GetResultHistoryOutputIndependencySequence();
+            //
             foreach (var resultHistoryOutput in historyIndependencySequence)
             {
-                valid = true;
                 // Parent names
-                HashSet<string> names = new HashSet<string>(_history.Sets.Keys, StringComparer.OrdinalIgnoreCase);
-                names.IntersectWith(resultHistoryOutput.GetParentNames());
-                valid &= names.Count == resultHistoryOutput.GetParentNames().Length;
+                string[] parentNames = resultHistoryOutput.GetParentNames();
+                valid = true;
                 //
-                if (valid)
+                if (resultHistoryOutput is ResultHistoryOutputFromField rhoff)
                 {
-                    // Check parents for validity
-                    foreach (var name in resultHistoryOutput.GetParentNames())
-                    {
-                        if (_resultHistoryOutputs.TryGetValue(name, out existingResultHistoryOutput))
-                            valid &= existingResultHistoryOutput.Valid;
-                    }
+                    names = new HashSet<string>(GetVisibleFieldNames());
+                    valid &= names.Contains(rhoff.FieldName);
                     //
-                    //if (valid)
-                    //{
-                    //    if (resultHistoryOutput is ResultFieldOutputLimit rfol)
-                    //    {
-                    //        // Parent components
-                    //        names = new HashSet<string>(filedNameComponentNames[rfol.FieldName]);
-                    //        valid &= names.Contains(rfol.ComponentName);
-                    //        //
-                    //        if (rfol.LimitPlotBasedOn == LimitPlotBasedOnEnum.Parts)
-                    //            names = new HashSet<string>(_mesh.Parts.Keys);
-                    //        else if (rfol.LimitPlotBasedOn == LimitPlotBasedOnEnum.ElementSets)
-                    //        {
-                    //            names = new HashSet<string>(_mesh.ElementSets.Keys);
-                    //            names.Add(ResultFieldOutputLimit.AllElementsName);
-                    //        }
-                    //        else throw new NotSupportedException();
-                    //        //
-                    //        names.IntersectWith(rfol.ItemNameLimit.Keys);
-                    //        valid &= names.Count == rfol.ItemNameLimit.Count;
-                    //    }
-                    //    else if (resultHistoryOutput is ResultFieldOutputEnvelope rfoe)
-                    //    {
-                    //        // Parent components
-                    //        names = new HashSet<string>(filedNameComponentNames[rfoe.FieldName]);
-                    //        valid &= names.Contains(rfoe.ComponentName);
-                    //    }
-                    //    else if (resultHistoryOutput is ResultFieldOutputCoordinateSystemTransform rfocst)
-                    //    {
-                    //        valid &= _mesh.CoordinateSystems.ContainsValidKey(rfocst.CoordinateSystemName);
-                    //    }
-                    //    else throw new NotSupportedException();
-                    //}
+                    if (valid)
+                    {
+                        if (_resultFieldOutputs.TryGetValue(rhoff.FieldName, out existingResultFieldOutput))
+                            valid &= existingResultFieldOutput.Valid;
+                        else valid = false;
+                        //
+                        if (valid)
+                        {
+                            parentNames = rhoff.ComponentNames;
+                            names = new HashSet<string>(filedNameComponentNames[rhoff.FieldName]);
+                        }
+                    }
+                }
+                else if (resultHistoryOutput is ResultHistoryOutputFromEquation)
+                {
+                    names = new HashSet<string>(_history.Sets.Keys);
+                    names.IntersectWith(parentNames);
+                    valid &= names.Count == parentNames.Length;
+                    //
+                    if (valid)
+                    {
+                        // Check parents for validity
+                        foreach (var name in parentNames)
+                        {
+                            if (_resultHistoryOutputs.TryGetValue(name, out existingResultHistoryOutput))
+                                valid &= existingResultHistoryOutput.Valid;
+                        }
+                    }
                 }
                 //
                 SetItemValidity(resultHistoryOutput, valid, items);
@@ -2098,6 +2094,30 @@ namespace CaeResults
             result.Valid = false;
             return result;
         }
+        public DataTypeEnum GetFieldDataType(string fieldName)
+        {
+            DataTypeEnum dataType = DataTypeEnum.None;
+            foreach (var entry in _fields)
+            {
+                if (entry.Value.Name == fieldName)
+                {
+                    if (dataType == DataTypeEnum.None) dataType = entry.Value.DataType;
+                    else if (dataType != entry.Value.DataType) return DataTypeEnum.None;
+                }
+            }
+            return dataType;
+        }
+        public bool DoesFieldContainsAllNecessaryComponents(string fieldName)
+        {
+            foreach (var entry in _fields)
+            {
+                if (entry.Value.Name == fieldName)
+                {
+                    if (!entry.Value.ContainsAllNecessaryComponents()) return false;
+                }
+            }
+            return true;
+        }
         public FieldData GetFirstComponentOfTheFirstFieldAtLastIncrement()
         {
             string name = GetAllFieldNames()[0];
@@ -2939,13 +2959,9 @@ namespace CaeResults
                 Vec3D dy;
                 Vec3D dz;
                 Vec3D vector = new Vec3D();
-                Matrix4x4 tensor;
-                Matrix4x4 rotation;
-                Matrix4x4 rotationT;
-
-                double[][] tensor1;
-                double[][] rotation1;
-
+                double[][] tensor;
+                double[][] rotation;
+                //
                 FeNode node;
                 Field resultField = new Field(sourceField);
                 DataTypeEnum dataType = sourceField.DataType;
@@ -2996,8 +3012,8 @@ namespace CaeResults
                 // Tensor
                 else if (dataType == DataTypeEnum.Tensor)
                 {
-                    tensor1 = Matrix.MatrixCreate(3, 3);
-                    rotation1 = Matrix.MatrixCreate(3, 3);
+                    tensor = Matrix.MatrixCreate(3, 3);
+                    rotation = Matrix.MatrixCreate(3, 3);
                     foreach (var entry in _undeformedNodes)
                     {
                         node = entry.Value;
@@ -3009,36 +3025,36 @@ namespace CaeResults
                         dy = coordinateSystem.DirectionY(coor, dx); // using dx for speed
                         dz = coordinateSystem.DirectionZ(coor);
                         // Tensor
-                        tensor1[0][0] = sourceValues[0][resultNodeId];
-                        tensor1[1][1] = sourceValues[1][resultNodeId];
-                        tensor1[2][2] = sourceValues[2][resultNodeId];
-                        tensor1[0][1] = sourceValues[3][resultNodeId];
-                        tensor1[1][0] = sourceValues[3][resultNodeId];
-                        tensor1[1][2] = sourceValues[4][resultNodeId];
-                        tensor1[2][1] = sourceValues[4][resultNodeId];
-                        tensor1[0][2] = sourceValues[5][resultNodeId];
-                        tensor1[2][0] = sourceValues[5][resultNodeId];
+                        tensor[0][0] = sourceValues[0][resultNodeId];
+                        tensor[1][1] = sourceValues[1][resultNodeId];
+                        tensor[2][2] = sourceValues[2][resultNodeId];
+                        tensor[0][1] = sourceValues[3][resultNodeId];
+                        tensor[1][0] = sourceValues[3][resultNodeId];
+                        tensor[1][2] = sourceValues[4][resultNodeId];
+                        tensor[2][1] = sourceValues[4][resultNodeId];
+                        tensor[0][2] = sourceValues[5][resultNodeId];
+                        tensor[2][0] = sourceValues[5][resultNodeId];
                         // Rotation matrix
-                        rotation1[0][0] = (float)dx.X;
-                        rotation1[0][1] = (float)dx.Y;
-                        rotation1[0][2] = (float)dx.Z;
-                        rotation1[1][0] = (float)dy.X;
-                        rotation1[1][1] = (float)dy.Y;
-                        rotation1[1][2] = (float)dy.Z;
-                        rotation1[2][0] = (float)dz.X;
-                        rotation1[2][1] = (float)dz.Y;
-                        rotation1[2][2] = (float)dz.Z;
+                        rotation[0][0] = (float)dx.X;
+                        rotation[0][1] = (float)dx.Y;
+                        rotation[0][2] = (float)dx.Z;
+                        rotation[1][0] = (float)dy.X;
+                        rotation[1][1] = (float)dy.Y;
+                        rotation[1][2] = (float)dy.Z;
+                        rotation[2][0] = (float)dz.X;
+                        rotation[2][1] = (float)dz.Y;
+                        rotation[2][2] = (float)dz.Z;
                         // T' = R*T*RT - rotate tensor
-                        tensor1 = Matrix.MatrixProduct(rotation1, tensor1);
-                        rotation1 = Matrix.MatrixTranspose(rotation1);
-                        tensor1 = Matrix.MatrixProduct(tensor1, rotation1);
+                        tensor = Matrix.MatrixProduct(rotation, tensor);
+                        rotation = Matrix.MatrixTranspose(rotation);
+                        tensor = Matrix.MatrixProduct(tensor, rotation);
                         //
-                        values[0][resultNodeId] = (float)tensor1[0][0];
-                        values[1][resultNodeId] = (float)tensor1[1][1];
-                        values[2][resultNodeId] = (float)tensor1[2][2];
-                        values[3][resultNodeId] = (float)tensor1[0][1];
-                        values[4][resultNodeId] = (float)tensor1[1][2];
-                        values[5][resultNodeId] = (float)tensor1[2][0];
+                        values[0][resultNodeId] = (float)tensor[0][0];
+                        values[1][resultNodeId] = (float)tensor[1][1];
+                        values[2][resultNodeId] = (float)tensor[2][2];
+                        values[3][resultNodeId] = (float)tensor[0][1];
+                        values[4][resultNodeId] = (float)tensor[1][2];
+                        values[5][resultNodeId] = (float)tensor[2][0];
                     }
 
                     //Tensor - faster
@@ -3374,7 +3390,6 @@ namespace CaeResults
             //
             double[][] values;
             List<double> time = null;
-            HashSet<string> units = new HashSet<string>();
             Dictionary<string, double[][]> paramenterNameValues = new Dictionary<string, double[][]>();
             // Collect all component values in a matrix form
             int col;
@@ -3412,8 +3427,6 @@ namespace CaeResults
                         col++;
                     }
                     paramenterNameValues.Add(componentEntry.Key, values);
-                    //
-                    units.Add(componentEntry.Value.Unit);
                 }
             }
             // Evaluate the equation
@@ -3432,7 +3445,7 @@ namespace CaeResults
             // Create result history set
             HistoryResultEntries historyResultEntries;
             HistoryResultComponent historyResultComponent = new HistoryResultComponent("VALUE");
-            historyResultComponent.Unit = units.Count == 1 ? units.First() : "/";
+            historyResultComponent.Unit = "/";
             // Entry names
             if (!entryNamesEqual)
             {

@@ -398,6 +398,31 @@ namespace CaeResults
         {
             foreach (var entr in _components) entr.Value.SetValuesTo(value);
         }
+        public bool ContainsAllNecessaryComponents()
+        {
+            if (_dataType == DataTypeEnum.Scalar)
+            {
+                if (_components.Count == 1) return true;
+            }
+            else if (_dataType == DataTypeEnum.Vector) 
+            {
+                HashSet<string> componentNames = new HashSet<string>(_components.Keys);
+                componentNames.Remove(FOComponentNames.All);
+                if (componentNames.Count == 3) return true;
+            }
+            else if (_dataType == DataTypeEnum.Tensor)
+            {
+                HashSet<string> componentNames = new HashSet<string>(_components.Keys);
+                componentNames.Remove(FOComponentNames.Mises);
+                componentNames.Remove(FOComponentNames.Tresca);
+                componentNames.Remove(FOComponentNames.SgnMaxAbsPri);
+                componentNames.Remove(FOComponentNames.PrincipalMax);
+                componentNames.Remove(FOComponentNames.PrincipalMid);
+                componentNames.Remove(FOComponentNames.PrincipalMin);
+                if (componentNames.Count == 6) return true;
+            }
+            return false;
+        }
         public static void FindMax(Field fieldMax, Field fieldAng, Field currentField, float angleDeg)
         {
             bool update;

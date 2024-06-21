@@ -32,7 +32,7 @@ namespace CaeResults
             _checkName = false;
             _name = name;
             _harmonic = false;
-            _fields = new OrderedDictionary<string, HistoryResultField>("Fields", StringComparer.OrdinalIgnoreCase);
+            _fields = new OrderedDictionary<string, HistoryResultField>("Fields");
             _baseSetName = null;
         }
         //ISerializable
@@ -50,8 +50,7 @@ namespace CaeResults
                         if (entry.Value is Dictionary<string, HistoryResultField> oldFields)
                         {
                             oldFields.OnDeserialization(null);
-                            _fields = new OrderedDictionary<string, HistoryResultField>("Fields", oldFields,
-                                StringComparer.OrdinalIgnoreCase);
+                            _fields = new OrderedDictionary<string, HistoryResultField>("Fields", oldFields);
                         }
                         else _fields = (OrderedDictionary<string, HistoryResultField>)entry.Value;
                         break;

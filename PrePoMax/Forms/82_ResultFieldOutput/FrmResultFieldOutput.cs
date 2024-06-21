@@ -171,16 +171,14 @@ namespace PrePoMax.Forms
                     if (entry.Value == 0) throw new CaeException("All limit values must be different from 0.");
                 }
             }
-            // Check for vector or tensor field
+            // Check coordinate system transform
             if (_viewResultFieldOutput is ViewResultFieldOutputCoordinateSystemTransform vrfocst)
             {
-                string[] componentNames = _controller.CurrentResult.GetAllComponentNames();
-                if (componentNames == null ||  componentNames.Length == 0)
-                    throw new CaeException("The selected field output has no components.");
-                FieldData fieldData = _controller.CurrentResult.GetFieldData(vrfocst.FieldName, componentNames[0], 1, 1, true);
-                Field field = _controller.CurrentResult.GetField(fieldData);
-                if (field.DataType != DataTypeEnum.Vector && field.DataType != DataTypeEnum.Tensor)
+                DataTypeEnum dataType = _controller.CurrentResult.GetFieldDataType(vrfocst.FieldName);
+                if (dataType != DataTypeEnum.Vector && dataType != DataTypeEnum.Tensor)
                     throw new CaeException("Only vector or tensor field output can be transformed.");
+                else if (!_controller.CurrentResult.DoesFieldContainsAllNecessaryComponents(vrfocst.FieldName))
+                    throw new CaeException("The field output does not contain all necessary componets.");
             }
             // Create
             if (_resultFieldOutputToEditName == null)

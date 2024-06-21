@@ -12,7 +12,7 @@ namespace vtkControl
     {
         public bool Active;
         public vtkPlane Plane;
-        public bool InvertColors;
+        public bool LightenColors;
         public Color SectionColor;
 
 
@@ -26,7 +26,7 @@ namespace vtkControl
         {
             Active = false;
             Plane = null;
-            InvertColors = false;
+            LightenColors = true;
             SectionColor = Color.Empty;
         }
     }

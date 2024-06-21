@@ -335,7 +335,7 @@ namespace CaeGlobals
             return names.ToArray();
         }
         // Color
-        public static Color Invert(this Color color)
+        public static Color Lighten(this Color color)
         {
             double hue;
             double saturation;
@@ -345,7 +345,11 @@ namespace CaeGlobals
                 return Color.FromArgb(255 - color.R, 255 - color.G, 255 - color.B);
             else
             {
-                hue = (hue + 180) % 360;
+                // Invert
+                // hue = (hue + 180) % 360;
+                // Lighten
+                saturation += (1 - saturation) * 0.2;
+                value = 1;
                 return ColorFromHSV(hue, saturation, value);
             }
         }

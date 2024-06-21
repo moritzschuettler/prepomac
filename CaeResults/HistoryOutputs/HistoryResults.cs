@@ -30,7 +30,7 @@ namespace CaeResults
         public HistoryResults(string name)
             : base(name)
         {
-            _sets = new OrderedDictionary<string, HistoryResultSet>("Sets", StringComparer.OrdinalIgnoreCase);
+            _sets = new OrderedDictionary<string, HistoryResultSet>("Sets");
         }
         //ISerializable
         public HistoryResults(SerializationInfo info, StreamingContext context)
@@ -45,8 +45,7 @@ namespace CaeResults
                         if (entry.Value is Dictionary<string, HistoryResultSet> oldSets)
                         {
                             oldSets.OnDeserialization(null);
-                            _sets = new OrderedDictionary<string, HistoryResultSet>("Sets", oldSets,
-                                StringComparer.OrdinalIgnoreCase);
+                            _sets = new OrderedDictionary<string, HistoryResultSet>("Sets", oldSets);
                         }
                         else _sets = (OrderedDictionary<string, HistoryResultSet>)entry.Value;
                         break;

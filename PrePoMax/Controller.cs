@@ -2063,27 +2063,27 @@ namespace PrePoMax
         {
             Octree.Plane plane = _sectionViews.GetCurrentSectionViewPlane();
             if (plane != null) CreateSectionView(plane.Point.Coor, plane.Normal.Coor,
-                                                _sectionViews.InvertColors, _sectionViews.SectionColor);
+                                                _sectionViews.LightenColors, _sectionViews.SectionColor);
         }
-        public void CreateSectionView(double[] point, double[] normal, bool invertColors, Color sectionColor)
+        public void CreateSectionView(double[] point, double[] normal, bool lightenColors, Color sectionColor)
         {
             _sectionViews.SetCurrentSectionViewPlane(point, normal);
-            _sectionViews.InvertColors = invertColors;
+            _sectionViews.LightenColors = lightenColors;
             _sectionViews.SectionColor = sectionColor;
-            _form.CreateSectionView(point, normal, invertColors, sectionColor);
+            _form.CreateSectionView(point, normal, lightenColors, sectionColor);
         }
-        public void UpdateSectionView(double[] point, double[] normal, bool invertColors, Color sectionColor)
+        public void UpdateSectionView(double[] point, double[] normal, bool lightenColors, Color sectionColor)
         {
             _sectionViews.SetCurrentPointAndNormal(point, normal);
-            _sectionViews.InvertColors = invertColors;
+            _sectionViews.LightenColors = lightenColors;
             _sectionViews.SectionColor = sectionColor;
-            _form.UpdateSectionView(point, normal, invertColors, sectionColor);
+            _form.UpdateSectionView(point, normal, lightenColors, sectionColor);
         }
         public void TurnSectionViewOnOff()
         {
             if (_sectionViews.IsSectionViewActive()) RemoveSectionView();
             else CreateSectionView(GetSectionViewBBCenter().Coor, GetDefaultSectionViewNormal(),
-                                   _sectionViews.InvertColors, _sectionViews.SectionColor);
+                                   _sectionViews.LightenColors, _sectionViews.SectionColor);
         }
         public void ResetSectionView()
         {
@@ -2325,7 +2325,7 @@ namespace PrePoMax
             _annotations.ResumeCurrentAnnotations();
             // Resume section view
             if (sectionViewPlane != null) CreateSectionView(sectionViewPlane.Point.Coor, sectionViewPlane.Normal.Coor,
-                                                           _sectionViews.InvertColors, _sectionViews.SectionColor);
+                                                           _sectionViews.LightenColors, _sectionViews.SectionColor);
             // Resume undeformed results view
             if (_currentView == ViewGeometryModelResults.Results)
             {

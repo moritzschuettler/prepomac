@@ -4340,7 +4340,7 @@ namespace vtkControl
         #endregion  ################################################################################################################
 
         #region Section view  ######################################################################################################
-        public void CreateSectionView(double[] point, double[] normal, bool invertColors, Color sectionColor)
+        public void CreateSectionView(double[] point, double[] normal, bool lightenColors, Color sectionColor)
         {
             lock (myLock)
             {
@@ -4351,7 +4351,7 @@ namespace vtkControl
                     _sectionViewData.Plane = vtkPlane.New();
                     _sectionViewData.Plane.SetOrigin(point[0], point[1], point[2]);
                     _sectionViewData.Plane.SetNormal(normal[0], normal[1], normal[2]);
-                    _sectionViewData.InvertColors = invertColors;
+                    _sectionViewData.LightenColors = lightenColors;
                     _sectionViewData.SectionColor = sectionColor;
                     //
                     foreach (var entry in _actors)
@@ -4368,8 +4368,8 @@ namespace vtkControl
                             //
                             if (sectionViewActor != null)
                             {
-                                if (_sectionViewData.InvertColors)
-                                    sectionViewActor.Color = sectionViewActor.Color.Invert();
+                                if (_sectionViewData.LightenColors)
+                                    sectionViewActor.Color = sectionViewActor.Color.Lighten();
                                 else if (_sectionViewData.SectionColor != null &&
                                          _sectionViewData.SectionColor != Color.Empty)
                                 {
@@ -4388,7 +4388,7 @@ namespace vtkControl
                 }
             }
         }
-        public void UpdateSectionView(double[] point, double[] normal, bool invertColors, Color sectionColor)
+        public void UpdateSectionView(double[] point, double[] normal, bool lightenColors, Color sectionColor)
         {
             lock (myLock)
             {
@@ -4399,7 +4399,7 @@ namespace vtkControl
                     // Modify section cut plane
                     _sectionViewData.Plane.SetOrigin(point[0], point[1], point[2]);
                     _sectionViewData.Plane.SetNormal(normal[0], normal[1], normal[2]);
-                    _sectionViewData.InvertColors = invertColors;
+                    _sectionViewData.LightenColors = lightenColors;
                     _sectionViewData.SectionColor = sectionColor;
                     // Add new section cut actors
                     vtkMaxActor sectionViewActor;
@@ -4411,8 +4411,8 @@ namespace vtkControl
                             //
                             if (sectionViewActor != null)
                             {
-                                if (_sectionViewData.InvertColors)
-                                    sectionViewActor.Color = sectionViewActor.Color.Invert();
+                                if (_sectionViewData.LightenColors)
+                                    sectionViewActor.Color = sectionViewActor.Color.Lighten();
                                 else if (_sectionViewData.SectionColor != null &&
                                          _sectionViewData.SectionColor != Color.Empty)
                                 {
@@ -5939,7 +5939,7 @@ namespace vtkControl
             ApplyTransforms();
             //
             if (applySectionView) CreateSectionView(sectionViewData.Plane.GetOrigin(), sectionViewData.Plane.GetNormal(),
-                                                   sectionViewData.InvertColors, sectionViewData.SectionColor);
+                                                   sectionViewData.LightenColors, sectionViewData.SectionColor);
             //
             UpdateScalarFormatting();
             //
