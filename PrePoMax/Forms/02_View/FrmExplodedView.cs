@@ -74,7 +74,7 @@ namespace PrePoMax.Forms
             {
                 // Suppress section view
                 _sectionViewPlane = _controller.GetSectionViewPlane();
-                if (_sectionViewPlane != null) _controller.RemoveSectionView();
+                if (_sectionViewPlane != null) _controller.RemoveSectionView(true);
                 // Suppress symbols
                 _drawSymbolsForStep = _controller.GetDrawSymbolsForStep();
                 _controller.DrawSymbols("None", false);
@@ -110,8 +110,7 @@ namespace PrePoMax.Forms
                 // Resume annotations
                 _controller.Annotations.ResumeCurrentAnnotations();
                 // Resume section view
-                if (_sectionViewPlane != null) _controller.ApplySectionView(_sectionViewPlane.Point.Coor,
-                                                                            _sectionViewPlane.Normal.Coor);
+                if (_sectionViewPlane != null) _controller.ApplySectionView();
             }
         }
         private void propertyGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)

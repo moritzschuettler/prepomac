@@ -8,6 +8,7 @@ using CaeGlobals;
 using System.ComponentModel;
 using DynamicTypeDescriptor;
 using System.Drawing.Design;
+using System.Drawing;
 
 namespace PrePoMax.Forms
 {
@@ -20,6 +21,9 @@ namespace PrePoMax.Forms
         private ItemSetData _normalItemSetData;
         private double[] _point;
         private double[] _normal;
+        private bool _invertColors = false;
+        private bool _useSingleColor = false;
+        private Color _sectionColor = Color.LightGreen;
 
 
         // Properties                                                                                                               
@@ -42,21 +46,21 @@ namespace PrePoMax.Forms
         [OrderedDisplayName(1, 10, "X")]
         [Description("X coordinate of the point on plane.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(1, 1)]
+        [Id(2, 1)]
         public double X { get { return _point[0]; } set { _point[0] = value; } }
         //
         [Category("Point coordinates")]
         [OrderedDisplayName(2, 10, "Y")]
         [Description("Y coordinate of the point on plane.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(1, 1)]
+        [Id(3, 1)]
         public double Y { get { return _point[1]; } set { _point[1] = value; } }
         //
         [Category("Point coordinates")]
         [OrderedDisplayName(3, 10, "Z")]
         [Description("Z coordinate of the point on plane.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(1, 1)]
+        [Id(4, 1)]
         public double Z { get { return _point[2]; } set { _point[2] = value; } }
         //
         //
@@ -79,23 +83,66 @@ namespace PrePoMax.Forms
         [OrderedDisplayName(1, 10, "X")]
         [Description("X component of the normal direction.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(1, 2)]
+        [Id(2, 2)]
         public double Nx { get { return _normal[0]; } set { _normal[0] = value; } }
         //
         [Category("Normal direction")]
         [OrderedDisplayName(2, 10, "Y")]
         [Description("Y component of the normal direction.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(1, 2)]
+        [Id(3, 2)]
         public double Ny { get { return _normal[1]; } set { _normal[1] = value; } }
         //
         [Category("Normal direction")]
         [OrderedDisplayName(3, 10, "Z")]
         [Description("Z component of the normal direction.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(1, 2)]
+        [Id(4, 2)]
         public double Nz { get { return _normal[2]; } set { _normal[2] = value; } }
         //
+        //
+        [Category("Appearance")]
+        [OrderedDisplayName(0, 10, "Invert section colors")]
+        [Description("Select Yes to invert section colors.")]
+        [Id(1, 3)]
+        public bool InvertColors
+        {
+            get { return _invertColors; }
+            set
+            {
+                _invertColors = value;
+                if (_invertColors) _useSingleColor = false;
+                UpdateVisibility();
+            }
+        }
+        [Category("Appearance")]
+        [OrderedDisplayName(1, 10, "Use single section color")]
+        [Description("Select Yes to apply a single color to the section.")]
+        [Id(2, 3)]
+        public bool UseSingleColor
+        {
+            get { return _useSingleColor; }
+            set
+            {
+                _useSingleColor = value;
+                if (_useSingleColor) _invertColors = false;
+                UpdateVisibility();
+            }
+        }
+        //
+        [Category("Appearance")]
+        [OrderedDisplayName(2, 10, "Color")]
+        [Description("Select the single color for the section.")]
+        [Id(3, 3)]
+        public Color SectionColor
+        {
+            get
+            {
+                if (_useSingleColor) return _sectionColor;
+                else return Color.Empty;
+            }
+            set { _sectionColor = value; }
+        }
         //
         [Browsable(false)]
         public double[] Point { get { return _point; } set { _point = value; } }
@@ -117,6 +164,11 @@ namespace PrePoMax.Forms
             //
             _normalItemSetData = new ItemSetData(); // needed to display ItemSetData.ToString()
             _normalItemSetData.ToStringType = ItemSetDataToStringType.SelectTwoPoints;
+            //
+            _dctd.RenameBooleanPropertyToYesNo(nameof(InvertColors));
+            _dctd.RenameBooleanPropertyToYesNo(nameof(UseSingleColor));
+            //
+            UpdateVisibility();
         }
 
 
@@ -126,6 +178,11 @@ namespace PrePoMax.Forms
             _point = new double[] { 0, 0, 0 };
             _normal = new double[] { 1, 0, 0 };
         }
+        private void UpdateVisibility()
+        {
+            _dctd.GetProperty(nameof(SectionColor)).SetIsBrowsable(_useSingleColor);
+        }
+
        
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -14,10 +15,14 @@ namespace PrePoMax
         private Octree.Plane _geometrySectionViewPlane;
         private Octree.Plane _modelSectionViewPlane;
         private Dictionary<string, Octree.Plane> _allResultsSectionViewPlane;
+        private bool _invertColors;
+        private Color _sectionColor;
 
 
         // Properties                                                                                                               
         public string CurrentResultName { get { return _controller.AllResults.GetCurrentResultName(); } }
+        public bool InvertColors { get { return _invertColors; } set { _invertColors = value; } }
+        public Color SectionColor { get { return _sectionColor; } set { _sectionColor = value; } }
 
 
         // Constructors                                                                                                             
@@ -26,6 +31,8 @@ namespace PrePoMax
             _controller = controller;
             ClearModelSectionViews();
             _allResultsSectionViewPlane = new Dictionary<string, Octree.Plane>();
+            _invertColors = false;
+            _sectionColor = Color.Empty;
         }
 
 

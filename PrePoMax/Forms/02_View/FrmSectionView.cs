@@ -22,6 +22,7 @@ namespace PrePoMax.Forms
         private Vec3D _projHalfSize;
         private Octree.Plane _plane;
 
+
         // Properties                                                                                                               
 
 
@@ -70,7 +71,8 @@ namespace PrePoMax.Forms
                         SetScrollBarPositionFromPoint();
                     }
                     //
-                    _controller.ApplySectionView(_sectionViewParameters.Point, _sectionViewParameters.Normal);
+                    _controller.CreateSectionView(_sectionViewParameters.Point, _sectionViewParameters.Normal,
+                                                  _sectionViewParameters.InvertColors, _sectionViewParameters.SectionColor);
                     //
                     this.Enabled = true;
                 }
@@ -318,10 +320,9 @@ namespace PrePoMax.Forms
                 UpdateProjHalfSize();
                 //
                 _sectionViewParameters = (SectionViewParameters)propertyGrid.SelectedObject;
-                double[] point = _sectionViewParameters.Point;
-                double[] normal = _sectionViewParameters.Normal;
                 //
-                _controller.UpdateSectionView(point, normal);
+                _controller.UpdateSectionView(_sectionViewParameters.Point, _sectionViewParameters.Normal,
+                                              _sectionViewParameters.InvertColors, _sectionViewParameters.SectionColor);
                 //
                 //System.Diagnostics.Debug.WriteLine("Section cut time: " + DateTime.Now.ToLongTimeString() + "   Duration: " + watch.ElapsedMilliseconds);
             }

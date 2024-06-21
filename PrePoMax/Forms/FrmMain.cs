@@ -2288,7 +2288,7 @@ namespace PrePoMax
         {
             try
             {
-                _controller.TurnSectionViewOnOff();
+                if (!_frmSectionView.Visible) _controller.TurnSectionViewOnOff();
             }
             catch (Exception ex)
             {
@@ -8607,14 +8607,14 @@ namespace PrePoMax
             InvokeIfRequired(_vtk.UpdateScalarsAndCameraAndRedraw);
         }
         // Section view
-        public void ApplySectionView(double[] point, double[] normal)
+        public void CreateSectionView(double[] point, double[] normal, bool invertColors, Color sectionColor)
         {
-            InvokeIfRequired(_vtk.ApplySectionView, point, normal);
+            InvokeIfRequired(_vtk.CreateSectionView, point, normal, invertColors, sectionColor);
             InvokeIfRequired(() => { tsbSectionView.Checked = true; });
         }
-        public void UpdateSectionView(double[] point, double[] normal)
+        public void UpdateSectionView(double[] point, double[] normal, bool invertColors, Color sectionColor)
         {
-            InvokeIfRequired(_vtk.UpdateSectionView, point, normal);
+            InvokeIfRequired(_vtk.UpdateSectionView, point, normal, invertColors, sectionColor);
             InvokeIfRequired(() => { tsbSectionView.Checked = true; });
         }
         public void RemoveSectionView()

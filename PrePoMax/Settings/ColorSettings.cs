@@ -54,11 +54,11 @@ namespace PrePoMax
             {
                 Color.Beige,
                 Color.DarkSeaGreen,
-                Color.LightGray,
+                Color.Khaki,
                 Color.SteelBlue,
                 Color.BurlyWood,
                 Color.LightSteelBlue,
-                Color.Gray,
+                Color.MistyRose,
                 Color.DarkSalmon,
                 Color.DarkKhaki,
                 Color.NavajoWhite
@@ -68,5 +68,5 @@ namespace PrePoMax
             _backFaceColor = Color.PowderBlue;
         }
 
-}
+    }
 }

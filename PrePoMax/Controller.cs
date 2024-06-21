@@ -2059,24 +2059,43 @@ namespace PrePoMax
 
         #region View menu   ########################################################################################################
         // Section view
-        public void ApplySectionView(double[] point, double[] normal)
+        public void ApplySectionView()
+        {
+            Octree.Plane plane = _sectionViews.GetCurrentSectionViewPlane();
+            if (plane != null) CreateSectionView(plane.Point.Coor, plane.Normal.Coor,
+                                                _sectionViews.InvertColors, _sectionViews.SectionColor);
+        }
+        public void CreateSectionView(double[] point, double[] normal, bool invertColors, Color sectionColor)
         {
             _sectionViews.SetCurrentSectionViewPlane(point, normal);
-            _form.ApplySectionView(point, normal);
+            _sectionViews.InvertColors = invertColors;
+            _sectionViews.SectionColor = sectionColor;
+            _form.CreateSectionView(point, normal, invertColors, sectionColor);
         }
-        public void UpdateSectionView(double[] point, double[] normal)
+        public void UpdateSectionView(double[] point, double[] normal, bool invertColors, Color sectionColor)
         {
             _sectionViews.SetCurrentPointAndNormal(point, normal);
-            _form.UpdateSectionView(point, normal);
+            _sectionViews.InvertColors = invertColors;
+            _sectionViews.SectionColor = sectionColor;
+            _form.UpdateSectionView(point, normal, invertColors, sectionColor);
         }
         public void TurnSectionViewOnOff()
         {
             if (_sectionViews.IsSectionViewActive()) RemoveSectionView();
-            else ApplySectionView(GetSectionViewBBCenter().Coor, GetDefaultSectionViewNormal());
+            else CreateSectionView(GetSectionViewBBCenter().Coor, GetDefaultSectionViewNormal(),
+                                   _sectionViews.InvertColors, _sectionViews.SectionColor);
         }
-        public void RemoveSectionView()
+        public void ResetSectionView()
         {
-            _sectionViews.RemoveCurrentSectionView();
+            if (_sectionViews.GetCurrentSectionViewPlane() != null)
+            {
+                _form.RemoveSectionView();
+                ApplySectionView();
+            }
+        }
+        public void RemoveSectionView(bool keepSectionPlane = false)
+        {
+            if (!keepSectionPlane) _sectionViews.RemoveCurrentSectionView();
             _form.RemoveSectionView();
         }
         //
@@ -2305,7 +2324,8 @@ namespace PrePoMax
             // Resume annotations
             _annotations.ResumeCurrentAnnotations();
             // Resume section view
-            if (sectionViewPlane != null) ApplySectionView(sectionViewPlane.Point.Coor, sectionViewPlane.Normal.Coor);
+            if (sectionViewPlane != null) CreateSectionView(sectionViewPlane.Point.Coor, sectionViewPlane.Normal.Coor,
+                                                           _sectionViews.InvertColors, _sectionViews.SectionColor);
             // Resume undeformed results view
             if (_currentView == ViewGeometryModelResults.Results)
             {
@@ -12361,8 +12381,7 @@ namespace PrePoMax
                             AnnotateWithColorLegend();
                             _annotations.DrawAnnotations();
                             //
-                            Octree.Plane plane = _sectionViews.GetCurrentSectionViewPlane();
-                            if (plane != null) ApplySectionView(plane.Point.Coor, plane.Normal.Coor);
+                            ApplySectionView();
                         }
                         UpdateHighlight();
                     }
@@ -12476,8 +12495,7 @@ namespace PrePoMax
                                 DrawModelSymbols();
                                 _annotations.DrawAnnotations();
                                 //
-                                Octree.Plane plane = _sectionViews.GetCurrentSectionViewPlane();
-                                if (plane != null) ApplySectionView(plane.Point.Coor, plane.Normal.Coor);
+                                ApplySectionView();
                             }
                             catch { }
                         }
@@ -12911,13 +12929,7 @@ namespace PrePoMax
                     // Must be inside to continue screen update
                     if (_currentView != ViewGeometryModelResults.Model) CurrentView = ViewGeometryModelResults.Model;
                     DrawModelSymbols();
-                    //
-                    Octree.Plane plane = _sectionViews.GetCurrentSectionViewPlane();
-                    if (plane != null)
-                    {
-                        RemoveSectionView();
-                        ApplySectionView(plane.Point.Coor, plane.Normal.Coor);
-                    }
+                    ResetSectionView();
                 }
                 catch { }
                 //
@@ -12944,13 +12956,7 @@ namespace PrePoMax
                     // Must be inside to continue screen update
                     if (_currentView != ViewGeometryModelResults.Results) CurrentView = ViewGeometryModelResults.Results;
                     DrawResultSymbols();
-                    //
-                    Octree.Plane plane = _sectionViews.GetCurrentSectionViewPlane();
-                    if (plane != null)
-                    {
-                        RemoveSectionView();
-                        ApplySectionView(plane.Point.Coor, plane.Normal.Coor);
-                    }
+                    ResetSectionView();
                 }
                 catch { }
                 //
@@ -16469,8 +16475,7 @@ namespace PrePoMax
                     // Annotations
                     _annotations.DrawAnnotations();
                     // Section view
-                    Octree.Plane plane = _sectionViews.GetCurrentSectionViewPlane();
-                    if (plane != null) ApplySectionView(plane.Point.Coor, plane.Normal.Coor);
+                    ApplySectionView();
                     //
                     UpdateHighlight();
                     //
@@ -16627,8 +16632,7 @@ namespace PrePoMax
             // Annotations
             _annotations.DrawAnnotations(true);
             // Section view
-            Octree.Plane plane = _sectionViews.GetCurrentSectionViewPlane();
-            if (plane != null) ApplySectionView(plane.Point.Coor, plane.Normal.Coor);
+            ApplySectionView();
             // Animation field data
             float[] time = new float[numFrames];
             int[] stepId = new int[numFrames];
@@ -16708,8 +16712,7 @@ namespace PrePoMax
             // Annotations
             _annotations.DrawAnnotations(true);
             // Section view
-            Octree.Plane plane = _sectionViews.GetCurrentSectionViewPlane();
-            if (plane != null) ApplySectionView(plane.Point.Coor, plane.Normal.Coor);
+            ApplySectionView();
             // Animation field data
             var existingIncrements =
                 _allResults.CurrentResult.GetExistingIncrementIds(_currentFieldData.Name, _currentFieldData.Component);
@@ -16844,8 +16847,7 @@ namespace PrePoMax
             // Annotations
             _annotations.DrawAnnotations(true);
             // Section view
-            Octree.Plane plane = _sectionViews.GetCurrentSectionViewPlane();
-            if (plane != null) ApplySectionView(plane.Point.Coor, plane.Normal.Coor);
+            ApplySectionView();
             // Animation field data
             float[] time = new float[numFrames];
             int[] stepId = new int[numFrames];
@@ -17009,7 +17011,7 @@ namespace PrePoMax
             SetPostLegendAndStatusBlockSettings();
             //
             Octree.Plane plane = _sectionViews.GetCurrentSectionViewPlane();
-            if (plane != null) RemoveSectionView();
+            if (plane != null) _form.RemoveSectionView();
             //
             foreach (var entry in _allResults.CurrentResult.Mesh.Parts)
             {
@@ -17029,7 +17031,7 @@ namespace PrePoMax
             // Annotations
             _annotations.DrawAnnotations();
             //
-            if (plane != null) ApplySectionView(plane.Point.Coor, plane.Normal.Coor);
+            if (plane != null) ApplySectionView();
             //
             _form.UpdateScalarsAndRedraw();
         }
