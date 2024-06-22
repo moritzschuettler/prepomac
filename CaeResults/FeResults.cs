@@ -554,9 +554,9 @@ namespace CaeResults
                     //
                     if (valid)
                     {
+                        // Chek if USER DEFINED FILED is used and if it is valid
                         if (_resultFieldOutputs.TryGetValue(rhoff.FieldName, out existingResultFieldOutput))
                             valid &= existingResultFieldOutput.Valid;
-                        else valid = false;
                         //
                         if (valid)
                         {
@@ -3445,7 +3445,7 @@ namespace CaeResults
             // Create result history set
             HistoryResultEntries historyResultEntries;
             HistoryResultComponent historyResultComponent = new HistoryResultComponent("VALUE");
-            historyResultComponent.Unit = "/";
+            historyResultComponent.Unit = resultHistoryOutput.Unit;
             // Entry names
             if (!entryNamesEqual)
             {
@@ -4044,6 +4044,8 @@ namespace CaeResults
                 //
                 string[] tmp;
                 string[] splitter = new string[] { ResultHistoryOutputFromEquation.EquationSeparator };
+                HistoryResultSet historyResultSet;
+                HistoryResultField historyResultField;
                 HistoryResultComponent historyResultComponent;
                 HistoryResultEntries historyResultEntry;
                 //
@@ -4055,7 +4057,13 @@ namespace CaeResults
                     tmp = parameterName.Split(splitter, StringSplitOptions.None);
                     if (tmp.Length != 3) continue;
                     //
-                    historyResultComponent = _history.Sets[tmp[0]].Fields[tmp[1]].Components[tmp[2]];
+                    if (!_history.Sets.TryGetValue(tmp[0], out historyResultSet))
+                        throw new CaeException("The history output " + tmp[0] + " does not exist.");
+                    if (!historyResultSet.Fields.TryGetValue(tmp[1], out historyResultField))
+                        throw new CaeException("The field " + tmp[1] + " of the history output " + tmp[0] + " does not exist.");
+                    if (!historyResultField.Components.TryGetValue(tmp[2], out historyResultComponent))
+                        throw new CaeException("The component " + tmp[2] + " of the history output " + tmp[0] + " does not exist.");
+                    //
                     if (numItems == -1) numItems = historyResultComponent.Entries.Count();
                     else if (numItems != historyResultComponent.Entries.Count())
                         throw new CaeException("All selected history output components must contain the same number of items.");

@@ -32,8 +32,13 @@ namespace PrePoMax
                 _historyOutput.Equation = value;
             }
         }
+        //
+        [CategoryAttribute("Data")]
+        [OrderedDisplayName(2, 10, "User defined unit")]
+        [DescriptionAttribute("User defined unit for the history output equation value.")]
+        public string Unit { get { return _historyOutput.Unit; } set { _historyOutput.Unit = value; } }
 
-       
+
         // Constructors                                                                                                             
         public ViewResultHistoryOutputFromEquation(ResultHistoryOutputFromEquation historyOutput)
         {

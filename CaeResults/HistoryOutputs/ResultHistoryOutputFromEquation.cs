@@ -14,11 +14,13 @@ namespace CaeResults
         // Variables                                                                                                                
         public static string EquationSeparator = ".";
         private string _equation;
+        private string _unit;
         private string[] _parentNames;
 
 
         // Properties                                                                                                               
         public string Equation { get { return _equation; } set { _equation = value; } }
+        public string Unit { get { return _unit; } set { _unit = value; } }
 
 
         // Constructors                                                                                                             
@@ -26,6 +28,7 @@ namespace CaeResults
             : base(name, "", RegionTypeEnum.None)
         {
             _equation = equation;
+            _unit = "/";
             _parentNames = null;
         }
 
