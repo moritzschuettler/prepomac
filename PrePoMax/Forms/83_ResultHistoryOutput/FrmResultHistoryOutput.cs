@@ -238,7 +238,7 @@ namespace PrePoMax.Forms
             ListViewItem item;
             FieldData fieldData = _controller.CurrentFieldData;
             // History output from field output
-            item = new ListViewItem("History output from field output");
+            item = new ListViewItem("From Field Output");
             ResultHistoryOutputFromField rhoff =
                 new ResultHistoryOutputFromField(GetHistoryOutputName("FF"), fieldData.Name, null, "", RegionTypeEnum.Selection);
             ViewResultHistoryOutputFromField vrhoff =
@@ -247,8 +247,8 @@ namespace PrePoMax.Forms
             item.Tag = vrhoff;
             lvTypes.Items.Add(item);
             // History output from equation
-            item = new ListViewItem("History output from equation");
-            ResultHistoryOutputFromEquation rhofe = new ResultHistoryOutputFromEquation(GetHistoryOutputName("FF"), "=[FFH_Output-1.DISP.U1]+[FFH_Output-1.DISP.U2]");
+            item = new ListViewItem("From History Output by Equation");
+            ResultHistoryOutputFromEquation rhofe = new ResultHistoryOutputFromEquation(GetHistoryOutputName("FE"), "=[FFH_Output-1.DISP.U1]+[FFH_Output-1.DISP.U2]");
             ViewResultHistoryOutputFromEquation vrhofe = new ViewResultHistoryOutputFromEquation(rhofe);
             vrhofe.PopulateDropDownLists();
             item.Tag = vrhofe;

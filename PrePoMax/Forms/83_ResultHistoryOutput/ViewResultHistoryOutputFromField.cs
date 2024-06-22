@@ -23,10 +23,28 @@ namespace PrePoMax
 
         // Properties                                                                                                               
         public override string Name { get { return _historyOutput.Name; } set { _historyOutput.Name = value; } }
+        
+        [CategoryAttribute("Region")]
+        [OrderedDisplayName(2, 10, "Node set")]
+        [DescriptionAttribute("Select the node set for the creation of the history output.")]
+        [Id(3, 2)]
+        public string NodeSetName { get { return _historyOutput.RegionName; } set { _historyOutput.RegionName = value; } }
         //
-        [CategoryAttribute("Data")]
-        [OrderedDisplayName(1, 10, "Field name")]
+        [CategoryAttribute("Region")]
+        [OrderedDisplayName(3, 10, "Surface")]
+        [DescriptionAttribute("Select the surface for the creation of the history output.")]
+        [Id(4, 2)]
+        public string SurfaceName { get { return _historyOutput.RegionName; } set { _historyOutput.RegionName = value; } }
+
+
+
+
+
+        //
+        [CategoryAttribute("Source field")]
+        [OrderedDisplayName(0, 10, "Field name")]
         [DescriptionAttribute("Filed name for the history output.")]
+        [Id(1, 3)]
         public string FieldName
         {
             get { return _historyOutput.FieldName; }
@@ -40,9 +58,10 @@ namespace PrePoMax
             }
         }
         //
-        [CategoryAttribute("Data")]
-        [OrderedDisplayName(2, 10, "Components")]
+        [CategoryAttribute("Source field")]
+        [OrderedDisplayName(1, 10, "Components")]
         [DescriptionAttribute("Component names for the history output.")]
+        [Id(2, 3)]
         public MultiChoiceEnum ComponentNames
         {
             get
@@ -57,9 +76,10 @@ namespace PrePoMax
             }
         }
         //
-        [CategoryAttribute("Data")]
-        [OrderedDisplayName(3, 10, "Complex")]
+        [CategoryAttribute("Source field")]
+        [OrderedDisplayName(2, 10, "Complex")]
         [DescriptionAttribute("Complex component for the history output.")]
+        [Id(3, 3)]
         public ComplexResultTypeEnum ComplexResultType
         {
             get { return _historyOutput.ComplexResultType; }
@@ -70,19 +90,21 @@ namespace PrePoMax
             }
         }
         //
-        [CategoryAttribute("Data")]
-        [OrderedDisplayName(4, 10, "Angle")]
+        [CategoryAttribute("Source field")]
+        [OrderedDisplayName(3, 10, "Angle")]
         [DescriptionAttribute("Angle for the history output.")]
         [TypeConverter(typeof(StringAngleDegConverter))]
+        [Id(4, 3)]
         public double ComplexAngleDeg
         {
             get { return _historyOutput.ComplexAngleDeg; }
             set { _historyOutput.ComplexAngleDeg = value; }
         }
         //
-        [CategoryAttribute("Data")]
-        [OrderedDisplayName(5, 10, "Step id")]
+        [CategoryAttribute("Source field")]
+        [OrderedDisplayName(4, 10, "Step id")]
         [DescriptionAttribute("Step id for the history output.")]
+        [Id(5, 3)]
         public string StepId
         {
             get
@@ -102,9 +124,10 @@ namespace PrePoMax
             }
         }
         //
-        [CategoryAttribute("Data")]
-        [OrderedDisplayName(6, 10, "Increment id")]
+        [CategoryAttribute("Source field")]
+        [OrderedDisplayName(5, 10, "Increment id")]
         [DescriptionAttribute("Increment id for the history output.")]
+        [Id(6, 3)]
         public string StepIncrementId
         {
             get
@@ -125,31 +148,22 @@ namespace PrePoMax
             }
         }
         //
-        [CategoryAttribute("Data")]
-        [OrderedDisplayName(7, 10, "Harmonic")]
+        [CategoryAttribute("Source field")]
+        [OrderedDisplayName(6, 10, "Harmonic")]
         [DescriptionAttribute("Output harmonic oscillations as the history output.")]
+        [Id(7, 3)]
         public bool Harmonic { get { return _historyOutput.Harmonic; } set { _historyOutput.Harmonic = value; } }
         //
-        [CategoryAttribute("Data")]
-        [OrderedDisplayName(8, 10, "Node coordinates")]
+        [CategoryAttribute("Position")]
+        [OrderedDisplayName(0, 10, "Node coordinates")]
         [DescriptionAttribute("Output node coordinates in the history output.")]
+        [Id(1, 4)]
         public OutputNodeCoordinatesEnum OutputNodeCoordinates
         {
             get { return _historyOutput.OutputNodeCoordinates; }
             set { _historyOutput.OutputNodeCoordinates = value; }
         }
         //
-        [CategoryAttribute("Region")]
-        [OrderedDisplayName(2, 10, "Node set")]
-        [DescriptionAttribute("Select the node set for the creation of the history output.")]
-        public string NodeSetName { get { return _historyOutput.RegionName; } set { _historyOutput.RegionName = value; } }
-        //
-        [CategoryAttribute("Region")]
-        [OrderedDisplayName(3, 10, "Surface")]
-        [DescriptionAttribute("Select the surface for the creation of the history output.")]
-        public string SurfaceName { get { return _historyOutput.RegionName; } set { _historyOutput.RegionName = value; } }
-
-       
         // Constructors                                                                                                             
         public ViewResultHistoryOutputFromField(ResultHistoryOutputFromField historyOutput, bool complexVisible)
         {
