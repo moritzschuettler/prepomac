@@ -23,7 +23,7 @@ namespace PrePoMax
 
         // Properties                                                                                                               
         public override string Name { get { return _historyOutput.Name; } set { _historyOutput.Name = value; } }
-        
+        //
         [CategoryAttribute("Region")]
         [OrderedDisplayName(2, 10, "Node set")]
         [DescriptionAttribute("Select the node set for the creation of the history output.")]
@@ -35,13 +35,8 @@ namespace PrePoMax
         [DescriptionAttribute("Select the surface for the creation of the history output.")]
         [Id(4, 2)]
         public string SurfaceName { get { return _historyOutput.RegionName; } set { _historyOutput.RegionName = value; } }
-
-
-
-
-
         //
-        [CategoryAttribute("Source field")]
+        [CategoryAttribute("Source")]
         [OrderedDisplayName(0, 10, "Field name")]
         [DescriptionAttribute("Filed name for the history output.")]
         [Id(1, 3)]
@@ -58,7 +53,7 @@ namespace PrePoMax
             }
         }
         //
-        [CategoryAttribute("Source field")]
+        [CategoryAttribute("Source")]
         [OrderedDisplayName(1, 10, "Components")]
         [DescriptionAttribute("Component names for the history output.")]
         [Id(2, 3)]
@@ -76,7 +71,7 @@ namespace PrePoMax
             }
         }
         //
-        [CategoryAttribute("Source field")]
+        [CategoryAttribute("Source")]
         [OrderedDisplayName(2, 10, "Complex")]
         [DescriptionAttribute("Complex component for the history output.")]
         [Id(3, 3)]
@@ -90,7 +85,7 @@ namespace PrePoMax
             }
         }
         //
-        [CategoryAttribute("Source field")]
+        [CategoryAttribute("Source")]
         [OrderedDisplayName(3, 10, "Angle")]
         [DescriptionAttribute("Angle for the history output.")]
         [TypeConverter(typeof(StringAngleDegConverter))]
@@ -101,7 +96,7 @@ namespace PrePoMax
             set { _historyOutput.ComplexAngleDeg = value; }
         }
         //
-        [CategoryAttribute("Source field")]
+        [CategoryAttribute("Source")]
         [OrderedDisplayName(4, 10, "Step id")]
         [DescriptionAttribute("Step id for the history output.")]
         [Id(5, 3)]
@@ -124,7 +119,7 @@ namespace PrePoMax
             }
         }
         //
-        [CategoryAttribute("Source field")]
+        [CategoryAttribute("Source")]
         [OrderedDisplayName(5, 10, "Increment id")]
         [DescriptionAttribute("Increment id for the history output.")]
         [Id(6, 3)]
@@ -148,7 +143,7 @@ namespace PrePoMax
             }
         }
         //
-        [CategoryAttribute("Source field")]
+        [CategoryAttribute("Source")]
         [OrderedDisplayName(6, 10, "Harmonic")]
         [DescriptionAttribute("Output harmonic oscillations as the history output.")]
         [Id(7, 3)]
@@ -163,9 +158,11 @@ namespace PrePoMax
             get { return _historyOutput.OutputNodeCoordinates; }
             set { _historyOutput.OutputNodeCoordinates = value; }
         }
-        //
+        
+        
         // Constructors                                                                                                             
         public ViewResultHistoryOutputFromField(ResultHistoryOutputFromField historyOutput, bool complexVisible)
+            : base(historyOutput)
         {
             // The order is important
             _historyOutput = historyOutput;

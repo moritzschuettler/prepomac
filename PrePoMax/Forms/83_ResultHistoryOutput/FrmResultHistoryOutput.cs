@@ -48,10 +48,40 @@ namespace PrePoMax.Forms
             this.gbProperties.SuspendLayout();
             this.SuspendLayout();
             // 
+            // gbType
+            // 
+            this.gbType.Size = new System.Drawing.Size(310, 108);
+            // 
+            // lvTypes
+            // 
+            this.lvTypes.Size = new System.Drawing.Size(298, 80);
+            // 
+            // gbProperties
+            // 
+            this.gbProperties.Location = new System.Drawing.Point(12, 126);
+            this.gbProperties.Size = new System.Drawing.Size(310, 324);
+            // 
+            // propertyGrid
+            // 
+            this.propertyGrid.Size = new System.Drawing.Size(298, 296);
+            // 
+            // btnOK
+            // 
+            this.btnOK.Location = new System.Drawing.Point(160, 456);
+            // 
+            // btnCancel
+            // 
+            this.btnCancel.Location = new System.Drawing.Point(241, 456);
+            // 
+            // btnOkAddNew
+            // 
+            this.btnOkAddNew.Location = new System.Drawing.Point(79, 456);
+            // 
             // FrmResultHistoryOutput
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
-            this.ClientSize = new System.Drawing.Size(334, 461);
+            this.ClientSize = new System.Drawing.Size(334, 491);
+            this.MinimumSize = new System.Drawing.Size(350, 530);
             this.Name = "FrmResultHistoryOutput";
             this.Text = "Edit History Output";
             this.gbType.ResumeLayout(false);

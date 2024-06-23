@@ -19,6 +19,9 @@ namespace CaeResults
         private int[] _creationIds;
         private Selection _creationData;
         private HistoryResultSet historyResultSet;
+        private HistoryResultFilter _filter1;
+        private HistoryResultFilter _filter2;
+        private HistoryResultFilter _filter3;
 
 
         // Properties                                                                                                               
@@ -27,6 +30,9 @@ namespace CaeResults
         public int[] CreationIds { get { return _creationIds; } set { _creationIds = value; } }
         public Selection CreationData { get { return _creationData; } set { _creationData = value; } }
         public HistoryResultSet HistoryResultSet { get { return historyResultSet; } set { historyResultSet = value; } }
+        public HistoryResultFilter Filter1 { get { return _filter1; } set { _filter1 = value; } }
+        public HistoryResultFilter Filter2 { get { return _filter2; } set { _filter2 = value; } }
+        public HistoryResultFilter Filter3 { get { return _filter3; } set { _filter3 = value; } }
 
 
         // Constructors                                                                                                             
@@ -37,6 +43,9 @@ namespace CaeResults
             _regionType = regionType;
             _creationIds = null;
             _creationData = null;
+            _filter1 = new HistoryResultFilter();
+            _filter2 = new HistoryResultFilter();
+            _filter3 = new HistoryResultFilter();
         }
 
 

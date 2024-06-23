@@ -21,8 +21,15 @@ namespace PrePoMax
         public override string Name { get { return _historyOutput.Name; } set { _historyOutput.Name = value; } }
         //
         [CategoryAttribute("Data")]
-        [OrderedDisplayName(1, 10, "Equation")]
+        [OrderedDisplayName(1, 10, "User defined unit")]
+        [DescriptionAttribute("User defined unit for the history output equation value.")]
+        [Id(2, 1)]
+        public string Unit { get { return _historyOutput.Unit; } set { _historyOutput.Unit = value; } }
+        //
+        [CategoryAttribute("Data")]
+        [OrderedDisplayName(2, 10, "Equation")]
         [DescriptionAttribute("Equation for the history output evaluation.")]
+        [Id(3, 1)]
         public string Equation
         {
             get { return _historyOutput.Equation; }
@@ -32,15 +39,11 @@ namespace PrePoMax
                 _historyOutput.Equation = value;
             }
         }
-        //
-        [CategoryAttribute("Data")]
-        [OrderedDisplayName(2, 10, "User defined unit")]
-        [DescriptionAttribute("User defined unit for the history output equation value.")]
-        public string Unit { get { return _historyOutput.Unit; } set { _historyOutput.Unit = value; } }
 
 
         // Constructors                                                                                                             
         public ViewResultHistoryOutputFromEquation(ResultHistoryOutputFromEquation historyOutput)
+            : base(historyOutput)
         {
             // The order is important
             _historyOutput = historyOutput;

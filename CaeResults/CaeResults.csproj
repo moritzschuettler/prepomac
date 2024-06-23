@@ -83,6 +83,7 @@
     <Compile Include="FieldOutput\ResultFieldOutputLimit.cs" />
     <Compile Include="FileInOut\Input\OpenFoam\OpenFoamFileReader.cs" />
     <Compile Include="HistoryOutputNames.cs" />
+    <Compile Include="HistoryOutputs\HistoryResultFilter.cs" />
     <Compile Include="HistoryOutputs\HistoryResultData.cs" />
     <Compile Include="HistoryOutputs\HistoryResultComponent.cs" />
     <Compile Include="HistoryOutputs\HistoryResultField.cs" />
