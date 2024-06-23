@@ -154,7 +154,7 @@ namespace PrePoMax
             }
             else if (filter.Type == HistoryResultFilterTypeEnum.Minumun || filter.Type == HistoryResultFilterTypeEnum.Maximum)
             {
-                string description = "Select the return type data.";
+                string description = "Select the return data type.";
                 DynamicCustomTypeDescriptor.PopulateProperty(optionPropertyName, new string[] { "Column", "Row" });
                 DynamicCustomTypeDescriptor.GetProperty(optionPropertyName).SetDisplayName("Return" + nameSuffix);
                 DynamicCustomTypeDescriptor.GetProperty(optionPropertyName).SetDescription(description);
