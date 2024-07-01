@@ -37,10 +37,7 @@ namespace PrePoMax.Commands
         // ICommandWithDialog
         public bool ExecuteWithDialog(Controller receiver)
         {
-            if (_meshSetupItem is MeshingParameters mp)
-                _meshSetupItem = (MeshingParameters)receiver.EditMeshSetupItemByForm(mp.DeepClone());
-            else if (_meshSetupItem is FeMeshRefinement mr)
-                _meshSetupItem = (FeMeshRefinement)receiver.EditMeshSetupItemByForm(mr.DeepClone());
+            if (_meshSetupItem is MeshSetupItem msi) _meshSetupItem = receiver.EditMeshSetupItemByForm(msi.DeepClone());
             else throw new NotSupportedException("MeshSetupItemTypeException");
             //
             return Execute(receiver);

@@ -2144,8 +2144,6 @@ namespace PrePoMax
                 SetStateWorking(Globals.RegeneratingText);
                 _modelTree.ScreenUpdating = false;
                 await Task.Run(() => _controller.RegenerateHistoryCommands(showImportDialog, showMeshDialog));
-                //
-                SetMenuAndToolStripVisibility();
             }
             catch (Exception ex)
             {
@@ -2155,7 +2153,7 @@ namespace PrePoMax
             {
                 SetStateReady(Globals.RegeneratingText);
                 _modelTree.ScreenUpdating = true;
-                _modelTree.RegenerateTree(_controller.Model, _controller.Jobs, _controller.CurrentResult);
+                RegenerateTree();
                 //
                 SetMenuAndToolStripVisibility();
                 //
@@ -7802,10 +7800,7 @@ namespace PrePoMax
         }
         public void SelectLastSymbolName()
         {
-            InvokeIfRequired(() =>
-            {
-                tscbSymbols.SelectedIndex = tscbSymbols.Items.Count - 1;
-            });
+            tscbSymbols.SelectedIndex = tscbSymbols.Items.Count - 1;
         }
         public void UpdateSymbolsList()
         {
@@ -9090,6 +9085,7 @@ namespace PrePoMax
         {
             InvokeIfRequired(_modelTree.RegenerateTree, _controller.Model, _controller.Jobs, _controller.CurrentResult, remeshing);
             InvokeIfRequired(UpdateSymbolsList);
+            InvokeIfRequired(SelectLastSymbolName);
         }
         public void AddTreeNode(ViewGeometryModelResults view, NamedClass item, string parentName)
         {

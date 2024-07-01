@@ -649,7 +649,6 @@ namespace PrePoMax
             else if (_allResults.Count > 0) _currentView = ViewGeometryModelResults.Results;
             // Set view
             _form.SetCurrentView(_currentView);
-            _form.SelectLastSymbolName();
             // Regenerate tree
             _form.RegenerateTree(false);
             // Set tree states
@@ -2023,9 +2022,13 @@ namespace PrePoMax
         }
         public void RegenerateHistoryCommands(bool showImportDialog = false, bool showMeshDialog = false)
         {
+            ViewGeometryModelResults prevView = _currentView;
+            //
             string lastFileName = OpenedFileName;
             _commands.ExecuteAllCommands(showImportDialog, showMeshDialog);
             OpenedFileName = lastFileName;
+            //
+            CurrentView = prevView;
         }
         //
         public List<FileInOut.Output.Calculix.CalculixKeyword> GetCalculixModelKeywords()
@@ -13048,7 +13051,7 @@ namespace PrePoMax
                 data.Name = coordinateSystem.Name + "_" + labels[0];
                 data.Color = Color.FromArgb(180, 4, 38);
                 data.Layer = layer;
-                data.Geometry.Nodes.Coor = new double[][] { coordinateSystem.Center() };
+                data.Geometry.Nodes.Coor = new double[][] { coordinateSystem.Center().Coor };
                 data.Geometry.Nodes.Normals = new double[][] { coordinateSystem.DirectionX().Coor };
                 ApplyLighting(data);
                 _form.AddCoordinateAxis(data, symbolSize);

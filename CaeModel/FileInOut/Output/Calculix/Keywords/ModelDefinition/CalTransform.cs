@@ -50,8 +50,8 @@ namespace FileInOut.Output.Calculix
             }
             else if (_coordinateSystem.Type == CoordinateSystemTypeEnum.Cylindrical)
             {
-                a = _coordinateSystem.Center();
-                b = _coordinateSystem.DirectionZ().Coor;
+                a = _coordinateSystem.Center().Coor;
+                b = (_coordinateSystem.Center() + _coordinateSystem.DirectionZ()).Coor;
             }
             else throw new NotSupportedException();
             //

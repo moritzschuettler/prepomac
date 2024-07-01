@@ -223,10 +223,10 @@ namespace CaeMesh
         {
             Clear();
         }
-        public double[] Center()
+        public Vec3D Center()
         {
             if (_center == null) EquationChanged();
-            return _center.Coor;
+            return _center;
         }
         public double[] Point1()
         {

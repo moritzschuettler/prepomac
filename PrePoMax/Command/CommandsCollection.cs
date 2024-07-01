@@ -176,12 +176,7 @@ namespace PrePoMax.Commands
                             {
                                 if (showImportDialog && cwd is CImportFile) executeWithDialog = true;
                                 //
-                                else if (showMeshDialog && cwd is CAddMeshingParameters) executeWithDialog = true;
-                                else if (showMeshDialog && cwd is CAddMeshRefinement) executeWithDialog = true;
                                 else if (showMeshDialog && cwd is CAddMeshSetupItem) executeWithDialog = true;
-                                //
-                                else if (showMeshDialog && cwd is CReplaceMeshingParameters) executeWithDialog = true;
-                                else if (showMeshDialog && cwd is CReplaceMeshRefinement) executeWithDialog = true;
                                 else if (showMeshDialog && cwd is CReplaceMeshSetupItem) executeWithDialog = true;
                                 //
                                 if (executeWithDialog) cwd.ExecuteWithDialog(_controller);
