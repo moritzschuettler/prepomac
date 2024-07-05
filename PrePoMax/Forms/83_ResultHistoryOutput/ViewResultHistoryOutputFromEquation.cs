@@ -21,15 +21,12 @@ namespace PrePoMax
         public override string Name { get { return _historyOutput.Name; } set { _historyOutput.Name = value; } }
         //
         [CategoryAttribute("Data")]
-        [OrderedDisplayName(1, 10, "User defined unit")]
-        [DescriptionAttribute("User defined unit for the history output equation value.")]
+        [OrderedDisplayName(1, 10, "Equation")]
+        [DescriptionAttribute("Equation for the history output evaluation. To include a history component into the equation " +
+                              "use square brackets [] and refer to te component with its full name as " +
+                              "History_Output_Name.Field_Name.Component_Name. All names are case sensitive.\r\n" +
+                              "Example equation: =[From_Field-1.DISP.ALL].")]
         [Id(2, 1)]
-        public string Unit { get { return _historyOutput.Unit; } set { _historyOutput.Unit = value; } }
-        //
-        [CategoryAttribute("Data")]
-        [OrderedDisplayName(2, 10, "Equation")]
-        [DescriptionAttribute("Equation for the history output evaluation.")]
-        [Id(3, 1)]
         public string Equation
         {
             get { return _historyOutput.Equation; }
@@ -39,6 +36,12 @@ namespace PrePoMax
                 _historyOutput.Equation = value;
             }
         }
+        //
+        [CategoryAttribute("Data")]
+        [OrderedDisplayName(2, 10, "User defined unit")]
+        [DescriptionAttribute("User defined unit for the history output equation value.")]
+        [Id(3, 1)]
+        public string Unit { get { return _historyOutput.Unit; } set { _historyOutput.Unit = value; } }
 
 
         // Constructors                                                                                                             

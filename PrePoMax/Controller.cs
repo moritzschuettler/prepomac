@@ -263,7 +263,7 @@ namespace PrePoMax
         public string GetCurrentResultsUnitAbbreviation()
         {
             if (CurrentFieldData.Unit != null && CurrentFieldData.Unit.Length > 0) return CurrentFieldData.Unit;
-            else return _allResults.CurrentResult.GetFieldUnitAbbrevation(CurrentFieldData);
+            else return _allResults.CurrentResult.GetFieldUnitAbbreviation(CurrentFieldData);
         }
         public bool AreTransformationsActive()
         {
@@ -409,7 +409,7 @@ namespace PrePoMax
             {
                 if (controller.Model != null) FeMesh.PrepareForSaving(controller.Model.Geometry);
                 if (controller.Model != null) FeMesh.PrepareForSaving(controller.Model.Mesh);
-                if (controller.CurrentResult != null) ResultsCollection.PrepareForSavig(controller._allResults);
+                if (controller.CurrentResult != null) ResultsCollection.PrepareForSaving(controller._allResults);
             }
         }
         public static void ResetAfterSaving(Controller controller)
@@ -418,7 +418,7 @@ namespace PrePoMax
             {
                 if (controller.Model != null) FeMesh.ResetAfterSaving(controller.Model.Geometry);
                 if (controller.Model != null) FeMesh.ResetAfterSaving(controller.Model.Mesh);
-                if (controller.CurrentResult != null) ResultsCollection.ResetAfterSavig(controller._allResults);
+                if (controller.CurrentResult != null) ResultsCollection.ResetAfterSaving(controller._allResults);
             }
         }
 
@@ -9456,7 +9456,12 @@ namespace PrePoMax
         public void UpdateNCalcParameters()
         {
             _model.UpdateNCalcParameters();
-            FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            _allResults.UpdateResultEquations();
+            //
+            if (_currentView == ViewGeometryModelResults.Model)
+                FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            else if (_currentView == ViewGeometryModelResults.Results)
+                FeResultsUpdate(UpdateType.Check | UpdateType.RedrawSymbols | UpdateType.DrawResults);
         }
         #endregion #################################################################################################################
 

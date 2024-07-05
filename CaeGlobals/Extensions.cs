@@ -200,6 +200,14 @@ namespace CaeGlobals
                 }
             }
         }
+        // Float Array
+        public static float[] ToFloat(this double[] arr) => Array.ConvertAll(arr, x => (float)x);
+        // Double Array
+        public static double[] ToDouble(this bool[] arr) => Array.ConvertAll(arr, x => x == true ? 1d : 0d);
+        public static double[] ToDouble(this byte[] arr) => Array.ConvertAll(arr, x => (double)x);
+        public static double[] ToDouble(this decimal[] arr) => Array.ConvertAll(arr, x => (double)x);
+        public static double[] ToDouble(this int[] arr) => Array.ConvertAll(arr, x => (double)x);
+        public static double[] ToDouble(this float[] arr) => Array.ConvertAll(arr, x => (double)x);
         // String Array
         public static string ToUTF8(this string text)
         {

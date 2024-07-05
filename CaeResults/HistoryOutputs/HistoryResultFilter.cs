@@ -10,16 +10,21 @@ namespace CaeResults
     public enum HistoryResultFilterTypeEnum
     {
         None,
-        Minumun,
+        Minimum,
         Maximum,
-        Average,
-        Sum
+        Sum,
+        Average
     }
     //
     [Serializable]
     public class HistoryResultFilter
     {
         // Variables                                                                                                                
+        public static string Row = "Row";
+        public static string Column = "Column";
+        public static string Rows = "Rows";
+        public static string Columns = "Columns";
+        //
         public HistoryResultFilterTypeEnum _type;
         public string _option;
 

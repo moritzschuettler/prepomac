@@ -6,16 +6,14 @@ using System.Threading.Tasks;
 using UnitsNet;
 using UnitsNet.Units;
 using NCalc;
-using System.Runtime.CompilerServices;
-using System.Security.Cryptography;
-using System.Diagnostics;
+
 
 namespace CaeGlobals
 {
     public static class MyNCalc
     {
         // Variables                                                                                                                
-        public static OrderedDictionary<string, double> ExistingParameters = null;
+        public static OrderedDictionary<string, object> ExistingParameters = null;
 
 
         // Methods                                                                                                                  
@@ -56,6 +54,58 @@ namespace CaeGlobals
             //
             return valueDouble;
         }
+        static public double[] SolveArrayEquation(string equation)
+        {
+            double[] values;
+            equation = equation.Trim();
+            //
+            if (equation.Length == 0 || equation == "=")
+                throw new CaeException("Equation error:" + Environment.NewLine + "Equation cannot be evaluated.");
+            //
+            if (equation.StartsWith("="))
+            {
+                equation = equation.Substring(1, equation.Length - 1);
+                //
+                Expression e = GetArrayExpression(equation);
+                if (!e.HasErrors())
+                {
+                    object result = e.Evaluate();
+                    //if (result is bool[] bla) values = bla.ToDouble();
+                    //else if (result is byte[] byta) values = byta.ToDouble();
+                    //else if (result is decimal[] deca) values = deca.ToDouble();
+                    //else if (result is int[] ia) values = ia.ToDouble();
+                    //else if (result is float[] fa) values = fa.ToDouble();
+                    //else if (result is double[] da) values = da;
+                    //else
+                    if (result is List<object> list)
+                    {
+                        int count = 0;
+                        values = new double[list.Count];
+                        foreach (var obj in list)
+                        {
+                            if (obj is bool bl) values[count++] = bl ? 1 : 0;
+                            else if (obj is byte byt) values[count++] = byt;
+                            else if (obj is decimal dec) values[count++] = (double)dec;
+                            else if (obj is int i) values[count++] = i;
+                            else if (obj is float f) values[count++] = f;
+                            else if (obj is double d) values[count++] = d;
+                            else count++;
+                        }
+                    }
+                    else
+                    {
+                        throw new CaeException("Equation error:" + Environment.NewLine + "Equation return type unrecognized.");
+                    }
+                }
+                else
+                {
+                    throw new CaeException("Equation error:" + Environment.NewLine + e.Error);
+                }
+            }
+            else throw new CaeException("Equation error:" + Environment.NewLine + "Equation must start with = sign.");
+            //
+            return values;
+        }
         static public bool HasErrors(string equation, out HashSet<string> parameterNames)
         {
             double valueDouble;
@@ -71,6 +121,16 @@ namespace CaeGlobals
                     equation = equation.Substring(1, equation.Length - 1);
                     Expression e = GetExpression(equation);
                     parameterNames = GetParameters(equation);
+                    //
+                    if (!e.HasErrors())
+                    {
+                        object result = e.Evaluate();
+                    }
+                    //foreach (var name in parameterNames)
+                    //{
+                    //    if (!e.Parameters.ContainsKey(name))
+                    //        throw new CaeException("The parameter " + name + " does not exits!");
+                    //}
                     return e.HasErrors(); 
                 }
                 else return false;
@@ -81,6 +141,21 @@ namespace CaeGlobals
         static public Expression GetExpression(string expression)
         {
             Expression e = new Expression(expression, EvaluateOptions.IgnoreCase);
+            // Add constants
+            e.Parameters.Add("pi", Math.PI);
+            e.Parameters.Add("Pi", Math.PI);
+            //
+            if (ExistingParameters != null)
+            {
+                foreach (var entry in ExistingParameters) e.Parameters.Add(entry.Key, entry.Value);
+            }
+            //e.EvaluateParameter += EvaluateParameter;
+            return e;
+        }
+
+        static public Expression GetArrayExpression(string expression)
+        {
+            Expression e = new Expression(expression, EvaluateOptions.IgnoreCase | EvaluateOptions.IterateParameters);
             // Add constants
             e.Parameters.Add("pi", Math.PI);
             e.Parameters.Add("Pi", Math.PI);
@@ -114,10 +189,6 @@ namespace CaeGlobals
             {
             }
             return parameters;
-        }
-        static public void EvaluateParameter(string name, ParameterArgs args)
-        {
-            //if (name == "Pi") args.Result = Math.PI;
         }
     }
 }

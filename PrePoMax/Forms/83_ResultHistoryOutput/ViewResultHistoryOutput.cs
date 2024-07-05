@@ -50,6 +50,11 @@ namespace PrePoMax
             set
             {
                 _resultHistoryOutput.Filter1.Type = value;
+                if (_resultHistoryOutput.Filter1.Type == HistoryResultFilterTypeEnum.None)
+                {
+                    _resultHistoryOutput.Filter2.Type = HistoryResultFilterTypeEnum.None;
+                    //_resultHistoryOutput.Filter3.Type = HistoryResultFilterTypeEnum.None;
+                }
                 SetFilterOption(_resultHistoryOutput.Filter1);
                 UpdateFilterVisibility();
             }
@@ -75,6 +80,10 @@ namespace PrePoMax
             set
             {
                 _resultHistoryOutput.Filter2.Type = value;
+                if (_resultHistoryOutput.Filter2.Type == HistoryResultFilterTypeEnum.None)
+                {
+                    //_resultHistoryOutput.Filter3.Type = HistoryResultFilterTypeEnum.None;
+                }
                 SetFilterOption(_resultHistoryOutput.Filter2);
                 UpdateFilterVisibility();
             }
@@ -90,30 +99,30 @@ namespace PrePoMax
             set { _resultHistoryOutput.Filter2.Option = value; }
         }
         //
-        [CategoryAttribute("Filter 3")]
-        [OrderedDisplayName(4, 10, "Type")]
-        [DescriptionAttribute("Select the filter 3 type.")]
-        [Id(5, 10)]
-        public HistoryResultFilterTypeEnum Type3
-        {
-            get { return _resultHistoryOutput.Filter3.Type; }
-            set
-            {
-                _resultHistoryOutput.Filter3.Type = value;
-                SetFilterOption(_resultHistoryOutput.Filter3);
-                UpdateFilterVisibility();
-            }
-        }
-        //
-        [CategoryAttribute("Filter 3")]
-        [OrderedDisplayName(5, 10, "Option")]
-        [DescriptionAttribute("Option.")]
-        [Id(6, 10)]
-        public string Option3
-        {
-            get { return _resultHistoryOutput.Filter3.Option; }
-            set { _resultHistoryOutput.Filter3.Option = value; }
-        }
+        //[CategoryAttribute("Filter 3")]
+        //[OrderedDisplayName(4, 10, "Type")]
+        //[DescriptionAttribute("Select the filter 3 type.")]
+        //[Id(5, 10)]
+        //public HistoryResultFilterTypeEnum Type3
+        //{
+        //    get { return _resultHistoryOutput.Filter3.Type; }
+        //    set
+        //    {
+        //        _resultHistoryOutput.Filter3.Type = value;
+        //        SetFilterOption(_resultHistoryOutput.Filter3);
+        //        UpdateFilterVisibility();
+        //    }
+        //}
+        ////
+        //[CategoryAttribute("Filter 3")]
+        //[OrderedDisplayName(5, 10, "Option")]
+        //[DescriptionAttribute("Option.")]
+        //[Id(6, 10)]
+        //public string Option3
+        //{
+        //    get { return _resultHistoryOutput.Filter3.Option; }
+        //    set { _resultHistoryOutput.Filter3.Option = value; }
+        //}
 
 
         // Constructors                                                                                                             
@@ -140,11 +149,11 @@ namespace PrePoMax
             DynamicCustomTypeDescriptor.GetProperty(nameof(Type2)).SetIsBrowsable(visible);
             visible = _resultHistoryOutput.Filter1.Type != HistoryResultFilterTypeEnum.None &&
                       _resultHistoryOutput.Filter2.Type != HistoryResultFilterTypeEnum.None;
-            DynamicCustomTypeDescriptor.GetProperty(nameof(Type3)).SetIsBrowsable(visible);
+            //DynamicCustomTypeDescriptor.GetProperty(nameof(Type3)).SetIsBrowsable(visible);
             //
             SetFilterVisibility(_resultHistoryOutput.Filter1, nameof(Option1), "");
             SetFilterVisibility(_resultHistoryOutput.Filter2, nameof(Option2), " ");
-            SetFilterVisibility(_resultHistoryOutput.Filter3, nameof(Option3), "  ");
+            //SetFilterVisibility(_resultHistoryOutput.Filter3, nameof(Option3), "  ");
         }
         private void SetFilterVisibility(HistoryResultFilter filter, string optionPropertyName, string nameSuffix)
         {
@@ -152,10 +161,11 @@ namespace PrePoMax
             {
                 DynamicCustomTypeDescriptor.GetProperty(optionPropertyName).SetIsBrowsable(false);
             }
-            else if (filter.Type == HistoryResultFilterTypeEnum.Minumun || filter.Type == HistoryResultFilterTypeEnum.Maximum)
+            else if (filter.Type == HistoryResultFilterTypeEnum.Minimum || filter.Type == HistoryResultFilterTypeEnum.Maximum)
             {
                 string description = "Select the return data type.";
-                DynamicCustomTypeDescriptor.PopulateProperty(optionPropertyName, new string[] { "Column", "Row" });
+                DynamicCustomTypeDescriptor.PopulateProperty(optionPropertyName, 
+                    new string[] { HistoryResultFilter.Column, HistoryResultFilter.Row });
                 DynamicCustomTypeDescriptor.GetProperty(optionPropertyName).SetDisplayName("Return" + nameSuffix);
                 DynamicCustomTypeDescriptor.GetProperty(optionPropertyName).SetDescription(description);
                 DynamicCustomTypeDescriptor.GetProperty(optionPropertyName).SetIsBrowsable(true);
@@ -163,7 +173,8 @@ namespace PrePoMax
             else if (filter.Type == HistoryResultFilterTypeEnum.Average || filter.Type == HistoryResultFilterTypeEnum.Sum)
             {
                 string description = "Select the data type the filter will operate on.";
-                DynamicCustomTypeDescriptor.PopulateProperty(optionPropertyName, new string[] { "Columns", "Rows" });
+                DynamicCustomTypeDescriptor.PopulateProperty(optionPropertyName,
+                    new string[] { HistoryResultFilter.Columns, HistoryResultFilter.Rows });
                 DynamicCustomTypeDescriptor.GetProperty(optionPropertyName).SetDisplayName("Operate on" + nameSuffix);
                 DynamicCustomTypeDescriptor.GetProperty(optionPropertyName).SetDescription(description);
                 DynamicCustomTypeDescriptor.GetProperty(optionPropertyName).SetIsBrowsable(true);
@@ -173,10 +184,10 @@ namespace PrePoMax
         {
             if (filter.Type == HistoryResultFilterTypeEnum.None)
                 filter.Option = null;
-            else if (filter.Type == HistoryResultFilterTypeEnum.Minumun || filter.Type == HistoryResultFilterTypeEnum.Maximum)
-                filter.Option = "Column";
+            else if (filter.Type == HistoryResultFilterTypeEnum.Minimum || filter.Type == HistoryResultFilterTypeEnum.Maximum)
+                filter.Option = HistoryResultFilter.Column;
             else if (filter.Type == HistoryResultFilterTypeEnum.Average || filter.Type == HistoryResultFilterTypeEnum.Sum)
-                filter.Option = "Columns";
+                filter.Option = HistoryResultFilter.Columns;
         }
     }
 }

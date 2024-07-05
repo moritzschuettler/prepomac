@@ -13,6 +13,8 @@ namespace CaeResults
     {
         // Variables                                                                                                                
         public static string EquationSeparator = ".";
+        public static string FieldName = "EQUATION";
+        public static string ComponentName = "VALUE";
         private string _equation;
         private string _unit;
         private string[] _parentNames;

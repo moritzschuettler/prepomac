@@ -528,6 +528,7 @@
     <Compile Include="Forms\82_ResultFieldOutput\ViewResultFieldOutputCoordinateSystemTransform.cs" />
     <Compile Include="Forms\82_ResultFieldOutput\ViewResultFieldOutputEnvelope.cs" />
     <Compile Include="Forms\82_ResultFieldOutput\ViewResultFieldOutputLimit.cs" />
+    <Compile Include="Forms\82_ResultFieldOutput\ViewResultFieldOutputEquation.cs" />
     <Compile Include="Forms\83_ResultHistoryOutput\FrmResultHistoryOutput.cs">
       <SubType>Form</SubType>
     </Compile>

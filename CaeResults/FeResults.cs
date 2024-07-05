@@ -19,6 +19,7 @@ using System.IO.Compression;
 using static CaeGlobals.Geometry2;
 using System.Numerics;
 using System.Linq.Expressions;
+using System.Runtime.InteropServices.WindowsRuntime;
 
 namespace CaeResults
 {
@@ -170,8 +171,10 @@ namespace CaeResults
             _fileName = fileName;
             _hashName = Tools.GetRandomString(8);
             _mesh = null;
-            _resultFieldOutputs = new OrderedDictionary<string, ResultFieldOutput>("ResultFieldOutputs");
-            _resultHistoryOutputs = new OrderedDictionary<string, ResultHistoryOutput>("ResultHistoryOutputs");
+            _resultFieldOutputs = new OrderedDictionary<string, ResultFieldOutput>("ResultFieldOutputs",
+                                                                                   StringComparer.OrdinalIgnoreCase);
+            _resultHistoryOutputs = new OrderedDictionary<string, ResultHistoryOutput>("ResultHistoryOutputs",
+                                                                                       StringComparer.OrdinalIgnoreCase);
             _nodeIdsLookUp = null;
             _fields = new OrderedDictionary<FieldData, Field>("Fields");
             _fieldDataHashField = new OrderedDictionary<string, Field>("HashFieldPairs");
@@ -390,12 +393,14 @@ namespace CaeResults
                     results.PrepareComplexResults();
                     // Compatibility v1.5.3
                     if (results._resultFieldOutputs == null)
-                        results._resultFieldOutputs = new OrderedDictionary<string, ResultFieldOutput>("ResultFieldOutputs");
+                        results._resultFieldOutputs = new OrderedDictionary<string, ResultFieldOutput>("ResultFieldOutputs",
+                                                                                                       StringComparer.OrdinalIgnoreCase);
                 }
             }
             // Compatibility v2.1.0
             if (results._resultHistoryOutputs == null)
-                results._resultHistoryOutputs = new OrderedDictionary<string, ResultHistoryOutput>("ResultHistoryOutputs");
+                results._resultHistoryOutputs = new OrderedDictionary<string, ResultHistoryOutput>("ResultHistoryOutputs",
+                                                                                                   StringComparer.OrdinalIgnoreCase);
         }
         public static void ReadFromFileStream(FeResults results, FileStream fileStream, int version)
         {
@@ -459,12 +464,14 @@ namespace CaeResults
                     results.PrepareComplexResults();
                     // Compatibility v1.5.3
                     if (results._resultFieldOutputs == null)
-                        results._resultFieldOutputs = new OrderedDictionary<string, ResultFieldOutput>("ResultFieldOutputs");
+                        results._resultFieldOutputs = new OrderedDictionary<string, ResultFieldOutput>("ResultFieldOutputs",
+                                                                                                       StringComparer.OrdinalIgnoreCase);
                 }
             }
             // Compatibility v2.1.0
             if (results._resultHistoryOutputs == null)
-                results._resultHistoryOutputs = new OrderedDictionary<string, ResultHistoryOutput>("ResultHistoryOutputs");
+                results._resultHistoryOutputs = new OrderedDictionary<string, ResultHistoryOutput>("ResultHistoryOutputs",
+                                                                                                   StringComparer.OrdinalIgnoreCase);
         }
 
 
@@ -517,11 +524,22 @@ namespace CaeResults
                             names.IntersectWith(rfol.ItemNameLimit.Keys);
                             valid &= names.Count == rfol.ItemNameLimit.Count;
                         }
-                        else if (resultFieldOutput is ResultFieldOutputEnvelope rfoe)
+                        else if (resultFieldOutput is ResultFieldOutputEnvelope rfoen)
                         {
                             // Parent components
-                            names = new HashSet<string>(filedNameComponentNames[rfoe.FieldName]);
-                            valid &= names.Contains(rfoe.ComponentName);
+                            names = new HashSet<string>(filedNameComponentNames[rfoen.FieldName]);
+                            valid &= names.Contains(rfoen.ComponentName);
+                        }
+                        else if (resultFieldOutput is ResultFieldOutputEquation rfoeq)
+                        {
+                            names = new HashSet<string>(filedNameComponentNames.Keys);
+                            names.IntersectWith(parentNames);
+                            valid &= names.Count == parentNames.Length;
+                            //
+                            if (valid)
+                            {
+                                // Check parents for validity
+                            }
                         }
                         else if (resultFieldOutput is ResultFieldOutputCoordinateSystemTransform rfocst)
                         {
@@ -1298,7 +1316,7 @@ namespace CaeResults
             if (_complexResultType == ComplexResultTypeEnum.RealAtAngle) SetComplexResultToAngle(onlyThisField);
             else SetToExistingComplexResult(onlyThisField);
             //
-            SetResultFieldOutputsToRecompute();
+            SetResultFieldOutputLimitsToRecompute();
         }
         private void SetToExistingComplexResult(FieldData onlyThisField)
         {
@@ -1525,27 +1543,27 @@ namespace CaeResults
             }
         }
         // Units                                    
-        public string GetFieldUnitAbbrevation(FieldData fieldData)
+        public string GetFieldUnitAbbreviation(FieldData fieldData)
         {
             if (fieldData.Unit != null && fieldData.Unit.Length > 0) return fieldData.Unit;
             else
             {
-                GetFieldUnitConverterAndAbbrevation(fieldData.Name, fieldData.Component, fieldData.StepId,
+                GetFieldUnitConverterAndAbbreviation(fieldData.Name, fieldData.Component, fieldData.StepId,
                                                     fieldData.StepIncrementId, out TypeConverter unitConverter,
                                                     out string unitAbbreviation);
                 return unitAbbreviation;
             }
         }
-        public string GetFieldUnitAbbrevation(string fieldDataName, string componentName, int stepId, int incrementId)
+        public string GetFieldUnitAbbreviation(string fieldDataName, string componentName, int stepId, int incrementId)
         {
-            GetFieldUnitConverterAndAbbrevation(fieldDataName, componentName, stepId, incrementId,
+            GetFieldUnitConverterAndAbbreviation(fieldDataName, componentName, stepId, incrementId,
                                                 out TypeConverter unitConverter, out string unitAbbreviation);
             return unitAbbreviation;
         }
-        public void GetFieldUnitConverterAndAbbrevation(string fieldDataName, string componentName,
-                                                        int stepId, int incrementId,
-                                                        out TypeConverter unitConverter,
-                                                        out string unitAbbreviation)
+        public void GetFieldUnitConverterAndAbbreviation(string fieldDataName, string componentName,
+                                                         int stepId, int incrementId,
+                                                         out TypeConverter unitConverter,
+                                                         out string unitAbbreviation)
         {
             if (_complexResultType == ComplexResultTypeEnum.Phase ||
                 _complexResultType == ComplexResultTypeEnum.AngleAtMax ||
@@ -1722,6 +1740,13 @@ namespace CaeResults
                     default:
                         unitConverter = new DoubleConverter();
                         unitAbbreviation = "?";
+                        // Equation
+                        if (_resultFieldOutputs.TryGetValue(fieldDataName, out ResultFieldOutput resultFieldOutput)
+                            && resultFieldOutput is ResultFieldOutputEquation rfoeq)
+                        {
+                            unitAbbreviation = rfoeq.Unit;
+                            break;
+                        }
                         // OpenFOAM
                         if (stepId == 1 && incrementId == 0) unitAbbreviation = "/";    // User field outputs at 0 increment
                         else if (componentName.ToUpper() == "ALL" || componentName.ToUpper().StartsWith("VAL")) { }
@@ -1736,13 +1761,13 @@ namespace CaeResults
             }
         }
         //
-        public string GetHistoryUnitAbbrevation(string fieldName, string componentName, int stepId, int incrementId)
+        public string GetHistoryUnitAbbreviation(string fieldName, string componentName, int stepId, int incrementId)
         {
-            GetHistoryUnitConverterAndAbbrevation(fieldName, componentName, stepId, incrementId ,
+            GetHistoryUnitConverterAndAbbreviation(fieldName, componentName, stepId, incrementId ,
                                                   out TypeConverter unitConverter, out string unitAbbreviation);
             return unitAbbreviation;
         }
-        public void GetHistoryUnitConverterAndAbbrevation(string fieldName, string componentName,
+        public void GetHistoryUnitConverterAndAbbreviation(string fieldName, string componentName,
                                                           int stepId, int incrementId,
                                                           out TypeConverter unitConverter,
                                                           out string unitAbbreviation)
@@ -1865,8 +1890,8 @@ namespace CaeResults
                     case FOFieldNames.Error:
                     default:
                         string noSpacesName = noSuffixName.Replace(' ', '_');
-                        GetFieldUnitConverterAndAbbrevation(noSpacesName.ToUpper(), componentName, stepId, incrementId,
-                                                            out unitConverter, out unitAbbreviation);
+                        GetFieldUnitConverterAndAbbreviation(noSpacesName.ToUpper(), componentName, stepId, incrementId,
+                                                             out unitConverter, out unitAbbreviation);
                         if (unitAbbreviation == "?" && System.Diagnostics.Debugger.IsAttached)
                             throw new NotSupportedException();
                         break;
@@ -2590,6 +2615,46 @@ namespace CaeResults
             }
             return nodesData;
         }
+        // Equations
+        public void UpdateResultEquations()
+        {
+            FieldData sfFieldData;
+            Field sfField;
+            //
+            Dictionary<int, int[]> stepIdIncrementIds = GetAllExistingIncrementIds();
+            //
+            foreach (var stepEntry in stepIdIncrementIds)
+            {
+                foreach (var incrementId in stepEntry.Value)
+                {
+                    foreach (var entry in _resultFieldOutputs)
+                    {
+                        if (entry.Value is ResultFieldOutputEquation rfoeq)
+                        {
+                            // Data
+                            sfFieldData = GetFieldData(rfoeq.Name, ResultFieldOutputEquation.ComponentName,
+                                                       stepEntry.Key, incrementId, true);
+                            sfField = GetField(sfFieldData, false);
+                            if (sfField != null) sfField.DataState = DataStateEnum.UpdateResultFieldOutput;
+                        }
+                        else throw new NotSupportedException();
+                    }
+                }
+            }
+            //
+            foreach (var entry in _resultHistoryOutputs)
+            {
+                if (entry.Value is ResultHistoryOutputFromEquation rhofe)
+                {
+                    HistoryResultSet historyResultSet = GetHistorySetFromEquation(rhofe);
+                    if (historyResultSet != null)
+                    {
+                        _history.Sets.Replace(rhofe.HistoryResultSet.Name, historyResultSet.Name, historyResultSet);
+                        rhofe.HistoryResultSet = historyResultSet;
+                    }
+                }
+            }
+        }
         // Result field outputs                     
         public void AddResultFieldOutput(ResultFieldOutput resultFieldOutput)
         {
@@ -2610,6 +2675,7 @@ namespace CaeResults
             //
             int numNodes = _mesh.Nodes.Count;
             //
+            Dictionary<string, string[]> parameterNameFieldNameComponentName;
             Dictionary<int, int[]> stepIdIncrementIds = GetAllExistingIncrementIds();
             //
             foreach (var entry in stepIdIncrementIds)
@@ -2624,15 +2690,25 @@ namespace CaeResults
                         newComponentNames = rfol.GetComponentNames();
                         unit = "/";
                     }
-                    else if (resultFieldOutput is ResultFieldOutputEnvelope rfoe)
+                    else if (resultFieldOutput is ResultFieldOutputEnvelope rfoen)
                     {
                         // Get parent field
-                        sourceFieldName = rfoe.FieldName;
-                        sourceComponentName = rfoe.ComponentName;
-                        newFieldName = rfoe.Name;
-                        newComponentNames = rfoe.GetComponentNames();
+                        sourceFieldName = rfoen.FieldName;
+                        sourceComponentName = rfoen.ComponentName;
+                        newFieldName = rfoen.Name;
+                        newComponentNames = rfoen.GetComponentNames();
                         fieldData = GetFieldData(sourceFieldName, sourceComponentName, entry.Key, incrementId, true);
-                        unit = GetFieldUnitAbbrevation(fieldData);
+                        unit = GetFieldUnitAbbreviation(fieldData);
+                    }
+                    else if (resultFieldOutput is ResultFieldOutputEquation rfoeq)
+                    {
+                        // Get parent field
+                        CheckResultFieldOutputEquation(rfoeq.Equation, out _, out parameterNameFieldNameComponentName);
+                        sourceFieldName = parameterNameFieldNameComponentName.First().Value[0];
+                        sourceComponentName = parameterNameFieldNameComponentName.First().Value[1];
+                        newFieldName = rfoeq.Name;
+                        newComponentNames = rfoeq.GetComponentNames();
+                        unit = rfoeq.Unit;
                     }
                     else if (resultFieldOutput is ResultFieldOutputCoordinateSystemTransform rfocst)
                     {
@@ -2643,7 +2719,7 @@ namespace CaeResults
                         newFieldName = rfocst.Name;
                         newComponentNames = rfocst.GetComponentNames();
                         fieldData = GetFieldData(sourceFieldName, sourceComponentName, entry.Key, incrementId, true);
-                        unit = GetFieldUnitAbbrevation(fieldData);
+                        unit = GetFieldUnitAbbreviation(fieldData);
                     }
                     else throw new NotSupportedException();
                     // Get parent field
@@ -2708,7 +2784,7 @@ namespace CaeResults
             }
         }
         //
-        private void SetResultFieldOutputsToRecompute()
+        private void SetResultFieldOutputLimitsToRecompute()
         {
             FieldData sfFieldData;
             Field sfField;
@@ -2761,6 +2837,7 @@ namespace CaeResults
             FieldData sourceFieldData;
             Field sourceField = null;
             //
+            int numOfNodes = _undeformedNodes.Count;
             string[] componentNames;
             float[][] values;
             //
@@ -2771,17 +2848,24 @@ namespace CaeResults
                 componentNames = rfol.GetComponentNames();
                 values = ComputeFieldFromResultFieldOutputLimit(rfol, sourceField);
             }
-            else if (resultFieldOutput is ResultFieldOutputEnvelope rfoe)
+            else if (resultFieldOutput is ResultFieldOutputEnvelope rfoen)
             {
-                componentNames = rfoe.GetComponentNames();
-                values = ComputeFieldFromResultFieldOutputEnvelope(rfoe);
+                componentNames = rfoen.GetComponentNames();
+                values = ComputeFieldFromResultFieldOutputEnvelope(rfoen);
+            }
+            else if (resultFieldOutput is ResultFieldOutputEquation rfoeq)
+            {
+                componentNames = rfoeq.GetComponentNames();
+                if (stepId == 1 && stepIncrementId == 0) values = new float[][] { new float[numOfNodes] };
+                else values = ComputeFieldFromResultFieldOutputEquation(rfoeq, stepId, stepIncrementId);
             }
             else if (resultFieldOutput is ResultFieldOutputCoordinateSystemTransform rfocst)
             {
                 sourceFieldData = GetFieldData(rfocst.FieldName, rfocst.GetComponentNames()[0], stepId, stepIncrementId, true);
                 sourceField = GetField(sourceFieldData);
                 componentNames = rfocst.GetComponentNames();
-                values = ComputeFieldFromResultFieldOutputCoordinateSystemTransform(rfocst, sourceField);
+                if (stepId == 1 && stepIncrementId == 0) values = new float[][] { new float[numOfNodes] };
+                else values = ComputeFieldFromResultFieldOutputCoordinateSystemTransform(rfocst, sourceField);
             }
             else throw new NotSupportedException();
             //
@@ -2940,6 +3024,59 @@ namespace CaeResults
             }
             //
             return new float[][] { max, min, average };
+        }
+        private float[][] ComputeFieldFromResultFieldOutputEquation(ResultFieldOutputEquation resultFieldOutput,
+                                                                    int stepId, int stepIncrementId)
+        {
+            OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters;
+            try
+            {
+                FieldData sourceFieldData;
+                Field sourceField;
+                //
+                int numValues = -1;
+                float[] values = null;
+                List<float[]> allValues = new List<float[]>();
+                //
+                Dictionary<string, string[]> parameterNameFieldNameComponentName;
+                Dictionary<string, float[]> parameterNameValues;
+                //
+                CheckResultFieldOutputEquation(resultFieldOutput.Equation, out _, out parameterNameFieldNameComponentName);
+                //
+                parameterNameValues = new Dictionary<string, float[]>();
+                foreach (var parametreEntry in parameterNameFieldNameComponentName)
+                {
+                    sourceFieldData = GetFieldData(parametreEntry.Value[0], parametreEntry.Value[1],
+                                                   stepId, stepIncrementId, true);
+                    sourceField = GetField(sourceFieldData);
+                    //
+                    if (sourceField != null)
+                    {
+                        values = sourceField.GetComponentValues(parametreEntry.Value[1]);
+                        if (values != null)
+                        {
+                            numValues = values.Length;
+                            parameterNameValues.Add(parametreEntry.Key, values);
+                        }
+                    }
+                }
+                //
+                if (numValues < 0) return null;
+                // Evaluate the equation
+                foreach (var entry in parameterNameValues) MyNCalc.ExistingParameters[entry.Key] = entry.Value;
+                values = MyNCalc.SolveArrayEquation(resultFieldOutput.Equation).ToFloat();
+                //
+                return new float[][] { values };
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+            finally
+            {
+                MyNCalc.ExistingParameters = existingParameters;
+            }
+            
         }
         private float[][] ComputeFieldFromResultFieldOutputCoordinateSystemTransform(
             ResultFieldOutputCoordinateSystemTransform resultFieldOutput, Field sourceField)
@@ -3180,6 +3317,73 @@ namespace CaeResults
             //
             return resultList;
         }
+        // Equation
+        public string[] GetPossibleFieldEquationParameters()
+        {
+            string variable;
+            string separator = ResultFieldOutputEquation.EquationSeparator;
+            List<string> possibleEquationParameters = new List<string>();
+            //
+            foreach (var entry in GetAllFiledNameComponentNames())
+            {
+                foreach (var componentName in entry.Value)
+                {
+                    variable = entry.Key + separator + componentName;
+                    possibleEquationParameters.Add(variable);
+                }
+            }
+            //
+            return possibleEquationParameters.ToArray();
+        }
+        public string CheckResultFieldOutputEquation(string equation, out HashSet<string> parentNames,
+            out Dictionary<string, string[]> parameterNameFieldNameComponentName)
+        {
+            parentNames = new HashSet<string>();
+            parameterNameFieldNameComponentName = new Dictionary<string, string[]>();
+            OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters;
+            //
+            try
+            {
+                int count = 1;
+                string[] possibleEquationParameters = GetPossibleFieldEquationParameters();
+                foreach (var possibleParameter in possibleEquationParameters)
+                {
+                    MyNCalc.ExistingParameters[possibleParameter] = count++ * 0.111;
+                }
+                //
+                HashSet<string> parameterNames;
+                bool hasErrors = MyNCalc.HasErrors(equation, out parameterNames);
+                //
+                if (parameterNames == null || parameterNames.Count == 0 ||
+                    parameterNames.Intersect(possibleEquationParameters).Count() == 0)
+                    throw new CaeException("At least one filed output component must be used in the equation.");
+                //
+                string[] tmp;
+                string[] splitter = new string[] { ResultFieldOutputEquation.EquationSeparator };
+                //
+                foreach (var parameterName in parameterNames)
+                {
+                    tmp = parameterName.Split(splitter, StringSplitOptions.None);
+                    if (tmp.Length != 2) continue;
+                    //
+                    parentNames.Add(tmp[0]);
+                    parameterNameFieldNameComponentName.Add(parameterName, new string[] { tmp[0], tmp[1] });
+                }
+                //
+                if (parentNames.Count == 0)
+                    throw new CaeException("The equation must contain at least one field output reference.");
+                //
+                return null;
+            }
+            catch (Exception ex)
+            {
+                return ex.Message;
+            }
+            finally
+            {
+                MyNCalc.ExistingParameters = existingParameters;
+            }
+        }
         //
         public bool AreResultFieldOutputsInCyclicDependance(string oldResultFieldOutputName, ResultFieldOutput resultFieldOutput)
         {
@@ -3237,6 +3441,7 @@ namespace CaeResults
         {
             _history = historyResults;
         }
+        
         //
         public void AddResultHistoryOutput(ResultHistoryOutput resultHistoryOutput)
         {
@@ -3358,11 +3563,14 @@ namespace CaeResults
                         }
                         else
                         {
-                            GetHistoryUnitConverterAndAbbrevation(resultHistoryOutput.FieldName, component.Name, 0, 0,
+                            GetHistoryUnitConverterAndAbbreviation(resultHistoryOutput.FieldName, component.Name, 0, 0,
                                                                   out _, out unit);
                         }
                         component.Unit = unit;
                     }
+                    // Filter
+                    if (resultHistoryOutput.Filter1 != null) component.ApplyFilter(resultHistoryOutput.Filter1);
+                    if (resultHistoryOutput.Filter2 != null) component.ApplyFilter(resultHistoryOutput.Filter2);
                     // Add component to field
                     historyResultField.Components.Add(component.Name, component);
                 }
@@ -3383,93 +3591,101 @@ namespace CaeResults
         }
         private HistoryResultSet GetHistorySetFromEquation(ResultHistoryOutputFromEquation resultHistoryOutput)
         {
-            HashSet<string> parentNames;
-            Dictionary<string, HistoryResultComponent> parameterNameHisotryComponent;
-            CheckResultHistoryOutputEquation(resultHistoryOutput.Equation, out parentNames, out parameterNameHisotryComponent);
-            resultHistoryOutput.SetParentNames(parentNames.ToArray());
+            OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters;
             //
-            double[][] values;
-            List<double> time = null;
-            Dictionary<string, double[][]> paramenterNameValues = new Dictionary<string, double[][]>();
-            // Collect all component values in a matrix form
-            int col;
-            int row;
-            int numCol = parameterNameHisotryComponent.First().Value.Entries.Count();
-            int numRow = parameterNameHisotryComponent.First().Value.Entries.First().Value.Values.Count();
-            //
-            bool entryNamesEqual = true;
-            string[] entryNames = new string[numCol];
-            //
-            if (parameterNameHisotryComponent.Count > 0)
+            try
             {
-                foreach (var componentEntry in parameterNameHisotryComponent)
+                HashSet<string> parentNames;
+                Dictionary<string, HistoryResultComponent> parameterNameHistoryComponent;
+                CheckResultHistoryOutputEquation(resultHistoryOutput.Equation, out parentNames, out parameterNameHistoryComponent);
+                resultHistoryOutput.SetParentNames(parentNames.ToArray());
+                //
+                double[][] values;
+                List<double> time = parameterNameHistoryComponent.First().Value.Entries.First().Value.Time;
+                int numCol = parameterNameHistoryComponent.First().Value.Entries.Count();
+                int numRow = parameterNameHistoryComponent.First().Value.Entries.First().Value.Values.Count();
+                Dictionary<string, double[][]> parameterNameValues = new Dictionary<string, double[][]>();
+                //
+                bool entryNamesEqual = true;
+                string[] entryNames = null;
+                string[] currentEntryNames = null;
+                //
+                if (parameterNameHistoryComponent.Count > 0)
                 {
-                    col = 0;
-                    values = new double[numRow][];
-                    for (int i = 0; i < numRow; i++) values[i] = new double[numCol];
-                    //
-                    foreach (var entry in componentEntry.Value.Entries)
+                    foreach (var componentEntry in parameterNameHistoryComponent)
                     {
-                        // Get entry names
+                        values = componentEntry.Value.GetAllValues();
+                        //
+                        if (entryNames == null) entryNames = componentEntry.Value.Entries.Keys.ToArray();
                         if (entryNamesEqual)
                         {
-                            if (entryNames[col] == null) entryNames[col] = entry.Key;
-                            else if (entryNames[col] != entry.Key) entryNamesEqual = false;
+                            currentEntryNames = componentEntry.Value.Entries.Keys.ToArray();
+                            if (entryNames.Length != currentEntryNames.Length) entryNamesEqual = false;
+                            if (entryNamesEqual)
+                            {
+                                for (int i = 0; i < entryNames.Length; i++)
+                                {
+                                    if (entryNames[i] != currentEntryNames[i]) { entryNamesEqual = false; break; }
+                                }
+                            }
                         }
-                        // Get time
-                        if (time == null) time = entry.Value.Time;
-                        // Get values
-                        row = 0;
-                        foreach (double value in entry.Value.Values)
-                        {
-                            values[row++][col] = value;
-                        }
-                        col++;
+                        //
+                        parameterNameValues.Add(componentEntry.Key, values);
                     }
-                    paramenterNameValues.Add(componentEntry.Key, values);
                 }
-            }
-            // Evaluate the equation
-            values = new double[numRow][];
-            for (int i = 0; i < numRow; i++)
-            {
-                values[i] = new double[numCol];
-                for (int j = 0; j<numCol; j++)
+                // Evaluate the equation
+                values = new double[numRow][];
+                for (int i = 0; i < numRow; i++)
                 {
-                    // Set parameter values
-                    foreach (var entry in paramenterNameValues)
-                        MyNCalc.ExistingParameters[entry.Key] = entry.Value[i][j];
-                    values[i][j] = MyNCalc.ConvertFromString(resultHistoryOutput.Equation, null);
+                    values[i] = new double[numCol];
+                    for (int j = 0; j < numCol; j++)
+                    {
+                        // Add parameters and set their values
+                        foreach (var entry in parameterNameValues) MyNCalc.ExistingParameters[entry.Key] = entry.Value[i][j];
+                        values[i][j] = MyNCalc.ConvertFromString(resultHistoryOutput.Equation, null);
+                    }
                 }
-            }
-            // Create result history set
-            HistoryResultEntries historyResultEntries;
-            HistoryResultComponent historyResultComponent = new HistoryResultComponent("VALUE");
-            historyResultComponent.Unit = resultHistoryOutput.Unit;
-            // Entry names
-            if (!entryNamesEqual)
-            {
-                for (int i = 0; i < numCol; i++) entryNames[i] = (i + 1).ToString();
-            }
-            //
-            for (int j = 0; j < numCol; j++)
-            {
-                historyResultEntries = new HistoryResultEntries(entryNames[j], false);
-                // Set time
-                historyResultEntries.Time = time;
-                // Set values
-                for (int i = 0; i < numRow; i++) historyResultEntries.Values.Add(values[i][j]);
+                // Create result history set
+                HistoryResultEntries historyResultEntries;
+                HistoryResultComponent historyResultComponent =
+                    new HistoryResultComponent(ResultHistoryOutputFromEquation.ComponentName);
+                historyResultComponent.Unit = resultHistoryOutput.Unit;
+                // Entry names
+                if (!entryNamesEqual)
+                {
+                    for (int i = 0; i < numCol; i++) entryNames[i] = (i + 1).ToString();
+                }
                 //
-                historyResultComponent.Entries.Add(historyResultEntries.Name, historyResultEntries);
+                for (int j = 0; j < numCol; j++)
+                {
+                    historyResultEntries = new HistoryResultEntries(entryNames[j], false);
+                    // Set time
+                    historyResultEntries.Time = time.ToList();
+                    // Set values
+                    for (int i = 0; i < numRow; i++) historyResultEntries.Values.Add(values[i][j]);
+                    //
+                    historyResultComponent.Entries.Add(historyResultEntries.Name, historyResultEntries);
+                }
+                // Filter
+                if (resultHistoryOutput.Filter1 != null) historyResultComponent.ApplyFilter(resultHistoryOutput.Filter1);
+                if (resultHistoryOutput.Filter2 != null) historyResultComponent.ApplyFilter(resultHistoryOutput.Filter2);
+                // Field
+                HistoryResultField historyResultField = new HistoryResultField(ResultHistoryOutputFromEquation.FieldName);
+                historyResultField.Components.Add(historyResultComponent.Name, historyResultComponent);
+                // Set
+                HistoryResultSet historyResultSet = new HistoryResultSet(resultHistoryOutput.Name);
+                historyResultSet.Fields.Add(historyResultField.Name, historyResultField);
+                //
+                return historyResultSet;
             }
-            // Field
-            HistoryResultField historyResultField = new HistoryResultField("EQUATION");
-            historyResultField.Components.Add(historyResultComponent.Name, historyResultComponent);
-            // Set
-            HistoryResultSet historyResultSet = new HistoryResultSet(resultHistoryOutput.Name);
-            historyResultSet.Fields.Add(historyResultField.Name, historyResultField);
-            //
-            return historyResultSet;
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+            finally
+            {
+                MyNCalc.ExistingParameters = existingParameters;
+            }
         }
         private HistoryResultField GetNodeCoordinatesHistoryResultField(int[] nodeIds, OutputNodeCoordinatesEnum nodeCoorType,
                                                                         Dictionary<int, int[]> existingStepIncrementIds)
@@ -3694,11 +3910,11 @@ namespace CaeResults
             HistoryResultComponent component = field.Components[historyData.ComponentName];
             string unit;
             if (component.Unit != null) unit = component.Unit;
-            else unit = GetHistoryUnitAbbrevation(field.Name, component.Name, -1, -1);
+            else unit = GetHistoryUnitAbbreviation(field.Name, component.Name, -1, -1);
             string frequencyColumnName = PrepareFrequencyUnits(component);
             //
-            string timeUnit = "[" + GetHistoryUnitAbbrevation("Time", null, -1, -1) + "]";
-            string frequencyUnit = "[" + GetHistoryUnitAbbrevation("Frequency", null, -1, -1) + "]";
+            string timeUnit = "[" + GetHistoryUnitAbbreviation("Time", null, -1, -1) + "]";
+            string frequencyUnit = "[" + GetHistoryUnitAbbreviation("Frequency", null, -1, -1) + "]";
             string angleUnit = "[" + StringAngleDegConverter.GetUnitAbbreviation() + "]";
             // Sorted time
             double[] sortedTime;
@@ -4000,7 +4216,7 @@ namespace CaeResults
             return resultList;
         }
         // Equation
-        public string[] GetPossibleEquationParameters()
+        public string[] GetPossibleHistoryEquationParameters()
         {
             string variable;
             string separator = ResultHistoryOutputFromEquation.EquationSeparator;
@@ -4021,25 +4237,26 @@ namespace CaeResults
             return possibleEquationParameters.ToArray();
         }
         public string CheckResultHistoryOutputEquation(string equation, out HashSet<string> parentNames,
-            out Dictionary<string, HistoryResultComponent> parameterNameHisotryComponent)
+            out Dictionary<string, HistoryResultComponent> parameterNameHistoryComponent)
         {
             parentNames = new HashSet<string>();
-            parameterNameHisotryComponent = new Dictionary<string, HistoryResultComponent>();
+            parameterNameHistoryComponent = new Dictionary<string, HistoryResultComponent>();
+            OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters;
             //
             try
             {
                 int count = 1;
-                string[] possibleEquationParameters = GetPossibleEquationParameters();
-                MyNCalc.ExistingParameters = new OrderedDictionary<string, double>("Parameters");
+                string[] possibleEquationParameters = GetPossibleHistoryEquationParameters();
                 foreach (var possibleParameter in possibleEquationParameters)
                 {
-                    MyNCalc.ExistingParameters.Add(possibleParameter, count++ * 0.111);
+                    MyNCalc.ExistingParameters[possibleParameter] = count++ * 0.111;
                 }
                 //
                 HashSet<string> parameterNames;
                 bool hasErrors = MyNCalc.HasErrors(equation, out parameterNames);
                 //
-                if (parameterNames == null || parameterNames.Count == 0)
+                if (parameterNames == null || parameterNames.Count == 0 ||
+                    parameterNames.Intersect(possibleEquationParameters).Count() == 0)
                     throw new CaeException("At least one history output component must be used in the equation.");
                 //
                 string[] tmp;
@@ -4080,7 +4297,7 @@ namespace CaeResults
                                                "of time increments.");
                     //
                     parentNames.Add(tmp[0]);
-                    parameterNameHisotryComponent.Add(parameterName, historyResultComponent);
+                    parameterNameHistoryComponent.Add(parameterName, historyResultComponent);
                 }
                 //
                 if (parentNames.Count == 0)
@@ -4092,7 +4309,12 @@ namespace CaeResults
             {
                 return ex.Message;
             }
+            finally
+            {
+                MyNCalc.ExistingParameters = existingParameters;
+            }
         }
+        //
         public bool AreResultHistoryOutputsInCyclicDependance(string oldResultHistoryOutputName,
                                                               ResultHistoryOutput resultHistoryOutput)
         {
@@ -5460,11 +5682,11 @@ namespace CaeResults
             int stepId;
             double startTime;
             double endTime;
-            List<double[]> minMaxList = new List<double[]>();
+            List<double[]> minMaxTimeList = new List<double[]>();
             //
             if (slipWearResultsToKeep == SlipWearResultsEnum.All) 
             {
-                minMaxList.Add(new double[] { 0, sumTime });
+                minMaxTimeList.Add(new double[] { 0, sumTime });
             }
             else if (slipWearResultsToKeep == SlipWearResultsEnum.SlipWearSteps)
             {
@@ -5476,7 +5698,7 @@ namespace CaeResults
                     {
                         startTime = stepIdStartTime[stepId];
                         endTime = startTime + entry.Value;
-                        minMaxList.Add(new double[] { startTime, endTime });
+                        minMaxTimeList.Add(new double[] { startTime, endTime });
                     }
                 }
             }
@@ -5490,7 +5712,7 @@ namespace CaeResults
                     {
                         startTime = stepIdStartTime[stepId];
                         endTime = startTime + entry.Value;
-                        minMaxList.Add(new double[] { endTime, endTime });
+                        minMaxTimeList.Add(new double[] { endTime, endTime });
                     }
                 }
             }
@@ -5502,12 +5724,12 @@ namespace CaeResults
                 {
                     startTime = stepIdStartTime[stepId];
                     endTime = startTime + stepIdDuration[stepId];
-                    minMaxList.Add(new double[] { endTime, endTime });
+                    minMaxTimeList.Add(new double[] { endTime, endTime });
                 }
             }
             else throw new NotSupportedException();
             //
-            double[][] minMax = minMaxList.ToArray();
+            double[][] minMaxTime = minMaxTimeList.ToArray();
             //
             List<string> entryNamesToRemove = new List<string>();
             foreach (var setEntry in _history.Sets)
@@ -5520,7 +5742,7 @@ namespace CaeResults
                         //
                         foreach (var entry in componentEntry.Value.Entries)
                         {
-                            entry.Value.KeepOnly(minMax);
+                            entry.Value.KeepOnly(minMaxTime);
                             if (entry.Value.Time.Count == 0) entryNamesToRemove.Add(entry.Key);
                         }
                         // Remove empty

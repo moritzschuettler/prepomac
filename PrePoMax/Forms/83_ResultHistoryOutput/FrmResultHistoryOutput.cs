@@ -153,8 +153,7 @@ namespace PrePoMax.Forms
                 if (parentNames.Contains(rhofe.Name)) throw new CaeException("The equation must not contain a self reference.");
                 rhofe.SetParentNames(parentNames.ToArray());
                 // Cyclic reference
-                if (_controller.CurrentResult.AreResultHistoryOutputsInCyclicDependance(
-                    _resultHistoryOutputToEditName, _viewResultHistoryOutput.GetBase()))
+                if (_controller.CurrentResult.AreResultHistoryOutputsInCyclicDependance(_resultHistoryOutputToEditName, rhofe))
                 {
                     throw new CaeException("The selected equation creates a cyclic reference.");
                 }
@@ -270,7 +269,7 @@ namespace PrePoMax.Forms
             // History output from field output
             item = new ListViewItem("From Field Output");
             ResultHistoryOutputFromField rhoff =
-                new ResultHistoryOutputFromField(GetHistoryOutputName("FF"), fieldData.Name, null, "", RegionTypeEnum.Selection);
+                new ResultHistoryOutputFromField(GetHistoryOutputName("From_Field"), fieldData.Name, null, "", RegionTypeEnum.Selection);
             ViewResultHistoryOutputFromField vrhoff =
                 new ViewResultHistoryOutputFromField(rhoff, _controller.CurrentResult.ContainsComplexResults());
             vrhoff.PopulateDropDownLists(nodeSetNames, surfaceNames, filedNameComponentNames, stepIdStepIncrementIds);
@@ -278,7 +277,8 @@ namespace PrePoMax.Forms
             lvTypes.Items.Add(item);
             // History output from equation
             item = new ListViewItem("From History Output by Equation");
-            ResultHistoryOutputFromEquation rhofe = new ResultHistoryOutputFromEquation(GetHistoryOutputName("FE"), "=[FFH_Output-1.DISP.U1]+[FFH_Output-1.DISP.U2]");
+            ResultHistoryOutputFromEquation rhofe =
+                new ResultHistoryOutputFromEquation(GetHistoryOutputName("From_Equation"), "=[From_Field-1.DISP.U1]+[From_Field-1.DISP.U2]");
             ViewResultHistoryOutputFromEquation vrhofe = new ViewResultHistoryOutputFromEquation(rhofe);
             vrhofe.PopulateDropDownLists();
             item.Tag = vrhofe;
@@ -286,7 +286,7 @@ namespace PrePoMax.Forms
         }
         private string GetHistoryOutputName(string prefix)
         {
-            return _resultHistoryOutputSetNames.GetNextNumberedKey(prefix + "H_Output");
+            return _resultHistoryOutputSetNames.GetNextNumberedKey(prefix);
         }
         private void HighlightHistoryOutput()
         {

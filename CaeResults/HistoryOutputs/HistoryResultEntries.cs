@@ -75,10 +75,10 @@ namespace CaeResults
             _time.AddRange(historyResultEntry.Time);
             _values.AddRange(historyResultEntry.Values);
         }
-        public void ShiftTime(double timeSthift)
+        public void ShiftTime(double timeShift)
         {
             List<double> newTime = new List<double>();
-            foreach (var time in _time) newTime.Add(time + timeSthift);
+            foreach (var time in _time) newTime.Add(time + timeShift);
             _time = newTime;
         }
         public void SumValue(double value)
@@ -93,7 +93,7 @@ namespace CaeResults
                 if (_count[i] > 1) _values[i] /= _count[i];
             }
         }
-        public void KeepOnly(double[][] minMax)
+        public void KeepOnly(double[][] minMaxTime)
         {
             double[] time = _time.ToArray();
             double[] values = _values.ToArray();
@@ -107,7 +107,7 @@ namespace CaeResults
             for (int i = 0; i < time.Length; i++)
             {
                 add = false;
-                foreach (var pair in minMax)
+                foreach (var pair in minMaxTime)
                 {
                     if (pair[0] <= time[i] && time[i] <= pair[1])
                     {

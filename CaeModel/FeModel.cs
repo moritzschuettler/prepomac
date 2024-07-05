@@ -2117,7 +2117,7 @@ namespace CaeModel
         {
             try
             {
-                MyNCalc.ExistingParameters = new OrderedDictionary<string, double>("Parameters");
+                MyNCalc.ExistingParameters = new OrderedDictionary<string, object>("Parameters");
                 foreach (var entry in _parameters) MyNCalc.ExistingParameters.Add(entry.Key, entry.Value.Value);
             }
             catch

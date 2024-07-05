@@ -15,7 +15,7 @@ namespace CaeResults
         // Variables                                                                                                                
         private FeResults _currentResult;
         private OrderedDictionary<string, FeResults> _results;
-
+        
 
         // Properties                                                                                                               
         public int Count { get { return _results.Count; } }
@@ -31,15 +31,15 @@ namespace CaeResults
         }
 
 
-        // Metods
-        public static void PrepareForSavig(ResultsCollection resultsCollection)
+        // Methods
+        public static void PrepareForSaving(ResultsCollection resultsCollection)
         {
             foreach (var entry in resultsCollection._results)
             {
                 if (entry.Value != null) CaeMesh.FeMesh.PrepareForSaving(entry.Value.Mesh);
             }
         }
-        public static void ResetAfterSavig(ResultsCollection resultsCollection)
+        public static void ResetAfterSaving(ResultsCollection resultsCollection)
         {
             foreach (var entry in resultsCollection._results)
             {
@@ -125,6 +125,11 @@ namespace CaeResults
             foreach (var failedResultName in failedResultNames) allResults._results.Remove(failedResultName);
             //
             return failedResultNames.Count == 0;
+        }
+        //
+        public void UpdateResultEquations()
+        {
+            foreach (var entry in _results) entry.Value.UpdateResultEquations();
         }
         //
         public void Clear()

@@ -36,8 +36,10 @@ namespace PrePoMax.Forms
                     _viewResultFieldOutput = new ViewResultFieldOutputLimit(rfol, _controller.GetResultPartNames(),
                                                                             _controller.GetResultUserElementSetNames(),
                                                                             ref _propertyItemChanged);
-                else if (clone is ResultFieldOutputEnvelope rfoe)
-                    _viewResultFieldOutput = new ViewResultFieldOutputEnvelope(rfoe);
+                else if (clone is ResultFieldOutputEnvelope rfoen)
+                    _viewResultFieldOutput = new ViewResultFieldOutputEnvelope(rfoen);
+                else if (clone is ResultFieldOutputEquation rfoeq)
+                    _viewResultFieldOutput = new ViewResultFieldOutputEquation(rfoeq);
                 else if (clone is ResultFieldOutputCoordinateSystemTransform rfocst)
                     _viewResultFieldOutput = new ViewResultFieldOutputCoordinateSystemTransform(rfocst);
                 else throw new NotImplementedException();
@@ -128,7 +130,10 @@ namespace PrePoMax.Forms
                     SetTabPages(vrfol);
                 }
             }
-            else if (_viewResultFieldOutput is ViewResultFieldOutputEnvelope vrfoe)
+            else if (_viewResultFieldOutput is ViewResultFieldOutputEnvelope vrfoen)
+            {
+            }
+            else if (_viewResultFieldOutput is ViewResultFieldOutputEquation vrfoeq)
             {
             }
             else if (_viewResultFieldOutput is ViewResultFieldOutputCoordinateSystemTransform vrfosct)
@@ -156,28 +161,35 @@ namespace PrePoMax.Forms
             _viewResultFieldOutput = (ViewResultFieldOutput)propertyGrid.SelectedObject;
             // Check if the name exists
             CheckName(_resultFieldOutputToEditName, _viewResultFieldOutput.Name, _resultFieldOutputNames, "field output");
-            // Cyclic reference
-            if (_controller.CurrentResult.AreResultFieldOutputsInCyclicDependance(
-                _resultFieldOutputToEditName, _viewResultFieldOutput.GetBase()))
-            {
-                throw new CaeException("The selected dependent field output creates a cyclic reference.");
-            }
             // Check for zero limits
-            if (_viewResultFieldOutput is ViewResultFieldOutputLimit vrfol)
+            if (ResultFieldOutput is ResultFieldOutputLimit rfol)
             {
-                ResultFieldOutputLimit rfol = (ResultFieldOutputLimit)vrfol.GetBase();
                 foreach (var entry in rfol.ItemNameLimit)
                 {
                     if (entry.Value == 0) throw new CaeException("All limit values must be different from 0.");
                 }
             }
-            // Check coordinate system transform
-            if (_viewResultFieldOutput is ViewResultFieldOutputCoordinateSystemTransform vrfocst)
+            // Check equation
+            if (ResultFieldOutput is ResultFieldOutputEquation rfoe)
             {
-                DataTypeEnum dataType = _controller.CurrentResult.GetFieldDataType(vrfocst.FieldName);
+                HashSet<string> parentNames;
+                string error = _controller.CurrentResult.CheckResultFieldOutputEquation(rfoe.Equation, out parentNames, out _);
+                if (error != null) throw new CaeException(error);
+                if (parentNames.Contains(rfoe.Name)) throw new CaeException("The equation must not contain a self reference.");
+                rfoe.SetParentNames(parentNames.ToArray());
+            }
+            // Cyclic reference
+            if (_controller.CurrentResult.AreResultFieldOutputsInCyclicDependance(_resultFieldOutputToEditName, ResultFieldOutput))
+            {
+                throw new CaeException("The selected dependent field output creates a cyclic reference.");
+            }
+            // Check coordinate system transform
+            if (ResultFieldOutput is ResultFieldOutputCoordinateSystemTransform rfocst)
+            {
+                DataTypeEnum dataType = _controller.CurrentResult.GetFieldDataType(rfocst.FieldName);
                 if (dataType != DataTypeEnum.Vector && dataType != DataTypeEnum.Tensor)
                     throw new CaeException("Only vector or tensor field output can be transformed.");
-                else if (!_controller.CurrentResult.DoesFieldContainsAllNecessaryComponents(vrfocst.FieldName))
+                else if (!_controller.CurrentResult.DoesFieldContainsAllNecessaryComponents(rfocst.FieldName))
                     throw new CaeException("The field output does not contain all necessary componets.");
             }
             // Create
@@ -248,20 +260,25 @@ namespace PrePoMax.Forms
                     //
                     vrfol.PopulateDropDownLists(filedNameComponentNames);
                 }
-                else if (_viewResultFieldOutput is ViewResultFieldOutputEnvelope vrfoe)
+                else if (_viewResultFieldOutput is ViewResultFieldOutputEnvelope vrfoen)
                 {
                     selectedId = 1;
                     // Check
                     string[] fieldNames = filedNameComponentNames.Keys.ToArray();
-                    CheckMissingValueRef(ref fieldNames, vrfoe.FieldName, s => { vrfoe.FieldName = s; });
-                    string[] componentNames = filedNameComponentNames[vrfoe.FieldName];
-                    CheckMissingValueRef(ref componentNames, vrfoe.ComponentName, s => { vrfoe.ComponentName = s; });
+                    CheckMissingValueRef(ref fieldNames, vrfoen.FieldName, s => { vrfoen.FieldName = s; });
+                    string[] componentNames = filedNameComponentNames[vrfoen.FieldName];
+                    CheckMissingValueRef(ref componentNames, vrfoen.ComponentName, s => { vrfoen.ComponentName = s; });
                     //
-                    vrfoe.PopulateDropDownLists(filedNameComponentNames);
+                    vrfoen.PopulateDropDownLists(filedNameComponentNames);
+                }
+                else if (_viewResultFieldOutput is ViewResultFieldOutputEquation vrfoeq)
+                {
+                    selectedId = 2;
+                    // Check
                 }
                 else if (_viewResultFieldOutput is ViewResultFieldOutputCoordinateSystemTransform vrfcst)
                 {
-                    selectedId = 2;
+                    selectedId = 3;
                     // Check
                     string[] fieldNames = filedNameComponentNames.Keys.ToArray();
                     CheckMissingValueRef(ref fieldNames, vrfcst.FieldName, s => { vrfcst.FieldName = s; });
@@ -332,6 +349,17 @@ namespace PrePoMax.Forms
             }
             else item.Tag = new ViewError("There are not field outputs or components for the creation of the field output.");
             lvTypes.Items.Add(item);
+            // Equation
+            item = new ListViewItem("Equation");
+            if (firstFieldName != null && firstComponentName != null)
+            {
+                ResultFieldOutputEquation rfoe = new ResultFieldOutputEquation(GetResultFieldOutputName("Equation"),
+                                                                                        "=[DISP.ALL]");
+                ViewResultFieldOutputEquation vrfoe = new ViewResultFieldOutputEquation(rfoe);
+                item.Tag = vrfoe;
+            }
+            else item.Tag = new ViewError("There are not field outputs or components for the creation of the field output.");
+            lvTypes.Items.Add(item);
             // Transform
             item = new ListViewItem("Coordinate System Transform");
             if (firstFieldName != null && firstComponentName != null)
@@ -396,7 +424,7 @@ namespace PrePoMax.Forms
                 //
                 _viewResultFieldOutput = vrfol;
             }
-            else if (item is ViewResultFieldOutputEnvelope vrfoe)
+            else if (item is ViewResultFieldOutputEnvelope vrfoen)
             {
                 // Clear
                 dgvData.DataSource = null;
@@ -405,7 +433,18 @@ namespace PrePoMax.Forms
                 //
                 tcProperties.TabPages.Add(_pages[0]);   // properites
                 //
-                _viewResultFieldOutput = vrfoe;
+                _viewResultFieldOutput = vrfoen;
+            }
+            else if (item is ViewResultFieldOutputEquation vrfoeq)
+            {
+                // Clear
+                dgvData.DataSource = null;
+                dgvData.Columns.Clear();
+                tcProperties.TabPages.Clear();
+                //
+                tcProperties.TabPages.Add(_pages[0]);   // properites
+                //
+                _viewResultFieldOutput = vrfoeq;
             }
             else if (item is ViewResultFieldOutputCoordinateSystemTransform vrfocst)
             {
