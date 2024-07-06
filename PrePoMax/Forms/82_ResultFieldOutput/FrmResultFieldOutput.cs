@@ -353,8 +353,7 @@ namespace PrePoMax.Forms
             item = new ListViewItem("Equation");
             if (firstFieldName != null && firstComponentName != null)
             {
-                ResultFieldOutputEquation rfoe = new ResultFieldOutputEquation(GetResultFieldOutputName("Equation"),
-                                                                                        "=[DISP.ALL]");
+                ResultFieldOutputEquation rfoe = new ResultFieldOutputEquation(GetResultFieldOutputName("Equation"), "=");
                 ViewResultFieldOutputEquation vrfoe = new ViewResultFieldOutputEquation(rfoe);
                 item.Tag = vrfoe;
             }

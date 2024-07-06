@@ -224,7 +224,8 @@ namespace PrePoMax
         private void UpdateComponents(string[] selectedComponentNames = null)
         {
             string[] componentNames;
-            if (_filedNameComponentNames.TryGetValue(FieldName, out componentNames) && componentNames.Length > 0)
+            if (_filedNameComponentNames != null && _filedNameComponentNames.TryGetValue(FieldName, out componentNames) &&
+                componentNames.Length > 0)
             {
                 if (selectedComponentNames == null) selectedComponentNames = componentNames;
                 _componentContainer = new MultiChoiceContainer(componentNames, selectedComponentNames);

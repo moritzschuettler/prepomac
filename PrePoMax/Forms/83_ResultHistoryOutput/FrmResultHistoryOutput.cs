@@ -278,7 +278,7 @@ namespace PrePoMax.Forms
             // History output from equation
             item = new ListViewItem("From History Output by Equation");
             ResultHistoryOutputFromEquation rhofe =
-                new ResultHistoryOutputFromEquation(GetHistoryOutputName("From_Equation"), "=[From_Field-1.DISP.U1]+[From_Field-1.DISP.U2]");
+                new ResultHistoryOutputFromEquation(GetHistoryOutputName("From_Equation"), "=");
             ViewResultHistoryOutputFromEquation vrhofe = new ViewResultHistoryOutputFromEquation(rhofe);
             vrhofe.PopulateDropDownLists();
             item.Tag = vrhofe;

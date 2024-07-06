@@ -2077,6 +2077,7 @@ namespace CaeResults
             {
                 result = new FieldData(name, component, stepId, stepIncrementId);
                 result.StepType = StepTypeEnum.Static;
+                //result.Time = 0; // unnecessary since this result does not exits
                 return result;
             }
             // Find the result
@@ -2682,6 +2683,8 @@ namespace CaeResults
             {
                 foreach (var incrementId in entry.Value)
                 {
+                    if (entry.Key == 1 && incrementId == 0) continue;   // Zero increment - Find all occurrences!!!
+                    //
                     if (resultFieldOutput is ResultFieldOutputLimit rfol)
                     {
                         sourceFieldName = rfol.FieldName;
@@ -2856,16 +2859,14 @@ namespace CaeResults
             else if (resultFieldOutput is ResultFieldOutputEquation rfoeq)
             {
                 componentNames = rfoeq.GetComponentNames();
-                if (stepId == 1 && stepIncrementId == 0) values = new float[][] { new float[numOfNodes] };
-                else values = ComputeFieldFromResultFieldOutputEquation(rfoeq, stepId, stepIncrementId);
+                values = ComputeFieldFromResultFieldOutputEquation(rfoeq, stepId, stepIncrementId);
             }
             else if (resultFieldOutput is ResultFieldOutputCoordinateSystemTransform rfocst)
             {
                 sourceFieldData = GetFieldData(rfocst.FieldName, rfocst.GetComponentNames()[0], stepId, stepIncrementId, true);
                 sourceField = GetField(sourceFieldData);
                 componentNames = rfocst.GetComponentNames();
-                if (stepId == 1 && stepIncrementId == 0) values = new float[][] { new float[numOfNodes] };
-                else values = ComputeFieldFromResultFieldOutputCoordinateSystemTransform(rfocst, sourceField);
+                values = ComputeFieldFromResultFieldOutputCoordinateSystemTransform(rfocst, sourceField);
             }
             else throw new NotSupportedException();
             //
