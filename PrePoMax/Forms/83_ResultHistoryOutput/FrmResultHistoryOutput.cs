@@ -191,7 +191,7 @@ namespace PrePoMax.Forms
             propertyGrid.SelectedObject = null;
             //
             _stepName = stepName;
-            _resultHistoryOutputSetNames = _controller.GetResultHistoryOutputSetNames();
+            _resultHistoryOutputSetNames = _controller.GetHistoryResultSetNames();
             _resultHistoryOutputToEditName = historyOutputToEditName;
             string[] nodeSetNames = _controller.GetResultUserNodeSetNames();
             string[] surfaceNames = _controller.GetResultUserSurfaceNames();

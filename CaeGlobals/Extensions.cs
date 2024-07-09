@@ -235,6 +235,19 @@ namespace CaeGlobals
             }
             return allNames;
         }
+        public static string ToDelimitedString(this string[] stringArray, string delimiter)
+        {
+            string allNames = "";
+            if (stringArray != null)
+            {
+                foreach (var item in stringArray)
+                {
+                    if (allNames.Length > 0) allNames += delimiter;
+                    allNames += item;
+                }
+            }
+            return allNames;
+        }
         //
         public static string ReplaceFirst(this string text, string search, string replace)
         {

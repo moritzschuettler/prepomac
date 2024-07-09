@@ -148,8 +148,8 @@ namespace PrePoMax.Forms
             _controller.SetSelectByToOff();
             // Get center point grid item
             GridItem gi = propertyGrid.EnumerateAllItems().First((item) =>
-                              item.PropertyDescriptor != null &&
-                              item.PropertyDescriptor.Name == "ScaleCenterItemSet");
+                          item.PropertyDescriptor != null &&
+                          item.PropertyDescriptor.Name == nameof(_scaleParameters.Copy));
             // Select it
             gi.Select();
             //
@@ -170,13 +170,47 @@ namespace PrePoMax.Forms
         // Methods                                                                                                                  
         public void PickedIds(int[] ids)
         {
-            if (ids != null && ids.Length == 1)
+            Vec3D point = null;
+            FeMesh mesh = GetMesh();
+            //
+            bool finished = false;
+            string propertyName = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
+            if (propertyName == nameof(_scaleParameters.ScaleCenterItemSet))
             {
-                FeNode node = _controller.DisplayedMesh.Nodes[ids[0]];
+                if (_scaleParameters.ScaleCenterSelectionMethod == PointSelectionMethodEnum.OnPoint &&
+                    ids.Length == 1)
+                {
+                    point = new Vec3D(mesh.Nodes[ids[0]].Coor);
+                    finished = true;
+                }
+                else if (_scaleParameters.ScaleCenterSelectionMethod == PointSelectionMethodEnum.BetweenTwoPoints &&
+                         ids.Length == 2)
+                {
+                    Vec3D v1 = new Vec3D(mesh.Nodes[ids[0]].Coor);
+                    Vec3D v2 = new Vec3D(mesh.Nodes[ids[1]].Coor);
+                    point = (v1 + v2) * 0.5;
+                    finished = true;
+                }
+                else if (_scaleParameters.ScaleCenterSelectionMethod == PointSelectionMethodEnum.CircleCenter &&
+                         ids.Length == 3)
+                {
+                    Vec3D v1 = new Vec3D(mesh.Nodes[ids[0]].Coor);
+                    Vec3D v2 = new Vec3D(mesh.Nodes[ids[1]].Coor);
+                    Vec3D v3 = new Vec3D(mesh.Nodes[ids[2]].Coor);
+                    Vec3D.GetCircle(v1, v2, v3, out double r, out point, out Vec3D axis);
+                    finished = true;
+                }
                 //
-                _scaleParameters.CenterX = node.X;
-                _scaleParameters.CenterY = node.Y;
-                _scaleParameters.CenterZ = node.Z;
+                if (finished)
+                {
+                    _scaleParameters.CenterX = point.X;
+                    _scaleParameters.CenterY = point.Y;
+                    _scaleParameters.CenterZ = point.Z;
+                }
+            }
+            //
+            if (finished)
+            {
                 // Disable selection
                 this.Enabled = true;
                 _controller.SetSelectByToOff();
@@ -200,7 +234,15 @@ namespace PrePoMax.Forms
             _controller.ClearAllSelection();
             _controller.HighlightNodes(_coorNodesToDraw);
         }
+        //
+        private FeMesh GetMesh()
+        {
+            if (_controller.CurrentView == ViewGeometryModelResults.Model)
+                return _controller.Model.Mesh;
+            else if (_controller.CurrentView == ViewGeometryModelResults.Results)
+                return _controller.AllResults.CurrentResult.Mesh;
+            else throw new NotSupportedException();
+        }
 
-        
     }
 }

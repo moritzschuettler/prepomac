@@ -17,6 +17,8 @@ namespace PrePoMax.Forms
     {
         // Variables                                                                                                                      
         private DynamicCustomTypeDescriptor _dctd = null;
+        private PointSelectionMethodEnum _startPointSelectionMethod;
+        private PointSelectionMethodEnum _endPointSelectionMethod;
         private ItemSetData _startPointItemSetData;
         private ItemSetData _endPointItemSetData;
         private double[] _startPoint;
@@ -34,10 +36,31 @@ namespace PrePoMax.Forms
         public bool Copy { get { return _copy; } set { _copy = value; } }
         //
         [Category("Start axis point coordinates")]
-        [OrderedDisplayName(0, 10, "By selection")]
+        [OrderedDisplayName(0, 10, "Selection method")]
+        [DescriptionAttribute("Choose the selection method.")]
+        [Id(1, 2)]
+        public PointSelectionMethodEnum StartPointSelectionMethod
+        {
+            get { return _startPointSelectionMethod; }
+            set
+            {
+                _startPointSelectionMethod = value;
+                //
+                if (_startPointSelectionMethod == PointSelectionMethodEnum.OnPoint)
+                    _startPointItemSetData.ToStringType = ItemSetDataToStringType.SelectSinglePoint;
+                else if (_startPointSelectionMethod == PointSelectionMethodEnum.BetweenTwoPoints)
+                    _startPointItemSetData.ToStringType = ItemSetDataToStringType.SelectTwoPoints;
+                else if (_startPointSelectionMethod == PointSelectionMethodEnum.CircleCenter)
+                    _startPointItemSetData.ToStringType = ItemSetDataToStringType.SelectThreePoints;
+                else throw new NotSupportedException();
+            }
+        }
+        //
+        [Category("Start axis point coordinates")]
+        [OrderedDisplayName(1, 10, "By selection")]
         [DescriptionAttribute("Use selection for the definition of the start point.")]
         [EditorAttribute(typeof(SinglePointDataEditor), typeof(UITypeEditor))]
-        [Id(1, 2)]
+        [Id(2, 2)]
         public ItemSetData StartPointItemSet
         {
             get { return _startPointItemSetData; }
@@ -49,10 +72,10 @@ namespace PrePoMax.Forms
         }
         //
         [Category("Start axis point coordinates")]
-        [OrderedDisplayName(1, 10, "X")]
+        [OrderedDisplayName(2, 10, "X")]
         [Description("X coordinate of the start point.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(2, 2)]
+        [Id(3, 2)]
         public double X1
         {
             get { return _startPoint[0]; }
@@ -64,10 +87,10 @@ namespace PrePoMax.Forms
         }
         //
         [Category("Start axis point coordinates")]
-        [OrderedDisplayName(2, 10, "Y")]
+        [OrderedDisplayName(3, 10, "Y")]
         [Description("Y coordinate of the start point.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(3, 2)]
+        [Id(4, 2)]
         public double Y1
         {
             get { return _startPoint[1]; }
@@ -79,10 +102,10 @@ namespace PrePoMax.Forms
         }
         //
         [Category("Start axis point coordinates")]
-        [OrderedDisplayName(3, 10, "Z")]
+        [OrderedDisplayName(4, 10, "Z")]
         [Description("Z coordinate of the start point.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(4, 2)]
+        [Id(5, 2)]
         public double Z1
         {
             get { return _startPoint[2]; }
@@ -94,10 +117,31 @@ namespace PrePoMax.Forms
         }
         //
         [Category("End axis point coordinates")]
-        [OrderedDisplayName(0, 10, "By selection ")]    // must be a different name than for the first point !!!
+        [OrderedDisplayName(0, 10, "Selection method")]
+        [DescriptionAttribute("Choose the selection method.")]
+        [Id(1, 3)]
+        public PointSelectionMethodEnum EndPointSelectionMethod
+        {
+            get { return _endPointSelectionMethod; }
+            set
+            {
+                _endPointSelectionMethod = value;
+                //
+                if (_endPointSelectionMethod == PointSelectionMethodEnum.OnPoint)
+                    _endPointItemSetData.ToStringType = ItemSetDataToStringType.SelectSinglePoint;
+                else if (_endPointSelectionMethod == PointSelectionMethodEnum.BetweenTwoPoints)
+                    _endPointItemSetData.ToStringType = ItemSetDataToStringType.SelectTwoPoints;
+                else if (_endPointSelectionMethod == PointSelectionMethodEnum.CircleCenter)
+                    _endPointItemSetData.ToStringType = ItemSetDataToStringType.SelectThreePoints;
+                else throw new NotSupportedException();
+            }
+        }
+        //
+        [Category("End axis point coordinates")]
+        [OrderedDisplayName(1, 10, "By selection ")]    // must be a different name than for the first point !!!
         [DescriptionAttribute("Use selection for the definition of the end point.")]
         [EditorAttribute(typeof(SinglePointDataEditor), typeof(UITypeEditor))]
-        [Id(1, 3)]
+        [Id(2, 3)]
         public ItemSetData EndPointItemSet
         {
             get { return _endPointItemSetData; }
@@ -108,24 +152,24 @@ namespace PrePoMax.Forms
         }
         //
         [Category("End axis point coordinates")]
-        [OrderedDisplayName(1, 10, "X")]
+        [OrderedDisplayName(2, 10, "X")]
         [Description("X coordinate of the end point.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(2, 3)]
+        [Id(3, 3)]
         public double X2 { get { return _endPoint[0]; } set { _endPoint[0] = value; } }
         //
         [Category("End axis point coordinates")]
-        [OrderedDisplayName(2, 10, "Y")]
+        [OrderedDisplayName(3, 10, "Y")]
         [Description("Y coordinate of the end point.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(3, 3)]
+        [Id(4, 3)]
         public double Y2 { get { return _endPoint[1]; } set { _endPoint[1] = value; } }
         //
         [Category("End axis point coordinates")]
-        [OrderedDisplayName(3, 10, "Z")]
+        [OrderedDisplayName(4, 10, "Z")]
         [Description("Z coordinate of the end point.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(4, 3)]
+        [Id(5, 3)]
         public double Z2
         {
             get { return _endPoint[2]; }

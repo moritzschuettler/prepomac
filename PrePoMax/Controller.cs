@@ -10530,13 +10530,21 @@ namespace PrePoMax
         #endregion #################################################################################################################
 
         #region Result history output  #############################################################################################
-        public string[] GetResultHistoryOutputSetNames()
+        public string[] GetHistoryResultSetNames()
         {
             if (_allResults.CurrentResult != null && _allResults.CurrentResult.GetHistory() != null)
             {
                 return _allResults.CurrentResult.GetHistory().Sets.Keys.ToArray();
             }
             else return new string[0];
+        }
+        public HistoryResultSet[] GetHistoryResultSets()
+        {
+            if (_allResults.CurrentResult != null && _allResults.CurrentResult.GetHistory() != null)
+            {
+                return _allResults.CurrentResult.GetHistory().Sets.Values.ToArray();
+            }
+            else return new HistoryResultSet[0];
         }
         public NamedClass[] GetResultHistoryOutputsAsNamedItems()
         {

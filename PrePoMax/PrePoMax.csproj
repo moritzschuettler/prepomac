@@ -529,9 +529,13 @@
     <Compile Include="Forms\82_ResultFieldOutput\ViewResultFieldOutputEnvelope.cs" />
     <Compile Include="Forms\82_ResultFieldOutput\ViewResultFieldOutputLimit.cs" />
     <Compile Include="Forms\82_ResultFieldOutput\ViewResultFieldOutputEquation.cs" />
+    <Compile Include="Forms\83_ResultHistoryOutput\FrmHistoryResultSetExporter.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Forms\83_ResultHistoryOutput\FrmResultHistoryOutput.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Forms\83_ResultHistoryOutput\ViewHistoryResultSetExporter.cs" />
     <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutputFromEquation.cs" />
     <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutputFromField.cs" />
     <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutput.cs" />
@@ -899,6 +903,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\82_ResultFieldOutput\FrmResultFieldOutput.resx">
       <DependentUpon>FrmResultFieldOutput.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\83_ResultHistoryOutput\FrmHistoryResultSetExporter.resx">
+      <DependentUpon>FrmHistoryResultSetExporter.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\83_ResultHistoryOutput\FrmResultHistoryOutput.resx">
       <DependentUpon>FrmResultHistoryOutput.cs</DependentUpon>

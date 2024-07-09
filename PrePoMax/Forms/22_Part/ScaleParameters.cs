@@ -17,6 +17,7 @@ namespace PrePoMax.Forms
     {
         // Variables                                                                                                                      
         private DynamicCustomTypeDescriptor _dctd = null;
+        private PointSelectionMethodEnum _scaleCenterSelectionMethod;
         private ItemSetData _scaleCenterItemSetData;
         private double[] _scaleCenter;
         private double _scaleFactorX;
@@ -34,10 +35,31 @@ namespace PrePoMax.Forms
         public bool Copy { get { return _copy; } set { _copy = value; } }
         //
         [Category("Center point coordinates")]
-        [OrderedDisplayName(0, 10, "By selection")]
+        [OrderedDisplayName(0, 10, "Selection method")]
+        [DescriptionAttribute("Choose the selection method.")]
+        [Id(1, 2)]
+        public PointSelectionMethodEnum ScaleCenterSelectionMethod
+        {
+            get { return _scaleCenterSelectionMethod; }
+            set
+            {
+                _scaleCenterSelectionMethod = value;
+                //
+                if (_scaleCenterSelectionMethod == PointSelectionMethodEnum.OnPoint)
+                    _scaleCenterItemSetData.ToStringType = ItemSetDataToStringType.SelectSinglePoint;
+                else if (_scaleCenterSelectionMethod == PointSelectionMethodEnum.BetweenTwoPoints)
+                    _scaleCenterItemSetData.ToStringType = ItemSetDataToStringType.SelectTwoPoints;
+                else if (_scaleCenterSelectionMethod == PointSelectionMethodEnum.CircleCenter)
+                    _scaleCenterItemSetData.ToStringType = ItemSetDataToStringType.SelectThreePoints;
+                else throw new NotSupportedException();
+            }
+        }
+        //
+        [Category("Center point coordinates")]
+        [OrderedDisplayName(1, 10, "By selection")]
         [DescriptionAttribute("Use selection for the definition of the center point.")]
         [EditorAttribute(typeof(SinglePointDataEditor), typeof(UITypeEditor))]
-        [Id(1, 2)]
+        [Id(2, 2)]
         public ItemSetData ScaleCenterItemSet
         {
             get { return _scaleCenterItemSetData; }
@@ -49,24 +71,24 @@ namespace PrePoMax.Forms
         }
         //
         [Category("Center point coordinates")]
-        [OrderedDisplayName(1, 10, "X")]
+        [OrderedDisplayName(2, 10, "X")]
         [Description("X coordinate of the center point.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(1, 2)]
+        [Id(3, 2)]
         public double CenterX { get { return _scaleCenter[0]; } set { _scaleCenter[0] = value; } }
         //
         [Category("Center point coordinates")]
-        [OrderedDisplayName(2, 10, "Y")]
+        [OrderedDisplayName(3, 10, "Y")]
         [Description("Y coordinate of the center point.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(1, 2)]
+        [Id(4, 2)]
         public double CenterY { get { return _scaleCenter[1]; } set { _scaleCenter[1] = value; } }
         //
         [Category("Center point coordinates")]
-        [OrderedDisplayName(3, 10, "Z")]
+        [OrderedDisplayName(4, 10, "Z")]
         [Description("Z coordinate of the center point.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(1, 2)]
+        [Id(5, 2)]
         public double CenterZ
         {
             get { return _scaleCenter[2]; }
@@ -93,10 +115,10 @@ namespace PrePoMax.Forms
         }
         //
         [Category("Scale factors")]
-        [OrderedDisplayName(0, 10, "Y")]
+        [OrderedDisplayName(1, 10, "Y")]
         [Description("Scale factor in the Y direction.")]
         [TypeConverter(typeof(StringDoubleConverter))]
-        [Id(1, 3)]
+        [Id(2, 3)]
         public double FactorY
         {
             get { return _scaleFactorY; }
@@ -108,10 +130,10 @@ namespace PrePoMax.Forms
         }
         //
         [Category("Scale factors")]
-        [OrderedDisplayName(0, 10, "Z")]
+        [OrderedDisplayName(2, 10, "Z")]
         [Description("Scale factor in the Z direction.")]
         [TypeConverter(typeof(StringDoubleConverter))]
-        [Id(1, 3)]
+        [Id(3, 3)]
         public double FactorZ
         {
             get { return _scaleFactorZ; }

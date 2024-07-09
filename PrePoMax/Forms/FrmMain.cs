@@ -92,8 +92,9 @@ namespace PrePoMax
         private FrmMonitor _frmMonitor;
         private FrmAnimation _frmAnimation;
         private FrmResultFieldOutput _frmResultFieldOutput;
-        private FrmViewResultHistoryOutput _frmViewResultHistoryOutput;
         private FrmResultHistoryOutput _frmResultHistoryOutput;
+        private FrmViewResultHistoryOutput _frmViewResultHistoryOutput;
+        private FrmHistoryResultSetExporter _frmHistoryResultSetExporter;
         private FrmTransformation _frmTransformation;
         //
         #endregion  ################################################################################################################
@@ -455,11 +456,14 @@ namespace PrePoMax
                 _frmResultFieldOutput = new FrmResultFieldOutput(_controller);
                 AddFormToAllForms(_frmResultFieldOutput);
                 //
+                _frmResultHistoryOutput = new FrmResultHistoryOutput(_controller);
+                AddFormToAllForms(_frmResultHistoryOutput);
+                //
                 _frmViewResultHistoryOutput = new FrmViewResultHistoryOutput(_controller);
                 AddFormToAllForms(_frmViewResultHistoryOutput);
                 //
-                _frmResultHistoryOutput = new FrmResultHistoryOutput(_controller);
-                AddFormToAllForms(_frmResultHistoryOutput);
+                _frmHistoryResultSetExporter = new FrmHistoryResultSetExporter(_controller);
+                AddFormToAllForms(_frmHistoryResultSetExporter);
                 //
                 _frmTransformation = new FrmTransformation(_controller);
                 AddFormToAllForms(_frmTransformation);
@@ -7288,6 +7292,17 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
+        private void tsmiExportResultHistoryOutput_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                ShowForm(_frmHistoryResultSetExporter, "Export History Outputs", null);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
         private void tsmiDeleteResultHistoryOutput_Click(object sender, EventArgs e)
         {
             try
@@ -9867,7 +9882,7 @@ namespace PrePoMax
             }
         }
 
-        
+       
     }
 }
 

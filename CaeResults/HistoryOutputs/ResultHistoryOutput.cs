@@ -21,7 +21,6 @@ namespace CaeResults
         private HistoryResultSet historyResultSet;
         private HistoryResultFilter _filter1;
         private HistoryResultFilter _filter2;
-        //private HistoryResultFilter _filter3;
 
 
         // Properties                                                                                                               
@@ -32,7 +31,6 @@ namespace CaeResults
         public HistoryResultSet HistoryResultSet { get { return historyResultSet; } set { historyResultSet = value; } }
         public HistoryResultFilter Filter1 { get { return _filter1; } set { _filter1 = value; } }
         public HistoryResultFilter Filter2 { get { return _filter2; } set { _filter2 = value; } }
-        //public HistoryResultFilter Filter3 { get { return _filter3; } set { _filter3 = value; } }
 
 
         // Constructors                                                                                                             
@@ -45,7 +43,6 @@ namespace CaeResults
             _creationData = null;
             _filter1 = new HistoryResultFilter();
             _filter2 = new HistoryResultFilter();
-            //_filter3 = new HistoryResultFilter();
         }
 
 

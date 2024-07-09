@@ -73,10 +73,7 @@ namespace PrePoMax.Forms
         public ItemSetData PointCenterItemSet
         {
             get { return _pointCenterItemSetData; }
-            set
-            {
-                if (value != _pointCenterItemSetData) _pointCenterItemSetData = value;
-            }
+            set { if (value != _pointCenterItemSetData) _pointCenterItemSetData = value; }
         }
         //
         [Category("Center")]

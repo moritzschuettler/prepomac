@@ -73,27 +73,44 @@ namespace PrePoMax.Forms
             this.cmsProperyGrid.SuspendLayout();
             this.SuspendLayout();
             // 
+            // gbProperties
+            // 
+            this.gbProperties.Size = new System.Drawing.Size(310, 399);
+            // 
             // propertyGrid
             // 
             this.propertyGrid.ContextMenuStrip = this.cmsProperyGrid;
+            this.propertyGrid.Size = new System.Drawing.Size(298, 371);
+            // 
+            // btnOK
+            // 
+            this.btnOK.Location = new System.Drawing.Point(160, 411);
+            // 
+            // btnCancel
+            // 
+            this.btnCancel.Location = new System.Drawing.Point(241, 411);
+            // 
+            // btnOkAddNew
+            // 
+            this.btnOkAddNew.Location = new System.Drawing.Point(79, 411);
             // 
             // cmsProperyGrid
             // 
             this.cmsProperyGrid.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsmiResetAll});
             this.cmsProperyGrid.Name = "cmsProperyGrid";
-            this.cmsProperyGrid.Size = new System.Drawing.Size(181, 48);
+            this.cmsProperyGrid.Size = new System.Drawing.Size(118, 26);
             // 
             // tsmiResetAll
             // 
             this.tsmiResetAll.Name = "tsmiResetAll";
-            this.tsmiResetAll.Size = new System.Drawing.Size(180, 22);
+            this.tsmiResetAll.Size = new System.Drawing.Size(117, 22);
             this.tsmiResetAll.Text = "Reset all";
             this.tsmiResetAll.Click += new System.EventHandler(this.tsmiResetAll_Click);
             // 
             // FrmRotate
             // 
-            this.ClientSize = new System.Drawing.Size(334, 411);
+            this.ClientSize = new System.Drawing.Size(334, 446);
             this.Name = "FrmRotate";
             this.Text = "Rotate Parameters";
             this.Controls.SetChildIndex(this.gbProperties, 0);
@@ -132,7 +149,7 @@ namespace PrePoMax.Forms
             // Get start point grid item
             GridItem gi = propertyGrid.EnumerateAllItems().First((item) =>
                           item.PropertyDescriptor != null &&
-                          item.PropertyDescriptor.Name == nameof(_rotateParameters.StartPointItemSet));
+                          item.PropertyDescriptor.Name == nameof(_rotateParameters.Copy));
             // Select it
             gi.Select();
             //
@@ -153,22 +170,79 @@ namespace PrePoMax.Forms
         // Methods                                                                                                                  
         public void PickedIds(int[] ids)
         {
-            if (ids != null && ids.Length == 1)
+            Vec3D point = null;
+            FeMesh mesh = GetMesh();
+            //
+            bool finished = false;
+            string propertyName = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
+            if (propertyName == nameof(_rotateParameters.StartPointItemSet))
             {
-                FeNode node = _controller.Model.Mesh.Nodes[ids[0]];
-                string propertyName = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
-                if (propertyName == nameof(_rotateParameters.StartPointItemSet))
+                if (_rotateParameters.StartPointSelectionMethod == PointSelectionMethodEnum.OnPoint &&
+                    ids.Length == 1)
                 {
-                    _rotateParameters.X1 = node.X;
-                    _rotateParameters.Y1 = node.Y;
-                    _rotateParameters.Z1 = node.Z;
+                    point = new Vec3D(mesh.Nodes[ids[0]].Coor);
+                    finished = true;
                 }
-                else if(propertyName == nameof(_rotateParameters.EndPointItemSet))
+                else if (_rotateParameters.StartPointSelectionMethod == PointSelectionMethodEnum.BetweenTwoPoints &&
+                         ids.Length == 2)
                 {
-                    _rotateParameters.X2 = node.X;
-                    _rotateParameters.Y2 = node.Y;
-                    _rotateParameters.Z2 = node.Z;
+                    Vec3D v1 = new Vec3D(mesh.Nodes[ids[0]].Coor);
+                    Vec3D v2 = new Vec3D(mesh.Nodes[ids[1]].Coor);
+                    point = (v1 + v2) * 0.5;
+                    finished = true;
                 }
+                else if (_rotateParameters.StartPointSelectionMethod == PointSelectionMethodEnum.CircleCenter &&
+                         ids.Length == 3)
+                {
+                    Vec3D v1 = new Vec3D(mesh.Nodes[ids[0]].Coor);
+                    Vec3D v2 = new Vec3D(mesh.Nodes[ids[1]].Coor);
+                    Vec3D v3 = new Vec3D(mesh.Nodes[ids[2]].Coor);
+                    Vec3D.GetCircle(v1, v2, v3, out double r, out point, out Vec3D axis);
+                    finished = true;
+                }
+                //
+                if (finished)
+                {
+                    _rotateParameters.X1 = point.X;
+                    _rotateParameters.Y1 = point.Y;
+                    _rotateParameters.Z1 = point.Z;
+                }
+            }
+            else if (propertyName == nameof(_rotateParameters.EndPointItemSet))
+            {
+                if (_rotateParameters.EndPointSelectionMethod == PointSelectionMethodEnum.OnPoint &&
+                    ids.Length == 1)
+                {
+                    point = new Vec3D(mesh.Nodes[ids[0]].Coor);
+                    finished = true;
+                }
+                else if (_rotateParameters.EndPointSelectionMethod == PointSelectionMethodEnum.BetweenTwoPoints &&
+                         ids.Length == 2)
+                {
+                    Vec3D v1 = new Vec3D(mesh.Nodes[ids[0]].Coor);
+                    Vec3D v2 = new Vec3D(mesh.Nodes[ids[1]].Coor);
+                    point = (v1 + v2) * 0.5;
+                    finished = true;
+                }
+                else if (_rotateParameters.EndPointSelectionMethod == PointSelectionMethodEnum.CircleCenter &&
+                         ids.Length == 3)
+                {
+                    Vec3D v1 = new Vec3D(mesh.Nodes[ids[0]].Coor);
+                    Vec3D v2 = new Vec3D(mesh.Nodes[ids[1]].Coor);
+                    Vec3D v3 = new Vec3D(mesh.Nodes[ids[2]].Coor);
+                    Vec3D.GetCircle(v1, v2, v3, out double r, out point, out Vec3D axis);
+                    finished = true;
+                }
+                //
+                if (finished)
+                {
+                    _rotateParameters.X2 = point.X;
+                    _rotateParameters.Y2 = point.Y;
+                    _rotateParameters.Z2 = point.Z;
+                }
+            }
+            if (finished)
+            {
                 // Disable selection
                 this.Enabled = true;
                 _controller.SetSelectByToOff();
@@ -198,6 +272,14 @@ namespace PrePoMax.Forms
             _controller.HighlightNodes(_coorNodesToDraw);
             _controller.HighlightConnectedLines(_coorLinesToDraw);
         }
-        
+        //
+        private FeMesh GetMesh()
+        {
+            if (_controller.CurrentView == ViewGeometryModelResults.Model)
+                return _controller.Model.Mesh;
+            else if (_controller.CurrentView == ViewGeometryModelResults.Results)
+                return _controller.AllResults.CurrentResult.Mesh;
+            else throw new NotSupportedException();
+        }
     }
 }
