@@ -1,4 +1,4 @@
-﻿namespace PrePoMax.Forms
+namespace PrePoMax.Forms
 {
     partial class FrmCalculixKeywordEditor
     {
@@ -191,7 +191,7 @@
             this.cbHide.Name = "cbHide";
             this.cbHide.Size = new System.Drawing.Size(193, 19);
             this.cbHide.TabIndex = 13;
-            this.cbHide.Text = "Use hidding for faster operation";
+            this.cbHide.Text = "Use hiding for faster operation";
             this.cbHide.UseVisualStyleBackColor = true;
             this.cbHide.CheckedChanged += new System.EventHandler(this.cbHide_CheckedChanged);
             // 
