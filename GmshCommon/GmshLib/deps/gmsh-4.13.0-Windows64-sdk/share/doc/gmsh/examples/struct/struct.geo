@@ -94,7 +94,7 @@ Struct NS1::St3 (Append) [ AdditionalMember 333, HColor "Orange" ];
 // STRUCT FOR ENUMERATIONS
 // A structure can be used to define an enumeration, to give automatically
 // incremented values to the members (by default, starting at 0, or at any fixed value).
-// This is useful, e.g., for defining constants to be used for types (hidding the values):
+// This is useful, e.g., for defining constants to be used for types (hiding the values):
 
 Struct T::REGION_TYPE [ Enum, NONE, PHYS, SKIN, GATE, BC ];
 // Automatic values will be: NONE 0, PHYS 1, SKIN 2, GATE 3, BC 4
