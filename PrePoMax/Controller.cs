@@ -10579,6 +10579,19 @@ namespace PrePoMax
             //
             FeResultsUpdate(UpdateType.Check);
         }
+        //
+        public void ExportResultHistoryOutput(HistoryResultSetExporter exporter)
+        {
+            if (File.Exists(exporter.FileName)) File.Delete(exporter.FileName);
+            //
+            HistoryResultSet[] historyResultSets = new HistoryResultSet[exporter.HistoryOutputNames.Length];
+            for (int i = 0; i < exporter.HistoryOutputNames.Length; i++)
+            {
+                historyResultSets[i] = CurrentResult.GetHistoryResultSet(exporter.HistoryOutputNames[i]);
+            }
+            //
+            exporter.Export(historyResultSets, CurrentResult);
+        }
         // Remove
         public void RemoveResultHistoryOutputs(string[] historyOutputNames)
         {

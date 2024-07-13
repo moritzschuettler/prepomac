@@ -1,16 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using CaeMesh;
 using CaeGlobals;
-using CaeModel;
 using System.Windows.Forms;
 using System.Drawing;
 using UserControls;
-using System.Xml.Linq;
 using CaeResults;
+using System.IO;
 
 namespace PrePoMax.Forms
 {
@@ -18,6 +13,7 @@ namespace PrePoMax.Forms
     {
         // Variables                                                                                                                
         private ViewHistoryResultSetExporter _viewHistoryResultSetExporter;
+        private string _workDirectory;
         private Controller _controller;
 
 
@@ -25,7 +21,12 @@ namespace PrePoMax.Forms
         public HistoryResultSetExporter HistoryResultSetExporter
         {
             get { return _viewHistoryResultSetExporter.GetBase(); }
-            set { _viewHistoryResultSetExporter = new ViewHistoryResultSetExporter(value.DeepClone()); }
+            set
+            {
+                HistoryResultSetExporter exporter = value.DeepClone();
+                exporter.WorkingDirectory = _workDirectory;
+                _viewHistoryResultSetExporter = new ViewHistoryResultSetExporter(exporter);
+            }
         }
        
 
@@ -71,10 +72,21 @@ namespace PrePoMax.Forms
         protected override void OnApply(bool onOkAddNew)
         {
             _viewHistoryResultSetExporter = (ViewHistoryResultSetExporter)propertyGrid.SelectedObject;
-            // Create
-            if (_viewHistoryResultSetExporter == null)
+            //
+            if (HistoryResultSetExporter.FileName == null)
+                throw new CaeException("The file name to export to is missing.");
+            try
             {
-                //AddReferencePointCommand(ReferencePoint);
+                if (File.Exists(HistoryResultSetExporter.FileName)) File.Delete(HistoryResultSetExporter.FileName);
+            }
+            catch (Exception ex)
+            {
+                throw new CaeException(ex.Message);
+            }
+            // Create
+            if (_viewHistoryResultSetExporter != null)
+            {
+                _controller. ExportResultHistoryOutput(HistoryResultSetExporter);
             }
         }
         protected override bool OnPrepareForm(string stepName, string historyResultSetExporterToEditName)
@@ -83,10 +95,13 @@ namespace PrePoMax.Forms
             //
             _propertyItemChanged = false;
             _viewHistoryResultSetExporter = null;
+            _workDirectory = _controller.Settings.Calculix.WorkDirectory;
+            string[] historyResultSets = _controller.GetHistoryResultSetNames();
             // Create new exporter
             if (_viewHistoryResultSetExporter == null)
             {
                 HistoryResultSetExporter = new HistoryResultSetExporter("");
+                _viewHistoryResultSetExporter.PopulateDropDownLists(historyResultSets);
             }
             //
             propertyGrid.SelectedObject = _viewHistoryResultSetExporter;
