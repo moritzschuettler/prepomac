@@ -97,6 +97,9 @@ namespace PrePoMax.Forms
             _viewHistoryResultSetExporter = null;
             _workDirectory = _controller.Settings.Calculix.WorkDirectory;
             string[] historyResultSets = _controller.GetHistoryResultSetNames();
+            //
+            if (historyResultSets == null || historyResultSets.Length == 0)
+                throw new CaeException("There are no history outputs to export.");
             // Create new exporter
             if (_viewHistoryResultSetExporter == null)
             {
