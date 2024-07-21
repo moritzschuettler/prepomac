@@ -30,7 +30,7 @@ namespace PrePoMax.Commands
         // Methods                                                                                                                  
         public override bool Execute(Controller receiver)
         {
-            receiver.ReplaceModelCoordinateSystem(_oldCoordinateSystemName, _newCoordinateSystem.DeepClone());
+            receiver.ReplaceModelCoordinateSystem(_oldCoordinateSystemName, _newCoordinateSystem.DeepClone(), true);
             return true;
         }
         public override string GetCommandString()

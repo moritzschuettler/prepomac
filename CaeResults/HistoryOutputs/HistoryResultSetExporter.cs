@@ -49,14 +49,16 @@ namespace CaeResults
 
 
         // Methods                                                                                                                  
-        public void Export(HistoryResultSet[] historyResultSets, FeResults results)
+        public void Export(FeResults results)
         {
+            HistoryResultSet[] historyResultSets = new HistoryResultSet[_historyOutputNames.Length];
+            for (int i = 0; i < _historyOutputNames.Length; i++)
+            {
+                historyResultSets[i] = results.GetHistoryResultSet(_historyOutputNames[i]);
+            }
+            //
             StringBuilder sb = new StringBuilder();
             HistoryResultData historyData;
-            //string[] columnNames;
-            double[] time;
-            double[][] values;
-
             string[] columnNames;
             object[][] rowBasedData;
             //
@@ -67,31 +69,24 @@ namespace CaeResults
                     foreach (var componentEntry in fieldEntry.Value.Components)
                     {
                         historyData = new HistoryResultData(historyResultSet.Name, fieldEntry.Key, componentEntry.Key);
-                        results.GetHistoryOutputData(historyData, out columnNames, out rowBasedData);
-
-
+                        results.GetHistoryOutputData(historyData, out columnNames, out rowBasedData, true);
                         // Title
-                        sb.AppendLine("History output" + _delimiter +
+                        sb.AppendLine("History output component" + _delimiter +
                                       historyResultSet.Name + "." + fieldEntry.Key + "." + componentEntry.Key);
                         // Column names
-                        //columnNames = componentEntry.Value.Entries.Keys.ToArray();
-                        //sb.Append("Time/Frequency");
                         for (int i = 0; i < columnNames.Length; i++)
                         {
-                            if (i == 0) sb.Append(columnNames[i].Replace("\r\n", " / "));    // time/frequency
+                            if (i == 0) sb.Append(columnNames[i]);
                             else
                             {
                                 sb.Append(_delimiter);
-                                sb.Append(columnNames[i].Replace("\n", " ").Replace("\r", " "));
+                                sb.Append(columnNames[i]);
                             }
                         }
                         sb.AppendLine();
-                        // Values
-                        values = componentEntry.Value.GetAllValues();
-                        time = componentEntry.Value.Entries.First().Value.Time.ToArray();
+                        // Data
                         for (int i = 0; i < rowBasedData.Length; i++)
                         {
-                            //sb.Append(time[i]);
                             for (int j = 0; j < rowBasedData[i].Length; j++)
                             {
                                 if (j != 0) sb.Append(_delimiter);
@@ -99,9 +94,9 @@ namespace CaeResults
                             }
                             sb.AppendLine();
                         }
+                        sb.AppendLine("End component");
                     }
                 }
-                sb.AppendLine("End");
             }
             //
             File.WriteAllText(_fileName, sb.ToString());

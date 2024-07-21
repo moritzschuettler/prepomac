@@ -707,22 +707,27 @@ namespace CaeMesh
             }
             // Reference points
             FeReferencePoint referencePoint;
+            bool validFromSelection;
             bool validFromCoordinates;
             bool validFromBB;
             bool validFromCG;
             foreach (var entry in _referencePoints)
             {
                 referencePoint = entry.Value;
-                validFromCoordinates = referencePoint.CreatedFrom == FeReferencePointCreatedFrom.OnPoint ||
-                                       referencePoint.CreatedFrom == FeReferencePointCreatedFrom.BetweenTwoPoints ||
-                                       referencePoint.CreatedFrom == FeReferencePointCreatedFrom.CircleCenter;
+                validFromSelection = (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.OnPoint &&
+                                      referencePoint.CreationIds != null && referencePoint.CreationIds.Length == 1) ||
+                                     (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.BetweenTwoPoints &&
+                                      referencePoint.CreationIds != null && referencePoint.CreationIds.Length == 2) ||
+                                     (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.CircleCenter &&
+                                      referencePoint.CreationIds != null && referencePoint.CreationIds.Length == 3);
+                validFromCoordinates = referencePoint.CreatedFrom == FeReferencePointCreatedFrom.Coordinates;
                 validFromBB = (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.BoundingBoxCenter &&
                                (_nodeSets.ContainsValidKey(referencePoint.RegionName) ||
                                _surfaces.ContainsValidKey(referencePoint.RegionName)));
                 validFromCG = (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.CenterOfGravity &&
                                (_nodeSets.ContainsValidKey(referencePoint.RegionName) ||
                                _surfaces.ContainsValidKey(referencePoint.RegionName)));
-                valid = validFromCoordinates || validFromBB || validFromCG;
+                valid = validFromSelection || validFromCoordinates || validFromBB || validFromCG;
                 // Check equations
                 valid &= referencePoint.TryCheckEquations();
                 //
@@ -734,7 +739,7 @@ namespace CaeMesh
             foreach (var entry in _coordinateSystems)
             {
                 coordinateSystem = entry.Value;
-                valid = coordinateSystem.IsProperlyDefined();
+                valid = coordinateSystem.IsProperlyDefined(out _);
                 //
                 SetItemValidity(coordinateSystem, valid, items);
                 if (!valid && coordinateSystem.Active) invalidItems.Add("Coordinate system: " + coordinateSystem.Name);
@@ -7209,8 +7214,40 @@ namespace CaeMesh
         }
         public void UpdateReferencePoint(FeReferencePoint referencePoint)
         {
-            if (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.BoundingBoxCenter
-                || referencePoint.CreatedFrom == FeReferencePointCreatedFrom.CenterOfGravity)
+            if (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.OnPoint &&
+                referencePoint.CreationIds != null &&
+                referencePoint.CreationIds.Length == 1)
+            {
+                Vec3D center = new Vec3D(_nodes[referencePoint.CreationIds[0]].Coor);
+                referencePoint.X.SetEquationFromValue(center.X, true);
+                referencePoint.Y.SetEquationFromValue(center.Y, true);
+                referencePoint.Z.SetEquationFromValue(center.Z, true);
+            }
+            else if (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.BetweenTwoPoints &&
+                     referencePoint.CreationIds != null &&
+                     referencePoint.CreationIds.Length == 2)
+            {
+                Vec3D v1 = new Vec3D(_nodes[referencePoint.CreationIds[0]].Coor);
+                Vec3D v2 = new Vec3D(_nodes[referencePoint.CreationIds[1]].Coor);
+                Vec3D center = (v1 + v2) * 0.5;
+                referencePoint.X.SetEquationFromValue(center.X, true);
+                referencePoint.Y.SetEquationFromValue(center.Y, true);
+                referencePoint.Z.SetEquationFromValue(center.Z, true);
+            }
+            else if (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.CircleCenter &&
+                     referencePoint.CreationIds != null &&
+                     referencePoint.CreationIds.Length == 3)
+            {
+                Vec3D v1 = new Vec3D(_nodes[referencePoint.CreationIds[0]].Coor);
+                Vec3D v2 = new Vec3D(_nodes[referencePoint.CreationIds[1]].Coor);
+                Vec3D v3 = new Vec3D(_nodes[referencePoint.CreationIds[2]].Coor);
+                Vec3D.GetCircle(v1, v2, v3, out double r, out Vec3D center, out Vec3D axis);
+                referencePoint.X.SetEquationFromValue(center.X, true);
+                referencePoint.Y.SetEquationFromValue(center.Y, true);
+                referencePoint.Z.SetEquationFromValue(center.Z, true);
+            }
+            else if (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.BoundingBoxCenter ||
+                     referencePoint.CreatedFrom == FeReferencePointCreatedFrom.CenterOfGravity)
             {
                 // Update reference point
                 FeNodeSet nodeSet;
@@ -7246,7 +7283,62 @@ namespace CaeMesh
                 }
             }
         }
-
+        public void UpdateCoordinateSystem(CoordinateSystem coordinateSystem)
+        {
+            double[] coor;
+            //
+            coor = GetCSCoordinatesFromSelectionIds(coordinateSystem.CenterCreatedFrom, coordinateSystem.CenterCreationIds);
+            if (coor != null)
+            {
+                coordinateSystem.X1.SetEquationFromValue(coor[0], true);
+                coordinateSystem.Y1.SetEquationFromValue(coor[1], true);
+                coordinateSystem.Z1.SetEquationFromValue(coor[2], true);
+            }
+            //
+            coor = GetCSCoordinatesFromSelectionIds(coordinateSystem.PointXCreatedFrom, coordinateSystem.PointXCreationIds);
+            if (coor != null)
+            {
+                coordinateSystem.X2.SetEquationFromValue(coor[0], true);
+                coordinateSystem.Y2.SetEquationFromValue(coor[1], true);
+                coordinateSystem.Z2.SetEquationFromValue(coor[2], true);
+            }
+            //
+            coor = GetCSCoordinatesFromSelectionIds(coordinateSystem.PointXYCreatedFrom, coordinateSystem.PointXYCreationIds);
+            if (coor != null)
+            {
+                coordinateSystem.X3.SetEquationFromValue(coor[0], true);
+                coordinateSystem.Y3.SetEquationFromValue(coor[1], true);
+                coordinateSystem.Z3.SetEquationFromValue(coor[2], true);
+            }
+        }
+        private double[] GetCSCoordinatesFromSelectionIds(CsPointCreatedFromEnum createdFrom, int[] creationIds)
+        {
+            double[] coor = new double[3];
+            //
+            if (createdFrom == CsPointCreatedFromEnum.OnPoint && creationIds != null && creationIds.Length == 1)
+            {
+                Vec3D center = new Vec3D(_nodes[creationIds[0]].Coor);
+                coor = center.Coor;
+            }
+            else if (createdFrom == CsPointCreatedFromEnum.BetweenTwoPoints && creationIds != null && creationIds.Length == 2)
+            {
+                Vec3D v1 = new Vec3D(_nodes[creationIds[0]].Coor);
+                Vec3D v2 = new Vec3D(_nodes[creationIds[1]].Coor);
+                Vec3D center = (v1 + v2) * 0.5;
+                coor = center.Coor;
+            }
+            else if (createdFrom == CsPointCreatedFromEnum.CircleCenter && creationIds != null && creationIds.Length == 3)
+            {
+                Vec3D v1 = new Vec3D(_nodes[creationIds[0]].Coor);
+                Vec3D v2 = new Vec3D(_nodes[creationIds[1]].Coor);
+                Vec3D v3 = new Vec3D(_nodes[creationIds[2]].Coor);
+                Vec3D.GetCircle(v1, v2, v3, out double r, out Vec3D center, out Vec3D axis);
+                coor = center.Coor;
+            }
+            else coor = null;
+            //
+            return coor;
+        }
         #endregion #################################################################################################################
 
         #region Remove entities ####################################################################################################

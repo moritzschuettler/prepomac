@@ -19,10 +19,6 @@ namespace PrePoMax.Forms
         // Variables                                                                                                                      
         private DynamicCustomTypeDescriptor _dctd = null;
         private CoordinateSystem _coordinateSystem;
-        private PointSelectionMethodEnum _selectionMethod;
-        private ItemSetData _pointCenterItemSetData;
-        private ItemSetData _pointXItemSetData;
-        private ItemSetData _pointXYItemSetData;
 
 
         // Properties                                                                                                               
@@ -45,42 +41,27 @@ namespace PrePoMax.Forms
         public bool NameVisible { get { return _coordinateSystem.NameVisible; } set { _coordinateSystem.NameVisible = value; } }
         //
         [Category("Center")]
-        [OrderedDisplayName(0, 10, "Selection method")]
-        [DescriptionAttribute("Choose the selection method.")]
+        [OrderedDisplayName(0, 10, "Create by/from")]
+        [DescriptionAttribute("Select the method for the creation of the center point.")]
         [Id(1, 2)]
-        public PointSelectionMethodEnum SelectionMethod
+        public CsPointCreatedFromEnum CenterCreatedFrom
         {
-            get { return _selectionMethod; }
+            get { return _coordinateSystem.CenterCreatedFrom; }
             set
             {
-                _selectionMethod = value;
-                //
-                if (_selectionMethod == PointSelectionMethodEnum.OnPoint)
-                    _pointCenterItemSetData.ToStringType = ItemSetDataToStringType.SelectSinglePoint;
-                else if (_selectionMethod == PointSelectionMethodEnum.BetweenTwoPoints)
-                    _pointCenterItemSetData.ToStringType = ItemSetDataToStringType.SelectTwoPoints;
-                else if (_selectionMethod == PointSelectionMethodEnum.CircleCenter)
-                    _pointCenterItemSetData.ToStringType = ItemSetDataToStringType.SelectThreePoints;
-                else throw new NotSupportedException();
+                if (value != _coordinateSystem.CenterCreatedFrom)
+                {
+                    _coordinateSystem.CenterCreatedFrom = value;
+                    UpdateVisibility();
+                }
             }
         }
         //
         [Category("Center")]
-        [OrderedDisplayName(1, 10, "By selection")]
-        [DescriptionAttribute("Use selection to define the center.")]
-        [EditorAttribute(typeof(SinglePointDataEditor), typeof(UITypeEditor))]
-        [Id(2, 2)]
-        public ItemSetData PointCenterItemSet
-        {
-            get { return _pointCenterItemSetData; }
-            set { if (value != _pointCenterItemSetData) _pointCenterItemSetData = value; }
-        }
-        //
-        [Category("Center")]
-        [OrderedDisplayName(2, 10, "X")]
+        [OrderedDisplayName(1, 10, "X")]
         [Description("X coordinate of the center.")]
         [TypeConverter(typeof(EquationLengthConverter))]
-        [Id(3, 2)]
+        [Id(2, 2)]
         public EquationString X1
         {
             get { return _coordinateSystem.X1.Equation; }
@@ -96,10 +77,10 @@ namespace PrePoMax.Forms
         }
         //
         [Category("Center")]
-        [OrderedDisplayName(3, 10, "Y")]
+        [OrderedDisplayName(2, 10, "Y")]
         [Description("Y coordinate of the center.")]
         [TypeConverter(typeof(EquationLengthConverter))]
-        [Id(4, 2)]
+        [Id(3, 2)]
         public EquationString Y1
         {
             get { return _coordinateSystem.Y1.Equation; }
@@ -116,10 +97,10 @@ namespace PrePoMax.Forms
         }
         //
         [Category("Center")]
-        [OrderedDisplayName(4, 10, "Z")]
+        [OrderedDisplayName(3, 10, "Z")]
         [Description("Z coordinate of the center.")]
         [TypeConverter(typeof(EquationLengthConverter))]
-        [Id(5, 2)]
+        [Id(4, 2)]
         public EquationString Z1
         {
             get { return _coordinateSystem.Z1.Equation; }
@@ -135,35 +116,38 @@ namespace PrePoMax.Forms
             }
         }
         //
-        [Category("Point in 1 axis direction")]
-        [OrderedDisplayName(0, 10, "By selection ")] // must be a different name than for the first point !!!
-        [DescriptionAttribute("Use selection to define point in 1 axis direction.")]
-        [EditorAttribute(typeof(SinglePointDataEditor), typeof(UITypeEditor))]
+        [Category("Point in 1st axis direction")]
+        [OrderedDisplayName(0, 10, "Create by/from ")] // must be a different name
+        [DescriptionAttribute("Select the method for the creation of the point in the 1st axis direction.")]
         [Id(1, 3)]
-        public ItemSetData PointXItemSet
+        public CsPointCreatedFromEnum PointXCreatedFrom
         {
-            get { return _pointXItemSetData; }
+            get { return _coordinateSystem.PointXCreatedFrom; }
             set
             {
-                if (value != _pointXItemSetData) _pointXItemSetData = value;
+                if (value != _coordinateSystem.PointXCreatedFrom)
+                {
+                    _coordinateSystem.PointXCreatedFrom = value;
+                    UpdateVisibility();
+                }
             }
         }
         //
-        [Category("Point in 1 axis direction")]
+        [Category("Point in 1st axis direction")]
         [OrderedDisplayName(1, 10, "X ")] // must be a different name than for the first point for auto select after edit
         [Description("X coordinate of the point.")]
         [TypeConverter(typeof(EquationLengthConverter))]
         [Id(2, 3)]
         public EquationString X2 { get { return _coordinateSystem.X2.Equation; } set { _coordinateSystem.X2.Equation = value; } }
         //
-        [Category("Point in 1 axis direction")]
+        [Category("Point in 1st axis direction")]
         [OrderedDisplayName(2, 10, "Y ")] // must be a different name than for the first point for auto select after edit
         [Description("Y coordinate of the point.")]
         [TypeConverter(typeof(EquationLengthConverter))]
         [Id(3, 3)]
         public EquationString Y2 { get { return _coordinateSystem.Y2.Equation; } set { _coordinateSystem.Y2.Equation = value; } }
         //
-        [Category("Point in 1 axis direction")]
+        [Category("Point in 1st axis direction")]
         [OrderedDisplayName(3, 10, "Z ")] // must be a different name than for the first point for auto select after edit
         [Description("Z coordinate of the point.")]
         [TypeConverter(typeof(EquationLengthConverter))]
@@ -171,16 +155,19 @@ namespace PrePoMax.Forms
         public EquationString Z2 { get { return _coordinateSystem.Z2.Equation; } set { _coordinateSystem.Z2.Equation = value; } }
         //
         [Category("Point on 1-2 plane")]
-        [OrderedDisplayName(0, 10, "By selection  ")] // must be a different name than for the first point !!!
-        [DescriptionAttribute("Use selection to define point on 1-2 plane.")]
-        [EditorAttribute(typeof(SinglePointDataEditor), typeof(UITypeEditor))]
+        [OrderedDisplayName(0, 10, "Create by/from  ")] // must be a different name
+        [DescriptionAttribute("Select the method for the creation of the point in the 1st axis direction.")]
         [Id(1, 4)]
-        public ItemSetData PointXYItemSet
+        public CsPointCreatedFromEnum PointXYCreatedFrom
         {
-            get { return _pointXYItemSetData; }
+            get { return _coordinateSystem.PointXYCreatedFrom; }
             set
             {
-                if (value != _pointXYItemSetData) _pointXYItemSetData = value;
+                if (value != _coordinateSystem.PointXYCreatedFrom)
+                {
+                    _coordinateSystem.PointXYCreatedFrom = value;
+                    UpdateVisibility();
+                }
             }
         }
         //
@@ -250,14 +237,6 @@ namespace PrePoMax.Forms
         {
             // The order is important
             _coordinateSystem = coordinateSystem;
-            _selectionMethod = PointSelectionMethodEnum.OnPoint;
-            //
-            _pointCenterItemSetData = new ItemSetData(); // needed to display ItemSetData.ToString()
-            _pointCenterItemSetData.ToStringType = ItemSetDataToStringType.SelectSinglePoint;
-            _pointXItemSetData = new ItemSetData();   // needed to display ItemSetData.ToString()
-            _pointXItemSetData.ToStringType = ItemSetDataToStringType.SelectSinglePoint;
-            _pointXYItemSetData = new ItemSetData(); // needed to display ItemSetData.ToString()
-            _pointXYItemSetData.ToStringType = ItemSetDataToStringType.SelectSinglePoint;
             //
             _dctd = ProviderInstaller.Install(this);
             _dctd.CategorySortOrder = CustomSortOrder.AscendingById;
@@ -271,6 +250,8 @@ namespace PrePoMax.Forms
             _dctd.GetProperty(nameof(Type)).SetIsReadOnly(_coordinateSystem.TwoD);
             //
             _dctd.RenameBooleanPropertyToYesNo(nameof(NameVisible));
+            //
+            UpdateVisibility();
         }
 
 
@@ -281,7 +262,22 @@ namespace PrePoMax.Forms
         }
         private void UpdateVisibility()
         {
-
+            bool readOnly;
+            //
+            readOnly = _coordinateSystem.CenterCreatedFrom != CsPointCreatedFromEnum.Coordinates;
+            _dctd.GetProperty(nameof(X1)).SetIsReadOnly(readOnly);
+            _dctd.GetProperty(nameof(Y1)).SetIsReadOnly(readOnly);
+            _dctd.GetProperty(nameof(Z1)).SetIsReadOnly(readOnly);
+            //
+            readOnly = _coordinateSystem.PointXCreatedFrom != CsPointCreatedFromEnum.Coordinates;
+            _dctd.GetProperty(nameof(X2)).SetIsReadOnly(readOnly);
+            _dctd.GetProperty(nameof(Y2)).SetIsReadOnly(readOnly);
+            _dctd.GetProperty(nameof(Z2)).SetIsReadOnly(readOnly);
+            //
+            readOnly = _coordinateSystem.PointXYCreatedFrom != CsPointCreatedFromEnum.Coordinates;
+            _dctd.GetProperty(nameof(X3)).SetIsReadOnly(readOnly);
+            _dctd.GetProperty(nameof(Y3)).SetIsReadOnly(readOnly);
+            _dctd.GetProperty(nameof(Z3)).SetIsReadOnly(readOnly);
         }
     }
 }

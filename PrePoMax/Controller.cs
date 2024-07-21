@@ -25,6 +25,7 @@ using System.Runtime.InteropServices.ComTypes;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 using UserControls;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolTip;
+using System.Xml.Linq;
 
 namespace PrePoMax
 {
@@ -48,6 +49,7 @@ namespace PrePoMax
         [NonSerialized] protected string _drawSymbolName;
         // Selection
         [NonSerialized] protected vtkSelectBy _selectBy;
+        [NonSerialized] protected GeometrySelectModeEnum _geometrySelectMode;
         [NonSerialized] protected double _selectAngle;
         [NonSerialized] protected Selection _selection;
         // Annotations
@@ -66,7 +68,6 @@ namespace PrePoMax
         [NonSerialized] protected FeResults _wearResults;
         // History
         protected CommandsCollection _commands;
-
 
 
         // Properties                                                                                                               
@@ -223,6 +224,11 @@ namespace PrePoMax
                     _form.SetSelectBy(_selectBy);
                 }
             }
+        }
+        public GeometrySelectModeEnum GeometrySelectMode
+        {
+            get { return _geometrySelectMode; }
+            set { _geometrySelectMode = value; }
         }
         public double SelectAngle { get { return _selectAngle; } set { _selectAngle = value; } }
         public Selection Selection { get { return _selection; } set { _selection = value; } }
@@ -388,7 +394,7 @@ namespace PrePoMax
             // Errors - must be here before Clear
             _errors = new List<string>();
             // History
-            _commands = new Commands.CommandsCollection(this);
+            _commands = new CommandsCollection(this);
             _commands.WriteOutput = _form.WriteDataToOutput;
             _commands.ModelChanged_ResetJobStatus = ResetAllJobStatus;
             _commands.EnableDisableUndoRedo += _commands_CommandExecuted;
@@ -494,8 +500,9 @@ namespace PrePoMax
             ClearModel();
             ClearResults();
             // Selection
-            _selection = new Selection();
             SetSelectByToDefault();
+            _geometrySelectMode = GeometrySelectModeEnum.SelectLocation;
+            _selection = new Selection();
             //
             _modelChanged = false;  // must be here since ClearResults can set it to true
         }
@@ -862,7 +869,7 @@ namespace PrePoMax
                     {
                         _allResults.CurrentResult.CopyPartsFromMesh(_model.Mesh);
                         _allResults.CurrentResult.CopyMeshItemsFromMesh(_model.Mesh);
-                        _allResults.CurrentResult.CopyFeatureItemsFromMesh(_model.Mesh);
+                        _allResults.CurrentResult.CopyFeatureItemsFromMesh(_model.Mesh, (int)ViewGeometryModelResults.Results);
                     }
                     else if (similarity == 2)
                     {
@@ -1670,9 +1677,11 @@ namespace PrePoMax
         }
         private void UpdateGeometryBasedItems(bool feModelUpdate)
         {
-            UpdateNodeSetsBasedOnGeometry(feModelUpdate);
-            UpdateElementSetsBasedOnGeometry(feModelUpdate);
-            UpdateSurfacesBasedOnGeometry(feModelUpdate);
+            UpdateAllNodeSetsBasedOnGeometry(feModelUpdate);
+            UpdateAllElementSetsBasedOnGeometry(feModelUpdate);
+            UpdateAllSurfacesBasedOnGeometry(feModelUpdate);
+            UpdateAllModelReferencePointsBasedOnGeometry(feModelUpdate);
+            UpdateAllModelCoordinateSystemsBasedOnGeometry(feModelUpdate);
         }
         // Save
         public string GetFileNameToSaveAs()
@@ -5955,7 +5964,7 @@ namespace PrePoMax
             //
             _selection.Clear();
         }
-        private void UpdateNodeSetsBasedOnGeometry(bool feModelUpdate)
+        private void UpdateAllNodeSetsBasedOnGeometry(bool feModelUpdate)
         {
             // Use list not to throw collection modified exception
             List<FeNodeSet> geomNodeSets = new List<FeNodeSet>();
@@ -6215,7 +6224,7 @@ namespace PrePoMax
             //
             _selection.Clear();
         }
-        private void UpdateElementSetsBasedOnGeometry(bool feModelUpdate)
+        private void UpdateAllElementSetsBasedOnGeometry(bool feModelUpdate)
         {
             // Use list not to throw collection modified exception
             List<FeElementSet> geomElementSets = new List<FeElementSet>();
@@ -6358,8 +6367,7 @@ namespace PrePoMax
         }
         public void AddSurface(FeSurface surface, bool update = true)
         {
-            // In order for the Regenerate history to work perform the selection
-            if (surface.CreationData != null) ReselectSurface(surface);
+            ReselectSurface(surface, true); // in order for the Regenerate history to work perform the selection
             //
             AddSurfaceAndElementFaces(surface);
             //
@@ -6395,13 +6403,7 @@ namespace PrePoMax
             List<string> keys = _model.Mesh.Surfaces.Keys.ToList();     // copy
             RemoveSurfaceAndElementFacesFromModel(new string[] { oldSurfaceName });
             //
-            if (surface.CreatedFrom == FeSurfaceCreatedFrom.Selection)
-            {
-                // In order for the Regenerate history to work perform the selection
-                _selection = surface.CreationData.DeepClone();
-                surface.FaceIds = GetSelectionIds();
-                _selection.Clear();
-            }
+            ReselectSurface(surface, false); // in order for the Regenerate history to work perform the selection
             //
             AddSurfaceAndElementFaces(surface);
             //
@@ -6463,24 +6465,23 @@ namespace PrePoMax
             return DisplayedMesh.GetVisibleVisualizationFaceIds();
         }
         // Update
-        private void ReselectSurface(FeSurface surface)
+        private void ReselectSurface(FeSurface surface, bool updateParents)
         {
-            if (surface.CreatedFrom == FeSurfaceCreatedFrom.Selection)
+            if (surface.CreatedFrom == FeSurfaceCreatedFrom.Selection && surface.CreationData != null)
             {
                 _selection = surface.CreationData.DeepClone();
-                //
                 surface.FaceIds = GetSelectionIds();
-                // Update parent creation ids to detect changes in function: StepCollection.MultiRegionChanged
-                if (surface.ParentMultiRegion != null)
-                    surface.ParentMultiRegion.CreationIds = surface.FaceIds.ToArray();
-                else if (surface.ParentMasterMultiRegion != null)
-                    surface.ParentMasterMultiRegion.MasterCreationIds = surface.FaceIds.ToArray();
-                else if (surface.ParentSlaveMultiRegion != null)
-                    surface.ParentSlaveMultiRegion.SlaveCreationIds = surface.FaceIds.ToArray();
-                //
-                if (surface.FaceIds == null || surface.FaceIds.Length == 0) surface.Valid = false;
-                //
                 _selection.Clear();
+                // Update parent creation ids to detect changes in function: StepCollection.MultiRegionChanged
+                if (updateParents)
+                {
+                    if (surface.ParentMultiRegion != null)
+                        surface.ParentMultiRegion.CreationIds = surface.FaceIds.ToArray();
+                    else if (surface.ParentMasterMultiRegion != null)
+                        surface.ParentMasterMultiRegion.MasterCreationIds = surface.FaceIds.ToArray();
+                    else if (surface.ParentSlaveMultiRegion != null)
+                        surface.ParentSlaveMultiRegion.SlaveCreationIds = surface.FaceIds.ToArray();
+                }
             }
         }
         public void UpdateSurfaceArea(FeSurface surface)
@@ -6507,7 +6508,7 @@ namespace PrePoMax
                 }
             }
         }
-        private void UpdateSurfacesBasedOnGeometry(bool feModelUpdate)
+        private void UpdateAllSurfacesBasedOnGeometry(bool feModelUpdate)
         {
             // Use list not to throw collection modified exception
             List<FeSurface> geomSurfaces = new List<FeSurface>();
@@ -6627,7 +6628,7 @@ namespace PrePoMax
         }
         public void AddModelReferencePoint(FeReferencePoint referencePoint)
         {
-            UpdateModelReferencePoint(referencePoint);
+            ReselectModelReferencePoint(referencePoint); // in order for the Regenerate history to work perform the selection
             //
             _model.Mesh.ReferencePoints.Add(referencePoint.Name, referencePoint);
             //
@@ -6664,13 +6665,16 @@ namespace PrePoMax
             //
             FeModelUpdate(UpdateType.RedrawSymbols);
         }
-        public void ReplaceModelReferencePoint(string oldReferencePointName, FeReferencePoint newReferencePoint)
+        public void ReplaceModelReferencePoint(string oldReferencePointName, FeReferencePoint newReferencePoint,
+                                               bool feModelUpdate)
         {
+            ReselectModelReferencePoint(newReferencePoint); // in order for the Regenerate history to work perform the selection
+            //
             _model.Mesh.ReferencePoints.Replace(oldReferencePointName, newReferencePoint.Name, newReferencePoint);
             //
             _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldReferencePointName, newReferencePoint, null);
             //
-            FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            if (feModelUpdate) FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
         }
         public void DuplicateModelReferencePoints(string[] referencePointNames)
         {
@@ -6693,7 +6697,23 @@ namespace PrePoMax
             }
             FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
         }
-        //
+        // Update
+        private void ReselectModelReferencePoint(FeReferencePoint referencePoint)
+        {
+            if (referencePoint.CreationData != null)
+            {
+                if (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.OnPoint ||
+                    referencePoint.CreatedFrom == FeReferencePointCreatedFrom.BetweenTwoPoints ||
+                    referencePoint.CreatedFrom == FeReferencePointCreatedFrom.CircleCenter)
+                {
+                    _selection = referencePoint.CreationData.DeepClone();
+                    referencePoint.CreationIds = GetSelectionIds();
+                    _selection.Clear();
+                }
+            }
+            //
+            UpdateModelReferencePoint(referencePoint);
+        }
         public void UpdateModelReferencePoint(FeReferencePoint referencePoint)
         {
             _model.Mesh.UpdateReferencePoint(referencePoint);
@@ -6721,6 +6741,25 @@ namespace PrePoMax
                     {
                         UpdateModelReferencePoint(entry.Value);
                     }
+                }
+            }
+        }
+        private void UpdateAllModelReferencePointsBasedOnGeometry(bool feModelUpdate)
+        {
+            // Use list not to throw collection modified exception
+            List<FeReferencePoint> geomModelRPs = new List<FeReferencePoint>();
+            if (_model != null && _model.Mesh != null)
+            {
+                foreach (var entry in _model.Mesh.ReferencePoints)
+                {
+                    if (entry.Value.CreationData != null && entry.Value.CreationData.IsGeometryBased())
+                        geomModelRPs.Add(entry.Value);
+                }
+                //
+                foreach (FeReferencePoint referencePoint in geomModelRPs)
+                {
+                    referencePoint.Valid = true;
+                    ReplaceModelReferencePoint(referencePoint.Name, referencePoint, feModelUpdate);
                 }
             }
         }
@@ -6766,6 +6805,8 @@ namespace PrePoMax
         }
         public void AddModelCoordinateSystem(CoordinateSystem coordinateSystem)
         {
+            ReselectModelCoordinateSystem(coordinateSystem); // in order for the Regenerate history to work do the selection
+            //
             _model.Mesh.CoordinateSystems.Add(coordinateSystem.Name, coordinateSystem);
             //
             _form.AddTreeNode(ViewGeometryModelResults.Model, coordinateSystem, null);
@@ -6800,13 +6841,16 @@ namespace PrePoMax
             //
             FeModelUpdate(UpdateType.RedrawSymbols);
         }
-        public void ReplaceModelCoordinateSystem(string oldCoordinateSystemName, CoordinateSystem newCoordinateSystem)
+        public void ReplaceModelCoordinateSystem(string oldCoordinateSystemName, CoordinateSystem newCoordinateSystem,
+                                                 bool feModelUpdate)
         {
+            ReselectModelCoordinateSystem(newCoordinateSystem); // in order for the Regenerate history to work do the selection
+            //
             _model.Mesh.CoordinateSystems.Replace(oldCoordinateSystemName, newCoordinateSystem.Name, newCoordinateSystem);
             //
             _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldCoordinateSystemName, newCoordinateSystem, null);
             //
-            FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            if (feModelUpdate) FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
         }
         public void DuplicateModelCoordinateSystems(string[] coordinateSystemNames)
         {
@@ -6828,7 +6872,73 @@ namespace PrePoMax
             }
             FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
         }
-        
+        // Update
+        private void ReselectModelCoordinateSystem(CoordinateSystem coordinateSystem)
+        {
+            if (coordinateSystem.CenterCreationData != null)
+            {
+                if (coordinateSystem.CenterCreatedFrom == CsPointCreatedFromEnum.OnPoint ||
+                    coordinateSystem.CenterCreatedFrom == CsPointCreatedFromEnum.BetweenTwoPoints ||
+                    coordinateSystem.CenterCreatedFrom == CsPointCreatedFromEnum.CircleCenter)
+                {
+                    _selection = coordinateSystem.CenterCreationData.DeepClone();
+                    coordinateSystem.CenterCreationIds = GetSelectionIds();
+                    _selection.Clear();
+                }
+            }
+            //
+            if (coordinateSystem.PointXCreationData != null)
+            {
+                if (coordinateSystem.PointXCreatedFrom == CsPointCreatedFromEnum.OnPoint ||
+                    coordinateSystem.PointXCreatedFrom == CsPointCreatedFromEnum.BetweenTwoPoints ||
+                    coordinateSystem.PointXCreatedFrom == CsPointCreatedFromEnum.CircleCenter)
+                {
+                    _selection = coordinateSystem.PointXCreationData.DeepClone();
+                    coordinateSystem.PointXCreationIds = GetSelectionIds();
+                    _selection.Clear();
+                }
+            }
+            //
+            if (coordinateSystem.CenterCreationData != null)
+            {
+                if (coordinateSystem.PointXYCreatedFrom == CsPointCreatedFromEnum.OnPoint ||
+                    coordinateSystem.PointXYCreatedFrom == CsPointCreatedFromEnum.BetweenTwoPoints ||
+                    coordinateSystem.PointXYCreatedFrom == CsPointCreatedFromEnum.CircleCenter)
+                {
+                    _selection = coordinateSystem.PointXYCreationData.DeepClone();
+                    coordinateSystem.PointXYCreationIds = GetSelectionIds();
+                    _selection.Clear();
+                }
+            }
+            //
+            UpdateModelCoordinateSystem(coordinateSystem);
+        }
+        public void UpdateModelCoordinateSystem(CoordinateSystem coordinateSystem)
+        {
+            _model.Mesh.UpdateCoordinateSystem(coordinateSystem);
+        }
+        private void UpdateAllModelCoordinateSystemsBasedOnGeometry(bool feModelUpdate)
+        {
+            // Use list not to throw collection modified exception
+            List<CoordinateSystem> geomModelCSs = new List<CoordinateSystem>();
+            if (_model != null && _model.Mesh != null)
+            {
+                foreach (var entry in _model.Mesh.CoordinateSystems)
+                {
+                    if ((entry.Value.CenterCreationData != null && entry.Value.CenterCreationData.IsGeometryBased()) ||
+                        (entry.Value.PointXCreationData != null && entry.Value.PointXCreationData.IsGeometryBased()) ||
+                        (entry.Value.PointXYCreationData != null && entry.Value.PointXYCreationData.IsGeometryBased()))
+                        geomModelCSs.Add(entry.Value);
+                }
+                //
+                foreach (CoordinateSystem coordinateSystem in geomModelCSs)
+                {
+                    coordinateSystem.Valid = true;
+                    ReplaceModelCoordinateSystem(coordinateSystem.Name, coordinateSystem, feModelUpdate);
+                }
+            }
+        }
+
         #endregion #################################################################################################################
 
         #region Material menu   ####################################################################################################
@@ -10223,6 +10333,8 @@ namespace PrePoMax
         }
         public void AddResultReferencePoint(FeReferencePoint referencePoint)
         {
+            ReselectResultReferencePoint(referencePoint); // in order for the Regenerate history to work perform the selection
+            //
             UpdateResultReferencePoint(referencePoint);
             //
             _allResults.CurrentResult.Mesh.ReferencePoints.Add(referencePoint.Name, referencePoint);
@@ -10264,6 +10376,8 @@ namespace PrePoMax
         }
         public void ReplaceResultReferencePoint(string oldReferencePointName, FeReferencePoint newReferencePoint)
         {
+            ReselectResultReferencePoint(newReferencePoint); // in order for the Regenerate history to work perform the selection
+            //
             _allResults.CurrentResult.Mesh.ReferencePoints.Replace(oldReferencePointName, newReferencePoint.Name,
                                                                    newReferencePoint);
             //
@@ -10294,6 +10408,20 @@ namespace PrePoMax
             FeResultsUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
         }
         //
+        private void ReselectResultReferencePoint(FeReferencePoint referencePoint)
+        {
+            if (referencePoint.CreationData != null)
+            {
+                if (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.OnPoint ||
+                referencePoint.CreatedFrom == FeReferencePointCreatedFrom.BetweenTwoPoints ||
+                referencePoint.CreatedFrom == FeReferencePointCreatedFrom.CircleCenter)
+                {
+                    _selection = referencePoint.CreationData.DeepClone();
+                    referencePoint.CreationIds = GetSelectionIds();
+                    _selection.Clear();
+                }
+            }
+        }
         public void UpdateResultReferencePoint(FeReferencePoint referencePoint)
         {
             _allResults.CurrentResult.Mesh.UpdateReferencePoint(referencePoint);
@@ -10366,6 +10494,8 @@ namespace PrePoMax
         }
         public void AddResultCoordinateSystem(CoordinateSystem coordinateSystem)
         {
+            ReselectResultCoordinateSystem(coordinateSystem); // in order for the Regenerate history to work do the selection
+            //
             _allResults.CurrentResult.Mesh.CoordinateSystems.Add(coordinateSystem.Name, coordinateSystem);
             //
             _form.AddTreeNode(ViewGeometryModelResults.Results, coordinateSystem, null);
@@ -10404,6 +10534,8 @@ namespace PrePoMax
         }
         public void ReplaceResultCoordinateSystem(string oldCoordinateSystemName, CoordinateSystem newCoordinateSystem)
         {
+            ReselectResultCoordinateSystem(newCoordinateSystem); // in order for the Regenerate history to work do the selection
+            //
             _allResults.CurrentResult.Mesh.CoordinateSystems.Replace(oldCoordinateSystemName, newCoordinateSystem.Name, newCoordinateSystem);
             //
             _form.UpdateTreeNode(ViewGeometryModelResults.Results, oldCoordinateSystemName, newCoordinateSystem, null);
@@ -10429,6 +10561,51 @@ namespace PrePoMax
                 _form.RemoveTreeNode<CoordinateSystem>(ViewGeometryModelResults.Results, name, null);
             }
             FeResultsUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+        }
+        // Update
+        private void ReselectResultCoordinateSystem(CoordinateSystem coordinateSystem)
+        {
+            if (coordinateSystem.CenterCreationData != null)
+            {
+                if (coordinateSystem.CenterCreatedFrom == CsPointCreatedFromEnum.OnPoint ||
+                    coordinateSystem.CenterCreatedFrom == CsPointCreatedFromEnum.BetweenTwoPoints ||
+                    coordinateSystem.CenterCreatedFrom == CsPointCreatedFromEnum.CircleCenter)
+                {
+                    _selection = coordinateSystem.CenterCreationData.DeepClone();
+                    coordinateSystem.CenterCreationIds = GetSelectionIds();
+                    _selection.Clear();
+                }
+            }
+            //
+            if (coordinateSystem.PointXCreationData != null)
+            {
+                if (coordinateSystem.PointXCreatedFrom == CsPointCreatedFromEnum.OnPoint ||
+                    coordinateSystem.PointXCreatedFrom == CsPointCreatedFromEnum.BetweenTwoPoints ||
+                    coordinateSystem.PointXCreatedFrom == CsPointCreatedFromEnum.CircleCenter)
+                {
+                    _selection = coordinateSystem.PointXCreationData.DeepClone();
+                    coordinateSystem.PointXCreationIds = GetSelectionIds();
+                    _selection.Clear();
+                }
+            }
+            //
+            if (coordinateSystem.CenterCreationData != null)
+            {
+                if (coordinateSystem.PointXYCreatedFrom == CsPointCreatedFromEnum.OnPoint ||
+                    coordinateSystem.PointXYCreatedFrom == CsPointCreatedFromEnum.BetweenTwoPoints ||
+                    coordinateSystem.PointXYCreatedFrom == CsPointCreatedFromEnum.CircleCenter)
+                {
+                    _selection = coordinateSystem.PointXYCreationData.DeepClone();
+                    coordinateSystem.PointXYCreationIds = GetSelectionIds();
+                    _selection.Clear();
+                }
+            }
+            //
+            UpdateResultCoordinateSystem(coordinateSystem);
+        }
+        public void UpdateResultCoordinateSystem(CoordinateSystem coordinateSystem)
+        {
+            _allResults.CurrentResult.Mesh.UpdateCoordinateSystem(coordinateSystem);
         }
 
         #endregion #################################################################################################################
@@ -10550,9 +10727,10 @@ namespace PrePoMax
         {
             return _allResults.CurrentResult.GetHistoryOutputsAsNamedItems();
         }
-        public void GetHistoryOutputData(HistoryResultData historyData, out string[] columnNames, out object[][] rowBasedData)
+        public void GetHistoryOutputData(HistoryResultData historyData, out string[] columnNames, out object[][] rowBasedData,
+                                         bool forCsv)
         {
-            _allResults.CurrentResult.GetHistoryOutputData(historyData, out columnNames, out rowBasedData);
+            _allResults.CurrentResult.GetHistoryOutputData(historyData, out columnNames, out rowBasedData, forCsv);
         }
         //
         public void AddResultHistoryOutput(ResultHistoryOutput resultHistoryOutput)
@@ -10584,13 +10762,7 @@ namespace PrePoMax
         {
             if (File.Exists(exporter.FileName)) File.Delete(exporter.FileName);
             //
-            HistoryResultSet[] historyResultSets = new HistoryResultSet[exporter.HistoryOutputNames.Length];
-            for (int i = 0; i < exporter.HistoryOutputNames.Length; i++)
-            {
-                historyResultSets[i] = CurrentResult.GetHistoryResultSet(exporter.HistoryOutputNames[i]);
-            }
-            //
-            exporter.Export(historyResultSets, CurrentResult);
+            exporter.Export(CurrentResult);
         }
         // Remove
         public void RemoveResultHistoryOutputs(string[] historyOutputNames)
@@ -10750,8 +10922,17 @@ namespace PrePoMax
                     //
                     SelectionNode selectionNode = new SelectionNodeMouse(pickedPoint, selectionDirection,
                                                                          planeParameters, completelyInside,
-                                                                         selectOperation, pickedPartIds, pickedPartOffsets,
-                                                                         _selectBy, _selectAngle);
+                                                                         selectOperation, pickedPartIds,
+                                                                         pickedPartOffsets, _selectBy,
+                                                                         _selectAngle);
+                    // Change geometry selection to IDs if needed
+                    if (selectionNode is SelectionNodeMouse snm && snm.IsGeometryBased &&
+                        _geometrySelectMode == GeometrySelectModeEnum.SelectId)
+                    {
+                        int[] ids = GetIdsFromSelectionNodeMouse(snm, true);
+                        selectionNode = new SelectionNodeIds(selectOperation, false, ids, true);
+                    }
+                    // Add
                     AddSelectionNode(selectionNode, true, false);
                 }
             }
@@ -10777,24 +10958,25 @@ namespace PrePoMax
                     if (snm.PartOffsets == null) partOffset = null;
                     else partOffset = snm.PartOffsets[i];
                     singlePartSelection.SetSinglePartSelection(snm.PartIds[i], partOffset);
-                    // Change operation to Add in making a new selection (opeartion = None)
+                    // Change operation to Add in making a new selection (operation = None)
                     if (singlePartSelection.SelectOperation == vtkSelectOperation.None && i > 0)
                         singlePartSelection.SetSelectOperation(vtkSelectOperation.Add);
                     // Add selection
                     if (i != snm.PartIds.Length - 1)
-                        AddSelectionNodeInternal(singlePartSelection, false, false);
+                        AddSelectionNodeInternally(singlePartSelection, false, false);
                     else
-                        AddSelectionNodeInternal(singlePartSelection, highlight, callSelectionChanged);
+                        AddSelectionNodeInternally(singlePartSelection, highlight, callSelectionChanged);
                 }
             }
-            else AddSelectionNodeInternal(node, highlight, callSelectionChanged);
+            else AddSelectionNodeInternally(node, highlight, callSelectionChanged);
         }
-        private void AddSelectionNodeInternal(SelectionNode node, bool highlight, bool callSelectionChanged)
+        private void AddSelectionNodeInternally(SelectionNode node, bool highlight, bool callSelectionChanged)
         {
             // Set the current view for the selection;
             if (_selection.Nodes.Count == 0) SetSelectionView(_currentView);
             // Get selected ids
-            int[] ids = GetIdsFromSelectionNode(node, new HashSet<int>());
+            HashSet<int> selectedIds = new HashSet<int>();
+            int[] ids = GetIdsFromSelectionNode(node, ref selectedIds);
             int[] afterIds = null;
             FeMesh mesh = DisplayedMesh;
             FeElement element;
@@ -10832,6 +11014,14 @@ namespace PrePoMax
                         {
                             // Check: The selected face id does not exist."
                             mesh.GetCellFromFaceId(ids[i], out _, out _);
+                        }
+                    }
+                    else if (_selection.SelectItem == vtkSelectItem.Part)
+                    {
+                        for (int i = 0; i < ids.Length; i++)
+                        {
+                            if (mesh.GetPartFromId(ids[i]) == null)
+                                throw new CaeException("The selected part id does not exist.");
                         }
                     }
                     else if (_selection.SelectItem == vtkSelectItem.Geometry ||
@@ -10916,14 +11106,23 @@ namespace PrePoMax
             //
             if (add)
             {
-                if (_selection.MaxNumberOfIds == 1) _selection.Clear();
+                if (_selection.MaxNumberOfGeometryIds == 1 || _selection.MaxNumberOfItemIds == 1)
+                {
+                    _selection.Clear();
+                }
                 // Add
                 _selection.Add(node, ids);
-                // Remove the node if the maximum number of items is exceeded
-                if (_selection.MaxNumberOfIds > 1)
+                // Remove the node if the maximum number of geometry items is exceeded
+                if (_selection.MaxNumberOfItemIds >= 1)
                 {
                     ids = GetSelectionIds();
-                    if (ids.Length > _selection.MaxNumberOfIds) _selection.RemoveLast();
+                    if (ids.Length > _selection.MaxNumberOfItemIds) _selection.RemoveLast();
+                }
+                // Remove the node if the maximum number of geometry items is exceeded
+                if (_selection.MaxNumberOfGeometryIds > 1)
+                {
+                    ids = GetSelectionIds();
+                    if (ids.Length > _selection.MaxNumberOfGeometryIds) _selection.RemoveLast();
                 }
             }
             //
@@ -10957,13 +11156,13 @@ namespace PrePoMax
             CurrentView = GetSelectionView(selectionCopy);
             // Execute selection
             foreach (SelectionNode node in selectionCopy.Nodes)
-                GetIdsFromSelectionNode(node, selectedIds);
+                GetIdsFromSelectionNode(node, ref selectedIds);
             // Return
             int[] sorted = selectedIds.ToArray();
             if (_selectBy != vtkSelectBy.QueryNode) Array.Sort(sorted);   // sorting of the ids breaks the angle query !!!
             return sorted;
         }
-        private int[] GetIdsFromSelectionNode(SelectionNode selectionNode, HashSet<int> selectedIds)
+        private int[] GetIdsFromSelectionNode(SelectionNode selectionNode, ref HashSet<int> selectedIds)
         {
             int[] ids;
             //
@@ -13021,20 +13220,12 @@ namespace PrePoMax
                 Color colorBorder = Color.Black;
                 //
                 double[][] coor = new double[][] { referencePoint.Coor() };
-                //
-                //vtkMaxActorData data = new vtkMaxActorData();
-                //data.Name = "Reference_point" + Globals.NameSeparator + referencePoint.Name;
-                //data.Color = color;
-                //data.BackfaceColor = colorBorder;
-                //data.Layer = layer;
-                //data.Geometry.Nodes.Coor = coor;
-                //data.Pickable = true;
-                //ApplyLighting(data);
-                //_form.AddSphereActor(data, 2 * nodeSize);
-                //
+                // Draw the larger circle
                 DrawNodes(referencePoint.Name + Globals.NameSeparator + "Border", coor, colorBorder, layer, nodeSize,
                           false, false);
-                DrawNodes(referencePoint.Name, coor, color, layer, nodeSize - 3, false, false);
+                // Draw the smaller circle
+                if (layer != vtkRendererLayer.Selection)
+                    DrawNodes(referencePoint.Name, coor, color, layer, nodeSize - 3, false, false);
                 // Name
                 if (referencePoint.NameVisible)
                 {
@@ -13070,11 +13261,12 @@ namespace PrePoMax
                 double[] position;
                 double[] offsetVector;
                 string[] labels = null;
+                Color color = Color.Black;
                 if (coordinateSystem.Type == CoordinateSystemTypeEnum.Rectangular) labels = new string[] { "X", "Y", "Z" };
                 else if (coordinateSystem.Type == CoordinateSystemTypeEnum.Cylindrical) labels = new string[] { "R", "T", "Z" };
                 // Axis 1
                 vtkMaxActorData data = new vtkMaxActorData();
-                data.Name = coordinateSystem.Name + "_" + labels[0];
+                data.Name = coordinateSystem.Name + Globals.NameSeparator + labels[0];
                 data.Color = Color.FromArgb(180, 4, 38);
                 data.Layer = layer;
                 data.Geometry.Nodes.Coor = new double[][] { coordinateSystem.Center().Coor };
@@ -13086,10 +13278,10 @@ namespace PrePoMax
                 offsetVector = new double[] { 0.9 * symbolSize * data.Geometry.Nodes.Normals[0][0],
                                               0.9 * symbolSize * data.Geometry.Nodes.Normals[0][1],
                                               0.9 * symbolSize * data.Geometry.Nodes.Normals[0][2]};
-                _form.AddCaptionActor(data.Name + "_label", labels[0], Color.Black, position,
+                _form.AddCaptionActor(data.Name + "_label", labels[0], color, position,
                                       offsetVector, fontScaleFactor, layer);
                 // Axis 2
-                data.Name = coordinateSystem.Name + "_" + labels[1];
+                data.Name = coordinateSystem.Name + Globals.NameSeparator + labels[1];
                 data.Color = Color.FromArgb(33, 225, 38);
                 data.Geometry.Nodes.Normals = new double[][] { coordinateSystem.DirectionY().Coor };
                 _form.AddCoordinateAxis(data, symbolSize);
@@ -13097,10 +13289,10 @@ namespace PrePoMax
                 offsetVector = new double[] { 0.9 * symbolSize * data.Geometry.Nodes.Normals[0][0],
                                               0.9 * symbolSize * data.Geometry.Nodes.Normals[0][1],
                                               0.9 * symbolSize * data.Geometry.Nodes.Normals[0][2]};
-                _form.AddCaptionActor(data.Name + "_label", labels[1], Color.Black, position,
+                _form.AddCaptionActor(data.Name + "_label", labels[1], color, position,
                                       offsetVector, fontScaleFactor, layer);
                 // Axis 3
-                data.Name = coordinateSystem.Name + "_" + labels[2];
+                data.Name = coordinateSystem.Name + Globals.NameSeparator + labels[2];
                 data.Color = Color.FromArgb(58, 76, 192);
                 data.Geometry.Nodes.Normals = new double[][] { coordinateSystem.DirectionZ().Coor };
                 _form.AddCoordinateAxis(data, symbolSize);
@@ -13108,13 +13300,13 @@ namespace PrePoMax
                 offsetVector = new double[] { 0.9 * symbolSize * data.Geometry.Nodes.Normals[0][0],
                                               0.9 * symbolSize * data.Geometry.Nodes.Normals[0][1],
                                               0.9 * symbolSize * data.Geometry.Nodes.Normals[0][2]};
-                _form.AddCaptionActor(data.Name + "_label", labels[2], Color.Black, position,
+                _form.AddCaptionActor(data.Name + "_label", labels[2], color, position,
                                       offsetVector, fontScaleFactor, layer);
                 // Name
                 if (coordinateSystem.NameVisible)
                 {
                     string caption = coordinateSystem.Name.Replace('-', ' ').Replace('_', ' ');
-                    _form.AddCaptionActor(coordinateSystem.Name + "_name", caption, Color.Black, position, null,
+                    _form.AddCaptionActor(coordinateSystem.Name + "_name", caption, color, position, null,
                                           fontScaleFactor, layer);
                 }
                 //
@@ -16214,6 +16406,12 @@ namespace PrePoMax
             {
                 if (mesh.ReferencePoints.TryGetValue(name, out rp))  DrawReferencePoint(rp, color, layer);
             }
+        }
+        public void HighlightReferencePoint(FeReferencePoint referencePoint)
+        {
+            Color color = Color.Red;
+            vtkRendererLayer layer = vtkRendererLayer.Selection;
+            DrawReferencePoint(referencePoint, color, layer);
         }
         public void HighlightCoordinateSystems(string[] coordinateSystemNames)
         {

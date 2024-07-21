@@ -6,14 +6,10 @@ using System.Threading.Tasks;
 
 namespace CaeGlobals
 {
-    public enum vtkSelectMode
+    public enum GeometrySelectModeEnum
     {
         None,
-        
-        PickNode,
-        PickElement,
-
-        PickResultNode,
-        PickResultElement
+        SelectLocation,
+        SelectId
     }
 }

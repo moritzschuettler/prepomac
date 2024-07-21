@@ -12,6 +12,19 @@ using System.Net.Configuration;
 namespace CaeMesh
 {
     [Serializable]
+    public enum CsPointCreatedFromEnum
+    {
+        [StandardValue("Coordinates", Description = "Coordinates", DisplayName = "Coordinates")]
+        Coordinates,
+        [StandardValue("OnPoint", Description = "On point", DisplayName = "On point")]
+        OnPoint,
+        [StandardValue("BetweenTwoPoints", Description = "Between two points", DisplayName = "Between two points")]
+        BetweenTwoPoints,
+        [StandardValue("CircleCenter", Description = "Circle center by 3 points", DisplayName = "Circle center by 3 points")]
+        CircleCenter
+    }
+    //
+    [Serializable]
     public enum CoordinateSystemTypeEnum
     {
         //[StandardValue("Selection", Description = "Selection/Coordinates", DisplayName = "Selection/Coordinates")]
@@ -19,7 +32,7 @@ namespace CaeMesh
         //[StandardValue("BetweenTwoPoints", Description = "Between two points", DisplayName = "Between two points")]
         Cylindrical,
     }
-
+    //
     [Serializable]
     public class CoordinateSystem : NamedClass, ISerializable, IContainsEquations
     {
@@ -34,6 +47,15 @@ namespace CaeMesh
         private EquationContainer _x3;                          //ISerializable
         private EquationContainer _y3;                          //ISerializable
         private EquationContainer _z3;                          //ISerializable
+        private CsPointCreatedFromEnum _centerCreatedFrom;      //ISerializable
+        private CsPointCreatedFromEnum _pointXCreatedFrom;      //ISerializable
+        private CsPointCreatedFromEnum _pointXYCreatedFrom;     //ISerializable
+        private int[] _centerCreationIds;                       //ISerializable
+        private Selection _centerCreationData;                  //ISerializable
+        private int[] _pointXCreationIds;                       //ISerializable
+        private Selection _pointXCreationData;                  //ISerializable
+        private int[] _pointXYCreationIds;                      //ISerializable
+        private Selection _pointXYCreationData;                 //ISerializable
         private bool _nameVisible;                              //ISerializable
         private bool _twoD;                                     //ISerializable
         private Color _color;                                   //ISerializable
@@ -54,6 +76,48 @@ namespace CaeMesh
         public EquationContainer X3 { get { return _x3; } set { SetX3(value); } }
         public EquationContainer Y3 { get { return _y3; } set { SetY3(value); } }
         public EquationContainer Z3 { get { return _z3; } set { SetZ3(value); } }
+        public CsPointCreatedFromEnum CenterCreatedFrom
+        {
+            get { return _centerCreatedFrom; }
+            set
+            {
+                if (_centerCreatedFrom != value)
+                {
+                    ClearCenterRegionData();
+                    _centerCreatedFrom = value;
+                }
+            }
+        }
+        public CsPointCreatedFromEnum PointXCreatedFrom
+        {
+            get { return _pointXCreatedFrom; }
+            set
+            {
+                if (_pointXCreatedFrom != value)
+                {
+                    ClearPointXRegionData();
+                    _pointXCreatedFrom = value;
+                }
+            }
+        }
+        public CsPointCreatedFromEnum PointXYCreatedFrom
+        {
+            get { return _pointXYCreatedFrom; }
+            set
+            {
+                if (_pointXYCreatedFrom != value)
+                {
+                    ClearPointXYRegionData();
+                    _pointXYCreatedFrom = value;
+                }
+            }
+        }
+        public int[] CenterCreationIds { get { return _centerCreationIds; } set { _centerCreationIds = value; } }
+        public Selection CenterCreationData { get { return _centerCreationData; } set { _centerCreationData = value; } }
+        public int[] PointXCreationIds { get { return _pointXCreationIds; } set { _pointXCreationIds = value; } }
+        public Selection PointXCreationData { get { return _pointXCreationData; } set { _pointXCreationData = value; } }
+        public int[] PointXYCreationIds { get { return _pointXYCreationIds; } set { _pointXYCreationIds = value; } }
+        public Selection PointXYCreationData { get { return _pointXYCreationData; } set { _pointXYCreationData = value; } }
         public bool NameVisible { get { return _nameVisible; } set { _nameVisible = value; } }
         public bool TwoD { get { return _twoD; } }
         public Color Color { get { return _color; } set { _color = value; } }
@@ -94,6 +158,24 @@ namespace CaeMesh
                         SetY3((EquationContainer)entry.Value, false); break;
                     case "_z3":
                         SetZ3((EquationContainer)entry.Value, false); break;
+                    case "_centerCreatedFrom":
+                        _centerCreatedFrom = (CsPointCreatedFromEnum)entry.Value; break;
+                    case "_pointXCreatedFrom":
+                        _pointXCreatedFrom = (CsPointCreatedFromEnum)entry.Value; break;
+                    case "_pointXYCreatedFrom":
+                        _pointXYCreatedFrom = (CsPointCreatedFromEnum)entry.Value; break;
+                    case "_centerCreationIds":
+                        _centerCreationIds = (int[])entry.Value; break;
+                    case "_centerCreationData":
+                        _centerCreationData = (Selection)entry.Value; break;
+                    case "_pointXCreationIds":
+                        _pointXCreationIds = (int[])entry.Value; break;
+                    case "_pointXCreationData":
+                        _pointXCreationData = (Selection)entry.Value; break;
+                    case "_pointXYCreationIds":
+                        _pointXYCreationIds = (int[])entry.Value; break;
+                    case "_pointXYCreationData":
+                        _pointXYCreationData = (Selection)entry.Value; break;
                     case "_nameVisible":
                         _nameVisible = (bool)entry.Value; break;
                     case "_twoD":
@@ -150,9 +232,9 @@ namespace CaeMesh
         }
         private void EquationChanged()
         {
-            Vec3D p1 = new Vec3D(Point1());
-            Vec3D p2 = new Vec3D(Point2());
-            Vec3D p3 = new Vec3D(Point3());
+            Vec3D p1 = new Vec3D(new double[] { _x1.Value, _y1.Value, _z1.Value }); // _center might be null
+            Vec3D p2 = new Vec3D(PointX());
+            Vec3D p3 = new Vec3D(PointXY());
             // Center
             _center = p1;
             // Direction x
@@ -213,11 +295,48 @@ namespace CaeMesh
             if (_z3 == null) _z3 = new EquationContainer(typeof(StringLengthConverter), 0);
             else _z3.SetEquationFromValue(0);
             //
+            ClearCenterRegionData();
+            ClearPointXRegionData();
+            ClearPointXYRegionData();
+            //
             _nameVisible = true;
             _twoD = false;
             _color = Color.Yellow;
             //
             EquationChanged();
+        }
+        private void ClearCenterRegionData()
+        {
+            _centerCreatedFrom = CsPointCreatedFromEnum.Coordinates;
+            //
+            if (_x1.IsEquation()) _x1.SetEquationFromValue(_x1.Value);
+            if (_y1.IsEquation()) _y1.SetEquationFromValue(_y1.Value);
+            if (_z1.IsEquation()) _z1.SetEquationFromValue(_z1.Value);
+            //
+            _centerCreationIds = null;
+            _centerCreationData = null;
+        }
+        private void ClearPointXRegionData()
+        {
+            _pointXCreatedFrom = CsPointCreatedFromEnum.Coordinates;
+            //
+            if (_x2.IsEquation()) _x2.SetEquationFromValue(_x2.Value);
+            if (_y2.IsEquation()) _y2.SetEquationFromValue(_y2.Value);
+            if (_z2.IsEquation()) _z2.SetEquationFromValue(_z2.Value);
+            //
+            _pointXCreationIds = null;
+            _pointXCreationData = null;
+        }
+        private void ClearPointXYRegionData()
+        {
+            _pointXYCreatedFrom = CsPointCreatedFromEnum.Coordinates;
+            //
+            if (_x3.IsEquation()) _x3.SetEquationFromValue(_x3.Value);
+            if (_y3.IsEquation()) _y3.SetEquationFromValue(_y3.Value);
+            if (_z3.IsEquation()) _z3.SetEquationFromValue(_z3.Value);
+            //
+            _pointXYCreationIds = null;
+            _pointXYCreationData = null;
         }
         public void Reset()
         {
@@ -228,15 +347,11 @@ namespace CaeMesh
             if (_center == null) EquationChanged();
             return _center;
         }
-        public double[] Point1()
-        {
-            return new double[] { _x1.Value, _y1.Value, _z1.Value };
-        }
-        public double[] Point2()
+        public double[] PointX()
         {
             return new double[] { _x2.Value, _y2.Value, _z2.Value };
         }
-        public double[] Point3()
+        public double[] PointXY()
         {
             return new double[] { _x3.Value, _y3.Value, _z3.Value };
         }
@@ -276,11 +391,46 @@ namespace CaeMesh
             if (_dz == null) EquationChanged();
             return _dz;
         }
-        public bool IsProperlyDefined()
+        public bool IsProperlyDefined(out string error)
         {
-            EquationChanged();
-            if (_dx.Len2 == 0 || _dy.Len2 == 0 || _dz.Len2 == 0) return false;
-            else return true;
+            error = null;
+            try
+            {
+                EquationChanged();
+                //
+                if (_dx.Len2 == 0 || _dy.Len2 == 0 || _dz.Len2 == 0)
+                    throw new CaeException("One of the directions is not properly defined. " +
+                                           "The selected points must not be colinear.");
+                //
+                if ((_centerCreatedFrom == CsPointCreatedFromEnum.OnPoint &&
+                    (_centerCreationIds == null || _centerCreationIds.Length != 1)) ||
+                    (_centerCreatedFrom == CsPointCreatedFromEnum.BetweenTwoPoints &&
+                    (_centerCreationIds == null || _centerCreationIds.Length != 2)) ||
+                    (_centerCreatedFrom == CsPointCreatedFromEnum.CircleCenter &&
+                    (_centerCreationIds == null || _centerCreationIds.Length != 3)))
+                    throw new CaeException("The selection of the coordinate system center point is not complete.");
+                if ((_pointXCreatedFrom == CsPointCreatedFromEnum.OnPoint &&
+                    (_pointXCreationIds == null || _pointXCreationIds.Length != 1)) ||
+                    (_pointXCreatedFrom == CsPointCreatedFromEnum.BetweenTwoPoints &&
+                    (_pointXCreationIds == null || _pointXCreationIds.Length != 2)) ||
+                    (_pointXCreatedFrom == CsPointCreatedFromEnum.CircleCenter &&
+                    (_pointXCreationIds == null || _pointXCreationIds.Length != 3)))
+                    throw new CaeException("The selection of coordinate system point in the 1st axis direction is not complete.");
+                if ((_pointXYCreatedFrom == CsPointCreatedFromEnum.OnPoint &&
+                    (_pointXYCreationIds == null || _pointXYCreationIds.Length != 1)) ||
+                    (_pointXYCreatedFrom == CsPointCreatedFromEnum.BetweenTwoPoints &&
+                    (_pointXYCreationIds == null || _pointXYCreationIds.Length != 2)) ||
+                    (_pointXYCreatedFrom == CsPointCreatedFromEnum.CircleCenter &&
+                    (_pointXYCreationIds == null || _pointXYCreationIds.Length != 3)))
+                    throw new CaeException("The selection of coordinate system point in 1-2 plane is not complete.");
+                //
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+                return false;
+            }
         }
         // ISerialization
         public new void GetObjectData(SerializationInfo info, StreamingContext context)
@@ -298,6 +448,15 @@ namespace CaeMesh
             info.AddValue("_x3", _x3, typeof(EquationContainer));
             info.AddValue("_y3", _y3, typeof(EquationContainer));
             info.AddValue("_z3", _z3, typeof(EquationContainer));
+            info.AddValue("_centerCreatedFrom", _centerCreatedFrom, typeof(CsPointCreatedFromEnum));
+            info.AddValue("_pointXCreatedFrom", _pointXCreatedFrom, typeof(CsPointCreatedFromEnum));
+            info.AddValue("_pointXYCreatedFrom", _pointXYCreatedFrom, typeof(CsPointCreatedFromEnum));
+            info.AddValue("_centerCreationIds", _centerCreationIds, typeof(int[]));
+            info.AddValue("_centerCreationData", _centerCreationData, typeof(Selection));
+            info.AddValue("_pointXCreationIds", _pointXCreationIds, typeof(int[]));
+            info.AddValue("_pointXCreationData", _pointXCreationData, typeof(Selection));
+            info.AddValue("_pointXYCreationIds", _pointXYCreationIds, typeof(int[]));
+            info.AddValue("_pointXYCreationData", _pointXYCreationData, typeof(Selection));
             info.AddValue("_nameVisible", _nameVisible, typeof(bool));
             info.AddValue("_twoD", _twoD, typeof(bool));
             info.AddValue("_color", _color, typeof(Color));

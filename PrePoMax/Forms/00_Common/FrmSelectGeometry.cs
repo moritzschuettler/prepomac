@@ -34,10 +34,10 @@ namespace PrePoMax.Forms
             get { return _geometrySelection; }
             set { _geometrySelection = value.DeepClone(); }
         }
-        public int MaxNumberOfSelectedItems
+        public int MaxNumberOfGeometryIds
         {
-            get { return _controller.Selection.MaxNumberOfIds; }
-            set { _controller.Selection.MaxNumberOfIds = value; }
+            get { return _controller.Selection.MaxNumberOfGeometryIds; }
+            set { _controller.Selection.MaxNumberOfGeometryIds = value; }
         }
         public bool HideFormOnOK { get { return _hideFormOnOK; } set { _hideFormOnOK = value; } }
         public SelectGeometryEnum SelectionFilter { get { return _selectionFilter; } set { _selectionFilter = value; } }
@@ -66,11 +66,11 @@ namespace PrePoMax.Forms
             {
                 if (GeometrySelection.GeometryIds != null && GeometrySelection.GeometryIds.Length > 0)
                 {
-                    if (_controller.Selection.MaxNumberOfIds > 0 &&
-                        _controller.Selection.MaxNumberOfIds != GeometrySelection.GeometryIds.Length)
+                    if (_controller.Selection.MaxNumberOfGeometryIds > 0 &&
+                        _controller.Selection.MaxNumberOfGeometryIds != GeometrySelection.GeometryIds.Length)
                         throw new CaeException("Number of selected items: " + GeometrySelection.GeometryIds.Length +
                                                Environment.NewLine + 
-                                               "Number of required items: " + _controller.Selection.MaxNumberOfIds);
+                                               "Number of required items: " + _controller.Selection.MaxNumberOfGeometryIds);
                     //
                     if (OnOKCallback != null)
                     {
@@ -140,7 +140,7 @@ namespace PrePoMax.Forms
         private void OnHide()
         {
             // Reset the number of selection nodes
-            _controller.Selection.MaxNumberOfIds = -1;
+            _controller.Selection.MaxNumberOfGeometryIds = -1;
             // Reset the hide on OK
             _hideFormOnOK = true;
             // Dereference the callback

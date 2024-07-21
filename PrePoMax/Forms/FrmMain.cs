@@ -3017,7 +3017,7 @@ namespace PrePoMax
                     while (true)
                     {
                         // Get a surface to split
-                        _frmSelectGeometry.MaxNumberOfSelectedItems = 1;
+                        _frmSelectGeometry.MaxNumberOfGeometryIds = 1;
                         _frmSelectGeometry.SelectionFilter = SelectGeometryEnum.Surface;
                         //
                         InvokeIfRequired(() => { ShowForm(_frmSelectGeometry, "Select a face to split", null); });
@@ -3027,7 +3027,7 @@ namespace PrePoMax
                         {
                             surfaceSelection = _frmSelectGeometry.GeometrySelection.DeepClone();
                             // Get two vertices to split the surface
-                            _frmSelectGeometry.MaxNumberOfSelectedItems = 2;
+                            _frmSelectGeometry.MaxNumberOfGeometryIds = 2;
                             _frmSelectGeometry.SelectionFilter = SelectGeometryEnum.Vertex;
                             //
                             InvokeIfRequired(() => { ShowForm(_frmSelectGeometry, "Select splitting vertices", null); });
@@ -4197,8 +4197,8 @@ namespace PrePoMax
             {
                 if (_controller.Model.Mesh == null) return;
                 //
-                SinglePointDataEditor.ParentForm = _frmReferencePoint;
-                SinglePointDataEditor.Controller = _controller;
+                ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
+                ItemSetDataEditor.ParentForm = _frmReferencePoint;
                 ShowForm(_frmReferencePoint, "Create Model Reference Point", null);
             }
             catch (Exception ex)
@@ -4280,8 +4280,8 @@ namespace PrePoMax
         //
         private void EditModelReferencePoint(string referencePointName)
         {
-            SinglePointDataEditor.ParentForm = _frmReferencePoint;
-            SinglePointDataEditor.Controller = _controller;
+            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
+            ItemSetDataEditor.ParentForm = _frmReferencePoint;
             ShowForm(_frmReferencePoint, "Edit Reference Point", referencePointName);
         }
         private void DuplicateModelReferencePoints(string[] referencePointNames)
@@ -4319,8 +4319,8 @@ namespace PrePoMax
         {
             try
             {
-                SinglePointDataEditor.ParentForm = _frmCoordinateSystem;
-                SinglePointDataEditor.Controller = _controller;
+                ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
+                ItemSetDataEditor.ParentForm = _frmCoordinateSystem;
                 ShowForm(_frmCoordinateSystem, "Create Model Coordinate System", null);
             }
             catch (Exception ex)
@@ -4403,8 +4403,8 @@ namespace PrePoMax
         //
         private void EditModelCoordinateSystem(string coordinateSystemName)
         {
-            SinglePointDataEditor.ParentForm = _frmCoordinateSystem;
-            SinglePointDataEditor.Controller = _controller;
+            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
+            ItemSetDataEditor.ParentForm = _frmCoordinateSystem;
             ShowForm(_frmCoordinateSystem, "Edit Coordinate System", coordinateSystemName);
         }
         private void DuplicateModelCoordinateSystems(string[] coordinateSystemNames)
@@ -6734,7 +6734,7 @@ namespace PrePoMax
                     //
                     string[] columnNames;
                     object[][] rowBasedData;
-                    _controller.GetHistoryOutputData(historyData, out columnNames, out rowBasedData);
+                    _controller.GetHistoryOutputData(historyData, out columnNames, out rowBasedData, false);
                     //
                     _frmViewResultHistoryOutput.SetData(columnNames, rowBasedData);
                     _frmViewResultHistoryOutput.Show();
@@ -6963,8 +6963,8 @@ namespace PrePoMax
             {
                 if (_controller.AllResults.CurrentResult.Mesh == null) return;
                 //
-                SinglePointDataEditor.ParentForm = _frmReferencePoint;
-                SinglePointDataEditor.Controller = _controller;
+                ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
+                ItemSetDataEditor.ParentForm = _frmReferencePoint;
                 ShowForm(_frmReferencePoint, "Create Result Reference Point", null);
             }
             catch (Exception ex)
@@ -7046,8 +7046,8 @@ namespace PrePoMax
         //
         private void EditResultReferencePoint(string referencePointName)
         {
-            SinglePointDataEditor.ParentForm = _frmReferencePoint;
-            SinglePointDataEditor.Controller = _controller;
+            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
+            ItemSetDataEditor.ParentForm = _frmReferencePoint;
             ShowForm(_frmReferencePoint, "Edit Reference Point", referencePointName);
         }
         private void DuplicateResultReferencePoints(string[] referencePointNames)
@@ -7085,8 +7085,8 @@ namespace PrePoMax
         {
             try
             {
-                SinglePointDataEditor.ParentForm = _frmCoordinateSystem;
-                SinglePointDataEditor.Controller = _controller;
+                ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
+                ItemSetDataEditor.ParentForm = _frmCoordinateSystem;
                 ShowForm(_frmCoordinateSystem, "Create Result Coordinate System", null);
             }
             catch (Exception ex)
@@ -7169,8 +7169,8 @@ namespace PrePoMax
         //
         private void EditResultCoordinateSystem(string coordinateSystemName)
         {
-            SinglePointDataEditor.ParentForm = _frmCoordinateSystem;
-            SinglePointDataEditor.Controller = _controller;
+            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
+            ItemSetDataEditor.ParentForm = _frmCoordinateSystem;
             ShowForm(_frmCoordinateSystem, "Edit Coordinate System", coordinateSystemName);
         }
         private void DuplicateResultCoordinateSystems(string[] coordinateSystemNames)
@@ -7502,8 +7502,6 @@ namespace PrePoMax
             if (_frmTranslate != null && _frmTranslate.Visible) _frmTranslate.PickedIds(ids);
             if (_frmScale != null && _frmScale.Visible) _frmScale.PickedIds(ids);
             if (_frmRotate != null && _frmRotate.Visible) _frmRotate.PickedIds(ids);
-            if (_frmReferencePoint != null && _frmReferencePoint.Visible) _frmReferencePoint.PickedIds(ids);
-            if (_frmCoordinateSystem != null && _frmCoordinateSystem.Visible) _frmCoordinateSystem.PickedIds(ids);
             if (_frmQuery != null && _frmQuery.Visible) _frmQuery.PickedIds(ids);
             if (_frmTransformation != null && _frmTransformation.Visible) _frmTransformation.PickedIds(ids);
             //
@@ -7524,6 +7522,8 @@ namespace PrePoMax
             if (_frmNodeSet != null && _frmNodeSet.Visible) _frmNodeSet.SelectionChanged(ids);
             if (_frmElementSet != null && _frmElementSet.Visible) _frmElementSet.SelectionChanged(ids);
             if (_frmSurface != null && _frmSurface.Visible) _frmSurface.SelectionChanged(ids);
+            if (_frmReferencePoint != null && _frmReferencePoint.Visible) _frmReferencePoint.SelectionChanged(ids);
+            if (_frmCoordinateSystem != null && _frmCoordinateSystem.Visible) _frmCoordinateSystem.SelectionChanged(ids);
             if (_frmSection != null && _frmSection.Visible) _frmSection.SelectionChanged(ids);
             if (_frmConstraint != null && _frmConstraint.Visible) _frmConstraint.SelectionChanged(ids);
             if (_frmContactPair != null && _frmContactPair.Visible) _frmContactPair.SelectionChanged(ids);

@@ -23,8 +23,8 @@ namespace CaeGlobals
 
 
         // Constructors                                                                                                             
-        public SelectionNodeIds(vtkSelectOperation selectOpreation, bool selectAll, int[] itemIds = null, bool geometryIds = false)
-            : base(selectOpreation)
+        public SelectionNodeIds(vtkSelectOperation selectOperation, bool selectAll, int[] itemIds = null, bool geometryIds = false)
+            : base(selectOperation)
         {
             _selectAll = selectAll;
             if (itemIds != null) _itemIds = itemIds.ToArray(); // copy

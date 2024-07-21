@@ -1935,7 +1935,7 @@ namespace vtkControl
             else highlightColor = _primaryHighlightColor;
             //
             vtkTextProperty tp;
-            if (actor.Caption is vtkCaptionActor2D ca2D)
+            if (actor.CaptionActor is vtkCaptionActor2D ca2D)
             {
                 tp = ca2D.GetCaptionTextProperty();
                 tp.SetColor(highlightColor.R / 255d, highlightColor.G / 255d, highlightColor.B / 255d);
@@ -3235,11 +3235,6 @@ namespace vtkControl
             // Text
             vtkTextProperty tp = CreateNewTextProperty();
             captionActor.SetCaption(caption);
-            if (caption == "1")
-            {
-                tp.SetFontFamilyToCourier();
-                fontScaleFactor *= 1.2;
-            }
             tp.SetFontSize((int)(tp.GetFontSize() * fontScaleFactor));
             //tp.SetJustificationToLeft();
             //tp.SetVerticalJustificationToCentered();
@@ -3252,8 +3247,10 @@ namespace vtkControl
             captionActor.LeaderOff();
             captionActor.BorderOff();
             //captionActor.SetWidth(0.01);
+            //
+            vtkActor tmpActor = GetActorTmp(position);
             // Actor
-            vtkMaxCaptionActor actor = new vtkMaxCaptionActor(name, color, captionActor);
+            vtkMaxCaptionActor actor = new vtkMaxCaptionActor(name, color, captionActor, tmpActor);
             actor.Position = position;
             if (offsetVector != null && offsetVector.Length == 3) actor.OffsetVector = offsetVector;
             // Add
@@ -3261,36 +3258,54 @@ namespace vtkControl
             //
             SetAllCaptionPositions();
         }
+        private vtkActor GetActorTmp(double[] position)
+        {
+            vtkPoints points = vtkPoints.New();
+            points.InsertNextPoint(position[0], position[1], position[2]);
+            vtkCellArray lineIndices = vtkCellArray.New();
+            lineIndices.InsertNextCell(2);
+            lineIndices.InsertCellPoint(0);
+            lineIndices.InsertCellPoint(0);
+            vtkPolyData pointsPolyData = vtkPolyData.New();
+            pointsPolyData.SetPoints(points);
+            pointsPolyData.SetLines(lineIndices);
+            vtkPolyDataMapper mapper = vtkPolyDataMapper.New();
+            mapper.SetInput(pointsPolyData);
+            mapper.Update();
+            vtkActor actorTmp = vtkActor.New();
+            actorTmp.SetMapper(mapper);
+            return actorTmp;
+        }
         private void SetAllCaptionPositions()
         {
             double size = vtkInteractorStyleControl.DisplayToWorldScale(_renderer, 1);
             //
             foreach (var entry in _actors)
             {
-                if (entry.Value is vtkMaxCaptionActor ca) SetCaptionPositions(ca, size);
+                if (entry.Value is vtkMaxCaptionActor ca) SetCaptionOffsetPositions(ca, size);
             }
             foreach (var entry in _overlayActors)
             {
-                if (entry.Value is vtkMaxCaptionActor ca) SetCaptionPositions(ca, size);
+                if (entry.Value is vtkMaxCaptionActor ca) SetCaptionOffsetPositions(ca, size);
             }
             foreach (var entry in _selectedActors)
             {
-                if (entry is vtkMaxCaptionActor ca) SetCaptionPositions(ca, size);
+                if (entry is vtkMaxCaptionActor ca) SetCaptionOffsetPositions(ca, size);
             }
         }
-        private void SetCaptionPositions(vtkMaxCaptionActor vtkMaxCaptionActor, double size)
+        private void SetCaptionOffsetPositions(vtkMaxCaptionActor vtkMaxCaptionActor, double size)
         {
             double[] position = vtkMaxCaptionActor.Position;
             double[] offset = vtkMaxCaptionActor.OffsetVector;
             //
             if (offset != null && offset.Length == 3)
             {
-                double[] pos = new double[3];
+                double[] pos = new double[3];   // make a copy
                 pos[0] = position[0] + size * offset[0];
                 pos[1] = position[1] + size * offset[1];
                 pos[2] = position[2] + size * offset[2];
                 //
-                vtkMaxCaptionActor.Caption.GetPositionCoordinate().SetValue(pos[0], pos[1], pos[2]);
+                vtkMaxCaptionActor.CaptionActor.GetPositionCoordinate().SetValue(pos[0], pos[1], pos[2]);
             }
         }
         public void AddOrientedDisplacementConstraintActor(vtkMaxActorData data, double symbolSize)
@@ -4040,20 +4055,23 @@ namespace vtkControl
             {
                 if (actor.Name == null) actor.Name = (_actors.Count + 1).ToString();
                 _actors.Add(actor.Name, actor);
-                _renderer.AddActor2D(actor.Caption);
+                _renderer.AddActor2D(actor.CaptionActor);
+                _renderer.AddActor(actor.TmpActor);
             }
             else if (layer == vtkRendererLayer.Overlay)
             {
                 if (actor.Name == null) actor.Name = (_overlayActors.Count + 1).ToString();
                 _overlayActors.Add(actor.Name, actor);
-                _overlayRenderer.AddActor2D(actor.Caption);
+                _overlayRenderer.AddActor2D(actor.CaptionActor);
+                _overlayRenderer.AddActor(actor.TmpActor);
             }
             else if (layer == vtkRendererLayer.Selection)
             {
                 if (actor.Name == null) actor.Name = (_selectedActors.Count + 1).ToString();
                 _selectedActors.Add(actor);
                 // Caption 2d actors are added to overlay renderer since no text is rendered in selectionRenderer !!!
-                _overlayRenderer.AddActor2D(actor.Caption);
+                _selectionRenderer.AddActor2D(actor.CaptionActor);
+                _selectionRenderer.AddActor(actor.TmpActor);
                 ApplySelectionFormattingToCaptionActor(actor);
             }
         }
@@ -6109,7 +6127,11 @@ namespace vtkControl
             //
             foreach (var entry in _actors)
             {
-                if (entry.Value is vtkMaxCaptionActor ca) _renderer.RemoveActor2D(ca.Caption);
+                if (entry.Value is vtkMaxCaptionActor ca)
+                {
+                    _renderer.RemoveActor2D(ca.CaptionActor);
+                    _renderer.RemoveActor(ca.TmpActor);
+                }
                 _renderer.RemoveActor(entry.Value.Geometry);
                 _renderer.RemoveActor(entry.Value.ElementEdges);
                 _renderer.RemoveActor(entry.Value.ModelEdges);
@@ -6182,14 +6204,12 @@ namespace vtkControl
             {
                 if (actor is vtkMaxCaptionActor ca)
                 {
-                    _renderer.RemoveActor2D(ca.Caption);
-                    // Caption 2d actors are added to overlay renderer since no text is rendered in selectionRenderer !!!
-                    _overlayRenderer.RemoveActor2D(ca.Caption);     
-                    _selectionRenderer.RemoveActor2D(ca.Caption);
+                    _selectionRenderer.RemoveActor2D(ca.CaptionActor);
+                    _selectionRenderer.RemoveActor(ca.TmpActor);
                 }
                 else
                 {
-                    _renderer.RemoveActor(actor.Geometry);
+                    _renderer.RemoveActor(actor.Geometry);  // some selections are drawn on the base layer
                     _renderer.RemoveActor(actor.ElementEdges);
                     //
                     _selectionRenderer.RemoveActor(actor.Geometry);
@@ -6224,8 +6244,12 @@ namespace vtkControl
             _maxSymbolSize = 0;
             foreach (var entry in _overlayActors)
             {
-                if (entry.Value is vtkMaxCaptionActor ca) _overlayRenderer.RemoveActor(ca.Caption);
-                else _overlayRenderer.RemoveActor2D(entry.Value.Geometry);
+                if (entry.Value is vtkMaxCaptionActor ca)
+                {
+                    _overlayRenderer.RemoveActor2D(ca.CaptionActor);
+                    _overlayRenderer.RemoveActor(ca.TmpActor);
+                }
+                else _overlayRenderer.RemoveActor(entry.Value.Geometry);
             }
             _overlayActors.Clear();
             RenderScene();

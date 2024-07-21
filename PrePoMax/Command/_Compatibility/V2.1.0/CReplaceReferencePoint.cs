@@ -30,7 +30,7 @@ namespace PrePoMax.Commands
         // Methods                                                                                                                  
         public override bool Execute(Controller receiver)
         {
-            receiver.ReplaceModelReferencePoint(_oldReferencePointName, _newReferencePoint.DeepClone());
+            receiver.ReplaceModelReferencePoint(_oldReferencePointName, _newReferencePoint.DeepClone(), true);
             return true;
         }
         public override string GetCommandString()

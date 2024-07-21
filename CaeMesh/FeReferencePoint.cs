@@ -13,6 +13,8 @@ namespace CaeMesh
     [Serializable]
     public enum FeReferencePointCreatedFrom
     {
+        [StandardValue("Coordinates", Description = "Coordinates", DisplayName = "Coordinates")]
+        Coordinates,
         [StandardValue("OnPoint", Description = "On point", DisplayName = "On point")]
         OnPoint,
         [StandardValue("BetweenTwoPoints", Description = "Between two points", DisplayName = "Between two points")]
@@ -24,7 +26,7 @@ namespace CaeMesh
         [StandardValue("BoundingBoxCenter", Description = "Bounding box center", DisplayName = "Bounding box center")]
         BoundingBoxCenter
     }
-
+    //
     [Serializable]
     public class FeReferencePoint : NamedClass, IMultiRegion, ISerializable, IContainsEquations
     {
@@ -37,8 +39,8 @@ namespace CaeMesh
         private FeReferencePointCreatedFrom _createdFrom;       //ISerializable
         private string _regionName;                 // new      //ISerializable
         private RegionTypeEnum _regionType;         // new      //ISerializable
-        [NonSerialized] private int[] _creationIds;             //IMultiRegion - not used
-        [NonSerialized] private Selection _creationData;        //IMultiRegion - not used
+        private int[] _creationIds;                             //ISerializable
+        private Selection _creationData;                        //ISerializable
         private int _createdFromRefNodeId1;                     //ISerializable
         private int _createdFromRefNodeId2;                     //ISerializable
         private string _refNodeSetName;                         //ISerializable
@@ -59,7 +61,7 @@ namespace CaeMesh
             {
                 if (_createdFrom != value)
                 {
-                    ClearKeepCoordinates();
+                    ClearRegionData();
                     _createdFrom = value;
                 }
             }
@@ -95,7 +97,6 @@ namespace CaeMesh
             Clear();
             //
             _twoD = false;
-            _createdFrom = FeReferencePointCreatedFrom.OnPoint;
             //
             _x.SetEquationFromValue(x);
             _y.SetEquationFromValue(y);
@@ -143,6 +144,10 @@ namespace CaeMesh
                         _regionName = (string)entry.Value; break;
                     case "_regionType":
                         _regionType = (RegionTypeEnum)entry.Value; break;
+                    case "_creationIds":
+                        _creationIds = (int[])entry.Value; break;
+                    case "_creationData":
+                        _creationData = (Selection)entry.Value; break;
                     case "_createdFromRefNodeId1":
                         _createdFromRefNodeId1 = (int)entry.Value; break;                    
                     case "_createdFromRefNodeId2":
@@ -220,17 +225,20 @@ namespace CaeMesh
             if (_z == null) _z = new EquationContainer(typeof(StringLengthConverter), 0);
             else _z.SetEquationFromValue(0);
             //
-            ClearKeepCoordinates();
-            _nameVisible = true;
-            _color = Color.Yellow;
+            ClearRegionData();
+            //
+            _nameVisible = true;    // must be here
+            _color = Color.Yellow;  // must be here
         }
-        private void ClearKeepCoordinates()
+        private void ClearRegionData()
         {
-            _createdFrom = FeReferencePointCreatedFrom.OnPoint;
+            _createdFrom = FeReferencePointCreatedFrom.Coordinates;
             _createdFromRefNodeId1 = -1;
             _createdFromRefNodeId2 = -1;
             _regionName = null;
             _regionType = RegionTypeEnum.NodeSetName;
+            _creationIds = null;
+            _creationData = null;
         }
         public void Reset()
         {
@@ -265,6 +273,8 @@ namespace CaeMesh
             info.AddValue("_createdFrom", _createdFrom, typeof(FeReferencePointCreatedFrom));
             info.AddValue("_regionName", _regionName, typeof(string));
             info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
+            info.AddValue("_creationIds", _creationIds, typeof(int[]));
+            info.AddValue("_creationData", _creationData, typeof(Selection));
             info.AddValue("_createdFromRefNodeId1", _createdFromRefNodeId1, typeof(int));
             info.AddValue("_createdFromRefNodeId2", _createdFromRefNodeId2, typeof(int));
             info.AddValue("_refNodeSetName", _refNodeSetName, typeof(string));

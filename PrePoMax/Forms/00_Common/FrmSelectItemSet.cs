@@ -64,12 +64,14 @@ namespace PrePoMax
             _btnClearPosition = btnClearSelection.Location;
             _initialSetup = false;
             //
+            if (_controller.GeometrySelectMode == GeometrySelectModeEnum.SelectLocation)
+                rbSelectionByLocation.Checked = true;
+            else if (_controller.GeometrySelectMode == GeometrySelectModeEnum.SelectId)
+                rbSelectionByID.Checked = true;
+            else if (System.Diagnostics.Debugger.IsAttached)
+                throw new NotSupportedException();
+            //
             btnMoreLess_Click(null, null);
-        }
-        public FrmSelectItemSet(Controller controller, ItemSetData itemSetData)
-            : this(controller)
-        {
-            _itemSetData = itemSetData;
         }
 
 
@@ -108,6 +110,15 @@ namespace PrePoMax
             }
         }
         //
+        private void rbSelectionByLocation_CheckedChanged(object sender, EventArgs e)
+        {
+            SetGeometrySelectMode();
+        }
+        private void rbSelectionByID_CheckedChanged(object sender, EventArgs e)
+        {
+            SetGeometrySelectMode();
+        }
+        //
         private void rbSelectBy_CheckedChanged(object sender, EventArgs e)
         {
             // Allow only one running function - disable check box event
@@ -142,7 +153,7 @@ namespace PrePoMax
                 if (rbId.Checked && sender != rbId) rbId.Checked = false;
             }
             // Determine selection type and change of selection type
-            bool selectionTypeChanged = false;
+            bool selectionTypeChanged;
             SelectionType currentSelectionType;
             if (rbGeometry.Checked || rbGeometryPart.Checked || rbGeometryEdgeAngle.Checked || rbGeometrySurfaceAngle.Checked)
             {
@@ -236,10 +247,12 @@ namespace PrePoMax
             else
             {
                 btnMoreLess.Text = "More";
-                size = new Size(207, 300);
+                size = new Size(207, 325);
                 //
                 btnUndoSelection.Location = _btnUndoPosition;
                 btnClearSelection.Location = _btnClearPosition;
+                //
+                Invalidate();
             }
             //
             this.MaximumSize = size;
@@ -272,7 +285,7 @@ namespace PrePoMax
             }
             catch (Exception ex)
             {
-                CaeGlobals.ExceptionTools.Show(this, ex);
+                ExceptionTools.Show(this, ex);
             }
 
         }
@@ -292,7 +305,7 @@ namespace PrePoMax
             }
             catch (Exception ex)
             {
-                CaeGlobals.ExceptionTools.Show(this, ex);
+                ExceptionTools.Show(this, ex);
             }
         }
         //
@@ -342,6 +355,7 @@ namespace PrePoMax
                     SetGeometrySelection(fdsp.IsSelectionGeometryBased(), forceInitialize);
                 //
                 rbSelectBy_CheckedChanged(null, null);
+                SetGeometrySelectMode();
             }
             catch { }
             finally { _initialSetup = false; }
@@ -354,6 +368,14 @@ namespace PrePoMax
                 location.X += ItemSetDataEditor.ParentForm.Width - 15 + 3;
                 Location = location;
             }
+        }
+        private void SetGeometrySelectMode()
+        {
+            if (rbSelectionByLocation.Checked) _controller.GeometrySelectMode = GeometrySelectModeEnum.SelectLocation;
+            else if (rbSelectionByID.Checked) _controller.GeometrySelectMode = GeometrySelectModeEnum.SelectId;
+            else throw new NotSupportedException();
+            //
+            _controller.ClearSelectionHistoryAndCallSelectionChanged();
         }
         public void SetGeometrySelection(bool selectGeometry, bool forceInitialize)
         {

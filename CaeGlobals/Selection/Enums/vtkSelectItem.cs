@@ -13,7 +13,7 @@ namespace CaeGlobals
         None = 0,
         Node = 1,               // nodeIds
         Element = 2,            // elementIds
-        GeometryEdge = 3,               // geometryEdgeIds
+        GeometryEdge = 3,       // geometryEdgeIds
         Surface = 4,            // faceIds
         Geometry = 5,           // geometryIds
         Part = 6,               // partIds

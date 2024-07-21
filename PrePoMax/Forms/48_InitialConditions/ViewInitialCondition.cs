@@ -13,7 +13,6 @@ namespace PrePoMax
     public abstract class ViewInitialCondition : ViewMultiRegion
     {
         // Variables                                                                                                                
-        private string _selectionHidden;
 
 
         // Properties                                                                                                               
@@ -33,7 +32,7 @@ namespace PrePoMax
         [OrderedDisplayName(1, 10, "Hidden")]
         [DescriptionAttribute("Hidden.")]
         [Id(2, 2)]
-        public string SelectionHidden { get { return _selectionHidden; } set { _selectionHidden = value; } }
+        public string SelectionHidden { get; set; }
 
 
         // Constructors                                                                                                             

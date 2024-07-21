@@ -14,7 +14,8 @@ namespace CaeGlobals
         private List<SelectionNode> _nodes;                 //ISerializable
         private vtkSelectItem _selectItem;                  //ISerializable
         private int _currentView;                           //ISerializable
-        private int _maxNumberOfIds;                        //ISerializable
+        private int _maxNumberOfGeometryIds;                //ISerializable
+        private int _maxNumberOfItemIds;                    //ISerializable
         private bool _limitSelectionToFirstPart;            //ISerializable
         private bool _limitSelectionToFirstGeometryType;    //ISerializable
         private bool _limitSelectionToFirstMesherType;      //ISerializable     // netgen or mmg
@@ -34,7 +35,8 @@ namespace CaeGlobals
             get { return _currentView; }
             set { _currentView = value; }
         }
-        public int MaxNumberOfIds { get { return _maxNumberOfIds; } set { _maxNumberOfIds = value; } }
+        public int MaxNumberOfGeometryIds { get { return _maxNumberOfGeometryIds; } set { _maxNumberOfGeometryIds = value; } }
+        public int MaxNumberOfItemIds { get { return _maxNumberOfItemIds; } set { _maxNumberOfItemIds = value; } }
         public bool LimitSelectionToFirstPart 
         {
             get { return _limitSelectionToFirstPart; }
@@ -92,7 +94,8 @@ namespace CaeGlobals
             _nodes = new List<SelectionNode>();
             _selectItem = vtkSelectItem.None;
             _currentView = -1;
-            _maxNumberOfIds = -1;
+            _maxNumberOfGeometryIds = -1;
+            _maxNumberOfItemIds = -1;
             _limitSelectionToFirstPart = false;
             _limitSelectionToFirstGeometryType = false;
             _limitSelectionToFirstMesherType = false;
@@ -104,7 +107,7 @@ namespace CaeGlobals
         public Selection(SerializationInfo info, StreamingContext context)
         {
             _currentView = -1;                          // Compatibility for version v0.5.2
-            _maxNumberOfIds = -1;                       // Compatibility for version v0.8.0
+            _maxNumberOfGeometryIds = -1;               // Compatibility for version v0.8.0
             _limitSelectionToFirstPart = false;         // Compatibility for version v0.9.0
             _limitSelectionToFirstGeometryType = false; // Compatibility for version v0.9.0
             _enableShellEdgeFaceSelection = false;      // Compatibility for version v0.9.0
@@ -121,7 +124,10 @@ namespace CaeGlobals
                     case "_currentView":
                         _currentView = (int)entry.Value; break;
                     case "_maxNumberOfIds":
-                        _maxNumberOfIds = (int)entry.Value; break;
+                    case "_maxNumberOfGeometryIds":
+                        _maxNumberOfGeometryIds = (int)entry.Value; break;
+                    case "_maxNumberOfItemIds":
+                        _maxNumberOfItemIds = (int)entry.Value; break;
                     case "_limitSelectionToFirstPart":
                         _limitSelectionToFirstPart = (bool)entry.Value; break;
                     case "_limitSelectionToFirstGeometryType":
@@ -208,7 +214,8 @@ namespace CaeGlobals
             info.AddValue("_nodes", _nodes, typeof(List<SelectionNode>));
             info.AddValue("_selectItem", _selectItem, typeof(vtkSelectItem));
             info.AddValue("_currentView", _currentView, typeof(int));
-            info.AddValue("_maxNumberOfIds", _maxNumberOfIds, typeof(int));
+            info.AddValue("_maxNumberOfGeometryIds", _maxNumberOfGeometryIds, typeof(int));
+            info.AddValue("_maxNumberOfItemIds", _maxNumberOfItemIds, typeof(int));
             info.AddValue("_limitSelectionToFirstPart", _limitSelectionToFirstPart, typeof(bool));
             info.AddValue("_limitSelectionToFirstGeometryType", _limitSelectionToFirstGeometryType, typeof(bool));
             info.AddValue("_limitSelectionToFirstMesherType", _limitSelectionToFirstMesherType, typeof(bool));

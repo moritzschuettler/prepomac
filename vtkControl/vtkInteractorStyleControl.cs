@@ -776,31 +776,30 @@ namespace vtkControl
         private void AddAnnotationForCenter3D(vtkRenderWindowInteractor interactor, vtkRenderer renderer)
         {
             if (_centerAnnotationActor != null) RemoveAnnotationForCenter(renderer);
-
+            //
             int[] size = renderer.GetSize();
             double minSize = Math.Min(size[0], size[1]);
             vtkCamera camera = renderer.GetActiveCamera();
             double scale = camera.GetParallelScale();
             double dMin = 30 / minSize * scale;
             double dMax = 100 / minSize * scale;
-            
+            //
             vtkPoints points = vtkPoints.New();
             points.InsertNextPoint(_rotationCenterWorld[0] + dMin, _rotationCenterWorld[1], _rotationCenterWorld[2]);
             points.InsertNextPoint(_rotationCenterWorld[0] + dMax, _rotationCenterWorld[1], _rotationCenterWorld[2]);
-
+            //
             points.InsertNextPoint(_rotationCenterWorld[0] - dMin, _rotationCenterWorld[1], _rotationCenterWorld[2]);
             points.InsertNextPoint(_rotationCenterWorld[0] - dMax, _rotationCenterWorld[1], _rotationCenterWorld[2]);
-            
+            //
             points.InsertNextPoint(_rotationCenterWorld[0], _rotationCenterWorld[1] + dMin, _rotationCenterWorld[2]);
             points.InsertNextPoint(_rotationCenterWorld[0], _rotationCenterWorld[1] + dMax, _rotationCenterWorld[2]);
-
+            //
             points.InsertNextPoint(_rotationCenterWorld[0], _rotationCenterWorld[1] - dMin, _rotationCenterWorld[2]);
             points.InsertNextPoint(_rotationCenterWorld[0], _rotationCenterWorld[1] - dMax, _rotationCenterWorld[2]);
-
+            //
             points.InsertNextPoint(_rotationCenterWorld[0], _rotationCenterWorld[1], _rotationCenterWorld[2] + dMax * 1.3);
             points.InsertNextPoint(_rotationCenterWorld[0], _rotationCenterWorld[1], _rotationCenterWorld[2] - dMax * 0.7);
-
-
+            //
             vtkCellArray lineIndices = vtkCellArray.New();
             for (int i = 0; i < 5; i++)
             {
@@ -808,21 +807,19 @@ namespace vtkControl
                 lineIndices.InsertCellPoint(2 * i);
                 lineIndices.InsertCellPoint(2 * i + 1);
             }
-
+            //
             vtkPolyData pointsPolyData = vtkPolyData.New();
             pointsPolyData.SetPoints(points);
             pointsPolyData.SetLines(lineIndices);
-
             // Visualize
             vtkPolyDataMapper mapper = vtkPolyDataMapper.New();
             mapper.SetInput(pointsPolyData);
             mapper.Update();
-
+            //
             vtkActor actor = vtkActor.New();
             actor.SetMapper(mapper);
             actor.GetProperty().SetColor(1, 0.7, 0);
             //actor.GetProperty().SetLineWidth(1);
-
             renderer.AddActor(actor);
             _centerAnnotationActor = actor;
         }

@@ -1941,15 +1941,34 @@ namespace CaeResults
                 _mesh.Surfaces.Add(entry.Key, entry.Value.DeepClone());
             }
         }
-        public void CopyFeatureItemsFromMesh(FeMesh mesh)
+        public void CopyFeatureItemsFromMesh(FeMesh mesh, int resultViewId)
         {
+            FeReferencePoint referencePoint;
             foreach (var entry in mesh.ReferencePoints)
             {
-                _mesh.ReferencePoints.Add(entry.Key, entry.Value.DeepClone());
+                referencePoint = entry.Value.DeepClone();
+                referencePoint.CreationData = null;
+                referencePoint.CreationIds = null;
+                referencePoint.CreatedFrom = FeReferencePointCreatedFrom.Coordinates;
+                //
+                _mesh.ReferencePoints.Add(entry.Key, referencePoint);
             }
+            CoordinateSystem coordinateSystem;
             foreach (var entry in mesh.CoordinateSystems)
             {
-                _mesh.CoordinateSystems.Add(entry.Key, entry.Value.DeepClone());
+                coordinateSystem = entry.Value.DeepClone();
+                //
+                coordinateSystem.CenterCreationData = null;
+                coordinateSystem.CenterCreationIds = null;
+                coordinateSystem.CenterCreatedFrom = CsPointCreatedFromEnum.Coordinates;
+                coordinateSystem.PointXCreationData = null;
+                coordinateSystem.PointXCreationIds = null;
+                coordinateSystem.PointXCreatedFrom = CsPointCreatedFromEnum.Coordinates;
+                coordinateSystem.PointXYCreationData = null;
+                coordinateSystem.PointXYCreationIds = null;
+                coordinateSystem.PointXYCreatedFrom = CsPointCreatedFromEnum.Coordinates;
+                //
+                _mesh.CoordinateSystems.Add(entry.Key, coordinateSystem);
             }
         }
         //
@@ -3447,9 +3466,15 @@ namespace CaeResults
         public void AddResultHistoryOutput(ResultHistoryOutput resultHistoryOutput)
         {
             _resultHistoryOutputs.Add(resultHistoryOutput.Name, resultHistoryOutput);
-            GetHistorySetsFromResultHistoryOutput(resultHistoryOutput);
+            HistoryResultSet historyResultSet = GetHistorySetFromResultHistoryOutput(resultHistoryOutput);
+            // Add
+            if (historyResultSet != null)
+            {
+                _history.Sets.Add(historyResultSet.Name, historyResultSet);
+                resultHistoryOutput.HistoryResultSet = historyResultSet;
+            }
         }
-        public void GetHistorySetsFromResultHistoryOutput(ResultHistoryOutput resultHistoryOutput)
+        public HistoryResultSet GetHistorySetFromResultHistoryOutput(ResultHistoryOutput resultHistoryOutput)
         {
             // Compatibility for version v1.2.1
             if (_history == null) _history = new HistoryResults("Tmp");
@@ -3464,12 +3489,8 @@ namespace CaeResults
             {
                 historyResultSet = GetHistorySetFromEquation(rhofe);
             }
-            // Add
-            if (historyResultSet != null)
-            {
-                _history.Sets.Add(historyResultSet.Name, historyResultSet);
-                resultHistoryOutput.HistoryResultSet = historyResultSet;
-            }
+            //
+            return historyResultSet;
         }
         private HistoryResultSet GetHistorySetFromField(ResultHistoryOutputFromField resultHistoryOutput)
         {
@@ -3904,7 +3925,8 @@ namespace CaeResults
             }
             return historyOutputs;
         }
-        public void GetHistoryOutputData(HistoryResultData historyData, out string[] columnNames, out object[][] rowBasedData)
+        public void GetHistoryOutputData(HistoryResultData historyData, out string[] columnNames, out object[][] rowBasedData,
+                                         bool forCsv)
         {
             HistoryResultSet set = _history.Sets[historyData.SetName];
             HistoryResultField field = set.Fields[historyData.FieldName];
@@ -3917,6 +3939,9 @@ namespace CaeResults
             string timeUnit = "[" + GetHistoryUnitAbbreviation("Time", null, -1, -1) + "]";
             string frequencyUnit = "[" + GetHistoryUnitAbbreviation("Frequency", null, -1, -1) + "]";
             string angleUnit = "[" + StringAngleDegConverter.GetUnitAbbreviation() + "]";
+            string delimiter;
+            if (forCsv) delimiter = " ";
+            else delimiter = Environment.NewLine;
             // Sorted time
             double[] sortedTime;
             Dictionary<double, int> timeRowId;
@@ -3932,7 +3957,7 @@ namespace CaeResults
             // Add time column name
             if (frequencyColumnName != null) columnNames[0] = frequencyColumnName;
             else if (set.Harmonic) columnNames[0] = "Angle " + angleUnit;
-            else columnNames[0] = "Time " + timeUnit + Environment.NewLine + "Frequency " + frequencyUnit;
+            else columnNames[0] = "Time " + timeUnit + delimiter + "Frequency " + frequencyUnit;
             // Fill the data array
             for (int i = 0; i < sortedTime.Length; i++) rowBasedData[i][0] = sortedTime[i];
             // Add data column
@@ -3947,9 +3972,9 @@ namespace CaeResults
                 // Entry unit
                 if (entry.Value.Unit != null) entryUnit = entry.Value.Unit;
                 else entryUnit = unit;
-                columnNames[col] += "\n[" + entryUnit + "]";
+                columnNames[col] += delimiter + "[" + entryUnit + "]";
                 // Local
-                if (entry.Value.Local) columnNames[col] += "\nLocal";
+                if (entry.Value.Local) columnNames[col] += delimiter + "Local";
                 //
                 row = 0;
                 timePoints = entry.Value.Time.ToArray();
@@ -4100,9 +4125,10 @@ namespace CaeResults
         }
         public void ReplaceResultHistoryOutput(string oldResultHistoryOutputName, ResultHistoryOutput resultHistoryOutput)
         {
-            RemoveResultHistoryResultSets(new string[] { oldResultHistoryOutputName });
+            HistoryResultSet historyResultSet = GetHistorySetFromResultHistoryOutput(resultHistoryOutput);
+            //
+            _history.Sets.Replace(oldResultHistoryOutputName, historyResultSet.Name, historyResultSet);
             _resultHistoryOutputs.Replace(oldResultHistoryOutputName, resultHistoryOutput.Name, resultHistoryOutput);
-            GetHistorySetsFromResultHistoryOutput(resultHistoryOutput);
         }
         public void RemoveResultHistoryOutputs(string[] resultHistoryOutputNames)
         {
