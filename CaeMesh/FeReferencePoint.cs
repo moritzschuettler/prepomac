@@ -175,6 +175,8 @@ namespace CaeMesh
                 _regionName = createdFromNodeSetName;
                 _regionType = RegionTypeEnum.NodeSetName;
             }
+            // Compatibility for version v2.1.2
+            if (_creationData == null) _createdFrom = FeReferencePointCreatedFrom.Coordinates;
             //
             //Z = _z; // is it 2D
         }

@@ -184,6 +184,10 @@ namespace CaeMesh
                         _color = (Color)entry.Value; break;
                 }
             }
+            // Compatibility for version v2.1.2
+            if (_centerCreationData == null) _centerCreatedFrom = CsPointCreatedFromEnum.Coordinates;
+            if (_pointXCreationData == null) _pointXCreatedFrom = CsPointCreatedFromEnum.Coordinates;
+            if (_pointXYCreationData == null) _pointXYCreatedFrom = CsPointCreatedFromEnum.Coordinates;
         }
 
 
