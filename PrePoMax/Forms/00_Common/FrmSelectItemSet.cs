@@ -355,6 +355,7 @@ namespace PrePoMax
                     SetGeometrySelection(fdsp.IsSelectionGeometryBased(), forceInitialize);
                 //
                 rbSelectBy_CheckedChanged(null, null);
+                //
                 SetGeometrySelectMode();
             }
             catch { }
