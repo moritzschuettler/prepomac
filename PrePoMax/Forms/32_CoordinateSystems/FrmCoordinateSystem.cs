@@ -13,7 +13,7 @@ using System.Reflection.Emit;
 
 namespace PrePoMax.Forms
 {
-    class FrmCoordinateSystem : FrmProperties, IFormBase, IFormHighlight
+    class FrmCoordinateSystem : FrmProperties, IFormBase, IFormItemSetDataParent, IFormHighlight
     {
         // Variables                                                                                                                
         private HashSet<string> _coordinateSystemNames;
@@ -311,7 +311,10 @@ namespace PrePoMax.Forms
             if (IsCenterPropertySelectedForSelection() ||
                 IsPointXPropertySelectedForSelection() ||
                 IsPointXYPropertySelectedForSelection())
-                ItemSetDataEditor.SelectionForm.ShowIfHidden(this.Owner);
+            {
+                if (ItemSetDataEditor.SelectionForm.Visible) ItemSetDataEditor.SelectionForm.ResetSelection(false);
+                else ItemSetDataEditor.SelectionForm.ShowIfHidden(this.Owner);
+            }
             else
                 ItemSetDataEditor.SelectionForm.Hide();
         }
@@ -384,6 +387,23 @@ namespace PrePoMax.Forms
                 return true;
             else return false;
         }
+        private void SetNumberOfSelectionItemIds(CoordinateSystem coordinateSystem)
+        {
+            if (coordinateSystem == null) return;
+            //
+            if (coordinateSystem.CenterCreationData != null)
+                coordinateSystem.CenterCreationData.MaxNumberOfGeometryIds = GetMaxNumberOfItemIds(coordinateSystem.CenterCreatedFrom);
+            if (coordinateSystem.PointXCreationData != null)
+                coordinateSystem.PointXCreationData.MaxNumberOfGeometryIds = GetMaxNumberOfItemIds(coordinateSystem.PointXCreatedFrom);
+            if (coordinateSystem.PointXYCreationData != null)
+                coordinateSystem.PointXYCreationData.MaxNumberOfGeometryIds = GetMaxNumberOfItemIds(coordinateSystem.PointXYCreatedFrom);
+        }
+        private void ResetNumberOfSelectionItemIds(CoordinateSystem coordinateSystem)
+        {
+            if (coordinateSystem.CenterCreationData != null) coordinateSystem.CenterCreationData.MaxNumberOfItemIds = -1;
+            if (coordinateSystem.PointXCreationData != null) coordinateSystem.PointXCreationData.MaxNumberOfItemIds = -1;
+            if (coordinateSystem.PointXYCreationData != null) coordinateSystem.PointXYCreationData.MaxNumberOfItemIds = -1;
+        }
         private void CoordinateSystemInternal(bool toInternal)
         {
             // Convert the coordinate system from/to internal to hide/show it
@@ -423,10 +443,8 @@ namespace PrePoMax.Forms
         {
             if (coordinateSystem != null)
             {
-                // Reset the max number of items for regenerate
-                if (coordinateSystem.CenterCreationData != null) coordinateSystem.CenterCreationData.MaxNumberOfItemIds = -1;
-                if (coordinateSystem.PointXCreationData != null) coordinateSystem.PointXCreationData.MaxNumberOfItemIds = -1;
-                if (coordinateSystem.PointXYCreationData != null) coordinateSystem.PointXYCreationData.MaxNumberOfItemIds = -1;
+                // Reset the max number of items for regenerate - the next selection should not be limited
+                ResetNumberOfSelectionItemIds(coordinateSystem);
                 //
                 if (_controller.CurrentView == ViewGeometryModelResults.Model)
                     _controller.AddModelCoordinateSystemCommand(coordinateSystem);
@@ -437,20 +455,23 @@ namespace PrePoMax.Forms
         }
         private CoordinateSystem GetCoordinateSystem(string coordinateSystemToEditName)
         {
+            CoordinateSystem coordinateSystem;
             if (_controller.CurrentView == ViewGeometryModelResults.Model)
-                return _controller.GetModelCoordinateSystem(coordinateSystemToEditName);
+                coordinateSystem = _controller.GetModelCoordinateSystem(coordinateSystemToEditName).DeepClone();
             else if (_controller.CurrentView == ViewGeometryModelResults.Results)
-                return _controller.GetResultCoordinateSystem(coordinateSystemToEditName);
+                coordinateSystem = _controller.GetResultCoordinateSystem(coordinateSystemToEditName).DeepClone();
             else throw new NotSupportedException();
+            //
+            SetNumberOfSelectionItemIds(coordinateSystem);
+            //
+            return coordinateSystem;
         }
         private void ReplaceCoordinateSystemCommand(string coordinateSystemToEditName, CoordinateSystem coordinateSystem)
         {
             if (coordinateSystem != null)
             {
-                // Reset the max number of items for regenerate
-                if (coordinateSystem.CenterCreationData != null) coordinateSystem.CenterCreationData.MaxNumberOfItemIds = -1;
-                if (coordinateSystem.PointXCreationData != null) coordinateSystem.PointXCreationData.MaxNumberOfItemIds = -1;
-                if (coordinateSystem.PointXYCreationData != null) coordinateSystem.PointXYCreationData.MaxNumberOfItemIds = -1;
+                // Reset the max number of items for regenerate - the next selection should not be limited
+                ResetNumberOfSelectionItemIds(coordinateSystem);
                 //
                 if (_controller.CurrentView == ViewGeometryModelResults.Model)
                     _controller.ReplaceModelCoordinateSystemCommand(coordinateSystemToEditName, coordinateSystem);
@@ -462,9 +483,34 @@ namespace PrePoMax.Forms
         // IFormHighlight
         public void Highlight()
         {
-            HighlightCoordinateSystem();
+            if (!_closing) HighlightCoordinateSystem();
+        }
+        // IFormItemSetDataParent
+        public bool IsSelectionGeometryBased()
+        {
+            // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
+            if (_coordinateSystemToEditName == null) return true;
+            CoordinateSystem cs = GetCoordinateSystem(_coordinateSystemToEditName); // coor. sys was modified for speed up
+            //
+            if (cs == null) return true;
+            //
+            if (IsCenterPropertySelectedForSelection())
+            {
+                if (cs.CenterCreationData == null) return true;
+                else return cs.CenterCreationData.IsGeometryBased();
+            }
+            else if (IsPointXPropertySelectedForSelection())
+            {
+                if (cs.PointXCreationData == null) return true;
+                else return cs.PointXCreationData.IsGeometryBased();
+            }
+            else if (IsPointXYPropertySelectedForSelection())
+            {
+                if (cs.PointXYCreationData == null) return true;
+                else return cs.PointXYCreationData.IsGeometryBased();
+            }
+            else return true;
         }
 
-        
     }
 }

@@ -202,8 +202,16 @@ namespace CaeGlobals
         {
             foreach (var node in _nodes)
             {
-                if (!((node is SelectionNodeIds sni && sni.GeometryIds) || 
+                if (!((node is SelectionNodeIds sni && sni.IsGeometryBased) || 
                       (node is SelectionNodeMouse snm && snm.IsGeometryBased))) return false;
+            }
+            return true;
+        }
+        public bool IsIdBased()
+        {
+            foreach (var node in _nodes)
+            {
+                if (!(node is SelectionNodeIds sni && sni.GeometrySelectMode == GeometrySelectModeEnum.SelectId)) return false;
             }
             return true;
         }

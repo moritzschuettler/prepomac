@@ -19,6 +19,7 @@ namespace UserControls
         protected string _stepName;
         protected bool _hideOnClose;
         protected bool _addNew;
+        protected bool _closing;
 
 
         // Properties                                                                                                               
@@ -71,7 +72,7 @@ namespace UserControls
         }
         private void FrmProperties_VisibleChanged(object sender, EventArgs e)
         {
-            if (!Visible) OnHideOrClose();
+            if (!Visible) HideOrClose();
         }
         private void btnOK_Click(object sender, EventArgs e)
         {
@@ -79,7 +80,7 @@ namespace UserControls
             {
                 OnApply(false);
                 //
-                if (_hideOnClose) OnHideOrClose();
+                if (_hideOnClose) HideOrClose();
                 else Close();
             }
             catch (Exception ex)
@@ -105,7 +106,7 @@ namespace UserControls
         {
             try
             {
-                OnHideOrClose();
+                HideOrClose();
             }
             catch (Exception ex)
             {
@@ -144,9 +145,15 @@ namespace UserControls
         // Methods                                                                                                                  
         public virtual bool PrepareForm(string stepName, string itemToEditName)
         {
+            _closing = false;
             return OnPrepareForm(stepName, itemToEditName);
         }
         //
+        private void HideOrClose()
+        {
+            _closing = true;
+            OnHideOrClose();
+        }
         protected virtual void OnHideOrClose()
         {
             _controller_SelectionClear?.Invoke();

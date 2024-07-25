@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Windows.Forms.Design;
 using CaeGlobals;
+using PrePoMax.Forms;
 
 namespace PrePoMax
 {
@@ -45,7 +46,7 @@ namespace PrePoMax
         // Constructors                                                                                                             
         public FrmSelectItemSet(Controller controller)
         {
-            this.SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.DoubleBuffer, true);            
+            //this.SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.DoubleBuffer, true);            
             //
             InitializeComponent();
             //
@@ -64,12 +65,7 @@ namespace PrePoMax
             _btnClearPosition = btnClearSelection.Location;
             _initialSetup = false;
             //
-            if (_controller.GeometrySelectMode == GeometrySelectModeEnum.SelectLocation)
-                rbSelectionByLocation.Checked = true;
-            else if (_controller.GeometrySelectMode == GeometrySelectModeEnum.SelectId)
-                rbSelectionByID.Checked = true;
-            else if (System.Diagnostics.Debugger.IsAttached)
-                throw new NotSupportedException();
+            SetGeometrySelectMode(_controller.GeometrySelectMode == GeometrySelectModeEnum.SelectId);
             //
             btnMoreLess_Click(null, null);
         }
@@ -110,11 +106,7 @@ namespace PrePoMax
             }
         }
         //
-        private void rbSelectionByLocation_CheckedChanged(object sender, EventArgs e)
-        {
-            SetGeometrySelectMode();
-        }
-        private void rbSelectionByID_CheckedChanged(object sender, EventArgs e)
+        private void rbSetGeometrySelectMode_CheckedChanged(object sender, EventArgs e)
         {
             SetGeometrySelectMode();
         }
@@ -230,6 +222,11 @@ namespace PrePoMax
         }
         private void btnMoreLess_Click(object sender, EventArgs e)
         {
+            this.gbFEMesh.SuspendLayout();
+            this.gbGeometry.SuspendLayout();
+            this.panel1.SuspendLayout();
+            this.SuspendLayout();
+            //
             Size size;
             if (btnMoreLess.Text == "More")
             {
@@ -258,6 +255,11 @@ namespace PrePoMax
             this.MaximumSize = size;
             this.MinimumSize = size;
             this.Size = size;
+            //
+            this.gbFEMesh.ResumeLayout();
+            this.gbGeometry.ResumeLayout();
+            this.panel1.ResumeLayout();
+            this.ResumeLayout();
         }
         //
         private void btnSelectAll_Click(object sender, EventArgs e)
@@ -352,7 +354,12 @@ namespace PrePoMax
                 _initialSetup = true;
                 //
                 if (ItemSetDataEditor.ParentForm is Forms.IFormItemSetDataParent fdsp)
-                    SetGeometrySelection(fdsp.IsSelectionGeometryBased(), forceInitialize);
+                {
+                    bool geometryIds = true;
+                    if (fdsp is FrmReferencePoint frp) geometryIds = frp.IsGeometrySelectionIdBased();
+
+                    SetGeometrySelection(fdsp.IsSelectionGeometryBased(), geometryIds, forceInitialize);
+                }
                 //
                 rbSelectBy_CheckedChanged(null, null);
                 //
@@ -363,12 +370,9 @@ namespace PrePoMax
         }
         public void ResetLocation()
         {
-
-            {
-                Point location = ItemSetDataEditor.ParentForm.Location.DeepClone();
-                location.X += ItemSetDataEditor.ParentForm.Width - 15 + 3;
-                Location = location;
-            }
+            Point location = ItemSetDataEditor.ParentForm.Location.DeepClone();
+            location.X += ItemSetDataEditor.ParentForm.Width - 15 + 3;
+            Location = location;
         }
         private void SetGeometrySelectMode()
         {
@@ -376,28 +380,53 @@ namespace PrePoMax
             else if (rbSelectionByID.Checked) _controller.GeometrySelectMode = GeometrySelectModeEnum.SelectId;
             else throw new NotSupportedException();
             //
-            _controller.ClearSelectionHistoryAndCallSelectionChanged();
+            _controller.ClearSelectionHistory();
         }
-        public void SetGeometrySelection(bool selectGeometry, bool forceInitialize)
+        private void SetGeometrySelectMode(bool selectGeometryByIds)
+        {
+            rbSelectionByLocation.CheckedChanged -= rbSetGeometrySelectMode_CheckedChanged;
+            rbSelectionByID.CheckedChanged -= rbSetGeometrySelectMode_CheckedChanged;
+            //
+            rbSelectionByLocation.Checked = !selectGeometryByIds;
+            rbSelectionByID.Checked = selectGeometryByIds;
+            //
+            rbSelectionByLocation.CheckedChanged += rbSetGeometrySelectMode_CheckedChanged;
+            rbSelectionByID.CheckedChanged += rbSetGeometrySelectMode_CheckedChanged;
+            //
+            SetGeometrySelectMode();
+        }
+        public void SetGeometrySelection(bool selectGeometry, bool selectGeometryByIds, bool forceInitialize)
         {
             if (selectGeometry)
             {
+                // Hide mesh selection
+                if (btnMoreLess.Enabled && btnMoreLess.Text == "Less") btnMoreLess_Click(null, null);
+                //
                 if (forceInitialize)
                 {
-                    if (rbGeometry.Checked) return;
+                    if (rbGeometry.Checked && rbSelectionByID.Checked) return;
+                    else
+                    {
+                        rbGeometry.Checked = true;
+                        SetGeometrySelectMode(true);
+                    }
                 }
                 else
                 {
                     if (rbGeometry.Checked || rbGeometryPart.Checked || rbGeometryEdgeAngle.Checked ||
-                        rbGeometrySurfaceAngle.Checked) return;
+                        rbGeometrySurfaceAngle.Checked)
+                    {
+                        if (rbSelectionByID.Checked == selectGeometryByIds) return;
+                        else SetGeometrySelectMode(selectGeometryByIds);
+                    }
+                    else rbGeometry.Checked = true;
                 }
-                //
-                rbGeometry.Checked = true;
-                // Hide mesh selection
-                if (btnMoreLess.Enabled && btnMoreLess.Text == "Less") btnMoreLess_Click(null, null);
             }
             else
             {
+                // Show mesh selection
+                if (btnMoreLess.Enabled && btnMoreLess.Text == "More") btnMoreLess_Click(null, null);
+                //
                 if (forceInitialize)
                 {
                     if (rbNode.Checked) return;
@@ -409,15 +438,13 @@ namespace PrePoMax
                 }
                 //
                 rbNode.Checked = true;
-                // Show mesh selection
-                if (btnMoreLess.Enabled && btnMoreLess.Text == "More") btnMoreLess_Click(null, null);
             }
         }
         public void SetOnlyGeometrySelection(bool onlyGeometrySelection, bool forceInitialize = true)
         {
             if (onlyGeometrySelection)
             {
-                SetGeometrySelection(true, forceInitialize);
+                SetGeometrySelection(true, true, forceInitialize);
                 if (btnMoreLess.Text == "Less") btnMoreLess_Click(null, null);
                 btnMoreLess.Enabled = false;
             }

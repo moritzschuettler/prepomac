@@ -26,8 +26,8 @@ namespace PrePoMax
         
 
         // Properties                                                                                                               
-        public static FrmSelectItemSet SelectionForm { get { return _frmSelectItemSet; } set { _frmSelectItemSet = value; } }
-        public static Form ParentForm { get { return _parentForm; } set { _parentForm = value; } }
+        public static FrmSelectItemSet SelectionForm { get { return _frmSelectItemSet; } }
+        public static Form ParentForm { get { return _parentForm; } }
 
 
         // Methods                                                                                                                  
@@ -55,8 +55,6 @@ namespace PrePoMax
             //
             return value;
         }
-        
-
         // This method indicates to the design environment that 
         // the type editor will paint additional content in the 
         // LightShape entry in the PropertyGrid. 
@@ -65,7 +63,6 @@ namespace PrePoMax
             //return true;
             return false;
         }
-
         // This method paints a graphical representation of the  
         // selected value of the LightShpae property. 
         public override void PaintValue(PaintValueEventArgs e)
@@ -80,6 +77,13 @@ namespace PrePoMax
             catch (Exception ex)
             {
             }
+        }
+        //
+        public static void SetForms(FrmSelectItemSet frmSelectItemSet, bool setOnlyGeometrySelection, Form parentForm)
+        {
+            _frmSelectItemSet = frmSelectItemSet;
+            _frmSelectItemSet.SetOnlyGeometrySelection(setOnlyGeometrySelection);
+            _parentForm = parentForm;
         }
         
     }

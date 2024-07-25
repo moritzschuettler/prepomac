@@ -3260,17 +3260,13 @@ namespace PrePoMax
         {
             if (_controller.Model.Geometry == null) return;
             // Data editor
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmMeshSetupItem;
-            _frmSelectItemSet.SetOnlyGeometrySelection(true);
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, true, _frmMeshSetupItem);
             ShowForm(_frmMeshSetupItem, "Create Mesh Setup Item", null);
         }
         private void EditMeshSetupItem(string meshSetupItemName)
         {
             // Data editor
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmMeshSetupItem;
-            _frmSelectItemSet.SetOnlyGeometrySelection(true);
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, true, _frmMeshSetupItem);
             ShowForm(_frmMeshSetupItem, "Edit Mesh Setup Item", meshSetupItemName);
         }
         private void DuplicateMeshSetupItems(string[] meshSetupItemNames)
@@ -3289,7 +3285,7 @@ namespace PrePoMax
         {
             InvokeIfRequired(() =>
             {
-                ItemSetDataEditor.SelectionForm = _frmSelectItemSet; // must be set in order to use its Hide property
+                ItemSetDataEditor.SetForms(_frmSelectItemSet, true, null);
                 //
                 CloseAllForms();
                 SetFormLocation(_frmMeshSetupItem);
@@ -3540,9 +3536,7 @@ namespace PrePoMax
             try
             {
                 // Data editor
-                ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-                ItemSetDataEditor.ParentForm = _frmSplitPartMeshUsingSurface;
-                //_frmSplitPartMeshUsingSurface.SetOnlyGeometrySelection(true);
+                ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmSplitPartMeshUsingSurface);
                 ShowForm(_frmSplitPartMeshUsingSurface, "Split Part Mesh Using Surface", null);
             }
             catch (Exception ex)
@@ -3621,26 +3615,20 @@ namespace PrePoMax
         private void CreateBoundaryLayer()
         {
             // Data editor
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmBoundaryLayer;
-            _frmSelectItemSet.SetOnlyGeometrySelection(true);
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, true, _frmBoundaryLayer);
             ShowForm(_frmBoundaryLayer, "Create Boundary Layer", null);
         }
         private void RemeshElements()
         {
             if (_controller.Model == null || _controller.Model.Mesh == null) return;
             // Data editor
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmRemeshingParameters;
-            _frmSelectItemSet.SetOnlyGeometrySelection(false);
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmRemeshingParameters);
             ShowForm(_frmRemeshingParameters, "Remeshing Parameters", null);
         }
         private void ThickenShellMesh()
         {
             // Data editor
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmThickenShellMesh;
-            _frmSelectItemSet.SetOnlyGeometrySelection(true);
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, true, _frmThickenShellMesh);
             ShowForm(_frmThickenShellMesh, "Thicken Shell Mesh", null);
         }
         private async void SplitPartMeshUsingSurface(SplitPartMeshData splitPartMeshData)
@@ -3960,9 +3948,7 @@ namespace PrePoMax
             {
                 if (_controller.Model.Mesh == null) return;
                 // Data editor
-                ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-                ItemSetDataEditor.ParentForm = _frmNodeSet;
-                _frmSelectItemSet.SetOnlyGeometrySelection(false);
+                ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmNodeSet);
                 ShowForm(_frmNodeSet, "Create Node Set", null);
             }
             catch (Exception ex)
@@ -4007,9 +3993,7 @@ namespace PrePoMax
         private void EditNodeSet(string nodeSetName)
         {
             // Data editor
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmNodeSet;
-            _frmSelectItemSet.SetOnlyGeometrySelection(false);
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmNodeSet);
             ShowForm(_frmNodeSet, "Edit Node Set", nodeSetName);
         }
         private void DuplicateNodeSets(string[] nodeSetNames)
@@ -4034,9 +4018,7 @@ namespace PrePoMax
             {
                 if (_controller.Model.Mesh == null) return;
                 // Data editor
-                ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-                ItemSetDataEditor.ParentForm = _frmElementSet;
-                _frmSelectItemSet.SetOnlyGeometrySelection(false);
+                ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmElementSet);
                 ShowForm(_frmElementSet, "Create Element Set", null);
             }
             catch (Exception ex)
@@ -4092,9 +4074,7 @@ namespace PrePoMax
         private void EditElementSet(string elementSetName)
         {
             // Data editor
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmElementSet;
-            _frmSelectItemSet.SetOnlyGeometrySelection(false);
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmElementSet);
             ShowForm(_frmElementSet, "Edit Element Set", elementSetName);
         }
         private void DuplicateElementSets(string[] elementSetNames)
@@ -4123,9 +4103,7 @@ namespace PrePoMax
             {
                 if (_controller.Model.Mesh == null) return;
                 // Data editor
-                ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-                ItemSetDataEditor.ParentForm = _frmSurface;
-                _frmSelectItemSet.SetOnlyGeometrySelection(false);
+                ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmSurface);
                 ShowForm(_frmSurface, "Create Surface", null);
             }
             catch (Exception ex)
@@ -4170,9 +4148,7 @@ namespace PrePoMax
         private void EditSurface(string surfaceName)
         {
             // Data editor
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmSurface;
-            _frmSelectItemSet.SetOnlyGeometrySelection(false);
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmSurface);
             ShowForm(_frmSurface, "Edit Surface", surfaceName);
         }
         private void DuplicateSurfaces(string[] surfaceNames)
@@ -4197,8 +4173,7 @@ namespace PrePoMax
             {
                 if (_controller.Model.Mesh == null) return;
                 //
-                ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-                ItemSetDataEditor.ParentForm = _frmReferencePoint;
+                ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmReferencePoint);
                 ShowForm(_frmReferencePoint, "Create Model Reference Point", null);
             }
             catch (Exception ex)
@@ -4280,8 +4255,7 @@ namespace PrePoMax
         //
         private void EditModelReferencePoint(string referencePointName)
         {
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmReferencePoint;
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmReferencePoint);
             ShowForm(_frmReferencePoint, "Edit Reference Point", referencePointName);
         }
         private void DuplicateModelReferencePoints(string[] referencePointNames)
@@ -4319,8 +4293,7 @@ namespace PrePoMax
         {
             try
             {
-                ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-                ItemSetDataEditor.ParentForm = _frmCoordinateSystem;
+                ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmCoordinateSystem);
                 ShowForm(_frmCoordinateSystem, "Create Model Coordinate System", null);
             }
             catch (Exception ex)
@@ -4403,8 +4376,7 @@ namespace PrePoMax
         //
         private void EditModelCoordinateSystem(string coordinateSystemName)
         {
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmCoordinateSystem;
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmCoordinateSystem);
             ShowForm(_frmCoordinateSystem, "Edit Coordinate System", coordinateSystemName);
         }
         private void DuplicateModelCoordinateSystems(string[] coordinateSystemNames)
@@ -4621,17 +4593,13 @@ namespace PrePoMax
         {
             if (_controller.Model.Mesh == null) return;
             // Data editor
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmSection;
-            _frmSelectItemSet.SetOnlyGeometrySelection(true);
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmSection);
             ShowForm(_frmSection, "Create Section", null);
         }
         private void EditSection(string sectionName)
         {
             // Data editor
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmSection;
-            _frmSelectItemSet.SetOnlyGeometrySelection(true);
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmSection);
             ShowForm(_frmSection, "Edit Section", sectionName);
         }
         private void DuplicateSections(string[] sectionNames)
@@ -4658,9 +4626,7 @@ namespace PrePoMax
             {
                 if (_controller.Model.Mesh == null) return;
                 // Data editor
-                ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-                ItemSetDataEditor.ParentForm = _frmConstraint;
-                _frmSelectItemSet.SetOnlyGeometrySelection(false);
+                ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmConstraint);
                 ShowForm(_frmConstraint, "Create Constraint", null);
             }
             catch (Exception ex)
@@ -4749,9 +4715,7 @@ namespace PrePoMax
         private void EditConstraint(string constraintName)
         {
             // Data editor
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmConstraint;
-            _frmSelectItemSet.SetOnlyGeometrySelection(false);
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmConstraint);
             ShowForm(_frmConstraint, "Edit Constraint", constraintName);
         }
         private void DuplicateConstraints(string[] constraintNames)
@@ -4869,9 +4833,7 @@ namespace PrePoMax
             {
                 if (_controller.Model.Mesh == null) return;
                 // Data editor
-                ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-                ItemSetDataEditor.ParentForm = _frmContactPair;
-                _frmSelectItemSet.SetOnlyGeometrySelection(false);
+                ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmContactPair);
                 ShowForm(_frmContactPair, "Create Contact Pair", null);
             }
             catch (Exception ex)
@@ -4960,9 +4922,7 @@ namespace PrePoMax
         private void EditContactPair(string contactPairName)
         {
             // Data editor
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmContactPair;
-            _frmSelectItemSet.SetOnlyGeometrySelection(false);
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmContactPair);
             ShowForm(_frmContactPair, "Edit Contact Pair", contactPairName);
         }
         private void DuplicateContactPairs(string[] contactPairNames)
@@ -5159,17 +5119,13 @@ namespace PrePoMax
         {
             if (_controller.Model.Mesh == null) return;
             // Data editor
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmInitialCondition;
-            _frmSelectItemSet.SetOnlyGeometrySelection(false);
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmInitialCondition);
             ShowForm(_frmInitialCondition, "Create Initial Condition", null);
         }
         private void EditInitialCondition(string initialConditionName)
         {
             // Data editor
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmInitialCondition;
-            _frmSelectItemSet.SetOnlyGeometrySelection(false);
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmInitialCondition);
             ShowForm(_frmInitialCondition, "Edit Initial Condition", initialConditionName);
         }
         private void DuplicateInitialConditions(string[] initialConditionNames)
@@ -5376,17 +5332,13 @@ namespace PrePoMax
         {
             if (_controller.Model.Mesh == null) return;
             // Data editor
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmHistoryOutput;
-            _frmSelectItemSet.SetOnlyGeometrySelection(false);
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmHistoryOutput);
             ShowForm(_frmHistoryOutput, "Create History Output", stepName, null);
         }
         private void EditHistoryOutput(string stepName, string historyOutputName)
         {
             // Data editor
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmHistoryOutput;
-            _frmSelectItemSet.SetOnlyGeometrySelection(false);
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmHistoryOutput);
             ShowForm(_frmHistoryOutput, "Edit History Output", stepName, historyOutputName);
         }
         private void DuplicateHistoryOutputs(string stepName, string[] historyOutputNames)
@@ -5665,17 +5617,13 @@ namespace PrePoMax
         {
             if (_controller.Model.Mesh == null) return;
             // Data editor
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmBoundaryCondition;
-            _frmSelectItemSet.SetOnlyGeometrySelection(true);
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, true, _frmBoundaryCondition);
             ShowForm(_frmBoundaryCondition, "Create Boundary Condition", stepName, null);
         }
         private void EditBoundaryCondition(string stepName, string boundaryConditionName)
         {
             // Data editor
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmBoundaryCondition;
-            _frmSelectItemSet.SetOnlyGeometrySelection(true);
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, true, _frmBoundaryCondition);
             ShowForm(_frmBoundaryCondition, "Edit Boundary Condition", stepName, boundaryConditionName);
         }
         private void DuplicateBoundaryConditions(string stepName, string[] boundaryConditionNames)
@@ -5858,25 +5806,21 @@ namespace PrePoMax
         {
             if (_controller.Model.Mesh == null) return;
             // Data editor
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmLoad;
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmLoad);
             //
             SinglePointDataEditor.ParentForm = _frmLoad;
             SinglePointDataEditor.Controller = _controller;
             //
-            _frmSelectItemSet.SetOnlyGeometrySelection(false);
             ShowForm(_frmLoad, "Create Load", stepName, null);
         }
         private void EditLoad(string stepName, string loadName)
         {
             // Data editor
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmLoad;
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmLoad);
             //
             SinglePointDataEditor.ParentForm = _frmLoad;
             SinglePointDataEditor.Controller = _controller;
             //
-            _frmSelectItemSet.SetOnlyGeometrySelection(false);
             ShowForm(_frmLoad, "Edit Load", stepName, loadName);
         }
         private void DuplicateLoads(string stepName, string[] loadNames)
@@ -6045,17 +5989,13 @@ namespace PrePoMax
         {
             if (_controller.Model.Mesh == null) return;
             // Data editor
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmDefinedField;
-            _frmSelectItemSet.SetOnlyGeometrySelection(false);
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmDefinedField);
             ShowForm(_frmDefinedField, "Create Defined Field", stepName, null);
         }
         private void EditDefinedField(string stepName, string definedFieldName)
         {
             // Data editor
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmDefinedField;
-            _frmSelectItemSet.SetOnlyGeometrySelection(false);
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmDefinedField);
             ShowForm(_frmDefinedField, "Edit Defined Field", stepName, definedFieldName);
         }
         private void DuplicateDefinedFields(string stepName, string[] definedFieldNames)
@@ -6963,8 +6903,7 @@ namespace PrePoMax
             {
                 if (_controller.AllResults.CurrentResult.Mesh == null) return;
                 //
-                ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-                ItemSetDataEditor.ParentForm = _frmReferencePoint;
+                ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmReferencePoint);
                 ShowForm(_frmReferencePoint, "Create Result Reference Point", null);
             }
             catch (Exception ex)
@@ -7046,8 +6985,7 @@ namespace PrePoMax
         //
         private void EditResultReferencePoint(string referencePointName)
         {
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmReferencePoint;
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmReferencePoint);
             ShowForm(_frmReferencePoint, "Edit Reference Point", referencePointName);
         }
         private void DuplicateResultReferencePoints(string[] referencePointNames)
@@ -7085,8 +7023,7 @@ namespace PrePoMax
         {
             try
             {
-                ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-                ItemSetDataEditor.ParentForm = _frmCoordinateSystem;
+                ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmCoordinateSystem);
                 ShowForm(_frmCoordinateSystem, "Create Result Coordinate System", null);
             }
             catch (Exception ex)
@@ -7169,8 +7106,7 @@ namespace PrePoMax
         //
         private void EditResultCoordinateSystem(string coordinateSystemName)
         {
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmCoordinateSystem;
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmCoordinateSystem);
             ShowForm(_frmCoordinateSystem, "Edit Coordinate System", coordinateSystemName);
         }
         private void DuplicateResultCoordinateSystems(string[] coordinateSystemNames)
@@ -7321,15 +7257,12 @@ namespace PrePoMax
             if (_controller.CurrentResult == null || _controller.CurrentResult.Mesh == null) return;
             if (_controller.CurrentResult.GetAllFiledNameComponentNames().Count == 0) return;
             // Data editor
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmResultHistoryOutput;
-            _frmSelectItemSet.SetOnlyGeometrySelection(false);
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmResultHistoryOutput);
             ShowForm(_frmResultHistoryOutput, "Create History Output", null);
         }
         private void EditResultHistoryOutput(string resultHistoryOutputName)
         {
-            ItemSetDataEditor.SelectionForm = _frmSelectItemSet;
-            ItemSetDataEditor.ParentForm = _frmResultHistoryOutput;
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmResultHistoryOutput);
             ShowForm(_frmResultHistoryOutput, "Edit History Output", resultHistoryOutputName);
         }
         public void DeleteResultHistoryOutputs(string[] resultHistoryOutputNames)

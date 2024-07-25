@@ -9,5 +9,6 @@ namespace PrePoMax.Forms
     interface IFormItemSetDataParent
     {
         bool IsSelectionGeometryBased();
+        //void GetSelectionProperties(out bool isGometryBased, out bool isIdBased);
     }
 }

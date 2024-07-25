@@ -339,7 +339,7 @@
             this.rbSelectionByLocation.TabStop = true;
             this.rbSelectionByLocation.Text = "Selection by location";
             this.rbSelectionByLocation.UseVisualStyleBackColor = true;
-            this.rbSelectionByLocation.CheckedChanged += new System.EventHandler(this.rbSelectionByLocation_CheckedChanged);
+            this.rbSelectionByLocation.CheckedChanged += new System.EventHandler(this.rbSetGeometrySelectMode_CheckedChanged);
             // 
             // rbSelectionByID
             // 
@@ -350,7 +350,7 @@
             this.rbSelectionByID.TabIndex = 20;
             this.rbSelectionByID.Text = "Selection by ID";
             this.rbSelectionByID.UseVisualStyleBackColor = true;
-            this.rbSelectionByID.CheckedChanged += new System.EventHandler(this.rbSelectionByID_CheckedChanged);
+            this.rbSelectionByID.CheckedChanged += new System.EventHandler(this.rbSetGeometrySelectMode_CheckedChanged);
             // 
             // tbGeometrySurfaceAngle
             // 

@@ -11,25 +11,41 @@ namespace CaeGlobals
     public class SelectionNodeIds : SelectionNode, ISerializable
     {
         // Variables                                                                                                                
-        private bool _selectAll;            //ISerializable
-        private int[] _itemIds;             //ISerializable
-        private bool _geometryIds;          //ISerializable
+        private bool _selectAll;                                //ISerializable
+        private int[] _itemIds;                                 //ISerializable
+        private bool _isGeometryBased;                          //ISerializable
+        private GeometrySelectModeEnum _geometrySelectMode;     //ISerializable
 
 
         // Properties                                                                                                               
         public bool SelectAll { get { return _selectAll; } set { _selectAll = value; } }
         public int[] ItemIds { get { return _itemIds; } set { _itemIds = value; } }
-        public bool GeometryIds { get { return _geometryIds; } set { _geometryIds = value; } }
+        public bool IsGeometryBased { get { return _isGeometryBased; } set { _isGeometryBased = value; } }
+        public GeometrySelectModeEnum GeometrySelectMode { get { return _geometrySelectMode; } }
 
 
         // Constructors                                                                                                             
-        public SelectionNodeIds(vtkSelectOperation selectOperation, bool selectAll, int[] itemIds = null, bool geometryIds = false)
+        public SelectionNodeIds(vtkSelectOperation selectOperation, bool selectAll)
+            : this(selectOperation, selectAll, null)
+        {
+        }
+        public SelectionNodeIds(vtkSelectOperation selectOperation, bool selectAll, int[] itemIds)
+           : this(selectOperation, selectAll, itemIds, false)
+        {
+        }
+        public SelectionNodeIds(vtkSelectOperation selectOperation, bool selectAll, int[] itemIds, bool geometryBased)
+           : this(selectOperation, selectAll, itemIds, geometryBased, GeometrySelectModeEnum.SelectLocation)
+        {
+        }
+        public SelectionNodeIds(vtkSelectOperation selectOperation, bool selectAll, int[] itemIds, bool geometryBased,
+                                GeometrySelectModeEnum geometrySelectMode)
             : base(selectOperation)
         {
             _selectAll = selectAll;
             if (itemIds != null) _itemIds = itemIds.ToArray(); // copy
             else _itemIds = null;
-            _geometryIds = geometryIds;
+            _isGeometryBased = geometryBased;
+            _geometrySelectMode = geometrySelectMode;
         }
         public SelectionNodeIds(SerializationInfo info, StreamingContext context)
             : base(info, context)
@@ -42,8 +58,11 @@ namespace CaeGlobals
                         _selectAll = (bool)entry.Value; break;
                     case "_itemIds":
                         _itemIds = (int[])entry.Value; break;
-                    case "_geometryIds":
-                        _geometryIds = (bool)entry.Value; break;
+                    case "_geometryIds":    // compatibility version v2.1.2
+                    case "_isGeometryBased":
+                        _isGeometryBased = (bool)entry.Value; break;
+                    case "_geometrySelectMode":
+                        _geometrySelectMode = (GeometrySelectModeEnum)entry.Value; break;
                     default:
                         break;
                 }
@@ -83,7 +102,8 @@ namespace CaeGlobals
             // Using typeof() works also for null fields
             info.AddValue("_selectAll", _selectAll, typeof(bool));
             info.AddValue("_itemIds", _itemIds, typeof(int[]));
-            info.AddValue("_geometryIds", _geometryIds, typeof(bool));
+            info.AddValue("_isGeometryBased", _isGeometryBased, typeof(bool));
+            info.AddValue("_geometrySelectMode", _geometrySelectMode, typeof(GeometrySelectModeEnum));
         }
     }
 }

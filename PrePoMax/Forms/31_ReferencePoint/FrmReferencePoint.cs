@@ -13,13 +13,13 @@ using System.Xml.Linq;
 
 namespace PrePoMax.Forms
 {
-    class FrmReferencePoint : FrmProperties, IFormBase, IFormHighlight
+    class FrmReferencePoint : FrmProperties, IFormBase, IFormItemSetDataParent, IFormHighlight
     {
         // Variables                                                                                                                
         private HashSet<string> _referencePointNames;
         private string _referencePointToEditName;
-        string[] _nodeSetNames;
-        string[] _surfaceNames;
+        private string[] _nodeSetNames;
+        private string[] _surfaceNames;
         private ViewFeReferencePoint _viewReferencePoint;
         private Controller _controller;
         //
@@ -160,7 +160,7 @@ namespace PrePoMax.Forms
         {
             // Close the ItemSetSelectionForm
             ItemSetDataEditor.SelectionForm.Hide();
-            // REset the maximum number of selected items
+            // Reset the maximum number of selected items
             _controller.Selection.MaxNumberOfItemIds = -1;
             // Convert the reference point from internal to show it
             ReferencePointInternal(false);
@@ -305,20 +305,32 @@ namespace PrePoMax.Forms
         private void SetSelectItem()
         {
             ShowHideSelectionForm();
+            FeReferencePoint rp = ReferencePoint;
             //
-            if (ReferencePoint != null && ReferencePoint.CreatedFrom == FeReferencePointCreatedFrom.OnPoint ||
-                ReferencePoint != null && ReferencePoint.CreatedFrom == FeReferencePointCreatedFrom.BetweenTwoPoints ||
-                ReferencePoint != null && ReferencePoint.CreatedFrom == FeReferencePointCreatedFrom.CircleCenter)
+            if (rp != null && rp.CreatedFrom == FeReferencePointCreatedFrom.OnPoint ||
+                rp != null && rp.CreatedFrom == FeReferencePointCreatedFrom.BetweenTwoPoints ||
+                rp != null && rp.CreatedFrom == FeReferencePointCreatedFrom.CircleCenter)
                 _controller.SetSelectItemToNode();
             else _controller.SetSelectByToOff();
-            // Limit the number of selected nodes
-            if (ReferencePoint != null && ReferencePoint.CreatedFrom == FeReferencePointCreatedFrom.OnPoint )
-                _controller.Selection.MaxNumberOfItemIds = 1;
-            else if (ReferencePoint != null && ReferencePoint.CreatedFrom == FeReferencePointCreatedFrom.BetweenTwoPoints)
-                _controller.Selection.MaxNumberOfItemIds = 2;
-            else if (ReferencePoint != null && ReferencePoint.CreatedFrom == FeReferencePointCreatedFrom.CircleCenter)
-                _controller.Selection.MaxNumberOfItemIds = 3;
-            else _controller.Selection.MaxNumberOfItemIds = -1;
+            // Set the number of selected ids
+            SetNumberOfSelectionItemIds(rp, _controller.Selection);
+        }
+        private void SetNumberOfSelectionItemIds(FeReferencePoint referencePoint, Selection selection)
+        {
+            if (selection == null) return;
+            if (referencePoint == null) selection.MaxNumberOfItemIds = -1;
+            //
+            if (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.OnPoint)
+                selection.MaxNumberOfItemIds = 1;
+            else if (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.BetweenTwoPoints)
+                selection.MaxNumberOfItemIds = 2;
+            else if (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.CircleCenter)
+                selection.MaxNumberOfItemIds = 3;
+            else selection.MaxNumberOfItemIds = -1;
+        }
+        private void ResetNumberOfSelectionItemIds(FeReferencePoint referencePoint)
+        {
+            if (referencePoint.CreationData != null) referencePoint.CreationData.MaxNumberOfItemIds = -1;
         }
         private void ReferencePointInternal(bool toInternal)
         {
@@ -375,8 +387,8 @@ namespace PrePoMax.Forms
         {
             if (referencePoint != null)
             {
-                // Reset the max number of items for regenerate
-                if (referencePoint.CreationData != null) referencePoint.CreationData.MaxNumberOfItemIds = -1;
+                // Reset the max number of items for regenerate - the next selection should not be limited
+                ResetNumberOfSelectionItemIds(referencePoint);
                 //
                 if (_controller.CurrentView == ViewGeometryModelResults.Model)
                     _controller.AddModelReferencePointCommand(referencePoint);
@@ -387,18 +399,23 @@ namespace PrePoMax.Forms
         }
         private FeReferencePoint GetReferencePoint(string referencePointToEditName)
         {
+            FeReferencePoint referencePoint;
             if (_controller.CurrentView == ViewGeometryModelResults.Model)
-                return _controller.GetModelReferencePoint(referencePointToEditName);
+                referencePoint = _controller.GetModelReferencePoint(referencePointToEditName).DeepClone(); // copy
             else if (_controller.CurrentView == ViewGeometryModelResults.Results)
-                return _controller.GetResultReferencePoint(referencePointToEditName);
+                referencePoint = _controller.GetResultReferencePoint(referencePointToEditName).DeepClone(); // copy
             else throw new NotSupportedException();
+            // Set the number of selected ids
+            SetNumberOfSelectionItemIds(referencePoint, referencePoint.CreationData);
+            //
+            return referencePoint;
         }
         private void ReplaceReferencePointCommand(string referencePointToEditName, FeReferencePoint referencePoint)
         {
             if (referencePoint != null)
             {
-                // Reset the max number of items for regenerate
-                if (referencePoint.CreationData != null) referencePoint.CreationData.MaxNumberOfItemIds = -1;
+                // Reset the max number of items for regenerate - the next selection should not be limited
+                ResetNumberOfSelectionItemIds(referencePoint);
                 //
                 if (_controller.CurrentView == ViewGeometryModelResults.Model)
                     _controller.ReplaceModelReferencePointCommand(referencePointToEditName, referencePoint);
@@ -410,9 +427,27 @@ namespace PrePoMax.Forms
         // IFormHighlight
         public void Highlight()
         {
-            HighlightReferencePoint();
+            if (!_closing) HighlightReferencePoint();
+        }
+        // IFormItemSetDataParent
+        public bool IsSelectionGeometryBased()
+        {
+            // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
+            if (_referencePointToEditName == null) return true;
+            FeReferencePoint rp = GetReferencePoint(_referencePointToEditName); // reference point was modified for speed up
+            //
+            if (rp == null || rp.CreationData == null) return true;
+            else return rp.CreationData.IsGeometryBased();
         }
 
-        
+        public bool IsGeometrySelectionIdBased()
+        {
+            // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
+            if (_referencePointToEditName == null) return false;
+            FeReferencePoint rp = GetReferencePoint(_referencePointToEditName); // reference point was modified for speed up
+            //
+            if (IsSelectionGeometryBased()) return rp.CreationData.IsIdBased();
+            else return false;
+        }
     }
 }

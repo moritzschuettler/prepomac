@@ -4158,7 +4158,7 @@ namespace CaeMesh
                     {
                         if (node is SelectionNodeIds snids)
                         {
-                            if (snids.GeometryIds) { }
+                            if (snids.IsGeometryBased) { }
                             else
                             {
                                 for (int i = 0; i < snids.ItemIds.Length; i++)

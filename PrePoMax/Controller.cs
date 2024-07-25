@@ -6013,7 +6013,7 @@ namespace PrePoMax
                     if (partNames.Intersect(nodeSetPartNames).Count() > 0)
                     {
                         selectionNodeIds = new SelectionNodeIds(vtkSelectOperation.None, false, geometryIds.ToArray());
-                        selectionNodeIds.GeometryIds = true;
+                        selectionNodeIds.IsGeometryBased = true;
                     }
                     else continue;  // skip last two lines
                 }
@@ -6274,7 +6274,7 @@ namespace PrePoMax
                     if (partNames.Intersect(elementSetPartNames).Count() > 0)
                     {
                         selectionNodeIds = new SelectionNodeIds(vtkSelectOperation.None, false, geometryIds.ToArray());
-                        selectionNodeIds.GeometryIds = true;
+                        selectionNodeIds.IsGeometryBased = true;
                     }
                     else continue;  // skip last two lines
                 }
@@ -6560,7 +6560,7 @@ namespace PrePoMax
                         if (partNames.Intersect(surfacePartNames).Count() > 0)
                         {
                             selectionNodeIds = new SelectionNodeIds(vtkSelectOperation.None, false, geometryIds.ToArray());
-                            selectionNodeIds.GeometryIds = true;
+                            selectionNodeIds.IsGeometryBased = true;
                         }
                         else continue;
                     }
@@ -10930,7 +10930,7 @@ namespace PrePoMax
                         _geometrySelectMode == GeometrySelectModeEnum.SelectId)
                     {
                         int[] ids = GetIdsFromSelectionNodeMouse(snm, true);
-                        selectionNode = new SelectionNodeIds(selectOperation, false, ids, true);
+                        selectionNode = new SelectionNodeIds(selectOperation, false, ids, true, _geometrySelectMode);
                     }
                     // Add
                     AddSelectionNode(selectionNode, true, false);
@@ -11112,7 +11112,7 @@ namespace PrePoMax
                 }
                 // Add
                 _selection.Add(node, ids);
-                // Remove the node if the maximum number of geometry items is exceeded
+                // Remove the node if the maximum number of items is exceeded
                 if (_selection.MaxNumberOfItemIds >= 1)
                 {
                     ids = GetSelectionIds();
@@ -11244,7 +11244,7 @@ namespace PrePoMax
                     _selection.SelectItem == vtkSelectItem.GeometryEdge || _selection.SelectItem == vtkSelectItem.Surface ||
                     _selection.SelectItem == vtkSelectItem.Part)
                 {
-                    if (selectionNodeIds.GeometryIds)
+                    if (selectionNodeIds.IsGeometryBased)
                     {
                         // Change geometry ids to node, cell ids
                         ids = DisplayedMesh.GetIdsFromGeometryIds(selectionNodeIds.ItemIds, _selection.SelectItem);
@@ -11257,7 +11257,7 @@ namespace PrePoMax
                 else if (_selection.SelectItem == vtkSelectItem.Geometry ||
                          _selection.SelectItem == vtkSelectItem.GeometrySurface)
                 {
-                    if (selectionNodeIds.GeometryIds)
+                    if (selectionNodeIds.IsGeometryBased)
                     {
                         // Change geometry ids to node, cell ids
                         ids = DisplayedMesh.GetIdsFromGeometryIds(selectionNodeIds.ItemIds, _selection.SelectItem);
@@ -11935,7 +11935,7 @@ namespace PrePoMax
                 {
                     if (selectionNode is SelectionNodeIds selectionNodeIds)
                     {
-                        if (selectionNodeIds.GeometryIds)
+                        if (selectionNodeIds.IsGeometryBased)
                         {
                             foreach (var geometryId in selectionNodeIds.ItemIds)
                             {
