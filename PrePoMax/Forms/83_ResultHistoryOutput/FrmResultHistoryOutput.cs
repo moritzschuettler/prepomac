@@ -355,19 +355,29 @@ namespace PrePoMax.Forms
                 else throw new NotSupportedException();
             }
         }
-
         // IFormHighlight
         public void Highlight()
         {
-            HighlightHistoryOutput();
+            if (!_closing) HighlightHistoryOutput();
         }
-
         // IFormItemSetDataParent
         public bool IsSelectionGeometryBased()
         {
             // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
-            if (ResultHistoryOutput == null || ResultHistoryOutput.CreationData == null) return true;
-            return ResultHistoryOutput.CreationData.IsGeometryBased();
+            ResultHistoryOutput resultHistoryOutput = ResultHistoryOutput;
+            //
+            if (resultHistoryOutput.CreationData != null) return resultHistoryOutput.CreationData.IsGeometryBased();
+            else return true;
+        }
+        public bool IsGeometrySelectionIdBased()
+        {
+            bool defaultMode = _controller.Settings.Pre.GeometrySelectMode == GeometrySelectModeEnum.SelectId;
+            // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
+            ResultHistoryOutput resultHistoryOutput = ResultHistoryOutput;
+            //
+            if (resultHistoryOutput.CreationData != null && IsSelectionGeometryBased())
+                return resultHistoryOutput.CreationData.IsIdBased(defaultMode);
+            else return defaultMode;
         }
     }
 }

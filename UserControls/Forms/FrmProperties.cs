@@ -59,7 +59,7 @@ namespace UserControls
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void propertyGrid_SelectedGridItemChanged(object sender, SelectedGridItemChangedEventArgs e)
+        protected void propertyGrid_SelectedGridItemChanged(object sender, SelectedGridItemChangedEventArgs e)
         {
             try
             {

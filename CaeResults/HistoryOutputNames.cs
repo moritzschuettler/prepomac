@@ -20,6 +20,7 @@ namespace CaeResults
         //
         public const string Time = "TIME";
         public const string Frequency = "FREQUENCY";
+        public const string Buckling = "BUCKLING";
         // Nodal
         public const string Coordinates = "COORDINATES";
         public const string Displacements = "DISPLACEMENTS";
@@ -135,11 +136,14 @@ namespace CaeResults
         public const string N1 = "N1";
         public const string N2 = "N2";
         public const string N3 = "N3";
-        //
+        // Frequency
         public const string EIGENVALUE = "EIGENVALUE";
         public const string OMEGA = "OMEGA";
         public const string FREQUENCY = "FREQUENCY";
         public const string FREQUENCY_IM = "FREQUENCY IM";
+        // Buckling
+        public const string MODENUMBER = "MODE NUMBER";
+        public const string BUCKLINGFACTOR = "BUCKLING FACTOR";
         //
         public const string XCOMPONENT = "X COMPONENT";
         public const string YCOMPONENT = "Y COMPONENT";

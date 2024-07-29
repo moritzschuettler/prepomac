@@ -166,11 +166,6 @@ namespace PrePoMax.Forms
                         Surface.CreationData.SelectItem = vtkSelectItem.Surface;
                         Surface.CreationData.Add(new SelectionNodeIds(vtkSelectOperation.Add, false, ids));
                     }
-                    // Change node selection history to ids to speed up
-                    _selectionNodeIds = new SelectionNodeIds(vtkSelectOperation.None, false, ids);
-                    _prevSelectionNodes = Surface.CreationData.Nodes;
-                    _controller.CreateNewSelection(Surface.CreationData.CurrentView, vtkSelectItem.Surface, _selectionNodeIds, true);
-                    Surface.CreationData = _controller.Selection.DeepClone();
                 }
                 else if (Surface.CreatedFrom == FeSurfaceCreatedFrom.NodeSet)
                     CheckMissingValueRef(ref nodeSetNames, _viewSurface.NodeSetName, s => { _viewSurface.NodeSetName = s; });
@@ -272,22 +267,29 @@ namespace PrePoMax.Forms
                 _propertyItemChanged = true;
             }
         }
-
         // IFormHighlight
         public void Highlight()
         {
-            HighlightSurface();
+            if (!_closing) HighlightSurface();
         }
-
         // IFormItemSetDataParent
         public bool IsSelectionGeometryBased()
         {
             // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
-            if (_surfaceToEditName == null) return true;
+            FeSurface surface = Surface;
             //
-            FeSurface surface = _controller.GetSurface(_surfaceToEditName);     // surface was modified for speed up
-            if (surface == null || surface.CreationData == null) return true;   // node based surface
-            return surface.CreationData.IsGeometryBased();
+            if (surface != null && surface.CreationData != null) return surface.CreationData.IsGeometryBased();
+            else return true;
+        }
+        public bool IsGeometrySelectionIdBased()
+        {
+            bool defaultMode = _controller.Settings.Pre.GeometrySelectMode == GeometrySelectModeEnum.SelectId;
+            // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
+            FeSurface surface = Surface;
+            //
+            if (surface != null && surface.CreationData != null && IsSelectionGeometryBased())
+                return surface.CreationData.IsIdBased(defaultMode);
+            else return defaultMode;
         }
     }
 

@@ -54,8 +54,6 @@ namespace PrePoMax
                 _controller.SelectBy = CaeGlobals.vtkSelectBy.QueryNode;
                 _controller.Selection.SelectItem = CaeGlobals.vtkSelectItem.Node;
                 _controller.ClearSelectionHistoryAndCallSelectionChanged();
-                //
-                if (_parentForm is FrmCoordinateSystem fcs) fcs.Highlight();
             }
             //
             return value;

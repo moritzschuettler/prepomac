@@ -168,7 +168,7 @@ namespace PrePoMax.Forms
         // IFormHighlight
         public void Highlight()
         {
-            HighlightSurface();
+            if (!_closing) HighlightSurface();
         }
 
         // IFormItemSetDataParent
@@ -178,8 +178,14 @@ namespace PrePoMax.Forms
             // Allways use geometry based selection
             return true;
         }
+        public bool IsGeometrySelectionIdBased()
+        {
+            bool defaultMode = _controller.Settings.Pre.GeometrySelectMode == GeometrySelectModeEnum.SelectId;
+            // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
+            // Allways use default selection mode
+            return defaultMode;
+        }
 
-        
     }
 
 

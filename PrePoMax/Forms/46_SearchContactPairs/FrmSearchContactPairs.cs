@@ -23,6 +23,7 @@ namespace PrePoMax.Forms
         private ContactSearch _contactSearch;
         private List<SearchContactPair> _selectedContactPairs;
         private bool _firstTime;
+        private bool _closing;
 
 
         // Properties                                                                                                               
@@ -223,6 +224,7 @@ namespace PrePoMax.Forms
         }
         private void btnCancel_Click(object sender, EventArgs e)
         {
+            _closing = true;
             _contactSearch = null;  // reset for a new initiation
             Hide();
         }
@@ -305,6 +307,7 @@ namespace PrePoMax.Forms
         // Methods                                                                                                                  
         public void PrepareForm()
         {
+            _closing = false;
             dgvData.DataSource = null;
             propertyGrid.SelectedObject = null;
             // Surface interaction
@@ -424,7 +427,7 @@ namespace PrePoMax.Forms
         // IFormHighlight
         public void Highlight()
         {
-            HighlightContactPairs();
+            if (!_closing) HighlightContactPairs();
         }
 
         private void FrmSearchContactPairs_Activated(object sender, EventArgs e)

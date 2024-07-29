@@ -125,11 +125,6 @@ namespace PrePoMax.Forms
                     NodeSet.CreationData.SelectItem = vtkSelectItem.Node;
                     NodeSet.CreationData.Add(new SelectionNodeIds(vtkSelectOperation.Add, false, ids));
                 }
-                // Change node selection history to ids to speed up
-                _selectionNodeIds = new SelectionNodeIds(vtkSelectOperation.None, false, ids);
-                _prevSelectionNodes = NodeSet.CreationData.Nodes;
-                _controller.CreateNewSelection(NodeSet.CreationData.CurrentView, vtkSelectItem.Node, _selectionNodeIds, true);
-                NodeSet.CreationData = _controller.Selection.DeepClone();
             }
             //
             propertyGrid.SelectedObject = _viewNodeSet;
@@ -178,23 +173,28 @@ namespace PrePoMax.Forms
             //
             _propertyItemChanged = true;
         }
-
         // IFormHighlight
         public void Highlight()
         {
-            HighlightNodeSet();
+            if (!_closing) HighlightNodeSet();
         }
-
         // IFormItemSetDataParent
         public bool IsSelectionGeometryBased()
         {
             // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
-            if (_nodeSetToEditName == null) return true;
+            FeNodeSet nodeSet = NodeSet;
             //
-            FeNodeSet nodeSet = _controller.GetNodeSet(_nodeSetToEditName);
-            if (nodeSet.CreationData == null) return false;
-            else return nodeSet.CreationData.IsGeometryBased(); // NodeSet was modified for speed up
+            if (nodeSet.CreationData != null) return nodeSet.CreationData.IsGeometryBased();
+            else return true;
         }
-
+        public bool IsGeometrySelectionIdBased()
+        {
+            bool defaultMode = _controller.Settings.Pre.GeometrySelectMode == GeometrySelectModeEnum.SelectId;
+            // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
+            FeNodeSet nodeSet = NodeSet;
+            //
+            if (nodeSet.CreationData != null) return nodeSet.CreationData.IsIdBased(defaultMode);
+            else return defaultMode;
+        }
     }
 }

@@ -31,6 +31,7 @@ namespace CaeResults
         public const string EffectiveModalMassKey = "E F F E C T I V E   M O D A L   M A S S";
         public const string TotalEffectiveMassKey = "T O T A L   E F F E C T I V E   M A S S";
         public const string EigenvalueNumberKey = "E I G E N V A L U E    N U M B E R";
+        public const string BucklingFactorKey = "B U C K L I N G   F A C T O R   O U T P U T";
         //
         private static readonly Dictionary<string, string> compMapRP = new Dictionary<string, string>()
         {
@@ -82,6 +83,7 @@ namespace CaeResults
                 dataSetNames.Add(EffectiveModalMassKey);
                 dataSetNames.Add(TotalEffectiveMassKey);
                 dataSetNames.Add(EigenvalueNumberKey);
+                dataSetNames.Add(BucklingFactorKey);
                 //dataSetNames.Add(HOFieldNames.EigenvalueOutput);
                 //dataSetNames.Add(HOFieldNames.ParticipationFactors);
                 //dataSetNames.Add(HOFieldNames.EffectiveModalMass);
@@ -125,10 +127,12 @@ namespace CaeResults
                 DatDataSet newDataSet;
                 DatDataSet existingDataSet;
                 Dictionary<double, double> timeFrequency = null;
+                Dictionary<double, double> timeModeNumber = null;
                 OrderedDictionary<string, DatDataSet> dataSets = new OrderedDictionary<string, DatDataSet>("DataSets");
                 //
                 HistoryResults allHistoryResults = new HistoryResults("HistoryOutput");
                 HistoryResults frequencyHistoryOutput = new HistoryResults("HistoryOutput");
+                HistoryResults bucklingHistoryOutput = new HistoryResults("HistoryOutput");
                 foreach (string[] dataSetLines in dataSetLinesList)
                 {
                     // Frequency
@@ -138,6 +142,11 @@ namespace CaeResults
                         dataSetLines[0] == TotalEffectiveMassKey)
                     {
                         frequencyHistoryOutput.AppendSets(GetFrequencyDatDataSets(dataSetLines));
+                    }
+                    // Buckling
+                    else if (dataSetLines[0] == BucklingFactorKey)
+                    {
+                        bucklingHistoryOutput.AppendSets(GetBucklingDatDataSets(dataSetLines));
                     }
                     // Save the step id
                     else if (dataSetLines[0].StartsWith(stepKey))
@@ -180,11 +189,18 @@ namespace CaeResults
                                 newDataSet.FieldName += HOFieldNames.ComplexImaginarySuffix;
                             }
                             // Fix the time if reported inside an eigenvalue number block from time to frequency
-                            if (eigenvalueNumber != -1 && newDataSet.Time == 1)
+                            if (eigenvalueNumber != -1 && newDataSet.Time == 1)   // 1 ... frequency
                             {
                                 if (timeFrequency == null) timeFrequency = GetTimeFrequencyPairs(frequencyHistoryOutput);
                                 // Change the frequency step time to frequency
                                 if (timeFrequency != null) newDataSet.Time = timeFrequency[newDataSet.Time + eigenvalueNumber - 1];
+                            }
+                            // Fix the time if reported inside an eigenvalue number block from time to frequency
+                            if (eigenvalueNumber != -1 && newDataSet.Time == 0)   // 0... buckling
+                            {
+                                if (timeFrequency == null) timeModeNumber = GetTimeModeNumberPairs(bucklingHistoryOutput);
+                                // Change the frequency step time to frequency
+                                if (timeModeNumber != null) newDataSet.Time = timeModeNumber[eigenvalueNumber];
                             }
                             // Add
                             if (newDataSet.FieldName != HOFieldNames.Error) dataSets.Add(newDataSet.GetHashKey(), newDataSet);
@@ -194,6 +210,7 @@ namespace CaeResults
                 //
                 AddTotalEffectiveModalMassToMassRatio(frequencyHistoryOutput);
                 allHistoryResults.AppendSets(frequencyHistoryOutput);
+                allHistoryResults.AppendSets(bucklingHistoryOutput);
                 //
                 HistoryResults historyOutput = GetHistoryOutput(dataSets.Values);
                 AddComplexFields(historyOutput);
@@ -275,6 +292,24 @@ namespace CaeResults
                     //
                     dataSets.Add(dataSet.ToArray());
                 }
+                // Buckling
+                else if (theName == BucklingFactorKey)
+                {
+                    int emptyLinesCounter = 0;
+                    dataSet = new List<string> { lines[i] };
+                    i++;
+                    //
+                    while (i < lines.Length && emptyLinesCounter <= 2)
+                    {
+                        if (lines[i].Length == 0) emptyLinesCounter++;
+                        else dataSet.Add(lines[i]);
+                        if (emptyLinesCounter >= 3) break;
+                        //
+                        i++;
+                    }
+                    //
+                    dataSets.Add(dataSet.ToArray());
+                }
                 // Contact statistics
                 else if (theName == HOFieldNames.StatisticsForSlaveSet)
                 {
@@ -293,11 +328,6 @@ namespace CaeResults
                 }
                 else if (theName != null)
                 {
-
-                    if (theName == EigenvalueNumberKey)
-                        theName = EigenvalueNumberKey;
-
-
                     dataSet = new List<string> { lines[i] };
                     i++;
                     //
@@ -738,6 +768,64 @@ namespace CaeResults
             //
             return historyResults;
         }
+        static private HistoryResults GetBucklingDatDataSets(string[] dataSetLines)
+        {
+            int firstDataRowId = 1;
+            string[] componentNames = null;
+            double time = 0;
+            List<double[]> valuesList = null;
+            double[] rowValues = null;
+            List<DatDataSet> dataSets = new List<DatDataSet>();
+            //
+            if (dataSetLines[0] == BucklingFactorKey)
+            {
+                firstDataRowId = 3;
+                componentNames = new string[] { HOComponentNames.BUCKLINGFACTOR};
+            }
+            //
+            string[] tmp;
+            HistoryResults historyResults = new HistoryResults("HistoryResults");
+            HistoryResultSet historyResultSet = new HistoryResultSet(entireModelKey);
+            HistoryResultField historyResultField = new HistoryResultField(HOFieldNames.Buckling);
+            HistoryResultComponent historyResultComponent = new HistoryResultComponent(HOComponentNames.BUCKLINGFACTOR);
+            HistoryResultEntries historyResultEntries = null;
+            valuesList = new List<double[]>();
+            //
+            for (int i = firstDataRowId; i < dataSetLines.Length; i++)
+            {
+                tmp = dataSetLines[i].Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+                if (tmp.Length >= 2)
+                {
+                    rowValues = new double[tmp.Length];
+                    for (int j = 0; j < rowValues.Length; j++) rowValues[j] = ParseStringToDouble(tmp[j]);
+                    valuesList.Add(rowValues);
+                }
+            }
+            double[][] values = valuesList.ToArray();   // [row][col]
+            if (values != null && values.Length > 0)
+            {
+                int delta = values[0].Length - componentNames.Length;
+                for (int col = delta; col < values[0].Length; col++)  // first value in a row is time
+                {
+                    historyResultEntries = new HistoryResultEntries(componentNames[col - delta], false);
+                    //
+                    for (int row = 0; row < values.Length; row++)
+                    {
+                        if (delta == 1) time = values[row][0];
+                        else time = row + 1;
+                        //
+                        historyResultEntries.Add(time, values[row][col]);
+                    }
+                    historyResultComponent.Entries.Add(historyResultEntries.Name, historyResultEntries);
+                }
+                historyResultField.Components.Add(historyResultComponent.Name, historyResultComponent);
+                //
+                historyResultSet.Fields.Add(historyResultField.Name, historyResultField);
+                historyResults.Sets.Add(historyResultSet.Name, historyResultSet);
+            }
+            //
+            return historyResults;
+        }
         static private Dictionary<double, double> GetTimeFrequencyPairs(HistoryResults frequencyHistoryOutput)
         {
             HistoryResultSet hrs;
@@ -753,6 +841,25 @@ namespace CaeResults
             {
                 timeFrequency = new Dictionary<double, double>();
                 for (int i = 0; i < hre.Time.Count; i++) timeFrequency.Add(hre.Time[i], hre.Values[i]);
+            }
+            //
+            return timeFrequency;
+        }
+        static private Dictionary<double, double> GetTimeModeNumberPairs(HistoryResults bucklingHistoryOutput)
+        {
+            HistoryResultSet hrs;
+            HistoryResultField hrf;
+            HistoryResultComponent hrc;
+            HistoryResultEntries hre;
+            Dictionary<double, double> timeFrequency = null;
+            //
+            if (bucklingHistoryOutput.Sets.TryGetValue(entireModelKey, out hrs) &&
+                hrs.Fields.TryGetValue(HOFieldNames.Buckling, out hrf) &&
+                hrf.Components.TryGetValue(HOComponentNames.BUCKLINGFACTOR, out hrc) &&
+                hrc.Entries.TryGetValue(HOComponentNames.BUCKLINGFACTOR, out hre))
+            {
+                timeFrequency = new Dictionary<double, double>();
+                for (int i = 0; i < hre.Time.Count; i++) timeFrequency.Add(hre.Time[i], hre.Time[i]);
             }
             //
             return timeFrequency;

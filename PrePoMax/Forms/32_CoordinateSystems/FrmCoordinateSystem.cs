@@ -18,6 +18,7 @@ namespace PrePoMax.Forms
         // Variables                                                                                                                
         private HashSet<string> _coordinateSystemNames;
         private string _coordinateSystemToEditName;
+        private string _currSelectionFormDataName;
         private ViewCoordinateSystem _viewCoordinateSystem;
         private Controller _controller;
         //
@@ -108,18 +109,29 @@ namespace PrePoMax.Forms
         {
             string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
             //
+            if (property == nameof(_viewCoordinateSystem.CenterCreatedFrom) ||
+                property == nameof(_viewCoordinateSystem.PointXCreatedFrom) ||
+                property == nameof(_viewCoordinateSystem.PointXYCreatedFrom))
+            {
+                SetSelectItem();
+                //
+                UpdateCoordinateSystem(CoordinateSystem);
+            }
             HighlightCoordinateSystem();
-            //
-            base.OnPropertyGridPropertyValueChanged();
         }
         protected override void OnPropertyGridSelectedGridItemChanged()
         {
-            object value = propertyGrid.SelectedGridItem.Value;
-            if (value != null)
+            string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
+            //
+            //if (property == nameof(_viewCoordinateSystem.CenterCreatedFrom) ||
+            //    property == nameof(_viewCoordinateSystem.PointXCreatedFrom) ||
+            //    property == nameof(_viewCoordinateSystem.PointXYCreatedFrom))
             {
-                if (propertyGrid.SelectedObject == null) { }
-                else if (propertyGrid.SelectedObject is ViewCoordinateSystem) SetSelectItem();
-                else throw new NotImplementedException();
+                SetSelectItem();
+                //
+                //UpdateCoordinateSystem(CoordinateSystem);
+                //
+                //_controller.ClearSelectionHistoryAndCallSelectionChanged();
             }
             HighlightCoordinateSystem();
         }
@@ -170,6 +182,7 @@ namespace PrePoMax.Forms
             _propertyItemChanged = false;
             _coordinateSystemNames.Clear();
             _coordinateSystemToEditName = null;
+            _currSelectionFormDataName = null;
             _viewCoordinateSystem = null;
             //
             _coordinateSystemNames.UnionWith(GetCoordinateSystemNames());
@@ -210,6 +223,8 @@ namespace PrePoMax.Forms
         // Methods                                                                                                                  
         public void SelectionChanged(int[] ids)
         {
+            if (_controller.Selection.SelectItem == vtkSelectItem.None) return;
+            //
             CoordinateSystem cs = CoordinateSystem;
             //
             if (IsCenterPropertySelectedForSelection())
@@ -218,6 +233,10 @@ namespace PrePoMax.Forms
                 cs.CenterCreationData = _controller.Selection.DeepClone();
                 //
                 UpdateCoordinateSystem(CoordinateSystem);
+                //
+                propertyGrid.Refresh();
+                //
+                _propertyItemChanged = true;
             }
             else if (IsPointXPropertySelectedForSelection())
             {
@@ -225,6 +244,10 @@ namespace PrePoMax.Forms
                 cs.PointXCreationData = _controller.Selection.DeepClone();
                 //
                 UpdateCoordinateSystem(CoordinateSystem);
+                //
+                propertyGrid.Refresh();
+                //
+                _propertyItemChanged = true;
             }
             else if (IsPointXYPropertySelectedForSelection())
             {
@@ -232,6 +255,10 @@ namespace PrePoMax.Forms
                 cs.PointXYCreationData = _controller.Selection.DeepClone();
                 //
                 UpdateCoordinateSystem(CoordinateSystem);
+                //
+                propertyGrid.Refresh();
+                //
+                _propertyItemChanged = true;
             }
             // Reset to null
             if (cs.CenterCreatedFrom == CsPointCreatedFromEnum.Coordinates)
@@ -308,15 +335,38 @@ namespace PrePoMax.Forms
         }
         private void ShowHideSelectionForm()
         {
-            if (IsCenterPropertySelectedForSelection() ||
-                IsPointXPropertySelectedForSelection() ||
-                IsPointXYPropertySelectedForSelection())
+            if (IsCenterPropertySelectedForSelection())
             {
-                if (ItemSetDataEditor.SelectionForm.Visible) ItemSetDataEditor.SelectionForm.ResetSelection(false);
-                else ItemSetDataEditor.SelectionForm.ShowIfHidden(this.Owner);
+                if (_currSelectionFormDataName != "Center")
+                {
+                    _currSelectionFormDataName = "Center";
+                    if (ItemSetDataEditor.SelectionForm.Visible) ItemSetDataEditor.SelectionForm.ResetSelection(false);
+                    else ItemSetDataEditor.SelectionForm.ShowIfHidden(this.Owner);
+                }
+            }
+            else if (IsPointXPropertySelectedForSelection())
+            {
+                if (_currSelectionFormDataName != "PointX")
+                {
+                    _currSelectionFormDataName = "PointX";
+                    if (ItemSetDataEditor.SelectionForm.Visible) ItemSetDataEditor.SelectionForm.ResetSelection(false);
+                    else ItemSetDataEditor.SelectionForm.ShowIfHidden(this.Owner);
+                }
+            }
+            else if (IsPointXYPropertySelectedForSelection())
+            {
+                if (_currSelectionFormDataName != "PointXY")
+                {
+                    _currSelectionFormDataName = "PointXY";
+                    if (ItemSetDataEditor.SelectionForm.Visible) ItemSetDataEditor.SelectionForm.ResetSelection(false);
+                    else ItemSetDataEditor.SelectionForm.ShowIfHidden(this.Owner);
+                }
             }
             else
+            {
+                _currSelectionFormDataName = null;
                 ItemSetDataEditor.SelectionForm.Hide();
+            }
         }
         private void SetSelectItem()
         {
@@ -340,7 +390,11 @@ namespace PrePoMax.Forms
                 // Limit the number of selected nodes
                 _controller.Selection.MaxNumberOfItemIds = GetMaxNumberOfItemIds(CoordinateSystem.PointXYCreatedFrom);
             }
-            else _controller.SetSelectByToOff();
+            else
+            {
+                _controller.SetSelectByToOff();
+                _controller.Selection.MaxNumberOfItemIds = -1;
+            }
         }
         private bool IsCenterPropertySelectedForSelection()
         {
@@ -392,11 +446,11 @@ namespace PrePoMax.Forms
             if (coordinateSystem == null) return;
             //
             if (coordinateSystem.CenterCreationData != null)
-                coordinateSystem.CenterCreationData.MaxNumberOfGeometryIds = GetMaxNumberOfItemIds(coordinateSystem.CenterCreatedFrom);
+                coordinateSystem.CenterCreationData.MaxNumberOfItemIds = GetMaxNumberOfItemIds(coordinateSystem.CenterCreatedFrom);
             if (coordinateSystem.PointXCreationData != null)
-                coordinateSystem.PointXCreationData.MaxNumberOfGeometryIds = GetMaxNumberOfItemIds(coordinateSystem.PointXCreatedFrom);
+                coordinateSystem.PointXCreationData.MaxNumberOfItemIds = GetMaxNumberOfItemIds(coordinateSystem.PointXCreatedFrom);
             if (coordinateSystem.PointXYCreationData != null)
-                coordinateSystem.PointXYCreationData.MaxNumberOfGeometryIds = GetMaxNumberOfItemIds(coordinateSystem.PointXYCreatedFrom);
+                coordinateSystem.PointXYCreationData.MaxNumberOfItemIds = GetMaxNumberOfItemIds(coordinateSystem.PointXYCreatedFrom);
         }
         private void ResetNumberOfSelectionItemIds(CoordinateSystem coordinateSystem)
         {
@@ -489,27 +543,53 @@ namespace PrePoMax.Forms
         public bool IsSelectionGeometryBased()
         {
             // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
-            if (_coordinateSystemToEditName == null) return true;
-            CoordinateSystem cs = GetCoordinateSystem(_coordinateSystemToEditName); // coor. sys was modified for speed up
+            CoordinateSystem cs = CoordinateSystem;
             //
-            if (cs == null) return true;
+            if (cs != null)
+            {
+                if (IsCenterPropertySelectedForSelection())
+                {
+                    if (cs.CenterCreationData != null) return cs.CenterCreationData.IsGeometryBased(); 
+                    else return true;
+                }
+                else if (IsPointXPropertySelectedForSelection())
+                {
+                    if (cs.PointXCreationData != null) return cs.PointXCreationData.IsGeometryBased();
+                    else return true;
+                }
+                else if (IsPointXYPropertySelectedForSelection())
+                {
+                    if (cs.PointXYCreationData != null) return cs.PointXYCreationData.IsGeometryBased();
+                    else return true;
+                }
+            }
+            return true;
+        }
+        public bool IsGeometrySelectionIdBased()
+        {
+            bool defaultMode = _controller.Settings.Pre.GeometrySelectMode == GeometrySelectModeEnum.SelectId;
+            // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
+            CoordinateSystem cs = CoordinateSystem;
             //
-            if (IsCenterPropertySelectedForSelection())
+            if (cs != null && IsSelectionGeometryBased())
             {
-                if (cs.CenterCreationData == null) return true;
-                else return cs.CenterCreationData.IsGeometryBased();
+                if (IsCenterPropertySelectedForSelection())
+                {
+                    if (cs.CenterCreationData != null) return cs.CenterCreationData.IsIdBased(defaultMode);
+                    else return defaultMode;
+                }
+                else if (IsPointXPropertySelectedForSelection())
+                {
+                    if (cs.PointXCreationData != null) return cs.PointXCreationData.IsIdBased(defaultMode);
+                    else return defaultMode;
+                }
+                else if (IsPointXYPropertySelectedForSelection())
+                {
+                    if (cs.PointXYCreationData != null) return cs.PointXYCreationData.IsIdBased(defaultMode);
+                    else return defaultMode;
+                }
             }
-            else if (IsPointXPropertySelectedForSelection())
-            {
-                if (cs.PointXCreationData == null) return true;
-                else return cs.PointXCreationData.IsGeometryBased();
-            }
-            else if (IsPointXYPropertySelectedForSelection())
-            {
-                if (cs.PointXYCreationData == null) return true;
-                else return cs.PointXYCreationData.IsGeometryBased();
-            }
-            else return true;
+            return defaultMode;
         }
 
     }

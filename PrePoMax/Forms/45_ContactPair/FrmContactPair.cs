@@ -319,24 +319,23 @@ namespace PrePoMax.Forms
                 }
             }
         }
-
         // IFormHighlight
         public void Highlight()
         {
-            HighlightContactPair();
+            if (!_closing) HighlightContactPair();
         }
-
         // IFormItemSetDataParent
         public bool IsSelectionGeometryBased()
         {
             // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
             if (propertyGrid.SelectedGridItem == null || propertyGrid.SelectedGridItem.PropertyDescriptor == null) return true;
+            ContactPair contactPair = ContactPair;
             //
-            string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
-            //
-            if (ContactPair != null)
+            if (contactPair != null)
             {
-                if (ContactPair is ContactPair cp)
+                string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
+                //
+                if (contactPair is ContactPair cp)
                 {
                     if (property == nameof(ViewContactPair.MasterRegionType) && cp.MasterRegionType == RegionTypeEnum.Selection)
                     {
@@ -352,6 +351,34 @@ namespace PrePoMax.Forms
                 else throw new NotSupportedException();
             }
             return true;
+        }
+        public bool IsGeometrySelectionIdBased()
+        {
+            bool defaultMode = _controller.Settings.Pre.GeometrySelectMode == GeometrySelectModeEnum.SelectId;
+            // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
+            if (propertyGrid.SelectedGridItem == null || propertyGrid.SelectedGridItem.PropertyDescriptor == null) return defaultMode;
+            ContactPair contactPair = ContactPair;
+            //
+            if (contactPair != null && IsSelectionGeometryBased())
+            {
+                string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
+                //
+                if (contactPair is ContactPair cp)
+                {
+                    if (property == nameof(ViewContactPair.MasterRegionType) && cp.MasterRegionType == RegionTypeEnum.Selection)
+                    {
+                        if (cp.MasterCreationData != null) return cp.MasterCreationData.IsIdBased(defaultMode);
+                        else return defaultMode;
+                    }
+                    else if (property == nameof(ViewContactPair.SlaveRegionType) && cp.SlaveRegionType == RegionTypeEnum.Selection)
+                    {
+                        if (cp.SlaveCreationData != null) return cp.SlaveCreationData.IsIdBased(defaultMode);
+                        else return defaultMode;
+                    }
+                }
+                else throw new NotSupportedException();
+            }
+            return defaultMode;
         }
 
     }

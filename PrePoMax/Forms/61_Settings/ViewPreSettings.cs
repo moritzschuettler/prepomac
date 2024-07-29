@@ -20,7 +20,16 @@ namespace PrePoMax.Settings
 
         // Properties                                                                                                               
         [CategoryAttribute("Selection")]
-        [OrderedDisplayName(0, 10, "Primary highlight color")]
+        [OrderedDisplayName(0, 10, "Default geometry selection mode")]
+        [DescriptionAttribute("Select the default geometry selection mode.")]
+        public GeometrySelectModeEnum GeometrySelectMode
+        {
+            get { return _preSettings.GeometrySelectMode; }
+            set { _preSettings.GeometrySelectMode = value; }
+        }
+        //
+        [CategoryAttribute("Selection")]
+        [OrderedDisplayName(1, 10, "Primary highlight color")]
         [DescriptionAttribute("Select the primary highlight color.")]
         public Color PrimaryHighlightColor
         {
@@ -29,7 +38,7 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Selection")]
-        [OrderedDisplayName(1, 10, "Secondary highlight color")]
+        [OrderedDisplayName(2, 10, "Secondary highlight color")]
         [DescriptionAttribute("Select the secondary highlight color.")]
         public Color SecondaryHighlightColor
         {
@@ -38,7 +47,7 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Selection")]
-        [OrderedDisplayName(2, 10, "Mouse highlight color")]
+        [OrderedDisplayName(3, 10, "Mouse highlight color")]
         [DescriptionAttribute("Select the mouse highlight color.")]
         public Color MouseHighlightColor
         {

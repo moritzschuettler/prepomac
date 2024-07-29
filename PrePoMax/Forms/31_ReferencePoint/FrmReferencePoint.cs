@@ -13,7 +13,7 @@ using System.Xml.Linq;
 
 namespace PrePoMax.Forms
 {
-    class FrmReferencePoint : FrmProperties, IFormBase, IFormItemSetDataParent, IFormHighlight
+    class FrmReferencePoint : FrmProperties, IFormBase, IFormItemSetDataParent, IFormHighlightSymbol
     {
         // Variables                                                                                                                
         private HashSet<string> _referencePointNames;
@@ -429,25 +429,32 @@ namespace PrePoMax.Forms
         {
             if (!_closing) HighlightReferencePoint();
         }
+        //
+        public void ClearCurrntSelectionAndHighlight()
+        {
+            ReferencePoint.CreationIds = null;
+            ReferencePoint.CreationData = null;
+            //
+            Highlight();
+        }
         // IFormItemSetDataParent
         public bool IsSelectionGeometryBased()
         {
             // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
-            if (_referencePointToEditName == null) return true;
-            FeReferencePoint rp = GetReferencePoint(_referencePointToEditName); // reference point was modified for speed up
+            FeReferencePoint rp = ReferencePoint;
             //
-            if (rp == null || rp.CreationData == null) return true;
-            else return rp.CreationData.IsGeometryBased();
+            if (rp != null && rp.CreationData != null) return rp.CreationData.IsGeometryBased();
+            else return true;
         }
-
         public bool IsGeometrySelectionIdBased()
         {
+            bool defaultMode = _controller.Settings.Pre.GeometrySelectMode == GeometrySelectModeEnum.SelectId;
             // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
-            if (_referencePointToEditName == null) return false;
-            FeReferencePoint rp = GetReferencePoint(_referencePointToEditName); // reference point was modified for speed up
+            FeReferencePoint rp = ReferencePoint;
             //
-            if (IsSelectionGeometryBased()) return rp.CreationData.IsIdBased();
-            else return false;
+            if (rp != null && rp.CreationData != null && IsSelectionGeometryBased())
+                return rp.CreationData.IsIdBased(defaultMode);
+            else return defaultMode;
         }
     }
 }

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using CaeModel;
 using CaeGlobals;
 using System.Windows.Forms;
+using CaeMesh;
 
 namespace PrePoMax.Forms
 {
@@ -313,19 +314,29 @@ namespace PrePoMax.Forms
                 else throw new NotSupportedException();
             }
         }
-
         // IFormHighlight
         public void Highlight()
         {
-            HighlightInitialCondition();
+            if (!_closing) HighlightInitialCondition();
         }
-
         // IFormItemSetDataParent
         public bool IsSelectionGeometryBased()
         {
             // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
-            if (InitialCondition == null || InitialCondition.CreationData == null) return true;
-            return InitialCondition.CreationData.IsGeometryBased();
+            InitialCondition initialCondition = InitialCondition;
+            //
+            if (initialCondition.CreationData != null) return initialCondition.CreationData.IsGeometryBased();
+            else return true;
+        }
+        public bool IsGeometrySelectionIdBased()
+        {
+            bool defaultMode = _controller.Settings.Pre.GeometrySelectMode == GeometrySelectModeEnum.SelectId;
+            // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
+            InitialCondition initialCondition = InitialCondition;
+            //
+            if (initialCondition.CreationData != null && IsSelectionGeometryBased())
+                return initialCondition.CreationData.IsIdBased(defaultMode);
+            else return defaultMode;
         }
     }
 }

@@ -537,19 +537,29 @@ namespace PrePoMax.Forms
                 else throw new NotSupportedException();
             }
         }
-
         // IFormHighlight
         public void Highlight()
         {
-            HighlightSection();
+            if (!_closing) HighlightSection();
         }
-
         // IFormItemSetDataParent
         public bool IsSelectionGeometryBased()
         {
             // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
-            if (Section == null || Section.CreationData == null) return true;   // element set based section
-            return Section.CreationData.IsGeometryBased();
+            Section section = Section;
+            //
+            if (section.CreationData != null) return section.CreationData.IsGeometryBased();
+            else return true;
+        }
+        public bool IsGeometrySelectionIdBased()
+        {
+            bool defaultMode = _controller.Settings.Pre.GeometrySelectMode == GeometrySelectModeEnum.SelectId;
+            // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
+            Section section = Section;
+            //
+            if (section.CreationData != null && IsSelectionGeometryBased())
+                return section.CreationData.IsIdBased(defaultMode);
+            else return defaultMode;
         }
     }
 }

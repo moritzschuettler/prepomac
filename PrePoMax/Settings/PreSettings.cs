@@ -15,6 +15,7 @@ namespace PrePoMax
     public class PreSettings : ISettings
     {
         // Variables                                                                                                                
+        private GeometrySelectModeEnum _geometrySelectMode;
         private Color _primaryHighlightColor;
         private Color _secondaryHighlightColor;
         private Color _mouseHighlightColor;
@@ -30,6 +31,11 @@ namespace PrePoMax
 
 
         // Properties                                                                                                               
+        public GeometrySelectModeEnum GeometrySelectMode
+        {
+            get { return _geometrySelectMode; }
+            set { _geometrySelectMode = value; }
+        }
         public Color PrimaryHighlightColor
         {
             get { return _primaryHighlightColor; }
@@ -116,6 +122,7 @@ namespace PrePoMax
             _primaryHighlightColor = Color.Red;
             _secondaryHighlightColor = Color.Violet;
             _mouseHighlightColor = Color.Orange;
+            _geometrySelectMode = GeometrySelectModeEnum.SelectLocation;
             _constraintSymbolColor = Color.Yellow;
             _boundaryConditionSymbolColor = Color.Lime;
             _loadSymbolColor = Color.RoyalBlue;

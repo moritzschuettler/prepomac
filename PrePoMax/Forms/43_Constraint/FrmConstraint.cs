@@ -727,44 +727,43 @@ namespace PrePoMax.Forms
                 }
             }
         }
-        
         // IFormHighlight
         public void Highlight()
         {
-            HighlightConstraint();
+            if (!_closing) HighlightConstraint();
         }
-
         // IFormItemSetDataParent
         public bool IsSelectionGeometryBased()
         {
             // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
             if (propertyGrid.SelectedGridItem == null || propertyGrid.SelectedGridItem.PropertyDescriptor == null) return true;
+            Constraint constraint = Constraint;
             //
-            string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
-            //
-            if (Constraint != null)
+            if (constraint != null)
             {
-                if (Constraint is PointSpring ps)
+                string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
+                //
+                if (constraint is PointSpring ps)
                 {
                     if (ps.CreationData != null) return ps.CreationData.IsGeometryBased();
                     else return true;
                 }
-                else if (Constraint is SurfaceSpring ss)
+                else if (constraint is SurfaceSpring ss)
                 {
                     if (ss.CreationData != null) return ss.CreationData.IsGeometryBased();
                     else return true;
                 }
-                else if (Constraint is CompressionOnly co)
+                else if (constraint is CompressionOnly co)
                 {
                     if (co.CreationData != null) return co.CreationData.IsGeometryBased();
                     else return true;
                 }
-                else if (Constraint is RigidBody rb)
+                else if (constraint is RigidBody rb)
                 {
                     if (rb.CreationData != null) return rb.CreationData.IsGeometryBased();
                     else return true;
                 }
-                else if (Constraint is Tie tie)
+                else if (constraint is Tie tie)
                 {
                     if (property == nameof(ViewTie.MasterRegionType) && tie.MasterRegionType == RegionTypeEnum.Selection)
                     {
@@ -780,6 +779,54 @@ namespace PrePoMax.Forms
                 else throw new NotSupportedException();
             }
             return true;
+        }
+        public bool IsGeometrySelectionIdBased()
+        {
+            bool defaultMode = _controller.Settings.Pre.GeometrySelectMode == GeometrySelectModeEnum.SelectId;
+            // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
+            if (propertyGrid.SelectedGridItem == null || propertyGrid.SelectedGridItem.PropertyDescriptor == null) return defaultMode;
+            Constraint constraint = Constraint;
+            //
+            if (constraint != null && IsSelectionGeometryBased())
+            {
+                string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
+                //
+                if (constraint is PointSpring ps)
+                {
+                    if (ps.CreationData != null) return ps.CreationData.IsIdBased(defaultMode);
+                    else return defaultMode;
+                }
+                else if (constraint is SurfaceSpring ss)
+                {
+                    if (ss.CreationData != null) return ss.CreationData.IsIdBased(defaultMode);
+                    else return defaultMode;
+                }
+                else if (constraint is CompressionOnly co)
+                {
+                    if (co.CreationData != null) return co.CreationData.IsIdBased(defaultMode);
+                    else return defaultMode;
+                }
+                else if (constraint is RigidBody rb)
+                {
+                    if (rb.CreationData != null) return rb.CreationData.IsIdBased(defaultMode);
+                    else return defaultMode;
+                }
+                else if (constraint is Tie tie)
+                {
+                    if (property == nameof(ViewTie.MasterRegionType) && tie.MasterRegionType == RegionTypeEnum.Selection)
+                    {
+                        if (tie.MasterCreationData != null) return tie.MasterCreationData.IsIdBased(defaultMode);
+                        else return defaultMode;
+                    }
+                    else if (property == nameof(ViewTie.SlaveRegionType) && tie.SlaveRegionType == RegionTypeEnum.Selection)
+                    {
+                        if (tie.SlaveCreationData != null) return tie.SlaveCreationData.IsIdBased(defaultMode);
+                        else return defaultMode;
+                    }
+                }
+                else throw new NotSupportedException();
+            }
+            return defaultMode;
         }
     }
 }

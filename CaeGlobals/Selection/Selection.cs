@@ -207,8 +207,10 @@ namespace CaeGlobals
             }
             return true;
         }
-        public bool IsIdBased()
+        public bool IsIdBased(bool defaultMode)
         {
+            if (_nodes.Count == 0) return defaultMode;
+            //
             foreach (var node in _nodes)
             {
                 if (!(node is SelectionNodeIds sni && sni.GeometrySelectMode == GeometrySelectModeEnum.SelectId)) return false;

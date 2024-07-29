@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DynamicTypeDescriptor;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,8 +9,9 @@ namespace CaeGlobals
 {
     public enum GeometrySelectModeEnum
     {
-        None,
+        [StandardValue("SelectLocation", DisplayName = "Selection by location")]
         SelectLocation,
+        [StandardValue("SelectId", DisplayName = "Selection by ID")]
         SelectId
     }
 }

@@ -1788,6 +1788,10 @@ namespace CaeResults
                         unitConverter = new StringFrequencyConverter();
                         unitAbbreviation = _unitSystem.FrequencyUnitAbbreviation;
                         break;
+                    case HOFieldNames.Buckling:
+                        unitConverter = new DoubleConverter();
+                        unitAbbreviation = "/";
+                        break;
                     case HOFieldNames.Displacements:
                     case HOFieldNames.RelativeContactDisplacement:
                     case HOFieldNames.CenterOgGravityCG:

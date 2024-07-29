@@ -127,11 +127,6 @@ namespace PrePoMax.Forms
                     ElementSet.CreationData.SelectItem = vtkSelectItem.Element;
                     ElementSet.CreationData.Add(new SelectionNodeIds(vtkSelectOperation.Add, false, ids));
                 }
-                // Change node selection history to ids to speed up
-                _selectionNodeIds = new SelectionNodeIds(vtkSelectOperation.None, false, ids);
-                _prevSelectionNodes = ElementSet.CreationData.Nodes;
-                _controller.CreateNewSelection(ElementSet.CreationData.CurrentView, vtkSelectItem.Element, _selectionNodeIds, true);
-                ElementSet.CreationData = _controller.Selection.DeepClone();
             }
             //
             propertyGrid.SelectedObject = _viewElementSet;
@@ -181,22 +176,29 @@ namespace PrePoMax.Forms
             //
             _propertyItemChanged = true;
         }
-
         // IFormHighlight
         public void Highlight()
         {
-            HighlightElementSet();
+            if (!_closing) HighlightElementSet();
         }
-        
         // IFormItemSetDataParent
         public bool IsSelectionGeometryBased()
         {
             // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
-            if (_elementSetToEditName == null) return true;
+            FeElementSet elementSet = ElementSet;
             //
-            FeElementSet elementSet = _controller.GetElementSet(_elementSetToEditName);
-            if (elementSet.CreationData == null) return false;
-            else return elementSet.CreationData.IsGeometryBased(); // ElementSet was modified for speed up
+            if (elementSet.CreationData != null) return elementSet.CreationData.IsGeometryBased();
+            else return true;
+        }
+        public bool IsGeometrySelectionIdBased()
+        {
+            bool defaultMode = _controller.Settings.Pre.GeometrySelectMode == GeometrySelectModeEnum.SelectId;
+            // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
+            FeElementSet elementSet = ElementSet;
+            //
+            if (elementSet.CreationData != null && IsSelectionGeometryBased())
+                return elementSet.CreationData.IsIdBased(defaultMode);
+            else return defaultMode;
         }
     }
 }

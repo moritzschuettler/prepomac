@@ -108,7 +108,8 @@ namespace PrePoMax
         //
         private void rbSetGeometrySelectMode_CheckedChanged(object sender, EventArgs e)
         {
-            SetGeometrySelectMode();
+            if (sender is RadioButton rb && rb.Checked) // call select geometry mode only once
+                SetControllerGeometrySelectMode();
         }
         //
         private void rbSelectBy_CheckedChanged(object sender, EventArgs e)
@@ -171,6 +172,9 @@ namespace PrePoMax
             // Enable/disable buttons
             btnAddId.Enabled = rbId.Checked;
             btnRemoveId.Enabled = rbId.Checked;
+            // Check geometry selection mode
+            rbSelectionByLocation.Enabled = currentSelectionType == SelectionType.Geometry;
+            rbSelectionByID.Enabled = currentSelectionType == SelectionType.Geometry;
             // Check All and Invert buttons
             btnSelectAll.Enabled = currentSelectionType == SelectionType.Mesh;
             btnInvertSelection.Enabled = currentSelectionType == SelectionType.Mesh;
@@ -353,17 +357,14 @@ namespace PrePoMax
             {
                 _initialSetup = true;
                 //
-                if (ItemSetDataEditor.ParentForm is Forms.IFormItemSetDataParent fdsp)
+                if (ItemSetDataEditor.ParentForm is IFormItemSetDataParent fdsp)
                 {
-                    bool geometryIds = true;
-                    if (fdsp is FrmReferencePoint frp) geometryIds = frp.IsGeometrySelectionIdBased();
-
-                    SetGeometrySelection(fdsp.IsSelectionGeometryBased(), geometryIds, forceInitialize);
+                    SetGeometrySelection(fdsp.IsSelectionGeometryBased(), fdsp.IsGeometrySelectionIdBased(), forceInitialize);
                 }
                 //
                 rbSelectBy_CheckedChanged(null, null);
                 //
-                SetGeometrySelectMode();
+                SetControllerGeometrySelectMode();
             }
             catch { }
             finally { _initialSetup = false; }
@@ -374,13 +375,23 @@ namespace PrePoMax
             location.X += ItemSetDataEditor.ParentForm.Width - 15 + 3;
             Location = location;
         }
-        private void SetGeometrySelectMode()
+        private void SetControllerGeometrySelectMode()
         {
-            if (rbSelectionByLocation.Checked) _controller.GeometrySelectMode = GeometrySelectModeEnum.SelectLocation;
-            else if (rbSelectionByID.Checked) _controller.GeometrySelectMode = GeometrySelectModeEnum.SelectId;
-            else throw new NotSupportedException();
+            bool update = false;
             //
-            _controller.ClearSelectionHistory();
+            if (_controller.GeometrySelectMode != GeometrySelectModeEnum.SelectLocation && rbSelectionByLocation.Checked)
+            {
+                _controller.GeometrySelectMode = GeometrySelectModeEnum.SelectLocation;
+                update = true;
+            }
+            else if (_controller.GeometrySelectMode != GeometrySelectModeEnum.SelectId && rbSelectionByID.Checked)
+            {
+                _controller.GeometrySelectMode = GeometrySelectModeEnum.SelectId;
+                update = true;
+            }
+            //
+            if (update && !_initialSetup && Visible)
+                _controller.ClearSelectionHistoryAndCallSelectionChanged();
         }
         private void SetGeometrySelectMode(bool selectGeometryByIds)
         {
@@ -393,7 +404,7 @@ namespace PrePoMax
             rbSelectionByLocation.CheckedChanged += rbSetGeometrySelectMode_CheckedChanged;
             rbSelectionByID.CheckedChanged += rbSetGeometrySelectMode_CheckedChanged;
             //
-            SetGeometrySelectMode();
+            SetControllerGeometrySelectMode();
         }
         public void SetGeometrySelection(bool selectGeometry, bool selectGeometryByIds, bool forceInitialize)
         {
@@ -419,7 +430,11 @@ namespace PrePoMax
                         if (rbSelectionByID.Checked == selectGeometryByIds) return;
                         else SetGeometrySelectMode(selectGeometryByIds);
                     }
-                    else rbGeometry.Checked = true;
+                    else
+                    {
+                        rbGeometry.Checked = true;
+                        SetGeometrySelectMode(selectGeometryByIds);
+                    }
                 }
             }
             else

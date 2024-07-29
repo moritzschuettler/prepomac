@@ -182,13 +182,11 @@ namespace PrePoMax.Forms
                 _propertyItemChanged = true;
             }
         }
-
         // IFormHighlight
         public void Highlight()
         {
-            HighlightSelection();
+            if (!_closing) HighlightSelection();
         }
-
         // IFormItemSetDataParent
         public bool IsSelectionGeometryBased()
         {
@@ -196,8 +194,14 @@ namespace PrePoMax.Forms
             // Allways use geometry based selection
             return true;
         }
+        public bool IsGeometrySelectionIdBased()
+        {
+            bool defaultMode = _controller.Settings.Pre.GeometrySelectMode == GeometrySelectModeEnum.SelectId;
+            // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
+            // Allways use default selection mode
+            return defaultMode;
+        }
 
-        
     }
 
 

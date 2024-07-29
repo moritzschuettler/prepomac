@@ -623,7 +623,7 @@ namespace PrePoMax.Forms
         // IFormHighlight
         public void Highlight()
         {
-            HighlightMeshSetupItem();
+            if (!_closing) HighlightMeshSetupItem();
         }
 
         // IFormItemSetDataParent
@@ -632,6 +632,16 @@ namespace PrePoMax.Forms
             // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
             // All meshing parameters are geometry based
             return true;
+        }
+        public bool IsGeometrySelectionIdBased()
+        {
+            bool defaultMode = _controller.Settings.Pre.GeometrySelectMode == GeometrySelectModeEnum.SelectId;
+            // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
+            MeshSetupItem meshSetupItem = MeshSetupItem;
+            //
+            if (meshSetupItem.CreationData != null && IsSelectionGeometryBased())
+                return meshSetupItem.CreationData.IsIdBased(defaultMode);
+            else return defaultMode;
         }
     }
 }

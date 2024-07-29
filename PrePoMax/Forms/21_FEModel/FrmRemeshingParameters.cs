@@ -267,23 +267,32 @@ namespace PrePoMax.Forms
                 _propertyItemChanged = true;
             }
         }
-        
-
         // IFormHighlight
         public void Highlight()
         {
-            if(_highlightEnabled) HighlightElementSet();
+            if(_highlightEnabled && !_closing) HighlightElementSet();
         }
-
         // IFormItemSetDataParent
         public bool IsSelectionGeometryBased()
         {
             // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
-            if (RemeshingParameters == null || RemeshingParameters.CreationData == null) return true;
-            return RemeshingParameters.CreationData.IsGeometryBased();
+            RemeshingParameters remeshingParameters = RemeshingParameters;
+            //
+            if (remeshingParameters != null && remeshingParameters.CreationData != null)
+                return remeshingParameters.CreationData.IsGeometryBased();
+            else return true;
+        }
+        public bool IsGeometrySelectionIdBased()
+        {
+            bool defaultMode = _controller.Settings.Pre.GeometrySelectMode == GeometrySelectModeEnum.SelectId;
+            // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
+            RemeshingParameters remeshingParameters = RemeshingParameters;
+            //
+            if (remeshingParameters != null && remeshingParameters.CreationData != null && IsSelectionGeometryBased())
+                return remeshingParameters.CreationData.IsIdBased(defaultMode);
+            else return defaultMode;
         }
 
-      
     }
 
 

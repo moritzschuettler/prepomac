@@ -1183,21 +1183,29 @@ namespace PrePoMax.Forms
                 }
             }
         }
-
         // IFormHighlight
         public void Highlight()
         {
-            if (Enabled) HighlightLoad();
+            if (Enabled && !_closing) HighlightLoad();
         }
-
         // IFormItemSetDataParent
         public bool IsSelectionGeometryBased()
         {
             // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
-            if (FELoad == null || FELoad.CreationData == null) return true;   // element set based section
-            return FELoad.CreationData.IsGeometryBased();
+            Load load = FELoad;
+            //
+            if (load.CreationData != null) return load.CreationData.IsGeometryBased();
+            else return true;
+        }
+        public bool IsGeometrySelectionIdBased()
+        {
+            bool defaultMode = _controller.Settings.Pre.GeometrySelectMode == GeometrySelectModeEnum.SelectId;
+            // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
+            Load load = FELoad;
+            //
+            if (load.CreationData != null && IsSelectionGeometryBased()) return load.CreationData.IsIdBased(defaultMode);
+            else return defaultMode;
         }
 
-        
     }
 }

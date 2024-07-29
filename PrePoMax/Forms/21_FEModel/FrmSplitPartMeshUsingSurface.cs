@@ -12,7 +12,7 @@ using PrePoMax.Commands;
 
 namespace PrePoMax.Forms
 {
-    class FrmSplitPartMeshUsingSurface : UserControls.FrmProperties, IFormBase, IFormItemSetDataParent, IFormHighlight
+    class FrmSplitPartMeshUsingSurface : FrmProperties, IFormBase, IFormItemSetDataParent, IFormHighlight
     {
         // Variables                                                                                                                
         bool _highlightEnabled;
@@ -433,25 +433,23 @@ namespace PrePoMax.Forms
                 }
             }
         }
-        
-
         // IFormHighlight
         public void Highlight()
         {
-            if(_highlightEnabled) HighlightSplit();
+            if(_highlightEnabled && !_closing) HighlightSplit();
         }
-
         // IFormItemSetDataParent
         public bool IsSelectionGeometryBased()
         {
             // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
             if (propertyGrid.SelectedGridItem == null || propertyGrid.SelectedGridItem.PropertyDescriptor == null) return true;
+            SplitPartMeshData splitPartMeshData = SplitPartMeshData;
             //
-            string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
-            //
-            if (SplitPartMeshData != null)
+            if (splitPartMeshData != null)
             {
-                if (SplitPartMeshData is SplitPartMeshData sp)
+                string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
+                //
+                if (splitPartMeshData is SplitPartMeshData sp)
                 {
                     if (property == nameof(ViewSplitPartMeshData.MasterRegionType) &&
                         sp.BasePartRegionType == RegionTypeEnum.Selection)
@@ -469,6 +467,37 @@ namespace PrePoMax.Forms
                 else throw new NotSupportedException();
             }
             return true;
+        }
+        public bool IsGeometrySelectionIdBased()
+        {
+            bool defaultMode = _controller.Settings.Pre.GeometrySelectMode == GeometrySelectModeEnum.SelectId;
+            // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
+            if (propertyGrid.SelectedGridItem == null || propertyGrid.SelectedGridItem.PropertyDescriptor == null)
+                return defaultMode;
+            SplitPartMeshData splitPartMeshData = SplitPartMeshData;
+            //
+            if (splitPartMeshData != null && IsSelectionGeometryBased())
+            {
+                string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
+                //
+                if (splitPartMeshData is SplitPartMeshData sp)
+                {
+                    if (property == nameof(ViewSplitPartMeshData.MasterRegionType) &&
+                        sp.BasePartRegionType == RegionTypeEnum.Selection)
+                    {
+                        if (sp.BasePartCreationData != null) return sp.BasePartCreationData.IsIdBased(defaultMode);
+                        else return defaultMode;
+                    }
+                    else if (property == nameof(ViewSplitPartMeshData.SlaveRegionType) &&
+                             sp.SplitterSurfaceRegionType == RegionTypeEnum.Selection)
+                    {
+                        if (sp.SplitterSurfaceCreationData != null) return sp.SplitterSurfaceCreationData.IsIdBased(defaultMode);
+                        else return defaultMode;
+                    }
+                }
+                else throw new NotSupportedException();
+            }
+            return defaultMode;
         }
     }
 

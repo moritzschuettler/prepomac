@@ -613,6 +613,7 @@
     <Compile Include="Forms\83_ResultHistoryOutput\FrmViewResultHistoryOutput.Designer.cs">
       <DependentUpon>FrmViewResultHistoryOutput.cs</DependentUpon>
     </Compile>
+    <Compile Include="Forms\IFormHighlightSymbol.cs" />
     <Compile Include="Forms\IFormHighlight.cs" />
     <Compile Include="Forms\IFormItemSetDataParent.cs" />
     <Compile Include="Forms\IFormBase.cs" />
