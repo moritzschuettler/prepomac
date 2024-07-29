@@ -123,16 +123,8 @@ namespace PrePoMax.Forms
         {
             string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
             //
-            //if (property == nameof(_viewCoordinateSystem.CenterCreatedFrom) ||
-            //    property == nameof(_viewCoordinateSystem.PointXCreatedFrom) ||
-            //    property == nameof(_viewCoordinateSystem.PointXYCreatedFrom))
-            {
-                SetSelectItem();
-                //
-                //UpdateCoordinateSystem(CoordinateSystem);
-                //
-                //_controller.ClearSelectionHistoryAndCallSelectionChanged();
-            }
+            SetSelectItem();
+            //
             HighlightCoordinateSystem();
         }
         protected override void OnApply(bool onOkAddNew)
