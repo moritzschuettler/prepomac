@@ -20,6 +20,7 @@ using static CaeGlobals.Geometry2;
 using System.Numerics;
 using System.Linq.Expressions;
 using System.Runtime.InteropServices.WindowsRuntime;
+using System.Diagnostics;
 
 namespace CaeResults
 {
@@ -1740,9 +1741,16 @@ namespace CaeResults
                     default:
                         unitConverter = new DoubleConverter();
                         unitAbbreviation = "?";
+                        // Limit
+                        if (_resultFieldOutputs.TryGetValue(fieldDataName, out ResultFieldOutput rfo1) &&
+                            rfo1 is ResultFieldOutputLimit rfol)
+                        {
+                            unitAbbreviation = "/";
+                            break;
+                        }
                         // Equation
-                        if (_resultFieldOutputs.TryGetValue(fieldDataName, out ResultFieldOutput resultFieldOutput)
-                            && resultFieldOutput is ResultFieldOutputEquation rfoeq)
+                        else if (_resultFieldOutputs.TryGetValue(fieldDataName, out ResultFieldOutput rfo2) &&
+                                 rfo2 is ResultFieldOutputEquation rfoeq)
                         {
                             unitAbbreviation = rfoeq.Unit;
                             break;
@@ -1751,7 +1759,7 @@ namespace CaeResults
                         if (stepId == 1 && incrementId == 0) unitAbbreviation = "/";    // User field outputs at 0 increment
                         else if (componentName.ToUpper() == "ALL" || componentName.ToUpper().StartsWith("VAL")) { }
                         else if (_unitSystem.UnitSystemType == UnitSystemType.UNIT_LESS) unitAbbreviation = "";
-                        else if (System.Diagnostics.Debugger.IsAttached) throw new NotSupportedException();
+                        else if (Debugger.IsAttached) throw new NotSupportedException();
                         //
                         break;
                 }
@@ -1896,8 +1904,9 @@ namespace CaeResults
                         string noSpacesName = noSuffixName.Replace(' ', '_');
                         GetFieldUnitConverterAndAbbreviation(noSpacesName.ToUpper(), componentName, stepId, incrementId,
                                                              out unitConverter, out unitAbbreviation);
-                        if (unitAbbreviation == "?" && System.Diagnostics.Debugger.IsAttached)
-                            throw new NotSupportedException();
+                        if (unitAbbreviation == "?" && Debugger.IsAttached)
+                            //throw new NotSupportedException();
+                        break;
                         break;
                 }
             }
@@ -2653,7 +2662,10 @@ namespace CaeResults
                 {
                     foreach (var entry in _resultFieldOutputs)
                     {
-                        if (entry.Value is ResultFieldOutputEquation rfoeq)
+                        if (entry.Value is ResultFieldOutputLimit rfol) { }
+                        else if (entry.Value is ResultFieldOutputEnvelope rfoe) { }
+                        else if (entry.Value is ResultFieldOutputCoordinateSystemTransform rfocst) { }
+                        else if (entry.Value is ResultFieldOutputEquation rfoeq)
                         {
                             // Data
                             sfFieldData = GetFieldData(rfoeq.Name, ResultFieldOutputEquation.ComponentName,
@@ -2661,7 +2673,8 @@ namespace CaeResults
                             sfField = GetField(sfFieldData, false);
                             if (sfField != null) sfField.DataState = DataStateEnum.UpdateResultFieldOutput;
                         }
-                        else throw new NotSupportedException();
+                        else if (Debugger.IsAttached)
+                            throw new NotSupportedException();
                     }
                 }
             }
@@ -2714,7 +2727,8 @@ namespace CaeResults
                         sourceComponentName = rfol.ComponentName;
                         newFieldName = rfol.Name;
                         newComponentNames = rfol.GetComponentNames();
-                        unit = "/";
+                        fieldData = GetFieldData(resultFieldOutput.Name, newComponentNames[0], entry.Key, incrementId, true);
+                        unit = GetFieldUnitAbbreviation(fieldData);
                     }
                     else if (resultFieldOutput is ResultFieldOutputEnvelope rfoen)
                     {
@@ -3475,7 +3489,6 @@ namespace CaeResults
             if (historyResultSet != null)
             {
                 _history.Sets.Add(historyResultSet.Name, historyResultSet);
-                resultHistoryOutput.HistoryResultSet = historyResultSet;
             }
         }
         public HistoryResultSet GetHistorySetFromResultHistoryOutput(ResultHistoryOutput resultHistoryOutput)
@@ -3493,6 +3506,8 @@ namespace CaeResults
             {
                 historyResultSet = GetHistorySetFromEquation(rhofe);
             }
+            //
+            resultHistoryOutput.HistoryResultSet = historyResultSet;
             //
             return historyResultSet;
         }
@@ -3539,15 +3554,15 @@ namespace CaeResults
                     components[0].Name, resultHistoryOutput.StepId, resultHistoryOutput.StepIncrementId);
                 //
                 string unit;
+                float[] values;
+                int resultNodeId;
+                Field field;
+                FieldData fieldData;
                 foreach (var component in components)
                 {
                     if (resultHistoryOutput.Harmonic) GetHarmonicFromHistoryOutput(nodeIds, resultHistoryOutput, component);
                     else
                     {
-                        float[] values;
-                        int resultNodeId;
-                        Field field;
-                        FieldData fieldData;
                         // Set complex
                         ComplexResultTypeEnum prevComplexResultType = _complexResultType;
                         float prevComplexAngleDeg = _complexAngleDeg;
@@ -3590,7 +3605,7 @@ namespace CaeResults
                         else
                         {
                             GetHistoryUnitConverterAndAbbreviation(resultHistoryOutput.FieldName, component.Name, 0, 0,
-                                                                  out _, out unit);
+                                                                   out _, out unit);
                         }
                         component.Unit = unit;
                     }
@@ -4131,8 +4146,11 @@ namespace CaeResults
         {
             HistoryResultSet historyResultSet = GetHistorySetFromResultHistoryOutput(resultHistoryOutput);
             //
-            _history.Sets.Replace(oldResultHistoryOutputName, historyResultSet.Name, historyResultSet);
-            _resultHistoryOutputs.Replace(oldResultHistoryOutputName, resultHistoryOutput.Name, resultHistoryOutput);
+            if (historyResultSet != null)
+            {
+                _history.Sets.Replace(oldResultHistoryOutputName, historyResultSet.Name, historyResultSet);
+                _resultHistoryOutputs.Replace(oldResultHistoryOutputName, resultHistoryOutput.Name, resultHistoryOutput);
+            }
         }
         public void RemoveResultHistoryOutputs(string[] resultHistoryOutputNames)
         {
