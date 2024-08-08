@@ -111,6 +111,7 @@ namespace PrePoMax.Forms
         }
         protected override void OnPropertyGridSelectedGridItemChanged()
         {
+            base.OnPropertyGridSelectedGridItemChanged();
         }
         protected override void OnApply(bool onOkAddNew)
         {
