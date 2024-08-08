@@ -1464,7 +1464,7 @@ namespace PrePoMax
             bool stateSet = false;
             try
             {
-                if (SetStateWorking(Globals.OpeningText))
+                if (SetStateWorking(Globals.OpeningText) || IsStateRegeneratingOrUndoing())
                 {
                     stateSet = true;
                     await Task.Run(() => Open(fileName, ActionOnFile, resetCamera));
@@ -2351,7 +2351,7 @@ namespace PrePoMax
                 else if (_controller.CurrentView == ViewGeometryModelResults.Results)
                 {
                     partNames = _controller.GetResultPartNames();
-                    _controller.HideResultParts(partNames);
+                    _controller.HideResultPartsCommand(partNames);
                 }
             }
             catch { }
@@ -2374,7 +2374,7 @@ namespace PrePoMax
                 else if (_controller.CurrentView == ViewGeometryModelResults.Results)
                 {
                     partNames = _controller.GetResultPartNames();
-                    _controller.ShowResultParts(partNames);
+                    _controller.ShowResultPartsCommand(partNames);
                 }
             }
             catch { }
@@ -2420,8 +2420,8 @@ namespace PrePoMax
                             else partNamesToShow.Add(part.Name);
                         }
                     }
-                    if (partNamesToHide.Count > 0) _controller.HideResultParts(partNamesToHide.ToArray());
-                    if (partNamesToShow.Count > 0) _controller.ShowResultParts(partNamesToShow.ToArray());
+                    if (partNamesToHide.Count > 0) _controller.HideResultPartsCommand(partNamesToHide.ToArray());
+                    if (partNamesToShow.Count > 0) _controller.ShowResultPartsCommand(partNamesToShow.ToArray());
                 }
             }
             catch { }
@@ -3732,7 +3732,7 @@ namespace PrePoMax
         #endregion  ################################################################################################################
 
         #region Model part menu  ###################################################################################################
-        private void tsmiEditPart_Click(object sender, EventArgs e)
+        private void tsmiEditModelPart_Click(object sender, EventArgs e)
         {
             try
             {
@@ -3778,7 +3778,7 @@ namespace PrePoMax
             }
         }
         //
-        private void tsmiMergeParts_Click(object sender, EventArgs e)
+        private void tsmiMergeModelParts_Click(object sender, EventArgs e)
         {
             try
             {
@@ -3789,7 +3789,7 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiHideParts_Click(object sender, EventArgs e)
+        private void tsmiHideModelParts_Click(object sender, EventArgs e)
         {
             try
             {
@@ -3801,7 +3801,7 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiShowParts_Click(object sender, EventArgs e)
+        private void tsmiShowModelParts_Click(object sender, EventArgs e)
         {
             try
             {
@@ -3812,7 +3812,7 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiShowOnlyParts_Click(object sender, EventArgs e)
+        private void tsmiShowOnlyModelParts_Click(object sender, EventArgs e)
         {
             try
             {
@@ -3823,7 +3823,7 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiSetTransparencyForParts_Click(object sender, EventArgs e)
+        private void tsmiSetTransparencyForModelParts_Click(object sender, EventArgs e)
         {
             try
             {
@@ -3835,7 +3835,7 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiDeleteParts_Click(object sender, EventArgs e)
+        private void tsmiDeleteModelParts_Click(object sender, EventArgs e)
         {
             try
             {
@@ -6568,7 +6568,7 @@ namespace PrePoMax
                         if (MessageBoxes.ShowWarningQuestion("Overwrite existing analysis files?") != DialogResult.OK) return;
                     }
                     //
-                    if (_controller.PrepareAndRunJob(inputFileName, job, onlyCheckModel)) MonitorAnalysis(jobName);
+                    if (_controller.PrepareAndRunJobCommand(inputFileName, jobName, onlyCheckModel)) MonitorAnalysis(jobName);
                 }
                 else MessageBoxes.ShowError("The analysis is already running or in queue.");
             }
@@ -6587,7 +6587,11 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        private async void ResultsAnalysis(string jobName)
+        private void ResultsAnalysis(string jobName)
+        {
+            _controller.OpenResultsCommand(jobName);
+        }
+        public async void OpenAnalysisResults(string jobName, bool asynchronous = true)
         {
             AnalysisJob job = _controller.GetJob(jobName);
             if (job.JobStatus == JobStatus.OK || job.JobStatus == JobStatus.Running ||
@@ -6595,14 +6599,21 @@ namespace PrePoMax
             {
                 string resultsFile = job.Name + ".frd";
                 //
-                await OpenAsync(Path.Combine(job.WorkDirectory, resultsFile), _controller.Open, false,
-                    () => { if (_controller.CurrentResult != null && _controller.CurrentResult.Mesh != null)
-                            _frmMonitor.DialogResult = DialogResult.OK; }); // this hides the monitor window
+                if (asynchronous)
+                    await OpenAsync(Path.Combine(job.WorkDirectory, resultsFile), _controller.Open, false, CloseMonitorWindow);
+                else
+                    OpenAsync(Path.Combine(job.WorkDirectory, resultsFile), _controller.Open, false, CloseMonitorWindow).Wait();
             }
             else
             {
                 MessageBoxes.ShowError("The analysis did not complete.");
             }
+        }
+        private void CloseMonitorWindow()
+        {
+            // This hides the monitor window
+            if (_controller.CurrentResult != null && _controller.CurrentResult.Mesh != null)
+                _frmMonitor.DialogResult = DialogResult.OK;
         }
         private void KillAnalysis(string jobName)
         {
@@ -6741,6 +6752,17 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
+        private void tsmiMergeResultPart_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Parts", _controller.GetResultParts(), MergeResultParts, 2);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
         private void tsmiHideResultParts_Click(object sender, EventArgs e)
         {
             try
@@ -6808,8 +6830,6 @@ namespace PrePoMax
             {
                 ExceptionTools.Show(this, ex);
             }
-
-            
         }
         private void tsmiDeleteResultParts_Click(object sender, EventArgs e)
         {
@@ -6834,25 +6854,25 @@ namespace PrePoMax
             {
                 if (MessageBoxes.ShowWarningQuestion("OK to merge selected parts?") == DialogResult.OK)
                 {
-                    _controller.MergeResultParts(partNames);
+                    _controller.MergeResultPartsCommand(partNames);
                 }
             }
             else MessageBoxes.ShowError("Selected parts are of a different type and thus cannot be merged.");
         }
         private void HideResultParts(string[] partNames)
         {
-            _controller.HideResultParts(partNames);
+            _controller.HideResultPartsCommand(partNames);
         }
         private void ShowResultParts(string[] partNames)
         {
-            _controller.ShowResultParts(partNames);
+            _controller.ShowResultPartsCommand(partNames);
         }
         private void ShowOnlyResultParts(string[] partNames)
         {
             HashSet<string> allNames = new HashSet<string>(_controller.CurrentResult.Mesh.Parts.Keys);
             allNames.ExceptWith(partNames);
-            _controller.ShowResultParts(partNames);
-            _controller.HideResultParts(allNames.ToArray());
+            _controller.ShowResultPartsCommand(partNames);
+            _controller.HideResultPartsCommand(allNames.ToArray());
         }
         private void SetTransparencyForResultParts(string[] partNames)
         {
@@ -6872,25 +6892,25 @@ namespace PrePoMax
                 frmGetValue.PrepareForm("Set Transparency: " + partNames.ToShortString(), "Transparency", desc, 128, presetValues);
                 if (frmGetValue.ShowDialog() == DialogResult.OK)
                 {
-                    _controller.SetTransparencyForResultParts(partNames, (byte)frmGetValue.Value);
+                    _controller.SetTransparencyForResultPartsCommand(partNames, (byte)frmGetValue.Value);
                 }
                 SaveFormLocation(frmGetValue);
             }
         }
         private void ColorContoursOffResultPart(string[] partNames)
         {
-            _controller.SetResultPartsColorContoursVisibility(partNames, false);
+            _controller.SetColorContoursForResultPartsCommand(partNames, false);
         }
         private void ColorContoursOnResultPart(string[] partNames)
         {
-            _controller.SetResultPartsColorContoursVisibility(partNames, true);
+            _controller.SetColorContoursForResultPartsCommand(partNames, true);
         }
         private void DeleteResultParts(string[] partNames)
         {
             if (MessageBoxes.ShowWarningQuestion("OK to delete selected parts?" + Environment.NewLine + 
                                                  partNames.ToRows()) == DialogResult.OK)
             {
-                _controller.RemoveResultParts(partNames);
+                _controller.RemoveResultPartsCommand(partNames);
             }
         }
 
@@ -8302,6 +8322,10 @@ namespace PrePoMax
         public bool IsStateOpening()
         {
             return tsslState.Text == Globals.OpeningText;
+        }
+        public bool IsStateRegeneratingOrUndoing()
+        {
+            return tsslState.Text == Globals.RegeneratingText || tsslState.Text == Globals.UndoingText;
         }
 
         private void tsslCancel_MouseDown(object sender, MouseEventArgs e)

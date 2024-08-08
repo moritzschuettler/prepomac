@@ -228,7 +228,7 @@ namespace CaeJob
 
 
         // Methods                                                                                                                  
-        public void Submit(int numOfRunSteps, int numOfRunIncrements)
+        public void Submit(int numOfRunSteps, int numOfRunIncrements, bool useBackgroundWorker = true)
         {
             if (numOfRunSteps < 1 || numOfRunIncrements < 1) throw new NotSupportedException();
             // Reset job
@@ -251,9 +251,9 @@ namespace CaeJob
             _watch = new Stopwatch();
             _watch.Start();
             //
-            SubmitNextRun();
+            SubmitNextRun(useBackgroundWorker);
         }
-        private void SubmitNextRun()
+        private void SubmitNextRun(bool useBackgroundWorker = true)
         {
             // First run
             if (_currentRunStep == -1)
@@ -276,11 +276,11 @@ namespace CaeJob
             if (_currentRunStep <= _numOfRunSteps && (_jobStatus == JobStatus.None || _jobStatus == JobStatus.OK))
             {
                 PreRun?.Invoke(this);
-                SubmitOneRun();
+                SubmitOneRun(useBackgroundWorker);
             }
             else AllRunsCompleted();
         }
-        private void SubmitOneRun()
+        private void SubmitOneRun(bool useBackgroundWorker = true)
         {
             if (_myLock == null) _myLock = new object();
             lock (_myLock)
@@ -307,11 +307,19 @@ namespace CaeJob
             //
             JobStatusChanged?.Invoke(_name, _jobStatus);
             //
-            using (BackgroundWorker bwStart = new BackgroundWorker())
+            if (useBackgroundWorker)
             {
-                bwStart.DoWork += bwStart_DoWork;
-                bwStart.RunWorkerCompleted += bwStart_RunWorkerCompleted;
-                if (!bwStart.IsBusy) bwStart.RunWorkerAsync();
+                using (BackgroundWorker bwStart = new BackgroundWorker())
+                {
+                    bwStart.DoWork += bwStart_DoWork;
+                    bwStart.RunWorkerCompleted += bwStart_RunWorkerCompleted;
+                    if (!bwStart.IsBusy) bwStart.RunWorkerAsync();
+                }
+            }
+            else
+            {
+                bwStart_DoWork(null, null);
+                bwStart_RunWorkerCompleted(null, null);
             }
         }
         private void bwStart_DoWork(object sender, DoWorkEventArgs e)
@@ -365,7 +373,8 @@ namespace CaeJob
                 if (resultsExist) _jobStatus = JobStatus.FailedWithResults;
             }
             //
-            if (continueAnalysis) SubmitNextRun();
+            bool useBackgroundWorker = sender != null;
+            if (continueAnalysis) SubmitNextRun(useBackgroundWorker);
             else AllRunsCompleted();
         }
         private void AllRunsCompleted()

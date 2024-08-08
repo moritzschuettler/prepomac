@@ -96,7 +96,7 @@ namespace PrePoMax.Forms
                     else if (_currentView == ViewGeometryModelResults.Model)
                         _controller.ReplaceModelPartPropertiesCommand(_partToEditName, PartProperties);
                     else if (_currentView == ViewGeometryModelResults.Results)
-                        _controller.ReplaceResultPartProperties(_partToEditName, PartProperties);
+                        _controller.ReplaceResultPartPropertiesCommand(_partToEditName, PartProperties);
                     else throw new NotSupportedException();
                     //
                     _partToEditName = PartProperties.Name;    // to enable next apply

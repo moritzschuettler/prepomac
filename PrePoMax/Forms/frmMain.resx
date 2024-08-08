@@ -136,7 +136,7 @@
     <value>17, 17</value>
   </metadata>
   <assembly alias="System.Drawing" name="System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" />
-  <data name="tsmiHideParts.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+  <data name="tsmiHideModelParts.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
     <value>
         iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAO
         vAAADrwBlbxySQAAALVJREFUOE/dkjEKwkAQAK+wtxE7C/+h2PgUwcbGwk/4BhvttLFRFMHCR4jY+RRn
@@ -145,7 +145,7 @@
         +pqUkE4u4rMoNvs1ITwB9vcukOag0TkAAAAASUVORK5CYII=
 </value>
   </data>
-  <data name="tsmiShowParts.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+  <data name="tsmiShowModelParts.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
     <value>
         iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAO
         vAAADrwBlbxySQAAANBJREFUOE/dkr0OAUEUhbfQa0QjCu9BNB5FotEovIBSq9XQCAoNsZEoeAcRnUfx
@@ -155,7 +155,7 @@
         YII=
 </value>
   </data>
-  <data name="tsmiShowOnlyParts.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+  <data name="tsmiShowOnlyModelParts.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
     <value>
         iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAO
         vAAADrwBlbxySQAAANBJREFUOE/dkr0OAUEUhbfQa0QjCu9BNB5FotEovIBSq9XQCAoNsZEoeAcRnUfx

@@ -1204,7 +1204,7 @@ namespace PrePoMax
                 string[] addedPartNames = _model.ImportGeometryFromStlFile(fileName);
                 if (addedPartNames == null)
                 {
-                    UserControls.AutoClosingMessageBox.ShowError("There are errors in the imported geometry.", 3000);
+                    AutoClosingMessageBox.ShowError("There are errors in the imported geometry.", 3000);
                 }
                 else
                 {
@@ -9630,6 +9630,11 @@ namespace PrePoMax
             CDuplicateJobs comm = new CDuplicateJobs(jobNames);
             _commands.AddAndExecute(comm);
         }
+        public bool PrepareAndRunJobCommand(string inputFileName, string jobName, bool onlyCheckModel)
+        {
+            CPrepareAndRunJob comm = new CPrepareAndRunJob(inputFileName, jobName, onlyCheckModel);
+            return _commands.AddAndExecute(comm);
+        }
         public void RemoveJobsCommand(string[] jobNames)
         {
             CRemoveJobs comm = new CRemoveJobs(jobNames);
@@ -9676,8 +9681,11 @@ namespace PrePoMax
                 AddJob(newAnalysisJob);
             }
         }
-        public bool PrepareAndRunJob(string inputFileName, AnalysisJob job, bool onlyCheckModel)
+        public bool PrepareAndRunJob(string inputFileName, string jobName, bool onlyCheckModel, bool asynchronous = true)
         {
+            bool useBackgroundWorker = asynchronous;
+            AnalysisJob job = _jobs[jobName];
+            //
             if (File.Exists(job.Executable))
             {
                 if (CheckModelBeforeJobRun() && DeleteFilesBeforeJobRun(inputFileName)) // must be separate due to exception
@@ -9687,11 +9695,11 @@ namespace PrePoMax
                     //
                     if (_model.Properties.ModelType == ModelType.SlipWearModel && !onlyCheckModel)
                     {
-                        return RunWearJob(inputFileName, job);
+                        return RunWearJob(inputFileName, job, useBackgroundWorker);
                     }
                     else
                     {
-                        return RunJob(inputFileName, job);
+                        return RunJob(inputFileName, job, useBackgroundWorker);
                     }
                 }
                 //
@@ -9810,15 +9818,15 @@ namespace PrePoMax
                 throw new CaeException(ex.Message);
             }
         }
-        private bool RunJob(string inputFileName, AnalysisJob job)
+        private bool RunJob(string inputFileName, AnalysisJob job, bool useBackgroundWorker = true)
         {
             ExportToCalculix(inputFileName);
             job.JobStatusChanged = JobStatusChanged;
-            job.Submit(1, 1);
+            job.Submit(1, 1, useBackgroundWorker);
             //
             return true;
         }
-        private bool RunWearJob(string inputFileName, AnalysisJob job)
+        private bool RunWearJob(string inputFileName, AnalysisJob job, bool useBackgroundWorker = true)
         {
             // Clear old results
             _wearResults = null;
@@ -9831,7 +9839,7 @@ namespace PrePoMax
             int numOfRunSteps = _model.Properties.NumberOfCycles / _model.Properties.CyclesIncrement;
             int numOfRunIncrements = _model.Properties.BdmRemeshing ?  2 : 1;
             //
-            job.Submit(numOfRunSteps, numOfRunIncrements);
+            job.Submit(numOfRunSteps, numOfRunIncrements, useBackgroundWorker);
             //
             return true;
         }
@@ -10005,6 +10013,17 @@ namespace PrePoMax
         #endregion #################################################################################################################
 
         #region Results  ###########################################################################################################
+
+        public void OpenResultsCommand(string jobName)
+        {
+            COpenResults comm = new COpenResults(jobName);
+            _commands.AddAndExecute(comm);
+        }
+        //******************************************************************************************
+        public void OpenResults(string jobName, bool asynchronous = true)
+        {
+            _form.OpenAnalysisResults(jobName, asynchronous);
+        }
         private void UpdateCurrentFieldData()
         {
             // Check validity of the field data
@@ -10068,6 +10087,43 @@ namespace PrePoMax
         #endregion #################################################################################################################
 
         #region Result part menu  ##################################################################################################
+        public void HideResultPartsCommand(string[] partNames)
+        {
+            CHideResultParts comm = new CHideResultParts(partNames);
+            _commands.AddAndExecute(comm);
+        }
+        public void ShowResultPartsCommand(string[] partNames)
+        {
+            CShowResultParts comm = new CShowResultParts(partNames);
+            _commands.AddAndExecute(comm);
+        }
+        public void SetTransparencyForResultPartsCommand(string[] partNames, byte alpha)
+        {
+            CSetTransparencyForResultParts comm = new CSetTransparencyForResultParts(partNames, alpha);
+            _commands.AddAndExecute(comm);
+        }
+        public void SetColorContoursForResultPartsCommand(string[] partNames, bool colorContours)
+        {
+            CSetColorContoursForResultPartsCommand comm = new CSetColorContoursForResultPartsCommand(partNames, colorContours);
+            _commands.AddAndExecute(comm);
+        }
+        // Edit
+        public void ReplaceResultPartPropertiesCommand(string oldPartName, PartProperties newPartProperties)
+        {
+            CReplaceResultPart comm = new CReplaceResultPart(oldPartName, newPartProperties);
+            _commands.AddAndExecute(comm);
+        }
+        public void MergeResultPartsCommand(string[] partNames)
+        {
+            CMergeResultParts comm = new CMergeResultParts(partNames);
+            _commands.AddAndExecute(comm);
+        }
+        public void RemoveResultPartsCommand(string[] partNames)
+        {
+            CRemoveResultParts comm = new CRemoveResultParts(partNames);
+            _commands.AddAndExecute(comm);
+        }
+        //******************************************************************************************
         public string[] GetResultPartNames()
         {
             if (_allResults.CurrentResult == null || _allResults.CurrentResult.Mesh == null) return null;
@@ -10166,7 +10222,7 @@ namespace PrePoMax
                                      _allResults.CurrentResult.Mesh.Parts[name], null, false);
             }
         }
-        public void SetResultPartsColorContoursVisibility(string[] partNames, bool colorContours)
+        public void SetColorContoursForResultParts(string[] partNames, bool colorContours)
         {
             foreach (var name in partNames)
             {

@@ -59,9 +59,9 @@ namespace PrePoMax.Commands
 
 
         // Methods                                                                                                                  
-        public void AddAndExecute(Command command)
+        public bool AddAndExecute(Command command)
         {
-            ExecuteCommand(command, true);
+            return ExecuteCommand(command, true);
         }
         private void AddCommand(Command command)
         {
@@ -102,7 +102,7 @@ namespace PrePoMax.Commands
             _controller.ModelChanged = true;
             ModelChanged_ResetJobStatus?.Invoke();
         }
-        private void ExecuteCommand(Command command, bool addCommand)
+        private bool ExecuteCommand(Command command, bool addCommand)
         {
             // Write to form
             WriteToOutput(command);
@@ -126,6 +126,8 @@ namespace PrePoMax.Commands
                 command.Execute(_controller);
                 WriteToFile();  // repeat the write in order to save the hash
             }
+            //
+            return true;
         }
         public void ExecuteAllCommandsFromLastSave()
         {
@@ -151,8 +153,7 @@ namespace PrePoMax.Commands
             //
             foreach (Command command in _commands)
             {
-                if (!(command is PreprocessCommand))
-                    continue;
+                if (!(command is PreprocessCommand)) continue;
                 //
                 if (count++ <= _currPositionIndex)
                 {
@@ -175,14 +176,18 @@ namespace PrePoMax.Commands
                             if (command is ICommandWithDialog cwd)
                             {
                                 if (showImportDialog && cwd is CImportFile) executeWithDialog = true;
-                                //
                                 else if (showMeshDialog && cwd is CAddMeshSetupItem) executeWithDialog = true;
                                 else if (showMeshDialog && cwd is CReplaceMeshSetupItem) executeWithDialog = true;
                                 //
                                 if (executeWithDialog) cwd.ExecuteWithDialog(_controller);
                             }
                             // Execute without dialog
-                            if (!executeWithDialog) command.Execute(_controller);
+                            if (!executeWithDialog)
+                            {
+                                // Execute asynchronous tasks in synchronous mode
+                                if (command is ICommandAsynchronous ca) ca.ExecuteSynchronous(_controller);
+                                else command.Execute(_controller);
+                            }
                         }
                     }
                     catch (Exception ex)

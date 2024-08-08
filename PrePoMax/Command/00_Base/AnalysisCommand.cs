@@ -26,6 +26,5 @@ namespace PrePoMax.Commands
 
 
         // Methods                                                                                                                  
-        
     }
 }
