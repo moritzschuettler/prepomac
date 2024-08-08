@@ -118,6 +118,8 @@ namespace PrePoMax.Forms
                 UpdateCoordinateSystem(CoordinateSystem);
             }
             HighlightCoordinateSystem();
+            //
+            base.OnPropertyGridPropertyValueChanged();
         }
         protected override void OnPropertyGridSelectedGridItemChanged()
         {
@@ -126,6 +128,8 @@ namespace PrePoMax.Forms
             SetSelectItem();
             //
             HighlightCoordinateSystem();
+            //
+            base.OnPropertyGridSelectedGridItemChanged();
         }
         protected override void OnApply(bool onOkAddNew)
         {
