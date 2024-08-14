@@ -44,10 +44,6 @@ namespace PrePoMax
             //
             Process.GetCurrentProcess().Kill();
         }
-        private void ParseCommandLineArguments(string[] args)
-        {
-
-        }
     }
 }
 
