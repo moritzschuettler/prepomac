@@ -15,10 +15,10 @@ namespace PrePoMax.Commands
         private string _stepName;
         private string[] _historyOutputNames;
 
+
         // Constructor                                                                                                              
         public CRemoveHistoryOutputs(string stepName, string[] historyOutputNames)
             :base("Remove history outputs")
-
         {
             _stepName = stepName;
             _historyOutputNames = historyOutputNames;
@@ -31,7 +31,6 @@ namespace PrePoMax.Commands
             receiver.RemoveHistoryOutputs(_stepName, _historyOutputNames);
             return true;
         }
-
         public override string GetCommandString()
         {
 

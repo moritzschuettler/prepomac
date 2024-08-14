@@ -68,14 +68,11 @@ namespace CaeResults
             int numRow = _entries.First().Value.Values.Count();
             //
             col = 0;
-            List<double> time = null;
             double[][] values = new double[numRow][];
             for (int i = 0; i < numRow; i++) values[i] = new double[numCol];
             //
             foreach (var entry in _entries)
             {
-                // Get time
-                if (time == null) time = entry.Value.Time;
                 // Get values
                 row = 0;
                 foreach (double value in entry.Value.Values)

@@ -3066,7 +3066,7 @@ namespace CaeResults
         private float[][] ComputeFieldFromResultFieldOutputEquation(ResultFieldOutputEquation resultFieldOutput,
                                                                     int stepId, int stepIncrementId)
         {
-            OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters;
+            OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters.DeepCopy();
             try
             {
                 FieldData sourceFieldData;
@@ -3077,15 +3077,18 @@ namespace CaeResults
                 List<float[]> allValues = new List<float[]>();
                 //
                 Dictionary<string, string[]> parameterNameFieldNameComponentName;
-                Dictionary<string, float[]> parameterNameValues;
+                Dictionary<string, float[]> parameterNameValues = new Dictionary<string, float[]>();
                 //
                 CheckResultFieldOutputEquation(resultFieldOutput.Equation, out _, out parameterNameFieldNameComponentName);
                 //
-                parameterNameValues = new Dictionary<string, float[]>();
+                string fieldName;
+                string componentName;
                 foreach (var parametreEntry in parameterNameFieldNameComponentName)
                 {
-                    sourceFieldData = GetFieldData(parametreEntry.Value[0], parametreEntry.Value[1],
-                                                   stepId, stepIncrementId, true);
+                    fieldName = parametreEntry.Value[0];
+                    componentName = parametreEntry.Value[1];
+                    //
+                    sourceFieldData = GetFieldData(fieldName, componentName, stepId, stepIncrementId, true);
                     sourceField = GetField(sourceFieldData);
                     //
                     if (sourceField != null)
@@ -3378,7 +3381,7 @@ namespace CaeResults
         {
             parentNames = new HashSet<string>();
             parameterNameFieldNameComponentName = new Dictionary<string, string[]>();
-            OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters;
+            OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters.DeepCopy();
             //
             try
             {
@@ -3632,7 +3635,7 @@ namespace CaeResults
         }
         private HistoryResultSet GetHistorySetFromEquation(ResultHistoryOutputFromEquation resultHistoryOutput)
         {
-            OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters;
+            OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters.DeepCopy();
             //
             try
             {
@@ -3645,7 +3648,7 @@ namespace CaeResults
                 List<double> time = parameterNameHistoryComponent.First().Value.Entries.First().Value.Time;
                 int numCol = parameterNameHistoryComponent.First().Value.Entries.Count();
                 int numRow = parameterNameHistoryComponent.First().Value.Entries.First().Value.Values.Count();
-                Dictionary<string, double[][]> parameterNameValues = new Dictionary<string, double[][]>();
+                Dictionary<string, double[]> parameterNameValues = new Dictionary<string, double[]>();
                 //
                 bool entryNamesEqual = true;
                 string[] entryNames = null;
@@ -3656,7 +3659,7 @@ namespace CaeResults
                     foreach (var componentEntry in parameterNameHistoryComponent)
                     {
                         values = componentEntry.Value.GetAllValues();
-                        //
+                        // Check if components contain data for the same entry names
                         if (entryNames == null) entryNames = componentEntry.Value.Entries.Keys.ToArray();
                         if (entryNamesEqual)
                         {
@@ -3671,21 +3674,12 @@ namespace CaeResults
                             }
                         }
                         //
-                        parameterNameValues.Add(componentEntry.Key, values);
+                        parameterNameValues.Add(componentEntry.Key, values.ToFlatArray());
                     }
                 }
-                // Evaluate the equation
-                values = new double[numRow][];
-                for (int i = 0; i < numRow; i++)
-                {
-                    values[i] = new double[numCol];
-                    for (int j = 0; j < numCol; j++)
-                    {
-                        // Add parameters and set their values
-                        foreach (var entry in parameterNameValues) MyNCalc.ExistingParameters[entry.Key] = entry.Value[i][j];
-                        values[i][j] = MyNCalc.ConvertFromString(resultHistoryOutput.Equation, null);
-                    }
-                }
+                // Evaluate the array equation
+                foreach (var entry in parameterNameValues) MyNCalc.ExistingParameters[entry.Key] = entry.Value;
+                values = MyNCalc.SolveArrayEquation(resultHistoryOutput.Equation).ToJaggedArray(numRow);
                 // Create result history set
                 HistoryResultEntries historyResultEntries;
                 HistoryResultComponent historyResultComponent =
@@ -4290,7 +4284,7 @@ namespace CaeResults
         {
             parentNames = new HashSet<string>();
             parameterNameHistoryComponent = new Dictionary<string, HistoryResultComponent>();
-            OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters;
+            OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters.DeepCopy();
             //
             try
             {

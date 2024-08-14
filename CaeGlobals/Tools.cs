@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Windows.Forms;
 using System.Reflection;
 using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
@@ -111,33 +110,33 @@ namespace CaeGlobals
             if (path != null && path.StartsWith("#"))
             {
                 string startUpPath = System.Windows.Forms.Application.StartupPath;
-                return System.IO.Path.Combine(startUpPath, path.Substring(1).TrimStart('\\'));
+                return Path.Combine(startUpPath, path.Substring(1).TrimStart('\\'));
             }
             return path;
         }
         public static string GetNonExistentRandomFileName(string path, string extension = "")
         {
             string hash;
-            bool repeate;
-            string[] allFiles = System.IO.Directory.GetFiles(path);
+            bool repeat;
+            string[] allFiles = Directory.GetFiles(path);
             //
             do
             {
-                hash = CaeGlobals.Tools.GetRandomString(8);
+                hash = GetRandomString(8);
                 //
-                repeate = false;
+                repeat = false;
                 foreach (var fileName in allFiles)
                 {
                     if (fileName.StartsWith(hash))
                     {
-                        repeate = true;
+                        repeat = true;
                         break;
                     }
                 }
             }
-            while (repeate);
+            while (repeat);
             //
-            return System.IO.Path.Combine(path, System.IO.Path.ChangeExtension(hash, extension));
+            return Path.Combine(path, Path.ChangeExtension(hash, extension));
         }
         // Compression
         public static byte[] Compress(Stream input, CompressionLevel compressionLevel)

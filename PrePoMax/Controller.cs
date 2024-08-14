@@ -40,6 +40,7 @@ namespace PrePoMax
         [NonSerialized] protected bool _modelChanged;
         [NonSerialized] protected bool _savingFile;
         [NonSerialized] protected bool _animating;
+        [NonSerialized] protected string _regenerateFileName;
         // View
         [NonSerialized] protected ViewGeometryModelResults _currentView;
         [NonSerialized] protected EdgesVisibilitiesCollection _edgesVisibilities;
@@ -113,6 +114,8 @@ namespace PrePoMax
         }
         public bool ModelChanged { get { return _modelChanged; } set { _modelChanged = value; } }
         public bool SavingFile { get { return _savingFile; } }
+        public bool RegeneratingFromCMD { get { return _regeneratingFromCMD; } set { _regeneratingFromCMD = value; } }
+        //
         public FeModel Model { get { return _model; } }
         public bool ExecutableJobIdle
         {
@@ -671,12 +674,12 @@ namespace PrePoMax
             //
             _commands.ReadFromFile(fileName);
             //
-            Commands.CSaveToPmx lastSave = _commands.GetLastSaveCommand();
+            CSaveToPmx lastSave = _commands.GetLastSaveCommand();
             if (lastSave != null)
             {
-                Commands.CommandsCollection prevCommands = new Commands.CommandsCollection(this, _commands);
+                CommandsCollection prevCommands = new CommandsCollection(this, _commands);
                 _form.Open(lastSave.FileName, Open, true);    // form open redraws the scene
-                _commands = new Commands.CommandsCollection(this, prevCommands);
+                _commands = new CommandsCollection(this, prevCommands);
                 //
                 _commands.ExecuteAllCommandsFromLastSave(lastSave);
             }
@@ -1111,7 +1114,7 @@ namespace PrePoMax
             }
         }
         private object[] TryReadCompressedPmxAfter_2_0_6(FileStream fileStream, int version, out FeModel model,
-                                                          out ResultsCollection allResults)
+                                                         out ResultsCollection allResults)
         {
             model = null;
             allResults = null;
@@ -1195,6 +1198,13 @@ namespace PrePoMax
         }
         public void ImportFile(string fileName, bool onlyMaterials)
         {
+            if (_regenerateFileName != null && File.Exists(_regenerateFileName))
+            {
+                string path = Path.GetDirectoryName(_regenerateFileName);
+                string newFileName = Path.Combine(path, Path.GetFileName(fileName));
+                if (File.Exists(newFileName)) fileName = newFileName;
+            }
+            //
             if (!File.Exists(fileName)) throw new FileNotFoundException("The file: '" + fileName + "' does not exist.");
             //
             string extension = Path.GetExtension(fileName).ToLower();
@@ -1319,21 +1329,22 @@ namespace PrePoMax
         //
         public string[] SplitAssembly(string assemblyFileName, string splitCommand)
         {
-            CalculixSettings settings = _settings.Calculix;
-            if (settings.WorkDirectory == null || !Directory.Exists(settings.WorkDirectory))
+            string workDirectory = _settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
             {
                 MessageBoxes.ShowWorkDirectoryError();
                 return null;
             }
             //
             string executable = Application.StartupPath + Globals.NetGenMesher;
-            string outFileName = Tools.GetNonExistentRandomFileName(settings.WorkDirectory, ".brep");
+            string outFileName = Tools.GetNonExistentRandomFileName(workDirectory, ".brep");
             //
             string argument = splitCommand +
                               " \"" + assemblyFileName.ToUTF8() + "\"" +
                               " \"" + outFileName.ToUTF8() + "\"";
             //
-            _executableJob = new ExecutableJob("SplitStep", executable, argument, settings.WorkDirectory);
+            _executableJob = new ExecutableJob("SplitStep", executable, argument, workDirectory);
             _executableJob.AppendOutput += executableJob_AppendOutput;
             _executableJob.Submit();
             //
@@ -1344,7 +1355,7 @@ namespace PrePoMax
             //
             if (_executableJob.JobStatus == JobStatus.OK)
             {
-                string[] allFiles = Directory.GetFiles(settings.WorkDirectory, searchPattern);
+                string[] allFiles = Directory.GetFiles(workDirectory, searchPattern);
                 foreach (var fileName in allFiles)
                 {
                     brepFile = Path.GetFileName(fileName);
@@ -1403,7 +1414,8 @@ namespace PrePoMax
         }
         public string[] CreateBrepCompoundPart(string[] partNames)
         {
-            string workDirectory = _settings.Calculix.WorkDirectory;
+            string workDirectory = _settings.GetWorkDirectory();
+            //
             if (workDirectory == null || !Directory.Exists(workDirectory))
             {
                 MessageBoxes.ShowWorkDirectoryError();
@@ -1469,16 +1481,16 @@ namespace PrePoMax
         //
         public string[] ImportBrepPartFile(string brepFileName, bool showError = true)
         {
-            CalculixSettings calculixSettings = _settings.Calculix;
+            string workDirectory = _settings.GetWorkDirectory();
             //
-            if (calculixSettings.WorkDirectory == null || !Directory.Exists(calculixSettings.WorkDirectory))
+            if (workDirectory == null || !Directory.Exists(workDirectory))
             {
                 MessageBoxes.ShowWorkDirectoryError();
                 return null;
             }
             //
             string executable = Application.StartupPath + Globals.NetGenMesher;
-            string visFileName = Path.Combine(calculixSettings.WorkDirectory, Globals.VisFileName);
+            string visFileName = Path.Combine(workDirectory, Globals.VisFileName);
             //
             if (File.Exists(visFileName)) File.Delete(visFileName);
             //
@@ -1487,7 +1499,7 @@ namespace PrePoMax
                               "\"" + visFileName + "\" " +
                               _settings.Graphics.GeometryDeflection.ToString();
             //
-            _executableJob = new ExecutableJob("Brep", executable, argument, calculixSettings.WorkDirectory);
+            _executableJob = new ExecutableJob("Brep", executable, argument, workDirectory);
             _executableJob.AppendOutput += executableJob_AppendOutput;
             _executableJob.Submit();
             //
@@ -1858,15 +1870,16 @@ namespace PrePoMax
         }
         public void ExportCADGeometryPartAsStep(GeometryPart part, string stepFileName)
         {
-            CalculixSettings settings = _settings.Calculix;
-            if (settings.WorkDirectory == null || !Directory.Exists(settings.WorkDirectory))
+            string workDirectory = _settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
             {
                 MessageBoxes.ShowWorkDirectoryError();
                 return;
             }
             //
             string executable = Application.StartupPath + Globals.NetGenMesher;
-            string brepFileName = Path.Combine(settings.WorkDirectory, Globals.BrepFileName);
+            string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
             //
             if (File.Exists(brepFileName)) File.Delete(brepFileName);
             if (File.Exists(stepFileName)) File.Delete(stepFileName);
@@ -1877,7 +1890,7 @@ namespace PrePoMax
                               "\"" + brepFileName.ToUTF8() + "\" " +
                               "\"" + stepFileName.ToUTF8() + "\"";
             //
-            _executableJob = new ExecutableJob(part.Name, executable, argument, settings.WorkDirectory);
+            _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
             _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
             _executableJob.Submit();
             // Job completed
@@ -1973,14 +1986,15 @@ namespace PrePoMax
         }
         public string ExportCADPartGeometryToDefaultFile(GeometryPart part)
         {
-            CalculixSettings settings = _settings.Calculix;
-            if (settings.WorkDirectory == null || !Directory.Exists(settings.WorkDirectory))
+            string workDirectory = _settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
             {
                 MessageBoxes.ShowWorkDirectoryError();
                 return null;
             }
             //
-            string brepFileName = Path.Combine(settings.WorkDirectory, Globals.BrepFileName);
+            string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
             //
             if (File.Exists(brepFileName)) File.Delete(brepFileName);
             //
@@ -2029,15 +2043,20 @@ namespace PrePoMax
         {
             _commands.Redo();
         }
-        public void RegenerateHistoryCommands(bool showImportDialog = false, bool showMeshDialog = false)
+        public void RegenerateHistoryCommands(bool showImportDialog, bool showMeshDialog, bool regenerateAll)
         {
             ViewGeometryModelResults prevView = _currentView;
             //
             string lastFileName = OpenedFileName;
-            _commands.ExecuteAllCommands(showImportDialog, showMeshDialog);
+            _commands.ExecuteAllCommands(showImportDialog, showMeshDialog, regenerateAll);
             OpenedFileName = lastFileName;
             //
-            CurrentView = prevView;
+            Command command = _commands.GetLastExecutedCommand(regenerateAll);
+            if (command is null) CurrentView = prevView;
+            else if (command is PreprocessCommand) CurrentView = ViewGeometryModelResults.Model;
+            else if (command is AnalysisCommand) CurrentView = ViewGeometryModelResults.Model;
+            else if (command is PostprocessCommand) CurrentView = ViewGeometryModelResults.Results;
+            else throw new NotSupportedException();
         }
         //
         public List<FileInOut.Output.Calculix.CalculixKeyword> GetCalculixModelKeywords()
@@ -2670,16 +2689,17 @@ namespace PrePoMax
         }
         private string ScaleGeometryPart(GeometryPart part, double[] scaleCenter, double[] scaleFactors)
         {
-            CalculixSettings settings = _settings.Calculix;
-            if (settings.WorkDirectory == null || !Directory.Exists(settings.WorkDirectory))
+            string workDirectory = _settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
             {
                 MessageBoxes.ShowWorkDirectoryError();
                 return null;
             }
             //
             string executable = Application.StartupPath + Globals.NetGenMesher;
-            string inputBrepFileName = Path.Combine(settings.WorkDirectory, Globals.BrepFileName);
-            string outputBrepFileName = Path.Combine(settings.WorkDirectory, Globals.BrepFileName);
+            string inputBrepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
+            string outputBrepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
             //
             if (File.Exists(inputBrepFileName)) File.Delete(inputBrepFileName);
             if (File.Exists(outputBrepFileName)) File.Delete(outputBrepFileName);
@@ -2693,7 +2713,7 @@ namespace PrePoMax
                               scaleFactors[0] + " " + scaleFactors[1] + " " + scaleFactors[2];
 
             //
-            _executableJob = new ExecutableJob(part.Name, executable, argument, settings.WorkDirectory);
+            _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
             _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
             _executableJob.Submit();
             // Job completed
@@ -3148,16 +3168,17 @@ namespace PrePoMax
         }
         private string FlipPartFaceOrientations(GeometryPart part, int[] faceIds)
         {
-            CalculixSettings settings = _settings.Calculix;
-            if (settings.WorkDirectory == null || !Directory.Exists(settings.WorkDirectory))
+            string workDirectory = _settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
             {
                 MessageBoxes.ShowWorkDirectoryError();
                 return null;
             }
             //
             string executable = Application.StartupPath + Globals.NetGenMesher;
-            string inputBrepFileName = Path.Combine(settings.WorkDirectory, Globals.BrepFileName);
-            string outputBrepFileName = Path.Combine(settings.WorkDirectory, Globals.BrepFileName);
+            string inputBrepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
+            string outputBrepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
             string faceIdsArgument = "";
             foreach (var id in faceIds) faceIdsArgument += (id + 1) + " ";  // add 1 for the geometry counting
             //
@@ -3171,7 +3192,7 @@ namespace PrePoMax
                               "\"" + outputBrepFileName.ToUTF8() + "\" " +
                               faceIdsArgument;
             //
-            _executableJob = new ExecutableJob(part.Name, executable, argument, settings.WorkDirectory);
+            _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
             _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
             _executableJob.Submit();
             // Job completed
@@ -3294,16 +3315,17 @@ namespace PrePoMax
         }
         private string SplitAFaceUsingTwoPoints(GeometryPart part, int faceId, FeNode node1, FeNode node2)
         {
-            CalculixSettings settings = _settings.Calculix;
-            if (settings.WorkDirectory == null || !Directory.Exists(settings.WorkDirectory))
+            string workDirectory = _settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
             {
                 MessageBoxes.ShowError("The work directory does not exist.");
                 return null;
             }
             //
             string executable = Application.StartupPath + Globals.NetGenMesher;
-            string inputBrepFileName = Path.Combine(settings.WorkDirectory, Globals.BrepFileName);
-            string outputBrepFileName = Path.Combine(settings.WorkDirectory, Globals.BrepFileName);
+            string inputBrepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
+            string outputBrepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
             //
             if (File.Exists(inputBrepFileName)) File.Delete(inputBrepFileName);
             if (File.Exists(outputBrepFileName)) File.Delete(outputBrepFileName);
@@ -3317,7 +3339,7 @@ namespace PrePoMax
                               node1.X + " " + node1.Y + " " + node1.Z + " " +
                               node2.X + " " + node2.Y + " " + node2.Z;
             //
-            _executableJob = new ExecutableJob(part.Name, executable, argument, settings.WorkDirectory);
+            _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
             _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
             _executableJob.Submit();
             // Job completed
@@ -3388,8 +3410,9 @@ namespace PrePoMax
             GeometryPart part = (GeometryPart)_model.Geometry.Parts[partName];
             if (part != null)
             {
-                CalculixSettings settings = _settings.Calculix;
-                string fileName = Path.Combine(settings.WorkDirectory, Globals.StlFileName);
+                string workDirectory = _settings.GetWorkDirectory();
+                //
+                string fileName = Path.Combine(workDirectory, Globals.StlFileName);
                 //
                 _form.SmoothPart(partName, 0, fileName);
                 //
@@ -3463,8 +3486,9 @@ namespace PrePoMax
             GeometryPart part = (GeometryPart)_model.Geometry.Parts[partName];
             if (part != null)
             {
-                CalculixSettings settings = _settings.Calculix;
-                string fileName = Path.Combine(settings.WorkDirectory, Globals.StlFileName);
+                string workDirectory = _settings.GetWorkDirectory();
+                //
+                string fileName = Path.Combine(workDirectory, Globals.StlFileName);
                 //
                 _form.CropPartWithCylinder(partName, 10, fileName);
                 //
@@ -3476,8 +3500,9 @@ namespace PrePoMax
             GeometryPart part = (GeometryPart)_model.Geometry.Parts[partName];
             if (part != null)
             {
-                CalculixSettings settings = _settings.Calculix;
-                string fileName = Path.Combine(settings.WorkDirectory, Globals.StlFileName);
+                string workDirectory = _settings.GetWorkDirectory();
+                //
+                string fileName = Path.Combine(workDirectory, Globals.StlFileName);
                 //
                 _form.CropPartWithCube(partName, 300, fileName);
                 //
@@ -3718,19 +3743,20 @@ namespace PrePoMax
         {
             if (part.PartType == PartType.Shell) return false;  // not supported
             //
-            CalculixSettings settings = _settings.Calculix;
-            if (settings.WorkDirectory == null || !Directory.Exists(settings.WorkDirectory))
+            string workDirectory = _settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
             {
                 MessageBoxes.ShowWorkDirectoryError();
                 return false;
             }
             //
             string executable = Application.StartupPath + Globals.NetGenMesher;
-            string stlFileName = Path.Combine(settings.WorkDirectory, Globals.StlFileName);
-            string volFileName = Path.Combine(settings.WorkDirectory, Globals.VolFileName);
-            string meshParametersFileName = Path.Combine(settings.WorkDirectory, Globals.MeshParametersFileName);
-            string meshRefinementFileName = Path.Combine(settings.WorkDirectory, Globals.MeshRefinementFileName);
-            string edgeNodesFileName = Path.Combine(settings.WorkDirectory, Globals.EdgeNodesFileName);
+            string stlFileName = Path.Combine(workDirectory, Globals.StlFileName);
+            string volFileName = Path.Combine(workDirectory, Globals.VolFileName);
+            string meshParametersFileName = Path.Combine(workDirectory, Globals.MeshParametersFileName);
+            string meshRefinementFileName = Path.Combine(workDirectory, Globals.MeshRefinementFileName);
+            string edgeNodesFileName = Path.Combine(workDirectory, Globals.EdgeNodesFileName);
             //
             if (File.Exists(stlFileName)) File.Delete(stlFileName);
             if (File.Exists(volFileName)) File.Delete(volFileName);
@@ -3753,7 +3779,7 @@ namespace PrePoMax
                               "\"" + meshRefinementFileName + "\" " +
                               "\"" + edgeNodesFileName + "\"";
 
-            _executableJob = new ExecutableJob(part.Name, executable, argument, settings.WorkDirectory);
+            _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
             _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
             _executableJob.Submit();
             // Job completed
@@ -3773,18 +3799,19 @@ namespace PrePoMax
         }
         public bool PreviewEdgeMeshFromBrepNetgen(GeometryPart part, OrderedDictionary<string, MeshSetupItem> meshSetupItems)
         {
-            CalculixSettings settings = _settings.Calculix;
-            if (settings.WorkDirectory == null || !Directory.Exists(settings.WorkDirectory))
+            string workDirectory = _settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
             {
                 MessageBoxes.ShowWorkDirectoryError();
                 return false;
             }
             //
             string executable = Application.StartupPath + Globals.NetGenMesher;
-            string brepFileName = Path.Combine(settings.WorkDirectory, Globals.BrepFileName);
-            string volFileName = Path.Combine(settings.WorkDirectory, Globals.VolFileName);
-            string meshParametersFileName = Path.Combine(settings.WorkDirectory, Globals.MeshParametersFileName);
-            string meshRefinementFileName = Path.Combine(settings.WorkDirectory, Globals.MeshRefinementFileName);
+            string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
+            string volFileName = Path.Combine(workDirectory, Globals.VolFileName);
+            string meshParametersFileName = Path.Combine(workDirectory, Globals.MeshParametersFileName);
+            string meshRefinementFileName = Path.Combine(workDirectory, Globals.MeshRefinementFileName);
             //
             if (File.Exists(brepFileName)) File.Delete(brepFileName);
             if (File.Exists(volFileName)) File.Delete(volFileName);
@@ -3804,7 +3831,7 @@ namespace PrePoMax
                               "\"" + meshParametersFileName + "\" " +
                               "\"" + meshRefinementFileName + "\"";
             //
-            _executableJob = new ExecutableJob(part.Name, executable, argument, settings.WorkDirectory);
+            _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
             _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
             _executableJob.Submit();
             // Job completed
@@ -3818,17 +3845,18 @@ namespace PrePoMax
         public bool PreviewEdgeMeshFromBrepGmsh(GeometryPart part, MeshSetupItem[] gmshSetupItems,
                                                 OrderedDictionary<string, MeshSetupItem> meshSetupItems)
         {
-            CalculixSettings settings = _settings.Calculix;
-            if (settings.WorkDirectory == null || !Directory.Exists(settings.WorkDirectory))
+            string workDirectory = _settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
             {
                 MessageBoxes.ShowWorkDirectoryError();
                 return false;
             }
             //
             string executable = Application.StartupPath + Globals.GmshMesher;
-            string brepFileName = Path.Combine(settings.WorkDirectory, Globals.BrepFileName);
-            string inpFileName = Path.Combine(settings.WorkDirectory, Globals.InpMeshFileName);
-            string gmshDataFileName = Path.Combine(settings.WorkDirectory, Globals.GmshDataFileName);
+            string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
+            string inpFileName = Path.Combine(workDirectory, Globals.InpMeshFileName);
+            string gmshDataFileName = Path.Combine(workDirectory, Globals.GmshDataFileName);
             //
             if (File.Exists(brepFileName)) File.Delete(brepFileName);
             if (File.Exists(inpFileName)) File.Delete(inpFileName);
@@ -3858,7 +3886,7 @@ namespace PrePoMax
             }
             else
             {
-                _executableJob = new ExecutableJob(part.Name, executable, argument, settings.WorkDirectory);
+                _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
                 _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
                 _executableJob.Submit();
                 // Job completed
@@ -3993,17 +4021,18 @@ namespace PrePoMax
         {
             _form.WriteDataToOutput("");
             //
-            CalculixSettings settings = _settings.Calculix;
-            if (settings.WorkDirectory == null || !Directory.Exists(settings.WorkDirectory))
+            string workDirectory = _settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
             {
                 MessageBoxes.ShowWorkDirectoryError();
                 return false;
             }
             //
             string executable = Application.StartupPath + Globals.GmshMesher;
-            string stlFileName = Path.Combine(settings.WorkDirectory, Globals.StlFileName);
-            string inpFileName = Path.Combine(settings.WorkDirectory, Globals.InpMeshFileName);
-            string gmshDataFileName = Path.Combine(settings.WorkDirectory, Globals.GmshDataFileName);
+            string stlFileName = Path.Combine(workDirectory, Globals.StlFileName);
+            string inpFileName = Path.Combine(workDirectory, Globals.InpMeshFileName);
+            string gmshDataFileName = Path.Combine(workDirectory, Globals.GmshDataFileName);
             //
             if (File.Exists(stlFileName)) File.Delete(stlFileName);
             if (File.Exists(inpFileName)) File.Delete(inpFileName);
@@ -4035,7 +4064,7 @@ namespace PrePoMax
             }
             else
             {
-                _executableJob = new ExecutableJob(part.Name, executable, argument, settings.WorkDirectory);
+                _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
                 _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
                 _executableJob.Submit();
                 // Job completed
@@ -4051,19 +4080,20 @@ namespace PrePoMax
         }
         private bool CreateMeshFromSolidStl(GeometryPart part)
         {
-            CalculixSettings settings = _settings.Calculix;
-            if (settings.WorkDirectory == null || !Directory.Exists(settings.WorkDirectory))
+            string workDirectory = _settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
             {
                 MessageBoxes.ShowWorkDirectoryError();
                 return false;
             }
             //
             string executable = Application.StartupPath + Globals.NetGenMesher;
-            string stlFileName = Path.Combine(settings.WorkDirectory, Globals.StlFileName);
-            string volFileName = Path.Combine(settings.WorkDirectory, Globals.VolFileName);
-            string meshParametersFileName = Path.Combine(settings.WorkDirectory, Globals.MeshParametersFileName);
-            string meshRefinementFileName = Path.Combine(settings.WorkDirectory, Globals.MeshRefinementFileName);
-            string edgeNodesFileName = Path.Combine(settings.WorkDirectory, Globals.EdgeNodesFileName);
+            string stlFileName = Path.Combine(workDirectory, Globals.StlFileName);
+            string volFileName = Path.Combine(workDirectory, Globals.VolFileName);
+            string meshParametersFileName = Path.Combine(workDirectory, Globals.MeshParametersFileName);
+            string meshRefinementFileName = Path.Combine(workDirectory, Globals.MeshRefinementFileName);
+            string edgeNodesFileName = Path.Combine(workDirectory, Globals.EdgeNodesFileName);
             //
             if (File.Exists(stlFileName)) File.Delete(stlFileName);
             if (File.Exists(volFileName)) File.Delete(volFileName);
@@ -4086,7 +4116,7 @@ namespace PrePoMax
                               "\"" + meshRefinementFileName + "\" " +
                               "\"" + edgeNodesFileName + "\"";
             //
-            _executableJob = new ExecutableJob(part.Name, executable, argument, settings.WorkDirectory);
+            _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
             _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
             _executableJob.Submit();
             // Job completed
@@ -4099,18 +4129,19 @@ namespace PrePoMax
         }
         private bool CreateMeshFromShellStl(GeometryPart part)
         {
-            CalculixSettings settings = _settings.Calculix;
-            if (settings.WorkDirectory == null || !Directory.Exists(settings.WorkDirectory))
+            string workDirectory = _settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
             {
                 MessageBoxes.ShowWorkDirectoryError();
                 return false;
             }
             //
             string executable = Application.StartupPath + Globals.MmgsMesher;
-            string mmgInFileName = Path.Combine(settings.WorkDirectory, Globals.MmgMeshFileName);
-            string mmgOutFileName = Path.Combine(settings.WorkDirectory, Path.GetFileNameWithoutExtension(Globals.MmgMeshFileName) +
+            string mmgInFileName = Path.Combine(workDirectory, Globals.MmgMeshFileName);
+            string mmgOutFileName = Path.Combine(workDirectory, Path.GetFileNameWithoutExtension(Globals.MmgMeshFileName) +
                                                  ".o" + Path.GetExtension(Globals.MmgMeshFileName));
-            string mmgSolFileName = Path.Combine(settings.WorkDirectory,
+            string mmgSolFileName = Path.Combine(workDirectory,
                                                  Path.GetFileNameWithoutExtension(Globals.MmgMeshFileName) +
                                                  ".sol");
             //
@@ -4138,7 +4169,7 @@ namespace PrePoMax
                               "-in \"" + mmgInFileName + "\" " +
                               "-out \"" + mmgOutFileName + "\" ";
             //
-            _executableJob = new ExecutableJob(part.Name, executable, argument, settings.WorkDirectory);
+            _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
             _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
             _executableJob.Submit();
             // Job completed
@@ -4166,7 +4197,7 @@ namespace PrePoMax
                            "-in \"" + mmgInFileName + "\" " +
                            "-out \"" + mmgOutFileName + "\" ";
                 //
-                _executableJob = new ExecutableJob(part.Name, executable, argument, settings.WorkDirectory);
+                _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
                 _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
                 _executableJob.Submit();
                 //
@@ -4188,18 +4219,19 @@ namespace PrePoMax
         }
         private bool CreateMeshFromBrepNetgen(GeometryPart part)
         {
-            CalculixSettings settings = _settings.Calculix;
-            if (settings.WorkDirectory == null || !Directory.Exists(settings.WorkDirectory))
+            string workDirectory = _settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
             {
                 MessageBoxes.ShowWorkDirectoryError();
                 return false;
             }
             //
             string executable = Application.StartupPath + Globals.NetGenMesher;
-            string brepFileName = Path.Combine(settings.WorkDirectory, Globals.BrepFileName);
-            string volFileName = Path.Combine(settings.WorkDirectory, Globals.VolFileName);
-            string meshParametersFileName = Path.Combine(settings.WorkDirectory, Globals.MeshParametersFileName);
-            string meshRefinementFileName = Path.Combine(settings.WorkDirectory, Globals.MeshRefinementFileName);
+            string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
+            string volFileName = Path.Combine(workDirectory, Globals.VolFileName);
+            string meshParametersFileName = Path.Combine(workDirectory, Globals.MeshParametersFileName);
+            string meshRefinementFileName = Path.Combine(workDirectory, Globals.MeshRefinementFileName);
             //
             if (File.Exists(brepFileName)) File.Delete(brepFileName);
             if (File.Exists(volFileName)) File.Delete(volFileName);
@@ -4219,7 +4251,7 @@ namespace PrePoMax
                               "\"" + meshParametersFileName + "\" " +
                               "\"" + meshRefinementFileName + "\"";
             //
-            _executableJob = new ExecutableJob(part.Name, executable, argument, settings.WorkDirectory);
+            _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
             _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
             _executableJob.Submit();
             // Job completed
@@ -4235,17 +4267,18 @@ namespace PrePoMax
         {
             _form.WriteDataToOutput("");
             //
-            CalculixSettings settings = _settings.Calculix;
-            if (settings.WorkDirectory == null || !Directory.Exists(settings.WorkDirectory))
+            string workDirectory = _settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
             {
                 MessageBoxes.ShowWorkDirectoryError();
                 return false;
             }
             //
             string executable = Application.StartupPath + Globals.GmshMesher;
-            string brepFileName = Path.Combine(settings.WorkDirectory, Globals.BrepFileName);
-            string inpFileName = Path.Combine(settings.WorkDirectory, Globals.InpMeshFileName);
-            string gmshDataFileName = Path.Combine(settings.WorkDirectory, Globals.GmshDataFileName);
+            string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
+            string inpFileName = Path.Combine(workDirectory, Globals.InpMeshFileName);
+            string gmshDataFileName = Path.Combine(workDirectory, Globals.GmshDataFileName);
             //
             if (File.Exists(brepFileName)) File.Delete(brepFileName);
             if (File.Exists(inpFileName)) File.Delete(inpFileName);
@@ -4276,7 +4309,7 @@ namespace PrePoMax
             }
             else
             {
-                _executableJob = new ExecutableJob(part.Name, executable, argument, settings.WorkDirectory);
+                _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
                 _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
                 _executableJob.Submit();
                 // Job completed
@@ -4888,18 +4921,19 @@ namespace PrePoMax
         private bool RemeshShellElementsByPart(MeshPart part, int[] elementIds, RemeshingParameters remeshingParameters,
                                                bool preview)
         {
-            CalculixSettings settings = _settings.Calculix;
-            if (settings.WorkDirectory == null || !Directory.Exists(settings.WorkDirectory))
+            string workDirectory = _settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
             {
                 MessageBoxes.ShowWorkDirectoryError();
                 return false;
             }
             //
             string executable = Application.StartupPath + Globals.MmgsMesher;
-            string mmgInFileName = Path.Combine(settings.WorkDirectory, Globals.MmgMeshFileName);
-            string mmgOutFileName = Path.Combine(settings.WorkDirectory, Path.GetFileNameWithoutExtension(Globals.MmgMeshFileName) +
+            string mmgInFileName = Path.Combine(workDirectory, Globals.MmgMeshFileName);
+            string mmgOutFileName = Path.Combine(workDirectory, Path.GetFileNameWithoutExtension(Globals.MmgMeshFileName) +
                                                  ".o" + Path.GetExtension(Globals.MmgMeshFileName));
-            string mmgSolFileName = Path.Combine(settings.WorkDirectory,
+            string mmgSolFileName = Path.Combine(workDirectory,
                                                  Path.GetFileNameWithoutExtension(Globals.MmgMeshFileName) +
                                                  ".sol");
             //
@@ -4927,7 +4961,7 @@ namespace PrePoMax
                               "-out \"" + mmgOutFileName + "\" " +
                               "-v 5 ";
             //
-            _executableJob = new ExecutableJob(part.Name, executable, argument, settings.WorkDirectory);
+            _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
             _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
             _executableJob.Submit();
             // Job completed
@@ -5026,15 +5060,16 @@ namespace PrePoMax
         }
         private Dictionary<int, List<Vec3D>> GeNormalsFromGeometryAtMeshNodes(GeometryPart part, FeMesh mesh)
         {
-            CalculixSettings settings = _settings.Calculix;
-            if (settings.WorkDirectory == null || !Directory.Exists(settings.WorkDirectory))
+            string workDirectory = _settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
             {
                 MessageBoxes.ShowWorkDirectoryError();
                 return null;
             }
             //
             string executable = Application.StartupPath + Globals.GmshMesher;
-            string brepFileName = Path.Combine(settings.WorkDirectory, Globals.BrepFileName);
+            string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
             //
             if (File.Exists(brepFileName)) File.Delete(brepFileName);
             //
@@ -5079,21 +5114,22 @@ namespace PrePoMax
         }
         public bool SplitPartMeshUsingSurface(SplitPartMeshData splitPartMeshData)
         {
-            CalculixSettings settings = _settings.Calculix;
-            if (settings.WorkDirectory == null || !Directory.Exists(settings.WorkDirectory))
+            string workDirectory = _settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
             {
                 MessageBoxes.ShowWorkDirectoryError();
                 return false;
             }
             //
             string executable = Application.StartupPath + Globals.Mmg3DMesher;
-            string mmgInFileName = Path.Combine(settings.WorkDirectory, Globals.MmgMeshFileName);
-            string mmgOutFileName = Path.Combine(settings.WorkDirectory, Path.GetFileNameWithoutExtension(Globals.MmgMeshFileName) +
+            string mmgInFileName = Path.Combine(workDirectory, Globals.MmgMeshFileName);
+            string mmgOutFileName = Path.Combine(workDirectory, Path.GetFileNameWithoutExtension(Globals.MmgMeshFileName) +
                                                  ".o" + Path.GetExtension(Globals.MmgMeshFileName));
-            string mmgSolFileName = Path.Combine(settings.WorkDirectory,
+            string mmgSolFileName = Path.Combine(workDirectory,
                                                  Path.GetFileNameWithoutExtension(Globals.MmgMeshFileName) +
                                                  ".sol");
-            string mmgMatFileName = Path.Combine(settings.WorkDirectory,
+            string mmgMatFileName = Path.Combine(workDirectory,
                                                  Path.GetFileNameWithoutExtension(Globals.MmgMeshFileName) +
                                                  ".mmg3d");
             //
@@ -5130,7 +5166,7 @@ namespace PrePoMax
                               "-out \"" + mmgOutFileName + "\" " +
                               "-v 5 ";  // this solves the problem of mmg not stopping
             //
-            _executableJob = new ExecutableJob("SplitMeshPart", executable, argument, settings.WorkDirectory);
+            _executableJob = new ExecutableJob("SplitMeshPart", executable, argument, workDirectory);
             _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
             _executableJob.Submit();
             // Job completed
@@ -8513,7 +8549,7 @@ namespace PrePoMax
         }
         public void ReplaceHistoryOutputCommand(string stepName, string oldHistoryOutputName, HistoryOutput historyOutput)
         {
-            CReplaceHisotryOutput comm = new CReplaceHisotryOutput(stepName, oldHistoryOutputName, historyOutput);
+            CReplaceHistoryOutput comm = new CReplaceHistoryOutput(stepName, oldHistoryOutputName, historyOutput);
             _commands.AddAndExecute(comm);
         }
         public void DuplicateHistoryOutputsCommand(string stepName, string[] historyOutputNames)
@@ -8523,7 +8559,7 @@ namespace PrePoMax
         }
         public void PropagateHistoryOutputCommand(string stepName, string historyOutputName)
         {
-            CPropagateHisotryOutput comm = new CPropagateHisotryOutput(stepName, historyOutputName);
+            CPropagateHistoryOutput comm = new CPropagateHistoryOutput(stepName, historyOutputName);
             _commands.AddAndExecute(comm);
         }
         public void RemoveHistoryOutputsCommand(string stepName, string[] historyOutputNames)
@@ -9462,13 +9498,14 @@ namespace PrePoMax
         }
         public string GetBrepFileName()
         {
-            CalculixSettings settings = _settings.Calculix;
-            if (settings.WorkDirectory == null || !Directory.Exists(settings.WorkDirectory))
+            string workDirectory = _settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
             {
                 MessageBoxes.ShowWorkDirectoryError();
                 return null;
             }
-            return Path.Combine(settings.WorkDirectory, Globals.BrepFileName);
+            return Path.Combine(workDirectory, Globals.BrepFileName);
         }
         private void ApplyModelUnitSystem()
         {
@@ -10667,6 +10704,28 @@ namespace PrePoMax
         #endregion #################################################################################################################
 
         #region Result field output  ###############################################################################################
+        // COMMANDS ********************************************************************************
+        public void AddResultFieldOutputCommand(ResultFieldOutput resultFieldOutput)
+        {
+            CAddResultFieldOutput comm = new CAddResultFieldOutput(resultFieldOutput);
+            _commands.AddAndExecute(comm);
+        }
+        public void ReplaceResultFieldOutputCommand(string oldResultFieldOutputName, ResultFieldOutput resultFieldOutput)
+        {
+            CReplaceResultFieldOutput comm = new CReplaceResultFieldOutput(oldResultFieldOutputName, resultFieldOutput);
+            _commands.AddAndExecute(comm);
+        }
+        public void RemoveResultFieldOutputsCommand(string[] resultFieldOutputNames)
+        {
+            CRemoveResultFieldOutputs comm = new CRemoveResultFieldOutputs(resultFieldOutputNames);
+            _commands.AddAndExecute(comm);
+        }
+        public void RemoveResultFieldOutputComponentsCommand(string fieldOutputName, string[] componentNames)
+        {
+            CRemoveResultFieldOutputComponents comm = new CRemoveResultFieldOutputComponents(fieldOutputName, componentNames);
+            _commands.AddAndExecute(comm);
+        }
+        //******************************************************************************************
         public string[] GetResultFieldOutputNames()
         {
             return _allResults.CurrentResult.GetAllFieldNames();
@@ -10759,10 +10818,45 @@ namespace PrePoMax
             FeResultsUpdate(UpdateType.Check | UpdateType.DrawResults);
         }
         //
-        
+
         #endregion #################################################################################################################
 
         #region Result history output  #############################################################################################
+        // COMMANDS ********************************************************************************
+        public void AddResultHistoryOutputCommand(ResultHistoryOutput resultHistoryOutput)
+        {
+            CAddResultHistoryOutput comm = new CAddResultHistoryOutput(resultHistoryOutput);
+            _commands.AddAndExecute(comm);
+        }
+        public void ReplaceResultHistoryOutputCommand(string oldResultHistoryOutputName, ResultHistoryOutput resultHistoryOutput)
+        {
+            CReplaceResultHistoryOutput comm = new CReplaceResultHistoryOutput(oldResultHistoryOutputName, resultHistoryOutput);
+            _commands.AddAndExecute(comm);
+        }
+        public void RemoveResultHistoryOutputsCommand(string[] resultHistoryOutputNames)
+        {
+            CRemoveResultHistoryOutputs comm = new CRemoveResultHistoryOutputs(resultHistoryOutputNames);
+            _commands.AddAndExecute(comm);
+        }
+        public void RemoveResultHistoryFieldsCommand(string historyResultSetName, string[] historyResultFieldNames)
+        {
+            CRemoveResultHistoryFields comm = new CRemoveResultHistoryFields(historyResultSetName, historyResultFieldNames);
+            _commands.AddAndExecute(comm);
+        }
+        public void ExportResultHistoryOutputCommand(HistoryResultSetExporter exporter)
+        {
+            CExportResultHistoryOutput comm = new CExportResultHistoryOutput(exporter);
+            _commands.AddAndExecute(comm);
+        }
+        public void RemoveResultHistoryFieldsCommand(string historyResultSetName, string historyResultFieldName,
+                                                     string[] historyResultComponentNames)
+        {
+            CRemoveResultHistoryComponents comm = new CRemoveResultHistoryComponents(historyResultSetName,
+                                                                                     historyResultFieldName,
+                                                                                     historyResultComponentNames);
+            _commands.AddAndExecute(comm);
+        }
+        //******************************************************************************************
         public string[] GetHistoryResultSetNames()
         {
             if (_allResults.CurrentResult != null && _allResults.CurrentResult.GetHistory() != null)
@@ -10813,9 +10907,16 @@ namespace PrePoMax
             //
             FeResultsUpdate(UpdateType.Check);
         }
-        //
+        // Export
         public void ExportResultHistoryOutput(HistoryResultSetExporter exporter)
         {
+            if (_regenerateFileName != null && File.Exists(_regenerateFileName))
+            {
+                string path = Path.GetDirectoryName(_regenerateFileName);
+                string newFileName = Path.Combine(path, Path.GetFileName(exporter.FileName));
+                exporter.FileName = newFileName;
+            }
+            //
             if (File.Exists(exporter.FileName)) File.Delete(exporter.FileName);
             //
             exporter.Export(CurrentResult);
@@ -10842,15 +10943,7 @@ namespace PrePoMax
             //
             FeResultsUpdate(UpdateType.Check);
         }
-        public void RemoveResultHistoryResultSets(string[] historyResultSetNames)
-        {
-            _allResults.CurrentResult.RemoveResultHistoryResultSets(historyResultSetNames);
-            _form.ClearActiveTreeSelection();   // prevents errors on _form.RemoveTreeNode
-            //
-            ViewGeometryModelResults view = ViewGeometryModelResults.Results;
-            foreach (var name in historyResultSetNames) _form.RemoveTreeNode<HistoryResultSet>(view, name, null);
-        }
-        public void RemoveResultHistoryResultFields(string historyResultSetName, string[] historyResultFieldNames)
+        public void RemoveResultHistoryFields(string historyResultSetName, string[] historyResultFieldNames)
         {
             _allResults.CurrentResult.RemoveResultHistoryResultFields(historyResultSetName, historyResultFieldNames);
             _form.ClearActiveTreeSelection();   // prevents errors on _form.RemoveTreeNode
@@ -10859,9 +10952,8 @@ namespace PrePoMax
             foreach (var name in historyResultFieldNames)
                 _form.RemoveTreeNode<HistoryResultField>(view, name, historyResultSetName);
         }
-        public void RemoveResultHistoryResultComponents(string historyResultSetName,
-                                                        string historyResultFieldName,
-                                                        string[] historyResultComponentNames)
+        public void RemoveResultHistoryComponents(string historyResultSetName, string historyResultFieldName,
+                                                  string[] historyResultComponentNames)
         {
             _allResults.CurrentResult.RemoveResultHistoryResultComponents(historyResultSetName, historyResultFieldName,
                                                          historyResultComponentNames);

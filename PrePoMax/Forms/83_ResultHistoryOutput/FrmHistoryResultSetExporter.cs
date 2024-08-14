@@ -86,7 +86,7 @@ namespace PrePoMax.Forms
             // Create
             if (_viewHistoryResultSetExporter != null)
             {
-                _controller. ExportResultHistoryOutput(HistoryResultSetExporter);
+                _controller.ExportResultHistoryOutputCommand(HistoryResultSetExporter);
             }
         }
         protected override bool OnPrepareForm(string stepName, string historyResultSetExporterToEditName)
@@ -95,7 +95,7 @@ namespace PrePoMax.Forms
             //
             _propertyItemChanged = false;
             _viewHistoryResultSetExporter = null;
-            _workDirectory = _controller.Settings.Calculix.WorkDirectory;
+            _workDirectory = _controller.Settings.GetWorkDirectory();
             string[] historyResultSets = _controller.GetHistoryResultSetNames();
             //
             if (historyResultSets == null || historyResultSets.Length == 0)

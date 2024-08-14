@@ -15,10 +15,10 @@ namespace PrePoMax.Commands
         private string _stepName;
         private string[] _fieldOutputNames;
 
+
         // Constructor                                                                                                              
         public CRemoveFieldOutputs(string stepName, string[] fieldOutputNames)
             :base("Remove field outputs")
-
         {
             _stepName = stepName;
             _fieldOutputNames = fieldOutputNames;
@@ -34,7 +34,6 @@ namespace PrePoMax.Commands
 
         public override string GetCommandString()
         {
-
             return base.GetCommandString() + _stepName + ": " + GetArrayAsString(_fieldOutputNames);
         }
     }

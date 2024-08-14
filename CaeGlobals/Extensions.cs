@@ -208,6 +208,29 @@ namespace CaeGlobals
         public static double[] ToDouble(this decimal[] arr) => Array.ConvertAll(arr, x => (double)x);
         public static double[] ToDouble(this int[] arr) => Array.ConvertAll(arr, x => (double)x);
         public static double[] ToDouble(this float[] arr) => Array.ConvertAll(arr, x => (double)x);
+        //
+        public static double[] ToFlatArray(this double[][] arr)
+        {
+            int index = 0;
+            double[] result = new double[arr.Length * arr[0].Length];
+            for (int i = 0; i < arr.Length; i++)
+            {
+                arr[i].CopyTo(result, index);
+                index += arr[i].Length;
+            }
+            return result;
+        }
+        public static double[][] ToJaggedArray(this double[] arr, int numRows)
+        {
+            int numCol = arr.Length / numRows;
+            double[][] result = new double[numRows][];
+            for (int i = 0; i < numRows; i++)
+            {
+                result[i] = new double[numCol];
+                Array.Copy(arr, i * numCol, result[i], 0, numCol);
+            }
+            return result;
+        }
         // String Array
         public static string ToUTF8(this string text)
         {

@@ -161,12 +161,12 @@ namespace PrePoMax.Forms
             // Create
             if (_resultHistoryOutputToEditName == null)
             {
-                _controller.AddResultHistoryOutput(ResultHistoryOutput);
+                _controller.AddResultHistoryOutputCommand(ResultHistoryOutput);
             }
             // Replace
             else if (_propertyItemChanged)
             {
-                _controller.ReplaceResultHistoryOutput(_resultHistoryOutputToEditName, ResultHistoryOutput);
+                _controller.ReplaceResultHistoryOutputCommand(_resultHistoryOutputToEditName, ResultHistoryOutput);
             }
             // If all is successful close the ItemSetSelectionForm - except for OKAddNew
             if (!onOkAddNew) ItemSetDataEditor.SelectionForm.Hide();

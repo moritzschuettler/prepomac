@@ -27,8 +27,8 @@ namespace PrePoMax.Settings
         [Id(1, 1)]
         public string WorkDirectory
         {
-            get { return _calculixSettings.WorkDirectory; }
-            set { _calculixSettings.WorkDirectory = value; }
+            get { return _calculixSettings.WorkDirectoryForSettingsOnly; }
+            set { _calculixSettings.WorkDirectoryForSettingsOnly = value; }
         }
         //
         [CategoryAttribute("Calculix")]

@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 using CaeGlobals;
+using FastColoredTextBoxNS;
 
 namespace PrePoMax.Commands
 {
@@ -129,23 +130,19 @@ namespace PrePoMax.Commands
             //
             return true;
         }
-        public void ExecuteAllCommandsFromLastSave()
-        {
-            ExecuteAllCommands();
-        }
         public void ExecuteAllCommands()
         {
-            ExecuteAllCommands(false, false, null);
+            ExecuteAllCommands(false, false, true, null);
         }
-        public void ExecuteAllCommands(bool showImportDialog, bool showMeshDialog)
+        public void ExecuteAllCommands(bool showImportDialog, bool showMeshDialog, bool regenerateAll)
         {
-            ExecuteAllCommands(showImportDialog, showMeshDialog, null);
+            ExecuteAllCommands(showImportDialog, showMeshDialog, regenerateAll, null);
         }
         public void ExecuteAllCommandsFromLastSave(CSaveToPmx lastSave)
         {
-            ExecuteAllCommands(false, false, lastSave);
+            ExecuteAllCommands(false, false, true, lastSave);
         }
-        public void ExecuteAllCommands(bool showImportDialog, bool showMeshDialog, CSaveToPmx lastSave)
+        public void ExecuteAllCommands(bool showImportDialog, bool showMeshDialog, bool regenerateAll, CSaveToPmx lastSave)
         {
             int count = 0;
             bool executeWithDialog;
@@ -153,7 +150,7 @@ namespace PrePoMax.Commands
             //
             foreach (Command command in _commands)
             {
-                if (!(command is PreprocessCommand)) continue;
+                if (!regenerateAll && !(command is PreprocessCommand)) continue;
                 //
                 if (count++ <= _currPositionIndex)
                 {
@@ -225,6 +222,16 @@ namespace PrePoMax.Commands
             }
             //
             return null;
+        }
+        public Command GetLastExecutedCommand(bool regenerateAll)
+        {
+            Command lastCommand = null;
+            foreach (var command in _commands)
+            {
+                if ((!regenerateAll && !(command is PreprocessCommand)) || command is CSaveToPmx) continue;
+                lastCommand = command;
+            }
+            return lastCommand;
         }
         // Clear
         public void Clear()

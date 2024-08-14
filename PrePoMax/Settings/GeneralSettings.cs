@@ -26,7 +26,6 @@ namespace PrePoMax
         //
         private LinkedList<string> _recentFiles;
         private List<string> _materialLibraryFiles;
-
         // Form size and position
         private FormWindowState _formWindowState;
         private Size _formSize;

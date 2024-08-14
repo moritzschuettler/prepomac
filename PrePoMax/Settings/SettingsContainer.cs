@@ -219,7 +219,7 @@ namespace PrePoMax
             {
                 return Path.GetDirectoryName(lastFileName);
             }
-            else return _calculix.WorkDirectory;
+            else return _calculix.WorkDirectoryForSettingsOnly;
         }
       
     }

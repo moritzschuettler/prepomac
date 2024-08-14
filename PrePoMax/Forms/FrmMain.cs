@@ -1114,8 +1114,8 @@ namespace PrePoMax
                 ApplyActionOnItems<Field>(items, DeleteResultFieldOutputs);
                 ApplyActionOnItems<ResultFieldOutput>(items, DeleteResultFieldOutputs);
                 //
-                DeleteResultHistoryResultComponents(items);
-                ApplyActionOnItemsInStep<HistoryResultField>(items, parentNames, DeleteResultHistoryResultFields);
+                DeleteResultHistoryComponents(items);
+                ApplyActionOnItemsInStep<HistoryResultField>(items, parentNames, DeleteResultHistoryFields);
                 ApplyActionOnItems<HistoryResultSet>(items, DeleteResultHistoryOutputs);
                 ApplyActionOnItems<ResultHistoryOutput>(items, DeleteResultHistoryOutputs);
             }
@@ -1462,9 +1462,13 @@ namespace PrePoMax
         private async Task OpenAsync(string fileName, Action<string> ActionOnFile, bool resetCamera = true, Action callback = null)
         {
             bool stateSet = false;
+            string stateText = Globals.OpeningText;
             try
             {
-                if (SetStateWorking(Globals.OpeningText) || IsStateRegeneratingOrUndoing())
+                string extension = Path.GetExtension(fileName).ToLower();
+                if (extension == ".pmh") stateText = Globals.RegeneratingText;
+                //
+                if (SetStateWorking(stateText) || IsStateRegeneratingOrUndoing())
                 {
                     stateSet = true;
                     await Task.Run(() => Open(fileName, ActionOnFile, resetCamera));
@@ -1481,7 +1485,7 @@ namespace PrePoMax
             }
             finally
             {
-                if (stateSet) SetStateReady(Globals.OpeningText);
+                if (stateSet) SetStateReady(stateText);
             }
         }
         public void Open(string fileName, Action<string> ActionOnFile, bool resetCamera = true)
@@ -2126,19 +2130,34 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiRegenerate_Click(object sender, EventArgs e)
+        //
+        private void tsmiRegenerateModel_Click(object sender, EventArgs e)
         {
-            RegenerateHistory(false, false);
+            RegenerateHistory(false, false, false);
         }
-        private void tsmiRegenerateUsingOtherFiles_Click(object sender, EventArgs e)
+        private void tsmiRegenerateModelUsingOtherFiles_Click(object sender, EventArgs e)
         {
-            RegenerateHistory(true, false);
+            RegenerateHistory(true, false, false);
         }
-        private void tsmiRegenerateForRemeshing_Click(object sender, EventArgs e)
+        private void tsmiRegenerateModelWithRemeshing_Click(object sender, EventArgs e)
         {
-            RegenerateHistory(false, true);
+            RegenerateHistory(false, true, false);
         }
-        private async void RegenerateHistory(bool showImportDialog, bool showMeshDialog)
+        //
+        private void tsmiRegenerateAll_Click(object sender, EventArgs e)
+        {
+            RegenerateHistory(false, false, true);
+        }
+        private void tsmiRegenerateAllUsingOtherFiles_Click(object sender, EventArgs e)
+        {
+            RegenerateHistory(true, false, true);
+        }
+        private void tsmiRegenerateAllWithRemeshing_Click(object sender, EventArgs e)
+        {
+            RegenerateHistory(false, true, true);
+        }
+        //
+        public async void RegenerateHistory(bool showImportDialog, bool showMeshDialog, bool regenerateAll)
         {
             try
             {
@@ -2147,7 +2166,7 @@ namespace PrePoMax
                 Application.DoEvents();
                 SetStateWorking(Globals.RegeneratingText);
                 _modelTree.ScreenUpdating = false;
-                await Task.Run(() => _controller.RegenerateHistoryCommands(showImportDialog, showMeshDialog));
+                await Task.Run(() => _controller.RegenerateHistoryCommands(showImportDialog, showMeshDialog, regenerateAll));
             }
             catch (Exception ex)
             {
@@ -2160,6 +2179,8 @@ namespace PrePoMax
                 RegenerateTree();
                 //
                 SetMenuAndToolStripVisibility();
+                // During regeneration the tree is empty
+                if (_controller.CurrentResult != null) SelectFirstComponentOfFirstFieldOutput(); 
                 //
                 SetZoomToFit(true);
             }
@@ -7211,7 +7232,7 @@ namespace PrePoMax
             if (MessageBoxes.ShowWarningQuestion("OK to delete selected field outputs?" + Environment.NewLine
                                                  + fieldOutputNames.ToRows()) == DialogResult.OK)
             {
-                _controller.RemoveResultFieldOutputs(fieldOutputNames);
+                _controller.RemoveResultFieldOutputsCommand(fieldOutputNames);
             }
         }
         public void DeleteResultFieldOutputComponents(string fieldOutputName, string[] componentNames)
@@ -7219,7 +7240,7 @@ namespace PrePoMax
             if (MessageBoxes.ShowWarningQuestion("OK to delete selected components from field output " + fieldOutputName + "?"
                                                  + Environment.NewLine + componentNames.ToRows()) == DialogResult.OK)
             {
-                _controller.RemoveResultFieldOutputComponents(fieldOutputName, componentNames);
+                _controller.RemoveResultFieldOutputComponentsCommand(fieldOutputName, componentNames);
             }
         }
 
@@ -7290,18 +7311,18 @@ namespace PrePoMax
             if (MessageBoxes.ShowWarningQuestion("OK to delete selected history outputs?" + Environment.NewLine
                                                  + resultHistoryOutputNames.ToRows()) == DialogResult.OK)
             {
-                _controller.RemoveResultHistoryOutputs(resultHistoryOutputNames);
+                _controller.RemoveResultHistoryOutputsCommand(resultHistoryOutputNames);
             }
         }
-        public void DeleteResultHistoryResultFields(string historyResultSetName, string[] historyResultFieldNames)
+        public void DeleteResultHistoryFields(string historyResultSetName, string[] historyResultFieldNames)
         {
             if (MessageBoxes.ShowWarningQuestion("OK to delete selected fields from history output " + historyResultSetName + "?"
                                                  + Environment.NewLine + historyResultFieldNames.ToRows()) == DialogResult.OK)
             {
-                _controller.RemoveResultHistoryResultFields(historyResultSetName, historyResultFieldNames);
+                _controller.RemoveResultHistoryFieldsCommand(historyResultSetName, historyResultFieldNames);
             }
         }
-        public void DeleteResultHistoryResultComponents(NamedClass[] items)
+        public void DeleteResultHistoryComponents(NamedClass[] items)
         {
             Dictionary<string, List<string>> parentItemNames;
             Dictionary<string, Dictionary<string, List<string>>> parentParentItemNames =
@@ -7333,9 +7354,9 @@ namespace PrePoMax
                                                          parentEntry.Key + "?" + Environment.NewLine +
                                                          itemNames.ToRows()) == DialogResult.OK)
                     {
-                        _controller.RemoveResultHistoryResultComponents(parentParentEntry.Key,
-                                                                        parentEntry.Key,
-                                                                        itemNames);
+                        _controller.RemoveResultHistoryFieldsCommand(parentParentEntry.Key,
+                                                                     parentEntry.Key,
+                                                                     itemNames);
                     }
                 }
             }
@@ -8864,7 +8885,10 @@ namespace PrePoMax
         // Results
         public void SetFieldData(string name, string component)
         {
-            SetFieldData(name, component, GetCurrentFieldOutputStepId(), GetCurrentFieldOutputStepIncrementId());
+            InvokeIfRequired(() =>
+            {
+                SetFieldData(name, component, GetCurrentFieldOutputStepId(), GetCurrentFieldOutputStepIncrementId());
+            });
         }
         public void SetFieldData(string name, string component, int stepId, int stepIncrementId)
         {
@@ -9577,13 +9601,14 @@ namespace PrePoMax
                 faceIdNodes.Add(FeMesh.GmshTopologyId(i, part.PartId), nodes.ToArray());
             }
             //
-            CalculixSettings settings = _controller.Settings.Calculix;
-            if (settings.WorkDirectory == null || !Directory.Exists(settings.WorkDirectory))
+            string workDirectory = _controller.Settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
             {
                 MessageBoxes.ShowWorkDirectoryError();
                 return;
             }
-            string brepFileName = Path.Combine(settings.WorkDirectory, Globals.BrepFileName);
+            string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
             //
             if (File.Exists(brepFileName)) File.Delete(brepFileName);
             //
@@ -9839,7 +9864,7 @@ namespace PrePoMax
             }
         }
 
-       
+        
     }
 }
 

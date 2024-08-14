@@ -157,6 +157,16 @@
     <Compile Include="Command\0110_Results\01_Mesh\01_Part\CReplaceResultPartProperties.cs" />
     <Compile Include="Command\0110_Results\01_Mesh\01_Part\CSetTransparencyForResultParts.cs" />
     <Compile Include="Command\0110_Results\01_Mesh\01_Part\CShowResultParts.cs" />
+    <Compile Include="Command\0110_Results\02_FieldOutput\CAddResultFieldOutput.cs" />
+    <Compile Include="Command\0110_Results\02_FieldOutput\CRemoveResultFieldOutputComponents.cs" />
+    <Compile Include="Command\0110_Results\02_FieldOutput\CRemoveResultFieldOutputs.cs" />
+    <Compile Include="Command\0110_Results\02_FieldOutput\CReplaceResultFieldOutput.cs" />
+    <Compile Include="Command\0110_Results\03_HistoryOutput\CExportResultHistoryOutput.cs" />
+    <Compile Include="Command\0110_Results\03_HistoryOutput\CAddResultHistoryOutput.cs" />
+    <Compile Include="Command\0110_Results\03_HistoryOutput\CRemoveResultHistoryFields.cs" />
+    <Compile Include="Command\0110_Results\03_HistoryOutput\CRemoveResultHistoryComponents.cs" />
+    <Compile Include="Command\0110_Results\03_HistoryOutput\CRemoveResultHistoryOutputs.cs" />
+    <Compile Include="Command\0110_Results\03_HistoryOutput\CReplaceResultHisotryOutput.cs" />
     <Compile Include="Command\_Compatibility\v1.4.1\CAddMeshingParameters.cs" />
     <Compile Include="Command\_Compatibility\v1.4.1\CAddMeshRefinement.cs" />
     <Compile Include="Command\0040_Meshing\CCreateMesh.cs" />
@@ -252,8 +262,8 @@
     <Compile Include="Command\0082_HistoryOutput\CAddHistoryOutput.cs" />
     <Compile Include="Command\0082_HistoryOutput\CDuplicateHistoryOutputs.cs" />
     <Compile Include="Command\0082_HistoryOutput\CRemoveHistoryOutputs.cs" />
-    <Compile Include="Command\0082_HistoryOutput\CPropagateHisotryOutput.cs" />
-    <Compile Include="Command\0082_HistoryOutput\CReplaceHisotryOutput.cs" />
+    <Compile Include="Command\0082_HistoryOutput\CPropagateHistoryOutput.cs" />
+    <Compile Include="Command\0082_HistoryOutput\CReplaceHistoryOutput.cs" />
     <Compile Include="Command\0083_FieldOutput\CAddFieldOutput.cs" />
     <Compile Include="Command\0083_FieldOutput\CDuplicateFieldOutputs.cs" />
     <Compile Include="Command\0083_FieldOutput\CRemoveFieldOutputs.cs" />
@@ -300,7 +310,9 @@
     <Compile Include="Command\_Compatibility\V2.1.0\CAddReferencePoint.cs" />
     <Compile Include="Command\_Compatibility\V2.1.0\CDuplicateReferencePoints.cs" />
     <Compile Include="Command\_Compatibility\V2.1.0\CHideReferencePoints.cs" />
+    <Compile Include="Command\_Compatibility\V2.1.0\CPropagateHisotryOutput.cs" />
     <Compile Include="Command\_Compatibility\V2.1.0\CRemoveReferencePoints.cs" />
+    <Compile Include="Command\_Compatibility\V2.1.0\CReplaceHisotryOutput.cs" />
     <Compile Include="Command\_Compatibility\V2.1.0\CReplaceReferencePoint.cs" />
     <Compile Include="Command\_Compatibility\V2.1.0\CShowReferencePoints.cs" />
     <Compile Include="Controller.cs" />

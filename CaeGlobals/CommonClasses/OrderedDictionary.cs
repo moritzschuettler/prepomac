@@ -26,6 +26,7 @@ using System.Collections.Generic;
 using System.Runtime.Serialization;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices.WindowsRuntime;
 
 namespace CaeGlobals
 {
@@ -131,6 +132,12 @@ namespace CaeGlobals
         {
             _name = name;
             _dictionary = new Dictionary<TKey, TValue>(dictionary, comparer);
+            _list = new List<TKey>(_dictionary.Keys);
+        }
+        public OrderedDictionary(OrderedDictionary<TKey, TValue> dictionary)
+        {
+            _name = dictionary._name;
+            _dictionary = new Dictionary<TKey, TValue>(dictionary._dictionary);
             _list = new List<TKey>(_dictionary.Keys);
         }
         //ISerializable
@@ -477,6 +484,11 @@ namespace CaeGlobals
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
+        }
+        //
+        public OrderedDictionary<TKey, TValue> DeepCopy()
+        {
+            return new OrderedDictionary<TKey, TValue>(this);
         }
         
         // ISerialization

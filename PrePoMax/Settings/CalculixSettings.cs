@@ -25,7 +25,7 @@ namespace PrePoMax
         private ConvertPyramidsToEnum _convertPyramidsTo;
 
         // Properties                                                                                                               
-        public string WorkDirectory 
+        public string WorkDirectoryForSettingsOnly
         { 
             get { return Tools.GetGlobalPath(_workDirectory); }
             set 

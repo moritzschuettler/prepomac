@@ -195,12 +195,12 @@ namespace PrePoMax.Forms
             // Create
             if (_resultFieldOutputToEditName == null)
             {
-                _controller.AddResultFieldOutput(ResultFieldOutput);
+                _controller.AddResultFieldOutputCommand(ResultFieldOutput);
             }
             // Replace
             else if (_propertyItemChanged)
             {
-                _controller.ReplaceResultFieldOutput(_resultFieldOutputToEditName, ResultFieldOutput);
+                _controller.ReplaceResultFieldOutputCommand(_resultFieldOutputToEditName, ResultFieldOutput);
             }
         }
         protected override bool OnPrepareForm(string stepName, string resultFieldOutputToEditName)
