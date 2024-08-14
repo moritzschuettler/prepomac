@@ -114,7 +114,7 @@ namespace PrePoMax
         }
         public bool ModelChanged { get { return _modelChanged; } set { _modelChanged = value; } }
         public bool SavingFile { get { return _savingFile; } }
-        public bool RegeneratingFromCMD { get { return _regeneratingFromCMD; } set { _regeneratingFromCMD = value; } }
+        public string RegenerateFileName { get { return _regenerateFileName; } set { _regenerateFileName = value; } }
         //
         public FeModel Model { get { return _model; } }
         public bool ExecutableJobIdle
