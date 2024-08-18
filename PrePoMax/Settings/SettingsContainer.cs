@@ -12,6 +12,7 @@ namespace PrePoMax
     {
         // Variables                                                                                                                
         [NonSerialized] private Dictionary<string, vtkControl.vtkMaxColorSpectrum> _colorSpectrums;
+        [NonSerialized] private string _regenerationWorkDirectory;
         //
         private GeneralSettings _general;
         private GraphicsSettings _graphics;
@@ -33,7 +34,7 @@ namespace PrePoMax
         public MeshingSettings Meshing { get { return _meshing; } set { _meshing = value; } }
         public PreSettings Pre { get { return _pre; } set { _pre = value; } }
         public CalculixSettings Calculix { get { return _calculix; } set { _calculix = value; } }
-        public PostSettings Post { get { return _post; } set { _post = value; } }       
+        public PostSettings Post { get { return _post; } set { _post = value; } }
         public LegendSettings Legend { get { return _legend; } set { _legend = value; } }
         public StatusBlockSettings StatusBlock { get { return _statusBlock; } set { _statusBlock = value; } }
 
@@ -179,11 +180,14 @@ namespace PrePoMax
         }
         public void SaveToFile(string fileName)
         {
-            // Use a temporary file to save the data and copy it at the end
-            string tmpFileName = Tools.GetNonExistentRandomFileName(Path.GetDirectoryName(fileName), ".tmp");
-            ToDictionary().DumpToFile(tmpFileName);
-            File.Copy(tmpFileName, fileName, true);
-            File.Delete(tmpFileName);
+            if (_regenerationWorkDirectory == null)
+            {
+                // Use a temporary file to save the data and copy it at the end
+                string tmpFileName = Tools.GetNonExistentRandomFileName(Path.GetDirectoryName(fileName), ".tmp");
+                ToDictionary().DumpToFile(tmpFileName);
+                File.Copy(tmpFileName, fileName, true);
+                File.Delete(tmpFileName);
+            }
         }
         public void LoadFromFile()
         {
@@ -206,20 +210,36 @@ namespace PrePoMax
             }
         }
         private void LoadFromFile(string fileName)
-        {            
+        {
             Dictionary<string, ISettings> items = Tools.LoadDumpFromFile<Dictionary<string, ISettings>>(fileName);
             FromDictionary(items);
         }
         //
+        public void SetRegenerationWorkDirectory(string workDirectory)
+        {
+            _regenerationWorkDirectory = workDirectory;
+        }
+        public string GetRegenerationWorkDirectory()
+        {
+            return _regenerationWorkDirectory;
+        }
+
         public string GetWorkDirectory()
         {
             string lastFileName = _general.LastFileName;
-            if (_calculix.UsePmxFolderAsWorkDirectory && lastFileName != null && File.Exists(lastFileName) &&
-                Path.GetExtension(lastFileName) == ".pmx")
+            if (_regenerationWorkDirectory != null)
+            {
+                return _regenerationWorkDirectory;
+            }
+            else if (_calculix.UsePmxFolderAsWorkDirectory && lastFileName != null && File.Exists(lastFileName) &&
+                     Path.GetExtension(lastFileName) == ".pmx")
             {
                 return Path.GetDirectoryName(lastFileName);
             }
-            else return _calculix.WorkDirectoryForSettingsOnly;
+            else
+            {
+                return _calculix.WorkDirectoryForSettingsOnly;
+            }
         }
       
     }

@@ -1,19 +1,73 @@
-﻿using System;
+﻿using CaeGlobals;
+using CommandLine;
+using CommandLine.Text;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using static CaeGlobals.Geometry2;
+using static System.Windows.Forms.Design.AxImporter;
 
 namespace PrePoMax
 {
     static class Program
     {
+        //[DllImport("kernel32.dll", SetLastError = true)]
+        //[return: MarshalAs(UnmanagedType.Bool)]
+        //static extern bool AllocConsole();
+        ////
+        [DllImport("kernel32.dll")]
+        private static extern IntPtr GetConsoleWindow();
+        //
+        [DllImport("kernel32.dll")]
+        static extern bool AttachConsole(int dwProcessId);
+        private const int ATTACH_PARENT_PROCESS = -1;
+        //
+        [DllImport("kernel32.dll")]
+        static extern bool FreeConsole();
+        ////
+        //[DllImport("kernel32.dll")]
+        //static extern IntPtr GetConsoleWindow();
+        ////
+        //[DllImport("user32.dll")]
+        //static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+        ////
+        //const int SW_HIDE = 0;
+        //const int SW_SHOW = 5;
+
+        //[DllImport("user32.dll")]
+        //public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+
         /// <summary>
         /// The main entry point for the application.
         /// </summary>
         [STAThread]
         static void Main(string[] args)
+        {
+            if (IsWindowsApplication()) AttachConsole(ATTACH_PARENT_PROCESS);
+            Console.WriteLine("");
+            //
+            SetCultureAndLanguage();
+            //
+            //Parser.Default.Settings.AutoHelp = false;
+            var parserResult = Parser.Default.ParseArguments<CommandLineOptions>(args);
+            //
+            if (parserResult.Value != null) Run(parserResult.Value);
+            //
+            if (IsWindowsApplication()) FreeConsole();
+            //
+            Process.GetCurrentProcess().Kill(); // a process remains running afer application exits
+        }
+        private static bool IsWindowsApplication()
+        {
+            return GetConsoleWindow() == IntPtr.Zero;
+        }
+        private static void SetCultureAndLanguage()
         {
             System.Globalization.CultureInfo ci =
                 (System.Globalization.CultureInfo)System.Globalization.CultureInfo.InvariantCulture.Clone();
@@ -33,16 +87,39 @@ namespace PrePoMax
             MessageBoxManager.Yes = "Yes";
             MessageBoxManager.No = "No";
             MessageBoxManager.Register();
-            //
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
-            //
-            using (FrmMain mainForm = new FrmMain(args))
+        }
+        private static void Run(CommandLineOptions cmdOptions)
+        {
+            bool error = false;
+            try
             {
-                Application.Run(mainForm);
+                // Show values
+                string values = CommandLineOptions.GetValuesAsString(cmdOptions);
+                if (values != null) Console.WriteLine(values);
+                // Check for errors
+                string cmdError = CommandLineOptions.CheckForErrors(cmdOptions);
+                if (cmdError != null) throw new CaeException(cmdError);
+                //
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
+                //
+                using (FrmMain mainForm = new FrmMain(cmdOptions))
+                {
+                    Application.Run(mainForm);
+                }
             }
-            //
-            Process.GetCurrentProcess().Kill();
+            catch (Exception ex)
+            {
+                error = true;
+                Console.WriteLine("----------Error---------------");
+                Console.WriteLine(ex.Message);
+            }
+            finally
+            {
+                Console.WriteLine("----------Finished------------");
+                if (error) Console.WriteLine("Process finished with errors.");
+                else Console.WriteLine("Process finished successfully");
+            }
         }
     }
 }

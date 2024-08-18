@@ -4,14 +4,24 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Drawing;
+using System.Reflection;
 
 namespace PrePoMax
 {
-    public class Globals
+    public static class Globals
     {
         public static string HomePage = "https://prepomax.fs.um.si/";
         //
-        public static string ProgramName = "PrePoMax v2.1.6";
+        public static string ProgramName
+        {
+            get
+            {
+                string name = "PrePoMax";
+                Version appVersion = Assembly.GetExecutingAssembly().GetName().Version;
+                name += " v" + appVersion.Major + "." + appVersion.Minor + "." + appVersion.Build;
+                return name;
+            }
+        }
         //
         public static string ReadyText = "Ready";
         public static string OpeningText = "Opening...";

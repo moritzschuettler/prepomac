@@ -40,7 +40,7 @@ namespace PrePoMax
         [NonSerialized] protected bool _modelChanged;
         [NonSerialized] protected bool _savingFile;
         [NonSerialized] protected bool _animating;
-        [NonSerialized] protected string _regenerateFileName;
+        [NonSerialized] protected bool _regenerationMode;
         // View
         [NonSerialized] protected ViewGeometryModelResults _currentView;
         [NonSerialized] protected EdgesVisibilitiesCollection _edgesVisibilities;
@@ -114,7 +114,30 @@ namespace PrePoMax
         }
         public bool ModelChanged { get { return _modelChanged; } set { _modelChanged = value; } }
         public bool SavingFile { get { return _savingFile; } }
-        public string RegenerateFileName { get { return _regenerateFileName; } set { _regenerateFileName = value; } }
+        public bool RegenerationMode
+        {
+            get { return _regenerationMode; }
+            set
+            {
+                _regenerationMode = value;
+                if (_regenerationMode) _commands.TurnOffSaveToHistoryFile();
+                else _commands.TurnOnSaveToHistoryFile();
+            }
+        }
+        public string RegenerationWorkDirectory
+        {
+            get { return _settings.GetRegenerationWorkDirectory(); }
+            set
+            {
+                if (value == null)
+                    throw new CaeException("The regeneration work directory is null.");
+                else if (!Directory.Exists(value))
+                    throw new CaeException("The regeneration work directory " + value + " does not exist.");
+                //
+                _settings.SetRegenerationWorkDirectory(value);
+                _commands.TurnOffSaveToHistoryFile();
+            }
+        }
         //
         public FeModel Model { get { return _model; } }
         public bool ExecutableJobIdle
@@ -1198,11 +1221,11 @@ namespace PrePoMax
         }
         public void ImportFile(string fileName, bool onlyMaterials)
         {
-            if (_regenerateFileName != null && File.Exists(_regenerateFileName))
+            if (_regenerationMode)
             {
-                string path = Path.GetDirectoryName(_regenerateFileName);
-                string newFileName = Path.Combine(path, Path.GetFileName(fileName));
+                string newFileName = Path.Combine(_settings.GetWorkDirectory(), Path.GetFileName(fileName));
                 if (File.Exists(newFileName)) fileName = newFileName;
+                else throw new CaeException("The regeneration file name " + newFileName + " does not exist.");
             }
             //
             if (!File.Exists(fileName)) throw new FileNotFoundException("The file: '" + fileName + "' does not exist.");
@@ -10910,10 +10933,9 @@ namespace PrePoMax
         // Export
         public void ExportResultHistoryOutput(HistoryResultSetExporter exporter)
         {
-            if (_regenerateFileName != null && File.Exists(_regenerateFileName))
+            if (_regenerationMode)
             {
-                string path = Path.GetDirectoryName(_regenerateFileName);
-                string newFileName = Path.Combine(path, Path.GetFileName(exporter.FileName));
+                string newFileName = Path.Combine(_settings.GetWorkDirectory(), Path.GetFileName(exporter.FileName));
                 exporter.FileName = newFileName;
             }
             //

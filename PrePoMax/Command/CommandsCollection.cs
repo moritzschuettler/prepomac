@@ -14,12 +14,12 @@ namespace PrePoMax.Commands
     {
         
         // Variables                                                                                                                
-        protected bool _showDialogs;
-        protected int _currPositionIndex;
-        protected Controller _controller;
-        protected List<Command> _commands;
-        protected string _historyFileNameBin;
-        protected ViewGeometryModelResults _previousView;
+        private int _currPositionIndex;
+        private Controller _controller;
+        private List<Command> _commands;
+        private string _historyFileNameBin;
+        private ViewGeometryModelResults _previousView;
+        private bool _createNoHistoryFile;
 
 
         // Properties                                                                                                               
@@ -45,6 +45,7 @@ namespace PrePoMax.Commands
             _commands = new List<Command>();
             _historyFileNameBin = Path.Combine(System.Windows.Forms.Application.StartupPath, Globals.HistoryFileName + ".pmh");
             _previousView = ViewGeometryModelResults.Geometry;
+            _createNoHistoryFile = false;
             //
             WriteToFile();
         }
@@ -297,6 +298,14 @@ namespace PrePoMax.Commands
             get { return _currPositionIndex < _commands.Count - 1; }
         }
         // Write
+        public void TurnOnSaveToHistoryFile()
+        {
+            _createNoHistoryFile = false;
+        }
+        public void TurnOffSaveToHistoryFile()
+        {
+            _createNoHistoryFile = true;
+        }
         private void WriteToOutput(Command command)
         {
             if (command is CClear) return;
@@ -306,7 +315,7 @@ namespace PrePoMax.Commands
         }
         private void WriteToFile()
         {
-            if (_commands.Count > 1)
+            if (!_createNoHistoryFile && _commands.Count > 1)
             {
                 // Write to files
                 _commands.DumpToFile(_historyFileNameBin);

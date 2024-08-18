@@ -5,7 +5,7 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{1BA289A1-1DEE-4EE3-80C6-0150A1BEAFD4}</ProjectGuid>
-    <OutputType>WinExe</OutputType>
+    <OutputType>Exe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>PrePoMax</RootNamespace>
     <AssemblyName>PrePoMax</AssemblyName>
@@ -24,7 +24,7 @@
     <UpdateRequired>false</UpdateRequired>
     <MapFileExtensions>true</MapFileExtensions>
     <ApplicationRevision>0</ApplicationRevision>
-    <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
+    <ApplicationVersion>1.0.0.0</ApplicationVersion>
     <UseApplicationTrust>false</UseApplicationTrust>
     <BootstrapperEnabled>true</BootstrapperEnabled>
   </PropertyGroup>
@@ -90,6 +90,9 @@
   <PropertyGroup>
     <ApplicationIcon>main.ico</ApplicationIcon>
   </PropertyGroup>
+  <PropertyGroup>
+    <StartupObject />
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="CommandLine, Version=2.9.1.0, Culture=neutral, PublicKeyToken=5a870481e358d379, processorArchitecture=MSIL">
       <HintPath>..\packages\CommandLineParser.2.9.1\lib\net461\CommandLine.dll</HintPath>
@@ -114,6 +117,7 @@
     <Compile Include="Collections\ExplodedViewsCollection.cs" />
     <Compile Include="Collections\EdgesVisibilitiesCollection.cs" />
     <Compile Include="Collections\TransformationsCollection.cs" />
+    <Compile Include="CommandLine\CommandLineOptions.cs" />
     <Compile Include="Command\0000_File\CSaveToPmx.cs" />
     <Compile Include="Command\0000_File\CImportFile.cs" />
     <Compile Include="Command\0010_Edit\CSetCalculixUserKeywords.cs" />

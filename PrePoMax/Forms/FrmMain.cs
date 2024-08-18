@@ -39,7 +39,7 @@ namespace PrePoMax
         private vtkControl.vtkControl _vtk;
         private ModelTree _modelTree;
         private Controller _controller;
-        private string[] _args;
+        private CommandLineOptions _cmdOptions;
         private string[] outputLines;
         private AdvisorControl _advisorControl;
         private KeyboardHook _keyboardHook;
@@ -173,7 +173,7 @@ namespace PrePoMax
 
 
         // Constructors                                                                                                             
-        public FrmMain(string[] args)
+        public FrmMain(CommandLineOptions cmdOptions)
         {
             // Initialize               
             InitializeComponent();
@@ -189,15 +189,22 @@ namespace PrePoMax
             _vtk = null;
             _controller = null;
             _modelTree = null;
-            _args = args;
+            _cmdOptions = cmdOptions;
             //
+
+
             MessageBoxes.ParentForm = this;
         }
-
+        private void CheckCmdOptions()
+        {
+            
+        }
 
         // Event handling                                                                                                           
         private void FrmMain_Load(object sender, EventArgs e)
         {
+            //bool visible = !_cmdOptions.NoGui;
+            //
             if (TestWriteAccess() == false)
             {
                 MessageBoxes.ShowError("PrePoMax has no write access for the folder: " + Application.StartupPath +
@@ -489,12 +496,13 @@ namespace PrePoMax
             finally
             {
                 this.TopMost = false;
+                //this.Visible = visible;
                 // Set form size - after top most
                 _controller.Settings.General.ApplyFormSize(this);
                 
             }
             //
-            if (!System.Diagnostics.Debugger.IsAttached)
+            if (!Debugger.IsAttached)
             {
                 tsmiExportToGmshMesh.Visible = false;
                 tsmiTest.Visible = false;
@@ -532,63 +540,82 @@ namespace PrePoMax
             //
             try
             {
-                // Try to recover unsaved progress due to crushed PrePoMax
-                if (File.Exists(_controller.GetHistoryFileNameBin()))
+                // Regeneration
+                if (_cmdOptions.RegenerationFileName != null)
                 {
-                    if (MessageBoxes.ShowWarningQuestion("A recovery file from a previous PrePoMax session exists. " +
-                                                         "Would you like to try to recover it?") == DialogResult.OK)
-                    {
-                        fileName = _controller.GetHistoryFileNameBin();
-                    }
-                }
-                if (fileName == null)
-                {
-                    // Open file from exe arguments
-                    if (_args != null && _args.Length >= 1)
-                    {
-                        fileName = _args[0];
-                        unitSystemType = _controller.Settings.General.UnitSystemType;
-                        for (int i = 1; i < _args.Length; i++)
-                        {
-                            if (_args[i].ToUpper() == "-US" && i + 1 < _args.Length)
-                            {
-                                if (!Enum.TryParse(_args[i + 1].ToUpper(), out unitSystemType))
-                                    throw new CaeException("The unit system type " + _args[i + 1] + " is not supported.");
-                            }
-                        }
-                    }
-                    // Check for open last file
-                    else if (_controller.Settings.General.OpenLastFile) fileName = _controller.OpenedFileName;
-                }
-                //
-                if (File.Exists(fileName))
-                {
-                    fileName = Path.GetFullPath(fileName);  // change local file name to global
-                    string extension = Path.GetExtension(fileName).ToLower();
-                    HashSet<string> importExtensions = GetFileImportExtensions();
+                    WriteDataToOutput("Starting regeneration");
                     //
-                    if (extension == ".pmx" || extension == ".pmh" || extension == ".frd")
-                        await Task.Run(() => OpenAsync(fileName, _controller.Open));
-                    else if (importExtensions.Contains(extension))
-                    {
-                        // Create new model
-                        if (New(ModelSpaceEnum.ThreeD, unitSystemType))
-                        {
-                            // Import
-                            await _controller.ImportFileAsync(fileName, false);
-                            // Set to null, otherwise the previous OpenedFileName gets overwritten on Save
-                            _controller.OpenedFileName = null;
-                        }
-                    }
-                    else MessageBoxes.ShowError("The file name extension is not supported.");
+                    fileName = _cmdOptions.RegenerationFileName;
                     //
-                    _vtk.SetFrontBackView(false, true);
+                    if (fileName == null)
+                        throw new CaeException("The regeneration file name is null.");
+                    else if (!File.Exists(fileName))
+                        throw new CaeException("The regeneration file " + fileName + " does not exist.");
+                    //
+                    _controller.RegenerationMode = true;
+                    _controller.RegenerationWorkDirectory = _cmdOptions.WorkDirectory;
+                    //
+                    await Task.Run(() => OpenAsync(fileName, _controller.Open));
+                    await Task.Run(() => _controller.RegenerateHistoryCommands(false, false, true));
+                    Close();
                 }
                 else
                 {
-                    _controller.CurrentView = ViewGeometryModelResults.Geometry;
+                    // Try to recover unsaved progress due to crushed PrePoMax
+                    if (File.Exists(_controller.GetHistoryFileNameBin()))
+                    {
+                        if (MessageBoxes.ShowWarningQuestion("A recovery file from a previous PrePoMax session exists. " +
+                                                             "Would you like to try to recover it?") == DialogResult.OK)
+                        {
+                            fileName = _controller.GetHistoryFileNameBin();
+                        }
+                    }
+                    if (fileName == null)
+                    {
+                        // Open file from exe arguments
+                        if (_cmdOptions.FileName != null)
+                        {
+                            fileName = _cmdOptions.FileName;
+                            //
+                            if (_cmdOptions.UnitSystem != null)
+                            {
+                                if (!Enum.TryParse(_cmdOptions.UnitSystem.ToUpper(), out unitSystemType))
+                                    throw new CaeException("The unit system type " + _cmdOptions.UnitSystem + " is not supported.");
+                            }
+                        }
+                        // Check for open last file
+                        else if (_controller.Settings.General.OpenLastFile) fileName = _controller.OpenedFileName;
+                    }
                     //
-                    UpdateRecentFilesThreadSafe(_controller.Settings.General.GetRecentFiles());
+                    if (File.Exists(fileName))
+                    {
+                        fileName = Path.GetFullPath(fileName);  // change local file name to global
+                        string extension = Path.GetExtension(fileName).ToLower();
+                        HashSet<string> importExtensions = GetFileImportExtensions();
+                        //
+                        if (extension == ".pmx" || extension == ".pmh" || extension == ".frd")
+                            await Task.Run(() => OpenAsync(fileName, _controller.Open));
+                        else if (importExtensions.Contains(extension))
+                        {
+                            // Create new model
+                            if (New(ModelSpaceEnum.ThreeD, unitSystemType))
+                            {
+                                // Import
+                                await _controller.ImportFileAsync(fileName, false);
+                                // Set to null, otherwise the previous OpenedFileName gets overwritten on Save
+                                _controller.OpenedFileName = null;
+                            }
+                        }
+                        else MessageBoxes.ShowError("The file name extension is not supported.");
+                        //
+                        _vtk.SetFrontBackView(false, true);
+                    }
+                    else
+                    {
+                        _controller.CurrentView = ViewGeometryModelResults.Geometry;
+                        //
+                        UpdateRecentFilesThreadSafe(_controller.Settings.General.GetRecentFiles());
+                    }
                 }
             }
             catch (Exception ex)
@@ -619,53 +646,56 @@ namespace PrePoMax
                 // No write access
                 if (_controller == null) return;
                 //
-                foreach (var entry in _controller.Jobs)
+                if (!_controller.RegenerationMode)
                 {
-                    if (entry.Value.JobStatus == JobStatus.Running)
+                    foreach (var entry in _controller.Jobs)
                     {
-                        response = MessageBoxes.ShowWarningQuestion("There is an analysis running." +
-                                                                    " Closing will kill the analysis. Close anyway?");
+                        if (entry.Value.JobStatus == JobStatus.Running)
+                        {
+                            response = MessageBoxes.ShowWarningQuestion("There is an analysis running." +
+                                                                        " Closing will kill the analysis. Close anyway?");
+                            if (response == DialogResult.Cancel) e.Cancel = true;
+                            else if (response == DialogResult.OK) _controller.KillAllJobs();
+                            break;
+                        }
+                    }
+                    //
+                    if (tsslState.Text != Globals.ReadyText)
+                    {
+                        response = MessageBoxes.ShowWarningQuestion("There is a task running. Close anyway?");
                         if (response == DialogResult.Cancel) e.Cancel = true;
-                        else if (response == DialogResult.OK) _controller.KillAllJobs();
-                        break;
+                        else if (response == DialogResult.OK && _controller.SavingFile)
+                        {
+                            while (_controller.SavingFile) System.Threading.Thread.Sleep(100);
+                        }
                     }
-                }
-                //
-                if (tsslState.Text != Globals.ReadyText)
-                {
-                    response = MessageBoxes.ShowWarningQuestion("There is a task running. Close anyway?");
-                    if (response == DialogResult.Cancel) e.Cancel = true;
-                    else if (response == DialogResult.OK && _controller.SavingFile)
+                    else if (_controller.ModelChanged)
                     {
-                        while (_controller.SavingFile) System.Threading.Thread.Sleep(100);
+                        response = MessageBox.Show("Save file before closing?",
+                                                   "Warning",
+                                                   MessageBoxButtons.YesNoCancel,
+                                                   MessageBoxIcon.Warning);
+                        if (response == DialogResult.Yes)
+                        {
+                            e.Cancel = true;                                // stop the form from closing before saving
+                            await Task.Run(() => _controller.Save());       // save
+                            Close();                                        // close the control
+                        }
+                        else if (response == DialogResult.Cancel) e.Cancel = true;
                     }
-                }
-                else if (_controller.ModelChanged)
-                {
-                    response = MessageBox.Show("Save file before closing?",
-                                               "Warning",
-                                               MessageBoxButtons.YesNoCancel,
-                                               MessageBoxIcon.Warning);
-                    if (response == DialogResult.Yes)
+                    // Save form size and location and delete history files
+                    if (e.Cancel == false && _controller != null)
                     {
-                        e.Cancel = true;                                // stop the form from closing before saving
-                        await Task.Run(() => _controller.Save());       // save
-                        Close();                                        // close the control
+                        SettingsContainer settings = _controller.Settings;  // get a clone
+                        settings.General.SaveFormSize(this);                // save form size
+                        _controller.Settings = settings;                    // update values and save to file
+                        //
+                        _controller.DeleteHistoryFiles();
+                        //
+                        _vtk.Clear();
+                        _vtk.Dispose();
+                        _vtk = null;
                     }
-                    else if (response == DialogResult.Cancel) e.Cancel = true;
-                }
-                // Save form size and location and delete history files
-                if (e.Cancel == false && _controller != null)
-                {
-                    SettingsContainer settings = _controller.Settings;  // get a clone
-                    settings.General.SaveFormSize(this);                // save form size
-                    _controller.Settings = settings;                    // update values and save to file
-                    //
-                    _controller.DeleteHistoryFiles();
-                    //
-                    _vtk.Clear();
-                    _vtk.Dispose();
-                    _vtk = null;
                 }
             }
             catch
@@ -9219,7 +9249,11 @@ namespace PrePoMax
                 data = data.Replace('\r', '\n');
                 string[] lines = data.Split('\n');
                 //
-                foreach (var line in lines) WriteLineToOutputWithDate(line);
+                foreach (var line in lines)
+                {
+                    WriteLineToOutputWithDate(line);
+                    Console.WriteLine(line);
+                }
                 //
                 timerOutput.Start();
             });
