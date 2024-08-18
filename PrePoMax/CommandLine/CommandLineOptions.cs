@@ -57,6 +57,9 @@ namespace PrePoMax
         {
             try
             {
+                // Options
+                if (cmdOptions == null)
+                    throw new CaeException("The command line parameters are null.");
                 // FileName
                 if (cmdOptions.FileName != null)
                 {
