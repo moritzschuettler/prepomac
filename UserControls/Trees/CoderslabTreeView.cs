@@ -67,6 +67,7 @@ using System.Drawing;
 using System.Data;
 using System.Windows.Forms;
 using System.Runtime.InteropServices;
+using CaeGlobals;
 
 namespace UserControls
 {
@@ -1083,7 +1084,7 @@ namespace UserControls
 			{
 				// GKM - Untrapped exceptions were killing me for debugging purposes.
 				// It probably shouldn't be here permanently, but it was causing real trouble for me.
-				MessageBox.Show(this, ex.ToString());
+				MessageBoxes.ShowError("CodersLabTreeView: " + ex.ToString());
 			}
 #endif
 		}

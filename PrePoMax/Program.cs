@@ -17,10 +17,6 @@ namespace PrePoMax
 {
     static class Program
     {
-        //[DllImport("kernel32.dll", SetLastError = true)]
-        //[return: MarshalAs(UnmanagedType.Bool)]
-        //static extern bool AllocConsole();
-        ////
         [DllImport("kernel32.dll")]
         private static extern IntPtr GetConsoleWindow();
         //
@@ -30,36 +26,22 @@ namespace PrePoMax
         //
         [DllImport("kernel32.dll")]
         static extern bool FreeConsole();
-        ////
-        //[DllImport("kernel32.dll")]
-        //static extern IntPtr GetConsoleWindow();
-        ////
-        //[DllImport("user32.dll")]
-        //static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-        ////
-        //const int SW_HIDE = 0;
-        //const int SW_SHOW = 5;
-
-        //[DllImport("user32.dll")]
-        //public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
-
         /// <summary>
         /// The main entry point for the application.
         /// </summary>
         [STAThread]
         static void Main(string[] args)
         {
-            if (IsWindowsApplication()) AttachConsole(ATTACH_PARENT_PROCESS);
+            //if (IsWindowsApplication()) AttachConsole(ATTACH_PARENT_PROCESS);
             Console.WriteLine("");
             //
             SetCultureAndLanguage();
             //
-            //Parser.Default.Settings.AutoHelp = false;
             var parserResult = Parser.Default.ParseArguments<CommandLineOptions>(args);
             //
             if (parserResult.Value != null) Run(parserResult.Value);
             //
-            if (IsWindowsApplication()) FreeConsole();
+            //if (IsWindowsApplication()) FreeConsole();
             //
             Process.GetCurrentProcess().Kill(); // a process remains running afer application exits
         }
@@ -105,6 +87,11 @@ namespace PrePoMax
                 //
                 using (FrmMain mainForm = new FrmMain(cmdOptions))
                 {
+                    if (cmdOptions.NoGui)   // must be here
+                    {
+                        mainForm.WindowState = FormWindowState.Minimized;
+                        mainForm.ShowInTaskbar = false;
+                    }
                     Application.Run(mainForm);
                 }
             }

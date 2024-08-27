@@ -57,7 +57,8 @@ namespace PrePoMax
         //
         [OrderedDisplayName(2, 10, "Totals")]
         [CategoryAttribute("Data")]
-        [DescriptionAttribute("The parameter totals only applies to the external forces.")]
+        [DescriptionAttribute("The parameter totals only applies to the external forces. Notice that the sum is always written " +
+                              "in the global rectangular system, irrespective of the value of the GLOBAL parameter.")]
         public TotalsTypeEnum TotalsType { get { return _historyOutput.TotalsType; }set { _historyOutput.TotalsType = value; } }
         //
         public override bool Global { get { return _historyOutput.Global; } set { _historyOutput.Global = value; } }

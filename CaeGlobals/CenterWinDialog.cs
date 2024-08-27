@@ -11,7 +11,6 @@ class CenterWinDialog : IDisposable
 
     public CenterWinDialog(Form owner)
     {
-        
         mOwner = owner;
         owner.BeginInvoke(new MethodInvoker(FindDialog));
     }

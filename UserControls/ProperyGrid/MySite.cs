@@ -39,7 +39,7 @@ namespace UserControls
             if (form.GetType().Name == "GridErrorDlg")
             {
                 // Show a message box instead of the default error form
-                result = CaeGlobals.MessageBoxes.ShowWarningQuestion(PropertyGrid, form.Controls[0].Text);
+                result = CaeGlobals.MessageBoxes.ShowWarningQuestionOKCancel(PropertyGrid, form.Controls[0].Text);
                 // To reset the property grid data use refresh
                 //PropertyGrid.Refresh();
             }

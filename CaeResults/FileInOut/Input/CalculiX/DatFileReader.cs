@@ -54,8 +54,11 @@ namespace CaeResults
 
 
         // Methods                                                                                                                  
-        static public HistoryResults Read(string fileName)
+        static public HistoryResults Read(string fileName, out string[] errors)
         {
+            errors = null;
+            List<string> errorsList = new List<string>();
+            //
             if (fileName != null && File.Exists(fileName))
             {
                 string[] lines = Tools.ReadAllLines(fileName, true);
@@ -203,10 +206,24 @@ namespace CaeResults
                                 if (timeModeNumber != null) newDataSet.Time = timeModeNumber[eigenvalueNumber];
                             }
                             // Add
-                            if (newDataSet.FieldName != HOFieldNames.Error) dataSets.Add(newDataSet.GetHashKey(), newDataSet);
+                            if (newDataSet.FieldName != HOFieldNames.Error)
+                            {
+                                if (!dataSets.ContainsKey(newDataSet.GetHashKey()))
+                                    dataSets.Add(newDataSet.GetHashKey(), newDataSet);
+                                else
+                                    errorsList.Add("Data sets already contains the item key " + newDataSet.GetHashKey() +
+                                                   " the data was not be added to the history.");
+                            }
+                            else
+                            {
+                                errorsList.Add("Data failed to be parsed." + Environment.NewLine +
+                                               "First data line: " + dataSetLines[0]);
+                            }
                         }
                     }
                 }
+                //
+                errors = errorsList.ToArray();
                 //
                 AddTotalEffectiveModalMassToMassRatio(frequencyHistoryOutput);
                 allHistoryResults.AppendSets(frequencyHistoryOutput);

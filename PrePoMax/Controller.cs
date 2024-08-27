@@ -26,6 +26,7 @@ using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 using UserControls;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolTip;
 using System.Xml.Linq;
+using CommandLine;
 
 namespace PrePoMax
 {
@@ -739,9 +740,9 @@ namespace PrePoMax
             try
             {
                 if (_allResults.CurrentResult == null)
-                    _allResults.Add(fileName, new FeResults(fileName, _allResults.CurrentResult.UnitSystem));
+                    _allResults.Add(fileName, new FeResults(fileName, _model.UnitSystem));
                 // This is also called in AppendResults
-                _allResults.CurrentResult.SetHistory(DatFileReader.Read(fileName));
+                _allResults.CurrentResult.SetHistory(ReadHistoryResults(fileName));
                 // Wear
                 _allResults.CurrentResult.ComputeWear(_model.StepCollection.GetSlipWearStepIds(),
                                                       _model.GetNodalSlipWearCoefficients(),
@@ -883,12 +884,11 @@ namespace PrePoMax
                 {
                     if (similarity < 1)
                     {
-                        if (MessageBox.Show("Some node coordinates in the result .frd file are different from " +
-                                            "the coordinates in the model mesh." + Environment.NewLine + Environment.NewLine +
-                                            "Apply model mesh properties (part names, geometry...) to the result mesh?",
-                                            "Warning",
-                                            MessageBoxButtons.YesNo,
-                                            MessageBoxIcon.Warning) == DialogResult.Yes) similarity = 1;
+                        if (MessageBoxes.ShowWarningQuestionYesNo(
+                            "Some node coordinates in the result .frd file are different from " +
+                            "the coordinates in the model mesh." + Environment.NewLine + Environment.NewLine +
+                            "Apply model mesh properties (part names, geometry...) to the result mesh?") == DialogResult.Yes)
+                            similarity = 1;
                     }
                     //
                     if (similarity == 1)
@@ -945,7 +945,7 @@ namespace PrePoMax
                 // Open .dat file
                 string datFileName = Path.GetFileNameWithoutExtension(results.FileName) + ".dat";
                 datFileName = Path.Combine(Path.GetDirectoryName(results.FileName), datFileName);
-                if (File.Exists(datFileName)) results.SetHistory(DatFileReader.Read(datFileName));
+                if (File.Exists(datFileName)) results.SetHistory(ReadHistoryResults(datFileName));
                 // Check if the meshes are the same and rename the parts
                 if (_allResults.CurrentResult.Mesh != null && results.Mesh != null)
                 {
@@ -1012,6 +1012,23 @@ namespace PrePoMax
                                                      "to enable viewing of the contact element nodes.");
             //
             return nodeSets;
+        }
+        private HistoryResults ReadHistoryResults(string fileName)
+        {
+            string[] errors;
+            HistoryResults historyResults = DatFileReader.Read(fileName, out errors);
+            // Report errors
+            if (errors != null)
+            {
+                _form.WriteDataToOutput("");
+                _form.WriteDataToOutput("*** Warning ***");
+                _form.WriteDataToOutput("");
+                foreach (string error in errors) _form.WriteDataToOutput(error);
+                //
+                MessageBoxes.ShowWarning("Reading the .dat file " + fileName + " produced some errors. " +
+                                         "Please see the output window for more details.");
+            }
+            return historyResults;
         }
         // Read pmx
         private object[] TryReadCompressedPmx(string fileName, out FeModel model, out ResultsCollection allResults,
@@ -9781,8 +9798,7 @@ namespace PrePoMax
                 AddElementSetCommand(new FeElementSet(elementSetName, unAssignedElementIds));
                 //
                 msg = unAssignedElementIds.Length + " finite elements are missing a section assignment. Continue?";
-                if (MessageBox.Show(msg, "Warning", MessageBoxButtons.OKCancel,
-                                    MessageBoxIcon.Warning) == DialogResult.Cancel) return false;
+                if (MessageBoxes.ShowWarningQuestionOKCancel(msg) == DialogResult.Cancel) return false;
             }
             // Check for contacts of different type
             if (_model.ContactPairs.Count > 0)
@@ -9795,8 +9811,7 @@ namespace PrePoMax
                 if (contactPairMethods.Count > 1)
                 {
                     msg = "More than one contact methods is used in the model. Continue?";
-                    if (MessageBox.Show(msg, "Warning", MessageBoxButtons.OKCancel,
-                                        MessageBoxIcon.Warning) == DialogResult.Cancel) return false;
+                    if (MessageBoxes.ShowWarningQuestionOKCancel(msg) == DialogResult.Cancel) return false;
                 }
             }
             // Check for existence of slip wear steps
@@ -9804,16 +9819,14 @@ namespace PrePoMax
             if (slipWearStepIds.Length > 0 && _model.Properties.ModelType != ModelType.SlipWearModel)
             {
                 msg = "Slip wear steps are defined but the model type is not a slip wear model. Continue?";
-                if (MessageBox.Show(msg, "Warning", MessageBoxButtons.OKCancel,
-                                    MessageBoxIcon.Warning) == DialogResult.Cancel) return false;
+                if (MessageBoxes.ShowWarningQuestionOKCancel(msg) == DialogResult.Cancel) return false;
             }
             // Check for existence of boundary displacement step
             if (_model.Properties.BdmRemeshing && _model.StepCollection.GetBoundaryDisplacementStep() == null)
             {
                 msg = "Mesh smoothing after the slip wear step is turned on but the boundary displacement step " +
                       "is not defined. Continue?";
-                if (MessageBox.Show(msg, "Warning", MessageBoxButtons.OKCancel,
-                                    MessageBoxIcon.Warning) == DialogResult.Cancel) return false;
+                if (MessageBoxes.ShowWarningQuestionOKCancel(msg) == DialogResult.Cancel) return false;
             }
             // Check for wear coefficients in a wear analysis
             if (_model.Properties.ModelType == ModelType.SlipWearModel)                
@@ -9821,14 +9834,12 @@ namespace PrePoMax
                 if (!_model.AreSlipWearCoefficientsDefined(out _))
                 {
                     msg = "No slip wear material coefficients are defined. Continue?";
-                    if (MessageBox.Show(msg, "Warning", MessageBoxButtons.OKCancel,
-                                        MessageBoxIcon.Warning) == DialogResult.Cancel) return false;
+                    if (MessageBoxes.ShowWarningQuestionOKCancel(msg) == DialogResult.Cancel) return false;
                 }
                 if (!_model.StepCollection.AreContactHistoryOutputsDefined())
                 {
                     msg = "Contact history output variables CDIS are not defined for each analysis step. Continue?";
-                    if (MessageBox.Show(msg, "Warning", MessageBoxButtons.OKCancel,
-                                        MessageBoxIcon.Warning) == DialogResult.Cancel) return false;
+                    if (MessageBoxes.ShowWarningQuestionOKCancel(msg) == DialogResult.Cancel) return false;
                 }
             }
             // Check for radiation load without Stefan-Boltzmann and absolute zero constants
@@ -9845,8 +9856,7 @@ namespace PrePoMax
                 //
                 if (msg.Length > 0)
                 {
-                    if (MessageBox.Show(msg, "Warning", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) ==
-                        DialogResult.Cancel) return false;
+                    if (MessageBoxes.ShowWarningQuestionOKCancel(msg) == DialogResult.Cancel) return false;
                 }
             }
             return true;
@@ -9967,7 +9977,7 @@ namespace PrePoMax
                 //
                 _model.GetMaterialAssignments(out _);
                 //
-                results.SetHistory(DatFileReader.Read(resultsFileDat));
+                results.SetHistory(ReadHistoryResults(resultsFileDat));
                 // Open .cel file
                 if (File.Exists(resultsFileCel))
                 {
@@ -10011,7 +10021,7 @@ namespace PrePoMax
                 //
                 _model.GetMaterialAssignments(out _);
                 //
-                results.SetHistory(DatFileReader.Read(resultsFileDat));
+                results.SetHistory(ReadHistoryResults(resultsFileDat));
                 //
                 int[] slipWearStepIds = _model.StepCollection.GetSlipWearStepIds();
                 if (results.ComputeWear(slipWearStepIds, _model.GetNodalSlipWearCoefficients(),

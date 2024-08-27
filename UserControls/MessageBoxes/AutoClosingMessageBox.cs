@@ -8,16 +8,28 @@ namespace UserControls
 {
     public class AutoClosingMessageBox
     {
-        System.Threading.Timer _timeoutTimer;
-        string _caption;
+        public static Action<string> WriteDataToOutput;
+        //
+        private System.Threading.Timer _timeoutTimer;
+        private string _caption;
         AutoClosingMessageBox(string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon, int timeout)
         {
-            _caption = caption;
-            _timeoutTimer = new System.Threading.Timer(OnTimerElapsed,
-                null, timeout, System.Threading.Timeout.Infinite);
-            using (_timeoutTimer)
+            // Write
+            if (WriteDataToOutput != null)
             {
-                MessageBox.Show(text, caption, buttons, icon);
+                WriteDataToOutput(caption);
+                WriteDataToOutput(text);
+            }
+            // 
+            else
+            {
+                _caption = caption;
+                _timeoutTimer = new System.Threading.Timer(OnTimerElapsed,
+                    null, timeout, System.Threading.Timeout.Infinite);
+                using (_timeoutTimer)
+                {
+                    MessageBox.Show(text, caption, buttons, icon);
+                }
             }
         }
         public static void ShowWarning(string text, int timeout)

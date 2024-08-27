@@ -5523,7 +5523,7 @@ namespace vtkControl
                 int memLimit = 1000;
                 if (_animationFrameData.MemMb > memLimit)
                 {
-                    if (MessageBoxes.ShowWarningQuestion("The size of the problem requires more than " + memLimit + " MB of RAM." +
+                    if (MessageBoxes.ShowWarningQuestionOKCancel("The size of the problem requires more than " + memLimit + " MB of RAM." +
                                                          "This might cause the application to close down unexpectedly. Continue?")
                                                          == DialogResult.OK)
                     {
@@ -6986,7 +6986,7 @@ namespace vtkControl
 
             double fps = 10 * n / (DateTime.Now - start_time).TotalSeconds;
             Console.WriteLine(fps + " FPS");
-            //MessageBox.Show(fps + " FPS");
+            MessageBoxes.ShowInfo(fps + " FPS");
 
             Console.WriteLine("Done. Animate actor array.");
 
@@ -7029,9 +7029,7 @@ namespace vtkControl
 
             fps = 10 * n / (DateTime.Now - start_time).TotalSeconds;
             Console.WriteLine(fps + " FPS");
-            MessageBox.Show(fps + " FPS");
-
-
+            MessageBoxes.ShowInfo(fps + " FPS");
         }
         
 

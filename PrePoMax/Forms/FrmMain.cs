@@ -190,15 +190,16 @@ namespace PrePoMax
             _controller = null;
             _modelTree = null;
             _cmdOptions = cmdOptions;
-            CommandLineOptions.CheckForErrors(_cmdOptions); // make sure ooptions are compatible
+            CommandLineOptions.CheckForErrors(_cmdOptions); // make sure options are compatible
             //
             MessageBoxes.ParentForm = this;
+            //
+            if (_cmdOptions.NoGui)
+            {
+                MessageBoxes.WriteDataToOutput = WriteDataToOutput;
+                AutoClosingMessageBox.WriteDataToOutput = WriteDataToOutput;
+            }
         }
-        private void CheckCmdOptions()
-        {
-            
-        }
-
         // Event handling                                                                                                           
         private void FrmMain_Load(object sender, EventArgs e)
         {
@@ -222,8 +223,8 @@ namespace PrePoMax
             //}
             Text = Globals.ProgramName;
             this.TopMost = true;
-            bool showGui = !_cmdOptions.NoGui;
-            if (showGui)
+            //
+            if (!_cmdOptions.NoGui)
             {
                 _splash = new FrmSplash { TopMost = true };
                 Task.Run(() => _splash.ShowDialog());
@@ -492,17 +493,13 @@ namespace PrePoMax
             catch
             {
                 // If no error the splash is closed latter
-                if (_splash != null) _splash.BeginInvoke((MethodInvoker)delegate () { _splash.Close(); });
+                _splash?.BeginInvoke((MethodInvoker)delegate () { _splash.Close(); });
             }
             finally
             {
                 this.TopMost = false;
-                // Set form size - after top most
-                _controller.Settings.General.ApplyFormSize(this);
-                if (!showGui)
-                {
-                    this.Location = new Point(100, -500);
-                }
+                // Set form size if visible - after top most
+                if (!_cmdOptions.NoGui) _controller.Settings.General.ApplyFormSize(this);
             }
             //
             if (!Debugger.IsAttached)
@@ -512,29 +509,131 @@ namespace PrePoMax
                 tsmiCropStlPartWithCylinder.Visible = false;
                 tsmiCropStlPartWithCube.Visible = false;
             }
-        }
-        // Ovveride visible status
-        //protected override void SetVisibleCore(bool value)
-        //{
-        //    bool showGui = !_cmdOptions.NoGui;
-        //    base.SetVisibleCore(showGui ? value : false);
-        //    //
-        //    if (!showGui)
-        //    {
-        //        FrmMain_Load(null, null);
-        //        FrmMain_Shown(null, null);
-        //    }
-        //}
+            }
         //
-        private void FrmMain_Shown(object sender, EventArgs e)
+        private async void FrmMain_Shown(object sender, EventArgs e)
         {
-            Start();
+            // Set vtk control size
+            UpdateVtkControlSize();
+            Application.DoEvents(); // draws the menus
+            //
+            _vtk.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
+            // Set pass through control for the mouse wheel event
+            this.PassThroughControl = _vtk;
+            // Vtk
+            // Reduce flicker
+            _vtk.Visible = true;
+            _vtk.ResetScaleBarPosition();   // start after the vtk size is set
+            _vtk.SetZoomFactor(1000);       // set starting zoom larger that the object
+            _controller.Redraw();
+            // Move _vtk to the edge of the screen to hide the black background
+            int left = _vtk.Left;
+            _vtk.Left = _vtk.Width + 4;
+            Application.DoEvents(); // draws the vtk
+            _vtk.Visible = false;
+            _vtk.Left = left;
+            // Close splash 
+            if (_splash != null) _splash.BeginInvoke((MethodInvoker)delegate () { _splash.Close(); });
+            // At the end when vtk is loaded open the file
+            string fileName = null;
+            UnitSystemType unitSystemType = UnitSystemType.Undefined;
+            //
+            try
+            {
+                // Regeneration
+                if (_cmdOptions.RegenerationFileName != null)
+                {
+                    WriteDataToOutput("Starting regeneration");
+                    //
+                    fileName = _cmdOptions.RegenerationFileName;
+                    //
+                    if (fileName == null)
+                        throw new CaeException("The regeneration file name is null.");
+                    else if (!File.Exists(fileName))
+                        throw new CaeException("The regeneration file " + fileName + " does not exist.");
+                    //
+                    _controller.RegenerationMode = true;
+                    _controller.RegenerationWorkDirectory = _cmdOptions.WorkDirectory;
+                    //
+                    await Task.Run(() => OpenAsync(fileName, _controller.Open));
+                    await Task.Run(() => _controller.RegenerateHistoryCommands(false, false, true));
+                    Close();
+                }
+                else
+                {
+                    // Try to recover unsaved progress due to crushed PrePoMax
+                    if (File.Exists(_controller.GetHistoryFileNameBin()))
+                    {
+                        if (MessageBoxes.ShowWarningQuestionOKCancel("A recovery file from a previous PrePoMax session exists. " +
+                                                             "Would you like to try to recover it?") == DialogResult.OK)
+                        {
+                            fileName = _controller.GetHistoryFileNameBin();
+                        }
+                    }
+                    if (fileName == null)
+                    {
+                        // Open file from exe arguments
+                        if (_cmdOptions.FileName != null)
+                        {
+                            fileName = _cmdOptions.FileName;
+                            //
+                            if (_cmdOptions.UnitSystem != null)
+                            {
+                                if (!Enum.TryParse(_cmdOptions.UnitSystem.ToUpper(), out unitSystemType))
+                                    throw new CaeException("The unit system type " + _cmdOptions.UnitSystem + " is not supported.");
+                            }
+                        }
+                        // Check for open last file
+                        else if (_controller.Settings.General.OpenLastFile) fileName = _controller.OpenedFileName;
+                    }
+                    //
+                    if (File.Exists(fileName))
+                    {
+                        fileName = Path.GetFullPath(fileName);  // change local file name to global
+                        string extension = Path.GetExtension(fileName).ToLower();
+                        HashSet<string> importExtensions = GetFileImportExtensions();
+                        //
+                        if (extension == ".pmx" || extension == ".pmh" || extension == ".frd")
+                            await Task.Run(() => OpenAsync(fileName, _controller.Open));
+                        else if (importExtensions.Contains(extension))
+                        {
+                            // Create new model
+                            if (New(ModelSpaceEnum.ThreeD, unitSystemType))
+                            {
+                                // Import
+                                await _controller.ImportFileAsync(fileName, false);
+                                // Set to null, otherwise the previous OpenedFileName gets overwritten on Save
+                                _controller.OpenedFileName = null;
+                            }
+                        }
+                        else MessageBoxes.ShowError("The file name extension is not supported.");
+                        //
+                        _vtk.SetFrontBackView(false, true);
+                    }
+                    else
+                    {
+                        _controller.CurrentView = ViewGeometryModelResults.Geometry;
+                        //
+                        UpdateRecentFilesThreadSafe(_controller.Settings.General.GetRecentFiles());
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+                _controller.ModelChanged = false;   // hide messageBox
+                tsmiNew_Click(null, null);
+            }
+            finally
+            {
+            }
         }
         private void FrmMain_Resize(object sender, EventArgs e)
         {
-            if (this.WindowState == FormWindowState.Minimized && _frmAnimation.Visible) _frmAnimation.UpdateAnimation();
+            if (this.WindowState == FormWindowState.Minimized && _frmAnimation != null && _frmAnimation.Visible)
+                _frmAnimation.UpdateAnimation();
             //
-            if (System.Diagnostics.Debugger.IsAttached)
+            if (Debugger.IsAttached)
             {
                 WriteDataToOutput(Width + " : " + Height);
             }
@@ -554,7 +653,7 @@ namespace PrePoMax
                     {
                         if (entry.Value.JobStatus == JobStatus.Running)
                         {
-                            response = MessageBoxes.ShowWarningQuestion("There is an analysis running." +
+                            response = MessageBoxes.ShowWarningQuestionOKCancel("There is an analysis running." +
                                                                         " Closing will kill the analysis. Close anyway?");
                             if (response == DialogResult.Cancel) e.Cancel = true;
                             else if (response == DialogResult.OK) _controller.KillAllJobs();
@@ -564,7 +663,7 @@ namespace PrePoMax
                     //
                     if (tsslState.Text != Globals.ReadyText)
                     {
-                        response = MessageBoxes.ShowWarningQuestion("There is a task running. Close anyway?");
+                        response = MessageBoxes.ShowWarningQuestionOKCancel("There is a task running. Close anyway?");
                         if (response == DialogResult.Cancel) e.Cancel = true;
                         else if (response == DialogResult.OK && _controller.SavingFile)
                         {
@@ -573,10 +672,7 @@ namespace PrePoMax
                     }
                     else if (_controller.ModelChanged)
                     {
-                        response = MessageBox.Show("Save file before closing?",
-                                                   "Warning",
-                                                   MessageBoxButtons.YesNoCancel,
-                                                   MessageBoxIcon.Warning);
+                        response = MessageBoxes.ShowWarningQuestionYesNoCancel("Save file before closing?");
                         if (response == DialogResult.Yes)
                         {
                             e.Cancel = true;                                // stop the form from closing before saving
@@ -722,123 +818,6 @@ namespace PrePoMax
             return control;
         }
         //
-        private async void Start()
-        {
-            // Set vtk control size
-            UpdateVtkControlSize();
-            Application.DoEvents(); // draws the menus
-            //
-            _vtk.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
-            // Set pass through control for the mouse wheel event
-            this.PassThroughControl = _vtk;
-            // Vtk
-            // Reduce flicker
-            _vtk.Visible = true;
-            _vtk.ResetScaleBarPosition();   // start after the vtk size is set
-            _vtk.SetZoomFactor(1000);       // set starting zoom larger that the object
-            _controller.Redraw();
-            // Move _vtk to the edge of the screen to hide the black background
-            int left = _vtk.Left;
-            _vtk.Left = _vtk.Width + 4;
-            Application.DoEvents(); // draws the vtk
-            _vtk.Visible = false;
-            _vtk.Left = left;
-            // Close splash 
-            if (_splash != null) _splash.BeginInvoke((MethodInvoker)delegate () { _splash.Close(); });
-            // At the end when vtk is loaded open the file
-            string fileName = null;
-            UnitSystemType unitSystemType = UnitSystemType.Undefined;
-            //
-            try
-            {
-                // Regeneration
-                if (_cmdOptions.RegenerationFileName != null)
-                {
-                    WriteDataToOutput("Starting regeneration");
-                    //
-                    fileName = _cmdOptions.RegenerationFileName;
-                    //
-                    if (fileName == null)
-                        throw new CaeException("The regeneration file name is null.");
-                    else if (!File.Exists(fileName))
-                        throw new CaeException("The regeneration file " + fileName + " does not exist.");
-                    //
-                    _controller.RegenerationMode = true;
-                    _controller.RegenerationWorkDirectory = _cmdOptions.WorkDirectory;
-                    //
-                    await Task.Run(() => OpenAsync(fileName, _controller.Open));
-                    await Task.Run(() => _controller.RegenerateHistoryCommands(false, false, true));
-                    Close();
-                }
-                else
-                {
-                    // Try to recover unsaved progress due to crushed PrePoMax
-                    if (File.Exists(_controller.GetHistoryFileNameBin()))
-                    {
-                        if (MessageBoxes.ShowWarningQuestion("A recovery file from a previous PrePoMax session exists. " +
-                                                             "Would you like to try to recover it?") == DialogResult.OK)
-                        {
-                            fileName = _controller.GetHistoryFileNameBin();
-                        }
-                    }
-                    if (fileName == null)
-                    {
-                        // Open file from exe arguments
-                        if (_cmdOptions.FileName != null)
-                        {
-                            fileName = _cmdOptions.FileName;
-                            //
-                            if (_cmdOptions.UnitSystem != null)
-                            {
-                                if (!Enum.TryParse(_cmdOptions.UnitSystem.ToUpper(), out unitSystemType))
-                                    throw new CaeException("The unit system type " + _cmdOptions.UnitSystem + " is not supported.");
-                            }
-                        }
-                        // Check for open last file
-                        else if (_controller.Settings.General.OpenLastFile) fileName = _controller.OpenedFileName;
-                    }
-                    //
-                    if (File.Exists(fileName))
-                    {
-                        fileName = Path.GetFullPath(fileName);  // change local file name to global
-                        string extension = Path.GetExtension(fileName).ToLower();
-                        HashSet<string> importExtensions = GetFileImportExtensions();
-                        //
-                        if (extension == ".pmx" || extension == ".pmh" || extension == ".frd")
-                            await Task.Run(() => OpenAsync(fileName, _controller.Open));
-                        else if (importExtensions.Contains(extension))
-                        {
-                            // Create new model
-                            if (New(ModelSpaceEnum.ThreeD, unitSystemType))
-                            {
-                                // Import
-                                await _controller.ImportFileAsync(fileName, false);
-                                // Set to null, otherwise the previous OpenedFileName gets overwritten on Save
-                                _controller.OpenedFileName = null;
-                            }
-                        }
-                        else MessageBoxes.ShowError("The file name extension is not supported.");
-                        //
-                        _vtk.SetFrontBackView(false, true);
-                    }
-                    else
-                    {
-                        _controller.CurrentView = ViewGeometryModelResults.Geometry;
-                        //
-                        UpdateRecentFilesThreadSafe(_controller.Settings.General.GetRecentFiles());
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                ExceptionTools.Show(this, ex);
-                _controller.ModelChanged = false;   // hide messageBox
-                tsmiNew_Click(null, null);
-            }
-            finally
-            {
-            }
-        }
         private void timerOutput_Tick(object sender, EventArgs e)
         {
             tbOutput.Lines = outputLines;
@@ -1407,7 +1386,7 @@ namespace PrePoMax
                 TopMost = true;    // fix the problem with Solidworks opened in the background
                 //
                 if ((_controller.ModelChanged || _controller.ModelInitialized || _controller.ResultsInitialized) &&
-                    MessageBoxes.ShowWarningQuestion("OK to close the current model?") != DialogResult.OK) return false;
+                    MessageBoxes.ShowWarningQuestionOKCancel("OK to close the current model?") != DialogResult.OK) return false;
                 //
                 _controller.DeInitialize();
                 SetMenuAndToolStripVisibility();
@@ -1497,12 +1476,12 @@ namespace PrePoMax
                 string extension = Path.GetExtension(fileName).ToLower();
                 if (extension == ".pmx")
                 {
-                    if (MessageBoxes.ShowWarningQuestion("OK to close the current model?") != DialogResult.OK)
+                    if (MessageBoxes.ShowWarningQuestionOKCancel("OK to close the current model?") != DialogResult.OK)
                         return false;
                 }
                 else if ((extension == ".frd" || extension == ".foam") && _controller.AllResults.ContainsResult(fileName))
                 {
-                    if (MessageBoxes.ShowWarningQuestion("OK to reopen the existing results?") != DialogResult.OK)
+                    if (MessageBoxes.ShowWarningQuestionOKCancel("OK to reopen the existing results?") != DialogResult.OK)
                         return false;
                 }
             }
@@ -2936,7 +2915,7 @@ namespace PrePoMax
             if (deleteAblePartNames.Count > 0)
             {
                 partNames = deleteAblePartNames.ToArray();
-                if (MessageBoxes.ShowWarningQuestion("OK to delete selected parts?") == DialogResult.OK)
+                if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected parts?") == DialogResult.OK)
                 {
                     _controller.RemoveGeometryPartsCommand(partNames.ToArray());
                 }
@@ -3345,7 +3324,7 @@ namespace PrePoMax
         }
         private void DeleteMeshSetupItems(string[] meshSetupItemNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected mesh setup items?" + Environment.NewLine
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected mesh setup items?" + Environment.NewLine
                                                  + meshSetupItemNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveMeshSetupItemsCommand(meshSetupItemNames);
@@ -3955,7 +3934,7 @@ namespace PrePoMax
         {
             if (_controller.AreModelPartsMergeable(partNames))
             {
-                if (MessageBoxes.ShowWarningQuestion("OK to merge selected parts?") == DialogResult.OK)
+                if (MessageBoxes.ShowWarningQuestionOKCancel("OK to merge selected parts?") == DialogResult.OK)
                 {
                     _controller.MergeModelPartsCommand(partNames);
                 }
@@ -4002,7 +3981,7 @@ namespace PrePoMax
         }
         private void DeleteModelParts(string[] partNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected parts?" + Environment.NewLine
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected parts?" + Environment.NewLine
                                                  + partNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveModelPartsCommand(partNames);
@@ -4072,7 +4051,7 @@ namespace PrePoMax
         }
         private void DeleteNodeSets(string[] nodeSetNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected node sets?" + Environment.NewLine
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected node sets?" + Environment.NewLine
                                                  + nodeSetNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveNodeSetsCommand(nodeSetNames);
@@ -4157,7 +4136,7 @@ namespace PrePoMax
         }
         private void DeleteElementSets(string[] elementSetNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected element sets?" + Environment.NewLine
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected element sets?" + Environment.NewLine
                                                  + elementSetNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveElementSetsCommand(elementSetNames);
@@ -4227,7 +4206,7 @@ namespace PrePoMax
         }
         private void DeleteSurfaces(string[] surfaceNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected surfaces?" + Environment.NewLine
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected surfaces?" + Environment.NewLine
                                                  + surfaceNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveSurfacesCommand(surfaceNames);
@@ -4349,7 +4328,7 @@ namespace PrePoMax
         }
         private void DeleteModelReferencePoints(string[] referencePointNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected model reference points?" + Environment.NewLine
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected model reference points?" + Environment.NewLine
                                                  + referencePointNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveModelReferencePointsCommand(referencePointNames);
@@ -4470,7 +4449,7 @@ namespace PrePoMax
         }
         private void DeleteModelCoordinateSystems(string[] coordinateSystemNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected model coordinate systems?" + Environment.NewLine
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected model coordinate systems?" + Environment.NewLine
                                                  + coordinateSystemNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveModelCoordinateSystemsCommand(coordinateSystemNames);
@@ -4582,7 +4561,7 @@ namespace PrePoMax
         }
         private void DeleteMaterials(string[] materialNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected materials?" + Environment.NewLine
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected materials?" + Environment.NewLine
                                                  + materialNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveMaterialsCommand(materialNames);
@@ -4678,7 +4657,7 @@ namespace PrePoMax
         }
         private void DeleteSections(string[] sectionNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected sections?" + Environment.NewLine
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected sections?" + Environment.NewLine
                                                  + sectionNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveSectionsCommand(sectionNames);
@@ -4817,7 +4796,7 @@ namespace PrePoMax
         }
         private void DeleteConstraints(string[] constraintNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected constraints?" + Environment.NewLine
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected constraints?" + Environment.NewLine
                                                  + constraintNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveConstraintsCommand(constraintNames);
@@ -4885,7 +4864,7 @@ namespace PrePoMax
         }
         private void DeleteSurfaceInteractions(string[] surfaceInteractionNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected surface interactions?" + Environment.NewLine
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected surface interactions?" + Environment.NewLine
                                                  + surfaceInteractionNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveSurfaceInteractionsCommand(surfaceInteractionNames);
@@ -5024,7 +5003,7 @@ namespace PrePoMax
         }
         private void DeleteContactPairs(string[] contactPairNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected contact pairs?" + Environment.NewLine
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected contact pairs?" + Environment.NewLine
                                                  + contactPairNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveContactPairsCommand(contactPairNames);
@@ -5119,7 +5098,7 @@ namespace PrePoMax
         }
         private void DeleteAmplitudes(string[] amplitudeNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected amplitudes?" + Environment.NewLine
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected amplitudes?" + Environment.NewLine
                                                  + amplitudeNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveAmplitudesCommand(amplitudeNames);
@@ -5227,7 +5206,7 @@ namespace PrePoMax
         }
         private void DeleteInitialConditions(string[] initialConditionNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected initial conditions?" + Environment.NewLine
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected initial conditions?" + Environment.NewLine
                                                  + initialConditionNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveInitialConditionsCommand(initialConditionNames);
@@ -5313,7 +5292,7 @@ namespace PrePoMax
         }
         private void DeleteSteps(string[] stepNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected steps?" + Environment.NewLine
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected steps?" + Environment.NewLine
                                                  + stepNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveStepsCommand(stepNames);
@@ -5432,14 +5411,14 @@ namespace PrePoMax
             bool propagate = true;
             if (exists)
             {
-                if (MessageBoxes.ShowWarningQuestion("OK to overwrite the existing history output " + historyOutputName
+                if (MessageBoxes.ShowWarningQuestionOKCancel("OK to overwrite the existing history output " + historyOutputName
                                                      + "?") == DialogResult.Cancel) propagate = false;
             }
             if (propagate) _controller.PropagateHistoryOutputCommand(stepName, historyOutputName);
         }
         private void DeleteHistoryOutputs(string stepName, string[] historyOutputNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected history outputs from step " + stepName + "?"
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected history outputs from step " + stepName + "?"
                                                  + Environment.NewLine + historyOutputNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveHistoryOutputsCommand(stepName, historyOutputNames);
@@ -5553,14 +5532,14 @@ namespace PrePoMax
             bool propagate = true;
             if (exists)
             {
-                if (MessageBoxes.ShowWarningQuestion("OK to overwrite the existing filed output " + fieldOutputName
+                if (MessageBoxes.ShowWarningQuestionOKCancel("OK to overwrite the existing filed output " + fieldOutputName
                                                      + "?") == DialogResult.Cancel) propagate = false;
             }
             if (propagate) _controller.PropagateFieldOutputCommand(stepName, fieldOutputName);
         }
         private void DeleteFieldOutputs(string stepName, string[] fieldOutputNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected field outputs from step " + stepName + "?"
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected field outputs from step " + stepName + "?"
                                                  + Environment.NewLine + fieldOutputNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveFieldOutputsCommand(stepName, fieldOutputNames);
@@ -5717,7 +5696,7 @@ namespace PrePoMax
             bool propagate = true;
             if (exists)
             {
-                if (MessageBoxes.ShowWarningQuestion("OK to overwrite the existing boundary condition " + boundaryConditionName
+                if (MessageBoxes.ShowWarningQuestionOKCancel("OK to overwrite the existing boundary condition " + boundaryConditionName
                                                      + "?") == DialogResult.Cancel) propagate = false;
             }
             if (propagate) _controller.PropagateBoundaryConditionCommand(stepName, boundaryConditionName);
@@ -5740,7 +5719,7 @@ namespace PrePoMax
         }
         private void DeleteBoundaryConditions(string stepName, string[] boundaryConditionNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected boundary conditions from step " + stepName + "?"
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected boundary conditions from step " + stepName + "?"
                                                  + Environment.NewLine + boundaryConditionNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveBoundaryConditionsCommand(stepName, boundaryConditionNames);
@@ -5914,7 +5893,7 @@ namespace PrePoMax
             bool propagate = true;
             if (exists)
             {
-                if (MessageBoxes.ShowWarningQuestion("OK to overwrite the existing load " + loadName
+                if (MessageBoxes.ShowWarningQuestionOKCancel("OK to overwrite the existing load " + loadName
                                                      + "?") == DialogResult.Cancel) propagate = false;
             }
             if (propagate) _controller.PropagateLoadCommand(stepName, loadName);
@@ -5955,7 +5934,7 @@ namespace PrePoMax
         }
         private void DeleteLoads(string stepName, string[] loadNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected loads from step " + stepName + "?"
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected loads from step " + stepName + "?"
                                                  + Environment.NewLine + loadNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveLoadsCommand(stepName, loadNames);
@@ -6089,7 +6068,7 @@ namespace PrePoMax
             bool propagate = true;
             if (exists)
             {
-                if (MessageBoxes.ShowWarningQuestion("OK to overwrite the existing defined field " + definedFieldName
+                if (MessageBoxes.ShowWarningQuestionOKCancel("OK to overwrite the existing defined field " + definedFieldName
                                                      + "?") == DialogResult.Cancel) propagate = false;
             }
             if (propagate) _controller.PropagateDefinedFieldCommand(stepName, definedFieldName);
@@ -6115,7 +6094,7 @@ namespace PrePoMax
         }
         private void DeleteDefinedFields(string stepName, string[] definedFieldNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected defined fields from step " + stepName + "?"
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected defined fields from step " + stepName + "?"
                                                  + Environment.NewLine + definedFieldNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveDefinedFieldsForStepCommand(stepName, definedFieldNames);
@@ -6355,7 +6334,7 @@ namespace PrePoMax
                 {
                     if (AnnotationContainer.IsAnnotationNameReserved(annotationName)) return;
                     //
-                    if (MessageBoxes.ShowWarningQuestion("OK to delete selected annotation?") == DialogResult.OK)
+                    if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected annotation?") == DialogResult.OK)
                     {
                         _controller.Annotations.RemoveCurrentArrowAnnotation(annotationName);
                     }
@@ -6635,7 +6614,7 @@ namespace PrePoMax
                     string inputFileName = Path.Combine(workDirectory, jobName + ".inp");
                     if (File.Exists(inputFileName))
                     {
-                        if (MessageBoxes.ShowWarningQuestion("Overwrite existing analysis files?") != DialogResult.OK) return;
+                        if (MessageBoxes.ShowWarningQuestionOKCancel("Overwrite existing analysis files?") != DialogResult.OK) return;
                     }
                     //
                     if (_controller.PrepareAndRunJobCommand(inputFileName, jobName, onlyCheckModel)) MonitorAnalysis(jobName);
@@ -6689,7 +6668,7 @@ namespace PrePoMax
         {
             if (_controller.GetJob(jobName).JobStatus == JobStatus.Running)
             {
-                if (MessageBoxes.ShowWarningQuestion("OK to kill selected analysis?") == DialogResult.OK)
+                if (MessageBoxes.ShowWarningQuestionOKCancel("OK to kill selected analysis?") == DialogResult.OK)
                 {
                     _controller.KillJob(jobName);
                 }
@@ -6701,7 +6680,7 @@ namespace PrePoMax
         }
         private void DeleteAnalyses(string[] jobNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected analyses?" + Environment.NewLine
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected analyses?" + Environment.NewLine
                                                  + jobNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveJobsCommand(jobNames);
@@ -6922,7 +6901,7 @@ namespace PrePoMax
         {
             if (_controller.AreResultPartsMergeable(partNames))
             {
-                if (MessageBoxes.ShowWarningQuestion("OK to merge selected parts?") == DialogResult.OK)
+                if (MessageBoxes.ShowWarningQuestionOKCancel("OK to merge selected parts?") == DialogResult.OK)
                 {
                     _controller.MergeResultPartsCommand(partNames);
                 }
@@ -6977,7 +6956,7 @@ namespace PrePoMax
         }
         private void DeleteResultParts(string[] partNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected parts?" + Environment.NewLine + 
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected parts?" + Environment.NewLine + 
                                                  partNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveResultPartsCommand(partNames);
@@ -7099,7 +7078,7 @@ namespace PrePoMax
         }
         private void DeleteResultReferencePoints(string[] referencePointNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected result reference points?" + Environment.NewLine
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected result reference points?" + Environment.NewLine
                                                  + referencePointNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveResultReferencePointsCommand(referencePointNames);
@@ -7220,7 +7199,7 @@ namespace PrePoMax
         }
         private void DeleteResultCoordinateSystems(string[] coordinateSystemNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected result coordinate systems?" + Environment.NewLine
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected result coordinate systems?" + Environment.NewLine
                                                  + coordinateSystemNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveResultCoordinateSystemsCommand(coordinateSystemNames);
@@ -7278,7 +7257,7 @@ namespace PrePoMax
         }
         public void DeleteResultFieldOutputs(string[] fieldOutputNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected field outputs?" + Environment.NewLine
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected field outputs?" + Environment.NewLine
                                                  + fieldOutputNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveResultFieldOutputsCommand(fieldOutputNames);
@@ -7286,7 +7265,7 @@ namespace PrePoMax
         }
         public void DeleteResultFieldOutputComponents(string fieldOutputName, string[] componentNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected components from field output " + fieldOutputName + "?"
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected components from field output " + fieldOutputName + "?"
                                                  + Environment.NewLine + componentNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveResultFieldOutputComponentsCommand(fieldOutputName, componentNames);
@@ -7357,7 +7336,7 @@ namespace PrePoMax
         }
         public void DeleteResultHistoryOutputs(string[] resultHistoryOutputNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected history outputs?" + Environment.NewLine
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected history outputs?" + Environment.NewLine
                                                  + resultHistoryOutputNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveResultHistoryOutputsCommand(resultHistoryOutputNames);
@@ -7365,7 +7344,7 @@ namespace PrePoMax
         }
         public void DeleteResultHistoryFields(string historyResultSetName, string[] historyResultFieldNames)
         {
-            if (MessageBoxes.ShowWarningQuestion("OK to delete selected fields from history output " + historyResultSetName + "?"
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected fields from history output " + historyResultSetName + "?"
                                                  + Environment.NewLine + historyResultFieldNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveResultHistoryFieldsCommand(historyResultSetName, historyResultFieldNames);
@@ -7399,7 +7378,7 @@ namespace PrePoMax
                 foreach (var parentEntry in parentParentEntry.Value)
                 {
                     itemNames = parentEntry.Value.ToArray();
-                    if (MessageBoxes.ShowWarningQuestion("OK to delete selected components from history field " +
+                    if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected components from history field " +
                                                          parentEntry.Key + "?" + Environment.NewLine +
                                                          itemNames.ToRows()) == DialogResult.OK)
                     {
@@ -7811,7 +7790,7 @@ namespace PrePoMax
             {
                 if (_controller.Annotations.GetCurrentAnnotationNames().Length > 0)
                 {
-                    if (MessageBoxes.ShowWarningQuestion("OK to delete current view annotations?") == DialogResult.OK)
+                    if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete current view annotations?") == DialogResult.OK)
                     {
                         _controller.Annotations.RemoveCurrentArrowAnnotations();
                     }
@@ -8430,7 +8409,7 @@ namespace PrePoMax
                 string text = "The model contains active invalid items:" + Environment.NewLine;
                 foreach (var item in invalidItems) text += Environment.NewLine + item;
                 text += Environment.NewLine + Environment.NewLine + "Continue?";
-                return MessageBoxes.ShowWarningQuestion(text) == DialogResult.OK;
+                return MessageBoxes.ShowWarningQuestionOKCancel(text) == DialogResult.OK;
             }
             return true;
         }
@@ -9271,6 +9250,7 @@ namespace PrePoMax
                 foreach (var line in lines)
                 {
                     WriteLineToOutputWithDate(line);
+                    //
                     Console.WriteLine(line);
                 }
                 //

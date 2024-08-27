@@ -118,7 +118,7 @@ namespace vtkControl
             GenerateLableValues();       // must be before Background
             GenerateBackground();       // must be before Borders
             GenerateBorders();
-            UpdateOutterBorder();
+            UpdateOuterBorder();
             PositionLabels();
         }
         private void UpdateSize()
@@ -237,17 +237,17 @@ namespace vtkControl
             string lastLabel = _scaleTextMappers[_scaleTextMappers.Length - 1].GetInput();
             _scaleTextMappers[_scaleTextMappers.Length - 1].SetInput(lastLabel + " " + _unit);
         }
-        private void UpdateOutterBorder()
+        private void UpdateOuterBorder()
         {
             // Text size
             int[] sizeOfFirst = vtkMaxWidgetTools.GetTextSize(_scaleTextMappers[0], _renderer);
             int[] sizeOfLast = vtkMaxWidgetTools.GetTextSize(_scaleTextMappers[_scaleTextMappers.Length - 1], _renderer);
             //
-            double outterWidth = _padding + sizeOfFirst[0] / 2 + _barWidth + sizeOfLast[0] / 2 + _padding;
-            double outterHeight = _padding + sizeOfLast[1] + _padding + _barHeight + _padding + sizeOfFirst[1] + _padding;
+            double outerWidth = _padding + sizeOfFirst[0] / 2 + _barWidth + sizeOfLast[0] / 2 + _padding;
+            double outerHeight = _padding + sizeOfLast[1] + _padding + _barHeight + _padding + sizeOfFirst[1] + _padding;
             //
-            _size[0] = outterWidth;
-            _size[1] = outterHeight;
+            _size[0] = outerWidth;
+            _size[1] = outerHeight;
         }
        
 

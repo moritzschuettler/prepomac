@@ -66,7 +66,7 @@ namespace PrePoMax.Forms
             {
                 string message = "The history was modified. Changing the history might break the model regeneration." +
                                  " OK to confirm changes?";
-                if (_modified && MessageBoxes.ShowWarningQuestion(message) == DialogResult.OK)
+                if (_modified && MessageBoxes.ShowWarningQuestionOKCancel(message) == DialogResult.OK)
                 {
                     DialogResult = DialogResult.OK;
                     Close();

@@ -26,7 +26,7 @@ namespace PrePoMax
                                                                 "must be located in the work directory.")]
         public string RegenerationFileName { get; set; }
         // UnitSystem
-        [Option('u', "unitSystem", Required = false, HelpText = "Unit system type to be used for importing [M_KG_S_C | " +
+        [Option('u', "unitSystem", Required = false, HelpText = "Unit system type to be used when importing [M_KG_S_C | " +
                                                                 "MM_TON_S_C | M_TON_S_C | IN_LB_S_F | UNIT_LESS]")]
         public string UnitSystem { get; set; }
         // WorkDirectory

@@ -318,7 +318,7 @@ namespace PrePoMax.Forms
             {
                 if (_showWarning)
                 {
-                    if (MessageBoxes.ShowWarningQuestion(message) == DialogResult.OK)
+                    if (MessageBoxes.ShowWarningQuestionOKCancel(message) == DialogResult.OK)
                     { 
                         applyControls = true;
                         _showWarning = false;
