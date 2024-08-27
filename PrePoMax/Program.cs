@@ -105,7 +105,8 @@ namespace PrePoMax
             {
                 Console.WriteLine("----------Finished------------");
                 if (error) Console.WriteLine("Process finished with errors.");
-                else Console.WriteLine("Process finished successfully");
+                else Console.WriteLine("Process finished successfully.");
+                Console.WriteLine("");
             }
         }
     }
