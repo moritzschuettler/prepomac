@@ -151,6 +151,7 @@ namespace PrePoMax.Commands
             //
             foreach (Command command in _commands)
             {
+                if (command is CSaveToPmx) continue;
                 if (!regenerateAll && !(command is PreprocessCommand)) continue;
                 //
                 if (count++ <= _currPositionIndex)

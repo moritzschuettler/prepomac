@@ -5,7 +5,7 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{1BA289A1-1DEE-4EE3-80C6-0150A1BEAFD4}</ProjectGuid>
-    <OutputType>Exe</OutputType>
+    <OutputType>WinExe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>PrePoMax</RootNamespace>
     <AssemblyName>PrePoMax</AssemblyName>
@@ -1135,6 +1135,7 @@
   <PropertyGroup>
     <PostBuildEvent>rd /s /q "de" "en" "es" "fr" "hu" "it" "ja" "pt" "ru" "sk" "sv" "tr" "zh-cn" "zh-tw"
 IF NOT exist "$(TargetDir)lib\" ( mkdir "$(TargetDir)lib\")
-copy "$(SolutionDir)GmshMesher\bin\x64\$(ConfigurationName)\GmshMesher.exe" "$(TargetDir)lib"</PostBuildEvent>
+copy "$(SolutionDir)GmshMesher\bin\x64\$(ConfigurationName)\GmshMesher.exe" "$(TargetDir)lib"
+copy "$(SolutionDir)PrePoMaxCmd\bin\x64\$(ConfigurationName)\PrePoMaxCmd.exe" "$(TargetDir)"</PostBuildEvent>
   </PropertyGroup>
 </Project>
