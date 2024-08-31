@@ -215,6 +215,10 @@ namespace PrePoMax.Forms
                 //
                 HighlightLoad();
             }
+            else if (property == nameof(_viewLoad.CoordinateSystemName))
+            {
+                HighlightLoad();
+            }
             else if (_viewLoad is ViewCLoad vcl &&
                      (property == nameof(vcl.NodeSetName) || property == nameof(vcl.ReferencePointName)))
             {
@@ -971,63 +975,67 @@ namespace PrePoMax.Forms
             try
             {
                 _controller.ClearSelectionHistory();
+                Load load = FELoad;
                 //
                 if (_viewLoad == null) { }
-                else if (FELoad is CLoad ||
-                         FELoad is MomentLoad ||
-                         FELoad is DLoad ||
-                         FELoad is HydrostaticPressure ||
-                         FELoad is ImportedPressure ||
-                         FELoad is STLoad ||
-                         FELoad is ShellEdgeLoad ||
-                         FELoad is GravityLoad ||
-                         FELoad is CentrifLoad ||
-                         FELoad is PreTensionLoad ||
+                else if (load is CLoad ||
+                         load is MomentLoad ||
+                         load is DLoad ||
+                         load is HydrostaticPressure ||
+                         load is ImportedPressure ||
+                         load is STLoad ||
+                         load is ShellEdgeLoad ||
+                         load is GravityLoad ||
+                         load is CentrifLoad ||
+                         load is PreTensionLoad ||
                          // Thermal
-                         FELoad is CFlux ||
-                         FELoad is DFlux ||
-                         FELoad is BodyFlux ||
-                         FELoad is FilmHeatTransfer ||
-                         FELoad is RadiationHeatTransfer)
+                         load is CFlux ||
+                         load is DFlux ||
+                         load is BodyFlux ||
+                         load is FilmHeatTransfer ||
+                         load is RadiationHeatTransfer)
                 {
-                    if (FELoad.RegionType == RegionTypeEnum.NodeSetName ||
-                        FELoad.RegionType == RegionTypeEnum.ReferencePointName ||
-                        FELoad.RegionType == RegionTypeEnum.SurfaceName ||
-                        FELoad.RegionType == RegionTypeEnum.PartName ||
-                        FELoad.RegionType == RegionTypeEnum.ElementSetName)
+                    if (load.RegionType == RegionTypeEnum.NodeSetName ||
+                        load.RegionType == RegionTypeEnum.ReferencePointName ||
+                        load.RegionType == RegionTypeEnum.SurfaceName ||
+                        load.RegionType == RegionTypeEnum.PartName ||
+                        load.RegionType == RegionTypeEnum.ElementSetName)
                     {
-                        _controller.Highlight3DObjects(new object[] { FELoad.RegionName });
+                        _controller.Highlight3DObjects(new object[] { load.RegionName });
                     }
-                    else if (FELoad.RegionType == RegionTypeEnum.MassSection)
+                    else if (load.RegionType == RegionTypeEnum.MassSection)
                     {
-                        Section section = _controller.Model.Sections[FELoad.RegionName];
+                        Section section = _controller.Model.Sections[load.RegionName];
                         _controller.Highlight3DObjects(new object[] { section.RegionName });
                     }
-                    else if (FELoad.RegionType == RegionTypeEnum.Selection)
+                    else if (load.RegionType == RegionTypeEnum.Selection)
                     {
                         SetSelectItem();
                         //
-                        if (FELoad.CreationData != null)
+                        if (load.CreationData != null)
                         {
-                            _controller.Selection = FELoad.CreationData.DeepClone();
+                            _controller.Selection = load.CreationData.DeepClone();
                             _controller.HighlightSelection();
                         }
                     }
                     else throw new NotImplementedException();
                     // Secondary selection
-                    if (FELoad is HydrostaticPressure hp)
+                    if (load is HydrostaticPressure hp)
                     {
                         double[][] nodeCoor = new double[][] { new double[] { hp.X1.Value, hp.Y1.Value, hp.Z1.Value },
                                                                new double[] { hp.X2.Value, hp.Y2.Value, hp.Z2.Value } };
                         _controller.HighlightNodes(nodeCoor, true);
                     }
-                    else if (FELoad is CentrifLoad cf)
+                    else if (load is CentrifLoad cf)
                     {
                         double[][] nodeCoor = new double[][] { new double[] { cf.X.Value, cf.Y.Value, cf.Z.Value } };
                         _controller.HighlightNodes(nodeCoor, true);
                     }
                 }
                 else throw new NotSupportedException();
+                //
+                if (load.CoordinateSystemName != null)
+                    _controller.HighlightCoordinateSystems(new string[] { load.CoordinateSystemName });
             }
             catch { }
         }

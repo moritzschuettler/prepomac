@@ -1238,13 +1238,6 @@ namespace PrePoMax
         }
         public void ImportFile(string fileName, bool onlyMaterials)
         {
-            if (_regenerationMode)
-            {
-                string newFileName = Path.Combine(_settings.GetWorkDirectory(), Path.GetFileName(fileName));
-                if (File.Exists(newFileName)) fileName = newFileName;
-                else throw new CaeException("The regeneration file name " + newFileName + " does not exist.");
-            }
-            //
             if (!File.Exists(fileName)) throw new FileNotFoundException("The file: '" + fileName + "' does not exist.");
             //
             string extension = Path.GetExtension(fileName).ToLower();
@@ -1836,7 +1829,7 @@ namespace PrePoMax
         public void ExportToCalculix(string fileName, Dictionary<int, double[]> deformations = null)
         {
             SuppressExplodedView();
-            FileInOut.Output.CalculixFileWriter.Write(fileName, _model, _settings.Calculix.ConvertPyramidsTo, deformations);
+            CalculixFileWriter.Write(fileName, _model, _settings.Calculix.ConvertPyramidsTo, deformations);
             ResumeExplodedViews(false);
             //
             _form.WriteDataToOutput("Model exported to file: " + fileName);
@@ -2106,10 +2099,7 @@ namespace PrePoMax
                 MessageBoxes.ShowError("There is no model.");
                 return null;
             }
-            else return FileInOut.Output.CalculixFileWriter.GetModelKeywords(_model,
-                                                                             _settings.Calculix.ConvertPyramidsTo,
-                                                                             null,
-                                                                             true);
+            else return CalculixFileWriter.GetModelKeywords(_model, _settings.Calculix.ConvertPyramidsTo, null, true);
         }
         public OrderedDictionary<int[], FileInOut.Output.Calculix.CalculixUserKeyword> GetCalculixUserKeywords()
         {
@@ -10943,12 +10933,6 @@ namespace PrePoMax
         // Export
         public void ExportResultHistoryOutput(HistoryResultSetExporter exporter)
         {
-            if (_regenerationMode)
-            {
-                string newFileName = Path.Combine(_settings.GetWorkDirectory(), Path.GetFileName(exporter.FileName));
-                exporter.FileName = newFileName;
-            }
-            //
             if (File.Exists(exporter.FileName)) File.Delete(exporter.FileName);
             //
             exporter.Export(CurrentResult);
@@ -13948,6 +13932,9 @@ namespace PrePoMax
                     else throw new NotSupportedException();
                     if (count > 0) DrawTemperatureBCSymbols(prefixName, temperature, coor, color, symbolSize, layer);
                 }
+                // Highlight coordinate system
+                if (boundaryCondition.CoordinateSystemName != null && layer == vtkRendererLayer.Selection)
+                    HighlightCoordinateSystems(new string[] { boundaryCondition.CoordinateSystemName });
             }
             catch { } // do not show the exception to the user
         }
@@ -14823,6 +14810,9 @@ namespace PrePoMax
                     if (count > 0) DrawRadiateSymbols(prefixName, radiationHeatTransfer, color, symbolSize, layer);
                 }
                 else throw new NotSupportedException();
+                // Highlight coordinate system
+                if (load.CoordinateSystemName != null && layer == vtkRendererLayer.Selection)
+                    HighlightCoordinateSystems(new string[] { load.CoordinateSystemName });
             }
             catch { }
         }

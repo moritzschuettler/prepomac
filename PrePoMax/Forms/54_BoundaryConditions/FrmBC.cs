@@ -120,6 +120,10 @@ namespace PrePoMax.Forms
                 //
                 HighlightBoundaryCondition();
             }
+            else if (property == nameof(_viewBc.CoordinateSystemName))
+            {
+                HighlightBoundaryCondition();
+            }
             else if ((_viewBc is ViewFixedBC fix) &&
                      (property == nameof(fix.NodeSetName) ||
                       property == nameof(fix.ReferencePointName) ||
@@ -414,28 +418,30 @@ namespace PrePoMax.Forms
             try
             {
                 _controller.ClearSelectionHistory();
+                BoundaryCondition bc = BoundaryCondition;
                 //
                 if (_viewBc == null) { }
-                else if (BoundaryCondition is FixedBC || BoundaryCondition is DisplacementRotation ||
-                         BoundaryCondition is SubmodelBC || BoundaryCondition is TemperatureBC)
+                else if (bc is FixedBC || bc is DisplacementRotation || bc is SubmodelBC || bc is TemperatureBC)
                 {
-                    if (BoundaryCondition.RegionType == RegionTypeEnum.NodeSetName ||
-                        BoundaryCondition.RegionType == RegionTypeEnum.ReferencePointName ||
-                        BoundaryCondition.RegionType == RegionTypeEnum.SurfaceName)
+                    if (bc.RegionType == RegionTypeEnum.NodeSetName || bc.RegionType == RegionTypeEnum.ReferencePointName ||
+                        bc.RegionType == RegionTypeEnum.SurfaceName)
                     {
-                        _controller.Highlight3DObjects(new object[] { BoundaryCondition.RegionName });
+                        _controller.Highlight3DObjects(new object[] { bc.RegionName });
                     }
-                    else if (BoundaryCondition.RegionType == RegionTypeEnum.Selection)
+                    else if (bc.RegionType == RegionTypeEnum.Selection)
                     {
                         SetSelectItem();
                         //
-                        if (BoundaryCondition.CreationData != null)
+                        if (bc.CreationData != null)
                         {
-                            _controller.Selection = BoundaryCondition.CreationData.DeepClone();
+                            _controller.Selection = bc.CreationData.DeepClone();
                             _controller.HighlightSelection();
                         }
                     }
                     else throw new NotImplementedException();
+                    //
+                    if (bc.CoordinateSystemName != null)
+                        _controller.HighlightCoordinateSystems(new string[] { bc.CoordinateSystemName });
                 }
                 else throw new NotSupportedException();
             }

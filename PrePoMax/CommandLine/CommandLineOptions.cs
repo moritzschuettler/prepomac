@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeGlobals;
 using CommandLine;
+using static System.Windows.Forms.Design.AxImporter;
 
 namespace PrePoMax
 {
@@ -15,38 +16,46 @@ namespace PrePoMax
         // FileName
         [Option('f', "file", Required = false, HelpText = "File name to be opened/imported.")]
         public string FileName { get; set; }
-        // NoGui
-        [Option('n', "noGui", Required = false, HelpText = "No GUI switch hides the graphical user interface " +
-                                                           "(only for regeneration).")]
-        public bool NoGui { get; set; }
+        // Gui
+        [Option('g', "showGui", Required = false, Default ="Yes", HelpText = "Show Graphical User Interface [Yes | No]. " +
+                                                                             "No can only be used for regeneration.")]
+        public string ShowGui { get; set; }
         // RegenerationFileName
         [Option('r', "regenerate", Required = false, HelpText = "A .pmx file name to be used for regeneration. " +
-                                                                "A work directory -w must be defined for regeneration. " +
+                                                                "A work directory -w can be defined for regeneration. " +
+                                                                "If no work directory is defined the current directory is used . " +
                                                                 "All files needed during regeneration (geometry, mesh) " +
                                                                 "must be located in the work directory.")]
         public string RegenerationFileName { get; set; }
         // UnitSystem
         [Option('u', "unitSystem", Required = false, HelpText = "Unit system type to be used when importing [M_KG_S_C | " +
-                                                                "MM_TON_S_C | M_TON_S_C | IN_LB_S_F | UNIT_LESS]")]
+                                                                "MM_TON_S_C | M_TON_S_C | IN_LB_S_F | UNIT_LESS].")]
         public string UnitSystem { get; set; }
         // WorkDirectory
         [Option('w', "workDirectory", Required = false, HelpText = "A directory path to be used as work directory.")]
         public string WorkDirectory { get; set; }
+        // WorkDirectory
+        [Option('x', "exitAfterRegeneration", Required = false, Default = "Yes", HelpText = "Exit PrePoMax after regeneration " +
+                                                                                            "[Yes | No].")]
+        public string ExitAfterRegeneration { get; set; }
 
 
         public static string GetValuesAsString(CommandLineOptions cmdOptions)
         {
             string text = "";
-            if (cmdOptions.NoGui)
-                text += "No GUI: True" + Environment.NewLine;
+            //
             if (cmdOptions.FileName != null)
                 text += "File name: " + cmdOptions.FileName + Environment.NewLine;
+            if (cmdOptions.ShowGui != null)
+                text += "Show GUI: " + cmdOptions.ShowGui + Environment.NewLine;
             if (cmdOptions.RegenerationFileName != null)
                 text += "Regeneration file name: " + cmdOptions.RegenerationFileName + Environment.NewLine;
             if (cmdOptions.UnitSystem != null)
                 text += "Unit system: " + cmdOptions.UnitSystem + Environment.NewLine;
             if (cmdOptions.WorkDirectory != null)
-                text += "Work directory: " + cmdOptions.WorkDirectory + Environment.NewLine; ;
+                text += "Work directory: " + cmdOptions.WorkDirectory + Environment.NewLine;
+            if (cmdOptions.RegenerationFileName != null && cmdOptions.ExitAfterRegeneration != null)
+                text += "Exit after regeneration : " + cmdOptions.ExitAfterRegeneration + Environment.NewLine;
             //
             if (text.Length > 0) text = "----------Parameters----------" + Environment.NewLine + text;
             else text = null;
@@ -66,11 +75,21 @@ namespace PrePoMax
                     if (!File.Exists(cmdOptions.FileName))
                         throw new Exception("The file " + cmdOptions.FileName + " does not exist.");
                 }
+                // Gui
+                string gui = cmdOptions.ShowGui.ToUpper().Trim();
+                if (gui == "YES") cmdOptions.ShowGui = "Yes";        // fix all caps
+                else if (gui == "NO") cmdOptions.ShowGui = "No";     // fix all caps
+                else throw new CaeException("Show GUI switch can only be set to Yes or No.");
                 // Work directory
                 if (cmdOptions.WorkDirectory != null)
                 {
                     if (!Directory.Exists(cmdOptions.WorkDirectory))
                         throw new CaeException("The work directory " + cmdOptions.WorkDirectory + " does not exist.");
+                }
+                else
+                {
+                    // Use current directory if no work directory is specified
+                    cmdOptions.WorkDirectory = Directory.GetCurrentDirectory();
                 }
                 // Unit system
                 if (cmdOptions.UnitSystem != null)
@@ -82,15 +101,20 @@ namespace PrePoMax
                 if (cmdOptions.RegenerationFileName != null)
                 {
                     if (!File.Exists(cmdOptions.RegenerationFileName))
+                    {
                         throw new CaeException("The regeneration file " + cmdOptions.RegenerationFileName + " does not exist.");
-                    if (cmdOptions.WorkDirectory == null)
-                        throw new CaeException("A work directory -w must be defined for regeneration.");
+                    }
                 }
                 else
                 {
-                    if (cmdOptions.NoGui == true)
-                        throw new CaeException("The no GUI switch can only be used for regeneration.");
+                    if (cmdOptions.ShowGui == "No")
+                        throw new CaeException("The No GUI switch can only be used for regeneration.");
                 }
+                // Exit
+                string exit = cmdOptions.ExitAfterRegeneration.ToUpper().Trim();
+                if (exit == "YES") cmdOptions.ExitAfterRegeneration = "Yes";        // fix all caps
+                else if (exit == "NO") cmdOptions.ExitAfterRegeneration = "No";     // fix all caps
+                else throw new CaeException("Exit switch can only be set to Yes or No.");
             }
             catch (Exception ex)
             {

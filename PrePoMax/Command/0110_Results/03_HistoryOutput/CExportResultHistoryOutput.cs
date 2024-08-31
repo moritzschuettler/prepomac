@@ -17,6 +17,14 @@ namespace PrePoMax.Commands
         private HistoryResultSetExporter _historyResultSetExporter;
 
 
+        // Properties                                                                                                               
+        public string FileName
+        {
+            get { return _historyResultSetExporter.FileName; }
+            set { _historyResultSetExporter.FileName = value; }
+        }
+
+
         // Constructor                                                                                                              
         public CExportResultHistoryOutput(HistoryResultSetExporter historyResultSetExporter)
             :base("Export result history output")

@@ -20,7 +20,7 @@ namespace PrePoMax.Commands
 
 
         // Properties                                                                                                               
-        public string FileName { get { return _fileName; } }
+        public string FileName { get { return _fileName; } set { _fileName = value; } }
         public bool OnlyMaterials { get { return _onlyMaterials; } }
 
 

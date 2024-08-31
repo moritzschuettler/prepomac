@@ -21,6 +21,10 @@ namespace PrePoMax.Commands
         private bool _onlyCheckModel;
 
 
+        // Properties                                                                                                               
+        public string InputFileName { get { return _inputFileName; } set { _inputFileName = value; } }
+
+
         // Constructor                                                                                                              
         public CPrepareAndRunJob(string inputFileName, string jobName, bool onlyCheckModel)
             : base("Run analysis")

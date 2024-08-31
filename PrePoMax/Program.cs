@@ -87,7 +87,7 @@ namespace PrePoMax
                 //
                 using (FrmMain mainForm = new FrmMain(cmdOptions))
                 {
-                    if (cmdOptions.NoGui)   // must be here
+                    if (cmdOptions.ShowGui == "No")   // must be here
                     {
                         mainForm.WindowState = FormWindowState.Minimized;
                         mainForm.ShowInTaskbar = false;

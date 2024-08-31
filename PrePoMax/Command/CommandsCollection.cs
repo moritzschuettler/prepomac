@@ -151,7 +151,35 @@ namespace PrePoMax.Commands
             //
             foreach (Command command in _commands)
             {
-                if (command is CSaveToPmx) continue;
+                // Set working directory while in regeneration mode
+                if (_controller.RegenerationMode)
+                {
+                    if (command is CImportFile cImportFile)
+                    {
+                        string newFileName = Path.Combine(_controller.Settings.GetWorkDirectory(),
+                                                          Path.GetFileName(cImportFile.FileName));
+                        if (File.Exists(newFileName)) cImportFile.FileName = newFileName;
+                    }
+                    else if (command is CPrepareAndRunJob cPrepareAndRunJob)
+                    {
+                        string newFileName = Path.Combine(_controller.Settings.GetWorkDirectory(),
+                                                          Path.GetFileName(cPrepareAndRunJob.InputFileName));
+                        cPrepareAndRunJob.InputFileName = newFileName;
+                    }
+                    else if (command is CExportResultHistoryOutput cExportResultHistoryOutput)
+                    {
+                        string newFileName = Path.Combine(_controller.Settings.GetWorkDirectory(),
+                                                          Path.GetFileName(cExportResultHistoryOutput.FileName));
+                        cExportResultHistoryOutput.FileName = newFileName;
+                    }
+                }
+                // Skip save before writing to form - set lastSave no null
+                if (command is CSaveToPmx)
+                {
+                    if (lastSave != null && command == lastSave) lastSave = null;
+                    continue;
+                }
+                // Skip post processing before writing to form
                 if (!regenerateAll && !(command is PreprocessCommand)) continue;
                 //
                 if (count++ <= _currPositionIndex)
@@ -163,11 +191,6 @@ namespace PrePoMax.Commands
                     {
                         // Skip all up to last save
                         if (lastSave != null && command != lastSave) { }
-                        // Skip save
-                        else if (command is CSaveToPmx)
-                        {
-                            if (lastSave != null && command == lastSave) lastSave = null;
-                        }
                         // Execute
                         else
                         {
@@ -328,6 +351,7 @@ namespace PrePoMax.Commands
                 File.Delete(fileName);
             }
         }
+        // Read
         public void ReadFromFile(string fileName)
         {
             _commands = Tools.LoadDumpFromFile<List<Command>>(fileName);

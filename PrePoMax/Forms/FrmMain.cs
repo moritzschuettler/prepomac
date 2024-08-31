@@ -194,7 +194,7 @@ namespace PrePoMax
             //
             MessageBoxes.ParentForm = this;
             //
-            if (_cmdOptions.NoGui)
+            if (_cmdOptions.ShowGui == "No")
             {
                 MessageBoxes.WriteDataToOutput = WriteDataToOutput;
                 AutoClosingMessageBox.WriteDataToOutput = WriteDataToOutput;
@@ -224,7 +224,7 @@ namespace PrePoMax
             Text = Globals.ProgramName;
             this.TopMost = true;
             //
-            if (!_cmdOptions.NoGui)
+            if (_cmdOptions.ShowGui == "Yes")
             {
                 _splash = new FrmSplash { TopMost = true };
                 Task.Run(() => _splash.ShowDialog());
@@ -499,7 +499,7 @@ namespace PrePoMax
             {
                 this.TopMost = false;
                 // Set form size if visible - after top most
-                if (!_cmdOptions.NoGui) _controller.Settings.General.ApplyFormSize(this);
+                if (_cmdOptions.ShowGui == "Yes") _controller.Settings.General.ApplyFormSize(this);
             }
             //
             if (!Debugger.IsAttached)
@@ -557,7 +557,7 @@ namespace PrePoMax
                     //
                     await Task.Run(() => OpenAsync(fileName, _controller.Open));
                     await Task.Run(() => _controller.RegenerateHistoryCommands(false, false, true));
-                    Close();
+                    if (_cmdOptions.ExitAfterRegeneration == "Yes") Close();
                 }
                 else
                 {

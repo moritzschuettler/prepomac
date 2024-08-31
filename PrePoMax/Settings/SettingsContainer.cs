@@ -109,6 +109,7 @@ namespace PrePoMax
         {
             SettingsContainer clone = new SettingsContainer();
             clone.Clone(this);
+            clone._regenerationWorkDirectory = _regenerationWorkDirectory;
             //
             if (currentView == ViewGeometryModelResults.Results && currentFieldData != null)
             {
@@ -241,6 +242,5 @@ namespace PrePoMax
                 return _calculix.WorkDirectoryForSettingsOnly;
             }
         }
-      
     }
 }
