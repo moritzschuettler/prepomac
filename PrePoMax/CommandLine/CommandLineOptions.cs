@@ -77,8 +77,8 @@ namespace PrePoMax
                 }
                 // Gui
                 string gui = cmdOptions.ShowGui.ToUpper().Trim();
-                if (gui == "YES") cmdOptions.ShowGui = "Yes";        // fix all caps
-                else if (gui == "NO") cmdOptions.ShowGui = "No";     // fix all caps
+                if (gui == "YES") cmdOptions.ShowGui = "Yes";        // fix all caps and spaces
+                else if (gui == "NO") cmdOptions.ShowGui = "No";     // fix all caps and spaces
                 else throw new CaeException("Show GUI switch can only be set to Yes or No.");
                 // Work directory
                 if (cmdOptions.WorkDirectory != null)
@@ -112,8 +112,8 @@ namespace PrePoMax
                 }
                 // Exit
                 string exit = cmdOptions.ExitAfterRegeneration.ToUpper().Trim();
-                if (exit == "YES") cmdOptions.ExitAfterRegeneration = "Yes";        // fix all caps
-                else if (exit == "NO") cmdOptions.ExitAfterRegeneration = "No";     // fix all caps
+                if (exit == "YES") cmdOptions.ExitAfterRegeneration = "Yes";        // fix all caps and spaces
+                else if (exit == "NO") cmdOptions.ExitAfterRegeneration = "No";     // fix all caps and spaces
                 else throw new CaeException("Exit switch can only be set to Yes or No.");
             }
             catch (Exception ex)
