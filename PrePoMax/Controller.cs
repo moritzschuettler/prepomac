@@ -1018,7 +1018,7 @@ namespace PrePoMax
             string[] errors;
             HistoryResults historyResults = DatFileReader.Read(fileName, out errors);
             // Report errors
-            if (errors != null)
+            if (errors != null && errors.Length > 0)
             {
                 _form.WriteDataToOutput("");
                 _form.WriteDataToOutput("*** Warning ***");

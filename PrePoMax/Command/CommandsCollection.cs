@@ -151,39 +151,39 @@ namespace PrePoMax.Commands
             //
             foreach (Command command in _commands)
             {
-                // Set working directory while in regeneration mode
-                if (_controller.RegenerationMode)
-                {
-                    if (command is CImportFile cImportFile)
-                    {
-                        string newFileName = Path.Combine(_controller.Settings.GetWorkDirectory(),
-                                                          Path.GetFileName(cImportFile.FileName));
-                        if (File.Exists(newFileName)) cImportFile.FileName = newFileName;
-                    }
-                    else if (command is CPrepareAndRunJob cPrepareAndRunJob)
-                    {
-                        string newFileName = Path.Combine(_controller.Settings.GetWorkDirectory(),
-                                                          Path.GetFileName(cPrepareAndRunJob.InputFileName));
-                        cPrepareAndRunJob.InputFileName = newFileName;
-                    }
-                    else if (command is CExportResultHistoryOutput cExportResultHistoryOutput)
-                    {
-                        string newFileName = Path.Combine(_controller.Settings.GetWorkDirectory(),
-                                                          Path.GetFileName(cExportResultHistoryOutput.FileName));
-                        cExportResultHistoryOutput.FileName = newFileName;
-                    }
-                }
-                // Skip save before writing to form - set lastSave no null
-                if (command is CSaveToPmx)
-                {
-                    if (lastSave != null && command == lastSave) lastSave = null;
-                    continue;
-                }
-                // Skip post processing before writing to form
-                if (!regenerateAll && !(command is PreprocessCommand)) continue;
-                //
                 if (count++ <= _currPositionIndex)
                 {
+                    // Set working directory while in regeneration mode
+                    if (_controller.RegenerationMode)
+                    {
+                        if (command is CImportFile cImportFile)
+                        {
+                            string newFileName = Path.Combine(_controller.Settings.GetWorkDirectory(),
+                                                              Path.GetFileName(cImportFile.FileName));
+                            if (File.Exists(newFileName)) cImportFile.FileName = newFileName;
+                        }
+                        else if (command is CPrepareAndRunJob cPrepareAndRunJob)
+                        {
+                            string newFileName = Path.Combine(_controller.Settings.GetWorkDirectory(),
+                                                              Path.GetFileName(cPrepareAndRunJob.InputFileName));
+                            cPrepareAndRunJob.InputFileName = newFileName;
+                        }
+                        else if (command is CExportResultHistoryOutput cExportResultHistoryOutput)
+                        {
+                            string newFileName = Path.Combine(_controller.Settings.GetWorkDirectory(),
+                                                              Path.GetFileName(cExportResultHistoryOutput.FileName));
+                            cExportResultHistoryOutput.FileName = newFileName;
+                        }
+                    }
+                    // Skip save before writing to form - set lastSave no null
+                    if (command is CSaveToPmx)
+                    {
+                        if (lastSave != null && command == lastSave) lastSave = null;
+                        continue;
+                    }
+                    // Skip post processing before writing to form
+                    if (!regenerateAll && !(command is PreprocessCommand))
+                        continue;
                     // Write to form
                     WriteToOutput(command);
                     // Try
