@@ -38,13 +38,13 @@ namespace PrePoMax.Commands
         // Methods                                                                                                                  
         public override bool Execute(Controller receiver)
         {
-            receiver.PrepareAndRunJob(_inputFileName, _jobName, _onlyCheckModel);
-            return true;
+            return receiver.PrepareAndRunJob(_inputFileName, _jobName, _onlyCheckModel);
+            //return true;
         }
         public bool ExecuteSynchronous(Controller receiver)
         {
-            receiver.PrepareAndRunJob(_inputFileName, _jobName, _onlyCheckModel, false);
-            return true;
+            return receiver.PrepareAndRunJob(_inputFileName, _jobName, _onlyCheckModel, false);
+            //return true;
         }
 
         public override string GetCommandString()

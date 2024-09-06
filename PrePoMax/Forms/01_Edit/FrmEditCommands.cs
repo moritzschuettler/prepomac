@@ -71,6 +71,11 @@ namespace PrePoMax.Forms
                     DialogResult = DialogResult.OK;
                     Close();
                 }
+                else if (!_modified)
+                {
+                    DialogResult = DialogResult.Cancel;
+                    Close();
+                }
             }
             catch (Exception ex)
             {

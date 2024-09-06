@@ -46,7 +46,7 @@ namespace PrePoMax
             //
             if (cmdOptions.FileName != null)
                 text += "File name: " + cmdOptions.FileName + Environment.NewLine;
-            if (cmdOptions.ShowGui != null)
+            if (cmdOptions.RegenerationFileName != null && cmdOptions.ShowGui != null)
                 text += "Show GUI: " + cmdOptions.ShowGui + Environment.NewLine;
             if (cmdOptions.RegenerationFileName != null)
                 text += "Regeneration file name: " + cmdOptions.RegenerationFileName + Environment.NewLine;

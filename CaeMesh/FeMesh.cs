@@ -16,6 +16,7 @@ using System.Windows.Forms.VisualStyles;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Drawing;
 using static GmshCommon.Gmsh;
+using System.Security.Cryptography;
 
 namespace CaeMesh
 {
@@ -4113,7 +4114,7 @@ namespace CaeMesh
         #region Renumber  ##########################################################################################################
         public void RenumberNodes(int startId = 0)
         {
-            Dictionary<int, int> newIds = new Dictionary<int, int>();
+            Dictionary<int, int> oldIdNewId = new Dictionary<int, int>();
             Dictionary<int, FeNode> renNodes = new Dictionary<int, FeNode>();
             int oldId;
             int newId = startId;
@@ -4123,23 +4124,30 @@ namespace CaeMesh
             {
                 newNode = node;
                 oldId = node.Id;
-
-                newIds.Add(oldId, newId);
+                //
+                oldIdNewId.Add(oldId, newId);
                 newNode.Id = newId;
                 renNodes.Add(newId, newNode);
-
+                //
                 newId++;
             }
             _nodes = renNodes;
             _maxNodeId = newId - 1;
+            // Renumber by map
+            RenumberNodes(oldIdNewId);
+        }
+        public void RenumberNodes(Dictionary<int, int> oldIdNewId)
+        {
             // Renumber element nodes
+            int nodeId;
             FeElement newElement;
             foreach (FeElement element in _elements.Values)
             {
                 newElement = element;
                 for (int i = 0; i < newElement.NodeIds.Length; i++)
                 {
-                    newElement.NodeIds[i] = newIds[newElement.NodeIds[i]];
+                    if (oldIdNewId.TryGetValue(newElement.NodeIds[i], out nodeId))
+                        newElement.NodeIds[i] = nodeId;
                 }
             }
             // Renumber node sets
@@ -4149,7 +4157,8 @@ namespace CaeMesh
                 nodeSet = entry.Value;
                 for (int i = 0; i < nodeSet.Labels.Length; i++)
                 {
-                    nodeSet.Labels[i] = newIds[nodeSet.Labels[i]];
+                    if (oldIdNewId.TryGetValue(nodeSet.Labels[i], out nodeId))
+                        nodeSet.Labels[i] = nodeId;
                 }
                 // Renumber selection
                 if (nodeSet.CreationData != null)
@@ -4163,7 +4172,8 @@ namespace CaeMesh
                             {
                                 for (int i = 0; i < snids.ItemIds.Length; i++)
                                 {
-                                    snids.ItemIds[i] = newIds[snids.ItemIds[i]];
+                                    if (oldIdNewId.TryGetValue(snids.ItemIds[i], out nodeId))
+                                        snids.ItemIds[i] = nodeId;
                                 }
                             }
                         }
@@ -4178,10 +4188,11 @@ namespace CaeMesh
                 //
                 for (int i = 0; i < part.NodeLabels.Length; i++)
                 {
-                    part.NodeLabels[i] = newIds[part.NodeLabels[i]];
+                    if (oldIdNewId.TryGetValue(part.NodeLabels[i], out nodeId))
+                        part.NodeLabels[i] = nodeId;
                 }
                 //
-                part.RenumberVisualizationNodes(newIds);
+                part.RenumberVisualizationNodes(oldIdNewId);
             }
         }
         public void RenumberElements(int startId = 0)
@@ -7855,6 +7866,94 @@ namespace CaeMesh
             HashSet<int> nodeIds = new HashSet<int>();
             foreach (var partName in partNames) nodeIds.UnionWith(_parts[partName].NodeLabels);
             return nodeIds.ToArray();
+        }
+        //
+        public void MergeCoincidentNodes(string nodeSetName, MergeCoincidentNodes mergeCoincidentNodes)
+        {
+            Dictionary<int, int> oldIdNewId = GetCoincidentNodeMap(nodeSetName, mergeCoincidentNodes);
+            // Build merged nodes groups
+            bool groupFound;
+            List<HashSet<int>> coincidentGroups = new List<HashSet<int>>();
+            foreach (var idEntry in oldIdNewId)
+            {
+                groupFound = false;
+                foreach (var group in coincidentGroups)
+                {
+                    if (group.Contains(idEntry.Value))
+                    {
+                        group.Add(idEntry.Key);
+                        groupFound = true;
+                        break;
+                    }
+                }
+                if (!groupFound)
+                {
+                    coincidentGroups.Add(new HashSet<int>() { idEntry.Key, idEntry.Value });
+                }
+            }
+            //
+            oldIdNewId.Clear();
+            int[] sortedGroup;
+            foreach (var group in coincidentGroups)
+            {
+                sortedGroup = group.ToArray();
+                Array.Sort(sortedGroup);
+                //
+                if (mergeCoincidentNodes.NodesToKeep == NodesToKeepEnum.SmallerID) { }
+                else if (mergeCoincidentNodes.NodesToKeep == NodesToKeepEnum.LargerID) Array.Reverse(sortedGroup);
+                else throw new NotSupportedException();
+                //
+                for (int i = 1; i < sortedGroup.Length; i++) oldIdNewId.Add(sortedGroup[i], sortedGroup[0]);
+            }
+            //
+            RenumberNodes(oldIdNewId);
+            //
+            foreach (var nodeId in oldIdNewId.Keys) _nodes.Remove(nodeId);
+            //
+            UpdateMaxNodeAndElementIds();
+        }
+        public Dictionary<int, int> GetCoincidentNodeMap(string nodeSetName, MergeCoincidentNodes mergeCoincidentNodes)
+        {
+            FeNode node1;
+            FeNode node2;
+            double t = mergeCoincidentNodes.Tolerance;
+            FeNodeSet nodeSet = _nodeSets[nodeSetName];
+            // Sort the nodes by x
+            int count = 0;
+            FeNode[] sortedNodes = new FeNode[nodeSet.Labels.Length];
+            foreach (var nodeId in nodeSet.Labels) sortedNodes[count++] = _nodes[nodeId];
+            IComparer<FeNode> comparerByX = new CompareFeNodeByX();
+            Array.Sort(sortedNodes, comparerByX);
+            // Create a map of node ids to be merged to another node id
+            Dictionary<int, int> oldIdNewId = new Dictionary<int, int>();
+            for (int i = 0; i < sortedNodes.Length - 1; i++)
+            {
+                node1 = sortedNodes[i];
+                if (oldIdNewId.ContainsKey(node1.Id)) continue;     // this node was merged and does not exist anymore
+                //
+                for (int j = i + 1; j < sortedNodes.Length; j++)
+                {
+                    node2 = sortedNodes[j];
+                    if (oldIdNewId.ContainsKey(node2.Id)) continue; // this node was merged and does not exist anymore
+                    //
+                    if (Math.Abs(node1.X - node2.X) < t)
+                    {
+                        if (Math.Abs(node1.Y - node2.Y) < t)
+                        {
+                            if (Math.Abs(node1.Z - node2.Z) < t)
+                            {
+                                oldIdNewId.Add(node2.Id, node1.Id);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+            }
+            //
+            return oldIdNewId;
         }
 
         // Elements 

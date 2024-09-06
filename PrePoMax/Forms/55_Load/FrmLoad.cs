@@ -1034,7 +1034,7 @@ namespace PrePoMax.Forms
                 }
                 else throw new NotSupportedException();
                 //
-                if (load.CoordinateSystemName != null)
+                if (load != null && load.CoordinateSystemName != null)
                     _controller.HighlightCoordinateSystems(new string[] { load.CoordinateSystemName });
             }
             catch { }

@@ -506,6 +506,7 @@ namespace PrePoMax
             this.tbOutput = new UserControls.AutoScrollTextBox();
             this.timerTest = new System.Windows.Forms.Timer(this.components);
             this.timerOutput = new System.Windows.Forms.Timer(this.components);
+            this.tsmiMergeCoincidentNodes = new System.Windows.Forms.ToolStripMenuItem();
             this.tsFile.SuspendLayout();
             this.tsViews.SuspendLayout();
             this.tsSymbols.SuspendLayout();
@@ -2120,7 +2121,7 @@ namespace PrePoMax
             this.tsmiDeleteMeshSetupItem});
             this.tsmiMeshSetupItem.Image = global::PrePoMax.Properties.Resources.Mesh_refinement;
             this.tsmiMeshSetupItem.Name = "tsmiMeshSetupItem";
-            this.tsmiMeshSetupItem.Size = new System.Drawing.Size(176, 22);
+            this.tsmiMeshSetupItem.Size = new System.Drawing.Size(180, 22);
             this.tsmiMeshSetupItem.Text = "Mesh Setup Item";
             // 
             // tsmiCreateMeshSetupItem
@@ -2159,7 +2160,7 @@ namespace PrePoMax
             // tsmiPreviewEdgeMesh
             // 
             this.tsmiPreviewEdgeMesh.Name = "tsmiPreviewEdgeMesh";
-            this.tsmiPreviewEdgeMesh.Size = new System.Drawing.Size(176, 22);
+            this.tsmiPreviewEdgeMesh.Size = new System.Drawing.Size(180, 22);
             this.tsmiPreviewEdgeMesh.Text = "Preview Edge Mesh";
             this.tsmiPreviewEdgeMesh.Click += new System.EventHandler(this.tsmiPreviewEdgeMesh_Click);
             // 
@@ -2167,7 +2168,7 @@ namespace PrePoMax
             // 
             this.tsmiCreateMesh.Image = global::PrePoMax.Properties.Resources.Part;
             this.tsmiCreateMesh.Name = "tsmiCreateMesh";
-            this.tsmiCreateMesh.Size = new System.Drawing.Size(176, 22);
+            this.tsmiCreateMesh.Size = new System.Drawing.Size(180, 22);
             this.tsmiCreateMesh.Text = "Create Mesh";
             this.tsmiCreateMesh.Click += new System.EventHandler(this.tsmiCreateMesh_Click);
             // 
@@ -2266,7 +2267,8 @@ namespace PrePoMax
             // tsmiNode
             // 
             this.tsmiNode.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.tsmiRenumberAllNodes});
+            this.tsmiRenumberAllNodes,
+            this.tsmiMergeCoincidentNodes});
             this.tsmiNode.Name = "tsmiNode";
             this.tsmiNode.Size = new System.Drawing.Size(194, 22);
             this.tsmiNode.Text = "Node";
@@ -2274,7 +2276,7 @@ namespace PrePoMax
             // tsmiRenumberAllNodes
             // 
             this.tsmiRenumberAllNodes.Name = "tsmiRenumberAllNodes";
-            this.tsmiRenumberAllNodes.Size = new System.Drawing.Size(146, 22);
+            this.tsmiRenumberAllNodes.Size = new System.Drawing.Size(206, 22);
             this.tsmiRenumberAllNodes.Text = "Renumber All";
             this.tsmiRenumberAllNodes.Click += new System.EventHandler(this.tsmiRenumberAllNodes_Click);
             // 
@@ -4438,6 +4440,13 @@ namespace PrePoMax
             // 
             this.timerOutput.Tick += new System.EventHandler(this.timerOutput_Tick);
             // 
+            // tsmiMergeCoincidentNodes
+            // 
+            this.tsmiMergeCoincidentNodes.Name = "tsmiMergeCoincidentNodes";
+            this.tsmiMergeCoincidentNodes.Size = new System.Drawing.Size(206, 22);
+            this.tsmiMergeCoincidentNodes.Text = "Merge Coincident Nodes";
+            this.tsmiMergeCoincidentNodes.Click += new System.EventHandler(this.tsmiMergeCoincidentNodes_Click);
+            // 
             // FrmMain
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
@@ -4971,6 +4980,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiRegenerateAll;
         private System.Windows.Forms.ToolStripMenuItem tsmiRegenerateAllUsingOtherFiles;
         private System.Windows.Forms.ToolStripMenuItem tsmiRegenerateAllWithRemeshing;
+        private System.Windows.Forms.ToolStripMenuItem tsmiMergeCoincidentNodes;
     }
 }
 

@@ -57,11 +57,12 @@ namespace PrePoMax
         private FrmMeshSetupItem _frmMeshSetupItem;
         private FrmModelProperties _frmModelProperties;
         private FrmCalculixKeywordEditor _frmCalculixKeywordEditor;
-        private FrmPartProperties _frmPartProperties;
         private FrmBoundaryLayer _frmBoundaryLayer;
         private FrmRemeshingParameters _frmRemeshingParameters;
         private FrmThickenShellMesh _frmThickenShellMesh;
         private FrmSplitPartMeshUsingSurface _frmSplitPartMeshUsingSurface;
+        private FrmMergeCoincidentNodes _frmMergeCoincidentNodes;
+        private FrmPartProperties _frmPartProperties;
         private FrmTranslate _frmTranslate;
         private FrmScale _frmScale;
         private FrmRotate _frmRotate;
@@ -350,9 +351,6 @@ namespace PrePoMax
                 _frmModelProperties = new FrmModelProperties(_controller);
                 AddFormToAllForms(_frmModelProperties);
                 //
-                _frmPartProperties = new FrmPartProperties(_controller);
-                AddFormToAllForms(_frmPartProperties);
-                //
                 _frmBoundaryLayer = new FrmBoundaryLayer(_controller);
                 AddFormToAllForms(_frmBoundaryLayer);
                 //
@@ -362,10 +360,15 @@ namespace PrePoMax
                 _frmThickenShellMesh = new FrmThickenShellMesh(_controller);
                 AddFormToAllForms(_frmThickenShellMesh);
                 //
-                //
                 _frmSplitPartMeshUsingSurface = new FrmSplitPartMeshUsingSurface(_controller);
                 _frmSplitPartMeshUsingSurface.SplitPartMeshUsingSurface += SplitPartMeshUsingSurface;
                 AddFormToAllForms(_frmSplitPartMeshUsingSurface);
+                //
+                _frmMergeCoincidentNodes = new FrmMergeCoincidentNodes(_controller);
+                AddFormToAllForms(_frmMergeCoincidentNodes);
+                //
+                _frmPartProperties = new FrmPartProperties(_controller);
+                AddFormToAllForms(_frmPartProperties);
                 //
                 _frmTranslate = new FrmTranslate(_controller);
                 AddFormToAllForms(_frmTranslate);
@@ -3748,7 +3751,24 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-
+        private void tsmiMergeCoincidentNodes_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                MergeCoincidentNodes();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        //                                                                                                                          
+        private void MergeCoincidentNodes()
+        {
+            // Data editor
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmMergeCoincidentNodes);
+            ShowForm(_frmMergeCoincidentNodes, "Merge Coincident Nodes", null);
+        }
         #endregion  ################################################################################################################
 
         #region Element menu  ######################################################################################################
@@ -6691,14 +6711,22 @@ namespace PrePoMax
             _frmMonitor.UpdateProgress();
         }
         //
-        
         public AnalysisJob GetDefaultJob()
         {
             try
             {
-                List<AnalysisJob> analysisJob = new List<AnalysisJob>();
-                InvokeIfRequired(GetDefaultJob, analysisJob);
-                return analysisJob[0];
+                AnalysisJob analysisJob = null;
+                //
+                if (this.InvokeRequired)
+                {
+                    this.Invoke((MethodInvoker)delegate () { GetDefaultJob(out analysisJob); });
+                }
+                else
+                {
+                    GetDefaultJob(out analysisJob);
+                }
+                //
+                return analysisJob;
             }
             catch (Exception ex)
             {
@@ -6706,18 +6734,21 @@ namespace PrePoMax
                 return null;
             }
         }
-        private void GetDefaultJob(List<AnalysisJob> defaultJob)
+        private void GetDefaultJob(out AnalysisJob defaultJob)
         {
             _frmAnalysis.PrepareForm(null, null);
-            AnalysisJob job = _frmAnalysis.Job;
+            defaultJob = _frmAnalysis.Job;
+        }
+        public string GetDefaultJobName()
+        {
+            string name = null;
             //
             if (_controller.OpenedFileName != null)
             {
-                job.Name = NamedClass.GetErrorFreeName(Path.GetFileNameWithoutExtension(_controller.OpenedFileName),
-                                                       "Analysis", null);
+                name = NamedClass.GetErrorFreeName(Path.GetFileNameWithoutExtension(_controller.OpenedFileName),
+                                                   "Analysis", null);
             }
-            //
-            defaultJob.Add(job);
+            return name;
         }
 
         #endregion  ################################################################################################################
@@ -7521,6 +7552,8 @@ namespace PrePoMax
             if (_frmThickenShellMesh != null && _frmThickenShellMesh.Visible) _frmThickenShellMesh.SelectionChanged(ids);
             if (_frmSplitPartMeshUsingSurface != null && _frmSplitPartMeshUsingSurface.Visible)
                 _frmSplitPartMeshUsingSurface.SelectionChanged(ids);
+            if (_frmMergeCoincidentNodes != null && _frmMergeCoincidentNodes.Visible)
+                _frmMergeCoincidentNodes.SelectionChanged(ids);
             if (_frmNodeSet != null && _frmNodeSet.Visible) _frmNodeSet.SelectionChanged(ids);
             if (_frmElementSet != null && _frmElementSet.Visible) _frmElementSet.SelectionChanged(ids);
             if (_frmSurface != null && _frmSurface.Visible) _frmSurface.SelectionChanged(ids);
@@ -9897,7 +9930,7 @@ namespace PrePoMax
             }
         }
 
-        
+      
     }
 }
 

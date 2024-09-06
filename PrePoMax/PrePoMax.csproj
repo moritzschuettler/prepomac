@@ -28,31 +28,27 @@
     <UseApplicationTrust>false</UseApplicationTrust>
     <BootstrapperEnabled>true</BootstrapperEnabled>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
     <DebugSymbols>true</DebugSymbols>
     <OutputPath>bin\x64\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <DebugType>full</DebugType>
     <PlatformTarget>x64</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <Prefer32Bit>true</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Console-Debug|x64'">
+    <!-- Edited by Maxx -->
+    <OutputType>Exe</OutputType>
+    <AssemblyName>PrePoMaxCmd</AssemblyName>
+    <!-- Edited by Maxx -->
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\x64\Console-Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
     <ErrorReport>prompt</ErrorReport>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
     <Prefer32Bit>true</Prefer32Bit>
@@ -67,22 +63,17 @@
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
     <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
-    <DebugSymbols>true</DebugSymbols>
-    <OutputPath>bin\x86\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <DebugType>full</DebugType>
-    <PlatformTarget>x86</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-    <Prefer32Bit>true</Prefer32Bit>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x86'">
-    <OutputPath>bin\x86\Release\</OutputPath>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Console-Release|x64'">
+    <!-- Edited by Maxx -->
+    <OutputType>Exe</OutputType>
+    <AssemblyName>PrePoMaxCmd</AssemblyName>
+    <!-- Edited by Maxx -->
+    <OutputPath>bin\x64\Console-Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <Optimize>true</Optimize>
     <DebugType>pdbonly</DebugType>
-    <PlatformTarget>x86</PlatformTarget>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
     <ErrorReport>prompt</ErrorReport>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
     <Prefer32Bit>true</Prefer32Bit>
@@ -139,6 +130,49 @@
     <Compile Include="Command\0040_Meshing\CDuplicateMeshSetupItems.cs" />
     <Compile Include="Command\0040_Meshing\CRemoveMeshSetupItems.cs" />
     <Compile Include="Command\0040_Meshing\CReplaceMeshingParameters.cs" />
+    <Compile Include="Command\0050_Model\02_Tools\CCreateBoundaryLayer.cs" />
+    <Compile Include="Command\0050_Model\02_Tools\CFindEdgesByAngleForModelPartsCommand.cs" />
+    <Compile Include="Command\0050_Model\02_Tools\CRemeshElements.cs" />
+    <Compile Include="Command\0050_Model\02_Tools\CSplitPartMeshUsingSurface.cs" />
+    <Compile Include="Command\0050_Model\02_Tools\CThickenShellMesh.cs" />
+    <Compile Include="Command\0050_Model\02_Tools\CUpdateNodalCoordinatesFromFile.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\01_Node\CMergeCoincidentNodes.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\01_Node\CRenumberNodes.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\02_Element\CRenumberElements.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\03_Part\CHideModelParts.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\03_Part\CMergeModelParts.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\03_Part\CRemoveModelParts.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\03_Part\CReplaceModelPartProperties.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\03_Part\CRotateModelParts.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\03_Part\CScaleModelParts.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\03_Part\CSetTransparencyForModelParts.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\03_Part\CShowModelParts.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\03_Part\CTranslateModelParts.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\04_NodeSet\CAddNodeSet.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\04_NodeSet\CDuplicateNodeSets.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\04_NodeSet\CRemoveNodeSets.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\04_NodeSet\CReplaceNodeSet.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\05_ElementSet\CAddElementSet.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\05_ElementSet\CConvertElementSetsToMeshParts.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\05_ElementSet\CDuplicateElementSets.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\05_ElementSet\CRemoveElementSets.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\05_ElementSet\CReplaceElementSet.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\06_Surface\CAddSurface.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\06_Surface\CDuplicateSurfaces.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\06_Surface\CRemoveSurfaces.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\06_Surface\CReplaceSurface.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\07_ReferencePoint\CAddModelReferencePoint.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\07_ReferencePoint\CDuplicateModelReferencePoints.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\07_ReferencePoint\CHideModelReferencePoints.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\07_ReferencePoint\CRemoveModelReferencePoints.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\07_ReferencePoint\CReplaceModelReferencePoint.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\07_ReferencePoint\CShowModelReferencePoints.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\08_CoordinateSystem\CAddModelCoordinateSystem.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\08_CoordinateSystem\CDuplicateModelCoordinateSystems.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\08_CoordinateSystem\CHideModelCoordinateSystems.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\08_CoordinateSystem\CRemoveModelCoordinateSystems.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\08_CoordinateSystem\CReplaceModelCoordinateSystem.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\08_CoordinateSystem\CShowModelCoordinateSystems.cs" />
     <Compile Include="Command\00_Base\ICommandAsynchronous.cs" />
     <Compile Include="Command\0100_Analysis\CPrepareAndRunJob.cs" />
     <Compile Include="Command\0110_Results\00_Base\COpenResults.cs" />
@@ -184,46 +218,9 @@
     <Compile Include="Command\_Compatibility\v1.4.1\CReplaceMeshingParameters.cs" />
     <Compile Include="Command\_Compatibility\v1.4.1\CReplaceMeshRefinement.cs" />
     <Compile Include="Command\_Compatibility\v1.3.5\CSetMeshingParameters.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\08_CoordinateSystem\CAddModelCoordinateSystem.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\08_CoordinateSystem\CDuplicateModelCoordinateSystems.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\08_CoordinateSystem\CHideModelCoordinateSystems.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\08_CoordinateSystem\CRemoveModelCoordinateSystems.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\08_CoordinateSystem\CReplaceModelCoordinateSystem.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\08_CoordinateSystem\CShowModelCoordinateSystems.cs" />
     <Compile Include="Command\0050_Model\01_Properties\CReplaceModelProperties.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\01_Node\CRenumberNodes.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\02_Element\CRenumberElements.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\03_Part\CRotateModelParts.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\03_Part\CScaleModelParts.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\03_Part\CSetTransparencyForModelParts.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\03_Part\CTranslateModelParts.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\03_Part\CMergeModelParts.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\03_Part\CShowModelParts.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\03_Part\CHideModelParts.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\04_NodeSet\CAddNodeSet.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\04_NodeSet\CDuplicateNodeSets.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\04_NodeSet\CRemoveNodeSets.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\04_NodeSet\CReplaceNodeSet.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\05_ElementSet\CAddElementSet.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\05_ElementSet\CConvertElementSetsToMeshParts.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\05_ElementSet\CDuplicateElementSets.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\05_ElementSet\CRemoveElementSets.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\05_ElementSet\CReplaceElementSet.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\06_Surface\CDuplicateSurfaces.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\07_ReferencePoint\CAddModelReferencePoint.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\07_ReferencePoint\CDuplicateModelReferencePoints.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\07_ReferencePoint\CHideModelReferencePoints.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\07_ReferencePoint\CRemoveModelReferencePoints.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\07_ReferencePoint\CReplaceModelReferencePoint.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\07_ReferencePoint\CShowModelReferencePoints.cs" />
-    <Compile Include="Command\0050_Model\CSplitPartMeshUsingSurface.cs" />
-    <Compile Include="Command\0050_Model\CThickenShellMesh.cs" />
-    <Compile Include="Command\0050_Model\CUpdateNodalCoordinatesFromFile.cs" />
-    <Compile Include="Command\0050_Model\CRemeshElements.cs" />
-    <Compile Include="Command\0050_Model\CFindEdgesByAngleForModelPartsCommand.cs" />
     <Compile Include="Command\0050_Model\CSetModelUnitSystem.cs" />
     <Compile Include="Command\0050_Model\CSetNewModelProperties.cs" />
-    <Compile Include="Command\0050_Model\CCreateBoundaryLayer.cs" />
     <Compile Include="Command\0061_Material\CDuplicateMaterials.cs" />
     <Compile Include="Command\0061_Material\CDuplicateMaterial.cs" />
     <Compile Include="Command\0062_Section\CDuplicateSections.cs" />
@@ -307,11 +304,6 @@
     <Compile Include="Command\000_General\CClear.cs" />
     <Compile Include="Command\000_General\CActivateDeactivate.cs" />
     <Compile Include="Command\CommandsCollection.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\03_Part\CRemoveModelParts.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\03_Part\CReplaceModelPartProperties.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\06_Surface\CReplaceSurface.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\06_Surface\CRemoveSurfaces.cs" />
-    <Compile Include="Command\0050_Model\02_Mesh\06_Surface\CAddSurface.cs" />
     <Compile Include="Command\00_Base\Command.cs" />
     <Compile Include="Command\_Compatibility\V2.1.0\CActivateDeactivateMultilpe.cs" />
     <Compile Include="Command\_Compatibility\V2.1.0\CAddReferencePoint.cs" />
@@ -370,6 +362,34 @@
     </Compile>
     <Compile Include="Forms\11_MeshSetup\ViewThickenShellMesh.cs" />
     <Compile Include="Forms\21_FEModel\ViewSplitPartMeshData.cs" />
+    <Compile Include="Forms\22_Node\FrmMergeCoincidentNodes.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\22_Node\ViewMergeCoincidentNodes.cs" />
+    <Compile Include="Forms\24_Part\FrmPartProperties.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\24_Part\FrmRotate.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\24_Part\FrmScale.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\24_Part\FrmTranslate.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\24_Part\RotateParameters.cs" />
+    <Compile Include="Forms\24_Part\ScaleParameters.cs" />
+    <Compile Include="Forms\24_Part\TranslateParameters.cs" />
+    <Compile Include="Forms\24_Part\ViewPartProperties.cs" />
+    <Compile Include="Forms\25_NodeSet\FrmNodeSet.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\25_NodeSet\ViewNodeSet.cs" />
+    <Compile Include="Forms\26_ElementSet\FrmElementSet.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\26_ElementSet\ViewElementSet.cs" />
     <Compile Include="Forms\32_CoordinateSystems\FrmCoordinateSystem.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -422,21 +442,6 @@
     <Compile Include="Forms\21_FEModel\ViewBoundaryLayer.cs" />
     <Compile Include="Forms\21_FEModel\ViewRemeshingParameters.cs" />
     <Compile Include="Forms\21_FEModel\ViewModelProperties.cs" />
-    <Compile Include="Forms\22_Part\FrmScale.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Forms\22_Part\FrmRotate.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Forms\22_Part\FrmTranslate.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Forms\22_Part\ScaleParameters.cs" />
-    <Compile Include="Forms\22_Part\RotateParameters.cs" />
-    <Compile Include="Forms\22_Part\TranslateParameters.cs" />
-    <Compile Include="Forms\23_NodeSet\FrmNodeSet.cs">
-      <SubType>Form</SubType>
-    </Compile>
     <Compile Include="Forms\41_Material\DataPoints\SpecificHeatDataPoint.cs" />
     <Compile Include="Forms\41_Material\DataPoints\ThermalConductivityDataPoint.cs" />
     <Compile Include="Forms\41_Material\DataPoints\ThermalExpansionDataPoint.cs" />
@@ -605,12 +610,6 @@
     <Compile Include="Forms\00_Common\FrmGetValue.Designer.cs">
       <DependentUpon>FrmGetValue.cs</DependentUpon>
     </Compile>
-    <Compile Include="Forms\22_Part\FrmPartProperties.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Forms\24_ElementSet\FrmElementSet.cs">
-      <SubType>Form</SubType>
-    </Compile>
     <Compile Include="Forms\25_Surface\FrmSurface.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -654,9 +653,6 @@
       <DependentUpon>FrmCalculixKeywordEditor.cs</DependentUpon>
     </Compile>
     <Compile Include="Forms\11_MeshSetup\ViewMeshingParameters.cs" />
-    <Compile Include="Forms\22_Part\ViewPartProperties.cs" />
-    <Compile Include="Forms\23_NodeSet\ViewNodeSet.cs" />
-    <Compile Include="Forms\24_ElementSet\ViewElementSet.cs" />
     <Compile Include="Forms\25_Surface\ViewFeSurface.cs" />
     <Compile Include="Forms\31_ReferencePoint\ViewFeReferencePoint.cs" />
     <Compile Include="Forms\41_Material\ViewPlastic.cs" />
@@ -803,6 +799,27 @@
     <EmbeddedResource Include="Forms\21_FEModel\FrmThickenShellMesh.resx">
       <DependentUpon>FrmThickenShellMesh.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Forms\22_Node\FrmMergeCoincidentNodes.resx">
+      <DependentUpon>FrmMergeCoincidentNodes.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\24_Part\FrmPartProperties.resx">
+      <DependentUpon>FrmPartProperties.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\24_Part\FrmRotate.resx">
+      <DependentUpon>FrmRotate.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\24_Part\FrmScale.resx">
+      <DependentUpon>FrmScale.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\24_Part\FrmTranslate.resx">
+      <DependentUpon>FrmTranslate.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\25_NodeSet\FrmNodeSet.resx">
+      <DependentUpon>FrmNodeSet.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\26_ElementSet\FrmElementSet.resx">
+      <DependentUpon>FrmElementSet.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Forms\32_CoordinateSystems\FrmCoordinateSystem.resx">
       <DependentUpon>FrmCoordinateSystem.cs</DependentUpon>
     </EmbeddedResource>
@@ -826,18 +843,6 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\21_FEModel\FrmRemeshingParameters.resx">
       <DependentUpon>FrmRemeshingParameters.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Forms\22_Part\FrmScale.resx">
-      <DependentUpon>FrmScale.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Forms\22_Part\FrmRotate.resx">
-      <DependentUpon>FrmRotate.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Forms\22_Part\FrmTranslate.resx">
-      <DependentUpon>FrmTranslate.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Forms\23_NodeSet\FrmNodeSet.resx">
-      <DependentUpon>FrmNodeSet.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\41_Material\FrmMaterialLibrary.resx">
       <DependentUpon>FrmMaterialLibrary.cs</DependentUpon>
@@ -873,12 +878,6 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\00_Common\FrmGetValue.resx">
       <DependentUpon>FrmGetValue.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Forms\22_Part\FrmPartProperties.resx">
-      <DependentUpon>FrmPartProperties.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Forms\24_ElementSet\FrmElementSet.resx">
-      <DependentUpon>FrmElementSet.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\25_Surface\FrmSurface.resx">
       <DependentUpon>FrmSurface.cs</DependentUpon>
@@ -1101,6 +1100,7 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Command\0020_View\" />
+    <Folder Include="Forms\23_Element\" />
   </ItemGroup>
   <ItemGroup>
     <Analyzer Include="c:\Program Files\ActiViz.NET 5.8.0 OpenSource Edition\bin\Kitware.mummy.Runtime.dll" />
@@ -1133,9 +1133,10 @@
     <Move SourceFiles="@(MoveToLibFolder)" DestinationFolder="$(OutputPath)lib" OverwriteReadOnlyFiles="true" />
   </Target>
   <PropertyGroup>
-    <PostBuildEvent>rd /s /q "de" "en" "es" "fr" "hu" "it" "ja" "pt" "ru" "sk" "sv" "tr" "zh-cn" "zh-tw"
+    <PostBuildEvent>del *.dll.config
+del *.manifest
+rd /s /q "de" "en" "es" "fr" "hu" "it" "ja" "pt" "ru" "sk" "sv" "tr" "zh-cn" "zh-tw"
 IF NOT exist "$(TargetDir)lib\" ( mkdir "$(TargetDir)lib\")
-copy "$(SolutionDir)GmshMesher\bin\x64\$(ConfigurationName)\GmshMesher.exe" "$(TargetDir)lib"
-copy "$(SolutionDir)PrePoMaxCmd\bin\x64\$(ConfigurationName)\PrePoMaxCmd.exe" "$(TargetDir)"</PostBuildEvent>
+copy "$(SolutionDir)GmshMesher\bin\x64\$(ConfigurationName)\GmshMesher.exe" "$(TargetDir)lib"</PostBuildEvent>
   </PropertyGroup>
 </Project>

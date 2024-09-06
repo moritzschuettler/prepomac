@@ -200,6 +200,23 @@ namespace CaeGlobals
                 }
             }
         }
+        // Int array
+        public static string ToShortString(this int[] intArray, int numOfItems = 10)
+        {
+            string allNames = null;
+            if (intArray != null)
+            {
+                if (numOfItems > intArray.Length) numOfItems = intArray.Length;
+                //
+                for (int i = 0; i < numOfItems; i++)
+                {
+                    if (i != 0) allNames += ", ";
+                    allNames += intArray[i];
+                }
+                if (intArray.Length > numOfItems) allNames += ", ...";
+            }
+            return allNames;
+        }
         // Float Array
         public static float[] ToFloat(this double[] arr) => Array.ConvertAll(arr, x => (float)x);
         // Double Array

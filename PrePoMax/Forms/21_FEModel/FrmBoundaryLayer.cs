@@ -133,7 +133,7 @@ namespace PrePoMax.Forms
                 if (_controller != null)
                 {
                     _controller.ClearSelectionHistory();
-                    _controller.SetSelectItemToGeometry();
+                    SetSelectItem();
                     // Surface.CreationData is set to null when the CreatedFrom is changed
                     if (_viewBoundaryLayer.CreationData != null)
                     {
@@ -175,14 +175,14 @@ namespace PrePoMax.Forms
         public bool IsSelectionGeometryBased()
         {
             // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
-            // Allways use geometry based selection
+            // Always use geometry based selection
             return true;
         }
         public bool IsGeometrySelectionIdBased()
         {
             bool defaultMode = _controller.Settings.Pre.GeometrySelectMode == GeometrySelectModeEnum.SelectId;
             // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
-            // Allways use default selection mode
+            // Always use default selection mode
             return defaultMode;
         }
 

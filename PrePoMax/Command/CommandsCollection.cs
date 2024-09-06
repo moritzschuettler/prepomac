@@ -26,6 +26,7 @@ namespace PrePoMax.Commands
         public int Count { get { return _commands.Count(); } }
         public int CurrPositionIndex { get { return _currPositionIndex; } }
         public List<Command> Commands { get { return _commands; } }
+        public bool IsEnableDisableUndoRedoDefined { get { return EnableDisableUndoRedo != null; } }
 
 
         // Callbacks                                                                                                                
@@ -106,6 +107,7 @@ namespace PrePoMax.Commands
         }
         private bool ExecuteCommand(Command command, bool addCommand)
         {
+            bool result = false;
             // Write to form
             WriteToOutput(command);
             // First execute to check for errors - DO NOT EXECUTE SAVE COMMAND
@@ -121,7 +123,10 @@ namespace PrePoMax.Commands
                 _currPositionIndex++;
                 //
                 OnEnableDisableUndoRedo();
+                //
+                result = true;
             }
+            
             // Execute the save command at the end to include all changes in the file
             if (command is CSaveToPmx)
             {
@@ -129,7 +134,7 @@ namespace PrePoMax.Commands
                 WriteToFile();  // repeat the write in order to save the hash
             }
             //
-            return true;
+            return result;
         }
         public void ExecuteAllCommands()
         {
@@ -184,8 +189,6 @@ namespace PrePoMax.Commands
                     // Skip post processing before writing to form
                     if (!regenerateAll && !(command is PreprocessCommand))
                         continue;
-                    // Write to form
-                    WriteToOutput(command);
                     // Try
                     try
                     {
@@ -194,6 +197,9 @@ namespace PrePoMax.Commands
                         // Execute
                         else
                         {
+                            // Write to form
+                            WriteToOutput(command);
+                            //
                             executeWithDialog = false;
                             if (command is ICommandWithDialog cwd)
                             {

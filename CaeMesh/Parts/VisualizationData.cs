@@ -444,6 +444,7 @@ namespace CaeMesh
                 }
             }
             // Cell neighbours over cell
+            bool error = false;
             if (_cellNeighboursOverCell != null)
             {
                 int[] renumberedKey;
@@ -466,10 +467,16 @@ namespace CaeMesh
                     //
                     cellNeighbour = entry.Value;
                     cellNeighbour.Cell1 = renumberedCell;
-                    renumberedNeighbours.Add(renumberedKey, cellNeighbour);
+                    if (!renumberedNeighbours.ContainsKey(renumberedKey))
+                        renumberedNeighbours.Add(renumberedKey, cellNeighbour);
+                    else
+                        error = true;
                 }
                 _cellNeighboursOverCell = renumberedNeighbours;
             }
+            //
+            if (System.Diagnostics.Debugger.IsAttached && error)
+                MessageBoxes.ShowWarning("VisualizationData:RenumberNodes: This should not happen!");
         }
         public void RenumberElements(Dictionary<int, int> newIds)
         {

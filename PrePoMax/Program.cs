@@ -32,7 +32,7 @@ namespace PrePoMax
         [STAThread]
         static void Main(string[] args)
         {
-            if (IsWindowsApplication()) AttachConsole(ATTACH_PARENT_PROCESS);
+            //if (IsWindowsApplication()) AttachConsole(ATTACH_PARENT_PROCESS);
             Console.WriteLine("");
             //
             SetCultureAndLanguage();
@@ -41,14 +41,14 @@ namespace PrePoMax
             //
             if (parserResult.Value != null) Run(parserResult.Value);
             //
-            if (IsWindowsApplication()) FreeConsole();
+            //if (IsWindowsApplication()) FreeConsole();
             //
             Process.GetCurrentProcess().Kill(); // a process remains running afer application exits
         }
-        private static bool IsWindowsApplication()
-        {
-            return GetConsoleWindow() == IntPtr.Zero;
-        }
+        //private static bool IsWindowsApplication()
+        //{
+        //    return GetConsoleWindow() == IntPtr.Zero;
+        //}
         private static void SetCultureAndLanguage()
         {
             System.Globalization.CultureInfo ci =

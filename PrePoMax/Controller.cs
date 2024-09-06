@@ -711,6 +711,9 @@ namespace PrePoMax
             {
                 _commands.ExecuteAllCommands();
             }
+            //
+            _commands.EnableDisableUndoRedo += _commands_CommandExecuted;
+            _commands.OnEnableDisableUndoRedo();
             // Model changed
             _modelChanged = true;
         }
@@ -4641,132 +4644,7 @@ namespace PrePoMax
         }
 
         #endregion #################################################################################################################
-
-        #region Node menu   ########################################################################################################
-        // COMMANDS ********************************************************************************
-        public void RenumberNodesCommand(int startNodeId)
-        {
-            Commands.CRenumberNodes comm = new Commands.CRenumberNodes(startNodeId);
-            _commands.AddAndExecute(comm);
-        }
-        //******************************************************************************************
-        public void RenumberNodes(int startNodeId)
-        {
-            if (_currentView == ViewGeometryModelResults.Model) _model.Mesh.RenumberNodes(startNodeId);
-            else throw new NotSupportedException();
-        }
-        public int[] GetAllNodeIds()
-        {
-            if (_currentView == ViewGeometryModelResults.Geometry) return _model.Geometry.Nodes.Keys.ToArray();
-            else if (_currentView == ViewGeometryModelResults.Model) return _model.Mesh.Nodes.Keys.ToArray();
-            else return _allResults.CurrentResult.Mesh.Nodes.Keys.ToArray();
-        }
-        public int[] GetVisibleNodeIds()
-        {
-            if (_currentView == ViewGeometryModelResults.Geometry) return _model.Geometry.GetVisibleNodeIds();
-            else if (_currentView == ViewGeometryModelResults.Model) return _model.Mesh.GetVisibleNodeIds();
-            else if (_currentView == ViewGeometryModelResults.Results) return _allResults.CurrentResult.Mesh.GetVisibleNodeIds();
-            else throw new NotSupportedException();
-        }
-        public int[] GetAllOuterNodeIds()
-        {
-            HashSet<int> outerNodes = new HashSet<int>();
-
-            foreach (var entry in DisplayedMesh.Parts)
-            {
-                foreach (int[] cell in entry.Value.Visualization.Cells)
-                {
-                    foreach (int nodeId in cell) outerNodes.Add(nodeId);
-                }
-            }
-
-            return outerNodes.ToArray();
-        }
-        public FeNode[] GetNodes(int[] nodeIds)
-        {
-            FeMesh mesh = DisplayedMesh;
-
-            FeNode[] nodes = new FeNode[nodeIds.Length];
-            for (int i = 0; i < nodeIds.Length; i++)
-            {
-                nodes[i] = mesh.Nodes[nodeIds[i]];
-            }
-            return nodes;
-        }
-        public FeNode GetNode(int nodeId)
-        {
-            if (_currentView == ViewGeometryModelResults.Results) return _allResults.CurrentResult.UndeformedNodes[nodeId];
-            else return DisplayedMesh.Nodes[nodeId];
-        }
-
-        #endregion #################################################################################################################
-
-        #region Element menu   #####################################################################################################
-        // COMMANDS ********************************************************************************
-        public void RenumberElementsCommand(int startNodeId)
-        {
-            Commands.CRenumberElements comm = new Commands.CRenumberElements(startNodeId);
-            _commands.AddAndExecute(comm);
-        }
-        //******************************************************************************************
-        public void RenumberElements(int startElementId)
-        {
-            if (_currentView == ViewGeometryModelResults.Model) _model.Mesh.RenumberElements(startElementId);
-            else throw new NotSupportedException();
-        }
-        public int[] GetAllElementIds()
-        {
-            if (_currentView == ViewGeometryModelResults.Geometry) return _model.Geometry.Elements.Keys.ToArray();
-            else if (_currentView == ViewGeometryModelResults.Model) return _model.Mesh.Elements.Keys.ToArray();
-            else if (_currentView == ViewGeometryModelResults.Results)
-                return _allResults.CurrentResult.Mesh.Elements.Keys.ToArray();
-            else throw new NotSupportedException();
-        }
-        public int[] GetVisibleElementIds()
-        {
-            if (_currentView == ViewGeometryModelResults.Geometry) return _model.Geometry.GetVisibleElementIds();
-            else if (_currentView == ViewGeometryModelResults.Model) return _model.Mesh.GetVisibleElementIds();
-            else if (_currentView == ViewGeometryModelResults.Results) return
-                    _allResults.CurrentResult.Mesh.GetVisibleElementIds();
-            else throw new NotSupportedException();
-        }
-        public FeElement GetElement(int elementId)
-        {
-            return DisplayedMesh.Elements[elementId];
-        }
-        public string GetElementType(int elementId)
-        {
-            if (_currentView == ViewGeometryModelResults.Model)
-            {
-                FeMesh mesh = DisplayedMesh;
-                FeElement element = mesh.Elements[elementId];
-                MeshPart part = (MeshPart)mesh.GetPartFromId(element.PartId);
-                return part.GetElementType(element);
-            }
-            else return null;
-        }
-        //
-        public bool AreElementsAllSolidElements3D(int[] elementIds)
-        {
-            foreach (int elementId in elementIds)
-            {
-                if (!(_model.Mesh.Elements[elementId] is FeElement3D)) return false;
-            }
-            //
-            return true;
-        }
-        public bool AreElementsAllShellElements(int[] elementIds)
-        {
-            foreach (int elementId in elementIds)
-            {
-                if (!(_model.Mesh.Elements[elementId] is FeElement2D)) return false;
-            }
-            //
-            return true;
-        }
-
-        #endregion #################################################################################################################
-
+      
         #region Model menu   #######################################################################################################
         // COMMANDS ********************************************************************************
         public void ReplaceModelPropertiesCommand(string newModelName, ModelProperties newModelProperties)
@@ -4774,7 +4652,33 @@ namespace PrePoMax
             CReplaceModelProperties comm = new CReplaceModelProperties(newModelName, newModelProperties);
             _commands.AddAndExecute(comm);
         }
-        // Tools
+        
+        //******************************************************************************************
+        public void ReplaceModelProperties(string newModelName, ModelProperties newModelProperties)
+        {
+            ModelSpaceEnum prevModelSpace = _model.Properties.ModelSpace;
+            ModelSpaceEnum newModelSpace = newModelProperties.ModelSpace;
+            bool update = prevModelSpace != newModelSpace;
+            //
+            _model.Name = newModelName;
+            _model.Properties = newModelProperties;
+            //
+            if (update)
+            {
+                _model.UpdateMeshPartsElementTypes(true);
+                // Check for a change to or from AxiSymmetric
+                if (prevModelSpace == ModelSpaceEnum.Axisymmetric || newModelSpace == ModelSpaceEnum.Axisymmetric)
+                {
+                    if (_model.StepCollection.GetNumberOfCentrifLoads() > 0)
+                        FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+                }
+            }
+        }
+        
+        #endregion #################################################################################################################
+
+        #region Tools   ############################################################################################################
+        // COMMANDS ********************************************************************************
         public void FindEdgesByAngleForModelPartsCommand(string[] partNames, double edgeAngle)
         {
             CFindEdgesByAngleForModelPartsCommand comm = new CFindEdgesByAngleForModelPartsCommand(partNames, edgeAngle);
@@ -4807,27 +4711,6 @@ namespace PrePoMax
             _commands.AddAndExecute(comm);
         }
         //******************************************************************************************
-        public void ReplaceModelProperties(string newModelName, ModelProperties newModelProperties)
-        {
-            ModelSpaceEnum prevModelSpace = _model.Properties.ModelSpace;
-            ModelSpaceEnum newModelSpace = newModelProperties.ModelSpace;
-            bool update = prevModelSpace != newModelSpace;
-            //
-            _model.Name = newModelName;
-            _model.Properties = newModelProperties;
-            //
-            if (update)
-            {
-                _model.UpdateMeshPartsElementTypes(true);
-                // Check for a change to or from AxiSymmetric
-                if (prevModelSpace == ModelSpaceEnum.Axisymmetric || newModelSpace == ModelSpaceEnum.Axisymmetric)
-                {
-                    if (_model.StepCollection.GetNumberOfCentrifLoads() > 0)
-                        FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
-                }
-            }
-        }
-        // Tools
         public void FindEdgesByAngleForModelParts(string[] partNames, double edgeAngle)
         {
             MeshPart meshPart;
@@ -5339,6 +5222,181 @@ namespace PrePoMax
 
         #endregion #################################################################################################################
 
+        #region Node menu   ########################################################################################################
+        // COMMANDS ********************************************************************************
+        public void RenumberNodesCommand(int startNodeId)
+        {
+            CRenumberNodes comm = new CRenumberNodes(startNodeId);
+            _commands.AddAndExecute(comm);
+        }
+        public void MergeCoincidentNodesCommand(MergeCoincidentNodes mergeCoincidentNodes)
+        {
+            CMergeCoincidentNodes comm = new CMergeCoincidentNodes(mergeCoincidentNodes);
+            _commands.AddAndExecute(comm);
+        }
+        //******************************************************************************************
+        public void RenumberNodes(int startNodeId)
+        {
+            if (_currentView == ViewGeometryModelResults.Model) _model.Mesh.RenumberNodes(startNodeId);
+            else throw new NotSupportedException();
+        }
+        public void MergeCoincidentNodes(MergeCoincidentNodes mergeCoincidentNodes)
+        {
+            string name = _model.Mesh.NodeSets.GetNextNumberedKey(CaeMesh.Globals.InternalSelectionName + "_MergeCoincidentNodes");
+            FeNodeSet nodeSet = new FeNodeSet(name, null);
+            nodeSet.CreationData = mergeCoincidentNodes.CreationData;
+            nodeSet.Internal = true;
+            AddNodeSet(nodeSet);
+            //
+            bool isExplodedViewActive = IsExplodedViewActive();
+            if (isExplodedViewActive) TurnExplodedViewOnOff(false);
+            SuppressExplodedView();
+            //
+            _model.Mesh.MergeCoincidentNodes(name, mergeCoincidentNodes);
+            //
+            if (isExplodedViewActive) TurnExplodedViewOnOff(false);
+            //
+            RemoveNodeSets(new string[] { name }, false);
+            //
+            FeModelUpdate(UpdateType.DrawModel | UpdateType.Check | UpdateType.RedrawSymbols);
+        }
+        public void PreviewMergeCoincidentNodes(MergeCoincidentNodes mergeCoincidentNodes)
+        {
+            string name = _model.Mesh.NodeSets.GetNextNumberedKey(CaeMesh.Globals.InternalSelectionName + "_MergeCoincidentNodes");
+            FeNodeSet nodeSet = new FeNodeSet(name, null);
+            nodeSet.CreationData = mergeCoincidentNodes.CreationData;   // regeneration
+            nodeSet.Internal = true;
+            Selection selection = _selection.DeepClone();
+            AddNodeSet(nodeSet);    // clears the selection
+            _selection = selection;
+            //
+            SuppressExplodedView();
+            //
+            Dictionary<int, int> oldIdNewId = _model.Mesh.GetCoincidentNodeMap(name, mergeCoincidentNodes);
+            //
+            ResumeExplodedViews(false);
+            //
+            HashSet<int> allNodeIds = new HashSet<int>(oldIdNewId.Keys);
+            allNodeIds.UnionWith(oldIdNewId.Values);
+            double[][] coor = _model.Mesh.GetNodeSetCoor(allNodeIds.ToArray());
+            //
+            HighlightNodes(coor, true);
+            //
+            RemoveNodeSets(new string[] { name }, false);
+        }
+        //
+        public int[] GetAllNodeIds()
+        {
+            if (_currentView == ViewGeometryModelResults.Geometry) return _model.Geometry.Nodes.Keys.ToArray();
+            else if (_currentView == ViewGeometryModelResults.Model) return _model.Mesh.Nodes.Keys.ToArray();
+            else return _allResults.CurrentResult.Mesh.Nodes.Keys.ToArray();
+        }
+        public int[] GetVisibleNodeIds()
+        {
+            if (_currentView == ViewGeometryModelResults.Geometry) return _model.Geometry.GetVisibleNodeIds();
+            else if (_currentView == ViewGeometryModelResults.Model) return _model.Mesh.GetVisibleNodeIds();
+            else if (_currentView == ViewGeometryModelResults.Results) return _allResults.CurrentResult.Mesh.GetVisibleNodeIds();
+            else throw new NotSupportedException();
+        }
+        public int[] GetAllOuterNodeIds()
+        {
+            HashSet<int> outerNodes = new HashSet<int>();
+
+            foreach (var entry in DisplayedMesh.Parts)
+            {
+                foreach (int[] cell in entry.Value.Visualization.Cells)
+                {
+                    foreach (int nodeId in cell) outerNodes.Add(nodeId);
+                }
+            }
+
+            return outerNodes.ToArray();
+        }
+        public FeNode[] GetNodes(int[] nodeIds)
+        {
+            FeMesh mesh = DisplayedMesh;
+
+            FeNode[] nodes = new FeNode[nodeIds.Length];
+            for (int i = 0; i < nodeIds.Length; i++)
+            {
+                nodes[i] = mesh.Nodes[nodeIds[i]];
+            }
+            return nodes;
+        }
+        public FeNode GetNode(int nodeId)
+        {
+            if (_currentView == ViewGeometryModelResults.Results) return _allResults.CurrentResult.UndeformedNodes[nodeId];
+            else return DisplayedMesh.Nodes[nodeId];
+        }
+
+        #endregion #################################################################################################################
+
+        #region Element menu   #####################################################################################################
+        // COMMANDS ********************************************************************************
+        public void RenumberElementsCommand(int startNodeId)
+        {
+            Commands.CRenumberElements comm = new Commands.CRenumberElements(startNodeId);
+            _commands.AddAndExecute(comm);
+        }
+        //******************************************************************************************
+        public void RenumberElements(int startElementId)
+        {
+            if (_currentView == ViewGeometryModelResults.Model) _model.Mesh.RenumberElements(startElementId);
+            else throw new NotSupportedException();
+        }
+        public int[] GetAllElementIds()
+        {
+            if (_currentView == ViewGeometryModelResults.Geometry) return _model.Geometry.Elements.Keys.ToArray();
+            else if (_currentView == ViewGeometryModelResults.Model) return _model.Mesh.Elements.Keys.ToArray();
+            else if (_currentView == ViewGeometryModelResults.Results)
+                return _allResults.CurrentResult.Mesh.Elements.Keys.ToArray();
+            else throw new NotSupportedException();
+        }
+        public int[] GetVisibleElementIds()
+        {
+            if (_currentView == ViewGeometryModelResults.Geometry) return _model.Geometry.GetVisibleElementIds();
+            else if (_currentView == ViewGeometryModelResults.Model) return _model.Mesh.GetVisibleElementIds();
+            else if (_currentView == ViewGeometryModelResults.Results) return
+                    _allResults.CurrentResult.Mesh.GetVisibleElementIds();
+            else throw new NotSupportedException();
+        }
+        public FeElement GetElement(int elementId)
+        {
+            return DisplayedMesh.Elements[elementId];
+        }
+        public string GetElementType(int elementId)
+        {
+            if (_currentView == ViewGeometryModelResults.Model)
+            {
+                FeMesh mesh = DisplayedMesh;
+                FeElement element = mesh.Elements[elementId];
+                MeshPart part = (MeshPart)mesh.GetPartFromId(element.PartId);
+                return part.GetElementType(element);
+            }
+            else return null;
+        }
+        //
+        public bool AreElementsAllSolidElements3D(int[] elementIds)
+        {
+            foreach (int elementId in elementIds)
+            {
+                if (!(_model.Mesh.Elements[elementId] is FeElement3D)) return false;
+            }
+            //
+            return true;
+        }
+        public bool AreElementsAllShellElements(int[] elementIds)
+        {
+            foreach (int elementId in elementIds)
+            {
+                if (!(_model.Mesh.Elements[elementId] is FeElement2D)) return false;
+            }
+            //
+            return true;
+        }
+
+        #endregion #################################################################################################################
+
         #region Model part menu   ##################################################################################################
         // COMMANDS ********************************************************************************
         public void HideModelPartsCommand(string[] partNames)
@@ -5569,11 +5627,13 @@ namespace PrePoMax
         // Transform
         public void TranslateModelParts(string[] partNames, double[] translateVector, bool copy)
         {
-            //if (!copy) ChangeAllSelectionsToIdSelections(partNames);
+            SuppressExplodedView();
+            //
             if (!copy) TranslateSelectionsContainingParts(partNames, translateVector);
             //
             string[] translatedPartNames = _model.Mesh.TranslateParts(partNames, translateVector, copy,
-                                                                      _model.GetReservedPartNames(), _model.GetReservedPartIds());
+                                                                      _model.GetReservedPartNames(),
+                                                                      _model.GetReservedPartIds());
             //
             if (copy)
             {
@@ -5589,13 +5649,14 @@ namespace PrePoMax
         }
         public void ScaleModelParts(string[] partNames, double[] scaleCenter, double[] scaleFactors, bool copy)
         {
-            if (IsExplodedViewActive()) throw new CaeException("The scaling can only be done when the exploded view is turned off.");
+            bool explodedViewActive = IsExplodedViewActive();
+            if (explodedViewActive) TurnExplodedViewOnOff(false);
             //
-            //if (!copy) ChangeAllSelectionsToIdSelections(partNames);
             if (!copy) ScaleSelectionsContainingParts(partNames, scaleCenter, scaleFactors);
             //
             string[] scaledPartNames = _model.Mesh.ScaleParts(partNames, scaleCenter, scaleFactors, copy,
-                                                              _model.GetReservedPartNames(), _model.GetReservedPartIds());
+                                                              _model.GetReservedPartNames(),
+                                                              _model.GetReservedPartIds());
             if (copy)
             {
                 foreach (var partName in scaledPartNames)
@@ -5604,13 +5665,14 @@ namespace PrePoMax
                 }
             }
             //
-            if (IsExplodedViewActive()) UpdateExplodedView(false);
+            if (explodedViewActive) TurnExplodedViewOnOff(false);
             //
             FeModelUpdate(UpdateType.DrawModel | UpdateType.RedrawSymbols);
         }
         public void RotateModelParts(string[] partNames, double[] rotateCenter, double[] rotateAxis, double rotateAngle, bool copy)
         {
-            //if (!copy) ChangeAllSelectionsToIdSelections(partNames);
+            SuppressExplodedView();
+            //
             if (!copy) RotateSelectionsContainingParts(partNames, rotateCenter, rotateAxis, rotateAngle);
             //
             string[] rotatedPartNames = _model.Mesh.RotateParts(partNames, rotateCenter, rotateAxis, rotateAngle, copy,
@@ -5885,22 +5947,22 @@ namespace PrePoMax
         // COMMANDS ********************************************************************************
         public void AddNodeSetCommand(FeNodeSet nodeSet)
         {
-            Commands.CAddNodeSet comm = new Commands.CAddNodeSet(nodeSet);
+            CAddNodeSet comm = new CAddNodeSet(nodeSet);
             _commands.AddAndExecute(comm);
         }
         public void ReplaceNodeSetCommand(string oldNodeSetName, FeNodeSet newNodeSet)
         {
-            Commands.CReplaceNodeSet comm = new Commands.CReplaceNodeSet(oldNodeSetName, newNodeSet);
+            CReplaceNodeSet comm = new CReplaceNodeSet(oldNodeSetName, newNodeSet);
             _commands.AddAndExecute(comm);
         }
         public void DuplicateNodeSetsCommand(string[] nodeSetNames)
         {
-            Commands.CDuplicateNodeSets comm = new Commands.CDuplicateNodeSets(nodeSetNames);
+            CDuplicateNodeSets comm = new CDuplicateNodeSets(nodeSetNames);
             _commands.AddAndExecute(comm);
         }
         public void RemoveNodeSetsCommand(string[] nodeSetNames)
         {
-            Commands.CRemoveNodeSets comm = new Commands.CRemoveNodeSets(nodeSetNames);
+            CRemoveNodeSets comm = new CRemoveNodeSets(nodeSetNames);
             _commands.AddAndExecute(comm);
         }
         //******************************************************************************************
@@ -5926,16 +5988,18 @@ namespace PrePoMax
             // In order for the Regenerate history to work perform the selection
             if (nodeSet.CreationData != null) ReselectNodeSet(nodeSet);
             //
-            _model.Mesh.UpdateNodeSetCenterOfGravity(nodeSet);
-            //
             _model.Mesh.NodeSets.Add(nodeSet.Name, nodeSet);
-            //
-            _form.AddTreeNode(ViewGeometryModelResults.Model, nodeSet, null);
-            //
+            // Update
+            _model.Mesh.UpdateNodeSetCenterOfGravity(nodeSet);
             UpdateSurfacesBasedOnNodeSet(nodeSet.Name);
             UpdateModelReferencePointsBasedOnNodeSet(nodeSet.Name);
             //
-            if (update) FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            if (!nodeSet.Internal)
+            {
+                _form.AddTreeNode(ViewGeometryModelResults.Model, nodeSet, null);
+                //
+                if (update) FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            }
         }
         public FeNodeSet GetNodeSet(string nodeSetName)
         {
@@ -5983,7 +6047,7 @@ namespace PrePoMax
                 AddNodeSet(newNodeSet);
             }
         }
-        public void RemoveNodeSets(string[] nodeSetNames)
+        public void RemoveNodeSets(string[] nodeSetNames, bool update = true)
         {
             FeNodeSet nodeSet;
             foreach (var name in nodeSetNames)
@@ -5996,7 +6060,7 @@ namespace PrePoMax
                 }
             }
             //
-            FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            if (update) FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
         }
         public void GetNodesCenterOfGravity(FeNodeSet nodeSet)
         {
@@ -8501,6 +8565,15 @@ namespace PrePoMax
             {
                 AnalysisJob job = _form.GetDefaultJob();
                 if (job != null) AddJob(job);
+                // For the regenerate to work - during regeneration the job name does not depend on the opened file name
+                string oldName;
+                string name = _form.GetDefaultJobName();
+                if (name != null && name != job.Name)
+                {
+                    oldName = job.Name;
+                    job.Name = name;
+                    ReplaceJobCommand(oldName, job);    
+                }
             }
             //
             _model.StepCollection.AddStep(step, copyBCsAndLoads);
@@ -12327,6 +12400,12 @@ namespace PrePoMax
             int[] faceIds = DisplayedMesh.GetVisualizationFaceIds(nodeIds, new int[] { elementId }, false, false,
                                                                   FrontBackBothFaceSideEnum.Front);
             //
+            if (faceIds.Length == 0)
+            {
+                if (System.Diagnostics.Debugger.IsAttached)
+                    MessageBoxes.ShowWarning("Controller:GetCellFaceActorData: This should not happen!");
+                return null;
+            }
             bool add;
             int[] cell = null;
             FeElement element;
