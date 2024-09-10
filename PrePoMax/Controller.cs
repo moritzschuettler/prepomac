@@ -657,7 +657,7 @@ namespace PrePoMax
             if (data == null || data.Length < 3)
             {
                 New();
-                throw new Exception("The file cannot be read. It is either corrupt or was created by a previous version.");
+                throw new CaeException("The file cannot be read. It is either corrupt or was created by a previous version.");
             }
             // Get controller
             tmp = (Controller)data[0];
@@ -5283,6 +5283,26 @@ namespace PrePoMax
             HighlightNodes(coor, true);
             //
             RemoveNodeSets(new string[] { name }, false);
+        }
+        public Dictionary<int, int> GetCoincidentNodeMap(MergeCoincidentNodes mergeCoincidentNodes)
+        {
+            string name = _model.Mesh.NodeSets.GetNextNumberedKey(CaeMesh.Globals.InternalSelectionName + "_MergeCoincidentNodes");
+            FeNodeSet nodeSet = new FeNodeSet(name, null);
+            nodeSet.CreationData = mergeCoincidentNodes.CreationData;   // regeneration
+            nodeSet.Internal = true;
+            Selection selection = _selection.DeepClone();
+            AddNodeSet(nodeSet);    // clears the selection
+            _selection = selection;
+            //
+            SuppressExplodedView();
+            //
+            Dictionary<int, int> oldIdNewId = _model.Mesh.GetCoincidentNodeMap(name, mergeCoincidentNodes);
+            //
+            ResumeExplodedViews(false);
+            //
+            RemoveNodeSets(new string[] { name }, false);
+            //
+            return oldIdNewId;
         }
         //
         public int[] GetAllNodeIds()

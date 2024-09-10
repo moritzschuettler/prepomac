@@ -20,7 +20,8 @@ namespace CaeGlobals
         // Properties                                                                                                               
         public static string GetUnitAbbreviation()
         {
-            return Length.GetAbbreviation(_lengthUnit);
+            if ((int)_lengthUnit == MyUnit.NoUnit) return "";
+            else return Length.GetAbbreviation(_lengthUnit);
         }
         public static string SetUnit 
         {

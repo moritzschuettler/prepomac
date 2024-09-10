@@ -1,6 +1,8 @@
 ﻿using CaeGlobals;
+using DynamicTypeDescriptor;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -10,7 +12,9 @@ namespace CaeMesh
     [Serializable]
     public enum NodesToKeepEnum
     {
+        [StandardValue("SmallerID", DisplayName = "Smaller ID")]
         SmallerID,
+        [StandardValue("LargerID", DisplayName = "Larger ID")]
         LargerID
     }
     //

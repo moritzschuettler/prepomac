@@ -14,7 +14,7 @@ namespace CaeGlobals
     public class StringLengthPixelConverter : TypeConverter
     {
         // Variables                                                                                                                
-        protected static string pixelAbbrevation = "px";
+        protected static string pixelAbbreviation = "px";
         protected static string error = "Unable to parse quantity. Expected the form \"{value} {unit abbreviation}" +
                                         "\", such as \"5.5 m\". The spacing is optional.";
 
@@ -49,7 +49,7 @@ namespace CaeGlobals
                 {
                     if (value is int valueInt)
                     {
-                        return valueInt.ToString() + " " + pixelAbbrevation;
+                        return valueInt.ToString() + " " + pixelAbbreviation;
                     }
                 }
                 return base.ConvertTo(context, culture, value, destinationType);
@@ -64,7 +64,7 @@ namespace CaeGlobals
         {
             try
             {
-                valueWithUnitString = valueWithUnitString.Replace(pixelAbbrevation, "");
+                valueWithUnitString = valueWithUnitString.Replace(pixelAbbreviation, "");
                 return int.Parse(valueWithUnitString);
             }
             catch (Exception ex)
@@ -74,7 +74,7 @@ namespace CaeGlobals
         }
         public static string SupportedUnitAbbreviations()
         {
-            string supportedUnitAbbreviations = "Supported pixel abbreviations: " + pixelAbbrevation + ".";
+            string supportedUnitAbbreviations = "Supported pixel abbreviations: " + pixelAbbreviation + ".";
             return supportedUnitAbbreviations;
         }
     }

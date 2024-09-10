@@ -725,7 +725,7 @@ namespace CaeResults
                 fieldData = entry.Key;
                 currentField = entry.Value;
                 //
-                if (fieldData.StepId == 0 && fieldData.StepIncrementId == 0) continue; // Zero increment - Find all occurances!!!
+                if (fieldData.StepId == 0 && fieldData.StepIncrementId == 0) continue; // Zero increment - Find all occurrences!!!
                 //
                 if (fieldData.Name == FOFieldNames.WearDepth)
                 {
@@ -810,7 +810,7 @@ namespace CaeResults
                 fieldData = entry.Key;
                 currentField = entry.Value;
                 //
-                if (fieldData.StepId == 0 && fieldData.StepIncrementId == 0) continue; // Zero increment - Find all occurances!!!
+                if (fieldData.StepId == 0 && fieldData.StepIncrementId == 0) continue; // Zero increment - Find all occurrences!!!
                 //
                 fieldData.Time += lastTime;
                 fieldData.StepId += lastStepId;
@@ -2271,7 +2271,7 @@ namespace CaeResults
                 if (entry.Key.StepId == stepId)
                 {
                     if (entry.Key.StepType == StepTypeEnum.Static && stepId == 1 && ids.Count == 0)
-                        ids.Add(0);   // Zero increment - Find all occurances!!!
+                        ids.Add(0);   // Zero increment - Find all occurrences!!!
                     //
                     ids.Add(entry.Key.StepIncrementId);
                 }
@@ -2328,7 +2328,7 @@ namespace CaeResults
             {
                 if (!stepIds.Contains(1))
                 {
-                    existingIncrementIds.Add(1, new int[] { 0 });   // Zero increment - Find all occurances!!!
+                    existingIncrementIds.Add(1, new int[] { 0 });   // Zero increment - Find all occurrences!!!
                 }
                 foreach (int stepId in stepIds)
                 {
@@ -2349,7 +2349,7 @@ namespace CaeResults
             else
             {
                 foreach (var stepId in stepIds) stepMaxTime.Add(stepId, 0);
-                if (!stepMaxTime.ContainsKey(0)) stepMaxTime.Add(0, 0); // Zero increment - Find all occurances!!!
+                if (!stepMaxTime.ContainsKey(0)) stepMaxTime.Add(0, 0); // Zero increment - Find all occurrences!!!
                 //
                 float time;
                 foreach (var entry in _fields)
@@ -2406,7 +2406,7 @@ namespace CaeResults
             {
                 if ((entry.Key.Name.ToUpper() == fieldName.ToUpper() &&
                      entry.Value.ContainsComponent(component) &&
-                     stepId == 1 && stepIncrementId == 0) // Zero increment - Find all occurances!!!
+                     stepId == 1 && stepIncrementId == 0) // Zero increment - Find all occurrences!!!
                      ||
                     (entry.Key.Name.ToUpper() == fieldName.ToUpper() &&
                      entry.Value.ContainsComponent(component) &&
@@ -2437,7 +2437,7 @@ namespace CaeResults
         //
         public float GetIncrementTime(int stepId, int stepIncrementId)
         {
-            if (stepIncrementId == 0) return 0; // Zero increment - Find all occurances!!!
+            if (stepIncrementId == 0) return 0; // Zero increment - Find all occurrences!!!
             foreach (var entry in _fields)
             {
                 if (entry.Key.StepId == stepId && entry.Key.StepIncrementId == stepIncrementId)
@@ -2454,7 +2454,7 @@ namespace CaeResults
             //
             if (fieldData.Valid)
             {
-                if (fieldData.StepIncrementId == 0)     // Zero increment - Find all occurances!!!
+                if (fieldData.StepIncrementId == 0)     // Zero increment - Find all occurrences!!!
                 {
                     if (fieldData.StepId == 1)          // first step
                     {
@@ -2511,7 +2511,7 @@ namespace CaeResults
         }
         public bool IsComponentInvariant(FieldData fieldData)
         {
-            if (fieldData.StepIncrementId == 0)   // Zero increment - Find all occurances!!!
+            if (fieldData.StepIncrementId == 0)   // Zero increment - Find all occurrences!!!
             {
                 if (fieldData.StepId == 1)        // first step
                     return false;
@@ -2545,7 +2545,7 @@ namespace CaeResults
             int maxId = -1;
             bool zeroIncrement = false;
             //
-            if (fieldData.StepIncrementId == 0)     // Zero increment - Find all occurances!!!
+            if (fieldData.StepIncrementId == 0)     // Zero increment - Find all occurrences!!!
             {
                 if (fieldData.StepId == 1)          // first step / zero increment
                 {
@@ -3756,7 +3756,7 @@ namespace CaeResults
                     {
                         // Get node coordinates
                         GetNodeCoordinates(nodeIds, existingStepEntry.Key, incrementId, nodeCoorType,
-                            componentX, componentY, componentZ);
+                                           componentX, componentY, componentZ);
                     }
                 }
                 //
@@ -3806,6 +3806,21 @@ namespace CaeResults
                             y.Entries[name].Add(fieldData.Time, valuesY[resultNodeId] + resultNode.Y);
                             z.Entries[name].Add(fieldData.Time, valuesZ[resultNodeId] + resultNode.Z);
                         }
+                    }
+                }
+            }
+            else
+            {
+                if (!(stepId == 1 && incrementId == 0)) // Zero increment - Find all occurrences!!!
+                {
+                    // Return undeformed coordinates if no field is found
+                    for (int i = 0; i < nodeIds.Length; i++)
+                    {
+                        name = nodeIds[i].ToString();
+                        resultNode = _undeformedNodes[nodeIds[i]];
+                        x.Entries[name].Add(fieldData.Time, resultNode.X);
+                        y.Entries[name].Add(fieldData.Time, resultNode.Y);
+                        z.Entries[name].Add(fieldData.Time, resultNode.Z);
                     }
                 }
             }
@@ -4816,7 +4831,7 @@ namespace CaeResults
                         fieldIncrementsCount += stepIncrementIds.Length;
                     }
                     //
-                    if (historySortedTime.Length == fieldIncrementsCount - 1) // -1 for Zero increment - Find all occurances!!!
+                    if (historySortedTime.Length == fieldIncrementsCount - 1) // -1 for Zero increment - Find all occurrences!!!
                         return true;
                 }
             }

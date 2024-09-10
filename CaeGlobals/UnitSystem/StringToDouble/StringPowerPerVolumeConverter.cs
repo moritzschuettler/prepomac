@@ -188,10 +188,15 @@ namespace CaeGlobals
                 double conversionToSI;
                 double conversionFromSI;
                 GetConversionToSI(valueWithUnitString, out valueDouble, out conversionToSI);
-                GetConversionFromSI(out conversionFromSI);
-                //
-                if (Math.Abs(conversionToSI - 1 / conversionFromSI) > 1E-6)
-                    valueDouble *= conversionToSI * conversionFromSI;
+                // To no unit
+                if ((int)_powerUnit == MyUnit.NoUnit || (int)_volumeUnit == MyUnit.NoUnit) { }
+                else
+                {
+                    GetConversionFromSI(out conversionFromSI);
+                    //
+                    if (Math.Abs(conversionToSI - 1 / conversionFromSI) > 1E-6)
+                        valueDouble *= conversionToSI * conversionFromSI;
+                }
                 //
                 return valueDouble;
             }

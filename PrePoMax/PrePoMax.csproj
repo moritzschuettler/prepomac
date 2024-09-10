@@ -41,7 +41,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Console-Debug|x64'">
     <!-- Edited by Maxx -->
     <OutputType>Exe</OutputType>
-    <AssemblyName>PrePoMaxCmd</AssemblyName>
+    <AssemblyName>PrePoMax</AssemblyName>
     <!-- Edited by Maxx -->
     <DebugSymbols>true</DebugSymbols>
     <OutputPath>bin\x64\Console-Debug\</OutputPath>
@@ -66,7 +66,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Console-Release|x64'">
     <!-- Edited by Maxx -->
     <OutputType>Exe</OutputType>
-    <AssemblyName>PrePoMaxCmd</AssemblyName>
+    <AssemblyName>PrePoMax</AssemblyName>
     <!-- Edited by Maxx -->
     <OutputPath>bin\x64\Console-Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
@@ -1135,8 +1135,21 @@
   <PropertyGroup>
     <PostBuildEvent>del *.dll.config
 del *.manifest
+
 rd /s /q "de" "en" "es" "fr" "hu" "it" "ja" "pt" "ru" "sk" "sv" "tr" "zh-cn" "zh-tw"
+
 IF NOT exist "$(TargetDir)lib\" ( mkdir "$(TargetDir)lib\")
-copy "$(SolutionDir)GmshMesher\bin\x64\$(ConfigurationName)\GmshMesher.exe" "$(TargetDir)lib"</PostBuildEvent>
+
+copy "$(SolutionDir)GmshMesher\bin\x64\$(ConfigurationName)\GmshMesher.exe" "$(TargetDir)lib"
+
+copy "$(SolutionDir)PrePoMax\bin\x64\Console-Debug\PrePoMax.exe" "$(SolutionDir)PrePoMax\bin\x64\Debug\PrePoMax.com"
+copy "$(SolutionDir)PrePoMax\bin\x64\Console-Debug\PrePoMax.exe.config" "$(SolutionDir)PrePoMax\bin\x64\Debug\PrePoMax.com.config"
+
+copy "$(SolutionDir)PrePoMax\bin\x64\Console-Release\PrePoMax.exe" "$(SolutionDir)PrePoMax\bin\x64\Release\PrePoMax.com"
+copy "$(SolutionDir)PrePoMax\bin\x64\Console-Release\PrePoMax.exe.config" "$(SolutionDir)PrePoMax\bin\x64\Release\PrePoMax.com.config"</PostBuildEvent>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PreBuildEvent>del *Cmd.exe
+del *Cmd.exe.config</PreBuildEvent>
   </PropertyGroup>
 </Project>

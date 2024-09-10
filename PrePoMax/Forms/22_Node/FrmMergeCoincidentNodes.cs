@@ -71,6 +71,10 @@ namespace PrePoMax.Forms
                 //
                 if (_viewMergeCoincidentNodes.GeometryIds != null && _viewMergeCoincidentNodes.GeometryIds.Length > 0)
                 {
+                    Dictionary<int, int> oldIdNewId = _controller.GetCoincidentNodeMap(_viewMergeCoincidentNodes.GetBase());
+                    if (oldIdNewId.Count == 0)
+                        throw new CaeException("There are no coincident nodes in the current selection.");
+                    //
                     HighlightMergeCoincidentNodes();
                     _controller.PreviewMergeCoincidentNodes(_viewMergeCoincidentNodes.GetBase());
                 }
@@ -88,6 +92,10 @@ namespace PrePoMax.Forms
             //
             if (_viewMergeCoincidentNodes.GeometryIds == null || _viewMergeCoincidentNodes.GeometryIds.Length == 0)
                 throw new CaeException("The coincident nodes selection to merge must contain at least one item.");
+            //
+            Dictionary<int, int> oldIdNewId = _controller.GetCoincidentNodeMap(_viewMergeCoincidentNodes.GetBase());
+            if (oldIdNewId.Count == 0)
+                throw new CaeException("There are no coincident nodes in the current selection.");
             // Create
             _controller.MergeCoincidentNodesCommand(_viewMergeCoincidentNodes.GetBase());
             //
