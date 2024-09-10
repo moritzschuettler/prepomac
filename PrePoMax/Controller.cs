@@ -17745,7 +17745,7 @@ namespace PrePoMax
             FeSurface surface = new FeSurface(_model.Mesh.Surfaces.GetNextNumberedKey("UserSurface"));
             surface.CreatedFrom = FeSurfaceCreatedFrom.Faces;
             surface.FaceIds = faceIds;
-            AddSurface(surface);
+            AddSurface(surface); 
         }
     }
 
