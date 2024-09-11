@@ -10,6 +10,11 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax.Forms
 {
+    public enum DefaultMeshSizeTypeEnum
+    {
+        Absolute,
+        Relative
+    }
     public class ViewMeshingParameters : ViewMeshSetupItem
     {
         // Variables                                                                                                                
@@ -34,6 +39,8 @@ namespace PrePoMax.Forms
             set
             {
                 _parameters.AdvancedView = value;
+                if (_parameters.AdvancedView == false) _parameters.RelativeSize = _parameters.DefaultSizeIsRelative;
+                //
                 UpdateVisibility();
             }
         }
@@ -184,13 +191,19 @@ namespace PrePoMax.Forms
 
         // Constructors                                                                                                             
         public ViewMeshingParameters(MeshingParameters parameters)
-            : this(parameters, parameters.AdvancedView)
+            : this(parameters, parameters.RelativeSize)
         {
         }
-        public ViewMeshingParameters(MeshingParameters parameters, bool advancedView)
+        public ViewMeshingParameters(MeshingParameters parameters, bool defaultSizeIsRelative)
+            : this(parameters, defaultSizeIsRelative, parameters.AdvancedView)
+        {
+        }
+        public ViewMeshingParameters(MeshingParameters parameters, bool defaultSizeIsRelative, bool advancedView)
         {
             _parameters = parameters;
             _parameters.AdvancedView = advancedView;
+            _parameters.DefaultSizeIsRelative = defaultSizeIsRelative;
+            //
             _dctd = ProviderInstaller.Install(this);
             // Category sorting
             _dctd.CategorySortOrder = CustomSortOrder.AscendingById;
@@ -217,11 +230,10 @@ namespace PrePoMax.Forms
         
         protected void UpdateVisibility()
         {
-            bool visible = _parameters.RelativeSize || _settingsView;
             bool advanced = _parameters.AdvancedView || _settingsView;
-            //
             _dctd.GetProperty(nameof(Relative)).SetIsBrowsable(advanced);
             //
+            bool visible = (_parameters.RelativeSize && advanced) || _settingsView;
             _dctd.GetProperty(nameof(FactorMax)).SetIsBrowsable(visible);
             _dctd.GetProperty(nameof(FactorMin)).SetIsBrowsable(visible);
             _dctd.GetProperty(nameof(MaxH)).SetIsBrowsable(!visible);

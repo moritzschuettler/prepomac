@@ -3637,9 +3637,9 @@ namespace PrePoMax
                 else return null;
             }
             //
-            defaultMeshingParameters.MaxH = CaeGlobals.Tools.RoundToSignificantDigits(sumMax / partNames.Length, 2);
-            defaultMeshingParameters.MinH = CaeGlobals.Tools.RoundToSignificantDigits(sumMin / partNames.Length, 2);
-            defaultMeshingParameters.Hausdorff = CaeGlobals.Tools.RoundToSignificantDigits(sumHausdorff / partNames.Length, 2);
+            defaultMeshingParameters.MaxH = Tools.RoundToSignificantDigits(sumMax / partNames.Length, 2);
+            defaultMeshingParameters.MinH = Tools.RoundToSignificantDigits(sumMin / partNames.Length, 2);
+            defaultMeshingParameters.Hausdorff = Tools.RoundToSignificantDigits(sumHausdorff / partNames.Length, 2);
             // All parts must be of either netgen type or mmg type
             if (onlyOneMeshType)
             {

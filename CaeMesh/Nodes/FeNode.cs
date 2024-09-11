@@ -54,11 +54,16 @@ namespace CaeMesh
                 Z = value[2];
             }
         }
-        public bool IsEqual(FeNode node)
+        public bool IsEqual(FeNode node, double epsilon = 1E-6)
         {
-            int div = 10000;
-            // the <= sign solves the problem when a coordinate equals 0
-            if (Id == node.Id && Math.Abs(X - node.X) <= Math.Abs(X / div) && Math.Abs(Y - node.Y) <= Math.Abs(Y / div) && Math.Abs(Z - node.Z) <= Math.Abs(Z / div))
+            //int div = 10000;
+            // The <= sign solves the problem when a coordinate equals 0
+            //if (Id == node.Id && Math.Abs(X - node.X) <= Math.Abs(X / div) &&
+            //                     Math.Abs(Y - node.Y) <= Math.Abs(Y / div) &&
+            //                     Math.Abs(Z - node.Z) <= Math.Abs(Z / div))
+            if (Id == node.Id && Math.Abs(X - node.X) <= epsilon &&
+                                 Math.Abs(Y - node.Y) <= epsilon &&
+                                 Math.Abs(Z - node.Z) <= epsilon)
                 return true;
             else
                 return false;

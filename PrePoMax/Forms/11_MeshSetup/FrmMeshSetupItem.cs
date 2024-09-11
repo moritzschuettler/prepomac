@@ -40,10 +40,13 @@ namespace PrePoMax.Forms
             {
                 if (value is MeshingParameters mp)
                 {
+                    bool defaultSizeIsRelative = _controller.Settings.Meshing.MeshingParameters.RelativeSize;
+                    //
                     bool advancedView = mp.AdvancedView;
                     if (_viewMeshSetupItem != null && _viewMeshSetupItem is ViewMeshingParameters vmp)
                         advancedView = vmp.AdvancedView;
-                    _viewMeshSetupItem = new ViewMeshingParameters(mp.DeepClone(), advancedView);
+                    //
+                    _viewMeshSetupItem = new ViewMeshingParameters(mp.DeepClone(), defaultSizeIsRelative, advancedView);
                 }
                 else if (value is FeMeshRefinement mr) _viewMeshSetupItem = new ViewFeMeshRefinement(mr.DeepClone());
                 else if (value is ShellGmsh sg) _viewMeshSetupItem = new ViewShellGmsh(sg.DeepClone());
@@ -411,7 +414,8 @@ namespace PrePoMax.Forms
             if (meshSetupItem is MeshingParameters mp)
             {
                 selectedId = 0;
-                _viewMeshSetupItem = new ViewMeshingParameters(mp.DeepClone());
+                bool defaultSizeIsRelative = _controller.Settings.Meshing.MeshingParameters.RelativeSize;
+                _viewMeshSetupItem = new ViewMeshingParameters(mp.DeepClone(), defaultSizeIsRelative);
             }
             else if (meshSetupItem is FeMeshRefinement mr)
             {
@@ -469,7 +473,8 @@ namespace PrePoMax.Forms
             // Meshing parameters
             item = new ListViewItem("Meshing Parameters");
             MeshingParameters mp = _controller.GetDefaultMeshingParameters(GetMeshSetupItemName("Meshing_Parameters"));
-            ViewMeshingParameters vmp = new ViewMeshingParameters(mp);
+            bool defaultSizeIsRelative = mp.RelativeSize;
+            ViewMeshingParameters vmp = new ViewMeshingParameters(mp, defaultSizeIsRelative);
             item.Tag = vmp;
             lvTypes.Items.Add(item);
             // Mesh refinement

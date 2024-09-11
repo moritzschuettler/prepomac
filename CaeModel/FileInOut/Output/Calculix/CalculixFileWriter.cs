@@ -36,6 +36,19 @@ namespace FileInOut.Output
             }
             File.WriteAllText(fileName, sb.ToString());
         }
+        static private void Clean(FeModel model)
+        {
+            foreach (var entry in model.Sections)
+            {
+                if (entry.Value is MassSection ms)
+                {
+                    if (ms is PointMassSection pms)
+                    {
+                        pms.ElementSetName = null;
+                    }
+                }
+            }
+        }
         static public void WriteMaterials(string fileName, FeModel model, string[] materialNames)
         {
             List<CalculixKeyword> keywords = new List<CalculixKeyword>();
@@ -217,6 +230,8 @@ namespace FileInOut.Output
                 model.Mesh.Surfaces = originalSurfaces;
                 //
                 foreach (var entry in replacedElements) model.Mesh.Elements[entry.Key] = entry.Value;
+                //
+                Clean(model);
             }
         }
         static private void GetPretensionLoads(FeModel model, out OrderedDictionary<string, List<PreTensionLoad>> preTensionLoads)
@@ -1952,7 +1967,6 @@ namespace FileInOut.Output
                     {
                         massSection = (MassSection)model.Sections[glClone.RegionName];
                         glClone.RegionName = massSection.ElementSetName;
-                        massSection.ElementSetName = null;      // temporary storage
                     }
                     //
                     CalGravityLoad gLoad = new CalGravityLoad(glClone, complexLoadType);
@@ -1966,7 +1980,6 @@ namespace FileInOut.Output
                     {
                         massSection = (MassSection)model.Sections[cflClone.RegionName];
                         cflClone.RegionName = massSection.ElementSetName;
-                        massSection.ElementSetName = null;      // temporary storage
                     }
                     //
                     CalCentrifLoad cLoad = new CalCentrifLoad(cflClone, complexLoadType);

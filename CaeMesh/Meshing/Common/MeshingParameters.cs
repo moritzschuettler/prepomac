@@ -22,8 +22,9 @@ namespace CaeMesh
         public static readonly double DefaultFactorHausdorff = 0.001;
         //
         private bool _advancedView;                 //ISerializable
-        //
+        private bool _defaultSizeIsRelative;        //ISerializable
         private bool _relativeSize;                 //ISerializable
+        //
         private double _factorMax;                  //ISerializable
         private double _factorMin;                  //ISerializable
         private double _factorHausdorff;            //ISerializable
@@ -50,7 +51,8 @@ namespace CaeMesh
         // Properties                                                                                                               
         public bool AdvancedView { get { return _advancedView; } set { _advancedView = value; } }
         public bool RelativeSize { get { return _relativeSize; } set { _relativeSize = value; } }
-        public double FactorMax 
+        public bool DefaultSizeIsRelative { get { return _defaultSizeIsRelative; } set { _defaultSizeIsRelative = value; } }
+        public double FactorMax
         {
             get { return _factorMax; }
             set
@@ -215,9 +217,11 @@ namespace CaeMesh
                 {
                     case "_advancedView":
                         _advancedView = (bool)entry.Value; break;
-                    //
+                    case "_defaultSizeIsRelative":
+                        _defaultSizeIsRelative = (bool)entry.Value; break;
                     case "_relativeSize":
                         _relativeSize = (bool)entry.Value; break;
+                    //
                     case "_factorMax":
                         _factorMax = (double)entry.Value; break;
                     case "_factorMin":
@@ -272,6 +276,7 @@ namespace CaeMesh
             base.Reset();
             // Defaults
             _advancedView = false;
+            _defaultSizeIsRelative = false;
             _relativeSize = false;
             _factorMax = DefaultFactorMax;
             _factorMin = DefaultFactorMin;
@@ -360,8 +365,9 @@ namespace CaeMesh
             base.CopyFrom(meshingParameters);
             //
             _advancedView = meshingParameters.AdvancedView;
-            //
+            _defaultSizeIsRelative = meshingParameters.DefaultSizeIsRelative;
             _relativeSize = meshingParameters.RelativeSize;
+            //
             _factorMax = meshingParameters.FactorMax;
             _factorMin = meshingParameters.FactorMin;
             _factorHausdorff = meshingParameters.FactorHausdorff;
@@ -395,6 +401,7 @@ namespace CaeMesh
             if (meshingParameters2 == null) return false;
             //
             if (meshingParameters1._advancedView != meshingParameters2._advancedView) return false;
+            //if (meshingParameters1._defaultSizeIsRelative != meshingParameters2._defaultSizeIsRelative) return false;
             if (meshingParameters1._relativeSize != meshingParameters2._relativeSize) return false;
             if (meshingParameters1._factorMax != meshingParameters2._factorMax) return false;
             if (meshingParameters1._factorMin != meshingParameters2._factorMin) return false;
@@ -425,8 +432,9 @@ namespace CaeMesh
             base.GetObjectData(info, context);
             // Using typeof() works also for null fields
             info.AddValue("_advancedView", _advancedView, typeof(bool));
-            //
+            info.AddValue("_defaultSizeIsRelative", _defaultSizeIsRelative, typeof(bool));
             info.AddValue("_relativeSize", _relativeSize, typeof(bool));
+            //
             info.AddValue("_factorMax", _factorMax, typeof(double));
             info.AddValue("_factorMin", _factorMin, typeof(double));
             info.AddValue("_factorHausdorff", _factorHausdorff, typeof(double));

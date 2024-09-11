@@ -459,7 +459,8 @@ namespace PrePoMax
         {
             if (onlyGeometrySelection)
             {
-                SetGeometrySelection(true, true, forceInitialize);
+                bool selectGeometryByIds = rbSelectionByID.Checked;
+                SetGeometrySelection(true, selectGeometryByIds, forceInitialize);
                 if (btnMoreLess.Text == "Less") btnMoreLess_Click(null, null);
                 btnMoreLess.Enabled = false;
             }

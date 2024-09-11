@@ -788,13 +788,19 @@ namespace CaeMesh
                 Random rand = new Random();
                 FeNode node1;
                 FeNode node2;
+                //
+                double epsilon = mesh.BoundingBox.GetDiagonal() / 100000;
+                if (epsilon < 1E-6) epsilon = 1E-6;
+                //
                 for (int i = 0; i < n; i++)
                 {
                     nodeId = (int)(rand.NextDouble() * (keys.Length - 1));
                     if (_nodes.TryGetValue(keys[nodeId], out node1) && mesh.Nodes.TryGetValue(keys[nodeId], out node2))
                     {
-                        if (node1.IsEqual(node2))
+                        if (node1.IsEqual(node2, epsilon))
                             count++;
+                        else
+                            count = count;
                     }
                     else return 0;
                 }
