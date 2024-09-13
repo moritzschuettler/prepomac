@@ -555,12 +555,26 @@ namespace PrePoMax
                     else if (!File.Exists(fileName))
                         throw new CaeException("The regeneration file " + fileName + " does not exist.");
                     //
-                    _controller.RegenerationMode = true;
                     _controller.RegenerationWorkDirectory = _cmdOptions.WorkDirectory;
-                    //
+                    // Open
                     await Task.Run(() => OpenAsync(fileName, _controller.Open));
+                    // Regenerate
                     await Task.Run(() => _controller.RegenerateHistoryCommands(false, false, true));
-                    if (_cmdOptions.ExitAfterRegeneration == "Yes") Close();
+                    // Check for errors
+                    if (_controller.GetCommandCollectionErrors() != null && _controller.GetCommandCollectionErrors().Count > 0)
+                        throw new CaeException("Failed to regenerate some commands.");
+                    // Overwrite
+                    if (_cmdOptions.Overwrite == "Yes")
+                    {
+                        WriteDataToOutput("Overwrite: " + fileName);
+                        _controller.SaveToPmx(fileName);
+                    }
+                    // Exit
+                    if (_cmdOptions.ExitAfterRegeneration == "Yes")
+                    {
+                        WriteDataToOutput("Close application.");
+                        Close();
+                    }
                 }
                 else
                 {
@@ -623,9 +637,17 @@ namespace PrePoMax
             }
             catch (Exception ex)
             {
-                ExceptionTools.Show(this, ex);
-                _controller.ModelChanged = false;   // hide messageBox
-                tsmiNew_Click(null, null);
+                // Regeneration
+                if (_controller.RegenerationMode)
+                {
+                    throw new CaeException(ex.Message, ex);
+                }
+                else
+                {
+                    ExceptionTools.Show(this, ex);
+                    _controller.ModelChanged = false;   // hide messageBox
+                    tsmiNew_Click(null, null);
+                }
             }
             finally
             {
@@ -6631,13 +6653,13 @@ namespace PrePoMax
                 AnalysisJob job = _controller.GetJob(jobName);
                 if (job.JobStatus != JobStatus.Running)
                 {
-                    string inputFileName = Path.Combine(workDirectory, jobName + ".inp");
+                    string inputFileName = _controller.GetCalculiXInpFileName(jobName);
                     if (File.Exists(inputFileName))
                     {
                         if (MessageBoxes.ShowWarningQuestionOKCancel("Overwrite existing analysis files?") != DialogResult.OK) return;
                     }
                     //
-                    if (_controller.PrepareAndRunJobCommand(inputFileName, jobName, onlyCheckModel)) MonitorAnalysis(jobName);
+                    if (_controller.PrepareAndRunJobCommand(jobName, onlyCheckModel)) MonitorAnalysis(jobName);
                 }
                 else MessageBoxes.ShowError("The analysis is already running or in queue.");
             }

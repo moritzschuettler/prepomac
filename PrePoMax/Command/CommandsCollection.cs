@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.IO;
 using CaeGlobals;
 using FastColoredTextBoxNS;
+using CommandLine;
 
 namespace PrePoMax.Commands
 {
@@ -19,7 +20,7 @@ namespace PrePoMax.Commands
         private List<Command> _commands;
         private string _historyFileNameBin;
         private ViewGeometryModelResults _previousView;
-        private bool _createNoHistoryFile;
+        private List<string> _errors;
 
 
         // Properties                                                                                                               
@@ -27,6 +28,7 @@ namespace PrePoMax.Commands
         public int CurrPositionIndex { get { return _currPositionIndex; } }
         public List<Command> Commands { get { return _commands; } }
         public bool IsEnableDisableUndoRedoDefined { get { return EnableDisableUndoRedo != null; } }
+        public List<string> Errors { get { return _errors; } }
 
 
         // Callbacks                                                                                                                
@@ -46,7 +48,7 @@ namespace PrePoMax.Commands
             _commands = new List<Command>();
             _historyFileNameBin = Path.Combine(System.Windows.Forms.Application.StartupPath, Globals.HistoryFileName + ".pmh");
             _previousView = ViewGeometryModelResults.Geometry;
-            _createNoHistoryFile = false;
+            _errors = null;
             //
             WriteToFile();
         }
@@ -152,7 +154,7 @@ namespace PrePoMax.Commands
         {
             int count = 0;
             bool executeWithDialog;
-            List<string> errors = new List<string>();
+            _errors = new List<string>();
             //
             foreach (Command command in _commands)
             {
@@ -166,12 +168,6 @@ namespace PrePoMax.Commands
                             string newFileName = Path.Combine(_controller.Settings.GetWorkDirectory(),
                                                               Path.GetFileName(cImportFile.FileName));
                             if (File.Exists(newFileName)) cImportFile.FileName = newFileName;
-                        }
-                        else if (command is CPrepareAndRunJob cPrepareAndRunJob)
-                        {
-                            string newFileName = Path.Combine(_controller.Settings.GetWorkDirectory(),
-                                                              Path.GetFileName(cPrepareAndRunJob.InputFileName));
-                            cPrepareAndRunJob.InputFileName = newFileName;
                         }
                         else if (command is CExportResultHistoryOutput cExportResultHistoryOutput)
                         {
@@ -220,7 +216,7 @@ namespace PrePoMax.Commands
                     }
                     catch (Exception ex)
                     {
-                        errors.Add(command.Name + ": " + ex.Message);
+                        _errors.Add(command.Name + ": " + ex.Message);
                     }
                     // Check model changed
                     CheckModelChanged(command);
@@ -228,15 +224,15 @@ namespace PrePoMax.Commands
                 else break;
             }
             // Report Errors
-            if (errors.Count != 0)
+            if (_errors.Count != 0)
             {
                 WriteOutput?.Invoke("");
                 WriteOutput?.Invoke("****   Exceptions   ****");                
-                foreach (var error in errors)
+                foreach (var error in _errors)
                 {
                     WriteOutput?.Invoke(error);
                 }
-                WriteOutput?.Invoke("****   Number of exceptions: " + errors.Count + "   ****");
+                WriteOutput?.Invoke("****   Number of exceptions: " + _errors.Count + "   ****");
             }
             // Write to file
             WriteToFile();
@@ -270,6 +266,7 @@ namespace PrePoMax.Commands
             _currPositionIndex = -1;
             _commands.Clear();
             _previousView = ViewGeometryModelResults.Geometry;
+            _errors = null;
             // Write to file
             WriteToFile();
             //
@@ -328,14 +325,6 @@ namespace PrePoMax.Commands
             get { return _currPositionIndex < _commands.Count - 1; }
         }
         // Write
-        public void TurnOnSaveToHistoryFile()
-        {
-            _createNoHistoryFile = false;
-        }
-        public void TurnOffSaveToHistoryFile()
-        {
-            _createNoHistoryFile = true;
-        }
         private void WriteToOutput(Command command)
         {
             if (command is CClear) return;
@@ -345,7 +334,7 @@ namespace PrePoMax.Commands
         }
         private void WriteToFile()
         {
-            if (!_createNoHistoryFile && _commands.Count > 1)
+            if (!_controller.RegenerationMode && _commands.Count > 1)
             {
                 // Write to files
                 _commands.DumpToFile(_historyFileNameBin);

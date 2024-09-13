@@ -4324,9 +4324,11 @@ namespace CaeResults
                 HistoryResultComponent historyResultComponent;
                 HistoryResultEntries historyResultEntry;
                 //
-                int numItems = -1;
-                HashSet<string> entryNames = null;
-                int numIncrements = -1;
+                int numRows = -1;
+                int numColumns = -1;
+                //int numIncrements = -1;
+                double[][] values;
+                //HashSet<string> entryNames = null;
                 foreach (var parameterName in parameterNames)
                 {
                     tmp = parameterName.Split(splitter, StringSplitOptions.None);
@@ -4339,20 +4341,28 @@ namespace CaeResults
                     if (!historyResultField.Components.TryGetValue(tmp[2], out historyResultComponent))
                         throw new CaeException("The component " + tmp[2] + " of the history output " + tmp[0] + " does not exist.");
                     //
-                    if (numItems == -1) numItems = historyResultComponent.Entries.Count();
-                    else if (numItems != historyResultComponent.Entries.Count())
-                        throw new CaeException("All selected history output components must contain the same number of items.");
+                    values = historyResultComponent.GetAllValues();
+                    if (numRows == -1) numRows = values.Length;
+                    if (numColumns == -1) numColumns = values[0].Length;
                     //
-                    if (entryNames == null) entryNames = new HashSet<string>(historyResultComponent.Entries.Keys);
-                    else if (entryNames.Union(historyResultComponent.Entries.Keys).Count() != entryNames.Count)
-                        throw new CaeException("All selected history output components must contain the same items.");
+                    if (numRows != values.Length)
+                        throw new CaeException("All history output components used in the equation must contain the same number of " +
+                                               "time increments (rows).");
                     //
-                    historyResultEntry = historyResultComponent.Entries.First().Value;
+                    if (numColumns != values[0].Length)
+                        throw new CaeException("All history output components used in the equation must contain the same number of " +
+                                               "items (columns).");
                     //
-                    if (numIncrements == -1) numIncrements = historyResultEntry.Values.Count();
-                    else if (numIncrements != historyResultEntry.Values.Count())
-                        throw new CaeException("All selected history output components must contain the same number " +
-                                               "of time increments.");
+                    //if (entryNames == null) entryNames = new HashSet<string>(historyResultComponent.Entries.Keys);
+                    //else if (entryNames.Union(historyResultComponent.Entries.Keys).Count() != entryNames.Count)
+                    //    throw new CaeException("All selected history output components must contain the same items.");
+                    //
+                    //historyResultEntry = historyResultComponent.Entries.First().Value;
+                    ////
+                    //if (numIncrements == -1) numIncrements = historyResultEntry.Values.Count();
+                    //else if (numIncrements != historyResultEntry.Values.Count())
+                    //    throw new CaeException("All selected history output components must contain the same number " +
+                    //                           "of time increments.");
                     //
                     parentNames.Add(tmp[0]);
                     parameterNameHistoryComponent.Add(parameterName, historyResultComponent);

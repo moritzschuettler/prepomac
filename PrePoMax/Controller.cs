@@ -118,12 +118,7 @@ namespace PrePoMax
         public bool RegenerationMode
         {
             get { return _regenerationMode; }
-            set
-            {
-                _regenerationMode = value;
-                if (_regenerationMode) _commands.TurnOffSaveToHistoryFile();
-                else _commands.TurnOnSaveToHistoryFile();
-            }
+            set { _regenerationMode = value; }
         }
         public string RegenerationWorkDirectory
         {
@@ -136,7 +131,8 @@ namespace PrePoMax
                     throw new CaeException("The regeneration work directory " + value + " does not exist.");
                 //
                 _settings.SetRegenerationWorkDirectory(value);
-                _commands.TurnOffSaveToHistoryFile();
+                //
+                RegenerationMode = true;
             }
         }
         //
@@ -348,6 +344,10 @@ namespace PrePoMax
         public List<Command> GetCommands()
         {
             return _commands.Commands;
+        }
+        public List<string> GetCommandCollectionErrors()
+        {
+            return _commands.Errors;
         }
         // Setters                                                                                                                  
         public void SetSelectByToOff()
@@ -602,7 +602,7 @@ namespace PrePoMax
         }
         public void SaveToPmxCommand(string fileName)
         {
-            Commands.CSaveToPmx comm = new Commands.CSaveToPmx(fileName);
+            CSaveToPmx comm = new CSaveToPmx(fileName);
             _commands.AddAndExecute(comm);
         }
         //******************************************************************************************
@@ -661,6 +661,8 @@ namespace PrePoMax
             }
             // Get controller
             tmp = (Controller)data[0];
+            // Regeneration
+            if (_regenerationMode) tmp.RegenerationMode = true;
             // Commands
             _commands.EnableDisableUndoRedo -= _commands_CommandExecuted;
             _commands = new CommandsCollection(this, tmp._commands); // to recreate the history file
@@ -9790,9 +9792,9 @@ namespace PrePoMax
             CDuplicateJobs comm = new CDuplicateJobs(jobNames);
             _commands.AddAndExecute(comm);
         }
-        public bool PrepareAndRunJobCommand(string inputFileName, string jobName, bool onlyCheckModel)
+        public bool PrepareAndRunJobCommand(string jobName, bool onlyCheckModel)
         {
-            CPrepareAndRunJob comm = new CPrepareAndRunJob(inputFileName, jobName, onlyCheckModel);
+            CPrepareAndRunJob comm = new CPrepareAndRunJob(jobName, onlyCheckModel);
             return _commands.AddAndExecute(comm);
         }
         public void RemoveJobsCommand(string[] jobNames)
@@ -9841,8 +9843,9 @@ namespace PrePoMax
                 AddJob(newAnalysisJob);
             }
         }
-        public bool PrepareAndRunJob(string inputFileName, string jobName, bool onlyCheckModel, bool asynchronous = true)
+        public bool PrepareAndRunJob(string jobName, bool onlyCheckModel, bool asynchronous = true)
         {
+            string inputFileName = GetCalculiXInpFileName(jobName);
             bool useBackgroundWorker = asynchronous;
             AnalysisJob job = _jobs[jobName];
             //
@@ -9869,6 +9872,11 @@ namespace PrePoMax
             {
                 throw new CaeException("The executable file of the analysis does not exists.");
             }
+        }
+        public string GetCalculiXInpFileName(string jobName)
+        {
+            string workDirectory = _settings.GetWorkDirectory();
+            return Path.Combine(workDirectory, jobName + ".inp");
         }
         private bool CheckModelBeforeJobRun()
         {

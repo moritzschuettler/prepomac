@@ -30,13 +30,16 @@ namespace PrePoMax.Commands
             :base("Export result history output")
         {
             _historyResultSetExporter = historyResultSetExporter.DeepClone();
+            _historyResultSetExporter.FileName = Tools.GetLocalPath(_historyResultSetExporter.FileName);
         }
 
 
         // Methods                                                                                                                  
         public override bool Execute(Controller receiver)
         {
-            receiver.ExportResultHistoryOutput(_historyResultSetExporter.DeepClone());
+            HistoryResultSetExporter historyResultSetExporter = _historyResultSetExporter.DeepClone();
+            historyResultSetExporter.FileName = Tools.GetGlobalPath(_historyResultSetExporter.FileName);
+            receiver.ExportResultHistoryOutput(historyResultSetExporter);
             return true;
         }
         public override string GetCommandString()

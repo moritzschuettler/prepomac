@@ -45,10 +45,6 @@ namespace PrePoMax
             //
             Process.GetCurrentProcess().Kill(); // a process remains running afer application exits
         }
-        //private static bool IsWindowsApplication()
-        //{
-        //    return GetConsoleWindow() == IntPtr.Zero;
-        //}
         private static void SetCultureAndLanguage()
         {
             System.Globalization.CultureInfo ci =
@@ -72,7 +68,6 @@ namespace PrePoMax
         }
         private static void Run(CommandLineOptions cmdOptions)
         {
-            bool error = false;
             try
             {
                 // Show values
@@ -92,23 +87,39 @@ namespace PrePoMax
                         mainForm.WindowState = FormWindowState.Minimized;
                         mainForm.ShowInTaskbar = false;
                     }
+                    Application.ThreadException += Application_ThreadException;
                     Application.Run(mainForm);
+                    //
+                    Console.WriteLine("----------Finished------------");
+                    Console.WriteLine("Process finished successfully.");
+                    Console.WriteLine("");
                 }
             }
             catch (Exception ex)
             {
-                error = true;
-                Console.WriteLine("----------Error---------------");
-                Console.WriteLine(ex.Message);
-            }
-            finally
-            {
-                Console.WriteLine("----------Finished------------");
-                if (error) Console.WriteLine("Process finished with errors.");
-                else Console.WriteLine("Process finished successfully.");
-                Console.WriteLine("");
+                FinishedWithException(ex);
             }
         }
+        private static void Application_ThreadException(object sender, System.Threading.ThreadExceptionEventArgs e)
+        {
+            FinishedWithException(e.Exception);
+            //
+            Process.GetCurrentProcess().Kill(); // a process remains running afer application exits
+        }
+        private static void FinishedWithException(Exception ex)
+        {
+            Console.WriteLine("----------Error---------------");
+            Console.WriteLine(ex.Message);
+            Console.WriteLine("----------Finished------------");
+            Console.WriteLine("Process finished with errors.");
+            Console.WriteLine("");
+        }
+
+
+        //private static bool IsWindowsApplication()
+        //{
+        //    return GetConsoleWindow() == IntPtr.Zero;
+        //}
     }
 }
 

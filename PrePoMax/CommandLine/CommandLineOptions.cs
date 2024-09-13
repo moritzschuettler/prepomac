@@ -20,6 +20,10 @@ namespace PrePoMax
         [Option('g', "showGui", Required = false, Default ="Yes", HelpText = "Show Graphical User Interface [Yes | No]. " +
                                                                              "No can only be used for regeneration.")]
         public string ShowGui { get; set; }
+        // Overwrite
+        [Option('o', "overwrite", Required = false, Default = "No", HelpText = "Overwrite the .pmx file after regeneration " +
+                                                                                "[Yes | No]. Can only be used for regeneration.")]
+        public string Overwrite { get; set; }
         // RegenerationFileName
         [Option('r', "regenerate", Required = false, HelpText = "A .pmx file name to be used for regeneration. " +
                                                                 "A work directory -w can be defined for regeneration. " +
@@ -34,7 +38,7 @@ namespace PrePoMax
         // WorkDirectory
         [Option('w', "workDirectory", Required = false, HelpText = "A directory path to be used as work directory.")]
         public string WorkDirectory { get; set; }
-        // WorkDirectory
+        // ExitAfterRegeneration
         [Option('x', "exitAfterRegeneration", Required = false, Default = "Yes", HelpText = "Exit PrePoMax after regeneration " +
                                                                                             "[Yes | No].")]
         public string ExitAfterRegeneration { get; set; }
@@ -48,6 +52,8 @@ namespace PrePoMax
                 text += "File name: " + cmdOptions.FileName + Environment.NewLine;
             if (cmdOptions.RegenerationFileName != null && cmdOptions.ShowGui != null)
                 text += "Show GUI: " + cmdOptions.ShowGui + Environment.NewLine;
+            if (cmdOptions.RegenerationFileName != null && cmdOptions.Overwrite != null)
+                text += "Overwrite .pmx file: " + cmdOptions.Overwrite + Environment.NewLine;
             if (cmdOptions.RegenerationFileName != null)
                 text += "Regeneration file name: " + cmdOptions.RegenerationFileName + Environment.NewLine;
             if (cmdOptions.UnitSystem != null)
@@ -80,6 +86,12 @@ namespace PrePoMax
                 if (gui == "YES") cmdOptions.ShowGui = "Yes";        // fix all caps and spaces
                 else if (gui == "NO") cmdOptions.ShowGui = "No";     // fix all caps and spaces
                 else throw new CaeException("Show GUI switch can only be set to Yes or No.");
+                //
+                // Overwrite
+                string overwrite = cmdOptions.Overwrite.ToUpper().Trim();
+                if (overwrite == "YES") cmdOptions.Overwrite = "Yes";        // fix all caps and spaces
+                else if (overwrite == "NO") cmdOptions.Overwrite = "No";     // fix all caps and spaces
+                else throw new CaeException("Overwrite switch can only be set to Yes or No.");
                 // Work directory
                 if (cmdOptions.WorkDirectory != null)
                 {
@@ -100,6 +112,10 @@ namespace PrePoMax
                 // Regeneration
                 if (cmdOptions.RegenerationFileName != null)
                 {
+                    string fileDirectory = Path.GetDirectoryName(cmdOptions.RegenerationFileName);
+                    string fileName = Path.GetFileName(cmdOptions.RegenerationFileName);
+                    if (fileDirectory == "") cmdOptions.RegenerationFileName = Path.Combine(cmdOptions.WorkDirectory, fileName);
+                    //
                     if (!File.Exists(cmdOptions.RegenerationFileName))
                     {
                         throw new CaeException("The regeneration file " + cmdOptions.RegenerationFileName + " does not exist.");
@@ -107,6 +123,8 @@ namespace PrePoMax
                 }
                 else
                 {
+                    if (cmdOptions.Overwrite == "Yes")
+                        throw new CaeException("The overwrite switch can only be used for regeneration.");
                     if (cmdOptions.ShowGui == "No")
                         throw new CaeException("The No GUI switch can only be used for regeneration.");
                 }

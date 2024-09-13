@@ -16,20 +16,17 @@ namespace PrePoMax.Commands
     class CPrepareAndRunJob : AnalysisCommand, ICommandAsynchronous
     {
         // Variables                                                                                                                
-        private string _inputFileName;
         private string _jobName;
         private bool _onlyCheckModel;
 
 
         // Properties                                                                                                               
-        public string InputFileName { get { return _inputFileName; } set { _inputFileName = value; } }
 
 
         // Constructor                                                                                                              
-        public CPrepareAndRunJob(string inputFileName, string jobName, bool onlyCheckModel)
+        public CPrepareAndRunJob(string jobName, bool onlyCheckModel)
             : base("Run analysis")
         {
-            _inputFileName = inputFileName;
             _jobName = jobName;
             _onlyCheckModel = onlyCheckModel;
         }
@@ -38,12 +35,12 @@ namespace PrePoMax.Commands
         // Methods                                                                                                                  
         public override bool Execute(Controller receiver)
         {
-            return receiver.PrepareAndRunJob(_inputFileName, _jobName, _onlyCheckModel);
+            return receiver.PrepareAndRunJob(_jobName, _onlyCheckModel);
             //return true;
         }
         public bool ExecuteSynchronous(Controller receiver)
         {
-            return receiver.PrepareAndRunJob(_inputFileName, _jobName, _onlyCheckModel, false);
+            return receiver.PrepareAndRunJob(_jobName, _onlyCheckModel, false);
             //return true;
         }
 
