@@ -48,7 +48,7 @@ namespace CaeMesh
         /// [0...num. of cells] -> global element id
         /// </summary>
         public int[] CellIds { get { return _cellIds; } set { _cellIds = value; } }
-        
+
         /// <summary>
         /// FaceCount
         /// Return number of faces
@@ -82,7 +82,7 @@ namespace CaeMesh
             get { return _faceAreas; }
             set { _faceAreas = value; }
         }
-        
+
         /// <summary>
         /// FaceTypes
         /// [0...num. of faces]
@@ -162,7 +162,7 @@ namespace CaeMesh
         /// [0...num. of vertices] -> global node id (a vertice is a node where more than two edge cells meet)
         /// </summary>
         public int[] VertexNodeIds { get { return _vertexNodeIds; } set { _vertexNodeIds = value; } }
-        
+
 
         // Constructors                                                                                                             
         public VisualizationData()
@@ -451,7 +451,7 @@ namespace CaeMesh
                 int[] renumberedCell;
                 CellNeighbour cellNeighbour;
                 CompareIntArray comparer = new CompareIntArray();
-                Dictionary<int[], CellNeighbour> renumberedNeighbours = 
+                Dictionary<int[], CellNeighbour> renumberedNeighbours =
                     new Dictionary<int[], CellNeighbour>(_cellNeighboursOverCell.Count, comparer);
                 //
                 foreach (var entry in _cellNeighboursOverCell)
@@ -476,7 +476,7 @@ namespace CaeMesh
             }
             //
             if (System.Diagnostics.Debugger.IsAttached && error)
-                MessageBoxes.ShowWarning("VisualizationData:RenumberNodes: This should not happen!");
+                MessageBoxes.ShowError("VisualizationData:RenumberNodes: This should not happen!");
         }
         public void RenumberElements(Dictionary<int, int> newIds)
         {
@@ -831,6 +831,13 @@ namespace CaeMesh
             }
             return connected;
         }
+        
+        public HashSet<int> GetEdgeNodeIds()
+        {
+            HashSet<int> nodeIds = new HashSet<int>();
+            foreach (var edgeCell in _edgeCells) nodeIds.UnionWith(edgeCell);
+            return nodeIds;
+        }
         // Free edges and nodes
         public HashSet<int> GetFreeEdgeIds()
         {
@@ -950,7 +957,7 @@ namespace CaeMesh
                 // For cells
                 for (int i = 0; i < _cellNeighboursOverCellEdge.Length; i++)
                 {
-                    // For cell neighbors
+                    // For cell neighbours
                     for (int j = 0; j < _cellNeighboursOverCellEdge[i].Length; j++)
                     {
                         if (_cellNeighboursOverCellEdge[i][j] == -1)

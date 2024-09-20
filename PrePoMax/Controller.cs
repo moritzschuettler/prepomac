@@ -42,6 +42,7 @@ namespace PrePoMax
         [NonSerialized] protected bool _savingFile;
         [NonSerialized] protected bool _animating;
         [NonSerialized] protected bool _regenerationMode;
+        [NonSerialized] protected bool _disableDrawSymbols;
         // View
         [NonSerialized] protected ViewGeometryModelResults _currentView;
         [NonSerialized] protected EdgesVisibilitiesCollection _edgesVisibilities;
@@ -153,11 +154,14 @@ namespace PrePoMax
             {
                 if (_currentView != value)
                 {
+                    _form.SetStateWorking("Changing view...");  // this prevents vtk rendering
+                    //
                     _currentView = value;
                     ClearSelectionHistoryAndCallSelectionChanged(); // the selection nodes are only valid on default mesh
                     _form.SetCurrentView(_currentView);
-                    //
                     Redraw();
+                    //
+                    _form.SetStateReady("Changing view...");
                 }
             }
         }
@@ -3900,7 +3904,8 @@ namespace PrePoMax
             SuppressExplodedView(new string[] { part.Name });
             File.WriteAllText(brepFileName, part.CADFileData);
             MeshingParameters partMeshingParameters = GetPartMeshingParameters(part.Name, meshSetupItems);
-            GmshData gmshData = new GmshData(brepFileName);
+            GmshData gmshData = new GmshData();
+            gmshData.GeometryFileName = brepFileName;
             gmshData.InpFileName = inpFileName;
             gmshData.PartMeshingParameters = partMeshingParameters;
             gmshData.GmshSetupItems = gmshSetupItems;
@@ -4077,7 +4082,8 @@ namespace PrePoMax
             SuppressExplodedView(partNames);
             FileInOut.Output.StlFileWriter.Write(stlFileName, _model.Geometry, partNames);
             MeshingParameters partMeshingParameters = GetPartMeshingParameters(part.Name);
-            GmshData gmshData = new GmshData(stlFileName);
+            GmshData gmshData = new GmshData();
+            gmshData.GeometryFileName = stlFileName;
             gmshData.InpFileName = inpFileName;
             gmshData.PartMeshingParameters = partMeshingParameters;
             gmshData.GmshSetupItems = meshSetupItems;
@@ -4322,7 +4328,8 @@ namespace PrePoMax
             SuppressExplodedView(new string[] { part.Name });
             File.WriteAllText(brepFileName, part.CADFileData);
             MeshingParameters partMeshingParameters = GetPartMeshingParameters(part.Name);
-            GmshData gmshData = new GmshData(brepFileName);
+            GmshData gmshData = new GmshData();
+            gmshData.GeometryFileName = brepFileName;
             gmshData.InpFileName = inpFileName;
             gmshData.PartMeshingParameters = partMeshingParameters;
             gmshData.GmshSetupItems = meshSetupItems;
@@ -5004,7 +5011,8 @@ namespace PrePoMax
                 faceIdNodes.Add(FeMesh.GmshTopologyId(i, part.PartId), nodes.ToArray());
             }
             //
-            GmshData gmshData = new GmshData(brepFileName);
+            GmshData gmshData = new GmshData();
+            gmshData.GeometryFileName = brepFileName;
             gmshData.FaceIdNodes = faceIdNodes;
             _model.Geometry.GetPartTopologyForGmsh(part.Name, ref gmshData);
             //
@@ -5239,7 +5247,12 @@ namespace PrePoMax
         //******************************************************************************************
         public void RenumberNodes(int startNodeId)
         {
-            if (_currentView == ViewGeometryModelResults.Model) _model.Mesh.RenumberNodes(startNodeId);
+            if (_currentView == ViewGeometryModelResults.Model)
+            {
+                _model.Mesh.RenumberNodes(startNodeId);
+                //
+                DrawModel(false);
+            }
             else throw new NotSupportedException();
         }
         public void MergeCoincidentNodes(MergeCoincidentNodes mergeCoincidentNodes)
@@ -5363,7 +5376,12 @@ namespace PrePoMax
         //******************************************************************************************
         public void RenumberElements(int startElementId)
         {
-            if (_currentView == ViewGeometryModelResults.Model) _model.Mesh.RenumberElements(startElementId);
+            if (_currentView == ViewGeometryModelResults.Model)
+            {
+                _model.Mesh.RenumberElements(startElementId);
+                //
+                DrawModel(false);
+            }
             else throw new NotSupportedException();
         }
         public int[] GetAllElementIds()
@@ -5415,6 +5433,32 @@ namespace PrePoMax
             }
             //
             return true;
+        }
+        //
+        public Dictionary<int, double> GetElementQuality(string elementQualityMetric, string[] partNames)
+        {
+            string workDirectory = _settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
+            {
+                MessageBoxes.ShowWorkDirectoryError();
+                return null;
+            }
+            //
+            string executable = Application.StartupPath + Globals.GmshMesher;
+            string meshFileName = Path.Combine(workDirectory, Globals.GmshMeshFileName);
+            //
+            if (File.Exists(meshFileName)) File.Delete(meshFileName);
+            //
+            GmshMshFileWriter.Write(meshFileName, _model.Mesh, partNames);
+            //
+            GmshData gmshData = new GmshData();
+            gmshData.MeshFileName = meshFileName;
+            gmshData.ElementQualityMetric = elementQualityMetric;
+            //
+            GmshAPI gmshAPI = new GmshAPI(gmshData, null);
+            string error = gmshAPI.GetElementQualities();
+            return gmshAPI.GmshData.ElementQuality;
         }
 
         #endregion #################################################################################################################
@@ -8720,6 +8764,9 @@ namespace PrePoMax
         {
             HistoryOutput oldHistoryOutput = GetHistoryOutput(stepName, oldHistoryOutputName);
             // First check for a valid region since MultiRegionChanged changes the region type and region name
+
+            //if (historyOutput.re)
+
             if (!_model.RegionValid(oldHistoryOutput) || StepCollection.MultiRegionChanged(oldHistoryOutput, historyOutput))
             {
                 DeleteSelectionBasedHistoryOutputSets(stepName, oldHistoryOutputName);
@@ -11397,10 +11444,14 @@ namespace PrePoMax
         }
         public void RemoveLastSelectionNode()
         {
+            _form.SetStateWorking("Undo selection...");
+            //
             _selection.RemoveLast();
             HighlightSelection();       // one color selection
             //
             _form.SelectionChanged();   // if two color selection is needed it is done from the form 
+            //
+            _form.SetStateReady("Undo selection...");
         }
         //
         public int[] GetSelectionIds()
@@ -12431,7 +12482,7 @@ namespace PrePoMax
             if (faceIds.Length == 0)
             {
                 if (System.Diagnostics.Debugger.IsAttached)
-                    MessageBoxes.ShowWarning("Controller:GetCellFaceActorData: This should not happen!");
+                    MessageBoxes.ShowError("Controller:GetCellFaceActorData: This should not happen!");
                 return null;
             }
             bool add;
@@ -13382,7 +13433,7 @@ namespace PrePoMax
         // Symbols
         public void DrawModelSymbols()
         {
-            if (_currentView != ViewGeometryModelResults.Model) return;
+            if (_currentView != ViewGeometryModelResults.Model || _disableDrawSymbols) return;
             //
             if (_drawSymbolName != null && _drawSymbolName != "None")
             {
@@ -13404,7 +13455,7 @@ namespace PrePoMax
         }
         public void DrawResultSymbols()
         {
-            if (_currentView != ViewGeometryModelResults.Results) return;
+            if (_currentView != ViewGeometryModelResults.Results || _disableDrawSymbols) return;
             //
             if (_drawSymbolName != null && _drawSymbolName != "None")
             {
@@ -16580,7 +16631,11 @@ namespace PrePoMax
         public void HighlightElement(int elementId)
         {
             DrawElements("Highlight", new int[] { elementId }, Color.Red, vtkRendererLayer.Selection);
-        }        
+        }
+        public void HighlightElements(int[] elementIds)
+        {
+            DrawElements("Highlight", elementIds, Color.Red, vtkRendererLayer.Selection);
+        }
         public int HighlightElementSets(string[] elementSetNames, bool backfaceCulling = true, bool onlyVisible = true,
                                         bool countOnly = false)
         {
@@ -16872,6 +16927,7 @@ namespace PrePoMax
         public void HighlightSelection(bool clear = true, bool backFaceCulling = true, bool useSecondaryHighlightColor = false)
         {
             if (clear) _form.Clear3DSelection();
+            //
             int[] ids = GetSelectionIds();
             if (ids.Length == 0) return;
             //

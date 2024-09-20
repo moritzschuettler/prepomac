@@ -26,6 +26,7 @@ using System.Runtime;
 using System.Runtime.InteropServices.ComTypes;
 using System.Runtime.Remoting.Metadata.W3cXsd2001;
 using System.Diagnostics;
+using FileInOut.Output;
 
 namespace PrePoMax
 {
@@ -62,6 +63,7 @@ namespace PrePoMax
         private FrmThickenShellMesh _frmThickenShellMesh;
         private FrmSplitPartMeshUsingSurface _frmSplitPartMeshUsingSurface;
         private FrmMergeCoincidentNodes _frmMergeCoincidentNodes;
+        private FrmElementQuality _frmElementQuality;
         private FrmPartProperties _frmPartProperties;
         private FrmTranslate _frmTranslate;
         private FrmScale _frmScale;
@@ -366,6 +368,9 @@ namespace PrePoMax
                 //
                 _frmMergeCoincidentNodes = new FrmMergeCoincidentNodes(_controller);
                 AddFormToAllForms(_frmMergeCoincidentNodes);
+                //
+                _frmElementQuality = new FrmElementQuality(_controller);
+                AddFormToAllForms(_frmElementQuality);
                 //
                 _frmPartProperties = new FrmPartProperties(_controller);
                 AddFormToAllForms(_frmPartProperties);
@@ -869,7 +874,7 @@ namespace PrePoMax
                 else if (viewType == ViewType.Results) _controller.CurrentView = ViewGeometryModelResults.Results;
                 else throw new NotSupportedException();
                 //
-                if (_advisorControl != null) _advisorControl.PrepareControls(viewType);
+                _advisorControl?.PrepareControls(viewType);
             }
             catch (Exception ex)
             {
@@ -3819,7 +3824,25 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-
+        private void tsmiElementQuality_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Parts", _controller.GetModelParts(), ElementQuality);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        //
+        private void ElementQuality(string[] partNames)
+        {
+            // Set all part names for quality analysis
+            _frmElementQuality.PartNames = partNames;
+            //
+            ShowForm(_frmElementQuality, "Element Quality", null);
+        }
         #endregion  ################################################################################################################
 
         #region Model part menu  ###################################################################################################
@@ -3951,7 +3974,7 @@ namespace PrePoMax
             // Set all part names for translation
             _frmTranslate.PartNames = partNames;    
             //
-            ShowForm(_frmTranslate, "Translate parts: " + partNames.ToShortString(), null);
+            ShowForm(_frmTranslate, "Translate Parts: " + partNames.ToShortString(), null);
         }
         private void ScaleModelParts(string[] partNames)
         {
@@ -3960,7 +3983,7 @@ namespace PrePoMax
             // Set all part names for scaling
             _frmScale.PartNames = partNames;    
             //
-            ShowForm(_frmScale, "Scale parts: " + partNames.ToShortString(), null);
+            ShowForm(_frmScale, "Scale Parts: " + partNames.ToShortString(), null);
         }
         private void RotateModelParts(string[] partNames)
         {
@@ -3969,7 +3992,7 @@ namespace PrePoMax
             // Set all part names for rotation
             _frmRotate.PartNames = partNames;    
             //
-            ShowForm(_frmRotate, "Rotate parts: " + partNames.ToShortString(), null);
+            ShowForm(_frmRotate, "Rotate Parts: " + partNames.ToShortString(), null);
         }
         //
         private void MergeModelParts(string[] partNames)
@@ -7547,6 +7570,8 @@ namespace PrePoMax
                                       double[][] planeParameters, bool completelyInside,
                                       vtkSelectOperation selectOperation, string[] pickedPartNames)
         {
+            SetStateWorking("Selection...");
+            //
             _controller.SelectPointOrArea(pickedPoint, selectionDirection,
                                           planeParameters, completelyInside,
                                           selectOperation, pickedPartNames);
@@ -7561,6 +7586,8 @@ namespace PrePoMax
             if (_frmTransformation != null && _frmTransformation.Visible) _frmTransformation.PickedIds(ids);
             //
             SelectionChanged(ids);
+            //
+            SetStateReady("Selection...");
         }
         public void SelectionChanged(int[] ids = null)
         {
@@ -9533,7 +9560,8 @@ namespace PrePoMax
                 //TestSuperposition();
                 //TestNormals();
                 //TestWearResults();
-                TestMmg();
+                //TestMmg();
+                TestGmshReadMesh();
             }
             catch
             {
@@ -9701,7 +9729,8 @@ namespace PrePoMax
             if (File.Exists(brepFileName)) File.Delete(brepFileName);
             //
             File.WriteAllText(brepFileName, geometryPart.CADFileData);
-            GmshData gmshData = new GmshData(brepFileName);
+            GmshData gmshData = new GmshData();
+            gmshData.GeometryFileName = brepFileName;
             gmshData.FaceIdNodes = faceIdNodes;
             _controller.Model.Geometry.GetPartTopologyForGmsh(geometryPart.Name, ref gmshData);
             _controller.ResumeExplodedViews(false);
@@ -9709,6 +9738,28 @@ namespace PrePoMax
             GmshAPI gmshAPI = new GmshAPI(gmshData, WriteDataToOutput);
             string error = gmshAPI.GetOccNormals();
             Dictionary<int, List<Vec3D>> normals = gmshAPI.GmshData.NodeIdNormals;
+        }
+        private void TestGmshReadMesh()
+        {
+            string workDirectory = _controller.Settings.GetWorkDirectory();
+            //
+
+            if (workDirectory == null || !Directory.Exists(workDirectory))
+            {
+                MessageBoxes.ShowWorkDirectoryError();
+                return;
+            }
+            string meshFileName = Path.Combine(workDirectory, Globals.GmshMeshFileName);
+            //
+            if (File.Exists(meshFileName)) File.Delete(meshFileName);
+            //
+            GmshMshFileWriter.Write(meshFileName, _controller.Model.Mesh);
+            //
+            GmshData gmshData = new GmshData();
+            gmshData.MeshFileName = meshFileName;
+            //
+            GmshAPI gmshAPI = new GmshAPI(gmshData, null);
+            string error = gmshAPI.GetElementQualities();
         }
         private void TestSuperposition()
         {
@@ -9952,7 +10003,7 @@ namespace PrePoMax
             }
         }
 
-      
+       
     }
 }
 

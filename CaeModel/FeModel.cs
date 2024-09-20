@@ -1080,6 +1080,7 @@ namespace CaeModel
             Array.Sort(part.NodeLabels);
             // Update node ids
             _mesh.UpdateMaxNodeAndElementIds();
+            _mesh.UpdateNodeIdElementIds();
             // Model vertices                                                                                           
             HashSet<int> vertexNodeIds = new HashSet<int>();
             // Get vertices from part - only those that were not removed

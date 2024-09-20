@@ -35,9 +35,13 @@ namespace CaeMesh
             _gmshData = gmshData;
             _writeOutput = writeOutput;
             //
-            if (_gmshData.GeometryFileName.EndsWith("brep")) _isOCC = true;
-            else if (_gmshData.GeometryFileName.EndsWith("stl")) _isOCC = false;
-            else throw new NotSupportedException();
+            if (_gmshData.MeshFileName != null) _isOCC = false;
+            if (_gmshData.GeometryFileName != null)
+            {
+                if (_gmshData.GeometryFileName.EndsWith("brep")) _isOCC = true;
+                else if (_gmshData.GeometryFileName.EndsWith("stl")) _isOCC = false;
+                else throw new NotSupportedException();
+            }
         }
         public string CreateMesh()
         {
@@ -46,6 +50,10 @@ namespace CaeMesh
         public string GetOccNormals()
         {
             return RunInBackground(GetOccNormalsBackground);
+        }
+        public string GetElementQualities()
+        {
+            return RunInBackground(GetElementQualitiesBackground);
         }
         //
         private string RunInBackground(Action action)
@@ -795,6 +803,37 @@ namespace CaeMesh
                 _error = ex.Message;
             }
         }
+        private void GetElementQualitiesBackground()
+        {
+            try
+            {
+                Gmsh.Open(_gmshData.MeshFileName);
+                //
+                int[] elementTypes;
+                IntPtr[][] elementTags;
+                IntPtr[][] nodeTags;
+                Gmsh.Model.Mesh.GetElements(out elementTypes, out elementTags, out nodeTags, -1, -1);
+                // Merge elements of different types
+                HashSet<IntPtr> allElementTags = new HashSet<IntPtr> { };
+                for (int i = 0; i < elementTags.Length; i++) allElementTags.UnionWith(elementTags[i]);
+                // Get quality
+                double[] qualities;
+                IntPtr[] elementIntPtr = allElementTags.ToArray();
+                Gmsh.Model.Mesh.GetElementQualities(elementIntPtr, out qualities, _gmshData.ElementQualityMetric);
+                // Create result
+                _gmshData.ElementQuality = new Dictionary<int, double>();
+                for (int i = 0; i < allElementTags.Count; i++)
+                {
+                    _gmshData.ElementQuality.Add(elementIntPtr[i].ToInt32(), qualities[i]);
+                }
+                //
+                _error = null;
+            }
+            catch (Exception ex)
+            {
+                _error = ex.Message;
+            }
+        }
         // Tools                                                                                                                    
         private void RenumberGmshDataByCoor()
         {
@@ -1111,7 +1150,7 @@ namespace CaeMesh
                     //
                     _currentLogLine = loggerLines.Length;
                     //
-                    _writeOutput(sb.ToString());
+                    _writeOutput?.Invoke(sb.ToString());
                 }
             }
         }

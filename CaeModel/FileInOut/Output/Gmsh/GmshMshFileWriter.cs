@@ -54,9 +54,15 @@ namespace FileInOut.Output
             { typeof(LinearHexaElement), 3 },
             { typeof(ParabolicHexaElement), 3 },
         };
-        public static void Write(string fileName, FeMesh mesh)
+        public static void Write(string fileName, FeMesh mesh, string[] partNames = null)
         {
-            // Split elements
+            HashSet<int> selectedElementIds = new HashSet<int>();
+            if (partNames != null)
+            {
+                foreach (string partName in partNames) selectedElementIds.UnionWith(mesh.Parts[partName].Labels);
+            }
+            else selectedElementIds = mesh.Elements.Keys.ToHashSet();
+            // Split elements by type
             Type type;
             int[] nodeIds;
             HashSet<int> nodeIdsHash;
@@ -65,6 +71,8 @@ namespace FileInOut.Output
             Dictionary<int, HashSet<int>> dimNodeIds = new Dictionary<int, HashSet<int>>();
             foreach (var entry in mesh.Elements)
             {
+                if (!selectedElementIds.Contains(entry.Key)) continue;
+                //
                 type = entry.Value.GetType();
                 //
                 if (dimNodeIds.TryGetValue(dimMap[type], out nodeIdsHash)) nodeIdsHash.UnionWith(entry.Value.NodeIds);

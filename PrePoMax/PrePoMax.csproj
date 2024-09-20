@@ -366,6 +366,10 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Forms\22_Node\ViewMergeCoincidentNodes.cs" />
+    <Compile Include="Forms\23_Element\FrmElementQuality.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\23_Element\ViewElementQuality.cs" />
     <Compile Include="Forms\24_Part\FrmPartProperties.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -802,6 +806,9 @@
     <EmbeddedResource Include="Forms\22_Node\FrmMergeCoincidentNodes.resx">
       <DependentUpon>FrmMergeCoincidentNodes.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Forms\23_Element\FrmElementQuality.resx">
+      <DependentUpon>FrmElementQuality.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Forms\24_Part\FrmPartProperties.resx">
       <DependentUpon>FrmPartProperties.cs</DependentUpon>
     </EmbeddedResource>
@@ -1100,7 +1107,6 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Command\0020_View\" />
-    <Folder Include="Forms\23_Element\" />
   </ItemGroup>
   <ItemGroup>
     <Analyzer Include="c:\Program Files\ActiViz.NET 5.8.0 OpenSource Edition\bin\Kitware.mummy.Runtime.dll" />

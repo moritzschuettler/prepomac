@@ -234,6 +234,7 @@ namespace PrePoMax
             this.tsmiDividerModel1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiNode = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiRenumberAllNodes = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiMergeCoincidentNodes = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiElement = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiRenumberAllElements = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiPart = new System.Windows.Forms.ToolStripMenuItem();
@@ -506,7 +507,7 @@ namespace PrePoMax
             this.tbOutput = new UserControls.AutoScrollTextBox();
             this.timerTest = new System.Windows.Forms.Timer(this.components);
             this.timerOutput = new System.Windows.Forms.Timer(this.components);
-            this.tsmiMergeCoincidentNodes = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiElementQuality = new System.Windows.Forms.ToolStripMenuItem();
             this.tsFile.SuspendLayout();
             this.tsViews.SuspendLayout();
             this.tsSymbols.SuspendLayout();
@@ -2280,10 +2281,18 @@ namespace PrePoMax
             this.tsmiRenumberAllNodes.Text = "Renumber All";
             this.tsmiRenumberAllNodes.Click += new System.EventHandler(this.tsmiRenumberAllNodes_Click);
             // 
+            // tsmiMergeCoincidentNodes
+            // 
+            this.tsmiMergeCoincidentNodes.Name = "tsmiMergeCoincidentNodes";
+            this.tsmiMergeCoincidentNodes.Size = new System.Drawing.Size(206, 22);
+            this.tsmiMergeCoincidentNodes.Text = "Merge Coincident Nodes";
+            this.tsmiMergeCoincidentNodes.Click += new System.EventHandler(this.tsmiMergeCoincidentNodes_Click);
+            // 
             // tsmiElement
             // 
             this.tsmiElement.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.tsmiRenumberAllElements});
+            this.tsmiRenumberAllElements,
+            this.tsmiElementQuality});
             this.tsmiElement.Name = "tsmiElement";
             this.tsmiElement.Size = new System.Drawing.Size(194, 22);
             this.tsmiElement.Text = "Element";
@@ -2291,7 +2300,7 @@ namespace PrePoMax
             // tsmiRenumberAllElements
             // 
             this.tsmiRenumberAllElements.Name = "tsmiRenumberAllElements";
-            this.tsmiRenumberAllElements.Size = new System.Drawing.Size(146, 22);
+            this.tsmiRenumberAllElements.Size = new System.Drawing.Size(180, 22);
             this.tsmiRenumberAllElements.Text = "Renumber All";
             this.tsmiRenumberAllElements.Click += new System.EventHandler(this.tsmiRenumberAllElements_Click);
             // 
@@ -4135,32 +4144,32 @@ namespace PrePoMax
             // tsmiSettings
             // 
             this.tsmiSettings.Name = "tsmiSettings";
-            this.tsmiSettings.Size = new System.Drawing.Size(133, 22);
+            this.tsmiSettings.Size = new System.Drawing.Size(180, 22);
             this.tsmiSettings.Text = "Settings";
             this.tsmiSettings.Click += new System.EventHandler(this.tsmiSettings_Click);
             // 
             // tsmiDividerTools1
             // 
             this.tsmiDividerTools1.Name = "tsmiDividerTools1";
-            this.tsmiDividerTools1.Size = new System.Drawing.Size(130, 6);
+            this.tsmiDividerTools1.Size = new System.Drawing.Size(177, 6);
             // 
             // tsmiParameters
             // 
             this.tsmiParameters.Name = "tsmiParameters";
-            this.tsmiParameters.Size = new System.Drawing.Size(133, 22);
+            this.tsmiParameters.Size = new System.Drawing.Size(180, 22);
             this.tsmiParameters.Text = "Parameters";
             this.tsmiParameters.Click += new System.EventHandler(this.tsmiParameters_Click);
             // 
             // tsmiDividerTools2
             // 
             this.tsmiDividerTools2.Name = "tsmiDividerTools2";
-            this.tsmiDividerTools2.Size = new System.Drawing.Size(130, 6);
+            this.tsmiDividerTools2.Size = new System.Drawing.Size(177, 6);
             // 
             // tsmiQuery
             // 
             this.tsmiQuery.Image = global::PrePoMax.Properties.Resources.Query;
             this.tsmiQuery.Name = "tsmiQuery";
-            this.tsmiQuery.Size = new System.Drawing.Size(133, 22);
+            this.tsmiQuery.Size = new System.Drawing.Size(180, 22);
             this.tsmiQuery.Text = "Query";
             this.tsmiQuery.Click += new System.EventHandler(this.tsmiQuery_Click);
             // 
@@ -4168,7 +4177,7 @@ namespace PrePoMax
             // 
             this.tsmiFind.Image = global::PrePoMax.Properties.Resources.Search;
             this.tsmiFind.Name = "tsmiFind";
-            this.tsmiFind.Size = new System.Drawing.Size(133, 22);
+            this.tsmiFind.Size = new System.Drawing.Size(180, 22);
             this.tsmiFind.Text = "Find";
             this.tsmiFind.Click += new System.EventHandler(this.tsmiFind_Click);
             // 
@@ -4440,12 +4449,12 @@ namespace PrePoMax
             // 
             this.timerOutput.Tick += new System.EventHandler(this.timerOutput_Tick);
             // 
-            // tsmiMergeCoincidentNodes
+            // tsmiElementQuality
             // 
-            this.tsmiMergeCoincidentNodes.Name = "tsmiMergeCoincidentNodes";
-            this.tsmiMergeCoincidentNodes.Size = new System.Drawing.Size(206, 22);
-            this.tsmiMergeCoincidentNodes.Text = "Merge Coincident Nodes";
-            this.tsmiMergeCoincidentNodes.Click += new System.EventHandler(this.tsmiMergeCoincidentNodes_Click);
+            this.tsmiElementQuality.Name = "tsmiElementQuality";
+            this.tsmiElementQuality.Size = new System.Drawing.Size(180, 22);
+            this.tsmiElementQuality.Text = "Element Quality";
+            this.tsmiElementQuality.Click += new System.EventHandler(this.tsmiElementQuality_Click);
             // 
             // FrmMain
             // 
@@ -4981,6 +4990,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiRegenerateAllUsingOtherFiles;
         private System.Windows.Forms.ToolStripMenuItem tsmiRegenerateAllWithRemeshing;
         private System.Windows.Forms.ToolStripMenuItem tsmiMergeCoincidentNodes;
+        private System.Windows.Forms.ToolStripMenuItem tsmiElementQuality;
     }
 }
 

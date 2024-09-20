@@ -16,6 +16,7 @@ namespace CaeMesh
     {
         // Variables                                                                                                                
         public string GeometryFileName;
+        public string MeshFileName;
         public string InpFileName;
         public MeshingParameters PartMeshingParameters;
         public MeshSetupItem[] GmshSetupItems;
@@ -30,14 +31,16 @@ namespace CaeMesh
         // Normals
         public Dictionary<int, FeNode[]> FaceIdNodes;
         public Dictionary<int, List<Vec3D>> NodeIdNormals;
+        // Element quality
+        public string ElementQualityMetric;
+        public Dictionary<int, double> ElementQuality;
         //
         public double StlFeatureAngleDeg;
 
 
         // Constructors                                                                                                             
-        public GmshData(string geometryFileName)
+        public GmshData()
         {
-            GeometryFileName = geometryFileName;
         }
         //
         public void WriteToFile(string fileName)

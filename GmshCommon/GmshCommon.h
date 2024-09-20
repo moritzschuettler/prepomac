@@ -9,11 +9,14 @@ using System::Runtime::InteropServices::Marshal;
 
 
 /* Instructions for adding functions
-double &                        ->  [System::Runtime::InteropServices::Out] double%
-const std::vector<int> &        ->  array<int>^
-const std::vector<double> &     ->  array<double>^
-const gmsh::vectorpair &        ->  array<System::Tuple<int, int>^>^
-const std::string &             ->  System::String^
+double &                            ->  [System::Runtime::InteropServices::Out] double%
+const std::vector<int> &            ->  array<int>^
+const std::vector<double> &         ->  array<double>^
+const std::size_t                   ->  IntPtr
+const std::vector<std::size_t> &    ->  array<IntPtr>^
+const gmsh::vectorpair &            ->  array<System::Tuple<int, int>^>^
+const std::string &                 ->  System::String^
+
 */
 namespace GmshCommon {
 	public ref class Gmsh
@@ -395,8 +398,23 @@ namespace GmshCommon {
 
                     gmsh::model::mesh::addFaces(faceType, nFaceTags, nFaceNodes);
                 }
+                static void GetElementQualities(array<IntPtr>^ elementTags,
+                    [System::Runtime::InteropServices::Out] array<double>^% elementsQuality, System::String^ qualityName)
+                {
+                    std::vector<size_t> elementTags_native(elementTags->Length);
+                    Marshal::Copy(elementTags, 0, IntPtr(elementTags_native.data()), elementTags->Length);
+                    // Preallocate
+                    std::vector<double> elementsQuality_native(elementTags->Length);
+                    //
+                    std::string qualityName_native = msclr::interop::marshal_as<std::string>(qualityName);
+                    //
+                    gmsh::model::mesh::getElementQualities(elementTags_native, elementsQuality_native, qualityName_native);
+                    //
+                    elementsQuality = gcnew array<double>(elementsQuality_native.size());
+                    Marshal::Copy(IntPtr(elementsQuality_native.data()), elementsQuality, 0, elementsQuality_native.size());
+                }
                 static void AddElements(int dim, int tag, array<int>^ elementTypes,
-                    array < array<IntPtr>^>^ elementTags, array < array<IntPtr>^>^ nodeTags)
+                    array<array<IntPtr>^>^ elementTags, array <array<IntPtr>^>^ nodeTags)
                 {
                     std::vector<int> nElementTypes(elementTypes->Length);
                     Marshal::Copy(elementTypes, 0, IntPtr(nElementTypes.data()), elementTypes->Length);
@@ -531,8 +549,8 @@ namespace GmshCommon {
                 }
                 static void GetElements(
                     [System::Runtime::InteropServices::Out] array<int>^% elementTypes,
-                    [System::Runtime::InteropServices::Out] array< array<IntPtr>^>^% elementTags,
-                    [System::Runtime::InteropServices::Out] array< array<IntPtr>^>^% nodeTags,
+                    [System::Runtime::InteropServices::Out] array<array<IntPtr>^>^% elementTags,
+                    [System::Runtime::InteropServices::Out] array<array<IntPtr>^>^% nodeTags,
                     int dim, int tag)
                 {
                     std::vector<int> elementTypesN;
@@ -585,7 +603,6 @@ namespace GmshCommon {
                         //	nodeTags[i][j] = (IntPtr)static_cast<long>(nodeTagsN[i][j]);
                         //}
                     }
-
                 }
                 static void RemoveDuplicateNodes(array<System::Tuple<int, int>^>^ tags)
                 {

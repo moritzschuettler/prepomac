@@ -168,9 +168,12 @@ namespace CaeGlobals
         public bool TryGetNodeIds(SelectionNode node, out int[] ids)
         {
             ids = null;
-            if (_nodeIds == null) return false;
-            else if (_nodeIds.TryGetValue(node.Hash, out ids)) return true;
-            else return false;
+            if (_nodeIds == null)
+                return false;
+            else if (_nodeIds.TryGetValue(node.Hash, out ids))
+                return true;
+            else
+                return false;
         }
         public void RemoveFirst()
         {

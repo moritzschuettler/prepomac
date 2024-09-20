@@ -67,6 +67,7 @@ namespace PrePoMax
         public static string StlFileName = "geometry.stl";        
         public static string MeshParametersFileName = "meshParameters";
         public static string MeshRefinementFileName = "meshRefinement";
+        public static string GmshMeshFileName = "gmsh.msh";
         public static string GmshDataFileName = "gmshData";
         public static string VolFileName = "geometry.vol";
         public static string MmgMeshFileName = "mesh.mesh";

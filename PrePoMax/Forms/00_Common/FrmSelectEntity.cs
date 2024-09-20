@@ -16,7 +16,7 @@ namespace PrePoMax.Forms
         // Variables                                                                                                                
         private string _selectOneOrMultipleText = "Select one or multiple items";
         private string _selectOneText = "Select one item";
-        private string _entitiyNames;
+        private string _entityNames;
         private string _stepName;
         private NamedClass[] _entitiesToSelect;
         private string[] _preSelectedEntities;
@@ -28,13 +28,13 @@ namespace PrePoMax.Forms
         // Properties                                                                                                               
         public string EntitiesName 
         {
-            get { return _entitiyNames; } 
+            get { return _entityNames; } 
             set
             {
-                _entitiyNames = value;
-                Text = _entitiyNames + " selection";
-                groupBox1.Text = "Available " + _entitiyNames.ToLower();
-                MultiSelect = MultiSelect; // sets the lebel text
+                _entityNames = value;
+                Text = _entityNames + " Selection";
+                groupBox1.Text = "Available " + _entityNames.ToLower();
+                MultiSelect = MultiSelect; // sets the label text
             }
         }
         public bool MultiSelect
@@ -47,8 +47,8 @@ namespace PrePoMax.Forms
             {
                 dgvNames.MultiSelect = value;
                 //
-                if (dgvNames.MultiSelect) label1.Text = _selectOneOrMultipleText; // + _entitiyNames.ToLower();
-                else label1.Text = _selectOneText; // + _entitiyNames.ToLower();
+                if (dgvNames.MultiSelect) label1.Text = _selectOneOrMultipleText; // + _entityNames.ToLower();
+                else label1.Text = _selectOneText; // + _entityNames.ToLower();
             }
         }
         public Action<string> OneEntitySelected { get; set; }
@@ -222,9 +222,9 @@ namespace PrePoMax.Forms
             if (dgvNames.MultiSelect)
             {
                 if (names.Count < _minNumOfEntities)
-                    throw new CaeException("Select at least " + _minNumOfEntities + " " + _entitiyNames.ToLower() + ".");
+                    throw new CaeException("Select at least " + _minNumOfEntities + " " + _entityNames.ToLower() + ".");
                 if (names.Count > _maxNumOfEntities)
-                    throw new CaeException("Select at most " + _maxNumOfEntities + " " + _entitiyNames.ToLower() + ".");
+                    throw new CaeException("Select at most " + _maxNumOfEntities + " " + _entityNames.ToLower() + ".");
             }
             //
             return names.ToArray();
