@@ -308,13 +308,16 @@ namespace CaeMesh
         {
             StringBuilder sb = new StringBuilder();
             //
+            bool relativeSize = _relativeSize;
+            if (!_advancedView) relativeSize = false;
+            //
             sb.AppendLine("int      uselocalh                   ... Switch to enable / disable usage of local mesh size modifiers.");
             sb.AppendLine("1");
             sb.AppendLine("double   maxh		                ... Maximum global mesh size allowed.");
-            if (_relativeSize) sb.AppendLine((_factorMax * bbDiagonal).ToString());
+            if (relativeSize) sb.AppendLine((_factorMax * bbDiagonal).ToString());
             else sb.AppendLine(_maxH.ToString());
             sb.AppendLine("double   minh		                ... Minimum global mesh size allowed.");
-            if (_relativeSize) sb.AppendLine((_factorMin * bbDiagonal).ToString());
+            if (relativeSize) sb.AppendLine((_factorMin * bbDiagonal).ToString());
             else sb.AppendLine(_minH.ToString());
             sb.AppendLine("double   fineness	                ... Mesh density: 0...1 (0 => coarse; 1 => fine).");
             sb.AppendLine(_fineness.ToString());
