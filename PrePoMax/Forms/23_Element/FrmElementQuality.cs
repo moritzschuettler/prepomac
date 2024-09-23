@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using CaeGlobals;
 using CaeModel;
 using UserControls;
 
@@ -37,7 +38,9 @@ namespace PrePoMax.Forms
             //
             _addNew = false;
             btnOK.Visible = false;
-            btnOkAddNew.Visible = false;
+            //
+            btnOkAddNew.Text = "Create Set";
+            btnOkAddNew.Location = btnOK.Location;
             btnCancel.Text = "Close";
             //
             propertyGrid.SetLabelColumnWidth(1.9);
@@ -89,6 +92,16 @@ namespace PrePoMax.Forms
             //
             base.OnPropertyGridPropertyValueChanged();
         }
+        protected override void OnApply(bool onOkAddNew)
+        {
+            string name = _controller.Model.Mesh.ElementSets.GetNextNumberedKey("Element_qualities");
+            bool largerThan = _viewElementQuality.HighlightCriteria == GmshElementQualityHighlightCriteriaEnum.Larger;
+            //
+            _controller.CreateElementSetFromElementQualityCommand(name, _viewElementQuality.ElementQualityMetric.ToString(),
+                                                                  _partNames, largerThan, _viewElementQuality.HighlightLimit);
+            //
+            base.OnApply(onOkAddNew);
+        }
         protected override bool OnPrepareForm(string stepName, string itemToEditName)
         {
             // Disable selection
@@ -106,28 +119,30 @@ namespace PrePoMax.Forms
         private void GetElementQuality()
         {
             _elementQualities = _controller.GetElementQuality(_viewElementQuality.ElementQualityMetric.ToString(), _partNames);
+            double[] sorted = _elementQualities.Values.ToArray();
+            Array.Sort(sorted);
             //
-            double min = double.MaxValue;
-            double max = -double.MaxValue;
+            double min;
+            double max;
             double average = 0;
-            //
-            foreach (var entry in _elementQualities)
-            {
-                if (entry.Value < min) min = entry.Value;
-                if (entry.Value > max) max = entry.Value;
-                average += entry.Value;
-            }
-            average /= _elementQualities.Count;
-            //
             double standardDeviation = 0;
-            foreach (var entry in _elementQualities)
-            {
-                standardDeviation += Math.Pow(entry.Value - average, 2);
-            }
+            double limit;
+            //
+            min = sorted[0];
+            max = sorted[sorted.Length - 1];
+            foreach (var entry in _elementQualities) average += entry.Value;
+            average /= _elementQualities.Count;
+            foreach (var entry in _elementQualities) standardDeviation += Math.Pow(entry.Value - average, 2);
             standardDeviation /= _elementQualities.Count;
             standardDeviation = Math.Sqrt(standardDeviation);
             //
-            _viewElementQuality.SetValues(min, max, average, standardDeviation);
+            double ratio;
+            if (_viewElementQuality.HighlightCriteria == GmshElementQualityHighlightCriteriaEnum.Smaller) ratio = 0.05;
+            else ratio = 1 - 0.05;
+            //
+            limit = sorted[(int)(sorted.Length * ratio)];
+            //
+            _viewElementQuality.SetValues(min, max, average, standardDeviation, limit);
             //
             HighlightElements();
         }
@@ -138,14 +153,14 @@ namespace PrePoMax.Forms
             if (_elementQualities == null) return;
             //
             List<int> elementIds = new List<int>();
-            if (_viewElementQuality.HighlightCriteria == GmshElementQualityHighlightCriteriaEnum.SmallerThan)
+            if (_viewElementQuality.HighlightCriteria == GmshElementQualityHighlightCriteriaEnum.Smaller)
             {
                 foreach (var entry in _elementQualities)
                 {
                     if (entry.Value < _viewElementQuality.HighlightLimit) elementIds.Add(entry.Key);
                 }
             }
-            else if (_viewElementQuality.HighlightCriteria == GmshElementQualityHighlightCriteriaEnum.GreaterThan)
+            else if (_viewElementQuality.HighlightCriteria == GmshElementQualityHighlightCriteriaEnum.Larger)
             {
                 foreach (var entry in _elementQualities)
                 {

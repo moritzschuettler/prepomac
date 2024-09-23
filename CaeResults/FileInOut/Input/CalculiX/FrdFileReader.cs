@@ -13,7 +13,7 @@ namespace CaeResults
     [Serializable]
     public static class FrdFileReader
     {
-        static Dictionary<string, string> componentRenamer = new Dictionary<string, string>()
+        static Dictionary<string, string> componentNameMap = new Dictionary<string, string>()
         {
             { "D1", FOComponentNames.U1},
             { "D2", FOComponentNames.U2},
@@ -49,6 +49,8 @@ namespace CaeResults
         //
         private static readonly int _gapMaterialId = -1;
         private static readonly int _springMaterialId = -2;
+        //
+        private static HashSet<int[]> _bemaNodeIds;
 
 
         // Methods                                                                                                                  
@@ -56,6 +58,12 @@ namespace CaeResults
         {
             if (fileName != null && File.Exists(fileName))
             {
+                if (fileName.ToUpper().Contains("RESULTSFORLASTITERATIONS.FRD"))
+                {
+                    CompareIntArray comparer = new CompareIntArray();
+                    _bemaNodeIds = new HashSet<int[]>(comparer);
+                }
+                //
                 string[] lines = Tools.ReadAllLines(fileName);
                 if (lines == null) return null;
                 //
@@ -402,6 +410,7 @@ namespace CaeResults
             FrdFeDescriptorId feDescriptorId;
             FeElement element;
             int materialID;
+            int[] nodeIds;
             string[] record1;
             string[] record2;
             string[] splitter = new string[] { " " };
@@ -426,7 +435,18 @@ namespace CaeResults
                     case FrdFeDescriptorId.BeamLinear:
                         // Beam element
                         record1 = lines[++i].Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                        if (TryGetLinearBeamElement(id, record1, out element)) elements.Add(id, element);
+                        if (TryGetLinearBeamElement(id, record1, out element))
+                        {
+                            if (_bemaNodeIds != null)
+                            {
+                                nodeIds = element.NodeIds;
+                                Array.Sort(nodeIds);
+                                if (_bemaNodeIds.Contains(nodeIds))
+                                    break;
+                                else _bemaNodeIds.Add(nodeIds);
+                            }
+                            elements.Add(id, element);
+                        }
                         break;
                     case FrdFeDescriptorId.ShellLinearTriangle:
                         // Triangle element
@@ -758,7 +778,7 @@ namespace CaeResults
                 if (record[0] == "-5") 
                 {
                     componentName = record[1];
-                    if (componentRenamer.TryGetValue(componentName, out componentRename)) componentName = componentRename;
+                    if (componentNameMap.TryGetValue(componentName, out componentRename)) componentName = componentRename;
                     components.Add(componentName);
                 } 
                 else break;

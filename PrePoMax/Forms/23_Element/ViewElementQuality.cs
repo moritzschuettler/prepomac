@@ -31,8 +31,8 @@ namespace PrePoMax.Forms
     [Serializable]
     public enum GmshElementQualityHighlightCriteriaEnum
     {
-        SmallerThan,
-        GreaterThan,
+        Smaller,
+        Larger,
     }
 
     [Serializable]
@@ -110,7 +110,7 @@ namespace PrePoMax.Forms
             _max = 0;
             _average = 0;
             _standardDeviation = 0;
-            _highlightCriteria = GmshElementQualityHighlightCriteriaEnum.SmallerThan;
+            _highlightCriteria = GmshElementQualityHighlightCriteriaEnum.Smaller;
             _highlightLimit = 0;
             //
             _dctd = ProviderInstaller.Install(this);
@@ -118,15 +118,13 @@ namespace PrePoMax.Forms
 
 
         // Methods                                                                                                                  
-        public void SetValues(double min, double max, double average, double standardDeviation)
+        public void SetValues(double min, double max, double average, double standardDeviation, double limit)
         {
             _min = Tools.RoundToSignificantDigits(min, 4);
             _max = Tools.RoundToSignificantDigits(max, 4);
             _average = Tools.RoundToSignificantDigits(average, 4);
             _standardDeviation = Tools.RoundToSignificantDigits(standardDeviation, 4);
-            //
-            double limitRatio = 0.1;
-            _highlightLimit = Tools.RoundToSignificantDigits(_min + (_max - _min) * limitRatio, 4);
+            _highlightLimit = Tools.RoundToSignificantDigits(limit, 4);
         }
 
 

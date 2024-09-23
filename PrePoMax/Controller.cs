@@ -5370,7 +5370,14 @@ namespace PrePoMax
         // COMMANDS ********************************************************************************
         public void RenumberElementsCommand(int startNodeId)
         {
-            Commands.CRenumberElements comm = new Commands.CRenumberElements(startNodeId);
+            CRenumberElements comm = new Commands.CRenumberElements(startNodeId);
+            _commands.AddAndExecute(comm);
+        }
+        public void CreateElementSetFromElementQualityCommand(string name, string elementQualityMetric,
+                                                              string[] partNames, bool largerThan, double limit)
+        {
+            CCreateElementSetFromElementQuality comm =
+                new CCreateElementSetFromElementQuality(name, elementQualityMetric, partNames, largerThan, limit);
             _commands.AddAndExecute(comm);
         }
         //******************************************************************************************
@@ -5459,6 +5466,22 @@ namespace PrePoMax
             GmshAPI gmshAPI = new GmshAPI(gmshData, null);
             string error = gmshAPI.GetElementQualities();
             return gmshAPI.GmshData.ElementQuality;
+        }
+        public void CreateElementSetFromElementQuality(string name, string elementQualityMetric, string[] partNames,
+                                                       bool largerThan, double limit)
+        {
+            Dictionary<int, double> elementQualities = GetElementQuality(elementQualityMetric, partNames);
+            double[] sorted = elementQualities.Values.ToArray();
+            Array.Sort(sorted);
+            //
+            List<int> elementIds = new List<int>();
+            foreach (var entry in elementQualities)
+            {
+                if (largerThan == entry.Value > limit) elementIds.Add(entry.Key);
+            }
+            //
+            FeElementSet elementSet = new FeElementSet(name, elementIds.ToArray());
+            AddElementSet(elementSet);
         }
 
         #endregion #################################################################################################################

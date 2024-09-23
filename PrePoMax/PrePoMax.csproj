@@ -138,6 +138,7 @@
     <Compile Include="Command\0050_Model\02_Tools\CUpdateNodalCoordinatesFromFile.cs" />
     <Compile Include="Command\0050_Model\03_Mesh\01_Node\CMergeCoincidentNodes.cs" />
     <Compile Include="Command\0050_Model\03_Mesh\01_Node\CRenumberNodes.cs" />
+    <Compile Include="Command\0050_Model\03_Mesh\02_Element\CCreateElementSetFromElementQuality.cs" />
     <Compile Include="Command\0050_Model\03_Mesh\02_Element\CRenumberElements.cs" />
     <Compile Include="Command\0050_Model\03_Mesh\03_Part\CHideModelParts.cs" />
     <Compile Include="Command\0050_Model\03_Mesh\03_Part\CMergeModelParts.cs" />
