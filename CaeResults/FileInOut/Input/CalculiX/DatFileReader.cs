@@ -21,6 +21,7 @@ namespace CaeResults
         private static readonly string[] componentsSplitter = new string[] { " ", "," };
         private static readonly string[] dataSplitter = new string[] { " ", "for set", "and time" };
         private static readonly string[] signSplitter = new string[] { "-", "+" };
+        private static readonly string[] atSplitter = new string[] { "@@@" };
         private static readonly string stepKey = "S T E P";
         private static readonly string incrementKey = "INCREMENT";
         private static readonly string entireModelKey = "ENTIRE_MODEL";
@@ -388,16 +389,11 @@ namespace CaeResults
             //
             string[] tmp = lines[0].Split(new string[] { "slave set", "master set", "and time"}, 
                                           StringSplitOptions.RemoveEmptyEntries);
-            string slaveName = RepairSetName(tmp[1].Trim(new char[] { ' ', ','}), repairedSetNames);
-            string masterName = RepairSetName(tmp[2].Trim(), repairedSetNames);
+            string slaveName = tmp[1].Trim(new char[] { ' ', ','});
+            string masterName = tmp[2].Trim();
             string time = tmp[3].Trim();
             //
-            if (slaveName.EndsWith(CaeMesh.Globals.SlaveNameSuffix.ToUpper()))
-                slaveName = slaveName.Replace(CaeMesh.Globals.SlaveNameSuffix.ToUpper(), "");
-            if (masterName.EndsWith(CaeMesh.Globals.MasterNameSuffix.ToUpper()))
-                masterName = masterName.Replace(CaeMesh.Globals.MasterNameSuffix.ToUpper(), "");
-            //
-            string name = slaveName == masterName ? slaveName : slaveName + "_" + masterName;
+            string name = slaveName + atSplitter[0] + masterName;
             //
             HashSet<string> existingNamesAtTime;
             if (existingNames.TryGetValue(time, out existingNamesAtTime))
@@ -653,7 +649,33 @@ namespace CaeResults
         {
             string[] tmp;
             string newName = setName;
-            if (setName.StartsWith(Globals.InternalSelectionName.ToUpper()))
+            if (setName.Contains(atSplitter[0]))    // must be first
+            {
+                if (!repairedSetNames.TryGetValue(setName, out newName))
+                {
+                    tmp = setName.Split(atSplitter, StringSplitOptions.None);
+                    if (tmp.Length == 2)
+                    {
+                        string slaveName = RepairSetName(tmp[0], repairedSetNames);
+                        string masterName = RepairSetName(tmp[1], repairedSetNames);
+                        //
+                        if (slaveName.EndsWith(Globals.SlaveNameSuffix.ToUpper()))
+                            slaveName = slaveName.Replace(Globals.SlaveNameSuffix.ToUpper(), "");
+                        if (masterName.EndsWith(Globals.MasterNameSuffix.ToUpper()))
+                            masterName = masterName.Replace(Globals.MasterNameSuffix.ToUpper(), "");
+                        //
+                        newName = slaveName == masterName ? slaveName : slaveName + "_" + masterName;
+                        // Check if an existing set was already renamed to an existing new name
+                        if (repairedSetNames.Values.Contains(newName))
+                        {
+                            newName = NamedClass.GetNameWithoutLastValue(newName);
+                            newName = new HashSet<string>(repairedSetNames.Values).GetNextNumberedKey(newName);
+                        }
+                        repairedSetNames.Add(setName, newName);
+                    }
+                }
+            }
+            else if (setName.StartsWith(Globals.InternalSelectionName.ToUpper()))
             {
                 if (!repairedSetNames.TryGetValue(setName, out newName))
                 {
@@ -1095,7 +1117,7 @@ namespace CaeResults
                 }
                 //
             }
-            // Averege the summed values
+            // Average the summed values
             foreach (var setEntry in historyOutput.Sets)
             {
                 foreach (var fieldEntry in setEntry.Value.Fields)

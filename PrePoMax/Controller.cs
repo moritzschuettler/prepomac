@@ -8863,7 +8863,8 @@ namespace PrePoMax
                 // Node output
                 if (historyOutput is NodalHistoryOutput)
                 {
-                    name = FeMesh.GetNextFreeSelectionName(_model.Mesh.NodeSets, historyOutput.Name);
+                    //name = FeMesh.GetNextFreeSelectionName(_model.Mesh.NodeSets, historyOutput.Name);
+                    name = FeMesh.GetNextFreeSelectionName(_model.Mesh.NodeSets, "NODE_SELECTION-1");
                     FeNodeSet nodeSet = new FeNodeSet(name, historyOutput.CreationIds);
                     nodeSet.CreationData = historyOutput.CreationData.DeepClone();
                     nodeSet.Internal = true;
@@ -8876,7 +8877,8 @@ namespace PrePoMax
                 // Element output
                 else if (historyOutput is ElementHistoryOutput)
                 {
-                    name = FeMesh.GetNextFreeSelectionName(_model.Mesh.ElementSets, historyOutput.Name);
+                    //name = FeMesh.GetNextFreeSelectionName(_model.Mesh.ElementSets, historyOutput.Name);
+                    name = FeMesh.GetNextFreeSelectionName(_model.Mesh.ElementSets, "ELEMENT_SELECTION-1");
                     FeElementSet elementSet = new FeElementSet(name, historyOutput.CreationIds);
                     elementSet.CreationData = historyOutput.CreationData.DeepClone();
                     elementSet.Internal = true;
@@ -15855,7 +15857,7 @@ namespace PrePoMax
             vtkMaxActorData data;
             //
             FeMesh mesh = DisplayedMesh;
-
+            //
             BasePart[] parts = mesh.CreateBasePartsByTypeFromElementIds(elementIds, onlyVisible);
             //
             int drawnCells = 0;
@@ -16014,12 +16016,13 @@ namespace PrePoMax
                                    bool onlyVisible = false, bool countOnly = false)
         {
             FeSurface s;
-            if (_model.Mesh.Surfaces.TryGetValue(surfaceName, out s) && s.Active && s.Visible && s.Valid)
+            FeMesh mesh = DisplayedMesh;
+            if (mesh.Surfaces.TryGetValue(surfaceName, out s) && s.Active && s.Visible && s.Valid)
             {
                 if (s.Type == FeSurfaceType.Element && s.ElementFaces != null)
                 {
                     vtkMaxActorData data = new vtkMaxActorData();
-                    _model.Mesh.GetSurfaceEdgesGeometry(surfaceName, out data.Geometry.Nodes.Coor,
+                    mesh.GetSurfaceEdgesGeometry(surfaceName, out data.Geometry.Nodes.Coor,
                                                         out data.Geometry.Cells.CellNodeIds,
                                                         out data.Geometry.Cells.Types, onlyVisible);
                     //
@@ -16039,7 +16042,7 @@ namespace PrePoMax
                     //
                     return data.Geometry.Cells.CellNodeIds.Length;
                 }
-                else if (s.Type == FeSurfaceType.Node && Model.Mesh.NodeSets.TryGetValue(s.NodeSetName, out _))
+                else if (s.Type == FeSurfaceType.Node && mesh.NodeSets.TryGetValue(s.NodeSetName, out _))
                 {
                     //if (!countOnly)
                     //{
@@ -16832,12 +16835,22 @@ namespace PrePoMax
         {
             if (historyResultSet.BaseSetName != null && Model != null && Model.Mesh != null)
             {
-                if (_model.Mesh.ReferencePoints.ContainsKey(historyResultSet.Name))
-                    HighlightReferencePoints(new string[] { historyResultSet.Name });
-                else if (_model.Mesh.NodeSets.ContainsKey(historyResultSet.BaseSetName))
-                    HighlightNodeSets(new string[] { historyResultSet.BaseSetName });
-                else if (_model.Mesh.ElementSets.ContainsKey(historyResultSet.BaseSetName))
-                    HighlightElementSets(new string[] { historyResultSet.BaseSetName }, false);
+                string[] tmp = historyResultSet.BaseSetName.Split(new string[] { "@@@"}, StringSplitOptions.None);
+                //
+                if (tmp.Length == 1)
+                {
+                    if (_model.Mesh.ReferencePoints.ContainsKey(historyResultSet.Name))
+                        HighlightReferencePoints(new string[] { historyResultSet.Name });
+                    else if (_model.Mesh.NodeSets.ContainsKey(historyResultSet.BaseSetName))
+                        HighlightNodeSets(new string[] { historyResultSet.BaseSetName });
+                    else if (_model.Mesh.ElementSets.ContainsKey(historyResultSet.BaseSetName))
+                        HighlightElementSets(new string[] { historyResultSet.BaseSetName }, false);
+                }
+                else
+                {
+                    HighlightSurfaces(new string[] { tmp[0] });
+                    HighlightSurfaces(new string[] { tmp[1] }, true);
+                }
             }
         }
         public void HighlightResultHistoryOutput(ResultHistoryOutput resultHistoryOutput)

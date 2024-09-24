@@ -2893,9 +2893,9 @@ namespace UserControls
                         node3.Tag = new HistoryResultData(historyResultSets[i].Name, fieldEntry.Key, componentEntry.Key); // to view
                         SetNodeImage(node3, "Dots.ico");
                     }
-                    if (node2.Nodes.Count > 0) node2.Expand();
+                    if (_resultHistoryOutputs.Nodes.Count <= 1 && node2.Nodes.Count > 0) node2.Expand();
                 }
-                if (node1.Nodes.Count > 0) node1.Expand();
+                if (_resultHistoryOutputs.Nodes.Count <= 1 && node1.Nodes.Count > 0) node1.Expand();
             }
             //
             _resultHistoryOutputs.Expand();
