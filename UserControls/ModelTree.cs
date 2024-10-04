@@ -28,6 +28,8 @@ namespace UserControls
     }
     public struct ContextMenuFields
     {
+        public HashSet<Type> Types;
+        //
         public int Create;
         public int Edit;
         public int EditStepControls;
@@ -58,6 +60,7 @@ namespace UserControls
         //
         public int Hide;
         public int Show;
+        public int Color;
         public int Transparency;
         //
         public int Deformed;
@@ -266,6 +269,7 @@ namespace UserControls
         //
         public event Action<string, string> CreateEvent;
         public event Action<NamedClass, string> EditEvent;
+        
         public event Action<string> EditStepControlsEvent;
         public event Action QueryEvent;
         public event Action<NamedClass[], string[]> DuplicateEvent;
@@ -285,6 +289,8 @@ namespace UserControls
         public event Action<NamedClass[]> SwapMasterSlave;
         public event Action<NamedClass[]> MergeByMasterSlave;
         public event Action<NamedClass[], HideShowOperation, string[]> HideShowEvent;
+        public event Action<string[]> SetPartColorEvent;
+        public event Action<string[]> ResetPartColorEvent;
         public event Action<string[]> SetTransparencyEvent;
         public event Action<NamedClass[], bool> ColorContoursVisibilityEvent;
         public event Action<string> RunEvent;
@@ -456,6 +462,7 @@ namespace UserControls
             int n = tree.SelectedNodes.Count;
             //
             ContextMenuFields menuFields = new ContextMenuFields();
+            menuFields.Types = new HashSet<Type>();
             foreach (TreeNode node in tree.SelectedNodes)
             {
                 AppendMenuFields(node, ref menuFields);
@@ -491,14 +498,14 @@ namespace UserControls
             visible = menuFields.Preview == n;
             tsmiPreview.Visible = visible;
             oneAboveVisible |= visible;
-            //Geometry                                              
+            // Geometry                                             
             visible = menuFields.CompoundPart == n && n > 1;
             tsmiSpaceCompoundPart.Visible = visible && oneAboveVisible;
             tsmiCompoundPart.Visible = visible;
             visible = menuFields.SwapParts == n && n == 2;
             tsmiSwapPartGeometries.Visible = visible;
             oneAboveVisible |= visible;
-            //Mesh                                                  
+            // Mesh                                                 
             visible = menuFields.MeshingParameters == n;
             tsmiSpaceMesh.Visible = visible && oneAboveVisible;
             tsmiPreviewEdgeMesh.Visible = visible;
@@ -544,6 +551,9 @@ namespace UserControls
             tsmiHide.Visible = visible;
             tsmiShow.Visible = visible;
             tsmiShowOnly.Visible = visible;
+            // Color                                                
+            tsmiSetColor.Visible = menuFields.Color == n;
+            oneAboveVisible |= visible;
             // Transparency                                         
             tsmiSetTransparency.Visible = menuFields.Transparency == n;
             oneAboveVisible |= visible; // Hide/Show
@@ -578,14 +588,16 @@ namespace UserControls
             tsmiSpaceDelete.Visible = visible && oneAboveVisible;
             tsmiDelete.Visible = visible;
             oneAboveVisible |= visible;
-
             // Enabled                                                                                              
             bool enabled;
             // Create
             enabled = menuFields.Create == 1;
             tsmiCreate.Enabled = enabled;
             // Edit
-            enabled = menuFields.Edit == 1;
+            if (menuFields.Types.Count == 1 && menuFields.Types.Contains(typeof(GeometryPart))) enabled = true;
+            else if (menuFields.Types.Count == 2 && menuFields.Types.Contains(typeof(GeometryPart)) &&
+                menuFields.Types.Contains(typeof(CompoundGeometryPart))) enabled = true;
+            else enabled = menuFields.Edit == 1;
             tsmiEdit.Enabled = enabled;
             // Mesh
             tsmiCreateMesh.Enabled = true;
@@ -624,6 +636,7 @@ namespace UserControls
                 return;
             }
             //
+            menuFields.Types.Add(node.Tag.GetType());
             NamedClass item = (NamedClass)node.Tag;
             bool subPart = node.Parent != null && node.Parent.Tag is CompoundGeometryPart;
             // Create
@@ -683,8 +696,12 @@ namespace UserControls
                 if (item.Visible) menuFields.Hide++;
                 else menuFields.Show++;
             }
-            //Transparency
-            if (item != null && item is BasePart) menuFields.Transparency++;
+            // Color & Transparency
+            if (item != null && item is BasePart)
+            {
+                menuFields.Color++;
+                menuFields.Transparency++;
+            }
             // Deformed/Color contours
             if (item != null && item is ResultPart)
             {
@@ -904,6 +921,7 @@ namespace UserControls
             try
             {
                 CodersLabTreeView tree = GetActiveTree();
+                // Edit Part Color
                 if (tree.SelectedNodes.Count != 1) return;
                 //
                 TreeNode selectedNode = tree.SelectedNodes[0];
@@ -911,7 +929,8 @@ namespace UserControls
                 if (selectedNode.Tag == null) return;
                 //
                 string stepName = null;
-                if (selectedNode.Parent != null && selectedNode.Parent.Parent != null && selectedNode.Parent.Parent.Tag is Step)
+                if (selectedNode.Parent != null && selectedNode.Parent.Parent != null &&
+                    selectedNode.Parent.Parent.Tag is Step)
                     stepName = selectedNode.Parent.Parent.Name;
                 //
                 EditEvent?.Invoke((NamedClass)selectedNode.Tag, stepName);
@@ -1140,18 +1159,56 @@ namespace UserControls
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiSetTransparency_Click(object sender, EventArgs e)
+        private void tsmiSetColor_Click(object sender, EventArgs e)
         {
             try
             {
                 List<string> parts = new List<string>();
-
+                //
                 foreach (TreeNode selectedNode in GetActiveTree().SelectedNodes)
                 {
                     if (selectedNode.Tag == null) continue;
                     if (selectedNode.Tag is BasePart part) parts.Add(part.Name);
                 }
-
+                //
+                if (parts.Count > 0) SetPartColorEvent?.Invoke(parts.ToArray());
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiResetColor_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                List<string> parts = new List<string>();
+                //
+                foreach (TreeNode selectedNode in GetActiveTree().SelectedNodes)
+                {
+                    if (selectedNode.Tag == null) continue;
+                    if (selectedNode.Tag is BasePart part) parts.Add(part.Name);
+                }
+                //
+                if (parts.Count > 0) ResetPartColorEvent?.Invoke(parts.ToArray());
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiSetTransparency_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                List<string> parts = new List<string>();
+                //
+                foreach (TreeNode selectedNode in GetActiveTree().SelectedNodes)
+                {
+                    if (selectedNode.Tag == null) continue;
+                    if (selectedNode.Tag is BasePart part) parts.Add(part.Name);
+                }
+                //
                 if (parts.Count > 0) SetTransparencyEvent?.Invoke(parts.ToArray());
             }
             catch (Exception ex)
@@ -1159,7 +1216,7 @@ namespace UserControls
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiResultColorContoutsVisibility_Click(object sender, EventArgs e)
+        private void tsmiResultColorContoursVisibility_Click(object sender, EventArgs e)
         {
             try
             {

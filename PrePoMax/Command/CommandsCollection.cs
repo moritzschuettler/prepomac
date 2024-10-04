@@ -146,9 +146,9 @@ namespace PrePoMax.Commands
         {
             ExecuteAllCommands(showImportDialog, showMeshDialog, regenerateAll, null);
         }
-        public void ExecuteAllCommandsFromLastSave(CSaveToPmx lastSave)
+        public void ExecuteAllCommandsFromLastSave(bool regenerateAll, CSaveToPmx lastSave)
         {
-            ExecuteAllCommands(false, false, true, lastSave);
+            ExecuteAllCommands(false, false, regenerateAll, lastSave);
         }
         public void ExecuteAllCommands(bool showImportDialog, bool showMeshDialog, bool regenerateAll, CSaveToPmx lastSave)
         {
@@ -189,7 +189,7 @@ namespace PrePoMax.Commands
                     try
                     {
                         // Skip all up to last save
-                        if (lastSave != null && command != lastSave) { }
+                        if (lastSave != null) { }
                         // Execute
                         else
                         {

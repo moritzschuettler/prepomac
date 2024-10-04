@@ -7,6 +7,7 @@ using CaeMesh;
 using CaeGlobals;
 using DynamicTypeDescriptor;
 using System.Collections.Concurrent;
+using Priority_Queue;
 
 namespace CaeResults
 {
@@ -17,6 +18,7 @@ namespace CaeResults
         [StandardValue("ClosestPoint", DisplayName = "Closest point")]
         ClosestPoint
     }
+    
     public class ResultsInterpolator
     {
         // Variables                                                                                                                
@@ -45,7 +47,7 @@ namespace CaeResults
             _sourceBox = ComputeAllNodesBoundingBox(source);
             _sourceBox.InflateIfThinn(1E-6);
             //
-            double l = avgCellBoxSize;
+            double l = avgCellBoxSize * 3;
             //
             _nx = (int)Math.Ceiling(_sourceBox.GetXSize() / l);
             _ny = (int)Math.Ceiling(_sourceBox.GetYSize() / l);
@@ -142,7 +144,7 @@ namespace CaeResults
             //
             return clone;
         }
-        public double GetSignedDistanceAt(double[] point)
+        public double GetSignedDistanceAt(double[] point, bool exact)
         {
             int i;
             int j;
@@ -153,6 +155,10 @@ namespace CaeResults
             int maxj;
             int mink;
             int maxk;
+            bool iBorder;
+            bool jBorder;
+            bool kBorder;
+            int iStep;
             double[] sourceCoor;
             int index;
             BoundingBox regionBox;
@@ -187,7 +193,7 @@ namespace CaeResults
             delta = 0;
             num = regionBox == null ? 0 : ((Dictionary<int, BoundingBox>)regionBox.Tag).Count;
             // Add next layer of regions
-            HashSet<int> additionalRegions = new HashSet<int>();
+            double minD2 = double.MaxValue;
             while (num == 0 || delta < 1)
             {
                 delta++;
@@ -206,28 +212,77 @@ namespace CaeResults
                 //
                 for (int kk = mink; kk <= maxk; kk++)
                 {
+                    kBorder = kk == mink || kk == maxk;
+                    for (int jj = minj; jj <= maxj; jj++)
+                    {
+                        jBorder = jj == minj || jj == maxj;
+                        if (!kBorder && !jBorder) iStep = 1;
+                        else iStep = maxi - mini;
+                        //
+                        for (int ii = mini; ii <= maxi; ii+=iStep)
+                        {
+                            index = kk * _nxy + jj * _nx + ii;
+                            regionBox = _regionBoxes[index];
+                            //
+                            if (regionBox != null && regionBox.Tag is Dictionary<int, BoundingBox> cellIdCellBox &&
+                                cellIdCellBox.Count > 0)
+                            {
+                                if (regions.Contains(index)) continue;
+                                //
+                                regions.Add(index);
+                                num += cellIdCellBox.Count;
+                                // In case the cell box is large it will prevent smaller closer cell boxes to be added to the
+                                // region collection - so add all region boxes occupied by the cell box
+                                foreach (var entry in cellIdCellBox)
+                                {
+                                    cellBox = entry.Value;
+                                    regions.UnionWith((HashSet<int>)cellBox.Tag);
+                                }
+                                minD2 = Math.Min(minD2, regionBox.MaxOutsideDistance2(point));
+                            }
+                        }
+                    }
+                }
+            }
+            if (exact)
+            {
+                // Check a spherical region
+                minD = Math.Sqrt(minD2);
+                mini = (int)Math.Floor(((sourceCoor[0] - minD) - _sourceBox.MinX) / _deltaX);
+                maxi = (int)Math.Ceiling(((sourceCoor[0] + minD) - _sourceBox.MinX) / _deltaX);
+                minj = (int)Math.Floor(((sourceCoor[1] - minD) - _sourceBox.MinY) / _deltaY);
+                maxj = (int)Math.Ceiling(((sourceCoor[1] + minD) - _sourceBox.MinY) / _deltaY);
+                mink = (int)Math.Floor(((sourceCoor[2] - minD) - _sourceBox.MinZ) / _deltaZ);
+                maxk = (int)Math.Ceiling(((sourceCoor[2] + minD) - _sourceBox.MinZ) / _deltaZ);
+                //
+                if (mini < 0) mini = 0;
+                if (mini >= _nx) mini = _nx - 1;
+                if (maxi < 0) maxi = 0;
+                if (maxi >= _nx) maxi = _nx - 1;
+                if (minj < 0) minj = 0;
+                if (minj >= _ny) minj = _ny - 1;
+                if (maxj < 0) maxj = 0;
+                if (maxj >= _ny) maxj = _ny - 1;
+                if (mink < 0) mink = 0;
+                if (mink >= _nz) mink = _nz - 1;
+                if (maxk < 0) maxk = 0;
+                if (maxk >= _nz) maxk = _nz - 1;
+                //
+                for (int kk = mink; kk <= maxk; kk++)
+                {
                     for (int jj = minj; jj <= maxj; jj++)
                     {
                         for (int ii = mini; ii <= maxi; ii++)
                         {
                             index = kk * _nxy + jj * _nx + ii;
-                            if (!regions.Contains(index))
+                            regionBox = _regionBoxes[index];
+                            //
+                            if (regionBox != null && regionBox.Tag is Dictionary<int, BoundingBox> cellIdCellBox &&
+                                cellIdCellBox.Count > 0)
                             {
-                                regionBox = _regionBoxes[index];
+                                if (regions.Contains(index)) continue;
                                 //
-                                if (regionBox != null && regionBox.Tag is Dictionary<int, BoundingBox> cellIdCellBox &&
-                                    cellIdCellBox.Count > 0)
-                                {
-                                    regions.Add(index);
-                                    num += cellIdCellBox.Count;
-                                    // In case the cell box is large it will prevent smaller closer cell boxes to be added to the
-                                    // region collection - so add all region boxes occupied by the cell box
-                                    foreach (var entry in cellIdCellBox)
-                                    {
-                                        cellBox = entry.Value;
-                                        regions.UnionWith((HashSet<int>)cellBox.Tag);
-                                    }
-                                }
+                                regions.Add(index);
                             }
                         }
                     }

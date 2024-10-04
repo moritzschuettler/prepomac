@@ -27,6 +27,7 @@ using System.Runtime.InteropServices.ComTypes;
 using System.Runtime.Remoting.Metadata.W3cXsd2001;
 using System.Diagnostics;
 using FileInOut.Output;
+using System.Security.Cryptography;
 
 namespace PrePoMax
 {
@@ -261,6 +262,8 @@ namespace PrePoMax
                 _modelTree.ClearSelectionEvent += Clear3DSelection;
                 _modelTree.CreateEvent += ModelTree_CreateEvent;
                 _modelTree.EditEvent += ModelTree_Edit;
+                _modelTree.SetPartColorEvent += ModelTree_SetPartColorEvent;
+                _modelTree.ResetPartColorEvent += ModelTree_ResetPartColorEvent;
                 _modelTree.EditStepControlsEvent += EditStepControls;
                 _modelTree.QueryEvent += ModelTree_Query;
                 _modelTree.DuplicateEvent += ModelTree_DuplicateEvent;
@@ -518,6 +521,9 @@ namespace PrePoMax
                 tsmiCropStlPartWithCube.Visible = false;
             }
             }
+
+        
+
         //
         private async void FrmMain_Shown(object sender, EventArgs e)
         {
@@ -583,13 +589,19 @@ namespace PrePoMax
                 }
                 else
                 {
+                    string parameters = null;
                     // Try to recover unsaved progress due to crushed PrePoMax
                     if (File.Exists(_controller.GetHistoryFileNameBin()))
                     {
                         if (MessageBoxes.ShowWarningQuestionOKCancel("A recovery file from a previous PrePoMax session exists. " +
-                                                             "Would you like to try to recover it?") == DialogResult.OK)
+                                                                     "Would you like to try to recover it?") == DialogResult.OK)
                         {
                             fileName = _controller.GetHistoryFileNameBin();
+                            //
+                            bool regenerateAll = MessageBoxes.ShowQuestionYesNo("Regenerate All",
+                                "Select Yes to regenerate all commands or No to regenerate FE model commands only. " +
+                                "All commands can be regenerated later using Edit → Regenerate All.") == DialogResult.Yes;
+                            if (regenerateAll) parameters = "RegenerateAll";
                         }
                     }
                     if (fileName == null)
@@ -616,7 +628,7 @@ namespace PrePoMax
                         HashSet<string> importExtensions = GetFileImportExtensions();
                         //
                         if (extension == ".pmx" || extension == ".pmh" || extension == ".frd")
-                            await Task.Run(() => OpenAsync(fileName, _controller.Open));
+                            await Task.Run(() => OpenAsync(fileName, _controller.Open, true, null, parameters));
                         else if (importExtensions.Contains(extension))
                         {
                             // Create new model
@@ -1106,6 +1118,18 @@ namespace PrePoMax
                                                 ShowResultCoordinateSystems, ShowOnlyResultCoordinateSystems);
             }
         }
+        private void ModelTree_SetPartColorEvent(string[] partNames)
+        {
+            if (_controller.CurrentView == ViewGeometryModelResults.Geometry) SetColorForGeometryParts(partNames);
+            else if (_controller.CurrentView == ViewGeometryModelResults.Model) SetColorForModelParts(partNames);
+            else if (_controller.CurrentView == ViewGeometryModelResults.Results) SetColorForResultParts(partNames);
+        }
+        private void ModelTree_ResetPartColorEvent(string[] partNames)
+        {
+            if (_controller.CurrentView == ViewGeometryModelResults.Geometry) ResetColorForGeometryParts(partNames);
+            else if (_controller.CurrentView == ViewGeometryModelResults.Model) ResetColorForModelParts(partNames);
+            else if (_controller.CurrentView == ViewGeometryModelResults.Results) ResetColorForResultParts(partNames);
+        }
         private void ModelTree_SetTransparencyEvent(string[] partNames)
         {
             if (_controller.CurrentView == ViewGeometryModelResults.Geometry) SetTransparencyForGeometryParts(partNames);
@@ -1517,7 +1541,8 @@ namespace PrePoMax
             }
             return true;
         }
-        private async Task OpenAsync(string fileName, Action<string> ActionOnFile, bool resetCamera = true, Action callback = null)
+        private async Task OpenAsync(string fileName, Action<string, string> ActionOnFile, bool resetCamera = true,
+                                     Action callback = null, string parameters = null)
         {
             bool stateSet = false;
             string stateText = Globals.OpeningText;
@@ -1529,7 +1554,7 @@ namespace PrePoMax
                 if (SetStateWorking(stateText) || IsStateRegeneratingOrUndoing())
                 {
                     stateSet = true;
-                    await Task.Run(() => Open(fileName, ActionOnFile, resetCamera));
+                    await Task.Run(() => Open(fileName, ActionOnFile, resetCamera, parameters));
                     callback?.Invoke();                    
                 }
                 else MessageBoxes.ShowWarning("Another task is already running.");
@@ -1546,9 +1571,9 @@ namespace PrePoMax
                 if (stateSet) SetStateReady(stateText);
             }
         }
-        public void Open(string fileName, Action<string> ActionOnFile, bool resetCamera = true)
+        public void Open(string fileName, Action<string, string> ActionOnFile, bool resetCamera = true, string parameters = null)
         {
-            ActionOnFile(fileName);
+            ActionOnFile(fileName, parameters);
             //
             if (_controller.CurrentResult != null && _controller.CurrentResult.Mesh != null)
             {
@@ -2708,6 +2733,18 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
+        private void tsmiEditColorForGeometryParts_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Parts", _controller.GetGeometryParts(), SetColorForGeometryParts);
+                Clear3DSelection();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
         // Transform
         private void tsmiScaleGeometryParts_Click(object sender, EventArgs e)
         {
@@ -2766,12 +2803,33 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
+        private void tsmiSetColorForGeometryParts_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Parts", _controller.GetGeometryParts(), SetColorForGeometryParts);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiResetColorForGeometryParts_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Parts", _controller.GetGeometryParts(), ResetColorForGeometryParts);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
         private void tsmiSetTransparencyForGeometryParts_Click(object sender, EventArgs e)
         {
             try
             {
                 SelectMultipleEntities("Parts", _controller.GetGeometryParts(), SetTransparencyForGeometryParts);
-                Clear3DSelection();
             }
             catch (Exception ex)
             {
@@ -2912,6 +2970,26 @@ namespace PrePoMax
             allNames.ExceptWith(partsToShow);
             _controller.HideGeometryPartsCommand(allNames.ToArray());
             _controller.ShowGeometryPartsCommand(partsToShow.ToArray());
+        }
+        private void SetColorForGeometryParts(string[] partNames)
+        {
+            if (_controller.Model.Geometry == null) return;
+            //
+            using (FrmGetColor frmGetColor = new FrmGetColor())
+            {
+                Color color = _controller.Model.Geometry.Parts[partNames[0]].GetProperties().Color;
+                SetFormLocation(frmGetColor);
+                frmGetColor.PrepareForm("Set Part Color: " + partNames.ToShortString(), color);
+                if (frmGetColor.ShowDialog() == DialogResult.OK)
+                {
+                    _controller.SetColorForGeometryPartsCommand(partNames, frmGetColor.Color);
+                }
+                SaveFormLocation(frmGetColor);
+            }
+        }
+        private void ResetColorForGeometryParts(string[] partNames)
+        {
+            _controller.ResetColorForGeometryPartsCommand(partNames);
         }
         private void SetTransparencyForGeometryParts(string[] partNames)
         {
@@ -3937,12 +4015,33 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
+        private void tsmiSetColorForModelParts_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Parts", _controller.GetModelParts(), SetColorForModelParts);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiResetColorForModelParts_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Parts", _controller.GetModelParts(), ResetColorForModelParts);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
         private void tsmiSetTransparencyForModelParts_Click(object sender, EventArgs e)
         {
             try
             {
                 SelectMultipleEntities("Parts", _controller.GetModelParts(), SetTransparencyForModelParts);
-                Clear3DSelection();
             }
             catch (Exception ex)
             {
@@ -4020,6 +4119,26 @@ namespace PrePoMax
             allNames.ExceptWith(partNames);
             _controller.HideModelPartsCommand(allNames.ToArray());
             _controller.ShowModelPartsCommand(partNames);
+        }
+        private void SetColorForModelParts(string[] partNames)
+        {
+            if (_controller.Model.Mesh == null) return;
+            //
+            using (FrmGetColor frmGetColor = new FrmGetColor())
+            {
+                Color color = _controller.Model.Mesh.Parts[partNames[0]].GetProperties().Color;
+                SetFormLocation(frmGetColor);
+                frmGetColor.PrepareForm("Set Part Color: " + partNames.ToShortString(), color);
+                if (frmGetColor.ShowDialog() == DialogResult.OK)
+                {
+                    _controller.SetColorForModelPartsCommand(partNames, frmGetColor.Color);
+                }
+                SaveFormLocation(frmGetColor);
+            }
+        }
+        private void ResetColorForModelParts(string[] partNames)
+        {
+            _controller.ResetColorForModelPartsCommand(partNames);
         }
         private void SetTransparencyForModelParts(string[] partNames)
         {
@@ -6922,12 +7041,33 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
+        private void tsmiSetColorForResultParts_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Parts", _controller.GetResultParts(), SetColorForResultParts);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiResetColorForResultParts_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Parts", _controller.GetResultParts(), ResetColorForResultParts);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
         private void tsmiSetTransparencyForResultParts_Click(object sender, EventArgs e)
         {
             try
             {
                 SelectMultipleEntities("Parts", _controller.GetResultParts(), SetTransparencyForResultParts);
-                Clear3DSelection();
             }
             catch (Exception ex)
             {
@@ -6998,6 +7138,26 @@ namespace PrePoMax
             allNames.ExceptWith(partNames);
             _controller.ShowResultPartsCommand(partNames);
             _controller.HideResultPartsCommand(allNames.ToArray());
+        }
+        private void SetColorForResultParts(string[] partNames)
+        {
+            if (_controller.AllResults.CurrentResult.Mesh == null) return;
+            //
+            using (FrmGetColor frmGetColor = new FrmGetColor())
+            {
+                Color color = _controller.AllResults.CurrentResult.Mesh.Parts[partNames[0]].GetProperties().Color;
+                SetFormLocation(frmGetColor);
+                frmGetColor.PrepareForm("Set Part Color: " + partNames.ToShortString(), color);
+                if (frmGetColor.ShowDialog() == DialogResult.OK)
+                {
+                    _controller.SetColorForResultPartsCommand(partNames, frmGetColor.Color);
+                }
+                SaveFormLocation(frmGetColor);
+            }
+        }
+        private void ResetColorForResultParts(string[] partNames)
+        {
+            _controller.ResetColorForResultPartsCommand(partNames);
         }
         private void SetTransparencyForResultParts(string[] partNames)
         {
@@ -10003,7 +10163,7 @@ namespace PrePoMax
             }
         }
 
-       
+        
     }
 }
 

@@ -384,7 +384,7 @@ namespace CaeMesh
             //
             return Math.Max(Math.Max(distX, distY), distZ);
         }
-        public double MaxOutsideDistance2(double[] coor)
+        public double MinOutsideDistance2(double[] coor)
         {
             double d;
             double dist = 0;
@@ -419,6 +419,46 @@ namespace CaeMesh
             else if (coor[2] > MaxZ)
             {
                 d = coor[2] - MaxZ;
+                dist += d * d;
+            }
+            //
+            return dist;
+        }
+        public double MaxOutsideDistance2(double[] coor)
+        {
+            double d;
+            double dist = 0;
+            //
+            if (coor[0] < MinX)
+            {
+                d = MaxX - coor[0];
+                dist = d * d;
+            }
+            else if (coor[0] > MaxX)
+            {
+                d = coor[0] - MinX;
+                dist = d * d;
+            }
+            //
+            if (coor[1] < MinY)
+            {
+                d = MaxY - coor[1];
+                dist += d * d;
+            }
+            else if (coor[1] > MaxY)
+            {
+                d = coor[1] - MinY;
+                dist += d * d;
+            }
+            //
+            if (coor[2] < MinZ)
+            {
+                d = MaxZ - coor[2];
+                dist += d * d;
+            }
+            else if (coor[2] > MaxZ)
+            {
+                d = coor[2] - MinZ;
                 dist += d * d;
             }
             //

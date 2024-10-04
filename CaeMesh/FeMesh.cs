@@ -4120,15 +4120,8 @@ namespace CaeMesh
         {
             foreach (var entry in _parts)
             {
-                if (entry.Value.Color == System.Drawing.Color.Gray) // gray is the default base part color
+                if (entry.Value.Color == Color.Gray) // gray is the default base part color
                     SetPartColorFromColorTable(entry.Value);
-            }
-        }
-        public void SetPartsColor(System.Drawing.Color color)
-        {
-            foreach (var entry in _parts)
-            {
-                entry.Value.Color = color;
             }
         }
         public void SetPartColorFromColorTable(BasePart part)

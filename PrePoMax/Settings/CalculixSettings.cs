@@ -9,6 +9,7 @@ using System.IO;
 using CaeJob;
 using FileInOut.Output.Calculix;
 using DynamicTypeDescriptor;
+using CaeModel;
 
 namespace PrePoMax
 {
@@ -19,7 +20,7 @@ namespace PrePoMax
         private string _workDirectory;
         private bool _usePmxFolderAsWorkDirectory;
         private string _executable;
-        private CaeModel.SolverTypeEnum _solverTypeEnum;
+        private SolverTypeEnum _solverTypeEnum;
         private int _numCPUs;
         private List<EnvironmentVariable> _environmentVariables;
         private ConvertPyramidsToEnum _convertPyramidsTo;
@@ -88,6 +89,7 @@ namespace PrePoMax
             _workDirectory = null;
             _usePmxFolderAsWorkDirectory = false;
             _executable = null;
+            _solverTypeEnum = SolverTypeEnum.Pardiso;
             _numCPUs = 1;
             _environmentVariables = null;
             _convertPyramidsTo = ConvertPyramidsToEnum.Wedges;

@@ -17,6 +17,7 @@ namespace PrePoMax.Commands
         // Variables                                                                                                                
         private string _fileName;
         private byte[] _hash;
+        private DateTime _timeHash;
 
 
         // Properties                                                                                                               

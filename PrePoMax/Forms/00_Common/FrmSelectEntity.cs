@@ -94,6 +94,14 @@ namespace PrePoMax.Forms
             try
             {
                 string[] selectedEntityNames = GetSelectedEntityNames();
+                //
+                if (dgvNames.MultiSelect)
+                {
+                    if (selectedEntityNames.Length < _minNumOfEntities)
+                        throw new CaeException("Select at least " + _minNumOfEntities + " " + _entityNames.ToLower() + ".");
+                    if (selectedEntityNames.Length > _maxNumOfEntities)
+                        throw new CaeException("Select at most " + _maxNumOfEntities + " " + _entityNames.ToLower() + ".");
+                }
                 // First hide since this form calls itself in the following lines
                 Hide();
                 //
@@ -139,10 +147,7 @@ namespace PrePoMax.Forms
         }
         private void FrmSelectEntity_VisibleChanged(object sender, EventArgs e)
         {
-            if (Visible)
-            {
-                SetEntityNamesToSelect();
-            }
+            if (Visible) PreSelectEntityNames();
         }
         private void cbHighlight_CheckedChanged(object sender, EventArgs e)
         {
@@ -150,19 +155,8 @@ namespace PrePoMax.Forms
         }
         private void dgvNames_SelectionChanged(object sender, EventArgs e)
         {
-            if (cbHighlight.Checked)
-            {
-                object[] items = new object[dgvNames.SelectedRows.Count];
-
-                int count = 0;
-                foreach (DataGridViewRow row in dgvNames.SelectedRows)
-                {
-                    items[count++] = row.Cells[dgvNames.Columns[0].Name].Tag;
-                }
-
-                _controller.Highlight3DObjects(items);
-            }
-            else _controller.Highlight3DObjects(null);
+            if (cbHighlight.Checked) _controller.SelectBasePartsInTree(GetSelectedEntityNames());
+            else _controller.ClearSelectionHistory();
         }
         private void dgvNames_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
         {
@@ -194,7 +188,7 @@ namespace PrePoMax.Forms
             _minNumOfEntities = 1;
             _maxNumOfEntities = int.MaxValue;
         }
-        private void SetEntityNamesToSelect()
+        private void PreSelectEntityNames()
         {
             dgvNames.Rows.Clear();
             int rowId;
@@ -203,7 +197,8 @@ namespace PrePoMax.Forms
                 rowId = dgvNames.Rows.Add(new object[] { entity.Name });
                 dgvNames.Rows[rowId].Cells[dgvNames.Columns[0].Name].Tag = entity;
             }
-            //
+            // Detach event
+            dgvNames.SelectionChanged -= dgvNames_SelectionChanged;
             dgvNames.ClearSelection();
             foreach (DataGridViewRow row in dgvNames.Rows)
             {
@@ -211,6 +206,10 @@ namespace PrePoMax.Forms
                 row.Selected = _preSelectedEntities.Contains(row.Cells[dgvNames.Columns[0].Name].Value);
                 if (dgvNames.SelectedRows.Count > 0 && !MultiSelect) break;
             }
+            // Reattach event
+            dgvNames.SelectionChanged += dgvNames_SelectionChanged;
+            //
+            dgvNames_SelectionChanged(null, null);
         }
         public string[] GetSelectedEntityNames()
         {
@@ -219,13 +218,7 @@ namespace PrePoMax.Forms
             {
                 names.Add((string)row.Cells["colName"].Value);
             }
-            if (dgvNames.MultiSelect)
-            {
-                if (names.Count < _minNumOfEntities)
-                    throw new CaeException("Select at least " + _minNumOfEntities + " " + _entityNames.ToLower() + ".");
-                if (names.Count > _maxNumOfEntities)
-                    throw new CaeException("Select at most " + _maxNumOfEntities + " " + _entityNames.ToLower() + ".");
-            }
+            
             //
             return names.ToArray();
         }

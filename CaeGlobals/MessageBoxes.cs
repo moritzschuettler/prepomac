@@ -63,9 +63,9 @@ namespace CaeGlobals
             return Show(text, caption, buttons, MessageBoxIcon.Information);
         }
         // Question
-        public static DialogResult ShowQuestion(string caption, string text)
+        public static DialogResult ShowQuestionYesNo(string caption, string text)
         {
-            return Show(text, caption, MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
+            return Show(text, caption, MessageBoxButtons.YesNo, MessageBoxIcon.Question);
         }
         // Warning
         public static void ShowWarning(string text)

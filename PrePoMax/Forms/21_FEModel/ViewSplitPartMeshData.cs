@@ -70,8 +70,12 @@ namespace PrePoMax
         [Id(1, 4)]
         public double Offset { get { return _splitPartMeshData.Offset; } set { _splitPartMeshData.Offset = value; } }
         //
-
-
+        [CategoryAttribute("Data")]
+        [OrderedDisplayName(1, 10, "Exact evaluation")]
+        [DescriptionAttribute("Exact evaluation is recommended for larger offset values or higher precision " +
+                              "but it is computationally much more expensive.")]
+        [Id(2, 4)]
+        public bool Exact { get { return _splitPartMeshData.Exact; } set { _splitPartMeshData.Exact = value; } }
         //
         [Category("Mesh size")]
         [OrderedDisplayName(0, 10, "Max element size")]
@@ -94,6 +98,7 @@ namespace PrePoMax
         [TypeConverter(typeof(StringLengthConverter))]
         [Id(3, 5)]
         public double Hausdorff { get { return _splitPartMeshData.Hausdorff; } set { _splitPartMeshData.Hausdorff = value; } }
+        
 
 
         // Constructors                                                                                                             
@@ -123,6 +128,7 @@ namespace PrePoMax
         }
         protected void ApplyYesNo()
         {
+            DynamicCustomTypeDescriptor.RenameBooleanPropertyToYesNo(nameof(Exact));
         }
         public void PopulateDropDownLists(string[] partNames, string[] surfaceNames)
         {

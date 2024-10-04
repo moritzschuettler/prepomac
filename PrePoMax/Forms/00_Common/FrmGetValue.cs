@@ -44,7 +44,7 @@ namespace PrePoMax.Forms
         }
 
 
-        // Event hadlers                                                                                                            
+        // Event handlers                                                                                                            
         private void propertyGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)
         {
             propertyGrid.Refresh();
@@ -54,12 +54,12 @@ namespace PrePoMax.Forms
         {
             try
             {
-                DialogResult = System.Windows.Forms.DialogResult.OK;
+                DialogResult = DialogResult.OK;
                 Close();
             }
             catch (Exception ex)
             {
-                CaeGlobals.ExceptionTools.Show(this, ex);
+                ExceptionTools.Show(this, ex);
             }
         }
      
@@ -81,8 +81,8 @@ namespace PrePoMax.Forms
             //
             propertyGrid.SelectedObject = _viewValue;
             propertyGrid.Select();
-            //
         }
-      
+
+       
     }
 }

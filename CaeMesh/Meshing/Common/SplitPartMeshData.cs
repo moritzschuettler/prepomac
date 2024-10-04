@@ -18,6 +18,7 @@ namespace PrePoMax
         private double _maxH;
         private double _minH;
         private double _hausdorff;
+        private bool _exact;
         //
         private RegionTypeEnum _basePartRegionType;
         private string _basePartRegionName;
@@ -61,6 +62,7 @@ namespace PrePoMax
                 _hausdorff = value;
             }
         }
+        public bool Exact { get { return _exact; } set { _exact = value; } }
         //
         public RegionTypeEnum BasePartRegionType { get { return _basePartRegionType; } set { _basePartRegionType = value; } }
         public string BasePartRegionName { get { return _basePartRegionName; } set { _basePartRegionName = value; } }
@@ -119,6 +121,12 @@ namespace PrePoMax
         public SplitPartMeshData(RegionTypeEnum basePartRegionType, string basePartRegionName,
                                  RegionTypeEnum splitterRegionType, string splitterRegionName)
         {
+            _offset = 0;
+            _maxH = 0;
+            _minH = 0;
+            _hausdorff = 0;
+            _exact = false;
+            //
             _basePartRegionType = basePartRegionType;
             _basePartRegionName = basePartRegionName;
             _splitterSurfaceRegionType = splitterRegionType;

@@ -27,6 +27,8 @@ using UserControls;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolTip;
 using System.Xml.Linq;
 using CommandLine;
+using System.Security.Policy;
+using System.Collections.Concurrent;
 
 namespace PrePoMax
 {
@@ -621,12 +623,12 @@ namespace PrePoMax
             //
             _form.UpdateRecentFilesThreadSafe(_settings.General.GetRecentFiles());
         }
-        public void Open(string fileName)
+        public void Open(string fileName, string parameters = null)
         {
             string extension = Path.GetExtension(fileName).ToLower();
             //
             if (extension == ".pmx") OpenPmx(fileName);
-            else if (extension == ".pmh") OpenPmh(fileName);
+            else if (extension == ".pmh") OpenPmh(fileName, parameters);
             else if (extension == ".frd") OpenFrd(fileName);
             else if (extension == ".dat") OpenDat(fileName);
             else if (extension == ".foam") OpenFoam(fileName);
@@ -698,11 +700,13 @@ namespace PrePoMax
             //string json = JsonConvert.SerializeObject(_commands, Formatting.Indented, settings);
             //File.WriteAllText(@"D:\out.txt", json);
         }
-        private void OpenPmh(string fileName)
+        private void OpenPmh(string fileName, string parameters)
         {
             New();
             //
             _commands.ReadFromFile(fileName);
+            //
+            bool regenerateAll = parameters !=null && parameters.Contains("RegenerateAll");
             //
             CSaveToPmx lastSave = _commands.GetLastSaveCommand();
             if (lastSave != null)
@@ -711,11 +715,11 @@ namespace PrePoMax
                 _form.Open(lastSave.FileName, Open, true);    // form open redraws the scene
                 _commands = new CommandsCollection(this, prevCommands);
                 //
-                _commands.ExecuteAllCommandsFromLastSave(lastSave);
+                _commands.ExecuteAllCommandsFromLastSave(regenerateAll, lastSave);
             }
             else
             {
-                _commands.ExecuteAllCommands();
+                _commands.ExecuteAllCommands(false, false, regenerateAll);
             }
             //
             _commands.EnableDisableUndoRedo += _commands_CommandExecuted;
@@ -945,7 +949,7 @@ namespace PrePoMax
             // Regenerate tree
             _form.RegenerateTree();
         }
-        public void AppendResult(string fileName)
+        public void AppendResult(string fileName, string parameters = null)
         {
             if (_allResults != null && _allResults.Count == 0) Open(fileName);
             else
@@ -2409,7 +2413,7 @@ namespace PrePoMax
                 }
             }
             //
-            UpdateHighlight();
+            UpdateTreeSelection();
             //if (_selection.Nodes.Count > 0) HighlightSelection();
             //else _form.UpdateHighlightFromTree();
         }
@@ -2464,6 +2468,16 @@ namespace PrePoMax
         public void ShowGeometryPartsCommand(string[] partNames)
         {
             CShowGeometryParts comm = new CShowGeometryParts(partNames);
+            _commands.AddAndExecute(comm);
+        }
+        public void SetColorForGeometryPartsCommand(string[] partNames, Color color)
+        {
+            CSetColorForGeometryParts comm = new CSetColorForGeometryParts(partNames, color);
+            _commands.AddAndExecute(comm);
+        }
+        public void ResetColorForGeometryPartsCommand(string[] partNames)
+        {
+            CResetColorForGeometryParts comm = new CResetColorForGeometryParts(partNames);
             _commands.AddAndExecute(comm);
         }
         public void SetTransparencyForGeometryPartsCommand(string[] partNames, byte alpha)
@@ -2876,6 +2890,56 @@ namespace PrePoMax
             // Annotations
             _annotations.DrawAnnotations();
         }
+        public void SetColorForGeometryParts(string[] partNames, Color color)
+        {
+            BasePart part;
+            HashSet<string> partNamesToSet = new HashSet<string>(partNames);
+            // Find all sub parts to set except the compound parts
+            foreach (var name in partNames)
+            {
+                part = _model.Geometry.Parts[name];
+                if (part is CompoundGeometryPart cgp)
+                {
+                    partNamesToSet.Remove(cgp.Name);
+                    partNamesToSet.UnionWith(cgp.SubPartNames);
+                }
+            }
+            //
+            foreach (var name in partNamesToSet)
+            {
+                part = _model.Geometry.Parts[name];
+                part.Color = color;
+                _form.UpdateActor(name, name, part.Color);
+                _form.UpdateTreeNode(ViewGeometryModelResults.Geometry, name, part, null, false);
+            }
+            //
+            UpdateCompoundTransparency();
+        }
+        public void ResetColorForGeometryParts(string[] partNames)
+        {
+            BasePart part;
+            HashSet<string> partNamesToSet = new HashSet<string>(partNames);
+            // Find all sub parts to set except the compound parts
+            foreach (var name in partNames)
+            {
+                part = _model.Geometry.Parts[name];
+                if (part is CompoundGeometryPart cgp)
+                {
+                    partNamesToSet.Remove(cgp.Name);
+                    partNamesToSet.UnionWith(cgp.SubPartNames);
+                }
+            }
+            //
+            foreach (var name in partNamesToSet)
+            {
+                part = _model.Geometry.Parts[name];
+                _model.Geometry.SetPartColorFromColorTable(part);
+                _form.UpdateActor(name, name, part.Color);
+                _form.UpdateTreeNode(ViewGeometryModelResults.Geometry, name, part, null, false);
+            }
+            //
+            UpdateCompoundTransparency();
+        }
         public void SetTransparencyForGeometryParts(string[] partNames, byte alpha)
         {
             BasePart part;
@@ -2898,29 +2962,8 @@ namespace PrePoMax
                 _form.UpdateActor(name, name, part.Color);
                 _form.UpdateTreeNode(ViewGeometryModelResults.Geometry, name, part, null, false);
             }
-            // Check and set compound color for the transparency icon
-            bool transparent;
-            foreach (var entry in _model.Geometry.Parts)
-            {
-                if (entry.Value is CompoundGeometryPart cgp)
-                {
-                    transparent = false;
-                    foreach (var subPartName in cgp.SubPartNames)
-                    {
-                        part = _model.Geometry.Parts[subPartName];
-                        if (part.Color.A != 255)
-                        {
-                            transparent = true;
-                            break;
-                        }
-                    }
-                    if (transparent == (entry.Value.Color.A == 255))
-                    {
-                        entry.Value.Color = Color.FromArgb(alpha, entry.Value.Color);
-                        _form.UpdateTreeNode(ViewGeometryModelResults.Geometry, entry.Key, entry.Value, null, false);
-                    }
-                }
-            }
+            //
+            UpdateCompoundTransparency();
         }
         public void RemoveGeometryParts(string[] partNames, bool keepGeometrySelections, bool checkValidity = true)
         {
@@ -3008,7 +3051,7 @@ namespace PrePoMax
             //
             CheckAndUpdateModelValidity();
             //
-            UpdateHighlight();
+            UpdateTreeSelection();
         }
         public void RegenerateCompoundParts(string[] compoundPartNames)
         {
@@ -3094,6 +3137,38 @@ namespace PrePoMax
             CheckAndUpdateModelValidity();
             //
             _form.SelectBaseParts(compoundPartNames);
+        }
+        //
+        private void UpdateCompoundTransparency()
+        {
+            // Check and set compound color for the transparency icon
+            bool transparent;
+            byte alpha;
+            BasePart part;
+            foreach (var entry in _model.Geometry.Parts)
+            {
+                if (entry.Value is CompoundGeometryPart cgp)
+                {
+                    transparent = false;
+                    foreach (var subPartName in cgp.SubPartNames)
+                    {
+                        part = _model.Geometry.Parts[subPartName];
+                        if (part.Color.A != 255)
+                        {
+                            transparent = true;
+                            break;
+                        }
+                    }
+                    // If there is a change in transparency
+                    if (transparent == (entry.Value.Color.A == 255))
+                    {
+                        alpha = entry.Value.Color.A == 255 ? (byte)127 : (byte)255;
+                        //
+                        entry.Value.Color = Color.FromArgb(alpha, entry.Value.Color);
+                        _form.UpdateTreeNode(ViewGeometryModelResults.Geometry, entry.Key, entry.Value, null, false);
+                    }
+                }
+            }
         }
         // Analyze geometry
         public double GetShortestEdgeLen(string[] partNames)
@@ -5117,9 +5192,10 @@ namespace PrePoMax
         private void GetSplitPartMeshUsingSurfaceData(SplitPartMeshData splitPartMeshData, out BasePart[] baseParts,
                                                       out Dictionary<int, double> nodeIdDistance)
         {
+            nodeIdDistance = null;
             BasePart basePart;
             HashSet<BasePart> allParts = new HashSet<BasePart>();
-            nodeIdDistance = new Dictionary<int, double>();
+            ConcurrentDictionary<int, double> nodeIdDistanceInternal = new ConcurrentDictionary<int, double>();
             //
             if (splitPartMeshData == null) { throw new NotSupportedException(); }
             else if (splitPartMeshData is SplitPartMeshData sp)
@@ -5165,16 +5241,21 @@ namespace PrePoMax
                 // Interpolator needs nodal values
                 data.Nodes.Values = new float[data.Nodes.Coor.Length];
                 //
-                ResultsInterpolator resultsInterpolator = new ResultsInterpolator(data);
                 HashSet<int> nodeIds = new HashSet<int>();
                 foreach (var part in allParts) nodeIds.UnionWith(part.NodeLabels);
-                double distance;
                 //
-                foreach (var nodeId in nodeIds)
+                ResultsInterpolator resultsInterpolator = new ResultsInterpolator(data);
+                //
+                double distance;
+                Parallel.ForEach(nodeIds, nodeId =>
+                //foreach (var nodeId in nodeIds)
                 {
-                    distance = resultsInterpolator.GetSignedDistanceAt(mesh.Nodes[nodeId].Coor) + splitPartMeshData.Offset;
-                    nodeIdDistance[nodeId] = distance;
+                    distance = resultsInterpolator.GetSignedDistanceAt(mesh.Nodes[nodeId].Coor, splitPartMeshData.Exact)
+                               + splitPartMeshData.Offset;
+                    nodeIdDistanceInternal[nodeId] = distance;
                 }
+                );
+                nodeIdDistance = new Dictionary<int, double>(nodeIdDistanceInternal);
                 //
                 ResumeExplodedViews(false);
             }
@@ -5498,6 +5579,16 @@ namespace PrePoMax
             CShowModelParts comm = new CShowModelParts(partNames);
             _commands.AddAndExecute(comm);
         }
+        public void SetColorForModelPartsCommand(string[] partNames, Color color)
+        {
+            CSetColorForModelParts comm = new CSetColorForModelParts(partNames, color);
+            _commands.AddAndExecute(comm);
+        }
+        public void ResetColorForModelPartsCommand(string[] partNames)
+        {
+            CResetColorForModelParts comm = new CResetColorForModelParts(partNames);
+            _commands.AddAndExecute(comm);
+        }
         public void SetTransparencyForModelPartsCommand(string[] partNames, byte alpha)
         {
             CSetTransparencyForModelParts comm = new CSetTransparencyForModelParts(partNames, alpha);
@@ -5643,6 +5734,28 @@ namespace PrePoMax
             FeModelUpdate(UpdateType.RedrawSymbols);
             // Annotations
             _annotations.DrawAnnotations();
+        }
+        public void SetColorForModelParts(string[] partNames, Color color)
+        {
+            BasePart part;
+            foreach (var name in partNames)
+            {
+                part = _model.Mesh.Parts[name];
+                part.Color = color;
+                _form.UpdateActor(name, name, part.Color);
+                _form.UpdateTreeNode(ViewGeometryModelResults.Model, name, part, null, false);
+            }
+        }
+        public void ResetColorForModelParts(string[] partNames)
+        {
+            BasePart part;
+            foreach (var name in partNames)
+            {
+                part = _model.Mesh.Parts[name];
+                _model.Mesh.SetPartColorFromColorTable(part);
+                _form.UpdateActor(name, name, part.Color);
+                _form.UpdateTreeNode(ViewGeometryModelResults.Model, name, part, null, false);
+            }
         }
         public void SetTransparencyForModelParts(string[] partNames, byte alpha)
         {
@@ -10330,6 +10443,16 @@ namespace PrePoMax
             CShowResultParts comm = new CShowResultParts(partNames);
             _commands.AddAndExecute(comm);
         }
+        public void SetColorForResultPartsCommand(string[] partNames, Color color)
+        {
+            CSetColorForResultParts comm = new CSetColorForResultParts(partNames, color);
+            _commands.AddAndExecute(comm);
+        }
+        public void ResetColorForResultPartsCommand(string[] partNames)
+        {
+            CResetColorForResultParts comm = new CResetColorForResultParts(partNames);
+            _commands.AddAndExecute(comm);
+        }
         public void SetTransparencyForResultPartsCommand(string[] partNames, byte alpha)
         {
             CSetTransparencyForResultParts comm = new CSetTransparencyForResultParts(partNames, alpha);
@@ -10443,6 +10566,28 @@ namespace PrePoMax
                 _annotations.DrawAnnotations();
             }
         }
+        public void SetColorForResultParts(string[] partNames, Color color)
+        {
+            BasePart part;
+            foreach (var name in partNames)
+            {
+                part = _allResults.CurrentResult.Mesh.Parts[name];
+                part.Color = color;
+                _form.UpdateActor(name, name, part.Color);
+                _form.UpdateTreeNode(ViewGeometryModelResults.Results, name, part, null, false);
+            }
+        }
+        public void ResetColorForResultParts(string[] partNames)
+        {
+            BasePart part;
+            foreach (var name in partNames)
+            {
+                part = _allResults.CurrentResult.Mesh.Parts[name];
+                _allResults.CurrentResult.Mesh.SetPartColorFromColorTable(part);
+                _form.UpdateActor(name, name, part.Color);
+                _form.UpdateTreeNode(ViewGeometryModelResults.Results, name, part, null, false);
+            }
+        }
         public void SetTransparencyForResultParts(string[] partNames, byte alpha)
         {
             BasePart part;
@@ -10451,8 +10596,7 @@ namespace PrePoMax
                 part = _allResults.CurrentResult.Mesh.Parts[name];
                 part.Color = Color.FromArgb(alpha, part.Color);
                 _form.UpdateActor(name, name, part.Color);
-                _form.UpdateTreeNode(ViewGeometryModelResults.Results, name,
-                                     _allResults.CurrentResult.Mesh.Parts[name], null, false);
+                _form.UpdateTreeNode(ViewGeometryModelResults.Results, name, part, null, false);
             }
         }
         public void SetColorContoursForResultParts(string[] partNames, bool colorContours)
@@ -10462,7 +10606,7 @@ namespace PrePoMax
                 if (_allResults.CurrentResult.Mesh.Parts[name] is ResultPart resultPart) resultPart.ColorContours = colorContours;
             }
             _form.UpdateActorColorContoursVisibility(partNames, colorContours);
-            UpdateHighlight();
+            UpdateTreeSelection();
         }
         public void ReplaceResultPartProperties(string oldPartName, PartProperties newPartProperties)
         {
@@ -12958,7 +13102,7 @@ namespace PrePoMax
                             //
                             ApplySectionView();
                         }
-                        UpdateHighlight();
+                        UpdateTreeSelection();
                     }
                     //
                     if (resetCamera) _form.SetFrontBackView(false, true);
@@ -13074,7 +13218,7 @@ namespace PrePoMax
                             }
                             catch { }
                         }
-                        UpdateHighlight();
+                        UpdateTreeSelection();
                     }
                     //
                     if (resetCamera) _form.SetFrontBackView(false, true);
@@ -13508,7 +13652,7 @@ namespace PrePoMax
                 }
                 catch { }
                 //
-                if (updateHighlights) UpdateHighlight();
+                if (updateHighlights) UpdateTreeSelection();
                 _form.AdjustCameraDistanceAndClipping();
             }
             catch
@@ -13535,7 +13679,7 @@ namespace PrePoMax
                 }
                 catch { }
                 //
-                if (updateHighlights) UpdateHighlight();
+                if (updateHighlights) UpdateTreeSelection();
                 _form.AdjustCameraDistanceAndClipping();
             }
             catch
@@ -16187,10 +16331,15 @@ namespace PrePoMax
         #endregion #################################################################################################################
 
         #region Highlight  #########################################################################################################
-        public void UpdateHighlight()
+        public void UpdateTreeSelection()
         {            
             _form.UpdateHighlight();
         }
+        public void SelectBasePartsInTree(string[] partNames)
+        {
+            _form.SelectBaseParts(partNames);
+        }
+        //
         public void Highlight3DObjects(object[] obj, bool clear = true)
         {
             Highlight3DObjects(_currentView, obj, clear);
@@ -17073,7 +17222,7 @@ namespace PrePoMax
                     // Section view
                     ApplySectionView();
                     //
-                    UpdateHighlight();
+                    UpdateTreeSelection();
                     //
                     if (resetCamera) _form.SetFrontBackView(true, true); // animation:true is here to correctly draw max/min widgets 
                     //
