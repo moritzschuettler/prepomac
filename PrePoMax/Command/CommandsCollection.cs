@@ -288,12 +288,12 @@ namespace PrePoMax.Commands
             }
         }
         // Undo / Redo
-        public void Undo()
+        public void Undo(bool regenerateAll)
         {
             if (IsUndoPossible)
             {
                 _currPositionIndex--;
-                ExecuteAllCommands();   // also rewrites history
+                ExecuteAllCommands(false, false, regenerateAll);   // also rewrites history
                 //
                 OnEnableDisableUndoRedo();
             }

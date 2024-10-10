@@ -636,9 +636,10 @@ namespace UserControls
                 return;
             }
             //
-            menuFields.Types.Add(node.Tag.GetType());
             NamedClass item = (NamedClass)node.Tag;
             bool subPart = node.Parent != null && node.Parent.Tag is CompoundGeometryPart;
+            //
+            if (item != null) menuFields.Types.Add(item.GetType());
             // Create
             if (CanCreate(node)) menuFields.Create++;
             // Edit

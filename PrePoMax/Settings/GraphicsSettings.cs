@@ -118,7 +118,7 @@ namespace PrePoMax
             _bottomColor = Color.WhiteSmoke;
             _coorSysVisibility = true;
             _scaleWidgetVisibility = true;
-            _ambientComponent = 0.4;
+            _ambientComponent = 0.6;
             _diffuseComponent = 0.6;
             _pointSmoothing = true;
             _lineSmoothing = true;

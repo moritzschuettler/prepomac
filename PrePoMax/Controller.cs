@@ -545,8 +545,11 @@ namespace PrePoMax
             _sectionViews.ClearModelSectionViews();
             // Exploded view
             _explodedViews.ClearModelExplodedViews();
+            // New
+            OrderedDictionary<string, EquationParameter> overriddenParameters = null;
+            if (_model != null) overriddenParameters = _model.Parameters.OverriddenParameters;
+            _model = new FeModel("Model-1", null, overriddenParameters);
             //
-            _model = new FeModel("Model-1", null);
             SetNewModelProperties(_model.Properties.ModelSpace, _model.UnitSystem.UnitSystemType);   // update widgets
             //
             _annotateWithColor = AnnotateWithColorEnum.None;
@@ -2079,10 +2082,10 @@ namespace PrePoMax
             _commands.AddAndExecute(comm);
         }
         //******************************************************************************************
-        public void UndoHistory()
+        public void UndoHistory(bool regenerateAll)
         {
             string lastFileName = OpenedFileName;
-            _commands.Undo();
+            _commands.Undo(regenerateAll);
             OpenedFileName = lastFileName;
         }
         public void RedoHistory()
@@ -9899,9 +9902,13 @@ namespace PrePoMax
             _model.Parameters.Add(parameter.Name, parameter);
             UpdateNCalcParameters();
         }
+        public void AddOverriddenParametersFromString(string parametersString)
+        {
+            _model.Parameters.AddOverriddenParametersFromString(parametersString);
+        }
         public void ReplaceParameter(string oldParameterName, EquationParameter parameter)
         {
-            _model.Parameters.Replace(oldParameterName, parameter.Name, parameter);
+            _model.Parameters.Replace(oldParameterName, parameter);
             UpdateNCalcParameters();
         }
         public void RemoveParameters(string[] parameterNames)
@@ -16270,10 +16277,12 @@ namespace PrePoMax
                     DrawNodes(name, nodeIds, color, layer, nodeSize, onlyVisible, useSecondaryHighlightColor);
                 }
                 if (edgeIds.Length > 0) DrawEdgesByGeometryEdgeIds(name, edgeIds, color, layer, nodeSize, useSecondaryHighlightColor);
-                if (surfaceFaceIds.Length > 0) DrawItemsBySurfaceIds(name, surfaceFaceIds, color, layer, backfaceCulling,
+                if (surfaceFaceIds.Length > 0) DrawItemsBySurfaceIds(name + Globals.NameSeparator + "SurfaceFaces", surfaceFaceIds,
+                                                                     color, layer, backfaceCulling,
                                                                      useSecondaryHighlightColor, drawSurfaceEdges);
-                if (partFaceIds.Length > 0) DrawItemsBySurfaceIds(name, partFaceIds, color, layer, backfaceCulling,
-                                                                 useSecondaryHighlightColor, drawSurfaceEdges);
+                if (partFaceIds.Length > 0) DrawItemsBySurfaceIds(name + Globals.NameSeparator + "PartFaces", partFaceIds,
+                                                                  color, layer, backfaceCulling,
+                                                                  useSecondaryHighlightColor, drawSurfaceEdges);
             }
             //
             return nodeIds.Length + edgeIds.Length + surfaceFaceIds.Length + partFaceIds.Length;

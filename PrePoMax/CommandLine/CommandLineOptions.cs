@@ -11,6 +11,7 @@ using static System.Windows.Forms.Design.AxImporter;
 
 namespace PrePoMax
 {
+    // https://github.com/commandlineparser/commandline
     public class CommandLineOptions
     {
         // FileName
@@ -24,6 +25,12 @@ namespace PrePoMax
         [Option('o', "overwrite", Required = false, Default = "No", HelpText = "Overwrite the .pmx file after regeneration " +
                                                                                 "[Yes | No]. Can only be used for regeneration.")]
         public string Overwrite { get; set; }
+        // Parameters
+        [Option('p', "parameters", Required = false, HelpText = "Overwrite the .pmx parameters. To overwrite parameters a " +
+                                                                "use [a=1.2]. To overwrite parameters a and b use quotations and " +
+                                                                "semicolons [\"a=1.2; b=31.4\"]." +
+                                                                "Can only be used for regeneration.")]
+        public string Parameters { get; set; }
         // RegenerationFileName
         [Option('r', "regenerate", Required = false, HelpText = "A .pmx file name to be used for regeneration. " +
                                                                 "A work directory -w can be defined for regeneration. " +
@@ -54,6 +61,8 @@ namespace PrePoMax
                 text += "Show GUI: " + cmdOptions.ShowGui + Environment.NewLine;
             if (cmdOptions.RegenerationFileName != null && cmdOptions.Overwrite != null)
                 text += "Overwrite .pmx file: " + cmdOptions.Overwrite + Environment.NewLine;
+            if (cmdOptions.RegenerationFileName != null && cmdOptions.Parameters != null)
+                text += "Parameters: " + cmdOptions.Parameters + Environment.NewLine;
             if (cmdOptions.RegenerationFileName != null)
                 text += "Regeneration file name: " + cmdOptions.RegenerationFileName + Environment.NewLine;
             if (cmdOptions.UnitSystem != null)
@@ -86,12 +95,25 @@ namespace PrePoMax
                 if (gui == "YES") cmdOptions.ShowGui = "Yes";        // fix all caps and spaces
                 else if (gui == "NO") cmdOptions.ShowGui = "No";     // fix all caps and spaces
                 else throw new CaeException("Show GUI switch can only be set to Yes or No.");
-                //
                 // Overwrite
                 string overwrite = cmdOptions.Overwrite.ToUpper().Trim();
                 if (overwrite == "YES") cmdOptions.Overwrite = "Yes";        // fix all caps and spaces
                 else if (overwrite == "NO") cmdOptions.Overwrite = "No";     // fix all caps and spaces
                 else throw new CaeException("Overwrite switch can only be set to Yes or No.");
+                // Parameters
+                bool error = false;
+                string[] tmp;
+                if (cmdOptions.Parameters != null)
+                {
+                    string[] parameters = cmdOptions.Parameters.Split(new string[] { ";" }, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (string parameter in parameters)
+                    {
+                        tmp = parameter.Split(new string[] { "=" }, StringSplitOptions.RemoveEmptyEntries);
+                        if (tmp.Length != 2 || !double.TryParse(tmp[1], out _)) error = true;
+                        //
+                        if (error) throw new CaeException("The parameter " + parameter + " cannot be parsed.");
+                    }
+                }
                 // Work directory
                 if (cmdOptions.WorkDirectory != null)
                 {
@@ -125,6 +147,8 @@ namespace PrePoMax
                 {
                     if (cmdOptions.Overwrite == "Yes")
                         throw new CaeException("The overwrite switch can only be used for regeneration.");
+                    if (cmdOptions.Parameters != null)
+                        throw new CaeException("The parameters switch can only be used for regeneration.");
                     if (cmdOptions.ShowGui == "No")
                         throw new CaeException("The No GUI switch can only be used for regeneration.");
                 }

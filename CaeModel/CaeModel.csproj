@@ -127,6 +127,7 @@
     <Compile Include="Materials\ElasticWithDensity.cs" />
     <Compile Include="ModelProperties.cs" />
     <Compile Include="Parameters\EquationParameter.cs" />
+    <Compile Include="Parameters\EquationParameterCollection.cs" />
     <Compile Include="Sections\PointMassSection.cs" />
     <Compile Include="Sections\MassSectionData.cs" />
     <Compile Include="Sections\MassSection.cs" />

@@ -26,7 +26,7 @@ namespace CaeModel
         private string _hashName;                                                               //ISerializable
         private FeMesh _geometry;                                                               //ISerializable
         private FeMesh _mesh;                                                                   //ISerializable
-        private OrderedDictionary<string, EquationParameter> _parameters;                       //ISerializable
+        private EquationParameterCollection _parameters;                                        //ISerializable
         private OrderedDictionary<string, Material> _materials;                                 //ISerializable
         private OrderedDictionary<string, Section> _sections;                                   //ISerializable
         private OrderedDictionary<string, Constraint> _constraints;                             //ISerializable
@@ -45,7 +45,7 @@ namespace CaeModel
         public string HashName { get { return _hashName; } }
         public FeMesh Geometry { get { return _geometry; } }
         public FeMesh Mesh { get { return _mesh; } }
-        public OrderedDictionary<string, EquationParameter> Parameters { get { return _parameters; } }
+        public EquationParameterCollection Parameters { get { return _parameters; } }
         public OrderedDictionary<string, Material> Materials { get { return _materials; } }
         public OrderedDictionary<string, Section> Sections { get { return _sections; } }
         public OrderedDictionary<string, Constraint> Constraints { get { return _constraints; } }
@@ -71,7 +71,7 @@ namespace CaeModel
 
 
         // Constructors                                                                                                             
-        public FeModel(string name, UnitSystem unitSystem)
+        public FeModel(string name, UnitSystem unitSystem, OrderedDictionary<string, EquationParameter> overriddenParameters = null)
         {
             StringComparer sc = StringComparer.OrdinalIgnoreCase;
             //
@@ -79,7 +79,7 @@ namespace CaeModel
             _hashName = Tools.GetRandomString(8);
             _geometry = new FeMesh(MeshRepresentation.Geometry);
             _mesh = new FeMesh(MeshRepresentation.Mesh);
-            _parameters = new OrderedDictionary<string, EquationParameter>("Parameters", sc);
+            _parameters = new EquationParameterCollection();
             _materials = new OrderedDictionary<string, Material>("Materials", sc);
             _sections = new OrderedDictionary<string, Section>("Sections", sc);
             _constraints = new OrderedDictionary<string, Constraint>("Constraints", sc);
@@ -91,6 +91,11 @@ namespace CaeModel
             _properties = new ModelProperties();
             if (unitSystem == null) _unitSystem = new UnitSystem();
             else _unitSystem = unitSystem;
+            // Set overridden parameters
+            if (overriddenParameters != null)
+            {
+                foreach (var entry in overriddenParameters) _parameters.AddOverriddenParameter(entry.Key, entry.Value);
+            }
             //
             UpdateNCalcParameters();
         }
@@ -109,7 +114,7 @@ namespace CaeModel
             // Compatibility for version v.1.2.1
             _amplitudes = new OrderedDictionary<string, Amplitude>("Amplitudes", sc);
             // Compatibility for version v.1.4.0
-            _parameters = new OrderedDictionary<string, EquationParameter>("Parameters", sc);
+            _parameters = new EquationParameterCollection();
             //
             foreach (SerializationEntry entry in info)
             {
@@ -122,8 +127,14 @@ namespace CaeModel
                         _geometry = (FeMesh)entry.Value; break;
                     case "_mesh":
                         _mesh = (FeMesh)entry.Value; break;
-                    case "_parameters":
-                        _parameters = (OrderedDictionary<string, EquationParameter>)entry.Value; break;
+                    case "_parameters":                         // Compatibility for version v.2.1.11
+                        if (entry.Value is OrderedDictionary<string, EquationParameter> dic)
+                        {
+                            dic.OnDeserialization(null);
+                            _parameters = new EquationParameterCollection(dic);
+                        }
+                        else _parameters = (EquationParameterCollection)entry.Value;
+                        break;
                     case "_materials":
                         if (entry.Value is Dictionary<string, Material> md)
                         {
@@ -2215,7 +2226,7 @@ namespace CaeModel
             info.AddValue("_name", Name, typeof(string));
             info.AddValue("_geometry", _geometry, typeof(FeMesh));
             info.AddValue("_mesh", _mesh, typeof(FeMesh));
-            info.AddValue("_parameters", _parameters, typeof(OrderedDictionary<string, EquationParameter>));
+            info.AddValue("_parameters", _parameters, typeof(EquationParameterCollection));
             info.AddValue("_materials", _materials, typeof(OrderedDictionary<string, Material>));
             info.AddValue("_sections", _sections, typeof(OrderedDictionary<string, Section>));
             info.AddValue("_constraints", _constraints, typeof(OrderedDictionary<string, Constraint>));

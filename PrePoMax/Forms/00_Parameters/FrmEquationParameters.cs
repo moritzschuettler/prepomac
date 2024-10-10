@@ -145,6 +145,8 @@ namespace PrePoMax.Forms
                         throw new CaeException("There is an error in the '" + parameter.Name + "' parameter equation.");
                     }
                 }
+                // Clear overridden parameters
+                _controller.Model.Parameters.OverriddenParameters.Clear();
                 // Add parameters
                 foreach (var parameter in _parameters)
                 {
@@ -152,6 +154,7 @@ namespace PrePoMax.Forms
                     //
                     if (_controller.Model.Parameters.TryGetValue(parameter.Name, out existingParameter))
                     {
+                        // No changes
                         if (parameter.EquationStr == existingParameter.EquationStr) { }
                         // Replace
                         else _controller.ReplaceParameterCommand(existingParameter.Name, parameter);
@@ -164,7 +167,6 @@ namespace PrePoMax.Forms
                 if (parameterNamesToRemove.Length > 0) _controller.RemoveParametersCommand(parameterNamesToRemove);
                 //
                 btnCancel_Click(null, null);
-                
             }
             catch (Exception ex)
             {

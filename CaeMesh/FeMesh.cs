@@ -4214,10 +4214,8 @@ namespace CaeMesh
                 //
                 part.RenumberVisualizationNodes(oldIdNewId);
             }
-            // Renumber node-element map
-            Dictionary<int, HashSet<int>> newMap = new Dictionary<int, HashSet<int>>();
-            foreach (var entry in _nodeIdElementIds) newMap.Add(oldIdNewId[entry.Key], entry.Value);
-            _nodeIdElementIds = newMap;
+            // Renumber node-element map - renumbering only nodes does not work when this is called after merge coincident nodes
+            UpdateNodeIdElementIds();
         }
         public void RenumberElements(int startId = 0)
         {
@@ -8048,7 +8046,6 @@ namespace CaeMesh
                 //
                 for (int i = 1; i < sortedGroup.Length; i++) oldIdNewId.Add(sortedGroup[i], sortedGroup[0]);
             }
-            //
             RenumberNodeReferences(oldIdNewId);
             //
             RemoveUnreferencedNodes(oldIdNewId.Keys.ToHashSet(), false, false);

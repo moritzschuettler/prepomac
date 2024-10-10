@@ -520,10 +520,7 @@ namespace PrePoMax
                 tsmiCropStlPartWithCylinder.Visible = false;
                 tsmiCropStlPartWithCube.Visible = false;
             }
-            }
-
-        
-
+        }
         //
         private async void FrmMain_Shown(object sender, EventArgs e)
         {
@@ -569,6 +566,9 @@ namespace PrePoMax
                     _controller.RegenerationWorkDirectory = _cmdOptions.WorkDirectory;
                     // Open
                     await Task.Run(() => OpenAsync(fileName, _controller.Open));
+                    // Parameters
+                    if (_cmdOptions.Parameters != null)
+                        _controller.AddOverriddenParametersFromString(_cmdOptions.Parameters);
                     // Regenerate
                     await Task.Run(() => _controller.RegenerateHistoryCommands(false, false, true));
                     // Check for errors
@@ -2160,10 +2160,14 @@ namespace PrePoMax
         {
             try
             {
+                bool regenerateAll = MessageBoxes.ShowQuestionYesNo("Undo",
+                    "Undo will regenerate the entire model. Select Yes to regenerate all commands or No to regenerate " +
+                    "FE model commands only.") == DialogResult.Yes;
+                //
                 SetStateWorking(Globals.UndoingText);
                 _modelTree.ScreenUpdating = false;
                 //
-                await Task.Run(() => _controller.UndoHistory());                
+                await Task.Run(() => _controller.UndoHistory(regenerateAll));
             }
             catch (Exception ex)
             {
@@ -9271,8 +9275,11 @@ namespace PrePoMax
         {
             string[] tmp;
             FieldData fieldData = _controller.CurrentFieldData;
-            if (fieldData.StepId == -1 && fieldData.StepIncrementId == -1) return;
-            else SetStepAndIncrementIds(fieldData.StepId, fieldData.StepIncrementId);
+            if (fieldData != null)
+            {
+                if (fieldData.StepId == -1 && fieldData.StepIncrementId == -1) return;
+                else SetStepAndIncrementIds(fieldData.StepId, fieldData.StepIncrementId);
+            }
             //
             return;
             //
