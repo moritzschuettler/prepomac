@@ -1947,6 +1947,7 @@ namespace CaeModel
             // Concentrated loads
             CLoad cLoad;
             List<CLoad> loads = new List<CLoad>();
+            double phaseDeg = load.PhaseDeg.Value;
             foreach (var entry in nodeIdForce)
             {
                 if (entry.Value[0] != 0 || entry.Value[1] != 0 || entry.Value[2] != 0)
@@ -1955,8 +1956,8 @@ namespace CaeModel
                                       entry.Value[0],
                                       entry.Value[1],
                                       entry.Value[2],
-                                      load.TwoD, load.Complex,
-                                      load.PhaseDeg.Value);
+                                      load.TwoD, load.Complex, phaseDeg, true);
+                    //
                     cLoad.AmplitudeName = load.AmplitudeName;
                     //
                     loads.Add(cLoad);

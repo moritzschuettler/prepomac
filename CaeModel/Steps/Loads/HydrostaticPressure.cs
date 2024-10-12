@@ -38,6 +38,12 @@ namespace CaeModel
         private EquationContainer _firstPointPressure;                      //ISerializable
         private EquationContainer _secondPointPressure;                     //ISerializable
         private HydrostaticPressureCutoffEnum _hydrostaticPressureCutoff;   //ISerializable
+        [NonSerialized] private Vec3D _n;
+        [NonSerialized] private double _d1;
+        [NonSerialized] private double _d2;
+        [NonSerialized] private double _a;
+        [NonSerialized] private double _b;
+        [NonSerialized] private DateTime _lastUpdate;
 
 
         // Properties                                                                                                               
@@ -317,14 +323,24 @@ namespace CaeModel
         }
         public override double GetPressureForPoint(double[] point)
         {
-            Vec3D n = new Vec3D(_n1.Value, _n2.Value, _n3.Value);
-            n.Normalize();
+            DateTime now = DateTime.Now;
+            TimeSpan delta = now - _lastUpdate;
+            if (delta.TotalMilliseconds > 1000)
+            {
+                _n = new Vec3D(_n1.Value, _n2.Value, _n3.Value);
+                _n.Normalize();
+                //
+                _d1 = -(_x1.Value * _n.X + _y1.Value * _n.Y + _z1.Value * _n.Z);
+                _d2 = -(_x2.Value * _n.X + _y2.Value * _n.Y + _z2.Value * _n.Z);
+                //
+                _a = _firstPointPressure.Value;
+                _b = (_secondPointPressure.Value - _firstPointPressure.Value) / (_d2 - _d1);
+                //
+                _lastUpdate = now;
+            }
+            double d = -(point[0] * _n.X + point[1] * _n.Y + point[2] * _n.Z);
             //
-            double d1 = -(_x1.Value * n.X + _y1.Value * n.Y + _z1.Value * n.Z);
-            double d2 = -(_x2.Value * n.X + _y2.Value * n.Y + _z2.Value * n.Z);
-            double d = -(point[0] * n.X + point[1] * n.Y + point[2] * n.Z);
-            //
-            double p = _firstPointPressure.Value + (_secondPointPressure.Value - _firstPointPressure.Value) / (d2 - d1) * (d - d1);
+            double p = _a + _b * (d - _d1);
             //
             if (_hydrostaticPressureCutoff == HydrostaticPressureCutoffEnum.None) return p;
             else if (_hydrostaticPressureCutoff == HydrostaticPressureCutoffEnum.Positive) return p > 0 ? 0 : p;

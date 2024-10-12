@@ -77,7 +77,7 @@ namespace CaeModel
         public Load(string name, bool twoD)
             : this(name, twoD, false, 0)
         { }
-        public Load(string name, bool twoD, bool complex, double phaseDeg)
+        public Load(string name, bool twoD, bool complex, double phaseDeg, bool constant = false)
             : base(name) 
         {
             _creationIds = null;
@@ -86,7 +86,7 @@ namespace CaeModel
             _amplitudeName = null;
             _coordinateSystemName = null;
             _complex = complex;
-            PhaseDeg = new EquationContainer(typeof(StringAngleDegConverter), phaseDeg);
+            PhaseDeg = new EquationContainer(typeof(StringAngleDegConverter), phaseDeg, null, constant);
             _color = Color.RoyalBlue;
         }
         public Load(SerializationInfo info, StreamingContext context)

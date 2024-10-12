@@ -17,15 +17,14 @@ namespace CaeGlobals
         // Variables                                                                                                                
         private Type _stringDoubleConverterType;
         private string _equation;
-        [NonSerialized]
-        private Func<double, double> _checkValue;
-        [NonSerialized]
-        private Action _equationChanged;
+        private bool _constant;
+        private double _constantValue;
+        [NonSerialized] private Func<double, double> _checkValue;
+        [NonSerialized] private Action _equationChanged;
 
 
         // Properties                                                                                                               
         public double Value { get { return GetValueFromEquation(_equation); } }
-        //public string Equation { get { return _equation; } set { SetEquation(value, true); } }
         public EquationString Equation
         {
             get { return new EquationString(_equation); }
@@ -37,10 +36,13 @@ namespace CaeGlobals
        
 
         // Constructors                                                                                                             
-        public EquationContainer(Type stringDoubleConverterType, double value, Func<double, double> checkValue = null)
+        public EquationContainer(Type stringDoubleConverterType, double value, Func<double, double> checkValue = null,
+                                 bool constant = false)
         {
             _stringDoubleConverterType = stringDoubleConverterType;
+            _constantValue = value;
             _checkValue = checkValue;
+            _constant = constant;
             SetEquationFromValue(value, false);
         }
 
@@ -49,34 +51,23 @@ namespace CaeGlobals
         private string GetEquationFromValue(double value)
         {
             if (_stringDoubleConverterType == null) throw new NotSupportedException();
-            TypeConverter stringDoubleConverter = (TypeConverter)Activator.CreateInstance(_stringDoubleConverterType);
-            return (string)stringDoubleConverter.ConvertTo(value, typeof(string));
-            //return (string)Converter.ConvertTo(value, typeof(string));
+            else if (_constant) return _constantValue.ToString();
+            else
+            {
+                TypeConverter stringDoubleConverter = (TypeConverter)Activator.CreateInstance(_stringDoubleConverterType);
+                return (string)stringDoubleConverter.ConvertTo(value, typeof(string));
+            }
         }
         private double GetValueFromEquation(string equation)
         {
             if (_stringDoubleConverterType == null) throw new NotSupportedException();
-            TypeConverter stringDoubleConverter = (TypeConverter)Activator.CreateInstance(_stringDoubleConverterType);
-            return Convert.ToDouble(stringDoubleConverter.ConvertFrom(equation));
-            //return Convert.ToDouble(Converter.ConvertFrom(equation));
+            else if (_constant) return _constantValue;
+            else
+            {
+                TypeConverter stringDoubleConverter = (TypeConverter)Activator.CreateInstance(_stringDoubleConverterType);
+                return Convert.ToDouble(stringDoubleConverter.ConvertFrom(equation));
+            }
         }
-        // Speedup ???
-        //private TypeConverter Converter
-        //{
-        //    get
-        //    {
-        //        if (_converters == null) _converters = new Dictionary<Type, TypeConverter>();
-        //        //
-        //        TypeConverter converter;
-        //        if (!_converters.TryGetValue(_stringDoubleConverterType, out converter))
-        //        {
-        //            converter = (TypeConverter)Activator.CreateInstance(_stringDoubleConverterType);
-        //            _converters.Add(_stringDoubleConverterType, converter);
-        //        }
-        //        //
-        //        return converter;
-        //    }
-        //}
         public void SetConverterType(Type stringDoubleConverterType)
         {
             if (IsEquation())

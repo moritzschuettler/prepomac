@@ -41,24 +41,25 @@ namespace CaeModel
 
 
         // Constructors                                                                                                             
-        public CLoad(string name, int nodeId, double f1, double f2, double f3, bool twoD, bool complex, double phaseDeg)
-            : this(name, null, RegionTypeEnum.NodeId, f1, f2, f3, twoD, complex, phaseDeg)
+        public CLoad(string name, int nodeId, double f1, double f2, double f3, bool twoD, bool complex, double phaseDeg,
+                     bool constant = false)
+            : this(name, null, RegionTypeEnum.NodeId, f1, f2, f3, twoD, complex, phaseDeg, constant)
         {
             _nodeId = nodeId;   // set the nodeId
         }
         public CLoad(string name, string regionName, RegionTypeEnum regionType, double f1, double f2, double f3,
-                     bool twoD, bool complex, double phaseDeg)
-            : base(name, twoD, complex, phaseDeg)
+                     bool twoD, bool complex, double phaseDeg, bool constant = false)
+            : base(name, twoD, complex, phaseDeg, constant)
         {
             _regionName = regionName;
             RegionType = regionType;
             _nodeId = -1;
             //
             double mag = Math.Sqrt(f1 * f1 + f2 * f2 + f3 * f3);
-            F1 = new EquationContainer(typeof(StringForceConverter), f1);
-            F2 = new EquationContainer(typeof(StringForceConverter), f2);
-            F3 = new EquationContainer(typeof(StringForceConverter), f3);
-            Magnitude = new EquationContainer(typeof(StringForceConverter), mag);
+            F1 = new EquationContainer(typeof(StringForceConverter), f1, null, constant);
+            F2 = new EquationContainer(typeof(StringForceConverter), f2, null, constant);
+            F3 = new EquationContainer(typeof(StringForceConverter), f3, null, constant);
+            Magnitude = new EquationContainer(typeof(StringForceConverter), mag, null, constant);
         }
         public CLoad(SerializationInfo info, StreamingContext context)
             : base(info, context)
