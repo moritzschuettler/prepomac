@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 
 namespace vtkControl
 {
+    [Serializable]
     internal class SectionViewData
     {
         public bool Active;
@@ -19,6 +20,17 @@ namespace vtkControl
         public SectionViewData()
         {
             Reset();
+        }
+        public SectionViewData(SectionViewData sectionViewData)
+        {
+            Active = sectionViewData.Active;
+            Plane = vtkPlane.New();
+            double[] origin = sectionViewData.Plane.GetOrigin();
+            double[] normal = sectionViewData.Plane.GetNormal();
+            Plane.SetOrigin(origin[0], origin[1], origin[2]);
+            Plane.SetNormal(normal[0], normal[1], normal[2]);
+            LightenColors = sectionViewData.LightenColors;
+            SectionColor = sectionViewData.SectionColor;
         }
 
 

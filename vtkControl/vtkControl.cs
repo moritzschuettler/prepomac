@@ -5921,7 +5921,7 @@ namespace vtkControl
             SectionViewData sectionViewData = null;
             if (_sectionViewData.Active)
             {
-                sectionViewData = _sectionViewData.DeepClone();
+                sectionViewData = new SectionViewData(_sectionViewData);
                 applySectionView = true;
                 RemoveSectionView();
             }
