@@ -8,15 +8,16 @@ using System.Threading.Tasks;
 
 namespace vtkControl
 {
-    [Serializable]
     internal class SectionViewData
     {
+        // Properties                                                                                                               
         public bool Active;
         public vtkPlane Plane;
         public bool LightenColors;
         public Color SectionColor;
 
 
+        // Constructors                                                                                                             
         public SectionViewData()
         {
             Reset();
@@ -34,12 +35,17 @@ namespace vtkControl
         }
 
 
+        // Methods                                                                                                                  
         public void Reset()
         {
             Active = false;
             Plane = null;
             LightenColors = true;
             SectionColor = Color.Empty;
+        }
+        public SectionViewData DeepCopy()
+        {
+            return new SectionViewData(this);
         }
     }
 }

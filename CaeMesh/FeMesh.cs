@@ -4060,8 +4060,8 @@ namespace CaeMesh
                         for (int j = i + 1; j < parts.Length; j++)
                         {
                             if (partsToInclude.Contains(parts[j]) &&
-                                parts[i].BoundingBox.Intersects(parts[j].BoundingBox) &&
-                                parts[i].NodeLabels.Intersect(parts[j].NodeLabels).Count() > 0)
+                            parts[i].BoundingBox.Intersects(parts[j].BoundingBox, 0.01) &&
+                            parts[i].NodeLabels.Intersect(parts[j].NodeLabels).Count() > 0)
                             {
                                 if (!keys.TryGetValue(parts[j], out node2))
                                 {

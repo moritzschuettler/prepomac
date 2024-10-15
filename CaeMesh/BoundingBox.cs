@@ -334,15 +334,23 @@ namespace CaeMesh
             if (node.Z < MinZ) MinZ = node.Z;
         }
         //
-        public bool Intersects(BoundingBox box)
+        public bool Intersects(BoundingBox box, double relativeOffset = 0)
         {
-            if (box.MaxX < MinX) return false;
-            else if (box.MinX > MaxX) return false;
-            else if (box.MaxY < MinY) return false;
-            else if (box.MinY > MaxY) return false;
-            else if (box.MaxZ < MinZ) return false;
-            else if (box.MinZ > MaxZ) return false;
-            else return true;
+            double off1 = 0;
+            double off2 = 0;
+            if (relativeOffset > 0)
+            {
+                off1 = GetDiagonal() * relativeOffset;
+                off2 = box.GetDiagonal() * relativeOffset;
+            }
+            //
+            if (box.MaxX + off2 < MinX - off1) return false;
+            if (box.MinX - off2 > MaxX + off1) return false;
+            if (box.MaxY + off2 < MinY - off1) return false;
+            if (box.MinY - off2 > MaxY + off1) return false;
+            if (box.MaxZ + off2 < MinZ - off1) return false;
+            if (box.MinZ - off2 > MaxZ + off1) return false;
+            return true;
         }
         public bool Intersects(List<BoundingBox> boxes)
         {
