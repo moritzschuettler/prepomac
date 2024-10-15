@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -35,7 +35,7 @@ namespace PrePoMax
         //
         [CategoryAttribute("Data")]
         [OrderedDisplayName(10, 10, "Global")]
-        [DescriptionAttribute("Parameter global controls weather the results are saved in a global or local coordinate system.")]
+        [DescriptionAttribute("Parameter global controls whether the results are saved in a global or local coordinate system.")]
         public abstract bool Global { get; set; }
         //
         [Browsable(false)]
