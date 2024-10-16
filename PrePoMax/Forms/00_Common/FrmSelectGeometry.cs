@@ -175,15 +175,15 @@ namespace PrePoMax.Forms
                     //
                     if (geomType == GeometryType.Vertex)
                     {
-                        itemName = "Vertex " + itemTypePartIds[0];
+                        itemName = "Vertex " + itemTypePartIds[0] + 1;
                     }
                     else if (geomType.IsEdge())
                     {
-                        itemName = "Edge " + itemTypePartIds[0];
+                        itemName = "Edge " + itemTypePartIds[0] + 1;
                     }
                     else if (geomType.IsSurface())
                     {
-                        itemName = "Surface " + itemTypePartIds[0];
+                        itemName = "Surface " + itemTypePartIds[0] + 1;
                     }
                     else
                     {

@@ -139,7 +139,7 @@ namespace PrePoMax.Forms
             //
             _controller.Selection.LimitSelectionToFirstGeometryType = true;
             //
-            _controller.HighlightSelection();
+            HighlightElementSet();
             //
             return true;
         }

@@ -1487,7 +1487,7 @@ namespace PrePoMax
                 using (OpenFileDialog openFileDialog = new OpenFileDialog())
                 {
                     // Debugger attached
-                    if (System.Diagnostics.Debugger.IsAttached)
+                    if (Debugger.IsAttached)
                     {
                         openFileDialog.Filter = "All files|*.pmx;*.pmh;*.frd;*.dat;*.foam" +
                                                 "|PrePoMax files|*.pmx" +
@@ -1510,7 +1510,9 @@ namespace PrePoMax
                     openFileDialog.FileName = "";
                     if (openFileDialog.ShowDialog() == DialogResult.OK)
                     {
-                        if (CheckBeforeOpen(openFileDialog.FileName)) await OpenAsync(openFileDialog.FileName, _controller.Open);
+                        string parameters = "FileOpenMenu";
+                        if (CheckBeforeOpen(openFileDialog.FileName))
+                            await OpenAsync(openFileDialog.FileName, _controller.Open, true, null, parameters);
                     }
                 }
             }
@@ -3153,7 +3155,7 @@ namespace PrePoMax
                     _frmSelectGeometry.OnOKCallback = FlipFaces;
                     //
                     InvokeIfRequired(() => { ShowForm(_frmSelectGeometry, "Select faces to flip", null); });
-                    while (_frmSelectGeometry.Visible) System.Threading.Thread.Sleep(100);
+                    while (_frmSelectGeometry.Visible) Thread.Sleep(100);
                 });
                 //
                 _controller.AnnotateWithColor = _prevShowWithColor;
@@ -3217,6 +3219,29 @@ namespace PrePoMax
                 SetStateReady(Globals.SplittingFacesText);
             }
         }
+        private async void tsmiDefeature_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                await Task.Run(() =>
+                {
+                    _frmSelectGeometry.HideFormOnOK = false;
+                    _frmSelectGeometry.SelectionFilter = SelectGeometryEnum.Surface;
+                    _frmSelectGeometry.OnOKCallback = Defeature;
+                    //
+                    InvokeIfRequired(() => { ShowForm(_frmSelectGeometry, "Select faces to defeature", null); });
+                    while (_frmSelectGeometry.Visible) Thread.Sleep(100);
+                });
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+            finally
+            {
+                SetStateReady(Globals.DefeaturingText);
+            }
+        }
         //
         private void FlipFaces(GeometrySelection geometrySelection)
         {
@@ -3224,6 +3249,13 @@ namespace PrePoMax
             _controller.FlipFaceOrientationsCommand(geometrySelection);
             SetStateReady(Globals.FlippingNormalsText);
         }
+        private void Defeature(GeometrySelection geometrySelection)
+        {
+            SetStateWorking(Globals.DefeaturingText);
+            _controller.DefeatureCommand(geometrySelection);
+            SetStateReady(Globals.DefeaturingText);
+        }
+
 
         #endregion #################################################################################################################
 
@@ -9728,7 +9760,8 @@ namespace PrePoMax
                 //TestNormals();
                 //TestWearResults();
                 //TestMmg();
-                TestGmshReadMesh();
+                //TestGmshReadMesh();
+                TestDefeature();
             }
             catch
             {
@@ -9927,6 +9960,10 @@ namespace PrePoMax
             //
             GmshAPI gmshAPI = new GmshAPI(gmshData, null);
             string error = gmshAPI.GetElementQualities();
+        }
+        private void TestDefeature()
+        {
+            _controller.Defeature(null);
         }
         private void TestSuperposition()
         {
@@ -10170,7 +10207,7 @@ namespace PrePoMax
             }
         }
 
-        
+       
     }
 }
 

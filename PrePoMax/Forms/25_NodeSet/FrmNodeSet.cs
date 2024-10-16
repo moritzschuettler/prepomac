@@ -135,7 +135,7 @@ namespace PrePoMax.Forms
             //
             SetSelectItem();
             //
-            _controller.HighlightSelection();
+            HighlightNodeSet();
             //
             return true;
         }

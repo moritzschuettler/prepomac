@@ -809,8 +809,8 @@ namespace CaeMesh
                     {
                         if (node1.IsEqual(node2, epsilon))
                             count++;
-                        else
-                            count = count;
+                        //else
+                        //    count = count;
                     }
                     else return 0;
                 }
@@ -6310,7 +6310,7 @@ namespace CaeMesh
                 if (part.PartType == PartType.Shell)
                     typeId = shellFrontFace ? (int)GeometryType.ShellFrontSurface : (int)GeometryType.ShellBackSurface;
                 else if (part.PartType == PartType.SolidAsShell)
-                    typeId = (int)GeometryType.ShellFrontSurface;
+                    typeId = (int)GeometryType.ShellFrontSurface; // why is this not SolidSurface?
                 else if (part.PartType == PartType.Solid)
                     typeId = (int)GeometryType.SolidSurface;
                 else throw new NotSupportedException();

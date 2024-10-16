@@ -114,7 +114,8 @@
     <Compile Include="Command\0010_Edit\CSetCalculixUserKeywords.cs" />
     <Compile Include="Command\0030_Geometry\01_Part\CResetColorForGeometryParts.cs" />
     <Compile Include="Command\0030_Geometry\01_Part\CSetColorForGeometryParts.cs" />
-    <Compile Include="Command\0030_Geometry\CDeleteStlPartFacesCommand.cs" />
+    <Compile Include="Command\0030_Geometry\CDeleteStlPartFaces.cs" />
+    <Compile Include="Command\0030_Geometry\CDefeature.cs" />
     <Compile Include="Command\0030_Geometry\CRegenerateCompoundParts.cs" />
     <Compile Include="Command\0030_Geometry\CFlipStlPartSurfacesNormal.cs" />
     <Compile Include="Command\0030_Geometry\CSwapPartGeometries.cs" />
@@ -312,15 +313,16 @@
     <Compile Include="Command\000_General\CActivateDeactivate.cs" />
     <Compile Include="Command\CommandsCollection.cs" />
     <Compile Include="Command\00_Base\Command.cs" />
-    <Compile Include="Command\_Compatibility\V2.1.0\CActivateDeactivateMultilpe.cs" />
-    <Compile Include="Command\_Compatibility\V2.1.0\CAddReferencePoint.cs" />
-    <Compile Include="Command\_Compatibility\V2.1.0\CDuplicateReferencePoints.cs" />
-    <Compile Include="Command\_Compatibility\V2.1.0\CHideReferencePoints.cs" />
-    <Compile Include="Command\_Compatibility\V2.1.0\CPropagateHisotryOutput.cs" />
-    <Compile Include="Command\_Compatibility\V2.1.0\CRemoveReferencePoints.cs" />
-    <Compile Include="Command\_Compatibility\V2.1.0\CReplaceHisotryOutput.cs" />
-    <Compile Include="Command\_Compatibility\V2.1.0\CReplaceReferencePoint.cs" />
-    <Compile Include="Command\_Compatibility\V2.1.0\CShowReferencePoints.cs" />
+    <Compile Include="Command\_Compatibility\v2.1.0\CActivateDeactivateMultilpe.cs" />
+    <Compile Include="Command\_Compatibility\v2.1.0\CAddReferencePoint.cs" />
+    <Compile Include="Command\_Compatibility\v2.1.0\CDuplicateReferencePoints.cs" />
+    <Compile Include="Command\_Compatibility\v2.1.0\CHideReferencePoints.cs" />
+    <Compile Include="Command\_Compatibility\v2.1.0\CPropagateHisotryOutput.cs" />
+    <Compile Include="Command\_Compatibility\v2.1.0\CRemoveReferencePoints.cs" />
+    <Compile Include="Command\_Compatibility\v2.1.0\CReplaceHisotryOutput.cs" />
+    <Compile Include="Command\_Compatibility\v2.1.0\CReplaceReferencePoint.cs" />
+    <Compile Include="Command\_Compatibility\v2.1.0\CShowReferencePoints.cs" />
+    <Compile Include="Command\_Compatibility\v2.2.0\CDeleteStlPartFacesCommand.cs" />
     <Compile Include="Controller.cs" />
     <Compile Include="Enums\ViewGeometryModelResults.cs" />
     <Compile Include="Enums\ShowWithColor.cs" />
@@ -628,7 +630,7 @@
     <Compile Include="Forms\00_Common\FrmGetValue.Designer.cs">
       <DependentUpon>FrmGetValue.cs</DependentUpon>
     </Compile>
-    <Compile Include="Forms\25_Surface\FrmSurface.cs">
+    <Compile Include="Forms\27_Surface\FrmSurface.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Forms\31_ReferencePoint\FrmReferencePoint.cs">
@@ -671,7 +673,7 @@
       <DependentUpon>FrmCalculixKeywordEditor.cs</DependentUpon>
     </Compile>
     <Compile Include="Forms\11_MeshSetup\ViewMeshingParameters.cs" />
-    <Compile Include="Forms\25_Surface\ViewFeSurface.cs" />
+    <Compile Include="Forms\27_Surface\ViewFeSurface.cs" />
     <Compile Include="Forms\31_ReferencePoint\ViewFeReferencePoint.cs" />
     <Compile Include="Forms\41_Material\ViewPlastic.cs" />
     <Compile Include="Forms\43_Constraint\ViewTie.cs" />
@@ -903,7 +905,7 @@
     <EmbeddedResource Include="Forms\00_Common\FrmGetValue.resx">
       <DependentUpon>FrmGetValue.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="Forms\25_Surface\FrmSurface.resx">
+    <EmbeddedResource Include="Forms\27_Surface\FrmSurface.resx">
       <DependentUpon>FrmSurface.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\21_FEModel\FrmCalculixKeywordEditor.resx">

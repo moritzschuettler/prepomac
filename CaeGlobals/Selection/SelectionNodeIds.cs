@@ -73,7 +73,7 @@ namespace CaeGlobals
         // Methods                                                                                                                  
         public bool Equals(SelectionNodeIds selectionNode)
         {
-            if (_selectAll == selectionNode.SelectAll)
+            if (selectionNode != null && selectionNode.SelectAll == _selectAll)
             {
                 if (_itemIds == null && selectionNode.ItemIds == null)
                     return true;

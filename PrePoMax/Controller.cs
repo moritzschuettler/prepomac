@@ -632,7 +632,7 @@ namespace PrePoMax
             //
             if (extension == ".pmx") OpenPmx(fileName);
             else if (extension == ".pmh") OpenPmh(fileName, parameters);
-            else if (extension == ".frd") OpenFrd(fileName);
+            else if (extension == ".frd") OpenFrd(fileName, parameters);
             else if (extension == ".dat") OpenDat(fileName);
             else if (extension == ".foam") OpenFoam(fileName);
             else throw new NotSupportedException();
@@ -730,7 +730,7 @@ namespace PrePoMax
             // Model changed
             _modelChanged = true;
         }
-        private void OpenFrd(string fileName)
+        private void OpenFrd(string fileName, string parameters)
         {
             FeResults results;
             bool useWearResults = _wearResults != null;
@@ -749,7 +749,8 @@ namespace PrePoMax
                 return;
             }
             //
-            LoadResults(results, readDatFile);
+            bool fromFileOpenMenu = parameters != null && parameters.Contains("FileOpenMenu");
+            LoadResults(results, readDatFile, fromFileOpenMenu);
         }
         private void OpenDat(string fileName, bool redraw = true)
         {
@@ -882,7 +883,7 @@ namespace PrePoMax
             // Regenerate tree
             _form.RegenerateTree();
         }
-        private void LoadResults(FeResults results, bool readDatFile)
+        private void LoadResults(FeResults results, bool readDatFile, bool fromFileOpenMenu)
         {
             // Load results
             _form.Clear3D();
@@ -911,13 +912,15 @@ namespace PrePoMax
                     {
                         _allResults.CurrentResult.CopyPartsFromMesh(_model.Mesh);
                         _allResults.CurrentResult.CopyMeshItemsFromMesh(_model.Mesh);
-                        _allResults.CurrentResult.CopyFeatureItemsFromMesh(_model.Mesh, (int)ViewGeometryModelResults.Results);
                     }
+                    // The number of elements is the same and the max element id is the same
                     else if (similarity == 2)
                     {
                         _allResults.CurrentResult.Mesh.MergePartsBasedOnMesh(_model.Mesh, typeof(ResultPart));
                     }
                 }
+                if (!fromFileOpenMenu)
+                    _allResults.CurrentResult.CopyFeatureItemsFromMesh(_model.Mesh, (int)ViewGeometryModelResults.Results);
                 //
                 ResumeExplodedViews(false); // must be here after the MergePartsBasedOnMesh
             }
@@ -3223,6 +3226,11 @@ namespace PrePoMax
             CSplitAFaceUsingTwoPoints comm = new CSplitAFaceUsingTwoPoints(surfaceSelection, verticesSelection);
             _commands.AddAndExecute(comm);
         }
+        public void DefeatureCommand(GeometrySelection geometrySelection)
+        {
+            CDefeature comm = new CDefeature(geometrySelection);
+            _commands.AddAndExecute(comm);
+        }
         //******************************************************************************************
         public void FlipFaceOrientations(GeometrySelection geometrySelection)
         {
@@ -3278,7 +3286,7 @@ namespace PrePoMax
                     MessageBoxes.ShowWarning(warning);
                 else if (countSolidFaces > 0)
                     MessageBoxes.ShowWarning(warning + Environment.NewLine +
-                                             "Only face orientations on CAD shell parts were flipped.");
+                        "Only face orientations on CAD shell parts were flipped.");
             }
             //
             CheckAndUpdateModelValidity();
@@ -3350,7 +3358,7 @@ namespace PrePoMax
                 RemoveGeometryParts(new string[] { part.Name }, keepGeometrySelections, false);
                 _model.Geometry.ChangePartId(newPart.Name, part.PartId);
                 //
-                UpdateMeshSetupItems();
+                UpdateMeshSetupItems(false);
                 //
                 UpdateAfterImport(extension);
                 //
@@ -3436,16 +3444,15 @@ namespace PrePoMax
             //
             if (workDirectory == null || !Directory.Exists(workDirectory))
             {
-                MessageBoxes.ShowError("The work directory does not exist.");
+                MessageBoxes.ShowWorkDirectoryError();
                 return null;
             }
             //
             string executable = Application.StartupPath + Globals.NetGenMesher;
             string inputBrepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
-            string outputBrepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
+            string outputBrepFileName = inputBrepFileName;
             //
             if (File.Exists(inputBrepFileName)) File.Delete(inputBrepFileName);
-            if (File.Exists(outputBrepFileName)) File.Delete(outputBrepFileName);
             //
             File.WriteAllText(inputBrepFileName, part.CADFileData);
             //
@@ -3463,7 +3470,126 @@ namespace PrePoMax
             if (_executableJob.JobStatus == JobStatus.OK) return outputBrepFileName;
             else return null;
         }
-
+        //
+        public void Defeature(GeometrySelection geometrySelection)
+        {
+            if (geometrySelection.CreationData != null)
+            {
+                // In order for the Regenerate history to work perform the selection
+                _selection = geometrySelection.CreationData.DeepClone();
+                geometrySelection.GeometryIds = GetSelectionIds();
+                _selection.Clear();
+            }
+            else throw new NotSupportedException("The geometry selection does not contain any selection data.");
+            // Defeature
+            int[] itemTypePartIds;
+            int partId;
+            BasePart part;
+            HashSet<int> faceIds;
+            Dictionary<int, HashSet<int>> partIdFaceIds = new Dictionary<int, HashSet<int>>();
+            //
+            int numOfNonSolidCADParts = 0;
+            foreach (int id in geometrySelection.GeometryIds)
+            {
+                itemTypePartIds = FeMesh.GetItemTypePartIdsFromGeometryId(id);
+                partId = itemTypePartIds[2];
+                part = _model.Geometry.GetPartFromId(partId);
+                // Solid surface
+                if (part != null && part is GeometryPart gp && gp.IsCADPart &&
+                    (part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell))
+                {
+                    // Add +1 to face ids for Gmsh surface numbering
+                    if (partIdFaceIds.TryGetValue(partId, out faceIds)) faceIds.Add(itemTypePartIds[0] + 1);
+                    else partIdFaceIds.Add(partId, new HashSet<int>() { itemTypePartIds[0] + 1 });
+                }
+                else numOfNonSolidCADParts++;
+            }
+            //
+            if (partIdFaceIds.Keys.Count > 0)
+            {
+                GeometryPart gp;
+                string brepFileName;
+                int numOfSolidParts = 0;
+                foreach (var entry in partIdFaceIds)
+                {
+                    gp = (GeometryPart)_model.Geometry.GetPartFromId(entry.Key);
+                    //
+                    brepFileName = Defeature(gp, entry.Value.ToArray());
+                    //
+                    if (brepFileName != null) ReplacePartGeometryFromFile(gp, brepFileName, true);
+                    else ClearAllSelection();
+                    //
+                    numOfSolidParts++;
+                }
+                //
+                string warning = "Defeaturing on shell parts or non-CAD parts is not possible.";
+                if (numOfSolidParts <= 0)
+                    MessageBoxes.ShowWarning(warning);
+                else if (numOfNonSolidCADParts > 0)
+                    MessageBoxes.ShowWarning(warning + Environment.NewLine +
+                        "Only defeaturing on CAD solid parts was done.");
+            }
+            //
+            CheckAndUpdateModelValidity();
+        }
+        private string Defeature(GeometryPart part, int[] surfaceIds)
+        {
+            _form.WriteDataToOutput("");
+            //
+            string workDirectory = _settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
+            {
+                MessageBoxes.ShowWorkDirectoryError();
+                return null;
+            }
+            //
+            string executable = Application.StartupPath + Globals.GmshMesher;
+            string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
+            string gmshDataFileName = Path.Combine(workDirectory, Globals.GmshDataFileName);
+            //
+            if (File.Exists(brepFileName)) File.Delete(brepFileName);
+            if (File.Exists(gmshDataFileName)) File.Delete(gmshDataFileName);
+            //
+            SuppressExplodedView(new string[] { part.Name });
+            File.WriteAllText(brepFileName, part.CADFileData);
+            GmshData gmshData = new GmshData();
+            gmshData.GeometryFileName = brepFileName;
+            gmshData.SurfaceIds = surfaceIds;
+            _model.Geometry.GetPartTopologyForGmsh(part.Name, ref gmshData);
+            gmshData.WriteToFile(gmshDataFileName);
+            ResumeExplodedViews(false);
+            //
+            string argument = Globals.GmshDataFileName;
+            //
+            string error = null;
+            bool jobCompleted;
+            if (System.Diagnostics.Debugger.IsAttached)
+            {
+                GmshAPI gmsh = new GmshAPI(gmshData, _form.WriteDataToOutput);
+                error = gmsh.Defeature();
+                jobCompleted = (error == null);
+            }
+            else
+            {
+                _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
+                _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
+                _executableJob.Submit();
+                // Job completed
+                jobCompleted = _executableJob.JobStatus == JobStatus.OK;
+            }
+            //
+            if (jobCompleted)
+            {
+                return brepFileName;
+            }
+            else
+            {
+                string message = "Defeaturing failed.";
+                if (error != null) message += Environment.NewLine + error;
+                throw new CaeException(message);
+            }
+        }
         #endregion #################################################################################################################
 
         #region Geometry Stl part menu   ###########################################################################################
@@ -3480,7 +3606,7 @@ namespace PrePoMax
         }
         public void DeleteStlPartFacesCommand(GeometrySelection geometrySelection)
         {
-            CDeleteStlPartFacesCommand comm = new CDeleteStlPartFacesCommand(geometrySelection);
+            CDeleteStlPartFaces comm = new CDeleteStlPartFaces(geometrySelection);
             _commands.AddAndExecute(comm);
         }
         //******************************************************************************************
@@ -7019,7 +7145,6 @@ namespace PrePoMax
                 newReferencePoint = _model.Mesh.ReferencePoints[name].DeepClone();
                 newReferencePoint.Name = NamedClass.GetNameWithoutLastValue(newReferencePoint.Name);
                 newReferencePoint.Name = _model.Mesh.ReferencePoints.GetNextNumberedKey(newReferencePoint.Name);
-                if (newReferencePoint.CreationData != null) newReferencePoint.RegionType = RegionTypeEnum.Selection;
                 AddModelReferencePoint(newReferencePoint);
             }
         }
@@ -10412,7 +10537,7 @@ namespace PrePoMax
         }
         public void SetResults(FeResults results)
         {
-            LoadResults(results, false);
+            LoadResults(results, false, false);
             // Check validity
             CheckAndUpdateModelValidity();
             // Get first component of the first field for the last increment in the last step

@@ -38,6 +38,7 @@ namespace PrePoMax
         public static string RegeneratingText = "Regenerating history...";
         public static string FlippingNormalsText = "Flipping normals...";
         public static string SplittingFacesText = "Splitting faces...";
+        public static string DefeaturingText = "Defeaturing...";
         public static string DeletingFacesText = "Deleting faces...";
         public static string ExplodePartsText = "Explode parts...";
         //

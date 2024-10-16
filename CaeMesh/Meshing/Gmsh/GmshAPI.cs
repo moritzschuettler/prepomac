@@ -14,6 +14,7 @@ using System.Drawing.Printing;
 using System.Windows.Forms.VisualStyles;
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
+using System.Windows.Forms;
 
 namespace CaeMesh
 {
@@ -55,6 +56,10 @@ namespace CaeMesh
         {
             return RunInBackground(GetElementQualitiesBackground);
         }
+        public string Defeature()
+        {
+            return RunInBackground(DefeatureBackground);
+        }
         //
         private string RunInBackground(Action action)
         {
@@ -74,6 +79,7 @@ namespace CaeMesh
                 while (_thread.ThreadState == ThreadState.Running)
                 {
                     if (count++ % 10 == 0) WriteLog();
+                    Application.DoEvents();
                     Thread.Sleep(100);
                 }
                 // Wait for the worker thread to finish
@@ -131,21 +137,6 @@ namespace CaeMesh
                     }
                     //
                     Synchronize(); // must be here
-
-                    if (false)
-                    {
-                        int[] volumeTags = new int[] { 1 };
-                        int[] surfaceTags = new int[] { 9, 10 };
-                        //
-                        Gmsh.Model.OCC.Defeature(volumeTags, surfaceTags, out outDimTags, true);
-                        //
-                        Synchronize();
-                        //
-                        Gmsh.Write(@"C:\Temp\defeature_out.stp");
-                        //
-                        return;
-                    }
-
                     // Mesh size
                     SetMeshSizes();
                     // 2D meshing algorithm
@@ -834,6 +825,28 @@ namespace CaeMesh
                 _error = ex.Message;
             }
         }
+        private void DefeatureBackground()
+        {
+            if (_gmshData.SurfaceIds == null || _gmshData.SurfaceIds.Length == 0) return;
+            //
+            Tuple<int, int>[] outDimTags;
+            Gmsh.Model.OCC.ImportShapes(_gmshData.GeometryFileName, out outDimTags, false, "");
+            //
+            Synchronize(); // must be here
+            //
+            RenumberGmshDataByCoor();
+            //
+            int[] volumeTags = new int[] { 1 };
+            int[] surfaceTags = _gmshData.SurfaceIds;
+            //
+            Gmsh.Model.OCC.Defeature(volumeTags, surfaceTags, out outDimTags, true);
+            //
+            Synchronize();
+            //
+            Gmsh.Write(_gmshData.GeometryFileName);
+            //
+            return;
+        }
         // Tools                                                                                                                    
         private void RenumberGmshDataByCoor()
         {
@@ -880,6 +893,19 @@ namespace CaeMesh
                 }
                 _gmshData.FaceIdNodes = faceIdNodes;
             }
+            // Faces
+            //if (_gmshData.SurfaceIds != null)
+            //{
+            //    int faceId;
+            //    List<int> surfaceIdsList = new List<int>();
+            //    foreach (var surfaceId in _gmshData.SurfaceIds)
+            //    {
+            //        if (netgenFaceIdGmshFaceId.TryGetValue(surfaceId, out faceId))
+            //            surfaceIdsList.Add(faceId);
+            //        else if (System.Diagnostics.Debugger.IsAttached) throw new Exception();
+            //    }
+            //    _gmshData.SurfaceIds = surfaceIdsList.ToArray();
+            //}
         }
         private Dictionary<int, int> RenumberVertices()
         {
