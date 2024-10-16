@@ -265,7 +265,7 @@ namespace CaeJob
         {
             if (e.Data == null)
             {
-                // the safe wait handle closes on kill
+                // The safe wait handle closes on kill
                 if (!_errorWaitHandle.SafeWaitHandle.IsClosed) _errorWaitHandle.Set();
             }
             else
@@ -278,7 +278,7 @@ namespace CaeJob
         {
             if (e.Data == null)
             {
-                // the safe wait handle closes on kill
+                // The safe wait handle closes on kill
                 if (!_outputWaitHandle.SafeWaitHandle.IsClosed) _outputWaitHandle.Set();
             }
             else

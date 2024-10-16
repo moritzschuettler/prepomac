@@ -60,8 +60,7 @@ namespace UserControls
         //
         public int Hide;
         public int Show;
-        public int Color;
-        public int Transparency;
+        public int ColorTransparency;
         //
         public int Deformed;
         public int ColorContours;
@@ -551,12 +550,14 @@ namespace UserControls
             tsmiHide.Visible = visible;
             tsmiShow.Visible = visible;
             tsmiShowOnly.Visible = visible;
-            // Color                                                
-            tsmiSetColor.Visible = menuFields.Color == n;
             oneAboveVisible |= visible;
-            // Transparency                                         
-            tsmiSetTransparency.Visible = menuFields.Transparency == n;
-            oneAboveVisible |= visible; // Hide/Show
+            // Color                                                
+            visible = menuFields.ColorTransparency == n;
+            tsmiSpaceColor.Visible = visible && oneAboveVisible;
+            tsmiSetColor.Visible = visible;
+            tsmiResetColor.Visible = visible;
+            tsmiSetTransparency.Visible = visible; // transparency
+            oneAboveVisible |= visible;
             // Deformed/Color contours                              
             visible = menuFields.Deformed == n;
             tsmiSpaceColorContours.Visible = visible && oneAboveVisible;
@@ -698,11 +699,7 @@ namespace UserControls
                 else menuFields.Show++;
             }
             // Color & Transparency
-            if (item != null && item is BasePart)
-            {
-                menuFields.Color++;
-                menuFields.Transparency++;
-            }
+            if (item != null && item is BasePart) menuFields.ColorTransparency++;
             // Deformed/Color contours
             if (item != null && item is ResultPart)
             {

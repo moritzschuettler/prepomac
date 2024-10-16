@@ -3184,7 +3184,7 @@ namespace PrePoMax
                         _frmSelectGeometry.SelectionFilter = SelectGeometryEnum.Surface;
                         //
                         InvokeIfRequired(() => { ShowForm(_frmSelectGeometry, "Select a face to split", null); });
-                        while (_frmSelectGeometry.Visible) System.Threading.Thread.Sleep(100);
+                        while (_frmSelectGeometry.Visible) Thread.Sleep(100);
                         //
                         if (_frmSelectGeometry.DialogResult == DialogResult.OK)
                         {
@@ -3194,15 +3194,12 @@ namespace PrePoMax
                             _frmSelectGeometry.SelectionFilter = SelectGeometryEnum.Vertex;
                             //
                             InvokeIfRequired(() => { ShowForm(_frmSelectGeometry, "Select splitting vertices", null); });
-                            while (_frmSelectGeometry.Visible) System.Threading.Thread.Sleep(100);
+                            while (_frmSelectGeometry.Visible) Thread.Sleep(100);
                             //
                             if (_frmSelectGeometry.DialogResult == DialogResult.OK)
                             {
                                 verticesSelection = _frmSelectGeometry.GeometrySelection.DeepClone();
-                                //
-                                SetStateWorking(Globals.SplittingFacesText);
-                                _controller.SplitAFaceUsingTwoPointsCommand(surfaceSelection, verticesSelection);
-                                SetStateReady(Globals.SplittingFacesText);
+                                SplitAFaceUsingTwoPoints(surfaceSelection, verticesSelection);
                             }
                             else break;
                         }
@@ -3245,15 +3242,51 @@ namespace PrePoMax
         //
         private void FlipFaces(GeometrySelection geometrySelection)
         {
-            SetStateWorking(Globals.FlippingNormalsText);
-            _controller.FlipFaceOrientationsCommand(geometrySelection);
-            SetStateReady(Globals.FlippingNormalsText);
+            try
+            {
+                SetStateWorking(Globals.FlippingNormalsText);
+                _controller.FlipFaceOrientationsCommand(geometrySelection);
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+            finally
+            {
+                SetStateReady(Globals.FlippingNormalsText);
+            }
+        }
+        private void SplitAFaceUsingTwoPoints(GeometrySelection surfaceSelection, GeometrySelection verticesSelection)
+        {
+            try
+            {
+                SetStateWorking(Globals.SplittingFacesText);
+                _controller.SplitAFaceUsingTwoPointsCommand(surfaceSelection, verticesSelection);
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+            finally
+            {
+                SetStateReady(Globals.SplittingFacesText);
+            }
         }
         private void Defeature(GeometrySelection geometrySelection)
         {
-            SetStateWorking(Globals.DefeaturingText);
-            _controller.DefeatureCommand(geometrySelection);
-            SetStateReady(Globals.DefeaturingText);
+            try
+            {
+                SetStateWorking(Globals.DefeaturingText, true);
+                _controller.DefeatureCommand(geometrySelection);
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+            finally
+            {
+                SetStateReady(Globals.DefeaturingText);
+            }
         }
 
 

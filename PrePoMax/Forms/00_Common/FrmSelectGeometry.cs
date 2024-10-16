@@ -60,7 +60,7 @@ namespace PrePoMax.Forms
 
 
         // Event handlers                                                                                                           
-        private void btnOK_Click(object sender, EventArgs e)
+        private async void btnOK_Click(object sender, EventArgs e)
         {
             try
             {
@@ -74,7 +74,7 @@ namespace PrePoMax.Forms
                     //
                     if (OnOKCallback != null)
                     {
-                        OnOKCallback(GeometrySelection);
+                        await Task.Run(() => { OnOKCallback(GeometrySelection); });
                         // Clear items - calls SelectionChanged which clears the GeometrySelection
                         _controller.ClearAllSelection();
                     }
