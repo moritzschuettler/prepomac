@@ -1165,7 +1165,7 @@ rd /s /q "de" "en" "es" "fr" "hu" "it" "ja" "pt" "ru" "sk" "sv" "tr" "zh-cn" "zh
 
 IF NOT exist "$(TargetDir)lib\" ( mkdir "$(TargetDir)lib\")
 
-copy "$(SolutionDir)GmshMesher\bin\x64\$(ConfigurationName)\GmshMesher.exe" "$(TargetDir)lib"
+copy "$(SolutionDir)GmshCaller\bin\x64\$(ConfigurationName)\GmshCaller.exe" "$(TargetDir)lib"
 
 copy "$(SolutionDir)PrePoMax\bin\x64\Console-Debug\PrePoMax.exe" "$(SolutionDir)PrePoMax\bin\x64\Debug\PrePoMax.com"
 copy "$(SolutionDir)PrePoMax\bin\x64\Console-Debug\PrePoMax.exe.config" "$(SolutionDir)PrePoMax\bin\x64\Debug\PrePoMax.com.config"

@@ -8,15 +8,16 @@ using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using CaeMesh.Meshing;
 
-namespace GmshMesherExe
+namespace GmshCaller
 {
     internal class Program
     {
         static int Main(string[] args)
         {
             string error = null;
-            if (args.Length == 1)
+            if (args.Length == 2)
             {
                 string gmshDataFileName = args[0];
                 if (File.Exists(gmshDataFileName))
@@ -24,9 +25,18 @@ namespace GmshMesherExe
                     GmshData gmshData = Tools.LoadDumpFromFile<GmshData>(gmshDataFileName);
                     //
                     GmshAPI gmshAPI = new GmshAPI(gmshData, Console.WriteLine);
-                    error = gmshAPI.CreateMesh();
+                    //
+                    GmshCommandEnum command;
+                    if (Enum.TryParse(args[1], out command))
+                    {
+                        if (command == GmshCommandEnum.Mesh) error = gmshAPI.CreateMesh();
+                        else if (command == GmshCommandEnum.Defeature) error = gmshAPI.Defeature();
+                        else error = "The Gmsh command " + args[1] + " is not supported.";
+                    }
+                    else error = "The Gmsh command " + args[1] + " is not supported.";
                 }
             }
+            else error = "A Gmsh data file name and a Gmsh command parameters must be specified as arguments.";
             //Console.WriteLine("Press any key to stop...");
             //Console.ReadKey();
             //

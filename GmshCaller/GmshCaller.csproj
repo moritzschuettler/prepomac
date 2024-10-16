@@ -6,8 +6,8 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{BBD81130-CB98-4B1A-AF72-1833BB292761}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>GmshMesher</RootNamespace>
-    <AssemblyName>GmshMesher</AssemblyName>
+    <RootNamespace>GmshCaller</RootNamespace>
+    <AssemblyName>GmshCaller</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>

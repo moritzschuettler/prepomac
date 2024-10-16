@@ -3544,7 +3544,7 @@ namespace PrePoMax
                 return null;
             }
             //
-            string executable = Application.StartupPath + Globals.GmshMesher;
+            string executable = Application.StartupPath + Globals.GmshCaller;
             string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
             string gmshDataFileName = Path.Combine(workDirectory, Globals.GmshDataFileName);
             //
@@ -3560,7 +3560,7 @@ namespace PrePoMax
             gmshData.WriteToFile(gmshDataFileName);
             ResumeExplodedViews(false);
             //
-            string argument = Globals.GmshDataFileName;
+            string argument = Globals.GmshDataFileName + " " + CaeMesh.Meshing.GmshCommandEnum.Defeature;
             //
             string error = null;
             bool jobCompleted;
@@ -4096,7 +4096,7 @@ namespace PrePoMax
                 return false;
             }
             //
-            string executable = Application.StartupPath + Globals.GmshMesher;
+            string executable = Application.StartupPath + Globals.GmshCaller;
             string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
             string inpFileName = Path.Combine(workDirectory, Globals.InpMeshFileName);
             string gmshDataFileName = Path.Combine(workDirectory, Globals.GmshDataFileName);
@@ -4119,7 +4119,7 @@ namespace PrePoMax
             gmshData.WriteToFile(gmshDataFileName);
             ResumeExplodedViews(false);
             //
-            string argument = Globals.GmshDataFileName;
+            string argument = Globals.GmshDataFileName + " " + CaeMesh.Meshing.GmshCommandEnum.Mesh;
             //
             bool jobCompleted;
             if (System.Diagnostics.Debugger.IsAttached)
@@ -4273,7 +4273,7 @@ namespace PrePoMax
                 return false;
             }
             //
-            string executable = Application.StartupPath + Globals.GmshMesher;
+            string executable = Application.StartupPath + Globals.GmshCaller;
             string stlFileName = Path.Combine(workDirectory, Globals.StlFileName);
             string inpFileName = Path.Combine(workDirectory, Globals.InpMeshFileName);
             string gmshDataFileName = Path.Combine(workDirectory, Globals.GmshDataFileName);
@@ -4298,7 +4298,7 @@ namespace PrePoMax
             gmshData.WriteToFile(gmshDataFileName);
             ResumeExplodedViews(false);
             //
-            string argument = Globals.GmshDataFileName;
+            string argument = Globals.GmshDataFileName + " " + CaeMesh.Meshing.GmshCommandEnum.Mesh;
             //
             bool jobCompleted;
             if (System.Diagnostics.Debugger.IsAttached)
@@ -4520,7 +4520,7 @@ namespace PrePoMax
                 return false;
             }
             //
-            string executable = Application.StartupPath + Globals.GmshMesher;
+            string executable = Application.StartupPath + Globals.GmshCaller;
             string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
             string inpFileName = Path.Combine(workDirectory, Globals.InpMeshFileName);
             string gmshDataFileName = Path.Combine(workDirectory, Globals.GmshDataFileName);
@@ -4543,7 +4543,7 @@ namespace PrePoMax
             gmshData.WriteToFile(gmshDataFileName);
             ResumeExplodedViews(false);
             //
-            string argument = Globals.GmshDataFileName;
+            string argument = Globals.GmshDataFileName + " " + CaeMesh.Meshing.GmshCommandEnum.Mesh;
             //
             string error = null;
             bool jobCompleted;
@@ -5194,7 +5194,7 @@ namespace PrePoMax
                 return null;
             }
             //
-            string executable = Application.StartupPath + Globals.GmshMesher;
+            string executable = Application.StartupPath + Globals.GmshCaller;
             string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
             //
             if (File.Exists(brepFileName)) File.Delete(brepFileName);
@@ -5662,7 +5662,7 @@ namespace PrePoMax
                 return null;
             }
             //
-            string executable = Application.StartupPath + Globals.GmshMesher;
+            string executable = Application.StartupPath + Globals.GmshCaller;
             string meshFileName = Path.Combine(workDirectory, Globals.GmshMeshFileName);
             //
             if (File.Exists(meshFileName)) File.Delete(meshFileName);

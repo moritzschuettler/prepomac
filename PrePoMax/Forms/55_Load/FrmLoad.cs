@@ -315,6 +315,12 @@ namespace PrePoMax.Forms
             {
                 if (cl.Magnitude.Value == 0)
                     throw new CaeException("At least one force component must not be equal to 0.");
+                if (cl.CreationIds.Length > 5)
+                {
+                    if (MessageBoxes.ShowWarningQuestionOKCancel("The concentrated force will apply the entered load magnitude " +
+                                                                 "to all selected nodes. Continue?") == DialogResult.Cancel)
+                        throw new CaeException("BreakOnApply");
+                }
             }
             else if (FELoad is MomentLoad ml)
             {

@@ -96,6 +96,7 @@
     <Compile Include="Geometry\GeometryItem.cs" />
     <Compile Include="Meshing\Common\SplitPartMeshData.cs" />
     <Compile Include="Meshing\Common\ThickenShellMesh.cs" />
+    <Compile Include="Meshing\Gmsh\Enums\GmshCommandEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshOptimizeFirstOrderShellEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshOptimizeHighOrderEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshOptimizeFirstOrderSolidEnum.cs" />

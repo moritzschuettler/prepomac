@@ -19,6 +19,7 @@ namespace PrePoMax
                 string name = "PrePoMax";
                 Version appVersion = Assembly.GetExecutingAssembly().GetName().Version;
                 name += " v" + appVersion.Major + "." + appVersion.Minor + "." + appVersion.Build;
+                if (appVersion.Build != 0) name += " dev";
                 return name;
             }
         }
@@ -62,7 +63,7 @@ namespace PrePoMax
         public static string NetGenMesher = @"\NetGen\NetGenMesher.exe";
         public static string MmgsMesher = @"\NetGen\mmgs.exe";
         public static string Mmg3DMesher = @"\NetGen\mmg3d.exe";
-        public static string GmshMesher = @"\lib\GmshMesher.exe";
+        public static string GmshCaller = @"\lib\GmshCaller.exe";
         public static string VisFileName = "geometry.vis";
         public static string BrepFileName = "geometry.brep";
         public static string StlFileName = "geometry.stl";        
