@@ -704,6 +704,10 @@ namespace vtkControl
 
             polyData.GetPointData().CopyScalarsOn();
             // Normals
+
+            data.SmoothShaded = true;
+
+
             if (data.SmoothShaded) polyData.GetPointData().SetNormals(ComputeNormals(polyData));
             // Mapper
             vtkDataSetMapper mapper = vtkDataSetMapper.New();

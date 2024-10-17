@@ -688,7 +688,7 @@ namespace vtkControl
             //
             Rotate(rxf, ryf);
         }
-        private void Rotate(double azimuthAngle, double ElevationAngle)
+        public void Rotate(double azimuthAngle, double elevationAngle, double rollAngle = 0)
         {
             vtkRenderer renderer = this.GetCurrentRenderer();
             if (renderer == null) return;
@@ -696,29 +696,32 @@ namespace vtkControl
             vtkCamera camera = renderer.GetActiveCamera();
             vtkRenderWindowInteractor rwi = this.GetInteractor();
             //
-            camera.Azimuth(azimuthAngle);
-            camera.Elevation(ElevationAngle);
+            if (azimuthAngle != 0) camera.Azimuth(azimuthAngle);
+            if (elevationAngle != 0) camera.Elevation(elevationAngle);
+            if (rollAngle != 0) camera.Roll(rollAngle);
             camera.OrthogonalizeViewUp();
             // Move the cameras focal point back to the display position of the first click - the opposite direction!
             double[] wpa = DisplayToWorld(renderer, _rotationCenterDisplay);
             double[] n = camera.GetViewPlaneNormal();
             // Compute a plane through rotationWorldCenter and project the rotationDisplayCenter on it
             double[] v = new double[3];                         // vector from rotationWorldCenter to DisplayToWorld point
-            v[0] = wpa[0] - _rotationCenterWorld[0];
-            v[1] = wpa[1] - _rotationCenterWorld[1];
-            v[2] = wpa[2] - _rotationCenterWorld[2];
+            double[] rotCenter = _rotationCenterWorld;
+            if (rotCenter == null) rotCenter = new double[3];
+            v[0] = wpa[0] - rotCenter[0];
+            v[1] = wpa[1] - rotCenter[1];
+            v[2] = wpa[2] - rotCenter[2];
             double d = n[0] * v[0] + n[1] * v[1] + n[2] * v[2]; // distance of DisplayToWorld point from plane
             wpa[0] -= n[0] * d;
             wpa[1] -= n[1] * d;
             wpa[2] -= n[2] * d;
             //
-            PanCamera(camera, wpa, _rotationCenterWorld);   // calls AdjustCameraDistanceAndClipping()
+            PanCamera(camera, wpa, rotCenter);   // calls AdjustCameraDistanceAndClipping()
             // Adjust the lights
             if (rwi.GetLightFollowCamera() == 1) renderer.UpdateLightsGeometryToFollowCamera();
             // Widgets - Rotate
             foreach (vtkMaxBorderWidget widget in _widgets)
             {
-                widget.MouseRotate(azimuthAngle, ElevationAngle);
+                widget.MouseRotate(azimuthAngle, elevationAngle);
             }
             rwi.Modified();
             rwi.Render();

@@ -21,6 +21,7 @@ using static System.Windows.Forms.VisualStyles.VisualStyleElement.TreeView;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 using CaeMesh;
 using Octree;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.ProgressBar;
 
 namespace vtkControl
 {
@@ -3074,6 +3075,11 @@ namespace vtkControl
             //
             RenderScene();
         }
+        //
+        public void Rotate(double azimuthAngle, double elevationAngle, double rollAngle)
+        {
+            _style.Rotate(azimuthAngle, elevationAngle, rollAngle);
+        }
 
         #endregion  ################################################################################################################
 
@@ -6115,6 +6121,18 @@ namespace vtkControl
                     pngWriter.Write();
                 }
             }
+        }
+        public void RenderToPNG(string fileName)
+        {
+            vtkWindowToImageFilter windowToImage = vtkWindowToImageFilter.New();
+            windowToImage.SetInput(_renderWindow);
+            windowToImage.SetInputBufferTypeToRGB();
+            //
+            vtkPNGWriter pngWriter = vtkPNGWriter.New();
+            pngWriter.SetInputConnection(windowToImage.GetOutputPort());
+            //
+            pngWriter.SetFileName(fileName);
+            pngWriter.Write();
         }
 
         #endregion #################################################################################################################

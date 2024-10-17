@@ -9794,7 +9794,8 @@ namespace PrePoMax
                 //TestWearResults();
                 //TestMmg();
                 //TestGmshReadMesh();
-                TestDefeature();
+                //TestDefeature();
+                AnimateRotation();
             }
             catch
             {
@@ -10032,6 +10033,83 @@ namespace PrePoMax
                 directions = pointSpringData.GetSpringDirections();
             }
         }
+        private void AnimateRotation()
+        {
+            tbOutput.Clear();
+            Thread.Sleep(1000);
+            int nFrames = 360;
+            double delta = 360.0 / nFrames;
+            double angle;
+            double alpha;
+            string[] partNames = new string[] { "Solid_part-1" };
+            //
+            //AnimateTransparency("Solid_part-1", 230, 20, 10);
+            string fileName = @"c:\Temp\screen";
+            _controller.SetTransparencyForGeometryParts(partNames, 255);
+            _vtk.RenderToPNG(fileName + 0.ToString().PadLeft(3, '0') + ".png");
+            //
+            for (int i = 1; i <= nFrames; i++)
+            {
+                //_vtk.Rotate(-delta, 0, 0);
+                _vtk.Rotate(0, 0, delta);
+                angle = i * delta;
+
+                if (i == nFrames / 4)
+                    _controller.SetTransparencyForGeometryParts(partNames, (byte)100);
+                else if (i == nFrames / 2)
+                    _controller.SetTransparencyForGeometryParts(partNames, (byte)24);
+                else if (i == 3 * nFrames / 4)
+                    _controller.SetTransparencyForGeometryParts(partNames, (byte)100);
+
+
+
+                //if (angle > 80 && angle < 180)
+                //{
+                //    alpha =  (angle - 80) / (180 - 80);    // 0...1
+                //    alpha = (1 - alpha) * 250;
+                //    _controller.SetTransparencyForGeometryParts(partNames, (byte)alpha);
+                //}
+                //if (angle > 270)
+                //{
+                //    alpha = (angle - 270) / (90);    // 0...1
+                //    alpha = (alpha) * 250;
+                //    _controller.SetTransparencyForGeometryParts(partNames, (byte)alpha);
+                //}
+
+                //Thread.Sleep(10);
+                //Application.DoEvents();
+                _vtk.RenderToPNG(fileName + i.ToString().PadLeft(3, '0') + ".png");
+            }
+
+
+            //
+            //_vtk.AnimateZoomToFactor(3000, 100);
+            //
+            //if (true)
+            //{
+            //    int alphaStart = 230;
+            //    int alphaEnd = 50;
+            //    int alphaStep = 5;
+            //    AnimateTransparency("Shell_part-7", alphaStart, alphaEnd, alphaStep);
+            //    AnimateTransparency("Shell_part-6", alphaStart, alphaEnd, alphaStep);
+            //    AnimateTransparency("Shell_part-11", alphaStart, alphaEnd, alphaStep);
+            //    AnimateTransparency("Shell_part-1", alphaStart, alphaEnd, alphaStep);
+            //    AnimateTransparency("Shell_part-10", alphaStart, alphaEnd, alphaStep);
+            //    AnimateTransparency("Shell_part-2", alphaStart, alphaEnd, alphaStep);
+            //    AnimateTransparency("Shell_part-14", alphaStart, alphaEnd, alphaStep);
+            //}
+            //Thread.Sleep(1000);
+            //_vtk.AnimateZoomToFactor(6000, 1500);
+            ////
+            //Thread.Sleep(1000);
+            //_controller.TurnExplodedViewOnOff(true, 1500);
+            ////
+            //Thread.Sleep(1000);
+            //_controller.TurnExplodedViewOnOff(true, 1500);
+            ////
+            //Thread.Sleep(1000);
+            //_vtk.AnimateZoomToFactor(3000, 1500);
+        }
         private void AnimateModel58()
         {
             tbOutput.Clear();
@@ -10105,8 +10183,8 @@ namespace PrePoMax
             {
                 for (int i = alphaFrom; i >= alphaTo; i -= alphaStep)
                 {
-                    _controller.SetTransparencyForResultParts(partNames, (byte)i);
-                    //_controller.SetTransparencyForGeometryParts(partNames, (byte)i);
+                    //_controller.SetTransparencyForResultParts(partNames, (byte)i);
+                    _controller.SetTransparencyForGeometryParts(partNames, (byte)i);
                     Application.DoEvents();
                 }
             }

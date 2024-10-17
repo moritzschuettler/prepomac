@@ -315,7 +315,9 @@ namespace PrePoMax.Forms
             {
                 if (cl.Magnitude.Value == 0)
                     throw new CaeException("At least one force component must not be equal to 0.");
-                if (cl.CreationIds.Length > 5)
+                if ((cl.RegionType == RegionTypeEnum.Selection && cl.CreationIds.Length > 5) ||
+                    (cl.RegionType == RegionTypeEnum.NodeSetName &&
+                     _controller.Model.Mesh.NodeSets[cl.RegionName].Labels.Length > 5))
                 {
                     if (MessageBoxes.ShowWarningQuestionOKCancel("The concentrated force will apply the entered load magnitude " +
                                                                  "to all selected nodes. Continue?") == DialogResult.Cancel)

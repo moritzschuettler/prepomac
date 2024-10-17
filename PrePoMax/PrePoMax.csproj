@@ -1163,15 +1163,15 @@ del *.manifest
 
 rd /s /q "de" "en" "es" "fr" "hu" "it" "ja" "pt" "ru" "sk" "sv" "tr" "zh-cn" "zh-tw"
 
-IF NOT exist "$(TargetDir)lib\" ( mkdir "$(TargetDir)lib\")
+IF NOT EXIST "$(TargetDir)lib\" mkdir "$(TargetDir)lib\"
 
-copy "$(SolutionDir)GmshCaller\bin\x64\$(ConfigurationName)\GmshCaller.exe" "$(TargetDir)lib"
+IF EXIST "$(SolutionDir)GmshCaller\bin\x64\$(ConfigurationName)\GmshCaller.exe" copy "$(SolutionDir)GmshCaller\bin\x64\$(ConfigurationName)\GmshCaller.exe" "$(TargetDir)lib"
 
-copy "$(SolutionDir)PrePoMax\bin\x64\Console-Debug\PrePoMax.exe" "$(SolutionDir)PrePoMax\bin\x64\Debug\PrePoMax.com"
-copy "$(SolutionDir)PrePoMax\bin\x64\Console-Debug\PrePoMax.exe.config" "$(SolutionDir)PrePoMax\bin\x64\Debug\PrePoMax.com.config"
+IF EXIST "$(SolutionDir)PrePoMax\bin\x64\Console-Debug\PrePoMax.exe" copy "$(SolutionDir)PrePoMax\bin\x64\Console-Debug\PrePoMax.exe" "$(SolutionDir)PrePoMax\bin\x64\Debug\PrePoMax.com"
+IF EXIST "$(SolutionDir)PrePoMax\bin\x64\Console-Debug\PrePoMax.exe.config" copy "$(SolutionDir)PrePoMax\bin\x64\Console-Debug\PrePoMax.exe.config" "$(SolutionDir)PrePoMax\bin\x64\Debug\PrePoMax.com.config"
 
-copy "$(SolutionDir)PrePoMax\bin\x64\Console-Release\PrePoMax.exe" "$(SolutionDir)PrePoMax\bin\x64\Release\PrePoMax.com"
-copy "$(SolutionDir)PrePoMax\bin\x64\Console-Release\PrePoMax.exe.config" "$(SolutionDir)PrePoMax\bin\x64\Release\PrePoMax.com.config"</PostBuildEvent>
+IF EXIST "$(SolutionDir)PrePoMax\bin\x64\Console-Release\PrePoMax.exe" copy "$(SolutionDir)PrePoMax\bin\x64\Console-Release\PrePoMax.exe" "$(SolutionDir)PrePoMax\bin\x64\Release\PrePoMax.com"
+IF EXIST "$(SolutionDir)PrePoMax\bin\x64\Console-Release\PrePoMax.exe.config" copy "$(SolutionDir)PrePoMax\bin\x64\Console-Release\PrePoMax.exe.config" "$(SolutionDir)PrePoMax\bin\x64\Release\PrePoMax.com.config"</PostBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
     <PreBuildEvent>del *Cmd.exe
