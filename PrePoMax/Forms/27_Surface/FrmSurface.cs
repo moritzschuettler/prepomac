@@ -164,7 +164,7 @@ namespace PrePoMax.Forms
                         // Add creation data
                         Surface.CreationData = new Selection();
                         Surface.CreationData.SelectItem = vtkSelectItem.Surface;
-                        Surface.CreationData.Add(new SelectionNodeIds(vtkSelectOperation.Add, false, ids));
+                        Surface.CreationData.Add(new SelectionNodeIds(vtkSelectOperation.None, false, ids));
                     }
                 }
                 else if (Surface.CreatedFrom == FeSurfaceCreatedFrom.NodeSet)

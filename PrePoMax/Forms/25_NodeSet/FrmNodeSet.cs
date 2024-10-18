@@ -123,7 +123,7 @@ namespace PrePoMax.Forms
                     // Add creation data
                     NodeSet.CreationData = new Selection();
                     NodeSet.CreationData.SelectItem = vtkSelectItem.Node;
-                    NodeSet.CreationData.Add(new SelectionNodeIds(vtkSelectOperation.Add, false, ids));
+                    NodeSet.CreationData.Add(new SelectionNodeIds(vtkSelectOperation.None, false, ids));
                 }
             }
             //

@@ -11,19 +11,19 @@ namespace CaeGlobals
     public abstract class SelectionNode : ISerializable
     {
         // Variables                                                                                                                
-        protected vtkSelectOperation _selectOpreation;      //ISerializable
+        protected vtkSelectOperation _selectOperation;      //ISerializable
         protected double _hash;
 
 
         // Properties                                                                                                               
-        public vtkSelectOperation SelectOperation { get { return _selectOpreation; } }
+        public vtkSelectOperation SelectOperation { get { return _selectOperation; } }
         public double Hash { get { return _hash; } set { _hash = value; } }
 
 
         // Constructors                                                                                                             
-        public SelectionNode(vtkSelectOperation selectOpreation)
+        public SelectionNode(vtkSelectOperation selectOperation)
         {
-            _selectOpreation = selectOpreation;
+            _selectOperation = selectOperation;
             _hash = -1;
         }
         public SelectionNode(SerializationInfo info, StreamingContext context)
@@ -32,8 +32,9 @@ namespace CaeGlobals
             {
                 switch (entry.Name)
                 {
-                    case "_selectOpreation":
-                        _selectOpreation = (vtkSelectOperation)entry.Value;
+                    case "_selectOpreation":    // compatibility version 2.2.2
+                    case "_selectOperation":
+                        _selectOperation = (vtkSelectOperation)entry.Value;
                         break;
                     case "_hash":
                         _hash = (double)entry.Value;
@@ -46,15 +47,15 @@ namespace CaeGlobals
 
 
         // Methods                                                                                                                  
-        public void SetSelectOperation(vtkSelectOperation selectOpreation)
+        public void SetSelectOperation(vtkSelectOperation selectOperation)
         {
-            _selectOpreation = selectOpreation;
+            _selectOperation = selectOperation;
         }
         // ISerialization
         public void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             // Using typeof() works also for null fields
-            info.AddValue("_selectOpreation", _selectOpreation, typeof(vtkSelectOperation));
+            info.AddValue("_selectOperation", _selectOperation, typeof(vtkSelectOperation));
             info.AddValue("_hash", _hash, typeof(double));
         }
     }

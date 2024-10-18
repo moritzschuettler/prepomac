@@ -7598,6 +7598,7 @@ namespace CaeMesh
                     {
                         UpdateNodeSetCenterOfGravity(nodeSet);
                         nodeSet.CreationData = new Selection();
+                        nodeSet.CreationData.SelectItem = vtkSelectItem.Node;
                         nodeSet.CreationData.Add(new SelectionNodeIds(vtkSelectOperation.None, false, nodeSet.Labels));
                         nodeSet.Valid = false;          // mark it as invalid to highlight it for the user
                     }
@@ -7659,6 +7660,7 @@ namespace CaeMesh
                 if (!(removeForRemeshing && geometryBased))
                 {
                     elementSet.CreationData = new Selection();
+                    elementSet.CreationData.SelectItem = vtkSelectItem.Element;
                     elementSet.CreationData.Add(new SelectionNodeIds(vtkSelectOperation.None, false, elementSet.Labels));
                     elementSet.Valid = false;          // mark it as invalid to highlight it for the user
                 }
@@ -7710,6 +7712,7 @@ namespace CaeMesh
                 {
                     surface = new FeSurface(_surfaces[name]);
                     surface.CreationData = new Selection();
+                    surface.CreationData.SelectItem = vtkSelectItem.Surface;
                     surface.CreationData.Add(new SelectionNodeIds(vtkSelectOperation.None, false, surface.FaceIds));
                     surface.Valid = false;      // mark it as invalid to highlight it for the user
                     _surfaces[name] = surface;

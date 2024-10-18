@@ -29,6 +29,7 @@ using System.Xml.Linq;
 using CommandLine;
 using System.Security.Policy;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 
 namespace PrePoMax
 {
@@ -11905,7 +11906,9 @@ namespace PrePoMax
                     ids = GetIdsAtPointFromGeometrySelection(selectionNodeMouse, keepGeometryIds);
                 }
                 else if (_selection.SelectItem == vtkSelectItem.None)
-                { }
+                {
+                    if (Debugger.IsAttached) throw new NotSupportedException();
+                }
                 else if (_selection.SelectItem == vtkSelectItem.Node)
                 {
                     ids = GetNodeIdsAtPoint(selectionNodeMouse, out _);
