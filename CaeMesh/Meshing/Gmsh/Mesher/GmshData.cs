@@ -37,6 +37,8 @@ namespace CaeMesh
         public Dictionary<int, double> ElementQuality;
         // Defeature
         public int[] SurfaceIds;
+        // Parameterization
+        public double[][][] Coor;
         //
         public double StlFeatureAngleDeg;
 

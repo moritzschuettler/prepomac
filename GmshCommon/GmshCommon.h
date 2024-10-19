@@ -294,6 +294,21 @@ namespace GmshCommon {
                 parametricCoord = gcnew array<double>(parametricCoord_native.size());
                 Marshal::Copy(IntPtr(parametricCoord_native.data()), parametricCoord, 0, parametricCoord_native.size());
             }
+            static void GetParametrizationBounds(int dim, int tag,
+                [System::Runtime::InteropServices::Out] array<double>^% min,
+                [System::Runtime::InteropServices::Out] array<double>^% max)
+            {
+                std::vector<double> min_native;
+                std::vector<double> max_native;
+                //
+                gmsh::model::getParametrizationBounds(dim, tag, min_native, max_native);
+                //
+                min = gcnew array<double>(min_native.size());
+                Marshal::Copy(IntPtr(min_native.data()), min, 0, min_native.size());
+                //
+                max = gcnew array<double>(max_native.size());
+                Marshal::Copy(IntPtr(max_native.data()), max, 0, max_native.size());
+            }
             //                                                                                                                      
             ref class Geo
             {

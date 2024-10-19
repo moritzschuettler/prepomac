@@ -60,6 +60,10 @@ namespace CaeMesh
         {
             return RunInBackground(DefeatureBackground);
         }
+        public string GetCoordinatesFromParameterization()
+        {
+            return RunInBackground(GetCoordinatesFromParameterizationBackground);
+        }
         //
         private string RunInBackground(Action action)
         {
@@ -846,6 +850,61 @@ namespace CaeMesh
             Gmsh.Write(_gmshData.GeometryFileName);
             //
             return;
+        }
+        private void GetCoordinatesFromParameterizationBackground()
+        {
+            try
+            {
+                Gmsh.Open(_gmshData.GeometryFileName);
+                //
+                Tuple<int, int>[] surfaceDimTags;
+                Gmsh.Model.GetEntities(out surfaceDimTags, 2);
+                //
+                int n = 5;
+                int pointCount;
+                int count = 0;
+                int tag;
+                double[] coor1D;
+                double[] minBounds;
+                double[] maxBounds;
+                double[] parametricCoor1D;
+                _gmshData.Coor = new double[surfaceDimTags.Length][][];
+                foreach (var entry in surfaceDimTags)
+                {
+                    tag = entry.Item2;
+                    //
+                    Gmsh.Model.GetParametrizationBounds(2, tag, out minBounds, out maxBounds);
+                    //
+                    pointCount = 0;
+                    parametricCoor1D = new double[n * n * 2];
+                    //
+                    double du = (maxBounds[0] - minBounds[0]) / (n - 1);
+                    double dv = (maxBounds[1] - minBounds[1]) / (n - 1);
+                    //
+                    for (int u = 0; u < n; u++)
+                    {
+                        for (int v = 0; v < n; v++)
+                        {
+                            parametricCoor1D[pointCount++] = minBounds[0] + du * u;
+                            parametricCoor1D[pointCount++] = minBounds[1] + dv * v;
+                        }
+                    }
+                    //
+                    Gmsh.Model.GetValue(2, tag, parametricCoor1D, out coor1D);
+                    //
+                    _gmshData.Coor[count] = new double[coor1D.Length / 3][];
+                    for (int i = 0; i < _gmshData.Coor[count].Length; i++)
+                    {
+                        _gmshData.Coor[count][i] = new double[] { coor1D[3 * i], coor1D[3 * i + 1], coor1D[3 * i + 2] };
+                    }
+                    count += 1;
+                }
+                _error = null;
+            }
+            catch (Exception ex)
+            {
+                _error = ex.Message;
+            }
         }
         // Tools                                                                                                                    
         private void RenumberGmshDataByCoor()

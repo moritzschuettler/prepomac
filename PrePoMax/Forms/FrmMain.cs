@@ -9795,7 +9795,8 @@ namespace PrePoMax
                 //TestMmg();
                 //TestGmshReadMesh();
                 //TestDefeature();
-                AnimateRotation();
+                //AnimateRotation();
+                TestParameterization();
             }
             catch
             {
@@ -9998,6 +9999,10 @@ namespace PrePoMax
         private void TestDefeature()
         {
             _controller.Defeature(null);
+        }
+        private void TestParameterization()
+        {
+            _controller.ViewParameterization();
         }
         private void TestSuperposition()
         {

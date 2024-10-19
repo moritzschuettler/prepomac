@@ -2450,6 +2450,46 @@ namespace PrePoMax
             //
             return partOffsets;
         }
+        // Parameterization
+        public void ViewParameterization()
+        {
+            string workDirectory = _settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
+            {
+                MessageBoxes.ShowWorkDirectoryError();
+                return;
+            }
+            //
+            string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
+            //
+            if (File.Exists(brepFileName)) File.Delete(brepFileName);
+            //
+            SuppressExplodedView();
+            //
+            FeMesh mesh = DisplayedMesh;
+            foreach (var entry in mesh.Parts)
+            {
+                if (entry.Value is GeometryPart gp)
+                {
+                    GmshData gmshData = new GmshData();
+                    gmshData.GeometryFileName = brepFileName;
+                    //
+                    File.WriteAllText(brepFileName, gp.CADFileData);
+                    //
+                    GmshAPI gmsh = new GmshAPI(gmshData, _form.WriteDataToOutput);
+                    string error = gmsh.GetCoordinatesFromParameterization();
+                    //
+                    for (int i = 0; i < gmshData.Coor.Length; i++)
+                    {
+                        DrawNodes(gp.Name + "par" + i, gmshData.Coor[i], Color.Red, vtkRendererLayer.Selection);
+                    }
+                }
+            }
+            //
+            ResumeExplodedViews(false);
+            //
+        }
 
         #endregion ################################################################################################################
 
@@ -5663,7 +5703,6 @@ namespace PrePoMax
                 return null;
             }
             //
-            string executable = Application.StartupPath + Globals.GmshCaller;
             string meshFileName = Path.Combine(workDirectory, Globals.GmshMeshFileName);
             //
             if (File.Exists(meshFileName)) File.Delete(meshFileName);
