@@ -16831,6 +16831,7 @@ namespace PrePoMax
                 HighlightMeshSetupItemParts(meshSetupItem, useSecondaryHighlightColor);
             else if (meshSetupItem is FeMeshRefinement mr) HighlightMeshRefinement(mr, highlightNodes, useSecondaryHighlightColor);
             else if (meshSetupItem is ExtrudeMesh em) HighlightExtrudeMesh(em, useSecondaryHighlightColor);
+            else if (meshSetupItem is SweepMesh sm) HighlightSweepMesh(sm, useSecondaryHighlightColor);
             else if (meshSetupItem is RevolveMesh rm) HighlightRevolveMesh(rm, useSecondaryHighlightColor);
             else throw new NotSupportedException();
         }
@@ -16898,6 +16899,19 @@ namespace PrePoMax
                 int symbolSize = 2 * _settings.Pre.SymbolSize;
                 DrawArrowSymbols(prefixName, new double[][] { extrudeMesh.ExtrudeCenter },
                                  new double[][] { extrudeMesh.Direction }, Color.Empty, symbolSize,
+                                 vtkRendererLayer.Selection, !useSecondaryHighlightColor);
+            }
+        }
+        public void HighlightSweepMesh(SweepMesh sweepMesh, bool useSecondaryHighlightColor = false)
+        {
+            HighlightShellInMeshSetupItem(sweepMesh, useSecondaryHighlightColor);
+            //
+            string prefixName = sweepMesh.Name + Globals.NameSeparator + "Arrows";
+            if (sweepMesh.SweepCenter != null && sweepMesh.Direction != null)
+            {
+                int symbolSize = 2 * _settings.Pre.SymbolSize;
+                DrawArrowSymbols(prefixName, new double[][] { sweepMesh.SweepCenter },
+                                 new double[][] { sweepMesh.Direction }, Color.Empty, symbolSize,
                                  vtkRendererLayer.Selection, !useSecondaryHighlightColor);
             }
         }

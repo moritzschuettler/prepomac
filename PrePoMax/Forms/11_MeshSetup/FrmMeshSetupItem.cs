@@ -54,6 +54,7 @@ namespace PrePoMax.Forms
                 else if (value is TetrahedralGmsh tg) _viewMeshSetupItem = new ViewTetrahedralGmsh(tg.DeepClone());
                 else if (value is TransfiniteMesh tm) _viewMeshSetupItem = new ViewTransfiniteMesh(tm.DeepClone());
                 else if (value is ExtrudeMesh em) _viewMeshSetupItem = new ViewExtrudeMesh(em.DeepClone());
+                else if (value is SweepMesh sm) _viewMeshSetupItem = new ViewSweepMesh(sm.DeepClone());
                 else if (value is RevolveMesh rm) _viewMeshSetupItem = new ViewRevolveMesh(rm.DeepClone());
                 else throw new NotImplementedException("MeshSetupItemTypeException");
             }
@@ -179,6 +180,7 @@ namespace PrePoMax.Forms
             else if (MeshSetupItem is TetrahedralGmsh tg) tg.Reset();
             else if (MeshSetupItem is TransfiniteMesh tm) tm.Reset();
             else if (MeshSetupItem is ExtrudeMesh em) em.Reset();
+            else if (MeshSetupItem is SweepMesh sm) sm.Reset();
             else if (MeshSetupItem is RevolveMesh rm) rm.Reset();
             else throw new NotSupportedException("MeshSetupItemTypeException");
             //
@@ -199,7 +201,7 @@ namespace PrePoMax.Forms
                     partNames = _controller.DisplayedMesh.GetPartNamesFromPartIds(MeshSetupItem.CreationIds);
                 }
                 else if (MeshSetupItem is ShellGmsh || MeshSetupItem is ThickenShellMesh || MeshSetupItem is FeMeshRefinement ||
-                         MeshSetupItem is ExtrudeMesh || MeshSetupItem is RevolveMesh)
+                         MeshSetupItem is ExtrudeMesh || MeshSetupItem is SweepMesh || MeshSetupItem is RevolveMesh)
                 {
                     partNames = _controller.DisplayedMesh.GetPartNamesFromGeometryIds(MeshSetupItem.CreationIds);
                 }
@@ -237,6 +239,7 @@ namespace PrePoMax.Forms
                 else if (itemTag is ViewTetrahedralGmsh vtg) _viewMeshSetupItem = vtg;
                 else if (itemTag is ViewTransfiniteMesh vtm) _viewMeshSetupItem = vtm;
                 else if (itemTag is ViewExtrudeMesh vem) _viewMeshSetupItem = vem;
+                else if (itemTag is ViewSweepMesh vsm) _viewMeshSetupItem = vsm;
                 else if (itemTag is ViewRevolveMesh vrm) _viewMeshSetupItem = vrm;
                 else throw new NotImplementedException("MeshSetupItemTypeException");
                 //
@@ -364,7 +367,8 @@ namespace PrePoMax.Forms
                 else if (_viewMeshSetupItem is ViewTetrahedralGmsh) selectedId = 4;
                 else if (_viewMeshSetupItem is ViewTransfiniteMesh) selectedId = 5;
                 else if (_viewMeshSetupItem is ViewExtrudeMesh) selectedId = 6;
-                else if (_viewMeshSetupItem is ViewRevolveMesh) selectedId = 7;
+                else if (_viewMeshSetupItem is ViewSweepMesh) selectedId = 7;
+                else if (_viewMeshSetupItem is ViewRevolveMesh) selectedId = 8;
                 else throw new NotSupportedException("MeshSetupItemTypeException");
                 //
                 lvTypes.Items[selectedId].Tag = _viewMeshSetupItem;
@@ -447,9 +451,14 @@ namespace PrePoMax.Forms
                 selectedId = 6;
                 _viewMeshSetupItem = new ViewExtrudeMesh(em.DeepClone());
             }
-            else if (meshSetupItem is RevolveMesh rm)
+            else if (meshSetupItem is SweepMesh sm)
             {
                 selectedId = 7;
+                _viewMeshSetupItem = new ViewSweepMesh(sm.DeepClone());
+            }
+            else if (meshSetupItem is RevolveMesh rm)
+            {
+                selectedId = 8;
                 _viewMeshSetupItem = new ViewRevolveMesh(rm.DeepClone());
             }
             else throw new NotSupportedException("MeshSetupItemTypeException");
@@ -517,6 +526,15 @@ namespace PrePoMax.Forms
                 ViewExtrudeMesh vem = new ViewExtrudeMesh(em);
                 item.Tag = vem;
                 lvTypes.Items.Add(item);
+                if (System.Diagnostics.Debugger.IsAttached)
+                {
+                    // Sweep mesh
+                    item = new ListViewItem("Sweep Mesh");
+                    SweepMesh sm = new SweepMesh(GetMeshSetupItemName("Sweep_Mesh"));
+                    ViewSweepMesh vsm = new ViewSweepMesh(sm);
+                    item.Tag = vsm;
+                    lvTypes.Items.Add(item);
+                }
                 // Revolve mesh
                 item = new ListViewItem("Revolve Mesh");
                 RevolveMesh rm = new RevolveMesh(GetMeshSetupItemName("Revolve_Mesh"));
@@ -585,6 +603,7 @@ namespace PrePoMax.Forms
                 else if (MeshSetupItem is TetrahedralGmsh) _controller.SetSelectItemToPart();
                 else if (MeshSetupItem is TransfiniteMesh) _controller.SetSelectItemToPart();
                 else if (MeshSetupItem is ExtrudeMesh) _controller.SetSelectItemToGeometrySurface();
+                else if (MeshSetupItem is SweepMesh) _controller.SetSelectItemToGeometrySurface();
                 else if (MeshSetupItem is RevolveMesh) _controller.SetSelectItemToGeometrySurface();
                 else throw new NotSupportedException("MeshSetupItemTypeException");
             }
@@ -597,7 +616,8 @@ namespace PrePoMax.Forms
             {
                 if (MeshSetupItem is MeshingParameters || MeshSetupItem is FeMeshRefinement ||
                     MeshSetupItem is ShellGmsh  || MeshSetupItem is ThickenShellMesh || MeshSetupItem is TetrahedralGmsh ||
-                    MeshSetupItem is TransfiniteMesh || MeshSetupItem is ExtrudeMesh || MeshSetupItem is RevolveMesh)
+                    MeshSetupItem is TransfiniteMesh || MeshSetupItem is ExtrudeMesh || MeshSetupItem is SweepMesh ||
+                    MeshSetupItem is RevolveMesh)
                 {
                     if (MeshSetupItem is MeshingParameters mp && !_meshingParametersChanged)
                     {
@@ -614,7 +634,7 @@ namespace PrePoMax.Forms
                     //
                     _propertyItemChanged = true;
                     //
-                    if (MeshSetupItem is ExtrudeMesh || MeshSetupItem is RevolveMesh)
+                    if (MeshSetupItem is ExtrudeMesh || MeshSetupItem is SweepMesh ||MeshSetupItem is RevolveMesh)
                     {
                         _controller.IsMeshSetupItemProperlyDefined(MeshSetupItem);
                     }

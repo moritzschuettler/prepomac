@@ -15,6 +15,7 @@ using System.Windows.Forms.VisualStyles;
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Windows.Forms;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace CaeMesh
 {
@@ -170,6 +171,8 @@ namespace CaeMesh
                         TransfiniteMesh(_gmshData.Preview);
                     else if (gsi is ExtrudeMesh || gsi is RevolveMesh)
                         ExtrudeRevolveMesh(gsi, _gmshData.PartMeshingParameters, _gmshData.Preview);
+                    else if (gsi is SweepMesh sm)
+                        SweepMesh(sm, _gmshData.PartMeshingParameters, _gmshData.Preview);
                     else throw new NotSupportedException("MeshSetupItemTypeException");
                 }
                 else throw new NotSupportedException("MeshSetupItemTypeException");
@@ -177,10 +180,10 @@ namespace CaeMesh
                 if (!_gmshData.Preview && _gmshData.PartMeshingParameters.SecondOrder)
                 {
                     if (!_gmshData.PartMeshingParameters.MidsideNodesOnGeometry) 
-                        Gmsh.Option.SetNumber("Mesh.SecondOrderLinear", 1);    // first
+                        Gmsh.Option.SetNumber("Mesh.SecondOrderLinear", 1); // first
                     // Create incomplete second order elements: 8-node quads, 20-node hexas, etc.
-                    Gmsh.Option.SetNumber("Mesh.SecondOrderIncomplete", 1);    // second
-                    Gmsh.Model.Mesh.SetOrder(2);                              // third
+                    Gmsh.Option.SetNumber("Mesh.SecondOrderIncomplete", 1);     // second
+                    Gmsh.Model.Mesh.SetOrder(2);                                // third
                     // Optimize high order
                     if (gsi.OptimizeHighOrder != GmshOptimizeHighOrderEnum.None)
                     {
@@ -190,7 +193,6 @@ namespace CaeMesh
                 }
                 // Output
                 Gmsh.Write(_gmshData.InpFileName);
-                //Gmsh.Write(@"C:\Temp\mesh.msh");
                 //
                 _writeOutput?.Invoke("Meshing done.");
                 _writeOutput?.Invoke("");
@@ -292,12 +294,12 @@ namespace CaeMesh
             if (extrudeMesh != null)
             {
                 if (extrudeMesh.ExtrudeCenter == null || extrudeMesh.Direction == null)
-                    throw new CaeGlobals.CaeException("The extrude direction could not be determined.");
+                    throw new CaeException("The extrude direction could not be determined.");
             }
             else if (revolveMesh != null)
             {
                 if (revolveMesh.AxisCenter == null || revolveMesh.AxisDirection == null)
-                    throw new CaeGlobals.CaeException("The revolve direction could not be determined.");
+                    throw new CaeException("The revolve direction could not be determined.");
             }
             //
             int surfaceId;
@@ -419,7 +421,215 @@ namespace CaeMesh
                 }
             }
         }
+        private void SweepMesh(SweepMesh sweepMesh, MeshingParameters meshingParameters, bool preview)
+        {
+            if (sweepMesh == null) throw new NotSupportedException();
+            //
+            int surfaceId;
+            HashSet<int> sourceSurfaceIds = new HashSet<int>();
+            bool recombine = sweepMesh.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None;
+            // Get source surfaces
+            for (int i = 0; i < sweepMesh.CreationIds.Length; i++)
+            {
+                surfaceId = FeMesh.GetItemIdFromGeometryId(sweepMesh.CreationIds[i]) + 1;
+                sourceSurfaceIds.Add(surfaceId);
+            }
+            // Get side surfaces
+            Dictionary<int, int[]> surfaceIdEdgeIds;
+            Dictionary<int, int[]> surfaceIdVertexIds;
+            GetSurfaceItems(out surfaceIdEdgeIds, out surfaceIdVertexIds);
+            // Find side surfaces
+            HashSet<int> vertexSurfaceIds;
+            Dictionary<int, HashSet<int>> vertexIdSurfaceId = new Dictionary<int, HashSet<int>>();
+            HashSet<int> sourceSurfaceVertices = new HashSet<int>();
+            HashSet<int> targetSurfaceIds = new HashSet<int>();
+            //
+            foreach (var surfaceEntry in surfaceIdVertexIds)
+            {
+                surfaceId = surfaceEntry.Key;
+                foreach (var vertexId in surfaceEntry.Value)
+                {
+                    if (vertexIdSurfaceId.TryGetValue(vertexId, out vertexSurfaceIds)) vertexSurfaceIds.Add(surfaceId);
+                    else vertexIdSurfaceId.Add(vertexId, new HashSet<int> { surfaceId });
+                }
+                //
+                if (sourceSurfaceIds.Contains(surfaceId)) sourceSurfaceVertices.UnionWith(surfaceEntry.Value);
+                //
+                targetSurfaceIds.Add(surfaceId);
+            }
+            HashSet<int> sideSurfaceIds = new HashSet<int>();
+            foreach (var entry in vertexIdSurfaceId)
+            {
+                if (sourceSurfaceVertices.Contains(entry.Key)) sideSurfaceIds.UnionWith(entry.Value);
+            }
+            // Remove the source surfaces from the side surfaces
+            sideSurfaceIds.ExceptWith(sourceSurfaceIds);
+            // Get target surfaces
+            targetSurfaceIds.ExceptWith(sourceSurfaceIds);
+            targetSurfaceIds.ExceptWith(sideSurfaceIds);
+            //
+            
+            
+            
+            // Set source surfaces
+            if (recombine)
+            {
+                foreach (var sourceSurfaceId in sourceSurfaceIds) Gmsh.Model.Mesh.SetRecombine(2, sourceSurfaceId);
+            }
+            // Set side surfaces
+            foreach (var sideSurfaceId in sideSurfaceIds)
+            {
+                Gmsh.Model.Mesh.SetRecombine(2, sideSurfaceId);
+                Gmsh.Model.Mesh.SetTransfiniteSurface(sideSurfaceId, "AlternateLeft");
+            }
+            
+            // Remove the volume and the target surfaces
+            List<Tuple<int, int>> toRemoveDimTags = new List<Tuple<int, int>>() { new Tuple<int, int>(3, 1) };  // volume
+            foreach (var targetSurfaceId in targetSurfaceIds) toRemoveDimTags.Add(new Tuple<int, int>(2, targetSurfaceId));
+            //
+            Gmsh.Model.OCC.Remove(toRemoveDimTags.ToArray(), false);
+            //
+            Gmsh.Model.OCC.Synchronize(); // must be here
+            //
+            Gmsh.Model.Mesh.Generate(2);
+            //
+            SweepMeshFrom2D(sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds, surfaceIdEdgeIds, surfaceIdVertexIds);
+        }
         //
+        private void GetSurfaceItems(out Dictionary<int, int[]> surfaceIdEdgeIds, out Dictionary<int, int[]> surfaceIdVertexIds)
+        {
+            Tuple<int, int>[] surfaceDimTags = Gmsh.Model.OCC.GetEntities(2);
+            //
+            int[] edgeIds;
+            int[] vertexIds;
+            HashSet<int> allVertexIds;
+            surfaceIdEdgeIds = new Dictionary<int, int[]>();
+            surfaceIdVertexIds = new Dictionary<int, int[]>();
+            //
+            foreach (var surfaceDimTag in surfaceDimTags)
+            {
+                Gmsh.Model.GetAdjacencies(2, surfaceDimTag.Item2, out _, out edgeIds);
+                surfaceIdEdgeIds.Add(surfaceDimTag.Item2, edgeIds);
+                //
+                allVertexIds = new HashSet<int>();
+                foreach (var edgeId in edgeIds)
+                {
+                    Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
+                    allVertexIds.UnionWith(vertexIds);
+                }
+                surfaceIdVertexIds.Add(surfaceDimTag.Item2, allVertexIds.ToArray());
+            }
+        }
+        private void SweepMeshFrom2D(HashSet<int> sourceSurfaceIds, HashSet<int> sideSurfaceIds, HashSet<int> targetSurfaceIds,
+                                     Dictionary<int, int[]> surfaceIdEdgeIds, Dictionary<int, int[]> surfaceIdVertexIds)
+        {
+            HashSet<int> sourceEdgeIds = new HashSet<int>();
+            HashSet<int> sideEdgeIds = new HashSet<int>();
+            HashSet<int> outerSideEdgeIds = new HashSet<int>();
+            //
+            foreach (var id in sourceSurfaceIds) sourceEdgeIds.UnionWith(surfaceIdEdgeIds[id]);
+            foreach (var id in sideSurfaceIds) sideEdgeIds.UnionWith(surfaceIdEdgeIds[id]);
+            outerSideEdgeIds = sourceEdgeIds.Intersect(sideEdgeIds).ToHashSet();
+            // Get all elements on the side surfaces
+            int numNodes;
+            IntPtr[] nodeIdsArr;
+            Dictionary<IntPtr, IntPtr[]> elementIdNodeIds = new Dictionary<IntPtr, IntPtr[]>();
+            foreach (var id in sideSurfaceIds)
+            {
+                Gmsh.Model.Mesh.GetElements(out int[] elementTypes, out IntPtr[][] elementTags, out IntPtr[][] nodeTags, 2, id);
+                //
+                for (int i = 0; i < elementTags.Length; i++)
+                {
+                    Gmsh.Model.Mesh.GetElementProperties(elementTypes[i], out _, out _, out numNodes, out _, out _);
+                    //
+                    for (int j = 0; j < elementTags[i].Length; j++)
+                    {
+                        nodeIdsArr = new IntPtr[numNodes];
+                        Array.Copy(nodeTags[i], j * numNodes, nodeIdsArr, 0, numNodes);
+                        elementIdNodeIds.Add(elementTags[i][j], nodeIdsArr);
+                    }
+                }
+            }
+            // Get all elements connected to a node
+            HashSet<IntPtr> elementIds;
+            Dictionary<IntPtr, HashSet<IntPtr>> nodeIdElementIds = new Dictionary<IntPtr, HashSet<IntPtr>>();
+            foreach (var entry in elementIdNodeIds)
+            {
+                for (int i = 0; i < entry.Value.Length; i++)
+                {
+                    if (nodeIdElementIds.TryGetValue(entry.Value[i], out elementIds)) elementIds.Add(entry.Key);
+                    else nodeIdElementIds.Add(entry.Value[i], new HashSet<IntPtr>() { entry.Key });
+                }
+            }
+            // Get node neighbours map
+            HashSet<IntPtr> neighbourIds;
+            Dictionary<IntPtr, HashSet<IntPtr>> nodeIdNeighbourIds = new Dictionary<IntPtr, HashSet<IntPtr>>();
+            foreach(var entry in elementIdNodeIds)
+            {
+                if (entry.Value.Length != 4) throw new NotSupportedException();
+                //
+                for (int i = 0; i < entry.Value.Length; i++)
+                {
+                    if (!nodeIdNeighbourIds.TryGetValue(entry.Value[i], out neighbourIds))
+                    {
+                        neighbourIds = new HashSet<IntPtr>();
+                        nodeIdNeighbourIds.Add(entry.Value[i], neighbourIds);
+                    }
+                    neighbourIds.Add(entry.Value[(i + 1) % 4]);
+                    neighbourIds.Add(entry.Value[(i + 3) % 4]);
+                }
+            }
+            // Get first nodes of the sweep lines
+            HashSet<IntPtr> firstNodeIdsOfSweepLines = new HashSet<IntPtr>();
+            HashSet<int> intNodeIds = new HashSet<int>();
+            foreach (var id in outerSideEdgeIds)
+            {
+                Gmsh.Model.Mesh.GetNodes(out nodeIdsArr, out _, 1, id, true, false);
+                firstNodeIdsOfSweepLines.UnionWith(nodeIdsArr);
+
+                for (global::System.Int32 i = 0; i < nodeIdsArr.Length; i++)
+                {
+                    intNodeIds.Add(nodeIdsArr[i].ToInt32());
+                }
+            }
+            // Get sweep lines
+            IntPtr firstNodeId;
+            IntPtr neighbourId;
+            HashSet<IntPtr> currentLayerNodeIds = firstNodeIdsOfSweepLines;
+            HashSet<IntPtr> prevTwoLayerNodeIds = new HashSet<IntPtr>(firstNodeIdsOfSweepLines);
+            HashSet<IntPtr> nextLayerNodeIds;
+            Dictionary<IntPtr, IntPtr> nodeIdFirstNodeId = new Dictionary<IntPtr, IntPtr>();
+            Dictionary<IntPtr, List<IntPtr>> nodeIdSweepLineNodeIds = new Dictionary<IntPtr, List<IntPtr>>();
+            foreach (var nodeId in firstNodeIdsOfSweepLines) nodeIdSweepLineNodeIds.Add(nodeId, new List<IntPtr>() { nodeId });
+            //
+            int visitedNodesCount = currentLayerNodeIds.Count;
+            while (visitedNodesCount < nodeIdElementIds.Count)
+            {
+                nextLayerNodeIds = new HashSet<IntPtr>();
+                foreach (var nodeId in currentLayerNodeIds)
+                {
+                    neighbourIds = nodeIdNeighbourIds[nodeId].Except(prevTwoLayerNodeIds).ToHashSet();
+                    if (neighbourIds.Count != 1) throw new NotSupportedException();
+                    //
+                    neighbourId = neighbourIds.First();
+                    // Get first node id of the sweep line
+                    if (!nodeIdFirstNodeId.TryGetValue(nodeId, out firstNodeId)) firstNodeId = nodeId;
+                    nodeIdFirstNodeId[neighbourId] = firstNodeId;
+                    //
+                    nodeIdSweepLineNodeIds[firstNodeId].Add(neighbourId);
+                    //
+                    nextLayerNodeIds.Add(neighbourId);
+                }
+                prevTwoLayerNodeIds = new HashSet<IntPtr>(currentLayerNodeIds);
+                prevTwoLayerNodeIds.UnionWith(nextLayerNodeIds);
+                //
+                currentLayerNodeIds = nextLayerNodeIds;
+                //
+                visitedNodesCount += currentLayerNodeIds.Count;
+            }
+            
+
+        }
         public bool CheckMeshVolume(Tuple<int, int>[] outDimTags)
         {
             double volumeOut;

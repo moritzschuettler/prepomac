@@ -866,6 +866,8 @@ namespace CaeModel
         public string[] ImportGeometryFromStlFile(string fileName)
         {
             FeMesh mesh = StlFileReader.Read(fileName);
+            // Shading
+            foreach (var entry in mesh.Parts) entry.Value.SmoothShaded = true;
             //
             string[] addedPartNames = ImportGeometry(mesh, GetReservedPartNames());
             //
@@ -875,22 +877,11 @@ namespace CaeModel
         {
             FeMesh mesh = VisFileReader.Read(visFileName);
             //
-            //if (mesh.Parts.Count > 1)
-            //    throw new Exception("The geometry contains more than one part.");
-            //else if (mesh.Parts.Count <= 0)
+            if (mesh.Parts.GetValueByIndex(0) is GeometryPart gp)
             {
-                //throw new Exception("The geometry contains less than one part."); 
+                gp.CADFileDataFromFile(brepFileName);
+                gp.SmoothShaded = true;
             }
-            //else
-            {
-                if (mesh.Parts.GetValueByIndex(0) is GeometryPart gp)
-                {
-                    gp.CADFileDataFromFile(brepFileName);
-                    gp.SmoothShaded = true;
-                }
-            }
-            //
-            //if (true) mesh.SplitShellPartToFaceParts();
             //
             string[] addedPartNames = ImportGeometry(mesh, GetReservedPartNames());
             //
@@ -926,15 +917,15 @@ namespace CaeModel
         public void ImportGeneratedMeshFromMeshFile(string fileName, BasePart part, bool convertToSecondOrder,
                                                     bool splitCompoundMesh, bool mergeCompoundParts)
         {
-            FileInOut.Input.ElementsToImport elementsToImport;
+            ElementsToImport elementsToImport;
             GeometryPart subPart;
-            if (part.PartType == PartType.SolidAsShell) elementsToImport = FileInOut.Input.ElementsToImport.Solid;
-            else if (part.PartType == PartType.Shell) elementsToImport = FileInOut.Input.ElementsToImport.Shell;
+            if (part.PartType == PartType.SolidAsShell) elementsToImport = ElementsToImport.Solid;
+            else if (part.PartType == PartType.Shell) elementsToImport = ElementsToImport.Shell;
             else if (part.PartType == PartType.Compound)
             {
                 subPart = _geometry.Parts[(part as CompoundGeometryPart).SubPartNames[0]] as GeometryPart;
-                if (subPart.PartType == PartType.SolidAsShell) elementsToImport = FileInOut.Input.ElementsToImport.Solid;
-                else if (subPart.PartType == PartType.Shell) elementsToImport = FileInOut.Input.ElementsToImport.Shell;
+                if (subPart.PartType == PartType.SolidAsShell) elementsToImport = ElementsToImport.Solid;
+                else if (subPart.PartType == PartType.Shell) elementsToImport = ElementsToImport.Shell;
                 else throw new NotSupportedException();
             }
             else throw new NotSupportedException();
@@ -949,11 +940,11 @@ namespace CaeModel
             // Called after meshing in PrePoMax - the parts are sorted by id
             FeMesh mesh;
             if (Path.GetExtension(fileName) == ".vol")
-                mesh = FileInOut.Input.VolFileReader.Read(fileName, elementsToImport, convertToSecondOrder);
+                mesh = VolFileReader.Read(fileName, elementsToImport, convertToSecondOrder);
             else if (Path.GetExtension(fileName) == ".mesh")
-                mesh = FileInOut.Input.MmgFileReader.Read(fileName, elementsToImport, MeshRepresentation.Mesh, convertToSecondOrder);
+                mesh = MmgFileReader.Read(fileName, elementsToImport, MeshRepresentation.Mesh, convertToSecondOrder);
             else if (Path.GetExtension(fileName) == ".inp")
-                mesh = FileInOut.Input.InpFileReader.ReadMesh(fileName, elementsToImport, convertToSecondOrder);
+                mesh = InpFileReader.ReadMesh(fileName, elementsToImport, convertToSecondOrder);
             else throw new NotSupportedException();
             // Split compound mesh
             if (splitCompoundMesh) mesh.SplitSolidCompoundMesh();
@@ -1050,7 +1041,7 @@ namespace CaeModel
             double max = part.BoundingBox.GetDiagonal();
             Dictionary<string, Dictionary<int, int>> partNameNewSurfIdOldSurfId = new Dictionary<string, Dictionary<int, int>>();
             Dictionary<string, Dictionary<int, int>> partNameNewEdgeIdOldEdgeId = new Dictionary<string, Dictionary<int, int>>();
-            FeMesh mmgMesh = FileInOut.Input.MmgFileReader.Read(fileName, FileInOut.Input.ElementsToImport.Shell,
+            FeMesh mmgMesh = MmgFileReader.Read(fileName, ElementsToImport.Shell,
                                                                 MeshRepresentation.Mesh, convertToSecondOrder,
                                                                 _mesh.MaxNodeId + 1, _mesh.MaxElementId + 1,
                                                                 borderNodes, midNodes,
@@ -1303,6 +1294,7 @@ namespace CaeModel
             else if (meshSetupItem is TetrahedralGmsh tg) return IsTetrahedralGmshProperlyDefined(tg);
             else if (meshSetupItem is TransfiniteMesh tm) return IsTransfiniteMeshProperlyDefined(tm);
             else if (meshSetupItem is ExtrudeMesh em) return IsExtrudeMeshProperlyDefined(em);
+            else if (meshSetupItem is SweepMesh sm) return IsSweepMeshProperlyDefined(sm);
             else if (meshSetupItem is RevolveMesh rm) return IsRevolveMeshProperlyDefined(rm);
             else throw new NotSupportedException("MeshSetupItemTypeException");
         }
@@ -1527,6 +1519,128 @@ namespace CaeModel
             else error = "The surfaces of more than one part are selected.";
             //
             return error == null ? null : error + " The extruded mesh cannot be created.";
+        }
+        private string IsSweepMeshProperlyDefined(SweepMesh sweepMesh)
+        {
+            string error = null;
+            sweepMesh.Direction = null;
+            sweepMesh.SweepCenter = null;
+            //
+            if (sweepMesh.ElementSizeType == CaeMesh.Meshing.ElementSizeTypeEnum.MultiLayerd &&
+                (sweepMesh.LayerSizes.Length != sweepMesh.NumOfElementsPerLayer.Length))
+                return "The number of layers must be equal for layer sizes and number of elements per layer.";
+            //
+            int[] selectedPartIds = FeMesh.GetPartIdsFromGeometryIds(sweepMesh.CreationIds);
+            //
+            if (selectedPartIds.Length == 1)
+            {
+                // Get part
+                int partId = selectedPartIds[0];
+                GeometryPart part = (GeometryPart)_geometry.GetPartFromId(partId);
+                //
+                if (IsPartCompoundSubPart(part.Name))
+                    return "The sweep mesh setup item cannot be defined on a compound part.";
+                if (!part.IsCADPart)
+                    return "The sweep mesh setup item cannot be defined on a stl based part.";
+                if (part.PartType != PartType.Solid && part.PartType != PartType.SolidAsShell)
+                    return "The sweep mesh setup item cannot be defined on a shell part.";
+                //
+                VisualizationData vis = part.Visualization;
+                // Get surface ids
+                HashSet<int> sourceSurfaceIds = new HashSet<int>();
+                for (int i = 0; i < sweepMesh.CreationIds.Length; i++)
+                    sourceSurfaceIds.Add(FeMesh.GetItemIdFromGeometryId(sweepMesh.CreationIds[i]));
+                // Do selected surfaces form a connected surface
+                if (vis.AreSurfacesConnected(sourceSurfaceIds.ToArray()))
+                {
+                    // Find side surfaces
+                    HashSet<int> vertexNodeSurfaceIds;
+                    Dictionary<int, HashSet<int>> vertexNodeIdSurfaceId = new Dictionary<int, HashSet<int>>();
+                    //
+                    for (int i = 0; i < vis.FaceCount; i++)
+                    {
+                        foreach (var vertexNodeId in vis.GetVertexNodeIdsForSurfaceId(i))
+                        {
+                            if (vertexNodeIdSurfaceId.TryGetValue(vertexNodeId, out vertexNodeSurfaceIds))
+                                vertexNodeSurfaceIds.Add(i);
+                            else vertexNodeIdSurfaceId.Add(vertexNodeId, new HashSet<int> { i });
+                        }    
+                    }
+                    HashSet<int> sideSurfaces = new HashSet<int>();
+                    HashSet<int> surfaceVertices = vis.GetVertexNodeIdsForSurfaceIds(sourceSurfaceIds.ToArray());
+                    foreach (var entry in vertexNodeIdSurfaceId)
+                    {
+                        if (surfaceVertices.Contains(entry.Key)) sideSurfaces.UnionWith(entry.Value);
+                    }
+                    // Remove the source surfaces from the side surfaces
+                    sideSurfaces.ExceptWith(sourceSurfaceIds);
+                    // Are all side surfaces 4-sided
+                    bool fourSided = true;
+                    foreach (var surfaceId in sideSurfaces)
+                    {
+                        if (vis.FaceEdgeIds[surfaceId].Length != 4)
+                        {
+                            fourSided = false;
+                            break;
+                        }
+                    }
+                    //
+                    if (fourSided)
+                    {
+                        Dictionary<int, HashSet<int>> vertexIdEdgeId = vis.GetVertexIdEdgeIds();
+
+                        HashSet<int> surfaceEdgeIds = vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIds.ToArray());
+                        //
+                        HashSet<int> directionEdgeIds = new HashSet<int>();
+                        foreach (var vertexId in surfaceVertices)
+                            directionEdgeIds.UnionWith(vertexIdEdgeId[vertexId].Except(surfaceEdgeIds));
+                        //
+                        int[] edgeNodes;
+                        HashSet<int> nodeIds;
+                        Vec3D normalizedDirection;
+                        Vec3D averageDirection = new Vec3D();
+                        BoundingBox bb;
+                        foreach (var directionEdgeId in directionEdgeIds)
+                        {
+                            // Get all edge node ids
+                            nodeIds = vis.GetNodeIdsForEdgeId(directionEdgeId);
+                            // Reduce edge node ids to vertices
+                            edgeNodes = nodeIds.Intersect(vis.VertexNodeIds).ToArray();
+                            if (edgeNodes.Length != 2) throw new NotSupportedException();
+                            // First node must be on the selected surface
+                            if (!surfaceVertices.Contains(edgeNodes[0]))
+                                (edgeNodes[0], edgeNodes[1]) = (edgeNodes[1], edgeNodes[0]);
+                            // Compute the sweep direction
+                            normalizedDirection = _geometry.ComputeDirectionFromEdgeCellIndices(edgeNodes, edgeNodes[0]);
+                            averageDirection += normalizedDirection;
+                        }
+                        //
+                        averageDirection.Normalize();
+                        sweepMesh.Direction = averageDirection.Coor;
+                        //
+                        bb = _geometry.GetBoundingBoxForNodeIds(surfaceVertices.ToArray());
+                        sweepMesh.SweepCenter = bb.GetCenter();
+                        // Round
+                        double d = part.BoundingBox.GetDiagonal();
+                        int digits = (int)Math.Log10(d) - 6;
+                        if (digits > 0) digits = 0;
+                        else if (digits < 0) digits *= -1;
+                        //
+                        sweepMesh.Direction[0] = Math.Round(sweepMesh.Direction[0], digits);
+                        sweepMesh.Direction[1] = Math.Round(sweepMesh.Direction[1], digits);
+                        sweepMesh.Direction[2] = Math.Round(sweepMesh.Direction[2], digits);
+                        //
+                        sweepMesh.SweepCenter[0] = Math.Round(sweepMesh.SweepCenter[0], digits);
+                        sweepMesh.SweepCenter[1] = Math.Round(sweepMesh.SweepCenter[1], digits);
+                        sweepMesh.SweepCenter[2] = Math.Round(sweepMesh.SweepCenter[2], digits);
+                    }
+                    else error = "The sweep side surfaces are not 4-sided surfaces.";
+                }
+                else error = "The selected surfaces are not connected.";
+            }
+            else error = "The surfaces of more than one part are selected.";
+            //
+            return error == null ? null : error + " The swept mesh cannot be created.";
         }
         private string IsRevolveMeshProperlyDefined(RevolveMesh revolveMesh)
         {

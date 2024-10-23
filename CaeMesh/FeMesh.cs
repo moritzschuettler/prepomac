@@ -640,6 +640,21 @@ namespace CaeMesh
                     SetItemValidity(em, valid, items);
                     if (!valid && em.Active) invalidItems.Add("Extrude mesh: " + em.Name);
                 }
+                else if (entry.Value is SweepMesh sm)
+                {
+                    valid = sm.Valid;              // this is set to invalid after deleting a part
+                    if (!valid) sm.Valid = true;   // set this to true to detect a change in validity
+                    if (sm.CreationIds.Length == 0) valid &= false;
+                    else
+                    {
+                        // The selection is limited to one part
+                        partId = GetPartIdFromGeometryId(sm.CreationIds[0]);
+                        if (GetPartFromId(partId) == null) valid &= false;
+                    }
+                    //
+                    SetItemValidity(sm, valid, items);
+                    if (!valid && sm.Active) invalidItems.Add("Sweep mesh: " + sm.Name);
+                }
                 else if (entry.Value is RevolveMesh rm)
                 {
                     valid = rm.Valid;              // this is set to invalid after deleting a part

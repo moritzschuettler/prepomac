@@ -362,6 +362,7 @@
     <Compile Include="Forms\11_MeshSetup\FrmMeshSetupItem.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Forms\11_MeshSetup\ViewSweepMesh.cs" />
     <Compile Include="Forms\11_MeshSetup\ViewShellGmsh.cs" />
     <Compile Include="Forms\11_MeshSetup\ViewTransfiniteMesh.cs" />
     <Compile Include="Forms\11_MeshSetup\ViewTetrahedralGmsh.cs" />

@@ -13,6 +13,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Xml.Linq;
 using System.Diagnostics.Eventing.Reader;
+using System.Security;
 
 namespace FileInOut.Output
 {
@@ -34,7 +35,17 @@ namespace FileInOut.Output
             {
                 WriteKeywordRecursively(sb, keyword);
             }
-            File.WriteAllText(fileName, sb.ToString());
+            // Write to file in multiple steps
+            int step = 10_000_000;
+            int upper;
+            using (StreamWriter sw = new StreamWriter(fileName, false))
+            {
+                for (int i = 0; i < sb.Length; i+=step)
+                {
+                    upper = Math.Min(sb.Length - i, step);
+                    sw.Write(sb.ToString(i, upper));
+                }
+            }
         }
         static private void Clean(FeModel model)
         {
