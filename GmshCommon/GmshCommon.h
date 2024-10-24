@@ -900,7 +900,6 @@ namespace GmshCommon {
                 {
                     gmsh::model::occ::removeAllDuplicates();
                 }
-                
                 static void Defeature(array<int>^ volumeTags, array<int>^ surfaceTags,
                     [System::Runtime::InteropServices::Out] array<System::Tuple<int, int>^>^% outDimTags,
                     bool removeVolume)
@@ -919,7 +918,36 @@ namespace GmshCommon {
                     for (int i = 0; i < outDimTags_native.size(); ++i)
                         outDimTags[i] = gcnew System::Tuple<int, int>(outDimTags_native[i].first, outDimTags_native[i].second);
                 }
-
+                static void GetDistance(int dim1, int tag1, int dim2, int tag2,
+                    [System::Runtime::InteropServices::Out] double% distance)
+                {
+                    double x1, y1, z1, x2, y2, z2;
+                    GetDistance(dim1, tag1, dim2, tag2, distance, x1, y1, z1, x2, y2, z2);
+                }
+                static void GetDistance(int dim1, int tag1, int dim2, int tag2,
+                    [System::Runtime::InteropServices::Out] double% distance, [System::Runtime::InteropServices::Out] double% x1,
+                    [System::Runtime::InteropServices::Out] double% y1, [System::Runtime::InteropServices::Out] double% z1,
+                    [System::Runtime::InteropServices::Out] double% x2, [System::Runtime::InteropServices::Out] double% y2,
+                    [System::Runtime::InteropServices::Out] double% z2)
+                {
+                    double distance_native = 0;
+                    double x1_native = 0;
+                    double y1_native = 0;
+                    double z1_native = 0;
+                    double x2_native = 0;
+                    double y2_native = 0;
+                    double z2_native = 0;
+                    //
+                    gmsh::model::occ::getDistance(dim1, tag1, dim2, tag2, distance_native, x1_native, y1_native, z1_native,
+                                                                                           x2_native, y2_native, z2_native);
+                    distance = distance_native;
+                    x1 = x1_native;
+                    y1 = y1_native;
+                    z1 = z1_native;
+                    x2 = x2_native;
+                    y2 = y2_native;
+                    z2 = z2_native;
+                }
                 static void Fragment(array<System::Tuple<int, int>^>^ objectDimTags, array<System::Tuple<int, int>^>^ toolDimTags,
                     [System::Runtime::InteropServices::Out] array<System::Tuple<int, int>^>^% outDimTags,
                     [System::Runtime::InteropServices::Out] array<array<System::Tuple<int, int>^>^>^% outDimTagsMap,

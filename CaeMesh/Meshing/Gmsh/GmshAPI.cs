@@ -16,6 +16,7 @@ using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Windows.Forms;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement;
+using System.Drawing;
 
 namespace CaeMesh
 {
@@ -197,6 +198,7 @@ namespace CaeMesh
                 }
                 // Output
                 Gmsh.Write(_gmshData.InpFileName);
+                //Gmsh.Write(@"c:\Temp\mesh.mesh");
                 //
                 _writeOutput?.Invoke("Meshing done.");
                 _writeOutput?.Invoke("");
@@ -471,10 +473,7 @@ namespace CaeMesh
             // Get target surfaces
             targetSurfaceIds.ExceptWith(sourceSurfaceIds);
             targetSurfaceIds.ExceptWith(sideSurfaceIds);
-            //
-            
-            
-            
+            if (targetSurfaceIds.Count != 1) throw new NotSupportedException();
             // Set source surfaces
             if (recombine)
             {
@@ -486,18 +485,177 @@ namespace CaeMesh
                 Gmsh.Model.Mesh.SetRecombine(2, sideSurfaceId);
                 Gmsh.Model.Mesh.SetTransfiniteSurface(sideSurfaceId, "AlternateLeft");
             }
-            
-            // Remove the volume and the target surfaces
+            //
+            Gmsh.Model.Mesh.Generate(2);
+            // Remove the volume and the target surface mesh
             List<Tuple<int, int>> toRemoveDimTags = new List<Tuple<int, int>>() { new Tuple<int, int>(3, 1) };  // volume
             foreach (var targetSurfaceId in targetSurfaceIds) toRemoveDimTags.Add(new Tuple<int, int>(2, targetSurfaceId));
             //
-            Gmsh.Model.OCC.Remove(toRemoveDimTags.ToArray(), false);
+            Gmsh.Model.Mesh.Clear(toRemoveDimTags.ToArray());
+            // Create sweep lines and their nodes
+            Dictionary<IntPtr, IntPtr[]> nodeIdSweepLine;
+            Dictionary<IntPtr, double[]> nodeIdCoor;
+            HashSet<IntPtr> addedNodeIds;
+            HashSet<IntPtr> nodeIdsOfBoundarySweepLines;
+            Dictionary<IntPtr, HashSet<IntPtr>> sweepLineNeighbours;
+            CreateSweepLines(sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds, surfaceIdEdgeIds, surfaceIdVertexIds,
+                             out addedNodeIds, out nodeIdSweepLine, out nodeIdsOfBoundarySweepLines, out sweepLineNeighbours,
+                             out nodeIdCoor);
             //
-            Gmsh.Model.OCC.Synchronize(); // must be here
+            SmoothSweepLines(nodeIdSweepLine, nodeIdCoor, nodeIdsOfBoundarySweepLines, sweepLineNeighbours);
             //
-            Gmsh.Model.Mesh.Generate(2);
+            ProjectSweepLineEndNodesToFaces(nodeIdSweepLine, nodeIdCoor, nodeIdsOfBoundarySweepLines, targetSurfaceIds);
+
+
+            // Add nodes
+            foreach (var entry in nodeIdSweepLine)
+            {
+                if (!nodeIdsOfBoundarySweepLines.Contains(entry.Key))
+                {
+                    for (int i = 1; i < entry.Value.Length; i++)
+                    {
+                        if (i == entry.Value.Length - 1)
+                            Gmsh.Model.Mesh.AddNodes(2, targetSurfaceIds.First(), new IntPtr[1] { entry.Value[i] }, nodeIdCoor[entry.Value[i]]);
+                        else
+                            Gmsh.Model.Mesh.AddNodes(3, 1, new IntPtr[1] { entry.Value[i] }, nodeIdCoor[entry.Value[i]]);
+                    }
+                }
+            }
+
+            //foreach (var nodeId in addedNodeIds)
+            //{
+            //    Gmsh.Model.Mesh.AddNodes(3, 1, new IntPtr[1] { nodeId }, nodeIdCoor[nodeId]);
+            //}
+            
+
+
+            // Get max element id
+            int currElementId;
+            int maxElementId = 0;
+            int[] elementTypes;
+            IntPtr[][] elementTags;
+            IntPtr[][] nodeTags;
+            Gmsh.Model.Mesh.GetElements(out elementTypes, out elementTags, out nodeTags, -1, -1);
+            for (int i = 0; i < elementTags.Length; i++)
+            {
+                for (int j = 0; j < elementTags[i].Length; j++)
+                {
+                    currElementId = elementTags[i][j].ToInt32();
+                    if (currElementId > maxElementId) maxElementId = currElementId;
+                }
+            }
             //
-            SweepMeshFrom2D(sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds, surfaceIdEdgeIds, surfaceIdVertexIds);
+
+
+            int numNodes;
+            int newElementId = maxElementId + 1;
+            int numLayers = nodeIdSweepLine.First().Value.Length - 1;
+            IntPtr[] nodeIdsArr;
+            IntPtr[][] solidNodeIdsArr;
+
+            double[] coor1;
+            double[] coor2;
+            double[] coor3;
+            double[] u = new double[3];
+            double[] v = new double[3];
+            double[] n = new double[3];
+            double[] d = new double[3];
+            bool reverse;
+            int delta1;
+            int delta2;
+
+            foreach (var id in sourceSurfaceIds)
+            {
+                Gmsh.Model.Mesh.GetElements(out elementTypes, out elementTags, out nodeTags, 2, id);
+                //
+                for (int i = 0; i < numLayers; i++) // layer id
+                {
+                    for (int j = 0; j < elementTags.Length; j++) // element type id
+                    {
+                        Gmsh.Model.Mesh.GetElementProperties(elementTypes[j], out _, out _, out numNodes, out _, out _);
+                        //
+                        for (int k = 0; k < elementTags[j].Length; k++) // element id
+                        {
+                            nodeIdsArr = new IntPtr[numNodes];
+                            Array.Copy(nodeTags[j], k * numNodes, nodeIdsArr, 0, numNodes);
+                            //
+                            if (numNodes < 3) throw new NotSupportedException();
+                            //
+                            coor1 = nodeIdCoor[nodeIdsArr[0]];
+                            coor2 = nodeIdCoor[nodeIdsArr[1]];
+                            coor3 = nodeIdCoor[nodeIdsArr[2]];
+                            //
+                            u[0] = coor2[0] - coor1[0];
+                            u[1] = coor2[1] - coor1[1];
+                            u[2] = coor2[2] - coor1[2];
+                            //
+                            v[0] = coor3[0] - coor1[0];
+                            v[1] = coor3[1] - coor1[1];
+                            v[2] = coor3[2] - coor1[2];
+                            //
+                            n[0] = u[1] * v[2] - u[2] * v[1];
+                            n[1] = u[2] * v[0] - u[0] * v[2];
+                            n[2] = u[0] * v[1] - u[1] * v[0];
+                            //
+                            coor1 = nodeIdCoor[nodeIdSweepLine.First().Value[0]];
+                            coor2 = nodeIdCoor[nodeIdSweepLine.First().Value[1]];
+                            //
+                            d[0] = coor2[0] - coor1[0];
+                            d[1] = coor2[1] - coor1[1];
+                            d[2] = coor2[2] - coor1[2];
+                            //
+                            reverse = n[0] * d[0] + n[1] * d[1] + n[2] * d[2] < 0;
+                            if (reverse)
+                            {
+                                delta1 = 1;
+                                delta2 = 0;
+                            }
+                            else
+                            {
+                                delta1 = 0;
+                                delta2 = 1;
+                            }
+                            if (numNodes == 3)
+                            {
+                                solidNodeIdsArr = new IntPtr[][] { new IntPtr[6] };
+                                solidNodeIdsArr[0][0] = nodeIdSweepLine[nodeIdsArr[0]][i + delta1];
+                                solidNodeIdsArr[0][1] = nodeIdSweepLine[nodeIdsArr[1]][i + delta1];
+                                solidNodeIdsArr[0][2] = nodeIdSweepLine[nodeIdsArr[2]][i + delta1];
+                                solidNodeIdsArr[0][3] = nodeIdSweepLine[nodeIdsArr[0]][i + delta2];
+                                solidNodeIdsArr[0][4] = nodeIdSweepLine[nodeIdsArr[1]][i + delta2];
+                                solidNodeIdsArr[0][5] = nodeIdSweepLine[nodeIdsArr[2]][i + delta2];
+                                //
+                                Gmsh.Model.Mesh.AddElements(3, 1, new int[] { 6 },
+                                                            new IntPtr[][] { new IntPtr[] { (IntPtr)newElementId } },
+                                                            solidNodeIdsArr);
+                                newElementId++;
+                                //
+                                if (i == numLayers - 1)
+                                {
+                                    solidNodeIdsArr = new IntPtr[][] { new IntPtr[3] };
+                                    solidNodeIdsArr[0][0] = nodeIdSweepLine[nodeIdsArr[0]][i + 1];
+                                    solidNodeIdsArr[0][1] = nodeIdSweepLine[nodeIdsArr[2]][i + 1];
+                                    solidNodeIdsArr[0][2] = nodeIdSweepLine[nodeIdsArr[1]][i + 1];
+
+                                    //
+                                    Gmsh.Model.Mesh.AddElements(2, targetSurfaceIds.First(), new int[] { 2 },
+                                                                new IntPtr[][] { new IntPtr[] { (IntPtr)newElementId } },
+                                                                solidNodeIdsArr);
+                                    newElementId++;
+                                }
+                            }
+                            else if (numNodes == 4)
+                            {
+
+                            }
+                            else throw new NotSupportedException();
+                        }
+                    }
+                }
+            }
+
+            //Tuple<int, int>[] dimTags = new Tuple<int, int>[0];
+            //Gmsh.Model.Mesh.Optimize(GmshOptimizeFirstOrderSolidEnum.Gmsh.ToString(), true, 5, dimTags);
         }
         //
         private void GetSurfaceItems(out Dictionary<int, int[]> surfaceIdEdgeIds, out Dictionary<int, int[]> surfaceIdVertexIds)
@@ -524,21 +682,425 @@ namespace CaeMesh
                 surfaceIdVertexIds.Add(surfaceDimTag.Item2, allVertexIds.ToArray());
             }
         }
-        private void SweepMeshFrom2D(HashSet<int> sourceSurfaceIds, HashSet<int> sideSurfaceIds, HashSet<int> targetSurfaceIds,
-                                     Dictionary<int, int[]> surfaceIdEdgeIds, Dictionary<int, int[]> surfaceIdVertexIds)
+        private void CreateSweepLines(HashSet<int> sourceSurfaceIds, HashSet<int> sideSurfaceIds, HashSet<int> targetSurfaceIds,
+                                      Dictionary<int, int[]> surfaceIdEdgeIds, Dictionary<int, int[]> surfaceIdVertexIds,
+                                      out HashSet<IntPtr> addedNodeIds, out Dictionary<IntPtr, IntPtr[]> nodeIdSweepLine,
+                                      out HashSet<IntPtr> nodeIdsOfBoundarySweepLines,
+                                      out Dictionary<IntPtr, HashSet<IntPtr>> sweepLineNeighbours,
+                                      out Dictionary<IntPtr, double[]> nodeIdCoor)
         {
             HashSet<int> sourceEdgeIds = new HashSet<int>();
             HashSet<int> sideEdgeIds = new HashSet<int>();
-            HashSet<int> outerSideEdgeIds = new HashSet<int>();
+            HashSet<int> sourceSideBoundaryEdgeIds;
             //
             foreach (var id in sourceSurfaceIds) sourceEdgeIds.UnionWith(surfaceIdEdgeIds[id]);
             foreach (var id in sideSurfaceIds) sideEdgeIds.UnionWith(surfaceIdEdgeIds[id]);
-            outerSideEdgeIds = sourceEdgeIds.Intersect(sideEdgeIds).ToHashSet();
-            // Get all elements on the side surfaces
+            sourceSideBoundaryEdgeIds = sourceEdgeIds.Intersect(sideEdgeIds).ToHashSet();
+            //
+            // Side surface sweep lines                                                                     
+            //
+            // Get side nodes neighbours map
+            Dictionary<IntPtr, HashSet<IntPtr>> nodeIdNeighbourIds = GetNodesNeighbours(sideSurfaceIds);
+            // Get first nodes of the sweep lines
+            IntPtr[] nodeIdsArr;
+            nodeIdsOfBoundarySweepLines = new HashSet<IntPtr>();
+            foreach (var id in sourceSideBoundaryEdgeIds)
+            {
+                Gmsh.Model.Mesh.GetNodes(out nodeIdsArr, out _, 1, id, true, false);
+                nodeIdsOfBoundarySweepLines.UnionWith(nodeIdsArr);
+            }
+            // Get sweep lines on side surfaces
+            IntPtr firstNodeId;
+            IntPtr neighbourId;
+            HashSet<IntPtr> currentLayerNodeIds = nodeIdsOfBoundarySweepLines;
+            HashSet<IntPtr> prevTwoLayerNodeIds = new HashSet<IntPtr>(nodeIdsOfBoundarySweepLines);
+            HashSet<IntPtr> nextLayerNodeIds;
+            Dictionary<IntPtr, IntPtr> nodeIdFirstNodeId = new Dictionary<IntPtr, IntPtr>();
+            Dictionary<IntPtr, List<IntPtr>> nodeIdSweepLineList = new Dictionary<IntPtr, List<IntPtr>>();
+            foreach (var nodeId in nodeIdsOfBoundarySweepLines)
+                nodeIdSweepLineList.Add(nodeId, new List<IntPtr>() { nodeId });
+            //
+            int numOfLayers = 1;
+            HashSet<IntPtr> neighbourIds;
+            int visitedNodesCount = currentLayerNodeIds.Count;
+            while (visitedNodesCount < nodeIdNeighbourIds.Count)
+            {
+                nextLayerNodeIds = new HashSet<IntPtr>();
+                foreach (var nodeId in currentLayerNodeIds)
+                {
+                    neighbourIds = nodeIdNeighbourIds[nodeId].Except(prevTwoLayerNodeIds).ToHashSet();
+                    if (neighbourIds.Count != 1) throw new NotSupportedException();
+                    //
+                    neighbourId = neighbourIds.First();
+                    // Get first node id of the sweep line
+                    if (!nodeIdFirstNodeId.TryGetValue(nodeId, out firstNodeId)) firstNodeId = nodeId;
+                    nodeIdFirstNodeId[neighbourId] = firstNodeId;
+                    //
+                    nodeIdSweepLineList[firstNodeId].Add(neighbourId);
+                    //
+                    nextLayerNodeIds.Add(neighbourId);
+                }
+                prevTwoLayerNodeIds = new HashSet<IntPtr>(currentLayerNodeIds);
+                prevTwoLayerNodeIds.UnionWith(nextLayerNodeIds);
+                //
+                currentLayerNodeIds = nextLayerNodeIds;
+                //
+                numOfLayers++;
+                visitedNodesCount += currentLayerNodeIds.Count;
+            }
+            //
+            nodeIdSweepLine = new Dictionary<IntPtr, IntPtr[]>();
+            foreach (var entry in nodeIdSweepLineList) nodeIdSweepLine.Add(entry.Key, entry.Value.ToArray());
+            //
+            // Source surface sweep lines                                                                   
+            //
+            // Get all node coordinates and max node id
+            int currNodeId;
+            int maxNodeId = 0;
+            double[] coor;
+            double[] allCoor;
+            nodeIdCoor = new Dictionary<IntPtr, double[]>();
+            HashSet<int> allSurfaceIds = sourceSurfaceIds.Union(sideSurfaceIds).ToHashSet();
+            foreach (var id in allSurfaceIds)
+            {
+                Gmsh.Model.Mesh.GetNodes(out nodeIdsArr, out allCoor, 2, id, true, false);
+                for (int i = 0; i < nodeIdsArr.Length; i++)
+                {
+                    coor = new double[3];
+                    Array.Copy(allCoor, i * 3, coor, 0, 3);
+                    nodeIdCoor[nodeIdsArr[i]] = coor;
+                    currNodeId = nodeIdsArr[i].ToInt32();
+                    if (currNodeId > maxNodeId) maxNodeId = currNodeId;
+                }
+            }
+            // Get source nodes neighbours map
+            nodeIdNeighbourIds = GetNodesNeighbours(sourceSurfaceIds);
+            sweepLineNeighbours = nodeIdNeighbourIds;
+            //
+            int newNodeId = maxNodeId + 1;
+            double[] coor1;
+            double[] coor2;
+            double[] direction;
+            double[] avgDirection;
+            IntPtr[] sweepLine;
+            List<IntPtr[]> sweepLines;
+            HashSet<IntPtr> visitedNodeIds = new HashSet<IntPtr>(currentLayerNodeIds);
+            //
+            addedNodeIds = new HashSet<IntPtr>();
+            currentLayerNodeIds = nodeIdsOfBoundarySweepLines;
+            // Go through nodes layer by layer from outside to inside
+            while (nodeIdSweepLine.Count != nodeIdNeighbourIds.Count)
+            {
+                nextLayerNodeIds = new HashSet<IntPtr>();
+                foreach (var nodeId in currentLayerNodeIds)
+                {
+                    nextLayerNodeIds.UnionWith(nodeIdNeighbourIds[nodeId].Except(visitedNodeIds).ToHashSet());
+                }
+                foreach (var nodeId in nextLayerNodeIds)
+                {
+                    // If sweep line does not exist
+                    if (!nodeIdSweepLine.ContainsKey(nodeId))
+                    {
+                        // Find neighbouring sweep lines
+                        sweepLines = new List<IntPtr[]>();
+                        foreach (var neighbourNodeId in nodeIdNeighbourIds[nodeId])
+                        {
+                            if (nodeIdSweepLine.TryGetValue(neighbourNodeId, out sweepLine)) sweepLines.Add(sweepLine);
+                        }
+                        // Compute the average positions on the new sweep line
+                        if (sweepLines.Count > 0)
+                        {
+                            sweepLine = new IntPtr[numOfLayers];
+                            sweepLine[0] = nodeId; // first node
+                            //
+                            for (int i = 0; i < numOfLayers - 1; i++)
+                            {
+                                direction = new double[3];
+                                avgDirection = new double[3];
+                                for (int j = 0; j < sweepLines.Count; j++)
+                                {
+                                    coor1 = nodeIdCoor[sweepLines[j][i]];
+                                    coor2 = nodeIdCoor[sweepLines[j][i + 1]];
+                                    direction[0] = coor2[0] - coor1[0];
+                                    direction[1] = coor2[1] - coor1[1];
+                                    direction[2] = coor2[2] - coor1[2];
+                                    //
+                                    avgDirection[0] += direction[0];
+                                    avgDirection[1] += direction[1];
+                                    avgDirection[2] += direction[2];
+                                }
+                                avgDirection[0] /= sweepLines.Count;
+                                avgDirection[1] /= sweepLines.Count;
+                                avgDirection[2] /= sweepLines.Count;
+                                //
+                                coor1 = nodeIdCoor[sweepLine[i]];
+                                coor2 = new double[3];
+                                coor2[0] = coor1[0] + avgDirection[0];
+                                coor2[1] = coor1[1] + avgDirection[1];
+                                coor2[2] = coor1[2] + avgDirection[2];
+                                //
+                                sweepLine[i + 1] = (IntPtr)newNodeId;
+                                nodeIdCoor.Add((IntPtr)newNodeId, coor2);
+                                addedNodeIds.Add((IntPtr)newNodeId);
+                                //
+                                newNodeId++;
+                            }
+                            nodeIdSweepLine.Add(nodeId, sweepLine);
+                        }
+                    }
+                }
+                //
+                visitedNodeIds.UnionWith(nextLayerNodeIds);
+                //
+                currentLayerNodeIds = nextLayerNodeIds;
+            }
+        }
+        private void SmoothSweepLines(Dictionary<IntPtr, IntPtr[]> nodeIdSweepLine, Dictionary<IntPtr, double[]> nodeIdCoor,
+                                      HashSet<IntPtr> nodeIdsOfBoundarySweepLines,
+                                      Dictionary<IntPtr, HashSet<IntPtr>> sweepLineNeighbours)
+        {
+            double[] coor1;
+            double[] coor2;
+            double[] direction;
+            IntPtr[] sweepLine;
+            
+            Dictionary<IntPtr, double[]> nodeIdDirection = new Dictionary<IntPtr, double[]>();  // direction to the node
+            foreach (var entry in nodeIdSweepLine)
+            {
+                sweepLine = entry.Value;
+                //
+                for (int i = 1; i < sweepLine.Length; i++)
+                {
+                    coor1 = nodeIdCoor[sweepLine[i - 1]];
+                    coor2 = nodeIdCoor[sweepLine[i]];
+                    direction = new double[3];
+                    direction[0] = coor2[0] - coor1[0];
+                    direction[1] = coor2[1] - coor1[1];
+                    direction[2] = coor2[2] - coor1[2];
+                    nodeIdDirection.Add(sweepLine[i], direction);
+                }
+            }
+            // Laplacian smoothing of directions
+            int n = 10;
+            double[] avgDirection;
+            HashSet<IntPtr> neighbours;
+            Dictionary<IntPtr, double[]> smoothNodeIdDirection;
+            IntPtr[] internalNodeIds = nodeIdSweepLine.Keys.Except(nodeIdsOfBoundarySweepLines).ToArray();
+            //
+            for (int i = 0; i < n; i++) // number of smooth loops
+            {
+                smoothNodeIdDirection = new Dictionary<IntPtr, double[]>();
+                foreach (var nodeId in internalNodeIds) // for each sweep line
+                {
+                    sweepLine = nodeIdSweepLine[nodeId];
+                    for (int j = 1; j < sweepLine.Length; j++)  // for each layer
+                    {
+                        avgDirection = new double[3];
+                        neighbours = sweepLineNeighbours[nodeId];
+                        //
+                        foreach (var neighbourNodeId in neighbours)
+                        {
+                            direction = nodeIdDirection[nodeIdSweepLine[neighbourNodeId][j]];
+                            //direction = nodeIdCoor[nodeIdSweepLine[neighbourNodeId][j]];
+                            avgDirection[0] += direction[0];
+                            avgDirection[1] += direction[1];
+                            avgDirection[2] += direction[2];
+                        }
+                        avgDirection[0] /= neighbours.Count;
+                        avgDirection[1] /= neighbours.Count;
+                        avgDirection[2] /= neighbours.Count;
+                        //
+                        smoothNodeIdDirection[sweepLine[j]] = avgDirection;
+                    }
+                }
+                // Copy boundary directions
+                foreach (var nodeId in nodeIdsOfBoundarySweepLines)
+                {
+                    sweepLine = nodeIdSweepLine[nodeId];
+                    for (int j = 1; j < sweepLine.Length; j++)  // for each layer
+                    {
+                        direction = nodeIdDirection[sweepLine[j]];
+                        smoothNodeIdDirection[sweepLine[j]] = direction;
+                    }
+                }
+                //
+                nodeIdDirection = smoothNodeIdDirection;
+            }
+            // Apply smoother directions to coordinates
+            foreach (var nodeId in internalNodeIds) // for each sweep line
+            {
+                sweepLine = nodeIdSweepLine[nodeId];
+                for (int j = 1; j < sweepLine.Length; j++)  // for each layer
+                {
+                    coor1 = nodeIdCoor[sweepLine[j - 1]];
+                    direction = nodeIdDirection[sweepLine[j]];
+                    coor2 = new double[3];
+                    coor2[0] = coor1[0] + direction[0];
+                    coor2[1] = coor1[1] + direction[1];
+                    coor2[2] = coor1[2] + direction[2];
+                    nodeIdCoor[sweepLine[j]] = coor2;
+                    //nodeIdCoor[sweepLine[j]] = direction;
+                }
+            }
+
+        }
+        private void ProjectSweepLineEndNodesToFaces(Dictionary<IntPtr, IntPtr[]> nodeIdSweepLine,
+                                                     Dictionary<IntPtr, double[]> nodeIdCoor,
+                                                     HashSet<IntPtr> nodeIdsOfBoundarySweepLines,
+                                                     HashSet<int> targetSurfaceIds)
+        {
+            int count;
+            int whileCount;
+            int numLayers = -1;
+            double length = 0;
+            double disByDisDer;
+            double[] rations;
+            double[] t;
+            double[][] coor;
+            double[] coor1;
+            double[] coor2;
+            double[] direction = new double[3];
+            IntPtr[] sweepLine;
+            // Compute the rations of a boundary sweep line
+            sweepLine = nodeIdSweepLine[nodeIdsOfBoundarySweepLines.First()];
+            numLayers = sweepLine.Length;
+            rations = new double[numLayers - 1];
+            for (int i = 0; i < numLayers - 1; i++)
+            {
+                coor1 = nodeIdCoor[sweepLine[i]];
+                coor2 = nodeIdCoor[sweepLine[i + 1]];
+                direction[0] = coor2[0] - coor1[0];
+                direction[1] = coor2[1] - coor1[1];
+                direction[2] = coor2[2] - coor1[2];
+                //
+                rations[i] = Math.Sqrt(Math.Pow(direction[0], 2) + Math.Pow(direction[1], 2) + Math.Pow(direction[2], 2));
+                length += rations[i];
+            }
+            for (int i = 0; i < rations.Length; i++) rations[i] /= length;
+            // Use Newtons method to find the surface intersection
+            foreach (var entry in nodeIdSweepLine)
+            {
+                if (nodeIdsOfBoundarySweepLines.Contains(entry.Key)) continue;
+                //
+                sweepLine = entry.Value;
+                coor1 = nodeIdCoor[sweepLine[numLayers - 2]];
+                coor2 = nodeIdCoor[sweepLine[numLayers - 1]];
+                direction[0] = coor2[0] - coor1[0];
+                direction[1] = coor2[1] - coor1[1];
+                direction[2] = coor2[2] - coor1[2];
+                //
+                t = new double[targetSurfaceIds.Count];
+                coor = new double[targetSurfaceIds.Count][];
+                for (int i = 0; i < t.Length; i++)
+                {
+                    t[i] = 1;
+                    coor[i] = coor2.ToArray();
+                }
+                //
+                whileCount = 0;
+                while (whileCount < 10)
+                {
+                    count = 0;
+                    foreach (var targetSurfaceId in targetSurfaceIds)
+                    {
+                        disByDisDer = DistanceByDistanceDerivative(coor[count], direction, targetSurfaceId);
+                        //
+                        if (Math.Abs(disByDisDer) < 1E-6)
+                        {
+                            nodeIdCoor[sweepLine[numLayers - 1]] = coor[count];
+                            //
+                            ResetSweepLineLengths(sweepLine, nodeIdCoor, rations);
+                            //
+                            whileCount = 100;
+                            break;
+                        }
+                        else
+                        {
+                            t[count] -= disByDisDer;
+                            coor[count][0] = coor1[0] + t[count] * direction[0];
+                            coor[count][1] = coor1[1] + t[count] * direction[1];
+                            coor[count][2] = coor1[2] + t[count] * direction[2];
+                        }
+                        //
+                        count++;
+                    }
+                    //
+                    whileCount++;
+                }
+            }
+            
+
+        }
+        private void ResetSweepLineLengths(IntPtr[] sweepLine, Dictionary<IntPtr, double[]> nodeIdCoor, double[] rations)
+        {
+            int numLayers = sweepLine.Length;
+            double length = 0;
+            double[] lengths = new double[numLayers - 1];
+            double[] coor1;
+            double[] coor2;
+            double[] direction = new double[3];
+            //
+            for (int i = 0; i < numLayers - 1; i++)
+            {
+                coor1 = nodeIdCoor[sweepLine[i]];
+                coor2 = nodeIdCoor[sweepLine[i + 1]];
+                direction[0] = coor2[0] - coor1[0];
+                direction[1] = coor2[1] - coor1[1];
+                direction[2] = coor2[2] - coor1[2];
+                //
+                lengths[i] = Math.Sqrt(Math.Pow(direction[0], 2) + Math.Pow(direction[1], 2) + Math.Pow(direction[2], 2));
+                length += rations[i];
+            }
+            //
+            double t;
+            double newLength = 0;
+            length = 0;
+            for (int i = 0; i < numLayers - 1; i++)
+            {
+                length += lengths[i];
+                newLength += rations[i] * length;
+
+                if (length > newLength)
+                {
+                    t = 1 - ((length - newLength) / lengths[i]);
+                    //
+                    coor1 = nodeIdCoor[sweepLine[i]];
+                    coor2 = nodeIdCoor[sweepLine[i + 1]];
+                    direction[0] = coor2[0] - coor1[0];
+                    direction[1] = coor2[1] - coor1[1];
+                    direction[2] = coor2[2] - coor1[2];
+                }
+            }
+        }
+        private double DistanceByDistanceDerivative(double[] coor, double[] direction, int surfaceId)
+        {
+            double epsilon = 1E-6;
+            double distance1;
+            double distance2;
+            //
+            int point1Id = Gmsh.Model.OCC.AddPoint(coor[0], coor[1], coor[2]);
+            int point2Id = Gmsh.Model.OCC.AddPoint(coor[0] + epsilon * direction[0],
+                                                   coor[1] + epsilon * direction[1],
+                                                   coor[2] + epsilon * direction[2]);
+            //
+            Gmsh.Model.OCC.GetDistance(0, point1Id, 2, surfaceId, out distance1);
+            Gmsh.Model.OCC.GetDistance(0, point2Id, 2, surfaceId, out distance2);
+            //
+            double derivative;
+            double disByDisDer;
+            derivative = (distance2 - distance1) / epsilon;
+            disByDisDer = distance1 / derivative;
+            //
+            return disByDisDer;
+        }
+
+        private Dictionary<IntPtr, HashSet<IntPtr>> GetNodesNeighbours(IEnumerable<int> surfaceIds)
+        {
+            // Get all elements on the surfaces
             int numNodes;
             IntPtr[] nodeIdsArr;
             Dictionary<IntPtr, IntPtr[]> elementIdNodeIds = new Dictionary<IntPtr, IntPtr[]>();
-            foreach (var id in sideSurfaceIds)
+            foreach (var id in surfaceIds)
             {
                 Gmsh.Model.Mesh.GetElements(out int[] elementTypes, out IntPtr[][] elementTags, out IntPtr[][] nodeTags, 2, id);
                 //
@@ -554,85 +1116,31 @@ namespace CaeMesh
                     }
                 }
             }
-            // Get all elements connected to a node
-            HashSet<IntPtr> elementIds;
-            Dictionary<IntPtr, HashSet<IntPtr>> nodeIdElementIds = new Dictionary<IntPtr, HashSet<IntPtr>>();
-            foreach (var entry in elementIdNodeIds)
-            {
-                for (int i = 0; i < entry.Value.Length; i++)
-                {
-                    if (nodeIdElementIds.TryGetValue(entry.Value[i], out elementIds)) elementIds.Add(entry.Key);
-                    else nodeIdElementIds.Add(entry.Value[i], new HashSet<IntPtr>() { entry.Key });
-                }
-            }
             // Get node neighbours map
+            int delta;
+            int numOfNodes;
             HashSet<IntPtr> neighbourIds;
             Dictionary<IntPtr, HashSet<IntPtr>> nodeIdNeighbourIds = new Dictionary<IntPtr, HashSet<IntPtr>>();
-            foreach(var entry in elementIdNodeIds)
+            foreach (var entry in elementIdNodeIds)
             {
-                if (entry.Value.Length != 4) throw new NotSupportedException();
+                numOfNodes = entry.Value.Length;
+                if (numOfNodes == 3) delta = 1;
+                else if (numOfNodes == 4) delta = 2;
+                else throw new NotSupportedException();
                 //
-                for (int i = 0; i < entry.Value.Length; i++)
+                for (int i = 0; i < numOfNodes; i++)
                 {
                     if (!nodeIdNeighbourIds.TryGetValue(entry.Value[i], out neighbourIds))
                     {
                         neighbourIds = new HashSet<IntPtr>();
                         nodeIdNeighbourIds.Add(entry.Value[i], neighbourIds);
                     }
-                    neighbourIds.Add(entry.Value[(i + 1) % 4]);
-                    neighbourIds.Add(entry.Value[(i + 3) % 4]);
+                    neighbourIds.Add(entry.Value[(i + 1) % numOfNodes]);
+                    neighbourIds.Add(entry.Value[(i + 1 + delta) % numOfNodes]);
                 }
             }
-            // Get first nodes of the sweep lines
-            HashSet<IntPtr> firstNodeIdsOfSweepLines = new HashSet<IntPtr>();
-            HashSet<int> intNodeIds = new HashSet<int>();
-            foreach (var id in outerSideEdgeIds)
-            {
-                Gmsh.Model.Mesh.GetNodes(out nodeIdsArr, out _, 1, id, true, false);
-                firstNodeIdsOfSweepLines.UnionWith(nodeIdsArr);
-
-                for (global::System.Int32 i = 0; i < nodeIdsArr.Length; i++)
-                {
-                    intNodeIds.Add(nodeIdsArr[i].ToInt32());
-                }
-            }
-            // Get sweep lines
-            IntPtr firstNodeId;
-            IntPtr neighbourId;
-            HashSet<IntPtr> currentLayerNodeIds = firstNodeIdsOfSweepLines;
-            HashSet<IntPtr> prevTwoLayerNodeIds = new HashSet<IntPtr>(firstNodeIdsOfSweepLines);
-            HashSet<IntPtr> nextLayerNodeIds;
-            Dictionary<IntPtr, IntPtr> nodeIdFirstNodeId = new Dictionary<IntPtr, IntPtr>();
-            Dictionary<IntPtr, List<IntPtr>> nodeIdSweepLineNodeIds = new Dictionary<IntPtr, List<IntPtr>>();
-            foreach (var nodeId in firstNodeIdsOfSweepLines) nodeIdSweepLineNodeIds.Add(nodeId, new List<IntPtr>() { nodeId });
             //
-            int visitedNodesCount = currentLayerNodeIds.Count;
-            while (visitedNodesCount < nodeIdElementIds.Count)
-            {
-                nextLayerNodeIds = new HashSet<IntPtr>();
-                foreach (var nodeId in currentLayerNodeIds)
-                {
-                    neighbourIds = nodeIdNeighbourIds[nodeId].Except(prevTwoLayerNodeIds).ToHashSet();
-                    if (neighbourIds.Count != 1) throw new NotSupportedException();
-                    //
-                    neighbourId = neighbourIds.First();
-                    // Get first node id of the sweep line
-                    if (!nodeIdFirstNodeId.TryGetValue(nodeId, out firstNodeId)) firstNodeId = nodeId;
-                    nodeIdFirstNodeId[neighbourId] = firstNodeId;
-                    //
-                    nodeIdSweepLineNodeIds[firstNodeId].Add(neighbourId);
-                    //
-                    nextLayerNodeIds.Add(neighbourId);
-                }
-                prevTwoLayerNodeIds = new HashSet<IntPtr>(currentLayerNodeIds);
-                prevTwoLayerNodeIds.UnionWith(nextLayerNodeIds);
-                //
-                currentLayerNodeIds = nextLayerNodeIds;
-                //
-                visitedNodesCount += currentLayerNodeIds.Count;
-            }
-            
-
+            return nodeIdNeighbourIds;
         }
         public bool CheckMeshVolume(Tuple<int, int>[] outDimTags)
         {
