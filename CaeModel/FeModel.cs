@@ -1600,6 +1600,8 @@ namespace CaeModel
                         Vec3D normalizedDirection;
                         Vec3D averageDirection = new Vec3D();
                         BoundingBox bb;
+                        int edgeCellId;
+                        int[] edgeCell;
                         foreach (var directionEdgeId in directionEdgeIds)
                         {
                             // Get all edge node ids
@@ -1610,6 +1612,22 @@ namespace CaeModel
                             // First node must be on the selected surface
                             if (!surfaceVertices.Contains(edgeNodes[0]))
                                 (edgeNodes[0], edgeNodes[1]) = (edgeNodes[1], edgeNodes[0]);
+                            // Find the first edge cell for direction
+                            for (int i = 0; i < vis.EdgeCellIdsByEdge[directionEdgeId].Length; i++)
+                            {
+                                edgeCellId = vis.EdgeCellIdsByEdge[directionEdgeId][i];
+                                edgeCell = vis.EdgeCells[edgeCellId];
+                                if (edgeNodes[0] == edgeCell[0])
+                                {
+                                    edgeNodes[1] = edgeCell[1];
+                                    break;
+                                }
+                                else if (edgeNodes[0] == edgeCell[1])
+                                {
+                                    edgeNodes[1] = edgeCell[0];
+                                    break;
+                                }
+                            }
                             // Compute the sweep direction
                             normalizedDirection = _geometry.ComputeDirectionFromEdgeCellIndices(edgeNodes, edgeNodes[0]);
                             averageDirection += normalizedDirection;
@@ -1706,7 +1724,7 @@ namespace CaeModel
                         double[] axisCenter;
                         double[] axisDirection;
                         vis.GetArcEdgeDataForEdgeIds(directionEdgeIds, surfaceVertices, _geometry.Nodes,
-                                                    out r, out arcAngleDeg, out axisCenter, out axisDirection);
+                                                     out r, out arcAngleDeg, out axisCenter, out axisDirection);
                         if (r > 0 && arcAngleDeg > 0)
                         {
                             revolveMesh.AxisDirection = axisDirection;

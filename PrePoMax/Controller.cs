@@ -4163,7 +4163,7 @@ namespace PrePoMax
             string argument = Globals.GmshDataFileName + " " + CaeMesh.Meshing.GmshCommandEnum.Mesh;
             //
             bool jobCompleted;
-            if (System.Diagnostics.Debugger.IsAttached)
+            if (Debugger.IsAttached)
             {
                 CaeMesh.GmshAPI gmsh = new CaeMesh.GmshAPI(gmshData, _form.WriteDataToOutput);
                 string error = gmsh.CreateMesh();
@@ -4190,7 +4190,8 @@ namespace PrePoMax
                 //
                 FileInOut.Input.ElementsToImport elementsToImport;
                 bool importEdges = gmshSetupItems.Length == 1 &&
-                    (gmshSetupItems[0] is ShellGmsh || gmshSetupItems[0] is ExtrudeMesh || gmshSetupItems[0] is RevolveMesh);
+                    (gmshSetupItems[0] is ShellGmsh || gmshSetupItems[0] is ExtrudeMesh || gmshSetupItems[0] is SweepMesh ||
+                     gmshSetupItems[0] is RevolveMesh);
                 if (importEdges) elementsToImport = FileInOut.Input.ElementsToImport.Shell;
                 else elementsToImport = FileInOut.Input.ElementsToImport.Beam;
                 // Mesh

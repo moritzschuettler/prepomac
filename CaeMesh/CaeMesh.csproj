@@ -101,6 +101,7 @@
     <Compile Include="Meshing\Gmsh\Enums\GmshOptimizeHighOrderEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshOptimizeFirstOrderSolidEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshAlgorithmMesh3DEnum.cs" />
+    <Compile Include="Meshing\Gmsh\GmshSweep.cs" />
     <Compile Include="Meshing\Gmsh\Mesher\GmshSurface.cs" />
     <Compile Include="Meshing\Gmsh\Mesher\GmshEdge.cs" />
     <Compile Include="Meshing\Gmsh\Mesher\GmshVolume.cs" />
