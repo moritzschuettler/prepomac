@@ -7540,7 +7540,8 @@ namespace CaeMesh
                         }
                     }
                 }
-                else if (entry.Value is FeMeshRefinement || entry.Value is ExtrudeMesh || entry.Value is RevolveMesh)
+                else if (entry.Value is FeMeshRefinement || entry.Value is ExtrudeMesh || entry.Value is SweepMesh ||
+                         entry.Value is RevolveMesh)
                 {
                     if (!(keepGeometrySelections && entry.Value.CreationData.IsGeometryBased()))
                     {

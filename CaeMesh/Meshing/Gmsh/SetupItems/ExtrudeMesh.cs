@@ -65,8 +65,8 @@ namespace CaeMesh
         {
             base.CopyFrom(extrudeMesh);
             //
-            _direction = extrudeMesh._direction.ToArray();
-            _extrudeCenter = extrudeMesh._extrudeCenter.ToArray();
+            if (_direction != null) _direction = extrudeMesh._direction.ToArray();
+            if (_extrudeCenter != null) _extrudeCenter = extrudeMesh._extrudeCenter.ToArray();
         }
         // ISerialization
         public new void GetObjectData(SerializationInfo info, StreamingContext context)

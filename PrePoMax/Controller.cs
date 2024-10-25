@@ -4589,7 +4589,7 @@ namespace PrePoMax
             //
             string error = null;
             bool jobCompleted;
-            if (System.Diagnostics.Debugger.IsAttached)
+            if (Debugger.IsAttached)
             {
                 GmshAPI gmsh = new GmshAPI(gmshData, _form.WriteDataToOutput);
                 error = gmsh.CreateMesh();

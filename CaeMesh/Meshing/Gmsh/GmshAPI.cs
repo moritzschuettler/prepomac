@@ -422,7 +422,7 @@ namespace CaeMesh
                 }
                 else
                 {
-                    throw new CaeGlobals.CaeException("The volume of the extruded mesh is not equal to the volume " +
+                    throw new CaeException("The volume of the extruded mesh is not equal to the volume " +
                         "of the geometry it represents. Try selecting other surfaces for the extrusion.");
                 }
             }
@@ -441,44 +441,58 @@ namespace CaeMesh
                 sourceSurfaceIds.Add(surfaceId);
             }
             // Get side surfaces
+            
+            
             Dictionary<int, int[]> surfaceIdEdgeIds;
             Dictionary<int, int[]> surfaceIdVertexIds;
             GetSurfaceItems(out surfaceIdEdgeIds, out surfaceIdVertexIds);
-            // Find side surfaces
-            HashSet<int> vertexSurfaceIds;
-            Dictionary<int, HashSet<int>> vertexIdSurfaceId = new Dictionary<int, HashSet<int>>();
-            HashSet<int> sourceSurfaceVertices = new HashSet<int>();
-            HashSet<int> targetSurfaceIds = new HashSet<int>();
-            //
-            foreach (var surfaceEntry in surfaceIdVertexIds)
-            {
-                surfaceId = surfaceEntry.Key;
-                foreach (var vertexId in surfaceEntry.Value)
-                {
-                    if (vertexIdSurfaceId.TryGetValue(vertexId, out vertexSurfaceIds)) vertexSurfaceIds.Add(surfaceId);
-                    else vertexIdSurfaceId.Add(vertexId, new HashSet<int> { surfaceId });
-                }
-                //
-                if (sourceSurfaceIds.Contains(surfaceId)) sourceSurfaceVertices.UnionWith(surfaceEntry.Value);
-                //
-                targetSurfaceIds.Add(surfaceId);
-            }
+
+
+            //// Find side surfaces
+            //HashSet<int> vertexSurfaceIds;
+            //Dictionary<int, HashSet<int>> vertexIdSurfaceId = new Dictionary<int, HashSet<int>>();
+            //HashSet<int> sourceSurfaceVertices = new HashSet<int>();
+
+            ////
+            //foreach (var surfaceEntry in surfaceIdVertexIds)
+            //{
+            //    surfaceId = surfaceEntry.Key;
+            //    foreach (var vertexId in surfaceEntry.Value)
+            //    {
+            //        if (vertexIdSurfaceId.TryGetValue(vertexId, out vertexSurfaceIds)) vertexSurfaceIds.Add(surfaceId);
+            //        else vertexIdSurfaceId.Add(vertexId, new HashSet<int> { surfaceId });
+            //    }
+            //    //
+            //    if (sourceSurfaceIds.Contains(surfaceId)) sourceSurfaceVertices.UnionWith(surfaceEntry.Value);
+            //    //
+            //    targetSurfaceIds.Add(surfaceId);
+            //}
+
+            //foreach (var entry in vertexIdSurfaceId)
+            //{
+            //    if (sourceSurfaceVertices.Contains(entry.Key)) sideSurfaceIds.UnionWith(entry.Value);
+            //}
+            //// Remove the source surfaces from the side surfaces
+            //sideSurfaceIds.ExceptWith(sourceSurfaceIds);
+
             HashSet<int> sideSurfaceIds = new HashSet<int>();
-            foreach (var entry in vertexIdSurfaceId)
-            {
-                if (sourceSurfaceVertices.Contains(entry.Key)) sideSurfaceIds.UnionWith(entry.Value);
-            }
-            // Remove the source surfaces from the side surfaces
-            sideSurfaceIds.ExceptWith(sourceSurfaceIds);
+            HashSet<int> targetSurfaceIds = new HashSet<int>();
+
+            sideSurfaceIds = new HashSet<int>(sweepMesh.SideSurfaceIds);
+
             // Get target surfaces
+            targetSurfaceIds.UnionWith(surfaceIdVertexIds.Keys);
             targetSurfaceIds.ExceptWith(sourceSurfaceIds);
             targetSurfaceIds.ExceptWith(sideSurfaceIds);
             if (targetSurfaceIds.Count != 1) throw new NotSupportedException();
-            // Set source surfaces
+
+
 
 
             //SetTransfiniteSurfaces(false, true, false, true);
 
+
+            // Set source surfaces
             if (recombine)
             {
                 foreach (var sourceSurfaceId in sourceSurfaceIds) Gmsh.Model.Mesh.SetRecombine(2, sourceSurfaceId);
@@ -489,7 +503,6 @@ namespace CaeMesh
                 Gmsh.Model.Mesh.SetRecombine(2, sideSurfaceId);
                 Gmsh.Model.Mesh.SetTransfiniteSurface(sideSurfaceId, "AlternateLeft");
             }
-
             //
             Gmsh.Model.Mesh.Generate(2);
             // Remove the volume and the target surface mesh
@@ -497,6 +510,8 @@ namespace CaeMesh
             foreach (var targetSurfaceId in targetSurfaceIds) toRemoveDimTags.Add(new Tuple<int, int>(2, targetSurfaceId));
             //
             Gmsh.Model.Mesh.Clear(toRemoveDimTags.ToArray());
+            //
+            Gmsh.Write(_gmshData.InpFileName);
             //
             if (preview)
             {
@@ -508,7 +523,7 @@ namespace CaeMesh
             }
             else
             {
-                MaxSweep.CreateSweepMesh(sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds, surfaceIdEdgeIds, surfaceIdVertexIds);
+                SweepMethods.CreateSweepMesh(sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds, surfaceIdEdgeIds, surfaceIdVertexIds);
             }
             //Tuple<int, int>[] dimTags = new Tuple<int, int>[0];
             //Gmsh.Model.Mesh.Optimize(GmshOptimizeFirstOrderSolidEnum.Gmsh.ToString(), true, 5, dimTags);

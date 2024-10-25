@@ -49,7 +49,6 @@ namespace CaeMesh
         public override void Reset()
         {
             base.Reset();
-            //
         }
         public void CopyFrom(TetrahedralGmsh tetrahedronGmsh)
         {

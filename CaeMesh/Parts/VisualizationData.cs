@@ -810,12 +810,12 @@ namespace CaeMesh
             foreach (int surfaceId in surfaceIds) surfaceEdgeIds.UnionWith(_faceEdgeIds[surfaceId]);
             return surfaceEdgeIds;
         }
-        public bool AreSurfacesConnected(int[] surfaceIds)
+        public bool AreSurfacesConnected(int[] surfaceIds, Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds = null)
         {
             if (surfaceIds.Length == 1) return true;
             //
             HashSet<int> selectedSurfaceAndNeighboursIds = new HashSet<int>();
-            Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds = GetSurfaceIdSurfaceNeighbourIds();
+            if (surfaceIdSurfaceNeighbourIds == null) surfaceIdSurfaceNeighbourIds = GetSurfaceIdSurfaceNeighbourIds();
             //
             foreach (var surfaceId in surfaceIds)
                 selectedSurfaceAndNeighboursIds.UnionWith(surfaceIdSurfaceNeighbourIds[surfaceId]);
@@ -831,7 +831,6 @@ namespace CaeMesh
             }
             return connected;
         }
-        
         public HashSet<int> GetEdgeNodeIds()
         {
             HashSet<int> nodeIds = new HashSet<int>();
@@ -1645,6 +1644,8 @@ namespace CaeMesh
                 }
             }
         }
+        // Sweep mesh
+
         // Section cut
         public void ApplySectionView(Dictionary<int, FeElement> elements, int[] elementIds, HashSet<int> frontNodes,
                                      HashSet<int> backNodes)

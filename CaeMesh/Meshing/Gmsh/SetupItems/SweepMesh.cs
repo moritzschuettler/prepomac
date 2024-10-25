@@ -17,11 +17,13 @@ namespace CaeMesh
         // Variables                                                                                                                
         private double[] _direction;                                    // ISerializable
         private double[] _sweepCenter;                                  // ISerializable
+        private int[] _sideSurfaceIds;                                  // ISerializable
 
 
         // Properties                                                                                                               
         public double[] Direction { get { return _direction; } set { _direction = value; } }
         public double[] SweepCenter { get { return _sweepCenter; } set { _sweepCenter = value; } }
+        public int[] SideSurfaceIds { get { return _sideSurfaceIds; } set { _sideSurfaceIds = value; } }
 
 
         // Constructors                                                                                                             
@@ -46,6 +48,8 @@ namespace CaeMesh
                         _direction = (double[])entry.Value; break;
                     case "_sweepCenter":
                         _sweepCenter = (double[])entry.Value; break;
+                    case "_sideSurfaceIds":
+                        _sideSurfaceIds = (int[])entry.Value; break;
                     default:
                         break;
                 }
@@ -65,8 +69,9 @@ namespace CaeMesh
         {
             base.CopyFrom(sweepMesh);
             //
-            _direction = sweepMesh._direction.ToArray();
-            _sweepCenter = sweepMesh._sweepCenter.ToArray();
+            if (_direction != null) _direction = sweepMesh._direction.ToArray();
+            if (_sweepCenter != null) _sweepCenter = sweepMesh._sweepCenter.ToArray();
+            if (_sideSurfaceIds != null) sweepMesh._sideSurfaceIds.ToArray();
         }
         // ISerialization
         public new void GetObjectData(SerializationInfo info, StreamingContext context)
@@ -75,6 +80,7 @@ namespace CaeMesh
             // Using typeof() works also for null fields
             info.AddValue("_direction", _direction, typeof(double[]));
             info.AddValue("_sweepCenter", _sweepCenter, typeof(double[]));
+            info.AddValue("_sideSurfaceIds", _sideSurfaceIds, typeof(double[]));
         }
     }
 }

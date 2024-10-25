@@ -75,8 +75,8 @@ namespace CaeMesh
         {
             base.CopyFrom(revolveMesh);
             //
-            _axisCenter = revolveMesh._axisCenter.ToArray();
-            _axisDirection = revolveMesh._axisDirection.ToArray();
+            if (_axisCenter != null) _axisCenter = revolveMesh._axisCenter.ToArray();
+            if (_axisDirection != null) _axisDirection = revolveMesh._axisDirection.ToArray();
             _angleDeg = revolveMesh._angleDeg;
             _middleR = revolveMesh._middleR;
         }

@@ -1,11 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using CaeGlobals;
 using GmshCommon;
 
 namespace CaeMesh
 {
-    public static class MaxSweep
+    public static class SweepMethods
     {
         private enum GmshElementTypeEnum
         {
@@ -88,13 +89,14 @@ namespace CaeMesh
             int numOfLayers = 1;
             HashSet<IntPtr> neighbourIds;
             int visitedNodesCount = currentLayerNodeIds.Count;
+            //
             while (visitedNodesCount < nodeIdNeighbourIds.Count)
             {
                 nextLayerNodeIds = new HashSet<IntPtr>();
                 foreach (var nodeId in currentLayerNodeIds)
                 {
                     neighbourIds = nodeIdNeighbourIds[nodeId].Except(prevTwoLayerNodeIds).ToHashSet();
-                    if (neighbourIds.Count != 1) throw new NotSupportedException();
+                    if (neighbourIds.Count != 1) throw new CaeException("The number of layers in side surfaces is not the same")
                     //
                     neighbourId = neighbourIds.First();
                     // Get first node id of the sweep line
