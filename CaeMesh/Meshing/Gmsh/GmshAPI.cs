@@ -1082,18 +1082,18 @@ namespace CaeMesh
                 _gmshData.FaceIdNodes = faceIdNodes;
             }
             // Faces
-            //if (_gmshData.SurfaceIds != null)
-            //{
-            //    int faceId;
-            //    List<int> surfaceIdsList = new List<int>();
-            //    foreach (var surfaceId in _gmshData.SurfaceIds)
-            //    {
-            //        if (netgenFaceIdGmshFaceId.TryGetValue(surfaceId, out faceId))
-            //            surfaceIdsList.Add(faceId);
-            //        else if (System.Diagnostics.Debugger.IsAttached) throw new Exception();
-            //    }
-            //    _gmshData.SurfaceIds = surfaceIdsList.ToArray();
-            //}
+            if (_gmshData.SurfaceIds != null)
+            {
+                int faceId;
+                List<int> surfaceIdsList = new List<int>();
+                foreach (var surfaceId in _gmshData.SurfaceIds)
+                {
+                    if (netgenFaceIdGmshFaceId.TryGetValue(surfaceId, out faceId))
+                        surfaceIdsList.Add(faceId);
+                    else if (System.Diagnostics.Debugger.IsAttached) throw new Exception();
+                }
+                _gmshData.SurfaceIds = surfaceIdsList.ToArray();
+            }
         }
         private Dictionary<int, int> RenumberVertices()
         {

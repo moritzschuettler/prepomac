@@ -96,7 +96,7 @@ namespace CaeMesh
                 foreach (var nodeId in currentLayerNodeIds)
                 {
                     neighbourIds = nodeIdNeighbourIds[nodeId].Except(prevTwoLayerNodeIds).ToHashSet();
-                    if (neighbourIds.Count != 1) throw new CaeException("The number of layers in side surfaces is not the same")
+                    if (neighbourIds.Count != 1) throw new CaeException("The number of layers in side surfaces is not the same");
                     //
                     neighbourId = neighbourIds.First();
                     // Get first node id of the sweep line

@@ -1557,7 +1557,10 @@ namespace CaeModel
                     bool loop = true;
                     HashSet<int> neighbours;
                     HashSet<int> neighbourSurfaceIds;
+                    List<int[]> layerSideSurfaceIds = new List<int[]>();
                     HashSet<int> visitedSurfaceIds = new HashSet<int>(sourceSurfaceIds);
+                    int[] edgeIds;
+                    List<List<int[]>> layerGroupSideEdgeId = new List<List<int[]>>();
                     //
                     while (true)
                     {
@@ -1601,6 +1604,7 @@ namespace CaeModel
                         //
                         if (!loop) break;
                         //
+                        layerSideSurfaceIds.Add(neighbourSurfaceIds.ToArray());
                         visitedSurfaceIds.UnionWith(neighbourSurfaceIds);
                     }
                     int[] sideSurfaceIds = visitedSurfaceIds.Except(sourceSurfaceIds).ToArray();
@@ -1618,7 +1622,6 @@ namespace CaeModel
                             }
                         }
                         //
-                        fourSided = true;
                         if (fourSided)
                         {
                             Dictionary<int, HashSet<int>> vertexIdEdgeId = vis.GetVertexIdEdgeIds();
@@ -1672,9 +1675,6 @@ namespace CaeModel
                             //
                             bb = _geometry.GetBoundingBoxForNodeIds(surfaceVertices.ToArray());
                             sweepMesh.SweepCenter = bb.GetCenter();
-                            // Add 1 for Gmsh counting
-                            for (int i = 0; i < sideSurfaceIds.Length; i++) sideSurfaceIds[i]++;
-                            sweepMesh.SideSurfaceIds = sideSurfaceIds;
                             // Round
                             double d = part.BoundingBox.GetDiagonal();
                             int digits = (int)Math.Log10(d) - 6;
@@ -1688,6 +1688,12 @@ namespace CaeModel
                             sweepMesh.SweepCenter[0] = Math.Round(sweepMesh.SweepCenter[0], digits);
                             sweepMesh.SweepCenter[1] = Math.Round(sweepMesh.SweepCenter[1], digits);
                             sweepMesh.SweepCenter[2] = Math.Round(sweepMesh.SweepCenter[2], digits);
+                            // Gmsh
+                            GetDirectionEdges(vis, surfaceIdSurfaceNeighbourIds, sideSurfaceIds, layerSideSurfaceIds);
+                            //
+                            // Add 1 for Gmsh counting
+                            for (int i = 0; i < sideSurfaceIds.Length; i++) sideSurfaceIds[i]++;
+                            sweepMesh.SideSurfaceIds = sideSurfaceIds;
                         }
                         else error = "The sweep side surfaces are not 4-sided surfaces.";
                     }
@@ -1810,6 +1816,99 @@ namespace CaeModel
                 }
             }
             return false;
+        }
+        private int[][][] GetDirectionEdges(VisualizationData vis, Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds,
+                                            int[] surfaceIds, List<int[]> layerSurfaceIds)
+        {
+            // Split into groups
+            Node<int> node;
+            Graph<int> connections = new Graph<int>();
+            Dictionary<int, Node<int>> surfaceIdNode = new Dictionary<int, Node<int>>();
+            //
+            foreach (var surfaceId in surfaceIds)
+            {
+                node = new Node<int>(surfaceId);
+                connections.AddNode(node);
+                surfaceIdNode.Add(surfaceId, node);
+            }
+            HashSet<int> surfaceIdsHash = surfaceIds.ToHashSet();
+            foreach (var surfaceId in surfaceIds)
+            {
+                foreach (var neighbourId in surfaceIdSurfaceNeighbourIds[surfaceId])
+                {
+                    if (surfaceIdsHash.Contains(neighbourId))
+                        connections.AddUndirectedEdge(surfaceIdNode[surfaceId], surfaceIdNode[neighbourId]);
+                }
+            }
+            List<Graph<int>> subGraphs = connections.GetConnectedSubgraphs();
+            //
+            int count = 0;
+            HashSet<int>[] groupSurfaceId = new HashSet<int>[subGraphs.Count];
+            foreach (var subGraph in subGraphs) groupSurfaceId[count++] = subGraph.GetValues().ToHashSet();
+            // Create group mask
+            Dictionary<int, int> surfaceIdGroupId = new Dictionary<int, int>();
+            for (int i = 0; i < groupSurfaceId.Length; i++)
+            {
+                foreach (var surfaceId in groupSurfaceId[i])
+                {
+                    surfaceIdGroupId.Add(surfaceId, i);
+                }
+            }
+            // Create layer mask
+            Dictionary<int, int> surfaceIdLayerId = new Dictionary<int, int>();
+            count = 0;
+            foreach (var layer in layerSurfaceIds)
+            {
+                for (int i = 0; i < layer.Length; i++)
+                {
+                    surfaceIdLayerId.Add(layer[i], count);
+                }
+                count++;
+            }
+            //
+            HashSet<int>[][] layerGroupSurfaceIds = new HashSet<int>[layerSurfaceIds.Count][];
+            for (int i = 0; i < layerGroupSurfaceIds.Length; i++)
+            {
+                layerGroupSurfaceIds[i] = new HashSet<int>[groupSurfaceId.Length];
+                for (int j = 0; j < layerGroupSurfaceIds[i].Length; j++) layerGroupSurfaceIds[i][j] = new HashSet<int>();
+            }
+            //
+            int groupId;
+            int layerId;
+            for (int i = 0; i < surfaceIds.Length; i++)
+            {
+                groupId = surfaceIdGroupId[surfaceIds[i]];
+                layerId = surfaceIdLayerId[surfaceIds[i]];
+                layerGroupSurfaceIds[layerId][groupId].Add(surfaceIds[i]);
+            }
+            //
+            int[][][] layerGroupEdgeIds = new int[layerSurfaceIds.Count][][];
+            for (int i = 0; i < layerGroupEdgeIds.Length; i++)
+            {
+                layerGroupEdgeIds[i] = new int[groupSurfaceId.Length][];
+                for (int j = 0; j < layerGroupEdgeIds[i].Length; j++)
+                    layerGroupEdgeIds[i][j] = GetSharedEdgeIds(vis, layerGroupSurfaceIds[i][j]);
+            }
+            //
+            return layerGroupEdgeIds;
+        }
+        private int[] GetSharedEdgeIds(VisualizationData vis, HashSet<int> surfaceIds)
+        {
+            Dictionary<int, int> edgeIdCount = new Dictionary<int, int>();
+            foreach (var surfaceId in surfaceIds)
+            {
+                foreach (var edgeId in vis.FaceEdgeIds[surfaceId])
+                {
+                    if (edgeIdCount.ContainsKey(edgeId)) edgeIdCount[edgeId]++;
+                    else edgeIdCount[edgeId] = 1;
+                }
+            }
+            List<int> edgeIds = new List<int>();
+            foreach (var entry in edgeIdCount)
+            {
+                if (entry.Value == 2) edgeIds.Add(entry.Key);
+            }
+            return edgeIds.ToArray();
         }
         // Springs                                                                                  
         public PointSpringData[] GetPointSpringsFromSurfaceSpring(SurfaceSpring spring)
