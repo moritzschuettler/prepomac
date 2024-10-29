@@ -144,7 +144,7 @@ namespace CaeMesh
                     //
                     Synchronize(); // must be here
                     // Mesh size
-                    SetMeshSizes();
+                    SetMeshSizes(gsi);
                     // 2D meshing algorithm
                     Gmsh.Option.SetNumber("Mesh.Algorithm", (int)gsi.AlgorithmMesh2D);
                     // 3D meshing algorithm
@@ -213,7 +213,7 @@ namespace CaeMesh
                 _error = ex.Message;
             }
         }
-        private void SetMeshSizes()
+        private void SetMeshSizes(GmshSetupItem gmshSetupItem)
         {
             RenumberGmshDataByCoor();
             // Mesh size
@@ -221,11 +221,12 @@ namespace CaeMesh
             //Gmsh.GetEntities(out surfaceDimTags, 2);
             //foreach (var surfaceDimTag in surfaceDimTags) Gmsh.Mesh.SetSizeFromBoundary(2, surfaceDimTag.Item2, 0);
             //
-            double scaleFactor = 1;
+            double sf = 1;
+            if (gmshSetupItem.AlgorithmMesh2D == GmshAlgorithmMesh2DEnum.QuasiStructuredQuad) sf = 2;
             //
-            Gmsh.Option.SetNumber("Mesh.MeshSizeMin", _gmshData.PartMeshingParameters.MinH * scaleFactor);
-            Gmsh.Option.SetNumber("Mesh.MeshSizeMax", _gmshData.PartMeshingParameters.MaxH * scaleFactor);
-            Gmsh.Option.SetNumber("Mesh.MeshSizeFromCurvature", 2 * Math.PI * _gmshData.PartMeshingParameters.ElementsPerCurve);
+            Gmsh.Option.SetNumber("Mesh.MeshSizeMin", _gmshData.PartMeshingParameters.MinH * sf);
+            Gmsh.Option.SetNumber("Mesh.MeshSizeMax", _gmshData.PartMeshingParameters.MaxH * sf);
+            Gmsh.Option.SetNumber("Mesh.MeshSizeFromCurvature", 2 * Math.PI * _gmshData.PartMeshingParameters.ElementsPerCurve / sf);
             // Local vertex mesh size
             Tuple<int, int>[] dimTags = new Tuple<int, int>[1];
             foreach (var entry in _gmshData.VertexNodeIdMeshSize)
@@ -237,16 +238,49 @@ namespace CaeMesh
             int edgeId;
             int numOfElements;
             int numOfNodes;
-            //
+            // Gather sweep edge ids by layer
+            HashSet<int>[] edgeIdsByLayer = null;
+            if (gmshSetupItem is SweepMesh sm)
+            {
+                edgeIdsByLayer = new HashSet<int>[sm.LayerGroupEdgeIds.Length];
+                for (int i = 0; i < sm.LayerGroupEdgeIds.Length; i++)
+                {
+                    edgeIdsByLayer[i] = new HashSet<int>();
+                    for (int j = 0; j < sm.LayerGroupEdgeIds[i].Length; j++)
+                    {
+                        edgeIdsByLayer[i].UnionWith(sm.LayerGroupEdgeIds[i][j]);
+                    }
+                }
+
+            }
+            // Get all edges
             Gmsh.Model.GetEntities(out dimTags, 1);
-            //
+            // Check all edges
             foreach (var entry in dimTags)
             {
                 edgeId = entry.Item2;
                 if (_gmshData.EdgeIdNumElements.TryGetValue(edgeId, out numOfElements))
                 {
+                    numOfElements = (int)(numOfElements / sf);
+                    _gmshData.EdgeIdNumElements[edgeId] = numOfElements;
                     numOfNodes = numOfElements + 1;
+                    // Set edge size
                     Gmsh.Model.Mesh.SetTransfiniteCurve(edgeId, numOfNodes);
+                    // Sweep edge sizes
+                    if (edgeIdsByLayer != null)
+                    {
+                        foreach (var edgeIds in edgeIdsByLayer)
+                        {
+                            if (edgeIds.Contains(edgeId))
+                            {
+                                foreach (var sweepEdgeId in edgeIds)
+                                {
+                                    _gmshData.EdgeIdNumElements[sweepEdgeId] = numOfElements;
+                                    Gmsh.Model.Mesh.SetTransfiniteCurve(sweepEdgeId, numOfNodes);
+                                }
+                            }
+                        }
+                    }
                 }
             }
             //
@@ -440,53 +474,18 @@ namespace CaeMesh
                 surfaceId = FeMesh.GetItemIdFromGeometryId(sweepMesh.CreationIds[i]) + 1;
                 sourceSurfaceIds.Add(surfaceId);
             }
-            // Get side surfaces
-            
-            
+            // Get surface item ids
             Dictionary<int, int[]> surfaceIdEdgeIds;
             Dictionary<int, int[]> surfaceIdVertexIds;
             GetSurfaceItems(out surfaceIdEdgeIds, out surfaceIdVertexIds);
-
-
-            //// Find side surfaces
-            //HashSet<int> vertexSurfaceIds;
-            //Dictionary<int, HashSet<int>> vertexIdSurfaceId = new Dictionary<int, HashSet<int>>();
-            //HashSet<int> sourceSurfaceVertices = new HashSet<int>();
-
-            ////
-            //foreach (var surfaceEntry in surfaceIdVertexIds)
-            //{
-            //    surfaceId = surfaceEntry.Key;
-            //    foreach (var vertexId in surfaceEntry.Value)
-            //    {
-            //        if (vertexIdSurfaceId.TryGetValue(vertexId, out vertexSurfaceIds)) vertexSurfaceIds.Add(surfaceId);
-            //        else vertexIdSurfaceId.Add(vertexId, new HashSet<int> { surfaceId });
-            //    }
-            //    //
-            //    if (sourceSurfaceIds.Contains(surfaceId)) sourceSurfaceVertices.UnionWith(surfaceEntry.Value);
-            //    //
-            //    targetSurfaceIds.Add(surfaceId);
-            //}
-
-            //foreach (var entry in vertexIdSurfaceId)
-            //{
-            //    if (sourceSurfaceVertices.Contains(entry.Key)) sideSurfaceIds.UnionWith(entry.Value);
-            //}
-            //// Remove the source surfaces from the side surfaces
-            //sideSurfaceIds.ExceptWith(sourceSurfaceIds);
-
-            HashSet<int> sideSurfaceIds = new HashSet<int>();
+            // Get side surfaces
+            HashSet<int> sideSurfaceIds = new HashSet<int>(sweepMesh.SideSurfaceIds);
             HashSet<int> targetSurfaceIds = new HashSet<int>();
-
-            sideSurfaceIds = new HashSet<int>(sweepMesh.SideSurfaceIds);
-
             // Get target surfaces
             targetSurfaceIds.UnionWith(surfaceIdVertexIds.Keys);
             targetSurfaceIds.ExceptWith(sourceSurfaceIds);
             targetSurfaceIds.ExceptWith(sideSurfaceIds);
             if (targetSurfaceIds.Count != 1) throw new NotSupportedException();
-
-
 
 
             //SetTransfiniteSurfaces(false, true, false, true);
@@ -511,7 +510,7 @@ namespace CaeMesh
             //
             Gmsh.Model.Mesh.Clear(toRemoveDimTags.ToArray());
             //
-            Gmsh.Write(_gmshData.InpFileName);
+            //Gmsh.Write(_gmshData.InpFileName);
             //
             if (preview)
             {
@@ -1081,7 +1080,7 @@ namespace CaeMesh
                 }
                 _gmshData.FaceIdNodes = faceIdNodes;
             }
-            // Faces
+            // Defeature
             if (_gmshData.SurfaceIds != null)
             {
                 int faceId;
@@ -1093,6 +1092,37 @@ namespace CaeMesh
                     else if (System.Diagnostics.Debugger.IsAttached) throw new Exception();
                 }
                 _gmshData.SurfaceIds = surfaceIdsList.ToArray();
+            }
+            // Sweep data
+            if (_gmshData.GmshSetupItems != null)
+            {
+                foreach (var setupItem in _gmshData.GmshSetupItems)
+                {
+                    int faceId;
+                    if (setupItem is SweepMesh sw)
+                    {
+                        for (int i = 0; i < sw.SideSurfaceIds.Length; i++)
+                        {
+                            if (netgenFaceIdGmshFaceId.TryGetValue(sw.SideSurfaceIds[i], out faceId))
+                                sw.SideSurfaceIds[i] = faceId;
+                            else if (System.Diagnostics.Debugger.IsAttached) throw new Exception();
+                        }
+                        //
+                        int edgeId;
+                        for (int i = 0; i < sw.LayerGroupEdgeIds.Length; i++)
+                        {
+                            for (int j = 0; j < sw.LayerGroupEdgeIds[i].Length; j++)
+                            {
+                                for (int z = 0; z < sw.LayerGroupEdgeIds[i][j].Length; z++)
+                                {
+                                    if (netgenEdgeIdGmshEdgeId.TryGetValue(sw.LayerGroupEdgeIds[i][j][z], out edgeId))
+                                        sw.LayerGroupEdgeIds[i][j][z] = edgeId;
+                                    else if (System.Diagnostics.Debugger.IsAttached) throw new Exception();
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
         private Dictionary<int, int> RenumberVertices()

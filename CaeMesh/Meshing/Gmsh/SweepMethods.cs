@@ -539,7 +539,11 @@ namespace CaeMesh
             int newElementId = maxElementId + 1;
             int numLayers = nodeIdSweepLine.First().Value.Length - 1;
             IntPtr[] nodeIdsArr;
-            IntPtr[][] solidNodeIdsArr;
+            IntPtr[] solidNodeIdsArr;
+            Dictionary<IntPtr, IntPtr[]> linearTriangles = new Dictionary<IntPtr, IntPtr[]>();
+            Dictionary<IntPtr, IntPtr[]> linearQuadrilaterals = new Dictionary<IntPtr, IntPtr[]>();
+            Dictionary<IntPtr, IntPtr[]> linearWedges = new Dictionary<IntPtr, IntPtr[]>();
+            Dictionary<IntPtr, IntPtr[]> LinearHexas = new Dictionary<IntPtr, IntPtr[]>();
             foreach (var id in sourceSurfaceIds)
             {
                 Gmsh.Model.Mesh.GetElements(out elementTypes, out elementTags, out nodeTags, 2, id);
@@ -559,62 +563,49 @@ namespace CaeMesh
                             //
                             if (numNodes == 3)
                             {
-                                solidNodeIdsArr = new IntPtr[][] { new IntPtr[6] };
-                                solidNodeIdsArr[0][0] = nodeIdSweepLine[nodeIdsArr[0]][i + 1];
-                                solidNodeIdsArr[0][1] = nodeIdSweepLine[nodeIdsArr[1]][i + 1];
-                                solidNodeIdsArr[0][2] = nodeIdSweepLine[nodeIdsArr[2]][i + 1];
-                                solidNodeIdsArr[0][3] = nodeIdSweepLine[nodeIdsArr[0]][i];
-                                solidNodeIdsArr[0][4] = nodeIdSweepLine[nodeIdsArr[1]][i];
-                                solidNodeIdsArr[0][5] = nodeIdSweepLine[nodeIdsArr[2]][i];
+                                solidNodeIdsArr = new IntPtr[6];
+                                solidNodeIdsArr[0] = nodeIdSweepLine[nodeIdsArr[0]][i + 1];
+                                solidNodeIdsArr[1] = nodeIdSweepLine[nodeIdsArr[1]][i + 1];
+                                solidNodeIdsArr[2] = nodeIdSweepLine[nodeIdsArr[2]][i + 1];
+                                solidNodeIdsArr[3] = nodeIdSweepLine[nodeIdsArr[0]][i];
+                                solidNodeIdsArr[4] = nodeIdSweepLine[nodeIdsArr[1]][i];
+                                solidNodeIdsArr[5] = nodeIdSweepLine[nodeIdsArr[2]][i];
                                 //
-                                Gmsh.Model.Mesh.AddElements(3, 1, new int[] { (int)GmshElementTypeEnum.LinearWedge },
-                                                            new IntPtr[][] { new IntPtr[] { (IntPtr)newElementId } },
-                                                            solidNodeIdsArr);
-                                newElementId++;
+                                linearWedges.Add((IntPtr)newElementId++, solidNodeIdsArr);
                                 //
                                 if (i == numLayers - 1)
                                 {
-                                    solidNodeIdsArr = new IntPtr[][] { new IntPtr[3] };
-                                    solidNodeIdsArr[0][0] = nodeIdSweepLine[nodeIdsArr[0]][i + 1];
-                                    solidNodeIdsArr[0][1] = nodeIdSweepLine[nodeIdsArr[2]][i + 1];
-                                    solidNodeIdsArr[0][2] = nodeIdSweepLine[nodeIdsArr[1]][i + 1];
+                                    solidNodeIdsArr = new IntPtr[3];
+                                    solidNodeIdsArr[0] = nodeIdSweepLine[nodeIdsArr[0]][i + 1];
+                                    solidNodeIdsArr[1] = nodeIdSweepLine[nodeIdsArr[2]][i + 1];
+                                    solidNodeIdsArr[2] = nodeIdSweepLine[nodeIdsArr[1]][i + 1];
                                     //
-                                    Gmsh.Model.Mesh.AddElements(2, targetSurfaceIds.First(),
-                                                                new int[] { (int)GmshElementTypeEnum.LinearTriangle },
-                                                                new IntPtr[][] { new IntPtr[] { (IntPtr)newElementId } },
-                                                                solidNodeIdsArr);
-                                    newElementId++;
+                                    linearTriangles.Add((IntPtr)newElementId++, solidNodeIdsArr);
                                 }
                             }
                             else if (numNodes == 4)
                             {
-                                solidNodeIdsArr = new IntPtr[][] { new IntPtr[8] };
-                                solidNodeIdsArr[0][0] = nodeIdSweepLine[nodeIdsArr[0]][i + 1];
-                                solidNodeIdsArr[0][1] = nodeIdSweepLine[nodeIdsArr[1]][i + 1];
-                                solidNodeIdsArr[0][2] = nodeIdSweepLine[nodeIdsArr[2]][i + 1];
-                                solidNodeIdsArr[0][3] = nodeIdSweepLine[nodeIdsArr[3]][i + 1];
-                                solidNodeIdsArr[0][4] = nodeIdSweepLine[nodeIdsArr[0]][i];
-                                solidNodeIdsArr[0][5] = nodeIdSweepLine[nodeIdsArr[1]][i];
-                                solidNodeIdsArr[0][6] = nodeIdSweepLine[nodeIdsArr[2]][i];
-                                solidNodeIdsArr[0][7] = nodeIdSweepLine[nodeIdsArr[3]][i];
+                                solidNodeIdsArr = new IntPtr[8];
+                                solidNodeIdsArr[0] = nodeIdSweepLine[nodeIdsArr[0]][i + 1];
+                                solidNodeIdsArr[1] = nodeIdSweepLine[nodeIdsArr[1]][i + 1];
+                                solidNodeIdsArr[2] = nodeIdSweepLine[nodeIdsArr[2]][i + 1];
+                                solidNodeIdsArr[3] = nodeIdSweepLine[nodeIdsArr[3]][i + 1];
+                                solidNodeIdsArr[4] = nodeIdSweepLine[nodeIdsArr[0]][i];
+                                solidNodeIdsArr[5] = nodeIdSweepLine[nodeIdsArr[1]][i];
+                                solidNodeIdsArr[6] = nodeIdSweepLine[nodeIdsArr[2]][i];
+                                solidNodeIdsArr[7] = nodeIdSweepLine[nodeIdsArr[3]][i];
                                 //
-                                Gmsh.Model.Mesh.AddElements(3, 1, new int[] { (int)GmshElementTypeEnum.LinearHexa },
-                                                            new IntPtr[][] { new IntPtr[] { (IntPtr)newElementId } },
-                                                            solidNodeIdsArr);
-                                newElementId++;
+                                LinearHexas.Add((IntPtr)newElementId++, solidNodeIdsArr);
                                 //
                                 if (i == numLayers - 1)
                                 {
-                                    solidNodeIdsArr = new IntPtr[][] { new IntPtr[4] };
-                                    solidNodeIdsArr[0][0] = nodeIdSweepLine[nodeIdsArr[0]][i + 1];
-                                    solidNodeIdsArr[0][1] = nodeIdSweepLine[nodeIdsArr[3]][i + 1];
-                                    solidNodeIdsArr[0][2] = nodeIdSweepLine[nodeIdsArr[2]][i + 1];
-                                    solidNodeIdsArr[0][3] = nodeIdSweepLine[nodeIdsArr[1]][i + 1];
+                                    solidNodeIdsArr = new IntPtr[4];
+                                    solidNodeIdsArr[0] = nodeIdSweepLine[nodeIdsArr[0]][i + 1];
+                                    solidNodeIdsArr[1] = nodeIdSweepLine[nodeIdsArr[3]][i + 1];
+                                    solidNodeIdsArr[2] = nodeIdSweepLine[nodeIdsArr[2]][i + 1];
+                                    solidNodeIdsArr[3] = nodeIdSweepLine[nodeIdsArr[1]][i + 1];
                                     //
-                                    Gmsh.Model.Mesh.AddElements(2, targetSurfaceIds.First(),
-                                                                new int[] { (int)GmshElementTypeEnum.LinearQuadrilateral },
-                                                                new IntPtr[][] { new IntPtr[] { (IntPtr)newElementId } },
-                                                                solidNodeIdsArr);
+                                    linearQuadrilaterals.Add((IntPtr)newElementId++, solidNodeIdsArr);
                                     newElementId++;
                                 }
                             }
@@ -622,6 +613,32 @@ namespace CaeMesh
                         }
                     }
                 }
+                // Add elements by single type
+                AddElemets(linearTriangles, 3, 2, targetSurfaceIds.First(), (int)GmshElementTypeEnum.LinearTriangle);
+                AddElemets(linearQuadrilaterals, 4, 2, targetSurfaceIds.First(), (int)GmshElementTypeEnum.LinearQuadrilateral);
+                AddElemets(linearWedges, 6, 3, 1, (int)GmshElementTypeEnum.LinearWedge);
+                AddElemets(LinearHexas, 8, 3, 1, (int)GmshElementTypeEnum.LinearHexa);
+            }
+        }
+        private static void AddElemets(Dictionary<IntPtr, IntPtr[]> elements, int n, int dim, int tag, int elementType)
+        {
+            int count;
+            IntPtr[][] elementIds;
+            IntPtr[][] nodeIds;
+            if (elements.Count > 0)
+            {
+                count = 0;
+                elementIds = new IntPtr[1][];
+                elementIds[0] = new IntPtr[elements.Count];
+                nodeIds = new IntPtr[1][];
+                nodeIds[0] = new IntPtr[n * elements.Count];
+                foreach (var entry in elements)
+                {
+                    elementIds[0][count] = entry.Key;
+                    Array.Copy(entry.Value, 0, nodeIds[0], n * count, n);
+                    count++;
+                }
+                Gmsh.Model.Mesh.AddElements(dim, tag, new int[] { elementType }, elementIds, nodeIds);
             }
         }
         private static void ResetSweepLineLengths(IntPtr[] sweepLine, Dictionary<IntPtr, double[]> nodeIdCoor, double[] rations)

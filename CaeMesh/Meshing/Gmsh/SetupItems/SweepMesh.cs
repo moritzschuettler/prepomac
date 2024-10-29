@@ -18,12 +18,14 @@ namespace CaeMesh
         private double[] _direction;                                    // ISerializable
         private double[] _sweepCenter;                                  // ISerializable
         private int[] _sideSurfaceIds;                                  // ISerializable
+        private int[][][] _layerGroupEdgeIds;                           // ISerializable
 
 
         // Properties                                                                                                               
         public double[] Direction { get { return _direction; } set { _direction = value; } }
         public double[] SweepCenter { get { return _sweepCenter; } set { _sweepCenter = value; } }
         public int[] SideSurfaceIds { get { return _sideSurfaceIds; } set { _sideSurfaceIds = value; } }
+        public int[][][] LayerGroupEdgeIds { get { return _layerGroupEdgeIds; } set { _layerGroupEdgeIds = value; } }
 
 
         // Constructors                                                                                                             
@@ -50,6 +52,8 @@ namespace CaeMesh
                         _sweepCenter = (double[])entry.Value; break;
                     case "_sideSurfaceIds":
                         _sideSurfaceIds = (int[])entry.Value; break;
+                    case "_layerGroupEdgeIds":
+                        _layerGroupEdgeIds = (int[][][])entry.Value; break;
                     default:
                         break;
                 }
@@ -64,6 +68,8 @@ namespace CaeMesh
             //
             _direction = null;
             _sweepCenter = null;
+            _sideSurfaceIds = null;
+            _layerGroupEdgeIds = null;
         }
         public void CopyFrom(SweepMesh sweepMesh)
         {
@@ -72,6 +78,18 @@ namespace CaeMesh
             if (_direction != null) _direction = sweepMesh._direction.ToArray();
             if (_sweepCenter != null) _sweepCenter = sweepMesh._sweepCenter.ToArray();
             if (_sideSurfaceIds != null) sweepMesh._sideSurfaceIds.ToArray();
+            if (_layerGroupEdgeIds != null)
+            {
+                sweepMesh._layerGroupEdgeIds = new int[_layerGroupEdgeIds.Length][][];
+                for (int i = 0; i < _layerGroupEdgeIds.Length; i++)
+                {
+                    sweepMesh._layerGroupEdgeIds[i] = new int[_layerGroupEdgeIds[i].Length][];
+                    for (int j = 0; j < _layerGroupEdgeIds[i].Length; j++)
+                    {
+                        _layerGroupEdgeIds[i][j] = _layerGroupEdgeIds[i][j].ToArray();
+                    }
+                }
+            }
         }
         // ISerialization
         public new void GetObjectData(SerializationInfo info, StreamingContext context)
@@ -80,7 +98,8 @@ namespace CaeMesh
             // Using typeof() works also for null fields
             info.AddValue("_direction", _direction, typeof(double[]));
             info.AddValue("_sweepCenter", _sweepCenter, typeof(double[]));
-            info.AddValue("_sideSurfaceIds", _sideSurfaceIds, typeof(double[]));
+            info.AddValue("_sideSurfaceIds", _sideSurfaceIds, typeof(int[]));
+            info.AddValue("_layerGroupEdgeIds", _layerGroupEdgeIds, typeof(int[][][]));
         }
     }
 }

@@ -1559,8 +1559,6 @@ namespace CaeModel
                     HashSet<int> neighbourSurfaceIds;
                     List<int[]> layerSideSurfaceIds = new List<int[]>();
                     HashSet<int> visitedSurfaceIds = new HashSet<int>(sourceSurfaceIds);
-                    int[] edgeIds;
-                    List<List<int[]>> layerGroupSideEdgeId = new List<List<int[]>>();
                     //
                     while (true)
                     {
@@ -1688,12 +1686,27 @@ namespace CaeModel
                             sweepMesh.SweepCenter[0] = Math.Round(sweepMesh.SweepCenter[0], digits);
                             sweepMesh.SweepCenter[1] = Math.Round(sweepMesh.SweepCenter[1], digits);
                             sweepMesh.SweepCenter[2] = Math.Round(sweepMesh.SweepCenter[2], digits);
-                            // Gmsh
-                            GetDirectionEdges(vis, surfaceIdSurfaceNeighbourIds, sideSurfaceIds, layerSideSurfaceIds);
                             //
-                            // Add 1 for Gmsh counting
-                            for (int i = 0; i < sideSurfaceIds.Length; i++) sideSurfaceIds[i]++;
+                            int[][][] layerGroupEdgeIds = GetDirectionEdges(vis, surfaceIdSurfaceNeighbourIds, sideSurfaceIds,
+                                                                            layerSideSurfaceIds);
+                            // Gmsh numbering
+                            for (int i = 0; i < sideSurfaceIds.Length; i++)
+                            {
+                                sideSurfaceIds[i] = FeMesh.GmshTopologyId(sideSurfaceIds[i], partId);
+                            }
                             sweepMesh.SideSurfaceIds = sideSurfaceIds;
+                            //
+                            for (int i = 0; i < layerGroupEdgeIds.Length; i++)
+                            {
+                                for (int j = 0; j < layerGroupEdgeIds[i].Length; j++)
+                                {
+                                    for (int z = 0; z < layerGroupEdgeIds[i][j].Length; z++)
+                                    {
+                                        layerGroupEdgeIds[i][j][z] = FeMesh.GmshTopologyId(layerGroupEdgeIds[i][j][z], partId);
+                                    }
+                                }
+                            }
+                            sweepMesh.LayerGroupEdgeIds = layerGroupEdgeIds;
                         }
                         else error = "The sweep side surfaces are not 4-sided surfaces.";
                     }

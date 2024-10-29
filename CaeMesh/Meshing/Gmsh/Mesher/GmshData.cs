@@ -16,6 +16,9 @@ namespace CaeMesh
     public class GmshData
     {
         // Variables                                                                                                                
+
+
+        // Properties                                                                                                               
         public string GeometryFileName;
         public string MeshFileName;
         public string InpFileName;
