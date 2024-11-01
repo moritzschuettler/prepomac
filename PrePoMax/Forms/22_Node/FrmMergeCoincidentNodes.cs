@@ -85,7 +85,8 @@ namespace PrePoMax.Forms
                     vmcn.CreationData = new Selection();
                     vmcn.CreationData.SelectItem = vtkSelectItem.Node;
                     vmcn.CreationData.Add(new SelectionNodeIds(vtkSelectOperation.Add, true));
-
+                    //
+                    HighlightMergeCoincidentNodes();
                     _controller.PreviewMergeCoincidentNodes(vmcn);
                 }
             }

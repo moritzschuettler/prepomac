@@ -190,7 +190,7 @@ namespace CaeMesh
                 if (!_gmshData.Preview && _gmshData.PartMeshingParameters.SecondOrder)
                 {
                     if (!_gmshData.PartMeshingParameters.MidsideNodesOnGeometry) 
-                        Gmsh.Option.SetNumber("Mesh.SecondOrderLinear", 1); // first
+                        Gmsh.Option.SetNumber("Mesh.SecondOrderLinear", 1);     // first
                     // Create incomplete second order elements: 8-node quads, 20-node hexas, etc.
                     Gmsh.Option.SetNumber("Mesh.SecondOrderIncomplete", 1);     // second
                     Gmsh.Model.Mesh.SetOrder(2);                                // third

@@ -416,8 +416,6 @@ namespace CaeMesh
                     whileCount++;
                 }
             }
-            
-
         }
         private static void SmoothInternalNodes(Dictionary<IntPtr, IntPtr[]> nodeIdSweepLine,
                                                 ref Dictionary<IntPtr, double[]> nodeIdCoor,
@@ -534,6 +532,8 @@ namespace CaeMesh
                     if (currElementId > maxElementId) maxElementId = currElementId;
                 }
             }
+            //IntPtr maxTag;
+            //Gmsh.Model.Mesh.GetMaxElementTag(out maxTag);
             //
             int numNodes;
             int newElementId = maxElementId + 1;

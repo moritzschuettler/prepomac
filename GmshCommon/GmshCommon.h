@@ -13,6 +13,7 @@ double &                            ->  [System::Runtime::InteropServices::Out] 
 const std::vector<int> &            ->  array<int>^
 const std::vector<double> &         ->  array<double>^
 const std::size_t                   ->  IntPtr
+const std::size_t&                  ->  IntPtr^
 const std::vector<std::size_t> &    ->  array<IntPtr>^
 const gmsh::vectorpair &            ->  array<System::Tuple<int, int>^>^
 const std::string &                 ->  System::String^
@@ -413,21 +414,6 @@ namespace GmshCommon {
 
                     gmsh::model::mesh::addFaces(faceType, nFaceTags, nFaceNodes);
                 }
-                static void GetElementQualities(array<IntPtr>^ elementTags,
-                    [System::Runtime::InteropServices::Out] array<double>^% elementsQuality, System::String^ qualityName)
-                {
-                    std::vector<size_t> elementTags_native(elementTags->Length);
-                    Marshal::Copy(elementTags, 0, IntPtr(elementTags_native.data()), elementTags->Length);
-                    // Preallocate
-                    std::vector<double> elementsQuality_native(elementTags->Length);
-                    //
-                    std::string qualityName_native = msclr::interop::marshal_as<std::string>(qualityName);
-                    //
-                    gmsh::model::mesh::getElementQualities(elementTags_native, elementsQuality_native, qualityName_native);
-                    //
-                    elementsQuality = gcnew array<double>(elementsQuality_native.size());
-                    Marshal::Copy(IntPtr(elementsQuality_native.data()), elementsQuality, 0, elementsQuality_native.size());
-                }
                 static void AddElements(int dim, int tag, array<int>^ elementTypes,
                     array<array<IntPtr>^>^ elementTags, array <array<IntPtr>^>^ nodeTags)
                 {
@@ -561,6 +547,27 @@ namespace GmshCommon {
                     return gcnew System::String(elementNameTemp.c_str());
 
 
+                }
+                static void GetMaxElementTag([System::Runtime::InteropServices::Out] IntPtr% maxTag)
+                {
+                    size_t maxTag_native;
+                    gmsh::model::mesh::getMaxElementTag(maxTag_native);
+                    maxTag = IntPtr((int)maxTag_native);
+                }
+                static void GetElementQualities(array<IntPtr>^ elementTags,
+                    [System::Runtime::InteropServices::Out] array<double>^% elementsQuality, System::String^ qualityName)
+                {
+                    std::vector<size_t> elementTags_native(elementTags->Length);
+                    Marshal::Copy(elementTags, 0, IntPtr(elementTags_native.data()), elementTags->Length);
+                    // Preallocate
+                    std::vector<double> elementsQuality_native(elementTags->Length);
+                    //
+                    std::string qualityName_native = msclr::interop::marshal_as<std::string>(qualityName);
+                    //
+                    gmsh::model::mesh::getElementQualities(elementTags_native, elementsQuality_native, qualityName_native);
+                    //
+                    elementsQuality = gcnew array<double>(elementsQuality_native.size());
+                    Marshal::Copy(IntPtr(elementsQuality_native.data()), elementsQuality, 0, elementsQuality_native.size());
                 }
                 static void GetElements(
                     [System::Runtime::InteropServices::Out] array<int>^% elementTypes,

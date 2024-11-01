@@ -1653,112 +1653,124 @@ namespace CaeModel
                             layerSideSurfaceIds.Add(neighbourSurfaceIds.ToArray());
                             visitedSurfaceIds.UnionWith(neighbourSurfaceIds);
                         }
-                        int[] sideSurfaceIds = visitedSurfaceIds.Except(sourceSurfaceIds).ToArray();
                         //
-                        if (sideSurfaceIds.Length > 0)
+                        int[] targetSurfaceIds = surfaceIdSurfaceNeighbourIds.Keys.Except(visitedSurfaceIds).ToArray();
+                        if (targetSurfaceIds.Length == 1)
                         {
-                            // Are all side surfaces 4-sided
-                            bool fourSided = true;
-                            foreach (var surfaceId in sideSurfaceIds)
-                            {
-                                if (vis.FaceEdgeIds[surfaceId].Length != 4 && !vis.IsSurfaceACylinderLike(surfaceId, out _))
-                                {
-                                    fourSided = false;
-                                    break;
-                                }
-                            }
+                            int[] sideSurfaceIds = visitedSurfaceIds.Except(sourceSurfaceIds).ToArray();
                             //
-                            if (fourSided)
+                            if (sideSurfaceIds.Length > 0)
                             {
-                                Dictionary<int, HashSet<int>> vertexIdEdgeId = vis.GetVertexIdEdgeIds();
-                                HashSet<int> surfaceEdgeIds = vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIds.ToArray());
-                                HashSet<int> surfaceVertices = vis.GetVertexNodeIdsForSurfaceIds(sourceSurfaceIds.ToArray());
-                                //
-                                HashSet<int> directionEdgeIds = new HashSet<int>();
-                                foreach (var vertexId in surfaceVertices)
-                                    directionEdgeIds.UnionWith(vertexIdEdgeId[vertexId].Except(surfaceEdgeIds));
-                                //
-                                int[] edgeNodes;
-                                HashSet<int> nodeIds;
-                                Vec3D normalizedDirection;
-                                Vec3D averageDirection = new Vec3D();
-                                BoundingBox bb;
-                                int edgeCellId;
-                                int[] edgeCell;
-                                foreach (var directionEdgeId in directionEdgeIds)
+                                // Are all side surfaces 4-sided
+                                bool fourSided = true;
+                                foreach (var surfaceId in sideSurfaceIds)
                                 {
-                                    // Get all edge node ids
-                                    nodeIds = vis.GetNodeIdsForEdgeId(directionEdgeId);
-                                    // Reduce edge node ids to vertices
-                                    edgeNodes = nodeIds.Intersect(vis.VertexNodeIds).ToArray();
-                                    if (edgeNodes.Length != 2) throw new NotSupportedException();
-                                    // First node must be on the selected surface
-                                    if (!surfaceVertices.Contains(edgeNodes[0]))
-                                        (edgeNodes[0], edgeNodes[1]) = (edgeNodes[1], edgeNodes[0]);
-                                    // Find the first edge cell for direction
-                                    for (int i = 0; i < vis.EdgeCellIdsByEdge[directionEdgeId].Length; i++)
+                                    if (vis.FaceEdgeIds[surfaceId].Length != 4 && !vis.IsSurfaceACylinderLike(surfaceId, out _))
                                     {
-                                        edgeCellId = vis.EdgeCellIdsByEdge[directionEdgeId][i];
-                                        edgeCell = vis.EdgeCells[edgeCellId];
-                                        if (edgeNodes[0] == edgeCell[0])
-                                        {
-                                            edgeNodes[1] = edgeCell[1];
-                                            break;
-                                        }
-                                        else if (edgeNodes[0] == edgeCell[1])
-                                        {
-                                            edgeNodes[1] = edgeCell[0];
-                                            break;
-                                        }
-                                    }
-                                    // Compute the sweep direction
-                                    normalizedDirection = _geometry.ComputeDirectionFromEdgeCellIndices(edgeNodes, edgeNodes[0]);
-                                    averageDirection += normalizedDirection;
-                                }
-                                //
-                                averageDirection.Normalize();
-                                sweepMesh.Direction = averageDirection.Coor;
-                                //
-                                bb = _geometry.GetBoundingBoxForNodeIds(surfaceVertices.ToArray());
-                                sweepMesh.SweepCenter = bb.GetCenter();
-                                // Round
-                                double d = part.BoundingBox.GetDiagonal();
-                                int digits = (int)Math.Log10(d) - 6;
-                                if (digits > 0) digits = 0;
-                                else if (digits < 0) digits *= -1;
-                                //
-                                sweepMesh.Direction[0] = Math.Round(sweepMesh.Direction[0], digits);
-                                sweepMesh.Direction[1] = Math.Round(sweepMesh.Direction[1], digits);
-                                sweepMesh.Direction[2] = Math.Round(sweepMesh.Direction[2], digits);
-                                //
-                                sweepMesh.SweepCenter[0] = Math.Round(sweepMesh.SweepCenter[0], digits);
-                                sweepMesh.SweepCenter[1] = Math.Round(sweepMesh.SweepCenter[1], digits);
-                                sweepMesh.SweepCenter[2] = Math.Round(sweepMesh.SweepCenter[2], digits);
-                                //
-                                int[][][] layerGroupEdgeIds = GetDirectionEdges(vis, surfaceIdSurfaceNeighbourIds, sideSurfaceIds,
-                                                                                layerSideSurfaceIds);
-                                // Gmsh numbering
-                                for (int i = 0; i < sideSurfaceIds.Length; i++)
-                                {
-                                    sideSurfaceIds[i] = FeMesh.GmshTopologyId(sideSurfaceIds[i], partId);
-                                }
-                                sweepMesh.SideSurfaceIds = sideSurfaceIds;
-                                //
-                                for (int i = 0; i < layerGroupEdgeIds.Length; i++)
-                                {
-                                    for (int j = 0; j < layerGroupEdgeIds[i].Length; j++)
-                                    {
-                                        for (int z = 0; z < layerGroupEdgeIds[i][j].Length; z++)
-                                        {
-                                            layerGroupEdgeIds[i][j][z] = FeMesh.GmshTopologyId(layerGroupEdgeIds[i][j][z], partId);
-                                        }
+                                        fourSided = false;
+                                        break;
                                     }
                                 }
-                                sweepMesh.LayerGroupEdgeIds = layerGroupEdgeIds;
+                                //
+                                if (fourSided)
+                                {
+                                    Dictionary<int, HashSet<int>> vertexIdEdgeId = vis.GetVertexIdEdgeIds();
+                                    HashSet<int> surfaceEdgeIds = vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIds.ToArray());
+                                    HashSet<int> surfaceVertices = vis.GetVertexNodeIdsForSurfaceIds(sourceSurfaceIds.ToArray());
+                                    //
+                                    HashSet<int> directionEdgeIds = new HashSet<int>();
+                                    foreach (var vertexId in surfaceVertices)
+                                        directionEdgeIds.UnionWith(vertexIdEdgeId[vertexId].Except(surfaceEdgeIds));
+                                    //
+                                    int[] edgeNodes;
+                                    HashSet<int> nodeIds;
+                                    Vec3D normalizedDirection;
+                                    Vec3D averageDirection = new Vec3D();
+                                    BoundingBox bb;
+                                    int edgeCellId;
+                                    int[] edgeCell;
+                                    foreach (var directionEdgeId in directionEdgeIds)
+                                    {
+                                        // Get all edge node ids
+                                        nodeIds = vis.GetNodeIdsForEdgeId(directionEdgeId);
+                                        // Reduce edge node ids to vertices
+                                        edgeNodes = nodeIds.Intersect(vis.VertexNodeIds).ToArray();
+                                        if (edgeNodes.Length != 2) throw new NotSupportedException();
+                                        // First node must be on the selected surface
+                                        if (!surfaceVertices.Contains(edgeNodes[0]))
+                                            (edgeNodes[0], edgeNodes[1]) = (edgeNodes[1], edgeNodes[0]);
+                                        // Find the first edge cell for direction
+                                        for (int i = 0; i < vis.EdgeCellIdsByEdge[directionEdgeId].Length; i++)
+                                        {
+                                            edgeCellId = vis.EdgeCellIdsByEdge[directionEdgeId][i];
+                                            edgeCell = vis.EdgeCells[edgeCellId];
+                                            if (edgeNodes[0] == edgeCell[0])
+                                            {
+                                                edgeNodes[1] = edgeCell[1];
+                                                break;
+                                            }
+                                            else if (edgeNodes[0] == edgeCell[1])
+                                            {
+                                                edgeNodes[1] = edgeCell[0];
+                                                break;
+                                            }
+                                        }
+                                        // Compute the sweep direction
+                                        normalizedDirection =
+                                            _geometry.ComputeDirectionFromEdgeCellIndices(edgeNodes, edgeNodes[0]);
+                                        averageDirection += normalizedDirection;
+                                    }
+                                    //
+                                    averageDirection.Normalize();
+                                    sweepMesh.Direction = averageDirection.Coor;
+                                    //
+                                    bb = _geometry.GetBoundingBoxForNodeIds(surfaceVertices.ToArray());
+                                    sweepMesh.SweepCenter = bb.GetCenter();
+                                    // Round
+                                    double d = part.BoundingBox.GetDiagonal();
+                                    int digits = (int)Math.Log10(d) - 6;
+                                    if (digits > 0) digits = 0;
+                                    else if (digits < 0) digits *= -1;
+                                    //
+                                    sweepMesh.Direction[0] = Math.Round(sweepMesh.Direction[0], digits);
+                                    sweepMesh.Direction[1] = Math.Round(sweepMesh.Direction[1], digits);
+                                    sweepMesh.Direction[2] = Math.Round(sweepMesh.Direction[2], digits);
+                                    //
+                                    sweepMesh.SweepCenter[0] = Math.Round(sweepMesh.SweepCenter[0], digits);
+                                    sweepMesh.SweepCenter[1] = Math.Round(sweepMesh.SweepCenter[1], digits);
+                                    sweepMesh.SweepCenter[2] = Math.Round(sweepMesh.SweepCenter[2], digits);
+                                    //
+                                    int[][][] layerGroupEdgeIds = GetDirectionEdges(vis, surfaceIdSurfaceNeighbourIds,
+                                                                                    sideSurfaceIds,
+                                                                                    layerSideSurfaceIds);
+                                    // Gmsh numbering
+                                    for (int i = 0; i < sideSurfaceIds.Length; i++)
+                                    {
+                                        sideSurfaceIds[i] = FeMesh.GmshTopologyId(sideSurfaceIds[i], partId);
+                                    }
+                                    sweepMesh.SideSurfaceIds = sideSurfaceIds;
+                                    //
+                                    for (int i = 0; i < layerGroupEdgeIds.Length; i++)
+                                    {
+                                        for (int j = 0; j < layerGroupEdgeIds[i].Length; j++)
+                                        {
+                                            for (int z = 0; z < layerGroupEdgeIds[i][j].Length; z++)
+                                            {
+                                                layerGroupEdgeIds[i][j][z] =
+                                                    FeMesh.GmshTopologyId(layerGroupEdgeIds[i][j][z], partId);
+                                            }
+                                        }
+                                    }
+                                    sweepMesh.LayerGroupEdgeIds = layerGroupEdgeIds;
+                                }
+                                else error = "The sweep side surfaces are not 4-sided surfaces.";
                             }
-                            else error = "The sweep side surfaces are not 4-sided surfaces.";
+                            else error = "The sweep side surfaces do not form a closed loop.";
                         }
-                        else error = "The sweep side surfaces do not form a closed loop.";
+                        else error = "There are more than 1 target surfaces.";
+
+                        // Get target surfaces
+                        
                     }
                     else error = "The selected surface/s contain free edge loop/s with a single edge (a hole or an extrusion).";
                 }
