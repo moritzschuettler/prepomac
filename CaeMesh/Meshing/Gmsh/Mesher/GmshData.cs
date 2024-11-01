@@ -9,6 +9,7 @@ namespace CaeMesh
     public struct GmshIdLocation
     {
         public int Id;
+        public double Size;
         public double[] Location;
     }
     
@@ -32,6 +33,8 @@ namespace CaeMesh
         // Mesh size
         public Dictionary<int, double> VertexNodeIdMeshSize;
         public Dictionary<int, int> EdgeIdNumElements;
+        // Sweep
+        public HashSet<int>[] EdgeIdsBySweepLayer;
         // Normals
         public Dictionary<int, FeNode[]> FaceIdNodes;
         public Dictionary<int, List<Vec3D>> NodeIdNormals;

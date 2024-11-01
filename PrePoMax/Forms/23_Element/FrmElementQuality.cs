@@ -143,6 +143,7 @@ namespace PrePoMax.Forms
             limit = sorted[(int)(sorted.Length * ratio)];
             //
             _viewElementQuality.SetValues(min, max, average, standardDeviation, limit);
+            propertyGrid.Refresh();
             //
             HighlightElements();
         }

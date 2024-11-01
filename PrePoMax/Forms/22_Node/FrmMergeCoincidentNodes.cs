@@ -78,6 +78,16 @@ namespace PrePoMax.Forms
                     HighlightMergeCoincidentNodes();
                     _controller.PreviewMergeCoincidentNodes(_viewMergeCoincidentNodes.GetBase());
                 }
+                else
+                {
+                    // Select all
+                    MergeCoincidentNodes vmcn = _viewMergeCoincidentNodes.GetBase().DeepClone();
+                    vmcn.CreationData = new Selection();
+                    vmcn.CreationData.SelectItem = vtkSelectItem.Node;
+                    vmcn.CreationData.Add(new SelectionNodeIds(vtkSelectOperation.Add, true));
+
+                    _controller.PreviewMergeCoincidentNodes(vmcn);
+                }
             }
             catch (Exception ex)
             {
@@ -89,15 +99,21 @@ namespace PrePoMax.Forms
         protected override void OnApply(bool onOkAddNew)
         {
             _viewMergeCoincidentNodes = (ViewMergeCoincidentNodes)propertyGrid.SelectedObject;
+            MergeCoincidentNodes vmcn = _viewMergeCoincidentNodes.GetBase();
             //
-            if (_viewMergeCoincidentNodes.GeometryIds == null || _viewMergeCoincidentNodes.GeometryIds.Length == 0)
-                throw new CaeException("The coincident nodes selection to merge must contain at least one item.");
+            if (vmcn.GeometryIds == null || vmcn.GeometryIds.Length == 0)
+            {
+                // Select all
+                vmcn.CreationData = new Selection();
+                vmcn.CreationData.SelectItem = vtkSelectItem.Node;
+                vmcn.CreationData.Add(new SelectionNodeIds(vtkSelectOperation.Add, true));
+            }
             //
-            Dictionary<int, int> oldIdNewId = _controller.GetCoincidentNodeMap(_viewMergeCoincidentNodes.GetBase());
+            Dictionary<int, int> oldIdNewId = _controller.GetCoincidentNodeMap(vmcn);
             if (oldIdNewId.Count == 0)
                 throw new CaeException("There are no coincident nodes in the current selection.");
             // Create
-            _controller.MergeCoincidentNodesCommand(_viewMergeCoincidentNodes.GetBase());
+            _controller.MergeCoincidentNodesCommand(vmcn);
             //
             _controller.ClearSelectionHistoryAndCallSelectionChanged();
             // If all is successful close the ItemSetSelectionForm - except for OKAddNew

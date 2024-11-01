@@ -448,7 +448,7 @@ namespace CaeMesh
             }
             HashSet<IntPtr> boundaryNodes = nodeIdCoor.Keys.Except(nodeNeighbours.Keys).ToHashSet();
             // Laplacian smoothing of coordinates
-            int n = 100;
+            int n = 1;
             double delta;
             double maxDelta;
             double[] coor;
@@ -606,19 +606,18 @@ namespace CaeMesh
                                     solidNodeIdsArr[3] = nodeIdSweepLine[nodeIdsArr[1]][i + 1];
                                     //
                                     linearQuadrilaterals.Add((IntPtr)newElementId++, solidNodeIdsArr);
-                                    newElementId++;
                                 }
                             }
                             else throw new NotSupportedException();
                         }
                     }
                 }
-                // Add elements by single type
-                AddElemets(linearTriangles, 3, 2, targetSurfaceIds.First(), (int)GmshElementTypeEnum.LinearTriangle);
-                AddElemets(linearQuadrilaterals, 4, 2, targetSurfaceIds.First(), (int)GmshElementTypeEnum.LinearQuadrilateral);
-                AddElemets(linearWedges, 6, 3, 1, (int)GmshElementTypeEnum.LinearWedge);
-                AddElemets(LinearHexas, 8, 3, 1, (int)GmshElementTypeEnum.LinearHexa);
             }
+            // Add elements by single type
+            AddElemets(linearTriangles, 3, 2, targetSurfaceIds.First(), (int)GmshElementTypeEnum.LinearTriangle);
+            AddElemets(linearQuadrilaterals, 4, 2, targetSurfaceIds.First(), (int)GmshElementTypeEnum.LinearQuadrilateral);
+            AddElemets(linearWedges, 6, 3, 1, (int)GmshElementTypeEnum.LinearWedge);
+            AddElemets(LinearHexas, 8, 3, 1, (int)GmshElementTypeEnum.LinearHexa);
         }
         private static void AddElemets(Dictionary<IntPtr, IntPtr[]> elements, int n, int dim, int tag, int elementType)
         {

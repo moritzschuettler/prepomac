@@ -118,7 +118,7 @@ namespace CaeMesh
             {
                 if (_gmshData.GmshSetupItems.Length != 1)
                     throw new CaeException("Currently, for a single part, only one active mesh setup item of the type: " +
-                        "Shell gmsh, Tetrahedral gmsh, Transfinite mesh, Extrude mesh or Revolve mesh is possible.");
+                        "Shell gmsh, Tetrahedral gmsh, Transfinite mesh, Extrude mesh, Sweep mesh or Revolve mesh is possible.");
                 //
                 MeshSetupItem meshSetupItem = _gmshData.GmshSetupItems[0];
                 //
@@ -143,8 +143,12 @@ namespace CaeMesh
                     }
                     //
                     Synchronize(); // must be here
+                    // Renumber Gmsh items
+                    RenumberGmshDataByCoor();
+                    // PrepareData
+                    PrepareData(gsi);
                     // Mesh size
-                    SetMeshSizes(gsi);
+                    SetMeshSizes(gsi.AlgorithmMesh2D);
                     // 2D meshing algorithm
                     Gmsh.Option.SetNumber("Mesh.Algorithm", (int)gsi.AlgorithmMesh2D);
                     // 3D meshing algorithm
@@ -158,7 +162,8 @@ namespace CaeMesh
                     }
                     // Transfinite
                     bool transfiniteVolume = gsi is TransfiniteMesh && gsi.TransfiniteThreeSided && gsi.TransfiniteFourSided;
-                    if (_isOCC && (gsi.TransfiniteThreeSided || gsi.TransfiniteFourSided))
+                    bool sweepMesh = _gmshData.EdgeIdsBySweepLayer != null;
+                    if (_isOCC && (gsi.TransfiniteThreeSided || gsi.TransfiniteFourSided || sweepMesh))
                         //Gmsh.Mesh.SetTransfiniteAutomatic(gsi.TransfiniteAngleRad, recombine);
                         SetTransfiniteSurfaces(gsi.TransfiniteThreeSided, gsi.TransfiniteFourSided, transfiniteVolume, recombine);
                     // Optimization On/Off
@@ -213,16 +218,16 @@ namespace CaeMesh
                 _error = ex.Message;
             }
         }
-        private void SetMeshSizes(GmshSetupItem gmshSetupItem)
+        private void SetMeshSizes(GmshAlgorithmMesh2DEnum algorithm2D)
         {
-            RenumberGmshDataByCoor();
+            
             // Mesh size
             //Tuple<int, int>[] surfaceDimTags;
             //Gmsh.GetEntities(out surfaceDimTags, 2);
             //foreach (var surfaceDimTag in surfaceDimTags) Gmsh.Mesh.SetSizeFromBoundary(2, surfaceDimTag.Item2, 0);
             //
             double sf = 1;
-            if (gmshSetupItem.AlgorithmMesh2D == GmshAlgorithmMesh2DEnum.QuasiStructuredQuad) sf = 2;
+            if (algorithm2D == GmshAlgorithmMesh2DEnum.QuasiStructuredQuad) sf = 2;
             //
             Gmsh.Option.SetNumber("Mesh.MeshSizeMin", _gmshData.PartMeshingParameters.MinH * sf);
             Gmsh.Option.SetNumber("Mesh.MeshSizeMax", _gmshData.PartMeshingParameters.MaxH * sf);
@@ -237,51 +242,45 @@ namespace CaeMesh
             // Local edge mesh size
             int edgeId;
             int numOfElements;
-            int numOfNodes;
-            // Gather sweep edge ids by layer
-            HashSet<int>[] edgeIdsByLayer = null;
-            if (gmshSetupItem is SweepMesh sm)
-            {
-                edgeIdsByLayer = new HashSet<int>[sm.LayerGroupEdgeIds.Length];
-                for (int i = 0; i < sm.LayerGroupEdgeIds.Length; i++)
-                {
-                    edgeIdsByLayer[i] = new HashSet<int>();
-                    for (int j = 0; j < sm.LayerGroupEdgeIds[i].Length; j++)
-                    {
-                        edgeIdsByLayer[i].UnionWith(sm.LayerGroupEdgeIds[i][j]);
-                    }
-                }
-
-            }
             // Get all edges
             Gmsh.Model.GetEntities(out dimTags, 1);
             // Check all edges
+            Dictionary<int, int> edgeIdNumberOfElements = new Dictionary<int, int>();
             foreach (var entry in dimTags)
             {
                 edgeId = entry.Item2;
+                //
                 if (_gmshData.EdgeIdNumElements.TryGetValue(edgeId, out numOfElements))
                 {
                     numOfElements = (int)(numOfElements / sf);
-                    _gmshData.EdgeIdNumElements[edgeId] = numOfElements;
-                    numOfNodes = numOfElements + 1;
-                    // Set edge size
-                    Gmsh.Model.Mesh.SetTransfiniteCurve(edgeId, numOfNodes);
+                    edgeIdNumberOfElements[edgeId] = numOfElements;
                     // Sweep edge sizes
-                    if (edgeIdsByLayer != null)
+                    if (_gmshData.EdgeIdsBySweepLayer != null)
                     {
-                        foreach (var edgeIds in edgeIdsByLayer)
+                        foreach (var edgeIds in _gmshData.EdgeIdsBySweepLayer)
                         {
                             if (edgeIds.Contains(edgeId))
                             {
                                 foreach (var sweepEdgeId in edgeIds)
                                 {
-                                    _gmshData.EdgeIdNumElements[sweepEdgeId] = numOfElements;
-                                    Gmsh.Model.Mesh.SetTransfiniteCurve(sweepEdgeId, numOfNodes);
+                                    edgeIdNumberOfElements[sweepEdgeId] = numOfElements;
                                 }
                             }
                         }
                     }
                 }
+            }
+            // Overwrite all edge sizes
+            int numOfNodes;
+            foreach (var entry in edgeIdNumberOfElements)
+            {
+                edgeId = entry.Key;
+                numOfElements = entry.Value;
+                //
+                _gmshData.EdgeIdNumElements[edgeId] = numOfElements;
+                //
+                numOfNodes = numOfElements + 1;
+                Gmsh.Model.Mesh.SetTransfiniteCurve(edgeId, numOfNodes);
             }
             //
             Synchronize(); // must be here for mesh refinement
@@ -486,11 +485,6 @@ namespace CaeMesh
             targetSurfaceIds.ExceptWith(sourceSurfaceIds);
             targetSurfaceIds.ExceptWith(sideSurfaceIds);
             if (targetSurfaceIds.Count != 1) throw new NotSupportedException();
-
-
-            //SetTransfiniteSurfaces(false, true, false, true);
-
-
             // Set source surfaces
             if (recombine)
             {
@@ -501,6 +495,7 @@ namespace CaeMesh
             {
                 Gmsh.Model.Mesh.SetRecombine(2, sideSurfaceId);
                 Gmsh.Model.Mesh.SetTransfiniteSurface(sideSurfaceId, "AlternateLeft");
+                //Gmsh.Model.Mesh.SetSmoothing(2, sideSurfaceId, 100); // smoothing
             }
             //
             Gmsh.Model.Mesh.Generate(2);
@@ -510,7 +505,7 @@ namespace CaeMesh
             //
             Gmsh.Model.Mesh.Clear(toRemoveDimTags.ToArray());
             //
-            //Gmsh.Write(_gmshData.InpFileName);
+            if (System.Diagnostics.Debugger.IsAttached) Gmsh.Write(_gmshData.InpFileName);
             //
             if (preview)
             {
@@ -802,12 +797,14 @@ namespace CaeMesh
             int maxByRefinement;
             int numOfElements;
             int numOfNodes;
+            int avgNumOfNodes;
             HashSet<int> groupEdgeIds;
             IntPtr[] nodeTagsIntPtr;
             double[] coor;
             // Create edge mesh to get number of nodes for each edge
             Gmsh.Model.Mesh.Generate(1);
             //
+            Dictionary<int, int> edgeIdNumOfNodes = new Dictionary<int, int>();
             foreach (var edgeGroup in edgeGroups)
             {
                 if (edgeGroup.Nodes.Count <= 1) continue;
@@ -841,13 +838,38 @@ namespace CaeMesh
                     }
                 }
                 //
-                if (maxByRefinement > 0) numOfNodes = maxByRefinement;
-                else numOfNodes = (int)Math.Round((double)sum / edgeGroup.Nodes.Count, 0, MidpointRounding.AwayFromZero);
-                //numOfNodes = (int)Math.Round((min + max) / 2.0, 0, MidpointRounding.AwayFromZero);
+                if (maxByRefinement > 0) avgNumOfNodes = maxByRefinement;
+                else avgNumOfNodes = (int)Math.Round((double)sum / edgeGroup.Nodes.Count, 0, MidpointRounding.AwayFromZero);
+                //avgNumOfNodes = (int)Math.Round((min + max) / 2.0, 0, MidpointRounding.AwayFromZero);
                 //
                 foreach (var edgeNodeFromGroup in edgeGroup.Nodes)
                 {
-                    Gmsh.Model.Mesh.SetTransfiniteCurve(edgeNodeFromGroup.Value.Id, numOfNodes);
+                    Gmsh.Model.Mesh.SetTransfiniteCurve(edgeNodeFromGroup.Value.Id, avgNumOfNodes);
+                    edgeIdNumOfNodes[edgeNodeFromGroup.Value.Id] = avgNumOfNodes;
+                }
+            }
+            // Sweep mesh layers
+            int count;
+            if (_gmshData.EdgeIdsBySweepLayer != null)
+            {
+                foreach (var layer in _gmshData.EdgeIdsBySweepLayer)
+                {
+                    sum = 0;
+                    count = 0;
+                    foreach (var sweepEdgeId in layer)
+                    {
+                        if (edgeIdNumOfNodes.TryGetValue(sweepEdgeId, out numOfNodes))
+                        {
+                            sum += numOfNodes;
+                            count++;
+                        }
+                    }
+                    avgNumOfNodes = (int)Math.Round((double)sum / count, 0, MidpointRounding.AwayFromZero);
+                    //
+                    foreach (var sweepEdgeId in layer)
+                    {
+                        Gmsh.Model.Mesh.SetTransfiniteCurve(sweepEdgeId, avgNumOfNodes);
+                    }
                 }
             }
             //
@@ -856,6 +878,7 @@ namespace CaeMesh
             foreach (var entry in surfaceIdSurface)
             {
                 surface = entry.Value;
+                //
                 if (surface.Transfinite)
                 {
                     // "Left", "Right", "AlternateLeft" and "AlternateRight"
@@ -865,7 +888,8 @@ namespace CaeMesh
                         Gmsh.Model.Mesh.SetTransfiniteSurface(surface.Id, "AlternateLeft");
                     //
                     if (recombine && surface.Recombine) Gmsh.Model.Mesh.SetRecombine(2, surface.Id);
-                    Gmsh.Model.Mesh.SetSmoothing(2, surface.Id, 100);
+                    //
+                    //Gmsh.Model.Mesh.SetSmoothing(2, surface.Id, 100);
                 }
             }
             //
@@ -1063,7 +1087,12 @@ namespace CaeMesh
                 {
                     if (netgenEdgeIdGmshEdgeId.TryGetValue(entry.Key, out edgeId))
                         edgeIdNumElements[edgeId] = entry.Value;
-                    else if (System.Diagnostics.Debugger.IsAttached) throw new Exception();
+                    else if (System.Diagnostics.Debugger.IsAttached)
+                    {
+                        // Other part
+                        edgeId = edgeId;
+                        //throw new Exception();
+                    }
                 }
                 _gmshData.EdgeIdNumElements = edgeIdNumElements;
             }
@@ -1121,6 +1150,23 @@ namespace CaeMesh
                                 }
                             }
                         }
+                    }
+                }
+            }
+        }
+        private void PrepareData(GmshSetupItem gmshSetupItem)
+        {
+            // Gather sweep edge ids by layer
+            _gmshData.EdgeIdsBySweepLayer = null;
+            if (gmshSetupItem is SweepMesh sm)
+            {
+                _gmshData.EdgeIdsBySweepLayer = new HashSet<int>[sm.LayerGroupEdgeIds.Length];
+                for (int i = 0; i < sm.LayerGroupEdgeIds.Length; i++)
+                {
+                    _gmshData.EdgeIdsBySweepLayer[i] = new HashSet<int>();
+                    for (int j = 0; j < sm.LayerGroupEdgeIds[i].Length; j++)
+                    {
+                        _gmshData.EdgeIdsBySweepLayer[i].UnionWith(sm.LayerGroupEdgeIds[i][j]);
                     }
                 }
             }
@@ -1296,11 +1342,11 @@ namespace CaeMesh
             int gmshFaceId = -1;
             int[] edgeIds;
             HashSet<int> faceVertexIds;
-            double min;
             double d2;
             double x;
             double y;
             double z;
+            double size;
             double[] center;
             BoundingBox bb = new BoundingBox();
             Vec3D xyz;
@@ -1337,11 +1383,23 @@ namespace CaeMesh
                 }
                 xyz = new Vec3D(x, y, z);
                 //
-                faceIdData = new GmshIdLocation() { Id = faceId, Location = xyz.Coor };
+                if (_isOCC) Gmsh.Model.OCC.GetMass(2, faceId, out size);
+                else size = -1;
+                //
+                faceIdData = new GmshIdLocation();
+                faceIdData.Id = faceId;
+                faceIdData.Size = size;
+                faceIdData .Location = xyz.Coor;
+                //
                 if (gmshFaceVertexNodeIdsFaceId.TryGetValue(vertexIds, out faceIdDataList)) faceIdDataList.Add(faceIdData);
                 else gmshFaceVertexNodeIdsFaceId.Add(vertexIds, new List<GmshIdLocation>() { faceIdData });
             }
-            // Renumber face ids
+            // Renumber face ids based on the most simillar of two criteria
+            int count;
+            int[] locationIdDiff;
+            int[] sizeIdDiff;
+            double[] locationDiff;
+            double[] sizeDiff;
             Dictionary<int, int> netgenFaceIdGmshFaceId = new Dictionary<int, int>();
             foreach (var entry in _gmshData.FaceVertexNodeIdsFaceId)
             {
@@ -1357,17 +1415,42 @@ namespace CaeMesh
                         if (idLocationList.Count() == 1) gmshFaceId = idLocationList[0].Id;
                         else
                         {
-                            min = double.MaxValue;
+                            locationIdDiff = new int[idLocationList.Count()];
+                            sizeIdDiff = new int[idLocationList.Count()];
+                            locationDiff = new double[idLocationList.Count()];
+                            sizeDiff = new double[idLocationList.Count()];
+                            // Collect all differences
+                            count = 0;
                             foreach (var idLocation in idLocationList)
                             {
                                 cog = new Vec3D(idLocation.Location);
                                 d2 = (cog - xyz).Len2;
-                                if (d2 < min)
-                                {
-                                    min = d2;
-                                    gmshFaceId = idLocation.Id;
-                                }
+                                locationIdDiff[count] = idLocation.Id;
+                                locationDiff[count] = d2;
+                                //
+                                d2 = Math.Abs(faceDataEntry.Size - idLocation.Size);
+                                sizeIdDiff[count] = idLocation.Id;
+                                sizeDiff[count] = d2;
+                                //
+                                count++;
                             }
+                            // Sort differences
+                            Array.Sort(locationDiff, locationIdDiff);
+                            Array.Sort(sizeDiff, sizeIdDiff);
+                            // If different surfaces are found select by the smallest normalized criteria
+                            if (locationIdDiff[0] != sizeIdDiff[0])
+                            {
+                                // Normalize differences
+                                for (int i = 0; i < locationDiff.Length; i++)
+                                {
+                                    locationDiff[i] /= locationDiff[locationDiff.Length - 1];
+                                    sizeDiff[i] /= sizeDiff[locationIdDiff.Length - 1];
+                                }
+                                //
+                                if (locationDiff[0] < sizeDiff[0]) gmshFaceId = locationIdDiff[0];
+                                else gmshFaceId = sizeIdDiff[0];
+                            }
+                            else gmshFaceId = locationIdDiff[0];
                         }
                         //
                         netgenFaceIdGmshFaceId[netgenFaceId] = gmshFaceId;
