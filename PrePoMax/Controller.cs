@@ -2489,6 +2489,7 @@ namespace PrePoMax
             //
             ResumeExplodedViews(false);
             //
+            _form.Invalidate();
         }
 
         #endregion ################################################################################################################

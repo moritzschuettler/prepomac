@@ -15,6 +15,8 @@ namespace CaeMesh
     public class SweepMesh : GmshSetupItem, ISerializable
     {
         // Variables                                                                                                                
+        private int _numberOfLayerSmoothSteps;                          // ISerializable
+        private int _numberOfGlobalSmoothSteps;                         // ISerializable
         private double[] _direction;                                    // ISerializable
         private double[] _sweepCenter;                                  // ISerializable
         private int[] _sideSurfaceIds;                                  // ISerializable
@@ -22,6 +24,24 @@ namespace CaeMesh
 
 
         // Properties                                                                                                               
+        public int NumberOfLayerSmoothSteps
+        {
+            get { return _numberOfLayerSmoothSteps; }
+            set
+            {
+                _numberOfLayerSmoothSteps = value;
+                if (_numberOfLayerSmoothSteps < 0) _numberOfLayerSmoothSteps = 0;
+            }
+        }
+        public int NumberOfGlobalSmoothSteps
+        {
+            get { return _numberOfGlobalSmoothSteps; }
+            set
+            {
+                _numberOfGlobalSmoothSteps = value;
+                if (_numberOfGlobalSmoothSteps < 0) _numberOfGlobalSmoothSteps = 0;
+            }
+        }
         public double[] Direction { get { return _direction; } set { _direction = value; } }
         public double[] SweepCenter { get { return _sweepCenter; } set { _sweepCenter = value; } }
         public int[] SideSurfaceIds { get { return _sideSurfaceIds; } set { _sideSurfaceIds = value; } }
@@ -46,6 +66,10 @@ namespace CaeMesh
             {
                 switch (entry.Name)
                 {
+                    case "_numberOfLayerSmoothSteps":
+                        _numberOfLayerSmoothSteps = (int)entry.Value; break;
+                    case "_numberOfGlobalSmoothSteps":
+                        _numberOfGlobalSmoothSteps = (int)entry.Value; break;
                     case "_direction":
                         _direction = (double[])entry.Value; break;
                     case "_sweepCenter":
@@ -66,6 +90,8 @@ namespace CaeMesh
         {
             base.Reset();
             //
+            _numberOfLayerSmoothSteps = 10;
+            _numberOfGlobalSmoothSteps = 10;
             _direction = null;
             _sweepCenter = null;
             _sideSurfaceIds = null;
@@ -75,6 +101,8 @@ namespace CaeMesh
         {
             base.CopyFrom(sweepMesh);
             //
+            _numberOfLayerSmoothSteps = sweepMesh._numberOfLayerSmoothSteps;
+            _numberOfGlobalSmoothSteps = sweepMesh._numberOfGlobalSmoothSteps;
             if (_direction != null) _direction = sweepMesh._direction.ToArray();
             if (_sweepCenter != null) _sweepCenter = sweepMesh._sweepCenter.ToArray();
             if (_sideSurfaceIds != null) sweepMesh._sideSurfaceIds.ToArray();
@@ -96,6 +124,8 @@ namespace CaeMesh
         {
             base.GetObjectData(info, context);
             // Using typeof() works also for null fields
+            info.AddValue("_numberOfLayerSmoothSteps", _numberOfLayerSmoothSteps, typeof(int));
+            info.AddValue("_numberOfGlobalSmoothSteps", _numberOfGlobalSmoothSteps, typeof(int));
             info.AddValue("_direction", _direction, typeof(double[]));
             info.AddValue("_sweepCenter", _sweepCenter, typeof(double[]));
             info.AddValue("_sideSurfaceIds", _sideSurfaceIds, typeof(int[]));

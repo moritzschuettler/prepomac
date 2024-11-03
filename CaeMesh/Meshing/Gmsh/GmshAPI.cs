@@ -220,7 +220,6 @@ namespace CaeMesh
         }
         private void SetMeshSizes(GmshAlgorithmMesh2DEnum algorithm2D)
         {
-            
             // Mesh size
             //Tuple<int, int>[] surfaceDimTags;
             //Gmsh.GetEntities(out surfaceDimTags, 2);
@@ -231,7 +230,8 @@ namespace CaeMesh
             //
             Gmsh.Option.SetNumber("Mesh.MeshSizeMin", _gmshData.PartMeshingParameters.MinH * sf);
             Gmsh.Option.SetNumber("Mesh.MeshSizeMax", _gmshData.PartMeshingParameters.MaxH * sf);
-            Gmsh.Option.SetNumber("Mesh.MeshSizeFromCurvature", 2 * Math.PI * _gmshData.PartMeshingParameters.ElementsPerCurve / sf);
+            double cs = 2 * Math.PI * _gmshData.PartMeshingParameters.ElementsPerCurve / sf;
+            Gmsh.Option.SetNumber("Mesh.MeshSizeFromCurvature", cs);
             // Local vertex mesh size
             Tuple<int, int>[] dimTags = new Tuple<int, int>[1];
             foreach (var entry in _gmshData.VertexNodeIdMeshSize)
@@ -493,6 +493,7 @@ namespace CaeMesh
             // Set side surfaces
             foreach (var sideSurfaceId in sideSurfaceIds)
             {
+                //Gmsh.Model.Mesh.SetAlgorithm(2, sideSurfaceId, (int)GmshAlgorithmMesh2DEnum.FrontalDelaunay);
                 Gmsh.Model.Mesh.SetRecombine(2, sideSurfaceId);
                 Gmsh.Model.Mesh.SetTransfiniteSurface(sideSurfaceId, "AlternateLeft");
                 //Gmsh.Model.Mesh.SetSmoothing(2, sideSurfaceId, 100); // smoothing
@@ -504,7 +505,13 @@ namespace CaeMesh
             foreach (var targetSurfaceId in targetSurfaceIds) toRemoveDimTags.Add(new Tuple<int, int>(2, targetSurfaceId));
             //
             Gmsh.Model.Mesh.Clear(toRemoveDimTags.ToArray());
-            //
+            // Optimize first order
+            if (sweepMesh.OptimizeFirstOrderShell != GmshOptimizeFirstOrderShellEnum.None)
+            {
+                Tuple<int, int>[] dimTags = new Tuple<int, int>[0];
+                Gmsh.Model.Mesh.Optimize(sweepMesh.OptimizeFirstOrderShell.ToString(), false, 10, dimTags);
+            }
+            // Debug
             if (System.Diagnostics.Debugger.IsAttached) Gmsh.Write(_gmshData.InpFileName);
             //
             if (preview)
@@ -517,10 +524,10 @@ namespace CaeMesh
             }
             else
             {
-                SweepMethods.CreateSweepMesh(sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds, surfaceIdEdgeIds, surfaceIdVertexIds);
+                SweepMethods.CreateSweepMesh(sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds,
+                                             sweepMesh.NumberOfLayerSmoothSteps, sweepMesh.NumberOfGlobalSmoothSteps,
+                                             surfaceIdEdgeIds, surfaceIdVertexIds);
             }
-            //Tuple<int, int>[] dimTags = new Tuple<int, int>[0];
-            //Gmsh.Model.Mesh.Optimize(GmshOptimizeFirstOrderSolidEnum.Gmsh.ToString(), true, 5, dimTags);
         }
         //
         public bool CheckMeshVolume(Tuple<int, int>[] outDimTags)

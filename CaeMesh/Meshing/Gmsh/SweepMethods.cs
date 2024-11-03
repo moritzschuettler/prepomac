@@ -20,27 +20,28 @@ namespace CaeMesh
             LinearPyramid = 7
         }
         public static void CreateSweepMesh(HashSet<int> sourceSurfaceIds, HashSet<int> sideSurfaceIds,
-                                           HashSet<int> targetSurfaceIds, Dictionary<int, int[]> surfaceIdEdgeIds,
+                                           HashSet<int> targetSurfaceIds, int numLayerSmoothSteps, int numGlobalSmoothSteps,
+                                           Dictionary<int, int[]> surfaceIdEdgeIds,
                                            Dictionary<int, int[]> surfaceIdVertexIds)
         {
             // Create sweep lines and their nodes
             Dictionary<IntPtr, IntPtr[]> nodeIdSweepLine;
             Dictionary<IntPtr, double[]> nodeIdCoor;
-            HashSet<IntPtr> addedNodeIds;
             HashSet<IntPtr> nodeIdsOfBoundarySweepLines;
             Dictionary<IntPtr, HashSet<IntPtr>> sweepLineNeighbours;
             CreateSweepLines(sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds, surfaceIdEdgeIds, surfaceIdVertexIds,
-                             out addedNodeIds, out nodeIdSweepLine, out nodeIdsOfBoundarySweepLines, out sweepLineNeighbours,
-                             out nodeIdCoor);
+                             out nodeIdSweepLine, out nodeIdsOfBoundarySweepLines, out sweepLineNeighbours, out nodeIdCoor);
             // Smooth sweep lines by z layers
             double avgLayerThickness;
             SmoothSweepLines(nodeIdSweepLine, nodeIdCoor, nodeIdsOfBoundarySweepLines, sweepLineNeighbours,
-                             out avgLayerThickness);
+                             numLayerSmoothSteps, out avgLayerThickness);
             // Project last sweep line node to the target surface
             ProjectSweepLineEndNodesToFaces(nodeIdSweepLine, nodeIdCoor, nodeIdsOfBoundarySweepLines, targetSurfaceIds);
             // Smooth all internal nodes
-            SmoothInternalNodes(nodeIdSweepLine, ref nodeIdCoor, nodeIdsOfBoundarySweepLines, sweepLineNeighbours,
-                                avgLayerThickness);
+            SmoothAllGeneratedNodes(nodeIdSweepLine, ref nodeIdCoor, nodeIdsOfBoundarySweepLines, sweepLineNeighbours,
+                                    numGlobalSmoothSteps, avgLayerThickness);
+            // Project last sweep line node to the target surface
+            ProjectSweepLineEndNodesToFaces(nodeIdSweepLine, nodeIdCoor, nodeIdsOfBoundarySweepLines, targetSurfaceIds);
             // Add nodes
             AddNodes(nodeIdSweepLine, nodeIdCoor, nodeIdsOfBoundarySweepLines, targetSurfaceIds);
             // Add elements
@@ -49,7 +50,6 @@ namespace CaeMesh
         private static void CreateSweepLines(HashSet<int> sourceSurfaceIds, HashSet<int> sideSurfaceIds,
                                              HashSet<int> targetSurfaceIds, Dictionary<int, int[]> surfaceIdEdgeIds,
                                              Dictionary<int, int[]> surfaceIdVertexIds,
-                                             out HashSet<IntPtr> addedNodeIds,
                                              out Dictionary<IntPtr, IntPtr[]> nodeIdSweepLine,
                                              out HashSet<IntPtr> nodeIdsOfBoundarySweepLines,
                                              out Dictionary<IntPtr, HashSet<IntPtr>> sweepLineNeighbours,
@@ -153,7 +153,6 @@ namespace CaeMesh
             List<IntPtr[]> sweepLines;
             HashSet<IntPtr> visitedNodeIds = new HashSet<IntPtr>(currentLayerNodeIds);
             //
-            addedNodeIds = new HashSet<IntPtr>();
             currentLayerNodeIds = nodeIdsOfBoundarySweepLines;
             // Go through nodes layer by layer from outside to inside
             while (nodeIdSweepLine.Count != nodeIdNeighbourIds.Count)
@@ -208,7 +207,6 @@ namespace CaeMesh
                                 //
                                 sweepLine[i + 1] = (IntPtr)newNodeId;
                                 nodeIdCoor.Add((IntPtr)newNodeId, coor2);
-                                addedNodeIds.Add((IntPtr)newNodeId);
                                 //
                                 newNodeId++;
                             }
@@ -225,7 +223,7 @@ namespace CaeMesh
         private static void SmoothSweepLines(Dictionary<IntPtr, IntPtr[]> nodeIdSweepLine, Dictionary<IntPtr, double[]> nodeIdCoor,
                                              HashSet<IntPtr> nodeIdsOfBoundarySweepLines,
                                              Dictionary<IntPtr, HashSet<IntPtr>> sweepLineNeighbours,
-                                             out double avgLayerThickness)
+                                             int numSmoothSteps, out double avgLayerThickness)
         {
             double[] coor1;
             double[] coor2;
@@ -261,14 +259,13 @@ namespace CaeMesh
                                           Math.Pow(avgDirection[1], 2) +
                                           Math.Pow(avgDirection[2], 2));
             // Laplacian smoothing of directions
-            int n = 100;
             double delta;
             double maxDelta;
             HashSet<IntPtr> neighbours;
             Dictionary<IntPtr, double[]> smoothNodeIdDirection;
             IntPtr[] internalNodeIds = nodeIdSweepLine.Keys.Except(nodeIdsOfBoundarySweepLines).ToArray();
             //
-            for (int i = 0; i < n; i++) // number of smooth loops
+            for (int i = 0; i < numSmoothSteps; i++) // number of smooth loops
             {
                 maxDelta = 0;
                 smoothNodeIdDirection = new Dictionary<IntPtr, double[]>();
@@ -314,9 +311,9 @@ namespace CaeMesh
                 //
                 nodeIdDirection = smoothNodeIdDirection;
                 //
-                if (maxDelta < 1E-3) break;
+                if (maxDelta < 1E-6) break;
             }
-            // Apply smoother directions to coordinates
+            // Apply smoothed directions to coordinates
             foreach (var nodeId in internalNodeIds) // for each sweep line
             {
                 sweepLine = nodeIdSweepLine[nodeId];
@@ -417,11 +414,11 @@ namespace CaeMesh
                 }
             }
         }
-        private static void SmoothInternalNodes(Dictionary<IntPtr, IntPtr[]> nodeIdSweepLine,
-                                                ref Dictionary<IntPtr, double[]> nodeIdCoor,
-                                                HashSet<IntPtr> nodeIdsOfBoundarySweepLines,
-                                                Dictionary<IntPtr, HashSet<IntPtr>> sweepLineNeighbours,
-                                                double avgLayerThickness)
+        private static void SmoothAllGeneratedNodes(Dictionary<IntPtr, IntPtr[]> nodeIdSweepLine,
+                                                    ref Dictionary<IntPtr, double[]> nodeIdCoor,
+                                                    HashSet<IntPtr> nodeIdsOfBoundarySweepLines,
+                                                    Dictionary<IntPtr, HashSet<IntPtr>> sweepLineNeighbours,
+                                                    int numSmoothSteps, double avgLayerThickness)
         {
             IntPtr[] sweepLine;
             HashSet<IntPtr> neighbours;
@@ -431,7 +428,7 @@ namespace CaeMesh
                 if (nodeIdsOfBoundarySweepLines.Contains(entry.Key)) continue;
                 //
                 sweepLine = entry.Value;
-                for (int i = 1; i < sweepLine.Length - 1; i++)
+                for (int i = 1; i < sweepLine.Length; i++)  // number of layers
                 {
                     neighbours = new HashSet<IntPtr>();
                     foreach (var nodeId in sweepLineNeighbours[entry.Key])
@@ -439,21 +436,20 @@ namespace CaeMesh
                         neighbours.Add(nodeIdSweepLine[nodeId][i]);
                     }
                     neighbours.Add(sweepLine[i - 1]);
-                    neighbours.Add(sweepLine[i + 1]);
+                    if (i < sweepLine.Length - 1) neighbours.Add(sweepLine[i + 1]);
                     //
                     nodeNeighbours.Add(sweepLine[i], neighbours);
                 }
             }
             HashSet<IntPtr> boundaryNodes = nodeIdCoor.Keys.Except(nodeNeighbours.Keys).ToHashSet();
             // Laplacian smoothing of coordinates
-            int n = 1;
             double delta;
             double maxDelta;
             double[] coor;
             double[] avgCoor;
             Dictionary<IntPtr, double[]> smoothNodeIdCoor;
             //
-            for (int i = 0; i < n; i++) // number of smooth loops
+            for (int i = 0; i < numSmoothSteps; i++) // number of smooth loops
             {
                 maxDelta = 0;
                 smoothNodeIdCoor = new Dictionary<IntPtr, double[]>();
@@ -491,7 +487,7 @@ namespace CaeMesh
                 //
                 nodeIdCoor = smoothNodeIdCoor;
                 //
-                if (maxDelta < 1E-3) break;
+                if (maxDelta < 1E-6) break;
             }
         }
         private static void AddNodes(Dictionary<IntPtr, IntPtr[]> nodeIdSweepLine,
