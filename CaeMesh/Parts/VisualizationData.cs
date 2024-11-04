@@ -814,22 +814,18 @@ namespace CaeMesh
         {
             if (surfaceIds.Length == 1) return true;
             //
-            HashSet<int> selectedSurfaceAndNeighboursIds = new HashSet<int>();
+            HashSet<int> selectedSurfaceNeighboursIds = new HashSet<int>();
             if (surfaceIdSurfaceNeighbourIds == null) surfaceIdSurfaceNeighbourIds = GetSurfaceIdSurfaceNeighbourIds();
             //
-            foreach (var surfaceId in surfaceIds)
-                selectedSurfaceAndNeighboursIds.UnionWith(surfaceIdSurfaceNeighbourIds[surfaceId]);
-            // If surfaces are connected all of them are also their neighbours
-            bool connected = true;
+            HashSet<int> surfaceNeighbours;
             foreach (var surfaceId in surfaceIds)
             {
-                if (!selectedSurfaceAndNeighboursIds.Contains(surfaceId))
-                {
-                    connected = false;
-                    break;
-                }
+                if (surfaceIdSurfaceNeighbourIds.TryGetValue(surfaceId, out surfaceNeighbours))
+                    selectedSurfaceNeighboursIds.UnionWith(surfaceNeighbours);
+                else return false;
             }
-            return connected;
+            // If surfaces are connected all of them are also their neighbours
+            return selectedSurfaceNeighboursIds.Intersect(surfaceIds).Count() == surfaceIds.Count();
         }
         public HashSet<int> GetEdgeNodeIds()
         {
@@ -1261,6 +1257,86 @@ namespace CaeMesh
             //
             if (errorNodeIdsList.Count > 0) errorNodeIds = errorNodeIdsList.ToArray();
             else errorNodeIds = null;
+        }
+        public HashSet<int>[] GetFreeEdgeLoops(int[] surfaceIds)
+        {
+            int edgeId;
+            int surfaceId;
+            Dictionary<int, int> allEdgeIdCount = new Dictionary<int, int>();
+            for (int i = 0; i < surfaceIds.Length; i++)
+            {
+                surfaceId = surfaceIds[i];
+                for (int j = 0; j < _faceEdgeIds[surfaceId].Length; j++)
+                {
+                    edgeId = _faceEdgeIds[surfaceId][j];
+                    //
+                    if (allEdgeIdCount.ContainsKey(edgeId)) allEdgeIdCount[edgeId]++;
+                    else allEdgeIdCount[edgeId] = 1;
+                }
+            }
+            HashSet<int> outerEdgeIds = new HashSet<int>();
+            foreach (var entry in allEdgeIdCount)
+            {
+                if (entry.Value == 1) outerEdgeIds.Add(entry.Key);
+            }
+            //
+            Dictionary<int, HashSet<int>> vertexIdEdgeIds = GetVertexIdEdgeIds();
+            // Split edges into connected groups
+            Node<int> node;
+            Graph<int> connections = new Graph<int>();
+            Dictionary<int, Node<int>> outerEdgeIdNode = new Dictionary<int, Node<int>>();
+            //
+            foreach (var outerEdgeId in outerEdgeIds)
+            {
+                node = new Node<int>(outerEdgeId);
+                connections.AddNode(node);
+                outerEdgeIdNode.Add(outerEdgeId, node);
+            }
+            int[] edgeIds;
+            foreach (var entry in vertexIdEdgeIds)
+            {
+                edgeIds = entry.Value.ToArray();
+                for (int i = 0; i < edgeIds.Length - 1; i++)
+                {
+                    for (int j = i + 1; j < edgeIds.Length; j++)
+                    {
+                        if (outerEdgeIds.Contains(edgeIds[i]) && outerEdgeIds.Contains(edgeIds[j]))
+                            connections.AddUndirectedEdge(outerEdgeIdNode[edgeIds[i]], outerEdgeIdNode[edgeIds[j]]);
+                    }
+                }
+            }
+            List<Graph<int>> loops = connections.GetConnectedSubgraphs();
+            //
+            int count = 0;
+            HashSet<int>[] loopEdgeIds = new HashSet<int>[loops.Count];
+            foreach (var loop in loops)
+            {
+                loopEdgeIds[count++] = new HashSet<int>(loop.GetValues());
+            }
+            //
+            return loopEdgeIds;
+        }
+        public bool IsSurfaceACylinderLike(int surfaceId, out int directionEdgeId)
+        {
+            directionEdgeId = -1;
+            if (_faceEdgeIds[surfaceId].Length == 3)
+            {
+                HashSet<int> closedLoopEdgeIds = new HashSet<int>();
+                HashSet<int> directionEdgeIds = new HashSet<int>();
+                for (int i = 0; i < _faceEdgeIds[surfaceId].Length; i++)
+                {
+                    if (IsEdgeAClosedLoop(_faceEdgeIds[surfaceId][i], out _))
+                        closedLoopEdgeIds.Add(_faceEdgeIds[surfaceId][i]);
+                    else
+                        directionEdgeIds.Add(_faceEdgeIds[surfaceId][i]);
+                }
+                if (closedLoopEdgeIds.Count == 2 && directionEdgeIds.Count == 1)
+                {
+                    directionEdgeId = directionEdgeIds.First();
+                    return true;
+                }
+            }
+            return false;
         }
         public bool IsEdgeAClosedLoop(int edgeId, out int[] edgeNodeIds)
         {

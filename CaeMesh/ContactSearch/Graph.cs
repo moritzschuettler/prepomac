@@ -10,39 +10,39 @@ namespace CaeMesh
     public class Graph<T> where T : IComparable<T>
     {
         // Variables                                                                                                                
-        private NodeList<T> _nodeSet;
+        private NodeList<T> _nodeList;
 
 
         // Properties                                                                                                               
-        public NodeList<T> Nodes { get { return _nodeSet; } }
-        public int Count { get { return _nodeSet.Count; } }
+        public NodeList<T> Nodes { get { return _nodeList; } }
+        public int Count { get { return _nodeList.Count; } }
 
 
         // Constructors                                                                                                             
         public Graph()
         {
-            _nodeSet = new NodeList<T>();
+            _nodeList = new NodeList<T>();
         }
         public Graph(Graph<T> graph)
             : this(graph.Nodes)
         { }
-        public Graph(NodeList<T> nodeSet)
+        public Graph(NodeList<T> nodeList)
         {
-            _nodeSet = new NodeList<T>();
+            _nodeList = new NodeList<T>();
             //
-            if (nodeSet != null)
+            if (nodeList != null)
             {
                 Node<T> newNode;
                 Dictionary<Node<T>, Node<T>> oldNewNode = new Dictionary<Node<T>, Node<T>>();
                 // Create new nodes
-                foreach (var oldNode in nodeSet)
+                foreach (var oldNode in nodeList)
                 {
                     newNode = new Node<T>(oldNode.Value);
                     AddNode(newNode);
                     oldNewNode.Add(oldNode, newNode);
                 }
                 // Add connections
-                foreach (var oldNode in nodeSet)
+                foreach (var oldNode in nodeList)
                 {
                     foreach (var neighbour in oldNode.Neighbours)
                     {
@@ -57,25 +57,25 @@ namespace CaeMesh
         public void AddNode(Node<T> node)
         {
             // Adds a node to the graph
-            _nodeSet.Add(node);
+            _nodeList.Add(node);
         }
         public bool Contains(T value)
         {
-            return _nodeSet.FindByValue(value) != null;
+            return _nodeList.FindByValue(value) != null;
         }
         public bool Remove(T value)
         {
-            // First remove the node from the nodeset
-            Node<T> nodeToRemove = _nodeSet.FindByValue(value);
+            // First remove the node from the nodeList
+            Node<T> nodeToRemove = _nodeList.FindByValue(value);
             return Remove(nodeToRemove);
         }
         public bool Remove(Node<T> node)
         {
             if (node == null) return false;
             // Remove the node
-            _nodeSet.Remove(node);
-            // Enumerate through each node in the nodeSet, removing edges to this node
-            foreach (Node<T> gnode in _nodeSet)
+            _nodeList.Remove(node);
+            // Enumerate through each node in the nodeList, removing edges to this node
+            foreach (Node<T> gnode in _nodeList)
             {
                 int index = gnode.Neighbours.IndexOf(node);
                 if (index != -1)
@@ -86,6 +86,16 @@ namespace CaeMesh
             }
             //
             return true;
+        }
+        public T[] GetValues()
+        {
+            int count = 0;
+            T[] values = new T[_nodeList.Count];
+            foreach (var item in _nodeList)
+            {
+                values[count++] = item.Value;
+            }
+            return values;
         }
         // Edges
         public void AddDirectedEdge(Node<T> from, Node<T> to)
@@ -115,8 +125,8 @@ namespace CaeMesh
             Queue<Node<T>> parentQueue = new Queue<Node<T>>();
             HashSet<Node<T>> visitedNodes = new HashSet<Node<T>>();
             //
-            queue.Enqueue(_nodeSet.First());
-            parentQueue.Enqueue(_nodeSet.First());
+            queue.Enqueue(_nodeList.First());
+            parentQueue.Enqueue(_nodeList.First());
             //
             while (queue.Count() > 0)
             {
@@ -141,7 +151,7 @@ namespace CaeMesh
         }
         public bool IsGraphWithOneCycle()
         {
-            Graph<T> graphCopy = new Graph<T>(_nodeSet);
+            Graph<T> graphCopy = new Graph<T>(_nodeList);
             List<T> singleConnectedItems = new List<T>();
             // Remove all open branches
             do
@@ -174,10 +184,10 @@ namespace CaeMesh
             NodeList<T> connectedNodes;
             List<Graph<T>> connectedSubgraphs = new List<Graph<T>>();
             // Sort
-            try { _nodeSet.Sort(); }
+            try { _nodeList.Sort(); }
             catch { }
             //
-            foreach (var node in _nodeSet)
+            foreach (var node in _nodeList)
             {
                 // Check if the node was already added
                 if (!visitedNodes.Contains(node))
@@ -205,10 +215,10 @@ namespace CaeMesh
             //
             return connectedSubgraphs;
         }
-        //
+        // For unidirected graphs
         public List<T> GetIndependencyList()
         {
-            Graph<T> graphCopy = new Graph<T>(_nodeSet);
+            Graph<T> graphCopy = new Graph<T>(_nodeList);
             List<T> childItems = new List<T>();
             List<T> independencyList = new List<T>();
             // Remove all independent items

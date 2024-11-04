@@ -2489,6 +2489,7 @@ namespace PrePoMax
             //
             ResumeExplodedViews(false);
             //
+            _form.Invalidate();
         }
 
         #endregion ################################################################################################################
@@ -3529,6 +3530,7 @@ namespace PrePoMax
             HashSet<int> faceIds;
             Dictionary<int, HashSet<int>> partIdFaceIds = new Dictionary<int, HashSet<int>>();
             //
+            int faceId;
             int numOfNonSolidCADParts = 0;
             foreach (int id in geometrySelection.GeometryIds)
             {
@@ -3539,9 +3541,10 @@ namespace PrePoMax
                 if (part != null && part is GeometryPart gp && gp.IsCADPart &&
                     (part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell))
                 {
-                    // Add +1 to face ids for Gmsh surface numbering
-                    if (partIdFaceIds.TryGetValue(partId, out faceIds)) faceIds.Add(itemTypePartIds[0] + 1);
-                    else partIdFaceIds.Add(partId, new HashSet<int>() { itemTypePartIds[0] + 1 });
+                    // Gmsh numbering
+                    faceId = FeMesh.GmshTopologyId(itemTypePartIds[0], partId);
+                    if (partIdFaceIds.TryGetValue(partId, out faceIds)) faceIds.Add(faceId);
+                    else partIdFaceIds.Add(partId, new HashSet<int>() { faceId });
                 }
                 else numOfNonSolidCADParts++;
             }
@@ -3605,7 +3608,7 @@ namespace PrePoMax
             //
             string error = null;
             bool jobCompleted;
-            if (System.Diagnostics.Debugger.IsAttached)
+            if (Debugger.IsAttached)
             {
                 GmshAPI gmsh = new GmshAPI(gmshData, _form.WriteDataToOutput);
                 error = gmsh.Defeature();

@@ -19,6 +19,24 @@ namespace PrePoMax.Forms
 
 
         // Properties                                                                                                               
+        [CategoryAttribute("Mesh smoothing")]
+        [OrderedDisplayName(0, 10, "Layer smooth steps")]
+        [DescriptionAttribute("Enter the number of Laplacian smooth steps for the generation of the next sweep layers.")]
+        [Id(1, 10)]
+        public int NumberOfLayerSmoothSteps
+        {
+            get { return _sweepMesh.NumberOfLayerSmoothSteps; }
+            set { _sweepMesh.NumberOfLayerSmoothSteps = value; }
+        }
+        [CategoryAttribute("Mesh smoothing")]
+        [OrderedDisplayName(1, 10, "Global smooth steps")]
+        [DescriptionAttribute("Enter the number of Laplacian smooth steps for the final global mesh smoothing.")]
+        [Id(2, 10)]
+        public int NumberOfGlobalSmoothSteps
+        {
+            get { return _sweepMesh.NumberOfGlobalSmoothSteps; }
+            set { _sweepMesh.NumberOfGlobalSmoothSteps = value; }
+        }
 
 
         // Constructors                                                                                                             
@@ -29,7 +47,11 @@ namespace PrePoMax.Forms
             //
             _dctd.GetProperty(nameof(AlgorithmMesh3D)).SetIsBrowsable(false);
             //
-            _dctd.GetProperty(nameof(OptimizeFirstOrderShell)).SetIsBrowsable(false);
+            _dctd.GetProperty(nameof(ElementSizeType)).SetIsBrowsable(false);
+            _dctd.GetProperty(nameof(ElementScaleFactor)).SetIsBrowsable(false);
+            _dctd.GetProperty(nameof(NumberOfElements)).SetIsBrowsable(false);
+            _dctd.GetProperty(nameof(NormalizedLayerSizes)).SetIsBrowsable(false);
+            //
             _dctd.GetProperty(nameof(OptimizeFirstOrderSolid)).SetIsBrowsable(false);
             _dctd.GetProperty(nameof(OptimizeHighOrder)).SetIsBrowsable(false);
             //

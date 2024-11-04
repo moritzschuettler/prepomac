@@ -10003,6 +10003,7 @@ namespace PrePoMax
         private void TestParameterization()
         {
             _controller.ViewParameterization();
+            _vtk.Invalidate();
         }
         private void TestSuperposition()
         {

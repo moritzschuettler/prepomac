@@ -20,27 +20,28 @@ namespace CaeMesh
             LinearPyramid = 7
         }
         public static void CreateSweepMesh(HashSet<int> sourceSurfaceIds, HashSet<int> sideSurfaceIds,
-                                           HashSet<int> targetSurfaceIds, Dictionary<int, int[]> surfaceIdEdgeIds,
+                                           HashSet<int> targetSurfaceIds, int numLayerSmoothSteps, int numGlobalSmoothSteps,
+                                           Dictionary<int, int[]> surfaceIdEdgeIds,
                                            Dictionary<int, int[]> surfaceIdVertexIds)
         {
             // Create sweep lines and their nodes
             Dictionary<IntPtr, IntPtr[]> nodeIdSweepLine;
             Dictionary<IntPtr, double[]> nodeIdCoor;
-            HashSet<IntPtr> addedNodeIds;
             HashSet<IntPtr> nodeIdsOfBoundarySweepLines;
             Dictionary<IntPtr, HashSet<IntPtr>> sweepLineNeighbours;
             CreateSweepLines(sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds, surfaceIdEdgeIds, surfaceIdVertexIds,
-                             out addedNodeIds, out nodeIdSweepLine, out nodeIdsOfBoundarySweepLines, out sweepLineNeighbours,
-                             out nodeIdCoor);
+                             out nodeIdSweepLine, out nodeIdsOfBoundarySweepLines, out sweepLineNeighbours, out nodeIdCoor);
             // Smooth sweep lines by z layers
             double avgLayerThickness;
             SmoothSweepLines(nodeIdSweepLine, nodeIdCoor, nodeIdsOfBoundarySweepLines, sweepLineNeighbours,
-                             out avgLayerThickness);
+                             numLayerSmoothSteps, out avgLayerThickness);
             // Project last sweep line node to the target surface
             ProjectSweepLineEndNodesToFaces(nodeIdSweepLine, nodeIdCoor, nodeIdsOfBoundarySweepLines, targetSurfaceIds);
             // Smooth all internal nodes
-            SmoothInternalNodes(nodeIdSweepLine, ref nodeIdCoor, nodeIdsOfBoundarySweepLines, sweepLineNeighbours,
-                                avgLayerThickness);
+            SmoothAllGeneratedNodes(nodeIdSweepLine, ref nodeIdCoor, nodeIdsOfBoundarySweepLines, sweepLineNeighbours,
+                                    numGlobalSmoothSteps, avgLayerThickness);
+            // Project last sweep line node to the target surface
+            ProjectSweepLineEndNodesToFaces(nodeIdSweepLine, nodeIdCoor, nodeIdsOfBoundarySweepLines, targetSurfaceIds);
             // Add nodes
             AddNodes(nodeIdSweepLine, nodeIdCoor, nodeIdsOfBoundarySweepLines, targetSurfaceIds);
             // Add elements
@@ -49,7 +50,6 @@ namespace CaeMesh
         private static void CreateSweepLines(HashSet<int> sourceSurfaceIds, HashSet<int> sideSurfaceIds,
                                              HashSet<int> targetSurfaceIds, Dictionary<int, int[]> surfaceIdEdgeIds,
                                              Dictionary<int, int[]> surfaceIdVertexIds,
-                                             out HashSet<IntPtr> addedNodeIds,
                                              out Dictionary<IntPtr, IntPtr[]> nodeIdSweepLine,
                                              out HashSet<IntPtr> nodeIdsOfBoundarySweepLines,
                                              out Dictionary<IntPtr, HashSet<IntPtr>> sweepLineNeighbours,
@@ -153,7 +153,6 @@ namespace CaeMesh
             List<IntPtr[]> sweepLines;
             HashSet<IntPtr> visitedNodeIds = new HashSet<IntPtr>(currentLayerNodeIds);
             //
-            addedNodeIds = new HashSet<IntPtr>();
             currentLayerNodeIds = nodeIdsOfBoundarySweepLines;
             // Go through nodes layer by layer from outside to inside
             while (nodeIdSweepLine.Count != nodeIdNeighbourIds.Count)
@@ -208,7 +207,6 @@ namespace CaeMesh
                                 //
                                 sweepLine[i + 1] = (IntPtr)newNodeId;
                                 nodeIdCoor.Add((IntPtr)newNodeId, coor2);
-                                addedNodeIds.Add((IntPtr)newNodeId);
                                 //
                                 newNodeId++;
                             }
@@ -225,7 +223,7 @@ namespace CaeMesh
         private static void SmoothSweepLines(Dictionary<IntPtr, IntPtr[]> nodeIdSweepLine, Dictionary<IntPtr, double[]> nodeIdCoor,
                                              HashSet<IntPtr> nodeIdsOfBoundarySweepLines,
                                              Dictionary<IntPtr, HashSet<IntPtr>> sweepLineNeighbours,
-                                             out double avgLayerThickness)
+                                             int numSmoothSteps, out double avgLayerThickness)
         {
             double[] coor1;
             double[] coor2;
@@ -261,14 +259,13 @@ namespace CaeMesh
                                           Math.Pow(avgDirection[1], 2) +
                                           Math.Pow(avgDirection[2], 2));
             // Laplacian smoothing of directions
-            int n = 100;
             double delta;
             double maxDelta;
             HashSet<IntPtr> neighbours;
             Dictionary<IntPtr, double[]> smoothNodeIdDirection;
             IntPtr[] internalNodeIds = nodeIdSweepLine.Keys.Except(nodeIdsOfBoundarySweepLines).ToArray();
             //
-            for (int i = 0; i < n; i++) // number of smooth loops
+            for (int i = 0; i < numSmoothSteps; i++) // number of smooth loops
             {
                 maxDelta = 0;
                 smoothNodeIdDirection = new Dictionary<IntPtr, double[]>();
@@ -314,9 +311,9 @@ namespace CaeMesh
                 //
                 nodeIdDirection = smoothNodeIdDirection;
                 //
-                if (maxDelta < 1E-3) break;
+                if (maxDelta < 1E-6) break;
             }
-            // Apply smoother directions to coordinates
+            // Apply smoothed directions to coordinates
             foreach (var nodeId in internalNodeIds) // for each sweep line
             {
                 sweepLine = nodeIdSweepLine[nodeId];
@@ -416,14 +413,12 @@ namespace CaeMesh
                     whileCount++;
                 }
             }
-            
-
         }
-        private static void SmoothInternalNodes(Dictionary<IntPtr, IntPtr[]> nodeIdSweepLine,
-                                                ref Dictionary<IntPtr, double[]> nodeIdCoor,
-                                                HashSet<IntPtr> nodeIdsOfBoundarySweepLines,
-                                                Dictionary<IntPtr, HashSet<IntPtr>> sweepLineNeighbours,
-                                                double avgLayerThickness)
+        private static void SmoothAllGeneratedNodes(Dictionary<IntPtr, IntPtr[]> nodeIdSweepLine,
+                                                    ref Dictionary<IntPtr, double[]> nodeIdCoor,
+                                                    HashSet<IntPtr> nodeIdsOfBoundarySweepLines,
+                                                    Dictionary<IntPtr, HashSet<IntPtr>> sweepLineNeighbours,
+                                                    int numSmoothSteps, double avgLayerThickness)
         {
             IntPtr[] sweepLine;
             HashSet<IntPtr> neighbours;
@@ -433,7 +428,7 @@ namespace CaeMesh
                 if (nodeIdsOfBoundarySweepLines.Contains(entry.Key)) continue;
                 //
                 sweepLine = entry.Value;
-                for (int i = 1; i < sweepLine.Length - 1; i++)
+                for (int i = 1; i < sweepLine.Length; i++)  // number of layers
                 {
                     neighbours = new HashSet<IntPtr>();
                     foreach (var nodeId in sweepLineNeighbours[entry.Key])
@@ -441,21 +436,20 @@ namespace CaeMesh
                         neighbours.Add(nodeIdSweepLine[nodeId][i]);
                     }
                     neighbours.Add(sweepLine[i - 1]);
-                    neighbours.Add(sweepLine[i + 1]);
+                    if (i < sweepLine.Length - 1) neighbours.Add(sweepLine[i + 1]);
                     //
                     nodeNeighbours.Add(sweepLine[i], neighbours);
                 }
             }
             HashSet<IntPtr> boundaryNodes = nodeIdCoor.Keys.Except(nodeNeighbours.Keys).ToHashSet();
             // Laplacian smoothing of coordinates
-            int n = 100;
             double delta;
             double maxDelta;
             double[] coor;
             double[] avgCoor;
             Dictionary<IntPtr, double[]> smoothNodeIdCoor;
             //
-            for (int i = 0; i < n; i++) // number of smooth loops
+            for (int i = 0; i < numSmoothSteps; i++) // number of smooth loops
             {
                 maxDelta = 0;
                 smoothNodeIdCoor = new Dictionary<IntPtr, double[]>();
@@ -493,7 +487,7 @@ namespace CaeMesh
                 //
                 nodeIdCoor = smoothNodeIdCoor;
                 //
-                if (maxDelta < 1E-3) break;
+                if (maxDelta < 1E-6) break;
             }
         }
         private static void AddNodes(Dictionary<IntPtr, IntPtr[]> nodeIdSweepLine,
@@ -534,12 +528,18 @@ namespace CaeMesh
                     if (currElementId > maxElementId) maxElementId = currElementId;
                 }
             }
+            //IntPtr maxTag;
+            //Gmsh.Model.Mesh.GetMaxElementTag(out maxTag);
             //
             int numNodes;
             int newElementId = maxElementId + 1;
             int numLayers = nodeIdSweepLine.First().Value.Length - 1;
             IntPtr[] nodeIdsArr;
-            IntPtr[][] solidNodeIdsArr;
+            IntPtr[] solidNodeIdsArr;
+            Dictionary<IntPtr, IntPtr[]> linearTriangles = new Dictionary<IntPtr, IntPtr[]>();
+            Dictionary<IntPtr, IntPtr[]> linearQuadrilaterals = new Dictionary<IntPtr, IntPtr[]>();
+            Dictionary<IntPtr, IntPtr[]> linearWedges = new Dictionary<IntPtr, IntPtr[]>();
+            Dictionary<IntPtr, IntPtr[]> LinearHexas = new Dictionary<IntPtr, IntPtr[]>();
             foreach (var id in sourceSurfaceIds)
             {
                 Gmsh.Model.Mesh.GetElements(out elementTypes, out elementTags, out nodeTags, 2, id);
@@ -559,69 +559,81 @@ namespace CaeMesh
                             //
                             if (numNodes == 3)
                             {
-                                solidNodeIdsArr = new IntPtr[][] { new IntPtr[6] };
-                                solidNodeIdsArr[0][0] = nodeIdSweepLine[nodeIdsArr[0]][i + 1];
-                                solidNodeIdsArr[0][1] = nodeIdSweepLine[nodeIdsArr[1]][i + 1];
-                                solidNodeIdsArr[0][2] = nodeIdSweepLine[nodeIdsArr[2]][i + 1];
-                                solidNodeIdsArr[0][3] = nodeIdSweepLine[nodeIdsArr[0]][i];
-                                solidNodeIdsArr[0][4] = nodeIdSweepLine[nodeIdsArr[1]][i];
-                                solidNodeIdsArr[0][5] = nodeIdSweepLine[nodeIdsArr[2]][i];
+                                solidNodeIdsArr = new IntPtr[6];
+                                solidNodeIdsArr[0] = nodeIdSweepLine[nodeIdsArr[0]][i + 1];
+                                solidNodeIdsArr[1] = nodeIdSweepLine[nodeIdsArr[1]][i + 1];
+                                solidNodeIdsArr[2] = nodeIdSweepLine[nodeIdsArr[2]][i + 1];
+                                solidNodeIdsArr[3] = nodeIdSweepLine[nodeIdsArr[0]][i];
+                                solidNodeIdsArr[4] = nodeIdSweepLine[nodeIdsArr[1]][i];
+                                solidNodeIdsArr[5] = nodeIdSweepLine[nodeIdsArr[2]][i];
                                 //
-                                Gmsh.Model.Mesh.AddElements(3, 1, new int[] { (int)GmshElementTypeEnum.LinearWedge },
-                                                            new IntPtr[][] { new IntPtr[] { (IntPtr)newElementId } },
-                                                            solidNodeIdsArr);
-                                newElementId++;
+                                linearWedges.Add((IntPtr)newElementId++, solidNodeIdsArr);
                                 //
                                 if (i == numLayers - 1)
                                 {
-                                    solidNodeIdsArr = new IntPtr[][] { new IntPtr[3] };
-                                    solidNodeIdsArr[0][0] = nodeIdSweepLine[nodeIdsArr[0]][i + 1];
-                                    solidNodeIdsArr[0][1] = nodeIdSweepLine[nodeIdsArr[2]][i + 1];
-                                    solidNodeIdsArr[0][2] = nodeIdSweepLine[nodeIdsArr[1]][i + 1];
+                                    solidNodeIdsArr = new IntPtr[3];
+                                    solidNodeIdsArr[0] = nodeIdSweepLine[nodeIdsArr[0]][i + 1];
+                                    solidNodeIdsArr[1] = nodeIdSweepLine[nodeIdsArr[2]][i + 1];
+                                    solidNodeIdsArr[2] = nodeIdSweepLine[nodeIdsArr[1]][i + 1];
                                     //
-                                    Gmsh.Model.Mesh.AddElements(2, targetSurfaceIds.First(),
-                                                                new int[] { (int)GmshElementTypeEnum.LinearTriangle },
-                                                                new IntPtr[][] { new IntPtr[] { (IntPtr)newElementId } },
-                                                                solidNodeIdsArr);
-                                    newElementId++;
+                                    linearTriangles.Add((IntPtr)newElementId++, solidNodeIdsArr);
                                 }
                             }
                             else if (numNodes == 4)
                             {
-                                solidNodeIdsArr = new IntPtr[][] { new IntPtr[8] };
-                                solidNodeIdsArr[0][0] = nodeIdSweepLine[nodeIdsArr[0]][i + 1];
-                                solidNodeIdsArr[0][1] = nodeIdSweepLine[nodeIdsArr[1]][i + 1];
-                                solidNodeIdsArr[0][2] = nodeIdSweepLine[nodeIdsArr[2]][i + 1];
-                                solidNodeIdsArr[0][3] = nodeIdSweepLine[nodeIdsArr[3]][i + 1];
-                                solidNodeIdsArr[0][4] = nodeIdSweepLine[nodeIdsArr[0]][i];
-                                solidNodeIdsArr[0][5] = nodeIdSweepLine[nodeIdsArr[1]][i];
-                                solidNodeIdsArr[0][6] = nodeIdSweepLine[nodeIdsArr[2]][i];
-                                solidNodeIdsArr[0][7] = nodeIdSweepLine[nodeIdsArr[3]][i];
+                                solidNodeIdsArr = new IntPtr[8];
+                                solidNodeIdsArr[0] = nodeIdSweepLine[nodeIdsArr[0]][i + 1];
+                                solidNodeIdsArr[1] = nodeIdSweepLine[nodeIdsArr[1]][i + 1];
+                                solidNodeIdsArr[2] = nodeIdSweepLine[nodeIdsArr[2]][i + 1];
+                                solidNodeIdsArr[3] = nodeIdSweepLine[nodeIdsArr[3]][i + 1];
+                                solidNodeIdsArr[4] = nodeIdSweepLine[nodeIdsArr[0]][i];
+                                solidNodeIdsArr[5] = nodeIdSweepLine[nodeIdsArr[1]][i];
+                                solidNodeIdsArr[6] = nodeIdSweepLine[nodeIdsArr[2]][i];
+                                solidNodeIdsArr[7] = nodeIdSweepLine[nodeIdsArr[3]][i];
                                 //
-                                Gmsh.Model.Mesh.AddElements(3, 1, new int[] { (int)GmshElementTypeEnum.LinearHexa },
-                                                            new IntPtr[][] { new IntPtr[] { (IntPtr)newElementId } },
-                                                            solidNodeIdsArr);
-                                newElementId++;
+                                LinearHexas.Add((IntPtr)newElementId++, solidNodeIdsArr);
                                 //
                                 if (i == numLayers - 1)
                                 {
-                                    solidNodeIdsArr = new IntPtr[][] { new IntPtr[4] };
-                                    solidNodeIdsArr[0][0] = nodeIdSweepLine[nodeIdsArr[0]][i + 1];
-                                    solidNodeIdsArr[0][1] = nodeIdSweepLine[nodeIdsArr[3]][i + 1];
-                                    solidNodeIdsArr[0][2] = nodeIdSweepLine[nodeIdsArr[2]][i + 1];
-                                    solidNodeIdsArr[0][3] = nodeIdSweepLine[nodeIdsArr[1]][i + 1];
+                                    solidNodeIdsArr = new IntPtr[4];
+                                    solidNodeIdsArr[0] = nodeIdSweepLine[nodeIdsArr[0]][i + 1];
+                                    solidNodeIdsArr[1] = nodeIdSweepLine[nodeIdsArr[3]][i + 1];
+                                    solidNodeIdsArr[2] = nodeIdSweepLine[nodeIdsArr[2]][i + 1];
+                                    solidNodeIdsArr[3] = nodeIdSweepLine[nodeIdsArr[1]][i + 1];
                                     //
-                                    Gmsh.Model.Mesh.AddElements(2, targetSurfaceIds.First(),
-                                                                new int[] { (int)GmshElementTypeEnum.LinearQuadrilateral },
-                                                                new IntPtr[][] { new IntPtr[] { (IntPtr)newElementId } },
-                                                                solidNodeIdsArr);
-                                    newElementId++;
+                                    linearQuadrilaterals.Add((IntPtr)newElementId++, solidNodeIdsArr);
                                 }
                             }
                             else throw new NotSupportedException();
                         }
                     }
                 }
+            }
+            // Add elements by single type
+            AddElemets(linearTriangles, 3, 2, targetSurfaceIds.First(), (int)GmshElementTypeEnum.LinearTriangle);
+            AddElemets(linearQuadrilaterals, 4, 2, targetSurfaceIds.First(), (int)GmshElementTypeEnum.LinearQuadrilateral);
+            AddElemets(linearWedges, 6, 3, 1, (int)GmshElementTypeEnum.LinearWedge);
+            AddElemets(LinearHexas, 8, 3, 1, (int)GmshElementTypeEnum.LinearHexa);
+        }
+        private static void AddElemets(Dictionary<IntPtr, IntPtr[]> elements, int n, int dim, int tag, int elementType)
+        {
+            int count;
+            IntPtr[][] elementIds;
+            IntPtr[][] nodeIds;
+            if (elements.Count > 0)
+            {
+                count = 0;
+                elementIds = new IntPtr[1][];
+                elementIds[0] = new IntPtr[elements.Count];
+                nodeIds = new IntPtr[1][];
+                nodeIds[0] = new IntPtr[n * elements.Count];
+                foreach (var entry in elements)
+                {
+                    elementIds[0][count] = entry.Key;
+                    Array.Copy(entry.Value, 0, nodeIds[0], n * count, n);
+                    count++;
+                }
+                Gmsh.Model.Mesh.AddElements(dim, tag, new int[] { elementType }, elementIds, nodeIds);
             }
         }
         private static void ResetSweepLineLengths(IntPtr[] sweepLine, Dictionary<IntPtr, double[]> nodeIdCoor, double[] rations)

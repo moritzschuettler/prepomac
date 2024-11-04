@@ -3645,6 +3645,7 @@ namespace CaeMesh
             //
             int[] vertexIds;
             int[] visNodeIds;
+            double size;
             Vec3D cog;
             BasePart part;
             VisualizationData vis;
@@ -3678,10 +3679,16 @@ namespace CaeMesh
                     foreach (var nodeId in nodeIdsHash) cog += nodeIdVec[nodeId];
                     cog *= 1.0 / nodeIdsHash.Count();
                     //
+                    size = vis.EdgeLengths[j];
+                    //
                     vertexIds = vis.GetVertexNodeIdsForEdgeId(j);
                     Array.Sort(vertexIds);
                     //
-                    idLocation = new GmshIdLocation() { Id = GmshTopologyId(j, part.PartId), Location = cog.Coor };
+                    idLocation = new GmshIdLocation();
+                    idLocation.Id = GmshTopologyId(j, part.PartId);
+                    idLocation.Size = size;
+                    idLocation.Location = cog.Coor;
+                    //
                     if (gmshData.EdgeVertexNodeIdsEdgeId.TryGetValue(vertexIds, out idLocationList))
                         idLocationList.Add(idLocation);
                     else
@@ -3695,10 +3702,16 @@ namespace CaeMesh
                     foreach (var nodeId in nodeIdsHash) cog += nodeIdVec[nodeId];
                     cog *= 1.0 / nodeIdsHash.Count();
                     //
+                    size = vis.FaceAreas[j];
+                    //
                     vertexIds = vis.GetVertexNodeIdsForSurfaceId(j);
                     Array.Sort(vertexIds);
                     //
-                    idLocation = new GmshIdLocation() { Id = GmshTopologyId(j, part.PartId), Location = cog.Coor };
+                    idLocation = new GmshIdLocation();
+                    idLocation.Id = GmshTopologyId(j, part.PartId);
+                    idLocation.Size = size;
+                    idLocation.Location = cog.Coor;
+                    //
                     if (gmshData.FaceVertexNodeIdsFaceId.TryGetValue(vertexIds, out idLocationList))
                         idLocationList.Add(idLocation);
                     else
@@ -4203,6 +4216,7 @@ namespace CaeMesh
                         if (node is SelectionNodeIds snids)
                         {
                             if (snids.IsGeometryBased) { }
+                            else if (snids.ItemIds == null) { }
                             else
                             {
                                 for (int i = 0; i < snids.ItemIds.Length; i++)

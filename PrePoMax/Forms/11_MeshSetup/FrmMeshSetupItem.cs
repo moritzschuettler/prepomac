@@ -526,15 +526,12 @@ namespace PrePoMax.Forms
                 ViewExtrudeMesh vem = new ViewExtrudeMesh(em);
                 item.Tag = vem;
                 lvTypes.Items.Add(item);
-                if (System.Diagnostics.Debugger.IsAttached)
-                {
-                    // Sweep mesh
-                    item = new ListViewItem("Sweep Mesh");
-                    SweepMesh sm = new SweepMesh(GetMeshSetupItemName("Sweep_Mesh"));
-                    ViewSweepMesh vsm = new ViewSweepMesh(sm);
-                    item.Tag = vsm;
-                    lvTypes.Items.Add(item);
-                }
+                // Sweep mesh
+                item = new ListViewItem("Sweep Mesh");
+                SweepMesh sm = new SweepMesh(GetMeshSetupItemName("Sweep_Mesh"));
+                ViewSweepMesh vsm = new ViewSweepMesh(sm);
+                item.Tag = vsm;
+                lvTypes.Items.Add(item);
                 // Revolve mesh
                 item = new ListViewItem("Revolve Mesh");
                 RevolveMesh rm = new RevolveMesh(GetMeshSetupItemName("Revolve_Mesh"));
