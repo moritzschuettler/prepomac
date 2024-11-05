@@ -30,62 +30,26 @@
         {
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(ModelTree));
-            System.Windows.Forms.TreeNode treeNode43 = new System.Windows.Forms.TreeNode("Solid-Part-1");
-            System.Windows.Forms.TreeNode treeNode44 = new System.Windows.Forms.TreeNode("Solid-Part-2");
-            System.Windows.Forms.TreeNode treeNode45 = new System.Windows.Forms.TreeNode("Solid-Part-4");
-            System.Windows.Forms.TreeNode treeNode46 = new System.Windows.Forms.TreeNode("Solid-Part-5");
-            System.Windows.Forms.TreeNode treeNode47 = new System.Windows.Forms.TreeNode("Comp1", new System.Windows.Forms.TreeNode[] {
-            treeNode45,
-            treeNode46});
-            System.Windows.Forms.TreeNode treeNode48 = new System.Windows.Forms.TreeNode("Solid-Part-6");
-            System.Windows.Forms.TreeNode treeNode49 = new System.Windows.Forms.TreeNode("Solid-Part-7");
-            System.Windows.Forms.TreeNode treeNode50 = new System.Windows.Forms.TreeNode("Comp2", new System.Windows.Forms.TreeNode[] {
-            treeNode48,
-            treeNode49});
-            System.Windows.Forms.TreeNode treeNode51 = new System.Windows.Forms.TreeNode("Solid-Part-10");
-            System.Windows.Forms.TreeNode treeNode52 = new System.Windows.Forms.TreeNode("Parts", new System.Windows.Forms.TreeNode[] {
-            treeNode43,
-            treeNode44,
-            treeNode47,
-            treeNode50,
-            treeNode51});
-            System.Windows.Forms.TreeNode treeNode53 = new System.Windows.Forms.TreeNode("Mesh Setup");
-            System.Windows.Forms.TreeNode treeNode1 = new System.Windows.Forms.TreeNode("Parts");
-            System.Windows.Forms.TreeNode treeNode2 = new System.Windows.Forms.TreeNode("Node Sets");
-            System.Windows.Forms.TreeNode treeNode3 = new System.Windows.Forms.TreeNode("Element Sets");
-            System.Windows.Forms.TreeNode treeNode4 = new System.Windows.Forms.TreeNode("Surfaces");
-            System.Windows.Forms.TreeNode treeNode5 = new System.Windows.Forms.TreeNode("Mesh", new System.Windows.Forms.TreeNode[] {
-            treeNode1,
-            treeNode2,
+            System.Windows.Forms.TreeNode treeNode1 = new System.Windows.Forms.TreeNode("Solid-Part-1");
+            System.Windows.Forms.TreeNode treeNode2 = new System.Windows.Forms.TreeNode("Solid-Part-2");
+            System.Windows.Forms.TreeNode treeNode3 = new System.Windows.Forms.TreeNode("Solid-Part-4");
+            System.Windows.Forms.TreeNode treeNode4 = new System.Windows.Forms.TreeNode("Solid-Part-5");
+            System.Windows.Forms.TreeNode treeNode5 = new System.Windows.Forms.TreeNode("Comp1", new System.Windows.Forms.TreeNode[] {
             treeNode3,
             treeNode4});
-            System.Windows.Forms.TreeNode treeNode6 = new System.Windows.Forms.TreeNode("Reference Points");
-            System.Windows.Forms.TreeNode treeNode7 = new System.Windows.Forms.TreeNode("Coordinate Systems");
-            System.Windows.Forms.TreeNode treeNode8 = new System.Windows.Forms.TreeNode("Features", new System.Windows.Forms.TreeNode[] {
+            System.Windows.Forms.TreeNode treeNode6 = new System.Windows.Forms.TreeNode("Solid-Part-6");
+            System.Windows.Forms.TreeNode treeNode7 = new System.Windows.Forms.TreeNode("Solid-Part-7");
+            System.Windows.Forms.TreeNode treeNode8 = new System.Windows.Forms.TreeNode("Comp2", new System.Windows.Forms.TreeNode[] {
             treeNode6,
             treeNode7});
-            System.Windows.Forms.TreeNode treeNode9 = new System.Windows.Forms.TreeNode("Materials");
-            System.Windows.Forms.TreeNode treeNode10 = new System.Windows.Forms.TreeNode("Sections");
-            System.Windows.Forms.TreeNode treeNode11 = new System.Windows.Forms.TreeNode("Constraints");
-            System.Windows.Forms.TreeNode treeNode54 = new System.Windows.Forms.TreeNode("Surface Interactions");
-            System.Windows.Forms.TreeNode treeNode55 = new System.Windows.Forms.TreeNode("Contact Pairs");
-            System.Windows.Forms.TreeNode treeNode56 = new System.Windows.Forms.TreeNode("Contacts", new System.Windows.Forms.TreeNode[] {
-            treeNode54,
-            treeNode55});
-            System.Windows.Forms.TreeNode treeNode57 = new System.Windows.Forms.TreeNode("Amplitudes");
-            System.Windows.Forms.TreeNode treeNode58 = new System.Windows.Forms.TreeNode("Initial Conditions");
-            System.Windows.Forms.TreeNode treeNode59 = new System.Windows.Forms.TreeNode("Steps");
-            System.Windows.Forms.TreeNode treeNode60 = new System.Windows.Forms.TreeNode("Model", new System.Windows.Forms.TreeNode[] {
+            System.Windows.Forms.TreeNode treeNode9 = new System.Windows.Forms.TreeNode("Solid-Part-10");
+            System.Windows.Forms.TreeNode treeNode10 = new System.Windows.Forms.TreeNode("Parts", new System.Windows.Forms.TreeNode[] {
+            treeNode1,
+            treeNode2,
             treeNode5,
             treeNode8,
-            treeNode9,
-            treeNode10,
-            treeNode11,
-            treeNode56,
-            treeNode57,
-            treeNode58,
-            treeNode59});
-            System.Windows.Forms.TreeNode treeNode61 = new System.Windows.Forms.TreeNode("Analyses");
+            treeNode9});
+            System.Windows.Forms.TreeNode treeNode11 = new System.Windows.Forms.TreeNode("Mesh Setup");
             System.Windows.Forms.TreeNode treeNode12 = new System.Windows.Forms.TreeNode("Parts");
             System.Windows.Forms.TreeNode treeNode13 = new System.Windows.Forms.TreeNode("Node Sets");
             System.Windows.Forms.TreeNode treeNode14 = new System.Windows.Forms.TreeNode("Element Sets");
@@ -100,14 +64,50 @@
             System.Windows.Forms.TreeNode treeNode19 = new System.Windows.Forms.TreeNode("Features", new System.Windows.Forms.TreeNode[] {
             treeNode17,
             treeNode18});
-            System.Windows.Forms.TreeNode treeNode20 = new System.Windows.Forms.TreeNode("Model", new System.Windows.Forms.TreeNode[] {
+            System.Windows.Forms.TreeNode treeNode20 = new System.Windows.Forms.TreeNode("Materials");
+            System.Windows.Forms.TreeNode treeNode21 = new System.Windows.Forms.TreeNode("Sections");
+            System.Windows.Forms.TreeNode treeNode22 = new System.Windows.Forms.TreeNode("Constraints");
+            System.Windows.Forms.TreeNode treeNode23 = new System.Windows.Forms.TreeNode("Surface Interactions");
+            System.Windows.Forms.TreeNode treeNode24 = new System.Windows.Forms.TreeNode("Contact Pairs");
+            System.Windows.Forms.TreeNode treeNode25 = new System.Windows.Forms.TreeNode("Contacts", new System.Windows.Forms.TreeNode[] {
+            treeNode23,
+            treeNode24});
+            System.Windows.Forms.TreeNode treeNode26 = new System.Windows.Forms.TreeNode("Amplitudes");
+            System.Windows.Forms.TreeNode treeNode27 = new System.Windows.Forms.TreeNode("Initial Conditions");
+            System.Windows.Forms.TreeNode treeNode28 = new System.Windows.Forms.TreeNode("Steps");
+            System.Windows.Forms.TreeNode treeNode29 = new System.Windows.Forms.TreeNode("Model", new System.Windows.Forms.TreeNode[] {
             treeNode16,
-            treeNode19});
-            System.Windows.Forms.TreeNode treeNode21 = new System.Windows.Forms.TreeNode("Field Outputs");
-            System.Windows.Forms.TreeNode treeNode22 = new System.Windows.Forms.TreeNode("History Outputs");
-            System.Windows.Forms.TreeNode treeNode23 = new System.Windows.Forms.TreeNode("Results", new System.Windows.Forms.TreeNode[] {
+            treeNode19,
+            treeNode20,
             treeNode21,
-            treeNode22});
+            treeNode22,
+            treeNode25,
+            treeNode26,
+            treeNode27,
+            treeNode28});
+            System.Windows.Forms.TreeNode treeNode30 = new System.Windows.Forms.TreeNode("Analyses");
+            System.Windows.Forms.TreeNode treeNode31 = new System.Windows.Forms.TreeNode("Parts");
+            System.Windows.Forms.TreeNode treeNode32 = new System.Windows.Forms.TreeNode("Node Sets");
+            System.Windows.Forms.TreeNode treeNode33 = new System.Windows.Forms.TreeNode("Element Sets");
+            System.Windows.Forms.TreeNode treeNode34 = new System.Windows.Forms.TreeNode("Surfaces");
+            System.Windows.Forms.TreeNode treeNode35 = new System.Windows.Forms.TreeNode("Mesh", new System.Windows.Forms.TreeNode[] {
+            treeNode31,
+            treeNode32,
+            treeNode33,
+            treeNode34});
+            System.Windows.Forms.TreeNode treeNode36 = new System.Windows.Forms.TreeNode("Reference Points");
+            System.Windows.Forms.TreeNode treeNode37 = new System.Windows.Forms.TreeNode("Coordinate Systems");
+            System.Windows.Forms.TreeNode treeNode38 = new System.Windows.Forms.TreeNode("Features", new System.Windows.Forms.TreeNode[] {
+            treeNode36,
+            treeNode37});
+            System.Windows.Forms.TreeNode treeNode39 = new System.Windows.Forms.TreeNode("Model", new System.Windows.Forms.TreeNode[] {
+            treeNode35,
+            treeNode38});
+            System.Windows.Forms.TreeNode treeNode40 = new System.Windows.Forms.TreeNode("Field Outputs");
+            System.Windows.Forms.TreeNode treeNode41 = new System.Windows.Forms.TreeNode("History Outputs");
+            System.Windows.Forms.TreeNode treeNode42 = new System.Windows.Forms.TreeNode("Results", new System.Windows.Forms.TreeNode[] {
+            treeNode40,
+            treeNode41});
             this.cmsTree = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.tsmiCreate = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiEdit = new System.Windows.Forms.ToolStripMenuItem();
@@ -238,7 +238,7 @@
             this.tsmiSpaceDelete,
             this.tsmiDelete});
             this.cmsTree.Name = "cmsTree";
-            this.cmsTree.Size = new System.Drawing.Size(212, 936);
+            this.cmsTree.Size = new System.Drawing.Size(212, 914);
             // 
             // tsmiCreate
             // 
@@ -703,61 +703,62 @@
             this.cltvGeometry.ImageList = this.ilIcons;
             this.cltvGeometry.Location = new System.Drawing.Point(0, 21);
             this.cltvGeometry.Name = "cltvGeometry";
-            treeNode43.ImageKey = "Dots.ico";
-            treeNode43.Name = "Node0";
-            treeNode43.SelectedImageKey = "Dots.ico";
-            treeNode43.StateImageKey = "(none)";
-            treeNode43.Text = "Solid-Part-1";
-            treeNode44.ImageKey = "Dots.ico";
-            treeNode44.Name = "Node1";
-            treeNode44.SelectedImageKey = "Dots.ico";
-            treeNode44.Text = "Solid-Part-2";
-            treeNode45.ImageKey = "Dots.ico";
-            treeNode45.Name = "Node3";
-            treeNode45.SelectedImageKey = "Dots.ico";
-            treeNode45.Text = "Solid-Part-4";
-            treeNode46.ImageKey = "Dots.ico";
-            treeNode46.Name = "Node4";
-            treeNode46.SelectedImageKey = "Dots.ico";
-            treeNode46.Text = "Solid-Part-5";
-            treeNode47.ImageKey = "Dots_t.ico";
-            treeNode47.Name = "Node2";
-            treeNode47.SelectedImageKey = "Dots_t.ico";
-            treeNode47.Text = "Comp1";
-            treeNode48.ImageKey = "Dots.ico";
-            treeNode48.Name = "Node6";
-            treeNode48.SelectedImageKey = "Dots.ico";
-            treeNode48.Text = "Solid-Part-6";
-            treeNode49.ImageKey = "Dots.ico";
-            treeNode49.Name = "Node7";
-            treeNode49.SelectedImageKey = "Dots.ico";
-            treeNode49.Text = "Solid-Part-7";
-            treeNode50.ImageKey = "Dots_t.ico";
-            treeNode50.Name = "Node5";
-            treeNode50.SelectedImageKey = "Dots_t.ico";
-            treeNode50.Text = "Comp2";
-            treeNode51.ImageKey = "Dots.ico";
-            treeNode51.Name = "Node8";
-            treeNode51.SelectedImageKey = "Dots.ico";
-            treeNode51.Text = "Solid-Part-10";
-            treeNode52.ImageKey = "Geometry.ico";
-            treeNode52.Name = "Parts";
-            treeNode52.SelectedImageKey = "Geometry.ico";
-            treeNode52.Text = "Parts";
-            treeNode52.ToolTipText = "Parts";
-            treeNode53.ImageKey = "Mesh_refinement.ico";
-            treeNode53.Name = "Mesh Setup";
-            treeNode53.SelectedImageKey = "Mesh_refinement.ico";
-            treeNode53.Text = "Mesh Setup";
-            treeNode53.ToolTipText = "Mesh Setup";
+            treeNode1.ImageKey = "Dots.ico";
+            treeNode1.Name = "Node0";
+            treeNode1.SelectedImageKey = "Dots.ico";
+            treeNode1.StateImageKey = "(none)";
+            treeNode1.Text = "Solid-Part-1";
+            treeNode2.ImageKey = "Dots.ico";
+            treeNode2.Name = "Node1";
+            treeNode2.SelectedImageKey = "Dots.ico";
+            treeNode2.Text = "Solid-Part-2";
+            treeNode3.ImageKey = "Dots.ico";
+            treeNode3.Name = "Node3";
+            treeNode3.SelectedImageKey = "Dots.ico";
+            treeNode3.Text = "Solid-Part-4";
+            treeNode4.ImageKey = "Dots.ico";
+            treeNode4.Name = "Node4";
+            treeNode4.SelectedImageKey = "Dots.ico";
+            treeNode4.Text = "Solid-Part-5";
+            treeNode5.ImageKey = "Dots_t.ico";
+            treeNode5.Name = "Node2";
+            treeNode5.SelectedImageKey = "Dots_t.ico";
+            treeNode5.Text = "Comp1";
+            treeNode6.ImageKey = "Dots.ico";
+            treeNode6.Name = "Node6";
+            treeNode6.SelectedImageKey = "Dots.ico";
+            treeNode6.Text = "Solid-Part-6";
+            treeNode7.ImageKey = "Dots.ico";
+            treeNode7.Name = "Node7";
+            treeNode7.SelectedImageKey = "Dots.ico";
+            treeNode7.Text = "Solid-Part-7";
+            treeNode8.ImageKey = "Dots_t.ico";
+            treeNode8.Name = "Node5";
+            treeNode8.SelectedImageKey = "Dots_t.ico";
+            treeNode8.Text = "Comp2";
+            treeNode9.ImageKey = "Dots.ico";
+            treeNode9.Name = "Node8";
+            treeNode9.SelectedImageKey = "Dots.ico";
+            treeNode9.Text = "Solid-Part-10";
+            treeNode10.ImageKey = "Geometry.ico";
+            treeNode10.Name = "Parts";
+            treeNode10.SelectedImageKey = "Geometry.ico";
+            treeNode10.Text = "Parts";
+            treeNode10.ToolTipText = "Parts";
+            treeNode11.ImageKey = "Mesh_refinement.ico";
+            treeNode11.Name = "Mesh Setup";
+            treeNode11.SelectedImageKey = "Mesh_refinement.ico";
+            treeNode11.Text = "Mesh Setup";
+            treeNode11.ToolTipText = "Mesh Setup";
             this.cltvGeometry.Nodes.AddRange(new System.Windows.Forms.TreeNode[] {
-            treeNode52,
-            treeNode53});
+            treeNode10,
+            treeNode11});
             this.cltvGeometry.SelectedImageIndex = 0;
             this.cltvGeometry.SelectionBackColor = System.Drawing.SystemColors.Highlight;
             this.cltvGeometry.SelectionMode = UserControls.TreeViewSelectionMode.MultiSelect;
             this.cltvGeometry.Size = new System.Drawing.Size(231, 450);
             this.cltvGeometry.TabIndex = 0;
+            this.cltvGeometry.MouseOverNodeChangedEvent += new System.Action<System.Windows.Forms.TreeNode>(this.cltv_MouseOverNodeChangedEvent);
             this.cltvGeometry.SelectionsChanged += new System.EventHandler(this.cltv_SelectionsChanged);
             this.cltvGeometry.BeforeCollapse += new System.Windows.Forms.TreeViewCancelEventHandler(this.cltv_BeforeCollapse);
             this.cltvGeometry.AfterCollapse += new System.Windows.Forms.TreeViewEventHandler(this.cltv_AfterCollapse);
@@ -808,107 +809,108 @@
             this.cltvModel.Location = new System.Drawing.Point(0, 21);
             this.cltvModel.Margin = new System.Windows.Forms.Padding(0);
             this.cltvModel.Name = "cltvModel";
-            treeNode1.ImageKey = "BasePart.ico";
-            treeNode1.Name = "Parts";
-            treeNode1.SelectedImageKey = "BasePart.ico";
-            treeNode1.Text = "Parts";
-            treeNode1.ToolTipText = "Parts";
-            treeNode2.ImageKey = "Node_set.ico";
-            treeNode2.Name = "Node Sets";
-            treeNode2.SelectedImageKey = "Node_set.ico";
-            treeNode2.Text = "Node Sets";
-            treeNode2.ToolTipText = "Node Sets";
-            treeNode3.ImageKey = "Element_set.ico";
-            treeNode3.Name = "Element Sets";
-            treeNode3.SelectedImageKey = "Element_set.ico";
-            treeNode3.Text = "Element Sets";
-            treeNode3.ToolTipText = "Element Sets";
-            treeNode4.ImageKey = "Surface.ico";
-            treeNode4.Name = "Surfaces";
-            treeNode4.SelectedImageKey = "Surface.ico";
-            treeNode4.Text = "Surfaces";
-            treeNode4.ToolTipText = "Surfaces";
-            treeNode5.ImageKey = "Mesh.ico";
-            treeNode5.Name = "Mesh";
-            treeNode5.SelectedImageKey = "Mesh.ico";
-            treeNode5.Text = "Mesh";
-            treeNode5.ToolTipText = "Mesh";
-            treeNode6.ImageKey = "Reference_point.ico";
-            treeNode6.Name = "Reference Points";
-            treeNode6.SelectedImageKey = "Reference_point.ico";
-            treeNode6.Text = "Reference Points";
-            treeNode6.ToolTipText = "Reference Points";
-            treeNode7.ImageKey = "CoordinateSystem.ico";
-            treeNode7.Name = "Coordinate Systems";
-            treeNode7.SelectedImageKey = "CoordinateSystem.ico";
-            treeNode7.Text = "Coordinate Systems";
-            treeNode7.ToolTipText = "Coordinate Systems";
-            treeNode8.ImageKey = "Feature.ico";
-            treeNode8.Name = "Features";
-            treeNode8.SelectedImageKey = "Feature.ico";
-            treeNode8.Text = "Features";
-            treeNode8.ToolTipText = "Features";
-            treeNode9.ImageKey = "Material.ico";
-            treeNode9.Name = "Materials";
-            treeNode9.SelectedImageKey = "Material.ico";
-            treeNode9.Text = "Materials";
-            treeNode9.ToolTipText = "Materials";
-            treeNode10.ImageKey = "Section.ico";
-            treeNode10.Name = "Sections";
-            treeNode10.SelectedImageKey = "Section.ico";
-            treeNode10.Text = "Sections";
-            treeNode10.ToolTipText = "Sections";
-            treeNode11.ImageKey = "Constraints.ico";
-            treeNode11.Name = "Constraints";
-            treeNode11.SelectedImageKey = "Constraints.ico";
-            treeNode11.Text = "Constraints";
-            treeNode11.ToolTipText = "Constraints";
-            treeNode54.ImageKey = "SurfaceInteraction.ico";
-            treeNode54.Name = "Surface Interactions";
-            treeNode54.SelectedImageKey = "SurfaceInteraction.ico";
-            treeNode54.Text = "Surface Interactions";
-            treeNode54.ToolTipText = "Surface Interactions";
-            treeNode55.ImageKey = "ContactPair.ico";
-            treeNode55.Name = "Contact Pairs";
-            treeNode55.SelectedImageKey = "ContactPair.ico";
-            treeNode55.Text = "Contact Pairs";
-            treeNode55.ToolTipText = "Contact Pairs";
-            treeNode56.ImageKey = "Contact.ico";
-            treeNode56.Name = "Contacts";
-            treeNode56.SelectedImageIndex = 16;
-            treeNode56.Text = "Contacts";
-            treeNode56.ToolTipText = "Contacts";
-            treeNode57.ImageKey = "Amplitude.ico";
-            treeNode57.Name = "Amplitudes";
-            treeNode57.SelectedImageKey = "Amplitude.ico";
-            treeNode57.Text = "Amplitudes";
-            treeNode57.ToolTipText = "Amplitudes";
-            treeNode58.ImageKey = "Initial_conditions.ico";
-            treeNode58.Name = "Initial Conditions";
-            treeNode58.SelectedImageKey = "Initial_conditions.ico";
-            treeNode58.Text = "Initial Conditions";
-            treeNode58.ToolTipText = "Initial Conditions";
-            treeNode59.ImageKey = "Steps.ico";
-            treeNode59.Name = "Steps";
-            treeNode59.SelectedImageKey = "Steps.ico";
-            treeNode59.Text = "Steps";
-            treeNode59.ToolTipText = "Steps";
-            treeNode60.ImageKey = "Dots.ico";
-            treeNode60.Name = "Model";
-            treeNode60.Text = "Model";
-            treeNode60.ToolTipText = "Model";
-            treeNode61.ImageKey = "Analysis.ico";
-            treeNode61.Name = "Analyses";
-            treeNode61.SelectedImageKey = "Analysis.ico";
-            treeNode61.Text = "Analyses";
+            treeNode12.ImageKey = "BasePart.ico";
+            treeNode12.Name = "Parts";
+            treeNode12.SelectedImageKey = "BasePart.ico";
+            treeNode12.Text = "Parts";
+            treeNode12.ToolTipText = "Parts";
+            treeNode13.ImageKey = "Node_set.ico";
+            treeNode13.Name = "Node Sets";
+            treeNode13.SelectedImageKey = "Node_set.ico";
+            treeNode13.Text = "Node Sets";
+            treeNode13.ToolTipText = "Node Sets";
+            treeNode14.ImageKey = "Element_set.ico";
+            treeNode14.Name = "Element Sets";
+            treeNode14.SelectedImageKey = "Element_set.ico";
+            treeNode14.Text = "Element Sets";
+            treeNode14.ToolTipText = "Element Sets";
+            treeNode15.ImageKey = "Surface.ico";
+            treeNode15.Name = "Surfaces";
+            treeNode15.SelectedImageKey = "Surface.ico";
+            treeNode15.Text = "Surfaces";
+            treeNode15.ToolTipText = "Surfaces";
+            treeNode16.ImageKey = "Mesh.ico";
+            treeNode16.Name = "Mesh";
+            treeNode16.SelectedImageKey = "Mesh.ico";
+            treeNode16.Text = "Mesh";
+            treeNode16.ToolTipText = "Mesh";
+            treeNode17.ImageKey = "Reference_point.ico";
+            treeNode17.Name = "Reference Points";
+            treeNode17.SelectedImageKey = "Reference_point.ico";
+            treeNode17.Text = "Reference Points";
+            treeNode17.ToolTipText = "Reference Points";
+            treeNode18.ImageKey = "CoordinateSystem.ico";
+            treeNode18.Name = "Coordinate Systems";
+            treeNode18.SelectedImageKey = "CoordinateSystem.ico";
+            treeNode18.Text = "Coordinate Systems";
+            treeNode18.ToolTipText = "Coordinate Systems";
+            treeNode19.ImageKey = "Feature.ico";
+            treeNode19.Name = "Features";
+            treeNode19.SelectedImageKey = "Feature.ico";
+            treeNode19.Text = "Features";
+            treeNode19.ToolTipText = "Features";
+            treeNode20.ImageKey = "Material.ico";
+            treeNode20.Name = "Materials";
+            treeNode20.SelectedImageKey = "Material.ico";
+            treeNode20.Text = "Materials";
+            treeNode20.ToolTipText = "Materials";
+            treeNode21.ImageKey = "Section.ico";
+            treeNode21.Name = "Sections";
+            treeNode21.SelectedImageKey = "Section.ico";
+            treeNode21.Text = "Sections";
+            treeNode21.ToolTipText = "Sections";
+            treeNode22.ImageKey = "Constraints.ico";
+            treeNode22.Name = "Constraints";
+            treeNode22.SelectedImageKey = "Constraints.ico";
+            treeNode22.Text = "Constraints";
+            treeNode22.ToolTipText = "Constraints";
+            treeNode23.ImageKey = "SurfaceInteraction.ico";
+            treeNode23.Name = "Surface Interactions";
+            treeNode23.SelectedImageKey = "SurfaceInteraction.ico";
+            treeNode23.Text = "Surface Interactions";
+            treeNode23.ToolTipText = "Surface Interactions";
+            treeNode24.ImageKey = "ContactPair.ico";
+            treeNode24.Name = "Contact Pairs";
+            treeNode24.SelectedImageKey = "ContactPair.ico";
+            treeNode24.Text = "Contact Pairs";
+            treeNode24.ToolTipText = "Contact Pairs";
+            treeNode25.ImageKey = "Contact.ico";
+            treeNode25.Name = "Contacts";
+            treeNode25.SelectedImageIndex = 16;
+            treeNode25.Text = "Contacts";
+            treeNode25.ToolTipText = "Contacts";
+            treeNode26.ImageKey = "Amplitude.ico";
+            treeNode26.Name = "Amplitudes";
+            treeNode26.SelectedImageKey = "Amplitude.ico";
+            treeNode26.Text = "Amplitudes";
+            treeNode26.ToolTipText = "Amplitudes";
+            treeNode27.ImageKey = "Initial_conditions.ico";
+            treeNode27.Name = "Initial Conditions";
+            treeNode27.SelectedImageKey = "Initial_conditions.ico";
+            treeNode27.Text = "Initial Conditions";
+            treeNode27.ToolTipText = "Initial Conditions";
+            treeNode28.ImageKey = "Steps.ico";
+            treeNode28.Name = "Steps";
+            treeNode28.SelectedImageKey = "Steps.ico";
+            treeNode28.Text = "Steps";
+            treeNode28.ToolTipText = "Steps";
+            treeNode29.ImageKey = "Dots.ico";
+            treeNode29.Name = "Model";
+            treeNode29.Text = "Model";
+            treeNode29.ToolTipText = "Model";
+            treeNode30.ImageKey = "Analysis.ico";
+            treeNode30.Name = "Analyses";
+            treeNode30.SelectedImageKey = "Analysis.ico";
+            treeNode30.Text = "Analyses";
             this.cltvModel.Nodes.AddRange(new System.Windows.Forms.TreeNode[] {
-            treeNode60,
-            treeNode61});
+            treeNode29,
+            treeNode30});
             this.cltvModel.SelectedImageIndex = 0;
             this.cltvModel.SelectionBackColor = System.Drawing.SystemColors.Highlight;
             this.cltvModel.SelectionMode = UserControls.TreeViewSelectionMode.MultiSelect;
             this.cltvModel.Size = new System.Drawing.Size(231, 450);
             this.cltvModel.TabIndex = 0;
+            this.cltvModel.MouseOverNodeChangedEvent += new System.Action<System.Windows.Forms.TreeNode>(this.cltv_MouseOverNodeChangedEvent);
             this.cltvModel.SelectionsChanged += new System.EventHandler(this.cltv_SelectionsChanged);
             this.cltvModel.BeforeCollapse += new System.Windows.Forms.TreeViewCancelEventHandler(this.cltv_BeforeCollapse);
             this.cltvModel.AfterCollapse += new System.Windows.Forms.TreeViewEventHandler(this.cltv_AfterCollapse);
@@ -959,74 +961,75 @@
             this.cltvResults.Location = new System.Drawing.Point(0, 21);
             this.cltvResults.Margin = new System.Windows.Forms.Padding(0);
             this.cltvResults.Name = "cltvResults";
-            treeNode12.ImageKey = "BasePart.ico";
-            treeNode12.Name = "Parts";
-            treeNode12.SelectedImageKey = "BasePart.ico";
-            treeNode12.Text = "Parts";
-            treeNode12.ToolTipText = "Parts";
-            treeNode13.ImageKey = "Node_set.ico";
-            treeNode13.Name = "Node Sets";
-            treeNode13.SelectedImageKey = "Node_set.ico";
-            treeNode13.Text = "Node Sets";
-            treeNode13.ToolTipText = "Node Sets";
-            treeNode14.ImageKey = "Element_set.ico";
-            treeNode14.Name = "Element Sets";
-            treeNode14.SelectedImageKey = "Element_set.ico";
-            treeNode14.Text = "Element Sets";
-            treeNode14.ToolTipText = "Element Sets";
-            treeNode15.ImageKey = "Surface.ico";
-            treeNode15.Name = "Surfaces";
-            treeNode15.SelectedImageKey = "Surface.ico";
-            treeNode15.Text = "Surfaces";
-            treeNode15.ToolTipText = "Surfaces";
-            treeNode16.ImageKey = "Mesh.ico";
-            treeNode16.Name = "Mesh";
-            treeNode16.SelectedImageKey = "Mesh.ico";
-            treeNode16.Text = "Mesh";
-            treeNode16.ToolTipText = "Mesh";
-            treeNode17.ImageKey = "Reference_point.ico";
-            treeNode17.Name = "Reference Points";
-            treeNode17.SelectedImageKey = "Reference_point.ico";
-            treeNode17.Text = "Reference Points";
-            treeNode17.ToolTipText = "Reference Points";
-            treeNode18.ImageKey = "CoordinateSystem.ico";
-            treeNode18.Name = "Coordinate Systems";
-            treeNode18.SelectedImageKey = "CoordinateSystem.ico";
-            treeNode18.Text = "Coordinate Systems";
-            treeNode18.ToolTipText = "Coordinate Systems";
-            treeNode19.ImageKey = "Feature.ico";
-            treeNode19.Name = "Features";
-            treeNode19.SelectedImageKey = "Feature.ico";
-            treeNode19.Text = "Features";
-            treeNode19.ToolTipText = "Features";
-            treeNode20.ImageKey = "Dots.ico";
-            treeNode20.Name = "Model";
-            treeNode20.Text = "Model";
-            treeNode20.ToolTipText = "Model";
-            treeNode21.ImageKey = "Field_output.ico";
-            treeNode21.Name = "Field Outputs";
-            treeNode21.SelectedImageKey = "Field_output.ico";
-            treeNode21.StateImageKey = "(none)";
-            treeNode21.Text = "Field Outputs";
-            treeNode21.ToolTipText = "Field Outputs";
-            treeNode22.ImageKey = "History_output.ico";
-            treeNode22.Name = "History Outputs";
-            treeNode22.SelectedImageKey = "History_output.ico";
-            treeNode22.Text = "History Outputs";
-            treeNode22.ToolTipText = "History Outputs";
-            treeNode23.ImageKey = "Dots.ico";
-            treeNode23.Name = "Results";
-            treeNode23.SelectedImageKey = "Dots_t.ico";
-            treeNode23.Text = "Results";
-            treeNode23.ToolTipText = "Results";
+            treeNode31.ImageKey = "BasePart.ico";
+            treeNode31.Name = "Parts";
+            treeNode31.SelectedImageKey = "BasePart.ico";
+            treeNode31.Text = "Parts";
+            treeNode31.ToolTipText = "Parts";
+            treeNode32.ImageKey = "Node_set.ico";
+            treeNode32.Name = "Node Sets";
+            treeNode32.SelectedImageKey = "Node_set.ico";
+            treeNode32.Text = "Node Sets";
+            treeNode32.ToolTipText = "Node Sets";
+            treeNode33.ImageKey = "Element_set.ico";
+            treeNode33.Name = "Element Sets";
+            treeNode33.SelectedImageKey = "Element_set.ico";
+            treeNode33.Text = "Element Sets";
+            treeNode33.ToolTipText = "Element Sets";
+            treeNode34.ImageKey = "Surface.ico";
+            treeNode34.Name = "Surfaces";
+            treeNode34.SelectedImageKey = "Surface.ico";
+            treeNode34.Text = "Surfaces";
+            treeNode34.ToolTipText = "Surfaces";
+            treeNode35.ImageKey = "Mesh.ico";
+            treeNode35.Name = "Mesh";
+            treeNode35.SelectedImageKey = "Mesh.ico";
+            treeNode35.Text = "Mesh";
+            treeNode35.ToolTipText = "Mesh";
+            treeNode36.ImageKey = "Reference_point.ico";
+            treeNode36.Name = "Reference Points";
+            treeNode36.SelectedImageKey = "Reference_point.ico";
+            treeNode36.Text = "Reference Points";
+            treeNode36.ToolTipText = "Reference Points";
+            treeNode37.ImageKey = "CoordinateSystem.ico";
+            treeNode37.Name = "Coordinate Systems";
+            treeNode37.SelectedImageKey = "CoordinateSystem.ico";
+            treeNode37.Text = "Coordinate Systems";
+            treeNode37.ToolTipText = "Coordinate Systems";
+            treeNode38.ImageKey = "Feature.ico";
+            treeNode38.Name = "Features";
+            treeNode38.SelectedImageKey = "Feature.ico";
+            treeNode38.Text = "Features";
+            treeNode38.ToolTipText = "Features";
+            treeNode39.ImageKey = "Dots.ico";
+            treeNode39.Name = "Model";
+            treeNode39.Text = "Model";
+            treeNode39.ToolTipText = "Model";
+            treeNode40.ImageKey = "Field_output.ico";
+            treeNode40.Name = "Field Outputs";
+            treeNode40.SelectedImageKey = "Field_output.ico";
+            treeNode40.StateImageKey = "(none)";
+            treeNode40.Text = "Field Outputs";
+            treeNode40.ToolTipText = "Field Outputs";
+            treeNode41.ImageKey = "History_output.ico";
+            treeNode41.Name = "History Outputs";
+            treeNode41.SelectedImageKey = "History_output.ico";
+            treeNode41.Text = "History Outputs";
+            treeNode41.ToolTipText = "History Outputs";
+            treeNode42.ImageKey = "Dots.ico";
+            treeNode42.Name = "Results";
+            treeNode42.SelectedImageKey = "Dots_t.ico";
+            treeNode42.Text = "Results";
+            treeNode42.ToolTipText = "Results";
             this.cltvResults.Nodes.AddRange(new System.Windows.Forms.TreeNode[] {
-            treeNode20,
-            treeNode23});
+            treeNode39,
+            treeNode42});
             this.cltvResults.SelectedImageIndex = 0;
             this.cltvResults.SelectionBackColor = System.Drawing.SystemColors.Highlight;
             this.cltvResults.SelectionMode = UserControls.TreeViewSelectionMode.MultiSelect;
             this.cltvResults.Size = new System.Drawing.Size(231, 450);
             this.cltvResults.TabIndex = 0;
+            this.cltvResults.MouseOverNodeChangedEvent += new System.Action<System.Windows.Forms.TreeNode>(this.cltv_MouseOverNodeChangedEvent);
             this.cltvResults.SelectionsChanged += new System.EventHandler(this.cltv_SelectionsChanged);
             this.cltvResults.BeforeCollapse += new System.Windows.Forms.TreeViewCancelEventHandler(this.cltv_BeforeCollapse);
             this.cltvResults.AfterCollapse += new System.Windows.Forms.TreeViewEventHandler(this.cltv_AfterCollapse);

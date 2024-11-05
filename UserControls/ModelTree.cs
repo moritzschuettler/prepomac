@@ -811,6 +811,32 @@ namespace UserControls
             //
             return;
         }
+        private void cltv_MouseOverNodeChangedEvent(TreeNode node)
+        {
+            if (_disableSelectionsChanged) return;
+            // This function is also called with sender as null parameter
+            CodersLabTreeView tree = GetActiveTree();
+            List<NamedClass> items = new List<NamedClass>();
+            // Select
+            foreach (TreeNode selectedNode in tree.SelectedNodes)
+            {
+                if (selectedNode.Tag == null) continue;
+                //
+                items.Add((NamedClass)selectedNode.Tag);
+            }
+            // Add mouse over node
+            if (node == null)
+                node = null;
+
+            if (node != null && node.Tag != null)
+            {
+                items.Add((NamedClass)node.Tag);
+            }
+            //Task.Run(() => SelectEvent?.Invoke(items.ToArray()));
+            SelectEvent?.Invoke(items.ToArray());
+            //
+            return;
+        }
         private void cltv_MouseDoubleClick(object sender, MouseEventArgs e)
         {
             CodersLabTreeView tree = GetActiveTree();
