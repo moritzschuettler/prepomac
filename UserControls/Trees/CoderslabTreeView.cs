@@ -219,10 +219,11 @@ namespace UserControls
 			get { return _changeHighlightOnFocusLost; }
 			set { _changeHighlightOnFocusLost = value; }
 		}
+        public TreeNode MouseOverNode { get { return _prevMouseOverNode; } }
 
 
         // Events                                                                                                                   
-        public event Action<TreeNode> MouseOverNodeChangedEvent;
+        public event Action<object> MouseOverNodeChangedEvent;
 
 
         // Methods                                                                                                                  
@@ -258,7 +259,7 @@ namespace UserControls
                     tn.BackColor = Color.LightBlue;
                     _prevMouseOverNode = tn;
                     //
-                    MouseOverNodeChangedEvent?.Invoke(tn);
+                    MouseOverNodeChangedEvent?.Invoke(this);
                 }
             }
             else ClearMouseOverSelection();
@@ -272,7 +273,7 @@ namespace UserControls
                 _prevMouseOverNode.BackColor = _prevMouseOverNodeColors[0];
                 _prevMouseOverNode.ForeColor = _prevMouseOverNodeColors[1];
                 //
-                MouseOverNodeChangedEvent?.Invoke(null);
+                MouseOverNodeChangedEvent?.Invoke(this);
             }
             //
             _prevMouseOverNode = null;

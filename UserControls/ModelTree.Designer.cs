@@ -166,12 +166,13 @@
             this.ilStatusIcons = new System.Windows.Forms.ImageList(this.components);
             this.tcGeometryModelResults = new System.Windows.Forms.TabControl();
             this.tpGeometry = new System.Windows.Forms.TabPage();
+            this.tpModel = new System.Windows.Forms.TabPage();
+            this.tpResults = new System.Windows.Forms.TabPage();
+            this.timerMouseMove = new System.Windows.Forms.Timer(this.components);
             this.stbGeometry = new UserControls.SearchTextBox();
             this.cltvGeometry = new UserControls.CodersLabTreeView();
-            this.tpModel = new System.Windows.Forms.TabPage();
             this.stbModel = new UserControls.SearchTextBox();
             this.cltvModel = new UserControls.CodersLabTreeView();
-            this.tpResults = new System.Windows.Forms.TabPage();
             this.stbResults = new UserControls.SearchTextBox();
             this.cltvResults = new UserControls.CodersLabTreeView();
             this.cmsTree.SuspendLayout();
@@ -637,10 +638,10 @@
             this.ilIcons.Images.SetKeyName(39, "Compound_transparent.ico");
             this.ilIcons.Images.SetKeyName(40, "Shell.ico");
             this.ilIcons.Images.SetKeyName(41, "Shell_transparent.ico");
-            this.ilIcons.Images.SetKeyName(42, "Wire.ico");
-            this.ilIcons.Images.SetKeyName(43, "Wire_transparent.ico");
-            this.ilIcons.Images.SetKeyName(44, "Solid_transparent.ico");
-            this.ilIcons.Images.SetKeyName(45, "Solid.ico");
+            this.ilIcons.Images.SetKeyName(42, "Solid.ico");
+            this.ilIcons.Images.SetKeyName(43, "Solid_transparent.ico");
+            this.ilIcons.Images.SetKeyName(44, "Wire.ico");
+            this.ilIcons.Images.SetKeyName(45, "Wire_transparent.ico");
             // 
             // ilStatusIcons
             // 
@@ -675,6 +676,33 @@
             this.tpGeometry.TabIndex = 2;
             this.tpGeometry.Text = "Geometry";
             this.tpGeometry.UseVisualStyleBackColor = true;
+            // 
+            // tpModel
+            // 
+            this.tpModel.Controls.Add(this.stbModel);
+            this.tpModel.Controls.Add(this.cltvModel);
+            this.tpModel.Location = new System.Drawing.Point(4, 24);
+            this.tpModel.Name = "tpModel";
+            this.tpModel.Size = new System.Drawing.Size(231, 470);
+            this.tpModel.TabIndex = 0;
+            this.tpModel.Text = "FE Model";
+            this.tpModel.UseVisualStyleBackColor = true;
+            // 
+            // tpResults
+            // 
+            this.tpResults.Controls.Add(this.stbResults);
+            this.tpResults.Controls.Add(this.cltvResults);
+            this.tpResults.Location = new System.Drawing.Point(4, 24);
+            this.tpResults.Name = "tpResults";
+            this.tpResults.Padding = new System.Windows.Forms.Padding(3);
+            this.tpResults.Size = new System.Drawing.Size(231, 470);
+            this.tpResults.TabIndex = 1;
+            this.tpResults.Text = "Results";
+            this.tpResults.UseVisualStyleBackColor = true;
+            // 
+            // timerMouseMove
+            // 
+            this.timerMouseMove.Tick += new System.EventHandler(this.timerMouseMove_Tick);
             // 
             // stbGeometry
             // 
@@ -758,7 +786,7 @@
             this.cltvGeometry.SelectionMode = UserControls.TreeViewSelectionMode.MultiSelect;
             this.cltvGeometry.Size = new System.Drawing.Size(231, 450);
             this.cltvGeometry.TabIndex = 0;
-            this.cltvGeometry.MouseOverNodeChangedEvent += new System.Action<System.Windows.Forms.TreeNode>(this.cltv_MouseOverNodeChangedEvent);
+            this.cltvGeometry.MouseOverNodeChangedEvent += new System.Action<object>(this.cltv_MouseOverNodeChangedEvent);
             this.cltvGeometry.SelectionsChanged += new System.EventHandler(this.cltv_SelectionsChanged);
             this.cltvGeometry.BeforeCollapse += new System.Windows.Forms.TreeViewCancelEventHandler(this.cltv_BeforeCollapse);
             this.cltvGeometry.AfterCollapse += new System.Windows.Forms.TreeViewEventHandler(this.cltv_AfterCollapse);
@@ -768,17 +796,6 @@
             this.cltvGeometry.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.cltv_MouseDoubleClick);
             this.cltvGeometry.MouseDown += new System.Windows.Forms.MouseEventHandler(this.cltv_MouseDown);
             this.cltvGeometry.MouseUp += new System.Windows.Forms.MouseEventHandler(this.cltv_MouseUp);
-            // 
-            // tpModel
-            // 
-            this.tpModel.Controls.Add(this.stbModel);
-            this.tpModel.Controls.Add(this.cltvModel);
-            this.tpModel.Location = new System.Drawing.Point(4, 24);
-            this.tpModel.Name = "tpModel";
-            this.tpModel.Size = new System.Drawing.Size(231, 470);
-            this.tpModel.TabIndex = 0;
-            this.tpModel.Text = "FE Model";
-            this.tpModel.UseVisualStyleBackColor = true;
             // 
             // stbModel
             // 
@@ -910,7 +927,7 @@
             this.cltvModel.SelectionMode = UserControls.TreeViewSelectionMode.MultiSelect;
             this.cltvModel.Size = new System.Drawing.Size(231, 450);
             this.cltvModel.TabIndex = 0;
-            this.cltvModel.MouseOverNodeChangedEvent += new System.Action<System.Windows.Forms.TreeNode>(this.cltv_MouseOverNodeChangedEvent);
+            this.cltvModel.MouseOverNodeChangedEvent += new System.Action<object>(this.cltv_MouseOverNodeChangedEvent);
             this.cltvModel.SelectionsChanged += new System.EventHandler(this.cltv_SelectionsChanged);
             this.cltvModel.BeforeCollapse += new System.Windows.Forms.TreeViewCancelEventHandler(this.cltv_BeforeCollapse);
             this.cltvModel.AfterCollapse += new System.Windows.Forms.TreeViewEventHandler(this.cltv_AfterCollapse);
@@ -920,18 +937,6 @@
             this.cltvModel.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.cltv_MouseDoubleClick);
             this.cltvModel.MouseDown += new System.Windows.Forms.MouseEventHandler(this.cltv_MouseDown);
             this.cltvModel.MouseUp += new System.Windows.Forms.MouseEventHandler(this.cltv_MouseUp);
-            // 
-            // tpResults
-            // 
-            this.tpResults.Controls.Add(this.stbResults);
-            this.tpResults.Controls.Add(this.cltvResults);
-            this.tpResults.Location = new System.Drawing.Point(4, 24);
-            this.tpResults.Name = "tpResults";
-            this.tpResults.Padding = new System.Windows.Forms.Padding(3);
-            this.tpResults.Size = new System.Drawing.Size(231, 470);
-            this.tpResults.TabIndex = 1;
-            this.tpResults.Text = "Results";
-            this.tpResults.UseVisualStyleBackColor = true;
             // 
             // stbResults
             // 
@@ -1029,7 +1034,7 @@
             this.cltvResults.SelectionMode = UserControls.TreeViewSelectionMode.MultiSelect;
             this.cltvResults.Size = new System.Drawing.Size(231, 450);
             this.cltvResults.TabIndex = 0;
-            this.cltvResults.MouseOverNodeChangedEvent += new System.Action<System.Windows.Forms.TreeNode>(this.cltv_MouseOverNodeChangedEvent);
+            this.cltvResults.MouseOverNodeChangedEvent += new System.Action<object>(this.cltv_MouseOverNodeChangedEvent);
             this.cltvResults.SelectionsChanged += new System.EventHandler(this.cltv_SelectionsChanged);
             this.cltvResults.BeforeCollapse += new System.Windows.Forms.TreeViewCancelEventHandler(this.cltv_BeforeCollapse);
             this.cltvResults.AfterCollapse += new System.Windows.Forms.TreeViewEventHandler(this.cltv_AfterCollapse);
@@ -1134,5 +1139,6 @@
         private System.Windows.Forms.ToolStripMenuItem tsmiSetColor;
         private System.Windows.Forms.ToolStripSeparator tsmiSpaceColor;
         private System.Windows.Forms.ToolStripMenuItem tsmiResetColor;
+        private System.Windows.Forms.Timer timerMouseMove;
     }
 }

@@ -811,31 +811,12 @@ namespace UserControls
             //
             return;
         }
-        private void cltv_MouseOverNodeChangedEvent(TreeNode node)
+        private void cltv_MouseOverNodeChangedEvent(object sender)
         {
             if (_disableSelectionsChanged) return;
-            // This function is also called with sender as null parameter
-            CodersLabTreeView tree = GetActiveTree();
-            List<NamedClass> items = new List<NamedClass>();
-            // Select
-            foreach (TreeNode selectedNode in tree.SelectedNodes)
-            {
-                if (selectedNode.Tag == null) continue;
-                //
-                items.Add((NamedClass)selectedNode.Tag);
-            }
-            // Add mouse over node
-            if (node == null)
-                node = null;
-
-            if (node != null && node.Tag != null)
-            {
-                items.Add((NamedClass)node.Tag);
-            }
-            //Task.Run(() => SelectEvent?.Invoke(items.ToArray()));
-            SelectEvent?.Invoke(items.ToArray());
             //
-            return;
+            //timerMouseMove.Stop();
+            timerMouseMove.Start();
         }
         private void cltv_MouseDoubleClick(object sender, MouseEventArgs e)
         {
@@ -910,7 +891,29 @@ namespace UserControls
                 e.SuppressKeyPress = true;
             }
         }
-
+        private void timerMouseMove_Tick(object sender, EventArgs e)
+        {
+            CodersLabTreeView tree = GetActiveTree();
+            List<NamedClass> items = new List<NamedClass>();
+            // Select
+            foreach (TreeNode selectedNode in tree.SelectedNodes)
+            {
+                if (selectedNode.Tag == null) continue;
+                //
+                items.Add((NamedClass)selectedNode.Tag);
+            }
+            // Add mouse over node
+            TreeNode node = tree.MouseOverNode;
+            //
+            if (node != null && node.Tag != null)
+            {
+                items.Add((NamedClass)node.Tag);
+            }
+            //
+            SelectEvent?.Invoke(items.ToArray());
+            //
+            timerMouseMove.Stop();
+        }
         #endregion
 
         #region Tree context menu
@@ -3239,6 +3242,6 @@ namespace UserControls
             }
         }
 
-        
+       
     }
 }
