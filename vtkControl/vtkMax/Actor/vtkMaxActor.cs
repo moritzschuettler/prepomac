@@ -47,8 +47,11 @@ namespace vtkControl
         protected bool _sectionViewPossible;
         protected bool _drawOnGeometry;
         protected bool _useSecondaryHighlightColor;
+        //
+        protected bool _canHaveElementEdges;
+        protected vtkRendererLayer _layer;
 
-        
+
 
         // Properties                                                                                                               
         public string Name { get { return _name; } set { _name = value; } }
@@ -195,6 +198,8 @@ namespace vtkControl
             get { return _useSecondaryHighlightColor; } 
             set { _useSecondaryHighlightColor = value; } 
         }
+        public bool CanHaveElementEdges { get { return _canHaveElementEdges; } set { _canHaveElementEdges = value; } }
+        public vtkRendererLayer Layer { get { return _layer; } set { _layer = value; } }
 
 
         // Constructors                                                                                                             
@@ -232,6 +237,9 @@ namespace vtkControl
             _sectionViewPossible = true;
             _drawOnGeometry = false;
             _useSecondaryHighlightColor = false;
+            //
+            _canHaveElementEdges = false;
+            _layer = vtkRendererLayer.Base;
             //
             UpdateColor();
         }
@@ -287,6 +295,9 @@ namespace vtkControl
             _drawOnGeometry = data.DrawOnGeometry;
             _useSecondaryHighlightColor = data.UseSecondaryHighlightColor;
             //
+            _canHaveElementEdges = data.CanHaveElementEdges;
+            _layer = data.Layer;
+            //
             UpdateColor();
         }
         
@@ -337,6 +348,9 @@ namespace vtkControl
             _sectionViewPossible = data.SectionViewPossible;
             _drawOnGeometry = data.DrawOnGeometry;
             _useSecondaryHighlightColor = data.UseSecondaryHighlightColor;
+            //
+            _canHaveElementEdges = data.CanHaveElementEdges;
+            _layer = data.Layer;
             //
             UpdateColor();
         }
@@ -434,6 +448,9 @@ namespace vtkControl
             _sectionViewPossible = sourceActor.SectionViewPossible;
             _drawOnGeometry = sourceActor.DrawOnGeometry;
             _useSecondaryHighlightColor = sourceActor.UseSecondaryHighlightColor;
+            //
+            _canHaveElementEdges = sourceActor.CanHaveElementEdges;
+            _layer = sourceActor.Layer;
             //
             UpdateColor();
         }

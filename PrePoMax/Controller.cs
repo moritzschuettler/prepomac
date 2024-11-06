@@ -30,6 +30,9 @@ using CommandLine;
 using System.Security.Policy;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Runtime.Serialization.Formatters.Binary;
+using System.Reflection.Emit;
+using System.Collections;
 
 namespace PrePoMax
 {
@@ -58,7 +61,7 @@ namespace PrePoMax
         [NonSerialized] protected GeometrySelectModeEnum _geometrySelectMode;
         [NonSerialized] protected double _selectAngle;
         [NonSerialized] protected Selection _selection;
-        [NonSerialized] protected OrderedDictionary<int[], vtkMaxActorData[]> _elementSelection;
+        [NonSerialized] protected OrderedDictionary<int, vtkMaxActor[]> _elementSelection;
         // Annotations
         protected AnnotationContainer _annotations;
         // Results
@@ -422,8 +425,7 @@ namespace PrePoMax
             _annotations = new AnnotationContainer(this);
             // Selection
             _selection = new Selection();
-            CompareIntArray comparer = new CompareIntArray();
-            _elementSelection = new OrderedDictionary<int[], vtkMaxActorData[]>("SelectionHistory", comparer);
+            _elementSelection = new OrderedDictionary<int, vtkMaxActor[]>("ElementSelection");
             // Results
             _allResults = new ResultsCollection();  // must be first
             ViewResultsType = ViewResultsTypeEnum.ColorContours;
@@ -16183,23 +16185,41 @@ namespace PrePoMax
             //
             FeMesh mesh = DisplayedMesh;
             // Create a key and check if the data already exists
-            int[] key = elementIds.ToArray();
-            Array.Sort(key);
-            vtkMaxActorData[] data;
-            if (_elementSelection.TryGetValue(key, out data))
+
+
+            //using (MemoryStream stream = new MemoryStream())
+            //{
+            //    BinaryFormatter formatter = new BinaryFormatter();
+            //    formatter.Serialize(stream, elementIds);
+            //    stream.Position = 0;
+            //    byte[] bytes = stream.ToArray();
+
+            //    int[] bytesAsInts = new int[bytes.Length / 4 + 1];
+            //    Buffer.BlockCopy(bytes, 0, bytesAsInts, 0, bytes.Length);
+
+            //    int hash = 0;
+            //    for (int i = 0; i < bytesAsInts.Length; i++)
+            //    {
+            //        hash ^= bytesAsInts[i].GetHashCode();
+            //    }
+            //}
+
+
+            int key = elementIds.GetHashCode();
+            vtkMaxActor[] actors;
+            if (!countOnly && _elementSelection.TryGetValue(key, out actors))
             {
-                for (int i = 0; i < data.Length; i++)
+                for (int i = 0; i < actors.Length; i++)
                 {
-                    if (!countOnly) _form.Add3DCells(data[i]);
-                    //
-                    numDrawnCells += data[i].Geometry.Cells.CellNodeIds.Length;
+                    if (!countOnly) _form.AddActor(actors[i]);
                 }
             }
             // Create new data
             else
             {
                 BasePart[] parts = mesh.CreateBasePartsByTypeFromElementIds(elementIds, onlyVisible);
-                data = new vtkMaxActorData[parts.Length];
+                vtkMaxActorData data;
+                actors = new vtkMaxActor[parts.Length];
                 //
                 int count = 0;
                 foreach (BasePart part in parts)
@@ -16208,27 +16228,27 @@ namespace PrePoMax
                     //
                     if (!countOnly)
                     {
-                        data[count] = new vtkMaxActorData();
-                        data[count].Name = prefixName + Globals.NameSeparator + "elements";
-                        data[count].Color = color;
-                        data[count].Layer = layer;
-                        if (part.PartType == PartType.Shell) data[count].BackfaceCulling = false;
-                        else data[count].BackfaceCulling = true;
+                        data = new vtkMaxActorData();
+                        data.Name = prefixName + Globals.NameSeparator + "elements";
+                        data.Color = color;
+                        data.Layer = layer;
+                        if (part.PartType == PartType.Shell) data.BackfaceCulling = false;
+                        else data.BackfaceCulling = true;
                         //
-                        data[count].CanHaveElementEdges = canHaveEdges;
-                        data[count].Geometry.Nodes.Ids = null;
-                        data[count].Geometry.Nodes.Coor = nodeCoor;
-                        data[count].Geometry.Cells.CellNodeIds = cells;
-                        data[count].Geometry.Cells.Types = cellTypes;
+                        data.CanHaveElementEdges = canHaveEdges;
+                        data.Geometry.Nodes.Ids = null;
+                        data.Geometry.Nodes.Coor = nodeCoor;
+                        data.Geometry.Cells.CellNodeIds = cells;
+                        data.Geometry.Cells.Types = cellTypes;
                         //
-                        ApplyLighting(data[count]);
-                        _form.Add3DCells(data[count]);
+                        ApplyLighting(data);
+                        actors[count] = _form.Add3DCells(data);
                     }
                     //
                     numDrawnCells += cells.Length;
                     count++;
                 }
-                _elementSelection.Add(key, data);
+                _elementSelection.Add(key, actors);
                 //
                 count = _elementSelection.Count - 10;
                 for (int i = 0; i < count; i++) _elementSelection.Remove(_elementSelection.Keys.First());
@@ -16547,8 +16567,8 @@ namespace PrePoMax
         public void Highlight3DObjects(object[] obj, bool clear = true)
         {
             Highlight3DObjects(_currentView, obj, clear);
-            string data = obj == null ? "Null" : obj.Length.ToString();
-            Debug.WriteLine(DateTime.Now.Millisecond + ": Highlight3DObjects: " + data);
+            //string data = obj == null ? "Null" : obj.Length.ToString();
+            //Debug.WriteLine(DateTime.Now.Millisecond + ": Highlight3DObjects: " + data + " " + code);
         }
         public void Highlight3DObjects(ViewGeometryModelResults view, object[] obj, bool clear)
         {

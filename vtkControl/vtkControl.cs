@@ -3091,14 +3091,16 @@ namespace vtkControl
             //
             //AdjustCameraDistanceAndClippingRedraw();  is this necessary?
         }
-        public void AddCells(vtkMaxActorData data)
+        public vtkMaxActor AddCells(vtkMaxActorData data)
         {
             // Create actor
             vtkMaxActor actor = new vtkMaxActor(data);
             //
-            AddActor(actor, data.Layer, data.CanHaveElementEdges);
+            AddActor(actor);
             //
             //AdjustCameraDistanceAndClippingRedraw();
+            //
+            return actor;
         }
         //
         public void AddSphereActor(vtkMaxActorData data, double symbolSize)
@@ -4002,7 +4004,11 @@ namespace vtkControl
             AddActorGeometry(actor, data.Layer);
         }
         //
-        private void AddActor(vtkMaxActor actor, vtkRendererLayer layer, bool canHaveElementEdges)
+        public void AddActor(vtkMaxActor actor)
+        {
+            AddActor(actor, actor.Layer);
+        }
+        private void AddActor(vtkMaxActor actor, vtkRendererLayer layer)
         {
             // Add actor
             AddActorGeometry(actor, layer);
@@ -4400,7 +4406,7 @@ namespace vtkControl
                                     sectionViewActor.Color = _sectionViewData.SectionColor;
                                 }
                                 //
-                                AddActor(sectionViewActor, vtkRendererLayer.Base, true);
+                                AddActor(sectionViewActor, vtkRendererLayer.Base);
                                 actor.SectionViewActor = sectionViewActor;
                             }
                         }
@@ -4443,7 +4449,7 @@ namespace vtkControl
                                     sectionViewActor.Color = _sectionViewData.SectionColor;
                                 }
                                 //
-                                AddActor(sectionViewActor, vtkRendererLayer.Base, true);
+                                AddActor(sectionViewActor, vtkRendererLayer.Base);
                                 actor.SectionViewActor = sectionViewActor;
                             }
                             //GetSectionViewActorProperties(sectionViewActor, point);
@@ -5134,7 +5140,7 @@ namespace vtkControl
                     //
                     TransformMaxActor(transformedActor, transform);
                     //
-                    AddActor(transformedActor, vtkRendererLayer.Base, true);
+                    AddActor(transformedActor, vtkRendererLayer.Base);
                     //
                     baseActor = transformedActor;
                 }

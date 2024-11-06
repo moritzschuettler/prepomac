@@ -8992,13 +8992,26 @@ namespace PrePoMax
             InvokeIfRequired(_vtk.ShowTransformedActors);
         }
         //
-        public void Add3DNodes(vtkControl.vtkMaxActorData actorData)
+        public void Add3DNodes(vtkMaxActorData actorData)
         {
             InvokeIfRequired(_vtk.AddPoints, actorData);
         }
-        public void Add3DCells(vtkControl.vtkMaxActorData cellData)
+        public vtkMaxActor Add3DCells(vtkMaxActorData cellData)
         {
-            InvokeIfRequired(_vtk.AddCells, cellData);
+            vtkMaxActor actor = null;
+            if (this.InvokeRequired)
+            {
+                this.Invoke((MethodInvoker)delegate () { actor = _vtk.AddCells(cellData); });
+            }
+            else
+            {
+                actor = _vtk.AddCells(cellData);
+            }
+            return actor;
+        }
+        public void AddActor(vtkMaxActor actor)
+        {
+            InvokeIfRequired(_vtk.AddActor, actor);
         }
         public void AddScalarFieldOn3DCells(vtkControl.vtkMaxActorData actorData, bool update)
         {

@@ -49,7 +49,6 @@ namespace vtkControl
             _colorContours = false;
             _sectionViewPossible = false;
             _drawOnGeometry = false;
-            _useSecondaryHighlightColor = false;
         }
     }
 }
