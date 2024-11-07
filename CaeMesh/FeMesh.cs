@@ -6975,7 +6975,7 @@ namespace CaeMesh
             double minAngle = double.MaxValue;
             int minEdgeId = -1;
             double alpha;
-
+            //
             foreach (int edgeId in nodeEdges)
             {
                 if (edgeId != edge1Id)   // skip self
@@ -6989,7 +6989,7 @@ namespace CaeMesh
                 }
             }
             if (minEdgeId < 0) return;
-
+            //
             edge2Id = minEdgeId;
             int[] edgeCellIds = visualization.EdgeCellIdsByEdge[edge2Id];
             if (visualization.EdgeCells[edgeCellIds[0]][0] == node1Id)
@@ -7000,17 +7000,17 @@ namespace CaeMesh
         {
             int[] edge1CellIds = visualization.EdgeCellIdsByEdge[edge1Id];
             int[] edge2CellIds = visualization.EdgeCellIdsByEdge[edge2Id];
-
+            //
             int n1;
             int n2;
             if (visualization.EdgeCells[edge1CellIds[0]][0] == nodeId)
                 n1 = visualization.EdgeCells[edge1CellIds[0]][1];
             else n1 = visualization.EdgeCells[edge1CellIds.Last()][0];
-
+            //
             if (visualization.EdgeCells[edge2CellIds[0]][0] == nodeId)
                 n2 = visualization.EdgeCells[edge2CellIds[0]][1];
             else n2 = visualization.EdgeCells[edge2CellIds.Last()][0];
-
+            //
             return GetEdgeAngle(n1, nodeId, n2);
         }
 
