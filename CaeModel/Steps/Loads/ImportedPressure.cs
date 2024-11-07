@@ -97,6 +97,9 @@ namespace CaeModel
                         break;
                 }
             }
+            // Compatibility for version v1.4.0
+            if (_magnitudeFactor == null) MagnitudeFactor = new EquationContainer(typeof(StringDoubleConverter), 1);
+            if (_geomScaleFactor == null) GeometryScaleFactor = new EquationContainer(typeof(StringDoubleConverter), 1);
         }
 
 
