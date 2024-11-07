@@ -100,9 +100,10 @@ namespace CaeResults
         public const string WearDepth = "WEAR_DEPTH";                   // vector
         public const string MeshDeformation = "MESH_DEF";               // vector
         public const string DispDeformationDepth = "DISP_DEF_DEPTH";    // vector
-        // Imported pressure
+        // Imported
         public const string Distance = "DISTANCE";                      // vector
         public const string Imported = "IMPORTED";                      // scalar
+        public const string ForcePerArea = "FORCE_PER_AREA";            // vector
         //
         public const string Error = "ERROR";                            // scalar
         public const string ErrorR = "ERRORR";                          // scalar
