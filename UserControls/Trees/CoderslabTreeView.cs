@@ -256,7 +256,11 @@ namespace UserControls
                     //
                     _prevMouseOverNodeColors = new Color[] { tn.BackColor, tn.ForeColor };
                     //
-                    tn.BackColor = Color.LightBlue;
+                    //tn.BackColor = Color.FromArgb(127, 187, 235);
+                    //tn.BackColor = Color.FromArgb(106, 156, 196);
+                    //tn.BackColor = Color.FromArgb(138, 203, 255);
+                    //tn.BackColor = Color.FromArgb(216, 235, 255);
+                    tn.BackColor = Color.FromArgb(204, 228, 255);
                     _prevMouseOverNode = tn;
                     //
                     MouseOverNodeChangedEvent?.Invoke(this);
