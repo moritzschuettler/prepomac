@@ -15,7 +15,7 @@ namespace CaeResults
     public static class CloudPointReader
     {
         // Variables                                                                                                                
-        static private string[] _splitter = new string[] { " ", ",", ":", ";" };
+        static private string[] _splitter = new string[] { " ", ",", ":", ";", "\t" };
 
 
         // Methods                                                                                                                  
@@ -38,25 +38,28 @@ namespace CaeResults
                 for (int i = 0; i < lines.Length; i++)
                 {
                     line = lines[i].Trim();
-                    if (line[0] == '#') continue;
-                    //
-                    tmp = line.Split(_splitter, StringSplitOptions.RemoveEmptyEntries);
-                    if (tmp.Length > 3)
+                    if (line.Length > 0)
                     {
-                        cloudPoint = new CloudPoint();
-                        cloudPoint.Coor = new double[] { double.Parse(tmp[0]), double.Parse(tmp[1]), double.Parse(tmp[2]) };
-                        if (numValues == -1) numValues = tmp.Length - 3;
+                        if (line[0] == '#') continue;
                         //
-                        if (numValues != tmp.Length - 3)
-                            throw new CaeException("The data file does not contain the same number of values in each line");
-                        //
-                        cloudPoint.Values = new double[numValues];
-                        for (int j = 0; j < numValues; j++) cloudPoint.Values[j] = double.Parse(tmp[j + 3]);
-                        //
-                        cloudPoints.Add(cloudPoint);
+                        tmp = line.Split(_splitter, StringSplitOptions.RemoveEmptyEntries);
+                        if (tmp.Length > 3)
+                        {
+                            cloudPoint = new CloudPoint();
+                            cloudPoint.Coor = new double[] { double.Parse(tmp[0]), double.Parse(tmp[1]), double.Parse(tmp[2]) };
+                            if (numValues == -1) numValues = tmp.Length - 3;
+                            //
+                            if (numValues != tmp.Length - 3)
+                                throw new CaeException("The data file does not contain the same number of values in each line");
+                            //
+                            cloudPoint.Values = new double[numValues];
+                            for (int j = 0; j < numValues; j++) cloudPoint.Values[j] = double.Parse(tmp[j + 3]);
+                            //
+                            cloudPoints.Add(cloudPoint);
 
+                        }
+                        else throw new CaeException("The data file does not contain at least 4 values in line number: " + i);
                     }
-                    else throw new CaeException("The data file does not contain at least 4 values in line number: " + i);
                 }
                 return cloudPoints.ToArray();
             }
