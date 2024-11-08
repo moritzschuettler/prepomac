@@ -11,6 +11,10 @@ namespace CaeResults
     public enum CloudInterpolatorEnum
     {
         [StandardValue("ClosestPoint", DisplayName = "Closest point")]
-        ClosestPoint
+        ClosestPoint,
+        [StandardValue("Gauss", DisplayName = "Gauss")]
+        Gauss,
+        [StandardValue("Shepard", DisplayName = "Shepard")]
+        Shepard
     }
 }

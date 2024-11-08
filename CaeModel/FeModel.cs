@@ -565,6 +565,10 @@ namespace CaeModel
             {
                 valid = (_mesh.Surfaces.TryGetValue(stl.SurfaceName, out s) && s.Valid);
             }
+            else if (load is ImportedSTLoad istl)
+            {
+                valid = (_mesh.Surfaces.TryGetValue(istl.SurfaceName, out s) && s.Valid);
+            }
             else if (load is ShellEdgeLoad sel)
             {
                 valid = (_mesh.Surfaces.TryGetValue(sel.SurfaceName, out s) && s.Valid);

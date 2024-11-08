@@ -54,84 +54,25 @@ namespace CaeResults
             //
             _regionBoxes = AssignPointsToRegions(cloudPoints, _sourceBox, _nx, _ny, _nz);
         }
-        public void InterpolateAt(double[] point, CloudInterpolatorEnum interpolator, out double[] distance, out double[] values)
+        public void InterpolateAt(double[] point, CloudInterpolatorEnum interpolator, double radius,
+                                  out double[] distance, out double[] values)
         {
-            int i;
-            int j;
-            int k;
-            int mini;
-            int maxi;
-            int minj;
-            int maxj;
-            int mink;
-            int maxk;
-            int index;
-            BoundingBox bb;
-            Dictionary<int, BoundingBox> regions = new Dictionary<int, BoundingBox>();
-            int num;
-            int delta;
-            double d;
-            double minD;
-            CloudPoint bestPoint = new CloudPoint();
-            //
-            i = (int)Math.Floor((point[0] - _sourceBox.MinX) / _deltaX);
-            j = (int)Math.Floor((point[1] - _sourceBox.MinY) / _deltaY);
-            k = (int)Math.Floor((point[2] - _sourceBox.MinZ) / _deltaZ);
-            if (i < 0) i = 0;
-            else if (i >= _nx) i = _nx - 1;
-            if (j < 0) j = 0;
-            else if (j >= _ny) j = _ny - 1;
-            if (k < 0) k = 0;
-            else if (k >= _nz) k = _nz - 1;
-            index = k * _nxy + j * _nx + i;
-            bb = _regionBoxes[index];
-            if (bb != null) regions.Add(index, bb);
-            //
-            delta = 0;
-            num = bb == null ? 0 : ((HashSet<CloudPoint>)bb.Tag).Count;
-            // Add next layer of regions
-            while (num == 0 || delta < 1)
+            if (interpolator == CloudInterpolatorEnum.ClosestPoint)
             {
-                delta++;
-                mini = i - delta;
-                maxi = i + delta;
-                minj = j - delta;
-                maxj = j + delta;
-                mink = k - delta;
-                maxk = k + delta;
-                if (mini < 0) mini = 0;
-                if (maxi >= _nx) maxi = _nx - 1;
-                if (minj < 0) minj = 0;
-                if (maxj >= _ny) maxj = _ny - 1;
-                if (mink < 0) mink = 0;
-                if (maxk >= _nz) maxk = _nz - 1;
-                //
-                for (int kk = mink; kk <= maxk; kk++)
-                {
-                    for (int jj = minj; jj <= maxj; jj++)
-                    {
-                        for (int ii = mini; ii <= maxi; ii++)
-                        {
-                            index = kk * _nxy + jj * _nx + ii;
-                            if (!regions.ContainsKey(index))
-                            {
-                                bb = _regionBoxes[index];
-                                //
-                                if (bb != null && ((HashSet<CloudPoint>)bb.Tag).Count > 0)
-                                {
-                                    regions.Add(index, bb);
-                                    num += ((HashSet<CloudPoint>)bb.Tag).Count;
-                                }
-                            }
-                        }
-                    }
-                }
+                InterpolateByClosestPoint(point, out distance, out values);
             }
+            else throw new NotSupportedException();
+        }
+        public void InterpolateByClosestPoint(double[] point, out double[] distance, out double[] values)
+        {
+            Dictionary<int, BoundingBox> regions = GetClosestRegions(point, -1);
             //
             double absX;
             double absY;
             double absZ;
-            minD = double.MaxValue;
+            double d;
+            double minD = double.MaxValue;
+            CloudPoint bestPoint = new CloudPoint();
             foreach (var regionEntry in regions)
             {
                 if (regionEntry.Value.IsMaxOutsideDistance2SmallerThan(point, minD))
@@ -166,6 +107,139 @@ namespace CaeResults
                                       bestPoint.Coor[2] - point[2]};
             //
             values = bestPoint.Values;
+        }
+        public void InterpolateByGauss(double[] point, double radius, out double[] distance, out double[] values)
+        {
+            Dictionary<int, BoundingBox> regions = GetClosestRegions(point, radius);
+            //
+            double absX;
+            double absY;
+            double absZ;
+            double d;
+            double minD = double.MaxValue;
+            CloudPoint bestPoint = new CloudPoint();
+            foreach (var regionEntry in regions)
+            {
+                if (regionEntry.Value.IsMaxOutsideDistance2SmallerThan(point, radius))
+                {
+
+
+                    //foreach (var cloudPoint in (HashSet<CloudPoint>)regionEntry.Value.Tag)
+                    //{
+                    //    absX = Math.Abs(cloudPoint.Coor[0] - point[0]);
+                    //    if (absX < minD)
+                    //    {
+                    //        absY = Math.Abs(cloudPoint.Coor[1] - point[1]);
+                    //        if (absY < minD)
+                    //        {
+                    //            absZ = Math.Abs(cloudPoint.Coor[2] - point[2]);
+                    //            if (absZ < minD)
+                    //            {
+                    //                d = Math.Sqrt(absX * absX + absY * absY + absZ * absZ);
+                    //                //
+                    //                if (d < minD)
+                    //                {
+                    //                    minD = d;
+                    //                    bestPoint = cloudPoint;
+                    //                }
+                    //            }
+                    //        }
+                    //    }
+                    //}
+                }
+            }
+            //
+            distance = new double[] { bestPoint.Coor[0] - point[0],
+                                      bestPoint.Coor[1] - point[1],
+                                      bestPoint.Coor[2] - point[2]};
+            //
+            values = bestPoint.Values;
+        }
+        private Dictionary<int, BoundingBox> GetClosestRegions(double[] point, double radius)
+        {
+            int i;
+            int j;
+            int k;
+            int mini;
+            int maxi;
+            int minj;
+            int maxj;
+            int mink;
+            int maxk;
+            int index;
+            BoundingBox bb;
+            Dictionary<int, BoundingBox> regions = new Dictionary<int, BoundingBox>();
+            int num;
+            int delta;
+            //
+            i = (int)Math.Floor((point[0] - _sourceBox.MinX) / _deltaX);
+            j = (int)Math.Floor((point[1] - _sourceBox.MinY) / _deltaY);
+            k = (int)Math.Floor((point[2] - _sourceBox.MinZ) / _deltaZ);
+            if (i < 0) i = 0;
+            else if (i >= _nx) i = _nx - 1;
+            if (j < 0) j = 0;
+            else if (j >= _ny) j = _ny - 1;
+            if (k < 0) k = 0;
+            else if (k >= _nz) k = _nz - 1;
+            index = k * _nxy + j * _nx + i;
+            bb = _regionBoxes[index];
+            if (bb != null) regions.Add(index, bb);
+            //
+            delta = 0;
+            num = bb == null ? 0 : ((HashSet<CloudPoint>)bb.Tag).Count;
+            // Add next layer of regions - at least one
+            while (num == 0 || delta < 1)
+            {
+                delta++;
+                if (radius <= 0)
+                {
+                    mini = i - delta;
+                    maxi = i + delta;
+                    minj = j - delta;
+                    maxj = j + delta;
+                    mink = k - delta;
+                    maxk = k + delta;
+                }
+                else
+                {
+                    mini = (int)Math.Floor((point[0] - radius - _sourceBox.MinX) / _deltaX);
+                    maxi = (int)Math.Ceiling((point[0] + radius - _sourceBox.MinX) / _deltaX);
+                    minj = (int)Math.Floor((point[1] - radius - _sourceBox.MinY) / _deltaY);
+                    maxj = (int)Math.Ceiling((point[1] + radius - _sourceBox.MinY) / _deltaY);
+                    mink = (int)Math.Floor((point[2] - radius - _sourceBox.MinZ) / _deltaZ);
+                    maxk = (int)Math.Ceiling((point[3] + radius - _sourceBox.MinZ) / _deltaZ);
+                }
+                //
+                if (mini < 0) mini = 0;
+                if (maxi >= _nx) maxi = _nx - 1;
+                if (minj < 0) minj = 0;
+                if (maxj >= _ny) maxj = _ny - 1;
+                if (mink < 0) mink = 0;
+                if (maxk >= _nz) maxk = _nz - 1;
+                //
+                for (int kk = mink; kk <= maxk; kk++)
+                {
+                    for (int jj = minj; jj <= maxj; jj++)
+                    {
+                        for (int ii = mini; ii <= maxi; ii++)
+                        {
+                            index = kk * _nxy + jj * _nx + ii;
+                            if (!regions.ContainsKey(index))
+                            {
+                                bb = _regionBoxes[index];
+                                //
+                                if (bb != null && ((HashSet<CloudPoint>)bb.Tag).Count > 0)
+                                {
+                                    regions.Add(index, bb);
+                                    num += ((HashSet<CloudPoint>)bb.Tag).Count;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            //
+            return regions;
         }
         //
         private static BoundingBox ComputeAllPointsBoundingBox(CloudPoint[] cloudPoints)

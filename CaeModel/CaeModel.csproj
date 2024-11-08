@@ -111,10 +111,11 @@
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalLoadEnums.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalDFlux.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalFilmHeatTransfer.cs" />
-    <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalImportedPressureLoad.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\Imported\CalImportedPressureLoad.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalRadiationHeatTransfer.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalShellEdgeLoad.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalHydrostaticPressureLoad.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\Imported\CalImportedSTLoad.cs" />
     <Compile Include="FileInOut\Output\Gmsh\GmshMshFileWriter.cs" />
     <Compile Include="FileInOut\Output\Mmg\MmgFileWriter.cs" />
     <Compile Include="InitialConditions\InitialVelocity.cs" />
@@ -158,7 +159,7 @@
     <Compile Include="Steps\Damping\Damping.cs" />
     <Compile Include="Steps\Damping\ModalDamping.cs" />
     <Compile Include="Steps\Loads\CLoadData.cs" />
-    <Compile Include="Steps\Loads\ImportedSTLoad.cs" />
+    <Compile Include="Steps\Loads\Imported\ImportedSTLoad.cs" />
     <Compile Include="Steps\ModalDynamicsStep.cs" />
     <Compile Include="Steps\SteadyStateDynamicsStep.cs" />
     <Compile Include="Steps\DefinedFields\DefinedField.cs" />
@@ -214,7 +215,7 @@
     <Compile Include="Steps\DynamicStep.cs" />
     <Compile Include="Steps\Loads\IPreviewLoad.cs" />
     <Compile Include="Steps\Loads\VariablePressure.cs" />
-    <Compile Include="Steps\Loads\ImportedPressure.cs" />
+    <Compile Include="Steps\Loads\Imported\ImportedPressure.cs" />
     <Compile Include="Steps\Loads\HydrostaticPressure.cs" />
     <Compile Include="Steps\SlipWearStep.cs" />
     <Compile Include="Steps\BoundaryDisplacementStep.cs" />

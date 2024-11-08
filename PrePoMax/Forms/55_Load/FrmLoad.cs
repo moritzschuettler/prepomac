@@ -34,6 +34,7 @@ namespace PrePoMax.Forms
                 else if (clone is HydrostaticPressure hpl) _viewLoad = new ViewHydrostaticPressureLoad(hpl);
                 else if (clone is ImportedPressure ip) _viewLoad = new ViewImportedPressureLoad(ip);
                 else if (clone is STLoad stl) _viewLoad = new ViewSTLoad(stl);
+                else if (clone is ImportedSTLoad istl) _viewLoad = new ViewImportedSTLoad(istl);
                 else if (clone is ShellEdgeLoad sel) _viewLoad = new ViewShellEdgeLoad(sel);
                 else if (clone is GravityLoad gl) _viewLoad = new ViewGravityLoad(gl);
                 else if (clone is CentrifLoad cfl) _viewLoad = new ViewCentrifLoad(cfl);
@@ -157,6 +158,13 @@ namespace PrePoMax.Forms
                     // 2D
                     if (vstl.GetBase().TwoD) _controller.Selection.LimitSelectionToShellEdges = true;
                 }
+                else if (itemTag is ViewImportedSTLoad vistl)
+                {
+                    _viewLoad = vistl;
+                    _controller.Selection.EnableShellEdgeFaceSelection = true;
+                    // 2D
+                    if (vistl.GetBase().TwoD) _controller.Selection.LimitSelectionToShellEdges = true;
+                }
                 else if (itemTag is ViewShellEdgeLoad vsel)
                 {
                     _viewLoad = vsel;
@@ -245,6 +253,10 @@ namespace PrePoMax.Forms
                 HighlightLoad();
             }
             else if (_viewLoad is ViewSTLoad vstl && property == nameof(vstl.SurfaceName))
+            {
+                HighlightLoad();
+            }
+            else if (_viewLoad is ViewImportedSTLoad vistl && property == nameof(vhpl.SurfaceName))
             {
                 HighlightLoad();
             }
@@ -346,6 +358,10 @@ namespace PrePoMax.Forms
             {
                 if (stl.Magnitude.Value == 0)
                     throw new CaeException("At least one surface traction load component must not be equal to 0.");
+            }
+            else if (FELoad is ImportedSTLoad istl)
+            {
+                if (!istl.IsProperlyDefined(out string error)) throw new CaeException(error);
             }
             else if (FELoad is ShellEdgeLoad sel)
             {
@@ -584,8 +600,23 @@ namespace PrePoMax.Forms
                     else if (vstl.RegionType == RegionTypeEnum.SurfaceName.ToFriendlyString())
                         CheckMissingValueRef(ref surfaceNames, vstl.SurfaceName, s => { vstl.SurfaceName = s; });
                     else throw new NotSupportedException();
-                    
+                    //
                     vstl.PopulateDropDownLists(surfaceNames, amplitudeNames, coordinateSystemNames);
+                }
+                else if (_viewLoad is ViewImportedSTLoad vistl)
+                {
+                    string[] surfaceNames;
+                    if (twoD) surfaceNames = shellEdgeSurfaceNames.ToArray();
+                    else surfaceNames = elementBasedSurfaceNames.ToArray();
+                    //
+                    selectedId = lvTypes.FindItemWithText("Imported Surface Traction").Index;
+                    // Check for deleted regions
+                    if (vistl.RegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
+                    else if (vistl.RegionType == RegionTypeEnum.SurfaceName.ToFriendlyString())
+                        CheckMissingValueRef(ref surfaceNames, vistl.SurfaceName, s => { vistl.SurfaceName = s; });
+                    else throw new NotSupportedException();
+                    //
+                    vistl.PopulateDropDownLists(surfaceNames, amplitudeNames);
                 }
                 else if (_viewLoad is ViewShellEdgeLoad vsel)
                 {
@@ -837,6 +868,23 @@ namespace PrePoMax.Forms
                 item.Tag = vstl;
                 lvTypes.Items.Add(item);
             }
+            // Imported surface traction
+            name = "Imported Surface Traction";
+            loadName = GetLoadName(name);
+            item = new ListViewItem(name);
+            ImportedSTLoad istl = new ImportedSTLoad(loadName, "", RegionTypeEnum.Selection, twoD, complex, 0);
+            if (step.IsLoadSupported(istl))
+            {
+                string[] surfaceNames;
+                if (twoD) surfaceNames = shellEdgeSurfaceNames.ToArray();
+                else surfaceNames = noEdgeSurfaceNames.ToArray();
+                //
+                ViewImportedSTLoad vistl = new ViewImportedSTLoad(istl);
+                vistl.PopulateDropDownLists(surfaceNames, amplitudeNames);
+                vistl.Color = color;
+                item.Tag = vistl;
+                lvTypes.Items.Add(item);
+            }
             // Shell edge load
             name = "Normal Shell Edge Load";
             loadName = GetLoadName(name);
@@ -992,6 +1040,7 @@ namespace PrePoMax.Forms
                          load is HydrostaticPressure ||
                          load is ImportedPressure ||
                          load is STLoad ||
+                         load is ImportedSTLoad ||
                          load is ShellEdgeLoad ||
                          load is GravityLoad ||
                          load is CentrifLoad ||
@@ -1067,6 +1116,7 @@ namespace PrePoMax.Forms
                 else if (FELoad is HydrostaticPressure) _controller.SetSelectItemToSurface();
                 else if (FELoad is ImportedPressure) _controller.SetSelectItemToSurface();
                 else if (FELoad is STLoad) _controller.SetSelectItemToSurface();
+                else if (FELoad is ImportedSTLoad) _controller.SetSelectItemToSurface();
                 else if (FELoad is ShellEdgeLoad) _controller.SetSelectItemToSurface();
                 else if (FELoad is GravityLoad) _controller.SetSelectItemToPart();
                 else if (FELoad is CentrifLoad) _controller.SetSelectItemToPart();
@@ -1104,6 +1154,7 @@ namespace PrePoMax.Forms
                         FELoad is HydrostaticPressure ||
                         FELoad is ImportedPressure ||
                         FELoad is STLoad ||
+                        FELoad is ImportedSTLoad ||
                         FELoad is ShellEdgeLoad ||
                         FELoad is GravityLoad ||
                         FELoad is CentrifLoad ||

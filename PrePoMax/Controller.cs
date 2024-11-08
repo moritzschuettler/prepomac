@@ -9539,37 +9539,37 @@ namespace PrePoMax
         // COMMANDS ********************************************************************************
         public void AddLoadCommand(string stepName, Load load)
         {
-            Commands.CAddLoad comm = new Commands.CAddLoad(stepName, load);
+            CAddLoad comm = new CAddLoad(stepName, load);
             _commands.AddAndExecute(comm);
         }
         public void ReplaceLoadCommand(string stepName, string oldLoadName, Load load)
         {
-            Commands.CReplaceLoad comm = new Commands.CReplaceLoad(stepName, oldLoadName, load);
+            CReplaceLoad comm = new CReplaceLoad(stepName, oldLoadName, load);
             _commands.AddAndExecute(comm);
         }
         public void DuplicateLoadsCommand(string stepName, string[] loadNames)
         {
-            Commands.CDuplicateLoads comm = new Commands.CDuplicateLoads(stepName, loadNames);
+            CDuplicateLoads comm = new CDuplicateLoads(stepName, loadNames);
             _commands.AddAndExecute(comm);
         }
         public void PropagateLoadCommand(string stepName, string loadName)
         {
-            Commands.CPropagateLoad comm = new Commands.CPropagateLoad(stepName, loadName);
+            CPropagateLoad comm = new CPropagateLoad(stepName, loadName);
             _commands.AddAndExecute(comm);
         }
         public void HideLoadsCommand(string stepName, string[] loadNames)
         {
-            Commands.CHideLoads comm = new Commands.CHideLoads(stepName, loadNames);
+            CHideLoads comm = new CHideLoads(stepName, loadNames);
             _commands.AddAndExecute(comm);
         }
         public void ShowLoadsCommand(string stepName, string[] loadNames)
         {
-            Commands.CShowLoads comm = new Commands.CShowLoads(stepName, loadNames);
+            CShowLoads comm = new CShowLoads(stepName, loadNames);
             _commands.AddAndExecute(comm);
         }
         public void RemoveLoadsCommand(string stepName, string[] loadNames)
         {
-            Commands.CRemoveLoads comm = new Commands.CRemoveLoads(stepName, loadNames);
+            CRemoveLoads comm = new CRemoveLoads(stepName, loadNames);
             _commands.AddAndExecute(comm);
         }
         //******************************************************************************************
@@ -9652,13 +9652,17 @@ namespace PrePoMax
                 {
                     results = dl.GetPreview(_model.Mesh, stepName + "_" + loadName, _model.UnitSystem);
                 }
+                else if (load is HydrostaticPressure hp)
+                {
+                    results = hp.GetPreview(_model.Mesh, stepName + "_" + loadName, _model.UnitSystem);
+                }
                 else if (load is ImportedPressure ip)
                 {
                     results = ip.GetPreview(_model.Mesh, stepName + "_" + loadName, _model.UnitSystem);
                 }
-                else if (load is HydrostaticPressure hp)
+                else if (load is ImportedSTLoad ist)
                 {
-                    results = hp.GetPreview(_model.Mesh, stepName + "_" + loadName, _model.UnitSystem);
+                    results = ist.GetPreview(_model.Mesh, stepName + "_" + loadName, _model.UnitSystem);
                 }
                 else throw new CaeException("It is not possible to preview this load type.");
                 //
@@ -9739,7 +9743,7 @@ namespace PrePoMax
                 }
                 // Surface
                 else if (load is DLoad || load is HydrostaticPressure || load is ImportedPressure || load is STLoad ||
-                         load is ShellEdgeLoad || load is PreTensionLoad ||
+                         load is ImportedSTLoad || load is ShellEdgeLoad || load is PreTensionLoad ||
                          load is DFlux || load is FilmHeatTransfer || load is RadiationHeatTransfer)
                 {
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces, load.Name);
@@ -14985,6 +14989,17 @@ namespace PrePoMax
                     //
                     if (count > 0) DrawSTLoadSymbols(prefixName, stLoad, coor, color, symbolSize, symbolLayer);
                 }
+                else if (load is ImportedSTLoad istl)
+                {
+                    if (!_model.Mesh.Surfaces.ContainsKey(istl.SurfaceName)) return;
+                    coor = new double[][] { _model.Mesh.GetSurfaceCG(istl.SurfaceName) };
+                    //
+                    count += DrawSurface(prefixName, istl.SurfaceName, color, layer, true, false, onlyVisible);
+                    if (layer == vtkRendererLayer.Selection)
+                        DrawSurfaceEdge(prefixName, istl.SurfaceName, color, layer, true, false, onlyVisible);
+                    //
+                    if (count > 0) DrawImportedSTLoadSymbols(prefixName, istl, color, symbolSize, symbolLayer);
+                }
                 else if (load is ShellEdgeLoad shellEdgeLoad)
                 {
                     if (!_model.Mesh.Surfaces.ContainsKey(shellEdgeLoad.SurfaceName)) return;
@@ -15119,116 +15134,7 @@ namespace PrePoMax
                     }
                     else throw new NotSupportedException();
                     //
-                    if (count > 0)
-                        DrawCentrifLoadSymbol(prefixName, cfLoad, color, symbolSize, symbolLayer);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                    //int[] elementIds;
-                    //FeElement element;
-                    //FeNodeSet nodeSet = null;
-                    //FeElementSet elementSet = null;
-                    //FeReferencePoint referencePoint = null;
-                    //Section section;
-                    //Dictionary<int, bool> partIdIsVisibe;
-                    //if (layer == vtkRendererLayer.Selection)
-                    //{
-                    //    if (cfLoad.RegionType == RegionTypeEnum.PartName)
-                    //        count +=  HighlightModelParts(new string[] { cfLoad.RegionName });
-                    //    else if (cfLoad.RegionType == RegionTypeEnum.ElementSetName)
-                    //    {
-                    //        if (_model.Mesh.ElementSets.TryGetValue(cfLoad.RegionName, out elementSet))
-                    //            count += HighlightElementSets(new string[] { elementSet.Name });
-                    //        else return;
-                    //    }
-                    //    else if (cfLoad.RegionType == RegionTypeEnum.MassSection)
-                    //    {
-                    //        // Get the section and highlight it
-                    //        if (_model.Sections.TryGetValue(cfLoad.RegionName, out section))
-                    //        {
-                    //            if (section.RegionType == RegionTypeEnum.NodeSetName)
-                    //                count += DrawNodeSet(prefixName, section.RegionName, color, layer, true, nodeSymbolSize,
-                    //                                     false, onlyVisible);
-                    //            else if (section.RegionType == RegionTypeEnum.SurfaceName)
-                    //                count += HighlightSurfaces(new string[] { section.RegionName });
-                    //            else if (section.RegionType == RegionTypeEnum.ReferencePointName)
-                    //            {
-                    //                if (_model.Mesh.ReferencePoints.TryGetValue(section.RegionName, out referencePoint))
-                    //                    count++;
-                    //            }
-                    //            else throw new NotSupportedException();
-                    //        }
-                    //        else return;
-                    //    }
-                    //    else throw new NotSupportedException();
-                    //}
-                    //else
-                    //{
-                    //    if (cfLoad.RegionType == RegionTypeEnum.PartName && _model.Mesh.Parts[cfLoad.RegionName].Visible) count++;
-                    //    else if (cfLoad.RegionType == RegionTypeEnum.ElementSetName)
-                    //    {
-                    //        if (_model.Mesh.ElementSets.TryGetValue(cfLoad.RegionName, out elementSet))
-                    //        {
-                    //            if (elementSet.CreatedFromParts)
-                    //            {
-                    //                string[] partNames = _model.Mesh.GetPartNamesFromPartIds(elementSet.Labels);
-                    //                foreach (var partName in partNames) if (_model.Mesh.Parts[partName].Visible) { count++; break; }
-                    //            }
-                    //            else
-                    //            {
-                    //                partIdIsVisibe = new Dictionary<int, bool>();
-                    //                foreach (var part in _model.Mesh.Parts)
-                    //                    partIdIsVisibe.Add(part.Value.PartId, part.Value.Visible);
-                    //                //
-                    //                foreach (var elementId in elementSet.Labels)
-                    //                {
-                    //                    element = _model.Mesh.Elements[elementId];
-                    //                    if (partIdIsVisibe[element.PartId]) { count++; break; }
-                    //                }
-                    //            }
-                    //        }
-                    //        else return;
-                    //    }
-                    //    else if (cfLoad.RegionType == RegionTypeEnum.MassSection)
-                    //    {
-                    //        // Get the section and highlight it
-                    //        if (_model.Sections.TryGetValue(cfLoad.RegionName, out section))
-                    //        {
-                    //            if (section.RegionType == RegionTypeEnum.NodeSetName)
-                    //            {
-                    //                nodeSet = _model.Mesh.NodeSets[section.RegionName];
-                    //            }
-                    //            else if (section.RegionType == RegionTypeEnum.SurfaceName)
-                    //            {
-                    //                FeSurface surface = _model.Mesh.Surfaces[section.RegionName];
-                    //                nodeSet = _model.Mesh.NodeSets[surface.NodeSetName];
-                    //            }
-                    //            else if (section.RegionType == RegionTypeEnum.ReferencePointName)
-                    //            {
-                    //                referencePoint = _model.Mesh.ReferencePoints[section.RegionName];
-                    //            }
-                    //            else throw new NotSupportedException();
-                    //        }
-                    //    }
-                    //}
-                    //coor = new double[1][];
-                    //if (nodeSet != null) coor[0] = nodeSet.CenterOfGravity;
-                    //else if (referencePoint != null) coor[0] = referencePoint.Coor();
-                    //else throw new NotSupportedException();
-                    ////
-                    //if (coor != null && coor.Length == 1)
-                    //    DrawCentrifLoadSymbol(prefixName, cfLoad, color, symbolSize, symbolLayer);
+                    if (count > 0) DrawCentrifLoadSymbol(prefixName, cfLoad, color, symbolSize, symbolLayer);
                 }
                 else if (load is PreTensionLoad ptLoad)
                 {
@@ -15630,6 +15536,76 @@ namespace PrePoMax
                 _form.AddOrientedArrowsActor(data, symbolSize);
             }
         }
+
+        public void DrawImportedSTLoadSymbols(string prefixName, ImportedSTLoad istLoad, Color color, int symbolSize,
+                                              vtkRendererLayer layer)
+        {
+            if (!istLoad.IsInitialized()) istLoad.ImportLoad();
+            //
+            FeSurface surface = _model.Mesh.Surfaces[istLoad.SurfaceName];
+            //
+            List<int> allElementIds = new List<int>();
+            List<FeFaceName> allElementFaceNames = new List<FeFaceName>();
+            List<double[]> allCoor = new List<double[]>();
+            double[] faceCenter;
+            FeElementSet elementSet;
+            foreach (var entry in surface.ElementFaces)     // entry:  S3; elementSetName
+            {
+                elementSet = _model.Mesh.ElementSets[entry.Value];
+                foreach (var elementId in elementSet.Labels)
+                {
+                    allElementIds.Add(elementId);
+                    allElementFaceNames.Add(entry.Key);
+                    _model.Mesh.GetElementFaceCenter(elementId, entry.Key, out faceCenter);
+                    allCoor.Add(faceCenter);
+                }
+            }
+            //
+            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6);
+            // Front shell face which is a S2 POS face works in the same way as a solid face
+            // Back shell face which is a S1 NEG must be inverted
+            int id;
+            bool shellElement;
+            double[] faceNormal;
+            double[] force;
+            double forceMagnitude = 0;
+            double maxForceMagnitude = 0;
+            double[] pressures = new double[distributedElementIds.Length];
+            double[][] distributedCoor = new double[distributedElementIds.Length][];
+            double[][] distributedLoadNormals = new double[distributedElementIds.Length][];
+            for (int i = 0; i < distributedElementIds.Length; i++)
+            {
+                id = distributedElementIds[i];
+                _model.Mesh.GetElementFaceCenterAndNormal(allElementIds[id], allElementFaceNames[id], out faceCenter,
+                                                          out faceNormal, out shellElement);
+                // Direction
+                force = istLoad.GetForcePerAreaForPoint(faceCenter);
+                //
+                distributedCoor[i] = faceCenter;
+                distributedLoadNormals[i] = force;
+                //
+                forceMagnitude = Math.Sqrt(Math.Pow(force[0], 2) + Math.Pow(force[1], 2) + Math.Pow(force[2], 2));
+                if (forceMagnitude > maxForceMagnitude) maxForceMagnitude = forceMagnitude;
+            }
+            // Arrows
+            vtkMaxActorData data;
+            for (int i = 0; i < distributedElementIds.Length; i++)
+            {
+                data = new vtkMaxActorData();
+                data.Name = prefixName + "_" + i.ToString();
+                data.Color = color;
+                data.Layer = layer;
+                data.Geometry.Nodes.Coor = new double[][] { distributedCoor[i] };
+                data.Geometry.Nodes.Normals = new double[][] { distributedLoadNormals[i] };
+                data.SectionViewPossible = false;
+                ApplyLighting(data);
+                //
+                force = distributedLoadNormals[i];
+                forceMagnitude = Math.Sqrt(Math.Pow(force[0], 2) + Math.Pow(force[1], 2) + Math.Pow(force[2], 2));
+                _form.AddOrientedArrowsActor(data, symbolSize, false, Math.Abs(forceMagnitude / maxForceMagnitude));
+            }
+        }
+
         public void DrawShellEdgeLoadSymbols(string prefixName, string surfaceName, double magnitude, Color color,
                                              int symbolSize, vtkRendererLayer layer)
         {

@@ -12,11 +12,14 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
-    public class ImportedSTLoad : STLoad, IPreviewable
+    public class ImportedSTLoad : Load, IPreviewable, ISerializable
     {
         // Variables                                                                                                                
+        private string _surfaceName;                        //ISerializable
+        private RegionTypeEnum _regionType;                 //ISerializable
         private string _fileName;                           //ISerializable
         private CloudInterpolatorEnum _interpolatorType;    //ISerializable
+        private EquationContainer _interpolatorRadius;      //ISerializable
         private EquationContainer _magnitudeFactor;         //ISerializable
         private EquationContainer _geomScaleFactor;         //ISerializable
         //
@@ -27,8 +30,16 @@ namespace CaeModel
 
 
         // Properties                                                                                                               
+        public override string RegionName { get { return _surfaceName; } set { _surfaceName = value; } }
+        public override RegionTypeEnum RegionType { get { return _regionType; } set { _regionType = value; } }
+        public string SurfaceName { get { return _surfaceName; } set { _surfaceName = value; } }
         public string FileName { get { return _fileName; } set { _fileName = value; } }
         public CloudInterpolatorEnum InterpolatorType { get { return _interpolatorType; } set { _interpolatorType = value; } }
+        public EquationContainer InterpolatorRadius
+        {
+            get { return _interpolatorRadius; }
+            set { SetInterpolatorRadius(value); }
+        }
         public EquationContainer MagnitudeFactor
         {
             get { return _magnitudeFactor; }
@@ -43,10 +54,14 @@ namespace CaeModel
 
         // Constructors                                                                                                             
         public ImportedSTLoad(string name, string surfaceName, RegionTypeEnum regionType, bool twoD, bool complex, double phaseDeg)
-            : base(name, surfaceName, regionType, 0, 0, 0, twoD, complex, phaseDeg)
+            : base(name, twoD, complex, phaseDeg)
         {
+            _surfaceName = surfaceName;
+            _regionType = regionType;
+            //
             _fileName = null;
             _interpolatorType = CloudInterpolatorEnum.ClosestPoint;
+            InterpolatorRadius = new EquationContainer(typeof(StringLengthConverter), 1);
             MagnitudeFactor = new EquationContainer(typeof(StringDoubleConverter), 1);
             GeometryScaleFactor = new EquationContainer(typeof(StringDoubleConverter), 1);
             //
@@ -59,10 +74,16 @@ namespace CaeModel
             {
                 switch (entry.Name)
                 {
+                    case "_surfaceName":
+                        _surfaceName = (string)entry.Value; break;
+                    case "_regionType":
+                        _regionType = (RegionTypeEnum)entry.Value; break;
                     case "_fileName":
                         _fileName = (string)entry.Value; break;
                     case "_interpolatorType":
                         _interpolatorType = (CloudInterpolatorEnum)entry.Value; break;
+                    case "_interpolatorRadius":
+                        SetInterpolatorRadius((EquationContainer)entry.Value, false); break;
                     case "_magnitudeFactor":
                         SetMagnitudeFactor((EquationContainer)entry.Value, false); break;
                     case "_geomScaleFactor":
@@ -77,6 +98,10 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        private void SetInterpolatorRadius(EquationContainer value, bool checkEquation = true)
+        {
+            EquationContainer.SetAndCheck(ref _interpolatorRadius, value, CheckPositive, checkEquation);
+        }
         private void SetMagnitudeFactor(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _magnitudeFactor, value, null, checkEquation);
@@ -85,11 +110,18 @@ namespace CaeModel
         {
             EquationContainer.SetAndCheck(ref _geomScaleFactor, value, null, checkEquation);
         }
+        //
+        private double CheckPositive(double value)
+        {
+            if (value <= 0) throw new CaeException("The value must be larger than 0.");
+            else return value;
+        }
         // IContainsEquations
         public override void CheckEquations()
         {
             base.CheckEquations();
             //
+            _interpolatorRadius.CheckEquation();
             _magnitudeFactor.CheckEquation();
             _geomScaleFactor.CheckEquation();
         }
@@ -109,7 +141,7 @@ namespace CaeModel
         {
             return _interpolator != null;
         }
-        public void ImportSTLoad()
+        public void ImportLoad()
         {
             bool updateData = false;
             FileInfo fileInfo = new FileInfo(_fileName);
@@ -151,7 +183,7 @@ namespace CaeModel
         }
         public FeResults GetPreview(FeMesh targetMesh, string resultName, UnitSystem unitSystem)
         {
-            ImportSTLoad();
+            ImportLoad();
             //
             PartExchangeData allData = new PartExchangeData();
             targetMesh.GetAllNodesAndCells(out allData.Nodes.Ids, out allData.Nodes.Coor, out allData.Cells.Ids,
@@ -178,7 +210,7 @@ namespace CaeModel
                 //
                 if (nodeIds.Contains(allData.Nodes.Ids[i]))
                 {
-                    GetPressureAndDistanceForPoint(allData.Nodes.Coor[i], out distance, out force);
+                    GetForcePerAreaAndDistanceForPoint(allData.Nodes.Coor[i], out distance, out force);
                     //
                     distances1[i] = (float)distance[0];
                     distances2[i] = (float)distance[1];
@@ -235,20 +267,22 @@ namespace CaeModel
             field.AddComponent(FOComponentNames.F1, forces1);
             field.AddComponent(FOComponentNames.F2, forces2);
             field.AddComponent(FOComponentNames.F3, forces3);
-            //fieldData.Unit = unitSystem.PressureUnitAbbreviation;
+            fieldData.Unit = unitSystem.PressureUnitAbbreviation;
             results.AddField(fieldData, field);
             //
             return results;
         }
-        public void GetPressureAndDistanceForPoint(double[] point, out double[] distance, out double[] values)
+        public void GetForcePerAreaAndDistanceForPoint(double[] point, out double[] distance, out double[] values)
         {
-            _interpolator.InterpolateAt(point, CloudInterpolatorEnum.ClosestPoint, out distance, out values);
+            _interpolator.InterpolateAt(point, _interpolatorType, _interpolatorRadius.Value,
+                                        out distance, out values);
             for (int i = 0; i < values.Length; i++) values[i] *= _magnitudeFactor.Value;
             
         }
-        public double[] GetPressureForPoint(double[] point)
+        public double[] GetForcePerAreaForPoint(double[] point)
         {
-            _interpolator.InterpolateAt(point, _interpolatorType, out double[] distance, out double[] values);
+            _interpolator.InterpolateAt(point, _interpolatorType, _interpolatorRadius.Value, 
+                                        out double[] distance, out double[] values);
             for (int i = 0; i < values.Length; i++) values[i] *= _magnitudeFactor.Value;
             return values;
         }
@@ -259,8 +293,11 @@ namespace CaeModel
             // Using typeof() works also for null fields
             base.GetObjectData(info, context);
             //
+            info.AddValue("_surfaceName", _surfaceName, typeof(string));
+            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
             info.AddValue("_fileName", _fileName, typeof(string));
             info.AddValue("_interpolatorType", _interpolatorType, typeof(InterpolatorEnum));
+            info.AddValue("_interpolatorRadius", _interpolatorRadius, typeof(EquationContainer));
             info.AddValue("_magnitudeFactor", _magnitudeFactor, typeof(EquationContainer));
             info.AddValue("_geomScaleFactor", _geomScaleFactor, typeof(EquationContainer));
             info.AddValue("_oldFileInfo", _oldFileInfo, typeof(FileInfo));

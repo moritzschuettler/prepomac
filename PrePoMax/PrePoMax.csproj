@@ -539,7 +539,8 @@
     <Compile Include="Forms\43_Constraint\ViewPointSpring.cs" />
     <Compile Include="Forms\54_BoundaryConditions\ViewTemperatureBC.cs" />
     <Compile Include="Forms\54_BoundaryConditions\ViewFixedBC.cs" />
-    <Compile Include="Forms\55_Load\ViewImportedPressureLoad.cs" />
+    <Compile Include="Forms\55_Load\Imported\ViewImportedSTLoad.cs" />
+    <Compile Include="Forms\55_Load\Imported\ViewImportedPressureLoad.cs" />
     <Compile Include="Forms\55_Load\ViewHydrostaticPressureLoad.cs" />
     <Compile Include="Forms\55_Load\ViewCFlux.cs" />
     <Compile Include="Forms\55_Load\ViewFilmHeatTransfer.cs" />

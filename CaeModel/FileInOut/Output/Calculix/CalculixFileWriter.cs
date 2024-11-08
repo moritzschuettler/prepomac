@@ -1965,6 +1965,11 @@ namespace FileInOut.Output
                     CalSTLoad stLoad = new CalSTLoad(model, stl, complexLoadType);
                     parent.AddKeyword(stLoad);
                 }
+                else if (load is ImportedSTLoad istl)
+                {
+                    CalImportedSTLoad istLoad = new CalImportedSTLoad(model, istl, complexLoadType);
+                    parent.AddKeyword(istLoad);
+                }
                 else if (load is ShellEdgeLoad sel)
                 {
                     CalShellEdgeLoad seLoad = new CalShellEdgeLoad(sel, model.Mesh.Surfaces[sel.SurfaceName], complexLoadType);
