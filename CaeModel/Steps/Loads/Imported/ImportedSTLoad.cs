@@ -25,15 +25,15 @@ namespace CaeModel
         //
         private FileInfo _oldFileInfo;                      //ISerializable
         //
-        [NonSerialized]
-        private CloudInterpolator _interpolator;
+        [NonSerialized] private double _prevScaleFactor;
+        [NonSerialized] private CloudInterpolator _interpolator;
 
 
         // Properties                                                                                                               
         public override string RegionName { get { return _surfaceName; } set { _surfaceName = value; } }
         public override RegionTypeEnum RegionType { get { return _regionType; } set { _regionType = value; } }
         public string SurfaceName { get { return _surfaceName; } set { _surfaceName = value; } }
-        public string FileName { get { return _fileName; } set { _fileName = value; } }
+        public string FileName { get { return _fileName; } set { _fileName = value; ImportLoad(); } }
         public CloudInterpolatorEnum InterpolatorType { get { return _interpolatorType; } set { _interpolatorType = value; } }
         public EquationContainer InterpolatorRadius
         {
@@ -50,6 +50,7 @@ namespace CaeModel
             get { return _geomScaleFactor; }
             set { SetGeomScaleFactor(value); }
         }
+        public CloudInterpolator Interpolator { get { return _interpolator; } }
 
 
         // Constructors                                                                                                             
@@ -108,7 +109,7 @@ namespace CaeModel
         }
         private void SetGeomScaleFactor(EquationContainer value, bool checkEquation = true)
         {
-            EquationContainer.SetAndCheck(ref _geomScaleFactor, value, null, checkEquation);
+            EquationContainer.SetAndCheck(ref _geomScaleFactor, value, null, EquationChanged, checkEquation);
         }
         //
         private double CheckPositive(double value)
@@ -116,6 +117,11 @@ namespace CaeModel
             if (value <= 0) throw new CaeException("The value must be larger than 0.");
             else return value;
         }
+        private void EquationChanged()
+        {
+            ImportLoad();
+        }
+        
         // IContainsEquations
         public override void CheckEquations()
         {
@@ -144,7 +150,10 @@ namespace CaeModel
         public void ImportLoad()
         {
             bool updateData = false;
+            if (_fileName == null) return;
+            //
             FileInfo fileInfo = new FileInfo(_fileName);
+            double scaleFactor = _geomScaleFactor.Value;
             //
             if (fileInfo.Exists)
             {
@@ -153,6 +162,7 @@ namespace CaeModel
                 else if (fileInfo.Name != _oldFileInfo.Name) updateData = true;
                 // Files have the same name - check if newer
                 else if (fileInfo.LastWriteTimeUtc < _oldFileInfo.LastWriteTimeUtc) updateData = true;
+                else if (_prevScaleFactor != scaleFactor) updateData = true;
             }
             else
             {
@@ -167,15 +177,18 @@ namespace CaeModel
                 CloudPoint[] cloudPoints = CloudPointReader.Read(FileName);
                 if (cloudPoints == null) throw new CaeException("No load data was imported.");
                 // Scale point locations
-                double scaleFactor = _geomScaleFactor.Value;
+                
                 if (scaleFactor != 1)
                 {
-                    for (int i = 0; i < cloudPoints.Length; i++)
+                    Parallel.For(0, cloudPoints.Length, i =>
+                    //for (int i = 0; i < cloudPoints.Length; i++)
                     {
                         cloudPoints[i].Coor[0] *= scaleFactor;
                         cloudPoints[i].Coor[1] *= scaleFactor;
                         cloudPoints[i].Coor[2] *= scaleFactor;
                     }
+                    );
+                    _prevScaleFactor = scaleFactor;
                 }
                 // Initialize interpolator
                 _interpolator = new CloudInterpolator(cloudPoints);

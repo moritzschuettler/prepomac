@@ -25,7 +25,7 @@ namespace FileInOut.Output.Calculix
         public CalSTLoad(FeModel model, STLoad load, ComplexLoadTypeEnum complexLoadType)
         {
             _load = load;
-            _cLoadData = model.GetNodalLoadsFromSurfaceTraction(_load);
+            _cLoadData = model.GetNodalCLoadsFromSurfaceTraction(_load);
             _complexLoadType = complexLoadType;
         }
 

@@ -2030,7 +2030,7 @@ namespace CaeModel
             return springs.ToArray();
         }
         // Loads                                                                                    
-        public CLoadData[] GetNodalLoadsFromSurfaceTraction(STLoad load)
+        public CLoadData[] GetNodalCLoadsFromSurfaceTraction(STLoad load)
         {
             List<CLoadData> loads = new List<CLoadData>();
             //
@@ -2116,6 +2116,122 @@ namespace CaeModel
                     }
                 }
             }
+        }
+        public CLoad[] GetNodalCLoadsFromImportedSurfaceTraction(ImportedSTLoad load)
+        {
+            Dictionary<int, int> elementIdSectionId;
+            double[] sectionIdThickness = new double[_sections.Count];
+            // Get element thicknesses
+            GetSectionAssignments(out elementIdSectionId);
+            //
+            int sectionId = 0;
+            double thickness;
+            string surfaceName = load.SurfaceName;
+            foreach (var entry in _sections)
+            {
+                thickness = entry.Value.Thickness.Value;
+                sectionIdThickness[sectionId++] = thickness;
+            }
+            // Surface
+            FeSurface surface = _mesh.Surfaces[surfaceName];
+            if (surface.ElementFaces == null) return null;
+            //
+            int nodeId;
+            int[] nodeIds;
+            double A;
+            double[] forcePerArea;
+            double[] force;
+            double[] nodalForce;
+            double[] faceNormal;
+            double[][] forcePerAreaByValueId;
+            double[][] nodalForceMagnitudes;
+            FeElement element;
+            Dictionary<int, double[]> nodeIdForcePerArea = new Dictionary<int, double[]>();
+            Dictionary<int, double[]> nodeIdForce = new Dictionary<int, double[]>();
+            //
+            foreach (var entry in surface.ElementFaces)
+            {
+                foreach (var elementId in _mesh.ElementSets[entry.Value].Labels)
+                {
+                    element = _mesh.Elements[elementId];
+                    // Node ids
+                    nodeIds = element.GetNodeIdsFromFaceName(entry.Key);
+                    //
+                    _mesh.GetElementFaceCenterAndNormal(elementId, entry.Key, out double[] faceCenter, out faceNormal,
+                                                        out bool shellElement);
+                    //
+                    A = element.GetArea(entry.Key, _mesh.Nodes);
+                    // Account for 2D area when an edge is selected
+                    if (element is FeElement2D element2D && entry.Key != FeFaceName.S1 && entry.Key != FeFaceName.S2)
+                    {
+                        sectionId = elementIdSectionId[elementId];
+                        if (sectionId == -1) throw new CaeException("Missing section assignment at element " + elementId +
+                                                                    " from part " + _mesh.GetPartFromId(element.PartId) + ".");
+                        thickness = sectionIdThickness[sectionId];
+                        A *= thickness;
+                    }
+                    // Force per area
+                    forcePerAreaByValueId = new double[load.Interpolator.NumValues][];
+                    for (int i = 0; i < nodeIds.Length; i++)
+                    {
+                        nodeId = nodeIds[i];
+                        if (!nodeIdForcePerArea.TryGetValue(nodeId, out forcePerArea))
+                        {
+                            forcePerArea = load.GetForcePerAreaForPoint(_mesh.Nodes[nodeId].Coor);
+                            nodeIdForcePerArea.Add(nodeId, forcePerArea);
+                        }
+                        for (int j = 0; j < forcePerAreaByValueId.Length; j++)
+                        {
+                            if (forcePerAreaByValueId[j] == null) forcePerAreaByValueId[j] = new double[nodeIds.Length];
+                            forcePerAreaByValueId[j][i] = forcePerArea[j];
+                        }
+                    }
+                    // Force magnitudes without area
+                    nodalForceMagnitudes = new double[load.Interpolator.NumValues][];
+                    for (int i = 0; i < nodalForceMagnitudes.Length; i++)
+                    {
+                        nodalForceMagnitudes[i] = element.GetEquivalentForcesFromFaceName(entry.Key, forcePerAreaByValueId[i]);
+                    }
+                    // Force vectors
+                    for (int i = 0; i < nodeIds.Length; i++)
+                    {
+                        force = new double[] { A * nodalForceMagnitudes[0][i],
+                                               A * nodalForceMagnitudes[1][i],
+                                               A * nodalForceMagnitudes[2][i] };
+                        //
+                        if (!nodeIdForce.TryGetValue(nodeIds[i], out nodalForce))
+                        {
+                            nodalForce = new double[3];
+                            nodeIdForce.Add(nodeIds[i], nodalForce);
+                        }
+                        nodalForce[0] += force[0];
+                        nodalForce[1] += force[1];
+                        nodalForce[2] += force[2];
+                    }
+                    
+                }
+            }
+            // Concentrated loads
+            CLoad cLoad;
+            List<CLoad> loads = new List<CLoad>();
+            double phaseDeg = load.PhaseDeg.Value;
+            foreach (var entry in nodeIdForce)
+            {
+                if (entry.Value[0] != 0 || entry.Value[1] != 0 || entry.Value[2] != 0)
+                {
+                    cLoad = new CLoad("_CLoad_" + entry.Key.ToString(), entry.Key,
+                                      entry.Value[0],
+                                      entry.Value[1],
+                                      entry.Value[2],
+                                      load.TwoD, load.Complex, phaseDeg, true);
+                    //
+                    cLoad.AmplitudeName = load.AmplitudeName;
+                    //
+                    loads.Add(cLoad);
+                }
+            }
+            //
+            return loads.ToArray();
         }
         public CLoad[] GetNodalCLoadsFromVariablePressureLoad(VariablePressure load)
         {

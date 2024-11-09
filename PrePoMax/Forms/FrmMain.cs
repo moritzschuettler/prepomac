@@ -9809,109 +9809,66 @@ namespace PrePoMax
                 //TestGmshReadMesh();
                 //TestDefeature();
                 //AnimateRotation();
-                TestParameterization();
+                //TestParameterization();
+                TestImportedStLoad();
             }
             catch
             {
 
             }
+        }
+        private void TestImportedStLoad()
+        {
+            int n = 32;
+            int count = 0;
+            double delta = 2.0 / (n - 1);
+            double[][] coor = new double[n * n][];
+            for (int i = 0; i < n; i++)
+            {
+                for (int j = 0; j < n; j++)
+                {
+                    coor[count] = new double[] { -1 + i * delta, -1 + j * delta, 0 };
+                    count++;
+                }
+            }
+            //
+            double v1 = -1;
+            double v2 = -2;
+            double v3 = -3;
+            double v4 = -4;
+            double x;
+            double y;
 
-            return;
-            
+            double minX = 13.15;
+            double maxX = minX + 300;
+            double minY = 20.87;
+            double maxY = minY + 300;
+            double z = 129.5;
 
-            ImportedPressure pressure = (ImportedPressure)_controller.GetStep("Step-1").Loads["Imported_pressure-1"];
-            pressure.ImportPressure(_controller.Model.UnitSystem);
-            //
-            PartExchangeData allData = new PartExchangeData();
-            _controller.Model.Mesh.GetAllNodesAndCells(out allData.Nodes.Ids, out allData.Nodes.Coor, out allData.Cells.Ids,
-                                                       out allData.Cells.CellNodeIds, out allData.Cells.Types);
-            //
-            FeSurface surface = _controller.Model.Mesh.Surfaces[pressure.SurfaceName];
-            FeNodeSet nodeSet = _controller.Model.Mesh.NodeSets[surface.NodeSetName];
-            HashSet<int> nodeIds = new HashSet<int>(nodeSet.Labels);
-            //
-            double[] distance;
-            double value;
-            float[] distancesAll = new float[allData.Nodes.Coor.Length];
-            float[] distances1 = new float[allData.Nodes.Coor.Length];
-            float[] distances2 = new float[allData.Nodes.Coor.Length];
-            float[] distances3 = new float[allData.Nodes.Coor.Length];
-            float[] values = new float[allData.Nodes.Coor.Length];
-            //
+            count = 0;
+            double[] values = new double[n * n];
+            string[] lines = new string[n * n];
             for (int i = 0; i < values.Length; i++)
             {
-                if (nodeIds.Contains(allData.Nodes.Ids[i]))
-                {
-                    pressure.GetPressureAndDistanceForPoint(allData.Nodes.Coor[i], out distance, out value);
-                    distances1[i] = (float)distance[0];
-                    distances2[i] = (float)distance[1];
-                    distances3[i] = (float)distance[2];
-                    distancesAll[i] = (float)Math.Sqrt(distance[0] * distance[0] +
-                                                       distance[1] * distance[1] +
-                                                       distance[2] * distance[2]);
-                    values[i] = (float)value;
-                }
-                else
-                {
-                    distances1[i] = float.NaN;
-                    distances2[i] = float.NaN;
-                    distances3[i] = float.NaN;
-                    distancesAll[i] = float.NaN;
-                    values[i] = float.NaN;
-                }
+                x = coor[count][0];
+                y = coor[count][1];
+                values[count] = v1 * 0.25 * (1 - x) * (1 - y) +
+                                v2 * 0.25 * (1 + x) * (1 - y) +
+                                v3 * 0.25 * (1 + x) * (1 + y) +
+                                v4 * 0.25 * (1 - x) * (1 + y);
+                //
+                coor[count][0] = minX + (maxX - minX) * (x + 1) / 2;
+                coor[count][1] = minY + (maxY - minY) * (y + 1) / 2;
+                coor[count][2] = z;
+                //
+                lines[count] = string.Format("{0} {1} {2} {3} {4} {5}{6}", coor[count][0], coor[count][1], coor[count][2],
+                                                                           0, 0, values[count], Environment.NewLine);
+                //
+                count++;
+
             }
-            //
-            Dictionary<int, int> nodeIdsLookUp = new Dictionary<int, int>();
-            for (int i = 0; i < allData.Nodes.Coor.Length; i++) nodeIdsLookUp.Add(allData.Nodes.Ids[i], i);
-            CaeResults.FeResults outResults = new CaeResults.FeResults("Imported_pressure-1", _controller.Model.UnitSystem);
-            //outResults.FileName = "Imported_pressure-1";
-            outResults.SetMesh(_controller.Model.Mesh, nodeIdsLookUp);
-            // Add distances
-            CaeResults.FieldData fieldData = new CaeResults.FieldData(CaeResults.FOFieldNames.Distance);
-            fieldData.GlobalIncrementId = 1;
-            fieldData.StepType = CaeResults.StepTypeEnum.Static;
-            fieldData.Time = 1;
-            fieldData.MethodId = 1;
-            fieldData.StepId = 1;
-            fieldData.StepIncrementId = 1;
-            // Distances
-            CaeResults.Field field = new CaeResults.Field(fieldData.Name);
-            field.AddComponent(CaeResults.FOComponentNames.All, distancesAll);
-            field.AddComponent(CaeResults.FOComponentNames.D1, distances1);
-            field.AddComponent(CaeResults.FOComponentNames.D2, distances2);
-            field.AddComponent(CaeResults.FOComponentNames.D3, distances3);
-            outResults.AddField(fieldData, field);
-            // Add values
-            fieldData = new CaeResults.FieldData(fieldData);
-            fieldData.Name = CaeResults.FOFieldNames.Imported;
-            //
-            field = new CaeResults.Field(fieldData.Name);
-            field.AddComponent(CaeResults.FOComponentNames.PRESS, values);
-            outResults.AddField(fieldData, field);
-            // Unit system
-            outResults.UnitSystem = new UnitSystem(_controller.Model.UnitSystem.UnitSystemType);
-            _controller.SetResults(outResults);
-            //
-            if (_controller.CurrentResult != null && _controller.CurrentResult.Mesh != null)
-            {
-                SetResultNames();
-                // Reset the previous step and increment
-                SetAllStepAndIncrementIds();
-                // Set last increment
-                SetDefaultStepAndIncrementIds();
-                // Show the selection in the results tree
-                SelectFirstComponentOfFirstFieldOutput();
-            }
-            // Set the representation which also calls Draw
-            _controller.ViewResultsType = ViewResultsTypeEnum.ColorContours;  // Draw
-            //
-            SetMenuAndToolStripVisibility();
-            
-            
-            
-            //
-            //if (timerTest.Enabled) timerTest.Stop();
-            //else timerTest.Start();
+
+            File.WriteAllLines(@"c:\Temp\load.txt", lines);
         }
         private void TestMmg()
         {

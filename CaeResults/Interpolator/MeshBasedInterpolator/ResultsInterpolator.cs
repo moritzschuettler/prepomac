@@ -148,7 +148,6 @@ namespace CaeResults
             int maxj;
             int mink;
             int maxk;
-            bool iBorder;
             bool jBorder;
             bool kBorder;
             int iStep;
@@ -165,8 +164,7 @@ namespace CaeResults
             Vec3D closestPoint;
             Vec3D bestPoint = new Vec3D();
             Triangle triangle;
-            Triangle bestTriangle = null;
-            bool closer;
+            Triangle bestTriangle;
             //
             sourceCoor = point;
             sourcePoint = new Vec3D(sourceCoor);
@@ -386,12 +384,6 @@ namespace CaeResults
             bb = _regionBoxes[index];
             if (bb != null) regions.Add(index, bb);
             //
-            //mini = i;
-            //maxi = i;
-            //minj = j;
-            //maxj = j;
-            //mink = k;
-            //maxk = k;
             delta = 0;
             num = bb == null ? 0 : ((Dictionary<int, BoundingBox>)bb.Tag).Count;
             // Add next layer of regions
@@ -470,44 +462,6 @@ namespace CaeResults
                 }
             }
             //
-            //for (int kk = mink; kk <= maxk; kk++)
-            //{
-            //    for (int jj = minj; jj <= maxj; jj++)
-            //    {
-            //        for (int ii = mini; ii <= maxi; ii++)
-            //        {
-            //            bb = _regionBoxes[kk * _nxy + jj * _nx + ii];
-            //            //
-            //            foreach (var entry in (Dictionary<int, BoundingBox>)bb.Tag)
-            //            {
-            //                triangle = _triangles[entry.Key];
-            //                if (entry.Value.IsMaxOutsideDistance2SmallerThan(sourceCoor, minD))
-            //                {
-            //                    if (interpolator == InterpolatorEnum.ClosestNode)
-            //                        closer = triangle.GetClosestNodeTo(sourcePoint, minD, out closestPoint);
-            //                    else if (interpolator == InterpolatorEnum.ClosestPoint)
-            //                        closer = triangle.GetClosestPointTo(sourcePoint, minD, out closestPoint);
-            //                    else throw new NotSupportedException();
-            //                    //
-            //                    if (closer)
-            //                    {
-            //                        d = (closestPoint - sourcePoint).Len2;
-            //                        //
-            //                        if (d < minD)
-            //                        {
-            //                            minD = d;
-            //                            bestTriangle = triangle;
-            //                            bestPoint.X = closestPoint.X;
-            //                            bestPoint.Y = closestPoint.Y;
-            //                            bestPoint.Z = closestPoint.Z;
-            //                        }
-            //                    }
-            //                }
-            //            }
-            //        }
-            //    }
-            //}
-            //
             distance = (bestPoint - sourcePoint).Coor;
             value = bestTriangle.InterpolateAt(bestPoint);
         }
@@ -556,24 +510,6 @@ namespace CaeResults
             //
             BoundingBox bb;
             BoundingBox[] regions = new BoundingBox[nxy * nz];
-            //for (int k = 0; k < nz; k++)
-            //{
-            //    for (int j = 0; j < ny; j++)
-            //    {
-            //        for (int i = 0; i < nx; i++)
-            //        {
-            //            bb = new BoundingBox();
-            //            bb.MinX = cellBoxesBox.MinX + i * deltaX;
-            //            bb.MaxX = bb.MinX + deltaX;
-            //            bb.MinY = cellBoxesBox.MinY + j * deltaY;
-            //            bb.MaxY = bb.MinY + deltaY;
-            //            bb.MinZ = cellBoxesBox.MinZ + k * deltaZ;
-            //            bb.MaxZ = bb.MinZ + deltaZ;
-            //            bb.Tag = new Dictionary<int, BoundingBox>();
-            //            regions[k * nxy + j * nx + i] = bb;
-            //        }
-            //    }
-            //}
             //
             int cellId = 0;
             int mini;

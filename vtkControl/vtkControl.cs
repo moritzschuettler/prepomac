@@ -1948,7 +1948,7 @@ namespace vtkControl
         {
             actor.BackfaceCulling = true;
             actor.Ambient = 0.8;
-            actor.Diffuse = 0.4;
+            actor.Diffuse = 0.8;
         }
         //
         private void PrepareActorLookupTable(double scalarRangeMin, double scalarRangeMax)

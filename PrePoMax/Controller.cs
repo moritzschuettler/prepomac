@@ -9777,7 +9777,7 @@ namespace PrePoMax
                 else if (load is GravityLoad || load is CentrifLoad || load is BodyFlux)
                     RemoveElementSets(new string[] { load.RegionName });
                 else if (load is DLoad || load is HydrostaticPressure || load is ImportedPressure || load is STLoad ||
-                         load is ShellEdgeLoad || load is PreTensionLoad ||
+                         load is ImportedSTLoad || load is ShellEdgeLoad || load is PreTensionLoad ||
                          load is DFlux || load is FilmHeatTransfer || load is RadiationHeatTransfer)
                     RemoveSurfaces(new string[] { load.RegionName }, false);
                 else throw new NotSupportedException();
@@ -15566,18 +15566,17 @@ namespace PrePoMax
             // Back shell face which is a S1 NEG must be inverted
             int id;
             bool shellElement;
-            double[] faceNormal;
             double[] force;
-            double forceMagnitude = 0;
+            double forceMagnitude;
             double maxForceMagnitude = 0;
-            double[] pressures = new double[distributedElementIds.Length];
+            double[][] faceNormal = new double[distributedElementIds.Length][];
             double[][] distributedCoor = new double[distributedElementIds.Length][];
             double[][] distributedLoadNormals = new double[distributedElementIds.Length][];
             for (int i = 0; i < distributedElementIds.Length; i++)
             {
                 id = distributedElementIds[i];
                 _model.Mesh.GetElementFaceCenterAndNormal(allElementIds[id], allElementFaceNames[id], out faceCenter,
-                                                          out faceNormal, out shellElement);
+                                                          out faceNormal[i], out shellElement);
                 // Direction
                 force = istLoad.GetForcePerAreaForPoint(faceCenter);
                 //
@@ -15602,7 +15601,10 @@ namespace PrePoMax
                 //
                 force = distributedLoadNormals[i];
                 forceMagnitude = Math.Sqrt(Math.Pow(force[0], 2) + Math.Pow(force[1], 2) + Math.Pow(force[2], 2));
-                _form.AddOrientedArrowsActor(data, symbolSize, false, Math.Abs(forceMagnitude / maxForceMagnitude));
+                bool translate = distributedLoadNormals[i][0] * faceNormal[i][0] +
+                                 distributedLoadNormals[i][1] * faceNormal[i][1] +
+                                 distributedLoadNormals[i][2] * faceNormal[i][2] > 0;
+                _form.AddOrientedArrowsActor(data, symbolSize, translate, Math.Abs(forceMagnitude / maxForceMagnitude));
             }
         }
 

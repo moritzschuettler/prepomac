@@ -22,13 +22,22 @@ namespace CaeResults
         private double _deltaX;
         private double _deltaY;
         private double _deltaZ;
+        private CloudPoint[] _cloudPoints;
         private BoundingBox _sourceBox;
         private BoundingBox[] _regionBoxes;     // Tag of each bounding box contains dictionary<triangleId, boundingBox>
+
+
+        // Variables                                                                                                                
+        public int NumValues { get { return _numValues; } }
+        public CloudPoint[] CloudPoints { get { return _cloudPoints; } }
+
 
         // Constructor                                                                                                              
         public CloudInterpolator(CloudPoint[] cloudPoints)
         {
-            _sourceBox = ComputeAllPointsBoundingBox(cloudPoints);
+            _cloudPoints = cloudPoints;
+            //
+            _sourceBox = ComputeAllPointsBoundingBox(_cloudPoints);
             _sourceBox.InflateIfThinn(1E-6);
             //
             double l = _sourceBox.GetDiagonal() / 100;
@@ -53,7 +62,7 @@ namespace CaeResults
             _deltaY = _sourceBox.GetYSize() / _ny;
             _deltaZ = _sourceBox.GetZSize() / _nz;
             //
-            _regionBoxes = AssignPointsToRegions(cloudPoints, _sourceBox, _nx, _ny, _nz);
+            _regionBoxes = AssignPointsToRegions(_cloudPoints, _sourceBox, _nx, _ny, _nz);
         }
         public void InterpolateAt(double[] point, CloudInterpolatorEnum interpolator, double radius,
                                   out double[] distance, out double[] values)
@@ -66,7 +75,13 @@ namespace CaeResults
             {
                 InterpolateByGauss(point, radius, out distance, out values);
             }
+            else if (interpolator == CloudInterpolatorEnum.Shepard)
+            {
+                InterpolateByShepard(point, radius, out distance, out values);
+            }
             else throw new NotSupportedException();
+            //
+            values = values.ToArray(); // copy
         }
         public void InterpolateByClosestPoint(double[] point, out double[] distance, out double[] values)
         {
@@ -80,7 +95,7 @@ namespace CaeResults
             CloudPoint bestPoint = new CloudPoint();
             foreach (var regionEntry in regions)
             {
-                if (regionEntry.Value.IsMaxOutsideDistance2SmallerThan(point, minD))
+                if (regionEntry.Value.IsMaxOutsideDistance2SmallerThan(point, minD * minD))
                 {
                     foreach (var cloudPoint in (HashSet<CloudPoint>)regionEntry.Value.Tag)
                     {
@@ -111,7 +126,7 @@ namespace CaeResults
                                       bestPoint.Coor[1] - point[1],
                                       bestPoint.Coor[2] - point[2]};
             //
-            values = bestPoint.Values;
+            values = bestPoint.Values; // copy values sice multiply with magnitude
         }
         public void InterpolateByGauss(double[] point, double radius, out double[] distance, out double[] values)
         {
@@ -123,10 +138,11 @@ namespace CaeResults
             double d;
             double s = 1;
             double w;
+            double radius2 = radius * radius;
             Dictionary<CloudPoint, double> cloudPointWeight = new Dictionary<CloudPoint, double>();
             foreach (var regionEntry in regions)
             {
-                if (regionEntry.Value.IsMaxOutsideDistance2SmallerThan(point, radius))
+                if (regionEntry.Value.IsMaxOutsideDistance2SmallerThan(point, radius2))
                 {
                     foreach (var cloudPoint in (HashSet<CloudPoint>)regionEntry.Value.Tag)
                     {
@@ -176,6 +192,70 @@ namespace CaeResults
             }
             //
             
+        }
+        public void InterpolateByShepard(double[] point, double radius, out double[] distance, out double[] values)
+        {
+            Dictionary<int, BoundingBox> regions = GetClosestRegions(point, radius);
+            //
+            double absX;
+            double absY;
+            double absZ;
+            double d;
+            double w;
+            double radius2 = radius * radius;
+            Dictionary<CloudPoint, double> cloudPointWeight = new Dictionary<CloudPoint, double>();
+            foreach (var regionEntry in regions)
+            {
+                if (regionEntry.Value.IsMaxOutsideDistance2SmallerThan(point, radius2))
+                {
+                    foreach (var cloudPoint in (HashSet<CloudPoint>)regionEntry.Value.Tag)
+                    {
+                        absX = Math.Abs(cloudPoint.Coor[0] - point[0]);
+                        if (absX < radius)
+                        {
+                            absY = Math.Abs(cloudPoint.Coor[1] - point[1]);
+                            if (absY < radius)
+                            {
+                                absZ = Math.Abs(cloudPoint.Coor[2] - point[2]);
+                                if (absZ < radius)
+                                {
+                                    d = Math.Sqrt(absX * absX + absY * absY + absZ * absZ);
+                                    //
+                                    w = 1 / Math.Pow(d, 2);
+                                    cloudPointWeight.Add(cloudPoint, w);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            //
+            if (cloudPointWeight.Count > 0)
+            {
+                double wSum = 0;
+                foreach (var entry in cloudPointWeight) wSum += entry.Value;
+                //
+                values = new double[_numValues];
+                //
+                CloudPoint cp;
+                foreach (var entry in cloudPointWeight)
+                {
+                    cp = entry.Key;
+                    for (int i = 0; i < _numValues; i++)
+                    {
+                        values[i] += (entry.Value / wSum) * cp.Values[i];
+                    }
+                }
+                //
+                distance = new double[] { 0, 0, 0 };
+            }
+            else
+            {
+                values = new double[_numValues];
+                distance = new double[] { radius, radius, radius };
+            }
+            //
+
         }
         private Dictionary<int, BoundingBox> GetClosestRegions(double[] point, double radius)
         {

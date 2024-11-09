@@ -7,6 +7,7 @@ using System.Windows.Forms;
 using CaeModel;
 using CaeGlobals;
 using CaeMesh;
+using CaeResults;
 
 namespace PrePoMax.Forms
 {
@@ -213,6 +214,17 @@ namespace PrePoMax.Forms
                 HighlightLoad();
             }
         }
+        protected override void OnPropertyGridSelectedGridItemChanged()
+        {
+            string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
+            //
+            if (_viewLoad is ViewImportedSTLoad vistl)
+            {
+                HighlightLoad();
+            }
+            //
+            base.OnPropertyGridSelectedGridItemChanged();
+        }
         protected override void OnPropertyGridPropertyValueChanged()
         {
             string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
@@ -248,7 +260,7 @@ namespace PrePoMax.Forms
             {
                 HighlightLoad();
             }
-            else if (_viewLoad is ViewImportedPressureLoad vipl && property == nameof(vhpl.SurfaceName))
+            else if (_viewLoad is ViewImportedPressureLoad vipl && property == nameof(vipl.SurfaceName))
             {
                 HighlightLoad();
             }
@@ -256,11 +268,13 @@ namespace PrePoMax.Forms
             {
                 HighlightLoad();
             }
-            else if (_viewLoad is ViewImportedSTLoad vistl && property == nameof(vhpl.SurfaceName))
+            else if (_viewLoad is ViewImportedSTLoad vistl &&
+                     (property == nameof(vistl.SurfaceName) || property == nameof(vistl.FileName) ||
+                      property == nameof(vistl.GeometryScaleFactor)))
             {
                 HighlightLoad();
             }
-            else if (_viewLoad is ViewShellEdgeLoad vsel && property == nameof(vstl.SurfaceName))
+            else if (_viewLoad is ViewShellEdgeLoad vsel && property == nameof(vsel.SurfaceName))
             {
                 HighlightLoad();
             }
@@ -272,7 +286,7 @@ namespace PrePoMax.Forms
             }
             else if (_viewLoad is ViewCentrifLoad vcfl &&
                      (property == nameof(vcfl.PartName) || property == nameof(vcfl.ElementSetName) ||
-                      property == nameof(vgl.MassSectionName) ||
+                      property == nameof(vcfl.MassSectionName) ||
                       property == nameof(vcfl.X) || property == nameof(vcfl.Y) || property == nameof(vcfl.Z)))
             {
                 HighlightLoad();
@@ -282,7 +296,7 @@ namespace PrePoMax.Forms
                 HighlightLoad();
             }
             // Thermal
-            else if (_viewLoad is ViewCFlux vcf && property == nameof(vcl.NodeSetName))
+            else if (_viewLoad is ViewCFlux vcf && property == nameof(vcf.NodeSetName))
             {
                 HighlightLoad();
             }
@@ -1082,6 +1096,26 @@ namespace PrePoMax.Forms
                         double[][] nodeCoor = new double[][] { new double[] { hp.X1.Value, hp.Y1.Value, hp.Z1.Value },
                                                                new double[] { hp.X2.Value, hp.Y2.Value, hp.Z2.Value } };
                         _controller.HighlightNodes(nodeCoor, true);
+                    }
+                    else if (load is ImportedSTLoad istl)
+                    {
+                        string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
+                        if (property == nameof(istl.FileName) || property == nameof(istl.GeometryScaleFactor))
+                        {
+                            if (istl.Interpolator == null) istl.ImportLoad();
+                            //
+                            if (istl.Interpolator.CloudPoints != null)
+                            {
+                                CloudPoint[] cloudPoints = istl.Interpolator.CloudPoints;
+                                double[][] nodeCoor = new double[cloudPoints.Length][];
+                                //
+                                for (int i = 0; i < cloudPoints.Length; i++)
+                                {
+                                    nodeCoor[i] = new double[] { cloudPoints[i].Coor[0], cloudPoints[i].Coor[1], cloudPoints[i].Coor[2] };
+                                }
+                                _controller.HighlightNodes(nodeCoor, true);
+                            }
+                        }
                     }
                     else if (load is CentrifLoad cf)
                     {

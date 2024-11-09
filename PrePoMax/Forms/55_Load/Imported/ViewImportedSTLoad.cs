@@ -41,7 +41,9 @@ namespace PrePoMax
         //
         [CategoryAttribute("Load magnitude")]
         [OrderedDisplayName(1, 10, "Interpolator")]
-        [DescriptionAttribute("Select the interpolation type.")]
+        [DescriptionAttribute("Select the interpolation type. The Gauss interpoaltion uses the kernel equation: exp(-(r/R)²), " +
+                              "while the Shepard interpolation uses the kernel equation: 1/r². R is the interploator radius and " +
+                              "r is the distance to the neighbouring point.")]
         [Id(2, 3)]
         public CaeResults.CloudInterpolatorEnum Interpolator
         {
