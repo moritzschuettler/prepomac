@@ -216,11 +216,14 @@ namespace PrePoMax.Forms
         }
         protected override void OnPropertyGridSelectedGridItemChanged()
         {
-            string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
-            //
-            if (_viewLoad is ViewImportedSTLoad vistl)
+            if (propertyGrid.SelectedGridItem.PropertyDescriptor != null)
             {
-                HighlightLoad();
+                string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
+                //
+                if (_viewLoad is ViewImportedSTLoad vistl)
+                {
+                    HighlightLoad();
+                }
             }
             //
             base.OnPropertyGridSelectedGridItemChanged();

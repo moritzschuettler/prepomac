@@ -27,7 +27,7 @@ namespace vtkControl
         public float NodeSize;
         public float LineWidth;
         public Color Color;
-        public Color BackfaceColor;
+        public Color BackfaceColor; // only for annotateWithColor
         public Color[] ColorTable;
         public double Ambient;
         public double Diffuse;
@@ -57,7 +57,7 @@ namespace vtkControl
             NodeSize = 1;
             LineWidth = 1;
             Color = Color.Empty;
-            BackfaceColor = Color.Empty;
+            BackfaceColor = Color.Empty;    // only for annotateWithColor
             ColorTable = null;
             Ambient = 0.1;
             Diffuse = 0.1;

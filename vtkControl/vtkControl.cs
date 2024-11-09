@@ -1947,8 +1947,8 @@ namespace vtkControl
         private void ApplySymbolFormattingToActor(vtkMaxActor actor)
         {
             actor.BackfaceCulling = true;
-            actor.Ambient = 0.8;
-            actor.Diffuse = 0.8;
+            actor.Ambient = 0.6;
+            actor.Diffuse = 0.6;
         }
         //
         private void PrepareActorLookupTable(double scalarRangeMin, double scalarRangeMax)
@@ -3157,7 +3157,7 @@ namespace vtkControl
             ApplySymbolFormattingToActor(actor);
             AddActorGeometry(actor, data.Layer);
             //
-            if (_drawSymbolEdges || data.BackfaceColor != null) AddSymbolEdges(data, glyph.GetOutputPort());
+            if (_drawSymbolEdges) AddSymbolEdges(data, glyph.GetOutputPort());
         }
         public void AddCoordinateAxis(vtkMaxActorData data, double symbolSize)
         {
@@ -3990,16 +3990,14 @@ namespace vtkControl
             data.Pickable = false;
             vtkMaxActor actor = new vtkMaxActor(data, mapper);
             data.Pickable = pickable;
-            // Backface color is used for reference points
-            if (data.BackfaceColor != null)
-            {
-                actor.Color = data.BackfaceColor;
-                actor.GeometryProperty.SetLineWidth(1.5f);
-            }
-            else
-            {
-                actor.GeometryProperty.SetLineWidth(1f);
-            }
+            // Backface color is used for annotateWithColor
+            if (data.BackfaceColor != Color.Empty) actor.Color = data.BackfaceColor;
+            //
+            actor.GeometryProperty.SetLineWidth(1.5f);
+            double k = 0.2;
+            actor.Color = Color.FromArgb((int)(actor.Color.R + (255 - actor.Color.R) * k),
+                                         (int)(actor.Color.G + (255 - actor.Color.G) * k),
+                                         (int)(actor.Color.B + (255 - actor.Color.B) * k));
             // Add
             AddActorGeometry(actor, data.Layer);
         }
