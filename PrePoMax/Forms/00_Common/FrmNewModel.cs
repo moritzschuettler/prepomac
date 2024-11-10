@@ -225,7 +225,6 @@ namespace PrePoMax.Forms
                 else throw new NotImplementedException();
                 //
                 propertyGrid.SelectedObject = itemTag;
-                propertyGrid.Select();
                 try
                 {
                     // Get start point grid item
@@ -240,7 +239,6 @@ namespace PrePoMax.Forms
                 propertyGrid.Refresh();
                 //
                 lvTypes.Select();
-                
             }
         }
         protected override void OnListViewTypeMouseUp()

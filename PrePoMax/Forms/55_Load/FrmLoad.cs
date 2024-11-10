@@ -209,7 +209,6 @@ namespace PrePoMax.Forms
                 ShowHideSelectionForm();
                 //
                 propertyGrid.SelectedObject = itemTag;
-                propertyGrid.Select();
                 //
                 HighlightLoad();
             }

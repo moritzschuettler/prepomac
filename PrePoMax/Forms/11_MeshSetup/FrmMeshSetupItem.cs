@@ -247,7 +247,6 @@ namespace PrePoMax.Forms
                 ShowHideSelectionForm();
                 //
                 propertyGrid.SelectedObject = _viewMeshSetupItem;
-                propertyGrid.Select();
                 //
                 HighlightMeshSetupItem();
             }

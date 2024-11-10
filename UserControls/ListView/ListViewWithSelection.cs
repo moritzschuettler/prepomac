@@ -64,11 +64,23 @@ namespace UserControls
         // Variables                                                                                                                
         private bool _disableMouse;
         private bool _resizeNeeded;
+        private ListViewItem _prevSelectedItem;
+        private Color[] _prevSelectedItemsColors;
+        private Color _mouseOverColor = Color.FromArgb((int)(SystemColors.Highlight.R + (255 - SystemColors.Highlight.R) * 0.8),
+                                                       (int)(SystemColors.Highlight.G + (255 - SystemColors.Highlight.G) * 0.8),
+                                                       (int)(SystemColors.Highlight.B + (255 - SystemColors.Highlight.B) * 0.8));
+        private ListViewItem _prevMouseOverItem;
+        private Color[] _prevMouseOverNodeColors;
         public new ListViewItemCollectionWithEvents Items;
 
 
         // Properties                                                                                                               
         public bool DisableMouse { get { return _disableMouse; } set { _disableMouse = value; } }
+        public Color MouseOverColor
+        {
+            get { return _mouseOverColor; }
+            set { _mouseOverColor = value; }
+        }
 
 
         // Events                                                                                                                   
@@ -144,7 +156,6 @@ namespace UserControls
             //
             base.WndProc(ref m);
         }
-        
         public void ResizeColumnHeaders()
         {
             if (_resizeNeeded)
@@ -190,7 +201,24 @@ namespace UserControls
         //https://stackoverflow.com/questions/2691726/how-can-i-remove-the-selection-border-on-a-listviewitem                       
         protected override void OnSelectedIndexChanged(EventArgs e)
         {
-            base.OnSelectedIndexChanged(e);
+            base.OnSelectedIndexChanged(e); // must be first
+            //
+            if (SelectedItems.Count > 0)
+            {
+                ClearPrevSelection();
+                // Remove the selection and use color to show the previously selected item
+                foreach (ListViewItem item in SelectedItems)
+                {
+                    _prevSelectedItem = item;
+                    _prevSelectedItemsColors = new Color[] { item.BackColor, item.ForeColor };
+                    //
+                    item.BackColor = SystemColors.Highlight;
+                    item.ForeColor = SystemColors.HighlightText;
+                    //
+                    item.Selected = false;
+                }
+            }
+            //
             Message m = Message.Create(this.Handle, 0x127, new IntPtr(0x10001), new IntPtr(0));
             this.WndProc(ref m);
         }
@@ -205,6 +233,71 @@ namespace UserControls
             base.OnKeyUp(e);
             //Message m = Message.Create(this.Handle, 0x127, new IntPtr(0x10001), new IntPtr(0));
             //this.WndProc(ref m);
+        }
+        //
+        public ListViewItem SelectedItem
+        {
+            get
+            {
+                if (SelectedItems != null && SelectedItems.Count == 1)
+                    return SelectedItems[0];
+                else if (_prevSelectedItem != null) return _prevSelectedItem;
+                else return null;
+            }
+        }
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            ClearMouseOverSelection();
+            //
+            base.OnMouseDown(e);
+        }
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            ListViewItem item = this.GetItemAt(e.X, e.Y);
+            //
+            if (item != null && !item.Selected && item != _prevSelectedItem)
+            {
+                if (item != _prevMouseOverItem)
+                {
+                    ClearMouseOverSelection();
+                    //
+                    _prevMouseOverNodeColors = new Color[] { item.BackColor, item.ForeColor };
+                    //
+                    item.BackColor = _mouseOverColor;
+                    _prevMouseOverItem = item;
+                }
+            }
+            else ClearMouseOverSelection();
+            //
+            base.OnMouseMove(e);    
+        }
+        protected override void OnMouseLeave(EventArgs e)
+        {
+            ClearMouseOverSelection();
+            //
+            base.OnMouseLeave(e);
+        }
+        private void ClearMouseOverSelection()
+        {
+            if (_prevMouseOverItem != null && !_prevMouseOverItem.Selected)
+            {
+                _prevMouseOverItem.BackColor = _prevMouseOverNodeColors[0];
+                _prevMouseOverItem.ForeColor = _prevMouseOverNodeColors[1];
+            }
+            //
+            _prevMouseOverItem = null;
+            _prevMouseOverNodeColors = null;
+        }
+        private void ClearPrevSelection()
+        {
+            if (_prevSelectedItem != null)
+            {
+                _prevSelectedItem.BackColor = _prevSelectedItemsColors[0];
+                _prevSelectedItem.ForeColor = _prevSelectedItemsColors[1];
+            }
+            //
+            _prevSelectedItem = null;
+            _prevSelectedItemsColors = null;
         }
     }
 }

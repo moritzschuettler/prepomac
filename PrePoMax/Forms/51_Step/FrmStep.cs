@@ -108,7 +108,6 @@ namespace PrePoMax.Forms
             if (lvTypes.SelectedItems != null && lvTypes.SelectedItems.Count > 0)
             {
                 propertyGrid.SelectedObject = lvTypes.SelectedItems[0].Tag;
-                propertyGrid.Select();
             }
         }
         protected override void OnPropertyGridPropertyValueChanged()

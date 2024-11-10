@@ -122,7 +122,7 @@ namespace UserControls
         }
         protected virtual void OnListViewTypeMouseUp()
         {
-            propertyGrid.Select();
+            //propertyGrid.Select();
         }
         public void SetPreselectListViewItem(int index)
         {

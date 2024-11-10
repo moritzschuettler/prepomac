@@ -155,7 +155,6 @@ namespace PrePoMax.Forms
                 else throw new NotImplementedException();
                 //
                 propertyGrid.SelectedObject = itemTag;
-                propertyGrid.Select();
                 //
                 ShowHideSelectionForm();
                 //

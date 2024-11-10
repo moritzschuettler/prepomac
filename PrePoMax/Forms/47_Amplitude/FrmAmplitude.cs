@@ -130,7 +130,6 @@ namespace PrePoMax.Forms
                 else throw new NotImplementedException();
                 //
                 propertyGrid.SelectedObject = lvTypes.SelectedItems[0].Tag;
-                propertyGrid.Select();
                 //
                 SetAllGridViewUnits();
             }

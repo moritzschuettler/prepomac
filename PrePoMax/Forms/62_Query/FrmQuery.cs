@@ -46,9 +46,9 @@ namespace PrePoMax.Forms
         {
             try
             {
-                if (lvQueries.SelectedItems.Count > 0)
+                if (lvQueries.SelectedItem != null)
                 {
-                    switch (lvQueries.SelectedItems[0].Text)
+                    switch (lvQueries.SelectedItem.Text)
                     {
                         case ("Vertex/Node"):
                             _controller.SelectBy = vtkSelectBy.QueryNode;
@@ -137,7 +137,9 @@ namespace PrePoMax.Forms
             // This is called after the form visibility changes
             if (this.Visible)
             {
-                lvQueries.Items[0].Selected = true;
+                if (lvQueries.SelectedItem == null) lvQueries.Items[0].Selected = true;
+                if (lvQueries.SelectedItem != null) lvQueries.SelectedItem.Selected = true;
+                lvQueries.Focus();
             }
             // The form was hidden 
             else
@@ -518,8 +520,8 @@ namespace PrePoMax.Forms
         {
             if (Form_WriteDataToOutput != null)
             {
-                if (lvQueries.SelectedItems[0].Text == "Angle") ComputeAngle(nodeId1, nodeId2, nodeId3);
-                else if (lvQueries.SelectedItems[0].Text == "Circle") ComputeCircle(nodeId1, nodeId2, nodeId3);
+                if (lvQueries.SelectedItem.Text == "Angle") ComputeAngle(nodeId1, nodeId2, nodeId3);
+                else if (lvQueries.SelectedItem.Text == "Circle") ComputeCircle(nodeId1, nodeId2, nodeId3);
             }
         }
         //

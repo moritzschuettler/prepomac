@@ -3994,6 +3994,7 @@ namespace vtkControl
             if (data.BackfaceColor != Color.Empty) actor.Color = data.BackfaceColor;
             //
             actor.GeometryProperty.SetLineWidth(1.5f);
+            //
             double k = 0.2;
             actor.Color = Color.FromArgb((int)(actor.Color.R + (255 - actor.Color.R) * k),
                                          (int)(actor.Color.G + (255 - actor.Color.G) * k),

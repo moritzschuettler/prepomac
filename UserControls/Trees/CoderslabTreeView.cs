@@ -203,6 +203,9 @@ namespace UserControls
 		private Color _unfocusedSelectionBackColor = SystemColors.Control;
 		private bool _changeHighlightOnFocusLost = true;
 		private bool _disableMouse = false;
+        private Color _mouseOverColor = Color.FromArgb((int)(SystemColors.Highlight.R + (255 - SystemColors.Highlight.R) * 0.8),
+                                                       (int)(SystemColors.Highlight.G + (255 - SystemColors.Highlight.G) * 0.8),
+                                                       (int)(SystemColors.Highlight.B + (255 - SystemColors.Highlight.B) * 0.8));
         private TreeNode _prevMouseOverNode;
         private Color[] _prevMouseOverNodeColors;
 
@@ -213,6 +216,11 @@ namespace UserControls
 			get { return _highlightForeErrorColor; }
 			set { _highlightForeErrorColor = value; }
 		}
+        public Color MouseOverColor
+        {
+            get { return _mouseOverColor; }
+            set { _mouseOverColor = value; }
+        }
         public bool DisableMouse { get { return _disableMouse; } set { _disableMouse = value; } }
 		public bool ChangeHighlightOnFocusLost
 		{
@@ -256,11 +264,16 @@ namespace UserControls
                     //
                     _prevMouseOverNodeColors = new Color[] { tn.BackColor, tn.ForeColor };
                     //
-                    //tn.BackColor = Color.FromArgb(127, 187, 235);
-                    //tn.BackColor = Color.FromArgb(106, 156, 196);
-                    //tn.BackColor = Color.FromArgb(138, 203, 255);
-                    //tn.BackColor = Color.FromArgb(216, 235, 255);
-                    tn.BackColor = Color.FromArgb(204, 228, 255);
+                    //tn.BackColor = Color.FromArgb(204, 228, 255);
+                    
+                    Color color = MouseOverColor;
+                    double k = 0.7;
+                    color = Color.FromArgb((int)(color.R + (255 - color.R) * k),
+                                           (int)(color.G + (255 - color.G) * k),
+                                           (int)(color.B + (255 - color.B) * k));
+                    tn.BackColor = color;
+
+
                     _prevMouseOverNode = tn;
                     //
                     MouseOverNodeChangedEvent?.Invoke(this);
@@ -283,9 +296,8 @@ namespace UserControls
             _prevMouseOverNode = null;
             _prevMouseOverNodeColors = null;
         }
-        
-        #endregion
 
+        #endregion
         public event TreeViewEventHandler AfterDeselect;
 		public event TreeViewEventHandler BeforeDeselect;
 		public event EventHandler SelectionsChanged;

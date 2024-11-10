@@ -166,15 +166,15 @@
             this.ilStatusIcons = new System.Windows.Forms.ImageList(this.components);
             this.tcGeometryModelResults = new System.Windows.Forms.TabControl();
             this.tpGeometry = new System.Windows.Forms.TabPage();
-            this.tpModel = new System.Windows.Forms.TabPage();
-            this.tpResults = new System.Windows.Forms.TabPage();
-            this.timerMouseMove = new System.Windows.Forms.Timer(this.components);
             this.stbGeometry = new UserControls.SearchTextBox();
             this.cltvGeometry = new UserControls.CodersLabTreeView();
+            this.tpModel = new System.Windows.Forms.TabPage();
             this.stbModel = new UserControls.SearchTextBox();
             this.cltvModel = new UserControls.CodersLabTreeView();
+            this.tpResults = new System.Windows.Forms.TabPage();
             this.stbResults = new UserControls.SearchTextBox();
             this.cltvResults = new UserControls.CodersLabTreeView();
+            this.timerMouseMove = new System.Windows.Forms.Timer(this.components);
             this.cmsTree.SuspendLayout();
             this.tcGeometryModelResults.SuspendLayout();
             this.tpGeometry.SuspendLayout();
@@ -677,33 +677,6 @@
             this.tpGeometry.Text = "Geometry";
             this.tpGeometry.UseVisualStyleBackColor = true;
             // 
-            // tpModel
-            // 
-            this.tpModel.Controls.Add(this.stbModel);
-            this.tpModel.Controls.Add(this.cltvModel);
-            this.tpModel.Location = new System.Drawing.Point(4, 24);
-            this.tpModel.Name = "tpModel";
-            this.tpModel.Size = new System.Drawing.Size(231, 470);
-            this.tpModel.TabIndex = 0;
-            this.tpModel.Text = "FE Model";
-            this.tpModel.UseVisualStyleBackColor = true;
-            // 
-            // tpResults
-            // 
-            this.tpResults.Controls.Add(this.stbResults);
-            this.tpResults.Controls.Add(this.cltvResults);
-            this.tpResults.Location = new System.Drawing.Point(4, 24);
-            this.tpResults.Name = "tpResults";
-            this.tpResults.Padding = new System.Windows.Forms.Padding(3);
-            this.tpResults.Size = new System.Drawing.Size(231, 470);
-            this.tpResults.TabIndex = 1;
-            this.tpResults.Text = "Results";
-            this.tpResults.UseVisualStyleBackColor = true;
-            // 
-            // timerMouseMove
-            // 
-            this.timerMouseMove.Tick += new System.EventHandler(this.timerMouseMove_Tick);
-            // 
             // stbGeometry
             // 
             this.stbGeometry.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
@@ -712,7 +685,7 @@
             this.stbGeometry.Location = new System.Drawing.Point(0, 0);
             this.stbGeometry.Name = "stbGeometry";
             this.stbGeometry.ReadOnly = false;
-            this.stbGeometry.Size = new System.Drawing.Size(270, 22);
+            this.stbGeometry.Size = new System.Drawing.Size(231, 22);
             this.stbGeometry.TabIndex = 1;
             this.stbGeometry.TextChanged += new System.Action<object, System.EventArgs>(this.stbGeometry_TextChanged);
             // 
@@ -730,6 +703,7 @@
             this.cltvGeometry.ImageIndex = 0;
             this.cltvGeometry.ImageList = this.ilIcons;
             this.cltvGeometry.Location = new System.Drawing.Point(0, 21);
+            this.cltvGeometry.MouseOverColor = System.Drawing.Color.FromArgb(((int)(((byte)(204)))), ((int)(((byte)(228)))), ((int)(((byte)(255)))));
             this.cltvGeometry.Name = "cltvGeometry";
             treeNode1.ImageKey = "Dots.ico";
             treeNode1.Name = "Node0";
@@ -797,6 +771,17 @@
             this.cltvGeometry.MouseDown += new System.Windows.Forms.MouseEventHandler(this.cltv_MouseDown);
             this.cltvGeometry.MouseUp += new System.Windows.Forms.MouseEventHandler(this.cltv_MouseUp);
             // 
+            // tpModel
+            // 
+            this.tpModel.Controls.Add(this.stbModel);
+            this.tpModel.Controls.Add(this.cltvModel);
+            this.tpModel.Location = new System.Drawing.Point(4, 24);
+            this.tpModel.Name = "tpModel";
+            this.tpModel.Size = new System.Drawing.Size(231, 470);
+            this.tpModel.TabIndex = 0;
+            this.tpModel.Text = "FE Model";
+            this.tpModel.UseVisualStyleBackColor = true;
+            // 
             // stbModel
             // 
             this.stbModel.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
@@ -825,6 +810,7 @@
             this.cltvModel.ImageList = this.ilIcons;
             this.cltvModel.Location = new System.Drawing.Point(0, 21);
             this.cltvModel.Margin = new System.Windows.Forms.Padding(0);
+            this.cltvModel.MouseOverColor = System.Drawing.Color.FromArgb(((int)(((byte)(204)))), ((int)(((byte)(228)))), ((int)(((byte)(255)))));
             this.cltvModel.Name = "cltvModel";
             treeNode12.ImageKey = "BasePart.ico";
             treeNode12.Name = "Parts";
@@ -938,6 +924,18 @@
             this.cltvModel.MouseDown += new System.Windows.Forms.MouseEventHandler(this.cltv_MouseDown);
             this.cltvModel.MouseUp += new System.Windows.Forms.MouseEventHandler(this.cltv_MouseUp);
             // 
+            // tpResults
+            // 
+            this.tpResults.Controls.Add(this.stbResults);
+            this.tpResults.Controls.Add(this.cltvResults);
+            this.tpResults.Location = new System.Drawing.Point(4, 24);
+            this.tpResults.Name = "tpResults";
+            this.tpResults.Padding = new System.Windows.Forms.Padding(3);
+            this.tpResults.Size = new System.Drawing.Size(231, 470);
+            this.tpResults.TabIndex = 1;
+            this.tpResults.Text = "Results";
+            this.tpResults.UseVisualStyleBackColor = true;
+            // 
             // stbResults
             // 
             this.stbResults.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
@@ -965,6 +963,7 @@
             this.cltvResults.ImageList = this.ilIcons;
             this.cltvResults.Location = new System.Drawing.Point(0, 21);
             this.cltvResults.Margin = new System.Windows.Forms.Padding(0);
+            this.cltvResults.MouseOverColor = System.Drawing.Color.FromArgb(((int)(((byte)(204)))), ((int)(((byte)(228)))), ((int)(((byte)(255)))));
             this.cltvResults.Name = "cltvResults";
             treeNode31.ImageKey = "BasePart.ico";
             treeNode31.Name = "Parts";
@@ -1044,6 +1043,10 @@
             this.cltvResults.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.cltv_MouseDoubleClick);
             this.cltvResults.MouseDown += new System.Windows.Forms.MouseEventHandler(this.cltv_MouseDown);
             this.cltvResults.MouseUp += new System.Windows.Forms.MouseEventHandler(this.cltv_MouseUp);
+            // 
+            // timerMouseMove
+            // 
+            this.timerMouseMove.Tick += new System.EventHandler(this.timerMouseMove_Tick);
             // 
             // ModelTree
             // 

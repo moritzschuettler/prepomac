@@ -150,7 +150,6 @@ namespace PrePoMax.Forms
                 SetTabPages(itemTag);
                 //
                 propertyGrid.SelectedObject = lvTypes.SelectedItems[0].Tag;
-                propertyGrid.Select();
             }
         }
         protected override void OnApply(bool onOkAddNew)
