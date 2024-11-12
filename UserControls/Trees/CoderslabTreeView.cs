@@ -263,17 +263,8 @@ namespace UserControls
                     ClearMouseOverSelection(false);
                     //
                     _prevMouseOverNodeColors = new Color[] { tn.BackColor, tn.ForeColor };
+                    tn.BackColor = _mouseOverColor;
                     //
-                    //tn.BackColor = Color.FromArgb(204, 228, 255);
-                    
-                    Color color = MouseOverColor;
-                    double k = 0.7;
-                    color = Color.FromArgb((int)(color.R + (255 - color.R) * k),
-                                           (int)(color.G + (255 - color.G) * k),
-                                           (int)(color.B + (255 - color.B) * k));
-                    tn.BackColor = color;
-
-
                     _prevMouseOverNode = tn;
                     //
                     MouseOverNodeChangedEvent?.Invoke(this);

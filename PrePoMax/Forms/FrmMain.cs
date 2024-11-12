@@ -9809,8 +9809,8 @@ namespace PrePoMax
                 //TestGmshReadMesh();
                 //TestDefeature();
                 //AnimateRotation();
-                //TestParameterization();
-                TestImportedStLoad();
+                TestParameterization();
+                //TestImportedStLoad();
             }
             catch
             {
@@ -9833,8 +9833,8 @@ namespace PrePoMax
             }
             //
             double v1 = -1;
-            double v2 = -4;
-            double v3 = -1;
+            double v2 = -2;
+            double v3 = -3;
             double v4 = -4;
             double x;
             double y;

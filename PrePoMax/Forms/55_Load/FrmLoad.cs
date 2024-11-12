@@ -1106,7 +1106,7 @@ namespace PrePoMax.Forms
                         {
                             if (istl.Interpolator == null) istl.ImportLoad();
                             //
-                            if (istl.Interpolator.CloudPoints != null)
+                            if (istl.Interpolator != null && istl.Interpolator.CloudPoints != null)
                             {
                                 CloudPoint[] cloudPoints = istl.Interpolator.CloudPoints;
                                 double[][] nodeCoor = new double[cloudPoints.Length][];

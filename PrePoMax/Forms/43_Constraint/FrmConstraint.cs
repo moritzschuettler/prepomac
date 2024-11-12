@@ -238,7 +238,7 @@ namespace PrePoMax.Forms
                 _controller.AddConstraintCommand(Constraint);
             }
             // Replace
-            else if (_propertyItemChanged)
+            else if (_propertyItemChanged || !Constraint.Valid)
             {
                 _controller.ReplaceConstraintCommand(_constraintToEditName, Constraint);
                 _constraintToEditName = null; // prevents the execution of toInternal in OnHideOrClose
@@ -309,6 +309,8 @@ namespace PrePoMax.Forms
                     if (tie.MasterCreationData != null) tie.MasterRegionType = RegionTypeEnum.Selection;
                     if (tie.SlaveCreationData != null) tie.SlaveRegionType = RegionTypeEnum.Selection;
                 }
+                // Copy region creation data bask to item - it might got changed when parts are removed,...
+                _controller.CopyRegionCreationDataToConstraint(Constraint);
                 // Convert the constraint to internal to hide it
                 ConstraintInternal(true);
                 //

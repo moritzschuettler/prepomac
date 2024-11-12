@@ -703,7 +703,6 @@
             this.cltvGeometry.ImageIndex = 0;
             this.cltvGeometry.ImageList = this.ilIcons;
             this.cltvGeometry.Location = new System.Drawing.Point(0, 21);
-            this.cltvGeometry.MouseOverColor = System.Drawing.Color.FromArgb(((int)(((byte)(204)))), ((int)(((byte)(228)))), ((int)(((byte)(255)))));
             this.cltvGeometry.Name = "cltvGeometry";
             treeNode1.ImageKey = "Dots.ico";
             treeNode1.Name = "Node0";
@@ -810,7 +809,6 @@
             this.cltvModel.ImageList = this.ilIcons;
             this.cltvModel.Location = new System.Drawing.Point(0, 21);
             this.cltvModel.Margin = new System.Windows.Forms.Padding(0);
-            this.cltvModel.MouseOverColor = System.Drawing.Color.FromArgb(((int)(((byte)(204)))), ((int)(((byte)(228)))), ((int)(((byte)(255)))));
             this.cltvModel.Name = "cltvModel";
             treeNode12.ImageKey = "BasePart.ico";
             treeNode12.Name = "Parts";
@@ -963,7 +961,6 @@
             this.cltvResults.ImageList = this.ilIcons;
             this.cltvResults.Location = new System.Drawing.Point(0, 21);
             this.cltvResults.Margin = new System.Windows.Forms.Padding(0);
-            this.cltvResults.MouseOverColor = System.Drawing.Color.FromArgb(((int)(((byte)(204)))), ((int)(((byte)(228)))), ((int)(((byte)(255)))));
             this.cltvResults.Name = "cltvResults";
             treeNode31.ImageKey = "BasePart.ico";
             treeNode31.Name = "Parts";

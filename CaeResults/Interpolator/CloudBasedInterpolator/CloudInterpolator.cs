@@ -126,7 +126,7 @@ namespace CaeResults
                                       bestPoint.Coor[1] - point[1],
                                       bestPoint.Coor[2] - point[2]};
             //
-            values = bestPoint.Values; // copy values sice multiply with magnitude
+            values = bestPoint.Values; // copy values since multiply with magnitude
         }
         public void InterpolateByGauss(double[] point, double radius, out double[] distance, out double[] values)
         {

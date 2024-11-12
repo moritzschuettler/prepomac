@@ -130,7 +130,7 @@ namespace PrePoMax.Forms
                 _controller.AddSectionCommand(Section);
             }
             // Replace
-            else if (_propertyItemChanged)
+            else if (_propertyItemChanged || !Section.Valid)
             {
                 _controller.ReplaceSectionCommand(_sectionToEditName, Section);
             }
@@ -204,6 +204,8 @@ namespace PrePoMax.Forms
             {
                 Section = _controller.GetSection(_sectionToEditName); // to clone
                 if (Section.CreationData != null) Section.RegionType = RegionTypeEnum.Selection;
+                // Copy region creation data bask to item - it might got changed when parts are removed,...
+                _controller.CopyRegionCreationDataToSection(Section);
                 //
                 int selectedId;
                 if (_viewSection is ViewSolidSection vss)
