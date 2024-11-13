@@ -122,7 +122,7 @@ namespace PrePoMax.Forms
                 _controller.AddInitialConditionCommand(InitialCondition);
             }
             // Replace
-            else if (_propertyItemChanged)
+            else if (_propertyItemChanged || !InitialCondition.Valid)
             {
                 _controller.ReplaceInitialConditionCommand(_initialConditionToEditName, InitialCondition);
             }
@@ -175,6 +175,8 @@ namespace PrePoMax.Forms
                 // Get and convert a converted initial condition back to selection
                 InitialCondition = _controller.GetInitialCondition(_initialConditionToEditName); // to clone
                 if (InitialCondition.CreationData != null) InitialCondition.RegionType = RegionTypeEnum.Selection;
+                // Copy region creation data back to item - it might have been changed when parts are removed,...
+                _controller.CopyRegionCreationDataToInitialCondition(InitialCondition);
                 //
                 int selectedId;
                 if (_viewInitialCondition is ViewInitialTemperature vit)

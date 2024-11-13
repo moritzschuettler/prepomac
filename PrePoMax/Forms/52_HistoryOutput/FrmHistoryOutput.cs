@@ -127,7 +127,7 @@ namespace PrePoMax.Forms
                 _controller.AddHistoryOutputCommand(_stepName, HistoryOutput);
             }
             // Replace
-            else if (_propertyItemChanged)
+            else if (_propertyItemChanged || !HistoryOutput.Valid)
             {
                 _controller.ReplaceHistoryOutputCommand(_stepName, _historyOutputToEditName, HistoryOutput);
             }
@@ -178,18 +178,10 @@ namespace PrePoMax.Forms
             // Edit existing history output
             {
                 // Get and convert a converted history output back to selection
-                HistoryOutput = _controller.GetHistoryOutput(_stepName, _historyOutputToEditName); // to clone                
-                if (HistoryOutput.CreationData != null)
-                {
-                    if (!HistoryOutput.Valid || !_controller.Model.RegionValid(HistoryOutput))
-                    {
-                        // Not valid
-                        HistoryOutput.CreationData = null; 
-                        HistoryOutput.CreationIds = null;
-                        _propertyItemChanged = true;
-                    }
-                    HistoryOutput.RegionType = RegionTypeEnum.Selection;
-                }
+                HistoryOutput = _controller.GetHistoryOutput(_stepName, _historyOutputToEditName); // to clone
+                if (HistoryOutput.CreationData != null) HistoryOutput.RegionType = RegionTypeEnum.Selection;
+                // Copy region creation data back to item - it might have been changed when parts are removed,...
+                _controller.CopyRegionCreationDataToHistoryOutput(HistoryOutput);
                 //
                 int selectedId;
                 if (_viewHistoryOutput is ViewNodalHistoryOutput vnho)

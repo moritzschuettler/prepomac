@@ -90,7 +90,7 @@ namespace PrePoMax.Forms
                 _controller.AddContactPairCommand(cp);
             }
             // Replace
-            else if (_propertyItemChanged)
+            else if (_propertyItemChanged || !ContactPair.Valid)
             {
                 _controller.ReplaceContactPairCommand(_contactPairToEditName, cp);
                 _contactPairToEditName = null; // prevents the execution of toInternal in OnHideOrClose
@@ -158,6 +158,8 @@ namespace PrePoMax.Forms
             {
                 // Get and convert a converted contact pair back to selection
                 ContactPair = _controller.GetContactPair(_contactPairToEditName); // to clone
+                // Copy region creation data back to item - it might have been changed when parts are removed,...
+                _controller.CopyRegionCreationDataToContactPair(ContactPair);
                 // Convert the contact pair to internal to hide it
                 ContactPairInternal(true);
                 //

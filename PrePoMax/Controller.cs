@@ -33,6 +33,7 @@ using System.Diagnostics;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Reflection.Emit;
 using System.Collections;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
 
 namespace PrePoMax
 {
@@ -8654,6 +8655,19 @@ namespace PrePoMax
             if (contactPair.SlaveCreationData != null && contactPair.SlaveRegionName != null)
                 RemoveSurfaces(new string[] { contactPair.SlaveRegionName }, false);
         }
+        public void CopyRegionCreationDataToContactPair(ContactPair contactPair)
+        {
+            if (contactPair.MasterRegionType == RegionTypeEnum.Selection)
+            {
+                if (_model.Mesh.Surfaces.TryGetValue(contactPair.MasterRegionName, out FeSurface surface) &&
+                    surface.CreationData != null) contactPair.MasterCreationData = surface.CreationData.DeepClone();
+            }
+            if (contactPair.SlaveRegionType == RegionTypeEnum.Selection)
+            {
+                if (_model.Mesh.Surfaces.TryGetValue(contactPair.SlaveRegionName, out FeSurface surface) &&
+                    surface.CreationData != null) contactPair.SlaveCreationData = surface.CreationData.DeepClone();
+            }
+        }
         // Auto create
         public void AutoCreateContactPairs(List<SearchContactPair> contactPairs)
         {
@@ -8957,6 +8971,23 @@ namespace PrePoMax
                 else throw new NotSupportedException();
             }
         }
+        public void CopyRegionCreationDataToInitialCondition(InitialCondition initialCondition)
+        {
+            if (initialCondition.RegionType == RegionTypeEnum.Selection)
+            {
+                if (initialCondition is InitialTemperature it)
+                {
+                    if (_model.Mesh.NodeSets.TryGetValue(it.RegionName, out FeNodeSet nodeSet) &&
+                        nodeSet.CreationData != null) it.CreationData = nodeSet.CreationData.DeepClone();
+                }
+                else if (initialCondition is InitialVelocity iv)
+                {
+                    if (_model.Mesh.ElementSets.TryGetValue(iv.RegionName, out FeElementSet elementSet) &&
+                        elementSet.CreationData != null) iv.CreationData = elementSet.CreationData;
+                }
+                else throw new NotSupportedException();
+            }
+        }
 
         #endregion #################################################################################################################
 
@@ -9257,6 +9288,24 @@ namespace PrePoMax
                 else throw new NotSupportedException();
             }
         }
+        public void CopyRegionCreationDataToHistoryOutput(HistoryOutput historyOutput)
+        {
+            if (historyOutput.RegionType == RegionTypeEnum.Selection)
+            {
+                if (historyOutput is NodalHistoryOutput nho)
+                {
+                    if (_model.Mesh.NodeSets.TryGetValue(nho.RegionName, out FeNodeSet nodeSet) &&
+                        nodeSet.CreationData != null) nho.CreationData = nodeSet.CreationData.DeepClone();
+                }
+                else if (historyOutput is ElementHistoryOutput eho)
+                {
+                    if (_model.Mesh.ElementSets.TryGetValue(eho.RegionName, out FeElementSet elementSet) &&
+                        elementSet.CreationData != null) eho.CreationData = elementSet.CreationData;
+                }
+                else throw new NotSupportedException();
+            }
+            
+        }
         #endregion #################################################################################################################
 
         #region Field output menu   ################################################################################################
@@ -9545,34 +9594,6 @@ namespace PrePoMax
                 boundaryCondition.CreationIds = null;
             }
         }
-        private void ConvertToSelectionBasedBoundaryCondition(BoundaryCondition boundaryCondition)
-        {
-            // Create a named set and convert a selection to a named set
-            if (boundaryCondition.RegionType == RegionTypeEnum.NodeSetName)
-            {
-                string name;
-                // Node set
-                if (boundaryCondition is FixedBC || boundaryCondition is DisplacementRotation ||
-                    boundaryCondition is SubmodelBC || boundaryCondition is TemperatureBC)
-                {
-                    name = boundaryCondition.RegionName;
-                    FeNodeSet nodeSet = _model.Mesh.NodeSets[name];
-                    //
-                    boundaryCondition.CreationData = nodeSet.CreationData;
-                    boundaryCondition.CreationIds = nodeSet.CreationIds;
-                    boundaryCondition.RegionName = name;
-                    boundaryCondition.RegionType = RegionTypeEnum.NodeSetName;
-                }
-                else throw new NotSupportedException();
-
-            }
-            // Clear the creation data if not used
-            else
-            {
-                boundaryCondition.CreationData = null;
-                boundaryCondition.CreationIds = null;
-            }
-        }
         private void DeleteSelectionBasedBoundaryConditionSets(string stepName, string oldBoundaryConditionName)
         {
             BoundaryCondition boundaryCondition = GetBoundaryCondition(stepName, oldBoundaryConditionName);
@@ -9585,6 +9606,19 @@ namespace PrePoMax
                 if (boundaryCondition is FixedBC || boundaryCondition is DisplacementRotation ||
                     boundaryCondition is SubmodelBC || boundaryCondition is TemperatureBC)
                     RemoveNodeSets(new string[] { boundaryCondition.RegionName });
+                else throw new NotSupportedException();
+            }
+        }
+        public void CopyRegionCreationDataToBoundaryCondition(BoundaryCondition boundaryCondition)
+        {
+            if (boundaryCondition.RegionType == RegionTypeEnum.Selection)
+            {
+                if (boundaryCondition is FixedBC || boundaryCondition is DisplacementRotation ||
+                    boundaryCondition is SubmodelBC || boundaryCondition is TemperatureBC)
+                {
+                    if (_model.Mesh.NodeSets.TryGetValue(boundaryCondition.RegionName, out FeNodeSet nodeSet) &&
+                        nodeSet.CreationData != null) boundaryCondition.CreationData = nodeSet.CreationData.DeepClone();
+                }
                 else throw new NotSupportedException();
             }
         }

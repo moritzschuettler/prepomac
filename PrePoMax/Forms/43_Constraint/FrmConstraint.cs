@@ -309,7 +309,7 @@ namespace PrePoMax.Forms
                     if (tie.MasterCreationData != null) tie.MasterRegionType = RegionTypeEnum.Selection;
                     if (tie.SlaveCreationData != null) tie.SlaveRegionType = RegionTypeEnum.Selection;
                 }
-                // Copy region creation data bask to item - it might got changed when parts are removed,...
+                // Copy region creation data back to item - it might have been changed when parts are removed,...
                 _controller.CopyRegionCreationDataToConstraint(Constraint);
                 // Convert the constraint to internal to hide it
                 ConstraintInternal(true);

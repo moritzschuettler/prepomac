@@ -7631,9 +7631,11 @@ namespace CaeMesh
                     {
                         UpdateNodeSetCenterOfGravity(nodeSet);
                         nodeSet.CreationData = new Selection();
-                        nodeSet.CreationData.SelectItem = vtkSelectItem.Node;
-                        nodeSet.CreationData.Add(new SelectionNodeIds(vtkSelectOperation.None, false, nodeSet.Labels));
-                        nodeSet.Valid = false;          // mark it as invalid to highlight it for the user
+                        if (geometryBased) nodeSet.CreationData.SelectItem = vtkSelectItem.Geometry;
+                        else nodeSet.CreationData.SelectItem = vtkSelectItem.Node;
+                        nodeSet.CreationData.Add(new SelectionNodeIds(vtkSelectOperation.None, false, nodeSet.Labels,
+                                                                      geometryBased));
+                        nodeSet.Valid = false;  // mark it as invalid to highlight it for the user
                     }
                 }
                 // Remove empty node sets

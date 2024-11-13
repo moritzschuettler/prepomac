@@ -185,7 +185,7 @@ namespace PrePoMax.Forms
                 _controller.AddBoundaryConditionCommand(_stepName, BoundaryCondition);
             }
             // Replace
-            else if (_propertyItemChanged)
+            else if (_propertyItemChanged || !BoundaryCondition.Valid)
             {
                 _controller.ReplaceBoundaryConditionCommand(_stepName, _boundaryConditionToEditName, BoundaryCondition);
                 _boundaryConditionToEditName = null; // prevents the execution of toInternal in OnHideOrClose
@@ -262,16 +262,24 @@ namespace PrePoMax.Forms
                 BoundaryCondition = _controller.GetBoundaryCondition(stepName, _boundaryConditionToEditName); // to clone
                 if (BoundaryCondition.CreationData != null)
                 {
-                    if (!_controller.Model.IsBoundaryConditionRegionValid(BoundaryCondition) || // do not use BoundaryCondition.Valid
-                        !_controller.Model.RegionValid(BoundaryCondition))
-                    {
-                        // Region invalid
-                        BoundaryCondition.CreationData = null;
-                        BoundaryCondition.CreationIds = null;
-                        _propertyItemChanged = true;
-                    }
+                    //if (!_controller.Model.IsBoundaryConditionRegionValid(BoundaryCondition) || // do not use BoundaryCondition.Valid
+                    //    !_controller.Model.RegionValid(BoundaryCondition))
+                    //{
+                    //    // Region invalid
+                    //    BoundaryCondition.CreationData = null;
+                    //    BoundaryCondition.CreationIds = null;
+                    //    _propertyItemChanged = true;
+                    //}
                     BoundaryCondition.RegionType = RegionTypeEnum.Selection;
                 }
+
+                // Copy region creation data back to item - it might have been changed when parts are removed,...
+                _controller.CopyRegionCreationDataToBoundaryCondition(BoundaryCondition);
+
+
+
+
+
                 // Convert the boundary condition to internal to hide it
                 BoundaryConditionInternal(true);
                 // Check for deleted amplitudes
