@@ -223,7 +223,7 @@ namespace FileInOut.Output
                 // Initial conditions
                 title = new CalTitle("Initial conditions", "");
                 keywords.Add(title);
-                AppendInitialConditions(model, title);
+                AppendInitialConditions(model, referencePointsNodeIds, title);
                 // Steps
                 title = new CalTitle("Steps", "");
                 keywords.Add(title);
@@ -1201,30 +1201,6 @@ namespace FileInOut.Output
                 nodeSetNames.UnionWith(model.Mesh.NodeSets.Keys);
                 // Get additional node set keyword
                 CalAdditional calAdditionalNodeSets = GetAdditionalNodeSetsKeyword(additionalNodeSets, ref nodeSetNames);
-                // Reference points
-                FeReferencePoint rp;
-                FeNodeSet rpNodeSet;
-                CalNodeSet calNodeSet;
-                // Initial conditions
-                FeNodeSet nodeSet;
-                foreach (var entry in model.InitialConditions)
-                {
-                    if (entry.Value is InitialVelocity iv && iv.Active)
-                    {
-                        nodeSet = model.Mesh.GetNodeSetFromPartOrElementSetName(iv.RegionName, false);
-                        // Check name
-                        if (nodeSetNames.Contains(nodeSet.Name))
-                        {
-                            nodeSet.Name = nodeSetNames.GetNextNumberedKey(nodeSet.Name);
-                            nodeSetNames.Add(nodeSet.Name);
-                        }
-                        // Add temp name
-                        iv.NodeSetName = nodeSet.Name;
-                        //
-                        calNodeSet = new CalNodeSet(nodeSet);
-                        parent.AddKeyword(calNodeSet);
-                    }
-                }
                 // Append additional node set keyword
                 if (calAdditionalNodeSets.GetDataString().Length > 0) parent.AddKeyword(calAdditionalNodeSets);
             }
@@ -1595,7 +1571,8 @@ namespace FileInOut.Output
                 }
             }
         }
-        static private void AppendInitialConditions(FeModel model, CalculixKeyword parent)
+        static private void AppendInitialConditions(FeModel model, Dictionary<string, int[]> referencePointsNodeIds,
+                                                    CalculixKeyword parent)
         {
             if (model.Mesh != null)
             {
@@ -1610,7 +1587,7 @@ namespace FileInOut.Output
                         }
                         else if (entry.Value is InitialVelocity iv)
                         {
-                            CalInitialVelocity calInitialVelocity = new CalInitialVelocity(model, iv);
+                            CalInitialVelocity calInitialVelocity = new CalInitialVelocity(iv, referencePointsNodeIds);
                             parent.AddKeyword(calInitialVelocity);
                         }
                     }

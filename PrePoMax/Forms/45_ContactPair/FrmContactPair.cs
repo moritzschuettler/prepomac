@@ -158,8 +158,28 @@ namespace PrePoMax.Forms
             {
                 // Get and convert a converted contact pair back to selection
                 ContactPair = _controller.GetContactPair(_contactPairToEditName); // to clone
-                // Copy region creation data back to item - it might have been changed when parts are removed,...
-                _controller.CopyRegionCreationDataToContactPair(ContactPair);
+                if (ContactPair.MasterCreationData != null)
+                {
+                    if (!_controller.Model.Mesh.Surfaces.ContainsValidKey(ContactPair.MasterRegionName))
+                    {
+                        // Region invalid
+                        ContactPair.MasterCreationData = null;
+                        ContactPair.MasterCreationIds = null;
+                        _propertyItemChanged = true;
+                    }
+                    ContactPair.MasterRegionType = RegionTypeEnum.Selection;
+                }
+                if (ContactPair.SlaveCreationData != null)
+                {
+                    if (!_controller.Model.Mesh.Surfaces.ContainsValidKey(ContactPair.SlaveRegionName))
+                    {
+                        // Region invalid
+                        ContactPair.SlaveCreationData = null;
+                        ContactPair.SlaveCreationIds = null;
+                        _propertyItemChanged = true;
+                    }
+                    ContactPair.SlaveRegionType = RegionTypeEnum.Selection;
+                }
                 // Convert the contact pair to internal to hide it
                 ContactPairInternal(true);
                 //

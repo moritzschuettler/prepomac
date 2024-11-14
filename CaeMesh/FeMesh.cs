@@ -7686,12 +7686,16 @@ namespace CaeMesh
                     {
                         elementSet.Labels = newElementSetLabels.ToArray();
                         //
-                        elementSet.CreationData = new Selection();
-                        elementSet.CreationData.SelectItem = vtkSelectItem.Part;
-                        if (elementSet.Labels.Length > 0)
-                            elementSet.CreationData.Add(new SelectionNodeIds(vtkSelectOperation.None, false, elementSet.Labels));
-                        elementSet.Valid = false;   // mark it as invalid to highlight it for the user
-                        //
+                        geometryBased = elementSet.CreationData != null && elementSet.CreationData.IsGeometryBased();
+                        // Do not change the geometry based element set if remeshing is done
+                        if (!(removeForRemeshing && geometryBased))
+                        {
+                            elementSet.CreationData = new Selection();
+                            elementSet.CreationData.SelectItem = vtkSelectItem.Part;
+                            if (elementSet.Labels.Length > 0)
+                                elementSet.CreationData.Add(new SelectionNodeIds(vtkSelectOperation.None, false, elementSet.Labels));
+                            elementSet.Valid = false;   // mark it as invalid to highlight it for the user
+                        }
                         changedElementSets.Add(elementSet.Name);
                     }
                 }
@@ -7713,7 +7717,6 @@ namespace CaeMesh
                                 elementSet.CreationData.Add(new SelectionNodeIds(vtkSelectOperation.None, false, elementSet.Labels));
                             elementSet.Valid = false;   // mark it as invalid to highlight it for the user
                         }
-                        //
                         changedElementSets.Add(elementSet.Name);
                     }
                 }

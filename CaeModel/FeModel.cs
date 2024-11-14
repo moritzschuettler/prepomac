@@ -313,8 +313,7 @@ namespace CaeModel
                 contactPair = entry.Value;
                 valid = _surfaceInteractions.ContainsValidKey(contactPair.SurfaceInteractionName)
                         && _mesh.Surfaces.ContainsValidKey(contactPair.SlaveRegionName)
-                        && _mesh.Surfaces.ContainsValidKey(contactPair.MasterRegionName)
-                        && (contactPair.SlaveRegionName != contactPair.MasterRegionName);
+                        && _mesh.Surfaces.ContainsValidKey(contactPair.MasterRegionName);
                 //
                 SetItemValidity(null, contactPair, valid, items);
                 if (!valid && contactPair.Active) invalidItems.Add("Contact pair: " + contactPair.Name);
@@ -329,6 +328,12 @@ namespace CaeModel
                     valid = (it.RegionType == RegionTypeEnum.NodeSetName && _mesh.NodeSets.ContainsValidKey(it.RegionName))
                             || (it.RegionType == RegionTypeEnum.SurfaceName && _mesh.Surfaces.ContainsValidKey(it.RegionName));
                 }
+                else if (initialCondition is InitialVelocity iv)
+                {
+
+                }
+                else throw new NotSupportedException();
+                //
                 SetItemValidity(null, initialCondition, valid, items);
                 if (!valid && initialCondition.Active) invalidItems.Add("Initial condition: " + initialCondition.Name);
             }

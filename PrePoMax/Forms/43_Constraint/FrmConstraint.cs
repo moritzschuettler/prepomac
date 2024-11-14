@@ -240,7 +240,7 @@ namespace PrePoMax.Forms
                 _controller.AddConstraintCommand(Constraint);
             }
             // Replace
-            else if (_propertyItemChanged || !Constraint.Valid)
+            else if (_propertyItemChanged)
             {
                 _controller.ReplaceConstraintCommand(_constraintToEditName, Constraint);
                 _constraintToEditName = null; // prevents the execution of toInternal in OnHideOrClose

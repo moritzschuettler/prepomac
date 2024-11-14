@@ -95,8 +95,9 @@ namespace PrePoMax.Forms
                 HighlightInitialCondition();
             }
             else if (_viewInitialCondition is ViewInitialVelocity viv &&
-                     (property == nameof(viv.PartName) ||
-                      property == nameof(viv.ElementSetName)))
+                     (property == nameof(viv.NodeSetName) ||
+                      property == nameof(viv.SurfaceName) ||
+                      property == nameof(viv.ReferencePointName)))
             {
                 HighlightInitialCondition();
             }
@@ -122,7 +123,7 @@ namespace PrePoMax.Forms
                 _controller.AddInitialConditionCommand(InitialCondition);
             }
             // Replace
-            else if (_propertyItemChanged || !InitialCondition.Valid)
+            else if (_propertyItemChanged)
             {
                 _controller.ReplaceInitialConditionCommand(_initialConditionToEditName, InitialCondition);
             }
@@ -153,13 +154,12 @@ namespace PrePoMax.Forms
             _initialConditionToEditName = initialConditionToEditName;
             string[] nodeSetNames = _controller.GetUserNodeSetNames();
             string[] surfaceNames = _controller.GetUserSurfaceNames();
-            string[] partNames = _controller.GetModelPartNames();
-            string[] elementSetNames = _controller.GetUserElementSetNames();
+            string[] referencePointNames = _controller.GetModelReferencePointNames();
             //
             if (_initialConditionNames == null)
                 throw new CaeException("The initial condition names must be defined first.");
             // Populate list view
-            PopulateListOfInitialConditions(partNames, nodeSetNames, elementSetNames, surfaceNames);
+            PopulateListOfInitialConditions(nodeSetNames, surfaceNames, referencePointNames);
             // Create new initial condition
             if (_initialConditionToEditName == null)
             {
@@ -174,10 +174,13 @@ namespace PrePoMax.Forms
             {
                 // Get and convert a converted initial condition back to selection
                 InitialCondition = _controller.GetInitialCondition(_initialConditionToEditName); // to clone
-                if (InitialCondition.CreationData != null) InitialCondition.RegionType = RegionTypeEnum.Selection;
-                // Copy region creation data back to item - it might have been changed when parts are removed,...
-                _controller.CopyRegionCreationDataToInitialCondition(InitialCondition);
-                //
+                
+                
+                if (InitialCondition.CreationData != null)
+                    InitialCondition.RegionType = RegionTypeEnum.Selection;
+
+
+
                 int selectedId;
                 if (_viewInitialCondition is ViewInitialTemperature vit)
                 {
@@ -197,13 +200,16 @@ namespace PrePoMax.Forms
                     selectedId = 1;
                     // Check for deleted entities
                     if (viv.RegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
-                    else if (viv.RegionType == RegionTypeEnum.PartName.ToFriendlyString())
-                        CheckMissingValueRef(ref partNames, viv.PartName, s => { viv.PartName = s; });
-                    else if (viv.RegionType == RegionTypeEnum.ElementSetName.ToFriendlyString())
-                        CheckMissingValueRef(ref elementSetNames, viv.ElementSetName, s => { viv.ElementSetName = s; });
+                    else if (viv.RegionType == RegionTypeEnum.NodeSetName.ToFriendlyString())
+                        CheckMissingValueRef(ref nodeSetNames, viv.NodeSetName, s => { viv.NodeSetName = s; });
+                    else if (viv.RegionType == RegionTypeEnum.SurfaceName.ToFriendlyString())
+                        CheckMissingValueRef(ref surfaceNames, viv.SurfaceName, s => { viv.SurfaceName = s; });
+                    else if (viv.RegionType == RegionTypeEnum.ReferencePointName.ToFriendlyString())
+                        CheckMissingValueRef(ref referencePointNames, viv.ReferencePointName, 
+                                             s => { viv.ReferencePointName = s; });
                     else throw new NotSupportedException();
                     //
-                    viv.PopulateDropDownLists(partNames, elementSetNames);
+                    viv.PopulateDropDownLists(nodeSetNames, surfaceNames, referencePointNames);
                 }
                 else throw new NotSupportedException();
                 //
@@ -217,8 +223,7 @@ namespace PrePoMax.Forms
 
 
         // Methods                                                                                                                  
-        private void PopulateListOfInitialConditions(string[] partNames, string[] nodeSetNames, string[] elementSetNames,
-                                                     string[] surfaceNames)
+        private void PopulateListOfInitialConditions(string[] nodeSetNames, string[] surfaceNames, string[] referencePointNames)
         {
             ListViewItem item;
             bool twoD = _controller.Model.Properties.ModelSpace.IsTwoD();
@@ -235,7 +240,7 @@ namespace PrePoMax.Forms
             item = new ListViewItem(name);
             InitialVelocity iv = new InitialVelocity(GetInitialConditionName(name), "", RegionTypeEnum.Selection, 0, 0, 0, twoD);
             ViewInitialVelocity viv = new ViewInitialVelocity(iv);
-            viv.PopulateDropDownLists(partNames, elementSetNames);
+            viv.PopulateDropDownLists(nodeSetNames, surfaceNames, referencePointNames);
             item.Tag = viv;
             lvTypes.Items.Add(item);
         }
@@ -256,10 +261,9 @@ namespace PrePoMax.Forms
                 if (_viewInitialCondition == null) { }
                 else if (InitialCondition is InitialTemperature || InitialCondition is InitialVelocity)
                 {
-                    if (InitialCondition.RegionType == RegionTypeEnum.PartName || 
-                        InitialCondition.RegionType == RegionTypeEnum.NodeSetName ||
-                        InitialCondition.RegionType == RegionTypeEnum.ElementSetName ||
-                        InitialCondition.RegionType == RegionTypeEnum.SurfaceName)
+                    if (InitialCondition.RegionType == RegionTypeEnum.NodeSetName ||
+                        InitialCondition.RegionType == RegionTypeEnum.SurfaceName ||
+                        InitialCondition.RegionType == RegionTypeEnum.ReferencePointName)
                     {
                         _controller.Highlight3DObjects(new object[] { InitialCondition.RegionName });
                     }
@@ -294,7 +298,7 @@ namespace PrePoMax.Forms
             {
                 if (InitialCondition is null) { }
                 else if (InitialCondition is InitialTemperature) _controller.SetSelectItemToNode();
-                else if (InitialCondition is InitialVelocity) _controller.SetSelectItemToPart();
+                else if (InitialCondition is InitialVelocity) _controller.SetSelectItemToNode();
             }
             else _controller.SetSelectByToOff();
         }

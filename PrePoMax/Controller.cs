@@ -8600,19 +8600,6 @@ namespace PrePoMax
             if (contactPair.SlaveCreationData != null && contactPair.SlaveRegionName != null)
                 RemoveSurfaces(new string[] { contactPair.SlaveRegionName }, false);
         }
-        public void CopyRegionCreationDataToContactPair(ContactPair contactPair)
-        {
-            if (contactPair.MasterRegionType == RegionTypeEnum.Selection)
-            {
-                if (_model.Mesh.Surfaces.TryGetValue(contactPair.MasterRegionName, out FeSurface surface) &&
-                    surface.CreationData != null) contactPair.MasterCreationData = surface.CreationData.DeepClone();
-            }
-            if (contactPair.SlaveRegionType == RegionTypeEnum.Selection)
-            {
-                if (_model.Mesh.Surfaces.TryGetValue(contactPair.SlaveRegionName, out FeSurface surface) &&
-                    surface.CreationData != null) contactPair.SlaveCreationData = surface.CreationData.DeepClone();
-            }
-        }
         // Auto create
         public void AutoCreateContactPairs(List<SearchContactPair> contactPairs)
         {
@@ -8883,16 +8870,15 @@ namespace PrePoMax
                 // Initial velocity
                 else if (initialCondition is InitialVelocity)
                 {
-                    name = FeMesh.GetNextFreeSelectionName(_model.Mesh.ElementSets, initialCondition.Name);
-                    // For
-                    FeElementSet elementSet = new FeElementSet(name, initialCondition.CreationIds, true);
-                    elementSet.CreationData = initialCondition.CreationData.DeepClone();
-                    elementSet.Internal = true;
-                    elementSet.ParentMultiRegion = initialCondition;
-                    AddElementSet(elementSet);
+                    name = FeMesh.GetNextFreeSelectionName(_model.Mesh.NodeSets, initialCondition.Name);
+                    FeNodeSet nodeSet = new FeNodeSet(name, initialCondition.CreationIds);
+                    nodeSet.CreationData = initialCondition.CreationData.DeepClone();
+                    nodeSet.Internal = true;
+                    nodeSet.ParentMultiRegion = initialCondition;
+                    AddNodeSet(nodeSet);
                     //
                     initialCondition.RegionName = name;
-                    initialCondition.RegionType = RegionTypeEnum.ElementSetName;
+                    initialCondition.RegionType = RegionTypeEnum.NodeSetName;
                 }
                 else throw new NotSupportedException();
             }
@@ -8912,24 +8898,7 @@ namespace PrePoMax
                 if (initialCondition is InitialTemperature)
                     RemoveNodeSets(new string[] { initialCondition.RegionName });
                 else if (initialCondition is InitialVelocity)
-                    RemoveElementSets(new string[] { initialCondition.RegionName });
-                else throw new NotSupportedException();
-            }
-        }
-        public void CopyRegionCreationDataToInitialCondition(InitialCondition initialCondition)
-        {
-            if (initialCondition.RegionType == RegionTypeEnum.Selection)
-            {
-                if (initialCondition is InitialTemperature it)
-                {
-                    if (_model.Mesh.NodeSets.TryGetValue(it.RegionName, out FeNodeSet nodeSet) &&
-                        nodeSet.CreationData != null) it.CreationData = nodeSet.CreationData.DeepClone();
-                }
-                else if (initialCondition is InitialVelocity iv)
-                {
-                    if (_model.Mesh.ElementSets.TryGetValue(iv.RegionName, out FeElementSet elementSet) &&
-                        elementSet.CreationData != null) iv.CreationData = elementSet.CreationData;
-                }
+                    RemoveNodeSets(new string[] { initialCondition.RegionName });
                 else throw new NotSupportedException();
             }
         }
@@ -14349,11 +14318,14 @@ namespace PrePoMax
                 if (!((contactPair.Active && contactPair.Visible && contactPair.Valid && !contactPair.Internal) ||
                       layer == vtkRendererLayer.Selection)) return;
                 //
-                string prefixName = "CONTACT_PAIR" + Globals.NameSeparator + contactPair.Name;
+                string masterPrefixName = "CONTACT_PAIR" + Globals.NameSeparator + contactPair.Name +
+                                          Globals.NameSeparator + "Master";
+                string slavePrefixName = "CONTACT_PAIR" + Globals.NameSeparator + contactPair.Name +
+                                         Globals.NameSeparator + "Slave";
                 // Master
-                DrawSurfaceWithEdge(prefixName, contactPair.MasterRegionName, masterColor, layer, true, false, onlyVisible);
+                DrawSurfaceWithEdge(masterPrefixName, contactPair.MasterRegionName, masterColor, layer, true, false, onlyVisible);
                 // Slave
-                DrawSurfaceWithEdge(prefixName, contactPair.SlaveRegionName, slaveColor, layer, true, true, onlyVisible);
+                DrawSurfaceWithEdge(slavePrefixName, contactPair.SlaveRegionName, slaveColor, layer, true, true, onlyVisible);
             }
             catch { } // do not show the exception to the user
         }
@@ -16675,14 +16647,12 @@ namespace PrePoMax
                     }
                     else if (obj is InitialCondition ic)
                     {
-                        if (ic.RegionType == RegionTypeEnum.PartName)
-                            HighlightModelParts(new string[] { ic.RegionName }, false);
-                        else if (ic.RegionType == RegionTypeEnum.NodeSetName)
+                        if (ic.RegionType == RegionTypeEnum.NodeSetName)
                             HighlightNodeSets(new string[] { ic.RegionName });
-                        else if (ic.RegionType == RegionTypeEnum.ElementSetName)
-                            HighlightElementSets(new string[] { ic.RegionName });
                         else if (ic.RegionType == RegionTypeEnum.SurfaceName)
                             HighlightSurfaces(new string[] { ic.RegionName });
+                        else if (ic.RegionType == RegionTypeEnum.ReferencePointName)
+                            HighlightReferencePoints(new string[] { ic.RegionName });
                         else if (ic.RegionType == RegionTypeEnum.Selection) { }
                         else throw new NotSupportedException();
                     }

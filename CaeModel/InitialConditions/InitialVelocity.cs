@@ -17,7 +17,6 @@ namespace CaeModel
         private double _v1;
         private double _v2;
         private double _v3;
-        private string _nodeSetName;    // a temp variable for CalculiX output
 
 
         // Properties                                                                                                               
@@ -30,7 +29,6 @@ namespace CaeModel
             else if (direction == 1) return V2;
             else return V3;
         }
-        public string NodeSetName { get { return _nodeSetName; } set { _nodeSetName = value; } }
 
 
         // Constructors                                                                                                             
@@ -41,7 +39,6 @@ namespace CaeModel
             _v1 = v1;
             _v2 = v2;
             V3 = v3;    // account for 2D
-            _nodeSetName = null;
         }
 
 

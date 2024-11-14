@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.ComponentModel;
 using CaeGlobals;
 using DynamicTypeDescriptor;
+using CaeModel;
 
 namespace PrePoMax
 {
@@ -20,16 +21,26 @@ namespace PrePoMax
         public override string Name { get { return _initialVelocity.Name; } set { _initialVelocity.Name = value; } }
         //
         [CategoryAttribute("Region")]
-        [OrderedDisplayName(2, 10, "Part")]
-        [DescriptionAttribute("Select the part for the assignment of the initial velocity.")]
+        [OrderedDisplayName(2, 10, "Node set")]
+        [DescriptionAttribute("Select the node set for the assignment of the initial velocity.")]
         [Id(3, 2)]
-        public string PartName { get { return _initialVelocity.RegionName; } set { _initialVelocity.RegionName = value; } }
+        public string NodeSetName { get { return _initialVelocity.RegionName; } set { _initialVelocity.RegionName = value; } }
         //
         [CategoryAttribute("Region")]
-        [OrderedDisplayName(4, 10, "Element set")]
-        [DescriptionAttribute("Select the element set for the assignment of the initial velocity.")]
+        [OrderedDisplayName(3, 10, "Surface")]
+        [DescriptionAttribute("Select the surface for the assignment of the initial velocity.")]
         [Id(4, 2)]
-        public string ElementSetName { get { return _initialVelocity.RegionName; } set { _initialVelocity.RegionName = value; } }
+        public string SurfaceName { get { return _initialVelocity.RegionName; } set { _initialVelocity.RegionName = value; } }
+        //
+        [CategoryAttribute("Region")]
+        [OrderedDisplayName(4, 10, "Reference point")]
+        [DescriptionAttribute("Select the reference point for the creation of the initial velocity.")]
+        [Id(5, 2)]
+        public string ReferencePointName
+        {
+            get { return _initialVelocity.RegionName; }
+            set { _initialVelocity.RegionName = value; }
+        }
         //
         [CategoryAttribute("Velocity components")]
         [OrderedDisplayName(0, 10, "V1")]
@@ -57,7 +68,7 @@ namespace PrePoMax
         [DescriptionAttribute("Value of the velocity magnitude.")]
         [TypeConverter(typeof(StringVelocityConverter))]
         [Id(1, 4)]
-        public double Vlength
+        public double VLength
         {
             get { return Math.Sqrt(_initialVelocity.V1 * _initialVelocity.V1 +
                                    _initialVelocity.V2 * _initialVelocity.V2 +
@@ -81,15 +92,16 @@ namespace PrePoMax
         //
 
         // Constructors                                                                                                             
-        public ViewInitialVelocity(CaeModel.InitialVelocity initialVelocity)
+        public ViewInitialVelocity(InitialVelocity initialVelocity)
         {
             // The order is important
             _initialVelocity = initialVelocity;
             //
             Dictionary<RegionTypeEnum, string> regionTypePropertyNamePairs = new Dictionary<RegionTypeEnum, string>();
             regionTypePropertyNamePairs.Add(RegionTypeEnum.Selection, nameof(SelectionHidden));
-            regionTypePropertyNamePairs.Add(RegionTypeEnum.PartName, nameof(PartName));
-            regionTypePropertyNamePairs.Add(RegionTypeEnum.ElementSetName, nameof(ElementSetName));
+            regionTypePropertyNamePairs.Add(RegionTypeEnum.NodeSetName, nameof(NodeSetName));
+            regionTypePropertyNamePairs.Add(RegionTypeEnum.SurfaceName, nameof(SurfaceName));
+            regionTypePropertyNamePairs.Add(RegionTypeEnum.ReferencePointName, nameof(ReferencePointName));
             //
             SetBase(_initialVelocity, regionTypePropertyNamePairs);
             DynamicCustomTypeDescriptor = ProviderInstaller.Install(this);
@@ -99,16 +111,17 @@ namespace PrePoMax
 
 
         // Methods                                                                                                                  
-        public override CaeModel.InitialCondition GetBase()
+        public override InitialCondition GetBase()
         {
             return _initialVelocity;
         }
-        public void PopulateDropDownLists(string[] partNames, string[] elementSetNames)
+        public void PopulateDropDownLists(string[] nodeSetNames, string[] surfaceNames, string[] referencePointNames)
         {
             Dictionary<RegionTypeEnum, string[]> regionTypeListItemsPairs = new Dictionary<RegionTypeEnum, string[]>();
             regionTypeListItemsPairs.Add(RegionTypeEnum.Selection, new string[] { "Hidden" });
-            regionTypeListItemsPairs.Add(RegionTypeEnum.PartName, partNames);
-            regionTypeListItemsPairs.Add(RegionTypeEnum.ElementSetName, elementSetNames);
+            regionTypeListItemsPairs.Add(RegionTypeEnum.NodeSetName, nodeSetNames);
+            regionTypeListItemsPairs.Add(RegionTypeEnum.SurfaceName, surfaceNames);
+            regionTypeListItemsPairs.Add(RegionTypeEnum.ReferencePointName, referencePointNames);
             base.PopulateDropDownLists(regionTypeListItemsPairs);
         }
     }

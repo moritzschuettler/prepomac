@@ -26,7 +26,7 @@ namespace PrePoMax
         public string NodeSetName { get { return _initialTemperature.RegionName; } set { _initialTemperature.RegionName = value; } }
         //
         [CategoryAttribute("Region")]
-        [OrderedDisplayName(4, 10, "Surface")]
+        [OrderedDisplayName(3, 10, "Surface")]
         [DescriptionAttribute("Select the surface for the assignment of the initial temperature.")]
         [Id(4, 2)]
         public string SurfaceName { get { return _initialTemperature.RegionName; } set { _initialTemperature.RegionName = value; } }
