@@ -262,24 +262,16 @@ namespace PrePoMax.Forms
                 BoundaryCondition = _controller.GetBoundaryCondition(stepName, _boundaryConditionToEditName); // to clone
                 if (BoundaryCondition.CreationData != null)
                 {
-                    //if (!_controller.Model.IsBoundaryConditionRegionValid(BoundaryCondition) || // do not use BoundaryCondition.Valid
-                    //    !_controller.Model.RegionValid(BoundaryCondition))
-                    //{
-                    //    // Region invalid
-                    //    BoundaryCondition.CreationData = null;
-                    //    BoundaryCondition.CreationIds = null;
-                    //    _propertyItemChanged = true;
-                    //}
+                    if (!_controller.Model.IsBoundaryConditionRegionValid(BoundaryCondition) || // do not use BoundaryCondition.Valid
+                        !_controller.Model.RegionValid(BoundaryCondition))
+                    {
+                        // Region invalid
+                        BoundaryCondition.CreationData = null;
+                        BoundaryCondition.CreationIds = null;
+                        _propertyItemChanged = true;
+                    }
                     BoundaryCondition.RegionType = RegionTypeEnum.Selection;
                 }
-
-                // Copy region creation data back to item - it might have been changed when parts are removed,...
-                _controller.CopyRegionCreationDataToBoundaryCondition(BoundaryCondition);
-
-
-
-
-
                 // Convert the boundary condition to internal to hide it
                 BoundaryConditionInternal(true);
                 // Check for deleted amplitudes
@@ -524,7 +516,7 @@ namespace PrePoMax.Forms
             BoundaryCondition boundaryCondition = BoundaryCondition;
             //
             if (boundaryCondition.CreationData != null && IsSelectionGeometryBased())
-                return boundaryCondition.CreationData.IsIdBased(defaultMode);
+                return boundaryCondition.CreationData.IsGeometryIdBased(defaultMode);
             else return defaultMode;
         }
     }

@@ -130,7 +130,7 @@ namespace PrePoMax.Forms
                 _controller.AddSectionCommand(Section);
             }
             // Replace
-            else if (_propertyItemChanged || !Section.Valid)
+            else if (_propertyItemChanged)
             {
                 _controller.ReplaceSectionCommand(_sectionToEditName, Section);
             }
@@ -180,32 +180,23 @@ namespace PrePoMax.Forms
             {
                 lvTypes.Enabled = true;
                 _viewSection = null;
-                // Preselect
-                //HashSet<PartType> partTypes = new HashSet<PartType>();
-                //foreach (var entry in _controller.Model.Mesh.Parts) partTypes.Add(entry.Value.PartType);
-                //// 3D
-                //if (_controller.Model.Properties.ModelSpace == ModelSpaceEnum.ThreeD)
-                //{
-                //    if (partTypes.Count == 1)
-                //    {
-                //        if (partTypes.First() == PartType.Solid) _preselectIndex = 0;
-                //        //else lvTypes.Items[0].Tag =
-                //        //  new ViewError("There are no solid elements for the solid section definition.");
-                //    }
-                //}
-                //// 2D
-                //else if (_controller.Model.Properties.ModelSpace.IsTwoD())
-                //{
-                //    _preselectIndex = 0;
-                //}
             }
             // Edit existing section
             else
             {
                 Section = _controller.GetSection(_sectionToEditName); // to clone
-                if (Section.CreationData != null) Section.RegionType = RegionTypeEnum.Selection;
-                // Copy region creation data bask to item - it might got changed when parts are removed,...
-                _controller.CopyRegionCreationDataToSection(Section);
+                if (Section.CreationData != null)
+                {
+                    if (!_controller.Model.IsSectionRegionValid(Section) || // do not use Section.Valid
+                        !_controller.Model.RegionValid(Section))
+                    {
+                        // Region invalid
+                        Section.CreationData = null;
+                        Section.CreationIds = null;
+                        _propertyItemChanged = true;
+                    }
+                    Section.RegionType = RegionTypeEnum.Selection;
+                }
                 //
                 int selectedId;
                 if (_viewSection is ViewSolidSection vss)
@@ -559,7 +550,7 @@ namespace PrePoMax.Forms
             Section section = Section;
             //
             if (section.CreationData != null && IsSelectionGeometryBased())
-                return section.CreationData.IsIdBased(defaultMode);
+                return section.CreationData.IsGeometryIdBased(defaultMode);
             else return defaultMode;
         }
     }

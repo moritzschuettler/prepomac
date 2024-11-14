@@ -336,7 +336,7 @@ namespace PrePoMax.Forms
             InitialCondition initialCondition = InitialCondition;
             //
             if (initialCondition.CreationData != null && IsSelectionGeometryBased())
-                return initialCondition.CreationData.IsIdBased(defaultMode);
+                return initialCondition.CreationData.IsGeometryIdBased(defaultMode);
             else return defaultMode;
         }
     }

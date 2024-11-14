@@ -662,7 +662,7 @@ namespace PrePoMax.Forms
             MeshSetupItem meshSetupItem = MeshSetupItem;
             //
             if (meshSetupItem.CreationData != null && IsSelectionGeometryBased())
-                return meshSetupItem.CreationData.IsIdBased(defaultMode);
+                return meshSetupItem.CreationData.IsGeometryIdBased(defaultMode);
             else return defaultMode;
         }
     }

@@ -485,13 +485,13 @@ namespace PrePoMax.Forms
                     if (property == nameof(ViewSplitPartMeshData.MasterRegionType) &&
                         sp.BasePartRegionType == RegionTypeEnum.Selection)
                     {
-                        if (sp.BasePartCreationData != null) return sp.BasePartCreationData.IsIdBased(defaultMode);
+                        if (sp.BasePartCreationData != null) return sp.BasePartCreationData.IsGeometryIdBased(defaultMode);
                         else return defaultMode;
                     }
                     else if (property == nameof(ViewSplitPartMeshData.SlaveRegionType) &&
                              sp.SplitterSurfaceRegionType == RegionTypeEnum.Selection)
                     {
-                        if (sp.SplitterSurfaceCreationData != null) return sp.SplitterSurfaceCreationData.IsIdBased(defaultMode);
+                        if (sp.SplitterSurfaceCreationData != null) return sp.SplitterSurfaceCreationData.IsGeometryIdBased(defaultMode);
                         else return defaultMode;
                     }
                 }

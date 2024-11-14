@@ -210,7 +210,7 @@ namespace CaeGlobals
             }
             return true;
         }
-        public bool IsIdBased(bool defaultMode)
+        public bool IsGeometryIdBased(bool defaultMode)
         {
             if (_nodes.Count == 0) return defaultMode;
             //

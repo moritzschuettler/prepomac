@@ -338,7 +338,7 @@ namespace PrePoMax.Forms
             DefinedField definedField = DefinedField;
             //
             if (definedField.CreationData != null && IsSelectionGeometryBased())
-                return definedField.CreationData.IsIdBased(defaultMode);
+                return definedField.CreationData.IsGeometryIdBased(defaultMode);
             else return defaultMode;
         }
     }

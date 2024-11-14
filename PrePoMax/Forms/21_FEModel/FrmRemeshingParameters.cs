@@ -289,7 +289,7 @@ namespace PrePoMax.Forms
             RemeshingParameters remeshingParameters = RemeshingParameters;
             //
             if (remeshingParameters != null && remeshingParameters.CreationData != null && IsSelectionGeometryBased())
-                return remeshingParameters.CreationData.IsIdBased(defaultMode);
+                return remeshingParameters.CreationData.IsGeometryIdBased(defaultMode);
             else return defaultMode;
         }
 

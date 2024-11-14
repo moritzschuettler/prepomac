@@ -7731,31 +7731,6 @@ namespace PrePoMax
                 else throw new NotSupportedException();
             }
         }
-        public void CopyRegionCreationDataToSection(Section section)
-        {
-            if (section.RegionType == RegionTypeEnum.Selection)
-            {
-                Selection creationData = null;
-                if (section is PointMassSection)
-                {
-                    if (_model.Mesh.NodeSets.TryGetValue(section.RegionName, out FeNodeSet nodeSet))
-                        creationData = nodeSet.CreationData;
-                }
-                else if (section is SolidSection || section is ShellSection || section is MembraneSection)
-                {
-                    if (_model.Mesh.ElementSets.TryGetValue(section.RegionName, out FeElementSet elementSet))
-                        creationData = elementSet.CreationData;
-                }
-                else if (section is DistributedMassSection)
-                {
-                    if (_model.Mesh.Surfaces.TryGetValue(section.RegionName, out FeSurface surface))
-                        creationData = surface.CreationData;
-                }
-                else throw new NotSupportedException();
-                //
-                if (creationData != null) section.CreationData = creationData.DeepClone();
-            }
-        }
 
         #endregion #################################################################################################################
 
@@ -8167,37 +8142,7 @@ namespace PrePoMax
                     RemoveSurfaces(new string[] { tie.SlaveRegionName }, false);
             }
         }
-        public void CopyRegionCreationDataToConstraint(Constraint constraint)
-        {
-            if (constraint is PointSpring ps && ps.RegionType == RegionTypeEnum.Selection)
-            {
-                if (_model.Mesh.NodeSets.TryGetValue(ps.RegionName, out FeNodeSet nodeSet) &&
-                    nodeSet.CreationData != null) ps.CreationData = nodeSet.CreationData.DeepClone();
-            }
-            else if (constraint is SurfaceSpring ss && ss.RegionType == RegionTypeEnum.Selection)
-            {
-                if (_model.Mesh.Surfaces.TryGetValue(ss.RegionName, out FeSurface surface) &&
-                    surface.CreationData != null) ss.CreationData = surface.CreationData.DeepClone();
-            }
-            else if (constraint is RigidBody rb && rb.RegionType == RegionTypeEnum.Selection)
-            {
-                if (_model.Mesh.NodeSets.TryGetValue(rb.RegionName, out FeNodeSet nodeSet) &&
-                    nodeSet.CreationData != null) rb.CreationData = nodeSet.CreationData.DeepClone();
-            }
-            else if (constraint is Tie tie)
-            {
-                if (tie.MasterRegionType == RegionTypeEnum.Selection)
-                {
-                    if (_model.Mesh.Surfaces.TryGetValue(tie.MasterRegionName, out FeSurface surface) &&
-                        surface.CreationData != null) tie.MasterCreationData = surface.CreationData.DeepClone();
-                }
-                if (tie.SlaveRegionType == RegionTypeEnum.Selection)
-                {
-                    if (_model.Mesh.Surfaces.TryGetValue(tie.SlaveRegionName, out FeSurface surface) &&
-                        surface.CreationData != null) tie.SlaveCreationData = surface.CreationData.DeepClone();
-                }
-            }
-        }
+        
         // Auto create
         public void AutoCreateTiedPairs(List<Forms.SearchContactPair> contactPairs)
         {

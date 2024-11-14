@@ -369,12 +369,12 @@ namespace PrePoMax.Forms
                 {
                     if (property == nameof(ViewContactPair.MasterRegionType) && cp.MasterRegionType == RegionTypeEnum.Selection)
                     {
-                        if (cp.MasterCreationData != null) return cp.MasterCreationData.IsIdBased(defaultMode);
+                        if (cp.MasterCreationData != null) return cp.MasterCreationData.IsGeometryIdBased(defaultMode);
                         else return defaultMode;
                     }
                     else if (property == nameof(ViewContactPair.SlaveRegionType) && cp.SlaveRegionType == RegionTypeEnum.Selection)
                     {
-                        if (cp.SlaveCreationData != null) return cp.SlaveCreationData.IsIdBased(defaultMode);
+                        if (cp.SlaveCreationData != null) return cp.SlaveCreationData.IsGeometryIdBased(defaultMode);
                         else return defaultMode;
                     }
                 }

@@ -375,7 +375,7 @@ namespace PrePoMax.Forms
             ResultHistoryOutput resultHistoryOutput = ResultHistoryOutput;
             //
             if (resultHistoryOutput.CreationData != null && IsSelectionGeometryBased())
-                return resultHistoryOutput.CreationData.IsIdBased(defaultMode);
+                return resultHistoryOutput.CreationData.IsGeometryIdBased(defaultMode);
             else return defaultMode;
         }
     }

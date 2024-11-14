@@ -280,36 +280,12 @@ namespace CaeModel
             foreach (var entry in _sections)
             {
                 section = entry.Value;
-                if (section is SolidSection ss)
-                {
-                    valid = _materials.ContainsValidKey(section.MaterialName)
-                        && ((ss.RegionType == RegionTypeEnum.PartName && _mesh.Parts.ContainsValidKey(section.RegionName))
-                        || (ss.RegionType == RegionTypeEnum.ElementSetName 
-                            && _mesh.ElementSets.ContainsValidKey(section.RegionName)));
-                }
-                else if (section is ShellSection shs)
-                {
-                    valid = _materials.ContainsValidKey(section.MaterialName)
-                        && ((shs.RegionType == RegionTypeEnum.PartName && _mesh.Parts.ContainsValidKey(section.RegionName))
-                        || (shs.RegionType == RegionTypeEnum.ElementSetName
-                            && _mesh.ElementSets.ContainsValidKey(section.RegionName)));
-                }
-                else if (section is MembraneSection ms)
-                {
-                    valid = _materials.ContainsValidKey(section.MaterialName) &&
-                        ((ms.RegionType == RegionTypeEnum.PartName && _mesh.Parts.ContainsValidKey(section.RegionName)) ||
-                         (ms.RegionType == RegionTypeEnum.ElementSetName && _mesh.ElementSets.ContainsValidKey(section.RegionName)));
-                }
-                else if (section is PointMassSection pms)
-                {
-                    valid = (pms.RegionType == RegionTypeEnum.NodeSetName && _mesh.NodeSets.ContainsValidKey(section.RegionName) ||
-                             pms.RegionType == RegionTypeEnum.ReferencePointName &&
-                             _mesh.ReferencePoints.ContainsValidKey(section.RegionName));
-                }
-                else if (section is DistributedMassSection dms)
-                {
-                    valid = dms.RegionType == RegionTypeEnum.SurfaceName && _mesh.Surfaces.ContainsValidKey(section.RegionName);
-                }
+                //
+                valid = IsSectionRegionValid(section);
+                //
+                if (section is SolidSection || section is ShellSection || section is MembraneSection)
+                    valid &= _materials.ContainsValidKey(section.MaterialName);
+                else if (section is PointMassSection || section is DistributedMassSection) { }
                 else throw new NotSupportedException();
                 // Check equations
                 valid &= section.TryCheckEquations();
@@ -322,34 +298,8 @@ namespace CaeModel
             foreach (var entry in _constraints)
             {
                 constraint = entry.Value;
-                if (constraint is PointSpring ps)
-                {
-                    valid = (ps.RegionType == RegionTypeEnum.NodeSetName && _mesh.NodeSets.ContainsValidKey(ps.RegionName))
-                            || (ps.RegionType == RegionTypeEnum.ReferencePointName
-                               && _mesh.ReferencePoints.ContainsValidKey(ps.RegionName));
-                }
-                else if (constraint is SurfaceSpring ss)
-                {
-                    valid = ss.RegionType == RegionTypeEnum.SurfaceName && _mesh.Surfaces.ContainsValidKey(ss.RegionName);
-                }
-                else if (constraint is CompressionOnly co)
-                {
-                    valid = co.RegionType == RegionTypeEnum.SurfaceName && _mesh.Surfaces.ContainsValidKey(co.RegionName);
-                }
-                else if (constraint is RigidBody rb)
-                {
-                    valid = rb.ReferencePointName != null
-                            && _mesh.ReferencePoints.ContainsValidKey(rb.ReferencePointName)
-                            && ((rb.RegionType == RegionTypeEnum.NodeSetName && _mesh.NodeSets.ContainsValidKey(rb.RegionName))
-                            || (rb.RegionType == RegionTypeEnum.SurfaceName && _mesh.Surfaces.ContainsValidKey(rb.RegionName)));
-                }
-                else if (constraint is Tie t)
-                {
-                    valid = _mesh.Surfaces.ContainsValidKey(t.SlaveRegionName)
-                            && _mesh.Surfaces.ContainsValidKey(t.MasterRegionName)
-                            && (t.SlaveRegionName != t.MasterRegionName);
-                }
-                else throw new NotSupportedException();
+                //
+                valid = IsConstraintRegionValid(constraint);
                 // Check equations
                 valid &= constraint.TryCheckEquations();
                 //
@@ -499,6 +449,76 @@ namespace CaeModel
                 }
             }
             return true;
+        }
+        public bool IsSectionRegionValid(Section section)
+        {
+            bool valid;
+            //
+            if (section is SolidSection ss)
+            {
+                valid =
+                    (ss.RegionType == RegionTypeEnum.PartName && _mesh.Parts.ContainsValidKey(ss.RegionName))
+                     || (ss.RegionType == RegionTypeEnum.ElementSetName && _mesh.ElementSets.ContainsValidKey(ss.RegionName));
+            }
+            else if (section is ShellSection shs)
+            {
+                valid =
+                    (shs.RegionType == RegionTypeEnum.PartName && _mesh.Parts.ContainsValidKey(shs.RegionName))
+                     || (shs.RegionType == RegionTypeEnum.ElementSetName && _mesh.ElementSets.ContainsValidKey(shs.RegionName));
+            }
+            else if (section is MembraneSection ms)
+            {
+                valid =
+                    (ms.RegionType == RegionTypeEnum.PartName && _mesh.Parts.ContainsValidKey(ms.RegionName))
+                     || (ms.RegionType == RegionTypeEnum.ElementSetName && _mesh.ElementSets.ContainsValidKey(ms.RegionName));
+            }
+            else if (section is PointMassSection pms)
+            {
+                valid =
+                    (pms.RegionType == RegionTypeEnum.NodeSetName && _mesh.NodeSets.ContainsValidKey(pms.RegionName))
+                     || (pms.RegionType == RegionTypeEnum.ReferencePointName &&
+                     _mesh.ReferencePoints.ContainsValidKey(pms.RegionName));
+            }
+            else if (section is DistributedMassSection dms)
+            {
+                valid = dms.RegionType == RegionTypeEnum.SurfaceName && _mesh.Surfaces.ContainsValidKey(dms.RegionName);
+            }
+            else throw new NotSupportedException();
+            //
+            return valid;
+        }
+        public bool IsConstraintRegionValid(Constraint constraint)
+        {
+            bool valid;
+            //
+            if (constraint is PointSpring ps)
+            {
+                valid = (ps.RegionType == RegionTypeEnum.NodeSetName && _mesh.NodeSets.ContainsValidKey(ps.RegionName))
+                        || (ps.RegionType == RegionTypeEnum.ReferencePointName
+                           && _mesh.ReferencePoints.ContainsValidKey(ps.RegionName));
+            }
+            else if (constraint is SurfaceSpring ss)
+            {
+                valid = ss.RegionType == RegionTypeEnum.SurfaceName && _mesh.Surfaces.ContainsValidKey(ss.RegionName);
+            }
+            else if (constraint is CompressionOnly co)
+            {
+                valid = co.RegionType == RegionTypeEnum.SurfaceName && _mesh.Surfaces.ContainsValidKey(co.RegionName);
+            }
+            else if (constraint is RigidBody rb)
+            {
+                valid = (rb.ReferencePointName != null && _mesh.ReferencePoints.ContainsValidKey(rb.ReferencePointName))
+                        && ((rb.RegionType == RegionTypeEnum.NodeSetName && _mesh.NodeSets.ContainsValidKey(rb.RegionName))
+                        || (rb.RegionType == RegionTypeEnum.SurfaceName && _mesh.Surfaces.ContainsValidKey(rb.RegionName)));
+            }
+            else if (constraint is Tie t)
+            {
+                valid = _mesh.Surfaces.ContainsValidKey(t.SlaveRegionName) && _mesh.Surfaces.ContainsValidKey(t.MasterRegionName)
+                        && (t.SlaveRegionName != t.MasterRegionName);
+            }
+            else throw new NotSupportedException();
+            //
+            return valid;
         }
         public bool IsBoundaryConditionRegionValid(BoundaryCondition bc)
         {

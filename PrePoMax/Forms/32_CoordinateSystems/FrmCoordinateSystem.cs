@@ -571,17 +571,17 @@ namespace PrePoMax.Forms
             {
                 if (IsCenterPropertySelectedForSelection())
                 {
-                    if (cs.CenterCreationData != null) return cs.CenterCreationData.IsIdBased(defaultMode);
+                    if (cs.CenterCreationData != null) return cs.CenterCreationData.IsGeometryIdBased(defaultMode);
                     else return defaultMode;
                 }
                 else if (IsPointXPropertySelectedForSelection())
                 {
-                    if (cs.PointXCreationData != null) return cs.PointXCreationData.IsIdBased(defaultMode);
+                    if (cs.PointXCreationData != null) return cs.PointXCreationData.IsGeometryIdBased(defaultMode);
                     else return defaultMode;
                 }
                 else if (IsPointXYPropertySelectedForSelection())
                 {
-                    if (cs.PointXYCreationData != null) return cs.PointXYCreationData.IsIdBased(defaultMode);
+                    if (cs.PointXYCreationData != null) return cs.PointXYCreationData.IsGeometryIdBased(defaultMode);
                     else return defaultMode;
                 }
             }

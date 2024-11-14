@@ -454,7 +454,7 @@ namespace PrePoMax.Forms
             FeReferencePoint rp = ReferencePoint;
             //
             if (rp != null && rp.CreationData != null && IsSelectionGeometryBased())
-                return rp.CreationData.IsIdBased(defaultMode);
+                return rp.CreationData.IsGeometryIdBased(defaultMode);
             else return defaultMode;
         }
     }

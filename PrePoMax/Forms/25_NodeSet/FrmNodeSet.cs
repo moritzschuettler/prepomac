@@ -193,7 +193,7 @@ namespace PrePoMax.Forms
             // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
             FeNodeSet nodeSet = NodeSet;
             //
-            if (nodeSet.CreationData != null) return nodeSet.CreationData.IsIdBased(defaultMode);
+            if (nodeSet.CreationData != null) return nodeSet.CreationData.IsGeometryIdBased(defaultMode);
             else return defaultMode;
         }
     }

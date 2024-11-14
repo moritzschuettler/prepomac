@@ -197,7 +197,7 @@ namespace PrePoMax.Forms
             FeElementSet elementSet = ElementSet;
             //
             if (elementSet.CreationData != null && IsSelectionGeometryBased())
-                return elementSet.CreationData.IsIdBased(defaultMode);
+                return elementSet.CreationData.IsGeometryIdBased(defaultMode);
             else return defaultMode;
         }
     }

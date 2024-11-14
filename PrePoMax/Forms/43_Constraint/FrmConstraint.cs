@@ -7,6 +7,8 @@ using CaeModel;
 using CaeGlobals;
 using System.Windows.Forms;
 using System.Drawing;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
+using CaeMesh;
 
 namespace PrePoMax.Forms
 {
@@ -300,17 +302,7 @@ namespace PrePoMax.Forms
             {
                 // Get and convert a converted constraint back to selection
                 Constraint = _controller.GetConstraint(_constraintToEditName); // to clone                
-                if (Constraint is PointSpring ps && ps.CreationData != null) ps.RegionType = RegionTypeEnum.Selection;
-                else if (Constraint is SurfaceSpring ss && ss.CreationData != null) ss.RegionType = RegionTypeEnum.Selection;
-                else if (Constraint is CompressionOnly co && co.CreationData != null) co.RegionType = RegionTypeEnum.Selection;
-                else if (Constraint is RigidBody rb && rb.CreationData != null) rb.RegionType = RegionTypeEnum.Selection;
-                else if (Constraint is Tie tie)
-                {
-                    if (tie.MasterCreationData != null) tie.MasterRegionType = RegionTypeEnum.Selection;
-                    if (tie.SlaveCreationData != null) tie.SlaveRegionType = RegionTypeEnum.Selection;
-                }
-                // Copy region creation data back to item - it might have been changed when parts are removed,...
-                _controller.CopyRegionCreationDataToConstraint(Constraint);
+                SetCreationDataToSelection(Constraint);
                 // Convert the constraint to internal to hide it
                 ConstraintInternal(true);
                 //
@@ -396,7 +388,82 @@ namespace PrePoMax.Forms
             //
             return true;
         }
-        
+        private void SetCreationDataToSelection(Constraint constraint)
+        {
+            if (constraint is PointSpring ps && ps.CreationData != null)
+            {
+                if (!_controller.Model.IsConstraintRegionValid(ps) || // do not use BoundaryCondition.Valid
+                    !_controller.Model.RegionValid(ps))
+                {
+                    // Region invalid
+                    ps.CreationData = null;
+                    ps.CreationIds = null;
+                    _propertyItemChanged = true;
+                }
+                ps.RegionType = RegionTypeEnum.Selection;
+            }
+            else if (constraint is SurfaceSpring ss && ss.CreationData != null)
+            {
+                if (!_controller.Model.IsConstraintRegionValid(ss) || // do not use BoundaryCondition.Valid
+                   !_controller.Model.RegionValid(ss))
+                {
+                    // Region invalid
+                    ss.CreationData = null;
+                    ss.CreationIds = null;
+                    _propertyItemChanged = true;
+                }
+                ss.RegionType = RegionTypeEnum.Selection;
+            }
+            else if (constraint is CompressionOnly co && co.CreationData != null)
+            {
+                if (!_controller.Model.IsConstraintRegionValid(co) || // do not use BoundaryCondition.Valid
+                   !_controller.Model.RegionValid(co))
+                {
+                    // Region invalid
+                    co.CreationData = null;
+                    co.CreationIds = null;
+                    _propertyItemChanged = true;
+                }
+                co.RegionType = RegionTypeEnum.Selection;
+            }
+            else if (constraint is RigidBody rb && rb.CreationData != null)
+            {
+                if (!_controller.Model.IsConstraintRegionValid(rb) || // do not use BoundaryCondition.Valid
+                   !_controller.Model.RegionValid(rb))
+                {
+                    // Region invalid
+                    rb.CreationData = null;
+                    rb.CreationIds = null;
+                    _propertyItemChanged = true;
+                }
+                rb.RegionType = RegionTypeEnum.Selection;
+            }
+            else if (constraint is Tie tie)
+            {
+                if (tie.MasterCreationData != null)
+                {
+                    if (!_controller.Model.Mesh.Surfaces.ContainsValidKey(tie.MasterRegionName))
+                    {
+                        // Region invalid
+                        tie.MasterCreationData = null;
+                        tie.MasterCreationIds = null;
+                        _propertyItemChanged = true;
+                    }
+                    tie.MasterRegionType = RegionTypeEnum.Selection;
+                }
+                if (tie.SlaveCreationData != null)
+                {
+                    if (!_controller.Model.Mesh.Surfaces.ContainsValidKey(tie.SlaveRegionName))
+                    {
+                        // Region invalid
+                        tie.SlaveCreationData = null;
+                        tie.SlaveCreationIds = null;
+                        _propertyItemChanged = true;
+                    }
+                    tie.SlaveRegionType = RegionTypeEnum.Selection;
+                }
+            }
+        }
 
         // Methods                                                                                                                  
         private void PopulateListOfConstraints(string[] referencePointNames, string[] nodeSetNames, string[] surfaceNames)
@@ -794,34 +861,34 @@ namespace PrePoMax.Forms
                 //
                 if (constraint is PointSpring ps)
                 {
-                    if (ps.CreationData != null) return ps.CreationData.IsIdBased(defaultMode);
+                    if (ps.CreationData != null) return ps.CreationData.IsGeometryIdBased(defaultMode);
                     else return defaultMode;
                 }
                 else if (constraint is SurfaceSpring ss)
                 {
-                    if (ss.CreationData != null) return ss.CreationData.IsIdBased(defaultMode);
+                    if (ss.CreationData != null) return ss.CreationData.IsGeometryIdBased(defaultMode);
                     else return defaultMode;
                 }
                 else if (constraint is CompressionOnly co)
                 {
-                    if (co.CreationData != null) return co.CreationData.IsIdBased(defaultMode);
+                    if (co.CreationData != null) return co.CreationData.IsGeometryIdBased(defaultMode);
                     else return defaultMode;
                 }
                 else if (constraint is RigidBody rb)
                 {
-                    if (rb.CreationData != null) return rb.CreationData.IsIdBased(defaultMode);
+                    if (rb.CreationData != null) return rb.CreationData.IsGeometryIdBased(defaultMode);
                     else return defaultMode;
                 }
                 else if (constraint is Tie tie)
                 {
                     if (property == nameof(ViewTie.MasterRegionType) && tie.MasterRegionType == RegionTypeEnum.Selection)
                     {
-                        if (tie.MasterCreationData != null) return tie.MasterCreationData.IsIdBased(defaultMode);
+                        if (tie.MasterCreationData != null) return tie.MasterCreationData.IsGeometryIdBased(defaultMode);
                         else return defaultMode;
                     }
                     else if (property == nameof(ViewTie.SlaveRegionType) && tie.SlaveRegionType == RegionTypeEnum.Selection)
                     {
-                        if (tie.SlaveCreationData != null) return tie.SlaveCreationData.IsIdBased(defaultMode);
+                        if (tie.SlaveCreationData != null) return tie.SlaveCreationData.IsGeometryIdBased(defaultMode);
                         else return defaultMode;
                     }
                 }

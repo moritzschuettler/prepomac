@@ -1306,7 +1306,7 @@ namespace PrePoMax.Forms
             // Prepare ItemSetDataEditor - prepare Geometry or Mesh based selection
             Load load = FELoad;
             //
-            if (load.CreationData != null && IsSelectionGeometryBased()) return load.CreationData.IsIdBased(defaultMode);
+            if (load.CreationData != null && IsSelectionGeometryBased()) return load.CreationData.IsGeometryIdBased(defaultMode);
             else return defaultMode;
         }
 

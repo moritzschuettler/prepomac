@@ -288,7 +288,7 @@ namespace PrePoMax.Forms
             FeSurface surface = Surface;
             //
             if (surface != null && surface.CreationData != null && IsSelectionGeometryBased())
-                return surface.CreationData.IsIdBased(defaultMode);
+                return surface.CreationData.IsGeometryIdBased(defaultMode);
             else return defaultMode;
         }
     }

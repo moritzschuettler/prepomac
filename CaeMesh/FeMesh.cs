@@ -7578,8 +7578,8 @@ namespace CaeMesh
                 else throw new NotSupportedException("MeshSetupItemTypeException");
             }
         }
-        public HashSet<int> RemoveUnreferencedNodes(HashSet<int> possiblyUnrefNodeIds,
-                                                    bool removeEmptyNodeSets, bool removeForRemeshing)
+        public HashSet<int> RemoveUnreferencedNodes(HashSet<int> possiblyUnrefNodeIds, bool removeEmptyNodeSets,
+                                                    bool removeForRemeshing)
         {
             // For each node find it's connected elements
             Dictionary<int, List<FeElement>> nodeElements = new Dictionary<int, List<FeElement>>();
@@ -7625,16 +7625,16 @@ namespace CaeMesh
                 foreach (string name in changedNodeSets)
                 {
                     nodeSet = _nodeSets[name];
-                    geometryBased = nodeSet.CreationData != null && nodeSet.CreationData.IsGeometryBased();
                     // Do not change the geometry based node set if remeshing is done
+                    geometryBased = nodeSet.CreationData != null && nodeSet.CreationData.IsGeometryBased();
                     if (!(removeForRemeshing && geometryBased))
                     {
                         UpdateNodeSetCenterOfGravity(nodeSet);
                         nodeSet.CreationData = new Selection();
-                        if (geometryBased) nodeSet.CreationData.SelectItem = vtkSelectItem.Geometry;
-                        else nodeSet.CreationData.SelectItem = vtkSelectItem.Node;
-                        nodeSet.CreationData.Add(new SelectionNodeIds(vtkSelectOperation.None, false, nodeSet.Labels,
-                                                                      geometryBased));
+                        nodeSet.CreationData.SelectItem = vtkSelectItem.Node;
+                        //
+                        if (nodeSet.Labels.Length > 0)
+                            nodeSet.CreationData.Add(new SelectionNodeIds(vtkSelectOperation.None, false, nodeSet.Labels));
                         nodeSet.Valid = false;  // mark it as invalid to highlight it for the user
                     }
                 }
