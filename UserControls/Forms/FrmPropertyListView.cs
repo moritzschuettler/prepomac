@@ -110,7 +110,7 @@ namespace UserControls
         {
             lvTypes.Enabled = true;
             //
-            bool result = OnPrepareForm(stepName, itemToEditName);
+            bool result = base.PrepareForm(stepName, itemToEditName);
             //
             PreselectListViewItem(_preselectIndex);
             //

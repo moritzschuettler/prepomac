@@ -5422,12 +5422,20 @@ namespace PrePoMax
             if (_controller.Model.Mesh == null) return;
             // Data editor
             ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmInitialCondition);
+            //
+            SinglePointDataEditor.ParentForm = _frmInitialCondition;
+            SinglePointDataEditor.Controller = _controller;
+            //
             ShowForm(_frmInitialCondition, "Create Initial Condition", null);
         }
         private void EditInitialCondition(string initialConditionName)
         {
             // Data editor
             ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmInitialCondition);
+            //
+            SinglePointDataEditor.ParentForm = _frmInitialCondition;
+            SinglePointDataEditor.Controller = _controller;
+            //
             ShowForm(_frmInitialCondition, "Edit Initial Condition", initialConditionName);
         }
         private void DuplicateInitialConditions(string[] initialConditionNames)

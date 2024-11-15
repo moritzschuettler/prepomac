@@ -33,7 +33,7 @@ namespace PrePoMax
         [DescriptionAttribute("Hidden.")]
         [Id(2, 2)]
         public string SelectionHidden { get; set; }
-
+        
 
         // Constructors                                                                                                             
 

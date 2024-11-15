@@ -808,7 +808,7 @@ namespace PrePoMax.Forms
             loadName = GetLoadName(name);
             item = new ListViewItem(name);
             MomentLoad momentLoad = new MomentLoad(loadName, "", RegionTypeEnum.Selection, 0, 0, 0, twoD, complex, 0);
-            if (step.IsLoadSupported(cLoad))
+            if (step.IsLoadSupported(momentLoad))
             {
                 ViewMomentLoad vml = new ViewMomentLoad(momentLoad);
                 vml.PopulateDropDownLists(nodeSetNames, referencePointNames, amplitudeNames);

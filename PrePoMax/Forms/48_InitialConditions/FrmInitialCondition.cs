@@ -7,6 +7,7 @@ using CaeModel;
 using CaeGlobals;
 using System.Windows.Forms;
 using CaeMesh;
+using PrePoMax.Settings;
 
 namespace PrePoMax.Forms
 {
@@ -17,6 +18,7 @@ namespace PrePoMax.Forms
         private string _initialConditionToEditName;
         private ViewInitialCondition _viewInitialCondition;
         private Controller _controller;
+        private Selection _selectionCopy;
 
 
         // Properties                                                                                                               
@@ -85,10 +87,23 @@ namespace PrePoMax.Forms
             this.ClientSize = new System.Drawing.Size(334, 481);
             this.Name = "FrmInitialCondition";
             this.Text = "Edit Initial Condition";
+            this.EnabledChanged += new System.EventHandler(this.FrmInitialCondition_EnabledChanged);
             this.gbType.ResumeLayout(false);
             this.gbProperties.ResumeLayout(false);
             this.ResumeLayout(false);
 
+        }
+
+
+        // Event handlers
+        private void FrmInitialCondition_EnabledChanged(object sender, EventArgs e)
+        {
+            if (!Enabled)
+            {
+                _selectionCopy = _controller.Selection.DeepClone();
+            }
+            //
+            ShowHideSelectionForm();
         }
 
 
@@ -137,7 +152,8 @@ namespace PrePoMax.Forms
             else if (_viewInitialCondition is ViewInitialAngularVelocity viav &&
                      (property == nameof(vitv.NodeSetName) ||
                       property == nameof(vitv.SurfaceName) ||
-                      property == nameof(vitv.ReferencePointName)))
+                      property == nameof(vitv.ReferencePointName))||
+                      property == nameof(viav.X) || property == nameof(viav.Y) || property == nameof(viav.Z))
             {
                 HighlightInitialCondition();
             }
@@ -162,8 +178,10 @@ namespace PrePoMax.Forms
             }
             if (InitialCondition is InitialAngularVelocity iav)
             {
-                if (iav.Magnitude.Value == 0)
-                    throw new CaeException("At least one velocity component must not be equal to 0.");
+                if (iav.N1.Value == 0 && iav.N2.Value == 0 && iav.N3.Value == 0)
+                    throw new CaeException("At least one axis direction component must not be equal to 0.");
+                if (iav.RotationalSpeed2 == 0)
+                    throw new CaeException("Rotational speed must not be equal to 0.");
             }
             // Check if the name exists
             CheckName(_initialConditionToEditName, InitialCondition.Name, _initialConditionNames, "initial condition");
@@ -304,8 +322,8 @@ namespace PrePoMax.Forms
             // Initial velocity
             name = "Velocity";
             item = new ListViewItem(name);
-            InitialTranslationalVelocity itv = new InitialTranslationalVelocity(GetInitialConditionName(name), "", 
-                                                                               RegionTypeEnum.Selection, 0, 0, 0, twoD);
+            InitialTranslationalVelocity itv = new InitialTranslationalVelocity(GetInitialConditionName(name), "",
+                                                                                RegionTypeEnum.Selection, 0, 0, 0, twoD);
             ViewInitialTranslationalVelocity vitv = new ViewInitialTranslationalVelocity(itv);
             vitv.PopulateDropDownLists(nodeSetNames, surfaceNames, referencePointNames);
             item.Tag = vitv;
@@ -313,8 +331,8 @@ namespace PrePoMax.Forms
             // Initial angular velocity
             name = "Angular Velocity";
             item = new ListViewItem(name);
-            InitialAngularVelocity iav = new InitialAngularVelocity(GetInitialConditionName(name), "",
-                                                                    RegionTypeEnum.Selection, 0, 0, 0, twoD);
+            InitialAngularVelocity iav = new InitialAngularVelocity(GetInitialConditionName(name), "", RegionTypeEnum.Selection,
+                                                                    twoD);
             ViewInitialAngularVelocity viav = new ViewInitialAngularVelocity(iav);
             viav.PopulateDropDownLists(nodeSetNames, surfaceNames, referencePointNames);
             item.Tag = viav;
@@ -355,6 +373,13 @@ namespace PrePoMax.Forms
                         }
                     }
                     else throw new NotImplementedException();
+                    // Secondary selection
+                    if (InitialCondition is InitialAngularVelocity iav)
+                    {
+                        double[][] nodeCoor = new double[][] { new double[] { iav.X.Value, iav.Y.Value, iav.Z.Value } };
+                        _controller.HighlightNodes(nodeCoor, true);
+                    }
+
                 }
                 else throw new NotSupportedException();
             }
@@ -362,7 +387,7 @@ namespace PrePoMax.Forms
         }
         private void ShowHideSelectionForm()
         {
-            if (InitialCondition != null && InitialCondition.RegionType == RegionTypeEnum.Selection)
+            if (InitialCondition != null && InitialCondition.RegionType == RegionTypeEnum.Selection && Enabled)
                 ItemSetDataEditor.SelectionForm.ShowIfHidden(this.Owner);
             else
                 ItemSetDataEditor.SelectionForm.Hide();
@@ -383,19 +408,59 @@ namespace PrePoMax.Forms
         //
         public void SelectionChanged(int[] ids)
         {
-            if (InitialCondition != null && InitialCondition.RegionType == RegionTypeEnum.Selection)
+            if (Enabled)
             {
-                if (InitialCondition is InitialTemperature || InitialCondition is InitialTranslationalVelocity ||
-                    InitialCondition is InitialAngularVelocity)
+                if (InitialCondition != null && InitialCondition.RegionType == RegionTypeEnum.Selection)
                 {
-                    InitialCondition.CreationIds = ids;
-                    InitialCondition.CreationData = _controller.Selection.DeepClone();
-                    //
-                    propertyGrid.Refresh();
-                    //
-                    _propertyItemChanged = true;
+                    if (InitialCondition is InitialTemperature || InitialCondition is InitialTranslationalVelocity ||
+                        InitialCondition is InitialAngularVelocity)
+                    {
+                        InitialCondition.CreationIds = ids;
+                        InitialCondition.CreationData = _controller.Selection.DeepClone();
+                        //
+                        propertyGrid.Refresh();
+                        //
+                        _propertyItemChanged = true;
+                        //
+                        Highlight();
+                    }
+                    else throw new NotSupportedException();
                 }
-                else throw new NotSupportedException();
+            }
+            else
+            {
+                if (ids != null && ids.Length > 0)
+                {
+                    bool changed = false;
+                    string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
+                    //
+                    if (_viewInitialCondition is ViewInitialAngularVelocity viav)
+                    {
+                        if (property == nameof(viav.CenterPointItemSet))
+                        {
+                            if (ids.Length == 1)
+                            {
+                                FeNode node = _controller.Model.Mesh.Nodes[ids[0]];
+                                viav.X = new EquationString(node.X.ToString());
+                                viav.Y = new EquationString(node.Y.ToString());
+                                viav.Z = new EquationString(node.Z.ToString());
+                                changed = true;
+                            }
+                        }
+                    }
+                    //
+                    if (changed)
+                    {
+                        Enabled = true; // must be first for the selection to work
+                        //
+                        propertyGrid.Refresh();
+                        //
+                        _propertyItemChanged = true;
+                        //
+                        _controller.Selection = _selectionCopy;
+                        Highlight();
+                    }
+                }
             }
         }
         // IFormHighlight

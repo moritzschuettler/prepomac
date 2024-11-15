@@ -73,7 +73,7 @@ namespace PrePoMax
             get { return _initialVelocity.Magnitude.Equation; }
             set { _initialVelocity.Magnitude.Equation = value; }
         }
-
+        
 
         // Constructors                                                                                                             
         public ViewInitialTranslationalVelocity(InitialTranslationalVelocity initialVelocity)

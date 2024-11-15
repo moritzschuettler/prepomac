@@ -42,6 +42,7 @@ namespace PrePoMax
             set { _initialTemperature.Temperature = value; }
         }
 
+
         // Constructors                                                                                                             
         public ViewInitialTemperature(CaeModel.InitialTemperature initialTemperature)
         {

@@ -6,18 +6,20 @@ using System.Threading.Tasks;
 using CaeMesh;
 using System.ComponentModel;
 using CaeGlobals;
+using System.Runtime.Serialization;
+using System.Drawing;
 
 namespace CaeModel
 {
     [Serializable]
-    public abstract class InitialCondition : NamedClass, IMultiRegion
+    public abstract class InitialCondition : NamedClass, IMultiRegion, ISerializable
     {
         // Variables                                                                                                                
-        private RegionTypeEnum _regionType;
-        private string _regionName;
-        private int[] _creationIds;
-        private Selection _creationData;
-        protected bool _twoD;
+        private string _regionName;             //ISerializable
+        private RegionTypeEnum _regionType;     //ISerializable
+        private int[] _creationIds;             //ISerializable
+        private Selection _creationData;        //ISerializable
+        protected bool _twoD;                   //ISerializable
 
 
         // Properties                                                                                                               
@@ -38,8 +40,43 @@ namespace CaeModel
             _creationData = null;
             _twoD = twoD;
         }
+        public InitialCondition(SerializationInfo info, StreamingContext context)
+            : base(info, context)
+        {
+            foreach (SerializationEntry entry in info)
+            {
+                switch (entry.Name)
+                {
+                    case "_regionName":
+                        _regionName = (string)entry.Value; break;
+                    case "_regionType":
+                        _regionType = (RegionTypeEnum)entry.Value; break;
+                    case "_creationIds":
+                        _creationIds = (int[])entry.Value; break;
+                    case "_creationData":
+                        _creationData = (Selection)entry.Value; break;
+                    case "_twoD":
+                        _twoD = (bool)entry.Value; break;
+                    default:
+                        break;
+                }
+            }
+        }
 
 
         // Methods                                                                                                                  
+
+        // ISerialization
+        public new void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            // Using typeof() works also for null fields
+            base.GetObjectData(info, context);
+            //
+            info.AddValue("_regionName", _regionName, typeof(string));
+            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
+            info.AddValue("_creationIds", _creationIds, typeof(int[]));
+            info.AddValue("_creationData", _creationData, typeof(Selection));
+            info.AddValue("_twoD", _twoD, typeof(bool));
+        }
     }
 }

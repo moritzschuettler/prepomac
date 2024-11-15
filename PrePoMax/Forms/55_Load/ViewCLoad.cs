@@ -15,7 +15,7 @@ namespace PrePoMax
     public class ViewCLoad : ViewLoad
     {
         // Variables                                                                                                                
-        private CaeModel.CLoad _cLoad;
+        private CLoad _cLoad;
 
 
         // Properties                                                                                                               

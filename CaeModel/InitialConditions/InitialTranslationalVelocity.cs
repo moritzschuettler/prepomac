@@ -8,17 +8,18 @@ using System.ComponentModel;
 using CaeGlobals;
 using CaeResults;
 using System.Data;
+using System.Runtime.Serialization;
 
 namespace CaeModel
 {
     [Serializable]
-    public class InitialTranslationalVelocity : InitialCondition, IContainsEquations, IPreviewable
+    public class InitialTranslationalVelocity : InitialCondition, IContainsEquations, IPreviewable, ISerializable
     {
         // Variables                                                                                                                
-        private EquationContainer _v1;
-        private EquationContainer _v2;
-        private EquationContainer _v3;
-        private EquationContainer _magnitude;
+        private EquationContainer _v1;              //ISerializable
+        private EquationContainer _v2;              //ISerializable
+        private EquationContainer _v3;              //ISerializable
+        private EquationContainer _magnitude;       //ISerializable
 
 
         // Properties                                                                                                               
@@ -36,7 +37,7 @@ namespace CaeModel
 
         // Constructors                                                                                                             
         public InitialTranslationalVelocity(string name, string regionName, RegionTypeEnum regionType,
-                               double v1, double v2, double v3, bool twoD)
+                                            double v1, double v2, double v3, bool twoD)
             : base(name, regionName, regionType, twoD)
         {
             double mag = Math.Sqrt(v1 * v1 + v2 * v2 + v3 * v3);
@@ -46,6 +47,26 @@ namespace CaeModel
             V3 = new EquationContainer(typeof(StringVelocityConverter), v3, null);
             Magnitude = new EquationContainer(typeof(StringVelocityConverter), mag, null);
         }
+        public InitialTranslationalVelocity(SerializationInfo info, StreamingContext context)
+            : base(info, context)
+        {
+            foreach (SerializationEntry entry in info)
+            {
+                switch (entry.Name)
+                {
+                    case "_v1":
+                        SetV1((EquationContainer)entry.Value, false); break;
+                    case "_v2":
+                        SetV2((EquationContainer)entry.Value, false); break;
+                    case "_v3":
+                        SetV3((EquationContainer)entry.Value, false); break;
+                    case "_magnitude":
+                        SetMagnitude((EquationContainer)entry.Value, false); break;
+                    default:
+                        break;
+                }
+            }
+        }
 
 
         // Methods                                                                                                                  
@@ -54,29 +75,29 @@ namespace CaeModel
             try
             {
                 // If error catch it silently
-                if (_v1.IsEquation() || _v2.IsEquation() || _v3.IsEquation()) FEquationChanged();
+                if (_v1.IsEquation() || _v2.IsEquation() || _v3.IsEquation()) VEquationChanged();
                 else if (_magnitude.IsEquation()) MagnitudeEquationChanged();
             }
             catch (Exception ex) { }
         }
         private void SetV1(EquationContainer value, bool checkEquation = true)
         {
-            EquationContainer.SetAndCheck(ref _v1, value, null, FEquationChanged, checkEquation);
+            EquationContainer.SetAndCheck(ref _v1, value, null, VEquationChanged, checkEquation);
         }
         private void SetV2(EquationContainer value, bool checkEquation = true)
         {
-            EquationContainer.SetAndCheck(ref _v2, value, null, FEquationChanged, checkEquation);
+            EquationContainer.SetAndCheck(ref _v2, value, null, VEquationChanged, checkEquation);
         }
         private void SetV3(EquationContainer value, bool checkEquation = true)
         {
-            EquationContainer.SetAndCheck(ref _v3, value, Check2D, FEquationChanged, checkEquation);
+            EquationContainer.SetAndCheck(ref _v3, value, Check2D, VEquationChanged, checkEquation);
         }
         private void SetMagnitude(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _magnitude, value, CheckMagnitude, MagnitudeEquationChanged, checkEquation);
         }
         //
-        private void FEquationChanged()
+        private void VEquationChanged()
         {
             double mag = Math.Sqrt(_v1.Value * _v1.Value + _v2.Value * _v2.Value + _v3.Value * _v3.Value);
             _magnitude.SetEquationFromValue(mag, false);
@@ -127,14 +148,18 @@ namespace CaeModel
                                            out allData.Cells.CellNodeIds, out allData.Cells.Types);
             //
             HashSet<int> nodeIds;
-            if (RegionType == RegionTypeEnum.PartName)
+            if (RegionType == RegionTypeEnum.NodeSetName)
             {
-                nodeIds = new HashSet<int>(targetMesh.Parts[RegionName].NodeLabels);
+                nodeIds = new HashSet<int>(targetMesh.NodeSets[RegionName].Labels);
             }
-            else if (RegionType == RegionTypeEnum.ElementSetName)
+            else if (RegionType == RegionTypeEnum.SurfaceName)
             {
-                FeNodeSet nodeSet = targetMesh.GetNodeSetFromPartOrElementSetName(RegionName, false);
-                nodeIds = new HashSet<int>(nodeSet.Labels);
+                string nodeSetName = targetMesh.Surfaces[RegionName].NodeSetName;
+                nodeIds = new HashSet<int>(targetMesh.NodeSets[nodeSetName].Labels);
+            }
+            else if (RegionType == RegionTypeEnum.ReferencePointName)
+            {
+                nodeIds = new HashSet<int>();
             }
             else throw new NotSupportedException();
             //
@@ -187,6 +212,17 @@ namespace CaeModel
             results.AddField(fieldData, field);
             //
             return results;
+        }
+        // ISerialization
+        public new void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            // Using typeof() works also for null fields
+            base.GetObjectData(info, context);
+            //
+            info.AddValue("_v1", _v1, typeof(EquationContainer));
+            info.AddValue("_v2", _v2, typeof(EquationContainer));
+            info.AddValue("_v3", _v3, typeof(EquationContainer));
+            info.AddValue("_magnitude", _magnitude, typeof(EquationContainer));
         }
     }
 }

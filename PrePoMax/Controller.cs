@@ -8805,9 +8805,13 @@ namespace PrePoMax
                 {
                     results = it.GetPreview(_model.Mesh, initialConditionName, _model.UnitSystem);
                 }
-                else if (initialCondition is InitialTranslationalVelocity iv)
+                else if (initialCondition is InitialTranslationalVelocity itv)
                 {
-                    results = iv.GetPreview(_model.Mesh, initialConditionName, _model.UnitSystem);
+                    results = itv.GetPreview(_model.Mesh, initialConditionName, _model.UnitSystem);
+                }
+                else if (initialCondition is InitialAngularVelocity iav)
+                {
+                    results = iav.GetPreview(_model.Mesh, initialConditionName, _model.UnitSystem);
                 }
                 else throw new CaeException("It is not possible to preview this initial condition type.");
                 //
@@ -8878,7 +8882,7 @@ namespace PrePoMax
                     initialCondition.RegionType = RegionTypeEnum.NodeSetName;
                 }
                 // Initial velocity
-                else if (initialCondition is InitialTranslationalVelocity)
+                else if (initialCondition is InitialTranslationalVelocity || initialCondition is InitialAngularVelocity)
                 {
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.NodeSets, initialCondition.Name);
                     FeNodeSet nodeSet = new FeNodeSet(name, initialCondition.CreationIds);
@@ -8907,7 +8911,7 @@ namespace PrePoMax
             {
                 if (initialCondition is InitialTemperature)
                     RemoveNodeSets(new string[] { initialCondition.RegionName });
-                else if (initialCondition is InitialTranslationalVelocity)
+                else if (initialCondition is InitialTranslationalVelocity || initialCondition is InitialAngularVelocity)
                     RemoveNodeSets(new string[] { initialCondition.RegionName });
                 else throw new NotSupportedException();
             }

@@ -7,6 +7,7 @@ using System.ComponentModel;
 using CaeGlobals;
 using DynamicTypeDescriptor;
 using CaeModel;
+using System.Drawing.Design;
 
 namespace PrePoMax
 {
@@ -15,6 +16,7 @@ namespace PrePoMax
     {
         // Variables                                                                                                                
         private InitialAngularVelocity _initialVelocity;
+        private ItemSetData _centerPointItemSetData;
 
 
         // Properties                                                                                                               
@@ -42,36 +44,72 @@ namespace PrePoMax
             set { _initialVelocity.RegionName = value; }
         }
         //
-        [CategoryAttribute("Velocity components")]
-        [OrderedDisplayName(0, 10, "ω1")]
-        [DescriptionAttribute("Value of the velocity component in the direction of the first axis.")]
-        [TypeConverter(typeof(EquationRotationalSpeedConverter))]
+        [Category("Rotation center coordinates")]
+        [OrderedDisplayName(0, 10, "By selection")]
+        [DescriptionAttribute("Use selection for the definition of the rotation center.")]
+        [EditorAttribute(typeof(SinglePointDataEditor), typeof(UITypeEditor))]
         [Id(1, 3)]
-        public EquationString V1 { get { return _initialVelocity.V1.Equation; } set { _initialVelocity.V1.Equation = value; } }
-        //
-        [CategoryAttribute("Velocity components")]
-        [OrderedDisplayName(1, 10, "ω2")]
-        [DescriptionAttribute("Value of the velocity component in the direction of the second axis.")]
-        [TypeConverter(typeof(EquationRotationalSpeedConverter))]
-        [Id(2, 3)]
-        public EquationString V2 { get { return _initialVelocity.V2.Equation; } set { _initialVelocity.V2.Equation = value; } }
-        //
-        [CategoryAttribute("Velocity components")]
-        [OrderedDisplayName(2, 10, "ω3")]
-        [DescriptionAttribute("Value of the velocity component in the direction of the third axis.")]
-        [TypeConverter(typeof(EquationRotationalSpeedConverter))]
-        [Id(3, 3)]
-        public EquationString V3 { get { return _initialVelocity.V3.Equation; } set { _initialVelocity.V3.Equation = value; } }
-        //
-        [CategoryAttribute("Velocity magnitude")]
-        [OrderedDisplayName(3, 10, "Magnitude")]
-        [DescriptionAttribute("Value of the velocity magnitude.")]
-        [TypeConverter(typeof(EquationRotationalSpeedConverter))]
-        [Id(1, 4)]
-        public EquationString Magnitude
+        public ItemSetData CenterPointItemSet
         {
-            get { return _initialVelocity.Magnitude.Equation; }
-            set { _initialVelocity.Magnitude.Equation = value; }
+            get { return _centerPointItemSetData; }
+            set
+            {
+                if (value != _centerPointItemSetData)
+                    _centerPointItemSetData = value;
+            }
+        }
+        //
+        [CategoryAttribute("Rotation center coordinates")]
+        [OrderedDisplayName(1, 10, "X")]
+        [DescriptionAttribute("X coordinate of the axis point.")]
+        [TypeConverter(typeof(EquationLengthConverter))]
+        [Id(2, 3)]
+        public EquationString X { get { return _initialVelocity.X.Equation; } set { _initialVelocity.X.Equation = value; } }
+        //
+        [CategoryAttribute("Rotation center coordinates")]
+        [OrderedDisplayName(2, 10, "Y")]
+        [DescriptionAttribute("Y coordinate of the axis point.")]
+        [TypeConverter(typeof(EquationLengthConverter))]
+        [Id(3, 3)]
+        public EquationString Y { get { return _initialVelocity.Y.Equation; } set { _initialVelocity.Y.Equation = value; } }
+        //
+        [CategoryAttribute("Rotation center coordinates")]
+        [OrderedDisplayName(3, 10, "Z")]
+        [DescriptionAttribute("Z coordinate of the axis point.")]
+        [TypeConverter(typeof(EquationLengthConverter))]
+        [Id(4, 3)]
+        public EquationString Z { get { return _initialVelocity.Z.Equation; } set { _initialVelocity.Z.Equation = value; } }
+        //
+        [CategoryAttribute("Rotation axis components")]
+        [OrderedDisplayName(0, 10, "N1")]
+        [DescriptionAttribute("Axis component in the direction of the first axis.")]
+        [TypeConverter(typeof(EquationLengthConverter))]
+        [Id(1, 4)]
+        public EquationString N1 { get { return _initialVelocity.N1.Equation; } set { _initialVelocity.N1.Equation = value; } }
+        //
+        [CategoryAttribute("Rotation axis components")]
+        [OrderedDisplayName(1, 10, "N2")]
+        [DescriptionAttribute("Axis component in the direction of the second axis.")]
+        [TypeConverter(typeof(EquationLengthConverter))]
+        [Id(2, 4)]
+        public EquationString N2 { get { return _initialVelocity.N2.Equation; } set { _initialVelocity.N2.Equation = value; } }
+        //
+        [CategoryAttribute("Rotation axis components")]
+        [OrderedDisplayName(2, 10, "N3")]
+        [DescriptionAttribute("Axis component in the direction of the third axis.")]
+        [TypeConverter(typeof(EquationLengthConverter))]
+        [Id(3, 4)]
+        public EquationString N3 { get { return _initialVelocity.N3.Equation; } set { _initialVelocity.N3.Equation = value; } }
+        //
+        [CategoryAttribute("Rotational speed magnitude")]
+        [OrderedDisplayName(0, 10, "Magnitude")]
+        [DescriptionAttribute("Value of the rotational speed magnitude around the axis defined by the point and direction.")]
+        [TypeConverter(typeof(EquationRotationalSpeedConverter))]
+        [Id(1, 5)]
+        public EquationString RotationalSpeed
+        {
+            get { return _initialVelocity.RotationalSpeed.Equation; }
+            set { _initialVelocity.RotationalSpeed.Equation = value; }
         }
 
 
@@ -90,7 +128,12 @@ namespace PrePoMax
             SetBase(_initialVelocity, regionTypePropertyNamePairs);
             DynamicCustomTypeDescriptor = ProviderInstaller.Install(this);
             //
-            DynamicCustomTypeDescriptor.GetProperty(nameof(V3)).SetIsBrowsable(!initialVelocity.TwoD);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(Z)).SetIsBrowsable(!initialVelocity.TwoD);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(N1)).SetIsBrowsable(!initialVelocity.TwoD);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(N2)).SetIsBrowsable(!initialVelocity.TwoD);
+            //
+            _centerPointItemSetData = new ItemSetData(); // needed to display ItemSetData.ToString()
+            _centerPointItemSetData.ToStringType = ItemSetDataToStringType.SelectSinglePoint;
         }
 
 

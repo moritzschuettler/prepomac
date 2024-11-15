@@ -359,9 +359,6 @@
     <None Include="Resources\Show.ico" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Resources\Unactive.ico" />
-  </ItemGroup>
-  <ItemGroup>
     <None Include="Resources\Deformed.ico" />
   </ItemGroup>
   <ItemGroup>
@@ -374,6 +371,12 @@
     <None Include="Resources\Show2.ico" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Resources\Unactive7.ico" />
+    <None Include="Resources\Unactive6.ico" />
+    <None Include="Resources\Unactive.ico" />
+    <None Include="Resources\Unactive5.ico" />
+    <None Include="Resources\Unactive4.ico" />
+    <None Include="Resources\Unactive3.ico" />
     <None Include="Resources\Compound.ico" />
     <None Include="Resources\Meshing_parameters.ico" />
     <None Include="Images\Collapse.png" />

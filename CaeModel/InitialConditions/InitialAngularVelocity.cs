@@ -13,17 +13,17 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
-    public class InitialAngularVelocity : InitialCondition, IContainsEquations, IPreviewable
+    public class InitialAngularVelocity : InitialCondition, IContainsEquations, IPreviewable, ISerializable
     {
 
         // Variables                                                                                                                
-        private EquationContainer _x;
-        private EquationContainer _y;
-        private EquationContainer _z;
-        private EquationContainer _n1;
-        private EquationContainer _n2;
-        private EquationContainer _n3;
-        private EquationContainer _rotationalSpeed;
+        private EquationContainer _x;                   //ISerializable
+        private EquationContainer _y;                   //ISerializable
+        private EquationContainer _z;                   //ISerializable
+        private EquationContainer _n1;                  //ISerializable
+        private EquationContainer _n2;                  //ISerializable
+        private EquationContainer _n3;                  //ISerializable
+        private EquationContainer _rotationalSpeed;     //ISerializable
 
 
         // Properties                                                                                                               
@@ -56,7 +56,32 @@ namespace CaeModel
             //
             RotationalSpeed = new EquationContainer(typeof(StringRotationalSpeedConverter), rotationalSpeed);
         }
-
+        public InitialAngularVelocity(SerializationInfo info, StreamingContext context)
+            : base(info, context)
+        {
+            foreach (SerializationEntry entry in info)
+            {
+                switch (entry.Name)
+                {
+                    case "_x":
+                        SetX((EquationContainer)entry.Value, false); break;
+                    case "_y":
+                        SetY((EquationContainer)entry.Value, false); break;
+                    case "_z":
+                        SetZ((EquationContainer)entry.Value, false); break;
+                    case "_n1":
+                        SetN1((EquationContainer)entry.Value, false); break;
+                    case "_n2":
+                        SetN2((EquationContainer)entry.Value, false); break;
+                    case "_n3":
+                        SetN3((EquationContainer)entry.Value, false); break;
+                    case "_rotationalSpeed":
+                        SetRotationalSpeed((EquationContainer)entry.Value, false); break;
+                    default:
+                        break;
+                }
+            }
+        }
 
         // Methods                                                                                                                  
         private void SetX(EquationContainer value, bool checkEquation = true)
@@ -164,8 +189,8 @@ namespace CaeModel
                     node = new Vec3D(allData.Nodes.Coor[i]);
                     pointToNode = node - point;
                     t = Vec3D.DotProduct(pointToNode, normal);
-                    axisPoint = normal * t;
-                    r = normal - axisPoint;
+                    axisPoint = point + normal * t;
+                    r = node - axisPoint;
                     v = Vec3D.CrossProduct(normal, r) * omega;
                     //
                     values1[i] = (float)v.X;
@@ -203,6 +228,20 @@ namespace CaeModel
             results.AddField(fieldData, field);
             //
             return results;
+        }
+        // ISerialization
+        public new void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            // Using typeof() works also for null fields
+            base.GetObjectData(info, context);
+            //
+            info.AddValue("_x", _x, typeof(EquationContainer));
+            info.AddValue("_y", _y, typeof(EquationContainer));
+            info.AddValue("_z", _z, typeof(EquationContainer));
+            info.AddValue("_n1", _n1, typeof(EquationContainer));
+            info.AddValue("_n2", _n2, typeof(EquationContainer));
+            info.AddValue("_n3", _n3, typeof(EquationContainer));
+            info.AddValue("_rotationalSpeed", _rotationalSpeed, typeof(EquationContainer));
         }
     }
 }
