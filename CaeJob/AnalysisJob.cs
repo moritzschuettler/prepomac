@@ -353,7 +353,7 @@ namespace CaeJob
                     AppendDataToOutput(" Job failed - no results exist.");
                     _jobStatus = JobStatus.Failed;
                 }
-                else if (_sbOutput.ToString().Contains("*ERROR") || _sbAllOutput.ToString().Contains("*ERROR"))
+                else if (ContainsError(_sbOutput.ToString()) || ContainsError(_sbAllOutput.ToString()))
                 {
                     _jobStatus = JobStatus.FailedWithResults;
                 }
@@ -376,6 +376,18 @@ namespace CaeJob
             bool useBackgroundWorker = sender != null;
             if (continueAnalysis) SubmitNextRun(useBackgroundWorker);
             else AllRunsCompleted();
+        }
+        private bool ContainsError(string text)
+        {
+            //*ERROR reading *DYNAMIC: initial increment size exce eds step size
+            if (text.Contains("*ERROR"))
+            {
+                if (text.Contains("*ERROR reading *DYNAMIC: initial increment size"))
+                    return text.AllIndicesOf("*ERROR").Count() > 1;
+                else
+                    return true;
+            }
+            else return false;
         }
         private void AllRunsCompleted()
         {

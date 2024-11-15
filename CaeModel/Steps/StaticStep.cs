@@ -27,6 +27,9 @@ namespace CaeModel
             {
                 if (value <= 0) throw new Exception("The time period value must be positive.");
                 _timePeriod = value;
+                //
+                if (_initialTimeIncrement > _timePeriod) _initialTimeIncrement = _timePeriod;
+                if (_minTimeIncrement > _timePeriod) _minTimeIncrement = _timePeriod;
             }
         }
         public double InitialTimeIncrement
@@ -36,6 +39,8 @@ namespace CaeModel
             {
                 if (value <= 0) throw new Exception("The initial time increment value must be positive.");
                 _initialTimeIncrement = value;
+                //
+                if (_initialTimeIncrement > _timePeriod) _initialTimeIncrement = _timePeriod;
             }
         }
         public double MinTimeIncrement
@@ -45,6 +50,8 @@ namespace CaeModel
             {
                 if (value <= 0) throw new Exception("The min time increment value must be positive.");
                 _minTimeIncrement = value;
+                //
+                if (_minTimeIncrement > _timePeriod) _minTimeIncrement = _timePeriod;
             }
         }
         public double MaxTimeIncrement

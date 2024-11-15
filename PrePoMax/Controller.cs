@@ -114,13 +114,13 @@ namespace PrePoMax
         {
             get
             {
-                return _allResults.Count > 0 && _allResults.CurrentResult != null &&
+                return _allResults != null && _allResults.Count > 0 && _allResults.CurrentResult != null &&
                        _allResults.CurrentResult.Mesh != null && _allResults.CurrentResult.Mesh.Nodes.Count > 0;
             }
         }
         public bool ContainsComplexResults
         {
-            get { return _allResults.ContainsComplexResults(); }
+            get { return _allResults != null && _allResults.ContainsComplexResults(); }
         }
         public bool ModelChanged { get { return _modelChanged; } set { _modelChanged = value; } }
         public bool SavingFile { get { return _savingFile; } }
@@ -269,7 +269,7 @@ namespace PrePoMax
         public Selection Selection { get { return _selection; } set { _selection = value; } }
         // Results
         public ResultsCollection AllResults { get { return _allResults; } }
-        public FeResults CurrentResult { get { return _allResults.CurrentResult; } }
+        public FeResults CurrentResult { get { return _allResults != null ? _allResults.CurrentResult : null; } }
         public ViewResultsTypeEnum ViewResultsType
         {
             get { return _viewResultsType; }
@@ -575,7 +575,7 @@ namespace PrePoMax
             // Annotations
             _annotations.RemoveAllResultArrowAnnotations();
             //
-            if (_allResults.Count > 0)
+            if (_allResults != null && _allResults.Count > 0)
             {
                 _modelChanged = true;
                 _allResults.Clear();
@@ -664,9 +664,13 @@ namespace PrePoMax
             string fileVersion;
             //
             data = TryReadCompressedPmx(fileName, out _model, out _allResults, out fileVersion);
-            if (data != null && data.Length == 1 && (string)data[0] == "IncompatibleVersion")
+            if (data != null && data.Length == 1 && ((string)data[0]).StartsWith("IncompatibleVersion"))
             {
                 New();
+                string[] versionData = ((string)data[0]).Split(new string[] { " " }, StringSplitOptions.RemoveEmptyEntries);
+                if (versionData.Length == 2)
+                    throw new CaeException("The file cannot be read. It is either corrupt or its version " + versionData[1] +
+                                           " is incompatible with this version of PrePoMax.");
                 return;
             }
             if (data == null) data = TryReadUncompressedPmx(fileName, out _model, out _allResults);
@@ -1063,6 +1067,10 @@ namespace PrePoMax
             model = null;
             allResults = null;
             fileVersion = null;
+            //
+            int major = 0;
+            int minor = 0;
+            int build = 0;
             try
             {
                 object[] data = null;
@@ -1081,9 +1089,7 @@ namespace PrePoMax
                     //
                     string[] versions = fileVersion.Split(new string[] { " ", ".", "v" },
                                                           StringSplitOptions.RemoveEmptyEntries);
-                    int major;
-                    int minor;
-                    int build;
+                    
                     int.TryParse(versions[1], out major);
                     int.TryParse(versions[2], out minor);
                     int.TryParse(versions[3], out build);
@@ -1095,13 +1101,17 @@ namespace PrePoMax
                     else
                         data = TryReadCompressedPmxAfter_2_0_6(fs, version, out model, out allResults);
                     //
+                    if (data == null || model == null)
+                        throw new CaeException("IncompatibleVersion");
+                    //
                     model.UpdateMeshPartsElementTypes(true);
                 }
                 return data;
             }
             catch (Exception ex)
             {
-                if (ex.Message == "IncompatibleVersion") return new object[] { ex.Message };
+                if (ex.Message == "IncompatibleVersion")
+                    return new object[] { ex.Message + string.Format(" {0}.{1}.{2}", major, minor, build)};
                 else return null;
             }
         }
@@ -8795,7 +8805,7 @@ namespace PrePoMax
                 {
                     results = it.GetPreview(_model.Mesh, initialConditionName, _model.UnitSystem);
                 }
-                else if (initialCondition is InitialVelocity iv)
+                else if (initialCondition is InitialTranslationalVelocity iv)
                 {
                     results = iv.GetPreview(_model.Mesh, initialConditionName, _model.UnitSystem);
                 }
@@ -8868,7 +8878,7 @@ namespace PrePoMax
                     initialCondition.RegionType = RegionTypeEnum.NodeSetName;
                 }
                 // Initial velocity
-                else if (initialCondition is InitialVelocity)
+                else if (initialCondition is InitialTranslationalVelocity)
                 {
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.NodeSets, initialCondition.Name);
                     FeNodeSet nodeSet = new FeNodeSet(name, initialCondition.CreationIds);
@@ -8897,7 +8907,7 @@ namespace PrePoMax
             {
                 if (initialCondition is InitialTemperature)
                     RemoveNodeSets(new string[] { initialCondition.RegionName });
-                else if (initialCondition is InitialVelocity)
+                else if (initialCondition is InitialTranslationalVelocity)
                     RemoveNodeSets(new string[] { initialCondition.RegionName });
                 else throw new NotSupportedException();
             }

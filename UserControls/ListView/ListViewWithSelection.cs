@@ -206,16 +206,20 @@ namespace UserControls
             if (SelectedItems.Count > 0)
             {
                 ClearPrevSelection();
-                // Remove the selection and use color to show the previously selected item
-                foreach (ListViewItem item in SelectedItems)
+                //
+                if (Enabled)
                 {
-                    _prevSelectedItem = item;
-                    _prevSelectedItemsColors = new Color[] { item.BackColor, item.ForeColor };
-                    //
-                    item.BackColor = SystemColors.Highlight;
-                    item.ForeColor = SystemColors.HighlightText;
-                    //
-                    item.Selected = false;
+                    // Remove the selection and use color to show the previously selected item
+                    foreach (ListViewItem item in SelectedItems)
+                    {
+                        _prevSelectedItem = item;
+                        _prevSelectedItemsColors = new Color[] { item.BackColor, item.ForeColor };
+                        //
+                        item.BackColor = SystemColors.Highlight;
+                        item.ForeColor = SystemColors.HighlightText;
+                        //
+                        item.Selected = false;  // calls itself
+                    }
                 }
             }
             //
@@ -233,6 +237,14 @@ namespace UserControls
             base.OnKeyUp(e);
             //Message m = Message.Create(this.Handle, 0x127, new IntPtr(0x10001), new IntPtr(0));
             //this.WndProc(ref m);
+        }
+        protected override void OnEnabledChanged(EventArgs e)
+        {
+            if (Enabled == false && _prevSelectedItem != null)
+            {
+                _prevSelectedItem.Selected = true;
+            }
+            base.OnEnabledChanged(e);
         }
         //
         public ListViewItem SelectedItem

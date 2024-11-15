@@ -65,7 +65,8 @@
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalPhysicalConstants.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalAdditional.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Constraints\CalEquation.cs" />
-    <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\InitialConditions\CalInitialVelocity.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\InitialConditions\CalInitialAngularVelocity.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\InitialConditions\CalInitialTranslationalVelocity.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalSlipWear.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Section\CalGapSection.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Section\CalMassSection.cs" />
@@ -118,7 +119,8 @@
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\Imported\CalImportedSTLoad.cs" />
     <Compile Include="FileInOut\Output\Gmsh\GmshMshFileWriter.cs" />
     <Compile Include="FileInOut\Output\Mmg\MmgFileWriter.cs" />
-    <Compile Include="InitialConditions\InitialVelocity.cs" />
+    <Compile Include="InitialConditions\InitialAngularVelocity.cs" />
+    <Compile Include="InitialConditions\InitialTranslationalVelocity.cs" />
     <Compile Include="InitialConditions\InitialTemperature.cs" />
     <Compile Include="InitialConditions\InitialCondition.cs" />
     <Compile Include="Materials\SlipWear.cs" />
@@ -282,7 +284,9 @@
     <None Include="ClassDiagram1.cd" />
     <None Include="packages.config" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Folder Include="_Compatibility\" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

@@ -26,7 +26,10 @@ namespace PrePoMax.Forms
             set
             {
                 if (value is InitialTemperature it) _viewInitialCondition = new ViewInitialTemperature(it.DeepClone());
-                else if (value is InitialVelocity iv) _viewInitialCondition = new ViewInitialVelocity(iv.DeepClone());
+                else if (value is InitialTranslationalVelocity itv)
+                    _viewInitialCondition = new ViewInitialTranslationalVelocity(itv.DeepClone());
+                else if (value is InitialAngularVelocity iav)
+                    _viewInitialCondition = new ViewInitialAngularVelocity(iav.DeepClone());
                 else throw new NotImplementedException();
             }
         }
@@ -47,10 +50,39 @@ namespace PrePoMax.Forms
             this.gbProperties.SuspendLayout();
             this.SuspendLayout();
             // 
+            // gbType
+            // 
+            this.gbType.Size = new System.Drawing.Size(310, 108);
+            // 
+            // lvTypes
+            // 
+            this.lvTypes.Size = new System.Drawing.Size(298, 80);
+            // 
+            // gbProperties
+            // 
+            this.gbProperties.Location = new System.Drawing.Point(12, 126);
+            this.gbProperties.Size = new System.Drawing.Size(310, 314);
+            // 
+            // propertyGrid
+            // 
+            this.propertyGrid.Size = new System.Drawing.Size(298, 286);
+            // 
+            // btnOK
+            // 
+            this.btnOK.Location = new System.Drawing.Point(160, 446);
+            // 
+            // btnCancel
+            // 
+            this.btnCancel.Location = new System.Drawing.Point(241, 446);
+            // 
+            // btnOkAddNew
+            // 
+            this.btnOkAddNew.Location = new System.Drawing.Point(79, 446);
+            // 
             // FrmInitialCondition
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
-            this.ClientSize = new System.Drawing.Size(334, 461);
+            this.ClientSize = new System.Drawing.Size(334, 481);
             this.Name = "FrmInitialCondition";
             this.Text = "Edit Initial Condition";
             this.gbType.ResumeLayout(false);
@@ -68,7 +100,8 @@ namespace PrePoMax.Forms
                 object itemTag = lvTypes.SelectedItems[0].Tag;
                 if (itemTag is ViewError)  _viewInitialCondition = null;
                 else if (itemTag is ViewInitialTemperature vit) _viewInitialCondition = vit;
-                else if (itemTag is ViewInitialVelocity viv) _viewInitialCondition = viv;
+                else if (itemTag is ViewInitialTranslationalVelocity vitv) _viewInitialCondition = vitv;
+                else if (itemTag is ViewInitialAngularVelocity viav) _viewInitialCondition = viav;
                 else throw new NotImplementedException();
                 //
                 ShowHideSelectionForm();
@@ -94,10 +127,17 @@ namespace PrePoMax.Forms
             {
                 HighlightInitialCondition();
             }
-            else if (_viewInitialCondition is ViewInitialVelocity viv &&
-                     (property == nameof(viv.NodeSetName) ||
-                      property == nameof(viv.SurfaceName) ||
-                      property == nameof(viv.ReferencePointName)))
+            else if (_viewInitialCondition is ViewInitialTranslationalVelocity vitv &&
+                     (property == nameof(vitv.NodeSetName) ||
+                      property == nameof(vitv.SurfaceName) ||
+                      property == nameof(vitv.ReferencePointName)))
+            {
+                HighlightInitialCondition();
+            }
+            else if (_viewInitialCondition is ViewInitialAngularVelocity viav &&
+                     (property == nameof(vitv.NodeSetName) ||
+                      property == nameof(vitv.SurfaceName) ||
+                      property == nameof(vitv.ReferencePointName)))
             {
                 HighlightInitialCondition();
             }
@@ -115,6 +155,16 @@ namespace PrePoMax.Forms
             if (InitialCondition.RegionType == RegionTypeEnum.Selection &&
                 (InitialCondition.CreationIds == null || InitialCondition.CreationIds.Length == 0))
                 throw new CaeException("The initial condition selection must contain at least one item.");
+            if (InitialCondition is InitialTranslationalVelocity itv)
+            {
+                if (itv.Magnitude.Value == 0)
+                    throw new CaeException("At least one velocity component must not be equal to 0.");
+            }
+            if (InitialCondition is InitialAngularVelocity iav)
+            {
+                if (iav.Magnitude.Value == 0)
+                    throw new CaeException("At least one velocity component must not be equal to 0.");
+            }
             // Check if the name exists
             CheckName(_initialConditionToEditName, InitialCondition.Name, _initialConditionNames, "initial condition");
             // Create
@@ -195,21 +245,37 @@ namespace PrePoMax.Forms
                     //
                     vit.PopulateDropDownLists(nodeSetNames, surfaceNames);
                 }
-                else if (_viewInitialCondition is ViewInitialVelocity viv)
+                else if (_viewInitialCondition is ViewInitialTranslationalVelocity vitv)
                 {
                     selectedId = 1;
                     // Check for deleted entities
-                    if (viv.RegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
-                    else if (viv.RegionType == RegionTypeEnum.NodeSetName.ToFriendlyString())
-                        CheckMissingValueRef(ref nodeSetNames, viv.NodeSetName, s => { viv.NodeSetName = s; });
-                    else if (viv.RegionType == RegionTypeEnum.SurfaceName.ToFriendlyString())
-                        CheckMissingValueRef(ref surfaceNames, viv.SurfaceName, s => { viv.SurfaceName = s; });
-                    else if (viv.RegionType == RegionTypeEnum.ReferencePointName.ToFriendlyString())
-                        CheckMissingValueRef(ref referencePointNames, viv.ReferencePointName, 
-                                             s => { viv.ReferencePointName = s; });
+                    if (vitv.RegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
+                    else if (vitv.RegionType == RegionTypeEnum.NodeSetName.ToFriendlyString())
+                        CheckMissingValueRef(ref nodeSetNames, vitv.NodeSetName, s => { vitv.NodeSetName = s; });
+                    else if (vitv.RegionType == RegionTypeEnum.SurfaceName.ToFriendlyString())
+                        CheckMissingValueRef(ref surfaceNames, vitv.SurfaceName, s => { vitv.SurfaceName = s; });
+                    else if (vitv.RegionType == RegionTypeEnum.ReferencePointName.ToFriendlyString())
+                        CheckMissingValueRef(ref referencePointNames, vitv.ReferencePointName, 
+                                             s => { vitv.ReferencePointName = s; });
                     else throw new NotSupportedException();
                     //
-                    viv.PopulateDropDownLists(nodeSetNames, surfaceNames, referencePointNames);
+                    vitv.PopulateDropDownLists(nodeSetNames, surfaceNames, referencePointNames);
+                }
+                else if (_viewInitialCondition is ViewInitialAngularVelocity viav)
+                {
+                    selectedId = 2;
+                    // Check for deleted entities
+                    if (viav.RegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
+                    else if (viav.RegionType == RegionTypeEnum.NodeSetName.ToFriendlyString())
+                        CheckMissingValueRef(ref nodeSetNames, viav.NodeSetName, s => { viav.NodeSetName = s; });
+                    else if (viav.RegionType == RegionTypeEnum.SurfaceName.ToFriendlyString())
+                        CheckMissingValueRef(ref surfaceNames, viav.SurfaceName, s => { viav.SurfaceName = s; });
+                    else if (viav.RegionType == RegionTypeEnum.ReferencePointName.ToFriendlyString())
+                        CheckMissingValueRef(ref referencePointNames, viav.ReferencePointName,
+                                             s => { viav.ReferencePointName = s; });
+                    else throw new NotSupportedException();
+                    //
+                    viav.PopulateDropDownLists(nodeSetNames, surfaceNames, referencePointNames);
                 }
                 else throw new NotSupportedException();
                 //
@@ -238,10 +304,20 @@ namespace PrePoMax.Forms
             // Initial velocity
             name = "Velocity";
             item = new ListViewItem(name);
-            InitialVelocity iv = new InitialVelocity(GetInitialConditionName(name), "", RegionTypeEnum.Selection, 0, 0, 0, twoD);
-            ViewInitialVelocity viv = new ViewInitialVelocity(iv);
-            viv.PopulateDropDownLists(nodeSetNames, surfaceNames, referencePointNames);
-            item.Tag = viv;
+            InitialTranslationalVelocity itv = new InitialTranslationalVelocity(GetInitialConditionName(name), "", 
+                                                                               RegionTypeEnum.Selection, 0, 0, 0, twoD);
+            ViewInitialTranslationalVelocity vitv = new ViewInitialTranslationalVelocity(itv);
+            vitv.PopulateDropDownLists(nodeSetNames, surfaceNames, referencePointNames);
+            item.Tag = vitv;
+            lvTypes.Items.Add(item);
+            // Initial angular velocity
+            name = "Angular Velocity";
+            item = new ListViewItem(name);
+            InitialAngularVelocity iav = new InitialAngularVelocity(GetInitialConditionName(name), "",
+                                                                    RegionTypeEnum.Selection, 0, 0, 0, twoD);
+            ViewInitialAngularVelocity viav = new ViewInitialAngularVelocity(iav);
+            viav.PopulateDropDownLists(nodeSetNames, surfaceNames, referencePointNames);
+            item.Tag = viav;
             lvTypes.Items.Add(item);
         }
         private string GetInitialConditionName(string name)
@@ -259,7 +335,8 @@ namespace PrePoMax.Forms
                 _controller.ClearSelectionHistory();
                 //
                 if (_viewInitialCondition == null) { }
-                else if (InitialCondition is InitialTemperature || InitialCondition is InitialVelocity)
+                else if (InitialCondition is InitialTemperature || InitialCondition is InitialTranslationalVelocity ||
+                         InitialCondition is InitialAngularVelocity)
                 {
                     if (InitialCondition.RegionType == RegionTypeEnum.NodeSetName ||
                         InitialCondition.RegionType == RegionTypeEnum.SurfaceName ||
@@ -297,8 +374,9 @@ namespace PrePoMax.Forms
             if (InitialCondition != null && InitialCondition.RegionType == RegionTypeEnum.Selection)
             {
                 if (InitialCondition is null) { }
-                else if (InitialCondition is InitialTemperature) _controller.SetSelectItemToNode();
-                else if (InitialCondition is InitialVelocity) _controller.SetSelectItemToNode();
+                else if (InitialCondition is InitialTemperature) _controller.SetSelectItemToGeometry();
+                else if (InitialCondition is InitialTranslationalVelocity) _controller.SetSelectItemToGeometry();
+                else if (InitialCondition is InitialAngularVelocity) _controller.SetSelectItemToGeometry();
             }
             else _controller.SetSelectByToOff();
         }
@@ -307,7 +385,8 @@ namespace PrePoMax.Forms
         {
             if (InitialCondition != null && InitialCondition.RegionType == RegionTypeEnum.Selection)
             {
-                if (InitialCondition is InitialTemperature || InitialCondition is InitialVelocity)
+                if (InitialCondition is InitialTemperature || InitialCondition is InitialTranslationalVelocity ||
+                    InitialCondition is InitialAngularVelocity)
                 {
                     InitialCondition.CreationIds = ids;
                     InitialCondition.CreationData = _controller.Selection.DeepClone();

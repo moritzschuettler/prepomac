@@ -325,12 +325,22 @@ namespace CaeModel
                 initialCondition = entry.Value;
                 if (initialCondition is InitialTemperature it)
                 {
-                    valid = (it.RegionType == RegionTypeEnum.NodeSetName && _mesh.NodeSets.ContainsValidKey(it.RegionName))
-                            || (it.RegionType == RegionTypeEnum.SurfaceName && _mesh.Surfaces.ContainsValidKey(it.RegionName));
+                    valid = (it.RegionType == RegionTypeEnum.NodeSetName && _mesh.NodeSets.ContainsValidKey(it.RegionName)) ||
+                            (it.RegionType == RegionTypeEnum.SurfaceName && _mesh.Surfaces.ContainsValidKey(it.RegionName));
                 }
-                else if (initialCondition is InitialVelocity iv)
+                else if (initialCondition is InitialTranslationalVelocity itv)
                 {
-
+                    valid = (itv.RegionType == RegionTypeEnum.NodeSetName && _mesh.NodeSets.ContainsValidKey(itv.RegionName)) ||
+                            (itv.RegionType == RegionTypeEnum.SurfaceName && _mesh.Surfaces.ContainsValidKey(itv.RegionName)) ||
+                            (itv.RegionType == RegionTypeEnum.ReferencePointName
+                             && _mesh.ReferencePoints.ContainsValidKey(itv.RegionName));
+                }
+                else if (initialCondition is InitialAngularVelocity iav)
+                {
+                    valid = (iav.RegionType == RegionTypeEnum.NodeSetName && _mesh.NodeSets.ContainsValidKey(iav.RegionName)) ||
+                            (iav.RegionType == RegionTypeEnum.SurfaceName && _mesh.Surfaces.ContainsValidKey(iav.RegionName)) ||
+                            (iav.RegionType == RegionTypeEnum.ReferencePointName
+                             && _mesh.ReferencePoints.ContainsValidKey(iav.RegionName));
                 }
                 else throw new NotSupportedException();
                 //

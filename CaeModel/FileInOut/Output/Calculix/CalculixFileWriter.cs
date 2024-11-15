@@ -1585,11 +1585,19 @@ namespace FileInOut.Output
                             CalInitialTemperature calInitialTemperature = new CalInitialTemperature(model, it);
                             parent.AddKeyword(calInitialTemperature);
                         }
-                        else if (entry.Value is InitialVelocity iv)
+                        else if (entry.Value is InitialTranslationalVelocity itv)
                         {
-                            CalInitialVelocity calInitialVelocity = new CalInitialVelocity(iv, referencePointsNodeIds);
+                            CalInitialTranslationalVelocity calInitialVelocity =
+                                new CalInitialTranslationalVelocity(model, itv, referencePointsNodeIds);
                             parent.AddKeyword(calInitialVelocity);
                         }
+                        else if (entry.Value is InitialAngularVelocity iav)
+                        {
+                            CalInitialAngularVelocity calInitialVelocity =
+                                new CalInitialAngularVelocity(model, iav, referencePointsNodeIds);
+                            parent.AddKeyword(calInitialVelocity);
+                        }
+                        else throw new NotSupportedException();
                     }
                     else parent.AddKeyword(new CalDeactivated(entry.Value.Name));
                 }

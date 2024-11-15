@@ -500,7 +500,8 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Forms\48_InitialConditions\ViewInitialCondition.cs" />
-    <Compile Include="Forms\48_InitialConditions\ViewInitialVelocity.cs" />
+    <Compile Include="Forms\48_InitialConditions\ViewInitialAngularVelocity.cs" />
+    <Compile Include="Forms\48_InitialConditions\ViewInitialTranslationalVelocity.cs" />
     <Compile Include="Forms\48_InitialConditions\ViewInitialTemperature.cs" />
     <Compile Include="Forms\47_Amplitude\AmplitudeDataPoint.cs" />
     <Compile Include="Forms\47_Amplitude\FrmAmplitude.cs">

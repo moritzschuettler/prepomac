@@ -11,10 +11,10 @@ using CaeModel;
 namespace PrePoMax
 {
     [Serializable]
-    public class ViewInitialVelocity : ViewInitialCondition
+    public class ViewInitialAngularVelocity : ViewInitialCondition
     {
         // Variables                                                                                                                
-        private CaeModel.InitialVelocity _initialVelocity;
+        private InitialAngularVelocity _initialVelocity;
 
 
         // Properties                                                                                                               
@@ -43,56 +43,40 @@ namespace PrePoMax
         }
         //
         [CategoryAttribute("Velocity components")]
-        [OrderedDisplayName(0, 10, "V1")]
+        [OrderedDisplayName(0, 10, "ω1")]
         [DescriptionAttribute("Value of the velocity component in the direction of the first axis.")]
-        [TypeConverter(typeof(StringVelocityConverter))]
+        [TypeConverter(typeof(EquationRotationalSpeedConverter))]
         [Id(1, 3)]
-        public double V1 { get { return _initialVelocity.V1; } set { _initialVelocity.V1 = value; } }
+        public EquationString V1 { get { return _initialVelocity.V1.Equation; } set { _initialVelocity.V1.Equation = value; } }
         //
         [CategoryAttribute("Velocity components")]
-        [OrderedDisplayName(1, 10, "V2")]
+        [OrderedDisplayName(1, 10, "ω2")]
         [DescriptionAttribute("Value of the velocity component in the direction of the second axis.")]
-        [TypeConverter(typeof(StringVelocityConverter))]
+        [TypeConverter(typeof(EquationRotationalSpeedConverter))]
         [Id(2, 3)]
-        public double V2 { get { return _initialVelocity.V2; } set { _initialVelocity.V2 = value; } }
+        public EquationString V2 { get { return _initialVelocity.V2.Equation; } set { _initialVelocity.V2.Equation = value; } }
         //
         [CategoryAttribute("Velocity components")]
-        [OrderedDisplayName(2, 10, "V3")]
+        [OrderedDisplayName(2, 10, "ω3")]
         [DescriptionAttribute("Value of the velocity component in the direction of the third axis.")]
-        [TypeConverter(typeof(StringVelocityConverter))]
+        [TypeConverter(typeof(EquationRotationalSpeedConverter))]
         [Id(3, 3)]
-        public double V3 { get { return _initialVelocity.V3; } set { _initialVelocity.V3 = value; } }
+        public EquationString V3 { get { return _initialVelocity.V3.Equation; } set { _initialVelocity.V3.Equation = value; } }
         //
         [CategoryAttribute("Velocity magnitude")]
         [OrderedDisplayName(3, 10, "Magnitude")]
         [DescriptionAttribute("Value of the velocity magnitude.")]
-        [TypeConverter(typeof(StringVelocityConverter))]
+        [TypeConverter(typeof(EquationRotationalSpeedConverter))]
         [Id(1, 4)]
-        public double VLength
+        public EquationString Magnitude
         {
-            get { return Math.Sqrt(_initialVelocity.V1 * _initialVelocity.V1 +
-                                   _initialVelocity.V2 * _initialVelocity.V2 +
-                                   _initialVelocity.V3 * _initialVelocity.V3); }
-            set
-            {
-                if (value <= 0)
-                    throw new Exception("Value of the velocity magnitude must be greater than 0.");
-                //
-                double len = Math.Sqrt(_initialVelocity.V1 * _initialVelocity.V1 +
-                                       _initialVelocity.V2 * _initialVelocity.V2 +
-                                       _initialVelocity.V3 * _initialVelocity.V3);
-                double r;
-                if (len == 0) r = 0;
-                else r = value / len;
-                _initialVelocity.V1 *= r;
-                _initialVelocity.V2 *= r;
-                _initialVelocity.V3 *= r;
-            }
+            get { return _initialVelocity.Magnitude.Equation; }
+            set { _initialVelocity.Magnitude.Equation = value; }
         }
-        //
+
 
         // Constructors                                                                                                             
-        public ViewInitialVelocity(InitialVelocity initialVelocity)
+        public ViewInitialAngularVelocity(InitialAngularVelocity initialVelocity)
         {
             // The order is important
             _initialVelocity = initialVelocity;
