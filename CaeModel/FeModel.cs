@@ -2634,6 +2634,36 @@ namespace CaeModel
             //
             return loads.ToArray();
         }
+        public InitialTranslationalVelocity [] GetTranslationalVelocities(InitialAngularVelocity initialAngularVelocity,
+                                                                          Dictionary<string, int[]> referencePointsNodeIds)
+        {
+            Dictionary<int, double[]> nodeIdCoor = new Dictionary<int, double[]>();
+            if (initialAngularVelocity.RegionType == RegionTypeEnum.NodeSetName)
+            {
+                FeNodeSet nodeSet = _mesh.NodeSets[initialAngularVelocity.RegionName];
+                for (int i = 0; i < nodeSet.Labels.Length; i++)
+                {
+                    nodeIdCoor[nodeSet.Labels[i]] = _mesh.Nodes[nodeSet.Labels[i]].Coor;
+                }
+            }
+            else if (initialAngularVelocity.RegionType == RegionTypeEnum.SurfaceName)
+            {
+                string nodeSetName = _mesh.Surfaces[initialAngularVelocity.RegionName].NodeSetName;
+                FeNodeSet nodeSet = _mesh.NodeSets[nodeSetName];
+                for (int i = 0; i < nodeSet.Labels.Length; i++)
+                {
+                    nodeIdCoor[nodeSet.Labels[i]] = _mesh.Nodes[nodeSet.Labels[i]].Coor;
+                }
+            }
+            else if (initialAngularVelocity.RegionType == RegionTypeEnum.ReferencePointName)
+            {
+                FeReferencePoint rp = _mesh.ReferencePoints[initialAngularVelocity.RegionName];
+                nodeIdCoor[referencePointsNodeIds[rp.Name][0]] = rp.Coor();
+            }
+
+
+            return null;
+        }
         // Parameters                                                                               
         public void UpdateNCalcParameters()
         {

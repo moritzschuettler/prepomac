@@ -8,107 +8,106 @@ using System.ComponentModel;
 using CaeGlobals;
 using CaeResults;
 using System.Data;
+using System.Runtime.Serialization;
 
 namespace CaeModel
 {
     [Serializable]
     public class InitialAngularVelocity : InitialCondition, IContainsEquations, IPreviewable
     {
+
         // Variables                                                                                                                
-        private EquationContainer _v1;
-        private EquationContainer _v2;
-        private EquationContainer _v3;
-        private EquationContainer _magnitude;
+        private EquationContainer _x;
+        private EquationContainer _y;
+        private EquationContainer _z;
+        private EquationContainer _n1;
+        private EquationContainer _n2;
+        private EquationContainer _n3;
+        private EquationContainer _rotationalSpeed;
 
 
         // Properties                                                                                                               
-        public EquationContainer V1 { get { UpdateEquations(); return _v1; } set { SetV1(value); } }
-        public EquationContainer V2 { get { UpdateEquations(); return _v2; } set { SetV2(value); } }
-        public EquationContainer V3 { get { UpdateEquations(); return _v3; } set { SetV3(value); } }
-        public EquationContainer Magnitude { get { UpdateEquations(); return _magnitude; } set { SetMagnitude(value); } }
-        public double GetComponent(int direction)
-        {
-            if (direction == 0) return V1.Value;
-            else if (direction == 1) return V2.Value;
-            else return V3.Value;
-        }
+        public EquationContainer X { get { return _x; } set { SetX(value); } }
+        public EquationContainer Y { get { return _y; } set { SetY(value); } }
+        public EquationContainer Z { get { return _z; } set { SetZ(value); } }
+        public EquationContainer N1 { get { return _n1; } set { SetN1(value); } }
+        public EquationContainer N2 { get { return _n2; } set { SetN2(value); } }
+        public EquationContainer N3 { get { return _n3; } set { SetN3(value); } }
+        public double RotationalSpeed2 { get { return Math.Pow(_rotationalSpeed.Value, 2); } }
+        public EquationContainer RotationalSpeed { get { return _rotationalSpeed; } set { SetRotationalSpeed(value); } }
 
 
         // Constructors                                                                                                             
-        public InitialAngularVelocity(string name, string regionName, RegionTypeEnum regionType,
-                               double v1, double v2, double v3, bool twoD)
+        public InitialAngularVelocity(string name, string regionName, RegionTypeEnum regionType, bool twoD)
+            : this(name, regionName, regionType, new double[] { 0, 0, 0 }, new double[] { 0, 0, 0 }, 0, twoD)
+        {
+        }
+        public InitialAngularVelocity(string name, string regionName, RegionTypeEnum regionType, double[] point, double[] normal,
+                                      double rotationalSpeed, bool twoD)
             : base(name, regionName, regionType, twoD)
         {
-            double mag = Math.Sqrt(v1 * v1 + v2 * v2 + v3 * v3);
+            X = new EquationContainer(typeof(StringLengthConverter), point[0]);
+            Y = new EquationContainer(typeof(StringLengthConverter), point[1]);
+            Z = new EquationContainer(typeof(StringLengthConverter), point[2]);
             //
-            V1 = new EquationContainer(typeof(StringRotationalSpeedConverter), v1, null);
-            V2 = new EquationContainer(typeof(StringRotationalSpeedConverter), v2, null);
-            V3 = new EquationContainer(typeof(StringRotationalSpeedConverter), v3, null);
-            Magnitude = new EquationContainer(typeof(StringRotationalSpeedConverter), mag, null);
+            N1 = new EquationContainer(typeof(StringLengthConverter), normal[0]);
+            N2 = new EquationContainer(typeof(StringLengthConverter), normal[1]);
+            N3 = new EquationContainer(typeof(StringLengthConverter), normal[2]);
+            //
+            RotationalSpeed = new EquationContainer(typeof(StringRotationalSpeedConverter), rotationalSpeed);
         }
 
 
         // Methods                                                                                                                  
-        private void UpdateEquations()
+        private void SetX(EquationContainer value, bool checkEquation = true)
         {
-            try
-            {
-                // If error catch it silently
-                if (_v1.IsEquation() || _v2.IsEquation() || _v3.IsEquation()) FEquationChanged();
-                else if (_magnitude.IsEquation()) MagnitudeEquationChanged();
-            }
-            catch (Exception ex) { }
+            EquationContainer.SetAndCheck(ref _x, value, null, checkEquation);
         }
-        private void SetV1(EquationContainer value, bool checkEquation = true)
+        private void SetY(EquationContainer value, bool checkEquation = true)
         {
-            EquationContainer.SetAndCheck(ref _v1, value, null, FEquationChanged, checkEquation);
+            EquationContainer.SetAndCheck(ref _y, value, null, checkEquation);
         }
-        private void SetV2(EquationContainer value, bool checkEquation = true)
+        private void SetZ(EquationContainer value, bool checkEquation = true)
         {
-            EquationContainer.SetAndCheck(ref _v2, value, null, FEquationChanged, checkEquation);
+            EquationContainer.SetAndCheck(ref _z, value, CheckTwoD, checkEquation);
         }
-        private void SetV3(EquationContainer value, bool checkEquation = true)
+        private void SetN1(EquationContainer value, bool checkEquation = true)
         {
-            EquationContainer.SetAndCheck(ref _v3, value, Check2D, FEquationChanged, checkEquation);
+            EquationContainer.SetAndCheck(ref _n1, value, CheckTwoD, checkEquation);
         }
-        private void SetMagnitude(EquationContainer value, bool checkEquation = true)
+        private void SetN2(EquationContainer value, bool checkEquation = true)
         {
-            EquationContainer.SetAndCheck(ref _magnitude, value, CheckMagnitude, MagnitudeEquationChanged, checkEquation);
+            EquationContainer.SetAndCheck(ref _n2, value, CheckTwoD, checkEquation);
         }
-        //
-        private void FEquationChanged()
+        private void SetN3(EquationContainer value, bool checkEquation = true)
         {
-            double mag = Math.Sqrt(_v1.Value * _v1.Value + _v2.Value * _v2.Value + _v3.Value * _v3.Value);
-            _magnitude.SetEquationFromValue(mag, false);
+            EquationContainer.SetAndCheck(ref _n3, value, null, checkEquation);
         }
-        private void MagnitudeEquationChanged()
+        private void SetRotationalSpeed(EquationContainer value, bool checkEquation = true)
         {
-            double mag = Math.Sqrt(_v1.Value * _v1.Value + _v2.Value * _v2.Value + _v3.Value * _v3.Value);
-            double r;
-            if (mag == 0) r = 0;
-            else r = _magnitude.Value / mag;
-            _v1.SetEquationFromValue(_v1.Value * r, false);
-            _v2.SetEquationFromValue(_v2.Value * r, false);
-            _v3.SetEquationFromValue(_v3.Value * r, false);
+            EquationContainer.SetAndCheck(ref _rotationalSpeed, value, CheckNonNegative, checkEquation);
         }
         //
-        private double Check2D(double value)
+        private double CheckTwoD(double value)
         {
             if (_twoD) return 0;
             else return value;
         }
-        private double CheckMagnitude(double value)
+        private double CheckNonNegative(double value)
         {
-            if (value < 0) throw new Exception("Value of the velocity magnitude must be non-negative.");
+            if (value < 0) throw new CaeException("The value of the rotational speed must be non-negative.");
             else return value;
         }
         // IContainsEquations
         public void CheckEquations()
         {
-            _v1.CheckEquation();
-            _v2.CheckEquation();
-            _v3.CheckEquation();
-            _magnitude.CheckEquation();
+            _x.CheckEquation();
+            _y.CheckEquation();
+            _z.CheckEquation();
+            _n1.CheckEquation();
+            _n2.CheckEquation();
+            _n3.CheckEquation();
+            _rotationalSpeed.CheckEquation();
         }
         public virtual bool TryCheckEquations()
         {
@@ -127,35 +126,52 @@ namespace CaeModel
                                            out allData.Cells.CellNodeIds, out allData.Cells.Types);
             //
             HashSet<int> nodeIds;
-            if (RegionType == RegionTypeEnum.PartName)
+            if (RegionType == RegionTypeEnum.NodeSetName)
             {
-                nodeIds = new HashSet<int>(targetMesh.Parts[RegionName].NodeLabels);
+                nodeIds = new HashSet<int>(targetMesh.NodeSets[RegionName].Labels);
             }
-            else if (RegionType == RegionTypeEnum.ElementSetName)
+            else if (RegionType == RegionTypeEnum.SurfaceName)
             {
-                FeNodeSet nodeSet = targetMesh.GetNodeSetFromPartOrElementSetName(RegionName, false);
-                nodeIds = new HashSet<int>(nodeSet.Labels);
+                string nodeSetName = targetMesh.Surfaces[RegionName].NodeSetName;
+                nodeIds = new HashSet<int>(targetMesh.NodeSets[nodeSetName].Labels);
+            }
+            else if (RegionType == RegionTypeEnum.ReferencePointName)
+            {
+                nodeIds = new HashSet<int>();
             }
             else throw new NotSupportedException();
             //
-            float v1 = (float)_v1.Value;
-            float v2 = (float)_v2.Value;
-            float v3 = (float)_v3.Value;
-            float mag = (float)_magnitude.Value;
+            Vec3D point = new Vec3D(_x.Value, _y.Value, _z.Value);
+            Vec3D normal = new Vec3D(_n1.Value, _n2.Value, _n3.Value);
+            normal.Normalize();
             //
             float[] values1 = new float[allData.Nodes.Coor.Length];
             float[] values2 = new float[allData.Nodes.Coor.Length];
             float[] values3 = new float[allData.Nodes.Coor.Length];
             float[] valuesAll = new float[allData.Nodes.Coor.Length];
             //
+            double t;
+            double omega = _rotationalSpeed.Value;
+            Vec3D node;
+            Vec3D pointToNode;
+            Vec3D axisPoint;
+            Vec3D r;
+            Vec3D v;
             for (int i = 0; i < allData.Nodes.Coor.Length; i++)
             {
                 if (nodeIds.Contains(allData.Nodes.Ids[i]))
                 {
-                    values1[i] = v1;
-                    values2[i] = v2;
-                    values3[i] = v3;
-                    valuesAll[i] = mag;
+                    node = new Vec3D(allData.Nodes.Coor[i]);
+                    pointToNode = node - point;
+                    t = Vec3D.DotProduct(pointToNode, normal);
+                    axisPoint = normal * t;
+                    r = normal - axisPoint;
+                    v = Vec3D.CrossProduct(normal, r) * omega;
+                    //
+                    values1[i] = (float)v.X;
+                    values2[i] = (float)v.Y;
+                    values3[i] = (float)v.Z;
+                    valuesAll[i] = (float)v.Len;
                 }
                 else
                 {

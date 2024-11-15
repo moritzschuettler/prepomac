@@ -36,8 +36,6 @@ namespace FileInOut.Output.Calculix
                 int[] rpNodeIds = referencePointsNodeIds[_initialVelocity.RegionName];
                 _regionName = rpNodeIds[0].ToString();
             }
-            else if (_initialVelocity.RegionType == RegionTypeEnum.Selection)
-            { }
             else throw new NotSupportedException();
         }
 

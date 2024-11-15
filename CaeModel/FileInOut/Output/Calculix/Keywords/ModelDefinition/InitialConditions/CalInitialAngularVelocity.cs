@@ -39,8 +39,6 @@ namespace FileInOut.Output.Calculix
                 _regionName = rpNodeIds[1].ToString();
                 _deltaDOF = -3;
             }
-            else if (_initialVelocity.RegionType == RegionTypeEnum.Selection)
-            { }
             else throw new NotSupportedException();
         }
 
@@ -56,16 +54,16 @@ namespace FileInOut.Output.Calculix
         public override string GetDataString()
         {
             StringBuilder sb = new StringBuilder();
-            //
-            if (_initialVelocity.V1.Value != 0)
-                sb.AppendFormat("{0}, {1}, {2}{3}", _regionName, 4 + _deltaDOF,
-                                _initialVelocity.V1.Value.ToCalculiX16String(), Environment.NewLine);
-            if (_initialVelocity.V2.Value != 0)
-                sb.AppendFormat("{0}, {1}, {2}{3}", _regionName, 5, +_deltaDOF, 
-                                _initialVelocity.V2.Value.ToCalculiX16String(), Environment.NewLine);
-            if (_initialVelocity.V3.Value != 0)
-                sb.AppendFormat("{0}, {1}, {2}{3}", _regionName, 6, +_deltaDOF, 
-                                _initialVelocity.V3.Value.ToCalculiX16String(), Environment.NewLine);
+            ////
+            //if (_initialVelocity.V1.Value != 0)
+            //    sb.AppendFormat("{0}, {1}, {2}{3}", _regionName, 4 + _deltaDOF,
+            //                    _initialVelocity.V1.Value.ToCalculiX16String(), Environment.NewLine);
+            //if (_initialVelocity.V2.Value != 0)
+            //    sb.AppendFormat("{0}, {1}, {2}{3}", _regionName, 5, +_deltaDOF, 
+            //                    _initialVelocity.V2.Value.ToCalculiX16String(), Environment.NewLine);
+            //if (_initialVelocity.V3.Value != 0)
+            //    sb.AppendFormat("{0}, {1}, {2}{3}", _regionName, 6, +_deltaDOF, 
+            //                    _initialVelocity.V3.Value.ToCalculiX16String(), Environment.NewLine);
             return sb.ToString();
         }
     }
