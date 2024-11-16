@@ -27,7 +27,9 @@ namespace FileInOut.Output.Calculix
         {
             _initialVelocity = initialVelocity;
             //
-            if (_initialVelocity.RegionType == RegionTypeEnum.NodeSetName)
+            if (_initialVelocity.RegionType == RegionTypeEnum.NodeId)
+                _regionName = initialVelocity.NodeId.ToString();
+            else if (_initialVelocity.RegionType == RegionTypeEnum.NodeSetName)
                 _regionName = _initialVelocity.RegionName;
             else if (_initialVelocity.RegionType == RegionTypeEnum.SurfaceName)
                 _regionName += model.Mesh.Surfaces[_initialVelocity.RegionName].NodeSetName;

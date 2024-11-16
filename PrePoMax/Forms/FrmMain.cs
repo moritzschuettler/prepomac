@@ -1104,8 +1104,10 @@ namespace PrePoMax
                                                 ShowModelCoordinateSystems, ShowOnlyModelCoordinateSystems);
                 HideShowItems<CaeModel.Constraint>(items, operation, HideConstraints, ShowConstraints, ShowOnlyConstraints);
                 HideShowItems<ContactPair>(items, operation, HideContactPairs, ShowContactPairs, ShowOnlyContactPairs);
+                HideShowItems<InitialCondition>(items, operation, HideInitialConditions, ShowInitialConditions,
+                                                ShowOnlyInitialConditions);
                 HideShowStepItems<BoundaryCondition>(items, operation, stepNames, HideBoundaryConditions, 
-                                                              ShowBoundaryConditions, ShowOnlyBoundaryConditions);
+                                                     ShowBoundaryConditions, ShowOnlyBoundaryConditions);
                 HideShowStepItems<Load>(items, operation, stepNames, HideLoads, ShowLoads, ShowOnlyLoads);
             }
             else if (_controller.CurrentView == ViewGeometryModelResults.Results)
@@ -2581,12 +2583,14 @@ namespace PrePoMax
                     tsmiAnnotateReferencePoints.Checked = true;
                     tsmiAnnotateConstraints.Checked = true;
                     tsmiAnnotateContactPairs.Checked = true;
+                    tsmiAnnotateInitialConditions.Checked = true;
                     tsmiAnnotateBCs.Checked = true;
                     tsmiAnnotateLoads.Checked = true;
                     //
                     _controller.AnnotateWithColor = AnnotateWithColorEnum.ReferencePoints |
                                                     AnnotateWithColorEnum.Constraints |
                                                     AnnotateWithColorEnum.ContactPairs |
+                                                    AnnotateWithColorEnum.InitialConditions |
                                                     AnnotateWithColorEnum.BoundaryConditions |
                                                     AnnotateWithColorEnum.Loads;
                 }
@@ -2601,6 +2605,10 @@ namespace PrePoMax
             _controller.AnnotateWithColor = ChangeAnnotationStatus(sender);
         }
         private void tsmiAnnotateContactPairs_Click(object sender, EventArgs e)
+        {
+            _controller.AnnotateWithColor = ChangeAnnotationStatus(sender);
+        }
+        private void tsmiAnnotateInitialConditions_Click(object sender, EventArgs e)
         {
             _controller.AnnotateWithColor = ChangeAnnotationStatus(sender);
         }
@@ -2654,12 +2662,14 @@ namespace PrePoMax
                     if (tsmiAnnotateReferencePoints.Checked) status |= AnnotateWithColorEnum.ReferencePoints;
                     if (tsmiAnnotateConstraints.Checked) status |= AnnotateWithColorEnum.Constraints;
                     if (tsmiAnnotateContactPairs.Checked) status |= AnnotateWithColorEnum.ContactPairs;
+                    if (tsmiAnnotateInitialConditions.Checked) status |= AnnotateWithColorEnum.InitialConditions;
                     if (tsmiAnnotateBCs.Checked) status |= AnnotateWithColorEnum.BoundaryConditions;
                     if (tsmiAnnotateLoads.Checked) status |= AnnotateWithColorEnum.Loads;
                     //
                     tsmiAnnotateAllSymbols.Checked = status.HasFlag(AnnotateWithColorEnum.ReferencePoints |
                                                                     AnnotateWithColorEnum.Constraints |
                                                                     AnnotateWithColorEnum.ContactPairs |
+                                                                    AnnotateWithColorEnum.InitialConditions |
                                                                     AnnotateWithColorEnum.BoundaryConditions |
                                                                     AnnotateWithColorEnum.Loads);
                     //
@@ -5405,6 +5415,28 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
+        private void tsmiHideInitialCondition_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Initial Conditions", _controller.GetAllInitialConditions(), HideInitialConditions);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiShowInitialCondition_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Initial Conditions", _controller.GetAllInitialConditions(), ShowInitialConditions);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
         private void tsmiDeleteInitialCondition_Click(object sender, EventArgs e)
         {
             try
@@ -5464,6 +5496,21 @@ namespace PrePoMax
             _controller.ViewResultsType = ViewResultsTypeEnum.ColorContours;  // Draw
             //
             SetMenuAndToolStripVisibility();
+        }
+        private void HideInitialConditions(string[] initialConditionNames)
+        {
+            _controller.HideInitialConditionsCommand(initialConditionNames);
+        }
+        private void ShowInitialConditions(string[] initialConditionNames)
+        {
+            _controller.ShowInitialConditionsCommand(initialConditionNames);
+        }
+        private void ShowOnlyInitialConditions(string[] initialConditionNames)
+        {
+            HashSet<string> allNames = new HashSet<string>(_controller.Model.InitialConditions.Keys);
+            allNames.ExceptWith(initialConditionNames);
+            _controller.HideInitialConditionsCommand(allNames.ToArray());
+            _controller.ShowInitialConditionsCommand(initialConditionNames);
         }
         private void DeleteInitialConditions(string[] initialConditionNames)
         {

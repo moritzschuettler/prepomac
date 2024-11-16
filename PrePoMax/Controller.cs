@@ -7748,42 +7748,42 @@ namespace PrePoMax
         // COMMANDS ********************************************************************************
         public void AddConstraintCommand(Constraint constraint, bool update = true)
         {
-            Commands.CAddConstraint comm = new Commands.CAddConstraint(constraint, update);
+            CAddConstraint comm = new CAddConstraint(constraint, update);
             _commands.AddAndExecute(comm);
         }
         public void ReplaceConstraintCommand(string oldConstraintName, Constraint newConstraint)
         {
-            Commands.CReplaceConstraint comm = new Commands.CReplaceConstraint(oldConstraintName, newConstraint);
+            CReplaceConstraint comm = new CReplaceConstraint(oldConstraintName, newConstraint);
             _commands.AddAndExecute(comm);
         }
         public void DuplicateConstraintsCommand(string[] constraintNames)
         {
-            Commands.CDuplicateConstraints comm = new Commands.CDuplicateConstraints(constraintNames);
+            CDuplicateConstraints comm = new CDuplicateConstraints(constraintNames);
             _commands.AddAndExecute(comm);
         }
         public void SwapMasterSlaveConstraintsCommand(string[] constraintNames)
         {
-            Commands.CSwapMasterSlaveConstraints comm = new Commands.CSwapMasterSlaveConstraints(constraintNames);
+            CSwapMasterSlaveConstraints comm = new CSwapMasterSlaveConstraints(constraintNames);
             _commands.AddAndExecute(comm);
         }
         public void MergeByMasterSlaveConstraintsCommand(string[] constraintNames)
         {
-            Commands.CMergeByMasterSlaveConstraints comm = new Commands.CMergeByMasterSlaveConstraints(constraintNames);
+            CMergeByMasterSlaveConstraints comm = new CMergeByMasterSlaveConstraints(constraintNames);
             _commands.AddAndExecute(comm);
         }
         public void HideConstraintsCommand(string[] constraintNames)
         {
-            Commands.CHideConstraints comm = new Commands.CHideConstraints(constraintNames);
+            CHideConstraints comm = new CHideConstraints(constraintNames);
             _commands.AddAndExecute(comm);
         }
         public void ShowConstraintsCommand(string[] constraintNames)
         {
-            Commands.CShowConstraints comm = new Commands.CShowConstraints(constraintNames);
+            CShowConstraints comm = new CShowConstraints(constraintNames);
             _commands.AddAndExecute(comm);
         }
         public void RemoveConstraintsCommand(string[] constraintNames)
         {
-            Commands.CRemoveConstraints comm = new Commands.CRemoveConstraints(constraintNames);
+            CRemoveConstraints comm = new CRemoveConstraints(constraintNames);
             _commands.AddAndExecute(comm);
         }
         //******************************************************************************************
@@ -8753,23 +8753,32 @@ namespace PrePoMax
         // COMMANDS ********************************************************************************
         public void AddInitialConditionCommand(InitialCondition initialCondition)
         {
-            Commands.CAddInitialCondition comm = new Commands.CAddInitialCondition(initialCondition);
+            CAddInitialCondition comm = new CAddInitialCondition(initialCondition);
             _commands.AddAndExecute(comm);
         }
         public void ReplaceInitialConditionCommand(string oldInitialConditionName, InitialCondition newInitialCondition)
         {
-            Commands.CReplaceInitialCondition comm = new Commands.CReplaceInitialCondition(oldInitialConditionName,
-                                                                                           newInitialCondition);
+            CReplaceInitialCondition comm = new CReplaceInitialCondition(oldInitialConditionName, newInitialCondition);
             _commands.AddAndExecute(comm);
         }
         public void DuplicateInitialConditionsCommand(string[] initialConditionNames)
         {
-            Commands.CDuplicateInitialConditions comm = new Commands.CDuplicateInitialConditions(initialConditionNames);
+            CDuplicateInitialConditions comm = new CDuplicateInitialConditions(initialConditionNames);
+            _commands.AddAndExecute(comm);
+        }
+        public void HideInitialConditionsCommand(string[] initialConditionNames)
+        {
+            CHideInitialConditions comm = new CHideInitialConditions(initialConditionNames);
+            _commands.AddAndExecute(comm);
+        }
+        public void ShowInitialConditionsCommand(string[] initialConditionNames)
+        {
+            CShowInitialConditions comm = new CShowInitialConditions(initialConditionNames);
             _commands.AddAndExecute(comm);
         }
         public void RemoveInitialConditionsCommand(string[] initialConditionNames)
         {
-            Commands.CRemoveInitialConditions comm = new Commands.CRemoveInitialConditions(initialConditionNames);
+            CRemoveInitialConditions comm = new CRemoveInitialConditions(initialConditionNames);
             _commands.AddAndExecute(comm);
         }
         //******************************************************************************************
@@ -8785,7 +8794,7 @@ namespace PrePoMax
             //
             _form.AddTreeNode(ViewGeometryModelResults.Model, initialCondition, null);
             //
-            FeModelUpdate(UpdateType.Check);
+            FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
         }
         public InitialCondition GetInitialCondition(string initialConditionName)
         {
@@ -8827,7 +8836,7 @@ namespace PrePoMax
             //
             _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldInitialConditionName, initialCondition, null);
             //
-            FeModelUpdate(UpdateType.Check);
+            FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
         }
         public void DuplicateInitialConditions(string[] initialConditionNames)
         {
@@ -8840,6 +8849,26 @@ namespace PrePoMax
                 if (newInitialCondition.CreationData != null) newInitialCondition.RegionType = RegionTypeEnum.Selection;
                 AddInitialCondition(newInitialCondition);
             }
+        }
+        public void HideInitialConditions(string[] initialConditionNames)
+        {
+            foreach (var name in initialConditionNames)
+            {
+                _model.InitialConditions[name].Visible = false;
+                _form.UpdateTreeNode(ViewGeometryModelResults.Model, name, _model.InitialConditions[name], null, false);
+            }
+            //
+            FeModelUpdate(UpdateType.RedrawSymbols);
+        }
+        public void ShowInitialConditions(string[] initialConditionNames)
+        {
+            foreach (var name in initialConditionNames)
+            {
+                _model.InitialConditions[name].Visible = true;
+                _form.UpdateTreeNode(ViewGeometryModelResults.Model, name, _model.InitialConditions[name], null, false);
+            }
+            //
+            FeModelUpdate(UpdateType.RedrawSymbols);
         }
         public void ActivateDeactivateInitialCondition(string initialConditionName, bool active)
         {
@@ -8859,7 +8888,7 @@ namespace PrePoMax
                 _form.RemoveTreeNode<InitialCondition>(ViewGeometryModelResults.Model, name, null);
             }
             //
-            FeModelUpdate(UpdateType.Check);
+            FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
         }
         //
         private void ConvertSelectionBasedInitialCondition(InitialCondition initialCondition)
@@ -13760,6 +13789,25 @@ namespace PrePoMax
                     _form.AddColorBarColorsAndLabels(itemColors.ToArray(), itemNames.ToArray());
                 }
             }
+            if (_annotateWithColor.HasFlag(AnnotateWithColorEnum.InitialConditions))
+            {
+                if (_currentView == ViewGeometryModelResults.Model && _drawSymbolName != null &&
+                    _drawSymbolName != "None" && _drawSymbolName != "Model")
+                {
+                    List<Color> itemColors = new List<Color>();
+                    List<string> itemNames = new List<string>();
+                    // Initial conditions
+                    foreach (var entry in _model.InitialConditions)
+                    {
+                        if (entry.Value.Visible && entry.Value.Active)
+                        {
+                            itemColors.Add(entry.Value.Color);
+                            itemNames.Add(entry.Value.Name);
+                        }
+                    }
+                    _form.AddColorBarColorsAndLabels(itemColors.ToArray(), itemNames.ToArray());
+                }
+            }
             if (_annotateWithColor.HasFlag(AnnotateWithColorEnum.BoundaryConditions))
             {
                 if (_currentView == ViewGeometryModelResults.Model && _drawSymbolName != null &&
@@ -13767,7 +13815,7 @@ namespace PrePoMax
                 {
                     List<Color> itemColors = new List<Color>();
                     List<string> itemNames = new List<string>();
-                    // Boundary Conditions
+                    // Boundary conditions
                     foreach (var entry in _model.StepCollection.GetStep(_drawSymbolName).BoundaryConditions)
                     {
                         if (entry.Value.Visible && entry.Value.Active)
@@ -13786,7 +13834,7 @@ namespace PrePoMax
                 {
                     List<Color> itemColors = new List<Color>();
                     List<string> itemNames = new List<string>();
-                    // Boundary Conditions
+                    // Loads
                     foreach (var entry in _model.StepCollection.GetStep(_drawSymbolName).Loads)
                     {
                         if (entry.Value.Visible && entry.Value.Active)
@@ -13815,6 +13863,7 @@ namespace PrePoMax
                 DrawAllCoordinateSystems();
                 DrawAllConstraints();
                 DrawAllContactPairs();
+                DrawAllInitialConditions();
                 //
                 if (_drawSymbolName != "Model")
                 {
@@ -14344,6 +14393,259 @@ namespace PrePoMax
             catch { } // do not show the exception to the user
         }
 
+        // Initial conditions
+        public void DrawAllInitialConditions()
+        {
+            int symbolSize = _settings.Pre.SymbolSize;
+            int nodeSymbolSize = _settings.Pre.NodeSymbolSize;
+            vtkRendererLayer layer = vtkRendererLayer.Base;
+            //
+            foreach (var entry in _model.InitialConditions)
+            {
+                DrawInitialCondition(entry.Value, entry.Value.Color, symbolSize, nodeSymbolSize, layer, true);
+            }
+        }
+        public void DrawInitialCondition(InitialCondition initialCondition, Color color, int symbolSize,
+                                         int nodeSymbolSize, vtkRendererLayer layer, bool onlyVisible)
+        {
+            try
+            {
+                if (!((initialCondition.Active && initialCondition.Visible && initialCondition.Valid &&
+                    !initialCondition.Internal) || layer == vtkRendererLayer.Selection)) return;
+                //
+                double[][] coor = null;
+                string prefixName = "INITIAL_CONDITION" + Globals.NameSeparator + initialCondition.Name;
+                vtkRendererLayer symbolLayer = layer == vtkRendererLayer.Selection ? layer : vtkRendererLayer.Overlay;
+                //
+                int count = 0;
+                if (initialCondition is InitialTemperature temperature)
+                {
+                    if (temperature.RegionType == RegionTypeEnum.NodeSetName)
+                    {
+                        if (!_model.Mesh.NodeSets.ContainsKey(temperature.RegionName)) return;
+                        FeNodeSet nodeSet = _model.Mesh.NodeSets[temperature.RegionName];
+                        coor = new double[1][];
+                        coor[0] = nodeSet.CenterOfGravity;
+                        //
+                        count += DrawNodeSet(prefixName, nodeSet.Name, color, layer, false, nodeSymbolSize, false, onlyVisible);
+                    }
+                    else if (temperature.RegionType == RegionTypeEnum.SurfaceName)
+                    {
+                        if (!_model.Mesh.Surfaces.ContainsKey(temperature.RegionName)) return;
+                        FeSurface surface = _model.Mesh.Surfaces[temperature.RegionName];
+                        coor = new double[][] { _model.Mesh.GetSurfaceCG(surface.Name) };
+                        //
+                        count += DrawSurface(prefixName, surface.Name, color, layer, true, false, onlyVisible);
+                        if (layer == vtkRendererLayer.Selection)
+                            DrawSurfaceEdge(prefixName, surface.Name, color, layer, true, false, onlyVisible);
+                    }
+                    else throw new NotSupportedException();
+                    if (count > 0) DrawInitialTemperatureSymbols(prefixName, temperature, coor, color, symbolSize, layer);
+                }
+                else if (initialCondition is InitialTranslationalVelocity itv)
+                {
+                    if (itv.RegionType == RegionTypeEnum.NodeSetName)
+                    {
+                        if (!_model.Mesh.NodeSets.ContainsKey(itv.RegionName)) return;
+                        FeNodeSet nodeSet = _model.Mesh.NodeSets[itv.RegionName];
+                        coor = new double[][] { nodeSet.CenterOfGravity };
+                        //
+                        count += DrawNodeSet(prefixName, nodeSet.Name, color, layer, true, nodeSymbolSize, false, onlyVisible);
+                    }
+                    else if (itv.RegionType == RegionTypeEnum.SurfaceName)
+                    {
+                        if (!_model.Mesh.Surfaces.ContainsKey(itv.RegionName)) return;
+                        FeSurface surface = _model.Mesh.Surfaces[itv.RegionName];
+                        FeNodeSet nodeSet = _model.Mesh.NodeSets[surface.NodeSetName];
+                        coor = new double[][] { _model.Mesh.GetSurfaceCG(surface.Name) };
+                        //
+                        count += DrawSurface(prefixName, surface.Name, color, layer, true, false, onlyVisible);
+                        if (layer == vtkRendererLayer.Selection)
+                            DrawSurfaceEdge(prefixName, surface.Name, color, layer, true, false, onlyVisible);
+                    }
+                    else if (itv.RegionType == RegionTypeEnum.ReferencePointName)
+                    {
+                        if (!_model.Mesh.ReferencePoints.ContainsKey(itv.RegionName)) return;
+                        FeReferencePoint referencePoint = _model.Mesh.ReferencePoints[itv.RegionName];
+                        coor = new double[][] { referencePoint.Coor() };
+                        count++;
+                    }
+                    else throw new NotSupportedException();
+                    if (count > 0) DrawInitialTranslationalVelocitySymbols(prefixName, itv, coor, color, symbolSize, symbolLayer);
+                }
+                else if (initialCondition is InitialAngularVelocity iav)
+                {
+                    if (iav.RegionType == RegionTypeEnum.NodeSetName)
+                    {
+                        if (!_model.Mesh.NodeSets.ContainsKey(iav.RegionName)) return;
+                        FeNodeSet nodeSet = _model.Mesh.NodeSets[iav.RegionName];
+                        coor = new double[][] { iav.GetPosition() };
+                        //
+                        count += DrawNodeSet(prefixName, nodeSet.Name, color, layer, true, nodeSymbolSize, false, onlyVisible);
+                    }
+                    else if (iav.RegionType == RegionTypeEnum.SurfaceName)
+                    {
+                        if (!_model.Mesh.Surfaces.ContainsKey(iav.RegionName)) return;
+                        FeSurface surface = _model.Mesh.Surfaces[iav.RegionName];
+                        FeNodeSet nodeSet = _model.Mesh.NodeSets[surface.NodeSetName];
+                        coor = new double[][] { iav.GetPosition() };
+                        //
+                        count += DrawSurface(prefixName, surface.Name, color, layer, true, false, onlyVisible);
+                        if (layer == vtkRendererLayer.Selection)
+                            DrawSurfaceEdge(prefixName, surface.Name, color, layer, true, false, onlyVisible);
+                    }
+                    else if (iav.RegionType == RegionTypeEnum.ReferencePointName)
+                    {
+                        if (!_model.Mesh.ReferencePoints.ContainsKey(iav.RegionName)) return;
+                        FeReferencePoint referencePoint = _model.Mesh.ReferencePoints[iav.RegionName];
+                        coor = new double[][] { iav.GetPosition() };
+                        count++;
+                    }
+                    else throw new NotSupportedException();
+                    if (count > 0) DrawInitialAngularVelocitySymbols(prefixName, iav, coor, color, symbolSize, symbolLayer);
+                }
+                else throw new NotSupportedException();
+            }
+            catch { } // do not show the exception to the user
+        }
+        public void DrawInitialTemperatureSymbols(string prefixName, InitialTemperature temperature, double[][] symbolCoor,
+                                                  Color color, int symbolSize, vtkRendererLayer layer)
+        {
+            FeSurface surface;
+            if (temperature.RegionType == RegionTypeEnum.NodeSetName)
+            {
+                string name = Model.Mesh.Surfaces.GetNextNumberedKey("Thermo");
+                surface = new FeSurface(name, temperature.RegionName);
+                surface.Internal = true;
+                _model.Mesh.CreateSurfaceItems(surface);
+                _model.Mesh.Surfaces.Add(surface.Name, surface);    // Must add here for the remove to work properly 
+                //
+                if (surface.ElementFaces == null) // after meshing/update the node set is not yet updated
+                {
+                    RemoveSurfaceAndElementFacesFromModel(new string[] { surface.Name });
+                    return;
+                }
+            }
+            else if (temperature.RegionType == RegionTypeEnum.SurfaceName)
+            {
+                surface = _model.Mesh.Surfaces[temperature.RegionName];
+            }
+            else throw new NotSupportedException();
+            //
+            List<int> allElementIds = new List<int>();
+            List<FeFaceName> allElementFaceNames = new List<FeFaceName>();
+            List<double[]> allCoor = new List<double[]>();
+            double[] faceCenter;
+            FeElementSet elementSet;
+            foreach (var entry in surface.ElementFaces)     // entry:  S3; elementSetName
+            {
+                elementSet = _model.Mesh.ElementSets[entry.Value];
+                foreach (var elementId in elementSet.Labels)
+                {
+                    allElementIds.Add(elementId);
+                    allElementFaceNames.Add(entry.Key);
+                    _model.Mesh.GetElementFaceCenter(elementId, entry.Key, out faceCenter);
+                    allCoor.Add(faceCenter);
+                }
+            }
+            // Remove created surface
+            if (temperature.RegionType == RegionTypeEnum.NodeSetName)
+            {
+                RemoveSurfaceAndElementFacesFromModel(new string[] { surface.Name });
+            }
+            //
+            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 3);
+            // Front shell face which is a S2 POS face works in the same way as a solid face
+            // Back shell face which is a S1 NEG must be inverted
+            int id;
+            double[] faceNormal;
+            bool shellElement;
+            bool shellEdge;
+            double[][] distributedCoor = new double[distributedElementIds.Length][];
+            double[][] distributedLoadNormals = new double[distributedElementIds.Length][];
+            for (int i = 0; i < distributedElementIds.Length; i++)
+            {
+                id = distributedElementIds[i];
+                _model.Mesh.GetElementFaceCenterAndNormal(allElementIds[id], allElementFaceNames[id], out faceCenter,
+                                                          out faceNormal, out shellElement);
+                //
+                shellEdge = shellElement && allElementFaceNames[id] != FeFaceName.S1 && allElementFaceNames[id] != FeFaceName.S2;
+                if (!shellElement || shellEdge)
+                {
+                    faceNormal[0] *= -1;
+                    faceNormal[1] *= -1;
+                    faceNormal[2] *= -1;
+                }
+                //
+                distributedCoor[i] = faceCenter;
+                distributedLoadNormals[i] = faceNormal;
+            }
+            // Thermos
+            if (allCoor.Count > 0)
+            {
+                vtkMaxActorData data = new vtkMaxActorData();
+                data.Name = prefixName;
+                data.Color = color;
+                data.Layer = layer;
+                data.Geometry.Nodes.Coor = distributedCoor.ToArray();
+                data.Geometry.Nodes.Normals = distributedLoadNormals.ToArray();
+                data.SectionViewPossible = false;
+                ApplyLighting(data);
+                bool translate = false;
+                _form.AddOrientedThermosActor(data, symbolSize, translate);
+            }
+            return;
+        }
+        public void DrawInitialTranslationalVelocitySymbols(string prefixName, InitialTranslationalVelocity initialVelocity,
+                                                            double[][] symbolCoor, Color color, int symbolSize,
+                                                            vtkRendererLayer layer)
+        {
+            // Arrows
+            double[] normal;
+            double[][] allLoadNormals = new double[symbolCoor.Length][];
+            for (int i = 0; i < symbolCoor.Length; i++)
+            {
+                normal = initialVelocity.GetDirection();
+                allLoadNormals[i] = normal;
+            }
+            //
+            if (symbolCoor.Length > 0)
+            {
+                vtkMaxActorData data = new vtkMaxActorData();
+                data.Name = prefixName;
+                data.Color = color;
+                data.Layer = layer;
+                data.Geometry.Nodes.Coor = symbolCoor;
+                data.Geometry.Nodes.Normals = allLoadNormals;
+                ApplyLighting(data);
+                _form.AddOrientedArrowsActor(data, symbolSize);
+            }
+        }
+        public void DrawInitialAngularVelocitySymbols(string prefixName, InitialAngularVelocity initialVelocity,
+                                                      double[][] symbolCoor, Color color, int symbolSize,
+                                                      vtkRendererLayer layer)
+        {
+            // Arrows
+            double[] normal;
+            double[][] allLoadNormals = new double[symbolCoor.Length][];
+            for (int i = 0; i < symbolCoor.Length; i++)
+            {
+                normal = initialVelocity.GetDirection();
+                allLoadNormals[i] = normal;
+            }
+            //
+            if (symbolCoor.Length > 0)
+            {
+                vtkMaxActorData data = new vtkMaxActorData();
+                data.Name = prefixName;
+                data.Color = color;
+                data.Layer = layer;
+                data.Geometry.Nodes.Coor = symbolCoor;
+                data.Geometry.Nodes.Normals = allLoadNormals;
+                ApplyLighting(data);
+                _form.AddOrientedDoubleArrowsActor(data, symbolSize);
+            }
+        }
         // BCs
         public void DrawAllBoundaryConditions(string stepName)
         {
@@ -16661,14 +16963,7 @@ namespace PrePoMax
                     }
                     else if (obj is InitialCondition ic)
                     {
-                        if (ic.RegionType == RegionTypeEnum.NodeSetName)
-                            HighlightNodeSets(new string[] { ic.RegionName });
-                        else if (ic.RegionType == RegionTypeEnum.SurfaceName)
-                            HighlightSurfaces(new string[] { ic.RegionName });
-                        else if (ic.RegionType == RegionTypeEnum.ReferencePointName)
-                            HighlightReferencePoints(new string[] { ic.RegionName });
-                        else if (ic.RegionType == RegionTypeEnum.Selection) { }
-                        else throw new NotSupportedException();
+                        HighlightInitialConditions(new string[] { ic.Name });
                     }
                     else if (obj is HistoryOutput ho)
                     {
@@ -17196,6 +17491,24 @@ namespace PrePoMax
                 {
                     DrawContactPair(contactPair, Color.Red, Color.Red, vtkRendererLayer.Selection, false);
                 }
+            }
+        }
+        public void HighlightInitialConditions(string[] initialConditionNames)
+        {
+            InitialCondition initialCondition;
+            int symbolSize = _settings.Pre.SymbolSize;
+            int nodeSize = _settings.Pre.HighlightNodeSymbolSize;
+            //
+            foreach (var InitialConditionName in initialConditionNames)
+            {
+                initialCondition = _model.InitialConditions[InitialConditionName];
+                //
+                if (initialCondition is InitialTemperature || initialCondition is InitialTranslationalVelocity || 
+                    initialCondition is InitialAngularVelocity)
+                {
+                    DrawInitialCondition(initialCondition, Color.Red, symbolSize, nodeSize, vtkRendererLayer.Selection, false);
+                }
+                else throw new NotSupportedException();
             }
         }
         public void HighlightBoundaryCondition(BoundaryCondition boundaryCondition)

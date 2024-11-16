@@ -160,7 +160,6 @@
     <Compile Include="Steps\Damping\DampingRatioFromTo.cs" />
     <Compile Include="Steps\Damping\Damping.cs" />
     <Compile Include="Steps\Damping\ModalDamping.cs" />
-    <Compile Include="Steps\Loads\CLoadData.cs" />
     <Compile Include="Steps\Loads\Imported\ImportedSTLoad.cs" />
     <Compile Include="Steps\ModalDynamicsStep.cs" />
     <Compile Include="Steps\SteadyStateDynamicsStep.cs" />

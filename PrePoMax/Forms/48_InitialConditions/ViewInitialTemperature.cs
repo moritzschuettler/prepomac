@@ -34,12 +34,17 @@ namespace PrePoMax
         [CategoryAttribute("Magnitude")]
         [OrderedDisplayName(0, 10, "Temperature")]
         [DescriptionAttribute("Value of the initial temperature.")]
-        [TypeConverter(typeof(StringTemperatureConverter))]
+        [TypeConverter(typeof(EquationTemperatureConverter))]
         [Id(1, 3)]
-        public double Temperature
+        public EquationString Temperature
         {
-            get { return _initialTemperature.Temperature; }
-            set { _initialTemperature.Temperature = value; }
+            get { return _initialTemperature.Temperature.Equation; }
+            set { _initialTemperature.Temperature.Equation = value; }
+        }
+        public override System.Drawing.Color Color
+        {
+            get { return _initialTemperature.Color; }
+            set { _initialTemperature.Color = value; }
         }
 
 

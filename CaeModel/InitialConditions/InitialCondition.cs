@@ -20,6 +20,7 @@ namespace CaeModel
         private int[] _creationIds;             //ISerializable
         private Selection _creationData;        //ISerializable
         protected bool _twoD;                   //ISerializable
+        protected Color _color;                 //ISerializable
 
 
         // Properties                                                                                                               
@@ -28,6 +29,17 @@ namespace CaeModel
         public int[] CreationIds { get { return _creationIds; } set { _creationIds = value; } }
         public Selection CreationData { get { return _creationData; } set { _creationData = value; } }
         public bool TwoD { get { return _twoD; } }
+        public Color Color
+        {
+            get
+            {
+                // Compatibility for version v2.2.3
+                if (_color == Color.Empty) _color = Color.Orange;
+                //
+                return _color;
+            }
+            set { _color = value; }
+        }
 
 
         // Constructors                                                                                                             
@@ -39,6 +51,7 @@ namespace CaeModel
             _creationIds = null;
             _creationData = null;
             _twoD = twoD;
+            _color = Color.Orange;
         }
         public InitialCondition(SerializationInfo info, StreamingContext context)
             : base(info, context)
@@ -57,6 +70,8 @@ namespace CaeModel
                         _creationData = (Selection)entry.Value; break;
                     case "_twoD":
                         _twoD = (bool)entry.Value; break;
+                    case "_color":
+                        _color = (Color)entry.Value; break;
                     default:
                         break;
                 }
@@ -77,6 +92,7 @@ namespace CaeModel
             info.AddValue("_creationIds", _creationIds, typeof(int[]));
             info.AddValue("_creationData", _creationData, typeof(Selection));
             info.AddValue("_twoD", _twoD, typeof(bool));
+            info.AddValue("_color", _color, typeof(Color));
         }
     }
 }

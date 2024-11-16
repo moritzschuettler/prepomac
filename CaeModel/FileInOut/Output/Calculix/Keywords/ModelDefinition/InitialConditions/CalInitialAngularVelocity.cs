@@ -14,9 +14,8 @@ namespace FileInOut.Output.Calculix
     internal class CalInitialAngularVelocity : CalculixKeyword
     {
         // Variables                                                                                                                
-        private string _regionName;
-        private int _deltaDOF;
         private InitialAngularVelocity _initialVelocity;
+        private InitialTranslationalVelocity[] _initialTranslationalVelocities;
 
 
         // Properties                                                                                                               
@@ -27,19 +26,9 @@ namespace FileInOut.Output.Calculix
                                          Dictionary<string, int[]> referencePointsNodeIds)
         {
             _initialVelocity = initialVelocity;
+            _initialTranslationalVelocities = model.GetTranslationalVelocities(initialVelocity, referencePointsNodeIds);
             //
-            _deltaDOF = 0;
-            if (_initialVelocity.RegionType == RegionTypeEnum.NodeSetName)
-                _regionName = _initialVelocity.RegionName;
-            else if (_initialVelocity.RegionType == RegionTypeEnum.SurfaceName)
-                _regionName += model.Mesh.Surfaces[_initialVelocity.RegionName].NodeSetName;
-            else if (_initialVelocity.RegionType == RegionTypeEnum.ReferencePointName)
-            {
-                int[] rpNodeIds = referencePointsNodeIds[_initialVelocity.RegionName];
-                _regionName = rpNodeIds[1].ToString();
-                _deltaDOF = -3;
-            }
-            else throw new NotSupportedException();
+
         }
 
 
@@ -53,17 +42,34 @@ namespace FileInOut.Output.Calculix
         }
         public override string GetDataString()
         {
+            int nodeId;
+            int deltaDOF;
             StringBuilder sb = new StringBuilder();
-            ////
-            //if (_initialVelocity.V1.Value != 0)
-            //    sb.AppendFormat("{0}, {1}, {2}{3}", _regionName, 4 + _deltaDOF,
-            //                    _initialVelocity.V1.Value.ToCalculiX16String(), Environment.NewLine);
-            //if (_initialVelocity.V2.Value != 0)
-            //    sb.AppendFormat("{0}, {1}, {2}{3}", _regionName, 5, +_deltaDOF, 
-            //                    _initialVelocity.V2.Value.ToCalculiX16String(), Environment.NewLine);
-            //if (_initialVelocity.V3.Value != 0)
-            //    sb.AppendFormat("{0}, {1}, {2}{3}", _regionName, 6, +_deltaDOF, 
-            //                    _initialVelocity.V3.Value.ToCalculiX16String(), Environment.NewLine);
+            //
+            if (_initialTranslationalVelocities != null)
+            {
+                foreach (var velocity in _initialTranslationalVelocities)
+                {
+                    nodeId = velocity.NodeId;
+                    //
+                    if (nodeId < 0) { nodeId = -nodeId; deltaDOF = 3; }
+                    else deltaDOF = 0;
+                    //
+
+                    //deltaDOF = 3;
+
+                    if (velocity.V1.Value != 0)
+                        sb.AppendFormat("{0}, {1}, {2}{3}", nodeId, 1 + deltaDOF, velocity.V1.Value.ToCalculiX16String(),
+                            Environment.NewLine);
+                    if (velocity.V2.Value != 0)
+                        sb.AppendFormat("{0}, {1}, {2}{3}", nodeId, 2 + deltaDOF, velocity.V2.Value.ToCalculiX16String(),
+                            Environment.NewLine);
+                    if (velocity.V3.Value != 0)
+                        sb.AppendFormat("{0}, {1}, {2}{3}", nodeId, 3 + deltaDOF, velocity.V3.Value.ToCalculiX16String(),
+                            Environment.NewLine);
+                }
+            }
+            //
             return sb.ToString();
         }
     }

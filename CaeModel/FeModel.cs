@@ -2065,9 +2065,9 @@ namespace CaeModel
             return springs.ToArray();
         }
         // Loads                                                                                    
-        public CLoadData[] GetNodalCLoadsFromSurfaceTraction(STLoad load)
+        public CLoad[] GetNodalCLoadsFromSurfaceTraction(STLoad load)
         {
-            List<CLoadData> loads = new List<CLoadData>();
+            List<CLoad> loads = new List<CLoad>();
             //
             if (load.Magnitude.Value != 0)
             {
@@ -2080,15 +2080,16 @@ namespace CaeModel
                 double f2ByArea = load.F2.Value / area;
                 double f3ByArea = load.F3.Value / area;
                 //
-                CLoadData cLoad;
+                CLoad cLoad;
+                double phaseDeg = load.PhaseDeg.Value;
                 foreach (var entry in nodalForces)
                 {
                     if (entry.Value != 0)
                     {
-                        cLoad = new CLoadData("_CLoad_" + entry.Key.ToString(), entry.Key,
-                                              f1ByArea * entry.Value,
-                                              f2ByArea * entry.Value,
-                                              f3ByArea * entry.Value);
+                        cLoad = new CLoad("_CLoad_" + entry.Key.ToString(), entry.Key,
+                                          f1ByArea * entry.Value,
+                                          f2ByArea * entry.Value,
+                                          f3ByArea * entry.Value, load.TwoD, load.Complex, phaseDeg, true);
                         cLoad.AmplitudeName = load.AmplitudeName;
                         loads.Add(cLoad);
                     }
@@ -2634,8 +2635,8 @@ namespace CaeModel
             //
             return loads.ToArray();
         }
-        public InitialTranslationalVelocity [] GetTranslationalVelocities(InitialAngularVelocity initialAngularVelocity,
-                                                                          Dictionary<string, int[]> referencePointsNodeIds)
+        public InitialTranslationalVelocity[] GetTranslationalVelocities(InitialAngularVelocity initialAngularVelocity,
+                                                                         Dictionary<string, int[]> referencePointsNodeIds)
         {
             Dictionary<int, double[]> nodeIdCoor = new Dictionary<int, double[]>();
             if (initialAngularVelocity.RegionType == RegionTypeEnum.NodeSetName)
@@ -2660,9 +2661,37 @@ namespace CaeModel
                 FeReferencePoint rp = _mesh.ReferencePoints[initialAngularVelocity.RegionName];
                 nodeIdCoor[referencePointsNodeIds[rp.Name][0]] = rp.Coor();
             }
-
-
-            return null;
+            //
+            Dictionary<int, double[]> nodeIdVelocity;
+            initialAngularVelocity.GetTranslationalVelocities(nodeIdCoor, out nodeIdVelocity);
+            //
+            int count = 0;
+            int nodeId;
+            InitialTranslationalVelocity[] translationalVelocities = new InitialTranslationalVelocity[nodeIdVelocity.Count];
+            foreach (var entry in nodeIdVelocity)
+            {
+                nodeId = entry.Key;
+                // Is the node is on the axis
+                if (nodeId < 0)
+                {
+                    // If the node is a translational node of the reference point, get a rotational node instead
+                    foreach (var rpEntry in referencePointsNodeIds)
+                    {
+                        if (rpEntry.Value[0] == -nodeId)
+                        {
+                            nodeId = rpEntry.Value[1];
+                            break;
+                        }
+                    }
+                }
+                //
+                translationalVelocities[count++] =
+                    new InitialTranslationalVelocity("_iniTransVel_" + nodeId.ToString(), nodeId,
+                                                     entry.Value[0], entry.Value[1], entry.Value[2],
+                                                     initialAngularVelocity.TwoD, true);
+            }
+            //
+            return translationalVelocities;
         }
         // Parameters                                                                               
         public void UpdateNCalcParameters()

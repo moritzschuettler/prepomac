@@ -16,6 +16,7 @@ namespace CaeModel
     public class InitialTranslationalVelocity : InitialCondition, IContainsEquations, IPreviewable, ISerializable
     {
         // Variables                                                                                                                
+        private int _nodeId;                        //ISerializable
         private EquationContainer _v1;              //ISerializable
         private EquationContainer _v2;              //ISerializable
         private EquationContainer _v3;              //ISerializable
@@ -23,6 +24,7 @@ namespace CaeModel
 
 
         // Properties                                                                                                               
+        public int NodeId { get { return _nodeId; } set { _nodeId = value; } }
         public EquationContainer V1 { get { UpdateEquations(); return _v1; } set { SetV1(value); } }
         public EquationContainer V2 { get { UpdateEquations(); return _v2; } set { SetV2(value); } }
         public EquationContainer V3 { get { UpdateEquations(); return _v3; } set { SetV3(value); } }
@@ -36,16 +38,23 @@ namespace CaeModel
 
 
         // Constructors                                                                                                             
+        public InitialTranslationalVelocity(string name, int nodeId, double v1, double v2, double v3, bool twoD,
+                                            bool constant = false)
+            : this(name, null, RegionTypeEnum.NodeId, v1, v2, v3, twoD, constant)
+        {
+            _nodeId = nodeId;
+        }
         public InitialTranslationalVelocity(string name, string regionName, RegionTypeEnum regionType,
-                                            double v1, double v2, double v3, bool twoD)
+                                            double v1, double v2, double v3, bool twoD, bool constant = false)
             : base(name, regionName, regionType, twoD)
         {
-            double mag = Math.Sqrt(v1 * v1 + v2 * v2 + v3 * v3);
+            _nodeId = -1;
             //
-            V1 = new EquationContainer(typeof(StringVelocityConverter), v1, null);
-            V2 = new EquationContainer(typeof(StringVelocityConverter), v2, null);
-            V3 = new EquationContainer(typeof(StringVelocityConverter), v3, null);
-            Magnitude = new EquationContainer(typeof(StringVelocityConverter), mag, null);
+            double mag = Math.Sqrt(v1 * v1 + v2 * v2 + v3 * v3);
+            V1 = new EquationContainer(typeof(StringVelocityConverter), v1, null, constant);
+            V2 = new EquationContainer(typeof(StringVelocityConverter), v2, null, constant);
+            V3 = new EquationContainer(typeof(StringVelocityConverter), v3, null, constant);
+            Magnitude = new EquationContainer(typeof(StringVelocityConverter), mag, null, constant);
         }
         public InitialTranslationalVelocity(SerializationInfo info, StreamingContext context)
             : base(info, context)
@@ -54,6 +63,8 @@ namespace CaeModel
             {
                 switch (entry.Name)
                 {
+                    case "_nodeId":
+                        _nodeId = (int)entry.Value; break;
                     case "_v1":
                         SetV1((EquationContainer)entry.Value, false); break;
                     case "_v2":
@@ -122,6 +133,10 @@ namespace CaeModel
         {
             if (value < 0) throw new Exception("Value of the velocity magnitude must be non-negative.");
             else return value;
+        }
+        public double[] GetDirection()
+        {
+            return new double[] { _v1.Value, _v2.Value, _v3.Value };
         }
         // IContainsEquations
         public void CheckEquations()
@@ -219,6 +234,7 @@ namespace CaeModel
             // Using typeof() works also for null fields
             base.GetObjectData(info, context);
             //
+            info.AddValue("_nodeId", _nodeId, typeof(int));
             info.AddValue("_v1", _v1, typeof(EquationContainer));
             info.AddValue("_v2", _v2, typeof(EquationContainer));
             info.AddValue("_v3", _v3, typeof(EquationContainer));

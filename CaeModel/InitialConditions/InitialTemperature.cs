@@ -7,29 +7,57 @@ using CaeMesh;
 using System.ComponentModel;
 using CaeGlobals;
 using CaeResults;
+using System.Runtime.Serialization;
+using System.Data;
 
 namespace CaeModel
 {
     [Serializable]
-    public class InitialTemperature : InitialCondition, IPreviewable
+    public class InitialTemperature : InitialCondition, IPreviewable, ISerializable
     {
         // Variables                                                                                                                
-        private double _temperature;
+        private EquationContainer _temperature;         //ISerializable
 
 
         // Properties                                                                                                               
-        public double Temperature { get { return _temperature; } set { _temperature = value; } }
+        public EquationContainer Temperature { get { return _temperature; } set { SetTemp(value); } }
 
 
         // Constructors                                                                                                             
         public InitialTemperature(string name, string regionName, RegionTypeEnum regionType)
             : base(name, regionName, regionType, false)
         {
-            _temperature = 0;
+            Temperature = new EquationContainer(typeof(StringTemperatureConverter), 0, null);
+        }
+        public InitialTemperature(SerializationInfo info, StreamingContext context)
+            : base(info, context)
+        {
+            foreach (SerializationEntry entry in info)
+            {
+                switch (entry.Name)
+                {
+                    case "_temperature":
+                        // Compatibility for version v2.2.3
+                        if (entry.Value is double valueT)
+                            Temperature = new EquationContainer(typeof(StringTemperatureConverter), valueT);
+                        else
+                            SetTemp((EquationContainer)entry.Value, false);
+                        break;
+                    default:
+                        break;
+                }
+            }
         }
 
 
         // Methods                                                                                                                  
+
+
+        private void SetTemp(EquationContainer value, bool checkEquation = true)
+        {
+            EquationContainer.SetAndCheck(ref _temperature, value, null, null, checkEquation);
+        }
+        // IPreviewable
         public FeResults GetPreview(FeMesh targetMesh, string resultName, UnitSystem unitSystem)
         {
             PartExchangeData allData = new PartExchangeData();
@@ -51,10 +79,11 @@ namespace CaeModel
             HashSet<int> nodeIds = new HashSet<int>(nodeSet.Labels);
             //
             float[] values = new float[allData.Nodes.Coor.Length];
+            float temp = (float)_temperature.Value;
             //
             for (int i = 0; i < values.Length; i++)
             {
-                if (nodeIds.Contains(allData.Nodes.Ids[i])) values[i] = (float)_temperature;
+                if (nodeIds.Contains(allData.Nodes.Ids[i])) values[i] = temp;
                 else values[i] = float.NaN;
             }
             //
@@ -76,6 +105,14 @@ namespace CaeModel
             results.AddField(fieldData, field);
             //
             return results;
+        }
+        // ISerialization
+        public new void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            // Using typeof() works also for null fields
+            base.GetObjectData(info, context);
+            //
+            info.AddValue("_temperature", _temperature, typeof(EquationContainer));
         }
     }
 }

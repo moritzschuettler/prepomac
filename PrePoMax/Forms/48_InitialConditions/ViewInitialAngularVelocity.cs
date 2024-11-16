@@ -111,6 +111,11 @@ namespace PrePoMax
             get { return _initialVelocity.RotationalSpeed.Equation; }
             set { _initialVelocity.RotationalSpeed.Equation = value; }
         }
+        public override System.Drawing.Color Color
+        {
+            get { return _initialVelocity.Color; }
+            set { _initialVelocity.Color = value; }
+        }
 
 
         // Constructors                                                                                                             

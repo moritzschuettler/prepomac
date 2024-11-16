@@ -15,7 +15,8 @@ namespace PrePoMax
         ReferencePoints = 32,
         Constraints = 64,
         ContactPairs = 128,
-        BoundaryConditions = 256,
-        Loads = 512
+        InitialConditions = 256,
+        BoundaryConditions = 512,
+        Loads = 1024
     }
 }

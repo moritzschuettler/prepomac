@@ -14,7 +14,7 @@ namespace FileInOut.Output.Calculix
     {
         // Variables                                                                                                                
         private STLoad _load;
-        private CLoadData[] _cLoadData;
+        private CLoad[] _cLoad;
         private ComplexLoadTypeEnum _complexLoadType;
 
 
@@ -25,7 +25,7 @@ namespace FileInOut.Output.Calculix
         public CalSTLoad(FeModel model, STLoad load, ComplexLoadTypeEnum complexLoadType)
         {
             _load = load;
-            _cLoadData = model.GetNodalCLoadsFromSurfaceTraction(_load);
+            _cLoad = model.GetNodalCLoadsFromSurfaceTraction(_load);
             _complexLoadType = complexLoadType;
         }
 
@@ -50,15 +50,15 @@ namespace FileInOut.Output.Calculix
             //
             double ratio = GetComplexRatio(_complexLoadType, _load.PhaseDeg.Value);
             //
-            if (_cLoadData != null)
+            if (_cLoad != null)
             {
                 List<int> directions = new List<int>();
-                foreach (var cLoad in _cLoadData)
+                foreach (var cLoad in _cLoad)
                 {
                     directions.Clear();
-                    if (cLoad.F1 != 0) directions.Add(1);
-                    if (cLoad.F2 != 0) directions.Add(2);
-                    if (cLoad.F3 != 0) directions.Add(3);
+                    if (cLoad.F1.Value != 0) directions.Add(1);
+                    if (cLoad.F2.Value != 0) directions.Add(2);
+                    if (cLoad.F3.Value != 0) directions.Add(3);
                     //
                     foreach (var dir in directions)
                     {

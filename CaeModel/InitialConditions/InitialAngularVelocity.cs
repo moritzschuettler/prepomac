@@ -9,6 +9,8 @@ using CaeGlobals;
 using CaeResults;
 using System.Data;
 using System.Runtime.Serialization;
+using QuantumConcepts.Formats.StereoLithography;
+using System.Xml.Linq;
 
 namespace CaeModel
 {
@@ -123,6 +125,14 @@ namespace CaeModel
             if (value < 0) throw new CaeException("The value of the rotational speed must be non-negative.");
             else return value;
         }
+        public double[] GetDirection()
+        {
+            return new double[] { _n1.Value, _n2.Value, _n3.Value };
+        }
+        public double[] GetPosition()
+        {
+            return new double[] { _x.Value, _y.Value, _z.Value };
+        }
         // IContainsEquations
         public void CheckEquations()
         {
@@ -166,37 +176,26 @@ namespace CaeModel
             }
             else throw new NotSupportedException();
             //
-            Vec3D point = new Vec3D(_x.Value, _y.Value, _z.Value);
-            Vec3D normal = new Vec3D(_n1.Value, _n2.Value, _n3.Value);
-            normal.Normalize();
+            Dictionary<int, double[]> nodeIdCoor = new Dictionary<int, double[]>();
+            foreach (var nodeId in nodeIds) nodeIdCoor[nodeId] = allData.Nodes.Coor[nodeId];
             //
+            Dictionary<int, double[]> nodeIdVelocity;
+            GetTranslationalVelocities(nodeIdCoor, out nodeIdVelocity);
+            //
+            double[] velocity;
             float[] values1 = new float[allData.Nodes.Coor.Length];
             float[] values2 = new float[allData.Nodes.Coor.Length];
             float[] values3 = new float[allData.Nodes.Coor.Length];
             float[] valuesAll = new float[allData.Nodes.Coor.Length];
             //
-            double t;
-            double omega = _rotationalSpeed.Value;
-            Vec3D node;
-            Vec3D pointToNode;
-            Vec3D axisPoint;
-            Vec3D r;
-            Vec3D v;
             for (int i = 0; i < allData.Nodes.Coor.Length; i++)
             {
-                if (nodeIds.Contains(allData.Nodes.Ids[i]))
+                if (nodeIdVelocity.TryGetValue(allData.Nodes.Ids[i], out velocity))
                 {
-                    node = new Vec3D(allData.Nodes.Coor[i]);
-                    pointToNode = node - point;
-                    t = Vec3D.DotProduct(pointToNode, normal);
-                    axisPoint = point + normal * t;
-                    r = node - axisPoint;
-                    v = Vec3D.CrossProduct(normal, r) * omega;
-                    //
-                    values1[i] = (float)v.X;
-                    values2[i] = (float)v.Y;
-                    values3[i] = (float)v.Z;
-                    valuesAll[i] = (float)v.Len;
+                    values1[i] = (float)velocity[0];
+                    values2[i] = (float)velocity[1];
+                    values3[i] = (float)velocity[2];
+                    valuesAll[i] = (float)Math.Sqrt(Math.Pow(velocity[0], 2) + Math.Pow(velocity[1], 2) + Math.Pow(velocity[2], 2));
                 }
                 else
                 {
@@ -228,6 +227,40 @@ namespace CaeModel
             results.AddField(fieldData, field);
             //
             return results;
+        }
+        public void GetTranslationalVelocities(Dictionary<int, double[]> nodeIdCoor, out Dictionary<int, double[]> nodeIdVelocity)
+        {
+            double t;
+            double omega = _rotationalSpeed.Value;
+            Vec3D node;
+            Vec3D pointToNode;
+            Vec3D axisPoint;
+            Vec3D r;
+            Vec3D v;
+            //
+            Vec3D point = new Vec3D(_x.Value, _y.Value, _z.Value);
+            Vec3D normal = new Vec3D(_n1.Value, _n2.Value, _n3.Value);
+            normal.Normalize();
+            nodeIdVelocity = new Dictionary<int, double[]>();
+            //
+            foreach (var entry in nodeIdCoor)
+            {
+                node = new Vec3D(entry.Value);
+                pointToNode = node - point;
+                t = Vec3D.DotProduct(pointToNode, normal);
+                axisPoint = point + normal * t;
+                r = node - axisPoint;
+                if (r.Len2 > 1E-3)
+                {
+                    v = Vec3D.CrossProduct(normal, r) * omega;
+                    nodeIdVelocity[entry.Key] = v.Coor;
+                }
+                else
+                {
+                    v = normal * omega;
+                    nodeIdVelocity[-entry.Key] = v.Coor;    // negative node id
+                }
+            }
         }
         // ISerialization
         public new void GetObjectData(SerializationInfo info, StreamingContext context)

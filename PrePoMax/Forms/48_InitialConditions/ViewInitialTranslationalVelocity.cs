@@ -73,7 +73,12 @@ namespace PrePoMax
             get { return _initialVelocity.Magnitude.Equation; }
             set { _initialVelocity.Magnitude.Equation = value; }
         }
-        
+        public override System.Drawing.Color Color
+        {
+            get { return _initialVelocity.Color; }
+            set { _initialVelocity.Color = value; }
+        }
+
 
         // Constructors                                                                                                             
         public ViewInitialTranslationalVelocity(InitialTranslationalVelocity initialVelocity)

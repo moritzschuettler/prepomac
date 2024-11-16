@@ -45,7 +45,8 @@ namespace FileInOut.Output.Calculix
         public override string GetDataString()
         {
             StringBuilder sb = new StringBuilder();
-            sb.AppendFormat("{0}, {1}{2}", _regionName, _initialTemperature.Temperature.ToCalculiX16String(), Environment.NewLine);
+            sb.AppendFormat("{0}, {1}{2}", _regionName, _initialTemperature.Temperature.Value.ToCalculiX16String(),
+                            Environment.NewLine);
             return sb.ToString();
         }
     }

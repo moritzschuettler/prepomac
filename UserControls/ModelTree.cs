@@ -3189,6 +3189,7 @@ namespace UserControls
             else if (item is CoordinateSystem) return true;
             else if (item is Constraint) return true;
             else if (item is ContactPair) return true;
+            else if (item is InitialCondition) return true;
             else if (item is BoundaryCondition) return true;
             else if (item is Load) return true;
             else return false;
