@@ -263,7 +263,7 @@ namespace UserControls
 
         // Events                                                                                                                   
         public event Action<ViewType> GeometryMeshResultsEvent;
-        public event Action<NamedClass[]> SelectEvent;
+        public event Action<NamedClass[], bool> SelectEvent;
         public event Action ClearSelectionEvent;
         //
         public event Action<string, string> CreateEvent;
@@ -788,7 +788,7 @@ namespace UserControls
                     // Results
                     if (node.Tag is FieldData)
                     {
-                        SelectEvent?.Invoke(null);      // clear selection
+                        SelectEvent?.Invoke(null, false);      // clear selection
                         FieldDataSelectEvent?.Invoke(new string[] { node.Parent.Name, node.Name });
                         ActiveControl = cltvResults;    // this is for the arrow keys to work on the results tree
                         return;
@@ -805,7 +805,7 @@ namespace UserControls
                 }
                 if (lastNode != null) lastNode.EnsureVisible();
                 //
-                SelectEvent?.Invoke(items.ToArray());
+                SelectEvent?.Invoke(items.ToArray(), false);
             }
             else if (tree.SelectedNodes.Count == 0) ClearSelectionEvent();
             //
@@ -910,7 +910,7 @@ namespace UserControls
                 items.Add((NamedClass)node.Tag);
             }
             //
-            SelectEvent?.Invoke(items.ToArray());
+            SelectEvent?.Invoke(items.ToArray(), true);
             //
             timerMouseMove.Stop();
         }

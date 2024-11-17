@@ -2486,7 +2486,7 @@ namespace PrePoMax
             FeMesh mesh = DisplayedMesh;
             foreach (var entry in mesh.Parts)
             {
-                if (entry.Value is GeometryPart gp)
+                if (entry.Value is GeometryPart gp && gp.Visible)
                 {
                     GmshData gmshData = new GmshData();
                     gmshData.GeometryFileName = brepFileName;
@@ -16865,24 +16865,24 @@ namespace PrePoMax
             _form.SelectBaseParts(partNames);
         }
         //
-        public void Highlight3DObjects(object[] obj, bool clear = true)
+        public void Highlight3DObjects(object[] obj, bool mouseOver = false)
         {
-            Highlight3DObjects(_currentView, obj, clear);
+            Highlight3DObjects(_currentView, obj, mouseOver, true);
             //string data = obj == null ? "Null" : obj.Length.ToString();
             //Debug.WriteLine(DateTime.Now.Millisecond + ": Highlight3DObjects: " + data + " " + code);
         }
-        public void Highlight3DObjects(ViewGeometryModelResults view, object[] obj, bool clear)
+        public void Highlight3DObjects(ViewGeometryModelResults view, object[] obj, bool mouseOver = false, bool clear = false)
         {
             if (clear) _form.Clear3DSelection();       // must be here: clears the highlight in the results
             //
             if (obj != null)
             {
-                foreach (var item in obj) Highlight3DObject(view, item);
+                foreach (var item in obj) Highlight3DObject(view, item, mouseOver);
                 //
                 _form.AdjustCameraDistanceAndClipping();
             }
         }
-        private void Highlight3DObject(ViewGeometryModelResults view, object obj)
+        private void Highlight3DObject(ViewGeometryModelResults view, object obj, bool mouseOver = false)
         {
             try
             {
@@ -16982,11 +16982,11 @@ namespace PrePoMax
                     }
                     else if (obj is BoundaryCondition bc)
                     {
-                        HighlightBoundaryCondition(bc);
+                        HighlightBoundaryCondition(bc, mouseOver);
                     }
                     else if (obj is Load l)
                     {
-                        HighlightLoad(l);
+                        HighlightLoad(l, mouseOver);
                     }
                     else if (obj is DefinedField df)
                     {
@@ -17511,20 +17511,20 @@ namespace PrePoMax
                 else throw new NotSupportedException();
             }
         }
-        public void HighlightBoundaryCondition(BoundaryCondition boundaryCondition)
+        public void HighlightBoundaryCondition(BoundaryCondition boundaryCondition, bool mouseOver = false)
         {
             Step step = _model.StepCollection.GetBoundaryConditionStep(boundaryCondition);
-            if (step != null) _form.SelectOneStepInSymbolsForStepList(step.Name);
+            if (!mouseOver && step != null) _form.SelectOneStepInSymbolsForStepList(step.Name);
             //
             int symbolSize = _settings.Pre.SymbolSize;
             int nodeSize = _settings.Pre.HighlightNodeSymbolSize;
             DrawBoundaryCondition("Step-Highlight", boundaryCondition, Color.Red, symbolSize,
                                   nodeSize, vtkRendererLayer.Selection, false);
         }
-        public void HighlightLoad(Load load)
+        public void HighlightLoad(Load load, bool mouseOver = false)
         {
             Step step = _model.StepCollection.GetLoadStep(load);
-            if (step != null) _form.SelectOneStepInSymbolsForStepList(step.Name);
+            if (!mouseOver && step != null) _form.SelectOneStepInSymbolsForStepList(step.Name);
             //
             int symbolSize = _settings.Pre.SymbolSize;
             int nodeSize = _settings.Pre.HighlightNodeSymbolSize;

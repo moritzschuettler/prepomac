@@ -893,11 +893,11 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void ModelTree_Select(NamedClass[] items)
+        private void ModelTree_Select(NamedClass[] items, bool mouseOver)
         {
             try
             {
-                _controller.Highlight3DObjects(items);
+                _controller.Highlight3DObjects(items, mouseOver);
             }
             catch
             {

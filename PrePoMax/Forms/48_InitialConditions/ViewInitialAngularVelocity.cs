@@ -101,9 +101,9 @@ namespace PrePoMax
         [Id(3, 4)]
         public EquationString N3 { get { return _initialVelocity.N3.Equation; } set { _initialVelocity.N3.Equation = value; } }
         //
-        [CategoryAttribute("Rotational speed magnitude")]
+        [CategoryAttribute("Angular velocity magnitude")]
         [OrderedDisplayName(0, 10, "Magnitude")]
-        [DescriptionAttribute("Value of the rotational speed magnitude around the axis defined by the point and direction.")]
+        [DescriptionAttribute("Value of the angular velocity magnitude around the axis defined by the point and direction.")]
         [TypeConverter(typeof(EquationRotationalSpeedConverter))]
         [Id(1, 5)]
         public EquationString RotationalSpeed
