@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.ComponentModel;
 using CaeGlobals;
 using DynamicTypeDescriptor;
+using System.Diagnostics;
 
 namespace PrePoMax
 {
@@ -27,7 +28,13 @@ namespace PrePoMax
             get
             {
                 if (_multiRegion == null) return "";
-                if (_regionTypePropertyNamePairs.ContainsKey(_multiRegion.RegionType)) return _multiRegion.RegionType.ToFriendlyString();
+                if (_regionTypePropertyNamePairs.ContainsKey(_multiRegion.RegionType))
+                    return _multiRegion.RegionType.ToFriendlyString();
+                else if (_multiRegion.RegionType == RegionTypeEnum.None)
+                {
+                    if (Debugger.IsAttached) MessageBoxes.ShowWarning("ViewMultiRegion: The region does not exist!");
+                    return _multiRegion.RegionType.ToFriendlyString();
+                }
                 else throw new NotSupportedException();
             }
             set

@@ -6700,18 +6700,15 @@ namespace PrePoMax
             //
             FeModelUpdate(UpdateType.Check | UpdateType.DrawModel | UpdateType.RedrawSymbols);
         }
-        public void RemoveElementSets(string[] elementSetNames)
+        public void RemoveElementSets(string[] elementSetNames, bool update = true)
         {
             FeElementSet elementSet;
-            bool update = false;    // needed for remeshing
             //
             foreach (var name in elementSetNames)
             {
                 if (_model.Mesh.ElementSets.TryRemove(name, out elementSet) && !elementSet.Internal)
                 {
-
                     _form.RemoveTreeNode<FeElementSet>(ViewGeometryModelResults.Model, name, null);
-                    update = true;
                 }
             }
             //
@@ -7630,16 +7627,17 @@ namespace PrePoMax
             DeleteSelectionBasedSectionSets(oldSectionName);
             ConvertSelectionBasedSection(section);
             //
-            _model.Sections.Replace(oldSectionName, section.Name, section);
-            //
-            _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldSectionName, section, null);
-            //
-            AnnotateWithColorEnum state = AnnotateWithColorEnum.Materials | AnnotateWithColorEnum.Sections |
-                                          AnnotateWithColorEnum.SectionThicknesses;
-            if (state.HasFlag(_annotateWithColor)) FeModelUpdate(UpdateType.DrawModel);
-            else AnnotateWithColorLegend();
-            //
-            CheckAndUpdateModelValidity();
+            if (_model.Sections.Replace(oldSectionName, section.Name, section))
+            {
+                _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldSectionName, section, null);
+                //
+                AnnotateWithColorEnum state = AnnotateWithColorEnum.Materials | AnnotateWithColorEnum.Sections |
+                                              AnnotateWithColorEnum.SectionThicknesses;
+                if (state.HasFlag(_annotateWithColor)) FeModelUpdate(UpdateType.DrawModel);
+                else AnnotateWithColorLegend();
+                //
+                CheckAndUpdateModelValidity();
+            }
         }
         public void DuplicateSections(string[] sectionNames)
         {
@@ -7731,13 +7729,11 @@ namespace PrePoMax
             if (section.CreationData != null && section.RegionName != null)
             {
                 if (section is PointMassSection)
-                    RemoveNodeSets(new string[] { section.RegionName });
+                    RemoveNodeSets(new string[] { section.RegionName }, false);
                 else if (section is SolidSection || section is ShellSection || section is MembraneSection)
-                    RemoveElementSets(new string[] { section.RegionName });
+                    RemoveElementSets(new string[] { section.RegionName }, false);
                 else if (section is DistributedMassSection)
-                {
                     RemoveSurfaces(new string[] { section.RegionName }, false);
-                }
                 else throw new NotSupportedException();
             }
         }
@@ -8133,7 +8129,7 @@ namespace PrePoMax
             if (constraint is PointSpring ps && ps.CreationData != null && ps.RegionName != null &&
                 ps.RegionType == RegionTypeEnum.NodeSetName)
             {
-                RemoveNodeSets(new string[] { ps.RegionName });
+                RemoveNodeSets(new string[] { ps.RegionName }, false);
             }
             else if (constraint is SurfaceSpring ss)
             {
@@ -8142,7 +8138,7 @@ namespace PrePoMax
             }
             else if (constraint is RigidBody rb && rb.CreationData != null && rb.RegionName != null)
             {
-                RemoveNodeSets(new string[] { rb.RegionName });
+                RemoveNodeSets(new string[] { rb.RegionName }, false);
             }
             else if (constraint is Tie tie)
             {
@@ -8832,11 +8828,12 @@ namespace PrePoMax
             DeleteSelectionBasedInitialConditionSets(oldInitialConditionName);
             ConvertSelectionBasedInitialCondition(initialCondition);
             //
-            _model.InitialConditions.Replace(oldInitialConditionName, initialCondition.Name, initialCondition);
-            //
-            _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldInitialConditionName, initialCondition, null);
-            //
-            FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            if (_model.InitialConditions.Replace(oldInitialConditionName, initialCondition.Name, initialCondition))
+            {
+                _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldInitialConditionName, initialCondition, null);
+                //
+                FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            }
         }
         public void DuplicateInitialConditions(string[] initialConditionNames)
         {
@@ -8939,9 +8936,9 @@ namespace PrePoMax
             if (initialCondition.CreationData != null && initialCondition.RegionName != null)
             {
                 if (initialCondition is InitialTemperature)
-                    RemoveNodeSets(new string[] { initialCondition.RegionName });
+                    RemoveNodeSets(new string[] { initialCondition.RegionName }, false);
                 else if (initialCondition is InitialTranslationalVelocity || initialCondition is InitialAngularVelocity)
-                    RemoveNodeSets(new string[] { initialCondition.RegionName });
+                    RemoveNodeSets(new string[] { initialCondition.RegionName }, false);
                 else throw new NotSupportedException();
             }
         }
@@ -9121,9 +9118,6 @@ namespace PrePoMax
         {
             HistoryOutput oldHistoryOutput = GetHistoryOutput(stepName, oldHistoryOutputName);
             // First check for a valid region since MultiRegionChanged changes the region type and region name
-
-            //if (historyOutput.re)
-
             if (!_model.RegionValid(oldHistoryOutput) || StepCollection.MultiRegionChanged(oldHistoryOutput, historyOutput))
             {
                 DeleteSelectionBasedHistoryOutputSets(stepName, oldHistoryOutputName);
@@ -9240,28 +9234,12 @@ namespace PrePoMax
             if (historyOutput.CreationData != null && historyOutput.RegionName != null &&
                 regionsCount[historyOutput.RegionName] == 1)
             {
-                if (historyOutput is NodalHistoryOutput) RemoveNodeSets(new string[] { historyOutput.RegionName });
-                else if (historyOutput is ElementHistoryOutput) RemoveElementSets(new string[] { historyOutput.RegionName });
+                if (historyOutput is NodalHistoryOutput)
+                    RemoveNodeSets(new string[] { historyOutput.RegionName }, false);
+                else if (historyOutput is ElementHistoryOutput)
+                    RemoveElementSets(new string[] { historyOutput.RegionName }, false);
                 else throw new NotSupportedException();
             }
-        }
-        public void CopyRegionCreationDataToHistoryOutput(HistoryOutput historyOutput)
-        {
-            if (historyOutput.RegionType == RegionTypeEnum.Selection)
-            {
-                if (historyOutput is NodalHistoryOutput nho)
-                {
-                    if (_model.Mesh.NodeSets.TryGetValue(nho.RegionName, out FeNodeSet nodeSet) &&
-                        nodeSet.CreationData != null) nho.CreationData = nodeSet.CreationData.DeepClone();
-                }
-                else if (historyOutput is ElementHistoryOutput eho)
-                {
-                    if (_model.Mesh.ElementSets.TryGetValue(eho.RegionName, out FeElementSet elementSet) &&
-                        elementSet.CreationData != null) eho.CreationData = elementSet.CreationData;
-                }
-                else throw new NotSupportedException();
-            }
-            
         }
         #endregion #################################################################################################################
 
@@ -9566,19 +9544,6 @@ namespace PrePoMax
                 else throw new NotSupportedException();
             }
         }
-        public void CopyRegionCreationDataToBoundaryCondition(BoundaryCondition boundaryCondition)
-        {
-            if (boundaryCondition.RegionType == RegionTypeEnum.Selection)
-            {
-                if (boundaryCondition is FixedBC || boundaryCondition is DisplacementRotation ||
-                    boundaryCondition is SubmodelBC || boundaryCondition is TemperatureBC)
-                {
-                    if (_model.Mesh.NodeSets.TryGetValue(boundaryCondition.RegionName, out FeNodeSet nodeSet) &&
-                        nodeSet.CreationData != null) boundaryCondition.CreationData = nodeSet.CreationData.DeepClone();
-                }
-                else throw new NotSupportedException();
-            }
-        }
 
         #endregion #################################################################################################################
 
@@ -9820,9 +9785,9 @@ namespace PrePoMax
             if (load.CreationData != null && load.RegionName != null && regionsCount[load.RegionName] == 1)
             {
                 if (load is CLoad || load is MomentLoad || load is CFlux)
-                    RemoveNodeSets(new string[] { load.RegionName });
+                    RemoveNodeSets(new string[] { load.RegionName }, false);
                 else if (load is GravityLoad || load is CentrifLoad || load is BodyFlux)
-                    RemoveElementSets(new string[] { load.RegionName });
+                    RemoveElementSets(new string[] { load.RegionName }, false);
                 else if (load is DLoad || load is HydrostaticPressure || load is ImportedPressure || load is STLoad ||
                          load is ImportedSTLoad || load is ShellEdgeLoad || load is PreTensionLoad ||
                          load is DFlux || load is FilmHeatTransfer || load is RadiationHeatTransfer)
@@ -9879,10 +9844,12 @@ namespace PrePoMax
             if (!_model.StepCollection.MultiRegionSelectionExists(stepName, definedField))
                 ConvertSelectionBasedDefinedField(definedField);
             //
-            _model.StepCollection.AddDefinedField(definedField, stepName);
-            _form.AddTreeNode(ViewGeometryModelResults.Model, definedField, stepName);
-            //
-            CheckAndUpdateModelValidity();
+            if (_model.StepCollection.GetStep(stepName).AddDefinedField(definedField))
+            {
+                _form.AddTreeNode(ViewGeometryModelResults.Model, definedField, stepName);
+                //
+                CheckAndUpdateModelValidity();
+            }
         }
         public void ReplaceDefinedField(string stepName, string oldDefinedFieldName, DefinedField definedField,
                                         bool propagated = false)
@@ -9896,11 +9863,12 @@ namespace PrePoMax
                 if (!propagated) ConvertSelectionBasedDefinedField(definedField);
             }
             //
-            _model.StepCollection.GetStep(stepName).DefinedFields.Replace(oldDefinedFieldName, definedField.Name, definedField);
-            //
-            _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldDefinedFieldName, definedField, stepName);
-            //
-            CheckAndUpdateModelValidity();
+            if (_model.StepCollection.GetStep(stepName).DefinedFields.Replace(oldDefinedFieldName, definedField.Name, definedField))
+            {
+                _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldDefinedFieldName, definedField, stepName);
+                //
+                CheckAndUpdateModelValidity();
+            }
         }
         public void DuplicateDefinedFields(string stepName, string[] definedFieldNames)
         {
@@ -9926,7 +9894,6 @@ namespace PrePoMax
                 else
                     AddDefinedField(nextStepName, definedField);
             }
-
         }
         public void PreviewDefinedField(string stepName, string definedFieldName)
         {
@@ -9985,6 +9952,12 @@ namespace PrePoMax
                         definedField.RegionName = name;
                         definedField.RegionType = RegionTypeEnum.NodeSetName;
                     }
+                    else if (dt.Type == DefinedTemperatureTypeEnum.FromFile)
+                    {
+                        // Defined field created from file needs no selection
+                        definedField.RegionType = RegionTypeEnum.None;
+                    }
+                    else throw new NotSupportedException();
                 }
                 else throw new NotSupportedException();
             }
@@ -10004,7 +9977,8 @@ namespace PrePoMax
             if (definedField.CreationData != null && definedField.RegionName != null &&
                 regionsCount[definedField.RegionName] == 1)
             {
-                if (definedField is DefinedTemperature) RemoveNodeSets(new string[] { definedField.RegionName });
+                if (definedField is DefinedTemperature)
+                    RemoveNodeSets(new string[] { definedField.RegionName }, false);
                 else throw new NotSupportedException();
             }
         }

@@ -26,11 +26,11 @@ namespace FileInOut.Output.Calculix
             _definedTemperature = definedTemperature;
             //
             _regionName = "";
-            if (_definedTemperature.RegionType == CaeGlobals.RegionTypeEnum.NodeSetName)
+            if (_definedTemperature.RegionType == RegionTypeEnum.NodeSetName)
                 _regionName += _definedTemperature.RegionName;
-            else if (_definedTemperature.RegionType == CaeGlobals.RegionTypeEnum.SurfaceName)
+            else if (_definedTemperature.RegionType == RegionTypeEnum.SurfaceName)
                 _regionName += model.Mesh.Surfaces[_definedTemperature.RegionName].NodeSetName;
-            else if (_definedTemperature.RegionType == CaeGlobals.RegionTypeEnum.Selection)
+            else if (_definedTemperature.RegionType == RegionTypeEnum.None)
             { }
             else throw new NotSupportedException();
         }
@@ -53,7 +53,7 @@ namespace FileInOut.Output.Calculix
             StringBuilder sb = new StringBuilder();
             if (_definedTemperature.Type == DefinedTemperatureTypeEnum.ByValue)
             {
-                sb.AppendFormat("{0}, {1}{2}", _regionName, _definedTemperature.Temperature.ToCalculiX16String(),
+                sb.AppendFormat("{0}, {1}{2}", _regionName, _definedTemperature.Temperature.Value.ToCalculiX16String(),
                                 Environment.NewLine);
             }
             return sb.ToString();

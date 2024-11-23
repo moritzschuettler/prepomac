@@ -8,6 +8,7 @@ using System.ComponentModel;
 using DynamicTypeDescriptor;
 using CaeGlobals;
 using CaeResults;
+using System.Runtime.Serialization;
 
 namespace CaeModel
 {
@@ -22,18 +23,18 @@ namespace CaeModel
     //
     [Serializable]
                 
-    public class DefinedTemperature : DefinedField, IPreviewable
+    public class DefinedTemperature : DefinedField, IPreviewable, ISerializable
     {
         // Variables                                                                                                                
-        private DefinedTemperatureTypeEnum _definedTemperatureType;
-        private double _temperature;
-        private string _fileName;
-        private int _stepNumber;
+        private DefinedTemperatureTypeEnum _definedTemperatureType;     //ISerializable
+        private EquationContainer _temperature;                         //ISerializable
+        private string _fileName;                                       //ISerializable
+        private int _stepNumber;                                        //ISerializable
 
 
         // Properties                                                                                                               
         public DefinedTemperatureTypeEnum Type { get { return _definedTemperatureType; } set { _definedTemperatureType = value; } }
-        public double Temperature { get { return _temperature; } set { _temperature = value; } }
+        public EquationContainer Temperature { get { return _temperature; } set { SetTemp(value); } }
         public string FileName { get { return _fileName; } set { _fileName = value; } }
         public int StepNumber
         {
@@ -51,13 +52,50 @@ namespace CaeModel
             : base(name, regionName, regionType)
         {
             _definedTemperatureType = DefinedTemperatureTypeEnum.ByValue;
-            _temperature = temperature;
+            Temperature = new EquationContainer(typeof(StringTemperatureConverter), temperature, null);
             _fileName = null;
             _stepNumber = 1;
+        }
+        public DefinedTemperature(SerializationInfo info, StreamingContext context)
+           : base(info, context)
+        {
+            foreach (SerializationEntry entry in info)
+            {
+                switch (entry.Name)
+                {
+                    case "_definedTemperatureType":
+                        _definedTemperatureType = (DefinedTemperatureTypeEnum)entry.Value; break;
+                    case "_temperature":
+                        // Compatibility for version v2.2.3
+                        if (entry.Value is double valueT)
+                            Temperature = new EquationContainer(typeof(StringTemperatureConverter), valueT);
+                        else
+                            SetTemp((EquationContainer)entry.Value, false);
+                        break;
+                    case "_fileName":
+                        _fileName = (string)entry.Value; break;
+                    case "_stepNumber":
+                        _stepNumber = (int)entry.Value; break;
+                    default:
+                        break;
+                }
+            }
         }
 
 
         // Methods                                                                                                                  
+        private void SetTemp(EquationContainer value, bool checkEquation = true)
+        {
+            EquationContainer.SetAndCheck(ref _temperature, value, null, null, checkEquation);
+        }
+        // IContainsEquations
+        public override void CheckEquations()
+        {
+            base.CheckEquations();
+            //
+            _temperature.CheckEquation();
+        }
+        // IPreviewable
         public FeResults GetPreview(FeMesh targetMesh, string resultName, UnitSystem unitSystem)
         {
             if (Type == DefinedTemperatureTypeEnum.ByValue)
@@ -80,11 +118,12 @@ namespace CaeModel
                 //
                 HashSet<int> nodeIds = new HashSet<int>(nodeSet.Labels);
                 //
+                float temperature = (float)_temperature.Value;
                 float[] values = new float[allData.Nodes.Coor.Length];
                 //
                 for (int i = 0; i < values.Length; i++)
                 {
-                    if (nodeIds.Contains(allData.Nodes.Ids[i])) values[i] = (float)_temperature;
+                    if (nodeIds.Contains(allData.Nodes.Ids[i])) values[i] = temperature;
                     else values[i] = float.NaN;
                 }
                 //
@@ -111,6 +150,17 @@ namespace CaeModel
                 throw new CaeException("It is not possible to preview this defined field type.");
             else
                 throw new NotSupportedException();
+        }
+        // ISerialization
+        public new void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            // Using typeof() works also for null fields
+            base.GetObjectData(info, context);
+            //
+            info.AddValue("_definedTemperatureType", _definedTemperatureType, typeof(DefinedTemperatureTypeEnum));
+            info.AddValue("_temperature", _temperature, typeof(EquationContainer));
+            info.AddValue("_fileName", _fileName, typeof(string));
+            info.AddValue("_stepNumber", _stepNumber, typeof(int));
         }
     }
 }

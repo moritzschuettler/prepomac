@@ -104,7 +104,6 @@ namespace CaeModel
             if (copyBCsAndLoads && _steps.Count >= 1)
             {
                 Step lastStep = _steps.Last();
-                //Step lastStep = _steps.First();
                 //
                 foreach (var entry in lastStep.BoundaryConditions)
                 {
@@ -120,7 +119,6 @@ namespace CaeModel
                 }
             }
             _steps.Add(step);
-            //_steps.Insert(0, step);
         }
         public Step GetStep(string stepName)
         {
@@ -462,13 +460,6 @@ namespace CaeModel
                 if (step.Name == stepName) return step.DefinedFields.Keys.ToArray();
             }
             return null;
-        }
-        public void AddDefinedField(DefinedField definedField, string stepName)
-        {
-            foreach (var step in _steps)
-            {
-                if (step.Name == stepName) step.AddDefinedField(definedField);
-            }
         }
         public Dictionary<string, int> GetDefinedFieldRegionsCount()
         {

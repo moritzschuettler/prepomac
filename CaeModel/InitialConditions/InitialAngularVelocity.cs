@@ -15,7 +15,7 @@ using System.Xml.Linq;
 namespace CaeModel
 {
     [Serializable]
-    public class InitialAngularVelocity : InitialCondition, IContainsEquations, IPreviewable, ISerializable
+    public class InitialAngularVelocity : InitialCondition, IPreviewable, ISerializable
     {
 
         // Variables                                                                                                                
@@ -134,8 +134,10 @@ namespace CaeModel
             return new double[] { _x.Value, _y.Value, _z.Value };
         }
         // IContainsEquations
-        public void CheckEquations()
+        public override void CheckEquations()
         {
+            base.CheckEquations();
+            //
             _x.CheckEquation();
             _y.CheckEquation();
             _z.CheckEquation();
@@ -143,15 +145,6 @@ namespace CaeModel
             _n2.CheckEquation();
             _n3.CheckEquation();
             _rotationalSpeed.CheckEquation();
-        }
-        public virtual bool TryCheckEquations()
-        {
-            try
-            {
-                CheckEquations();
-                return true;
-            }
-            catch (Exception ex) { return false; }
         }
         // IPreviewable
         public FeResults GetPreview(FeMesh targetMesh, string resultName, UnitSystem unitSystem)

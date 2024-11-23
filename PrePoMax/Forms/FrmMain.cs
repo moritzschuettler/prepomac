@@ -5453,7 +5453,7 @@ namespace PrePoMax
         {
             if (_controller.Model.Mesh == null) return;
             // Data editor
-            ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmInitialCondition);
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, true, _frmInitialCondition);
             //
             SinglePointDataEditor.ParentForm = _frmInitialCondition;
             SinglePointDataEditor.Controller = _controller;
@@ -5463,7 +5463,7 @@ namespace PrePoMax
         private void EditInitialCondition(string initialConditionName)
         {
             // Data editor
-            ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmInitialCondition);
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, true, _frmInitialCondition);
             //
             SinglePointDataEditor.ParentForm = _frmInitialCondition;
             SinglePointDataEditor.Controller = _controller;

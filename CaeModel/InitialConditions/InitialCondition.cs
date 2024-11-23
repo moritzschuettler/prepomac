@@ -12,7 +12,7 @@ using System.Drawing;
 namespace CaeModel
 {
     [Serializable]
-    public abstract class InitialCondition : NamedClass, IMultiRegion, ISerializable
+    public abstract class InitialCondition : NamedClass, IMultiRegion, IContainsEquations, ISerializable
     {
         // Variables                                                                                                                
         private string _regionName;             //ISerializable
@@ -81,6 +81,19 @@ namespace CaeModel
 
         // Methods                                                                                                                  
 
+        // IContainsEquations
+        public virtual void CheckEquations()
+        {
+        }
+        public virtual bool TryCheckEquations()
+        {
+            try
+            {
+                CheckEquations();
+                return true;
+            }
+            catch (Exception ex) { return false; }
+        }
         // ISerialization
         public new void GetObjectData(SerializationInfo info, StreamingContext context)
         {

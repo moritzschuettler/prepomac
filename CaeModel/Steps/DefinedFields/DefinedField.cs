@@ -6,17 +6,19 @@ using System.Threading.Tasks;
 using CaeMesh;
 using System.ComponentModel;
 using CaeGlobals;
+using System.Runtime.Serialization;
+using System.Drawing;
 
 namespace CaeModel
 {
     [Serializable]
-    public class DefinedField : NamedClass, IMultiRegion
+    public class DefinedField : NamedClass, IMultiRegion, IContainsEquations, ISerializable
     {
         // Variables                                                                                                                
-        private RegionTypeEnum _regionType;
-        private string _regionName;
-        private int[] _creationIds;
-        private Selection _creationData;
+        private string _regionName;                 //ISerializable
+        private RegionTypeEnum _regionType;         //ISerializable
+        private int[] _creationIds;                 //ISerializable
+        private Selection _creationData;            //ISerializable
 
 
         // Properties                                                                                                               
@@ -35,8 +37,52 @@ namespace CaeModel
             _creationIds = null;
             _creationData = null;
         }
-
+        public DefinedField(SerializationInfo info, StreamingContext context)
+            : base(info, context)
+        {
+            foreach (SerializationEntry entry in info)
+            {
+                switch (entry.Name)
+                {
+                    case "_regionName":
+                        _regionName = (string)entry.Value; break;
+                    case "_regionType":
+                        _regionType = (RegionTypeEnum)entry.Value; break;
+                    case "_creationIds":
+                        _creationIds = (int[])entry.Value; break;
+                    case "_creationData":
+                        _creationData = (Selection)entry.Value; break;
+                    default:
+                        break;
+                }
+            }
+        }
 
         // Methods                                                                                                                  
+
+        // IContainsEquations
+        public virtual void CheckEquations()
+        {
+        }
+        public virtual bool TryCheckEquations()
+        {
+            try
+            {
+                CheckEquations();
+                return true;
+            }
+            catch (Exception ex) { return false; }
+        }
+        // ISerialization
+        public new void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            // Using typeof() works also for null fields
+            base.GetObjectData(info, context);
+            //
+            info.AddValue("_regionName", _regionName, typeof(string));
+            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
+            info.AddValue("_creationIds", _creationIds, typeof(int[]));
+            info.AddValue("_creationData", _creationData, typeof(Selection));
+        }
     }
 }

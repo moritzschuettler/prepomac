@@ -207,11 +207,14 @@ namespace CaeModel
             return false;
         }
         public abstract bool IsDefinedFieldSupported(DefinedField definedField);
-        public void AddDefinedField(DefinedField definedField)
+        public bool AddDefinedField(DefinedField definedField)
         {
-            if (!IsDefinedFieldSupported(definedField)) definedField.Active = false;
-            //
-            _definedFields.Add(definedField.Name, definedField);
+            if (IsDefinedFieldSupported(definedField))
+            {
+                _definedFields.Add(definedField.Name, definedField);
+                return true;
+            }
+            return false;
         }
         public int GetNumberOfStepControls()
         {

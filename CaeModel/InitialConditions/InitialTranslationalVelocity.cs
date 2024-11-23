@@ -13,7 +13,7 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
-    public class InitialTranslationalVelocity : InitialCondition, IContainsEquations, IPreviewable, ISerializable
+    public class InitialTranslationalVelocity : InitialCondition, IPreviewable, ISerializable
     {
         // Variables                                                                                                                
         private int _nodeId;                        //ISerializable
@@ -139,21 +139,14 @@ namespace CaeModel
             return new double[] { _v1.Value, _v2.Value, _v3.Value };
         }
         // IContainsEquations
-        public void CheckEquations()
+        public override void CheckEquations()
         {
+            base.CheckEquations();
+            //
             _v1.CheckEquation();
             _v2.CheckEquation();
             _v3.CheckEquation();
             _magnitude.CheckEquation();
-        }
-        public virtual bool TryCheckEquations()
-        {
-            try
-            {
-                CheckEquations();
-                return true;
-            }
-            catch (Exception ex) { return false; }
         }
         // IPreviewable
         public FeResults GetPreview(FeMesh targetMesh, string resultName, UnitSystem unitSystem)

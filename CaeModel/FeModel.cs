@@ -323,26 +323,10 @@ namespace CaeModel
             foreach (var entry in _initialConditions)
             {
                 initialCondition = entry.Value;
-                if (initialCondition is InitialTemperature it)
-                {
-                    valid = (it.RegionType == RegionTypeEnum.NodeSetName && _mesh.NodeSets.ContainsValidKey(it.RegionName)) ||
-                            (it.RegionType == RegionTypeEnum.SurfaceName && _mesh.Surfaces.ContainsValidKey(it.RegionName));
-                }
-                else if (initialCondition is InitialTranslationalVelocity itv)
-                {
-                    valid = (itv.RegionType == RegionTypeEnum.NodeSetName && _mesh.NodeSets.ContainsValidKey(itv.RegionName)) ||
-                            (itv.RegionType == RegionTypeEnum.SurfaceName && _mesh.Surfaces.ContainsValidKey(itv.RegionName)) ||
-                            (itv.RegionType == RegionTypeEnum.ReferencePointName
-                             && _mesh.ReferencePoints.ContainsValidKey(itv.RegionName));
-                }
-                else if (initialCondition is InitialAngularVelocity iav)
-                {
-                    valid = (iav.RegionType == RegionTypeEnum.NodeSetName && _mesh.NodeSets.ContainsValidKey(iav.RegionName)) ||
-                            (iav.RegionType == RegionTypeEnum.SurfaceName && _mesh.Surfaces.ContainsValidKey(iav.RegionName)) ||
-                            (iav.RegionType == RegionTypeEnum.ReferencePointName
-                             && _mesh.ReferencePoints.ContainsValidKey(iav.RegionName));
-                }
-                else throw new NotSupportedException();
+                //
+                valid = IsInitialConditionRegionValid(initialCondition);
+                // Check equations
+                valid &= initialCondition.TryCheckEquations();
                 //
                 SetItemValidity(null, initialCondition, valid, items);
                 if (!valid && initialCondition.Active) invalidItems.Add("Initial condition: " + initialCondition.Name);
@@ -351,6 +335,7 @@ namespace CaeModel
             HistoryOutput historyOutput;
             BoundaryCondition bc;
             Load load;
+            DefinedField definedField;
             //
             foreach (var step in _stepCollection.StepsList)
             {
@@ -358,22 +343,8 @@ namespace CaeModel
                 foreach (var hoEntry in step.HistoryOutputs)
                 {
                     historyOutput = hoEntry.Value;
-                    if (historyOutput is NodalHistoryOutput nho)
-                    {
-                        valid = (nho.RegionType == RegionTypeEnum.NodeSetName && _mesh.NodeSets.ContainsValidKey(nho.RegionName))
-                                || (nho.RegionType == RegionTypeEnum.SurfaceName && _mesh.Surfaces.ContainsValidKey(nho.RegionName))
-                                || (nho.RegionType == RegionTypeEnum.ReferencePointName
-                                && _mesh.ReferencePoints.ContainsValidKey(nho.RegionName));
-                    }
-                    else if (historyOutput is ElementHistoryOutput eho)
-                    {
-                        valid = _mesh.ElementSets.ContainsValidKey(eho.RegionName);                        
-                    }
-                    else if (historyOutput is ContactHistoryOutput cho)
-                    {
-                        valid = _contactPairs.ContainsValidKey(cho.RegionName);
-                    }
-                    else throw new NotSupportedException();
+                    //
+                    valid = IsHistoryOutputRegionValid(historyOutput);
                     //
                     SetItemValidity(step.Name, historyOutput, valid, items);
                     if (!valid && historyOutput.Active) invalidItems.Add("History output: " + step.Name + ", " + historyOutput.Name);
@@ -426,6 +397,18 @@ namespace CaeModel
                     //
                     SetItemValidity(step.Name, load, valid, items);
                     if (!valid && load.Active) invalidItems.Add("Load: " + step.Name + ", " + load.Name);
+                }
+                // Defined fields
+                foreach (var fieldEntry in step.DefinedFields)
+                {
+                    definedField = fieldEntry.Value;
+                    //
+                    valid = IsDefinedFieldRegionValid(definedField);
+                    // Check equations
+                    valid &= definedField.TryCheckEquations();
+                    //
+                    SetItemValidity(step.Name, definedField, valid, items);
+                    if (!valid && definedField.Active) invalidItems.Add("Defined field: " + step.Name + ", " + definedField.Name);
                 }
             }
             //
@@ -497,6 +480,56 @@ namespace CaeModel
             else if (section is DistributedMassSection dms)
             {
                 valid = dms.RegionType == RegionTypeEnum.SurfaceName && _mesh.Surfaces.ContainsValidKey(dms.RegionName);
+            }
+            else throw new NotSupportedException();
+            //
+            return valid;
+        }
+        public bool IsInitialConditionRegionValid(InitialCondition initialCondition)
+        {
+            bool valid;
+            //
+            if (initialCondition is InitialTemperature it)
+            {
+                valid = (it.RegionType == RegionTypeEnum.NodeSetName && _mesh.NodeSets.ContainsValidKey(it.RegionName)) ||
+                        (it.RegionType == RegionTypeEnum.SurfaceName && _mesh.Surfaces.ContainsValidKey(it.RegionName));
+            }
+            else if (initialCondition is InitialTranslationalVelocity itv)
+            {
+                valid = (itv.RegionType == RegionTypeEnum.NodeSetName && _mesh.NodeSets.ContainsValidKey(itv.RegionName)) ||
+                        (itv.RegionType == RegionTypeEnum.SurfaceName && _mesh.Surfaces.ContainsValidKey(itv.RegionName)) ||
+                        (itv.RegionType == RegionTypeEnum.ReferencePointName
+                         && _mesh.ReferencePoints.ContainsValidKey(itv.RegionName));
+            }
+            else if (initialCondition is InitialAngularVelocity iav)
+            {
+                valid = (iav.RegionType == RegionTypeEnum.NodeSetName && _mesh.NodeSets.ContainsValidKey(iav.RegionName)) ||
+                        (iav.RegionType == RegionTypeEnum.SurfaceName && _mesh.Surfaces.ContainsValidKey(iav.RegionName)) ||
+                        (iav.RegionType == RegionTypeEnum.ReferencePointName
+                         && _mesh.ReferencePoints.ContainsValidKey(iav.RegionName));
+            }
+            else throw new NotSupportedException();
+            //
+            return valid;
+        }
+        public bool IsHistoryOutputRegionValid(HistoryOutput historyOutput)
+        {
+            bool valid;
+            //
+            if (historyOutput is NodalHistoryOutput nho)
+            {
+                valid = (nho.RegionType == RegionTypeEnum.NodeSetName && _mesh.NodeSets.ContainsValidKey(nho.RegionName))
+                        || (nho.RegionType == RegionTypeEnum.SurfaceName && _mesh.Surfaces.ContainsValidKey(nho.RegionName))
+                        || (nho.RegionType == RegionTypeEnum.ReferencePointName
+                        && _mesh.ReferencePoints.ContainsValidKey(nho.RegionName));
+            }
+            else if (historyOutput is ElementHistoryOutput eho)
+            {
+                valid = _mesh.ElementSets.ContainsValidKey(eho.RegionName);
+            }
+            else if (historyOutput is ContactHistoryOutput cho)
+            {
+                valid = _contactPairs.ContainsValidKey(cho.RegionName);
             }
             else throw new NotSupportedException();
             //
@@ -652,6 +685,28 @@ namespace CaeModel
             else if (load is RadiationHeatTransfer rht)
             {
                 valid = (_mesh.Surfaces.TryGetValue(rht.SurfaceName, out s) && s.Valid);
+            }
+            else throw new NotSupportedException();
+            //
+            return valid;
+        }
+        public bool IsDefinedFieldRegionValid(DefinedField definedField)
+        {
+            bool valid;
+            //
+            if (definedField is DefinedTemperature dt)
+            {
+                if (dt.Type == DefinedTemperatureTypeEnum.ByValue)
+                {
+                    valid = (dt.RegionType == RegionTypeEnum.NodeSetName && _mesh.NodeSets.ContainsValidKey(dt.RegionName)) ||
+                            (dt.RegionType == RegionTypeEnum.SurfaceName && _mesh.Surfaces.ContainsValidKey(dt.RegionName));
+                }
+                else if (dt.Type == DefinedTemperatureTypeEnum.FromFile)
+                {
+                    // Defined field created from file needs no selection
+                    valid = true;
+                }
+                else throw new NotSupportedException();
             }
             else throw new NotSupportedException();
             //

@@ -187,6 +187,8 @@ namespace PrePoMax.Forms
                     }
                     DefinedField.RegionType = RegionTypeEnum.Selection;
                 }
+                // Defined field created from file needs no selection
+                if (DefinedField.RegionType == RegionTypeEnum.None) DefinedField.RegionType = RegionTypeEnum.Selection;
                 //
                 int selectedId;
                 if (_viewDefinedField is ViewDefinedTemperature vdt)

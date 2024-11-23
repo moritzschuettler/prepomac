@@ -191,9 +191,14 @@ namespace PrePoMax.Forms
                 _controller.AddInitialConditionCommand(InitialCondition);
             }
             // Replace
-            else if (_propertyItemChanged)
+            else if (_propertyItemChanged || !InitialCondition.Valid)
             {
                 _controller.ReplaceInitialConditionCommand(_initialConditionToEditName, InitialCondition);
+            }
+            // Convert the initial condition from internal to show it
+            else
+            {
+                InitialConditionInternal(false);
             }
             // If all is successful close the ItemSetSelectionForm - except for OKAddNew
             if (!onOkAddNew) ItemSetDataEditor.SelectionForm.Hide();
@@ -202,6 +207,8 @@ namespace PrePoMax.Forms
         {
             // Close the ItemSetSelectionForm
             ItemSetDataEditor.SelectionForm.Hide();
+            // Convert the initial condition from internal to show it
+            InitialConditionInternal(false);
             //
             base.OnHideOrClose();
         }
@@ -242,13 +249,21 @@ namespace PrePoMax.Forms
             {
                 // Get and convert a converted initial condition back to selection
                 InitialCondition = _controller.GetInitialCondition(_initialConditionToEditName); // to clone
-                
-                
                 if (InitialCondition.CreationData != null)
+                {
+                    if (!_controller.Model.IsInitialConditionRegionValid(InitialCondition) || // do not use InitialCondition.Valid
+                        !_controller.Model.RegionValid(InitialCondition))
+                    {
+                        // Region invalid
+                        InitialCondition.CreationData = null;
+                        InitialCondition.CreationIds = null;
+                        _propertyItemChanged = true;
+                    }
                     InitialCondition.RegionType = RegionTypeEnum.Selection;
-
-
-
+                }
+                // Convert the initial condition to internal to hide it
+                InitialConditionInternal(true);
+                //
                 int selectedId;
                 if (_viewInitialCondition is ViewInitialTemperature vit)
                 {
@@ -404,6 +419,15 @@ namespace PrePoMax.Forms
                 else if (InitialCondition is InitialAngularVelocity) _controller.SetSelectItemToGeometry();
             }
             else _controller.SetSelectByToOff();
+        }
+        private void InitialConditionInternal(bool toInternal)
+        {
+            if (_initialConditionToEditName != null)
+            {
+                // Convert the initial condition from/to internal to hide/show it
+                _controller.GetInitialCondition(_initialConditionToEditName).Internal = toInternal;
+                _controller.FeModelUpdate(UpdateType.RedrawSymbols);
+            }
         }
         //
         public void SelectionChanged(int[] ids)

@@ -51,11 +51,16 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
-
-
         private void SetTemp(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _temperature, value, null, null, checkEquation);
+        }
+        // IContainsEquations
+        public override void CheckEquations()
+        {
+            base.CheckEquations();
+            //
+            _temperature.CheckEquation();
         }
         // IPreviewable
         public FeResults GetPreview(FeMesh targetMesh, string resultName, UnitSystem unitSystem)

@@ -44,12 +44,12 @@ namespace PrePoMax
         [CategoryAttribute("Magnitude")]
         [OrderedDisplayName(0, 10, "Temperature")]
         [DescriptionAttribute("Value of the defined temperature.")]
-        [TypeConverter(typeof(StringTemperatureConverter))]
+        [TypeConverter(typeof(EquationTemperatureConverter))]
         [Id(1, 3)]
-        public double Temperature
+        public EquationString Temperature
         {
-            get { return _definedTemperature.Temperature; }
-            set { _definedTemperature.Temperature = value; }
+            get { return _definedTemperature.Temperature.Equation; }
+            set { _definedTemperature.Temperature.Equation = value; }
         }
         //
         [CategoryAttribute("Magnitude")]
