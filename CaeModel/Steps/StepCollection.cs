@@ -228,6 +228,16 @@ namespace CaeModel
             }
             return regionsCount;
         }
+        public Step GetHistoryOutputStep(HistoryOutput historyOutput)
+        {
+            HistoryOutput existing;
+            foreach (var step in _steps)
+            {
+                if (step.HistoryOutputs.TryGetValue(historyOutput.Name, out existing) && existing == historyOutput)
+                    return step;
+            }
+            return null;
+        }
         // Field
         public void AddFieldOutput(FieldOutput fieldOutput, string stepName)
         {

@@ -562,6 +562,11 @@ namespace PrePoMax.Forms
                     {
                         try
                         {
+                            if (MeshSetupItem is ExtrudeMesh || MeshSetupItem is SweepMesh || MeshSetupItem is RevolveMesh)
+                            {
+                                _controller.IsMeshSetupItemProperlyDefined(MeshSetupItem);
+                            }
+                            //
                             _controller.HighlightMeshSetupItem(MeshSetupItem, highlightNodes);
                         }
                         catch { }
@@ -630,11 +635,6 @@ namespace PrePoMax.Forms
                     propertyGrid.Refresh();
                     //
                     _propertyItemChanged = true;
-                    //
-                    if (MeshSetupItem is ExtrudeMesh || MeshSetupItem is SweepMesh ||MeshSetupItem is RevolveMesh)
-                    {
-                        _controller.IsMeshSetupItemProperlyDefined(MeshSetupItem);
-                    }
                     //
                     if (ids.Length != 0) HighlightMeshSetupItem(); // this will redraw the selection with correct backfaceCulling
                 }

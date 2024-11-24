@@ -45,11 +45,16 @@ namespace PrePoMax.Forms
             }
         }
         //
+        [CategoryAttribute("Region")]
+        [OrderedDisplayName(0, 10, "Region type")]
+        [DescriptionAttribute("Select the region type for the creation of the mesh setup item.")]
+        [Id(1, 2)]
+        public override string RegionType { get { return _regionType; } set { _regionType = value; } }
         //
         [Category("Mesh size")]
         [OrderedDisplayName(0, 10, "Mesh size definition")]
         [Description("Select the mesh size definition.")]
-        [Id(1, 2)]
+        [Id(1, 3)]
         public bool Relative
         {
             get { return _parameters.RelativeSize; }
@@ -63,54 +68,54 @@ namespace PrePoMax.Forms
         [Category("Mesh size")]
         [OrderedDisplayName(1, 10, "Max element factor")]
         [Description("The relative factor for the maximum element size in regard to the bounding box diagonal.")]
-        [Id(2, 2)]
+        [Id(2, 3)]
         public virtual double FactorMax { get { return _parameters.FactorMax; } set { _parameters.FactorMax = value; } }
         //
         [Category("Mesh size")]
         [OrderedDisplayName(2, 10, "Min element factor")]
         [Description("The relative factor for the minimum element size in regard to the bounding box diagonal.")]
-        [Id(3, 2)]
+        [Id(3, 3)]
         public virtual double FactorMin { get { return _parameters.FactorMin; } set { _parameters.FactorMin = value; } }
         //
         [Category("Mesh size")]
         [OrderedDisplayName(3, 10, "Max element size")]
         [Description("The value for the maximum element size.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(4, 2)]
+        [Id(4, 3)]
         public virtual double MaxH { get { return _parameters.MaxH; } set { _parameters.MaxH = value; } }
         //
         [Category("Mesh size")]
         [OrderedDisplayName(4, 10, "Min element size")]
         [Description("The value for the minimum element size.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(5, 2)]
+        [Id(5, 3)]
         public virtual double MinH { get { return _parameters.MinH; } set { _parameters.MinH = value; } }
         //
         [Category("Mesh size")]
         [OrderedDisplayName(5, 10, "Grading")]
         [Description("The value of the mesh grading (0 => uniform mesh; 1 => aggressive local grading).")]
         [TypeConverter(typeof(StringDoubleConverter))]
-        [Id(6, 2)]
+        [Id(6, 3)]
         public double Grading { get { return _parameters.Grading; } set { _parameters.Grading = value; } }
         //
         [Category("Mesh size")]
         [OrderedDisplayName(6, 10, "Elements per edge")]
         [Description("Number of elements to generate per edge of the geometry.")]
         [TypeConverter(typeof(StringDoubleConverter))]
-        [Id(7, 2)]
+        [Id(7, 3)]
         public double ElementsPerEdge { get { return _parameters.ElementsPerEdge; } set { _parameters.ElementsPerEdge = value; } }
         //
         [Category("Mesh size")]
         [OrderedDisplayName(7, 10, "Elements per curvature")]
         [Description("Number of elements to generate per curvature radius.")]
         [TypeConverter(typeof(StringDoubleConverter))]
-        [Id(8, 2)]
+        [Id(8, 3)]
         public double ElementsPerCurve { get { return _parameters.ElementsPerCurve; } set { _parameters.ElementsPerCurve = value; } }
         // Hausdorff factor
         [Category("Mesh size")]
         [OrderedDisplayName(8, 10, "Hausdorff factor")]
         [Description("The relative factor for the Hausdorff distance in regard to the bounding box diagonal.")]
-        [Id(9, 2)]
+        [Id(9, 3)]
         public double FactorHausdorff { get { return _parameters.FactorHausdorff; } set { _parameters.FactorHausdorff = value; } }
         // Maximal Hausdorff distance for the boundaries approximation.
         [Category("Mesh size")]
@@ -118,27 +123,27 @@ namespace PrePoMax.Forms
         [Description("Maximal Hausdorff distance for the boundaries approximation. " +
                      "A value of 0.01 is a suitable value for an object of size 1 in each direction.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(10, 2)]
+        [Id(10, 3)]
         public double Hausdorff { get { return _parameters.Hausdorff; } set { _parameters.Hausdorff = value; } }
         //
         //
         [Category("Mesh optimization")]
         [OrderedDisplayName(0, 10, "Optimize steps 2D")]
         [Description("Number of optimize steps to use for 2-D mesh optimization.")]
-        [Id(1, 3)]
+        [Id(1, 4)]
         public int OptimizeSteps2D { get { return _parameters.OptimizeSteps2D; } set { _parameters.OptimizeSteps2D = value; } }
         //
         [Category("Mesh optimization")]
         [OrderedDisplayName(1, 10, "Optimize steps 3D")]
         [Description("Number of optimize steps to use for 3-D mesh optimization.")]
-        [Id(2, 3)]
+        [Id(2, 4)]
         public int OptimizeSteps3D { get { return _parameters.OptimizeSteps3D; } set { _parameters.OptimizeSteps3D = value; } }
         //
         //
         [Category("Mesh type")]
         [OrderedDisplayName(0, 10, "Second order")]
         [Description("Create second order elements.")]
-        [Id(1, 4)]
+        [Id(1, 5)]
         public bool SecondOrder
         {
             get {return _parameters.SecondOrder;}
@@ -152,20 +157,20 @@ namespace PrePoMax.Forms
         [Category("Mesh type")]
         [OrderedDisplayName(1, 10, "Midside nodes on geometry")]
         [Description("Create midside nodes on geometry.")]
-        [Id(2, 4)]
+        [Id(2, 5)]
         public bool MidsideNodesOnGeometry { get { return _parameters.MidsideNodesOnGeometry; } set { _parameters.MidsideNodesOnGeometry = value; } }
         //
         [Category("Mesh type")]
         [OrderedDisplayName(2, 10, "Quad-dominated mesh")]
         [Description("Use quad-dominated mesh for shell parts.")]
-        [Id(3, 4)]
+        [Id(3, 5)]
         public bool QuadDominated { get { return _parameters.QuadDominated; } set { _parameters.QuadDominated = value; } }
         //
         //
         [Category("Mesh operations")]
         [OrderedDisplayName(0, 10, "Split compound mesh")]
         [Description("Split compound part mesh to unconnected part meshes.")]
-        [Id(1, 5)]
+        [Id(1, 6)]
         public bool SplitCompoundMesh
         {
             get { return _parameters.SplitCompoundMesh; }
@@ -175,7 +180,7 @@ namespace PrePoMax.Forms
         [Category("Mesh operations")]
         [OrderedDisplayName(1, 10, "Merge compound parts")]
         [Description("Merge compound part mesh to a single mesh part.")]
-        [Id(2, 5)]
+        [Id(2, 6)]
         public bool MergeCompoundParts
         {
             get { return _parameters.MergeCompoundParts; }
@@ -185,7 +190,7 @@ namespace PrePoMax.Forms
         [Category("Mesh operations")]
         [OrderedDisplayName(2, 10, "Keep model edges")]
         [Description("Select Yes to keep and No to ignore the model edges.")]
-        [Id(3, 5)]
+        [Id(3, 6)]
         public bool KeepModelEdges { get { return _parameters.KeepModelEdges; } set { _parameters.KeepModelEdges = value; } }
 
 
@@ -205,6 +210,7 @@ namespace PrePoMax.Forms
             _parameters.DefaultSizeIsRelative = defaultSizeIsRelative;
             //
             _dctd = ProviderInstaller.Install(this);
+            InitializeRegion();
             // Category sorting
             _dctd.CategorySortOrder = CustomSortOrder.AscendingById;
             _dctd.PropertySortOrder = CustomSortOrder.AscendingById;    // seems not to work

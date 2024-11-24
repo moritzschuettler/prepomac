@@ -16941,18 +16941,7 @@ namespace PrePoMax
                     }
                     else if (obj is HistoryOutput ho)
                     {
-                        if (ho.RegionType == RegionTypeEnum.NodeSetName)
-                            HighlightNodeSets(new string[] { ho.RegionName });
-                        else if (ho.RegionType == RegionTypeEnum.ElementSetName)
-                            HighlightElementSets(new string[] { ho.RegionName });
-                        else if (ho.RegionType == RegionTypeEnum.SurfaceName)
-                            HighlightSurfaces(new string[] { ho.RegionName });
-                        else if (ho.RegionType == RegionTypeEnum.ReferencePointName)
-                            HighlightReferencePoints(new string[] { ho.RegionName });
-                        else if (ho.RegionType == RegionTypeEnum.ContactPair)
-                            HighlightContactPairs(new string[] { ho.RegionName });
-                        else if (ho.RegionType == RegionTypeEnum.Selection) { }
-                        else throw new NotSupportedException();
+                        HighlightHistoryOutput(ho, mouseOver);
                     }
                     else if (obj is BoundaryCondition bc)
                     {
@@ -16964,11 +16953,7 @@ namespace PrePoMax
                     }
                     else if (obj is DefinedField df)
                     {
-                        if (df is DefinedTemperature dt && dt.Type == DefinedTemperatureTypeEnum.FromFile) { }
-                        else if (df.RegionType == RegionTypeEnum.NodeSetName) HighlightNodeSets(new string[] { df.RegionName });
-                        else if (df.RegionType == RegionTypeEnum.SurfaceName) HighlightSurfaces(new string[] { df.RegionName });
-                        else if (df.RegionType == RegionTypeEnum.Selection) { }
-                        else throw new NotSupportedException();
+                        HighlightDefinedField(df, mouseOver);
                     }
                 }
                 else if (view == ViewGeometryModelResults.Results)
@@ -17485,6 +17470,25 @@ namespace PrePoMax
                 else throw new NotSupportedException();
             }
         }
+        public void HighlightHistoryOutput(HistoryOutput historyOutput, bool mouseOver = false)
+        {
+            Step step = _model.StepCollection.GetHistoryOutputStep(historyOutput);
+            if (!mouseOver && step != null)
+                _form.SelectOneStepInSymbolsForStepList(step.Name);
+            //
+            if (historyOutput.RegionType == RegionTypeEnum.NodeSetName)
+                HighlightNodeSets(new string[] { historyOutput.RegionName });
+            else if (historyOutput.RegionType == RegionTypeEnum.ElementSetName)
+                HighlightElementSets(new string[] { historyOutput.RegionName });
+            else if (historyOutput.RegionType == RegionTypeEnum.SurfaceName)
+                HighlightSurfaces(new string[] { historyOutput.RegionName });
+            else if (historyOutput.RegionType == RegionTypeEnum.ReferencePointName)
+                HighlightReferencePoints(new string[] { historyOutput.RegionName });
+            else if (historyOutput.RegionType == RegionTypeEnum.ContactPair)
+                HighlightContactPairs(new string[] { historyOutput.RegionName });
+            else if (historyOutput.RegionType == RegionTypeEnum.Selection) { }
+            else throw new NotSupportedException();
+        }
         public void HighlightBoundaryCondition(BoundaryCondition boundaryCondition, bool mouseOver = false)
         {
             Step step = _model.StepCollection.GetBoundaryConditionStep(boundaryCondition);
@@ -17498,11 +17502,26 @@ namespace PrePoMax
         public void HighlightLoad(Load load, bool mouseOver = false)
         {
             Step step = _model.StepCollection.GetLoadStep(load);
-            if (!mouseOver && step != null) _form.SelectOneStepInSymbolsForStepList(step.Name);
+            if (!mouseOver && step != null)
+                _form.SelectOneStepInSymbolsForStepList(step.Name);
             //
             int symbolSize = _settings.Pre.SymbolSize;
             int nodeSize = _settings.Pre.HighlightNodeSymbolSize;
             DrawLoad("Highlight", load, Color.Red, symbolSize, nodeSize, vtkRendererLayer.Selection, false);
+        }
+        public void HighlightDefinedField(DefinedField definedField, bool mouseOver = false)
+        {
+            Step step = _model.StepCollection.GetDefinedFieldStep(definedField);
+            if (!mouseOver && step != null)
+                _form.SelectOneStepInSymbolsForStepList(step.Name);
+            //
+            if (definedField is DefinedTemperature dt && dt.Type == DefinedTemperatureTypeEnum.FromFile) { }
+            else if (definedField.RegionType == RegionTypeEnum.NodeSetName)
+                HighlightNodeSets(new string[] { definedField.RegionName });
+            else if (definedField.RegionType == RegionTypeEnum.SurfaceName)
+                HighlightSurfaces(new string[] { definedField.RegionName });
+            else if (definedField.RegionType == RegionTypeEnum.Selection) { }
+            else throw new NotSupportedException();
         }
         public void HighlightHistoryResultSet(HistoryResultSet historyResultSet)
         {

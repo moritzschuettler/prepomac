@@ -19,10 +19,10 @@ namespace PrePoMax.Forms
 
 
         // Properties                                                                                                               
-        [CategoryAttribute("Data")]
-        [OrderedDisplayName(3, 10, "Recombine")]
+        [CategoryAttribute("Mesh settings")]
+        [OrderedDisplayName(1, 10, "Recombine")]
         [DescriptionAttribute("Apply recombination of triangles into quads.")]
-        [Id(4, 1)]
+        [Id(1, 4)]
         public bool Recombine
         {
             get { return AlgorithmRecombine != GmshAlgorithmRecombineEnum.None; }
@@ -33,10 +33,10 @@ namespace PrePoMax.Forms
             }
         }
         //
-        [CategoryAttribute("Experimental For Pyramids")]
+        [CategoryAttribute("Experimental for pyramids")]
         [OrderedDisplayName(0, 10, "Allow pyramid elements")]
         [DescriptionAttribute("Select yes to allow the creation of pyramid elements.")]
-        [Id(1, 4)]
+        [Id(1, 5)]
         public bool AllowPrismElements
         {
             get { return _transfiniteMesh.AllowPyramidElements; }

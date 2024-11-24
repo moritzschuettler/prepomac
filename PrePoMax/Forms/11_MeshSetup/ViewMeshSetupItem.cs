@@ -13,14 +13,21 @@ namespace PrePoMax.Forms
     {
         // Variables                                                                                                                
         protected DynamicCustomTypeDescriptor _dctd;
+        protected string _regionType;
 
 
         // Variables                                                                                                                
         public abstract string Name { get; set; }
-
+        public abstract string RegionType { get; set; }
+       
 
         // Methods
         public abstract MeshSetupItem GetBase();
+        public void InitializeRegion()
+        {
+            _regionType = "Selection";
+            _dctd.PopulateProperty(nameof(RegionType), new string[] { _regionType });
+        }
         public void HideName()
         {
             _dctd.GetProperty(nameof(Name)).SetIsBrowsable(false);

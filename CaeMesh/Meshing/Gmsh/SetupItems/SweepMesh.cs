@@ -90,8 +90,8 @@ namespace CaeMesh
         {
             base.Reset();
             //
-            _numberOfLayerSmoothSteps = 10;
-            _numberOfGlobalSmoothSteps = 10;
+            _numberOfLayerSmoothSteps = 20;
+            _numberOfGlobalSmoothSteps = 5;
             _direction = null;
             _sweepCenter = null;
             _sideSurfaceIds = null;
