@@ -165,7 +165,8 @@ namespace CaeMesh
                     bool sweepMesh = _gmshData.EdgeIdsBySweepLayer != null;
                     if (_isOCC && (gsi.TransfiniteThreeSided || gsi.TransfiniteFourSided || sweepMesh))
                         //Gmsh.Mesh.SetTransfiniteAutomatic(gsi.TransfiniteAngleRad, recombine);
-                        SetTransfiniteSurfaces(gsi.TransfiniteThreeSided, gsi.TransfiniteFourSided, transfiniteVolume, recombine);
+                        SetTransfiniteSurfaces(gsi.TransfiniteThreeSided, gsi.TransfiniteFourSided, transfiniteVolume,
+                                               recombine, gsi.AlgorithmRecombine);
                     // Optimization On/Off
                     int optimize = 1;
                     if (gsi.OptimizeFirstOrderShell == GmshOptimizeFirstOrderShellEnum.None &&
@@ -620,7 +621,7 @@ namespace CaeMesh
             }
         }
         private void SetTransfiniteSurfaces(bool transfiniteThreeSided, bool transfiniteFourSided, bool transfiniteVolume,
-                                            bool recombine)
+                                            bool recombine, GmshAlgorithmRecombineEnum recombineAlgorithm)
         {
             int[] volumeIds;
             int[] edgeIds;
@@ -808,7 +809,7 @@ namespace CaeMesh
             HashSet<int> groupEdgeIds;
             IntPtr[] nodeTagsIntPtr;
             double[] coor;
-            // Create edge mesh to get number of nodes for each edge
+            // Create edge mesh to get the number of nodes for each edge
             Gmsh.Model.Mesh.Generate(1);
             //
             Dictionary<int, int> edgeIdNumOfNodes = new Dictionary<int, int>();
@@ -851,6 +852,19 @@ namespace CaeMesh
                 //
                 foreach (var edgeNodeFromGroup in edgeGroup.Nodes)
                 {
+                    if (avgNumOfNodes % 2 == 0)
+                    {
+                        if (avgNumOfNodes > 1) avgNumOfNodes -= 1;
+                        else avgNumOfNodes += 1;
+                    }
+                    // Change number of elements to an even number
+                    if (recombine && (recombineAlgorithm == GmshAlgorithmRecombineEnum.SimpleFullQuad ||
+                                      recombineAlgorithm == GmshAlgorithmRecombineEnum.BlossomFullQuad))
+                    {
+                        if (avgNumOfNodes % 2 == 0) avgNumOfNodes--;
+                        if (avgNumOfNodes < 3) avgNumOfNodes = 3;
+                    }
+                    //
                     Gmsh.Model.Mesh.SetTransfiniteCurve(edgeNodeFromGroup.Value.Id, avgNumOfNodes);
                     edgeIdNumOfNodes[edgeNodeFromGroup.Value.Id] = avgNumOfNodes;
                 }

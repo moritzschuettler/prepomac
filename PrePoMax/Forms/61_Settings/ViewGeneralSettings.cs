@@ -30,6 +30,7 @@ namespace PrePoMax.Settings
         // Variables                                                                                                                
         private GeneralSettings _generalSettings;
         private DynamicCustomTypeDescriptor _dctd = null;
+        private bool _splitPeriodicFaces;
 
 
         // Properties                                                                                                               
@@ -97,6 +98,34 @@ namespace PrePoMax.Settings
             }
         }
         //
+        [Category("Import CAD")]
+        [OrderedDisplayName(0, 10, "Split periodic faces")]
+        [Description("Select yes to split CAD periodic faces during geometry import.")]
+        public bool SplitPeriodicFaces
+        {
+            get { return _splitPeriodicFaces; }
+            set
+            {
+                _splitPeriodicFaces = value;
+                //
+                if (_splitPeriodicFaces == true)
+                {
+                    if (_generalSettings.NumOfSplitFaces < 2) _generalSettings.NumOfSplitFaces = 2;
+                }
+                else _generalSettings.NumOfSplitFaces = 1;
+                //
+                UpdateVisibility();
+            }
+        }
+        [Category("Import CAD")]
+        [OrderedDisplayName(1, 10, "Number of resulting faces")]
+        [Description("Select the number of faces the CAD periodic faces will be split into during geometry import.")]
+        public int NumOfSplitFaces
+        {
+            get { return _generalSettings.NumOfSplitFaces; }
+            set { _generalSettings.NumOfSplitFaces = value; }
+        }
+        //
         [Category("Import mesh")]
         [OrderedDisplayName(0, 10, "Edge angle")]
         [Description("Select the edge angle for the detection of model edges. The angle will be used for future imports.")]
@@ -108,15 +137,22 @@ namespace PrePoMax.Settings
         public ViewGeneralSettings(GeneralSettings generalSettings)
         {
             _generalSettings = generalSettings;
+            //
+            if (_generalSettings.NumOfSplitFaces > 1) _splitPeriodicFaces = true;
+            else _splitPeriodicFaces = false;
+            //
             _dctd = ProviderInstaller.Install(this);
             // Now lets display Yes/No instead of True/False
             _dctd.RenameBooleanPropertyToYesNo(nameof(OpenLastFile));
             _dctd.RenameBooleanPropertyToYesNo(nameof(SaveResultsInPmx));
+            _dctd.RenameBooleanPropertyToYesNo(nameof(SplitPeriodicFaces));
             // Add unit system types as description strings
             List<string> descriptions = new List<string>();
             foreach (UnitSystemType unitSystemType in Enum.GetValues(typeof(UnitSystemType)))
                 descriptions.Add(unitSystemType.GetDescription());
             _dctd.PopulateProperty(nameof(UnitSystemType), descriptions.ToArray());
+            //
+            UpdateVisibility();
         }
 
 
@@ -128,6 +164,13 @@ namespace PrePoMax.Settings
         public void Reset()
         {
             _generalSettings.Reset();
+            _splitPeriodicFaces = true;
+            //
+            UpdateVisibility();
+        }
+        private void UpdateVisibility()
+        {
+            _dctd.GetProperty(nameof(NumOfSplitFaces)).SetIsBrowsable(_splitPeriodicFaces);
         }
     }
 

@@ -1409,9 +1409,14 @@ namespace PrePoMax
             string executable = Application.StartupPath + Globals.NetGenMesher;
             string outFileName = Tools.GetNonExistentRandomFileName(workDirectory, ".brep");
             //
+            string argumentSplit = "";
+            int numOfSplitFaces = _settings.General.NumOfSplitFaces;
+            if (numOfSplitFaces > 1) argumentSplit = " " + numOfSplitFaces;
+            
             string argument = splitCommand +
                               " \"" + assemblyFileName.ToUTF8() + "\"" +
-                              " \"" + outFileName.ToUTF8() + "\"";
+                              " \"" + outFileName.ToUTF8() + "\"" + 
+                              argumentSplit;
             //
             _executableJob = new ExecutableJob("SplitStep", executable, argument, workDirectory);
             _executableJob.AppendOutput += executableJob_AppendOutput;

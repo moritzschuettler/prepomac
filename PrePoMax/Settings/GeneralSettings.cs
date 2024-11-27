@@ -22,6 +22,9 @@ namespace PrePoMax
         private bool _saveResultsInPmx;
         private CompressionLevel _compressionLevel;
         private UnitSystemType _unitSystemType;
+        // CAD periodic surface split
+        private int _numOfSplitFaces;
+        // Mesh edge angle
         private double _edgeAngle;
         //
         private LinkedList<string> _recentFiles;
@@ -39,6 +42,15 @@ namespace PrePoMax
         public bool SaveResultsInPmx { get { return _saveResultsInPmx; } set { _saveResultsInPmx = value; } }
         public CompressionLevel CompressionLevel { get { return _compressionLevel; } set { _compressionLevel = value; } }
         public UnitSystemType UnitSystemType { get { return _unitSystemType; } set { _unitSystemType = value; } }
+        public int NumOfSplitFaces
+        {
+            get { return _numOfSplitFaces; }
+            set
+            {
+                _numOfSplitFaces = value;
+                if (_numOfSplitFaces < 1) _numOfSplitFaces = 1;
+            }
+        }
         public double EdgeAngle
         {
             get { return _edgeAngle; }
@@ -69,6 +81,7 @@ namespace PrePoMax
             _saveResultsInPmx = true;
             _compressionLevel = CompressionLevel.NoCompression;
             _unitSystemType = UnitSystemType.MM_TON_S_C;
+            _numOfSplitFaces = 2;
             _edgeAngle = 30;
             //
             ResetFormSize();
