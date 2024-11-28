@@ -74,6 +74,7 @@ namespace PrePoMax
         //
         protected FeModel _model;
         [NonSerialized] protected ExecutableJob _executableJob;
+        [NonSerialized] protected Stopwatch _watch;
         protected FeResults _results;   // Compatibility v1.3.3
         protected ResultsCollection _allResults;
         [NonSerialized] protected FeResults _wearResults;
@@ -747,6 +748,8 @@ namespace PrePoMax
             bool useWearResults = _wearResults != null;
             bool readDatFile = !useWearResults;
             //
+            _watch = Stopwatch.StartNew();
+            //
             if (useWearResults)
             {
                 results = _wearResults;
@@ -762,6 +765,9 @@ namespace PrePoMax
             //
             bool fromFileOpenMenu = parameters != null && parameters.Contains("FileOpenMenu");
             LoadResults(results, readDatFile, fromFileOpenMenu);
+            //
+            _watch.Stop();
+            _commands.SetLastOpenResultsTime(_watch.Elapsed);
         }
         private void OpenDat(string fileName, bool redraw = true)
         {
@@ -10244,6 +10250,9 @@ namespace PrePoMax
             string inputFileName = GetCalculiXInpFileName(jobName);
             bool useBackgroundWorker = asynchronous;
             AnalysisJob job = _jobs[jobName];
+            job.LastRunCompleted = LastRunCompleted;
+            //
+            _watch = Stopwatch.StartNew();
             //
             if (File.Exists(job.Executable))
             {
@@ -10391,7 +10400,6 @@ namespace PrePoMax
             job.JobStatusChanged = JobStatusChanged;
             job.PreRun = PreWearRun;
             job.PostRun = PostWearRun;
-            job.LastRunCompleted = LastWearRunCompleted;
             //
             int numOfRunSteps = _model.Properties.NumberOfCycles / _model.Properties.CyclesIncrement;
             int numOfRunIncrements = _model.Properties.BdmRemeshing ?  2 : 1;
@@ -10446,9 +10454,13 @@ namespace PrePoMax
                 job.Tag = deformations;
             }
         }
-        private void LastWearRunCompleted(AnalysisJob job)
+        private void LastRunCompleted(AnalysisJob job)
         {
-            //if (job.JobStatus == JobStatus.OK) DeleteFilesBeforeJobRun(job.InputFileName);
+            _watch.Stop();
+            //
+            _commands.SetLastAnalysisTime(_watch.Elapsed);
+            //
+            _form.WriteDataToOutput("Run elapsed time: " + Math.Round(_watch.Elapsed.TotalSeconds, 3).ToString() + " s");
         }
         private void ReadWearResults(AnalysisJob job)
         {

@@ -395,7 +395,7 @@ namespace CaeJob
             _timer.Stop();
             //
             AppendDataToOutput("");
-            AppendDataToOutput(" Process elapsed time:       " + Math.Round(_watch.Elapsed.TotalSeconds, 3).ToString() + " s");
+            AppendDataToOutput("Process elapsed time:       " + Math.Round(_watch.Elapsed.TotalSeconds, 3).ToString() + " s");
             //AppendDataToOutput(" Peak physical memory usage: " + (Math.Round(_peakWorkingSet / 1048576.0, 3)).ToString() + " MB");
             //AppendDataToOutput(" Peak paged memory usage:    " + (Math.Round(_peakPagedMem / 1048576.0, 3)).ToString() + " MB");
             //Console.WriteLine($"  Peak virtual memory usage  : {_peakVirtualMem / 1024 / 1024}");
@@ -405,7 +405,7 @@ namespace CaeJob
             JobStatusChanged?.Invoke(_name, _jobStatus);
             LastRunCompleted?.Invoke(this);
             //
-            // Dereference the links to otheh objects
+            // Dereference the links to other objects
             DataOutput = null;
             JobStatusChanged = null;
             PreRun = null;

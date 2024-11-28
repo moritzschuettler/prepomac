@@ -115,7 +115,10 @@ namespace PrePoMax.Forms
             dgvCommands.Columns["Id"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
             dgvCommands.Columns["DateTime"].Width = 110;
             dgvCommands.Columns["Name"].Width = 170;
+            dgvCommands.Columns["Type"].Width = 100;
             dgvCommands.Columns["Data"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+            dgvCommands.Columns["ExecutionTime"].Width = 75;
+            dgvCommands.Columns["ExecutionTime"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
         }
 
     }

@@ -12,7 +12,7 @@ using System.IO;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    public class CSaveToPmx : PreprocessCommand
+    public class CSaveToPmx : SaveCommand
     {
         // Variables                                                                                                                
         private string _fileName;

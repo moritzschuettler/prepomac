@@ -15,10 +15,11 @@ namespace PrePoMax.Commands
         // Variables                                                                                                                
         protected string _name;
         protected DateTime _dateCreated;
-
+        protected TimeSpan _timeSpan;
 
         // Properties                                                                                                               
         public string Name { get { return _name; } }
+        public TimeSpan TimeSpan { get { return _timeSpan; } set { _timeSpan = value; } }
 
 
         // Constructors                                                                                                             

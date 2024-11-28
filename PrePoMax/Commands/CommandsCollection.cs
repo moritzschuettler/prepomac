@@ -7,6 +7,7 @@ using System.IO;
 using CaeGlobals;
 using FastColoredTextBoxNS;
 using CommandLine;
+using System.Diagnostics;
 
 namespace PrePoMax.Commands
 {
@@ -113,7 +114,7 @@ namespace PrePoMax.Commands
             // Write to form
             WriteToOutput(command);
             // First execute to check for errors - DO NOT EXECUTE SAVE COMMAND
-            if (command is CSaveToPmx || command.Execute(_controller))
+            if (command is CSaveToPmx || ExecuteCommandWithTimer(command))
             {
                 // Add command
                 if (addCommand) AddCommand(command);
@@ -132,9 +133,30 @@ namespace PrePoMax.Commands
             // Execute the save command at the end to include all changes in the file
             if (command is CSaveToPmx)
             {
-                command.Execute(_controller);
+                ExecuteCommandWithTimer(command);
                 WriteToFile();  // repeat the write in order to save the hash
             }
+            //
+            return result;
+        }
+        private bool ExecuteCommandWithTimer(Command command, bool executeWithDialog = false, bool executeSynchronous = false)
+        {
+            bool result;
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            //
+            if (executeWithDialog && command is ICommandWithDialog cwd)
+            {
+                result = cwd.ExecuteWithDialog(_controller);
+            }
+            else
+            {
+                // Execute asynchronous tasks in synchronous mode
+                if (executeSynchronous && command is ICommandAsynchronous ca) result = ca.ExecuteSynchronous(_controller);
+                else result = command.Execute(_controller);
+            }
+            //
+            stopwatch.Stop();
+            command.TimeSpan = stopwatch.Elapsed;
             //
             return result;
         }
@@ -202,16 +224,9 @@ namespace PrePoMax.Commands
                                 if (showImportDialog && cwd is CImportFile) executeWithDialog = true;
                                 else if (showMeshDialog && cwd is CAddMeshSetupItem) executeWithDialog = true;
                                 else if (showMeshDialog && cwd is CReplaceMeshSetupItem) executeWithDialog = true;
-                                //
-                                if (executeWithDialog) cwd.ExecuteWithDialog(_controller);
                             }
-                            // Execute without dialog
-                            if (!executeWithDialog)
-                            {
-                                // Execute asynchronous tasks in synchronous mode
-                                if (command is ICommandAsynchronous ca) ca.ExecuteSynchronous(_controller);
-                                else command.Execute(_controller);
-                            }
+                            //
+                            ExecuteCommandWithTimer(command, executeWithDialog, true);
                         }
                     }
                     catch (Exception ex)
@@ -259,6 +274,33 @@ namespace PrePoMax.Commands
                 lastCommand = command;
             }
             return lastCommand;
+        }
+        // Set execution time for async commands
+        public void SetLastAnalysisTime(TimeSpan timeSpan)
+        {
+            Command[] reversed = _commands.ToArray().Reverse().ToArray();   // must be like this
+            //
+            for (int i = 0; i < reversed.Length; i++)
+            {
+                if (reversed[i] is CPrepareAndRunJob cprj)
+                {
+                    cprj.TimeSpan = timeSpan;
+                    break;
+                }
+            }
+        }
+        public void SetLastOpenResultsTime(TimeSpan timeSpan)
+        {
+            Command[] reversed = _commands.ToArray().Reverse().ToArray();   // must be like this
+            //
+            for (int i = 0; i < reversed.Length; i++)
+            {
+                if (reversed[i] is COpenResults cor)
+                {
+                    cor.TimeSpan = timeSpan;
+                    break;
+                }
+            }
         }
         // Clear
         public void Clear()

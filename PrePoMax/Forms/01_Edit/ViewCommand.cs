@@ -30,9 +30,47 @@ namespace PrePoMax.Settings
         public string Name { get { return _command.Name; } }
         //
         [CategoryAttribute("Data")]
-        [OrderedDisplayName(3, 10, "Data")]
+        [OrderedDisplayName(3, 10, "Type")]
+        [DescriptionAttribute("The type of the command.")]
+        public string Type
+        {
+            get
+            {
+                if (_command is SaveCommand) return "Save";
+                else if (_command is PreprocessCommand) return "Pre-process";
+                else if (_command is AnalysisCommand) return "Analysis";
+                else if (_command is PostprocessCommand) return "Post-process";
+                else throw new NotSupportedException();
+            }
+        }
+        //
+        [CategoryAttribute("Data")]
+        [OrderedDisplayName(4, 10, "Data")]
         [DescriptionAttribute("Data of the command.")]
         public string Data { get { return _command.GetCommandString().Remove(0, _command.GetBaseCommandString().Length); } }
+        //
+        [CategoryAttribute("Data")]
+        [OrderedDisplayName(5, 10, "Time [s]")]
+        [DescriptionAttribute("Execution time of the command.")]
+        public string ExecutionTime
+        {
+            get
+            {
+                string time = Math.Round(_command.TimeSpan.TotalSeconds, 4).ToString();
+                string[] tmp = time.Split('.');
+                if (tmp.Length == 2)
+                {
+                    for (int i = 0; i < 4 - tmp[1].Length; i++) tmp[1] += "0";
+                    time = tmp[0] + "." + tmp[1];
+                }
+                else
+                {
+                    time = tmp[0] + ".0000";
+                }
+                //
+                return time;
+            }
+        }
         //
         [Browsable(false)]
         public Command Command { get { return _command; } }

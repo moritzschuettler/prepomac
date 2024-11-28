@@ -182,6 +182,7 @@
     <Compile Include="Commands\0075_InitialCondition\CHideInitialConditions.cs" />
     <Compile Include="Commands\0075_InitialCondition\CShowInitialConditions.cs" />
     <Compile Include="Commands\00_Base\ICommandAsynchronous.cs" />
+    <Compile Include="Commands\00_Base\SaveCommand.cs" />
     <Compile Include="Commands\0100_Analysis\CPrepareAndRunJob.cs" />
     <Compile Include="Commands\0110_Results\00_Base\COpenResults.cs" />
     <Compile Include="Commands\0110_Results\01_Mesh\01_Part\CResetColorForResultParts.cs" />
