@@ -38,7 +38,7 @@ namespace PrePoMax
         public string SelectionHidden { get { return _selectionHidden; } set { _selectionHidden = value; } }
         //
         [CategoryAttribute("Time/Frequency")]
-        [DisplayName("Amplitude")]
+        [OrderedDisplayName(0, 10, "Amplitude")]
         [DescriptionAttribute("Select the amplitude for the load.")]
         [Id(1, 18)]
         public abstract string AmplitudeName { get; set; }
@@ -73,15 +73,13 @@ namespace PrePoMax
         }
         public void PopulateAmplitudeNames(string[] amplitudeNames)
         {
-            List<string> names = new List<string>();
-            names.Add(CaeModel.Load.DefaultAmplitudeName);
+            List<string> names = new List<string>() { CaeModel.Load.DefaultAmplitudeName };
             names.AddRange(amplitudeNames);
             DynamicCustomTypeDescriptor.PopulateProperty(nameof(AmplitudeName), names.ToArray(), false, 2);
         }
         public void PopulateCoordinateSystemNames(string[] coordinateSystemNames)
         {
-            List<string> names = new List<string>();
-            names.Add(CaeModel.BoundaryCondition.DefaultCoordinateSystemName);
+            List<string> names = new List<string>() { CaeModel.BoundaryCondition.DefaultCoordinateSystemName };
             names.AddRange(coordinateSystemNames);
             DynamicCustomTypeDescriptor.PopulateProperty(nameof(CoordinateSystemName), names.ToArray(), false, 2);
         }

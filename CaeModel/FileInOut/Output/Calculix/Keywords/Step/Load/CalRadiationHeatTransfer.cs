@@ -30,13 +30,16 @@ namespace FileInOut.Output.Calculix
         {
             StringBuilder sb = new StringBuilder();
             sb.AppendLine("** Name: " + _radiationHeatTransfer.Name);
-            string amplitude = "";
+            string sinkAmplitude = "";
             if (_radiationHeatTransfer.AmplitudeName != Load.DefaultAmplitudeName)
-                amplitude = ", Amplitude=" + _radiationHeatTransfer.AmplitudeName;
+                sinkAmplitude = ", Amplitude=" + _radiationHeatTransfer.AmplitudeName;
+            string emissivityAmplitude = "";
+            if (_radiationHeatTransfer.EmissivityAmplitudeName != Load.DefaultAmplitudeName)
+                emissivityAmplitude = ", Radiation amplitude=" + _radiationHeatTransfer.EmissivityAmplitudeName;
             string cavity = "";
             if (_radiationHeatTransfer.CavityRadiation) cavity = "Cavity=" + _radiationHeatTransfer.CavityName;
             //
-            sb.AppendFormat("*Radiate{0}{1}{2}", amplitude, cavity, Environment.NewLine);
+            sb.AppendFormat("*Radiate{0}{1}{2}{3}", sinkAmplitude, emissivityAmplitude, cavity, Environment.NewLine);
             //
             return sb.ToString();
         }

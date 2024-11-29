@@ -2544,6 +2544,7 @@ namespace CaeResults
             int minId = -1;
             int maxId = -1;
             bool zeroIncrement = false;
+            FeNode node;
             //
             if (fieldData.StepIncrementId == 0)     // Zero increment - Find all occurrences!!!
             {
@@ -2553,8 +2554,15 @@ namespace CaeResults
                     maxId = minId;
                     nodesData.Ids[0] = minId;
                     nodesData.Ids[1] = maxId;
-                    nodesData.Coor[0] = _mesh.Nodes[minId].Coor;
-                    nodesData.Coor[1] = _mesh.Nodes[maxId].Coor;
+                    //
+                    if (_mesh.Nodes.TryGetValue(minId, out node)) nodesData.Coor[0] = node.Coor;
+                    else
+                        nodesData.Coor[0] = new double[3];  // should not happen
+                    //
+                    if (_mesh.Nodes.TryGetValue(maxId, out node))nodesData.Coor[1] = node.Coor;
+                    else
+                        nodesData.Coor[1] = new double[3];  // should not happen
+                    //
                     nodesData.Values[0] = 0;
                     nodesData.Values[1] = 0;
                     //

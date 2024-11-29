@@ -77,11 +77,26 @@ namespace PrePoMax
             set { _radiationHeatTransfer.Emissivity.Equation = value; }
         }
         //
+        [CategoryAttribute("Time/Frequency")]
+        [OrderedDisplayName(0, 10, "Sink amplitude")]
+        [DescriptionAttribute("Select the amplitude for the sink temperature.")]
+        [Id(1, 18)]
         public override string AmplitudeName
         {
             get { return _radiationHeatTransfer.AmplitudeName; }
             set { _radiationHeatTransfer.AmplitudeName = value; }
         }
+        //
+        [CategoryAttribute("Time/Frequency")]
+        [OrderedDisplayName(1, 10, "Emissivity amplitude")]
+        [DescriptionAttribute("Select the amplitude for the emissivity.")]
+        [Id(2, 18)]
+        public string EmissivityAmplitudeName
+        {
+            get { return _radiationHeatTransfer.EmissivityAmplitudeName; }
+            set { _radiationHeatTransfer.EmissivityAmplitudeName = value; }
+        }
+        //
         [Browsable(false)]
         public override string CoordinateSystemName
         {
@@ -125,7 +140,18 @@ namespace PrePoMax
             regionTypeListItemsPairs.Add(RegionTypeEnum.SurfaceName, surfaceNames);
             PopulateDropDownLists(regionTypeListItemsPairs);
             //
+            PopulateSinkAmplitudeNames(amplitudeNames);
+            PopulateEmissivityAmplitudeNames(amplitudeNames);
+        }
+        public void PopulateSinkAmplitudeNames(string[] amplitudeNames)
+        {
             PopulateAmplitudeNames(amplitudeNames);
+        }
+        public void PopulateEmissivityAmplitudeNames(string[] amplitudeNames)
+        {
+            List<string> names = new List<string>() { Load.DefaultAmplitudeName };
+            names.AddRange(amplitudeNames);
+            DynamicCustomTypeDescriptor.PopulateProperty(nameof(EmissivityAmplitudeName), names.ToArray(), false, 2);
         }
     }
 }

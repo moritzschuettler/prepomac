@@ -19,6 +19,7 @@ namespace CaeModel
         private string _cavityName;                     //ISerializable
         private EquationContainer _sinkTemperature;     //ISerializable
         private EquationContainer _emissivity;          //ISerializable
+        protected string _emissivityAmplitudeName;      //ISerializable
 
 
         // Properties                                                                                                               
@@ -46,6 +47,19 @@ namespace CaeModel
             get { return _emissivity; }
             set { SetEmissivity(value); }
         }
+        public string EmissivityAmplitudeName
+        {
+            get
+            {
+                if (_emissivityAmplitudeName == null) return DefaultAmplitudeName;
+                else return _emissivityAmplitudeName;
+            }
+            set
+            {
+                _emissivityAmplitudeName = value;
+                if (_emissivityAmplitudeName == DefaultAmplitudeName) _emissivityAmplitudeName = null;
+            }
+        }
 
 
         // Constructors                                                                                                             
@@ -59,7 +73,8 @@ namespace CaeModel
             _cavityRadiation = false;
             _cavityName = null;
             SinkTemperature = new EquationContainer(typeof(StringTemperatureConverter), sinkTemperature);
-            Emissivity = new EquationContainer(typeof(StringDoubleConverter), sinkTemperature);
+            Emissivity = new EquationContainer(typeof(StringDoubleConverter), emissivity);
+            _emissivityAmplitudeName = null;
         }
         public RadiationHeatTransfer(SerializationInfo info, StreamingContext context)
             : base(info, context)
@@ -90,6 +105,8 @@ namespace CaeModel
                         else
                             SetEmissivity((EquationContainer)entry.Value, false);
                         break;
+                    case "_emissivityAmplitudeName":
+                        _emissivityAmplitudeName = (string)entry.Value; break;
                     default:
                         break;
                 }
@@ -134,6 +151,7 @@ namespace CaeModel
             info.AddValue("_cavityName", _cavityName, typeof(string));
             info.AddValue("_sinkTemperature", _sinkTemperature, typeof(EquationContainer));
             info.AddValue("_emissivity", _emissivity, typeof(EquationContainer));
+            info.AddValue("_emissivityAmplitudeName", _emissivityAmplitudeName, typeof(string));
         }
     }
 }

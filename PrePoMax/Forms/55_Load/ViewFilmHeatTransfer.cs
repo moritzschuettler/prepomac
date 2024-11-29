@@ -49,11 +49,26 @@ namespace PrePoMax
             set { _filmHeatTransfer.FilmCoefficient.Equation = value; }
         }
         //
+        [CategoryAttribute("Time/Frequency")]
+        [OrderedDisplayName(0, 10, "Sink amplitude")]
+        [DescriptionAttribute("Select the amplitude for the sink temperature.")]
+        [Id(1, 18)]
         public override string AmplitudeName
         {
             get { return _filmHeatTransfer.AmplitudeName; }
             set { _filmHeatTransfer.AmplitudeName = value; }
         }
+        //
+        [CategoryAttribute("Time/Frequency")]
+        [OrderedDisplayName(1, 10, "Coefficient amplitude")]
+        [DescriptionAttribute("Select the amplitude for the film coefficient.")]
+        [Id(2, 18)]
+        public string CoefficientAmplitudeName
+        {
+            get { return _filmHeatTransfer.CoefficientAmplitudeName; }
+            set { _filmHeatTransfer.CoefficientAmplitudeName = value; }
+        }
+        //
         [Browsable(false)]
         public override string CoordinateSystemName
         {
@@ -93,7 +108,18 @@ namespace PrePoMax
             regionTypeListItemsPairs.Add(RegionTypeEnum.SurfaceName, surfaceNames);
             PopulateDropDownLists(regionTypeListItemsPairs);
             //
+            PopulateSinkAmplitudeNames(amplitudeNames);
+            PopulateCoefficientAmplitudeNames(amplitudeNames);
+        }
+        public void PopulateSinkAmplitudeNames(string[] amplitudeNames)
+        {
             PopulateAmplitudeNames(amplitudeNames);
+        }
+        public void PopulateCoefficientAmplitudeNames(string[] amplitudeNames)
+        {
+            List<string> names = new List<string>() { Load.DefaultAmplitudeName };
+            names.AddRange(amplitudeNames);
+            DynamicCustomTypeDescriptor.PopulateProperty(nameof(CoefficientAmplitudeName), names.ToArray(), false, 2);
         }
     }
 }

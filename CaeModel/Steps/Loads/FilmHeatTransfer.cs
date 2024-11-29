@@ -17,6 +17,7 @@ namespace CaeModel
         private RegionTypeEnum _regionType;             //ISerializable
         private EquationContainer _sinkTemperature;     //ISerializable
         private EquationContainer _filmCoefficient;     //ISerializable
+        protected string _coefficientAmplitudeName;     //ISerializable
 
 
         // Properties                                                                                                               
@@ -25,6 +26,19 @@ namespace CaeModel
         public override RegionTypeEnum RegionType { get { return _regionType; } set { _regionType = value; } }
         public EquationContainer SinkTemperature { get { return _sinkTemperature; } set { SetSinkTemperature(value); } }
         public EquationContainer FilmCoefficient { get { return _filmCoefficient; } set { SetFilmCoefficient(value); } }
+        public string CoefficientAmplitudeName
+        {
+            get
+            {
+                if (_coefficientAmplitudeName == null) return DefaultAmplitudeName;
+                else return _coefficientAmplitudeName;
+            }
+            set
+            {
+                _coefficientAmplitudeName = value;
+                if (_coefficientAmplitudeName == DefaultAmplitudeName) _coefficientAmplitudeName = null;
+            }
+        }
 
 
         // Constructors                                                                                                             
@@ -36,6 +50,7 @@ namespace CaeModel
             _regionType = regionType;
             SinkTemperature = new EquationContainer(typeof(StringTemperatureConverter), sinkTemperature);
             FilmCoefficient = new EquationContainer(typeof(StringHeatTransferCoefficientConverter), filmCoefficient);
+            _coefficientAmplitudeName = null;
         }
         public FilmHeatTransfer(SerializationInfo info, StreamingContext context)
             : base(info, context)
@@ -63,6 +78,8 @@ namespace CaeModel
                         else
                             SetFilmCoefficient((EquationContainer)entry.Value, false);
                         break;
+                    case "_coefficientAmplitudeName":
+                        _coefficientAmplitudeName = (string)entry.Value; break;
                     default:
                         break;
                 }
@@ -97,6 +114,7 @@ namespace CaeModel
             info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
             info.AddValue("_sinkTemperature", _sinkTemperature, typeof(EquationContainer));
             info.AddValue("_filmCoefficient", _filmCoefficient, typeof(EquationContainer));
+            info.AddValue("_coefficientAmplitudeName", _coefficientAmplitudeName, typeof(string));
         }
     }
 }

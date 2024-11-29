@@ -68,31 +68,39 @@ namespace PrePoMax.Forms
             this.gbProperties.SuspendLayout();
             this.SuspendLayout();
             // 
+            // gbType
+            // 
+            this.gbType.Size = new System.Drawing.Size(330, 101);
+            // 
+            // lvTypes
+            // 
+            this.lvTypes.Size = new System.Drawing.Size(318, 73);
+            // 
             // gbProperties
             // 
-            this.gbProperties.Size = new System.Drawing.Size(310, 371);
+            this.gbProperties.Size = new System.Drawing.Size(330, 371);
             // 
             // propertyGrid
             // 
-            this.propertyGrid.Size = new System.Drawing.Size(298, 343);
+            this.propertyGrid.Size = new System.Drawing.Size(318, 343);
             // 
             // btnOK
             // 
-            this.btnOK.Location = new System.Drawing.Point(160, 496);
+            this.btnOK.Location = new System.Drawing.Point(180, 496);
             // 
             // btnCancel
             // 
-            this.btnCancel.Location = new System.Drawing.Point(241, 496);
+            this.btnCancel.Location = new System.Drawing.Point(261, 496);
             // 
             // btnOkAddNew
             // 
-            this.btnOkAddNew.Location = new System.Drawing.Point(79, 496);
+            this.btnOkAddNew.Location = new System.Drawing.Point(99, 496);
             // 
             // FrmLoad
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
-            this.ClientSize = new System.Drawing.Size(334, 531);
-            this.MinimumSize = new System.Drawing.Size(350, 550);
+            this.ClientSize = new System.Drawing.Size(354, 531);
+            this.MinimumSize = new System.Drawing.Size(370, 550);
             this.Name = "FrmLoad";
             this.Text = "Edit Load";
             this.EnabledChanged += new System.EventHandler(this.FrmLoad_EnabledChanged);
