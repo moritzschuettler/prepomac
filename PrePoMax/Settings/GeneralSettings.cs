@@ -79,7 +79,7 @@ namespace PrePoMax
             _openLastFile = false;
             _lastFileName = null;
             _saveResultsInPmx = true;
-            _compressionLevel = CompressionLevel.NoCompression;
+            _compressionLevel = CompressionLevel.Fastest;
             _unitSystemType = UnitSystemType.MM_TON_S_C;
             _numOfSplitFaces = 2;
             _edgeAngle = 30;

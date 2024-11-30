@@ -88,9 +88,9 @@ namespace PrePoMax
             set { _importedSTLoad.PhaseDeg.Equation = value; }
         }
         //
-        [CategoryAttribute("Imported geometry")]
+        [CategoryAttribute("Imported coordinates")]
         [OrderedDisplayName(0, 10, "Scale factor")]
-        [DescriptionAttribute("Value of the imported geometry scale factor.")]
+        [DescriptionAttribute("Value of the scale factor for the imported coordinates.")]
         [TypeConverter(typeof(EquationDoubleConverter))]
         [Id(1, 5)]
         public EquationString GeometryScaleFactor

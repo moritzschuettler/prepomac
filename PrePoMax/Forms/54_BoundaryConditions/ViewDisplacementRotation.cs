@@ -186,7 +186,8 @@ namespace PrePoMax
         public override void UpdateVisibility()
         {
             // Coordinate systems
-            bool visible = RegionType != RegionTypeEnum.ReferencePointName.ToFriendlyString();
+            int numItems = DynamicCustomTypeDescriptor.GetProperty(nameof(CoordinateSystemName)).StatandardValues.Count;
+            bool visible = RegionType != RegionTypeEnum.ReferencePointName.ToFriendlyString() && numItems > 1;
             DynamicCustomTypeDescriptor.GetProperty(nameof(CoordinateSystemName)).SetIsBrowsable(visible);
             // Rotations
             visible = _displacementRotation.CoordinateSystemName == BoundaryCondition.DefaultCoordinateSystemName;
