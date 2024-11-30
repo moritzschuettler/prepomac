@@ -4397,13 +4397,7 @@ namespace vtkControl
                             //
                             if (sectionViewActor != null)
                             {
-                                if (_sectionViewData.LightenColors)
-                                    sectionViewActor.Color = sectionViewActor.Color.Lighten();
-                                else if (_sectionViewData.SectionColor != null &&
-                                         _sectionViewData.SectionColor != Color.Empty)
-                                {
-                                    sectionViewActor.Color = _sectionViewData.SectionColor;
-                                }
+                                UpdateSectionViewActorColor(sectionViewActor);
                                 //
                                 AddActor(sectionViewActor, vtkRendererLayer.Base);
                                 actor.SectionViewActor = sectionViewActor;
@@ -4440,13 +4434,7 @@ namespace vtkControl
                             //
                             if (sectionViewActor != null)
                             {
-                                if (_sectionViewData.LightenColors)
-                                    sectionViewActor.Color = sectionViewActor.Color.Lighten();
-                                else if (_sectionViewData.SectionColor != null &&
-                                         _sectionViewData.SectionColor != Color.Empty)
-                                {
-                                    sectionViewActor.Color = _sectionViewData.SectionColor;
-                                }
+                                UpdateSectionViewActorColor(sectionViewActor);
                                 //
                                 AddActor(sectionViewActor, vtkRendererLayer.Base);
                                 actor.SectionViewActor = sectionViewActor;
@@ -6499,7 +6487,24 @@ namespace vtkControl
             // Transformed copies
             foreach (var copy in actor.Copies) UpdateActorColor(copy, newColor);
             // Section view
-            if (_sectionViewData.Active && actor.SectionViewActor != null) actor.SectionViewActor.Color = newColor;
+            if (_sectionViewData.Active && actor.SectionViewActor != null)
+            {
+                actor.SectionViewActor.Color = newColor;                // set to default
+                UpdateSectionViewActorColor(actor.SectionViewActor);    // update
+            }
+        }
+        private void UpdateSectionViewActorColor(vtkMaxActor sectionViewActor)
+        {
+            if (sectionViewActor != null)
+            {
+                if (_sectionViewData.LightenColors)
+                    sectionViewActor.Color = sectionViewActor.Color.Lighten();
+                else if (_sectionViewData.SectionColor != null &&
+                         _sectionViewData.SectionColor != Color.Empty)
+                {
+                    sectionViewActor.Color = _sectionViewData.SectionColor;
+                }
+            }
         }
         public double[] GetBoundingBox()
         {

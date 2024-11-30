@@ -13,8 +13,8 @@ namespace CaeMesh
         public int[] VertexIds;
         public int[] EdgeIds;
         private int[][] _edgeVertexIds;
-        public bool Triangular;
-        public bool Quadrangular;
+        public bool ThreeSided;
+        public bool FourSided;
         public bool HasHole;
         public bool Collapsed;
         public bool Transfinite;
@@ -26,13 +26,13 @@ namespace CaeMesh
             VertexIds = vertexIds;
             EdgeIds = edgeIds;
             _edgeVertexIds = edgeVertexIds;
-            Triangular = false;
-            Quadrangular = false;
+            ThreeSided = false;
+            FourSided = false;
             HasHole = false;
             Collapsed = false;
             Transfinite = false;
             Recombine = false;
-            // Fix collapsed triangular faces
+            // Fix collapsed 3-sided faces
             if (VertexIds.Length == 3 && edgeIds.Length == 4)
             {
                 int count = 0;
@@ -92,7 +92,7 @@ namespace CaeMesh
                 //
                 OppositeEdgesB = null;
                 //
-                Triangular = true;
+                ThreeSided = true;
                 Transfinite = true;
             }
             // Four-sided cylinder faces - not working
@@ -123,7 +123,7 @@ namespace CaeMesh
                 }
                 OppositeEdgesB = edgeIds.Except(OppositeEdgesA).ToArray();
                 //
-                Quadrangular = true;
+                FourSided = true;
                 if (!HasHole) Transfinite = true;
             }
             else if (VertexIds.Length != edgeIds.Length)

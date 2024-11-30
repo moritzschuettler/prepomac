@@ -1450,8 +1450,8 @@ namespace CaeModel
             GeometryPart part;
             int[] partIds = FeMesh.GetPartIdsFromGeometryIds(transfiniteMesh.CreationIds);
             //
-            int numTri;
-            int numQuad;
+            int num3sided;
+            int num4sided;
             HashSet<int> triSurfaceEdgeIds = new HashSet<int>();
             foreach (var partId in partIds)
             {
@@ -1468,24 +1468,24 @@ namespace CaeModel
                 {
                     if (part.Visualization.FaceCount == 5 || part.Visualization.FaceCount == 6)
                     {
-                        numTri = 0;
-                        numQuad = 0;
+                        num3sided = 0;
+                        num4sided = 0;
                         triSurfaceEdgeIds.Clear();
                         for (int i = 0; i < part.Visualization.FaceCount; i++)
                         {
                             if (part.Visualization.FaceEdgeIds[i].Length == 3)
                             {
-                                numTri++;
+                                num3sided++;
                                 triSurfaceEdgeIds.UnionWith(part.Visualization.FaceEdgeIds[i]);
                             }
-                            else if (part.Visualization.FaceEdgeIds[i].Length == 4) numQuad++;
+                            else if (part.Visualization.FaceEdgeIds[i].Length == 4) num4sided++;
                         }
-                        if (!(numQuad == 6 || (numQuad == 3 && numTri == 2)))
-                            return "The transfinite gmsh setup item can only be defined on solid parts with triangular and " +
-                                   "quadrangular faces.";
-                        if (numQuad == 3 && numTri == 2 && triSurfaceEdgeIds.Count != 6)
+                        if (!(num4sided == 6 || (num4sided == 3 && num3sided == 2)))
+                            return "The transfinite gmsh setup item can only be defined on solid parts with 3-sided and " +
+                                   "4-sided faces.";
+                        if (num4sided == 3 && num3sided == 2 && triSurfaceEdgeIds.Count != 6)
                             return "The transfinite gmsh setup item can only be defined on solid parts with non touching " +
-                                   "triangular faces.";
+                                   "3-sided faces.";
                     }
                     else return "The transfinite gmsh setup item can only be defined on solid parts with 5 or 6 faces.";
                 }

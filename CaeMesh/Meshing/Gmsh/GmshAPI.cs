@@ -720,8 +720,8 @@ namespace CaeMesh
                         surface = surfaceIdSurface[volSurfaceId];
                         if (surface.Transfinite)
                         {
-                            if (surface.Triangular && transfiniteThreeSided) volume.TriSurfIds.Add(volSurfaceId);
-                            else if (surface.Quadrangular && transfiniteFourSided) volume.QuadSurfIds.Add(volSurfaceId);
+                            if (surface.ThreeSided && transfiniteThreeSided) volume.TriSurfIds.Add(volSurfaceId);
+                            else if (surface.FourSided && transfiniteFourSided) volume.QuadSurfIds.Add(volSurfaceId);
                         }
                         else { volume.Transfinite = false; break; }
                     }
@@ -903,9 +903,9 @@ namespace CaeMesh
                 if (surface.Transfinite)
                 {
                     // "Left", "Right", "AlternateLeft" and "AlternateRight"
-                    if (surface.Triangular && transfiniteThreeSided)
+                    if (surface.ThreeSided && transfiniteThreeSided)
                         Gmsh.Model.Mesh.SetTransfiniteSurface(surface.Id, "AlternateLeft", surface.VertexIds);
-                    else if (surface.Quadrangular && transfiniteFourSided)
+                    else if (surface.FourSided && transfiniteFourSided)
                         Gmsh.Model.Mesh.SetTransfiniteSurface(surface.Id, "AlternateLeft");
                     //
                     if (recombine && surface.Recombine) Gmsh.Model.Mesh.SetRecombine(2, surface.Id);

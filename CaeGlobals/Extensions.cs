@@ -13,6 +13,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Drawing;
 using System.Runtime.InteropServices.WindowsRuntime;
+using System.Data;
 
 namespace CaeGlobals
 {
@@ -472,40 +473,34 @@ namespace CaeGlobals
         {
             double hue;
             double saturation;
-            double value;
-            color.ToHSV(out  hue, out saturation, out value);
-            if (hue == 0)
-                return Color.FromArgb(255 - color.R, 255 - color.G, 255 - color.B);
-            else
+            double brightness;
+            color.ToHSB(out  hue, out saturation, out brightness);
             {
-                // Invert
-                // hue = (hue + 180) % 360;
                 // Lighten
-                saturation += (1 - saturation) * 0.2;
-                value = 1;
-                return ColorFromHSV(hue, saturation, value);
+                double factor = 0.75;
+                brightness += (1 - brightness) * factor;
+                saturation -= saturation * factor;
+                //
+                return ColorFromHSB(hue, saturation, brightness);
             }
         }
-        public static void ToHSV(this Color color, out double hue, out double saturation, out double value)
+        public static void ToHSB(this Color color, out double hue, out double saturation, out double brightness)
         {
-            int max = Math.Max(color.R, Math.Max(color.G, color.B));
-            int min = Math.Min(color.R, Math.Min(color.G, color.B));
-
             hue = color.GetHue();
-            saturation = (max == 0) ? 0 : 1d - (1d * min / max);
-            value = max / 255d;
+            saturation = color.GetSaturation();
+            brightness = color.GetBrightness();
         }
-        public static Color ColorFromHSV(double hue, double saturation, double value)
+        public static Color ColorFromHSB(double hue, double saturation, double brightness)
         {
             int hi = Convert.ToInt32(Math.Floor(hue / 60)) % 6;
             double f = hue / 60 - Math.Floor(hue / 60);
-
-            value = value * 255;
-            int v = Convert.ToInt32(value);
-            int p = Convert.ToInt32(value * (1 - saturation));
-            int q = Convert.ToInt32(value * (1 - f * saturation));
-            int t = Convert.ToInt32(value * (1 - (1 - f) * saturation));
-            
+            //
+            brightness = brightness * 255;
+            int v = Convert.ToInt32(brightness);
+            int p = Convert.ToInt32(brightness * (1 - saturation));
+            int q = Convert.ToInt32(brightness * (1 - f * saturation));
+            int t = Convert.ToInt32(brightness * (1 - (1 - f) * saturation));
+            //
             if (hi == 0)
                 return Color.FromArgb(255, v, t, p);
             else if (hi == 1)
@@ -518,6 +513,138 @@ namespace CaeGlobals
                 return Color.FromArgb(255, t, p, v);
             else
                 return Color.FromArgb(255, v, p, q);
+        }
+        public static void RgbToHsb(this Color rgb, out double hue, out double saturation, out double brightness)
+        {
+            // _NOTE #1: Even though we're dealing with a very small range of
+            // numbers, the accuracy of all calculations is fairly important.
+            // For this reason, I've opted to use double data types instead
+            // of float, which gives us a little bit extra precision (recall
+            // that precision is the number of significant digits with which
+            // the result is expressed).
+
+            var r = rgb.R / 255d;
+            var g = rgb.G / 255d;
+            var b = rgb.B / 255d;
+            //
+            var minValue = Math.Min(r, Math.Min(g, b));
+            var maxValue = Math.Max(r, Math.Max(g, b));
+            var delta = maxValue - minValue;
+            //
+            hue = 0;
+            saturation = 0;
+            brightness = maxValue * 100;
+            //
+            if (Math.Abs(maxValue - 0) < 0.00001 || Math.Abs(delta - 0) < 0.00001)
+            {
+                hue = 0;
+                saturation = 0;
+            }
+            else
+            {
+                // _NOTE #2: FXCop insists that we avoid testing for floating 
+                // point equality (CA1902). Instead, we'll perform a series of
+                // tests with the help of 0.00001 that will provide 
+                // a more accurate equality evaluation.
+
+                if (Math.Abs(minValue - 0) < 0.00001)
+                {
+                    saturation = 100;
+                }
+                else
+                {
+                    saturation = delta / maxValue * 100;
+                }
+
+                if (Math.Abs(r - maxValue) < 0.00001)
+                {
+                    hue = (g - b) / delta;
+                }
+                else if (Math.Abs(g - maxValue) < 0.00001)
+                {
+                    hue = 2 + (b - r) / delta;
+                }
+                else if (Math.Abs(b - maxValue) < 0.00001)
+                {
+                    hue = 4 + (r - g) / delta;
+                }
+            }
+
+            hue *= 60;
+            if (hue < 0)
+            {
+                hue += 360;
+            }
+            saturation /= 100;
+            brightness /= 100;
+        }
+        public static Color HsbToRgb(double hue, double saturation, double brightness)
+        {
+            double red = 0, green = 0, blue = 0;
+            //
+            double h = hue;
+            var s = saturation;
+            var b = brightness;
+            //
+            if (Math.Abs(s - 0) < 0.00001)
+            {
+                red = b;
+                green = b;
+                blue = b;
+            }
+            else
+            {
+                // The color wheel has six sectors.
+                var sectorPosition = h / 60;
+                var sectorNumber = (int)Math.Floor(sectorPosition);
+                var fractionalSector = sectorPosition - sectorNumber;
+                //
+                var p = b * (1 - s);
+                var q = b * (1 - s * fractionalSector);
+                var t = b * (1 - s * (1 - fractionalSector));
+                // Assign the fractional colors to r, g, and b based on the sector the angle is in.
+                switch (sectorNumber)
+                {
+                    case 0:
+                        red = b;
+                        green = t;
+                        blue = p;
+                        break;
+                    case 1:
+                        red = q;
+                        green = b;
+                        blue = p;
+                        break;
+                    case 2:
+                        red = p;
+                        green = b;
+                        blue = t;
+                        break;
+                    case 3:
+                        red = p;
+                        green = q;
+                        blue = b;
+                        break;
+
+                    case 4:
+                        red = t;
+                        green = p;
+                        blue = b;
+                        break;
+
+                    case 5:
+                        red = b;
+                        green = p;
+                        blue = q;
+                        break;
+                }
+            }
+            //
+            byte nRed = (byte)(red * 255);
+            byte nGreen = (byte)(green * 255);
+            byte nBlue = (byte)(blue * 255);
+            //
+            return Color.FromArgb(255, (int)nRed, (int)nGreen, (int)nBlue);
         }
     }
 
