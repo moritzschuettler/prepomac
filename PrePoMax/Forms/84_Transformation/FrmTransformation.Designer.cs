@@ -43,7 +43,7 @@
             System.Windows.Forms.ListViewItem listViewItem1 = new System.Windows.Forms.ListViewItem("1");
             System.Windows.Forms.ListViewItem listViewItem2 = new System.Windows.Forms.ListViewItem("2");
             System.Windows.Forms.ListViewItem listViewItem3 = new System.Windows.Forms.ListViewItem("3");
-            this.tvTransformations = new System.Windows.Forms.TreeView();
+            this.tvTransformations = new UserControls.CodersLabTreeView();
             this.propertyGrid = new UserControls.TabEnabledPropertyGrid();
             this.btnOK = new System.Windows.Forms.Button();
             this.btnCancel = new System.Windows.Forms.Button();
@@ -272,7 +272,7 @@
 
         #endregion
 
-        private System.Windows.Forms.TreeView tvTransformations;
+        private UserControls.CodersLabTreeView tvTransformations;
         private UserControls.TabEnabledPropertyGrid propertyGrid;
         private System.Windows.Forms.Button btnOK;
         private System.Windows.Forms.Button btnCancel;

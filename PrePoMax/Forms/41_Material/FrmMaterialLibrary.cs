@@ -82,8 +82,11 @@ namespace PrePoMax.Forms
                 _frmMaterial.VisibleChanged += _frmMaterial_VisibleChanged;
                 _frmMaterial.PrepareFormForPreview();
                 //
-                Material previewMaterial = (Material)cltvLibrary.SelectedNode.Tag.DeepClone();
-                _frmMaterial.Material = previewMaterial;
+                if (cltvLibrary.SelectedNode.Tag != null)
+                {
+                    Material previewMaterial = (Material)cltvLibrary.SelectedNode.Tag.DeepClone();
+                    _frmMaterial.Material = previewMaterial;
+                }
                 //
                 _yPadding = gbLibraries.Bottom - gbLibraryMaterials.Top;
                 //
@@ -135,6 +138,7 @@ namespace PrePoMax.Forms
                         SaveMaterialLibraryToFile(saveFileDialog.FileName, materialLibrary);
                         //
                         LoadMaterialLibraryFromFile(saveFileDialog.FileName);
+                        _controller.AddMaterialLibraryFile(saveFileDialog.FileName);
                         SetControlStates();
                     }
                 }
@@ -164,11 +168,11 @@ namespace PrePoMax.Forms
         }
         private void btnRemove_Click(object sender, EventArgs e)
         {
-            if (lvLibraries.SelectedItems.Count == 1)
+            if (lvLibraries.PossiblySelectedItems.Count == 1)
             {
-                _controller.RemoveMaterialLibraryFile(lvLibraries.SelectedItems[0].Text);
+                _controller.RemoveMaterialLibraryFile(lvLibraries.PossiblySelectedItems[0].Text);
                 //
-                int selectedId = lvLibraries.SelectedIndices[0];
+                int selectedId = lvLibraries.PossiblySelectedItems[0].Index;
                 lvLibraries.SelectedIndices.Clear();
                 lvLibraries.Items.RemoveAt(selectedId);
                 //
@@ -181,9 +185,9 @@ namespace PrePoMax.Forms
         {
             try
             {
-                if (lvLibraries.SelectedItems.Count == 1)
+                if (lvLibraries.PossiblySelectedItems.Count == 1)
                 {
-                    MaterialLibraryItem mli = (MaterialLibraryItem)lvLibraries.SelectedItems[0].Tag;
+                    MaterialLibraryItem mli = (MaterialLibraryItem)lvLibraries.PossiblySelectedItems[0].Tag;
                     ClearTree();
                     FillTree(mli, cltvLibrary.Nodes[0]);
                 }
@@ -192,13 +196,13 @@ namespace PrePoMax.Forms
         }
         private void LibraryChanged()
         {
-            if (lvLibraries.SelectedItems.Count == 1)
+            if (lvLibraries.PossiblySelectedItems.Count == 1)
             {
-                MaterialLibraryItem materialLibrary = (MaterialLibraryItem)lvLibraries.SelectedItems[0].Tag;
+                MaterialLibraryItem materialLibrary = (MaterialLibraryItem)lvLibraries.PossiblySelectedItems[0].Tag;
                 materialLibrary.Items.Clear();
                 TreeNodesToItemList(cltvLibrary.Nodes[0], materialLibrary);
                 //
-                if (!lvLibraries.SelectedItems[0].Text.EndsWith("*")) lvLibraries.SelectedItems[0].Text += "*";
+                if (!lvLibraries.PossiblySelectedItems[0].Text.EndsWith("*")) lvLibraries.PossiblySelectedItems[0].Text += "*";
             }
         }
         private bool AnyLibraryChanged()
@@ -368,10 +372,10 @@ namespace PrePoMax.Forms
         //
         private void btnDeleteFromModel_Click(object sender, EventArgs e)
         {
-            if (lvModelMaterials.SelectedItems.Count == 1)
+            if (lvModelMaterials.PossiblySelectedItems.Count == 1)
             {
-                int selectedIndex = lvModelMaterials.SelectedIndices[0];
-                lvModelMaterials.Items.Remove(lvModelMaterials.SelectedItems[0]);
+                int selectedIndex = lvModelMaterials.PossiblySelectedItems[0].Index;
+                lvModelMaterials.Items.Remove(lvModelMaterials.PossiblySelectedItems[0]);
                 _modelChanged = true;
                 //
                 if (lvModelMaterials.Items.Count > 0)
@@ -390,7 +394,7 @@ namespace PrePoMax.Forms
         {
             try
             {
-                if (lvModelMaterials.SelectedItems.Count == 1 && cltvLibrary.SelectedNode != null)
+                if (lvModelMaterials.PossiblySelectedItems.Count == 1 && cltvLibrary.SelectedNode != null)
                 {
                     TreeNode categoryNode;
                     if (cltvLibrary.SelectedNode.Tag == null) categoryNode = cltvLibrary.SelectedNode;  // Category
@@ -399,15 +403,15 @@ namespace PrePoMax.Forms
                     if (categoryNode == null)
                         throw new CaeException("Please select a library category to which the material should be added.");
                     //
-                    string materialName = lvModelMaterials.SelectedItems[0].Text;
+                    string materialName = lvModelMaterials.PossiblySelectedItems[0].Text;
                     int count = 1;
                     while (categoryNode.Nodes.ContainsKey(materialName))
                     {
-                        materialName = lvModelMaterials.SelectedItems[0].Text + "_Model-" + count;
+                        materialName = lvModelMaterials.PossiblySelectedItems[0].Text + "_Model-" + count;
                         count++;
                     }
                     //
-                    ListViewItem libraryMaterialItem = lvModelMaterials.SelectedItems[0];
+                    ListViewItem libraryMaterialItem = lvModelMaterials.PossiblySelectedItems[0];
                     Material libraryMaterial = (Material)libraryMaterialItem.Tag.DeepClone();
                     libraryMaterial.Name = materialName;
                     // Check for equations
@@ -489,9 +493,9 @@ namespace PrePoMax.Forms
         {
             try
             {
-                if (lvLibraries.SelectedItems.Count == 1)
+                if (lvLibraries.PossiblySelectedItems.Count == 1)
                 {
-                    SaveMaterialLibrary(lvLibraries.SelectedItems[0]);
+                    SaveMaterialLibrary(lvLibraries.PossiblySelectedItems[0]);
                 }
             }
             catch (Exception ex)
@@ -636,7 +640,6 @@ namespace PrePoMax.Forms
                 if (firstNodeWithMaterial != null) return;
             }
         }
-
         private void btnMoveUp_Click(object sender, EventArgs e)
         {
             try
@@ -659,9 +662,9 @@ namespace PrePoMax.Forms
                 }
                 else if (_previousControl == lvModelMaterials)
                 {
-                    if (lvModelMaterials.SelectedItems != null && lvModelMaterials.SelectedItems[0].Tag != null)
+                    if (lvModelMaterials.PossiblySelectedItems != null && lvModelMaterials.PossiblySelectedItems[0].Tag != null)
                     {
-                        int currentIndex = lvModelMaterials.SelectedItems[0].Index;
+                        int currentIndex = lvModelMaterials.PossiblySelectedItems[0].Index;
                         ListViewItem item = lvModelMaterials.Items[currentIndex];
                         if (currentIndex > 0)
                         {
@@ -676,7 +679,6 @@ namespace PrePoMax.Forms
             catch
             { }
         }
-
         private void btnMoveDown_Click(object sender, EventArgs e)
         {
             try
@@ -699,9 +701,9 @@ namespace PrePoMax.Forms
                 }
                 else if (_previousControl == lvModelMaterials)
                 {
-                    if (lvModelMaterials.SelectedItems != null && lvModelMaterials.SelectedItems[0].Tag != null)
+                    if (lvModelMaterials.PossiblySelectedItems != null && lvModelMaterials.PossiblySelectedItems[0].Tag != null)
                     {
-                        int currentIndex = lvModelMaterials.SelectedItems[0].Index;
+                        int currentIndex = lvModelMaterials.PossiblySelectedItems[0].Index;
                         ListViewItem item = lvModelMaterials.Items[currentIndex];
                         if (currentIndex < lvModelMaterials.Items.Count - 1)
                         {

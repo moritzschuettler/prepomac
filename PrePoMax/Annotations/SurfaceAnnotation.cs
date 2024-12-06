@@ -34,6 +34,8 @@ namespace PrePoMax
             FeMesh mesh = Controller.DisplayedMesh;
             int surfaceId = itemTypePartIds[0];            
             BasePart part = mesh.GetPartFromId(itemTypePartIds[2]);
+            int numEdges = part.Visualization.FaceEdgeIds[surfaceId].Length;
+            int numVertices = part.Visualization.GetVertexNodeIdsForSurfaceId(surfaceId).Length;
             double area;
             string areaUnit = Controller.GetAreaUnit();
             string fieldUnit = "";
@@ -99,6 +101,7 @@ namespace PrePoMax
             //
             bool showSurfaceId = Controller.Settings.Annotations.ShowEdgeSurId;
             bool showSurfaceType = Controller.Settings.Annotations.ShowEdgeSurType;
+            bool showSurfaceTopology = Controller.Settings.Annotations.ShowEdgeSurTopology;
             bool showSurfaceLength = Controller.Settings.Annotations.ShowEdgeSurSize;
             bool showSurfaceMax = Controller.Settings.Annotations.ShowEdgeSurMax && results;
             bool showSurfaceMin = Controller.Settings.Annotations.ShowEdgeSurMin && results;
@@ -116,6 +119,13 @@ namespace PrePoMax
             {
                 if (text.Length > 0) text += Environment.NewLine;
                 text += string.Format("Surface type: {0}", faceType.ToString());
+            }
+            if (showSurfaceTopology)
+            {
+                if (text.Length > 0) text += Environment.NewLine;
+                text += string.Format("Edges: {0}", numEdges);
+                text += Environment.NewLine;
+                text += string.Format("Vertices: {0}", numVertices);
             }
             if (showSurfaceLength)
             {

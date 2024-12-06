@@ -72,9 +72,9 @@ namespace PrePoMax.Forms
         }
         private void btnRemove_Click(object sender, EventArgs e)
         {
-            if (lvActiveTransformations.SelectedItems.Count == 1)
+            if (lvActiveTransformations.PossiblySelectedItems.Count == 1)
             {
-                ListViewItem item = lvActiveTransformations.SelectedItems[0];
+                ListViewItem item = lvActiveTransformations.PossiblySelectedItems[0];
                 int index = item.Index;
                 if (index == lvActiveTransformations.Items.Count - 1) index--;
                 lvActiveTransformations.Items.Remove(item);

@@ -33,7 +33,7 @@
             System.Windows.Forms.TreeNode treeNode2 = new System.Windows.Forms.TreeNode("Friction");
             System.Windows.Forms.TreeNode treeNode3 = new System.Windows.Forms.TreeNode("Gap Conductance");
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle1 = new System.Windows.Forms.DataGridViewCellStyle();
-            this.tvProperties = new System.Windows.Forms.TreeView();
+            this.tvProperties = new UserControls.CodersLabTreeView();
             this.propertyGrid = new UserControls.TabEnabledPropertyGrid();
             this.btnOK = new System.Windows.Forms.Button();
             this.btnCancel = new System.Windows.Forms.Button();
@@ -336,7 +336,7 @@
 
         #endregion
 
-        private System.Windows.Forms.TreeView tvProperties;
+        private UserControls.CodersLabTreeView tvProperties;
         private UserControls.TabEnabledPropertyGrid propertyGrid;
         private System.Windows.Forms.Button btnOK;
         private System.Windows.Forms.Button btnCancel;

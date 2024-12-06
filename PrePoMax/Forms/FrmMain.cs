@@ -8946,6 +8946,7 @@ namespace PrePoMax
             tsmiAnnotateReferencePoints.Checked = false;
             tsmiAnnotateConstraints.Checked = false;
             tsmiAnnotateContactPairs.Checked = false;
+            tsmiAnnotateInitialConditions.Checked = false;
             tsmiAnnotateBCs.Checked = false;
             tsmiAnnotateLoads.Checked = false;
             tsmiAnnotateAllSymbols.Checked = false;

@@ -331,6 +331,8 @@ namespace PrePoMax.Forms
             int[] itemTypePartIds = FeMesh.GetItemTypePartIdsFromGeometryId(geometryId);
             BasePart part = _controller.DisplayedMesh.GetPartFromId(itemTypePartIds[2]);
             int surfaceId = itemTypePartIds[0];
+            int numEdges = part.Visualization.FaceEdgeIds[surfaceId].Length;
+            int numVertices = part.Visualization.GetVertexNodeIdsForSurfaceId(surfaceId).Length;
             double area1 = _controller.DisplayedMesh.GetSurfaceArea(geometryId);
             string areaUnit = "[" + _controller.GetAreaUnit() + "]";
             //
@@ -342,6 +344,10 @@ namespace PrePoMax.Forms
             }
             Form_WriteDataToOutput(data);
             data = string.Format("{0,16}{1,8}{2,16}{3,16}", "Surface".PadRight(16), "[/]", "id:", surfaceId + 1);
+            Form_WriteDataToOutput(data);
+            data = string.Format("{0,16}{1,8}{2,16}{3,16}", "Edges".PadRight(16), "[/]", "#:", numEdges);
+            Form_WriteDataToOutput(data);
+            data = string.Format("{0,16}{1,8}{2,16}{3,16}", "Vertices".PadRight(16), "[/]", "#:", numVertices);
             Form_WriteDataToOutput(data);
             data = string.Format("{0,16}{1,8}{2,16}{3,16:E}", "Base".PadRight(16), areaUnit, "A:", area1);
             Form_WriteDataToOutput(data);

@@ -25,6 +25,7 @@ namespace PrePoMax
         //
         private bool _showEdgeSurId;
         private bool _showEdgeSurType;
+        private bool _showEdgeSurTopology;
         private bool _showEdgeSurSize;
         private bool _showEdgeSurMax;
         private bool _showEdgeSurMin;
@@ -69,6 +70,7 @@ namespace PrePoMax
         //
         public bool ShowEdgeSurId { get { return _showEdgeSurId; } set { _showEdgeSurId = value; } }
         public bool ShowEdgeSurType { get { return _showEdgeSurType; } set { _showEdgeSurType = value; } }
+        public bool ShowEdgeSurTopology { get { return _showEdgeSurTopology; } set { _showEdgeSurTopology = value; } }
         public bool ShowEdgeSurSize { get { return _showEdgeSurSize; } set { _showEdgeSurSize = value; } }
         public bool ShowEdgeSurMax { get { return _showEdgeSurMax; } set { _showEdgeSurMax = value; } }
         public bool ShowEdgeSurMin { get { return _showEdgeSurMin; } set { _showEdgeSurMin = value; } }
@@ -110,6 +112,7 @@ namespace PrePoMax
             //
             _showEdgeSurId = true;
             _showEdgeSurType = true;
+            _showEdgeSurTopology = true;
             _showEdgeSurSize = true;
             _showEdgeSurMax = true;
             _showEdgeSurMin = true;

@@ -92,7 +92,16 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Edge/Surface annotation")]
-        [OrderedDisplayName(2, 10, "Show edge/surface size")]
+        [OrderedDisplayName(2, 10, "Show edge/surface topology")]
+        [DescriptionAttribute("Show edge/surface topology in the annotation.")]
+        public bool ShowEdgeSurTopology
+        {
+            get { return _annotationSettings.ShowEdgeSurTopology; }
+            set { _annotationSettings.ShowEdgeSurTopology = value; }
+        }
+        //
+        [CategoryAttribute("Edge/Surface annotation")]
+        [OrderedDisplayName(3, 10, "Show edge/surface size")]
         [DescriptionAttribute("Show edge/surface size in the annotation.")]
         public bool ShowEdgeLength
         {
@@ -101,7 +110,7 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Edge/Surface annotation")]
-        [OrderedDisplayName(3, 10, "Show maximum value")]
+        [OrderedDisplayName(4, 10, "Show maximum value")]
         [DescriptionAttribute("Show maximum value in the annotation.")]
         public bool ShowEdgeMax
         {
@@ -110,7 +119,7 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Edge/Surface annotation")]
-        [OrderedDisplayName(4, 10, "Show minimum value")]
+        [OrderedDisplayName(5, 10, "Show minimum value")]
         [DescriptionAttribute("Show minimum value in the annotation.")]
         public bool ShowEdgeMin
         {
@@ -119,7 +128,7 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Edge/Surface annotation")]
-        [OrderedDisplayName(5, 10, "Show sum value")]
+        [OrderedDisplayName(6, 10, "Show sum value")]
         [DescriptionAttribute("Show summed value by nodes in the annotation.")]
         public bool ShowEdgeSum
         {
@@ -128,7 +137,7 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Edge/Surface annotation")]
-        [OrderedDisplayName(6, 10, "Show average value")]
+        [OrderedDisplayName(7, 10, "Show average value")]
         [DescriptionAttribute("Show average value by nodes in the annotation.")]
         public bool ShowEdgeAvg
         {
@@ -195,6 +204,7 @@ namespace PrePoMax.Settings
             //
             _dctd.RenameBooleanPropertyToYesNo(nameof(ShowEdgeSurId));
             _dctd.RenameBooleanPropertyToYesNo(nameof(ShowEdgeSurType));
+            _dctd.RenameBooleanPropertyToYesNo(nameof(ShowEdgeSurTopology));
             _dctd.RenameBooleanPropertyToYesNo(nameof(ShowEdgeLength));
             _dctd.RenameBooleanPropertyToYesNo(nameof(ShowEdgeMax));
             _dctd.RenameBooleanPropertyToYesNo(nameof(ShowEdgeMin));

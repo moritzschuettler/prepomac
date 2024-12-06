@@ -82,6 +82,25 @@ namespace UserControls
             set { _mouseOverColor = value; }
         }
 
+        public List<ListViewItem> PossiblySelectedItems
+        {
+            get 
+            {
+                if (base.SelectedItems.Count > 0)
+                {
+                    List<ListViewItem> list = new List<ListViewItem>();
+                    foreach (ListViewItem item in base.SelectedItems) list.Add(item);
+                    return list;
+                }
+                else if (_prevSelectedItem != null)
+                {
+                    List<ListViewItem> list = new List<ListViewItem>() { _prevSelectedItem };
+                    return list;
+                }
+                return new List<ListViewItem>();
+            }
+        }
+
 
         // Events                                                                                                                   
         public event ListViewItemAddedDelegate ItemAddedEvent;
@@ -197,6 +216,7 @@ namespace UserControls
             _resizeNeeded = true;
             ItemRemovedAtEvent?.Invoke(index, listViewItem);
         }
+        
 
         //https://stackoverflow.com/questions/2691726/how-can-i-remove-the-selection-border-on-a-listviewitem                       
         protected override void OnSelectedIndexChanged(EventArgs e)
