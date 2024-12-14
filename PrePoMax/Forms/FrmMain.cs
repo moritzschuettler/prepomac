@@ -55,6 +55,8 @@ namespace PrePoMax
         private FrmSelectGeometry _frmSelectGeometry;
         private FrmSelectItemSet _frmSelectItemSet;
         private FrmNewModel _frmNewModel;
+        private FrmEditCommands _frmEditCommands;
+        private FrmRegenerate _frmRegenerate;
         private FrmAnalyzeGeometry _frmAnalyzeGeometry;
         private FrmMeshSetupItem _frmMeshSetupItem;
         private FrmModelProperties _frmModelProperties;
@@ -346,6 +348,12 @@ namespace PrePoMax
                 _frmNewModel = new FrmNewModel(_controller);
                 AddFormToAllForms(_frmNewModel);
                 //
+                _frmEditCommands = new FrmEditCommands();
+                AddFormToAllForms(_frmEditCommands);
+                //
+                _frmRegenerate = new FrmRegenerate();
+                AddFormToAllForms(_frmRegenerate);
+                //
                 _frmAnalyzeGeometry = new FrmAnalyzeGeometry(_controller);
                 AddFormToAllForms(_frmAnalyzeGeometry);
                 //
@@ -570,7 +578,8 @@ namespace PrePoMax
                     if (_cmdOptions.Parameters != null)
                         _controller.AddOverriddenParametersFromString(_cmdOptions.Parameters);
                     // Regenerate
-                    await Task.Run(() => _controller.RegenerateHistoryCommands(false, false, true));
+                    //
+                    await Task.Run(() => _controller.RegenerateHistoryCommands(false, false, _cmdOptions.GetRegenerateType()));
                     // Check for errors
                     if (_controller.GetCommandCollectionErrors() != null && _controller.GetCommandCollectionErrors().Count > 0)
                         throw new CaeException("Failed to regenerate some commands.");
@@ -601,7 +610,7 @@ namespace PrePoMax
                             bool regenerateAll = MessageBoxes.ShowQuestionYesNo("Regenerate All",
                                 "Select Yes to regenerate all commands or No to regenerate FE model commands only. " +
                                 "All commands can be regenerated later using Edit → Regenerate All.") == DialogResult.Yes;
-                            if (regenerateAll) parameters = "RegenerateAll";
+                            if (regenerateAll) parameters = Globals.RegenerateAll;
                         }
                     }
                     if (fileName == null)
@@ -709,7 +718,7 @@ namespace PrePoMax
                         if (response == DialogResult.Cancel) e.Cancel = true;
                         else if (response == DialogResult.OK && _controller.SavingFile)
                         {
-                            while (_controller.SavingFile) System.Threading.Thread.Sleep(100);
+                            while (_controller.SavingFile) Thread.Sleep(100);
                         }
                     }
                     else if (_controller.ModelChanged)
@@ -1512,7 +1521,7 @@ namespace PrePoMax
                     openFileDialog.FileName = "";
                     if (openFileDialog.ShowDialog() == DialogResult.OK)
                     {
-                        string parameters = "FileOpenMenu";
+                        string parameters = Globals.FromFileOpenMenu;
                         if (CheckBeforeOpen(openFileDialog.FileName))
                             await OpenAsync(openFileDialog.FileName, _controller.Open, true, null, parameters);
                     }
@@ -1559,7 +1568,7 @@ namespace PrePoMax
                 {
                     stateSet = true;
                     await Task.Run(() => Open(fileName, ActionOnFile, resetCamera, parameters));
-                    callback?.Invoke();                    
+                    callback?.Invoke(); // close monitor window
                 }
                 else MessageBoxes.ShowWarning("Another task is already running.");
                 // If the model space or the unit system are undefined
@@ -2164,14 +2173,14 @@ namespace PrePoMax
         {
             try
             {
-                bool regenerateAll = MessageBoxes.ShowQuestionYesNo("Undo",
-                    "Undo will regenerate the entire model. Select Yes to regenerate all commands or No to regenerate " +
-                    "FE model commands only.") == DialogResult.Yes;
-                //
-                SetStateWorking(Globals.UndoingText);
-                _modelTree.ScreenUpdating = false;
-                //
-                await Task.Run(() => _controller.UndoHistory(regenerateAll));
+                SetFormLocation(_frmRegenerate);
+                if (_frmRegenerate.ShowDialog() == DialogResult.OK)
+                {
+                    SetStateWorking(Globals.UndoingText);
+                    _modelTree.ScreenUpdating = false;
+                    //
+                    await Task.Run(() => _controller.UndoHistory(_frmRegenerate.RegenerateType));
+                }
             }
             catch (Exception ex)
             {
@@ -2207,14 +2216,15 @@ namespace PrePoMax
         {
             try
             {
-                FrmEditCommands frmEditCommands = new FrmEditCommands(_controller.GetCommands());
                 CloseAllForms();
-                //SetFormLocation(frmEditCommands);
-                if (frmEditCommands.ShowDialog() ==  DialogResult.OK)
+                //
+                _frmEditCommands.PrepareForm(_controller.GetCommands());
+                //
+                SetFormLocation(_frmEditCommands);
+                if (_frmEditCommands.ShowDialog() ==  DialogResult.OK)
                 {
-                    _controller.SetCommands(frmEditCommands.Commands);
+                    _controller.SetCommands(_frmEditCommands.Commands);
                 }
-                //SaveFormLocation(frmEditCommands);
             }
             catch (Exception ex)
             {
@@ -2224,31 +2234,30 @@ namespace PrePoMax
         //
         private void tsmiRegenerateModel_Click(object sender, EventArgs e)
         {
-            RegenerateHistory(false, false, false);
+            SetFormLocation(_frmRegenerate);
+            if (_frmRegenerate.ShowDialog() == DialogResult.OK)
+            {
+                RegenerateHistory(false, false, _frmRegenerate.RegenerateType);
+            }
         }
         private void tsmiRegenerateModelUsingOtherFiles_Click(object sender, EventArgs e)
         {
-            RegenerateHistory(true, false, false);
+            SetFormLocation(_frmRegenerate);
+            if (_frmRegenerate.ShowDialog() == DialogResult.OK)
+            {
+                RegenerateHistory(true, false, _frmRegenerate.RegenerateType);
+            }
         }
         private void tsmiRegenerateModelWithRemeshing_Click(object sender, EventArgs e)
         {
-            RegenerateHistory(false, true, false);
+            SetFormLocation(_frmRegenerate);
+            if (_frmRegenerate.ShowDialog() == DialogResult.OK)
+            {
+                RegenerateHistory(false, true, _frmRegenerate.RegenerateType);
+            }
         }
         //
-        private void tsmiRegenerateAll_Click(object sender, EventArgs e)
-        {
-            RegenerateHistory(false, false, true);
-        }
-        private void tsmiRegenerateAllUsingOtherFiles_Click(object sender, EventArgs e)
-        {
-            RegenerateHistory(true, false, true);
-        }
-        private void tsmiRegenerateAllWithRemeshing_Click(object sender, EventArgs e)
-        {
-            RegenerateHistory(false, true, true);
-        }
-        //
-        public async void RegenerateHistory(bool showImportDialog, bool showMeshDialog, bool regenerateAll)
+        public async void RegenerateHistory(bool showImportDialog, bool showMeshDialog, RegenerateTypeEnum regenerateType)
         {
             try
             {
@@ -2257,7 +2266,7 @@ namespace PrePoMax
                 Application.DoEvents();
                 SetStateWorking(Globals.RegeneratingText);
                 _modelTree.ScreenUpdating = false;
-                await Task.Run(() => _controller.RegenerateHistoryCommands(showImportDialog, showMeshDialog, regenerateAll));
+                await Task.Run(() => _controller.RegenerateHistoryCommands(showImportDialog, showMeshDialog, regenerateType));
             }
             catch (Exception ex)
             {
@@ -6927,7 +6936,7 @@ namespace PrePoMax
                     //
                     if (_controller.PrepareAndRunJobCommand(jobName, onlyCheckModel)) MonitorAnalysis(jobName);
                 }
-                else MessageBoxes.ShowError("The analysis is already running or in queue.");
+                else MessageBoxes.ShowError("The analysis is already running or is in queue.");
             }
         }
         private void MonitorAnalysis(string jobName)
@@ -6951,19 +6960,40 @@ namespace PrePoMax
         public async void OpenAnalysisResults(string jobName, bool asynchronous = true)
         {
             AnalysisJob job = _controller.GetJob(jobName);
-            if (job.JobStatus == JobStatus.OK || job.JobStatus == JobStatus.Running ||
-                job.JobStatus == JobStatus.FailedWithResults)
+            //
+            bool openResults = true;
+            string parameters = Globals.FromMonitorForm;
+            //
+            if (!_controller.RegenerationMode)
             {
-                string resultsFile = job.Name + ".frd";
+                if (job.JobStatus == JobStatus.Running)
+                {
+                    string question = $"The analysis {job.Name} is still running. Continue?";
+                    if (MessageBoxes.ShowWarningQuestionOKCancel(question) == DialogResult.OK)
+                    {
+                        openResults = true;
+                        parameters += Globals.NameSeparator + Globals.OpenRunningJobResults;
+                    }
+                }
+                else if (!job.IsUpToDate)
+                {
+                    string question = $"The result file was modified after the analysis {job.Name} completed. Continue?";
+                    openResults = MessageBoxes.ShowWarningQuestionOKCancel(question) == DialogResult.OK;
+                }
+            }
+            //
+            if (openResults)
+            {
+                string resultsFile = job.ResultsFileName;
                 //
                 if (asynchronous)
-                    await OpenAsync(Path.Combine(job.WorkDirectory, resultsFile), _controller.Open, false, CloseMonitorWindow);
+                    await OpenAsync(Path.Combine(job.WorkDirectory, resultsFile),
+                                    _controller.Open, false, CloseMonitorWindow,
+                                    parameters);
                 else
-                    OpenAsync(Path.Combine(job.WorkDirectory, resultsFile), _controller.Open, false, CloseMonitorWindow).Wait();
-            }
-            else
-            {
-                MessageBoxes.ShowError("The analysis did not complete.");
+                    OpenAsync(Path.Combine(job.WorkDirectory, resultsFile),
+                              _controller.Open, false, CloseMonitorWindow,
+                              parameters).Wait();
             }
         }
         private void CloseMonitorWindow()

@@ -115,58 +115,61 @@ namespace CaeResults
                 //
                 result.Preprocess();
                 //
-                RemoveErrorElements(nodes, ref elements);
-                //
-                FeMesh mesh = new FeMesh(nodes, elements, MeshRepresentation.Results);
-                mesh.ResetPartsColor();
-                result.SetMesh(mesh, nodeIdsLookUp);
-                // Material element sets
-                FeElementSet elementSet;
-                if (materialIdMaterialName != null && materialIdElementIds != null &&
-                    materialIdMaterialName.Count <= materialIdElementIds.Count)
+                if (nodes != null && elements != null)
                 {
-                    foreach (var entry in materialIdMaterialName)
+                    RemoveErrorElements(nodes, ref elements);
+                    //
+                    FeMesh mesh = new FeMesh(nodes, elements, MeshRepresentation.Results);
+                    mesh.ResetPartsColor();
+                    result.SetMesh(mesh, nodeIdsLookUp);
+                    // Material element sets
+                    FeElementSet elementSet;
+                    if (materialIdMaterialName != null && materialIdElementIds != null &&
+                        materialIdMaterialName.Count <= materialIdElementIds.Count)
                     {
-                        if (materialIdElementIds.ContainsKey(entry.Key))
+                        foreach (var entry in materialIdMaterialName)
                         {
-                            elementSet = new FeElementSet(entry.Value, materialIdElementIds[entry.Key].ToArray());
-                            result.Mesh.AddElementSet(elementSet);
+                            if (materialIdElementIds.ContainsKey(entry.Key))
+                            {
+                                elementSet = new FeElementSet(entry.Value, materialIdElementIds[entry.Key].ToArray());
+                                result.Mesh.AddElementSet(elementSet);
+                            }
                         }
                     }
-                }
-                // Gap element sets
-                BasePart[] modifiedParts;
-                BasePart[] newParts;
-                List<string> partNamesToRemove = new List<string>();
-                string oldPartName;
-                if (gapMaterialIds.Count > 0 && materialIdElementIds.ContainsKey(_gapMaterialId))
-                {
-                    elementSet = new FeElementSet(_gapMaterialName, materialIdElementIds[_gapMaterialId].ToArray());
-                    result.Mesh.AddElementSet(elementSet);
-                    result.Mesh.CreatePartsFromElementSets(new string[] { elementSet.Name }, out modifiedParts, out newParts);
-                    // Rename parts
-                    if (newParts.Count() == 1)
+                    // Gap element sets
+                    BasePart[] modifiedParts;
+                    BasePart[] newParts;
+                    List<string> partNamesToRemove = new List<string>();
+                    string oldPartName;
+                    if (gapMaterialIds.Count > 0 && materialIdElementIds.ContainsKey(_gapMaterialId))
                     {
-                        oldPartName = newParts[0].Name;
-                        newParts[0].Name = "Gap_elements";
-                        result.Mesh.Parts.Replace(oldPartName, newParts[0].Name, newParts[0]);
+                        elementSet = new FeElementSet(_gapMaterialName, materialIdElementIds[_gapMaterialId].ToArray());
+                        result.Mesh.AddElementSet(elementSet);
+                        result.Mesh.CreatePartsFromElementSets(new string[] { elementSet.Name }, out modifiedParts, out newParts);
+                        // Rename parts
+                        if (newParts.Count() == 1)
+                        {
+                            oldPartName = newParts[0].Name;
+                            newParts[0].Name = "Gap_elements";
+                            result.Mesh.Parts.Replace(oldPartName, newParts[0].Name, newParts[0]);
+                        }
+                        // Get part names to remove
+                        foreach (var part in modifiedParts)
+                        {
+                            if (part.Labels.Length == 0) partNamesToRemove.Add(part.Name);
+                        }
+                        // Remove parts
+                        if (partNamesToRemove.Count > 0) result.Mesh.RemoveParts(partNamesToRemove.ToArray(), out _, false);
                     }
-                    // Get part names to remove
-                    foreach (var part in modifiedParts)
+                    // Spring element sets - *SPRING elements are not written into the frd file
+                    if (springMaterialIds.Count > 0 && materialIdElementIds.ContainsKey(_springMaterialId))
                     {
-                        if (part.Labels.Length == 0) partNamesToRemove.Add(part.Name);
+                        elementSet = new FeElementSet(_springMaterialName, materialIdElementIds[_springMaterialId].ToArray());
+                        result.Mesh.AddElementSet(elementSet);
                     }
-                    // Remove parts
-                    if (partNamesToRemove.Count > 0) result.Mesh.RemoveParts(partNamesToRemove.ToArray(), out _, false);
+                    //
+                    return result;
                 }
-                // Spring element sets - *SPRING elements are not written into the frd file
-                if (springMaterialIds.Count > 0 && materialIdElementIds.ContainsKey(_springMaterialId))
-                {
-                    elementSet = new FeElementSet(_springMaterialName, materialIdElementIds[_springMaterialId].ToArray());
-                    result.Mesh.AddElementSet(elementSet);
-                }
-                //
-                return result;
             }
             //
             return null;

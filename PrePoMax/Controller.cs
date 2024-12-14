@@ -34,6 +34,7 @@ using System.Runtime.Serialization.Formatters.Binary;
 using System.Reflection.Emit;
 using System.Collections;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
+using static CaeGlobals.Geometry2;
 
 namespace PrePoMax
 {
@@ -437,7 +438,6 @@ namespace PrePoMax
             // History
             _commands = new CommandsCollection(this);
             _commands.WriteOutput = _form.WriteDataToOutput;
-            _commands.ModelChanged_ResetJobStatus = ResetAllJobStatus;
             _commands.EnableDisableUndoRedo += _commands_CommandExecuted;
             _commands.OnEnableDisableUndoRedo();
             // Clear
@@ -641,7 +641,7 @@ namespace PrePoMax
             if (extension == ".pmx") OpenPmx(fileName);
             else if (extension == ".pmh") OpenPmh(fileName, parameters);
             else if (extension == ".frd") OpenFrd(fileName, parameters);
-            else if (extension == ".dat") OpenDat(fileName);
+            else if (extension == ".dat") OpenDat(fileName, parameters);
             else if (extension == ".foam") OpenFoam(fileName);
             else throw new NotSupportedException();
             // Check validity
@@ -652,7 +652,8 @@ namespace PrePoMax
             //
             UpdateExplodedView(false);
             // Settings
-            AddFileNameToRecentFiles(fileName);  // this redraws the scene
+            if (parameters != null && parameters.Contains(Globals.FromMonitorForm)) { }
+            else AddFileNameToRecentFiles(fileName);  // this redraws the scene
         }
         private void OpenPmx(string fileName)
         {
@@ -688,7 +689,6 @@ namespace PrePoMax
             _commands.EnableDisableUndoRedo -= _commands_CommandExecuted;
             _commands = new CommandsCollection(this, tmp._commands); // to recreate the history file
             _commands.WriteOutput = _form.WriteDataToOutput;
-            _commands.ModelChanged_ResetJobStatus = ResetAllJobStatus;
             _commands.EnableDisableUndoRedo += _commands_CommandExecuted;
             _commands.OnEnableDisableUndoRedo();
             // Annotations
@@ -697,8 +697,6 @@ namespace PrePoMax
             _jobs = (OrderedDictionary<string, AnalysisJob>)data[1];
             // Settings
             ApplySettings(); // work folder and executable
-            // After settings reset jobs
-            ResetAllJobStatus();
             // Determine view
             _currentView = ViewGeometryModelResults.Geometry;
             if (_model != null && _model.Mesh != null && _model.Mesh.Parts.Count > 0)
@@ -721,7 +719,9 @@ namespace PrePoMax
             //
             _commands.ReadFromFile(fileName);
             //
-            bool regenerateAll = parameters !=null && parameters.Contains("RegenerateAll");
+            RegenerateTypeEnum regenerateType;
+            if (parameters != null && parameters.Contains(Globals.RegenerateAll)) regenerateType = RegenerateTypeEnum.All;
+            else regenerateType = RegenerateTypeEnum.PreProcess;
             //
             CSaveToPmx lastSave = _commands.GetLastSaveCommand();
             if (lastSave != null)
@@ -730,11 +730,11 @@ namespace PrePoMax
                 _form.Open(lastSave.FileName, Open, true);    // form open redraws the scene
                 _commands = new CommandsCollection(this, prevCommands);
                 //
-                _commands.ExecuteAllCommandsFromLastSave(regenerateAll, lastSave);
+                _commands.ExecuteAllCommandsFromLastSave(regenerateType, lastSave);
             }
             else
             {
-                _commands.ExecuteAllCommands(false, false, regenerateAll);
+                _commands.ExecuteAllCommands(false, false, regenerateType);
             }
             //
             _commands.EnableDisableUndoRedo += _commands_CommandExecuted;
@@ -755,28 +755,29 @@ namespace PrePoMax
                 results = _wearResults;
                 _wearResults = null;
             }
-            else results = FrdFileReader.Read(fileName);
-            //
-            if (results == null || results.Mesh == null)
+            else
             {
-                MessageBoxes.ShowError("The results file does not exist or is empty.");
-                return;
+                results = (FeResults)OpenByFunction(fileName, parameters, FrdFileReader.Read);
+                if (results != null) results.FileName = fileName;    // fix file name if a copy was used
             }
             //
-            bool fromFileOpenMenu = parameters != null && parameters.Contains("FileOpenMenu");
-            LoadResults(results, readDatFile, fromFileOpenMenu);
+            bool resultsExist = results != null && results.Mesh != null;
+            if (resultsExist) LoadResults(results, parameters, readDatFile);
             //
             _watch.Stop();
             _commands.SetLastOpenResultsTime(_watch.Elapsed);
+            //
+            if (!resultsExist) throw new CaeException("The result file does not exist or is empty.");
         }
-        private void OpenDat(string fileName, bool redraw = true)
+        private void OpenDat(string fileName, string parameters, bool redraw = true)
         {
             try
             {
                 if (_allResults.CurrentResult == null)
                     _allResults.Add(fileName, new FeResults(fileName, _model.UnitSystem));
                 // This is also called in AppendResults
-                _allResults.CurrentResult.SetHistory(ReadHistoryResults(fileName));
+                HistoryResults results = (HistoryResults)OpenByFunction(fileName, parameters, ReadHistoryResults);
+                _allResults.CurrentResult.SetHistory(results);
                 // Wear
                 _allResults.CurrentResult.ComputeWear(_model.StepCollection.GetSlipWearStepIds(),
                                                       _model.GetNodalSlipWearCoefficients(),
@@ -802,7 +803,7 @@ namespace PrePoMax
                     _modelChanged = true;
                 }
             }
-            // do not throw error in order to open the results
+            // Do not throw error in order to open the results
             catch
             {
                 MessageBoxes.ShowError($"Could not load {fileName}");
@@ -900,7 +901,33 @@ namespace PrePoMax
             // Regenerate tree
             _form.RegenerateTree();
         }
-        private void LoadResults(FeResults results, bool readDatFile, bool fromFileOpenMenu)
+        private object OpenByFunction(string fileName, string parameters, Func<string, object> Open)
+        {
+            object results = null;
+            string oldFileName = fileName;
+            bool useCopy = parameters != null && parameters.Contains(Globals.OpenRunningJobResults);
+            //
+            try
+            {
+                if (useCopy)
+                {
+                    fileName = fileName.Insert(fileName.Length - 4, "_copy");
+                    File.Copy(oldFileName, fileName);
+                }
+                results = Open(fileName);
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+            finally
+            {
+                if (useCopy) File.Delete(fileName);
+            }
+            //
+            return results;
+        }
+        private void LoadResults(FeResults results, string parameters, bool readDatFile)
         {
             // Load results
             _form.Clear3D();
@@ -936,6 +963,8 @@ namespace PrePoMax
                         _allResults.CurrentResult.Mesh.MergePartsBasedOnMesh(_model.Mesh, typeof(ResultPart));
                     }
                 }
+
+                bool fromFileOpenMenu = parameters != null && parameters.Contains(Globals.FromFileOpenMenu);
                 if (!fromFileOpenMenu)
                     _allResults.CurrentResult.CopyFeatureItemsFromMesh(_model.Mesh, (int)ViewGeometryModelResults.Results);
                 //
@@ -963,7 +992,7 @@ namespace PrePoMax
             {
                 string datFileName = Path.GetFileNameWithoutExtension(_allResults.CurrentResult.FileName) + ".dat";
                 datFileName = Path.Combine(Path.GetDirectoryName(_allResults.CurrentResult.FileName), datFileName);
-                if (File.Exists(datFileName)) OpenDat(datFileName, false);
+                if (File.Exists(datFileName)) OpenDat(datFileName, parameters, false);
             }
             // Redraw
             // Set the view but do not draw
@@ -2113,25 +2142,25 @@ namespace PrePoMax
             _commands.AddAndExecute(comm);
         }
         //******************************************************************************************
-        public void UndoHistory(bool regenerateAll)
+        public void UndoHistory(RegenerateTypeEnum regenerateType)
         {
             string lastFileName = OpenedFileName;
-            _commands.Undo(regenerateAll);
+            _commands.Undo(regenerateType);
             OpenedFileName = lastFileName;
         }
         public void RedoHistory()
         {
             _commands.Redo();
         }
-        public void RegenerateHistoryCommands(bool showImportDialog, bool showMeshDialog, bool regenerateAll)
+        public void RegenerateHistoryCommands(bool showImportDialog, bool showMeshDialog, RegenerateTypeEnum regenerateType)
         {
             ViewGeometryModelResults prevView = _currentView;
             //
             string lastFileName = OpenedFileName;
-            _commands.ExecuteAllCommands(showImportDialog, showMeshDialog, regenerateAll);
+            _commands.ExecuteAllCommands(showImportDialog, showMeshDialog, regenerateType);
             OpenedFileName = lastFileName;
             //
-            Command command = _commands.GetLastExecutedCommand(regenerateAll);
+            Command command = _commands.GetLastExecutedCommand(regenerateType);
             if (command is null) CurrentView = prevView;
             else if (command is PreprocessCommand) CurrentView = ViewGeometryModelResults.Model;
             else if (command is AnalysisCommand) CurrentView = ViewGeometryModelResults.Model;
@@ -10628,7 +10657,7 @@ namespace PrePoMax
         }
         public void SetResults(FeResults results)
         {
-            LoadResults(results, false, false);
+            LoadResults(results, null, false);
             // Check validity
             CheckAndUpdateModelValidity();
             // Get first component of the first field for the last increment in the last step
@@ -13191,15 +13220,7 @@ namespace PrePoMax
         }
 
         #endregion #################################################################################################################
-
-        public void ResetAllJobStatus()
-        {
-            foreach (var entry in _jobs)
-            {
-                entry.Value.ResetJobStatus();
-                _form.UpdateTreeNode(ViewGeometryModelResults.Model, entry.Key, entry.Value, null, false);
-            }
-        }
+       
         public string[] CheckAndUpdateModelValidity()
         {
             // Update user keywords

@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeGlobals;
 using CommandLine;
+using PrePoMax.Commands;
 using static System.Windows.Forms.Design.AxImporter;
 
 namespace PrePoMax
@@ -33,11 +34,34 @@ namespace PrePoMax
         public string Parameters { get; set; }
         // RegenerationFileName
         [Option('r', "regenerate", Required = false, HelpText = "A .pmx file name to be used for regeneration. " +
+                                                                "Use r1, r2 or r3 to only regenerate the pre-processing commands, " +
+                                                                "the analysis commands or the post-processing commands." +
                                                                 "A work directory -w can be defined for regeneration. " +
-                                                                "If no work directory is defined the current directory is used . " +
+                                                                "If no work directory is defined the current directory is used. " +
                                                                 "All files needed during regeneration (geometry, mesh) " +
                                                                 "must be located in the work directory.")]
-        public string RegenerationFileName { get; set; }
+        public string RegenerationFileName
+        {
+            get
+            {
+                if (Regeneration0FileName != null) return Regeneration0FileName;
+                else if (Regeneration1FileName != null) return Regeneration1FileName;
+                else if (Regeneration2FileName != null) return Regeneration2FileName;
+                else if (Regeneration3FileName != null) return Regeneration3FileName;
+                else return null;
+            }
+            set
+            {
+                Regeneration0FileName = value;
+            }
+        }
+        // RegenerationFileName
+        [Option("r0", Hidden = false)] public string Regeneration0FileName { get; set; }
+        [Option("r1", Hidden = false)] public string Regeneration1FileName { get; set; }
+        [Option("r2", Hidden = false)] public string Regeneration2FileName { get; set; }
+        [Option("r3", Hidden = false)] public string Regeneration3FileName { get; set; }
+
+
         // UnitSystem
         [Option('u', "unitSystem", Required = false, HelpText = "Unit system type to be used when importing [M_KG_S_C | " +
                                                                 "MM_TON_S_C | M_TON_S_C | IN_LB_S_F | UNIT_LESS].")]
@@ -136,7 +160,15 @@ namespace PrePoMax
                 {
                     string fileDirectory = Path.GetDirectoryName(cmdOptions.RegenerationFileName);
                     string fileName = Path.GetFileName(cmdOptions.RegenerationFileName);
-                    if (fileDirectory == "") cmdOptions.RegenerationFileName = Path.Combine(cmdOptions.WorkDirectory, fileName);
+                    if (fileDirectory == "")
+                    {
+                        fileName = Path.Combine(cmdOptions.WorkDirectory, fileName);
+                        if (cmdOptions.Regeneration0FileName != null) cmdOptions.Regeneration0FileName = fileName;
+                        else if (cmdOptions.Regeneration1FileName != null) cmdOptions.Regeneration1FileName = fileName;
+                        else if (cmdOptions.Regeneration2FileName != null) cmdOptions.Regeneration2FileName = fileName;
+                        else if (cmdOptions.Regeneration3FileName != null) cmdOptions.Regeneration3FileName = fileName;
+                        else throw new NotSupportedException();
+                    }
                     //
                     if (!File.Exists(cmdOptions.RegenerationFileName))
                     {
@@ -164,6 +196,18 @@ namespace PrePoMax
             }
             //
             return null;
+        }
+
+        // Methods
+        public RegenerateTypeEnum GetRegenerateType()
+        {
+            RegenerateTypeEnum regenerateType;
+            if (Regeneration0FileName != null) regenerateType = RegenerateTypeEnum.All;
+            else if (Regeneration1FileName != null) regenerateType = RegenerateTypeEnum.PreProcess;
+            else if (Regeneration2FileName != null) regenerateType = RegenerateTypeEnum.Analysis;
+            else if (Regeneration3FileName != null) regenerateType = RegenerateTypeEnum.PostProcess;
+            else throw new NotSupportedException();
+            return regenerateType;
         }
     }
 }

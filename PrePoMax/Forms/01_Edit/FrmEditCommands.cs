@@ -38,20 +38,12 @@ namespace PrePoMax.Forms
 
 
         // Constructors                                                                                                             
-        public FrmEditCommands(List<Command> commands)
+        public FrmEditCommands()
         {
             InitializeComponent();
+            //
+            _viewCommands = null;
             _modified = false;
-            //
-            _viewCommands = new List<ViewCommand>();
-            //
-            if (commands != null)
-            {
-                int id = 1;
-                foreach (var command in commands) _viewCommands.Add(new ViewCommand(id++, command));
-            }
-            //
-            SetBinding();
         }
 
 
@@ -69,12 +61,12 @@ namespace PrePoMax.Forms
                 if (_modified && MessageBoxes.ShowWarningQuestionOKCancel(message) == DialogResult.OK)
                 {
                     DialogResult = DialogResult.OK;
-                    Close();
+                    Hide();
                 }
                 else if (!_modified)
                 {
                     DialogResult = DialogResult.Cancel;
-                    Close();
+                    Hide();
                 }
             }
             catch (Exception ex)
@@ -104,6 +96,18 @@ namespace PrePoMax.Forms
 
 
         // Methods                                                                                                                  
+        public void PrepareForm(List<Command> commands)
+        {
+            _viewCommands = new List<ViewCommand>();
+            //
+            if (commands != null)
+            {
+                int id = 1;
+                foreach (var command in commands) _viewCommands.Add(new ViewCommand(id++, command));
+            }
+            //
+            SetBinding();
+        }
         private void SetBinding()
         {
             BindingSource binding = new BindingSource();

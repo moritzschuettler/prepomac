@@ -338,7 +338,10 @@ namespace CaeGlobals
             {
                 _dictionary.Add(newKey, value);
                 //
-                int index = _list.IndexOf(oldKey);
+                int index = -1;
+                if (_dictionary.Comparer != null) index = _list.FindIndex(s => _dictionary.Comparer.Equals(s, oldKey));
+                else index = _list.IndexOf(oldKey);
+                //
                 _list.RemoveAt(index);
                 _list.Insert(index, newKey);
                 return true;

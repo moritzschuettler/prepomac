@@ -47,7 +47,8 @@ namespace CaeResults
         // Contact
         public const string RelativeContactDisplacement = "RELATIVE CONTACT DISPLACEMENT";
         public const string ContactStress = "CONTACT STRESS";
-        public const string ContactPrintEnergy = "CONTACT PRINT ENERGY";
+        public const string ContactPrintEnergy = "CONTACT PRINT ENERGY";    // for CalculiX 2.21
+        public const string ContactSpringEnergy = "CONTACT SPRING ENERGY";
         public const string TotalNumberOfContactElements = "TOTAL NUMBER OF CONTACT ELEMENTS";
         public const string StatisticsForSlaveSet = "STATISTICS FOR SLAVE SET";
         public const string TotalSurfaceForce = "TOTAL SURFACE FORCE";

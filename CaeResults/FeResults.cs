@@ -1866,6 +1866,7 @@ namespace CaeResults
                     case HOFieldNames.InternalEnergy:
                     case HOFieldNames.TotalInternalEnergy:
                     case HOFieldNames.ContactPrintEnergy:
+                    case HOFieldNames.ContactSpringEnergy:
                         unitConverter = new StringEnergyConverter();
                         unitAbbreviation = _unitSystem.EnergyUnitAbbreviation;
                         break;

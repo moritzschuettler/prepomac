@@ -8,6 +8,8 @@ using CaeMesh;
 using CaeGlobals;
 using System.Configuration;
 using Octree;
+using System.Numerics;
+using System.Xml.Linq;
 
 namespace CaeResults
 {
@@ -96,6 +98,7 @@ namespace CaeResults
                 dataSetNames.Add(HOFieldNames.RelativeContactDisplacement);
                 dataSetNames.Add(HOFieldNames.ContactStress);
                 dataSetNames.Add(HOFieldNames.ContactPrintEnergy);
+                dataSetNames.Add(HOFieldNames.ContactSpringEnergy);
                 dataSetNames.Add(HOFieldNames.TotalNumberOfContactElements);
                 dataSetNames.Add(HOFieldNames.StatisticsForSlaveSet);
                 dataSetNames.Add(HOFieldNames.TotalSurfaceForce);
@@ -556,11 +559,14 @@ namespace CaeResults
                                                             "(Id,Int.Pnt.,PRESS,TANG1,TANG2)");
                                 lines[0] = lines[0].Replace("for all contact elements", "for set ALL_CONTACT_ELEMENTS");
                             }
-                            else if (name == HOFieldNames.ContactPrintEnergy)
+                            else if (name == HOFieldNames.ContactPrintEnergy || name == HOFieldNames.ContactSpringEnergy)
                             {
                                 // contact print energy (slave element+face,energy)for all contact elements and time 0.5000000E+00
                                 //     98823          4  6.898953E-06
-                                lines[0] = lines[0].Replace("(slave element+face,energy)for", "(Id,Int.Pnt.,ENERGY) for");
+
+                                // contact spring energy (slave element+face,energy) for all contact elements and time 0.1000000E+01
+                                //       345          3  7.965814E-03
+                                lines[0] = lines[0].Replace("(slave element+face,energy) for", "(Id,Int.Pnt.,ENERGY) for");
                                 lines[0] = lines[0].Replace("for all contact elements", "for set ALL_CONTACT_ELEMENTS");
                             }
                             else if (name == HOFieldNames.TotalNumberOfContactElements)
@@ -1101,7 +1107,8 @@ namespace CaeResults
                         // Sum - If the same Id exists for the same time: sum them together
                         if ((field.Name == HOFieldNames.RelativeContactDisplacement ||
                              field.Name == HOFieldNames.ContactStress ||
-                             field.Name == HOFieldNames.ContactPrintEnergy) && entries.Time.Contains(time))
+                             field.Name == HOFieldNames.ContactPrintEnergy ||
+                             field.Name == HOFieldNames.ContactSpringEnergy) && entries.Time.Contains(time))
                         {
                             entries.SumValue(values[j + offset]);
                         }

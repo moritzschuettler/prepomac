@@ -46,6 +46,11 @@ namespace PrePoMax
             SetCultureAndLanguage();
             // Parse
             if (args != null && args.Length == 1 && File.Exists(args[0])) args = new string[] { "-f", args[0] };
+            //
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (args[i] == "-r0" || args[i] == "-r1" || args[i] == "-r2" || args[i] == "-r3") args[i] = "-" + args[i];
+            }
             var parserResult = Parser.Default.ParseArguments<CommandLineOptions>(args);
             //
             if (parserResult.Value != null) Run(parserResult.Value);

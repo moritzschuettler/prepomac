@@ -12,6 +12,15 @@ using System.Diagnostics;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    public enum RegenerateTypeEnum
+    {
+        All,
+        PreProcess,
+        Analysis,
+        PostProcess
+    }
+
+    [Serializable]
     public class CommandsCollection
     {
         
@@ -34,7 +43,6 @@ namespace PrePoMax.Commands
 
         // Callbacks                                                                                                                
         [NonSerialized] public Action<string> WriteOutput;
-        [NonSerialized] public Action ModelChanged_ResetJobStatus;
 
 
         // Events                                                                                                                   
@@ -82,11 +90,7 @@ namespace PrePoMax.Commands
             if (command is CClear) return;
             //
             if (command is CSaveToPmx) { }
-            else if (command is PreprocessCommand)
-            {
-                _controller.ModelChanged = true;
-                ModelChanged_ResetJobStatus?.Invoke();
-            }
+            else if (command is PreprocessCommand) _controller.ModelChanged = true;
         }
         public void SetCommands(List<Command> commands)
         {
@@ -106,7 +110,6 @@ namespace PrePoMax.Commands
             OnEnableDisableUndoRedo();
             // Model changed
             _controller.ModelChanged = true;
-            ModelChanged_ResetJobStatus?.Invoke();
         }
         private bool ExecuteCommand(Command command, bool addCommand)
         {
@@ -162,17 +165,18 @@ namespace PrePoMax.Commands
         }
         public void ExecuteAllCommands()
         {
-            ExecuteAllCommands(false, false, true, null);
+            ExecuteAllCommands(false, false, RegenerateTypeEnum.All, null);
         }
-        public void ExecuteAllCommands(bool showImportDialog, bool showMeshDialog, bool regenerateAll)
+        public void ExecuteAllCommands(bool showImportDialog, bool showMeshDialog, RegenerateTypeEnum regenerateType)
         {
-            ExecuteAllCommands(showImportDialog, showMeshDialog, regenerateAll, null);
+            ExecuteAllCommands(showImportDialog, showMeshDialog, regenerateType, null);
         }
-        public void ExecuteAllCommandsFromLastSave(bool regenerateAll, CSaveToPmx lastSave)
+        public void ExecuteAllCommandsFromLastSave(RegenerateTypeEnum regenerateType, CSaveToPmx lastSave)
         {
-            ExecuteAllCommands(false, false, regenerateAll, lastSave);
+            ExecuteAllCommands(false, false, regenerateType, lastSave);
         }
-        public void ExecuteAllCommands(bool showImportDialog, bool showMeshDialog, bool regenerateAll, CSaveToPmx lastSave)
+        public void ExecuteAllCommands(bool showImportDialog, bool showMeshDialog, RegenerateTypeEnum regenerateType,
+                                       CSaveToPmx lastSave)
         {
             int count = 0;
             bool executeWithDialog;
@@ -198,14 +202,16 @@ namespace PrePoMax.Commands
                             cExportResultHistoryOutput.FileName = newFileName;
                         }
                     }
-                    // Skip save before writing to form - set lastSave no null
+                    // Skip save before writing to form - set lastSave to null
                     if (command is CSaveToPmx)
                     {
                         if (lastSave != null && command == lastSave) lastSave = null;
                         continue;
                     }
-                    // Skip post processing before writing to form
-                    if (!regenerateAll && !(command is PreprocessCommand))
+                    // Skip command before writing to form
+                    if ((regenerateType == RegenerateTypeEnum.PreProcess && !(command is PreprocessCommand)) ||
+                        (regenerateType == RegenerateTypeEnum.Analysis && !(command is AnalysisCommand)) ||
+                        (regenerateType == RegenerateTypeEnum.PostProcess && !(command is PostprocessCommand)))
                         continue;
                     // Try
                     try
@@ -265,12 +271,17 @@ namespace PrePoMax.Commands
             //
             return null;
         }
-        public Command GetLastExecutedCommand(bool regenerateAll)
+        public Command GetLastExecutedCommand(RegenerateTypeEnum regenerateType)
         {
             Command lastCommand = null;
             foreach (var command in _commands)
             {
-                if ((!regenerateAll && !(command is PreprocessCommand)) || command is CSaveToPmx) continue;
+                if ((regenerateType == RegenerateTypeEnum.PreProcess && !(command is PreprocessCommand)) ||
+                    (regenerateType == RegenerateTypeEnum.Analysis && !(command is AnalysisCommand)) ||
+                    (regenerateType == RegenerateTypeEnum.PostProcess && !(command is PostprocessCommand)) ||
+                    command is CSaveToPmx)
+                    continue;
+                //
                 lastCommand = command;
             }
             return lastCommand;
@@ -313,8 +324,6 @@ namespace PrePoMax.Commands
             WriteToFile();
             //
             OnEnableDisableUndoRedo();
-            //
-            ModelChanged_ResetJobStatus?.Invoke();
         }
         //
         public void SaveToSeparateFiles(string folderName)
@@ -330,12 +339,12 @@ namespace PrePoMax.Commands
             }
         }
         // Undo / Redo
-        public void Undo(bool regenerateAll)
+        public void Undo(RegenerateTypeEnum regenerateType)
         {
             if (IsUndoPossible)
             {
                 _currPositionIndex--;
-                ExecuteAllCommands(false, false, regenerateAll);   // also rewrites history
+                ExecuteAllCommands(false, false, regenerateType);   // also rewrites history
                 //
                 OnEnableDisableUndoRedo();
             }

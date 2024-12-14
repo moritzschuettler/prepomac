@@ -86,7 +86,7 @@ namespace PrePoMax.Forms
             }
             catch (Exception ex)
             {
-                CaeGlobals.ExceptionTools.Show(this, ex);
+                ExceptionTools.Show(this, ex);
             }
         }
 
@@ -94,12 +94,12 @@ namespace PrePoMax.Forms
         {
             try
             {
-                // function results hides this form if everything ok
+                // Function results hides this form if everything is ok
                 if (Results != null) Results(_job.Name);
             }
             catch (Exception ex)
             {
-                CaeGlobals.ExceptionTools.Show(this, ex);
+                ExceptionTools.Show(this, ex);
             }
         }
         private void btnClose_Click(object sender, EventArgs e)

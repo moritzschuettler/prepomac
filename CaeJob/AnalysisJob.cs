@@ -43,6 +43,7 @@ namespace CaeJob
         protected string _statusFileContents;                           // ISerializable
         protected long _convergenceFileLength;                          // ISerializable
         protected string _convergenceFileContents;                      // ISerializable
+        protected DateTime _endTime;                                    // ISerializable
         //
         [NonSerialized] private System.Windows.Threading.DispatcherTimer _timer;
         [NonSerialized] protected Stopwatch _watch;
@@ -84,6 +85,18 @@ namespace CaeJob
         {
             get { return _argument; }
             set { _argument = value; }
+        }
+        public string ResultsFileName
+        {
+            get { return Path.Combine(WorkDirectory, _name + ".frd"); }
+        }
+        public bool IsUpToDate
+        {
+            get
+            {
+                DateTime lastWriteTime = File.GetLastWriteTime(ResultsFileName);
+                return _endTime > lastWriteTime;
+            }
         }
         public bool CompatibilityMode { get { return _compatibilityMode; } set { _compatibilityMode = value; } }
         public JobStatus JobStatus { get { return _jobStatus; } }
@@ -166,6 +179,7 @@ namespace CaeJob
             _compatibilityMode = false;
             _numCPUs = 1;
             _environmentVariables = new List<EnvironmentVariable>();
+            _endTime = DateTime.MinValue;
             //
             _exe = null;
             _jobStatus = JobStatus.None;
@@ -202,6 +216,8 @@ namespace CaeJob
                         _convergenceFileLength = (long)entry.Value; break;
                     case "_convergenceFileContents":
                         _convergenceFileContents = (string)entry.Value; break;
+                    case "_endTime":
+                        _endTime = (DateTime)entry.Value; break;
                     default:
                         break;
                 }
@@ -336,7 +352,7 @@ namespace CaeJob
         }
         private void bwStart_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
-            string frdFileName = Path.Combine(WorkDirectory, _name + ".frd");
+            string frdFileName = ResultsFileName;
             bool resultsExist = File.Exists(frdFileName);
             if (resultsExist)
             {
@@ -405,6 +421,7 @@ namespace CaeJob
             JobStatusChanged?.Invoke(_name, _jobStatus);
             LastRunCompleted?.Invoke(this);
             //
+            _endTime = DateTime.Now + TimeSpan.FromSeconds(1);
             // Dereference the links to other objects
             DataOutput = null;
             JobStatusChanged = null;
@@ -668,7 +685,7 @@ namespace CaeJob
         }
         public void ResetJobStatus()
         {
-            _jobStatus = CaeJob.JobStatus.None;
+            _jobStatus = JobStatus.None;
         }
         //
         private void SetEnvironmentVariables(ProcessStartInfo psi)
@@ -719,6 +736,7 @@ namespace CaeJob
             info.AddValue("_statusFileContents", _statusFileContents, typeof(string));
             info.AddValue("_convergenceFileLength", _convergenceFileLength, typeof(long));
             info.AddValue("_convergenceFileContents", _convergenceFileContents, typeof(string));
+            info.AddValue("_endTime", _endTime, typeof(DateTime));
         }
     }
 }
