@@ -789,13 +789,7 @@ namespace PrePoMax
         private void itemForm_VisibleChanged(object sender, EventArgs e)
         {
             Form form = sender as Form;
-            int count = 0;
-            // One or two forms can be open
-            foreach (var aForm in _allForms)
-            {
-                // Do not count the Query form
-                if (aForm.Visible) count++;
-            }
+            int count = CountVisibleForms();
             // Disable model tree mouse and keyboard actions for the form
             bool unactive;
             if (count > 0) unactive = true;
@@ -825,6 +819,20 @@ namespace PrePoMax
             //if (form.Top < 0) form.Top = 0;
             //else if (form.Top + form.Height > screenSize.Height) form.Top = screenSize.Height - form.Height;
             SaveFormLocation(form);
+        }
+        private int CountVisibleForms(bool all = true)
+        {
+            int count = 0;
+            // One or two forms can be open
+            foreach (var aForm in _allForms)
+            {
+                if (aForm.Visible)
+                {
+                    count++;
+                    if (!all) break;
+                }
+            }
+            return count;
         }
         // Keyboard
         private void KeyboardHook_KeyDown(KeyboardHook.VKeys vKey)
@@ -906,7 +914,7 @@ namespace PrePoMax
         {
             try
             {
-                _controller.Highlight3DObjects(items, mouseOver);
+                if (CountVisibleForms(false) == 0) _controller.Highlight3DObjects(items, mouseOver);
             }
             catch
             {
