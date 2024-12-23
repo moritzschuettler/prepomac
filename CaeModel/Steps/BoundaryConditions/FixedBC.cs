@@ -33,8 +33,16 @@ namespace CaeModel
         // Methods                                                                                                                  
         public int[] GetConstrainedDirections()
         {
+            //if (_coordinateSystemName == null)
+            //{
             if (_twoD) return new int[] { 1, 2, 6 };
             else return new int[] { 1, 2, 3, 4, 5, 6 };
+            //}
+            //else
+            //{
+            //    if (_twoD) return new int[] { 1, 2 };
+            //    else return new int[] { 1, 2, 3 };
+            //}
         }
         // IContainsEquations
         public override void CheckEquations()

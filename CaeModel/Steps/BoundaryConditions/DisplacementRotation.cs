@@ -35,9 +35,9 @@ namespace CaeModel
         public EquationContainer U1 { get { return _u1; } set { SetU1(value); } }
         public EquationContainer U2 { get { return _u2; } set { SetU2(value); } }
         public EquationContainer U3 { get { return _u3; } set { SetU3(value); } }
-        public EquationContainer UR1 { get { return _ur1; } set { SetUR1(value); } }
-        public EquationContainer UR2 { get { return _ur2; } set { SetUR2(value); } }
-        public EquationContainer UR3 { get { return _ur3; } set { SetUR3(value); } }
+        public EquationContainer UR1 { get { return GetUR(_ur1); } set { SetUR1(value); } }
+        public EquationContainer UR2 { get { return GetUR(_ur2); } set { SetUR2(value); } }
+        public EquationContainer UR3 { get { return GetUR(_ur3); } set { SetUR3(value); } }
 
 
         // Constructors                                                                                                             
@@ -109,6 +109,11 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        private EquationContainer GetUR(EquationContainer ur)
+        {
+            if (_coordinateSystemName != null) return new EquationContainer(typeof(StringAngleDOFConverter), double.NaN);
+            else return ur;
+        }
         private void SetU1(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _u1, value, null, checkEquation);
@@ -146,9 +151,9 @@ namespace CaeModel
             if (!double.IsNaN(_u1.Value)) directions.Add(1);
             if (!double.IsNaN(_u2.Value)) directions.Add(2);
             if (!double.IsNaN(_u3.Value)) directions.Add(3);
-            if (!double.IsNaN(_ur1.Value)) directions.Add(4);
-            if (!double.IsNaN(_ur2.Value)) directions.Add(5);
-            if (!double.IsNaN(_ur3.Value)) directions.Add(6);
+            if (!double.IsNaN(UR1.Value)) directions.Add(4);
+            if (!double.IsNaN(UR2.Value)) directions.Add(5);
+            if (!double.IsNaN(UR3.Value)) directions.Add(6);
             return directions.ToArray();
         }
         public int GetConstraintHash()
@@ -164,9 +169,9 @@ namespace CaeModel
             if (!double.IsNaN(_u1.Value)) values.Add(_u1.Value);
             if (!double.IsNaN(_u2.Value)) values.Add(_u2.Value);
             if (!double.IsNaN(_u3.Value)) values.Add(_u3.Value);
-            if (!double.IsNaN(_ur1.Value)) values.Add(_ur1.Value);
-            if (!double.IsNaN(_ur2.Value)) values.Add(_ur2.Value);
-            if (!double.IsNaN(_ur3.Value)) values.Add(_ur3.Value);
+            if (!double.IsNaN(UR1.Value)) values.Add(UR1.Value);
+            if (!double.IsNaN(UR2.Value)) values.Add(UR2.Value);
+            if (!double.IsNaN(UR3.Value)) values.Add(UR3.Value);
             return values.ToArray();
         }
         public bool IsFreeFixedOrZero()
@@ -184,9 +189,9 @@ namespace CaeModel
             if (double.IsPositiveInfinity(_u1.Value)) directions.Add(1);
             if (double.IsPositiveInfinity(_u2.Value)) directions.Add(2);
             if (double.IsPositiveInfinity(_u3.Value)) directions.Add(3);
-            if (double.IsPositiveInfinity(_ur1.Value)) directions.Add(4);
-            if (double.IsPositiveInfinity(_ur2.Value)) directions.Add(5);
-            if (double.IsPositiveInfinity(_ur3.Value)) directions.Add(6);
+            if (double.IsPositiveInfinity(UR1.Value)) directions.Add(4);
+            if (double.IsPositiveInfinity(UR2.Value)) directions.Add(5);
+            if (double.IsPositiveInfinity(UR3.Value)) directions.Add(6);
             return directions.ToArray();
         }
         public bool IsProperlyDefined(out string error)
@@ -212,9 +217,9 @@ namespace CaeModel
                 case 1: value = _u1.Value; break;
                 case 2: value = _u2.Value; break;
                 case 3: value = _u3.Value; break;
-                case 4: value = _ur1.Value; break;
-                case 5: value = _ur2.Value; break;
-                case 6: value = _ur3.Value; break;
+                case 4: value = UR1.Value; break;
+                case 5: value = UR2.Value; break;
+                case 6: value = UR3.Value; break;
                 default: throw new NotSupportedException();
             }
             if (double.IsNaN(value)) return DOFType.Free;

@@ -261,17 +261,7 @@ namespace PrePoMax.Forms
                 // Get and convert a converted boundary condition back to selection
                 BoundaryCondition = _controller.GetBoundaryCondition(stepName, _boundaryConditionToEditName); // to clone
                 if (BoundaryCondition.CreationData != null)
-                {
-                    if (!_controller.Model.IsBoundaryConditionRegionValid(BoundaryCondition) || // do not use BoundaryCondition.Valid
-                        !_controller.Model.RegionValid(BoundaryCondition))
-                    {
-                        // Region invalid
-                        BoundaryCondition.CreationData = null;
-                        BoundaryCondition.CreationIds = null;
-                        _propertyItemChanged = true;
-                    }
-                    BoundaryCondition.RegionType = RegionTypeEnum.Selection;
-                }
+               
                 // Convert the boundary condition to internal to hide it
                 BoundaryConditionInternal(true);
                 // Check for deleted amplitudes
