@@ -3084,12 +3084,14 @@ namespace vtkControl
         #endregion  ################################################################################################################
 
         #region Add geometry  ######################################################################################################
-        public void AddPoints(vtkMaxActorData data)
+        public vtkMaxActor AddPoints(vtkMaxActorData data)
         {
             vtkMaxActor actor = new vtkMaxActor(data, false, true);
             AddActorGeometry(actor, data.Layer);
             //
             //AdjustCameraDistanceAndClippingRedraw();  is this necessary?
+            //
+            return actor;
         }
         public vtkMaxActor AddCells(vtkMaxActorData data)
         {

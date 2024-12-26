@@ -55,7 +55,7 @@ namespace PrePoMax.Commands
             _controller = controller;
             _currPositionIndex = -1;
             _commands = new List<Command>();
-            _historyFileNameBin = Path.Combine(System.Windows.Forms.Application.StartupPath, Globals.HistoryFileName + ".pmh");
+            _historyFileNameBin = Path.Combine(System.Windows.Forms.Application.StartupPath, Globals.HistoryFileName);
             _previousView = ViewGeometryModelResults.Geometry;
             _errors = null;
             //

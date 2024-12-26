@@ -836,66 +836,25 @@ namespace CaeMesh
         // Free edges and nodes
         public HashSet<int> GetFreeEdgeIds()
         {
-            int edgeCellId;
-            int[] edgeCellIds;
-            HashSet<int> freeEdgeIds = new HashSet<int>();
+            int[] count;
+            Dictionary<int, int[]> edgeIdCount = new Dictionary<int, int[]>();
             //
             foreach (var faceEdgeIds in _faceEdgeIds)
             {
                 foreach (var edgeId in faceEdgeIds)
                 {
-                    edgeCellIds = _edgeCellIdsByEdge[edgeId];
-                    if (edgeCellIds.Length > 0)
-                    {
-                        edgeCellId = edgeCellIds[0];
-                        //
-                        if (IsCellEdgeFreeEdge(edgeCellId)) freeEdgeIds.Add(edgeId);
-                    }
+                    if (edgeIdCount.TryGetValue(edgeId, out count)) count[0]++;
+                    else edgeIdCount[edgeId] = new int[] { 1 };
                 }
+            }
+            //
+            HashSet<int> freeEdgeIds = new HashSet<int>();
+            foreach (var entry in edgeIdCount)
+            {
+                if (entry.Value[0] == 1) freeEdgeIds.Add(entry.Key);
             }
             //
             return freeEdgeIds;
-        }
-        private bool IsCellEdgeFreeEdge(int edgeCellId)
-        {
-            int count = 0;
-            bool isCellEdge;
-            int[] edgeNodeIds = _edgeCells[edgeCellId];
-            HashSet<int> cellNodeIds = new HashSet<int>();
-            for (int i = 0; i < _cells.Length; i++)
-            {
-                // Is cell on the free boundary
-                //if (_cellNeighboursOverCellEdge[i].Contains(-1))
-                {
-                    cellNodeIds.Clear();
-                    cellNodeIds.UnionWith(_cells[i]);
-                    isCellEdge = true;
-                    // Does the cell contain the whole edge
-                    for (int j = 0; j < edgeNodeIds.Length; j++)
-                    {
-                        if (!cellNodeIds.Contains(edgeNodeIds[j]))
-                        {
-                            isCellEdge = false;
-                            break;
-                        }
-                        else
-                        {
-                            isCellEdge = isCellEdge;
-                        }
-                    }
-                    //
-                    if (isCellEdge)
-                    {
-                        count++;
-                        if (count > 1)
-                            break;
-                    }
-                    
-                }
-            }
-            //
-            if (count == 1) return true;
-            else return false;
         }
         public HashSet<int> GetFreeEdgeNodeIds()
         {

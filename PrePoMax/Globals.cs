@@ -23,8 +23,9 @@ namespace PrePoMax
                 return name;
             }
         }
-        //
+        // State names
         public static string ReadyText = "Ready";
+        public static string RenderingText = "Rendering...";
         public static string OpeningText = "Opening...";
         public static string ImportingText = "Importing...";
         public static string SavingText = "Saving...";
@@ -42,11 +43,11 @@ namespace PrePoMax
         public static string DefeaturingText = "Defeaturing...";
         public static string DeletingFacesText = "Deleting faces...";
         public static string ExplodePartsText = "Explode parts...";
-        //
+        public static string SelectionText = "Selection...";
+        // File names
         public static string SettingsFileName = "settings.bin";
         public static string MaterialLibraryFileName = "materials.lib";
-        //
-        public static string HistoryFileName = "history";
+        public static string HistoryFileName = "history.pmh";
         // Settings
         public static string GeneralSettingsName = "General";
         public static string GraphicsSettingsName = "Graphics";
@@ -59,7 +60,7 @@ namespace PrePoMax
         public static string LegendSettingsName = "Legend";
         public static string StatusBlockSettingsName = "Status Block";
         public static string UnitSystemSettingsName = "Unit System";
-        //
+        // Work files
         public static string NetGenMesher = @"\NetGen\NetGenMesher.exe";
         public static string MmgsMesher = @"\NetGen\mmgs.exe";
         public static string Mmg3DMesher = @"\NetGen\mmg3d.exe";
@@ -84,5 +85,7 @@ namespace PrePoMax
         public static string OpenRunningJobResults = "OpenRunningJobResults";
         // Graphics
         public static int BeamNodeSize = 5;
+        // slection
+        public static int SelectionBufferSize = 20;
     }
 }

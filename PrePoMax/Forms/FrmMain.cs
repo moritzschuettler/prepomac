@@ -1349,7 +1349,7 @@ namespace PrePoMax
                 // Vtk
                 bool vtkVisible = false;
                 // Tree
-                SetStateWorking("Rendering...");
+                SetStateWorking(Globals.RenderingText);
                 //                      Enable                                                          
                 if (_controller.ModelInitialized || _controller.ResultsInitialized)
                 {
@@ -1433,7 +1433,7 @@ namespace PrePoMax
                     vtkVisible = true;
                 }
                 // Tree
-                SetStateReady("Rendering...");
+                SetStateReady(Globals.RenderingText);
                 //                      Buttons                                                         
                 tsbSectionView.Checked = _controller.IsSectionViewActive();
                 tsbExplodedView.Checked = _controller.IsExplodedViewActive();
@@ -7892,7 +7892,7 @@ namespace PrePoMax
                                       double[][] planeParameters, bool completelyInside,
                                       vtkSelectOperation selectOperation, string[] pickedPartNames)
         {
-            SetStateWorking("Selection...");
+            SetStateWorking(Globals.SelectionText);
             //
             _controller.SelectPointOrArea(pickedPoint, selectionDirection,
                                           planeParameters, completelyInside,
@@ -7909,7 +7909,7 @@ namespace PrePoMax
             //
             SelectionChanged(ids);
             //
-            SetStateReady("Selection...");
+            SetStateReady(Globals.SelectionText);
         }
         public void SelectionChanged(int[] ids = null)
         {
@@ -9086,9 +9086,18 @@ namespace PrePoMax
             InvokeIfRequired(_vtk.ShowTransformedActors);
         }
         //
-        public void Add3DNodes(vtkMaxActorData actorData)
+        public vtkMaxActor Add3DNodes(vtkMaxActorData nodeData)
         {
-            InvokeIfRequired(_vtk.AddPoints, actorData);
+            vtkMaxActor actor = null;
+            if (this.InvokeRequired)
+            {
+                this.Invoke((MethodInvoker)delegate () { actor = _vtk.AddPoints(nodeData); });
+            }
+            else
+            {
+                actor = _vtk.AddPoints(nodeData);
+            }
+            return actor;
         }
         public vtkMaxActor Add3DCells(vtkMaxActorData cellData)
         {

@@ -5,6 +5,9 @@ using System.Text;
 using System.Threading.Tasks;
 using Kitware.VTK;
 using CaeGlobals;
+using static System.Windows.Forms.LinkLabel;
+using System.Security.Policy;
+using System.Threading;
 
 namespace vtkControl
 {
@@ -128,6 +131,10 @@ namespace vtkControl
         public vtkMaxActor SectionViewActor { get { return _sectionViewActor; } set { _sectionViewActor = value; } }
         public List<vtkMaxActor> Copies { get { return _copies; } }
         //
+        public int GetNumberOfElements()
+        {
+            return _geometryMapper != null ? (int)_geometryMapper.GetInput().GetNumberOfCells() : 0;
+        }
         public bool IsAPart { get { return _isAPart; } }
         public vtkMaxActorRepresentation ActorRepresentation
         {
@@ -1582,7 +1589,6 @@ namespace vtkControl
             polyActor.Squeeze();
             if (extractEdges) polyEdges.Squeeze();
         }
-
         // Color and visuals
         public virtual void UpdateColor()
         {

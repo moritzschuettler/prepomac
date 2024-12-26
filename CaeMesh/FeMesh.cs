@@ -4587,7 +4587,7 @@ namespace CaeMesh
             {
                 if (_nodeSets.ContainsKey(surface.CreatedFromNodeSetName))
                 {
-                    HashSet<int> allNodeSetIds = new HashSet<int>(_nodeSets[surface.CreatedFromNodeSetName].Labels);
+                    HashSet<int> surfaceNodeIds = new HashSet<int>(_nodeSets[surface.CreatedFromNodeSetName].Labels);
                     HashSet<int> visualizationNodeIds = new HashSet<int>();
                     HashSet<int> hashElementIds = new HashSet<int>();
                     // For each node get all elements
@@ -4600,7 +4600,7 @@ namespace CaeMesh
                             elementId = entry.Value.Visualization.CellIds[i];
                             foreach (var nodeId in entry.Value.Visualization.Cells[i])
                             {
-                                if (allNodeSetIds.Contains(nodeId))
+                                if (surfaceNodeIds.Contains(nodeId))
                                 {
                                     visualizationNodeIds.Add(nodeId);
                                     hashElementIds.Add(elementId);
