@@ -8017,12 +8017,20 @@ namespace CaeMesh
                 if (entry.Value.Visible)
                     visibleNodes.UnionWith(entry.Value.NodeLabels);
             //
-            for (int i = 0; i < nodeIds.Length; i++)
+            if (onlyVisible)
             {
-                nodeId = nodeIds[i];
-                if (!(onlyVisible && !visibleNodes.Contains(nodeId)) && _nodes.TryGetValue(nodeIds[i], out node))
+                for (int i = 0; i < nodeIds.Length; i++)
                 {
-                    coor.Add(node.Coor);
+                    nodeId = nodeIds[i];
+                    if (visibleNodes.Contains(nodeId) && _nodes.TryGetValue(nodeId, out node)) coor.Add(node.Coor);
+                }
+            }
+            else
+            {
+                for (int i = 0; i < nodeIds.Length; i++)
+                {
+                    nodeId = nodeIds[i];
+                    if (_nodes.TryGetValue(nodeId, out node)) coor.Add(node.Coor);
                 }
             }
             //
@@ -8410,13 +8418,22 @@ namespace CaeMesh
         {
             HashSet<int> ids = new HashSet<int>();
             foreach (var entry in _parts)
-            {
-                if (entry.Value.Visible) ids.UnionWith(entry.Value.Labels);
-            }
+                if (entry.Value.Visible)
+                    ids.UnionWith(entry.Value.Labels);
+            //
             return ids.ToArray();
         }
-
-
+        public HashSet<int> GetVisibleElementIds(string elementSetName)
+        {
+            int[] ids = _elementSets[elementSetName].Labels;
+            HashSet<int> visibleIds = new HashSet<int>();
+            foreach (var entry in _parts)
+                if (entry.Value.Visible)
+                    visibleIds.UnionWith(entry.Value.Labels);
+            //
+            visibleIds.IntersectWith(ids);
+            return visibleIds;
+        }
         // Cells 
         public void GetAllNodesAndCells(out int[] nodeIds, out double[][] nodeCoor, out int[] cellIds,
                                         out int[][] cells, out int[] cellTypes)
