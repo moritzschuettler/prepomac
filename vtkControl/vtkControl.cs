@@ -3089,7 +3089,7 @@ namespace vtkControl
             vtkMaxActor actor = new vtkMaxActor(data, false, true);
             AddActorGeometry(actor, data.Layer);
             //
-            //AdjustCameraDistanceAndClippingRedraw();  is this necessary?
+            if (_actors.Count == 1) AdjustCameraDistanceAndClippingRedraw();//  is this necessary?
             //
             return actor;
         }
@@ -3100,7 +3100,7 @@ namespace vtkControl
             //
             AddActor(actor);
             //
-            //AdjustCameraDistanceAndClippingRedraw();
+            if (_actors.Count == 1) AdjustCameraDistanceAndClippingRedraw();//  is this necessary?
             //
             return actor;
         }

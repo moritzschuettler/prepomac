@@ -3486,6 +3486,20 @@ namespace CaeMesh
             }
             return ids.ToArray();
         }
+        public string[] GetHiddenPartNames()
+        {
+            // Find the part
+            List<string> partNames = new List<string>();
+            foreach (var entry in _parts)
+            {
+                if (!entry.Value.Visible) partNames.Add(entry.Key);
+            }
+            return partNames.ToArray();
+        }
+        public void SetPartVisibilities(string[] partNames, bool visible)
+        {
+            foreach (var partName in partNames) _parts[partName].Visible = visible;
+        }
         public BasePart GetPartFromId(int id)
         {
             // Find the part
@@ -5941,7 +5955,7 @@ namespace CaeMesh
                         {
                             int[] intersect = selectedNodes.Intersect(surfaceEntry.Value).ToArray();
                             int[] intersect2 = surfaceEntry.Value.Except(intersect).ToArray();
-
+                            //
                             if (surfaceEntry.Value.IsSubsetOf(selectedNodes))
                             {
                                 itemId = surfaceEntry.Key;
@@ -8012,29 +8026,38 @@ namespace CaeMesh
             FeNode node;
             List<double[]> coor = new List<double[]>();
             //
-            HashSet<int> visibleNodes = new HashSet<int>();
-            foreach (var entry in _parts)
-                if (entry.Value.Visible)
-                    visibleNodes.UnionWith(entry.Value.NodeLabels);
-            //
             if (onlyVisible)
             {
+                HashSet<int> visibleNodes = new HashSet<int>();
+                foreach (var entry in _parts)
+                    if (entry.Value.Visible)
+                        visibleNodes.UnionWith(entry.Value.NodeLabels);
+                //
                 for (int i = 0; i < nodeIds.Length; i++)
                 {
                     nodeId = nodeIds[i];
                     if (visibleNodes.Contains(nodeId) && _nodes.TryGetValue(nodeId, out node)) coor.Add(node.Coor);
                 }
+                //
+                return coor.ToArray();
             }
-            else
-            {
-                for (int i = 0; i < nodeIds.Length; i++)
-                {
-                    nodeId = nodeIds[i];
-                    if (_nodes.TryGetValue(nodeId, out node)) coor.Add(node.Coor);
-                }
-            }
+            else return GetNodeSetCoor(nodeIds);
+        }
+        public bool[] GetNodeVisibilities(int[] nodeIds)
+        {
+            bool[] visible = new bool[nodeIds.Length];
             //
-            return coor.ToArray();
+            HashSet<int> visibleIds = new HashSet<int>();
+            foreach (var entry in _parts)
+            {
+                if (entry.Value.Visible) visibleIds.UnionWith(entry.Value.NodeLabels);
+            }
+            visibleIds.IntersectWith(nodeIds);
+            //
+            bool allVisible = visibleIds.Count == nodeIds.Length;
+            for (int i = 0; i < nodeIds.Length; i++) visible[i] = allVisible || visibleIds.Contains(nodeIds[i]);
+            //
+            return visible;
         }
         public int[] GetVisibleNodeIds()
         {

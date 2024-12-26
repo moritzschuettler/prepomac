@@ -123,8 +123,6 @@ namespace PrePoMax.Forms
         }
         protected override void OnPropertyGridSelectedGridItemChanged()
         {
-            string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
-            //
             SetSelectItem();
             //
             HighlightCoordinateSystem();

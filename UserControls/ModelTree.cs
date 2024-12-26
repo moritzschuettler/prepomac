@@ -1860,6 +1860,8 @@ namespace UserControls
         }
         public int SelectBasePart(MouseEventArgs e, Keys modifierKeys, BasePart part, bool highlight)
         {
+            if (part == null) return -1;
+            //
             try
             {
                 _disableSelectionsChanged = true;

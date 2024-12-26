@@ -96,7 +96,7 @@ namespace PrePoMax
             }
             else throw new NotSupportedException();
             // Coor
-            int[] distributedNodeIds = Controller.GetSpatiallyEquallyDistributedCoor(nodeCoor, 1);
+            int[] distributedNodeIds = Controller.GetSpatiallyEquallyDistributedCoor(nodeCoor, 1, null);
             coor = nodeCoor[distributedNodeIds[0]];
             //
             bool showSurfaceId = Controller.Settings.Annotations.ShowEdgeSurId;

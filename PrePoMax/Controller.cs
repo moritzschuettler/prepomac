@@ -11931,29 +11931,56 @@ namespace PrePoMax
             _form.SetStateReady("Undo selection...");
         }
         //
-        public int[] GetSelectionIds()
+        public int[] GetSelectionIds(bool onlyVisible = true)
         {
-            // If no nodes are added - return empty
-            if (_selection.Nodes.Count == 0) return new int[0];
-            // ids for:
-            // nodes: global node ids
-            // elements: global element ids
-            // faces: 10 * global element ids + vtk face ids;   search: (% 10)
-            // geometry: itemId * 100000 + typeId * 10000 + partId;
-            HashSet<int> selectedIds = new HashSet<int>();
-            // Compatibility for version v0.5.2
-            if (_selection.CurrentView == -1) SetSelectionView(ViewGeometryModelResults.Model);
-            // Copy selection - change of the current view clears the selection history
-            Selection selectionCopy = _selection.DeepClone();
-            // Set the selection view
-            CurrentView = GetSelectionView(selectionCopy);
-            // Execute selection
-            foreach (SelectionNode node in selectionCopy.Nodes)
-                GetIdsFromSelectionNode(node, ref selectedIds);
-            // Return
-            int[] sorted = selectedIds.ToArray();
-            if (_selectBy != vtkSelectBy.QueryNode) Array.Sort(sorted);   // sorting of the ids breaks the angle query !!!
-            return sorted;
+            FeMesh mesh = DisplayedMesh;
+            string[] hiddenPartNames;
+            if (onlyVisible) hiddenPartNames = null;
+            else hiddenPartNames = mesh.GetHiddenPartNames();
+            //
+            try
+            {
+                // If no nodes are added - return empty
+                if (_selection.Nodes.Count == 0) return new int[0];
+                // ids for:
+                // nodes: global node ids
+                // elements: global element ids
+                // faces: 10 * global element ids + vtk face ids;   search: (% 10)
+                // geometry: itemId * 100000 + typeId * 10000 + partId;
+                HashSet<int> selectedIds = new HashSet<int>();
+                // Compatibility for version v0.5.2
+                if (_selection.CurrentView == -1) SetSelectionView(ViewGeometryModelResults.Model);
+                // Copy selection - change of the current view clears the selection history
+                Selection selectionCopy = _selection.DeepClone();
+                // Set the selection view
+                CurrentView = GetSelectionView(selectionCopy);
+                // Only visible
+                if (hiddenPartNames != null && hiddenPartNames.Length > 0)
+                {
+                    mesh.SetPartVisibilities(hiddenPartNames, true);
+                    _form.ShowActors(hiddenPartNames, false);
+                }
+                // Execute selection
+                foreach (SelectionNode node in selectionCopy.Nodes)
+                    GetIdsFromSelectionNode(node, ref selectedIds);
+                // Return
+                int[] sorted = selectedIds.ToArray();
+                if (_selectBy != vtkSelectBy.QueryNode) Array.Sort(sorted);   // sorting of the ids breaks the angle query !!!
+                return sorted;
+            }
+            catch
+            {
+                return new int[0];
+            }
+            finally
+            {
+                // Only visible
+                if (hiddenPartNames != null && hiddenPartNames.Length > 0)
+                {
+                    mesh.SetPartVisibilities(hiddenPartNames, false);
+                    _form.HideActors(hiddenPartNames, false);
+                }
+            }
         }
         private int[] GetIdsFromSelectionNode(SelectionNode selectionNode, ref HashSet<int> selectedIds)
         {
@@ -14276,6 +14303,7 @@ namespace PrePoMax
         {
             int[][] cells;
             int[] cellsTypes;
+            bool[] visible;
             double[][] nodeCoor;
             double[][] distributedNodeCoor;
             bool canHaveEdges = false;
@@ -14291,12 +14319,15 @@ namespace PrePoMax
             {
                 FeNodeSet nodeSet = _model.Mesh.NodeSets[nodeSetName];
                 if (nodeSet.Labels.Length == 0) return;     // after remeshing this is 0 before the node set update
+                // Node visibilities
+                if (onlyVisible) visible = _model.Mesh.GetNodeVisibilities(nodeSet.Labels);
+                else visible = null;
                 // All nodes
-                nodeCoor = _model.Mesh.GetNodeSetCoor(nodeSet.Labels, onlyVisible);
+                nodeCoor = _model.Mesh.GetNodeSetCoor(nodeSet.Labels);
                 // If all nodes are hidden
                 if (nodeCoor == null || nodeCoor.Length == 0) return;
                 // Ids go from 0 to Length
-                int[] distributedIds = GetSpatiallyEquallyDistributedCoor(nodeCoor, 3);
+                int[] distributedIds = GetSpatiallyEquallyDistributedCoor(nodeCoor, 3, visible);
                 // Distributed nodes
                 distributedNodeCoor = new double[distributedIds.Length][];
                 for (int i = 0; i < distributedIds.Length; i++) distributedNodeCoor[i] = nodeCoor[distributedIds[i]];
@@ -14304,7 +14335,7 @@ namespace PrePoMax
                 // Distributed coor +1 for reference point
                 nodeCoor = new double[distributedIds.Length + 1][];
                 nodeCoor[0] = GetModelReferencePoint(rigidBody.ReferencePointName).Coor();
-                for (int i = 0; i < distributedIds.Length; i++) nodeCoor[i + 1] = distributedNodeCoor[i];
+                Array.Copy(distributedNodeCoor, 0, nodeCoor, 1, distributedNodeCoor.Length);
                 //
                 cells = new int[distributedIds.Length][];
                 cellsTypes = new int[distributedIds.Length];
@@ -14401,7 +14432,7 @@ namespace PrePoMax
                 }
             }
             //
-            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6);
+            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6, null);
             // Front shell face which is a S2 POS face works in the same way as a solid face
             // Back shell face which is a S1 NEG must be inverted
             int id;
@@ -14634,7 +14665,7 @@ namespace PrePoMax
                 RemoveSurfaceAndElementFacesFromModel(new string[] { surface.Name });
             }
             //
-            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 3);
+            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 3, null);
             // Front shell face which is a S2 POS face works in the same way as a solid face
             // Back shell face which is a S1 NEG must be inverted
             int id;
@@ -14937,7 +14968,7 @@ namespace PrePoMax
             // Reduce the coor for cylindrical coordinate system
             if (coordinateSystem != null && coordinateSystem.Type == CoordinateSystemTypeEnum.Cylindrical)
             {
-                int[] distributedCoorIds = GetSpatiallyEquallyDistributedCoor(symbolCoor, 6);
+                int[] distributedCoorIds = GetSpatiallyEquallyDistributedCoor(symbolCoor, 6, null);
                 double[][] reducedCoor = new double[distributedCoorIds.Length][];
                 for (int i = 0; i < distributedCoorIds.Length; i++) reducedCoor[i] = symbolCoor[distributedCoorIds[i]];
                 symbolCoor = reducedCoor;
@@ -15213,7 +15244,7 @@ namespace PrePoMax
                 RemoveSurfaceAndElementFacesFromModel(new string[] { surface.Name });
             }
             //
-            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 3);
+            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 3, null);
             // Front shell face which is a S2 POS face works in the same way as a solid face
             // Back shell face which is a S1 NEG must be inverted
             int id;
@@ -15637,7 +15668,7 @@ namespace PrePoMax
             // Reduce the coor
             if (symbolCoor.Length > 20)
             {
-                int[] distributedCoorIds = GetSpatiallyEquallyDistributedCoor(symbolCoor, 6);
+                int[] distributedCoorIds = GetSpatiallyEquallyDistributedCoor(symbolCoor, 6, null);
                 double[][] reducedCoor = new double[distributedCoorIds.Length][];
                 for (int i = 0; i < distributedCoorIds.Length; i++) reducedCoor[i] = symbolCoor[distributedCoorIds[i]];
                 symbolCoor = reducedCoor;
@@ -15775,7 +15806,7 @@ namespace PrePoMax
                 }
             }
             //
-            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6);
+            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6, null);
             // Front shell face which is a S2 POS face works in the same way as a solid face
             // Back shell face which is a S1 NEG must be inverted
             int id;
@@ -15845,7 +15876,7 @@ namespace PrePoMax
                 }
             }
             //
-            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6);
+            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6, null);
             // Front shell face which is a S2 POS face works in the same way as a solid face
             // Back shell face which is a S1 NEG must be inverted
             int id;
@@ -15913,7 +15944,7 @@ namespace PrePoMax
                     }
                 }
                 symbolCoor = allCoor.ToArray();
-                int[] distributedCoorIds = GetSpatiallyEquallyDistributedCoor(symbolCoor, 6);
+                int[] distributedCoorIds = GetSpatiallyEquallyDistributedCoor(symbolCoor, 6, null);
                 double[][] reducedCoor = new double[distributedCoorIds.Length][];
                 for (int i = 0; i < distributedCoorIds.Length; i++) reducedCoor[i] = symbolCoor[distributedCoorIds[i]];
                 symbolCoor = reducedCoor;
@@ -15964,7 +15995,7 @@ namespace PrePoMax
                 }
             }
             //
-            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6);
+            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6, null);
             // Front shell face which is a S2 POS face works in the same way as a solid face
             // Back shell face which is a S1 NEG must be inverted
             int id;
@@ -16173,7 +16204,7 @@ namespace PrePoMax
                 }
             }
             //
-            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6);
+            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6, null);
             // Front shell face which is a S2 POS face works in the same way as a solid face
             // Back shell face which is a S1 NEG must be inverted
             int id;
@@ -16266,7 +16297,7 @@ namespace PrePoMax
                 }
             }
             //
-            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 3);
+            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 3, null);
             // Front shell face which is a S2 POS face works in the same way as a solid face
             // Back shell face which is a S1 NEG must be inverted
             int id;
@@ -16327,7 +16358,7 @@ namespace PrePoMax
                 }
             }
             //
-            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 3);
+            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 3, null);
             // Front shell face which is a S2 POS face works in the same way as a solid face
             // Back shell face which is a S1 NEG must be inverted
             int id;
@@ -16366,7 +16397,7 @@ namespace PrePoMax
                 _form.AddOrientedFluxActor(data, symbolSize, false, translate);
             }
         }
-        public int[] GetSpatiallyEquallyDistributedCoor(double[][] coor, int maxN, bool[] visible = null)
+        public int[] GetSpatiallyEquallyDistributedCoor(double[][] coor, int maxN, bool[] visible)
         {
             // Divide space into boxes and then find the coor closest to the box center
             if (coor.Length <= 0) return null;
@@ -17777,7 +17808,7 @@ namespace PrePoMax
         {
             if (clear) _form.Clear3DSelection();
             //
-            int[] ids = GetSelectionIds();
+            int[] ids = GetSelectionIds(false);
             if (ids.Length == 0) return;
             //
             if (_selection.SelectItem == vtkSelectItem.Node)
