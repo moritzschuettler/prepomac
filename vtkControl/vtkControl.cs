@@ -3939,16 +3939,16 @@ namespace vtkControl
             double rs = 0.2;
             vtkSphereSource sphereSource = vtkSphereSource.New();
             sphereSource.SetRadius(rs);
-            sphereSource.SetPhiResolution(11);
+            sphereSource.SetPhiResolution(9);
             sphereSource.SetThetaResolution(11);
             if (center) rs = 0;
             sphereSource.SetCenter(rs, 0, 0);
             // Compute normals
-            vtkPolyDataNormals normals = vtkPolyDataNormals.New();
-            normals.SetInput(sphereSource.GetOutput());
-            normals.Update();
-            // Set normals
-            sphereSource.GetOutput().GetPointData().SetNormals(normals.GetOutput().GetPointData().GetNormals());
+            //vtkPolyDataNormals normals = vtkPolyDataNormals.New();
+            //normals.SetInput(sphereSource.GetOutput());
+            //normals.Update();
+            //// Set normals
+            //sphereSource.GetOutput().GetPointData().SetNormals(normals.GetOutput().GetPointData().GetNormals());
             // Transform
             vtkTransform transform = vtkTransform.New();
             transform.Identity();
@@ -3975,7 +3975,7 @@ namespace vtkControl
             mapper.SetInputConnection(0, glyph.GetOutputPort());
             mapper.ScalarVisibilityOff();
             // Actor
-            data.Name += Globals.NameSeparator + "radiate";
+            data.Name += Globals.NameSeparator + "flux";
             vtkMaxActor actor = new vtkMaxActor(data, mapper);
             // Add
             ApplySymbolFormattingToActor(actor);

@@ -424,7 +424,18 @@ namespace PrePoMax.Forms
                     throw new CaeException("Pre-tension magnitude must not be equal to 0.");
             }
             // Thermal
-            else if (FELoad is CFlux cf) { }
+            else if (FELoad is CFlux cf)
+            {
+                if ((cf.RegionType == RegionTypeEnum.Selection && cf.CreationIds.Length > 5) ||
+                    (cf.RegionType == RegionTypeEnum.NodeSetName &&
+                     _controller.Model.Mesh.NodeSets[cf.RegionName].Labels.Length > 5))
+                {
+                    if (MessageBoxes.ShowWarningQuestionOKCancel(
+                        "The concentrated flux load will apply the entered flux magnitude to all selected nodes. Continue?") ==
+                        DialogResult.Cancel)
+                        throw new CaeException("BreakOnApply");
+                }
+            }
             else if (FELoad is DFlux df) { }
             else if (FELoad is BodyFlux bf) { }
             else if (FELoad is FilmHeatTransfer fht) { }
