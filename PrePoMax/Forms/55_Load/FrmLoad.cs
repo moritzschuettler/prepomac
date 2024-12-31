@@ -154,6 +154,7 @@ namespace PrePoMax.Forms
                 }
                 else if (itemTag is ViewImportedPressureLoad vipl)
                 {
+                    vipl.UpdateFileBrowserDialog();
                     _viewLoad = vipl;
                     // Set a filter in order for S1, S2,... to include the same element types
                     _controller.Selection.LimitSelectionToFirstGeometryType = true;
@@ -169,6 +170,7 @@ namespace PrePoMax.Forms
                 }
                 else if (itemTag is ViewImportedSTLoad vistl)
                 {
+                    vistl.UpdateFileBrowserDialog();
                     _viewLoad = vistl;
                     _controller.Selection.EnableShellEdgeFaceSelection = true;
                     // 2D
@@ -355,8 +357,9 @@ namespace PrePoMax.Forms
                     (cl.RegionType == RegionTypeEnum.NodeSetName &&
                      _controller.Model.Mesh.NodeSets[cl.RegionName].Labels.Length > 5))
                 {
-                    if (MessageBoxes.ShowWarningQuestionOKCancel("The concentrated force will apply the entered load magnitude " +
-                                                                 "to all selected nodes. Continue?") == DialogResult.Cancel)
+                    if (MessageBoxes.ShowWarningQuestionOKCancel(
+                        "The concentrated force load will apply the entered load magnitude to all selected nodes. Continue?") ==
+                        DialogResult.Cancel)
                         throw new CaeException("BreakOnApply");
                 }
             }
@@ -364,6 +367,15 @@ namespace PrePoMax.Forms
             {
                 if (ml.Magnitude.Value == 0)
                     throw new CaeException("At least one moment component must not be equal to 0.");
+                if ((ml.RegionType == RegionTypeEnum.Selection && ml.CreationIds.Length > 5) ||
+                    (ml.RegionType == RegionTypeEnum.NodeSetName &&
+                     _controller.Model.Mesh.NodeSets[ml.RegionName].Labels.Length > 5))
+                {
+                    if (MessageBoxes.ShowWarningQuestionOKCancel(
+                        "The moment load will apply the entered load magnitude to all selected nodes. Continue?") ==
+                        DialogResult.Cancel)
+                        throw new CaeException("BreakOnApply");
+                }
             }
             else if (FELoad is DLoad dl)
             {
@@ -1136,7 +1148,7 @@ namespace PrePoMax.Forms
                 else throw new NotSupportedException();
                 //
                 if (load != null && load.CoordinateSystemName != null)
-                    _controller.HighlightCoordinateSystems(new string[] { load.CoordinateSystemName });
+                    _controller.HighlightCoordinateSystem(load.CoordinateSystemName);
             }
             catch { }
         }

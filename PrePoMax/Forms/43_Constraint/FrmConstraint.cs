@@ -592,7 +592,7 @@ namespace PrePoMax.Forms
                 else if (Constraint is RigidBody rb)
                 {
                     // Master
-                    _controller.HighlightReferencePoints(new string[] { rb.ReferencePointName });
+                    _controller.HighlightReferencePoint(rb.ReferencePointName);
                     // Slave
                     HighlightRegion(rb.SlaveRegionType, rb.SlaveRegionName, rb.CreationData, false, true);
                 }
@@ -624,11 +624,11 @@ namespace PrePoMax.Forms
                                      bool clear, bool useSecondaryHighlightColor)
         {
             if (regionType == RegionTypeEnum.NodeSetName)
-                _controller.HighlightNodeSets(new string[] { regionName }, useSecondaryHighlightColor);
+                _controller.HighlightNodeSet(regionName, useSecondaryHighlightColor);
             else if (regionType == RegionTypeEnum.SurfaceName)
-                _controller.HighlightSurfaces(new string[] { regionName }, useSecondaryHighlightColor);
+                _controller.HighlightSurface(regionName, useSecondaryHighlightColor);
             else if (regionType == RegionTypeEnum.ReferencePointName)
-                _controller.HighlightReferencePoints(new string[] { regionName });
+                _controller.HighlightReferencePoint(regionName);
             else if (regionType == RegionTypeEnum.Selection)
             {
                 SetSelectItem();

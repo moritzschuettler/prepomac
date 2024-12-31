@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using System.ComponentModel;
 using CaeGlobals;
 using DynamicTypeDescriptor;
+using CaeModel;
+using System.Drawing;
 
 namespace PrePoMax
 {
@@ -13,7 +15,7 @@ namespace PrePoMax
     public class ViewDefinedTemperature : ViewDefinedField
     {
         // Variables                                                                                                                
-        private CaeModel.DefinedTemperature _definedTemperature;
+        private DefinedTemperature _definedTemperature;
 
 
         // Properties                                                                                                               
@@ -23,7 +25,7 @@ namespace PrePoMax
         [OrderedDisplayName(1, 10, "Define temperature")]
         [DescriptionAttribute("Define the temperature by a constant value or read the temperature from a file.")]
         [Id(2, 1)]
-        public CaeModel.DefinedTemperatureTypeEnum DefinedTemperatureType
+        public DefinedTemperatureTypeEnum DefinedTemperatureType
         {
             get { return _definedTemperature.Type; }
             set { _definedTemperature.Type = value; UpdateFieldView(); }
@@ -81,6 +83,8 @@ namespace PrePoMax
             get { return _definedTemperature.StepNumber; }
             set { _definedTemperature.StepNumber = value; }
         }
+        //
+        public override Color Color { get { return _definedTemperature.Color; } set { _definedTemperature.Color = value; } }
 
 
         // Constructors                                                                                                             

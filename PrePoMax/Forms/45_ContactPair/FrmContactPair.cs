@@ -251,8 +251,10 @@ namespace PrePoMax.Forms
         private void HighlightRegion(RegionTypeEnum regionType, string regionName, Selection creationData,
                                      bool clear, bool useSecondaryHighlightColor)
         {
-            if (regionType == RegionTypeEnum.NodeSetName) _controller.HighlightNodeSets(new string[] { regionName }, useSecondaryHighlightColor);
-            else if (regionType == RegionTypeEnum.SurfaceName) _controller.HighlightSurfaces(new string[] { regionName }, useSecondaryHighlightColor);
+            if (regionType == RegionTypeEnum.NodeSetName)
+                _controller.HighlightNodeSet(regionName, useSecondaryHighlightColor);
+            else if (regionType == RegionTypeEnum.SurfaceName)
+                _controller.HighlightSurface(regionName, useSecondaryHighlightColor);
             else if (regionType == RegionTypeEnum.Selection)
             {
                 SetSelectItem();

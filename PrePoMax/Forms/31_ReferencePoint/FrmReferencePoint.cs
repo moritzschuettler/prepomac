@@ -285,10 +285,10 @@ namespace PrePoMax.Forms
                 }
                 // Draw node set
                 if (rp != null && rp.RegionType == RegionTypeEnum.NodeSetName)
-                    _controller.HighlightNodeSets(new string[] { rp.RegionName }, true);
+                    _controller.HighlightNodeSet(rp.RegionName, true);
                 // Draw surface
                 else if (rp != null && rp.RegionType == RegionTypeEnum.SurfaceName)
-                    _controller.HighlightSurfaces(new string[] { rp.RegionName }, true);
+                    _controller.HighlightSurface(rp.RegionName, true);
                 // Draw reference point
                 _controller.HighlightReferencePoint(rp);
             }

@@ -30,7 +30,8 @@ namespace FileInOut.Output.Calculix
                 _regionName += _definedTemperature.RegionName;
             else if (_definedTemperature.RegionType == RegionTypeEnum.SurfaceName)
                 _regionName += model.Mesh.Surfaces[_definedTemperature.RegionName].NodeSetName;
-            else if (_definedTemperature.RegionType == RegionTypeEnum.None)
+            else if (_definedTemperature.Type == DefinedTemperatureTypeEnum.FromFile &&
+                     _definedTemperature.RegionType == RegionTypeEnum.Selection)
             { }
             else throw new NotSupportedException();
         }

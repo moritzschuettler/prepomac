@@ -310,7 +310,7 @@ namespace PrePoMax.Forms
                 }
                 else if (HistoryOutput is ContactHistoryOutput)
                 {
-                    _controller.HighlightContactPairs(new string[] { HistoryOutput.RegionName });
+                    _controller.HighlightContactPair(HistoryOutput.RegionName);
                 }
                 else throw new NotSupportedException();
             }

@@ -128,8 +128,6 @@ namespace PrePoMax
             //
             SetBase(_importedSTLoad, regionTypePropertyNamePairs);
             DynamicCustomTypeDescriptor = ProviderInstaller.Install(this);
-            //
-            FilteredFileNameEditor.Filter = "Text files|*.txt|All files|*.*";
             // Phase
             DynamicCustomTypeDescriptor.GetProperty(nameof(Phase)).SetIsBrowsable(_importedSTLoad.Complex);
         }
@@ -157,6 +155,10 @@ namespace PrePoMax
             //
             DynamicCustomTypeDescriptor.GetProperty(nameof(InterpolatorRadius)).SetIsBrowsable(visibility);
             DynamicCustomTypeDescriptor.GetProperty(nameof(InterpolatorRadius)).SetIsBrowsable(visibility);
+        }
+        public void UpdateFileBrowserDialog()
+        {
+            FilteredFileNameEditor.Filter = "Text files|*.txt|All files|*.*";
         }
     }
 }

@@ -22,6 +22,7 @@ using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 using CaeMesh;
 using Octree;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.ProgressBar;
+using System.Reflection;
 
 namespace vtkControl
 {
@@ -3639,7 +3640,8 @@ namespace vtkControl
             distanceToCamera.SetScreenSize(symbolSize);
             distanceToCamera.SetRenderer(_renderer);
             // Source for the glyph filter
-            vtkAlgorithmOutput spring = CreateSpringSource(0.2, 1, 8, 10);
+            vtkPolyData lineData;
+            vtkPolyData spring = CreateSpringSource(0.2, 1, 8, 10, out lineData);
             // Transform
             vtkTransform transform = vtkTransform.New();
             transform.Identity();
@@ -3648,7 +3650,7 @@ namespace vtkControl
             transform.Translate(-1.05, 0, 0);
             // Transform filter
             vtkTransformFilter transformFilter = vtkTransformFilter.New();
-            transformFilter.SetInputConnection(spring);
+            transformFilter.SetInput(spring);
             transformFilter.SetTransform(transform);
             transformFilter.Update();
             // Glyph
@@ -3677,7 +3679,8 @@ namespace vtkControl
             //
             if (_drawSymbolEdges) AddSymbolEdges(data, glyph.GetOutputPort());
         }
-        private vtkAlgorithmOutput CreateSpringSource(double diameter, double height, int numOfTurns, int radialResolution)
+        private vtkPolyData CreateSpringSource(double diameter, double height, int numOfTurns, int radialResolution,
+                                                      out vtkPolyData lineData)
         {
             // Points
             double r = diameter / 2;
@@ -3720,18 +3723,23 @@ namespace vtkControl
             vtkCellArray cells = vtkCellArray.New();
             cells.InsertNextCell(polyLine);
             // Poly data
-            vtkPolyData polyData = vtkPolyData.New();
-            polyData.SetPoints(vtkPoints);
-            polyData.SetLines(cells);
+            lineData = vtkPolyData.New();
+            lineData.SetPoints(vtkPoints);
+            lineData.SetLines(cells);
             // Create tube filter
             vtkTubeFilter tubeFilter = vtkTubeFilter.New();
-            tubeFilter.SetInput(polyData);
+            tubeFilter.SetInput(lineData);
             tubeFilter.SetRadius(0.03);
             tubeFilter.SetNumberOfSides(10);
             tubeFilter.CappingOn();
+            tubeFilter.UseDefaultNormalOff();
             tubeFilter.Update();
+            // For vtkPolyDataSilhouette
+            vtkTriangleFilter triangleFilter = vtkTriangleFilter.New();
+            triangleFilter.SetInput(tubeFilter.GetOutput());
+            triangleFilter.Update();
             //
-            return tubeFilter.GetOutputPort();
+            return triangleFilter.GetOutput();
         }
         private double[][] SmoothLinePoints(double[][] points, int numOfPoints)
         {
@@ -3983,6 +3991,7 @@ namespace vtkControl
             silhouette.SetCamera(_renderer.GetActiveCamera());
             silhouette.SetEnableFeatureAngle(1);
             silhouette.SetFeatureAngle(60);
+            silhouette.Update();
             // Mapper
             vtkPolyDataMapper mapper = vtkPolyDataMapper.New();
             mapper.SetInputConnection(silhouette.GetOutputPort());

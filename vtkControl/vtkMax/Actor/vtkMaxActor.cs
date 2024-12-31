@@ -731,7 +731,6 @@ namespace vtkControl
 
             data.SmoothShaded = true;
 
-
             if (data.SmoothShaded) polyData.GetPointData().SetNormals(ComputeNormals(polyData));
             // Mapper
             vtkDataSetMapper mapper = vtkDataSetMapper.New();

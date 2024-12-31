@@ -17,6 +17,7 @@ namespace PrePoMax
         ContactPairs = 128,
         InitialConditions = 256,
         BoundaryConditions = 512,
-        Loads = 1024
+        Loads = 1024,
+        DefinedFields = 2048
     }
 }

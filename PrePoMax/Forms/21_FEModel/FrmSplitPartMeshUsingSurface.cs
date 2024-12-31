@@ -323,7 +323,7 @@ namespace PrePoMax.Forms
             if (regionType == RegionTypeEnum.PartName)
                 _controller.Highlight3DObjects(new object[] { regionName });
             else if (regionType == RegionTypeEnum.SurfaceName)
-                _controller.HighlightSurfaces(new string[] { regionName }, useSecondaryHighlightColor);
+                _controller.HighlightSurface(regionName, useSecondaryHighlightColor);
             else if (regionType == RegionTypeEnum.Selection)
             {
                 SetSelectItem();

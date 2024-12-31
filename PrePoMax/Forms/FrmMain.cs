@@ -1126,6 +1126,8 @@ namespace PrePoMax
                 HideShowStepItems<BoundaryCondition>(items, operation, stepNames, HideBoundaryConditions, 
                                                      ShowBoundaryConditions, ShowOnlyBoundaryConditions);
                 HideShowStepItems<Load>(items, operation, stepNames, HideLoads, ShowLoads, ShowOnlyLoads);
+                HideShowStepItems<DefinedField>(items, operation, stepNames, HideDefinedFields,
+                                                ShowDefinedFields, ShowOnlyDefinedFields);
             }
             else if (_controller.CurrentView == ViewGeometryModelResults.Results)
             {
@@ -2609,7 +2611,8 @@ namespace PrePoMax
                                                     AnnotateWithColorEnum.ContactPairs |
                                                     AnnotateWithColorEnum.InitialConditions |
                                                     AnnotateWithColorEnum.BoundaryConditions |
-                                                    AnnotateWithColorEnum.Loads;
+                                                    AnnotateWithColorEnum.Loads |
+                                                    AnnotateWithColorEnum.DefinedFields;
                 }
             }
         }
@@ -2682,13 +2685,15 @@ namespace PrePoMax
                     if (tsmiAnnotateInitialConditions.Checked) status |= AnnotateWithColorEnum.InitialConditions;
                     if (tsmiAnnotateBCs.Checked) status |= AnnotateWithColorEnum.BoundaryConditions;
                     if (tsmiAnnotateLoads.Checked) status |= AnnotateWithColorEnum.Loads;
+                    if (tsmiAnnotateDefinedFields.Checked) status |= AnnotateWithColorEnum.DefinedFields;
                     //
                     tsmiAnnotateAllSymbols.Checked = status.HasFlag(AnnotateWithColorEnum.ReferencePoints |
                                                                     AnnotateWithColorEnum.Constraints |
                                                                     AnnotateWithColorEnum.ContactPairs |
                                                                     AnnotateWithColorEnum.InitialConditions |
                                                                     AnnotateWithColorEnum.BoundaryConditions |
-                                                                    AnnotateWithColorEnum.Loads);
+                                                                    AnnotateWithColorEnum.Loads |
+                                                                    AnnotateWithColorEnum.DefinedFields);
                     //
                     return status;
                 }
@@ -6324,6 +6329,28 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
+        private void tsmiHideDefinedField_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectOneEntity("Steps", _controller.GetAllSteps(), SelectAndHideDefinedFields);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiShowDefinedField_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectOneEntity("Steps", _controller.GetAllSteps(), SelectAndShowDefinedFields);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
         private void tsmiDeleteDefinedField_Click(object sender, EventArgs e)
         {
             try
@@ -6338,24 +6365,34 @@ namespace PrePoMax
         //
         private void SelectAndEditDefinedField(string stepName)
         {
-            SelectOneEntityInStep("Defined fields", _controller.GetAllDefinedFields(stepName), stepName, EditDefinedField);
+            SelectOneEntityInStep("Defined fields", _controller.GetStepDefinedFields(stepName), stepName, EditDefinedField);
         }
         private void SelectAndDuplicateDefinedFields(string stepName)
         {
-            SelectMultipleEntitiesInStep("Defined fields", _controller.GetAllDefinedFields(stepName),
+            SelectMultipleEntitiesInStep("Defined fields", _controller.GetStepDefinedFields(stepName),
                                          stepName, DuplicateDefinedFields);
         }
         private void SelectAndPropagateDefinedField(string stepName)
         {
-            SelectOneEntityInStep("Defined fields", _controller.GetAllDefinedFields(stepName), stepName, PropagateDefinedField);
+            SelectOneEntityInStep("Defined fields", _controller.GetStepDefinedFields(stepName), stepName, PropagateDefinedField);
         }
         private void SelectAndPreviewDefinedField(string stepName)
         {
-            SelectOneEntityInStep("Defined fields", _controller.GetAllDefinedFields(stepName), stepName, PreviewDefinedField);
+            SelectOneEntityInStep("Defined fields", _controller.GetStepDefinedFields(stepName), stepName, PreviewDefinedField);
+        }
+        private void SelectAndHideDefinedFields(string stepName)
+        {
+            SelectMultipleEntitiesInStep("Defined fields", _controller.GetStepDefinedFields(stepName),
+                                         stepName, HideDefinedFields);
+        }
+        private void SelectAndShowDefinedFields(string stepName)
+        {
+            SelectMultipleEntitiesInStep("Defined fields", _controller.GetStepDefinedFields(stepName),
+                                         stepName, ShowDefinedFields);
         }
         private void SelectAndDeleteDefinedFields(string stepName)
         {
-            SelectMultipleEntitiesInStep("Defined fields", _controller.GetAllDefinedFields(stepName),
+            SelectMultipleEntitiesInStep("Defined fields", _controller.GetStepDefinedFields(stepName),
                                          stepName, DeleteDefinedFields);
         }
         //
@@ -6416,6 +6453,21 @@ namespace PrePoMax
             _controller.ViewResultsType = ViewResultsTypeEnum.ColorContours;  // Draw
             //
             SetMenuAndToolStripVisibility();
+        }
+        private void HideDefinedFields(string stepName, string[] definedFieldNames)
+        {
+            _controller.HideDefinedFieldsCommand(stepName, definedFieldNames);
+        }
+        private void ShowDefinedFields(string stepName, string[] definedFieldNames)
+        {
+            _controller.ShowDefinedFieldsCommand(stepName, definedFieldNames);
+        }
+        private void ShowOnlyDefinedFields(string stepName, string[] definedFieldNames)
+        {
+            HashSet<string> allNames = new HashSet<string>(_controller.Model.StepCollection.GetStep(stepName).DefinedFields.Keys);
+            allNames.ExceptWith(definedFieldNames);
+            _controller.HideDefinedFieldsCommand(stepName, allNames.ToArray());
+            _controller.ShowDefinedFieldsCommand(stepName, definedFieldNames);
         }
         private void DeleteDefinedFields(string stepName, string[] definedFieldNames)
         {
@@ -10397,7 +10449,7 @@ namespace PrePoMax
             }
         }
 
-       
+        
     }
 }
 

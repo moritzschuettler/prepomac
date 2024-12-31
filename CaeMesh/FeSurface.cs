@@ -54,14 +54,12 @@ namespace CaeMesh
         private IMultiRegion _parentMultiRegion;                        // temporary storage 
         private IMasterSlaveMultiRegion _parentMasterMultiRegion;       // temporary storage 
         private IMasterSlaveMultiRegion _parentSlaveMultiRegion;        // temporary storage 
+        //
+        private bool _temporarySurface;
 
 
         // Properties                                                                                                               
-        public FeSurfaceType Type
-        {
-            get { return _type; }
-            set { _type = value; }
-        }
+        public FeSurfaceType Type { get { return _type; } set { _type = value; } }
         public FeSurfaceCreatedFrom CreatedFrom 
         { 
             get { return _createdFrom; } 
@@ -102,6 +100,7 @@ namespace CaeMesh
             get { return _parentSlaveMultiRegion; }
             set { _parentSlaveMultiRegion = value; _parentMultiRegion = null; _parentMasterMultiRegion = null; }
         }
+        public bool TemporarySurface { get { return _temporarySurface; } set { _temporarySurface = value; } }
 
 
         // Constructors                                                                                                             
@@ -135,6 +134,7 @@ namespace CaeMesh
             _elementFaces = surface._elementFaces != null ? new Dictionary<FeFaceName, string>(surface._elementFaces) : null;
             _creationData = surface._creationData != null ? surface._creationData.DeepClone() : null;
             _surfaceFaceTypes = surface._surfaceFaceTypes;
+            _temporarySurface = surface._temporarySurface;
         }
 
 
@@ -149,6 +149,7 @@ namespace CaeMesh
             _elementFaces = null;
             _creationData = null;
             _surfaceFaceTypes = FeSurfaceFaceTypes.Unknown;
+            _temporarySurface = false;
         }
         public void AddElementFace(FeFaceName faceName, string elementSetName)
         {

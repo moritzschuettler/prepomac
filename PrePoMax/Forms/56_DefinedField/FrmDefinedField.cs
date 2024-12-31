@@ -187,8 +187,6 @@ namespace PrePoMax.Forms
                     }
                     DefinedField.RegionType = RegionTypeEnum.Selection;
                 }
-                // Defined field created from file needs no selection
-                if (DefinedField.RegionType == RegionTypeEnum.None) DefinedField.RegionType = RegionTypeEnum.Selection;
                 //
                 int selectedId;
                 if (_viewDefinedField is ViewDefinedTemperature vdt)
@@ -219,6 +217,7 @@ namespace PrePoMax.Forms
         private void PopulateListOfDefinedFields(string[] nodeSetNames, string[] surfaceNames)
         {
             Step step = _controller.GetStep(_stepName);
+            System.Drawing.Color color = _controller.Settings.Pre.DefinedFieldSymbolColor;
             // Populate list view
             ListViewItem item;
             // Defined temperature
@@ -230,6 +229,7 @@ namespace PrePoMax.Forms
             {
                 ViewDefinedTemperature vdt = new ViewDefinedTemperature(definedTemperature);
                 vdt.PopulateDropDownLists(nodeSetNames, surfaceNames);
+                vdt.Color = color;
                 item.Tag = vdt;
                 lvTypes.Items.Add(item);
             }
@@ -293,14 +293,13 @@ namespace PrePoMax.Forms
             if (DefinedField != null && DefinedField.RegionType == RegionTypeEnum.Selection)
             {
                 if (DefinedField is null) { }
-                else if (DefinedField is DefinedTemperature) _controller.SetSelectItemToNode();
+                else if (DefinedField is DefinedTemperature dt)
+                {
+                    if (dt.Type == DefinedTemperatureTypeEnum.ByValue) _controller.SetSelectItemToGeometry();
+                    else _controller.SetSelectByToOff();
+                }
             }
             else _controller.SetSelectByToOff();
-            //
-            if (DefinedField is DefinedTemperature dt)
-            {
-                if (dt.Type == DefinedTemperatureTypeEnum.FromFile) _controller.SetSelectByToOff();
-            }
         }
         //
         public void SelectionChanged(int[] ids)

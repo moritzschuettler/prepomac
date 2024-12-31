@@ -74,6 +74,7 @@ namespace PrePoMax
         [Id(1, 10)]
         public abstract System.Drawing.Color Color { get; set; }
 
+
         // Constructors                                                                                                             
 
 

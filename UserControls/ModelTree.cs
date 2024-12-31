@@ -3194,6 +3194,7 @@ namespace UserControls
             else if (item is InitialCondition) return true;
             else if (item is BoundaryCondition) return true;
             else if (item is Load) return true;
+            else if (item is DefinedField) return true;
             else return false;
         }
         private bool CanDeactivate(TreeNode node)

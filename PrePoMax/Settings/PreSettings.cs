@@ -20,8 +20,10 @@ namespace PrePoMax
         private Color _secondaryHighlightColor;
         private Color _mouseHighlightColor;
         private Color _constraintSymbolColor;
+        private Color _initialConditionSymbolColor;
         private Color _boundaryConditionSymbolColor;
         private Color _loadSymbolColor;
+        private Color _definedFieldSymbolColor;
         private int _symbolSize;
         private int _nodeSymbolSize;
         private bool _drawSymbolEdges;
@@ -56,6 +58,11 @@ namespace PrePoMax
             get { return _constraintSymbolColor; }
             set { _constraintSymbolColor = value; }
         }
+        public Color InitialConditionSymbolColor
+        {
+            get { return _initialConditionSymbolColor; }
+            set { _initialConditionSymbolColor = value; }
+        }
         public Color BoundaryConditionSymbolColor
         {
             get { return _boundaryConditionSymbolColor; }
@@ -65,6 +72,11 @@ namespace PrePoMax
         {
             get { return _loadSymbolColor; }
             set { _loadSymbolColor = value; }
+        }
+        public Color DefinedFieldSymbolColor
+        {
+            get { return _definedFieldSymbolColor; }
+            set { _definedFieldSymbolColor = value; }
         }
         public int SymbolSize
         {
@@ -124,8 +136,10 @@ namespace PrePoMax
             _mouseHighlightColor = Color.Orange;
             _geometrySelectMode = GeometrySelectModeEnum.SelectLocation;
             _constraintSymbolColor = Color.Yellow;
+            _initialConditionSymbolColor = Color.Orange;
             _boundaryConditionSymbolColor = Color.Lime;
             _loadSymbolColor = Color.RoyalBlue;
+            _definedFieldSymbolColor = Color.Tomato;
             _symbolSize = 50;
             _nodeSymbolSize = 5;
             _drawSymbolEdges = true;

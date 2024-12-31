@@ -19,6 +19,7 @@ namespace CaeModel
         private RegionTypeEnum _regionType;         //ISerializable
         private int[] _creationIds;                 //ISerializable
         private Selection _creationData;            //ISerializable
+        private Color _color;                       //ISerializable
 
 
         // Properties                                                                                                               
@@ -26,6 +27,17 @@ namespace CaeModel
         public RegionTypeEnum RegionType { get { return _regionType; } set { _regionType = value; } }
         public int[] CreationIds { get { return _creationIds; } set { _creationIds = value; } }
         public Selection CreationData { get { return _creationData; } set { _creationData = value; } }
+        public Color Color
+        {
+            get
+            {
+                // Compatibility for version v2.2.6
+                if (_color == Color.Empty) _color = Color.Tomato;
+                //
+                return _color;
+            }
+            set { _color = value; }
+        }
 
 
         // Constructors                                                                                                             
@@ -36,6 +48,7 @@ namespace CaeModel
             _regionType = regionType;
             _creationIds = null;
             _creationData = null;
+            _color = Color.Tomato;
         }
         public DefinedField(SerializationInfo info, StreamingContext context)
             : base(info, context)
@@ -52,6 +65,8 @@ namespace CaeModel
                         _creationIds = (int[])entry.Value; break;
                     case "_creationData":
                         _creationData = (Selection)entry.Value; break;
+                    case "_color":
+                        _color = (Color)entry.Value; break;
                     default:
                         break;
                 }
@@ -83,6 +98,7 @@ namespace CaeModel
             info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
             info.AddValue("_creationIds", _creationIds, typeof(int[]));
             info.AddValue("_creationData", _creationData, typeof(Selection));
+            info.AddValue("_color", _color, typeof(Color));
         }
     }
 }

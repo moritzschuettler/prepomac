@@ -325,6 +325,7 @@ namespace PrePoMax.Forms
         private void PopulateListOfInitialConditions(string[] nodeSetNames, string[] surfaceNames, string[] referencePointNames)
         {
             ListViewItem item;
+            System.Drawing.Color color = _controller.Settings.Pre.InitialConditionSymbolColor;
             bool twoD = _controller.Model.Properties.ModelSpace.IsTwoD();
             // Initial temperature
             string name = "Temperature";
@@ -332,6 +333,7 @@ namespace PrePoMax.Forms
             InitialTemperature it = new InitialTemperature(GetInitialConditionName(name), "", RegionTypeEnum.Selection);
             ViewInitialTemperature vit = new ViewInitialTemperature(it);
             vit.PopulateDropDownLists(nodeSetNames, surfaceNames);
+            vit.Color = color;
             item.Tag = vit;
             lvTypes.Items.Add(item);
             // Initial velocity
@@ -341,6 +343,7 @@ namespace PrePoMax.Forms
                                                                                 RegionTypeEnum.Selection, 0, 0, 0, twoD);
             ViewInitialTranslationalVelocity vitv = new ViewInitialTranslationalVelocity(itv);
             vitv.PopulateDropDownLists(nodeSetNames, surfaceNames, referencePointNames);
+            vitv.Color = color;
             item.Tag = vitv;
             lvTypes.Items.Add(item);
             // Initial angular velocity
@@ -350,6 +353,7 @@ namespace PrePoMax.Forms
                                                                     twoD);
             ViewInitialAngularVelocity viav = new ViewInitialAngularVelocity(iav);
             viav.PopulateDropDownLists(nodeSetNames, surfaceNames, referencePointNames);
+            viav.Color = color;
             item.Tag = viav;
             lvTypes.Items.Add(item);
         }

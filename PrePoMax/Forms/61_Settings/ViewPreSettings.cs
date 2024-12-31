@@ -65,7 +65,16 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Symbols")]
-        [OrderedDisplayName(1, 10, "Boundary condition color")]
+        [OrderedDisplayName(1, 10, "Initial condition color")]
+        [DescriptionAttribute("Select the initial condition symbol color.")]
+        public Color InitialConditionSymbolColor
+        {
+            get { return _preSettings.InitialConditionSymbolColor; }
+            set { _preSettings.InitialConditionSymbolColor = value; }
+        }
+        //
+        [CategoryAttribute("Symbols")]
+        [OrderedDisplayName(2, 10, "Boundary condition color")]
         [DescriptionAttribute("Select the boundary condition symbol color.")]
         public Color BoundaryConditionSymbolColor
         {
@@ -74,7 +83,7 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Symbols")]
-        [OrderedDisplayName(2, 10, "Load color")]
+        [OrderedDisplayName(3, 10, "Load color")]
         [DescriptionAttribute("Select the load symbol color.")]
         public Color LoadSymbolColor
         {
@@ -83,9 +92,18 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Symbols")]
-        [OrderedDisplayName(3, 10, "Symbol size")]
+        [OrderedDisplayName(4, 10, "Defined field color")]
+        [DescriptionAttribute("Select the fefined field symbol color.")]
+        public Color DefinedFieldSymbolColor
+        {
+            get { return _preSettings.DefinedFieldSymbolColor; }
+            set { _preSettings.DefinedFieldSymbolColor = value; }
+        }
+        //
+        [CategoryAttribute("Symbols")]
+        [OrderedDisplayName(5, 10, "Symbol size")]
         [DescriptionAttribute("Select the symbol size.")]
-        [TypeConverter(typeof(CaeGlobals.StringLengthPixelConverter))]
+        [TypeConverter(typeof(StringLengthPixelConverter))]
         public int SymbolSize
         {
             get { return _preSettings.SymbolSize; }
@@ -93,7 +111,7 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Symbols")]
-        [OrderedDisplayName(4, 10, "Node symbol size")]
+        [OrderedDisplayName(6, 10, "Node symbol size")]
         [DescriptionAttribute("Select the node symbol size.")]
         [TypeConverter(typeof(CaeGlobals.StringLengthPixelConverter))]
         public int NodeSymbolSize
@@ -103,7 +121,7 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Symbols")]
-        [OrderedDisplayName(5, 10, "Draw symbol edges")]
+        [OrderedDisplayName(7, 10, "Draw symbol edges")]
         [DescriptionAttribute("Draw symbol edges.")]
         public bool DrawSymbolEdges
         {

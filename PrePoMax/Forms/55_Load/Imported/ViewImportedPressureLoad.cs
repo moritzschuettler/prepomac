@@ -147,8 +147,6 @@ namespace PrePoMax
             //
             SetBase(_importedPressure, regionTypePropertyNamePairs);
             DynamicCustomTypeDescriptor = ProviderInstaller.Install(this);
-            //
-            FilteredFileNameEditor.Filter = "OpenFOAM files|*.foam";
             // Phase
             DynamicCustomTypeDescriptor.GetProperty(nameof(Phase)).SetIsBrowsable(_importedPressure.Complex);
         }
@@ -193,6 +191,10 @@ namespace PrePoMax
             //
             DynamicCustomTypeDescriptor.GetProperty(nameof(PressureTime)).SetIsBrowsable(browsable);
             DynamicCustomTypeDescriptor.GetProperty(nameof(PressureVariableName)).SetIsBrowsable(browsable);
+        }
+        public void UpdateFileBrowserDialog()
+        {
+            FilteredFileNameEditor.Filter = "OpenFOAM files|*.foam";
         }
     }
 }

@@ -3486,6 +3486,16 @@ namespace CaeMesh
             }
             return ids.ToArray();
         }
+        public string[] GetVisiblePartNames()
+        {
+            // Find the part
+            List<string> partNames = new List<string>();
+            foreach (var entry in _parts)
+            {
+                if (entry.Value.Visible) partNames.Add(entry.Key);
+            }
+            return partNames.ToArray();
+        }
         public string[] GetHiddenPartNames()
         {
             // Find the part
@@ -4720,7 +4730,7 @@ namespace CaeMesh
             {
                 HashSet<FeSurfaceFaceTypes> allSurfaceFaceTypes = GetSurfaceFaceTypesFromFaceIds(faceIds);
                 if (allSurfaceFaceTypes.Count == 1) surfaceFaceTypes = allSurfaceFaceTypes.First();
-                else throw new NotSupportedException();
+                else if (!surface.TemporarySurface) throw new NotSupportedException();
             }
         }
         public HashSet<FeSurfaceFaceTypes> GetSurfaceFaceTypesFromFaceIds(IEnumerable<int> faceIds)
