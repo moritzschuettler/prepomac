@@ -55,7 +55,7 @@ namespace CaeMesh
         private IMasterSlaveMultiRegion _parentMasterMultiRegion;       // temporary storage 
         private IMasterSlaveMultiRegion _parentSlaveMultiRegion;        // temporary storage 
         //
-        private bool _temporarySurface;
+        private bool _temporarySurface;                                 // for visualization
 
 
         // Properties                                                                                                               

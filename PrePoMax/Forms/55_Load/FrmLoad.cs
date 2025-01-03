@@ -121,9 +121,15 @@ namespace PrePoMax.Forms
             //
             ShowHideSelectionForm();
         }
-        
-        
+
+
         // Overrides                                                                                                                
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            if (Visible) ShowHideSelectionForm();   // accounts for minimizing/maximizing the main form
+            //
+            base.OnVisibleChanged(e);
+        }
         protected override void OnListViewTypeSelectedIndexChanged()
         {
             if (lvTypes.SelectedItems != null && lvTypes.SelectedItems.Count > 0)

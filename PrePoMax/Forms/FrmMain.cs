@@ -46,6 +46,7 @@ namespace PrePoMax
         private AdvisorControl _advisorControl;
         private KeyboardHook _keyboardHook;
         private Dictionary<ViewGeometryModelResults, int> _selectedSymbolIndex;
+        private Stack<bool[]> _prevMenuStates;
         //
         private Point _formLocation;
         private List<Form> _allForms;
@@ -164,7 +165,7 @@ namespace PrePoMax
             });
         }
         public bool ScreenUpdating { get { return _modelTree.ScreenUpdating; } set { _modelTree.ScreenUpdating = value; } }
-        public bool RenderingOn { get { return _vtk.RenderingOn; } set { _vtk.RenderingOn = value; } }        
+        public bool RenderingOn { get { return _vtk.RenderingOn; } set { _vtk.RenderingOn = value; } }
         private ViewType GetViewType(ViewGeometryModelResults view)
         {
             ViewType viewType;
@@ -195,6 +196,7 @@ namespace PrePoMax
             _vtk = null;
             _controller = null;
             _modelTree = null;
+            _prevMenuStates = new Stack<bool[]>();
             _cmdOptions = cmdOptions;
             CommandLineOptions.CheckForErrors(_cmdOptions); // make sure options are compatible
             //
@@ -402,7 +404,7 @@ namespace PrePoMax
                 _frmElementSet = new FrmElementSet(_controller);
                 AddFormToAllForms(_frmElementSet);
                 //
-                _frmSurface = new FrmSurface(_controller);                
+                _frmSurface = new FrmSurface(_controller);
                 AddFormToAllForms(_frmSurface);
                 //
                 _frmReferencePoint = new FrmReferencePoint(_controller);
@@ -478,7 +480,7 @@ namespace PrePoMax
                 AddFormToAllForms(_frmFind);
                 //
                 _frmAnimation = new FrmAnimation();
-                _frmAnimation.Form_ControlsEnable = DisableEnableControlsForAnimation;
+                _frmAnimation.Form_ControlsEnable = SetMenuAndToolStripVisibilityByAnimation;
                 AddFormToAllForms(_frmAnimation);
                 //
                 _frmResultFieldOutput = new FrmResultFieldOutput(_controller);
@@ -789,18 +791,18 @@ namespace PrePoMax
         private void itemForm_VisibleChanged(object sender, EventArgs e)
         {
             Form form = sender as Form;
-            int count = CountVisibleForms();
-            // Disable model tree mouse and keyboard actions for the form
-            bool unactive;
-            if (count > 0) unactive = true;
-            else unactive = false;
+            bool menusActive = !form.Visible;
             //
-            _modelTree.DisableMouse = unactive;
-            menuStripMain.DisableMouseButtons = unactive;
-            tsFile.DisableMouseButtons = unactive;
-            tsSymbols.Enabled = !unactive; // changing the symbols clears the selection - unwanted during selection
+            if (form is FrmAnimation)
+            {
+                SetMenuAndToolStripVisibilityByAnimation(!form.Visible);
+            }
+            else
+            {
+                SetMenuAndToolStripVisibilityByItemForm(menusActive);
+            }
             // This gets also called from item selection form: by angle, by edge ...
-            if (form.Visible == false)
+            if (menusActive)
             {
                 UpdateHighlightFromTree();
                 SaveFormLocation(form);
@@ -819,20 +821,6 @@ namespace PrePoMax
             //if (form.Top < 0) form.Top = 0;
             //else if (form.Top + form.Height > screenSize.Height) form.Top = screenSize.Height - form.Height;
             SaveFormLocation(form);
-        }
-        private int CountVisibleForms(bool all = true)
-        {
-            int count = 0;
-            // One or two forms can be open
-            foreach (var aForm in _allForms)
-            {
-                if (aForm.Visible)
-                {
-                    count++;
-                    if (!all) break;
-                }
-            }
-            return count;
         }
         // Keyboard
         private void KeyboardHook_KeyDown(KeyboardHook.VKeys vKey)
@@ -914,12 +902,10 @@ namespace PrePoMax
         {
             try
             {
-                if (CountVisibleForms(false) == 0) _controller.Highlight3DObjects(items, mouseOver);
+                _controller.Highlight3DObjects(items, mouseOver);
             }
-            catch
-            {
-            }
-        }       
+            catch { }
+        }
         //
         private void ModelTree_CreateEvent(string nodeName, string stepName)
         {
@@ -1123,7 +1109,7 @@ namespace PrePoMax
                 HideShowItems<ContactPair>(items, operation, HideContactPairs, ShowContactPairs, ShowOnlyContactPairs);
                 HideShowItems<InitialCondition>(items, operation, HideInitialConditions, ShowInitialConditions,
                                                 ShowOnlyInitialConditions);
-                HideShowStepItems<BoundaryCondition>(items, operation, stepNames, HideBoundaryConditions, 
+                HideShowStepItems<BoundaryCondition>(items, operation, stepNames, HideBoundaryConditions,
                                                      ShowBoundaryConditions, ShowOnlyBoundaryConditions);
                 HideShowStepItems<Load>(items, operation, stepNames, HideLoads, ShowLoads, ShowOnlyLoads);
                 HideShowStepItems<DefinedField>(items, operation, stepNames, HideDefinedFields,
@@ -1236,7 +1222,7 @@ namespace PrePoMax
             catch { }
         }
         //                                                                                                                          
-        private void HideShowItems<T>(NamedClass[] items, HideShowOperation operation, Action<string[]> Hide, 
+        private void HideShowItems<T>(NamedClass[] items, HideShowOperation operation, Action<string[]> Hide,
                                       Action<string[]> Show, Action<string[]> ShowOnly)
         {
             List<string> names = new List<string>();
@@ -1252,9 +1238,9 @@ namespace PrePoMax
                 else throw new NotSupportedException();
             }
         }
-        private void HideShowStepItems<T>(NamedClass[] items, HideShowOperation operation, string[] stepNames, 
+        private void HideShowStepItems<T>(NamedClass[] items, HideShowOperation operation, string[] stepNames,
                                           Action<string, string[]> Hide,
-                                          Action<string, string[]> Show, 
+                                          Action<string, string[]> Show,
                                           Action<string, string[]> ShowOnly)
         {
             Dictionary<string, List<string>> stepItems = new Dictionary<string, List<string>>();
@@ -1315,7 +1301,7 @@ namespace PrePoMax
             }
         }
         //                                                                                                                          
-        
+
         #endregion #################################################################################################################
 
 
@@ -1366,7 +1352,7 @@ namespace PrePoMax
                     tsmiFind.Enabled = true;
                     // Toolbar File
                     tsbImport.Enabled = _controller.ModelInitialized;
-                    tsbSave.Enabled = true;                    
+                    tsbSave.Enabled = true;
                 }
                 else
                 {
@@ -1383,7 +1369,7 @@ namespace PrePoMax
                 bool setEmptyView = (setGeometryView && !_controller.ModelInitialized) ||
                                     (setModelView && !_controller.ModelInitialized) ||
                                     (setResultsView && !_controller.ResultsInitialized);
-                
+
                 // Only for individual views !!!
                 if (setEmptyView) { }
                 else if (setGeometryView)
@@ -1447,6 +1433,107 @@ namespace PrePoMax
                 //
                 _vtk.Visible = vtkVisible;
             });
+        }
+        private void SetMenuAndToolStripVisibilityByItemForm(bool menusActive)
+        {
+            _modelTree.DisableMouse = !menusActive;
+            menuStripMain.DisableMouseButtons = !menusActive;
+            tsFile.DisableMouseButtons = !menusActive;
+            tsSymbols.Enabled = menusActive; // changing the symbols clears the selection - unwanted during selection
+        }
+        private void SetMenuAndToolStripVisibilityBySetState(bool menusActive)
+        {
+            _modelTree.DisableMouse = !menusActive;
+            menuStripMain.DisableMouseButtons = !menusActive;
+            tsFile.DisableMouseButtons = !menusActive;
+            tsViews.DisableMouseButtons = !menusActive;
+            tsDeformationFactor.DisableMouseButtons = !menusActive;
+            tsResults.DisableMouseButtons = !menusActive;
+        }
+        private void SetMenuAndToolStripVisibilityByAnimation(bool menusActive)
+        {
+            _modelTree.DisableMouse = !menusActive;
+            menuStripMain.DisableMouseButtons = !menusActive;
+            tsFile.DisableMouseButtons = !menusActive;
+            //
+            tsDeformationFactor.DisableMouseButtons = !menusActive;
+            tscbResultNames.Enabled = menusActive;           // must be here
+            tscbDeformationVariable.Enabled = menusActive;   // must be here
+            tscbDeformationType.Enabled = menusActive;       // must be here
+            tstbDeformationFactor.Enabled = menusActive;     // must be here
+            //
+            if (menusActive) UpdateComplexControlStates();
+            else
+            {
+                tslComplex.Enabled = false;
+                tscbComplex.Enabled = false;
+                tslAngle.Enabled = false;
+                tstbAngle.Enabled = false;
+            }
+            //
+            tsResults.DisableMouseButtons = !menusActive;
+            tscbStepAndIncrement.Enabled = menusActive;      // must be here despite the tsResults.DisableMouseButtons = !enable;
+            //
+            tsbShowAllParts.Enabled = menusActive;
+            tsbHideAllParts.Enabled = menusActive;
+            tsbInvertVisibleParts.Enabled = menusActive;
+        }
+        private void PushMenuStates()
+        {
+            List<bool> states = new List<bool>();
+            states.Add(_modelTree.DisableMouse);
+            states.Add(menuStripMain.DisableMouseButtons);
+            states.Add(tsFile.DisableMouseButtons);
+            states.Add(tsViews.DisableMouseButtons);
+            states.Add(tsDeformationFactor.DisableMouseButtons);
+            states.Add(tsResults.DisableMouseButtons);
+            states.Add(tsSymbols.Enabled);
+            states.Add(tscbResultNames.Enabled);
+            states.Add(tscbDeformationVariable.Enabled);
+            states.Add(tscbDeformationType.Enabled);
+            states.Add(tstbDeformationFactor.Enabled);
+            //
+            states.Add(tslComplex.Enabled);
+            states.Add(tscbComplex.Enabled);
+            states.Add(tslAngle.Enabled);
+            states.Add(tstbAngle.Enabled);
+            //
+            states.Add(tscbStepAndIncrement.Enabled);
+            states.Add(tsbShowAllParts.Enabled);
+            states.Add(tsbHideAllParts.Enabled);
+            states.Add(tsbInvertVisibleParts.Enabled);
+            //
+            _prevMenuStates.Push(states.ToArray());
+        }
+        private void PopMenuStates()
+        {
+            if (_prevMenuStates != null && _prevMenuStates.Count > 0)
+            {
+                bool[] states = _prevMenuStates.Pop();
+                //
+                _modelTree.DisableMouse = states[0];
+                menuStripMain.DisableMouseButtons = states[1];
+                tsFile.DisableMouseButtons = states[2];
+                tsViews.DisableMouseButtons = states[3];
+                tsDeformationFactor.DisableMouseButtons = states[4];
+                tsResults.DisableMouseButtons = states[5];
+                tsSymbols.Enabled = states[6];
+                tscbResultNames.Enabled = states[7];
+                tscbDeformationVariable.Enabled = states[8];
+                tscbDeformationType.Enabled = states[9];
+                tstbDeformationFactor.Enabled = states[10];
+                //
+                tslComplex.Enabled = states[11];
+                tscbComplex.Enabled = states[12];
+                tslAngle.Enabled = states[13];
+                tstbAngle.Enabled = states[14];
+                //
+                tscbStepAndIncrement.Enabled = states[15];
+                tsbShowAllParts.Enabled = states[16];
+                tsbHideAllParts.Enabled = states[17];
+                tsbInvertVisibleParts.Enabled = states[18];
+            }
+            //else throw new NotSupportedException();
         }
 
         #region File menu ##########################################################################################################
@@ -7944,6 +8031,8 @@ namespace PrePoMax
                                       double[][] planeParameters, bool completelyInside,
                                       vtkSelectOperation selectOperation, string[] pickedPartNames)
         {
+            PushMenuStates();
+            //
             SetStateWorking(Globals.SelectionText);
             //
             _controller.SelectPointOrArea(pickedPoint, selectionDirection,
@@ -7962,6 +8051,8 @@ namespace PrePoMax
             SelectionChanged(ids);
             //
             SetStateReady(Globals.SelectionText);
+            //
+            PopMenuStates();
         }
         public void SelectionChanged(int[] ids = null)
         {
@@ -8732,47 +8823,16 @@ namespace PrePoMax
                     _controller.GetResultStepIDs().Length > 0 && !_frmAnimation.Visible)
                 {
                     CloseAllForms();
-                    DisableEnableControlsForAnimation(false);
+                    SetMenuAndToolStripVisibilityByAnimation(false);
                     SetFormLocation(_frmAnimation);
                     _frmAnimation.PrepareForm(this, _controller);
-                    if (_frmAnimation.DialogResult == DialogResult.Abort)
-                        DisableEnableControlsForAnimation(true);
-                    else
-                        _frmAnimation.Show();
+                    if (_frmAnimation.DialogResult == DialogResult.Abort) SetMenuAndToolStripVisibilityByAnimation(true);
+                    else _frmAnimation.Show();
                 }
             }
             catch
             { }
         }
-        //
-        private void DisableEnableControlsForAnimation(bool enable)
-        {
-            // _modelTree.DisableMouse = !enable; this is done in the itemForm_VisibleChanged
-            menuStripMain.DisableMouseButtons = !enable;
-            tsFile.DisableMouseButtons = !enable;
-            //
-            tsDeformationFactor.DisableMouseButtons = !enable;
-            tscbDeformationVariable.Enabled = enable;   // must be here
-            tscbDeformationType.Enabled = enable;       // must be here
-            tstbDeformationFactor.Enabled = enable;     // must be here
-            //
-            if (enable) UpdateComplexControlStates();
-            else
-            {
-                tslComplex.Enabled = false;
-                tscbComplex.Enabled = false;
-                tslAngle.Enabled = false;
-                tstbAngle.Enabled = false;
-            }
-            //
-            tsResults.DisableMouseButtons = !enable;
-            tscbStepAndIncrement.Enabled = enable;      // must be here despite the tsResults.DisableMouseButtons = !enable;
-            //
-            tsbShowAllParts.Enabled = enable;
-            tsbHideAllParts.Enabled = enable;
-            tsbInvertVisibleParts.Enabled = enable;
-        }
-
 
         #endregion  ################################################################################################################
 
@@ -8782,24 +8842,17 @@ namespace PrePoMax
             InvokeIfRequired(() =>
             {
                 tsslState.Text = text;
-                //
+                // Progress
                 if (working) tspbProgress.Style = ProgressBarStyle.Marquee;
                 else tspbProgress.Style = ProgressBarStyle.Blocks;
-                // Rendering
+                tspbProgress.Visible = working;
+                // Rendering - vtk
                 if (text == Globals.ExplodePartsText) _vtk.RenderingOn = true;
                 else _vtk.RenderingOn = !working;
-                //
                 _vtk.Enabled = !working;
                 //
-                _modelTree.DisableMouse = working;
-                menuStripMain.DisableMouseButtons = working;
-                tsFile.DisableMouseButtons = working;
-                tsViews.DisableMouseButtons = working;
-                tsDeformationFactor.DisableMouseButtons = working;
-                tsResults.DisableMouseButtons = working;
-                //
-                //this.DisableAllMouseEvents = working;
-                tspbProgress.Visible = working;
+                bool menusActive = !working;
+                SetMenuAndToolStripVisibilityBySetState(menusActive);
             });
         }
         public void SetStateReady(string currentText)
@@ -8832,7 +8885,7 @@ namespace PrePoMax
         {
             return tsslState.Text == Globals.RegeneratingText || tsslState.Text == Globals.UndoingText;
         }
-
+        //
         private void tsslCancel_MouseDown(object sender, MouseEventArgs e)
         {
             tsslCancel.BorderStyle = Border3DStyle.Sunken;

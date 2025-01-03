@@ -165,14 +165,14 @@ namespace PrePoMax
             {
                 if (_currentView != value)
                 {
-                    _form.SetStateWorking("Changing view...");  // this prevents vtk rendering
+                    _form.SetStateWorking(Globals.ChangingView);  // this prevents vtk rendering
                     //
                     _currentView = value;
                     ClearSelectionHistoryAndCallSelectionChanged(); // the selection nodes are only valid on default mesh
                     _form.SetCurrentView(_currentView);
                     Redraw();
                     //
-                    _form.SetStateReady("Changing view...");
+                    _form.SetStateReady(Globals.ChangingView);
                 }
             }
         }

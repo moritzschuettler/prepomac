@@ -333,7 +333,6 @@ namespace PrePoMax.Forms
         {
             Stop();
             _updateAnimation = true;    // this must be here since on hide/maximize of the main form the graphics is reset
-            Form_ControlsEnable(true);
             _controller.DrawResults(false);
         }
         //

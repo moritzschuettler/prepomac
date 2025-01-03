@@ -92,6 +92,12 @@ namespace PrePoMax.Forms
         }
 
         // Overrides                                                                                                                
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            if (Visible) ShowHideSelectionForm();   // accounts for minimizing/maximizing the main form
+            //
+            base.OnVisibleChanged(e);
+        }
         protected override void OnApply(bool onOkAddNew)
         {
             ThickenShellMesh thickenShellMesh = ThickenShellMesh;

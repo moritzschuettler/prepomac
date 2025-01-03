@@ -26,6 +26,7 @@ namespace PrePoMax
         // State names
         public static string ReadyText = "Ready";
         public static string RenderingText = "Rendering...";
+        public static string ChangingView = "Changing view...";
         public static string OpeningText = "Opening...";
         public static string ImportingText = "Importing...";
         public static string SavingText = "Saving...";
