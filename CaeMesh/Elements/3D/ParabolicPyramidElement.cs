@@ -121,13 +121,27 @@ namespace CaeMesh
                     throw new NotSupportedException();
             }
         }
+        public override int GetVtkCellIdFromCell(int[] cell)
+        {
+            if (cell[0] == NodeIds[0] && cell[1] == NodeIds[3] && cell[2] == NodeIds[2] && cell[3] == NodeIds[1] &&
+                cell[4] == NodeIds[8] && cell[5] == NodeIds[7] && cell[6] == NodeIds[6] && cell[7] == NodeIds[5]) return 0;
+            else if (cell[0] == NodeIds[0] && cell[1] == NodeIds[1] && cell[2] == NodeIds[4] &&
+                     cell[3] == NodeIds[5] && cell[4] == NodeIds[10] && cell[5] == NodeIds[9]) return 1;
+            else if (cell[0] == NodeIds[1] && cell[1] == NodeIds[2] && cell[2] == NodeIds[4] &&
+                     cell[3] == NodeIds[6] && cell[4] == NodeIds[11] && cell[5] == NodeIds[10]) return 2;
+            else if (cell[0] == NodeIds[2] && cell[1] == NodeIds[3] && cell[2] == NodeIds[4] &&
+                     cell[3] == NodeIds[7] && cell[4] == NodeIds[12] && cell[5] == NodeIds[11]) return 3;
+            else if (cell[0] == NodeIds[3] && cell[1] == NodeIds[0] && cell[2] == NodeIds[4] &&
+                     cell[3] == NodeIds[8] && cell[4] == NodeIds[9] && cell[5] == NodeIds[12]) return 4;
+            return -1;
+        }
         public override int[][] GetAllVtkCells()
         {
             // Use Method: GetVtkCellFromFaceName(FeFaceName faceName)
             int[][] cells = new int[5][];
             //
-            cells[0] = new int[] { NodeIds[0], NodeIds[3], NodeIds[2], NodeIds[1], NodeIds[8], NodeIds[7],
-                                   NodeIds[6], NodeIds[5] };
+            cells[0] = new int[] { NodeIds[0], NodeIds[3], NodeIds[2], NodeIds[1],
+                                   NodeIds[8], NodeIds[7], NodeIds[6], NodeIds[5] };
             cells[1] = new int[] { NodeIds[0], NodeIds[1], NodeIds[4], NodeIds[5], NodeIds[10], NodeIds[9] };
             cells[2] = new int[] { NodeIds[1], NodeIds[2], NodeIds[4], NodeIds[6], NodeIds[11], NodeIds[10] };
             cells[3] = new int[] { NodeIds[2], NodeIds[3], NodeIds[4], NodeIds[7], NodeIds[12], NodeIds[11] };

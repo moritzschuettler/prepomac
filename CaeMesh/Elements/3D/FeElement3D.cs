@@ -30,7 +30,7 @@ namespace CaeMesh
 
         // Methods                                                                                                                  
         abstract public int[][] GetAllVtkCells();
-        public int GetVtkCellIdFromCell(int[] cell)
+        virtual public int GetVtkCellIdFromCell(int[] cell)
         {
             int vtkCellId = -1;
             int[][] cells = GetAllVtkCells();

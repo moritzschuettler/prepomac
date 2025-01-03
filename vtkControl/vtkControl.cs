@@ -111,9 +111,9 @@ namespace vtkControl
 
         // Properties                                                                                                               
         public bool RenderingOn
-        { 
+        {
             get { return _renderingOn; }
-            set 
+            set
             {
                 if (value != _renderingOn)
                 {
@@ -206,7 +206,7 @@ namespace vtkControl
         public void SetAnimationAcceleration(bool animationAcceleration)
         {
             _animationAcceleration = animationAcceleration;
-        } 
+        }
         public void SetSelectableActorsFilter(string[] selectableActors)
         {
             if (selectableActors != null) _selectableActorsFilter = new HashSet<string>(selectableActors);
@@ -221,7 +221,7 @@ namespace vtkControl
             {
                 vtkInteractorStyleControl style = (vtkInteractorStyleControl)(_renderWindowInteractor.GetInteractorStyle());
                 return style.IsRubberBandActive;
-            } 
+            }
         }
 
 
@@ -308,7 +308,7 @@ namespace vtkControl
             if (_renderWindow != null) _renderWindow.Modified();     // this has to be here in order for the vtkMAx widgets to work on maximize/minimize
             //if (_renderWindowInteractor != null) _renderWindowInteractor.Render();
 
-            if (_coorSys != null ) SetCoorSysVisibility(_drawCoorSys);
+            if (_coorSys != null) SetCoorSysVisibility(_drawCoorSys);
             if (_renderer != null)
             {
                 SetAllCaptionPositions();
@@ -530,7 +530,7 @@ namespace vtkControl
                     double[] pickedPoint = GetPickPoint(out pickedActor, mea.Location.X, mea.Location.Y);
                     double[] direction = _renderer.GetActiveCamera().GetDirectionOfProjection();
                     pickedActorNames = new string[] { GetActorName(pickedActor) };
-                    OnMouseLeftButtonUpSelection?.Invoke(pickedPoint, direction,  null, completelyInside,
+                    OnMouseLeftButtonUpSelection?.Invoke(pickedPoint, direction, null, completelyInside,
                                                          selectOperation, pickedActorNames);
                 }
                 // Area selection
@@ -551,7 +551,7 @@ namespace vtkControl
                         planeParameters[i] = new double[] { origin[0], origin[1], origin[2], normal[0], normal[1], normal[2] };
                     }
                     //
-                    
+
                     OnMouseLeftButtonUpSelection?.Invoke(null, null, planeParameters, completelyInside,
                                                          selectOperation, pickedActorNames);
                 }
@@ -567,7 +567,7 @@ namespace vtkControl
             {
                 Form_WidgetPicked(e, Keys.None, widget.GetName(), widget.GetRectangle());
             }
-            else 
+            else
             {
                 vtkActor pickedActor;
                 GetPickPoint(out pickedActor, e.Location.X, e.Location.Y);
@@ -1041,7 +1041,7 @@ namespace vtkControl
             //
             string noEdgePartName;
             vtkMaxActorData actorData = Controller_GetGeometryActorData(pickedPoint,
-                                                                        globalCellId, 
+                                                                        globalCellId,
                                                                         globalCellEdgeNodeIds,
                                                                         globalCellFaceNodeIds,
                                                                         out noEdgePartName);
@@ -1148,10 +1148,10 @@ namespace vtkControl
             //
             while (pickedActor != null)
             {
-                string pickedActorName = GetActorName(pickedActor);                
+                string pickedActorName = GetActorName(pickedActor);
                 vtkMaxActor maxActor;
                 //
-                if (pickedActorName == null || 
+                if (pickedActorName == null ||
                     !(_actors.TryGetValue(pickedActorName, out maxActor) && maxActor.FrustumCellLocator != null))
                 {
                     // Actor has no locator
@@ -1314,12 +1314,12 @@ namespace vtkControl
             for (uint i = 0; i < numNodes; i++)
             {
                 node = result.GetNode(i);
-                
+
                 //vtkIdTypeArray selIds = (vtkIdTypeArray)node.GetSelectionList();
 
                 fd1 = node.GetSelectionData();
 
-                if( fd1.GetNumberOfArrays() != 1) return;
+                if (fd1.GetNumberOfArrays() != 1) return;
                 if (fd1.GetArray(0).GetDataType() != 12) return; // 12 ... VTK_ID_TYPE
 
                 fd1_array = (vtkIdTypeArray)fd1.GetArray(0);
@@ -1363,7 +1363,7 @@ namespace vtkControl
             if (pickedActor != null)
             {
                 p = _propPicker.GetPickPosition();      // this function sometimes gives strange values
-                cellId = GetGlobalCellIdClosestTo3DPoint(ref p, out _, out _);                
+                cellId = GetGlobalCellIdClosestTo3DPoint(ref p, out _, out _);
             }
             // Try some more picks
             if (cellId == -1)
@@ -1440,7 +1440,7 @@ namespace vtkControl
             IntPtr x = Marshal.AllocHGlobal(3 * 8);
             Marshal.Copy(point, 0, x, 3);
             //
-            IntPtr closestPoint = Marshal.AllocHGlobal(3 * 8);            
+            IntPtr closestPoint = Marshal.AllocHGlobal(3 * 8);
             //
             int globalCellId = -1;
             double minDistance = double.MaxValue;
@@ -1523,7 +1523,7 @@ namespace vtkControl
             }
             //
             return faceGlobalNodeIds;
-        }        
+        }
         private int GetNodeIdOnCellFaceClosestToPoint(double[] point)
         {
             vtkCell cell;
@@ -1777,7 +1777,7 @@ namespace vtkControl
             _statusBlockWidget = new vtkMaxStatusBlockWidget();
             //_statusBlock.SetRenderer(_selectionRenderer);
             _statusBlockWidget.SetInteractor(_selectionRenderer, _renderWindowInteractor);
-            _statusBlockWidget.SetTextProperty(CreateNewTextProperty());            
+            _statusBlockWidget.SetTextProperty(CreateNewTextProperty());
             _statusBlockWidget.SetPadding(5);
             _statusBlockWidget.GetBackgroundProperty().SetColor(1, 1, 1);
             _statusBlockWidget.BackgroundVisibilityOff();
@@ -1844,7 +1844,7 @@ namespace vtkControl
         private vtkActor GetActorEdgesFromGrid(vtkUnstructuredGrid uGridEdges)
         {
             if (uGridEdges.GetNumberOfCells() <= 0) return null;
-            
+
             // extract visualization surface of the unstructured grid
             vtkUnstructuredGridGeometryFilter filter = vtkUnstructuredGridGeometryFilter.New();
             filter.SetInput(uGridEdges);
@@ -1854,7 +1854,7 @@ namespace vtkControl
             vtkExtractEdges extractEdges = vtkExtractEdges.New();
             extractEdges.SetInput(filter.GetOutput());
             extractEdges.Update();
-            
+
             vtkPolyDataMapper mapper = vtkPolyDataMapper.New();
             mapper.SetInput(extractEdges.GetOutput());
 
@@ -1870,7 +1870,7 @@ namespace vtkControl
 
             return edges;
         }
-       
+
         // Formatting
         private void ApplySelectionFormattingToActor(vtkMaxActor actor)
         {
@@ -2357,7 +2357,7 @@ namespace vtkControl
             camera.SetViewUp(0, 1, 0);
 
             ResetCamera();
-         
+
             if (animate) AnimateCamera(cameraStart, camera, camera);
             else RenderScene();
         }
@@ -2467,7 +2467,7 @@ namespace vtkControl
             vtkCamera cameraStart = vtkCamera.New();
             cameraStart.DeepCopy(camera);
 
-            
+
             double[] x = { 1, 0, 0 };
             double[] y = { 0, 1, 0 };
             double[] z = { 0, 0, 1 };
@@ -2510,7 +2510,7 @@ namespace vtkControl
             double[] fPos = camera.GetFocalPoint();
             int q = GetClosestIsoDirectionQuadrant(camera.GetViewPlaneNormal());
 
-            if (q == 1)      camera.SetPosition(fPos[0] + delta, fPos[1] + delta, fPos[2] + delta);
+            if (q == 1) camera.SetPosition(fPos[0] + delta, fPos[1] + delta, fPos[2] + delta);
             else if (q == 2) camera.SetPosition(fPos[0] - delta, fPos[1] + delta, fPos[2] + delta);
             else if (q == 3) camera.SetPosition(fPos[0] - delta, fPos[1] - delta, fPos[2] + delta);
             else if (q == 4) camera.SetPosition(fPos[0] + delta, fPos[1] - delta, fPos[2] + delta);
@@ -2536,7 +2536,7 @@ namespace vtkControl
             if (maxID == 0) camera.SetViewUp(Math.Sign(up[0]), 0, 0);
             else if (maxID == 1) camera.SetViewUp(0, Math.Sign(up[1]), 0);
             else camera.SetViewUp(0, 0, Math.Sign(up[2]));
-            
+
             ResetCamera();
 
             if (animate) AnimateCamera(cameraStart, camera, camera);
@@ -2760,7 +2760,7 @@ namespace vtkControl
 
             //double zStart = cameraStart.GetParallelScale();
             //double zMid = camera.GetParallelScale();
-            
+
 
             double[] v1 = cameraStart.GetDirectionOfProjection();
             double[] v2 = cameraEnd.GetDirectionOfProjection();
@@ -3000,7 +3000,7 @@ namespace vtkControl
                     // C = -R(transpose)*T 
                     //                     
                     currentDelta = (DateTime.Now - start).TotalMilliseconds;
-                    t = currentDelta / delta ;
+                    t = currentDelta / delta;
                     if (t > 1) t = 1;
                     //
                     if (Math.Abs(q1[0] - q2[0]) + Math.Abs(q1[1] - q2[1]) + Math.Abs(q1[2] - q2[2]) + Math.Abs(q1[3] - q2[3]) < 0.00001)
@@ -3085,12 +3085,23 @@ namespace vtkControl
         #endregion  ################################################################################################################
 
         #region Add geometry  ######################################################################################################
+        private bool AreAnyActorsVisible()
+        {
+            if (_actors != null && _actors.Count > 0)
+            {
+                foreach (var entry in _actors)
+                {
+                    if (entry.Value.VtkMaxActorVisible) return true;
+                }
+            }
+            return false;
+        }
         public vtkMaxActor AddPoints(vtkMaxActorData data)
         {
             vtkMaxActor actor = new vtkMaxActor(data, false, true);
             AddActorGeometry(actor, data.Layer);
             //
-            if (_actors.Count == 1) AdjustCameraDistanceAndClippingRedraw();//  is this necessary?
+            if (!AreAnyActorsVisible()) AdjustCameraDistanceAndClippingRedraw();
             //
             return actor;
         }
@@ -3101,7 +3112,7 @@ namespace vtkControl
             //
             AddActor(actor);
             //
-            if (_actors.Count == 1) AdjustCameraDistanceAndClippingRedraw();//  is this necessary?
+            if (!AreAnyActorsVisible()) AdjustCameraDistanceAndClippingRedraw();
             //
             return actor;
         }

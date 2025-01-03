@@ -115,6 +115,16 @@ namespace CaeMesh
                     throw new NotSupportedException();
             }
         }
+        public override int GetVtkCellIdFromCell(int[] cell)
+        {
+            if (cell[0] == NodeIds[0] && cell[1] == NodeIds[3] && cell[2] == NodeIds[2] && cell[3] == NodeIds[1]) return 0;
+            else if (cell[0] == NodeIds[4] && cell[1] == NodeIds[5] && cell[2] == NodeIds[6] && cell[3] == NodeIds[7]) return 1;
+            else if (cell[0] == NodeIds[0] && cell[1] == NodeIds[1] && cell[2] == NodeIds[5] && cell[3] == NodeIds[4]) return 2;
+            else if (cell[0] == NodeIds[1] && cell[1] == NodeIds[2] && cell[2] == NodeIds[6] && cell[3] == NodeIds[5]) return 3;
+            else if (cell[0] == NodeIds[2] && cell[1] == NodeIds[3] && cell[2] == NodeIds[7] && cell[3] == NodeIds[6]) return 4;
+            else if (cell[0] == NodeIds[3] && cell[1] == NodeIds[0] && cell[2] == NodeIds[4] && cell[3] == NodeIds[7]) return 5;
+            return -1;
+        }
         public override int[][] GetAllVtkCells()
         {
             // use Method: GetVtkCellFromFaceName(FeFaceName faceName)

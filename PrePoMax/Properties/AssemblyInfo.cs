@@ -11,7 +11,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
 [assembly: AssemblyProduct("PrePoMax")]
-[assembly: AssemblyCopyright("Copyright (C)  2024 Matej Borovinšek")]
+[assembly: AssemblyCopyright("Copyright (C) 2025 Matej Borovinšek")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

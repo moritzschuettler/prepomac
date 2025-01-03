@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
 [assembly: AssemblyProduct("GmshCaller")]
-[assembly: AssemblyCopyright("Copyright ©  2024")]
+[assembly: AssemblyCopyright("Copyright (C) 2025 Matej Borovinšek")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

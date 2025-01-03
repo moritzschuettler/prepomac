@@ -5690,7 +5690,7 @@ namespace CaeMesh
                         if (vtkCellId != -1) globalVisualizationFaceIds.Add(10 * elementId + vtkCellId);
                         else throw new Exception();
                     }
-                    else if (element is FeElement2D) // shell nad geometry
+                    else if (element is FeElement2D) // shell and geometry
                     {
                         vtkCellId = shellFrontFace ? 1 : 0;
                         globalVisualizationFaceIds.Add(10 * elementId + vtkCellId);
@@ -5768,7 +5768,7 @@ namespace CaeMesh
             //
             return globalVisualizationFaceIds.ToArray();
         }
-        public int[] GetVisualizationFaceIds(string partName, bool shellFrontFace)
+        public int[] GetVisualizationFaceIds(string partName, FrontBackBothFaceSideEnum faceSide)
         {
             // Get all visualization cell ids
             int elementId;
@@ -5791,10 +5791,18 @@ namespace CaeMesh
                         if (vtkCellId != -1) visualizationFaceIds.Add(10 * elementId + vtkCellId);
                         else throw new Exception();
                     }
-                    else if (element is FeElement2D) // shell nad geometry
+                    else if (element is FeElement2D) // shell and geometry
                     {
-                        vtkCellId = shellFrontFace ? 1 : 0;
-                        visualizationFaceIds.Add(10 * elementId + vtkCellId);
+                        if (faceSide == FrontBackBothFaceSideEnum.Front || faceSide == FrontBackBothFaceSideEnum.Both)
+                        {
+                            vtkCellId = 1;
+                            visualizationFaceIds.Add(10 * elementId + vtkCellId);
+                        }
+                        if (faceSide == FrontBackBothFaceSideEnum.Back || faceSide == FrontBackBothFaceSideEnum.Both)
+                        {
+                            vtkCellId = 0;
+                            visualizationFaceIds.Add(10 * elementId + vtkCellId);
+                        }
                     }
                     else throw new NotSupportedException();
                 }
@@ -5963,9 +5971,6 @@ namespace CaeMesh
                         // Check for one first - speed?
                         if (selectedNodes.Count >= surfaceEntry.Value.Count && selectedNodes.Contains(surfaceEntry.Value.First()))
                         {
-                            int[] intersect = selectedNodes.Intersect(surfaceEntry.Value).ToArray();
-                            int[] intersect2 = surfaceEntry.Value.Except(intersect).ToArray();
-                            //
                             if (surfaceEntry.Value.IsSubsetOf(selectedNodes))
                             {
                                 itemId = surfaceEntry.Key;
@@ -6015,7 +6020,7 @@ namespace CaeMesh
             }
             selectedNodes.ExceptWith(nodesToRemove);
             nodesToRemove.Clear();
-            // vertices
+            // Vertices
             foreach (var entry in _parts)
             {
                 if (entry.Value is CompoundGeometryPart) continue;
@@ -6436,9 +6441,7 @@ namespace CaeMesh
                 }
                 else if (geomType == GeometryType.Part)
                 {
-                    List<int> faceIds = new List<int>(GetVisualizationFaceIds(part.Name, true));
-                    faceIds.AddRange(GetVisualizationFaceIds(part.Name, false));
-                    return faceIds.ToArray();
+                    return GetVisualizationFaceIds(part.Name, FrontBackBothFaceSideEnum.Both);
                 }
                 else return new int[] { };
             }

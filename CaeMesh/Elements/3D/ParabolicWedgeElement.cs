@@ -130,11 +130,25 @@ namespace CaeMesh
                     throw new NotSupportedException();
             }
         }
+        public override int GetVtkCellIdFromCell(int[] cell)
+        {
+            if (cell[0] == NodeIds[0] && cell[1] == NodeIds[2] && cell[2] == NodeIds[1] &&
+                cell[3] == NodeIds[8] && cell[4] == NodeIds[7] && cell[5] == NodeIds[6]) return 0;
+            else if (cell[0] == NodeIds[3] && cell[1] == NodeIds[4] && cell[2] == NodeIds[5] &&
+                     cell[3] == NodeIds[9] && cell[4] == NodeIds[10] && cell[5] == NodeIds[11]) return 1;
+            else if (cell[0] == NodeIds[0] && cell[1] == NodeIds[1] && cell[2] == NodeIds[4] && cell[3] == NodeIds[3] &&
+                     cell[4] == NodeIds[6] && cell[5] == NodeIds[13] && cell[6] == NodeIds[9] && cell[7] == NodeIds[12]) return 2;
+            else if (cell[0] == NodeIds[1] && cell[1] == NodeIds[2] && cell[2] == NodeIds[5] && cell[3] == NodeIds[4] &&
+                     cell[4] == NodeIds[7] && cell[5] == NodeIds[14] && cell[6] == NodeIds[10] && cell[7] == NodeIds[13]) return 3;
+            else if (cell[0] == NodeIds[2] && cell[1] == NodeIds[0] && cell[2] == NodeIds[3] && cell[3] == NodeIds[5] &&
+                     cell[4] == NodeIds[8] && cell[5] == NodeIds[12] && cell[6] == NodeIds[11] && cell[7] == NodeIds[14]) return 4;
+            return -1;
+        }
         public override int[][] GetAllVtkCells()
         {
             // use Method: GetVtkCellFromFaceName(FeFaceName faceName)
             int[][] cells = new int[5][];
-
+            //
             cells[0] = new int[] { NodeIds[0], NodeIds[2], NodeIds[1], NodeIds[8], NodeIds[7], NodeIds[6] };
             cells[1] = new int[] { NodeIds[3], NodeIds[4], NodeIds[5], NodeIds[9], NodeIds[10], NodeIds[11] };
             cells[2] = new int[] { NodeIds[0], NodeIds[1], NodeIds[4], NodeIds[3], NodeIds[6], NodeIds[13],
@@ -143,7 +157,7 @@ namespace CaeMesh
                                    NodeIds[10], NodeIds[13] };
             cells[4] = new int[] { NodeIds[2], NodeIds[0], NodeIds[3], NodeIds[5], NodeIds[8], NodeIds[12],
                                    NodeIds[11], NodeIds[14] };
-
+            //
             return cells;
         }
         public override Dictionary<FeFaceName, double> GetFaceNamesAndAreasFromNodeSet(HashSet<int> nodeSet,

@@ -104,16 +104,28 @@ namespace CaeMesh
                     throw new NotSupportedException();
             }
         }
+        public override int GetVtkCellIdFromCell(int[] cell)
+        {
+            if (cell[0] == NodeIds[0] && cell[1] == NodeIds[2] && cell[2] == NodeIds[1] &&
+                cell[3] == NodeIds[6] && cell[4] == NodeIds[5] && cell[5] == NodeIds[4]) return 0;
+            else if (cell[0] == NodeIds[0] && cell[1] == NodeIds[1] && cell[2] == NodeIds[3] &&
+                     cell[3] == NodeIds[4] && cell[4] == NodeIds[8] && cell[5] == NodeIds[7]) return 1;
+            else if (cell[0] == NodeIds[1] && cell[1] == NodeIds[2] && cell[2] == NodeIds[3] &&
+                     cell[3] == NodeIds[5] && cell[4] == NodeIds[9] && cell[5] == NodeIds[8]) return 2;
+            else if (cell[0] == NodeIds[2] && cell[1] == NodeIds[0] && cell[2] == NodeIds[3] &&
+                     cell[3] == NodeIds[6] && cell[4] == NodeIds[7] && cell[5] == NodeIds[9]) return 3;
+            return -1;
+        }
         public override int[][] GetAllVtkCells()
         {
             // use Method: GetVtkCellFromFaceName(FeFaceName faceName)
             int[][] cells = new int[4][];
-
+            //
             cells[0] = new int[] { NodeIds[0], NodeIds[2], NodeIds[1], NodeIds[6], NodeIds[5], NodeIds[4] };
             cells[1] = new int[] { NodeIds[0], NodeIds[1], NodeIds[3], NodeIds[4], NodeIds[8], NodeIds[7] };
             cells[2] = new int[] { NodeIds[1], NodeIds[2], NodeIds[3], NodeIds[5], NodeIds[9], NodeIds[8] };
             cells[3] = new int[] { NodeIds[2], NodeIds[0], NodeIds[3], NodeIds[6], NodeIds[7], NodeIds[9] };
-
+            //
             return cells;
         }
         public override Dictionary<FeFaceName, double> GetFaceNamesAndAreasFromNodeSet(HashSet<int> nodeSet,

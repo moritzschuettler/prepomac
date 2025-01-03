@@ -12579,7 +12579,7 @@ namespace PrePoMax
                     string[] partNamesByElementId = mesh.GetPartNamesFromElementIds(elementIds);
                     HashSet<int> partVisualizationFaceIds = new HashSet<int>();
                     foreach (var partName in partNamesByElementId)
-                        partVisualizationFaceIds.UnionWith(mesh.GetVisualizationFaceIds(partName, true));
+                        partVisualizationFaceIds.UnionWith(mesh.GetVisualizationFaceIds(partName, FrontBackBothFaceSideEnum.Front));
                     ids = partVisualizationFaceIds.ToArray();
                 }
                 else if (_selection.SelectItem == vtkSelectItem.Part)
@@ -12693,7 +12693,7 @@ namespace PrePoMax
                 string[] partNamesByElementId = mesh.GetPartNamesFromElementIds(elementIds);
                 HashSet<int> partVisualizationFaceIds = new HashSet<int>();
                 foreach (var partName in partNamesByElementId)
-                    partVisualizationFaceIds.UnionWith(mesh.GetVisualizationFaceIds(partName, true));
+                    partVisualizationFaceIds.UnionWith(mesh.GetVisualizationFaceIds(partName, FrontBackBothFaceSideEnum.Front));
                 ids = partVisualizationFaceIds.ToArray();
             }
             else throw new NotSupportedException();
@@ -17223,42 +17223,56 @@ namespace PrePoMax
                                 vtkRendererLayer layer, bool backfaceCulling = true,
                                 bool useSecondaryHighlightColor = false, bool drawEdges = false)
         {
-            FeMesh mesh = DisplayedMesh;
-            // Copy
-            int[][] cellsCopy = new int[cells.Length][];
-            for (int i = 0; i < cells.Length; i++) cellsCopy[i] = cells[i].ToArray();
-            // Faces
-            vtkMaxActorData data = new vtkMaxActorData();
-            data.Name = prefixName + Globals.NameSeparator + "draw_surface";
-            data.Color = color;
-            data.Layer = layer;
-            data.CanHaveElementEdges = true;
-            data.BackfaceCulling = backfaceCulling;
-            data.DrawOnGeometry = true;
-            data.UseSecondaryHighlightColor = useSecondaryHighlightColor;
-            data.Geometry.Cells.CellNodeIds = cells;
-            mesh.GetSurfaceGeometry(cells, out data.Geometry.Nodes.Ids, out data.Geometry.Nodes.Coor, out data.Geometry.Cells.Types);
-            //
-            ApplyLighting(data);
-            _form.Add3DCells(data);
-            //
-            if (!drawEdges) return;
-            // Edges
-            cells = mesh.GetFreeEdgesFromVisualizationCells(cellsCopy, null);
-            //
-            data = new vtkMaxActorData();
-            data.Name = prefixName + Globals.NameSeparator + "draw_surface_edges";
-            data.Color = color;
-            data.Layer = layer;
-            data.CanHaveElementEdges = true;
-            data.BackfaceCulling = backfaceCulling;
-            data.UseSecondaryHighlightColor = useSecondaryHighlightColor;
-            data.Geometry.Cells.CellNodeIds = cells;
-            mesh.GetSurfaceEdgesGeometry(cells, out data.Geometry.Nodes.Ids, out data.Geometry.Nodes.Coor,
-                                         out data.Geometry.Cells.Types);
-            //
-            ApplyLighting(data);
-            _form.Add3DCells(data);
+            vtkMaxActor[] actors;
+            string key = prefixName + Globals.NameSeparator + cells.Length + Globals.NameSeparator + layer;
+            if (GetActorsFromSelectionBuffer(key, out actors) && actors.Length == 2)
+            {
+                _form.AddActor(actors[0]);
+                _form.AddActor(actors[1]);
+            }
+            // Create new data
+            else
+            {
+                actors = new vtkMaxActor[2];
+                FeMesh mesh = DisplayedMesh;
+                // Copy
+                int[][] cellsCopy = new int[cells.Length][];
+                for (int i = 0; i < cells.Length; i++) cellsCopy[i] = cells[i].ToArray();
+                // Faces
+                vtkMaxActorData data = new vtkMaxActorData();
+                data.Name = prefixName + Globals.NameSeparator + "Faces";
+                data.Color = color;
+                data.Layer = layer;
+                data.CanHaveElementEdges = true;
+                data.BackfaceCulling = backfaceCulling;
+                data.DrawOnGeometry = true;
+                data.UseSecondaryHighlightColor = useSecondaryHighlightColor;
+                data.Geometry.Cells.CellNodeIds = cells;
+                mesh.GetSurfaceGeometry(cells, out data.Geometry.Nodes.Ids, out data.Geometry.Nodes.Coor, out data.Geometry.Cells.Types);
+                //
+                ApplyLighting(data);
+                actors[0] = _form.Add3DCells(data);
+                //
+                if (!drawEdges) return;
+                // Edges
+                cells = mesh.GetFreeEdgesFromVisualizationCells(cellsCopy, null);
+                //
+                data = new vtkMaxActorData();
+                data.Name = prefixName + Globals.NameSeparator + "Edges";
+                data.Color = color;
+                data.Layer = layer;
+                data.CanHaveElementEdges = true;
+                data.BackfaceCulling = backfaceCulling;
+                data.UseSecondaryHighlightColor = useSecondaryHighlightColor;
+                data.Geometry.Cells.CellNodeIds = cells;
+                mesh.GetSurfaceEdgesGeometry(cells, out data.Geometry.Nodes.Ids, out data.Geometry.Nodes.Coor,
+                                             out data.Geometry.Cells.Types);
+                //
+                ApplyLighting(data);
+                actors[1] = _form.Add3DCells(data);
+                //
+                AddActorsToSelectionBuffer(key, actors);
+            }
         }
         public int DrawSurfaceEdge(string prefixName, string surfaceName, Color color, vtkRendererLayer layer,
                                    bool backfaceCulling = true, bool useSecondaryHighlightColor = false,
@@ -17356,6 +17370,7 @@ namespace PrePoMax
             List<int> edgeIdsList = new List<int>();
             List<int> surfaceIdsList = new List<int>();
             List<int> partIdsList = new List<int>();
+            HashSet<int> partIds = new HashSet<int>();
             int[] itemTypePartIds;
             FeMesh mesh = DisplayedMesh;
             foreach (var id in ids)
@@ -17369,12 +17384,17 @@ namespace PrePoMax
                         if (geomType == GeometryType.Vertex) nodeIdsList.Add(id);
                         else if (geomType.IsEdge()) edgeIdsList.Add(id);
                         else if (geomType.IsSurface()) surfaceIdsList.Add(id);
-                        else if (geomType == GeometryType.Part) partIdsList.Add(id);
+                        else if (geomType == GeometryType.Part)
+                        {
+                            if (partIds.Add(bp.PartId)) partIdsList.Add(id);
+                        }
                         else throw new NotSupportedException();
                     }
                 }
             }
             //
+
+
             int[] nodeIds = mesh.GetIdsFromGeometryIds(nodeIdsList.ToArray(), vtkSelectItem.Node, onlyVisible);
             int[] edgeIds = mesh.GetIdsFromGeometryIds(edgeIdsList.ToArray(), vtkSelectItem.GeometryEdge, onlyVisible);
             int[] surfaceFaceIds = mesh.GetIdsFromGeometryIds(surfaceIdsList.ToArray(), vtkSelectItem.Surface, onlyVisible);
@@ -17485,6 +17505,9 @@ namespace PrePoMax
         }
         private void Highlight3DObject(ViewGeometryModelResults view, object obj, bool mouseOver = false)
         {
+            if (Debugger.IsAttached)
+                Debug.WriteLine(DateTime.Now + " Highlight3DObject: " + obj.ToString() + " " + obj.GetHashCode());
+            //
             try
             {
                 if (view == ViewGeometryModelResults.Geometry)

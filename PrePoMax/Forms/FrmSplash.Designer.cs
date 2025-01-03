@@ -150,7 +150,7 @@
             this.lCopyRight.Name = "lCopyRight";
             this.lCopyRight.Size = new System.Drawing.Size(289, 20);
             this.lCopyRight.TabIndex = 10;
-            this.lCopyRight.Text = "Copyright © 2016-2024 Matej Borovinšek";
+            this.lCopyRight.Text = "Copyright © 2016-2025 Matej Borovinšek";
             this.lCopyRight.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             // 
             // FrmSplash
