@@ -166,8 +166,6 @@ namespace PrePoMax.Forms
             _controller.Selection.LimitSelectionToFirstMesherType = Visible;
             //
             if (Visible) ShowHideSelectionForm();   // accounts for minimizing/maximizing the main form
-            //
-            base.OnVisibleChanged(e);
         }
         private void tsmiResetAll_Click(object sender, EventArgs e)
         {

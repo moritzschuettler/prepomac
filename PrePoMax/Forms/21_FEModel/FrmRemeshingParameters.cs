@@ -91,8 +91,6 @@ namespace PrePoMax.Forms
             btnPreview.Enabled = true;
             //
             if (Visible) ShowHideSelectionForm();   // accounts for minimizing/maximizing the main form
-            //
-            base.OnVisibleChanged(e);
         }
         async private void btnPreview_Click(object sender, EventArgs e)
         {
