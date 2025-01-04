@@ -650,29 +650,29 @@ namespace CaeGlobals
         {
             return magnitude * (float)Math.Cos((phaseDeg + angleDeg) * _degToRad);
         }
-
-        // <summary>
-        // Get the name of a static or instance property from a property access lambda.
-        // </summary>
-        // <typeparam name="T">Type of the property</typeparam>
-        // <param name="propertyLambda">lambda expression of the form: '() => Class.Property' or '() => object.Property'</param>
-        // <returns>The name of the property</returns>
-        public static string GetPropertyName<T>(Expression<Func<T>> propertyLambda)
-        {
-            var me = propertyLambda.Body as MemberExpression;
-
-            if (me == null)
-            {
-                throw new ArgumentException("You must pass a lambda of the form: '() => Class.Property' or '() => object.Property'");
-            }
-
-            return me.Member.Name;
-        }
         //
         public static int[] GetSortedKey(int id1, int id2)
         {
             if (id1 < id2) return new int[] { id1, id2 };
             else return new int[] { id2, id1 };
+        }
+        public static int GetHashCode(int[] array)
+        {
+            int hash = 23;
+            for (int i = 0; i < array.Length; i++)
+            {
+                hash = hash * 31 + array[i].GetHashCode();
+            }
+            return hash;
+        }
+        public static int GetHashCode(int[][] array)
+        {
+            int hash = 23;
+            for (int i = 0; i < array.Length; i++)
+            {
+                hash = hash * 31 + GetHashCode(array[i]);
+            }
+            return hash;
         }
     }
 }

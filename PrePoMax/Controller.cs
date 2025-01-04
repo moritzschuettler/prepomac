@@ -17099,7 +17099,7 @@ namespace PrePoMax
             FeMesh mesh = DisplayedMesh;
             // Create a key and check if the data already exists
             vtkMaxActor[] actors;
-            string key = prefixName + Globals.NameSeparator + elementIds.GetHashCode();
+            string key = prefixName + Globals.NameSeparator + Tools.GetHashCode(elementIds);
             if (!countOnly && _selectionBuffer.TryGetValue(key, out actors))
             {
                 for (int i = 0; i < actors.Length; i++)
@@ -17178,7 +17178,8 @@ namespace PrePoMax
                         // Create a key and check if the data already exists
                         vtkMaxActor[] actors;
                         FeNodeSet nodeSet = _model.Mesh.NodeSets[s.NodeSetName];
-                        string key = name + Globals.NameSeparator + nodeSet.Labels.GetHashCode() + Globals.NameSeparator + layer;
+                        string key =
+                            name + Globals.NameSeparator + Tools.GetHashCode(nodeSet.Labels) + Globals.NameSeparator + layer;
                         if (!countOnly && GetActorsFromSelectionBuffer(key, out actors) && actors.Length == 1)
                         {
                             _form.AddActor(actors[0]);
@@ -17224,7 +17225,7 @@ namespace PrePoMax
                                 bool useSecondaryHighlightColor = false, bool drawEdges = false)
         {
             vtkMaxActor[] actors;
-            string key = prefixName + Globals.NameSeparator + cells.Length + Globals.NameSeparator + layer;
+            string key = prefixName + Globals.NameSeparator + Tools.GetHashCode(cells) + Globals.NameSeparator + layer;
             if (GetActorsFromSelectionBuffer(key, out actors) && actors.Length == 2)
             {
                 _form.AddActor(actors[0]);
@@ -17288,7 +17289,7 @@ namespace PrePoMax
                     // Create a key and check if the data already exists
                     vtkMaxActor[] actors;
                     FeNodeSet nodeSet = _model.Mesh.NodeSets[s.NodeSetName];
-                    string key = name + Globals.NameSeparator + nodeSet.Labels.GetHashCode() + Globals.NameSeparator + layer;
+                    string key = name + Globals.NameSeparator + Tools.GetHashCode(nodeSet.Labels) + Globals.NameSeparator + layer;
                     if (!countOnly && GetActorsFromSelectionBuffer(key, out actors) && actors.Length == 1)
                     {
                         _form.AddActor(actors[0]);
