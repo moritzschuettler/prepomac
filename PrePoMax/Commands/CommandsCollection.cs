@@ -387,21 +387,31 @@ namespace PrePoMax.Commands
         {
             if (!_controller.RegenerationMode && _commands.Count > 1)
             {
-                // Write to files
-                _commands.DumpToFile(_historyFileNameBin);
                 // Use other file
-                string fileName = Tools.GetNonExistentRandomFileName(System.Windows.Forms.Application.StartupPath, "pmh");
-                _commands.DumpToFile(fileName);
+                WriteToFile(_commands, _historyFileNameBin);
+            }
+        }
+        public static void WriteToFile(List<Command> commands, string fileName)
+        {
+            if (commands.Count > 1)
+            {
+                // Use other file
+                string fileNameCopy = Tools.GetNonExistentRandomFileName(Path.GetDirectoryName(fileName), "pmh");
+                commands.DumpToFile(fileNameCopy);
                 //
-                File.Copy(fileName, _historyFileNameBin, true);
-                File.Delete(fileName);
+                File.Copy(fileNameCopy, fileName, true);
+                File.Delete(fileNameCopy);
             }
         }
         // Read
         public void ReadFromFile(string fileName)
         {
-            _commands = Tools.LoadDumpFromFile<List<Command>>(fileName);
+            ReadFromFile(fileName, out _commands);
             _currPositionIndex = _commands.Count - 1;
+        }
+        public static void ReadFromFile(string fileName, out List<Command> commands)
+        {
+            commands = Tools.LoadDumpFromFile<List<Command>>(fileName);
         }
         // History files
         public string GetHistoryFileNameBin()

@@ -148,8 +148,8 @@ namespace CaeMesh
         {
             if (cell[0] == NodeIds[0] && cell[1] == NodeIds[3] && cell[2] == NodeIds[2] && cell[3] == NodeIds[1] &&
                 cell[4] == NodeIds[11] && cell[5] == NodeIds[10] && cell[6] == NodeIds[9] && cell[7] == NodeIds[8]) return 0;
-            else if (cell[0] == NodeIds[4] && cell[1] == NodeIds[5] && cell[2] == NodeIds[6] && cell[3] == NodeIds[12] &&
-                     cell[4] == NodeIds[13] && cell[5] == NodeIds[14] && cell[6] == NodeIds[15] && cell[7] == NodeIds[7]) return 1;
+            else if (cell[0] == NodeIds[4] && cell[1] == NodeIds[5] && cell[2] == NodeIds[6] && cell[3] == NodeIds[7] &&
+                     cell[4] == NodeIds[12] && cell[5] == NodeIds[13] && cell[6] == NodeIds[14] && cell[7] == NodeIds[15]) return 1;
             else if (cell[0] == NodeIds[0] && cell[1] == NodeIds[1] && cell[2] == NodeIds[5] && cell[3] == NodeIds[4] &&
                      cell[4] == NodeIds[8] && cell[5] == NodeIds[17] && cell[6] == NodeIds[12] && cell[7] == NodeIds[16]) return 2;
             else if (cell[0] == NodeIds[1] && cell[1] == NodeIds[2] && cell[2] == NodeIds[6] && cell[3] == NodeIds[5] &&

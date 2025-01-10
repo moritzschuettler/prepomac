@@ -5625,7 +5625,11 @@ namespace CaeMesh
                             {
                                 vtkCellId = element3D.GetVtkCellIdFromCell(cell);
                                 if (vtkCellId != -1) globalVisualizationFaceIds.Add(10 * elementId + vtkCellId);
-                                else throw new Exception();
+                                else
+                                {
+                                    element3D.GetVtkCellIdFromCell(cell);
+                                    throw new Exception();
+                                }
                             }
                             else if (element is FeElement2D element2D)      // shell and geometry
                             {

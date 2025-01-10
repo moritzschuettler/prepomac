@@ -14,6 +14,8 @@ using DynamicTypeDescriptor;
 using CaeJob;
 using PrePoMax.Commands;
 using PrePoMax.Settings;
+using System.Diagnostics;
+using System.IO;
 
 namespace PrePoMax.Forms
 {
@@ -42,12 +44,57 @@ namespace PrePoMax.Forms
         {
             InitializeComponent();
             //
+            dgvCommands.EnableDragAndDropRows();
             _viewCommands = null;
             _modified = false;
         }
 
 
         // Event handlers                                                                                                           
+        private void tsmiOpen_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                using (OpenFileDialog openFileDialog = new OpenFileDialog())
+                {
+                    openFileDialog.Filter = "PrePoMax history|*.pmh";
+                    openFileDialog.FileName = "";
+                    if (openFileDialog.ShowDialog() == DialogResult.OK)
+                    {
+                        OpenPmh(openFileDialog.FileName);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiSaveAs_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                using (SaveFileDialog saveFileDialog = new SaveFileDialog())
+                {
+                    saveFileDialog.Filter = "PrePoMax history|*.pmh";
+                    saveFileDialog.FileName = "History";
+                    //
+                    if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                    {
+                        SavePmh(saveFileDialog.FileName);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiExit_Click(object sender, EventArgs e)
+        {
+            Hide();
+        }
+        //
         private void Binding_ListChanged(object sender, ListChangedEventArgs e)
         {
             _modified = true;
@@ -88,10 +135,10 @@ namespace PrePoMax.Forms
         }
         private void dgvCommands_UserDeletingRow(object sender, DataGridViewRowCancelEventArgs e)
         {
-            if (e.Row.Index < 2)
-            {
-                e.Cancel = true;
-            }
+            //if (e.Row.Index < 2)
+            //{
+            //    e.Cancel = true;
+            //}
         }
 
 
@@ -108,6 +155,26 @@ namespace PrePoMax.Forms
             //
             SetBinding();
         }
+        private void OpenPmh(string fileName)
+        {
+            List<Command> commands;
+            CommandsCollection.ReadFromFile(fileName, out commands);
+            //
+            if (commands != null)
+            {
+                _viewCommands.Clear();
+                //
+                int id = 1;
+                foreach (var command in commands) _viewCommands.Add(new ViewCommand(id++, command));
+                //
+                SetBinding();
+            }
+        }
+        private void SavePmh(string fileName)
+        {
+            CommandsCollection.WriteToFile(Commands, fileName);
+        }
+
         private void SetBinding()
         {
             BindingSource binding = new BindingSource();
@@ -125,5 +192,6 @@ namespace PrePoMax.Forms
             dgvCommands.Columns["ExecutionTime"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
         }
 
+        
     }
 }

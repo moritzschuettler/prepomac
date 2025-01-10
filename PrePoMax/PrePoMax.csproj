@@ -363,6 +363,7 @@
     <Compile Include="Forms\00_Parameters\FrmEquationParameters.Designer.cs">
       <DependentUpon>FrmEquationParameters.cs</DependentUpon>
     </Compile>
+    <Compile Include="Forms\01_Edit\DataGridViewExtension.cs" />
     <Compile Include="Forms\01_Edit\FrmEditCommands.cs">
       <SubType>Form</SubType>
     </Compile>

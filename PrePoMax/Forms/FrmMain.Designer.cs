@@ -179,6 +179,7 @@ namespace PrePoMax
             this.tsmiAnnotateInitialConditions = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiAnnotateBCs = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiAnnotateLoads = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiAnnotateDefinedFields = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiGeometry = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiGeometryPart = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiEditGeometryPart = new System.Windows.Forms.ToolStripMenuItem();
@@ -521,7 +522,6 @@ namespace PrePoMax
             this.tbOutput = new UserControls.AutoScrollTextBox();
             this.timerTest = new System.Windows.Forms.Timer(this.components);
             this.timerOutput = new System.Windows.Forms.Timer(this.components);
-            this.tsmiAnnotateDefinedFields = new System.Windows.Forms.ToolStripMenuItem();
             this.tsFile.SuspendLayout();
             this.tsViews.SuspendLayout();
             this.tsSymbols.SuspendLayout();
@@ -979,7 +979,6 @@ namespace PrePoMax
             // 
             // tstbDeformationFactor
             // 
-            this.tstbDeformationFactor.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.tstbDeformationFactor.Name = "tstbDeformationFactor";
             this.tstbDeformationFactor.ShortcutsEnabled = false;
             this.tstbDeformationFactor.Size = new System.Drawing.Size(45, 25);
@@ -1017,7 +1016,6 @@ namespace PrePoMax
             // 
             // tstbAngle
             // 
-            this.tstbAngle.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.tstbAngle.Name = "tstbAngle";
             this.tstbAngle.Size = new System.Drawing.Size(45, 25);
             this.tstbAngle.Text = "0 °";
@@ -1771,96 +1769,103 @@ namespace PrePoMax
             // tsmiAnnotateFaceOrientations
             // 
             this.tsmiAnnotateFaceOrientations.Name = "tsmiAnnotateFaceOrientations";
-            this.tsmiAnnotateFaceOrientations.Size = new System.Drawing.Size(180, 22);
+            this.tsmiAnnotateFaceOrientations.Size = new System.Drawing.Size(179, 22);
             this.tsmiAnnotateFaceOrientations.Text = "Face Orientations";
             this.tsmiAnnotateFaceOrientations.Click += new System.EventHandler(this.tsmiAnnotateFaceOrientations_Click);
             // 
             // tsmiDividerColorAnnotations1
             // 
             this.tsmiDividerColorAnnotations1.Name = "tsmiDividerColorAnnotations1";
-            this.tsmiDividerColorAnnotations1.Size = new System.Drawing.Size(177, 6);
+            this.tsmiDividerColorAnnotations1.Size = new System.Drawing.Size(176, 6);
             // 
             // tsmiAnnotateParts
             // 
             this.tsmiAnnotateParts.Name = "tsmiAnnotateParts";
-            this.tsmiAnnotateParts.Size = new System.Drawing.Size(180, 22);
+            this.tsmiAnnotateParts.Size = new System.Drawing.Size(179, 22);
             this.tsmiAnnotateParts.Text = "Parts";
             this.tsmiAnnotateParts.Click += new System.EventHandler(this.tsmiAnnotateParts_Click);
             // 
             // tsmiAnnotateMaterials
             // 
             this.tsmiAnnotateMaterials.Name = "tsmiAnnotateMaterials";
-            this.tsmiAnnotateMaterials.Size = new System.Drawing.Size(180, 22);
+            this.tsmiAnnotateMaterials.Size = new System.Drawing.Size(179, 22);
             this.tsmiAnnotateMaterials.Text = "Materials";
             this.tsmiAnnotateMaterials.Click += new System.EventHandler(this.tsmiAnnotateMaterials_Click);
             // 
             // tsmiAnnotateSections
             // 
             this.tsmiAnnotateSections.Name = "tsmiAnnotateSections";
-            this.tsmiAnnotateSections.Size = new System.Drawing.Size(180, 22);
+            this.tsmiAnnotateSections.Size = new System.Drawing.Size(179, 22);
             this.tsmiAnnotateSections.Text = "Sections";
             this.tsmiAnnotateSections.Click += new System.EventHandler(this.tsmiAnnotateSections_Click);
             // 
             // tsmiAnnotateSectionThicknesses
             // 
             this.tsmiAnnotateSectionThicknesses.Name = "tsmiAnnotateSectionThicknesses";
-            this.tsmiAnnotateSectionThicknesses.Size = new System.Drawing.Size(180, 22);
+            this.tsmiAnnotateSectionThicknesses.Size = new System.Drawing.Size(179, 22);
             this.tsmiAnnotateSectionThicknesses.Text = "Section Thicknesses";
             this.tsmiAnnotateSectionThicknesses.Click += new System.EventHandler(this.tsmiAnnotateSectionThicknesses_Click);
             // 
             // tsmiDividerColorAnnotations2
             // 
             this.tsmiDividerColorAnnotations2.Name = "tsmiDividerColorAnnotations2";
-            this.tsmiDividerColorAnnotations2.Size = new System.Drawing.Size(177, 6);
+            this.tsmiDividerColorAnnotations2.Size = new System.Drawing.Size(176, 6);
             // 
             // tsmiAnnotateAllSymbols
             // 
             this.tsmiAnnotateAllSymbols.Name = "tsmiAnnotateAllSymbols";
-            this.tsmiAnnotateAllSymbols.Size = new System.Drawing.Size(180, 22);
+            this.tsmiAnnotateAllSymbols.Size = new System.Drawing.Size(179, 22);
             this.tsmiAnnotateAllSymbols.Text = "All Symbols";
             this.tsmiAnnotateAllSymbols.Click += new System.EventHandler(this.tsmiAnnotateAllSymbols_Click);
             // 
             // tsmiAnnotateReferencePoints
             // 
             this.tsmiAnnotateReferencePoints.Name = "tsmiAnnotateReferencePoints";
-            this.tsmiAnnotateReferencePoints.Size = new System.Drawing.Size(180, 22);
+            this.tsmiAnnotateReferencePoints.Size = new System.Drawing.Size(179, 22);
             this.tsmiAnnotateReferencePoints.Text = "Reference Points";
             this.tsmiAnnotateReferencePoints.Click += new System.EventHandler(this.tsmiAnnotateReferencePoints_Click);
             // 
             // tsmiAnnotateConstraints
             // 
             this.tsmiAnnotateConstraints.Name = "tsmiAnnotateConstraints";
-            this.tsmiAnnotateConstraints.Size = new System.Drawing.Size(180, 22);
+            this.tsmiAnnotateConstraints.Size = new System.Drawing.Size(179, 22);
             this.tsmiAnnotateConstraints.Text = "Constraints";
             this.tsmiAnnotateConstraints.Click += new System.EventHandler(this.tsmiAnnotateConstraints_Click);
             // 
             // tsmiAnnotateContactPairs
             // 
             this.tsmiAnnotateContactPairs.Name = "tsmiAnnotateContactPairs";
-            this.tsmiAnnotateContactPairs.Size = new System.Drawing.Size(180, 22);
+            this.tsmiAnnotateContactPairs.Size = new System.Drawing.Size(179, 22);
             this.tsmiAnnotateContactPairs.Text = "Contact Pairs";
             this.tsmiAnnotateContactPairs.Click += new System.EventHandler(this.tsmiAnnotateContactPairs_Click);
             // 
             // tsmiAnnotateInitialConditions
             // 
             this.tsmiAnnotateInitialConditions.Name = "tsmiAnnotateInitialConditions";
-            this.tsmiAnnotateInitialConditions.Size = new System.Drawing.Size(180, 22);
+            this.tsmiAnnotateInitialConditions.Size = new System.Drawing.Size(179, 22);
             this.tsmiAnnotateInitialConditions.Text = "Initial conditions";
             this.tsmiAnnotateInitialConditions.Click += new System.EventHandler(this.tsmiAnnotateInitialConditions_Click);
             // 
             // tsmiAnnotateBCs
             // 
             this.tsmiAnnotateBCs.Name = "tsmiAnnotateBCs";
-            this.tsmiAnnotateBCs.Size = new System.Drawing.Size(180, 22);
+            this.tsmiAnnotateBCs.Size = new System.Drawing.Size(179, 22);
             this.tsmiAnnotateBCs.Text = "BCs";
             this.tsmiAnnotateBCs.Click += new System.EventHandler(this.tsmiAnnotateBCs_Click);
             // 
             // tsmiAnnotateLoads
             // 
             this.tsmiAnnotateLoads.Name = "tsmiAnnotateLoads";
-            this.tsmiAnnotateLoads.Size = new System.Drawing.Size(180, 22);
+            this.tsmiAnnotateLoads.Size = new System.Drawing.Size(179, 22);
             this.tsmiAnnotateLoads.Text = "Loads";
             this.tsmiAnnotateLoads.Click += new System.EventHandler(this.tsmiAnnotateLoads_Click);
+            // 
+            // tsmiAnnotateDefinedFields
+            // 
+            this.tsmiAnnotateDefinedFields.Name = "tsmiAnnotateDefinedFields";
+            this.tsmiAnnotateDefinedFields.Size = new System.Drawing.Size(179, 22);
+            this.tsmiAnnotateDefinedFields.Text = "Defined Fields";
+            this.tsmiAnnotateDefinedFields.Click += new System.EventHandler(this.tsmiAnnotateLoads_Click);
             // 
             // tsmiGeometry
             // 
@@ -3324,7 +3329,7 @@ namespace PrePoMax
             this.tsmiDeleteStep});
             this.tsmiStep.Image = global::PrePoMax.Properties.Resources.Step;
             this.tsmiStep.Name = "tsmiStep";
-            this.tsmiStep.Size = new System.Drawing.Size(180, 22);
+            this.tsmiStep.Size = new System.Drawing.Size(153, 22);
             this.tsmiStep.Text = "Step";
             // 
             // tsmiCreateStep
@@ -3370,7 +3375,7 @@ namespace PrePoMax
             // tsmiDividerStep1
             // 
             this.tsmiDividerStep1.Name = "tsmiDividerStep1";
-            this.tsmiDividerStep1.Size = new System.Drawing.Size(177, 6);
+            this.tsmiDividerStep1.Size = new System.Drawing.Size(150, 6);
             // 
             // tsmiHistoryOutput
             // 
@@ -3383,7 +3388,7 @@ namespace PrePoMax
             this.tsmiDeleteHistoryOutput});
             this.tsmiHistoryOutput.Image = global::PrePoMax.Properties.Resources.History_output;
             this.tsmiHistoryOutput.Name = "tsmiHistoryOutput";
-            this.tsmiHistoryOutput.Size = new System.Drawing.Size(180, 22);
+            this.tsmiHistoryOutput.Size = new System.Drawing.Size(153, 22);
             this.tsmiHistoryOutput.Text = "History Output";
             // 
             // tsmiCreateHistoryOutput
@@ -3438,7 +3443,7 @@ namespace PrePoMax
             this.tsmiDeleteFieldOutput});
             this.tsmiFieldOutput.Image = global::PrePoMax.Properties.Resources.Field_output;
             this.tsmiFieldOutput.Name = "tsmiFieldOutput";
-            this.tsmiFieldOutput.Size = new System.Drawing.Size(180, 22);
+            this.tsmiFieldOutput.Size = new System.Drawing.Size(153, 22);
             this.tsmiFieldOutput.Text = "Field Output";
             // 
             // tsmiCreateFieldOutput
@@ -3496,7 +3501,7 @@ namespace PrePoMax
             this.tsmiDeleteBC});
             this.tsmiBC.Image = global::PrePoMax.Properties.Resources.Bc;
             this.tsmiBC.Name = "tsmiBC";
-            this.tsmiBC.Size = new System.Drawing.Size(180, 22);
+            this.tsmiBC.Size = new System.Drawing.Size(153, 22);
             this.tsmiBC.Text = "BC";
             // 
             // tsmiCreateBC
@@ -3576,7 +3581,7 @@ namespace PrePoMax
             this.tsmiDeleteLoad});
             this.tsmiLoad.Image = global::PrePoMax.Properties.Resources.Load;
             this.tsmiLoad.Name = "tsmiLoad";
-            this.tsmiLoad.Size = new System.Drawing.Size(180, 22);
+            this.tsmiLoad.Size = new System.Drawing.Size(153, 22);
             this.tsmiLoad.Text = "Load";
             // 
             // tsmiCreateLoad
@@ -3664,27 +3669,27 @@ namespace PrePoMax
             this.tsmiDeleteDefinedField});
             this.tsmiDefinedField.Image = global::PrePoMax.Properties.Resources.Defined_field;
             this.tsmiDefinedField.Name = "tsmiDefinedField";
-            this.tsmiDefinedField.Size = new System.Drawing.Size(180, 22);
+            this.tsmiDefinedField.Size = new System.Drawing.Size(153, 22);
             this.tsmiDefinedField.Text = "Defined Field";
             // 
             // tsmiCreateDefinedField
             // 
             this.tsmiCreateDefinedField.Name = "tsmiCreateDefinedField";
-            this.tsmiCreateDefinedField.Size = new System.Drawing.Size(180, 22);
+            this.tsmiCreateDefinedField.Size = new System.Drawing.Size(128, 22);
             this.tsmiCreateDefinedField.Text = "Create";
             this.tsmiCreateDefinedField.Click += new System.EventHandler(this.tsmiCreateDefinedField_Click);
             // 
             // tsmiEditDefinedField
             // 
             this.tsmiEditDefinedField.Name = "tsmiEditDefinedField";
-            this.tsmiEditDefinedField.Size = new System.Drawing.Size(180, 22);
+            this.tsmiEditDefinedField.Size = new System.Drawing.Size(128, 22);
             this.tsmiEditDefinedField.Text = "Edit";
             this.tsmiEditDefinedField.Click += new System.EventHandler(this.tsmiEditDefinedField_Click);
             // 
             // tsmiDuplicateDefinedField
             // 
             this.tsmiDuplicateDefinedField.Name = "tsmiDuplicateDefinedField";
-            this.tsmiDuplicateDefinedField.Size = new System.Drawing.Size(180, 22);
+            this.tsmiDuplicateDefinedField.Size = new System.Drawing.Size(128, 22);
             this.tsmiDuplicateDefinedField.Text = "Duplicate";
             this.tsmiDuplicateDefinedField.Click += new System.EventHandler(this.tsmiDuplicateDefinedField_Click);
             // 
@@ -3692,7 +3697,7 @@ namespace PrePoMax
             // 
             this.tsmiPropagateDefinedField.Image = global::PrePoMax.Properties.Resources.Propagate;
             this.tsmiPropagateDefinedField.Name = "tsmiPropagateDefinedField";
-            this.tsmiPropagateDefinedField.Size = new System.Drawing.Size(180, 22);
+            this.tsmiPropagateDefinedField.Size = new System.Drawing.Size(128, 22);
             this.tsmiPropagateDefinedField.Text = "Propagate";
             this.tsmiPropagateDefinedField.Click += new System.EventHandler(this.tsmiPropagateDefinedField_Click);
             // 
@@ -3700,20 +3705,20 @@ namespace PrePoMax
             // 
             this.tsmiPreviewDefinedField.Image = global::PrePoMax.Properties.Resources.Preview_defined_field;
             this.tsmiPreviewDefinedField.Name = "tsmiPreviewDefinedField";
-            this.tsmiPreviewDefinedField.Size = new System.Drawing.Size(180, 22);
+            this.tsmiPreviewDefinedField.Size = new System.Drawing.Size(128, 22);
             this.tsmiPreviewDefinedField.Text = "Preview";
             this.tsmiPreviewDefinedField.Click += new System.EventHandler(this.tsmiPreviewDefinedField_Click);
             // 
             // tsmiDividerDefinedField1
             // 
             this.tsmiDividerDefinedField1.Name = "tsmiDividerDefinedField1";
-            this.tsmiDividerDefinedField1.Size = new System.Drawing.Size(177, 6);
+            this.tsmiDividerDefinedField1.Size = new System.Drawing.Size(125, 6);
             // 
             // tsmiHideDefinedField
             // 
             this.tsmiHideDefinedField.Image = global::PrePoMax.Properties.Resources.Hide;
             this.tsmiHideDefinedField.Name = "tsmiHideDefinedField";
-            this.tsmiHideDefinedField.Size = new System.Drawing.Size(180, 22);
+            this.tsmiHideDefinedField.Size = new System.Drawing.Size(128, 22);
             this.tsmiHideDefinedField.Text = "Hide";
             this.tsmiHideDefinedField.Click += new System.EventHandler(this.tsmiHideDefinedField_Click);
             // 
@@ -3721,19 +3726,19 @@ namespace PrePoMax
             // 
             this.tsmiShowDefinedField.Image = global::PrePoMax.Properties.Resources.Show;
             this.tsmiShowDefinedField.Name = "tsmiShowDefinedField";
-            this.tsmiShowDefinedField.Size = new System.Drawing.Size(180, 22);
+            this.tsmiShowDefinedField.Size = new System.Drawing.Size(128, 22);
             this.tsmiShowDefinedField.Text = "Show";
             this.tsmiShowDefinedField.Click += new System.EventHandler(this.tsmiShowDefinedField_Click);
             // 
             // tsmiDividerDefinedField2
             // 
             this.tsmiDividerDefinedField2.Name = "tsmiDividerDefinedField2";
-            this.tsmiDividerDefinedField2.Size = new System.Drawing.Size(177, 6);
+            this.tsmiDividerDefinedField2.Size = new System.Drawing.Size(125, 6);
             // 
             // tsmiDeleteDefinedField
             // 
             this.tsmiDeleteDefinedField.Name = "tsmiDeleteDefinedField";
-            this.tsmiDeleteDefinedField.Size = new System.Drawing.Size(180, 22);
+            this.tsmiDeleteDefinedField.Size = new System.Drawing.Size(128, 22);
             this.tsmiDeleteDefinedField.Text = "Delete";
             this.tsmiDeleteDefinedField.Click += new System.EventHandler(this.tsmiDeleteDefinedField_Click);
             // 
@@ -4574,13 +4579,6 @@ namespace PrePoMax
             // timerOutput
             // 
             this.timerOutput.Tick += new System.EventHandler(this.timerOutput_Tick);
-            // 
-            // tsmiAnnotateDefinedFields
-            // 
-            this.tsmiAnnotateDefinedFields.Name = "tsmiAnnotateDefinedFields";
-            this.tsmiAnnotateDefinedFields.Size = new System.Drawing.Size(180, 22);
-            this.tsmiAnnotateDefinedFields.Text = "Defined Fields";
-            this.tsmiAnnotateDefinedFields.Click += new System.EventHandler(this.tsmiAnnotateLoads_Click);
             // 
             // FrmMain
             // 
