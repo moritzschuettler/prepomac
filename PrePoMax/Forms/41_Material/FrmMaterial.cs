@@ -223,53 +223,53 @@ namespace PrePoMax.Forms
                 //
                 if (lvAddedProperties.SelectedItems[0].Tag is ViewDensity vd)
                 {
-                    tcProperties.TabPages.Add(_pages[0]);   // properites
+                    tcProperties.TabPages.Add(_pages[0]);   // properties
                     tcProperties.TabPages.Add(_pages[1]);   // data points
                     //
                     SetDataGridViewBinding(vd.DataPoints);
                 }
                 else if (lvAddedProperties.SelectedItems[0].Tag is ViewElastic ve)
                 {
-                    tcProperties.TabPages.Add(_pages[0]);   // properites
+                    tcProperties.TabPages.Add(_pages[0]);   // properties
                     tcProperties.TabPages.Add(_pages[1]);   // data points
                     //
                     SetDataGridViewBinding(ve.DataPoints);
                 }
                 else if (lvAddedProperties.SelectedItems[0].Tag is ViewElasticWithDensity)
                 {
-                    tcProperties.TabPages.Add(_pages[0]);   // properites
+                    tcProperties.TabPages.Add(_pages[0]);   // properties
                 }
                 else if (lvAddedProperties.SelectedItems[0].Tag is ViewPlastic vp)
                 {
                     tcProperties.TabPages.Add(_pages[1]);   // data points
-                    tcProperties.TabPages.Add(_pages[0]);   // properites
+                    tcProperties.TabPages.Add(_pages[0]);   // properties
                     //
                     SetDataGridViewBinding(vp.DataPoints);
                 }
                 else if (lvAddedProperties.SelectedItems[0].Tag is ViewThermalExpansion vte)
                 {
-                    tcProperties.TabPages.Add(_pages[0]);   // properites
+                    tcProperties.TabPages.Add(_pages[0]);   // properties
                     tcProperties.TabPages.Add(_pages[1]);   // data points
                     //
                     SetDataGridViewBinding(vte.DataPoints);
                 }
                 else if (lvAddedProperties.SelectedItems[0].Tag is ViewThermalConductivity vtc)
                 {
-                    tcProperties.TabPages.Add(_pages[0]);   // properites
+                    tcProperties.TabPages.Add(_pages[0]);   // properties
                     tcProperties.TabPages.Add(_pages[1]);   // data points
                     //
                     SetDataGridViewBinding(vtc.DataPoints);
                 }
                 else if (lvAddedProperties.SelectedItems[0].Tag is ViewSpecificHeat vsh)
                 {
-                    tcProperties.TabPages.Add(_pages[0]);   // properites
+                    tcProperties.TabPages.Add(_pages[0]);   // properties
                     tcProperties.TabPages.Add(_pages[1]);   // data points
                     //
                     SetDataGridViewBinding(vsh.DataPoints);
                 }
                 else if (lvAddedProperties.SelectedItems[0].Tag is ViewSlipWear vsw)
                 {
-                    tcProperties.TabPages.Add(_pages[0]);   // properites
+                    tcProperties.TabPages.Add(_pages[0]);   // properties
                 }
                 else throw new NotSupportedException();
                 //
