@@ -551,7 +551,7 @@ namespace PrePoMax
         // COMMANDS ********************************************************************************
         public void ClearCommand()
         {
-            Commands.CClear comm = new Commands.CClear();
+            CClear comm = new CClear();
             _commands.AddAndExecute(comm);
         }
         //******************************************************************************************
@@ -664,7 +664,7 @@ namespace PrePoMax
         {
             _currentView = ViewGeometryModelResults.Geometry;
             // Add and execute the clear command
-            _commands.Clear();      // also calls _modelChanged = false;
+            _commands.Clear();      // also calls _modelChanged - must be here
             ClearCommand();         // also calls _modelChanged = false; calls SetNewModelProperties()
             // Annotations
             _annotations = new AnnotationContainer(this);
@@ -1334,6 +1334,21 @@ namespace PrePoMax
                 model = null;
                 return null;
             }
+        }
+        // Run history
+        public void RunHistoryFile(string fileName)
+        {
+            List<Command> commands;
+            CommandsCollection.ReadFromFile(fileName, out commands);
+            //
+            _commands.AddAndExecute(commands);
+            //
+            Command lastCommand = _commands.GetLastExecutedCommand(RegenerateTypeEnum.All);
+            if (lastCommand is null) { }
+            else if (lastCommand is PreprocessCommand) CurrentView = ViewGeometryModelResults.Model;
+            else if (lastCommand is AnalysisCommand) CurrentView = ViewGeometryModelResults.Model;
+            else if (lastCommand is PostprocessCommand) CurrentView = ViewGeometryModelResults.Results;
+            else throw new NotSupportedException();
         }
         // Import
         public string GetFileNameToImport(bool onlyMaterials)

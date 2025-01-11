@@ -12,6 +12,7 @@ using CaeGlobals;
 using System.Runtime.Serialization;
 using System.Security.RightsManagement;
 using System.Windows;
+using System.Windows.Forms;
 
 namespace CaeJob
 {
@@ -237,6 +238,8 @@ namespace CaeJob
             if (_myLock == null) _myLock = new object();
             lock (_myLock)
             {
+                if (_sbAllOutput.Length > 2_000_000_000) Kill("The string builder run out of space.");
+                //
                 _sbAllOutput.Append(_sbOutput);
                 _sbOutput.Clear();
             }
@@ -564,7 +567,8 @@ namespace CaeJob
             {
                 if (_exe != null)
                 {
-                    AppendDataToOutput(message);
+                    if (message != "The string builder run out of space.")
+                        AppendDataToOutput(message);
                     _watch.Stop();
                     _timer.Stop();
                     //
@@ -572,7 +576,7 @@ namespace CaeJob
                     {
                         UInt32 id = (UInt32)_exe.Id;
                         KillAllProcessesSpawnedBy(id);
-                        _exe.Kill();    // must be here
+                        if (!_exe.HasExited) _exe.Kill();    // must be here
                     }
                     catch { }
                 }
@@ -615,7 +619,11 @@ namespace CaeJob
         private void AppendDataToOutput(string data)
         {
             if (_myLock == null) _myLock = new object();
-            lock (_myLock) _sbOutput.AppendLine(data);
+            lock (_myLock)
+            {
+                Application.DoEvents();
+                _sbOutput.AppendLine(data);
+            }
         }
         private void GetStatusFileContents()
         {

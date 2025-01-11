@@ -1360,6 +1360,7 @@ namespace PrePoMax
                     tsmiNew.Enabled = true;
                     tsmiOpen.Enabled = true;
                     tsmiOpenRecent.Enabled = true;
+                    tsmiRunHistoryFile.Enabled = true;
                     tsmiExit.Enabled = true;
                 }
                 //
@@ -1541,53 +1542,6 @@ namespace PrePoMax
         {
             New(ModelSpaceEnum.Undefined, UnitSystemType.Undefined);
         }
-        private bool New(ModelSpaceEnum modelSpace, UnitSystemType unitSystemType)
-        {
-            try
-            {
-                TopMost = true;    // fix the problem with Solidworks opened in the background
-                //
-                if ((_controller.ModelChanged || _controller.ModelInitialized || _controller.ResultsInitialized) &&
-                    MessageBoxes.ShowWarningQuestionOKCancel("OK to close the current model?") != DialogResult.OK) return false;
-                //
-                _controller.DeInitialize();
-                SetMenuAndToolStripVisibility();
-                //
-                bool update = false;
-                // The model space and the unit system are undefined
-                if (modelSpace == ModelSpaceEnum.Undefined || unitSystemType == UnitSystemType.Undefined)
-                {
-                    if (SelectNewModelProperties(true))
-                    {
-                        _controller.New();
-                        SetNewModelProperties();
-                        update = true;
-                    }
-                }
-                else
-                {
-                    _controller.New();
-                    _controller.SetNewModelPropertiesCommand(modelSpace, unitSystemType);
-                    update = true;
-                }
-                //
-                if (update)
-                {
-                    SetMenuAndToolStripVisibility();
-                    //
-                    _controller.ModelChanged = false; // must be here since adding a unit system changes the model
-                }
-            }
-            catch (Exception ex)
-            {
-                ExceptionTools.Show(this, ex);
-            }
-            finally
-            {
-                TopMost = false;
-            }
-            return true;
-        }
         private async void tsmiOpen_Click(object sender, EventArgs e)
         {
             try
@@ -1631,83 +1585,21 @@ namespace PrePoMax
                 tsmiNew_Click(null, null);
             }
         }
-        private bool CheckBeforeOpen(string fileName)
+        private void tsmiRunHistoryFile_Click(object sender, EventArgs e)
         {
-            if (!File.Exists(fileName)) return false;
-            //
-            if (_controller.ModelChanged)
-            {
-                string extension = Path.GetExtension(fileName).ToLower();
-                if (extension == ".pmx")
-                {
-                    if (MessageBoxes.ShowWarningQuestionOKCancel("OK to close the current model?") != DialogResult.OK)
-                        return false;
-                }
-                else if ((extension == ".frd" || extension == ".foam") && _controller.AllResults.ContainsResult(fileName))
-                {
-                    if (MessageBoxes.ShowWarningQuestionOKCancel("OK to reopen the existing results?") != DialogResult.OK)
-                        return false;
-                }
-            }
-            return true;
-        }
-        private async Task OpenAsync(string fileName, Action<string, string> ActionOnFile, bool resetCamera = true,
-                                     Action callback = null, string parameters = null)
-        {
-            bool stateSet = false;
-            string stateText = Globals.OpeningText;
             try
             {
-                string extension = Path.GetExtension(fileName).ToLower();
-                if (extension == ".pmh") stateText = Globals.RegeneratingText;
-                //
-                if (SetStateWorking(stateText) || IsStateRegeneratingOrUndoing())
+                using (OpenFileDialog openFileDialog = new OpenFileDialog())
                 {
-                    stateSet = true;
-                    await Task.Run(() => Open(fileName, ActionOnFile, resetCamera, parameters));
-                    callback?.Invoke(); // close monitor window
+                    openFileDialog.Filter = "PrePoMax history|*.pmh";
+                    openFileDialog.FileName = "";
+                    if (openFileDialog.ShowDialog() == DialogResult.OK) RunHistoryFile(openFileDialog.FileName);
                 }
-                else MessageBoxes.ShowWarning("Another task is already running.");
-                // If the model space or the unit system are undefined
-                if (_controller.ModelInitialized) IfNeededSelectAndSetNewModelProperties();
-                if (_controller.ResultsInitialized) SelectResultsUnitSystem();
             }
             catch (Exception ex)
             {
                 ExceptionTools.Show(this, ex);
             }
-            finally
-            {
-                if (stateSet) SetStateReady(stateText);
-            }
-        }
-        public void Open(string fileName, Action<string, string> ActionOnFile, bool resetCamera = true, string parameters = null)
-        {
-            ActionOnFile(fileName, parameters);
-            //
-            if (_controller.CurrentResult != null && _controller.CurrentResult.Mesh != null)
-            {
-                SetResultNames();
-                // Reset the previous step and increment
-                SetAllStepAndIncrementIds(true);
-                // Set last increment
-                SetDefaultStepAndIncrementIds();
-                // Show the selection in the results tree
-                SelectFirstComponentOfFirstFieldOutput();
-            }
-            //
-            if (_controller.CurrentView == ViewGeometryModelResults.Geometry) _controller.DrawGeometry(resetCamera);
-            else if (_controller.CurrentView == ViewGeometryModelResults.Model) _controller.DrawModel(resetCamera);
-            else if (_controller.CurrentView == ViewGeometryModelResults.Results)
-            {
-                // Set the representation which also calls Draw
-                _controller.ViewResultsType = ViewResultsTypeEnum.ColorContours;  // Draw
-                //
-                if (resetCamera) tsmiFrontView_Click(null, null);
-            }
-            else throw new NotSupportedException();
-            //
-            SetMenuAndToolStripVisibility();
         }
         internal void tsmiImportFile_Click(object sender, EventArgs e)
         {
@@ -1958,6 +1850,159 @@ namespace PrePoMax
             }
         }
         //
+        private bool New(ModelSpaceEnum modelSpace, UnitSystemType unitSystemType)
+        {
+            try
+            {
+                TopMost = true;    // fix the problem with Solidworks opened in the background
+                //
+                if ((_controller.ModelChanged || _controller.ModelInitialized || _controller.ResultsInitialized) &&
+                    MessageBoxes.ShowWarningQuestionOKCancel("OK to close the current model?") != DialogResult.OK) return false;
+                //
+                _controller.DeInitialize();
+                SetMenuAndToolStripVisibility();
+                //
+                bool update = false;
+                // The model space and the unit system are undefined
+                if (modelSpace == ModelSpaceEnum.Undefined || unitSystemType == UnitSystemType.Undefined)
+                {
+                    if (SelectNewModelProperties(true))
+                    {
+                        _controller.New();
+                        SetNewModelProperties();
+                        update = true;
+                    }
+                }
+                else
+                {
+                    _controller.New();
+                    _controller.SetNewModelPropertiesCommand(modelSpace, unitSystemType);
+                    update = true;
+                }
+                //
+                if (update)
+                {
+                    SetMenuAndToolStripVisibility();
+                    //
+                    _controller.ModelChanged = false; // must be here since adding a unit system changes the model
+                }
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+            finally
+            {
+                TopMost = false;
+            }
+            return true;
+        }
+        private bool CheckBeforeOpen(string fileName)
+        {
+            if (!File.Exists(fileName)) return false;
+            //
+            if (_controller.ModelChanged)
+            {
+                string extension = Path.GetExtension(fileName).ToLower();
+                if (extension == ".pmx")
+                {
+                    if (MessageBoxes.ShowWarningQuestionOKCancel("OK to close the current model?") != DialogResult.OK)
+                        return false;
+                }
+                else if ((extension == ".frd" || extension == ".foam") && _controller.AllResults.ContainsResult(fileName))
+                {
+                    if (MessageBoxes.ShowWarningQuestionOKCancel("OK to reopen the existing results?") != DialogResult.OK)
+                        return false;
+                }
+            }
+            return true;
+        }
+        private async Task OpenAsync(string fileName, Action<string, string> ActionOnFile, bool resetCamera = true,
+                                     Action callback = null, string parameters = null)
+        {
+            bool stateSet = false;
+            string stateText = Globals.OpeningText;
+            try
+            {
+                string extension = Path.GetExtension(fileName).ToLower();
+                if (extension == ".pmh") stateText = Globals.RegeneratingText;
+                //
+                if (SetStateWorking(stateText) || IsStateRegeneratingOrUndoing())
+                {
+                    stateSet = true;
+                    await Task.Run(() => Open(fileName, ActionOnFile, resetCamera, parameters));
+                    callback?.Invoke(); // close monitor window
+                }
+                else MessageBoxes.ShowWarning("Another task is already running.");
+                // If the model space or the unit system are undefined
+                if (_controller.ModelInitialized) IfNeededSelectAndSetNewModelProperties();
+                if (_controller.ResultsInitialized) SelectResultsUnitSystem();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+            finally
+            {
+                if (stateSet) SetStateReady(stateText);
+            }
+        }
+        public void Open(string fileName, Action<string, string> ActionOnFile, bool resetCamera = true, string parameters = null)
+        {
+            ActionOnFile(fileName, parameters);
+            //
+            if (_controller.CurrentResult != null && _controller.CurrentResult.Mesh != null)
+            {
+                SetResultNames();
+                // Reset the previous step and increment
+                SetAllStepAndIncrementIds(true);
+                // Set last increment
+                SetDefaultStepAndIncrementIds();
+                // Show the selection in the results tree
+                SelectFirstComponentOfFirstFieldOutput();
+            }
+            //
+            if (_controller.CurrentView == ViewGeometryModelResults.Geometry) _controller.DrawGeometry(resetCamera);
+            else if (_controller.CurrentView == ViewGeometryModelResults.Model) _controller.DrawModel(resetCamera);
+            else if (_controller.CurrentView == ViewGeometryModelResults.Results)
+            {
+                // Set the representation which also calls Draw
+                _controller.ViewResultsType = ViewResultsTypeEnum.ColorContours;  // Draw
+                //
+                if (resetCamera) tsmiFrontView_Click(null, null);
+            }
+            else throw new NotSupportedException();
+            //
+            SetMenuAndToolStripVisibility();
+        }
+        public async void RunHistoryFile(string fileName)
+        {
+            try
+            {
+                CloseAllForms();
+                Application.DoEvents();
+                SetStateWorking(Globals.RegeneratingText);
+                _modelTree.ScreenUpdating = false;
+                await Task.Run(() => _controller.RunHistoryFile(fileName));
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+            finally
+            {
+                SetStateReady(Globals.RegeneratingText);
+                _modelTree.ScreenUpdating = true;
+                RegenerateTree();
+                //
+                SetMenuAndToolStripVisibility();
+                // During regeneration the tree is empty
+                if (_controller.CurrentResult != null) SelectFirstComponentOfFirstFieldOutput();
+                //
+                SetZoomToFit(true);
+            }
+        }
+
         private async void ImportFile(bool onlyMaterials)
         {
             try
@@ -2329,7 +2374,7 @@ namespace PrePoMax
             }
         }
         //
-        private void tsmiRegenerateModel_Click(object sender, EventArgs e)
+        private void tsmiRegenerateHistory_Click(object sender, EventArgs e)
         {
             SetFormLocation(_frmRegenerate);
             if (_frmRegenerate.ShowDialog() == DialogResult.OK)
@@ -2337,7 +2382,7 @@ namespace PrePoMax
                 RegenerateHistory(false, false, _frmRegenerate.RegenerateType);
             }
         }
-        private void tsmiRegenerateModelUsingOtherFiles_Click(object sender, EventArgs e)
+        private void tsmiRegenerateHistoryUsingOtherFiles_Click(object sender, EventArgs e)
         {
             SetFormLocation(_frmRegenerate);
             if (_frmRegenerate.ShowDialog() == DialogResult.OK)
@@ -2345,7 +2390,7 @@ namespace PrePoMax
                 RegenerateHistory(true, false, _frmRegenerate.RegenerateType);
             }
         }
-        private void tsmiRegenerateModelWithRemeshing_Click(object sender, EventArgs e)
+        private void tsmiRegenerateHistoryWithRemeshing_Click(object sender, EventArgs e)
         {
             SetFormLocation(_frmRegenerate);
             if (_frmRegenerate.ShowDialog() == DialogResult.OK)
@@ -10502,7 +10547,7 @@ namespace PrePoMax
             }
         }
 
-        
+       
     }
 }
 

@@ -37,8 +37,8 @@
             this.tsmiFile = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiOpen = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSaveAs = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiExit = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerFile1 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiClose = new System.Windows.Forms.ToolStripMenuItem();
             this.gbProperties.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvCommands)).BeginInit();
             this.msMain.SuspendLayout();
@@ -72,6 +72,7 @@
             this.dgvCommands.Size = new System.Drawing.Size(751, 268);
             this.dgvCommands.TabIndex = 0;
             this.dgvCommands.UserDeletingRow += new System.Windows.Forms.DataGridViewRowCancelEventHandler(this.dgvCommands_UserDeletingRow);
+            this.dgvCommands.DragDrop += new System.Windows.Forms.DragEventHandler(this.dgvCommands_DragDrop);
             // 
             // btnOK
             // 
@@ -122,7 +123,7 @@
             this.tsmiOpen,
             this.tsmiSaveAs,
             this.tsmiDividerFile1,
-            this.tsmiExit});
+            this.tsmiClose});
             this.tsmiFile.Name = "tsmiFile";
             this.tsmiFile.Size = new System.Drawing.Size(37, 20);
             this.tsmiFile.Text = "File";
@@ -143,17 +144,17 @@
             this.tsmiSaveAs.Text = "Save As";
             this.tsmiSaveAs.Click += new System.EventHandler(this.tsmiSaveAs_Click);
             // 
-            // tsmiExit
-            // 
-            this.tsmiExit.Name = "tsmiExit";
-            this.tsmiExit.Size = new System.Drawing.Size(180, 22);
-            this.tsmiExit.Text = "Exit";
-            this.tsmiExit.Click += new System.EventHandler(this.tsmiExit_Click);
-            // 
             // tsmiDividerFile1
             // 
             this.tsmiDividerFile1.Name = "tsmiDividerFile1";
             this.tsmiDividerFile1.Size = new System.Drawing.Size(177, 6);
+            // 
+            // tsmiClose
+            // 
+            this.tsmiClose.Name = "tsmiClose";
+            this.tsmiClose.Size = new System.Drawing.Size(180, 22);
+            this.tsmiClose.Text = "Close";
+            this.tsmiClose.Click += new System.EventHandler(this.tsmiClose_Click);
             // 
             // FrmEditCommands
             // 
@@ -194,7 +195,7 @@
         private System.Windows.Forms.ToolStripMenuItem tsmiFile;
         private System.Windows.Forms.ToolStripMenuItem tsmiOpen;
         private System.Windows.Forms.ToolStripMenuItem tsmiSaveAs;
-        private System.Windows.Forms.ToolStripMenuItem tsmiExit;
+        private System.Windows.Forms.ToolStripMenuItem tsmiClose;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerFile1;
     }
 }

@@ -77,6 +77,30 @@ namespace PrePoMax.Commands
         {
             return ExecuteCommand(command, true);
         }
+        public bool AddAndExecute(Command command, bool executeSynchronous)
+        {
+            return ExecuteCommand(command, true, executeSynchronous);
+        }
+        public bool AddAndExecute(List<Command> commands)
+        {
+            bool result = false;
+            //
+            if (commands != null && commands.Count > 0)
+            {
+                foreach (var command in commands)
+                {
+                    if (command is CSaveToPmx) { }  // skip save commands
+                    else if (command is CClear)
+                    {
+                        Clear();          // remove all previous commands
+                        result &= AddAndExecute(command, true);
+                    }
+                    else result &= AddAndExecute(command, true);
+                }
+            }
+            //
+            return result;
+        }
         private void AddCommand(Command command)
         {
             // Remove old commands
@@ -111,13 +135,13 @@ namespace PrePoMax.Commands
             // Model changed
             _controller.ModelChanged = true;
         }
-        private bool ExecuteCommand(Command command, bool addCommand)
+        private bool ExecuteCommand(Command command, bool addCommand, bool executeSynchronous = false)
         {
             bool result = false;
             // Write to form
             WriteToOutput(command);
             // First execute to check for errors - DO NOT EXECUTE SAVE COMMAND
-            if (command is CSaveToPmx || ExecuteCommandWithTimer(command))
+            if (command is CSaveToPmx || ExecuteCommandWithTimer(command, false, executeSynchronous))
             {
                 // Add command
                 if (addCommand) AddCommand(command);
@@ -132,11 +156,10 @@ namespace PrePoMax.Commands
                 //
                 result = true;
             }
-            
             // Execute the save command at the end to include all changes in the file
             if (command is CSaveToPmx)
             {
-                ExecuteCommandWithTimer(command);
+                ExecuteCommandWithTimer(command, false, executeSynchronous);
                 WriteToFile();  // repeat the write in order to save the hash
             }
             //
@@ -182,7 +205,7 @@ namespace PrePoMax.Commands
             bool executeWithDialog;
             _errors = new List<string>();
             //
-            foreach (Command command in _commands)
+            foreach (Command command in _commands)    // clear command modifies the collection
             {
                 if (count++ <= _currPositionIndex)
                 {

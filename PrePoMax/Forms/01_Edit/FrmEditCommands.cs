@@ -90,11 +90,15 @@ namespace PrePoMax.Forms
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiExit_Click(object sender, EventArgs e)
+        private void tsmiClose_Click(object sender, EventArgs e)
         {
             Hide();
         }
         //
+        private void dgvCommands_DragDrop(object sender, DragEventArgs e)
+        {
+            _modified = true;
+        }
         private void Binding_ListChanged(object sender, ListChangedEventArgs e)
         {
             _modified = true;
