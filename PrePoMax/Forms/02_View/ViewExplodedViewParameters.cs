@@ -37,6 +37,9 @@ namespace PrePoMax.Forms
             set
             {
                 _explodedViewParameters.Method = value;
+                //
+                Magnification = _explodedViewParameters.Magnification;  // check the limits
+                //
                 UpdateVisibility();
             }
         }
@@ -95,8 +98,14 @@ namespace PrePoMax.Forms
             set
             {
                 _explodedViewParameters.Magnification = value;
+                int upperLimit = -1;
                 if (_explodedViewParameters.Magnification < 1) _explodedViewParameters.Magnification = 1;
-                else if (_explodedViewParameters.Magnification > 25) _explodedViewParameters.Magnification = 25;
+                else if (_explodedViewParameters.Method == ExplodedViewMethodEnum.Default &&
+                         _explodedViewParameters.Magnification > 25) upperLimit = 25;
+                else if (_explodedViewParameters.Method == ExplodedViewMethodEnum.CenterPoint &&
+                         _explodedViewParameters.Magnification > 1000) upperLimit = 1000;
+                //
+                if (upperLimit != -1) _explodedViewParameters.Magnification = upperLimit;
             }
         }
         //
