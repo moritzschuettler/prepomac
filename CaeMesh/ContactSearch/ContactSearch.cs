@@ -433,7 +433,7 @@ namespace CaeMesh
             Dictionary<int[], MasterSlaveItem> partKeyMasterSlaveItems = new Dictionary<int[], MasterSlaveItem>(comparer);
             //
             Dictionary<int, int> partIds = GetPartIdsMergedByCompounds();
-            // Mege by part Id
+            // Merge by part Id
             foreach (var csp in contactSurfacePairs)
             {
                 if (partIds[csp[0].Part.PartId] < partIds[csp[1].Part.PartId])

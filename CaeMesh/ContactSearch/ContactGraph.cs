@@ -89,7 +89,8 @@ namespace CaeMesh
                     // Find the nodes
                     if (masterNode == null && node.Value.ItemIds.Intersect(masterSlaveItem.MasterGeometryIds).Count() > 0)
                         masterNode = node;
-                    else if (slaveNode == null && node.Value.ItemIds.Intersect(masterSlaveItem.SlaveGeometryIds).Count() > 0)
+                    // Use if - master and slave ids can belong to the same graph node
+                    if (slaveNode == null && node.Value.ItemIds.Intersect(masterSlaveItem.SlaveGeometryIds).Count() > 0)
                         slaveNode = node;
                     if (masterNode != null && slaveNode != null) break;
                 }
