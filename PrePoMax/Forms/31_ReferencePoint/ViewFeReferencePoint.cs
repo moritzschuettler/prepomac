@@ -139,7 +139,7 @@ namespace PrePoMax.Forms
         private void SetPropertiesVisibility()
         {
             DynamicCustomTypeDescriptor dctd = base.DynamicCustomTypeDescriptor;
-
+            //
             if (CreatedFrom == FeReferencePointCreatedFrom.Coordinates)
             {
                 dctd.GetProperty(nameof(RegionType)).SetIsBrowsable(false);
@@ -164,6 +164,7 @@ namespace PrePoMax.Forms
             {
                 dctd.GetProperty(nameof(RegionType)).SetIsBrowsable(true);
                 //
+                string regionName = _referencePoint.RegionName; // copy
                 if (_numOfNodeSets > 0 && _referencePoint.RegionType == RegionTypeEnum.NodeSetName)
                     RegionType = RegionTypeEnum.NodeSetName.ToFriendlyString();
                 else
@@ -173,6 +174,7 @@ namespace PrePoMax.Forms
                     RegionType = RegionTypeEnum.SurfaceName.ToFriendlyString();
                 else
                     RegionType = RegionTypeEnum.NodeSetName.ToFriendlyString();
+                if (regionName != null) _referencePoint.RegionName = regionName;        // reset
                 //
                 dctd.GetProperty(nameof(X)).SetIsReadOnly(true);
                 dctd.GetProperty(nameof(Y)).SetIsReadOnly(true);

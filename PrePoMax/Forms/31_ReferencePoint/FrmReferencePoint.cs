@@ -122,7 +122,7 @@ namespace PrePoMax.Forms
         protected override void OnApply(bool onOkAddNew)
         {
             _viewReferencePoint = (ViewFeReferencePoint)propertyGrid.SelectedObject;
-            // Check name
+            // Check namem
             CheckName(_referencePointToEditName, _viewReferencePoint.Name, _referencePointNames, "reference point");
             //
             FeReferencePoint rp = ReferencePoint;

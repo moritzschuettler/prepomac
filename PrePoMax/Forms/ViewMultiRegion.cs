@@ -39,7 +39,7 @@ namespace PrePoMax
             }
             set
             {
-                _multiRegion.RegionType =_regionNameRegionTypePairs[value];
+                _multiRegion.RegionType = _regionNameRegionTypePairs[value];
                 CustomPropertyDescriptor cpd = _dctd.GetProperty(_regionTypePropertyNamePairs[_multiRegion.RegionType]);
                 _multiRegion.RegionName = cpd.StatandardValues.First().ToString();
                 //

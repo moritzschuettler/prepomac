@@ -10383,6 +10383,19 @@ namespace PrePoMax
         {
             CAddDeafaultJob comm = new CAddDeafaultJob();
             _commands.AddAndExecute(comm);
+            // Rename default job if necessary
+            if (_jobs.Count() > 0)
+            {
+                AnalysisJob job = _jobs.Last().Value;
+                string name = _form.GetDefaultJobName();
+                if (name != null && name != job.Name)
+                {
+                    string oldName = job.Name;
+                    job.Name = name;
+                    //
+                    ReplaceJobCommand(oldName, job);
+                }
+            }
         }
         public void AddJobCommand(AnalysisJob job)
         {
@@ -10416,20 +10429,14 @@ namespace PrePoMax
         }
         public string AddDefaultJob()
         {
-            string defaultName = null;
             // Create the default analysis the first time a step is added
             if (_jobs.Count == 0)
             {
                 AnalysisJob job = _form.GetDefaultJob();
-                if (job != null)
-                {
-                    string name = _form.GetDefaultJobName();
-                    if (name != null && name != job.Name) job.Name = name;
-                    AddJob(job);
-                    defaultName = job.Name;
-                }
+                AddJob(job);
+                return job.Name;
             }
-            return defaultName;
+            return null;
         }
         public void AddJob(AnalysisJob job)
         {
