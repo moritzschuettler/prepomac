@@ -7,6 +7,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using System.Runtime.Serialization;
 
 
 namespace PrePoMax.Commands
@@ -17,6 +18,7 @@ namespace PrePoMax.Commands
         // Variables                                                                                                                
         private Step _step;
         private bool _copyBCsAndLoads;
+        private bool _skipsAnalysisCreation;
 
 
         // Constructor                                                                                                              
@@ -25,13 +27,14 @@ namespace PrePoMax.Commands
         {
             _step = step.DeepClone();
             _copyBCsAndLoads = copyBCsAndLoads;
+            _skipsAnalysisCreation = true;  // when old file version < 2.2.9 is opened this is false
         }
 
 
         // Methods                                                                                                                  
         public override bool Execute(Controller receiver)
         {
-            receiver.AddStep(_step.DeepClone(), _copyBCsAndLoads);
+            receiver.AddStep(_step.DeepClone(), _copyBCsAndLoads, _skipsAnalysisCreation);
             return true;
         }
 

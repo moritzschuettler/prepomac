@@ -9154,23 +9154,9 @@ namespace PrePoMax
         {
             return _model.StepCollection.GetStepNames();
         }
-        public void AddStep(Step step, bool copyBCsAndLoads)
+        public void AddStep(Step step, bool copyBCsAndLoads, bool skipAnalysisCreation = true)
         {
-            // Create the default analysis the first time a step is added
-            if (_model.StepCollection.StepsList.Count == 0 && _jobs.Count == 0)
-            {
-                AnalysisJob job = _form.GetDefaultJob();
-                if (job != null) AddJob(job);
-                // For the regenerate to work - during regeneration the job name does not depend on the opened file name
-                string oldName;
-                string name = _form.GetDefaultJobName();
-                if (name != null && name != job.Name)
-                {
-                    oldName = job.Name;
-                    job.Name = name;
-                    ReplaceJobCommand(oldName, job);
-                }
-            }
+            if (!skipAnalysisCreation) AddDefaultJob(); // Compatibility v2.2.9
             //
             _model.StepCollection.AddStep(step, copyBCsAndLoads);
             _form.AddTreeNode(ViewGeometryModelResults.Model, step, null);
@@ -10393,6 +10379,11 @@ namespace PrePoMax
 
         #region Analysis menu   ####################################################################################################
         // COMMANDS ********************************************************************************
+        public void AddDefaultJobCommand()
+        {
+            CAddDeafaultJob comm = new CAddDeafaultJob();
+            _commands.AddAndExecute(comm);
+        }
         public void AddJobCommand(AnalysisJob job)
         {
             CAddJob comm = new CAddJob(job);
@@ -10422,6 +10413,23 @@ namespace PrePoMax
         public string[] GetJobNames()
         {
             return _jobs.Keys.ToArray();
+        }
+        public string AddDefaultJob()
+        {
+            string defaultName = null;
+            // Create the default analysis the first time a step is added
+            if (_jobs.Count == 0)
+            {
+                AnalysisJob job = _form.GetDefaultJob();
+                if (job != null)
+                {
+                    string name = _form.GetDefaultJobName();
+                    if (name != null && name != job.Name) job.Name = name;
+                    AddJob(job);
+                    defaultName = job.Name;
+                }
+            }
+            return defaultName;
         }
         public void AddJob(AnalysisJob job)
         {

@@ -130,6 +130,7 @@ namespace PrePoMax.Forms
                 if (Step is BoundaryDisplacementStep) copyBCsAndLoads = false;
                 //
                 _controller.AddStepCommand(Step, copyBCsAndLoads);
+                _controller.AddDefaultJobCommand();
             }
             // Replace
             else
