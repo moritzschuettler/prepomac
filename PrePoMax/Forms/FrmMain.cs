@@ -28,6 +28,7 @@ using System.Runtime.Remoting.Metadata.W3cXsd2001;
 using System.Diagnostics;
 using FileInOut.Output;
 using System.Security.Cryptography;
+using System.Runtime.Remoting.Messaging;
 
 namespace PrePoMax
 {
@@ -350,7 +351,7 @@ namespace PrePoMax
                 _frmNewModel = new FrmNewModel(_controller);
                 AddFormToAllForms(_frmNewModel);
                 //
-                _frmEditCommands = new FrmEditCommands();
+                _frmEditCommands = new FrmEditCommands(_controller);
                 AddFormToAllForms(_frmEditCommands);
                 //
                 _frmRegenerate = new FrmRegenerate();
@@ -666,7 +667,7 @@ namespace PrePoMax
             catch (Exception ex)
             {
                 // Regeneration
-                if (_controller.RegenerationMode)
+                if (_controller.BatchRegenerationMode)
                 {
                     throw new CaeException(ex.Message, ex);
                 }
@@ -700,7 +701,7 @@ namespace PrePoMax
                 // No write access
                 if (_controller == null) return;
                 //
-                if (!_controller.RegenerationMode)
+                if (!_controller.BatchRegenerationMode)
                 {
                     foreach (var entry in _controller.Jobs)
                     {
@@ -1308,6 +1309,8 @@ namespace PrePoMax
         // Menus                                                                                                                    
         private void SetMenuAndToolStripVisibility()
         {
+            if (IsStateRegeneratingOrUndoing()) return;
+            //
             InvokeIfRequired(() =>
             {
                 //                      Disable                                                         
@@ -1548,33 +1551,13 @@ namespace PrePoMax
             {
                 using (OpenFileDialog openFileDialog = new OpenFileDialog())
                 {
-                    // Debugger attached
-                    if (Debugger.IsAttached)
-                    {
-                        openFileDialog.Filter = "All files|*.pmx;*.pmh;*.frd;*.dat;*.foam" +
-                                                "|PrePoMax files|*.pmx" +
-                                                "|PrePoMax history|*.pmh" +
-                                                "|Calculix result files|*.frd" +
-                                                "|Calculix dat files|*.dat" +       // added .dat file
-                                                "|OpenFoam files|*.foam";
-
-                    }
-                    // No debugger
-                    else
-                    {
-                        openFileDialog.Filter = "All files|*.pmx;*.pmh;*.frd;*.foam" +
-                                                "|PrePoMax files|*.pmx" +
-                                                "|PrePoMax history|*.pmh" +
-                                                "|Calculix result files|*.frd" +
-                                                "|OpenFoam files|*.foam";
-                    }
-                    //
+                    openFileDialog.Filter = GetFileOpenFilter();
                     openFileDialog.FileName = "";
                     if (openFileDialog.ShowDialog() == DialogResult.OK)
                     {
                         string parameters = Globals.FromFileOpenMenu;
                         if (CheckBeforeOpen(openFileDialog.FileName))
-                            await OpenAsync(openFileDialog.FileName, _controller.Open, true, null, parameters);
+                            await OpenAsync(openFileDialog.FileName, _controller.OpenFileCommand, true, null, parameters);
                     }
                 }
             }
@@ -2002,7 +1985,6 @@ namespace PrePoMax
                 SetZoomToFit(true);
             }
         }
-
         private async void ImportFile(bool onlyMaterials)
         {
             try
@@ -2223,7 +2205,7 @@ namespace PrePoMax
                 {
                     _controller.RemoveCurrentResult();
                     SetResultNames();
-                    if (tscbResultNames.SelectedItem != null) SetResult(tscbResultNames.SelectedItem.ToString());
+                    if (tscbResultNames.SelectedItem != null) SetCurrentResults(tscbResultNames.SelectedItem.ToString());
                 }
             }
             catch (Exception ex)
@@ -2360,7 +2342,7 @@ namespace PrePoMax
             {
                 CloseAllForms();
                 //
-                _frmEditCommands.PrepareForm(_controller.GetCommands());
+                _frmEditCommands.PrepareForm();
                 //
                 SetFormLocation(_frmEditCommands);
                 if (_frmEditCommands.ShowDialog() ==  DialogResult.OK)
@@ -2399,7 +2381,7 @@ namespace PrePoMax
             }
         }
         //
-        public async void RegenerateHistory(bool showImportDialog, bool showMeshDialog, RegenerateTypeEnum regenerateType)
+        public async void RegenerateHistory(bool showFileDialog, bool showMeshDialog, RegenerateTypeEnum regenerateType)
         {
             try
             {
@@ -2408,7 +2390,7 @@ namespace PrePoMax
                 Application.DoEvents();
                 SetStateWorking(Globals.RegeneratingText);
                 _modelTree.ScreenUpdating = false;
-                await Task.Run(() => _controller.RegenerateHistoryCommands(showImportDialog, showMeshDialog, regenerateType));
+                await Task.Run(() => _controller.RegenerateHistoryCommands(showFileDialog, showMeshDialog, regenerateType));
             }
             catch (Exception ex)
             {
@@ -7145,9 +7127,38 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void ResultsAnalysis(string jobName)
+        private async void ResultsAnalysis(string jobName)
         {
-            _controller.OpenResultsCommand(jobName);
+            await Task.Run(() => _controller.OpenResultsCommand(jobName));
+            //
+            RunHistoryPostprocessing();
+        }
+        public void RunHistoryPostprocessing()
+        {
+            try
+            {
+                CloseAllForms();
+                Application.DoEvents();
+                SetStateWorking(Globals.RegeneratingText);
+                _modelTree.ScreenUpdating = false;
+                _controller.RunHistoryPostprocessing();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+            finally
+            {
+                SetStateReady(Globals.RegeneratingText);
+                _modelTree.ScreenUpdating = true;
+                RegenerateTree();
+                //
+                SetMenuAndToolStripVisibility();
+                // During regeneration the tree is empty
+                if (_controller.CurrentResult != null) SelectFirstComponentOfFirstFieldOutput();
+                //
+                SetZoomToFit(true);
+            }
         }
         public async void OpenAnalysisResults(string jobName, bool asynchronous = true)
         {
@@ -7156,7 +7167,7 @@ namespace PrePoMax
             bool openResults = true;
             string parameters = Globals.FromMonitorForm;
             //
-            if (!_controller.RegenerationMode)
+            if (!_controller.BatchRegenerationMode)
             {
                 if (job.JobStatus == JobStatus.Running)
                 {
@@ -8476,16 +8487,12 @@ namespace PrePoMax
         {
             try
             {
-                ResizeResultNamesComboBox();    // must be here
-                //
                 string currentResultName = _controller.AllResults.GetCurrentResultName();
                 string newResultName = tscbResultNames.SelectedItem.ToString();
                 if (newResultName != currentResultName)
                 {
-                    SetResult(newResultName);
-                    UpdateComplexControlStates();
+                    _controller.SetCurrentResultsCommand(newResultName);
                 }
-                this.ActiveControl = null;
             }
             catch (Exception ex)
             {
@@ -8591,36 +8598,58 @@ namespace PrePoMax
                     //
                     string currentResultName = _controller.AllResults.GetCurrentResultName();
                     if (currentResultName != null) tscbResultNames.SelectedItem = currentResultName;
+                    //
+                    ResizeResultNamesComboBox();
                 }
             });
         }
-        public void SetResult(string resultName)
+        public void SetCurrentResults(string resultsName)
         {
-            // Clear
-            Clear3D();
-            // Set results
-            _controller.AllResults.SetCurrentResult(resultName);
-            // Regenerate tree
-            RegenerateTree();
-            // Get first component of the first field for the last increment in the last step
-            if (_controller.ResultsInitialized) _controller.CurrentFieldData =
-                    _controller.AllResults.CurrentResult.GetFirstComponentOfTheFirstFieldAtDefaultIncrement();
-            //
-            if (_controller.CurrentResult != null && _controller.CurrentResult.Mesh != null)
+            InvokeIfRequired(() =>
             {
-                // Reset the previous step and increment
-                SetAllStepAndIncrementIds();
-                // Set last increment
-                SetDefaultStepAndIncrementIds();
-                // Show the selection in the results tree
-                SelectFirstComponentOfFirstFieldOutput();
+                ResizeResultNamesComboBox(); // must be here
                 //
-                _controller.ViewResultsType = ViewResultsTypeEnum.ColorContours;  // Draw
+                string currentResultName = _controller.AllResults.GetCurrentResultName();
+                if (resultsName != currentResultName)
+                {
+                    // Clear
+                    Clear3D();
+                    // Set results
+                    _controller.AllResults.SetCurrentResults(resultsName);
+                    // Regenerate tree
+                    RegenerateTree();
+                    // Get first component of the first field for the last increment in the last step
+                    if (_controller.ResultsInitialized) _controller.CurrentFieldData =
+                            _controller.AllResults.CurrentResult.GetFirstComponentOfTheFirstFieldAtDefaultIncrement();
+                    //
+                    if (_controller.CurrentResult != null && _controller.CurrentResult.Mesh != null)
+                    {
+                        // Reset the previous step and increment
+                        SetAllStepAndIncrementIds();
+                        // Set last increment
+                        SetDefaultStepAndIncrementIds();
+                        // Show the selection in the results tree
+                        SelectFirstComponentOfFirstFieldOutput();
+                        //
+                        _controller.ViewResultsType = ViewResultsTypeEnum.ColorContours;  // Draw
+                        //
+                        SetMenuAndToolStripVisibility();
+                        //tsmiZoomToFit_Click(null, null);    // different results have different views
+                        SetCurrentEdgesVisibilities(_controller.CurrentEdgesVisibility);
+                    }
+                    //
+                    UpdateComplexControlStates();
+                    // Running this by from a command must change the results name
+                    if (resultsName != tscbResultNames.SelectedItem.ToString())
+                    {
+                        tscbResultNames.SelectedIndexChanged -= tscbResultNames_SelectedIndexChanged;
+                        tscbResultNames.SelectedItem = resultsName;
+                        tscbResultNames.SelectedIndexChanged += tscbResultNames_SelectedIndexChanged;
+                    }
+                }
                 //
-                SetMenuAndToolStripVisibility();
-                //tsmiZoomToFit_Click(null, null);    // different results have different views
-                SetCurrentEdgesVisibilities(_controller.CurrentEdgesVisibility);
-            }
+                this.ActiveControl = null;
+            });
         }
         private void ResizeResultNamesComboBox()
         {
@@ -8895,6 +8924,10 @@ namespace PrePoMax
                 if (text == Globals.ExplodePartsText) _vtk.RenderingOn = true;
                 else _vtk.RenderingOn = !working;
                 _vtk.Enabled = !working;
+                //_vtk.Visible = !working;
+                // Hack
+                //if (!working) _vtk.Left = 1;
+                //else _vtk.Left = 100000;
                 //
                 bool menusActive = !working;
                 SetMenuAndToolStripVisibilityBySetState(menusActive);
@@ -8977,6 +9010,24 @@ namespace PrePoMax
         {
             return _vtk.GetBoundingBoxSize();
         }
+        public string GetFileNameToOpen()
+        {
+            return GetFileNameToOpen(GetFileOpenFilter());
+        }
+        public string GetFileNameToOpen(string filter)
+        {
+            string fileName = null;
+            InvokeIfRequired(() =>
+            {
+                openFileDialog.Filter = filter;
+                openFileDialog.FileName = "";
+                if (openFileDialog.ShowDialog() == DialogResult.OK)
+                {
+                    fileName = openFileDialog.FileName;
+                }
+            });
+            return fileName;
+        }
         public string GetFileNameToImport(bool onlyMaterials)
         {
             return GetFileNameToImport(GetFileImportFilter(onlyMaterials));
@@ -8988,7 +9039,7 @@ namespace PrePoMax
             {
                 openFileDialog.Filter = filter;
                 openFileDialog.FileName = "";
-                if (openFileDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                if (openFileDialog.ShowDialog() == DialogResult.OK)
                 {
                     fileName = openFileDialog.FileName;
                 }
@@ -9031,12 +9082,37 @@ namespace PrePoMax
             });
             return fileNames;
         }
+        private string GetFileOpenFilter()
+        {
+            string filter;
+            // Debugger attached
+            if (Debugger.IsAttached)
+            {
+                filter = "All files|*.pmx;*.pmh;*.frd;*.dat;*.foam" +
+                         "|PrePoMax files|*.pmx" +
+                         "|PrePoMax history|*.pmh" +
+                         "|Calculix result files|*.frd" +
+                         "|Calculix dat files|*.dat" +       // added .dat file
+                         "|OpenFoam files|*.foam";
+
+            }
+            // No debugger
+            else
+            {
+                filter = "All files|*.pmx;*.pmh;*.frd;*.foam" +
+                         "|PrePoMax files|*.pmx" +
+                         "|PrePoMax history|*.pmh" +
+                         "|Calculix result files|*.frd" +
+                         "|OpenFoam files|*.foam";
+            }
+            return filter;
+        }
         private string GetFileImportFilter(bool onlyMaterials)
         {
             if (onlyMaterials) return "Abaqus/Calculix inp files|*.inp";
             // Debugger attached
             string filter;
-            if (System.Diagnostics.Debugger.IsAttached)
+            if (Debugger.IsAttached)
             {
                 filter = "All supported files|*.stp;*.step;*.igs;*.iges;*.brep;*.stl;*.unv;*.vol;*.inp;*.mesh;*.obj" + 
                          "|Step files|*.stp;*.step" +

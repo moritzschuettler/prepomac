@@ -444,8 +444,8 @@ namespace vtkControl
                     this._renderWindow.Render();
                     //System.Console.WriteLine(System.DateTime.Now + ": OnRender");
                 }
+                base.OnPaint(e);
             }
-            base.OnPaint(e);
         }
 
 

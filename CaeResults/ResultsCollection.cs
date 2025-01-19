@@ -84,7 +84,7 @@ namespace CaeResults
                     // If something goes wrong the name is written incorrectly
                     if (allResults._results.ContainsKey(resultsName))
                     {
-                        allResults.SetCurrentResult(resultsName);
+                        allResults.SetCurrentResults(resultsName);
                         if (allResults.CurrentResult != null)
                         {
                             addedResultNames.Add(resultsName);
@@ -112,7 +112,7 @@ namespace CaeResults
                     // If something goes wrong the name is written incorrectly
                     if (allResults._results.ContainsKey(resultsName))
                     {
-                        allResults.SetCurrentResult(resultsName);
+                        allResults.SetCurrentResults(resultsName);
                         if (allResults.CurrentResult != null)
                         {
                             addedResultNames.Add(resultsName);
@@ -176,7 +176,7 @@ namespace CaeResults
             _currentResult = result;
         }
         //
-        public void SetCurrentResult(string name)
+        public void SetCurrentResults(string name)
         {
             _results.TryGetValue(name, out _currentResult);
         }
@@ -203,7 +203,7 @@ namespace CaeResults
                 //
                 string[] remainingNames = _results.Keys.ToArray();
                 if (count >= remainingNames.Length) count = remainingNames.Length - 1;
-                SetCurrentResult(remainingNames[count]);
+                SetCurrentResults(remainingNames[count]);
             }
         }
 

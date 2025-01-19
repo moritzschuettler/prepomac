@@ -8,6 +8,7 @@ using CaeGlobals;
 using FastColoredTextBoxNS;
 using CommandLine;
 using System.Diagnostics;
+using System.Windows.Forms;
 
 namespace PrePoMax.Commands
 {
@@ -83,19 +84,39 @@ namespace PrePoMax.Commands
         }
         public bool AddAndExecute(List<Command> commands)
         {
-            bool result = false;
+            bool result = true;
+            _errors = new List<string>();
             //
             if (commands != null && commands.Count > 0)
             {
                 foreach (var command in commands)
                 {
-                    if (command is CSaveToPmx) { }  // skip save commands
-                    else if (command is CClear)
+                    try
                     {
-                        Clear();          // remove all previous commands
-                        result &= AddAndExecute(command, true);
+                        if (command is CSaveToPmx) { }  // skip save commands
+                        else if (command is CClear)
+                        {
+                            Clear();    // remove all previous commands
+                            result &= AddAndExecute(command, true);
+                        }
+                        else result &= AddAndExecute(command, true);
                     }
-                    else result &= AddAndExecute(command, true);
+                    catch (Exception ex)
+                    {
+                        result = false;
+                        _errors.Add(command.Name + ": " + ex.Message);
+                    }
+                }
+                // Report Errors
+                if (_errors.Count != 0)
+                {
+                    WriteOutput?.Invoke("");
+                    WriteOutput?.Invoke("****   Exceptions   ****");
+                    foreach (var error in _errors)
+                    {
+                        WriteOutput?.Invoke(error);
+                    }
+                    WriteOutput?.Invoke("****   Number of exceptions: " + _errors.Count + "   ****");
                 }
             }
             //
@@ -112,9 +133,8 @@ namespace PrePoMax.Commands
         private void CheckModelChanged(Command command)
         {
             if (command is CClear) return;
-            //
-            if (command is CSaveToPmx) { }
-            else if (command is PreprocessCommand) _controller.ModelChanged = true;
+            else if (command is SaveCommand) { }
+            else _controller.ModelChanged = true;
         }
         public void SetCommands(List<Command> commands)
         {
@@ -140,8 +160,8 @@ namespace PrePoMax.Commands
             bool result = false;
             // Write to form
             WriteToOutput(command);
-            // First execute to check for errors - DO NOT EXECUTE SAVE COMMAND
-            if (command is CSaveToPmx || ExecuteCommandWithTimer(command, false, executeSynchronous))
+            // First execute to check for errors
+            if (command is SaveCommand || ExecuteCommandWithTimer(command, false, executeSynchronous))
             {
                 // Add command
                 if (addCommand) AddCommand(command);
@@ -157,7 +177,7 @@ namespace PrePoMax.Commands
                 result = true;
             }
             // Execute the save command at the end to include all changes in the file
-            if (command is CSaveToPmx)
+            if (command is SaveCommand)
             {
                 ExecuteCommandWithTimer(command, false, executeSynchronous);
                 WriteToFile();  // repeat the write in order to save the hash
@@ -190,16 +210,16 @@ namespace PrePoMax.Commands
         {
             ExecuteAllCommands(false, false, RegenerateTypeEnum.All, null);
         }
-        public void ExecuteAllCommands(bool showImportDialog, bool showMeshDialog, RegenerateTypeEnum regenerateType)
+        public void ExecuteAllCommands(bool showFileDialog, bool showMeshDialog, RegenerateTypeEnum regenerateType)
         {
-            ExecuteAllCommands(showImportDialog, showMeshDialog, regenerateType, null);
+            ExecuteAllCommands(showFileDialog, showMeshDialog, regenerateType, null);
         }
-        public void ExecuteAllCommandsFromLastSave(RegenerateTypeEnum regenerateType, CSaveToPmx lastSave)
+        public void ExecuteAllCommandsFromLastSave(RegenerateTypeEnum regenerateType, SaveCommand lastSave)
         {
             ExecuteAllCommands(false, false, regenerateType, lastSave);
         }
-        public void ExecuteAllCommands(bool showImportDialog, bool showMeshDialog, RegenerateTypeEnum regenerateType,
-                                       CSaveToPmx lastSave)
+        public void ExecuteAllCommands(bool showFileDialog, bool showMeshDialog, RegenerateTypeEnum regenerateType,
+                                       SaveCommand lastSave)
         {
             int count = 0;
             bool executeWithDialog;
@@ -210,9 +230,15 @@ namespace PrePoMax.Commands
                 if (count++ <= _currPositionIndex)
                 {
                     // Set working directory while in regeneration mode
-                    if (_controller.RegenerationMode)
+                    if (_controller.BatchRegenerationMode)
                     {
-                        if (command is CImportFile cImportFile)
+                        if (command is COpenFile cOpenFile)
+                        {
+                            string newFileName = Path.Combine(_controller.Settings.GetWorkDirectory(),
+                                                              Path.GetFileName(cOpenFile.FileName));
+                            if (File.Exists(newFileName)) cOpenFile.FileName = newFileName;
+                        }
+                        else if (command is CImportFile cImportFile)
                         {
                             string newFileName = Path.Combine(_controller.Settings.GetWorkDirectory(),
                                                               Path.GetFileName(cImportFile.FileName));
@@ -226,7 +252,7 @@ namespace PrePoMax.Commands
                         }
                     }
                     // Skip save before writing to form - set lastSave to null
-                    if (command is CSaveToPmx)
+                    if (command is SaveCommand)
                     {
                         if (lastSave != null && command == lastSave) lastSave = null;
                         continue;
@@ -248,11 +274,12 @@ namespace PrePoMax.Commands
                             WriteToOutput(command);
                             //
                             executeWithDialog = false;
-                            if (command is ICommandWithDialog cwd)
+                            if (showFileDialog && command is ICommandWithDialog cwd)
                             {
-                                if (showImportDialog && cwd is CImportFile) executeWithDialog = true;
-                                else if (showMeshDialog && cwd is CAddMeshSetupItem) executeWithDialog = true;
-                                else if (showMeshDialog && cwd is CReplaceMeshSetupItem) executeWithDialog = true;
+                                if (cwd is COpenFile) executeWithDialog = true;
+                                else if (cwd is CImportFile) executeWithDialog = true;
+                                else if (cwd is CAddMeshSetupItem) executeWithDialog = true;
+                                else if (cwd is CReplaceMeshSetupItem) executeWithDialog = true;
                             }
                             //
                             ExecuteCommandWithTimer(command, executeWithDialog, true);
@@ -302,7 +329,7 @@ namespace PrePoMax.Commands
                 if ((regenerateType == RegenerateTypeEnum.PreProcess && !(command is PreprocessCommand)) ||
                     (regenerateType == RegenerateTypeEnum.Analysis && !(command is AnalysisCommand)) ||
                     (regenerateType == RegenerateTypeEnum.PostProcess && !(command is PostprocessCommand)) ||
-                    command is CSaveToPmx)
+                    command is SaveCommand)
                     continue;
                 //
                 lastCommand = command;
@@ -336,6 +363,48 @@ namespace PrePoMax.Commands
                 }
             }
         }
+        // Post-process
+        public bool RunHistoryPostprocessing()
+        {
+            bool clearBeforeAddingNew = false;
+            HashSet<string> analysisNames = new HashSet<string>();
+            List<Command> postprocessCommands = new List<Command>();
+            List<Command> reducedCommands = new List<Command>();
+            //
+            bool postProcessingAdded;
+            foreach (var command in _commands)
+            {
+                postProcessingAdded = false;
+                if (command is CPrepareAndRunJob prj)       // analysis
+                {
+                    analysisNames.Add(prj.JobName);
+                    clearBeforeAddingNew = true;
+                }
+                else if (command is COpenResults) { }       // open results 
+                else if (command is PostprocessCommand ppc) // post-processing
+                {
+                    if (clearBeforeAddingNew)
+                    {
+                        postprocessCommands.Clear();
+                        clearBeforeAddingNew = false;
+                    }
+                    postprocessCommands.Add(ppc);
+                    postProcessingAdded = true;
+                }
+                //
+                if (!postProcessingAdded) reducedCommands.Add(command);
+            }
+            //
+            bool result = true;
+            if (analysisNames.Count == 1 && postprocessCommands.Count > 0)
+            {
+                _commands = reducedCommands;
+                //
+                result = AddAndExecute(postprocessCommands);
+            }
+            return result;
+        }
+
         // Clear
         public void Clear()
         {
@@ -385,6 +454,8 @@ namespace PrePoMax.Commands
             string undo = null;
             string redo = null;
             //
+            if (_currPositionIndex >= _commands.Count) _currPositionIndex = _commands.Count - 1;
+            //
             if (IsUndoPossible) undo = _commands[_currPositionIndex].Name;
             if (IsRedoPossible) redo = _commands[_currPositionIndex + 1].Name;
             //
@@ -408,7 +479,7 @@ namespace PrePoMax.Commands
         }
         private void WriteToFile()
         {
-            if (!_controller.RegenerationMode && _commands.Count > 1)
+            if (!_controller.BatchRegenerationMode && _commands.Count > 1)
             {
                 // Use other file
                 WriteToFile(_commands, _historyFileNameBin);

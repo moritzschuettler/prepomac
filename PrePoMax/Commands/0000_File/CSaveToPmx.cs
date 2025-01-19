@@ -12,12 +12,11 @@ using System.IO;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    public class CSaveToPmx : SaveCommand
+    public class CSaveToPmx : SaveCommand, IFileCommand
     {
         // Variables                                                                                                                
         private string _fileName;
         private byte[] _hash;
-        private DateTime _timeHash;
 
 
         // Properties                                                                                                               

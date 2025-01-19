@@ -13,7 +13,7 @@ using PrePoMax.Forms;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class COpenResults : PostprocessCommand, ICommandAsynchronous
+    class COpenResults : PostprocessCommand, IFileCommand, ICommandAsynchronous
     {
         // Variables                                                                                                                
         private string _jobName;
@@ -42,7 +42,7 @@ namespace PrePoMax.Commands
 
         public override string GetCommandString()
         {
-            return base.GetCommandString() + _jobName.ToString();
+            return base.GetCommandString() + _jobName;
         }
     }
 }

@@ -2014,9 +2014,7 @@ namespace UserControls
                             // Field outputs
                             string[] fieldNames;
                             string[][] allComponents;
-                            //
                             fieldNames = results.GetVisibleFieldNames();
-                            //
                             allComponents = new string[fieldNames.Length][];
                             for (int i = 0; i < fieldNames.Length; i++)
                             {
@@ -2024,7 +2022,7 @@ namespace UserControls
                             }
                             CreateOverwriteFieldOutputNodes(fieldNames, allComponents, results.GetResultFieldOutputs());
                         }
-                        //
+                        // History outputs
                         if (results.GetHistory() != null)
                             CreateOverwriteHistoryOutputNodes(results.GetHistory().Sets.Values.ToArray(),
                                                               results.GetResultHistoryOutputs());

@@ -23,6 +23,7 @@ namespace PrePoMax.Forms
     public partial class FrmEditCommands : Form
     {
         // Variables                                                                                                                
+        private Controller _controller;
         private List<ViewCommand> _viewCommands;
         private bool _modified;
 
@@ -40,11 +41,12 @@ namespace PrePoMax.Forms
 
 
         // Constructors                                                                                                             
-        public FrmEditCommands()
+        public FrmEditCommands(Controller controller)
         {
             InitializeComponent();
             //
             dgvCommands.EnableDragAndDropRows();
+            _controller = controller;
             _viewCommands = null;
             _modified = false;
         }
@@ -103,6 +105,42 @@ namespace PrePoMax.Forms
         {
             _modified = true;
         }
+        private void dgvCommands_RowPrePaint(object sender, DataGridViewRowPrePaintEventArgs e)
+        {
+            string type = dgvCommands.Rows[e.RowIndex].Cells[3].Value.ToString();
+            if (type == "Pre-process")
+            {
+                dgvCommands.Rows[e.RowIndex].DefaultCellStyle.BackColor = Color.FromArgb(235, 255, 235);
+            }
+            else if (type == "Analysis")
+            {
+                dgvCommands.Rows[e.RowIndex].DefaultCellStyle.BackColor = Color.FromArgb(255, 235, 215);
+            }
+            else if (type == "Post-process")
+            {
+                dgvCommands.Rows[e.RowIndex].DefaultCellStyle.BackColor = Color.FromArgb(235, 235, 255);
+            }
+            else if (type == "File")
+            {
+                dgvCommands.Rows[e.RowIndex].DefaultCellStyle.BackColor = Color.FromArgb(255, 255, 205);
+            }
+        }
+        private void btnReset_Click(object sender, EventArgs e)
+        {
+            PrepareForm();
+        }
+        private void btnClearAll_Click(object sender, EventArgs e)
+        {
+            dgvCommands.DataSource = null;
+            //
+            List<ViewCommand> _readOnly = new List<ViewCommand>();
+            for (int i = 0; i < 2 && i < _viewCommands.Count(); i++) _readOnly.Add(_viewCommands[i]);
+            _viewCommands = _readOnly;
+            //
+            SetBinding();
+            //
+            _modified = true;
+        }
         private void btnOK_Click(object sender, EventArgs e)
         {
             try
@@ -125,18 +163,7 @@ namespace PrePoMax.Forms
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void btnClearAll_Click(object sender, EventArgs e)
-        {
-            dgvCommands.DataSource = null;
-            //
-            List<ViewCommand> _readOnly = new List<ViewCommand>();
-            for (int i = 0; i < 2; i++) _readOnly.Add(_viewCommands[i]);
-            _viewCommands = _readOnly;
-            //
-            SetBinding();
-            //
-            _modified = true;
-        }
+        
         private void dgvCommands_UserDeletingRow(object sender, DataGridViewRowCancelEventArgs e)
         {
             //if (e.Row.Index < 2)
@@ -147,8 +174,10 @@ namespace PrePoMax.Forms
 
 
         // Methods                                                                                                                  
-        public void PrepareForm(List<Command> commands)
+        public void PrepareForm()
         {
+            List<Command> commands = _controller.GetCommands();
+            //
             _viewCommands = new List<ViewCommand>();
             //
             if (commands != null)
@@ -158,6 +187,8 @@ namespace PrePoMax.Forms
             }
             //
             SetBinding();
+            //
+            _modified = false;
         }
         private void OpenPmh(string fileName)
         {
@@ -178,7 +209,6 @@ namespace PrePoMax.Forms
         {
             CommandsCollection.WriteToFile(Commands, fileName);
         }
-
         private void SetBinding()
         {
             BindingSource binding = new BindingSource();
@@ -195,7 +225,5 @@ namespace PrePoMax.Forms
             dgvCommands.Columns["ExecutionTime"].Width = 75;
             dgvCommands.Columns["ExecutionTime"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
         }
-
-        
     }
 }

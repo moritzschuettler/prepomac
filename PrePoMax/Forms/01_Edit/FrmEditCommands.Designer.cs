@@ -39,6 +39,7 @@
             this.tsmiSaveAs = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerFile1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiClose = new System.Windows.Forms.ToolStripMenuItem();
+            this.btnReset = new System.Windows.Forms.Button();
             this.gbProperties.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvCommands)).BeginInit();
             this.msMain.SuspendLayout();
@@ -71,6 +72,7 @@
             this.dgvCommands.ReadOnly = true;
             this.dgvCommands.Size = new System.Drawing.Size(751, 268);
             this.dgvCommands.TabIndex = 0;
+            this.dgvCommands.RowPrePaint += new System.Windows.Forms.DataGridViewRowPrePaintEventHandler(this.dgvCommands_RowPrePaint);
             this.dgvCommands.UserDeletingRow += new System.Windows.Forms.DataGridViewRowCancelEventHandler(this.dgvCommands_UserDeletingRow);
             this.dgvCommands.DragDrop += new System.Windows.Forms.DragEventHandler(this.dgvCommands_DragDrop);
             // 
@@ -99,7 +101,7 @@
             // btnClearAll
             // 
             this.btnClearAll.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.btnClearAll.Location = new System.Drawing.Point(12, 326);
+            this.btnClearAll.Location = new System.Drawing.Point(96, 326);
             this.btnClearAll.Name = "btnClearAll";
             this.btnClearAll.Size = new System.Drawing.Size(75, 23);
             this.btnClearAll.TabIndex = 14;
@@ -156,11 +158,23 @@
             this.tsmiClose.Text = "Close";
             this.tsmiClose.Click += new System.EventHandler(this.tsmiClose_Click);
             // 
+            // btnReset
+            // 
+            this.btnReset.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.btnReset.Location = new System.Drawing.Point(15, 326);
+            this.btnReset.Name = "btnReset";
+            this.btnReset.Size = new System.Drawing.Size(75, 23);
+            this.btnReset.TabIndex = 16;
+            this.btnReset.Text = "Reset";
+            this.btnReset.UseVisualStyleBackColor = true;
+            this.btnReset.Click += new System.EventHandler(this.btnReset_Click);
+            // 
             // FrmEditCommands
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.CancelButton = this.btnCancel;
             this.ClientSize = new System.Drawing.Size(784, 361);
+            this.Controls.Add(this.btnReset);
             this.Controls.Add(this.btnClearAll);
             this.Controls.Add(this.btnOK);
             this.Controls.Add(this.btnCancel);
@@ -197,5 +211,6 @@
         private System.Windows.Forms.ToolStripMenuItem tsmiSaveAs;
         private System.Windows.Forms.ToolStripMenuItem tsmiClose;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerFile1;
+        private System.Windows.Forms.Button btnReset;
     }
 }

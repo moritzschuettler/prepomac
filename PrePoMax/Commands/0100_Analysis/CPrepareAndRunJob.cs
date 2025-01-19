@@ -21,6 +21,7 @@ namespace PrePoMax.Commands
 
 
         // Properties                                                                                                               
+        public string JobName { get { return _jobName; } }
 
 
         // Constructor                                                                                                              

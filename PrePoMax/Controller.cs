@@ -50,7 +50,7 @@ namespace PrePoMax
         [NonSerialized] protected bool _modelChanged;
         [NonSerialized] protected bool _savingFile;
         [NonSerialized] protected bool _animating;
-        [NonSerialized] protected bool _regenerationMode;
+        [NonSerialized] protected bool _batchRegenerationMode;
         [NonSerialized] protected bool _disableDrawSymbols;
         // View
         [NonSerialized] protected ViewGeometryModelResults _currentView;
@@ -127,10 +127,10 @@ namespace PrePoMax
         }
         public bool ModelChanged { get { return _modelChanged; } set { _modelChanged = value; } }
         public bool SavingFile { get { return _savingFile; } }
-        public bool RegenerationMode
+        public bool BatchRegenerationMode
         {
-            get { return _regenerationMode; }
-            set { _regenerationMode = value; }
+            get { return _batchRegenerationMode; }
+            set { _batchRegenerationMode = value; }
         }
         public string RegenerationWorkDirectory
         {
@@ -144,7 +144,7 @@ namespace PrePoMax
                 //
                 _settings.SetRegenerationWorkDirectory(value);
                 //
-                RegenerationMode = true;
+                BatchRegenerationMode = true;
             }
         }
         //
@@ -410,7 +410,6 @@ namespace PrePoMax
             if (_commands != null) _commands.SetCommands(commands);
         }
 
-
         // Constructors                                                                                                             
         public Controller(FrmMain form)
         {
@@ -649,6 +648,11 @@ namespace PrePoMax
         // Menus
         #region File menu   ########################################################################################################
         // COMMANDS ********************************************************************************
+        public void OpenFileCommand(string fileName, string parameters = null)
+        {
+            COpenFile comm = new COpenFile(fileName, parameters);
+            _commands.AddAndExecute(comm);
+        }
         public void ImportFileCommand(string fileName, bool onlyMaterials)
         {
             CImportFile comm = new CImportFile(fileName, onlyMaterials);
@@ -670,6 +674,10 @@ namespace PrePoMax
             _annotations = new AnnotationContainer(this);
             //
             _form.UpdateRecentFilesThreadSafe(_settings.General.GetRecentFiles());
+        }
+        public string GetFileNameToOpen()
+        {
+            return _form.GetFileNameToOpen();
         }
         public void Open(string fileName, string parameters = null)
         {
@@ -721,7 +729,7 @@ namespace PrePoMax
             // Get controller
             tmp = (Controller)data[0];
             // Regeneration
-            if (_regenerationMode) tmp.RegenerationMode = true;
+            if (_batchRegenerationMode) tmp.BatchRegenerationMode = true;
             // Commands
             _commands.EnableDisableUndoRedo -= _commands_CommandExecuted;
             _commands = new CommandsCollection(this, tmp._commands); // to recreate the history file
@@ -1000,10 +1008,11 @@ namespace PrePoMax
                         _allResults.CurrentResult.Mesh.MergePartsBasedOnMesh(_model.Mesh, typeof(ResultPart));
                     }
                 }
-
                 bool fromFileOpenMenu = parameters != null && parameters.Contains(Globals.FromFileOpenMenu);
                 if (!fromFileOpenMenu)
+                {
                     _allResults.CurrentResult.CopyFeatureItemsFromMesh(_model.Mesh, (int)ViewGeometryModelResults.Results);
+                }
                 //
                 ResumeExplodedViews(false); // must be here after the MergePartsBasedOnMesh
             }
@@ -1338,17 +1347,28 @@ namespace PrePoMax
         // Run history
         public void RunHistoryFile(string fileName)
         {
+            ViewGeometryModelResults prevView = _currentView;
+            //
             List<Command> commands;
             CommandsCollection.ReadFromFile(fileName, out commands);
             //
             _commands.AddAndExecute(commands);
             //
+            ViewGeometryModelResults newView;
             Command lastCommand = _commands.GetLastExecutedCommand(RegenerateTypeEnum.All);
-            if (lastCommand is null) { }
-            else if (lastCommand is PreprocessCommand) CurrentView = ViewGeometryModelResults.Model;
-            else if (lastCommand is AnalysisCommand) CurrentView = ViewGeometryModelResults.Model;
-            else if (lastCommand is PostprocessCommand) CurrentView = ViewGeometryModelResults.Results;
+            if (lastCommand is null || lastCommand is SaveCommand) newView = prevView;
+            else if (lastCommand is PreprocessCommand) newView = ViewGeometryModelResults.Model;
+            else if (lastCommand is AnalysisCommand) newView = ViewGeometryModelResults.Model;
+            else if (lastCommand is PostprocessCommand) newView = ViewGeometryModelResults.Results;
             else throw new NotSupportedException();
+            // Make sure the view is updated
+            if (_currentView == newView)
+            {
+                if (newView == ViewGeometryModelResults.Geometry) _currentView = ViewGeometryModelResults.Model;
+                else _currentView = ViewGeometryModelResults.Geometry;
+            }
+            // Set view
+            CurrentView = newView;
         }
         // Import
         public string GetFileNameToImport(bool onlyMaterials)
@@ -2218,20 +2238,30 @@ namespace PrePoMax
         {
             _commands.Redo();
         }
-        public void RegenerateHistoryCommands(bool showImportDialog, bool showMeshDialog, RegenerateTypeEnum regenerateType)
+        public void RegenerateHistoryCommands(bool showFileDialog, bool showMeshDialog, RegenerateTypeEnum regenerateType)
         {
             ViewGeometryModelResults prevView = _currentView;
             //
             string lastFileName = OpenedFileName;
-            _commands.ExecuteAllCommands(showImportDialog, showMeshDialog, regenerateType);
+            _commands.ExecuteAllCommands(showFileDialog, showMeshDialog, regenerateType);
             OpenedFileName = lastFileName;
             //
             Command command = _commands.GetLastExecutedCommand(regenerateType);
-            if (command is null) CurrentView = prevView;
-            else if (command is PreprocessCommand) CurrentView = ViewGeometryModelResults.Model;
-            else if (command is AnalysisCommand) CurrentView = ViewGeometryModelResults.Model;
-            else if (command is PostprocessCommand) CurrentView = ViewGeometryModelResults.Results;
+            //
+            ViewGeometryModelResults newView;
+            if (command is null || command is SaveCommand) newView = prevView;
+            else if (command is PreprocessCommand) newView = ViewGeometryModelResults.Model;
+            else if (command is AnalysisCommand) newView = ViewGeometryModelResults.Model;
+            else if (command is PostprocessCommand) newView = ViewGeometryModelResults.Results;
             else throw new NotSupportedException();
+            // Make sure the view is updated
+            if (_currentView == newView)
+            {
+                if (newView == ViewGeometryModelResults.Geometry) _currentView = ViewGeometryModelResults.Model;
+                else _currentView = ViewGeometryModelResults.Geometry;
+            }
+            // Set view
+            CurrentView = newView;
         }
         //
         public List<FileInOut.Output.Calculix.CalculixKeyword> GetCalculixModelKeywords()
@@ -10766,17 +10796,35 @@ namespace PrePoMax
         #endregion #################################################################################################################
 
         #region Results  ###########################################################################################################
-
         public void OpenResultsCommand(string jobName)
         {
             COpenResults comm = new COpenResults(jobName);
+            _commands.AddAndExecute(comm, true);
+        }
+        public void SetCurrentResultsCommand(string resultsName)
+        {
+            CSetCurrentResults comm = new CSetCurrentResults(resultsName);
             _commands.AddAndExecute(comm);
         }
+        
         //******************************************************************************************
         public void OpenResults(string jobName, bool asynchronous = true)
         {
             _form.OpenAnalysisResults(jobName, asynchronous);
         }
+        public void SetCurrentResults(string resultsName)
+        {
+            _form.SetCurrentResults(resultsName);
+        }
+        public void RunHistoryPostprocessing()
+        {
+            bool result = _commands.RunHistoryPostprocessing();
+            //
+            if (!result && !_batchRegenerationMode)
+                MessageBoxes.ShowWarning("Not all post-processing commands were successfully executed. " +
+                                         "Please see the output window for more details.");
+        }
+        //
         private void UpdateCurrentFieldData()
         {
             // Check validity of the field data
