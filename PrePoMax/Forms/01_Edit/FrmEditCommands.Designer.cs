@@ -40,6 +40,10 @@
             this.tsmiDividerFile1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiClose = new System.Windows.Forms.ToolStripMenuItem();
             this.btnReset = new System.Windows.Forms.Button();
+            this.tsmiView = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiColorByType = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiColorByTime = new System.Windows.Forms.ToolStripMenuItem();
+            this.btnReorganize = new System.Windows.Forms.Button();
             this.gbProperties.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvCommands)).BeginInit();
             this.msMain.SuspendLayout();
@@ -101,7 +105,7 @@
             // btnClearAll
             // 
             this.btnClearAll.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.btnClearAll.Location = new System.Drawing.Point(96, 326);
+            this.btnClearAll.Location = new System.Drawing.Point(177, 326);
             this.btnClearAll.Name = "btnClearAll";
             this.btnClearAll.Size = new System.Drawing.Size(75, 23);
             this.btnClearAll.TabIndex = 14;
@@ -112,7 +116,8 @@
             // msMain
             // 
             this.msMain.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.tsmiFile});
+            this.tsmiFile,
+            this.tsmiView});
             this.msMain.Location = new System.Drawing.Point(0, 0);
             this.msMain.Name = "msMain";
             this.msMain.Size = new System.Drawing.Size(784, 24);
@@ -169,11 +174,48 @@
             this.btnReset.UseVisualStyleBackColor = true;
             this.btnReset.Click += new System.EventHandler(this.btnReset_Click);
             // 
+            // tsmiView
+            // 
+            this.tsmiView.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmiColorByType,
+            this.tsmiColorByTime});
+            this.tsmiView.Name = "tsmiView";
+            this.tsmiView.Size = new System.Drawing.Size(44, 20);
+            this.tsmiView.Text = "View";
+            // 
+            // tsmiColorByType
+            // 
+            this.tsmiColorByType.Checked = true;
+            this.tsmiColorByType.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.tsmiColorByType.Name = "tsmiColorByType";
+            this.tsmiColorByType.Size = new System.Drawing.Size(180, 22);
+            this.tsmiColorByType.Text = "Color by type";
+            this.tsmiColorByType.Click += new System.EventHandler(this.tsmiColorByType_Click);
+            // 
+            // tsmiColorByTime
+            // 
+            this.tsmiColorByTime.Name = "tsmiColorByTime";
+            this.tsmiColorByTime.Size = new System.Drawing.Size(180, 22);
+            this.tsmiColorByTime.Text = "Color by time";
+            this.tsmiColorByTime.Click += new System.EventHandler(this.tsmiColorByTime_Click);
+            // 
+            // btnReorganize
+            // 
+            this.btnReorganize.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.btnReorganize.Location = new System.Drawing.Point(96, 326);
+            this.btnReorganize.Name = "btnReorganize";
+            this.btnReorganize.Size = new System.Drawing.Size(75, 23);
+            this.btnReorganize.TabIndex = 17;
+            this.btnReorganize.Text = "Reorganize";
+            this.btnReorganize.UseVisualStyleBackColor = true;
+            this.btnReorganize.Click += new System.EventHandler(this.btnReorganize_Click);
+            // 
             // FrmEditCommands
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.CancelButton = this.btnCancel;
             this.ClientSize = new System.Drawing.Size(784, 361);
+            this.Controls.Add(this.btnReorganize);
             this.Controls.Add(this.btnReset);
             this.Controls.Add(this.btnClearAll);
             this.Controls.Add(this.btnOK);
@@ -212,5 +254,9 @@
         private System.Windows.Forms.ToolStripMenuItem tsmiClose;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerFile1;
         private System.Windows.Forms.Button btnReset;
+        private System.Windows.Forms.ToolStripMenuItem tsmiView;
+        private System.Windows.Forms.ToolStripMenuItem tsmiColorByType;
+        private System.Windows.Forms.ToolStripMenuItem tsmiColorByTime;
+        private System.Windows.Forms.Button btnReorganize;
     }
 }

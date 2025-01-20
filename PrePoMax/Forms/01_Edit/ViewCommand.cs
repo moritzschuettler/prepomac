@@ -52,11 +52,11 @@ namespace PrePoMax.Settings
         [CategoryAttribute("Data")]
         [OrderedDisplayName(5, 10, "Time [s]")]
         [DescriptionAttribute("Execution time of the command.")]
-        public string ExecutionTime
+        public string ExecutionTimeString
         {
             get
             {
-                string time = Math.Round(_command.TimeSpan.TotalSeconds, 4).ToString();
+                string time = ExecutionTime.ToString();
                 string[] tmp = time.Split('.');
                 if (tmp.Length == 2)
                 {
@@ -72,6 +72,8 @@ namespace PrePoMax.Settings
             }
         }
         //
+        [Browsable(false)]
+        public double ExecutionTime { get { return Math.Round(_command.TimeSpan.TotalSeconds, 4); } }
         [Browsable(false)]
         public Command Command { get { return _command; } }
 

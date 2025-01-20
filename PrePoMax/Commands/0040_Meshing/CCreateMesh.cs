@@ -18,6 +18,10 @@ namespace PrePoMax.Commands
         private string _partName;
 
 
+        // Properites                                                                                                               
+        public string PartName { get { return _partName; } }
+
+
         // Constructor                                                                                                              
         public CCreateMesh(string partName)
             : base("Create mesh")
