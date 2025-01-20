@@ -1558,6 +1558,9 @@ namespace PrePoMax
                         string parameters = Globals.FromFileOpenMenu;
                         if (CheckBeforeOpen(openFileDialog.FileName))
                             await OpenAsync(openFileDialog.FileName, _controller.OpenFileCommand, true, null, parameters);
+                        //
+                        string extension = Path.GetExtension(openFileDialog.FileName).ToLower();
+                        if (extension == ".frd") RunHistoryPostprocessing();    // must be here
                     }
                 }
             }
@@ -8613,6 +8616,7 @@ namespace PrePoMax
                 if (resultsName != currentResultName)
                 {
                     // Clear
+                    ClearActiveTreeSelection();
                     Clear3D();
                     // Set results
                     _controller.AllResults.SetCurrentResults(resultsName);

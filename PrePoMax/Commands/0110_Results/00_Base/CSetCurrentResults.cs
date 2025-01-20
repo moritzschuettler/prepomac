@@ -9,6 +9,7 @@ using CaeMesh;
 using CaeGlobals;
 using CaeJob;
 using PrePoMax.Forms;
+using System.IO;
 
 namespace PrePoMax.Commands
 {
@@ -17,6 +18,11 @@ namespace PrePoMax.Commands
     {
         // Variables                                                                                                                
         private string _resultsName;
+
+
+        // Properties                                                                                                               
+        public string ResultsName { get { return _resultsName; } }
+        public string JobName { get { return Path.GetFileNameWithoutExtension(_resultsName); } }
 
 
         // Constructor                                                                                                              

@@ -10471,6 +10471,7 @@ namespace PrePoMax
                 newAnalysisJob = _jobs[name].DeepClone();
                 newAnalysisJob.Name = NamedClass.GetNameWithoutLastValue(newAnalysisJob.Name);
                 newAnalysisJob.Name = _jobs.GetNextNumberedKey(newAnalysisJob.Name);
+                newAnalysisJob.ResetJobStatus();
                 AddJob(newAnalysisJob);
             }
         }

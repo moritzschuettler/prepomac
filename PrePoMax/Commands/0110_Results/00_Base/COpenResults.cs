@@ -19,6 +19,10 @@ namespace PrePoMax.Commands
         private string _jobName;
 
 
+        // Properties                                                                                                               
+        public string JobName { get { return _jobName; } }
+
+
         // Constructor                                                                                                              
         public COpenResults(string jobName)
             : base("Open results")

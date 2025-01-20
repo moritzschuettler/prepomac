@@ -366,43 +366,75 @@ namespace PrePoMax.Commands
         // Post-process
         public bool RunHistoryPostprocessing()
         {
-            bool clearBeforeAddingNew = false;
-            HashSet<string> analysisNames = new HashSet<string>();
-            List<Command> postprocessCommands = new List<Command>();
-            List<Command> reducedCommands = new List<Command>();
-            //
-            bool postProcessingAdded;
+            string currentAnalysisName = null;
+            string lastAnalysisName = null;
+            List<Command> commandsList;
+            Dictionary<string, List<Command>> runCommands = new Dictionary<string, List<Command>>();
+            Dictionary<string, List<Command>> postprocessCommands = new Dictionary<string, List<Command>>();
+            // Collect pos-processing commands by analysis name
             foreach (var command in _commands)
             {
-                postProcessingAdded = false;
-                if (command is CPrepareAndRunJob prj)       // analysis
+                // Set current analysis
+                if (command is COpenResults or)
                 {
-                    analysisNames.Add(prj.JobName);
-                    clearBeforeAddingNew = true;
+                    currentAnalysisName = or.JobName;
+                    lastAnalysisName = or.JobName;
                 }
-                else if (command is COpenResults) { }       // open results 
-                else if (command is PostprocessCommand ppc) // post-processing
+                else if (command is CSetCurrentResults scr)
                 {
-                    if (clearBeforeAddingNew)
-                    {
-                        postprocessCommands.Clear();
-                        clearBeforeAddingNew = false;
-                    }
-                    postprocessCommands.Add(ppc);
-                    postProcessingAdded = true;
+                    currentAnalysisName = scr.JobName;
                 }
-                //
-                if (!postProcessingAdded) reducedCommands.Add(command);
+                //                                                                          
+                // Add all run analysis commands to dictionary
+                if (command is CPrepareAndRunJob prj)
+                {
+                    if (runCommands.TryGetValue(prj.JobName, out commandsList)) commandsList.Add(command);
+                    else runCommands.Add(prj.JobName, new List<Command> { command });
+                }
+                // Add all post processing commands to dictionary
+                else if (command is PostprocessCommand)
+                {
+                    if (postprocessCommands.TryGetValue(currentAnalysisName, out commandsList)) commandsList.Add(command);
+                    else postprocessCommands.Add(currentAnalysisName, new List<Command> { command });
+                }
+            }
+            // Run postprocessing commands for the last opened analysis
+            List<Command> runCommandsList;
+            List<Command> postprocessCommandsList;
+            if (lastAnalysisName != null && postprocessCommands.TryGetValue(lastAnalysisName, out postprocessCommandsList) &&
+                runCommands.TryGetValue(lastAnalysisName, out runCommandsList))
+            {
+                int count = 0;
+                COpenResults lastOpenResultsCommand = null;
+                List<Command> reducedCommands = new List<Command>();
+                // Remove unnecessary run commands                                          
+                foreach (var command in runCommandsList)
+                {
+                    if (count++ < runCommandsList.Count - 1) _commands.Remove(command);
+                }
+                // Find last open results command
+                foreach (var command in postprocessCommandsList)
+                {
+                    if (command is COpenResults or) lastOpenResultsCommand = or;
+                }
+                // Remove commands
+                foreach (var command in postprocessCommandsList)
+                {
+                    if (command != lastOpenResultsCommand) _commands.Remove(command);
+                }
+                // Remove unnecessary commands                                              
+                foreach (var command in postprocessCommandsList)
+                {
+                    if (command is COpenResults) { }
+                    if (command is COpenResults) { }
+                    else if (command is CSetCurrentResults) { }
+                    else reducedCommands.Add(command);
+                }
+                // Run commands
+                return AddAndExecute(reducedCommands);
             }
             //
-            bool result = true;
-            if (analysisNames.Count == 1 && postprocessCommands.Count > 0)
-            {
-                _commands = reducedCommands;
-                //
-                result = AddAndExecute(postprocessCommands);
-            }
-            return result;
+            return true;
         }
 
         // Clear
