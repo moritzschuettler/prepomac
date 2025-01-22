@@ -6533,7 +6533,7 @@ namespace PrePoMax
         public void AddNodeSet(FeNodeSet nodeSet, bool update = true)
         {
             // In order for the Regenerate history to work perform the selection
-            if (nodeSet.CreationData != null) ReselectNodeSet(nodeSet);
+            ReselectNodeSet(nodeSet);
             //
             _model.Mesh.NodeSets.Add(nodeSet.Name, nodeSet);
             // Update
@@ -6569,8 +6569,7 @@ namespace PrePoMax
         public void ReplaceNodeSet(string oldNodeSetName, FeNodeSet nodeSet, bool feModelUpdate)
         {
             // In order for the Regenerate history to work perform the selection
-            if (nodeSet.CreationData != null) ReselectNodeSet(nodeSet);
-            else throw new NotSupportedException("The node set does not contain any selection data.");
+            ReselectNodeSet(nodeSet);
             //
             _model.Mesh.UpdateNodeSetCenterOfGravity(nodeSet);
             //
@@ -6613,33 +6612,36 @@ namespace PrePoMax
         {
             _model.Mesh.UpdateNodeSetCenterOfGravity(nodeSet);
         }
-        //
+        // Update
         private void ReselectNodeSet(FeNodeSet nodeSet)
         {
-            _selection = nodeSet.CreationData.DeepClone();
-            //
-            if (_selection.SelectItem == vtkSelectItem.Node)
+            if (nodeSet.CreationData != null)
             {
-                nodeSet.CreationIds = GetSelectionIds();
-                nodeSet.Labels = nodeSet.CreationIds.ToArray();
-            }
-            else if (_selection.SelectItem == vtkSelectItem.Geometry)
-            {
-                if (_selection.CurrentView == (int)ViewGeometryModelResults.Model)
+                _selection = nodeSet.CreationData.DeepClone();
+                //
+                if (_selection.SelectItem == vtkSelectItem.Node)
                 {
                     nodeSet.CreationIds = GetSelectionIds();
-                    nodeSet.Labels = _model.Mesh.GetIdsFromGeometryIds(nodeSet.CreationIds, vtkSelectItem.Node);
+                    nodeSet.Labels = nodeSet.CreationIds.ToArray();
+                }
+                else if (_selection.SelectItem == vtkSelectItem.Geometry)
+                {
+                    if (_selection.CurrentView == (int)ViewGeometryModelResults.Model)
+                    {
+                        nodeSet.CreationIds = GetSelectionIds();
+                        nodeSet.Labels = _model.Mesh.GetIdsFromGeometryIds(nodeSet.CreationIds, vtkSelectItem.Node);
+                    }
+                    else throw new NotSupportedException();
                 }
                 else throw new NotSupportedException();
+                // Update parent creation ids to detect changes in function: StepCollection.MultiRegionChanged
+                if (nodeSet.ParentMultiRegion != null)
+                    nodeSet.ParentMultiRegion.CreationIds = nodeSet.CreationIds.ToArray();
+                //
+                if (nodeSet.Labels == null || nodeSet.Labels.Length == 0) nodeSet.Valid = false;
+                //
+                _selection.Clear();
             }
-            else throw new NotSupportedException();
-            // Update parent creation ids to detect changes in function: StepCollection.MultiRegionChanged
-            if (nodeSet.ParentMultiRegion != null)
-                nodeSet.ParentMultiRegion.CreationIds = nodeSet.CreationIds.ToArray();
-            //
-            if (nodeSet.Labels == null || nodeSet.Labels.Length == 0) nodeSet.Valid = false;
-            //
-            _selection.Clear();
         }
         private void UpdateAllNodeSetsBasedOnGeometry(bool feModelUpdate)
         {
@@ -6773,7 +6775,7 @@ namespace PrePoMax
         public void AddElementSet(FeElementSet elementSet)
         {
             // In order for the Regenerate history to work perform the selection again
-            if (elementSet.CreationData != null) ReselectElementSet(elementSet);
+            ReselectElementSet(elementSet);
             //
             _model.Mesh.ElementSets.Add(elementSet.Name, elementSet);
             //
@@ -6805,8 +6807,7 @@ namespace PrePoMax
         public void ReplaceElementSet(string oldElementSetName, FeElementSet elementSet, bool feModelUpdate)
         {
             // In order for the Regenerate history to work perform the selection again
-            if (elementSet.CreationData != null) ReselectElementSet(elementSet);
-            else throw new NotSupportedException("The element set does not contain any selection data.");
+            ReselectElementSet(elementSet);
             //
             _model.Mesh.ElementSets.Replace(oldElementSetName, elementSet.Name, elementSet);
             //
@@ -6870,33 +6871,36 @@ namespace PrePoMax
             //
             if (update) FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
         }
-        //
+        // Update
         private void ReselectElementSet(FeElementSet elementSet)
         {
-            _selection = elementSet.CreationData.DeepClone();
-            //
-            if (_selection.SelectItem == vtkSelectItem.Element || _selection.SelectItem == vtkSelectItem.Part)
+            if (elementSet.CreationData != null)
             {
-                elementSet.CreationIds = GetSelectionIds();
-                elementSet.Labels = elementSet.CreationIds.ToArray();
-            }
-            else if (_selection.SelectItem == vtkSelectItem.Geometry)
-            {
-                if (_selection.CurrentView == (int)ViewGeometryModelResults.Model)
+                _selection = elementSet.CreationData.DeepClone();
+                //
+                if (_selection.SelectItem == vtkSelectItem.Element || _selection.SelectItem == vtkSelectItem.Part)
                 {
                     elementSet.CreationIds = GetSelectionIds();
-                    elementSet.Labels = _model.Mesh.GetIdsFromGeometryIds(elementSet.CreationIds, vtkSelectItem.Element);
+                    elementSet.Labels = elementSet.CreationIds.ToArray();
+                }
+                else if (_selection.SelectItem == vtkSelectItem.Geometry)
+                {
+                    if (_selection.CurrentView == (int)ViewGeometryModelResults.Model)
+                    {
+                        elementSet.CreationIds = GetSelectionIds();
+                        elementSet.Labels = _model.Mesh.GetIdsFromGeometryIds(elementSet.CreationIds, vtkSelectItem.Element);
+                    }
+                    else throw new NotSupportedException();
                 }
                 else throw new NotSupportedException();
+                // Update parent creation ids to detect changes in function: StepCollection.MultiRegionChanged
+                if (elementSet.ParentMultiRegion != null)
+                    elementSet.ParentMultiRegion.CreationIds = elementSet.CreationIds.ToArray();
+                //
+                if (elementSet.Labels == null || elementSet.Labels.Length == 0) elementSet.Valid = false;
+                //
+                _selection.Clear();
             }
-            else throw new NotSupportedException();
-            // Update parent creation ids to detect changes in function: StepCollection.MultiRegionChanged
-            if (elementSet.ParentMultiRegion != null)
-                elementSet.ParentMultiRegion.CreationIds = elementSet.CreationIds.ToArray();
-            //
-            if (elementSet.Labels == null || elementSet.Labels.Length == 0) elementSet.Valid = false;
-            //
-            _selection.Clear();
         }
         private void UpdateAllElementSetsBasedOnGeometry(bool feModelUpdate)
         {
@@ -7041,7 +7045,8 @@ namespace PrePoMax
         }
         public void AddSurface(FeSurface surface, bool update = true)
         {
-            ReselectSurface(surface, true); // in order for the Regenerate history to work perform the selection
+            // In order for the Regenerate history to work perform the selection
+            ReselectSurface(surface, true);
             //
             AddSurfaceAndElementFaces(surface);
             //
@@ -7076,8 +7081,8 @@ namespace PrePoMax
         {
             List<string> keys = _model.Mesh.Surfaces.Keys.ToList();     // copy
             RemoveSurfaceAndElementFacesFromModel(new string[] { oldSurfaceName });
-            //
-            ReselectSurface(surface, false); // in order for the Regenerate history to work perform the selection
+            // In order for the Regenerate history to work perform the selection
+            ReselectSurface(surface, false);
             //
             AddSurfaceAndElementFaces(surface);
             //
@@ -11708,6 +11713,9 @@ namespace PrePoMax
         //
         public void AddResultHistoryOutput(ResultHistoryOutput resultHistoryOutput)
         {
+            // In order for the Regenerate history to work perform the selection
+            ReselectResultHistoryOutput(resultHistoryOutput);
+            //
             _allResults.CurrentResult.AddResultHistoryOutput(resultHistoryOutput);
             //
             _form.AddTreeNode(ViewGeometryModelResults.Results, resultHistoryOutput, null);
@@ -11722,6 +11730,9 @@ namespace PrePoMax
         }
         public void ReplaceResultHistoryOutput(string oldResultHistoryOutputName, ResultHistoryOutput resultHistoryOutput)
         {
+            // In order for the Regenerate history to work perform the selection
+            ReselectResultHistoryOutput(resultHistoryOutput);
+            //
             _allResults.CurrentResult.ReplaceResultHistoryOutput(oldResultHistoryOutputName, resultHistoryOutput);
             //
             //SetFieldAndComponent(resultHistoryOutput);
@@ -11779,7 +11790,17 @@ namespace PrePoMax
             foreach (var name in historyResultComponentNames)
                 _form.RemoveTreeNode<HistoryResultData>(view, name, historyResultSetName + "@@@" + historyResultFieldName);
         }
-
+        // Update
+        private void ReselectResultHistoryOutput(ResultHistoryOutput resultHistoryOutput)
+        {
+            if (resultHistoryOutput.RegionType == RegionTypeEnum.Selection && resultHistoryOutput.CreationData != null)
+            {
+                _selection = resultHistoryOutput.CreationData.DeepClone();
+                resultHistoryOutput.CreationIds = GetSelectionIds();
+                _selection.Clear();
+            }
+        }
+        
         #endregion #################################################################################################################
 
         #region Activate Deactivate  ###############################################################################################

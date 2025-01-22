@@ -273,14 +273,11 @@ namespace PrePoMax.Commands
                             // Write to form
                             WriteToOutput(command);
                             //
-                            executeWithDialog = false;
-                            if (showFileDialog && command is ICommandWithDialog cwd)
-                            {
-                                if (cwd is COpenFile) executeWithDialog = true;
-                                else if (cwd is CImportFile) executeWithDialog = true;
-                                else if (cwd is CAddMeshSetupItem) executeWithDialog = true;
-                                else if (cwd is CReplaceMeshSetupItem) executeWithDialog = true;
-                            }
+                            executeWithDialog = command is ICommandWithDialog cwd && 
+                                                (showFileDialog && cwd is COpenFile ||
+                                                 showFileDialog && cwd is CImportFile ||
+                                                 showMeshDialog && cwd is CAddMeshSetupItem ||
+                                                 showMeshDialog && cwd is CReplaceMeshSetupItem);
                             //
                             ExecuteCommandWithTimer(command, executeWithDialog, true);
                         }

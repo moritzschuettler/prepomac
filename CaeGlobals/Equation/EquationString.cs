@@ -34,8 +34,8 @@ namespace CaeGlobals
 
 
         // Operators                                                                                                                
-        public static bool operator ==(EquationString es1, EquationString es2) => es1.Equation == es2.Equation;
-        public static bool operator !=(EquationString es1, EquationString es2) => es1.Equation != es2.Equation;
+        //public static bool operator ==(EquationString es1, EquationString es2) => es1.Equation == es2.Equation;
+        //public static bool operator !=(EquationString es1, EquationString es2) => es1.Equation != es2.Equation;
         //
         //public static implicit operator string(EquationString equationString)
         //{
@@ -48,6 +48,10 @@ namespace CaeGlobals
         //
 
         // Methods                                                                                                                  
+        public bool EqualsEquation(EquationString other)
+        {
+            return this.Equation == other.Equation;
+        }
         public bool IsEquation()
         {
             if (_equation != null && _equation.StartsWith("=")) return true;

@@ -155,7 +155,7 @@ namespace PrePoMax.Forms
                     if (_controller.Model.Parameters.TryGetValue(parameter.Name, out existingParameter))
                     {
                         // No changes
-                        if (parameter.EquationStr == existingParameter.EquationStr) { }
+                        if (parameter.EquationStr.Equation == existingParameter.EquationStr.Equation) { }
                         // Replace
                         else _controller.ReplaceParameterCommand(existingParameter.Name, parameter);
                     }

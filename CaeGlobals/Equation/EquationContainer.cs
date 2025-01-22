@@ -28,7 +28,11 @@ namespace CaeGlobals
         public EquationString Equation
         {
             get { return new EquationString(_equation); }
-            set { SetEquation(value.Equation, true); }
+            set
+            {
+                if (value == null) SetEquation("0", true);
+                else SetEquation(value.Equation, true);
+            }
         }
         public string String { get { return _equation; } }
         public Func<double, double> CheckValue { get { return _checkValue; } set { _checkValue = value; } }

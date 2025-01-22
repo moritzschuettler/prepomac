@@ -573,7 +573,7 @@ namespace CaeResults
                     //
                     if (valid)
                     {
-                        // Chek if USER DEFINED FILED is used and if it is valid
+                        // Check if USER DEFINED FILED is used and if it is valid
                         if (_resultFieldOutputs.TryGetValue(rhoff.FieldName, out existingResultFieldOutput))
                             valid &= existingResultFieldOutput.Valid;
                         //
