@@ -3495,11 +3495,14 @@ namespace CaeResults
         //
         public void AddResultHistoryOutput(ResultHistoryOutput resultHistoryOutput)
         {
-            _resultHistoryOutputs.Add(resultHistoryOutput.Name, resultHistoryOutput);
+            // First try to create the historyResultSet to catch potential errors
             HistoryResultSet historyResultSet = GetHistorySetFromResultHistoryOutput(resultHistoryOutput);
-            // Add
+            //
             if (historyResultSet != null)
             {
+                // Add result output
+                _resultHistoryOutputs.Add(resultHistoryOutput.Name, resultHistoryOutput);
+                // Add set
                 _history.Sets.Add(historyResultSet.Name, historyResultSet);
             }
         }
@@ -4162,12 +4165,15 @@ namespace CaeResults
         }
         public void ReplaceResultHistoryOutput(string oldResultHistoryOutputName, ResultHistoryOutput resultHistoryOutput)
         {
+            // First try to create the historyResultSet to catch potential errors
             HistoryResultSet historyResultSet = GetHistorySetFromResultHistoryOutput(resultHistoryOutput);
             //
             if (historyResultSet != null)
             {
-                _history.Sets.Replace(oldResultHistoryOutputName, historyResultSet.Name, historyResultSet);
+                // Add result output
                 _resultHistoryOutputs.Replace(oldResultHistoryOutputName, resultHistoryOutput.Name, resultHistoryOutput);
+                // Add set
+                _history.Sets.Replace(oldResultHistoryOutputName, historyResultSet.Name, historyResultSet);
             }
         }
         public void RemoveResultHistoryOutputs(string[] resultHistoryOutputNames)
