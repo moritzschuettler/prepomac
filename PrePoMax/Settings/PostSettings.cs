@@ -29,7 +29,6 @@ namespace PrePoMax
     public class PostSettings : ISettings
     {
         // Variables                                                                                                                
-        private string _deformationFieldOutputName;
         private UndeformedModelTypeEnum _undeformedModelType;
         private Color _undeformedWireModelColor;
         private Color _undeformedSolidModelColor;
@@ -98,7 +97,6 @@ namespace PrePoMax
         }
         public void Reset()
         {
-            _deformationFieldOutputName = CaeResults.FeResults.GetPossibleDeformationFieldOutputNames()[0];
             _undeformedModelType = UndeformedModelTypeEnum.WireframeBody;
             _undeformedWireModelColor = Color.FromArgb(128, Color.Black);
             _undeformedSolidModelColor = Color.FromArgb(128, Color.Gray);

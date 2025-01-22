@@ -131,6 +131,15 @@ namespace PrePoMax.Settings
         [Description("Select the edge angle for the detection of model edges. The angle will be used for future imports.")]
         [TypeConverter(typeof(StringAngleDegConverter))]
         public double EdgeAngle { get { return _generalSettings.EdgeAngle; } set { _generalSettings.EdgeAngle = value; } }
+        //
+        [Category("Open results")]
+        [OrderedDisplayName(0, 10, "Run history postprocessing")]
+        [Description("Select yes to run existing history postprocessing commands from the results with the same file name.")]
+        public bool RunPostprocessingCommands
+        {
+            get { return _generalSettings.RunHistoryPostprocessing; }
+            set { _generalSettings.RunHistoryPostprocessing = value; }
+        }
 
 
         // Constructors                                                                                                             
@@ -146,6 +155,7 @@ namespace PrePoMax.Settings
             _dctd.RenameBooleanPropertyToYesNo(nameof(OpenLastFile));
             _dctd.RenameBooleanPropertyToYesNo(nameof(SaveResultsInPmx));
             _dctd.RenameBooleanPropertyToYesNo(nameof(SplitPeriodicFaces));
+            _dctd.RenameBooleanPropertyToYesNo(nameof(RunPostprocessingCommands));
             // Add unit system types as description strings
             List<string> descriptions = new List<string>();
             foreach (UnitSystemType unitSystemType in Enum.GetValues(typeof(UnitSystemType)))

@@ -10839,11 +10839,14 @@ namespace PrePoMax
         }
         public void RunHistoryPostprocessing()
         {
-            bool result = _commands.RunHistoryPostprocessing();
-            //
-            if (!result && !_batchRegenerationMode)
-                MessageBoxes.ShowWarning("Not all post-processing commands were successfully executed. " +
-                                         "Please see the output window for more details.");
+            if (_settings.General.RunHistoryPostprocessing)
+            {
+                bool result = _commands.RunHistoryPostprocessing();
+                //
+                if (!result && !_batchRegenerationMode)
+                    MessageBoxes.ShowWarning("Not all post-processing commands were successfully executed. " +
+                                             "Please see the output window for more details.");
+            }
         }
         //
         private void UpdateCurrentFieldData()

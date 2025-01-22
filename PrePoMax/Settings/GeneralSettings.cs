@@ -26,6 +26,8 @@ namespace PrePoMax
         private int _numOfSplitFaces;
         // Mesh edge angle
         private double _edgeAngle;
+        // Post-processing
+        private bool _runHistoryPostprocessing;
         //
         private LinkedList<string> _recentFiles;
         private List<string> _materialLibraryFiles;
@@ -61,6 +63,11 @@ namespace PrePoMax
                 else if (_edgeAngle > 90) _edgeAngle = 90;
             }
         }
+        public bool RunHistoryPostprocessing
+        {
+            get { return _runHistoryPostprocessing; }
+            set { _runHistoryPostprocessing = value; }
+        }
 
 
         // Constructors                                                                                                             
@@ -83,6 +90,7 @@ namespace PrePoMax
             _unitSystemType = UnitSystemType.MM_TON_S_C;
             _numOfSplitFaces = 2;
             _edgeAngle = 30;
+            _runHistoryPostprocessing = true;
             //
             ResetFormSize();
         }
