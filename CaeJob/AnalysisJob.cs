@@ -367,7 +367,7 @@ namespace CaeJob
             AppendDataToOutput("");
             if (_jobStatus == JobStatus.OK)
             {
-                if (!resultsExist)
+                if (!resultsExist && !(ContainsNoAnalysis(_sbOutput.ToString()) || ContainsNoAnalysis(_sbAllOutput.ToString())))
                 {
                     AppendDataToOutput(" Job failed - no results exist.");
                     _jobStatus = JobStatus.Failed;
@@ -406,6 +406,12 @@ namespace CaeJob
                 else
                     return true;
             }
+            else return false;
+        }
+        private bool ContainsNoAnalysis(string text)
+        {
+            //*ERROR reading *DYNAMIC: initial increment size exce eds step size
+            if (text.Contains("*WARNING: no analysis option was chosen")) return true;
             else return false;
         }
         private void AllRunsCompleted()

@@ -37,9 +37,8 @@ namespace FileInOut.Output.Calculix
             if (_contactPair.Method == ContactPairMethod.NodeToSurface) sb.Append("Node to surface");
             else if (_contactPair.Method == ContactPairMethod.SurfaceToSurface) sb.Append("Surface to surface");
             else if (_contactPair.Method == ContactPairMethod.Mortar) sb.Append("Mortar");
-            else if (_contactPair.Method == ContactPairMethod.LinMortar) sb.Append("LinMortar");
-            else if (_contactPair.Method == ContactPairMethod.PGLinMortar) sb.Append("PGLinMortar");
-            else throw new NotSupportedException();
+            else if (_contactPair.Method == ContactPairMethod.Massless) sb.Append("Massless");
+            else throw new CaeException("The contact type " + _contactPair.Method + " is not supported.");
             //
             if (_contactPair.Method == ContactPairMethod.NodeToSurface && _contactPair.SmallSliding) sb.Append(", Small sliding");
             //
