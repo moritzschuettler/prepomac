@@ -30,7 +30,7 @@ namespace CaeGlobals
             get { return new EquationString(_equation); }
             set
             {
-                if (value == null) SetEquation("0", true);
+                if (value == null) SetEquation(null, true);
                 else SetEquation(value.Equation, true);
             }
         }

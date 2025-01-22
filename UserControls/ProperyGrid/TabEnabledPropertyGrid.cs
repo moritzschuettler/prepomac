@@ -72,11 +72,11 @@ namespace UserControls
             e.Handled = true;
             e.SuppressKeyPress = true;
 
-            // Get selected griditem
+            // Get selected grid item
             GridItem gridItem = this.SelectedGridItem;
             if (gridItem == null) { return; }
 
-            // Create a collection all visible child griditems in propertygrid
+            // Create a collection all visible child grid items in property grid
             GridItem root = gridItem;
             while (root.GridItemType != GridItemType.Root)
             {
@@ -85,7 +85,7 @@ namespace UserControls
             List<GridItem> gridItems = new List<GridItem>();
             this.FindItems(root, gridItems);
 
-            // Get position of selected griditem in collection
+            // Get position of selected grid item in collection
             int index = gridItems.IndexOf(gridItem);
 
             int nextIndex = index + 1;

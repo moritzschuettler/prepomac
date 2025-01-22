@@ -198,7 +198,7 @@ namespace UserControls
                     // Copy to clipboard
                     CopyToClipboard();
                     // Clear selected cells
-                    foreach (DataGridViewCell dgvCell in SelectedCells) dgvCell.Value = 0;
+                    foreach (DataGridViewCell dgvCell in SelectedCells) dgvCell.Value = null;
                 }
             }
             catch { }
