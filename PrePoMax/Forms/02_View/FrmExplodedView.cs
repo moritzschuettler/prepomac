@@ -70,47 +70,54 @@ namespace PrePoMax.Forms
         }
         private void FrmExplodedView_VisibleChanged(object sender, EventArgs e)
         {
-            if (this.Visible)
+            try
             {
-                // Suppress section view
-                _sectionViewPlane = _controller.GetSectionViewPlane();
-                if (_sectionViewPlane != null) _controller.RemoveSectionView(true);
-                // Suppress symbols
-                _drawSymbolsForStep = _controller.GetDrawSymbolsForStep();
-                _controller.DrawSymbols("None", false);
-                // Suppress annotations
-                _controller.Annotations.SuppressCurrentAnnotations();
-                // Set exploded view
-                if (_cancelParam.ScaleFactor == -1)
+                if (this.Visible)
                 {
-                    _continueExplodedView = false;
+                    // Suppress section view
+                    _sectionViewPlane = _controller.GetSectionViewPlane();
+                    if (_sectionViewPlane != null) _controller.RemoveSectionView(true);
+                    // Suppress symbols
+                    _drawSymbolsForStep = _controller.GetDrawSymbolsForStep();
+                    _controller.DrawSymbols("None", false);
+                    // Suppress annotations
+                    _controller.Annotations.SuppressCurrentAnnotations();
+                    // Set exploded view
+                    if (_cancelParam.ScaleFactor == -1)
+                    {
+                        _continueExplodedView = false;
+                    }
+                    else
+                    {
+                        // Animation of exploded view is not needed
+                        _continueExplodedView = true;
+                        // This redraws the scene and redraws selection
+                        _partOffsets = _controller.RemoveExplodedView(true);
+                        _controller.PreviewExplodedView(_viewExplodedViewParameters.Parameters, false, _partOffsets);
+                    }
+                    // Update properties
+                    _viewExplodedViewParameters.UpdateVisibility();
+                    // Animate
+                    UpdateScrollbarPosition(true);
                 }
                 else
                 {
-                    // Animation of exploded view is not needed
-                    _continueExplodedView = true;
-                    // This redraws the scene and redraws selection
-                    _partOffsets = _controller.RemoveExplodedView(true);
-                    _controller.PreviewExplodedView(_viewExplodedViewParameters.Parameters, false, _partOffsets);
+                    if (DialogResult == DialogResult.OK) _controller.ApplyExplodedView(_viewExplodedViewParameters.Parameters);
+                    else if (DialogResult == DialogResult.Abort) Cancel(true);
+                    else if (DialogResult == DialogResult.Cancel) Cancel(_cancelParam.ScaleFactor == -1);
+                    // the form was closed from frmMain.CloseAllForms
+                    else if (DialogResult == DialogResult.None) Cancel(_cancelParam.ScaleFactor == -1);
+                    // Resume symbols
+                    _controller.DrawSymbols(_drawSymbolsForStep, false);
+                    // Resume annotations
+                    _controller.Annotations.ResumeCurrentAnnotations();
+                    // Resume section view
+                    if (_sectionViewPlane != null) _controller.ApplySectionView();
                 }
-                // Update properties
-                _viewExplodedViewParameters.UpdateVisibility();
-                // Animate
-                UpdateScrollbarPosition(true);
             }
-            else
+            catch (Exception ex)
             {
-                if (DialogResult == DialogResult.OK) _controller.ApplyExplodedView(_viewExplodedViewParameters.Parameters);
-                else if (DialogResult == DialogResult.Abort) Cancel(true);
-                else if (DialogResult == DialogResult.Cancel) Cancel(_cancelParam.ScaleFactor == -1);
-                // the form was closed from frmMain.CloseAllForms
-                else if (DialogResult == DialogResult.None) Cancel(_cancelParam.ScaleFactor == -1);
-                // Resume symbols
-                _controller.DrawSymbols(_drawSymbolsForStep, false);
-                // Resume annotations
-                _controller.Annotations.ResumeCurrentAnnotations();
-                // Resume section view
-                if (_sectionViewPlane != null) _controller.ApplySectionView();
+                ExceptionTools.Show(this, ex);
             }
         }
         private void propertyGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)

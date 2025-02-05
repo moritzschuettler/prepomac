@@ -906,11 +906,13 @@ namespace PrePoMax
                 string name;
                 HashSet<string> existingNames = _allResults.CurrentResult.Mesh.NodeSets.Keys.ToHashSet();
                 Dictionary<string, FeNodeSet> nodeSets = new Dictionary<string, FeNodeSet>();
+                HashSet<int> allNodeIds = CurrentResult.Mesh.Nodes.Keys.ToHashSet();
                 for (int i = 0; i < nodeSetNames.Length; i++)
                 {
                     name = nodeSetNames[i];
                     if (existingNames.Contains(name)) name = _allResults.CurrentResult.Mesh.NodeSets.GetNextNumberedKey(name);
                     //
+                    nodeIds[i] = allNodeIds.Intersect(nodeIds[i]).ToArray();    // keep only existing nodes - exploded shell
                     nodeSets.Add(name, new FeNodeSet(name, nodeIds[i]));
                 }
                 _allResults.CurrentResult.Mesh.NodeSets.AddRange(nodeSets);
