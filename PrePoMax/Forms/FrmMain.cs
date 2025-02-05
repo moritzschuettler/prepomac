@@ -304,8 +304,8 @@ namespace PrePoMax
                 tsFile.Location = new Point(0, 0);
                 tsViews.Location = new Point(tsFile.Left + tsFile.Width, 0);
                 tsSymbols.Location = new Point(tsViews.Left + tsViews.Width, 0);
-                tsDeformationFactor.Location = new Point(0, tsFile.Height);
-                tsResults.Location = new Point(tsDeformationFactor.Left + tsDeformationFactor.Width, tsFile.Height);
+                tsResultDeformation.Location = new Point(0, tsFile.Height);
+                tsResults.Location = new Point(tsResultDeformation.Left + tsResultDeformation.Width, tsFile.Height);
                 tscbSymbols.SelectedIndexChanged += tscbSymbols_SelectedIndexChanged;
                 // Controller
                 _controller = new Controller(this);
@@ -498,7 +498,6 @@ namespace PrePoMax
                 //
                 _frmTransformation = new FrmTransformation(_controller);
                 AddFormToAllForms(_frmTransformation);
-                //
                 // Deformation toolstrip
                 InitializeDeformationComboBoxes();
                 InitializeComplexComboBoxes();
@@ -793,6 +792,8 @@ namespace PrePoMax
         {
             Form form = sender as Form;
             bool menusActive = !form.Visible;
+            //
+            if (form is FrmSelectItemSet) return;
             //
             if (form is FrmAnimation)
             {
@@ -1335,7 +1336,7 @@ namespace PrePoMax
                 tscbSymbols.Enabled = false;
                 UpdateSymbolsList();
                 // Toolbar Results
-                tsDeformationFactor.Enabled = false;
+                tsResultDeformation.Enabled = false;
                 tsResults.Enabled = false;
                 // Vtk
                 bool vtkVisible = false;
@@ -1419,7 +1420,7 @@ namespace PrePoMax
                     tslSymbols.Enabled = true;
                     tscbSymbols.Enabled = true;
                     // Toolbar Results
-                    tsDeformationFactor.Enabled = true;
+                    tsResultDeformation.Enabled = true;
                     tsResults.Enabled = true;
                     // Vtk
                     vtkVisible = true;
@@ -1447,65 +1448,47 @@ namespace PrePoMax
         }
         private void SetMenuAndToolStripVisibilityBySetState(bool menusActive)
         {
+            // Do not use Enable here - use DisableMouseButtons
             _modelTree.DisableMouse = !menusActive;
             menuStripMain.DisableMouseButtons = !menusActive;
             tsFile.DisableMouseButtons = !menusActive;
             tsViews.DisableMouseButtons = !menusActive;
-            tsDeformationFactor.DisableMouseButtons = !menusActive;
+            tsResultDeformation.DisableMouseButtons = !menusActive;
             tsResults.DisableMouseButtons = !menusActive;
         }
         private void SetMenuAndToolStripVisibilityByAnimation(bool menusActive)
         {
             _modelTree.DisableMouse = !menusActive;
             menuStripMain.DisableMouseButtons = !menusActive;
-            tsFile.DisableMouseButtons = !menusActive;
+            // DisableMouseButtons does not work for combo boxes so use .Enabled
+            tsFile.Enabled = menusActive;
+            tsSymbols.Enabled = menusActive;
+            tsResultDeformation.Enabled = menusActive;
             //
-            tsDeformationFactor.DisableMouseButtons = !menusActive;
-            tscbResultNames.Enabled = menusActive;           // must be here
-            tscbDeformationVariable.Enabled = menusActive;   // must be here
-            tscbDeformationType.Enabled = menusActive;       // must be here
-            tstbDeformationFactor.Enabled = menusActive;     // must be here
-            //
-            if (menusActive) UpdateComplexControlStates();
-            else
-            {
-                tslComplex.Enabled = false;
-                tscbComplex.Enabled = false;
-                tslAngle.Enabled = false;
-                tstbAngle.Enabled = false;
-            }
-            //
-            tsResults.DisableMouseButtons = !menusActive;
-            tscbStepAndIncrement.Enabled = menusActive;      // must be here despite the tsResults.DisableMouseButtons = !enable;
-            //
+            tsbAnimate.Enabled = menusActive;   // first - removes the selection
+            tsResults.Enabled = menusActive;    // second
+            // Individual buttons
+            tsbSectionView.Enabled = menusActive;
+            tsbExplodedView.Enabled = menusActive;
+            tsbQuery.Enabled = menusActive;
+            tsbRemoveAnnotations.Enabled = menusActive;
             tsbShowAllParts.Enabled = menusActive;
             tsbHideAllParts.Enabled = menusActive;
             tsbInvertVisibleParts.Enabled = menusActive;
+            //
+            if (menusActive) UpdateComplexControlStates();
+            
         }
         private void PushMenuStates()
         {
             List<bool> states = new List<bool>();
-            states.Add(_modelTree.DisableMouse);
-            states.Add(menuStripMain.DisableMouseButtons);
-            states.Add(tsFile.DisableMouseButtons);
-            states.Add(tsViews.DisableMouseButtons);
-            states.Add(tsDeformationFactor.DisableMouseButtons);
-            states.Add(tsResults.DisableMouseButtons);
-            states.Add(tsSymbols.Enabled);
-            states.Add(tscbResultNames.Enabled);
-            states.Add(tscbDeformationVariable.Enabled);
-            states.Add(tscbDeformationType.Enabled);
-            states.Add(tstbDeformationFactor.Enabled);
-            //
-            states.Add(tslComplex.Enabled);
-            states.Add(tscbComplex.Enabled);
-            states.Add(tslAngle.Enabled);
-            states.Add(tstbAngle.Enabled);
-            //
-            states.Add(tscbStepAndIncrement.Enabled);
-            states.Add(tsbShowAllParts.Enabled);
-            states.Add(tsbHideAllParts.Enabled);
-            states.Add(tsbInvertVisibleParts.Enabled);
+            states.Add(_modelTree.DisableMouse);                    // SetMenuAndToolStripVisibilityBySetState
+            states.Add(menuStripMain.DisableMouseButtons);          // SetMenuAndToolStripVisibilityBySetState
+            states.Add(tsFile.DisableMouseButtons);                 // SetMenuAndToolStripVisibilityBySetState
+            states.Add(tsViews.DisableMouseButtons);                // SetMenuAndToolStripVisibilityBySetState
+            states.Add(tsResultDeformation.DisableMouseButtons);    // SetMenuAndToolStripVisibilityBySetState
+            states.Add(tsResults.DisableMouseButtons);              // SetMenuAndToolStripVisibilityBySetState
+            states.Add(tsSymbols.Enabled);                          // SetMenuAndToolStripVisibilityByItemForm
             //
             _prevMenuStates.Push(states.ToArray());
         }
@@ -1513,29 +1496,16 @@ namespace PrePoMax
         {
             if (_prevMenuStates != null && _prevMenuStates.Count > 0)
             {
+                int n = 0;
                 bool[] states = _prevMenuStates.Pop();
                 //
-                _modelTree.DisableMouse = states[0];
-                menuStripMain.DisableMouseButtons = states[1];
-                tsFile.DisableMouseButtons = states[2];
-                tsViews.DisableMouseButtons = states[3];
-                tsDeformationFactor.DisableMouseButtons = states[4];
-                tsResults.DisableMouseButtons = states[5];
-                tsSymbols.Enabled = states[6];
-                tscbResultNames.Enabled = states[7];
-                tscbDeformationVariable.Enabled = states[8];
-                tscbDeformationType.Enabled = states[9];
-                tstbDeformationFactor.Enabled = states[10];
-                //
-                tslComplex.Enabled = states[11];
-                tscbComplex.Enabled = states[12];
-                tslAngle.Enabled = states[13];
-                tstbAngle.Enabled = states[14];
-                //
-                tscbStepAndIncrement.Enabled = states[15];
-                tsbShowAllParts.Enabled = states[16];
-                tsbHideAllParts.Enabled = states[17];
-                tsbInvertVisibleParts.Enabled = states[18];
+                _modelTree.DisableMouse = states[n++];
+                menuStripMain.DisableMouseButtons = states[n++];
+                tsFile.DisableMouseButtons = states[n++];
+                tsViews.DisableMouseButtons = states[n++];
+                tsResultDeformation.DisableMouseButtons = states[n++];
+                tsResults.DisableMouseButtons = states[n++];
+                tsSymbols.Enabled = states[n++];
             }
             //else throw new NotSupportedException();
         }
@@ -8420,6 +8390,8 @@ namespace PrePoMax
             _controller.DrawSymbols(tscbSymbols.SelectedItem.ToString(), false);
             // Save the selected index
             _selectedSymbolIndex[_controller.CurrentView] = tscbSymbols.SelectedIndex;
+            //
+            this.ActiveControl = null;
         }
         public void SelectLastSymbolName()
         {
@@ -8756,15 +8728,7 @@ namespace PrePoMax
             if (_controller.ContainsComplexResults)
             {
                 visible = true;
-                //
                 bool enabled = true;
-                //if (_controller.CurrentFieldData != null)
-                //{
-                //    Field field = _controller.CurrentResult.GetField(_controller.CurrentFieldData);
-                //    if (field != null) enabled = field.Complex;
-                //    else enabled = false;
-                //}
-                //else enabled = false;
                 //
                 tslComplex.Enabled = enabled;
                 tscbComplex.Enabled = enabled;
