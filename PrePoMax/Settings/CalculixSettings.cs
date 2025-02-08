@@ -32,8 +32,6 @@ namespace PrePoMax
             set 
             {
                 string path = Tools.GetGlobalPath(value);
-                if (!Directory.Exists(path))
-                    throw new Exception("The selected work directory does not exist.");
                 _workDirectory = Tools.GetLocalPath(path);
             } 
         }

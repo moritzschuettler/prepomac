@@ -161,7 +161,7 @@ namespace CaeGlobals
             output.Position = 0;
             return output;
         }
-        // Rouding
+        // Rounding
         public static double RoundToSignificantDigits(double d, int digits)
         {
             //double[] stdValues = new double[] { 0.1, 0.2, 0.25, 0.5 };
@@ -223,19 +223,15 @@ namespace CaeGlobals
             }
             catch (IOException)
             {
-                //the file is unavailable because it is:
-                //still being written to
-                //or being processed by another thread
-                //or does not exist (has already been processed)
+                // The file is unavailable because it is still being written to
+                // or being processed by another thread or does not exist (has already been processed)
                 return true;
             }
             finally
             {
-                if (stream != null)
-                    stream.Close();
+                if (stream != null) stream.Close();
             }
-
-            //file is not locked
+            // File is not locked
             return false;
         }
         public static bool WaitForFileToUnlock(string fileName, long miliseconds)
@@ -275,6 +271,84 @@ namespace CaeGlobals
             //
             return lines;
         }
+
+        public static List<string> GetLockingProcesses(string filePath)
+        {
+            List<string> result = new List<string>();
+            //
+            if (!File.Exists(filePath)) return result;
+            //
+            if (CanOpenFile(filePath))
+            {
+                return result; // No process is locking the file
+            }
+            //
+            foreach (var process in Process.GetProcesses())
+            {
+                try
+                {
+                    if (process.Id == 30960)
+                        result = result;
+
+                    if (process.ProcessName.ToLower().StartsWith("ccx"))
+                    {
+
+                        List<string> openFiles = GetOpenFiles(process.Id).ToList();
+
+                        foreach (var file in openFiles)
+                        {
+                            if (string.Equals(file, filePath, StringComparison.OrdinalIgnoreCase))
+                            {
+                                result.Add($"{process.ProcessName} (PID: {process.Id})");
+                            }
+                        }
+                    }
+                }
+                catch
+                {
+                    // Ignore access denied errors
+                }
+            }
+            //
+            return result;
+        }
+        private static bool CanOpenFile(string filePath)
+        {
+            try
+            {
+                using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.None))
+                {
+                    return true;
+                }
+            }
+            catch
+            {
+                return false; // File is locked
+            }
+        }
+        private static IEnumerable<string> GetOpenFiles(int processId)
+        {
+            var files = new List<string>();
+            //
+            try
+            {
+                string query = $"SELECT ProcessId, Name FROM Win32_Process WHERE ProcessId = {processId}";
+                using (var searcher = new System.Management.ManagementObjectSearcher("root\\CIMV2", query))
+                {
+                    foreach (System.Management.ManagementObject obj in searcher.Get())
+                    {
+                        files.Add(obj["Name"].ToString());
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore errors
+            }
+            //
+            return files;
+        }
+
         // Read number of lines        
         [DebuggerStepThrough]
         public static bool IsNullOrEmptyOrWhiteSpace(this string value)

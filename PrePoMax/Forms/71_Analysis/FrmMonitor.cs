@@ -45,7 +45,7 @@ namespace PrePoMax.Forms
         {
             if (_job != null)
             {
-                _job.DataOutput -= UpdateOutput;
+                _job.DataOutputEvent -= UpdateOutput;
                 _job = null;
             }
             //
@@ -106,7 +106,7 @@ namespace PrePoMax.Forms
         {
             if (_job != null)
             {
-                _job.DataOutput -= UpdateOutput;
+                _job.DataOutputEvent -= UpdateOutput;
                 _job = null;
             }
             Hide();
@@ -116,11 +116,11 @@ namespace PrePoMax.Forms
         public void PrepareForm(string jobName)
         {
             _job = _controller.GetJob(jobName);
-            _job.DataOutput += UpdateOutput;
+            _job.DataOutputEvent += UpdateOutput;
             //
             UpdateProgress();
             //
-            tbOutput.Text = _job.AllOutputData;
+            tbOutput.Text = _job.GetAllOutputData();
             tbOutput.Select(tbOutput.TextLength, 0);
             tbOutput.ScrollToCaret();
             //
@@ -129,21 +129,21 @@ namespace PrePoMax.Forms
             tbStatus.ScrollToCaret();
         }
 
-        private void UpdateOutput()
+        private void UpdateOutput(AnalysisJob job, string data)
         {
             try
             {
                 if (this.tbOutput.InvokeRequired)
                 {
                     // This is a worker thread so delegate the task.
-                    this.BeginInvoke(new MethodInvoker(() => UpdateOutput()));
+                    this.BeginInvoke(new MethodInvoker(() => UpdateOutput(job, data)));
                 }
                 else
                 {
                     if (_job != null)
                     {
                         // It's on the same thread, no need for Invoke
-                        tbOutput.AutoScrollAppendText(_job.OutputData);
+                        tbOutput.AutoScrollAppendText(data);
                         //
                         tbStatus.AutoScrollSetText(_job.StatusFileData);
                         //

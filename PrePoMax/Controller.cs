@@ -812,7 +812,11 @@ namespace PrePoMax
             _watch.Stop();
             _commands.SetLastOpenResultsTime(_watch.Elapsed);
             //
-            if (!resultsExist) throw new CaeException("The result file does not exist or is empty.");
+            if (!resultsExist)
+            {
+                if (_batchRegenerationMode) _commands.Errors.Add("The result file does not exist or is empty.");
+                else throw new CaeException("The result file does not exist or is empty.");
+            }
         }
         private void OpenDat(string fileName, string parameters, bool redraw = true)
         {
@@ -10625,6 +10629,10 @@ namespace PrePoMax
         {
             ExportToCalculix(inputFileName);
             job.JobStatusChanged = JobStatusChanged;
+            //
+            job.DataOutputEvent -= JobDataOutputChanged;
+            if (_batchRegenerationMode) job.DataOutputEvent += JobDataOutputChanged;
+            //
             job.Submit(1, 1, useBackgroundWorker);
             //
             return true;
@@ -10814,6 +10822,11 @@ namespace PrePoMax
                 _jobs.Remove(name);
                 _form.RemoveTreeNode<AnalysisJob>(ViewGeometryModelResults.Model, name, null);
             }
+        }
+        //
+        private void JobDataOutputChanged(AnalysisJob job, string data)
+        {
+            _form.WriteDataToOutput(data);
         }
 
         #endregion #################################################################################################################

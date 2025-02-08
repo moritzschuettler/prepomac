@@ -13,6 +13,7 @@ using System.Runtime.Serialization;
 using System.Security.RightsManagement;
 using System.Windows;
 using System.Windows.Forms;
+using System.Runtime.InteropServices;
 
 namespace CaeJob
 {
@@ -46,7 +47,6 @@ namespace CaeJob
         protected string _convergenceFileContents;                      // ISerializable
         protected DateTime _endTime;                                    // ISerializable
         //
-        [NonSerialized] private System.Windows.Threading.DispatcherTimer _timer;
         [NonSerialized] protected Stopwatch _watch;
         [NonSerialized] private Process _exe;
         [NonSerialized] private StringBuilder _sbOutput;
@@ -60,7 +60,8 @@ namespace CaeJob
         [NonSerialized] private int _numOfRunIncrements;
         [NonSerialized] private int _currentRunIncrement;
         [NonSerialized] private object _tag;
-
+        [NonSerialized] private bool _useBackgroundWorker;
+        [NonSerialized] private double _prevWatchMiliseconds;
 
         // Properties                                                                                                               
         public override string Name
@@ -117,40 +118,6 @@ namespace CaeJob
             get { return _environmentVariables; }
             set { _environmentVariables = value; }
         }
-        public string OutputData
-        {
-            get
-            {
-                try
-                {
-                    if (_sbOutput != null)
-                    {
-                        if (_myLock == null) _myLock = new object();
-                        lock (_myLock) return _sbOutput.ToString();
-                    }
-                    else return null;
-                }
-                catch
-                {
-                    return null;
-                }
-            }
-        }
-        public string AllOutputData
-        {
-            get
-            {
-                try
-                {
-                    if (_sbAllOutput != null) return _sbAllOutput.ToString();
-                    else return null;
-                }
-                catch
-                {
-                    return null;
-                }
-            }
-        }
         public string StatusFileData { get { return _statusFileContents; } }
         public string ConvergenceFileData { get { return _convergenceFileContents; } }
         public int CurrentRunStep { get { return _currentRunStep; } }
@@ -160,7 +127,7 @@ namespace CaeJob
 
 
         // Events                                                                                                                   
-        public event Action DataOutput;
+        public event Action<AnalysisJob, string> DataOutputEvent;
 
 
         // Callback                                                                                                                 
@@ -228,21 +195,7 @@ namespace CaeJob
         // Event handlers                                                                                                           
         void Timer_Tick(object sender, EventArgs e)
         {
-            File.AppendAllText(_outputFileName, OutputData);
-            //
-            GetStatusFileContents();
-            GetConvergenceFileContents();
-            //
-            DataOutput?.Invoke();
-            //
-            if (_myLock == null) _myLock = new object();
-            lock (_myLock)
-            {
-                if (_sbAllOutput.Length > 2_000_000_000) Kill("The string builder run out of space.");
-                //
-                _sbAllOutput.Append(_sbOutput);
-                _sbOutput.Clear();
-            }
+            //OutputData();
         }
 
 
@@ -250,6 +203,7 @@ namespace CaeJob
         public void Submit(int numOfRunSteps, int numOfRunIncrements, bool useBackgroundWorker = true)
         {
             if (numOfRunSteps < 1 || numOfRunIncrements < 1) throw new NotSupportedException();
+            _useBackgroundWorker = useBackgroundWorker;
             // Reset job
             _tag = null;
             _jobStatus = JobStatus.None;
@@ -262,17 +216,13 @@ namespace CaeJob
             _numOfRunIncrements = numOfRunIncrements;
             _currentRunIncrement = -1;
             //
-            _timer = new System.Windows.Threading.DispatcherTimer();
-            _timer.Interval = new TimeSpan(0, 0, 0, 0, 1000);
-            _timer.Tick += Timer_Tick;
-            _timer.Start();
-            //
             _watch = new Stopwatch();
             _watch.Start();
+            _prevWatchMiliseconds = 0;
             //
-            SubmitNextRun(useBackgroundWorker);
+            SubmitNextRun();
         }
-        private void SubmitNextRun(bool useBackgroundWorker = true)
+        private void SubmitNextRun()
         {
             // First run
             if (_currentRunStep == -1)
@@ -295,11 +245,11 @@ namespace CaeJob
             if (_currentRunStep <= _numOfRunSteps && (_jobStatus == JobStatus.None || _jobStatus == JobStatus.OK))
             {
                 PreRun?.Invoke(this);
-                SubmitOneRun(useBackgroundWorker);
+                SubmitOneRun();
             }
             else AllRunsCompleted();
         }
-        private void SubmitOneRun(bool useBackgroundWorker = true)
+        private void SubmitOneRun()
         {
             if (_myLock == null) _myLock = new object();
             lock (_myLock)
@@ -326,7 +276,7 @@ namespace CaeJob
             //
             JobStatusChanged?.Invoke(_name, _jobStatus);
             //
-            if (useBackgroundWorker)
+            if (_useBackgroundWorker)
             {
                 using (BackgroundWorker bwStart = new BackgroundWorker())
                 {
@@ -392,8 +342,7 @@ namespace CaeJob
                 if (resultsExist) _jobStatus = JobStatus.FailedWithResults;
             }
             //
-            bool useBackgroundWorker = sender != null;
-            if (continueAnalysis) SubmitNextRun(useBackgroundWorker);
+            if (continueAnalysis) SubmitNextRun();
             else AllRunsCompleted();
         }
         private bool ContainsError(string text)
@@ -417,7 +366,6 @@ namespace CaeJob
         private void AllRunsCompleted()
         {
             _watch.Stop();
-            _timer.Stop();
             //
             AppendDataToOutput("");
             AppendDataToOutput("Process elapsed time:       " + Math.Round(_watch.Elapsed.TotalSeconds, 3).ToString() + " s");
@@ -426,13 +374,14 @@ namespace CaeJob
             //Console.WriteLine($"  Peak virtual memory usage  : {_peakVirtualMem / 1024 / 1024}");
             //
             Timer_Tick(null, null);
+            SendDataToOutput();
             //
             JobStatusChanged?.Invoke(_name, _jobStatus);
             LastRunCompleted?.Invoke(this);
             //
             _endTime = DateTime.Now + TimeSpan.FromSeconds(1);
             // Dereference the links to other objects
-            DataOutput = null;
+            DataOutputEvent = null;
             JobStatusChanged = null;
             PreRun = null;
             PostRun = null;
@@ -573,10 +522,9 @@ namespace CaeJob
             {
                 if (_exe != null)
                 {
-                    if (message != "The string builder run out of space.")
-                        AppendDataToOutput(message);
+                    if (message != "The string builder run out of space.") AppendDataToOutput(message);
+                    //
                     _watch.Stop();
-                    _timer.Stop();
                     //
                     try
                     {
@@ -622,6 +570,38 @@ namespace CaeJob
             }
         }
         //
+        public string GetAllOutputData()
+        {
+            try
+            {
+                if (_sbAllOutput != null) return _sbAllOutput.ToString();
+                else return null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+        private void SendDataToOutput()
+        {
+            if (_myLock == null) _myLock = new object();
+            lock (_myLock)
+            {
+                string outputData = _sbOutput.ToString();
+                //
+                if (_outputFileName != null) File.AppendAllText(_outputFileName, outputData);
+                //
+                GetStatusFileContents();
+                GetConvergenceFileContents();
+                //
+                DataOutputEvent?.Invoke(this, outputData);
+                //
+                if (_sbAllOutput.Length > 2_000_000_000) Kill("The string builder run out of space.");
+                //
+                _sbAllOutput.Append(_sbOutput);
+                _sbOutput.Clear();
+            }
+        }
         private void AppendDataToOutput(string data)
         {
             if (_myLock == null) _myLock = new object();
@@ -629,6 +609,12 @@ namespace CaeJob
             {
                 Application.DoEvents();
                 _sbOutput.AppendLine(data);
+            }
+            //
+            if (_watch.ElapsedMilliseconds - _prevWatchMiliseconds > 1000)
+            {
+                SendDataToOutput();
+                _prevWatchMiliseconds = _watch.ElapsedMilliseconds;
             }
         }
         private void GetStatusFileContents()

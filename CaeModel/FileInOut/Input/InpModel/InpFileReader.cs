@@ -1984,7 +1984,7 @@ namespace FileInOut.Input
             SolverTypeEnum solverType = (SolverTypeEnum)Enum.Parse(typeof(SolverTypeEnum), solverName.Replace(" ", ""));
             return solverType;
         }
-        //
+        // BCs
         private static void AddStepBoundaryCondition(Step step, string[] lines, FeMesh mesh)
         {
             // *Boundary, Amplitude=Amp-1
@@ -2164,6 +2164,7 @@ namespace FileInOut.Input
                 _errors.Add("Failed to merge boundary conditions.");
             }
         }
+        // Loads
         private static void AddStepCLoad(Step step, FeMesh mesh, string[] lines)
         {
             // *CLoad, Amplitude=Amp-1
@@ -2208,31 +2209,31 @@ namespace FileInOut.Input
                         cfLoad.AmplitudeName = amplitudeName;
                         momentLoad.AmplitudeName = amplitudeName;
                     }
-                    //
+                    // Values
                     switch (dof)
                     {
                         case 1:
-                            cfLoad.F1.SetEquationFromValue(dofValue);
+                            cfLoad.F1.SetEquationFromValue(dofValue, true);
                             step.AddLoad(cfLoad);
                             break;
                         case 2:
-                            cfLoad.F2.SetEquationFromValue(dofValue);
+                            cfLoad.F2.SetEquationFromValue(dofValue, true);
                             step.AddLoad(cfLoad);
                             break;
                         case 3:
-                            cfLoad.F3.SetEquationFromValue(dofValue);
+                            cfLoad.F3.SetEquationFromValue(dofValue, true);
                             step.AddLoad(cfLoad);
                             break;
                         case 4:
-                            momentLoad.M1.SetEquationFromValue(dofValue);
+                            momentLoad.M1.SetEquationFromValue(dofValue, true);
                             step.AddLoad(momentLoad);
                             break;
                         case 5:
-                            momentLoad.M2.SetEquationFromValue(dofValue);
+                            momentLoad.M2.SetEquationFromValue(dofValue, true);
                             step.AddLoad(momentLoad);
                             break;
                         case 6:
-                            momentLoad.M3.SetEquationFromValue(dofValue);
+                            momentLoad.M3.SetEquationFromValue(dofValue, true);
                             step.AddLoad(momentLoad);
                             break;
                         default:

@@ -8,6 +8,8 @@ using CaeGlobals;
 using FileInOut.Output.Calculix;
 using DynamicTypeDescriptor;
 using System.Drawing.Design;
+using System.IO;
+using System.Windows.Forms;
 
 namespace PrePoMax.Settings
 {
@@ -28,7 +30,16 @@ namespace PrePoMax.Settings
         public string WorkDirectory
         {
             get { return _calculixSettings.WorkDirectoryForSettingsOnly; }
-            set { _calculixSettings.WorkDirectoryForSettingsOnly = value; }
+            set
+            {
+                if (value != _calculixSettings.WorkDirectoryForSettingsOnly)
+                {
+                    if (!Directory.Exists(value) &&
+                        MessageBoxes.ShowWarningQuestionOKCancel("The selected work directory does not exist.") == DialogResult.Cancel)
+                        return;
+                    else _calculixSettings.WorkDirectoryForSettingsOnly = value;
+                }
+            }
         }
         //
         [CategoryAttribute("Calculix")]

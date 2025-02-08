@@ -48,6 +48,7 @@ namespace PrePoMax
         private KeyboardHook _keyboardHook;
         private Dictionary<ViewGeometryModelResults, int> _selectedSymbolIndex;
         private Stack<bool[]> _prevMenuStates;
+        private bool _closeAfterRegeneration;
         //
         private Point _formLocation;
         private List<Form> _allForms;
@@ -198,6 +199,7 @@ namespace PrePoMax
             _controller = null;
             _modelTree = null;
             _prevMenuStates = new Stack<bool[]>();
+            _closeAfterRegeneration = false;
             _cmdOptions = cmdOptions;
             CommandLineOptions.CheckForErrors(_cmdOptions); // make sure options are compatible
             //
@@ -594,6 +596,7 @@ namespace PrePoMax
                     // Exit
                     if (_cmdOptions.ExitAfterRegeneration == "Yes")
                     {
+                        _closeAfterRegeneration = true;
                         WriteDataToOutput("Close application.");
                         Close();
                     }
@@ -693,49 +696,72 @@ namespace PrePoMax
         }
         private async void FrmMain_FormClosing(object sender, FormClosingEventArgs e)
         {
+            string error = null;
             try
             {
                 e.Cancel = false;   // close the form
                 DialogResult response = DialogResult.None;
                 // No write access
                 if (_controller == null) return;
-                //
-                if (!_controller.BatchRegenerationMode)
+                // Analysis in progress - first check: it has to kill running analyses
+                foreach (var entry in _controller.Jobs)
                 {
-                    foreach (var entry in _controller.Jobs)
+                    if (entry.Value.JobStatus == JobStatus.Running)
                     {
-                        if (entry.Value.JobStatus == JobStatus.Running)
-                        {
-                            response = MessageBoxes.ShowWarningQuestionOKCancel("There is an analysis running." +
-                                                                        " Closing will kill the analysis. Close anyway?");
-                            if (response == DialogResult.Cancel) e.Cancel = true;
-                            else if (response == DialogResult.OK) _controller.KillAllJobs();
-                            break;
-                        }
-                    }
-                    //
-                    if (tsslState.Text != Globals.ReadyText)
-                    {
-                        response = MessageBoxes.ShowWarningQuestionOKCancel("There is a task running. Close anyway?");
+                        if (!_controller.BatchRegenerationMode)
+                            response = MessageBoxes.ShowWarningQuestionOKCancel("There is an analysis running. " +
+                                "Closing will kill the analysis. Close anyway?");
+                        else response = DialogResult.OK;
+                        //
                         if (response == DialogResult.Cancel) e.Cancel = true;
-                        else if (response == DialogResult.OK && _controller.SavingFile)
+                        else if (response == DialogResult.OK)
                         {
-                            while (_controller.SavingFile) Thread.Sleep(100);
+                            _controller.KillAllJobs();
+                            error = "The analysis was killed by the user.";
+                            throw new CaeException(error);
                         }
+                        break;
                     }
-                    else if (_controller.ModelChanged)
+                }
+                // Regeneration in progress
+                if (_controller.BatchRegenerationMode && !_closeAfterRegeneration)
+                {
+                    error = "PrePoMax closed by the user.";
+                    throw new CaeException(error);
+                }
+                // Saving in progress
+                if (tsslState.Text != Globals.ReadyText)
+                {
+                    if (!_controller.BatchRegenerationMode)
+                        response = MessageBoxes.ShowWarningQuestionOKCancel("There is a task running. Close anyway?");
+                    else response = DialogResult.OK;
+                    //
+                    if (response == DialogResult.Cancel) e.Cancel = true;
+                    else if (response == DialogResult.OK && _controller.SavingFile)
                     {
-                        response = MessageBoxes.ShowWarningQuestionYesNoCancel("Save file before closing?");
-                        if (response == DialogResult.Yes)
-                        {
-                            e.Cancel = true;                                // stop the form from closing before saving
-                            await Task.Run(() => _controller.Save());       // save
-                            Close();                                        // close the control
-                        }
-                        else if (response == DialogResult.Cancel) e.Cancel = true;
+                        // Wait for saving to finish
+                        while (_controller.SavingFile) Thread.Sleep(100);
                     }
-                    // Save form size and location and delete history files
-                    if (e.Cancel == false && _controller != null)
+                }
+                // Model changed
+                else if (_controller.ModelChanged)
+                {
+                    if (!_controller.BatchRegenerationMode)
+                        response = MessageBoxes.ShowWarningQuestionYesNoCancel("Save file before closing?");
+                    else response = DialogResult.No;
+                    //
+                    if (response == DialogResult.Yes)
+                    {
+                        e.Cancel = true;                                // stop the form from closing before saving
+                        await Task.Run(() => _controller.Save());       // save
+                        Close();                                        // close the control
+                    }
+                    else if (response == DialogResult.Cancel) e.Cancel = true;
+                }
+                // Save form size and location and delete history files
+                if (e.Cancel == false && _controller != null)
+                {
+                    if (!_controller.BatchRegenerationMode)
                     {
                         SettingsContainer settings = _controller.Settings;  // get a clone
                         settings.General.SaveFormSize(this);                // save form size
@@ -750,7 +776,9 @@ namespace PrePoMax
                 }
             }
             catch
-            { }
+            { 
+                if (error != null) throw new CaeException(error);
+            }
         }
         private void FrmMain_Move(object sender, EventArgs e)
         {

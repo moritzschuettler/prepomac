@@ -135,14 +135,6 @@ namespace CaeJob
             //
             RunCompleted();
         }
-        //void bwStart_DoWork(object sender, DoWorkEventArgs e)
-        //{
-        //    Run();
-        //}
-        //void bwStart_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
-        //{
-        //    RunCompleted();
-        //}
         private void Run()
         {
             if (!File.Exists(_executable)) throw new Exception("The file '" + _executable + "' does not exist.");
@@ -171,39 +163,11 @@ namespace CaeJob
             _exe = new Process();
             _exe.StartInfo = psi;
             //
-            //using (AutoResetEvent outputWaitHandle = new AutoResetEvent(false))
-            //using (AutoResetEvent errorWaitHandle = new AutoResetEvent(false))
             _outputWaitHandle = new AutoResetEvent(false);
             _errorWaitHandle = new AutoResetEvent(false);
             {
                 _exe.OutputDataReceived += _exe_OutputDataReceived;
-                //_exe.OutputDataReceived += (sender, e) =>
-                //{
-                //    if (e.Data == null)
-                //    {
-                //        // the safe wait handle closes on kill
-                //        if (!_outputWaitHandle.SafeWaitHandle.IsClosed) _outputWaitHandle.Set();
-                //    }
-                //    else
-                //    {
-                //        AddDataToOutput(e.Data);
-                //    }
-                //};
-                //
                 _exe.ErrorDataReceived += _exe_ErrorDataReceived;
-                //_exe.ErrorDataReceived += (sender, e) =>
-                //{
-                //    if (e.Data == null)
-                //    {
-                //        // the safe wait handle closes on kill
-                //        if (!errorWaitHandle.SafeWaitHandle.IsClosed) errorWaitHandle.Set();
-                //    }
-                //    else
-                //    {
-                //        File.AppendAllText(_errorFileName, e.Data + Environment.NewLine);
-                //        AddDataToOutput(e.Data);
-                //    }
-                //};
                 //
                 _exe.Start();
                 _exe.BeginOutputReadLine();
@@ -213,8 +177,7 @@ namespace CaeJob
                 //
                 if (_exe.WaitForExit(ms) && _outputWaitHandle.WaitOne(ms) && _errorWaitHandle.WaitOne(ms))
                 {
-                    // Process completed. Check process.ExitCode here.
-                    // after Kill() _jobStatus is Killed                    
+                    // Process completed. Check process. ExitCode here. After Kill() _jobStatus is Killed
                     if (_jobStatus == JobStatus.Running)
                     {
                         _jobStatus = JobStatus.OK;

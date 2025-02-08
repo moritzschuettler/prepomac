@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using static CaeGlobals.Geometry2;
@@ -26,12 +27,9 @@ namespace PrePoMax
         //
         [DllImport("kernel32.dll")]
         static extern bool FreeConsole();
-
-        // ***also dllimport of that function***
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        [DllImport("user32.dll")]
         private static extern bool SetProcessDPIAware();
-
-
+        //
         /// <summary>
         /// The main entry point for the application.
         /// </summary>
@@ -40,7 +38,6 @@ namespace PrePoMax
         {
             // DPI
             //if (Environment.OSVersion.Version.Major >= 6) SetProcessDPIAware();
-            //if (IsWindowsApplication()) AttachConsole(ATTACH_PARENT_PROCESS);
             Console.WriteLine("");
             //
             SetCultureAndLanguage();
@@ -55,9 +52,8 @@ namespace PrePoMax
             //
             if (parserResult.Value != null) Run(parserResult.Value);
             //
-            //if (IsWindowsApplication()) FreeConsole();
-            //
             Process.GetCurrentProcess().Kill(); // a process remains running afer application exits
+            return;
         }
         private static void SetCultureAndLanguage()
         {
@@ -114,11 +110,9 @@ namespace PrePoMax
                 FinishedWithException(ex);
             }
         }
-        private static void Application_ThreadException(object sender, System.Threading.ThreadExceptionEventArgs e)
+        private static void Application_ThreadException(object sender, ThreadExceptionEventArgs e)
         {
             FinishedWithException(e.Exception);
-            //
-            Process.GetCurrentProcess().Kill(); // a process remains running afer application exits
         }
         private static void FinishedWithException(Exception ex)
         {
@@ -127,8 +121,9 @@ namespace PrePoMax
             Console.WriteLine("----------Finished------------");
             Console.WriteLine("Process finished with errors.");
             Console.WriteLine("");
+            //
+            Process.GetCurrentProcess().Kill(); // a process remains running afer application exits
         }
-
 
         //private static bool IsWindowsApplication()
         //{
