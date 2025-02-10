@@ -56,10 +56,14 @@ namespace PrePoMax
             }
         }
         // RegenerationFileName
-        [Option("r0", Hidden = false)] public string Regeneration0FileName { get; set; }
-        [Option("r1", Hidden = false)] public string Regeneration1FileName { get; set; }
-        [Option("r2", Hidden = false)] public string Regeneration2FileName { get; set; }
-        [Option("r3", Hidden = false)] public string Regeneration3FileName { get; set; }
+        [Option("r0", HelpText = "Regeneration of all history commands. See option -r.")]
+        public string Regeneration0FileName { get; set; }
+        [Option("r1", HelpText = "Regeneration of pre-processing history commands only.")]
+        public string Regeneration1FileName { get; set; }
+        [Option("r2", HelpText = "Regeneration of analysis history commands only.")]
+        public string Regeneration2FileName { get; set; }
+        [Option("r3", HelpText = "Regeneration of post-processing history commands only.")]
+        public string Regeneration3FileName { get; set; }
 
 
         // UnitSystem
