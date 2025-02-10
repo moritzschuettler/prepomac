@@ -246,7 +246,7 @@ namespace CaeGlobals
         }
         public static string[] ReadAllLines(string fileName, bool trimStart = false)
         {
-            List<string> lines = new List<string>();
+            List<string> lines = new List<string>(100000);
             //
             if (!WaitForFileToUnlock(fileName, 5000)) return null;
             //

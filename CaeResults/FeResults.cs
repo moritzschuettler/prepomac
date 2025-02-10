@@ -2064,10 +2064,12 @@ namespace CaeResults
         }
         public void ComputeVisibleFieldInvariants()
         {
-            foreach (var entry in _fields)
+            Parallel.ForEach(_fields, entry =>
+            //foreach (var entry in _fields)
             {
                 if (FOFieldNames.IsVisible(entry.Key.Name)) entry.Value.ComputeInvariants();
             }
+            );
         }
         //
         public string[] GetAllComponentNames()
