@@ -7,6 +7,7 @@ using System.IO;
 using CaeMesh;
 using CaeGlobals;
 using System.ComponentModel;
+using System.Globalization;
 
 namespace CaeResults
 {
@@ -88,24 +89,24 @@ namespace CaeResults
                 foreach (string[] dataSet in dataSets)
                 {
                     setID = dataSet[0];
-                    if (setID.StartsWith("    1C"))  // Data
+                    if (setID.StartsWith("    1C", StringComparison.Ordinal))  // Data
                     {
                         result.HashName = GetHashName(dataSet);
                         result.DateTime = GetDateTime(dataSet);
                         result.UnitSystem = GetUnitSystem(dataSet); // calls SetConverterUnits on the UnitSystem
                         GetMaterialIdsAndNames(dataSet, out materialIdMaterialName, out gapMaterialIds, out springMaterialIds);
                     }
-                    else if (setID.StartsWith("    2C")) // Nodes
+                    else if (setID.StartsWith("    2C", StringComparison.Ordinal)) // Nodes
                     {
                         constantWidth = IsConstantWidth(dataSet);
                         nodes = GetNodes(dataSet, constantWidth, out nodeIdsLookUp);
                     }
-                    else if (setID.StartsWith("    3C")) // Elements
+                    else if (setID.StartsWith("    3C", StringComparison.Ordinal)) // Elements
                     {
                         elements = GetElements(dataSet, gapMaterialIds, springMaterialIds, out materialIdElementIds);
                         //elements = GetElementsFast(dataSet));
                     }
-                    else if (setID.StartsWith("    1PSTEP")) // Fields
+                    else if (setID.StartsWith("    1PSTEP", StringComparison.Ordinal)) // Fields
                     {
                         GetField(dataSet, constantWidth, prevFieldData, nodeIdsLookUp, out fieldData, out field);
                         result.AddField(fieldData, field);
@@ -314,7 +315,7 @@ namespace CaeResults
         {
             List<string> dataSet = new List<string>();
             List<string[]> dataSets = new List<string[]>();
-
+            //
             for (int i = 0; i < lines.Length; i++)
             {
                 if (lines[i] == " -3")
@@ -322,7 +323,12 @@ namespace CaeResults
                     dataSets.Add(dataSet.ToArray());
                     dataSet = new List<string>();
                 }
-                else if ((lines[i].StartsWith("    2C") || lines[i].StartsWith("    3C")) && dataSet.Count > 0)
+                // Fast check for lines starting with: "    2C" or "    3C"
+                else if (lines[i].Length > 5 &&
+                         lines[i][5] == 'C' &&
+                         (lines[i][4] == '2' || lines[i][4] == '3') &&
+                         lines[i][3] == ' ' && lines[i][2] == ' ' && lines[i][1] == ' ' && lines[i][0] == ' ' &&
+                         dataSet.Count > 0)
                 {
                     dataSets.Add(dataSet.ToArray());
                     dataSet = new List<string>() { lines[i] };
@@ -330,7 +336,7 @@ namespace CaeResults
                 else
                     dataSet.Add(lines[i]);
             }
-
+            //
             return dataSets;
         }
         static private Dictionary<int, FeNode> GetNodes(string[] lines, bool constantWidth, out Dictionary<int, int> nodeIdsLookUp)
@@ -683,7 +689,7 @@ namespace CaeResults
                 stepId = int.Parse(record[3]);
             }
             // Find 100C line - user field data
-            while (!lines[lineNum].TrimStart().StartsWith("100C")) lineNum++;
+            while (!lines[lineNum].TrimStart().StartsWith("100C", StringComparison.Ordinal)) lineNum++;
             //
             line = lines[lineNum++];
             int position = line.IndexOf("CL") + 2;                                                  // +2 for CL
@@ -788,21 +794,16 @@ namespace CaeResults
                 //
                 lineNum++;
             }
-            // Check if the line number equals the numebr of lines
+            // Check if the line number equals the number of lines
             if (lines.Length - lineNum < numOfVal) numOfVal = lines.Length - lineNum;
             //
             float[][] values = new float[components.Count][];
             for (int i = 0; i < values.Length; i++) values[i] = new float[nodeIdsLookUp.Count];
             //
             bool directIds = nodeIdsLookUp.Count == numOfVal;
-            int lineId;
-            int nodeId;
-            int nodeValueId;
-            int start;
             int width;
-            string line;
-            string substring;
-            float value;
+            int lineNumInt = lineNum;
+            int componentsCount = components.Count;
             //
             if (constantWidth)
             {
@@ -822,9 +823,18 @@ namespace CaeResults
                 // -2           0.00000E+00 0.00000E+00 0.00000E+00 0.00000E+00 0.00000E+00 0.00000E+00
                 // -2           0.00000E+00 0.00000E+00 0.00000E+00 0.00000E+00 0.00000E+00 0.00000E+00
                 width = 12;
-                lineId = lineNum;
-                for (int i = 0; i < numOfVal; i++)
+                //for (int i = 0; i < numOfVal; i++)
+                Parallel.For(0, numOfVal, i =>  
                 {
+                    int lineId;
+                    int nodeId;
+                    int nodeValueId;
+                    int start;
+                    string line;
+                    string substring;
+                    float value;
+                    //
+                    lineId = lineNumInt + i;
                     line = lines[lineId];
                     // Node id
                     if (directIds) nodeValueId = i;
@@ -836,12 +846,12 @@ namespace CaeResults
                     }
                     // Values
                     start = 13;
-                    for (int j = 0; j < components.Count; j++)
+                    for (int j = 0; j < componentsCount; j++)
                     {
                         // Is line to short - do results continue in the next line?
                         if (start + width > line.Length)
                         {
-                            if (lines.Length > lineId + 1 && lines[lineId + 1].Trim().StartsWith("-2"))
+                            if (lines.Length > lineId + 1 && lines[lineId + 1].Trim().StartsWith("-2", StringComparison.Ordinal))
                             {
                                 lineId++;
                                 line = lines[lineId];
@@ -855,14 +865,16 @@ namespace CaeResults
                         {
                             substring = line.Substring(start, width);
                             if (!float.TryParse(substring, out value)) value = float.NaN;
+                            // Try/catch version is a little faster
+                            //try { value = float.Parse(substring); }
+                            //catch { value = float.NaN; }
                             //
                             values[j][nodeValueId] = value;
                         }
                         start += width;
                     }
-                    //
-                    lineId++;
                 }
+                );
             }
             else
             {
@@ -872,6 +884,12 @@ namespace CaeResults
                 // -1         4-9.84216E-0035.62909E-003-2.73047E-001
                 // -1         53.91981E-0031.22846E-002-2.98849E-001
                 // -1         6-1.16413E-0027.22403E-003-2.74940E-001
+                int lineId;
+                int nodeId;
+                int nodeValueId;
+                int start;
+                string line;
+                //
                 for (int i = 0; i < numOfVal; i++)
                 {
                     lineId = i + lineNum;

@@ -246,30 +246,25 @@ namespace CaeGlobals
         }
         public static string[] ReadAllLines(string fileName, bool trimStart = false)
         {
-            long count;
-            string[] lines = null;
+            List<string> lines = new List<string>();
             //
             if (!WaitForFileToUnlock(fileName, 5000)) return null;
             //
             using (FileStream fileStream = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             using (StreamReader streamReader = new StreamReader(fileStream, Encoding.UTF8, true, 16*4096))
             {
-                count = CountLines(fileStream);
-                lines = new string[count];
-                //
-                count = 0;
                 fileStream.Position = 0;
                 while (!streamReader.EndOfStream)
                 {
-                    if (trimStart) lines[count++] = streamReader.ReadLine().TrimStart();
-                    else lines[count++] = streamReader.ReadLine();
+                    if (trimStart) lines.Add(streamReader.ReadLine().TrimStart());
+                    else lines.Add(streamReader.ReadLine());
                 }
                 //
                 streamReader.Close();
                 fileStream.Close();
             }
             //
-            return lines;
+            return lines.ToArray();
         }
 
         public static List<string> GetLockingProcesses(string filePath)
