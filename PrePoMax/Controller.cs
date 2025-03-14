@@ -13091,7 +13091,7 @@ namespace PrePoMax
             else throw new NotSupportedException();
         }
         // Selection buffer
-        private void ClearSelectionBuffer()
+        public void ClearSelectionBuffer()
         {
             if (_selectionBuffer.Count > 0) _selectionBuffer.Clear();
         }
@@ -17217,7 +17217,7 @@ namespace PrePoMax
             FeMesh mesh = DisplayedMesh;
             // Create a key and check if the data already exists
             vtkMaxActor[] actors;
-            string key = prefixName + Globals.NameSeparator + Tools.GetHashCode(elementIds);
+            string key = _currentView + Globals.NameSeparator + prefixName + Globals.NameSeparator + Tools.GetHashCode(elementIds);
             if (!countOnly && _selectionBuffer.TryGetValue(key, out actors))
             {
                 for (int i = 0; i < actors.Length; i++)
@@ -17343,7 +17343,8 @@ namespace PrePoMax
                                 bool useSecondaryHighlightColor = false, bool drawEdges = false)
         {
             vtkMaxActor[] actors;
-            string key = prefixName + Globals.NameSeparator + Tools.GetHashCode(cells) + Globals.NameSeparator + layer;
+            string key = _currentView + Globals.NameSeparator + prefixName + Globals.NameSeparator +
+                         Tools.GetHashCode(cells) + Globals.NameSeparator + layer;
             if (GetActorsFromSelectionBuffer(key, out actors) && actors.Length == 2)
             {
                 _form.AddActor(actors[0]);
@@ -17407,7 +17408,8 @@ namespace PrePoMax
                     // Create a key and check if the data already exists
                     vtkMaxActor[] actors;
                     FeNodeSet nodeSet = _model.Mesh.NodeSets[s.NodeSetName];
-                    string key = name + Globals.NameSeparator + Tools.GetHashCode(nodeSet.Labels) + Globals.NameSeparator + layer;
+                    string key = _currentView + Globals.NameSeparator + name + Globals.NameSeparator +
+                                 Tools.GetHashCode(nodeSet.Labels) + Globals.NameSeparator + layer;
                     if (!countOnly && GetActorsFromSelectionBuffer(key, out actors) && actors.Length == 1)
                     {
                         _form.AddActor(actors[0]);
@@ -18076,7 +18078,7 @@ namespace PrePoMax
             if (elementSets != null && elementSets.TryGetValue(elementSetName, out elementSet))
             {
                 count += HighlightElementSet("Highlight", elementSet, Color.Red, vtkRendererLayer.Selection,
-                                                backfaceCulling, onlyVisible, countOnly);
+                                             backfaceCulling, onlyVisible, countOnly);
                 if (!countOnly)
                 {
                     // Draw nodes

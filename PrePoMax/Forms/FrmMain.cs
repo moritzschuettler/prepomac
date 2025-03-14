@@ -49,6 +49,7 @@ namespace PrePoMax
         private Dictionary<ViewGeometryModelResults, int> _selectedSymbolIndex;
         private Stack<bool[]> _prevMenuStates;
         private bool _closeAfterRegeneration;
+        private float _prevScaleFactor;
         //
         private Point _formLocation;
         private List<Form> _allForms;
@@ -8521,6 +8522,8 @@ namespace PrePoMax
                 // Enable scale factor text box if needed
                 UpdateScaleFactorTextBoxState();
                 //
+                if (ScaleFactorChanged()) _controller.ClearSelectionBuffer();
+                //
                 _controller.Redraw();
                 this.ActiveControl = null;
             }
@@ -8535,6 +8538,8 @@ namespace PrePoMax
             {
                 if (e.KeyCode == Keys.Enter)
                 {
+                    if (ScaleFactorChanged()) _controller.ClearSelectionBuffer();
+                    //
                     _controller.Redraw();
                     this.ActiveControl = null;
                     // No beep
@@ -8733,6 +8738,16 @@ namespace PrePoMax
         public float GetDeformationFactor()
         {
             return (float)tstbDeformationFactor.Value;
+        }
+        private bool ScaleFactorChanged()
+        {
+            float scaleFactor = _controller.GetScale();
+            if (scaleFactor != _prevScaleFactor)
+            {
+                _prevScaleFactor = scaleFactor;
+                return true;
+            }
+            return false;
         }
         // Complex
         private void InitializeComplexComboBoxes()

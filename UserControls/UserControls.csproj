@@ -105,6 +105,12 @@
     <Compile Include="TextBoxes\AnnotationEditorRichTextBox.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="TextBoxes\MultiIntegerTextBox.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="TextBoxes\MultiIntegerTextBox.Designer.cs">
+      <DependentUpon>MultiIntegerTextBox.cs</DependentUpon>
+    </Compile>
     <Compile Include="TextBoxes\UnitAwareToolStripTextBox.cs">
       <SubType>Component</SubType>
     </Compile>
@@ -225,6 +231,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="TextBoxes\AutoScrollTextBox.resx">
       <DependentUpon>AutoScrollTextBox.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="TextBoxes\MultiIntegerTextBox.resx">
+      <DependentUpon>MultiIntegerTextBox.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="TextBoxes\UnitAwareToolStripTextBox.resx">
       <DependentUpon>UnitAwareToolStripTextBox.cs</DependentUpon>

@@ -168,7 +168,7 @@ namespace PrePoMax
             tbGeometrySurfaceAngle.Enabled = rbGeometrySurfaceAngle.Checked;
             tbSurfaceAngle.Enabled = rbSurfaceAngle.Checked;
             tbEdgeAngle.Enabled = rbEdgeAngle.Checked;
-            tbId.Enabled = rbId.Checked;
+            tbIds.Enabled = rbId.Checked;
             // Enable/disable buttons
             btnAddId.Enabled = rbId.Checked;
             btnRemoveId.Enabled = rbId.Checked;
@@ -278,10 +278,10 @@ namespace PrePoMax
         {
             try
             {
-                int id;
-                if (int.TryParse(tbId.Text, out id))
+                int[] ids = tbIds.Values;
+                if (ids != null)
                 {
-                    SelectionNodeIds selectionNodeIds = new SelectionNodeIds(vtkSelectOperation.Add, false, new int[] { id });
+                    SelectionNodeIds selectionNodeIds = new SelectionNodeIds(vtkSelectOperation.Add, false, ids);
                     _controller.AddSelectionNode(selectionNodeIds, true, true);
                 }
                 else
@@ -299,9 +299,10 @@ namespace PrePoMax
         {
             try
             {
-                if (int.TryParse(tbId.Text, out int id))
+                int[] ids = tbIds.Values;
+                if (ids != null)
                 {
-                    SelectionNodeIds selectionNodeIds = new SelectionNodeIds(vtkSelectOperation.Subtract, false, new int[] { id });
+                    SelectionNodeIds selectionNodeIds = new SelectionNodeIds(vtkSelectOperation.Subtract, false, ids);
                     _controller.AddSelectionNode(selectionNodeIds, true, true);
                 }
                 else
