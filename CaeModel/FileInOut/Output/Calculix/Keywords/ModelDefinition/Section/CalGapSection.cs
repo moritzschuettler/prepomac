@@ -49,7 +49,7 @@ namespace FileInOut.Output.Calculix
                 properties = string.Format(", , {0}, {1}",
                                            springStiffness.ToCalculiX16String(),
                                            tensileForce.ToCalculiX16String());
-            
+            //
             StringBuilder sb = new StringBuilder();
             sb.AppendFormat("{0}, {1}, {2}, {3}{4}{5}",
                             _gapSectionData.Clearance,

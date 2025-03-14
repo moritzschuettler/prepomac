@@ -36,7 +36,7 @@ namespace CaeModel
 
         // Constructors                                                                                                             
         public GapSectionData(string name, string elementSetName, double clearance, double[] direction,
-                          double springStiffness, double tensileForceAtNegativeInfinity)
+                              double springStiffness, double tensileForceAtNegativeInfinity)
             : base(name, null, elementSetName, RegionTypeEnum.ElementSetName, 1)
         {
             _clearance = clearance;

@@ -815,6 +815,7 @@ namespace FileInOut.Output
             List<int> bcNodeIds = new List<int>();
             LinearGapElement gapElement;
             List<FeElement> elementsToAdd = new List<FeElement>();
+            double clearance;
             double area;
             double nodeStiffness;
             double nodeForce;
@@ -830,6 +831,8 @@ namespace FileInOut.Output
                 {
                     if (co.Active && co.Valid)
                     {
+                        clearance = co.Clearance.Value;
+                        //
                         nodeIdNodeNormals.Clear();
                         surface = model.Mesh.Surfaces[co.MasterRegionName];
                         model.GetDistributedNodalValuesFromSurface(surface.Name, out nodeIdNodeWeight, out area);
@@ -927,7 +930,7 @@ namespace FileInOut.Output
                                 nodeStiffness = nodeStiffnessPerArea * nodeIdNodeWeight[entry.Key];
                                 nodeForce = nodeForcePerArea * nodeIdNodeWeight[entry.Key];
                                 // Gap section
-                                additionalSectionData.Add(new GapSectionData("GapSectionData", name, 0, normal,
+                                additionalSectionData.Add(new GapSectionData("GapSectionData", name, clearance, normal,
                                                                              nodeStiffness, nodeForce));
                             }
                         }

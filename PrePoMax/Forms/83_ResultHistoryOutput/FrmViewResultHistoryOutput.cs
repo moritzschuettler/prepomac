@@ -94,6 +94,7 @@ namespace PrePoMax
                 // Remove AutoSizing:
                 dgvHistory.Columns[i].AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
                 dgvHistory.Columns[i].Width = width;
+                break;
             }
             //
             return;

@@ -473,6 +473,7 @@ namespace CaeMesh
             {
                 surfaceId = FeMesh.GetItemIdFromGeometryId(sweepMesh.CreationIds[i]) + 1;
                 sourceSurfaceIds.Add(surfaceId);
+                //Gmsh.Model.Mesh.SetSmoothing(2, surfaceId, 100); // smoothing
             }
             // Get surface item ids
             Dictionary<int, int[]> surfaceIdEdgeIds;

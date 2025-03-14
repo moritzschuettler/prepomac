@@ -14,6 +14,7 @@ namespace CaeModel
     public class CompressionOnly : Constraint, IMultiRegion, ISerializable
     {
         // Variables                                                                                                                
+        private EquationContainer _clearance;                       //ISerializable
         private EquationContainer _springStiffness;                 //ISerializable
         private EquationContainer _tensileForceAtNegativeInfinity;  //ISerializable
         private EquationContainer _offset;                          //ISerializable
@@ -27,6 +28,7 @@ namespace CaeModel
         public int[] CreationIds { get { return MasterCreationIds; } set { MasterCreationIds = value; } }
         public Selection CreationData { get { return MasterCreationData; } set { MasterCreationData = value; } }
         //
+        public EquationContainer Clearance { get { return _clearance; } set { SetClearance(value); } }
         public EquationContainer SpringStiffness { get { return _springStiffness; } set { SetSpringStiffness(value); } }
         public EquationContainer TensileForceAtNegativeInfinity
         {
@@ -41,6 +43,7 @@ namespace CaeModel
         public CompressionOnly(string name, string regionName, RegionTypeEnum regionType, bool twoD)
             : base(name, regionName, regionType, "", RegionTypeEnum.None, twoD)
         {
+            Clearance = new EquationContainer(typeof(StringLengthConverter), 0);
             SpringStiffness = new EquationContainer(typeof(StringForcePerLengthDefaultConverter), double.NaN);
             TensileForceAtNegativeInfinity = new EquationContainer(typeof(StringForceDefaultConverter), double.NaN);
             Offset = new EquationContainer(typeof(StringLengthConverter), 0);
@@ -53,6 +56,9 @@ namespace CaeModel
             {
                 switch (entry.Name)
                 {
+                    case "_clearance":
+                        SetClearance((EquationContainer)entry.Value, false);
+                        break;
                     case "_springStiffness":
                         SetSpringStiffness((EquationContainer)entry.Value, false);
                         break;
@@ -71,10 +77,16 @@ namespace CaeModel
             }
             // Compatibility for version v1.5.3
             if (_offset == null) Offset = new EquationContainer(typeof(StringLengthConverter), 0);
+            // Compatibility for version v2.2.11
+            if (_clearance == null) Clearance = new EquationContainer(typeof(StringLengthConverter), 0);
         }
 
 
         // Methods                                                                                                                  
+        private void SetClearance(EquationContainer value, bool checkEquation = true)
+        {
+            EquationContainer.SetAndCheck(ref _clearance, value, null, checkEquation);
+        }
         private void SetSpringStiffness(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _springStiffness, value, null, checkEquation);
@@ -92,6 +104,7 @@ namespace CaeModel
         {
             base.CheckEquations();
             //
+            _clearance.CheckEquation();
             _springStiffness.CheckEquation();
             _tensileForceAtNegativeInfinity.CheckEquation();
             _offset.CheckEquation();
@@ -102,6 +115,7 @@ namespace CaeModel
             // Using typeof() works also for null fields
             base.GetObjectData(info, context);
             //
+            info.AddValue("_clearance", _clearance, typeof(EquationContainer));
             info.AddValue("_springStiffness", _springStiffness, typeof(EquationContainer));
             info.AddValue("_tensileForceAtNegInfinity", _tensileForceAtNegativeInfinity, typeof(EquationContainer));
             info.AddValue("_offset", _offset, typeof(EquationContainer));

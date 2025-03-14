@@ -34,10 +34,21 @@ namespace PrePoMax
         public string SurfaceName { get { return _constraint.RegionName; } set { _constraint.RegionName = value; } }
         //
         [CategoryAttribute("Data")]
-        [OrderedDisplayName(0, 10, "Spring stiffness")]
+        [OrderedDisplayName(0, 10, "Gap clearance")]
+        [DescriptionAttribute("Value of the gap clearance.")]
+        [TypeConverter(typeof(EquationLengthConverter))]
+        [Id(1, 3)]
+        public virtual EquationString Clearance
+        {
+            get { return _constraint.Clearance.Equation; }
+            set { _constraint.Clearance.Equation = value; }
+        }
+        //
+        [CategoryAttribute("Data")]
+        [OrderedDisplayName(1, 10, "Spring stiffness")]
         [DescriptionAttribute("Value of the spring stiffness for the gap property definition.")]
         [TypeConverter(typeof(EquationForcePerLengthDefaultConverter))]
-        [Id(1, 3)]
+        [Id(2, 3)]
         public virtual EquationString SpringStiffness
         {
             get { return _constraint.SpringStiffness.Equation; }
@@ -45,10 +56,10 @@ namespace PrePoMax
         }
         //
         [CategoryAttribute("Data")]
-        [OrderedDisplayName(1, 10, "Tensile force")]
+        [OrderedDisplayName(2, 10, "Tensile force")]
         [DescriptionAttribute("Value of the tensile force for the gap property definition.")]
         [TypeConverter(typeof(EquationForceDefaultConverter))]
-        [Id(2, 3)]
+        [Id(3, 3)]
         public virtual EquationString TensileForceAtNegativeInfinity
         {
             get { return _constraint.TensileForceAtNegativeInfinity.Equation; }
@@ -56,10 +67,10 @@ namespace PrePoMax
         }
         //
         [CategoryAttribute("Data")]
-        [OrderedDisplayName(2, 10, "Offset")]
+        [OrderedDisplayName(3, 10, "Offset")]
         [DescriptionAttribute("The value for which one gap element node will be offset from the selected region.")]
         [TypeConverter(typeof(EquationLengthConverter))]
-        [Id(3, 3)]
+        [Id(4, 3)]
         public virtual EquationString Offset
         {
             get { return _constraint.Offset.Equation; }
