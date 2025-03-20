@@ -8573,6 +8573,9 @@ namespace PrePoMax
             {
                 contactPair = _model.ContactPairs[name];
                 contactPair.SwapMasterSlave();
+                //
+                if (_model.ContactPairs.ContainsKey(contactPair.Name))
+                    contactPair.Name = _model.ContactPairs.GetNextNumberedKey(contactPair.Name);
                 newName = contactPair.Name;
                 //
                 if (newName != name) _model.ContactPairs.Replace(name, newName, contactPair);
