@@ -97,6 +97,7 @@ namespace vtkControl
         private double[] _rotationCenterWorld;
         private double[] _rotationCenterDisplay;
         private int[] _clickPos;
+        private double[] _clickPosWorld;
         private vtkProp _centerAnnotationActor;
         private bool _rubberBandEnabled;
         private bool _animating;
@@ -112,7 +113,6 @@ namespace vtkControl
         private int _doubleClickDisp = 5;
         //
         protected bool _leftMouseButtonPressed;
-        protected bool _rubberBandCanceledByEsc;
         protected bool _rubberBandSelection;
         protected bool _selectionCanceled;
         protected vtkRenderer _selectionRenderer;
@@ -197,6 +197,10 @@ namespace vtkControl
                 Math.Abs(y - _lastY) < _doubleClickDisp) _numOfClicks = 2;
             // Set global variable
             _clickPos = new int[] { x, y };
+            // World click pos
+            vtkRenderer renderer = this.GetCurrentRenderer();
+            if (renderer == null) return;
+            _clickPosWorld = DisplayToWorld(renderer, new double[] { x, y });
             // Widgets
             vtkMaxBorderWidget borderWidget = null;
             MouseEventArgs mea = new MouseEventArgs(MouseButtons.Left, _numOfClicks, x, y, 0);
@@ -257,6 +261,7 @@ namespace vtkControl
             }
             //
             _clickPos = null;
+            _clickPosWorld = null;
             _leftMouseButtonPressed = false;
             _rubberBandSelection = false;
             //
@@ -268,6 +273,9 @@ namespace vtkControl
         //
         void vtkInteractorStyleControl_MiddleButtonPressEvt(vtkObject sender, vtkObjectEventArgs e)
         {
+            // Cancel rubber band
+            CancelRubberBandSelection();
+            //
             base.OnLeftButtonDown();
             //
             vtkRenderWindowInteractor rwi = this.GetInteractor();
@@ -346,6 +354,7 @@ namespace vtkControl
             rwi.Modified();
             //
             _clickPos = null;
+            _clickPosWorld = null;
             //
             base.OnLeftButtonUp();  // left button is rotation by default
         }
@@ -447,6 +456,9 @@ namespace vtkControl
 
                 PanCamera(camera, worldPosAfter, worldPos);
 
+                // Rubber band
+                if (_rubberBandSelection) DrawRubberBandSelection(_x, _y);
+
                 // Widgets - mouse wheel scrolled
                 foreach (vtkMaxBorderWidget widget in _widgets)
                 {
@@ -478,6 +490,9 @@ namespace vtkControl
 
                 PanCamera(camera, worldPosAfter, worldPos);
 
+                // Rubber band
+                if (_rubberBandSelection) DrawRubberBandSelection(_x, _y);
+
                 // Widgets - mouse wheel scrolled
                 foreach (vtkMaxBorderWidget widget in _widgets)
                 {
@@ -497,12 +512,12 @@ namespace vtkControl
             if (renderer == null) return;
             //
             vtkRenderWindowInteractor rwi = this.GetInteractor();
-            sbyte key = rwi.GetKeyCode();           
-            //
-            _rubberBandCanceledByEsc = false;
-            //
-            if (key >= 37 && key <= 40)
+            sbyte key = rwi.GetKeyCode();
+            // Arrow keys for rotation
+            if (key >= 37 && key <= 40) 
             {
+                CancelRubberBandSelection();
+                //
                 UpdateRotationCenterDisplay();
                 rwi.Modified();
                 //
@@ -515,24 +530,10 @@ namespace vtkControl
                 rwi.Modified();
                 rwi.Render();                
             }
-            else if (key == 27) // Escape
+            // Escape key
+            else if (key == 27)
             {
-                // When making area selection, Esc key cancels it
-                if (_rubberBandSelection)
-                {
-                    _selectionCanceled = true;
-                    _clickPos = null;
-                    _rubberBandSelection = false;
-                    //
-                    _selectionBackgroundActor.VisibilityOff();
-                    _selectionBorderActor.VisibilityOff();
-                    //
-                    ClearCurrentMouseSelection?.Invoke();
-                    //
-                    rwi.Render();
-                    //
-                    _rubberBandCanceledByEsc = true;
-                }
+                CancelRubberBandSelection();
             }
         }
        
@@ -731,18 +732,34 @@ namespace vtkControl
         {
             if (PointPickedOnMouseMoveEvt != null)
             {
-                if (_clickPos == null) PointPickedOnMouseMoveEvt(x, y, _rubberBandSelection, 0, 0);
-                else PointPickedOnMouseMoveEvt(x, y, _rubberBandSelection, _clickPos[0], _clickPos[1]);
+                vtkRenderer renderer = this.GetCurrentRenderer();
+                if (_clickPos != null && _clickPosWorld != null && renderer != null)
+                {
+                    int[] clickPos = _clickPos;
+                    if (_rubberBandSelection)
+                    {
+                        double[] clickPosD = WorldToDisplay(renderer, _clickPosWorld);
+                        clickPos[0] = (int)clickPosD[0];
+                        clickPos[1] = (int)clickPosD[1];
+                    }
+                    PointPickedOnMouseMoveEvt(x, y, _rubberBandSelection, clickPos[0], clickPos[1]);
+                }
+                else PointPickedOnMouseMoveEvt(x, y, _rubberBandSelection, 0, 0);
             }
         }
         private void DrawRubberBandSelection(int x, int y)
         {
-            if (_clickPos == null) return;
+            if (_clickPosWorld == null) return;
+            //
+            vtkRenderer renderer = this.GetCurrentRenderer();
+            if (renderer == null) return;
+            //
+            double[] clickPos = WorldToDisplay(renderer, _clickPosWorld);
             //
             _selectionBackgroundActor.VisibilityOn();
             _selectionBorderActor.VisibilityOn();
             // Border
-            if (_clickPos[0] > x)
+            if (clickPos[0] > x)
             {
                 _selectionBorderActor.GetProperty().SetColor(0.3, 1.0, 0.3);
                 _selectionBackgroundActor.GetProperty().SetColor(0.2, 1, 0.5);
@@ -762,18 +779,36 @@ namespace vtkControl
             int id2 = 2;
             int id3 = 3;
             // Switch ids 1 and 3 if II or IV quadrant
-            if ((x < _clickPos[0] && y > _clickPos[1]) || (x > _clickPos[0] && y < _clickPos[1]))
+            if ((x < clickPos[0] && y > clickPos[1]) || (x > clickPos[0] && y < clickPos[1]))
             {
                 id1 = 3;
                 id3 = 1;
             }
             //
-            backgroundPoints.SetPoint(id1, x, _clickPos[1], 0.0);
+            backgroundPoints.SetPoint(0, clickPos[0], clickPos[1], 0.0);
+            backgroundPoints.SetPoint(id1, x, clickPos[1], 0.0);
             backgroundPoints.SetPoint(id2, x, y, 0.0);
-            backgroundPoints.SetPoint(id3, _clickPos[0], y, 0.0);
+            backgroundPoints.SetPoint(id3, clickPos[0], y, 0.0);
             backgroundPoints.Modified();
             //
             rwi.Render();
+        }
+        private void CancelRubberBandSelection()
+        {
+            if (_rubberBandSelection)
+            {
+                _selectionCanceled = true;
+                _clickPos = null;
+                _clickPosWorld = null;
+                _rubberBandSelection = false;
+                //
+                _selectionBackgroundActor.VisibilityOff();
+                _selectionBorderActor.VisibilityOff();
+                //
+                ClearCurrentMouseSelection?.Invoke();
+                //
+                this.GetInteractor().Render();
+            }
         }
         //
         private void AddAnnotationForCenter3D(vtkRenderWindowInteractor interactor, vtkRenderer renderer)
