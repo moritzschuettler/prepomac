@@ -5499,17 +5499,19 @@ namespace CaeMesh
             }
             else elementsToIterate = _elements;
             //
+            int countNodes;
+            FeElement element;
+            int[][] vtkCells;
+            HashSet<int> partNodeIds;
             HashSet<int> allElementIds = new HashSet<int>();
             foreach (var entry in elementsToIterate)
             {
-                int minNumberOfNodesToContain = 1;
-                FeElement element;
-                int[][] vtkCells;
-                HashSet<int> partNodeIds;
-                //
                 element = entry.Value;
                 // Filter the elements
+                if (partId > -1 && element.PartId != partId) continue;  // must be here to use selection by part in a compound
                 if (!elementIds.Contains(element.Id)) continue;
+                //
+                int minNumberOfNodesToContain = 1;
                 //
                 if (containsEdge) minNumberOfNodesToContain = 2;
                 else if (containsFace)
@@ -5545,7 +5547,7 @@ namespace CaeMesh
                 }
                 else if (containsElement) minNumberOfNodesToContain = element.NodeIds.Length;
                 //
-                int countNodes = 0;
+                countNodes = 0;
                 partNodeIds = nodeIdsHash;
                 for (int i = 0; i < element.NodeIds.Length; i++)
                 {
