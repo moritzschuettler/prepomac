@@ -11,7 +11,7 @@ using CaeResults;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CExportResultHistoryOutput : PostprocessCommand
+    class CExportResultHistoryOutput : PostprocessCommand, IExportFileCommand
     {
         // Variables                                                                                                                
         private HistoryResultSetExporter _historyResultSetExporter;

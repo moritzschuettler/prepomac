@@ -56,7 +56,7 @@ namespace PrePoMax.Commands
             _controller = controller;
             _currPositionIndex = -1;
             _commands = new List<Command>();
-            _historyFileNameBin = Path.Combine(System.Windows.Forms.Application.StartupPath, Globals.HistoryFileName);
+            _historyFileNameBin = Path.Combine(Application.StartupPath, Globals.HistoryFileName);
             _previousView = ViewGeometryModelResults.Geometry;
             _errors = null;
             //
@@ -244,11 +244,11 @@ namespace PrePoMax.Commands
                                                               Path.GetFileName(cImportFile.FileName));
                             if (File.Exists(newFileName)) cImportFile.FileName = newFileName;
                         }
-                        else if (command is CExportResultHistoryOutput cExportResultHistoryOutput)
+                        else if (command is IExportFileCommand exportFileCommand)
                         {
                             string newFileName = Path.Combine(_controller.Settings.GetWorkDirectory(),
-                                                              Path.GetFileName(cExportResultHistoryOutput.FileName));
-                            cExportResultHistoryOutput.FileName = newFileName;
+                                                              Path.GetFileName(exportFileCommand.FileName));
+                            exportFileCommand.FileName = newFileName;
                         }
                     }
                     // Skip save before writing to form - set lastSave to null

@@ -122,7 +122,7 @@ namespace CaeModel
         // Constructors                                                                                                             
         public ContactPair(string name, string surfaceInteractionName, string masterSurfaceName, RegionTypeEnum masterRegionType,
                            string slaveSurfaceName, RegionTypeEnum slaveRegionType)
-           : this(name, surfaceInteractionName, ContactPairMethod.SurfaceToSurface, false, true, double.NaN,
+           : this(name, surfaceInteractionName, ContactPairMethod.SurfaceToSurface, false, false, double.NaN,
                   masterSurfaceName, masterRegionType, slaveSurfaceName, slaveRegionType)
         {
         }

@@ -663,6 +663,47 @@ namespace PrePoMax
             CSaveToPmx comm = new CSaveToPmx(fileName);
             _commands.AddAndExecute(comm);
         }
+        public void ExportToCalculixCommand(string fileName)
+        {
+            CExportToCalculix comm = new CExportToCalculix(fileName);
+            _commands.AddAndExecute(comm);
+        }
+        public void ExportDeformedPartsToCalculixCommand(string[] partNames, string fileName)
+        {
+            CExportDeformedPartsToCalculix comm = new CExportDeformedPartsToCalculix(partNames, fileName);
+            _commands.AddAndExecute(comm);
+        }
+        public void ExportToAbaqusCommand(string fileName)
+        {
+            CExportToAbaqus comm = new CExportToAbaqus(fileName);
+            _commands.AddAndExecute(comm);
+        }
+        public void ExportCADGeometryPartsAsStepCommand(string[] partNames, string fileName)
+        {
+            CExportCADGeometryPartsAsStep comm = new CExportCADGeometryPartsAsStep(partNames, fileName);
+            _commands.AddAndExecute(comm);
+        }
+        public void ExportCADGeometryPartsAsBrepCommand(string[] partNames, string fileName)
+        {
+            CExportCADGeometryPartsAsBrep comm = new CExportCADGeometryPartsAsBrep(partNames, fileName);
+            _commands.AddAndExecute(comm);
+        }
+        public void ExportPartsAsGmshMeshCommand(string fileName)
+        {
+            CExportPartsAsGmshMesh comm = new CExportPartsAsGmshMesh(fileName);
+            _commands.AddAndExecute(comm);
+        }
+        public void ExportPartsAsMmgMeshCommand(string[] partNames, string fileName, bool combine = false)
+        {
+            CExportPartsAsMmgMesh comm = new CExportPartsAsMmgMesh(partNames, fileName, combine);
+            _commands.AddAndExecute(comm);
+        }
+        public void ExportToStlCommand(string[] partNames, string fileName)
+        {
+            CExportToStl comm = new CExportToStl(partNames, fileName);
+            _commands.AddAndExecute(comm);
+        }
+
         //******************************************************************************************
         public void New()
         {
@@ -2048,8 +2089,6 @@ namespace PrePoMax
                 if (partNames.Length == 1) stepFileName = fileName;
                 else stepFileName = Path.Combine(directory, fileNameWithoutExtension + "_" + partName + extension);
                 ExportCADGeometryPartAsStep(part, stepFileName);
-                //
-                _form.WriteDataToOutput("Part " + partName + " exported to file: " + stepFileName);
             }
         }
         public void ExportCADGeometryPartsAsBrep(string[] partNames, string fileName)
@@ -2069,7 +2108,7 @@ namespace PrePoMax
                 _form.WriteDataToOutput("Part " + partName + " exported to file: " + brepFileName);
             }
         }
-        public void ExportCADGeometryPartAsStep(GeometryPart part, string stepFileName)
+        public void ExportCADGeometryPartAsStep(GeometryPart part, string fileName)
         {
             string workDirectory = _settings.GetWorkDirectory();
             //
@@ -2083,27 +2122,28 @@ namespace PrePoMax
             string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
             //
             if (File.Exists(brepFileName)) File.Delete(brepFileName);
-            if (File.Exists(stepFileName)) File.Delete(stepFileName);
+            if (File.Exists(fileName)) File.Delete(fileName);
             //
             File.WriteAllText(brepFileName, part.CADFileData);
             //
             string argument = "SAVE_BREP_AS_STEP " +
                               "\"" + brepFileName.ToUTF8() + "\" " +
-                              "\"" + stepFileName.ToUTF8() + "\"";
+                              "\"" + fileName.ToUTF8() + "\"";
             //
             _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
             _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
             _executableJob.Submit();
             // Job completed
             if (_executableJob.JobStatus == JobStatus.OK)
-                _form.WriteDataToOutput("Part " + part.Name + " exported to file: " + stepFileName);
+                _form.WriteDataToOutput("Part " + part.Name + " exported to file: " + fileName);
             else return;
         }
-        public void ExportGeometryPartsAsGmshMesh(string fileName)
+        public void ExportPartsAsGmshMesh(string fileName)
         {
             SuppressExplodedView();
             //
-            FileInOut.Output.GmshMshFileWriter.Write(fileName, _model.Mesh);
+            FeMesh mesh = DisplayedMesh;
+            GmshMshFileWriter.Write(fileName, mesh);
             _form.WriteDataToOutput("Mesh exported to file: " + fileName);
             //
             ResumeExplodedViews(false);
@@ -2166,44 +2206,13 @@ namespace PrePoMax
                 stlTriangles.AddRange(data.GetStlTriangles());
             }
             //
-            FileInOut.Output.StlFileWriter.Write(fileName, stlTriangles);
+            StlFileWriter.Write(fileName, stlTriangles);
             ResumeExplodedViews(false);
             //
             foreach (var partName in partNames)
             {
                 _form.WriteDataToOutput("Part " + partName + " exported to file: " + fileName);
             }
-        }
-        public void ExportGeometryPartsAsStl(string[] partNames, string fileName)
-        {
-            SuppressExplodedView(partNames);
-            FileInOut.Output.StlFileWriter.Write(fileName, _model.Geometry, partNames);
-            ResumeExplodedViews(false);
-            //
-            foreach (var partName in partNames)
-            {
-                _form.WriteDataToOutput("Part " + partName + " exported to file: " + fileName);
-            }
-        }
-        public string ExportCADPartGeometryToDefaultFile(GeometryPart part)
-        {
-            string workDirectory = _settings.GetWorkDirectory();
-            //
-            if (workDirectory == null || !Directory.Exists(workDirectory))
-            {
-                MessageBoxes.ShowWorkDirectoryError();
-                return null;
-            }
-            //
-            string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
-            //
-            if (File.Exists(brepFileName)) File.Delete(brepFileName);
-            //
-            SuppressExplodedView(new string[] { part.Name });
-            File.WriteAllText(brepFileName, part.CADFileData);
-            ResumeExplodedViews(false);
-            //
-            return brepFileName;
         }
         // Recent
         private void AddFileNameToRecentFiles(string fileName)
@@ -5497,7 +5506,7 @@ namespace PrePoMax
             // Mat file
             MmgFileWriter.WriteMaterial(mmgMatFileName, baseParts);
             //
-            System.Diagnostics.PerformanceCounter ramCounter;
+            PerformanceCounter ramCounter;
             ramCounter = new System.Diagnostics.PerformanceCounter("Memory", "Available MBytes");
             //
             string argument = "-ls " + //splitPartMeshData.Offset + " " +  // offset is applied in the signed distance field
@@ -5651,12 +5660,18 @@ namespace PrePoMax
         }
         public void UpdateNodalCoordinatesFromFile(string fileName)
         {
+            SuppressExplodedView();
+            //
             FeModel newModel = new FeModel("Deformed", _model.UnitSystem);
             newModel.Properties.ModelSpace = _model.Properties.ModelSpace;
             newModel.ImportModelFromInpFile(fileName, _form.WriteDataToOutput);
             _model.Mesh.UpdateNodalCoordinatesFromMesh(newModel.Mesh);
             //
-            Redraw();
+            ResumeExplodedViews(false);
+            //
+            ClearSelectionBuffer();
+            //
+            FeModelUpdate(UpdateType.DrawModel);
         }
 
         #endregion #################################################################################################################
@@ -15614,17 +15629,17 @@ namespace PrePoMax
         {
             int count = 0;
             //
-            if (!_model.Mesh.Surfaces.ContainsKey(dLoad.SurfaceName)) return;
+            if (!_model.Mesh.Surfaces.ContainsKey(dLoad.RegionName)) return;
             //
-            count += DrawSurface(prefixName, dLoad.SurfaceName, color, layer, true, false, onlyVisible);
+            count += DrawSurface(prefixName, dLoad.RegionName, color, layer, true, false, onlyVisible);
             if (layer == vtkRendererLayer.Selection)
-                DrawSurfaceEdge(prefixName, dLoad.SurfaceName, color, layer, true, false, onlyVisible);
+                DrawSurfaceEdge(prefixName, dLoad.RegionName, color, layer, true, false, onlyVisible);
             //
             if (count > 0)
             {
                 // 2D
                 if (dLoad.TwoD)
-                    DrawShellEdgeLoadSymbols(prefixName, dLoad.SurfaceName, dLoad.Magnitude.Value,
+                    DrawShellEdgeLoadSymbols(prefixName, dLoad.RegionName, dLoad.Magnitude.Value,
                                              color, symbolSize, layer, onlyVisible);
                 // 3D
                 else DrawDLoadSymbols(prefixName, dLoad, color, symbolSize, layer, onlyVisible);
@@ -16073,7 +16088,7 @@ namespace PrePoMax
         public void DrawDLoadSymbols(string prefixName, DLoad dLoad, Color color, int symbolSize,
                                      vtkRendererLayer layer, bool onlyVisible)
         {
-            FeSurface surface = _model.Mesh.Surfaces[dLoad.SurfaceName];
+            FeSurface surface = _model.Mesh.Surfaces[dLoad.RegionName];
             //
             List<int> allElementIds = new List<int>();
             List<FeFaceName> allElementFaceNames = new List<FeFaceName>();

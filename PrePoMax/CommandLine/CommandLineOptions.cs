@@ -27,9 +27,9 @@ namespace PrePoMax
                                                                                 "[Yes | No]. Can only be used for regeneration.")]
         public string Overwrite { get; set; }
         // Parameters
-        [Option('p', "parameters", Required = false, HelpText = "Overwrite the .pmx parameters. To overwrite parameters a " +
+        [Option('p', "parameters", Required = false, HelpText = "Overwrite the .pmx parameters. To overwrite parameter a " +
                                                                 "use [a=1.2]. To overwrite parameters a and b use quotations and " +
-                                                                "semicolons [\"a=1.2; b=31.4\"]." +
+                                                                "semicolons [\"a=1.2; b=31.4\"]. " +
                                                                 "Can only be used for regeneration.")]
         public string Parameters { get; set; }
         // RegenerationFileName

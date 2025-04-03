@@ -415,7 +415,7 @@ namespace FileInOut.Output
                     //_obremenitev_el_surf_S1, P1, 1
                     //_obremenitev_el_surf_S2, P2, 1
                     DLoad dload = (DLoad)load;
-                    FeSurface surface = model.Mesh.Surfaces[dload.SurfaceName];
+                    FeSurface surface = model.Mesh.Surfaces[dload.RegionName];
                     sb.AppendLine("*Dload");
                     foreach (var entry in surface.ElementFaces)
                     {

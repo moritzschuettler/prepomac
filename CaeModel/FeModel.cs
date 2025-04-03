@@ -619,7 +619,7 @@ namespace CaeModel
             }
             else if (load is DLoad dl)
             {
-                valid = (_mesh.Surfaces.TryGetValue(dl.SurfaceName, out s) && s.Valid);
+                valid = (_mesh.Surfaces.TryGetValue(dl.RegionName, out s) && s.Valid);
             }
             else if (load is HydrostaticPressure hpl)
             {
@@ -2357,7 +2357,6 @@ namespace CaeModel
             Dictionary<int, double> nodeIdPressure = new Dictionary<int, double>();
             Dictionary<int, double[]> nodeIdForce = new Dictionary<int, double[]>();
             //
-            int count;
             FeFaceName faceName;
             FeElement expandedElement;
             int[] expandedNodeIds;
@@ -2617,7 +2616,7 @@ namespace CaeModel
             }
             else throw new NotSupportedException();
         }
-        public DLoad[] GetNodalDLoadsFromVariablePressureLoad_(VariablePressure load)
+        public DLoad[] GetElementDLoadsFromVariablePressureLoad_(VariablePressure load)
         {
             // Surface
             FeSurface surface = _mesh.Surfaces[load.SurfaceName];
@@ -2653,7 +2652,7 @@ namespace CaeModel
             //
             return loads.ToArray();
         }
-        public DLoad[] GetNodalDLoadsFromVariablePressureLoad(VariablePressure load)
+        public DLoad[] GetElementDLoadsFromVariablePressureLoad(VariablePressure load)
         {
             // Surface
             FeSurface surface = _mesh.Surfaces[load.SurfaceName];
@@ -2678,8 +2677,8 @@ namespace CaeModel
                     // Pressure loads
                     if (pressure != 0)
                     {
-                        DLoad dLoad = new DLoad(entry.Key.ToString(), elementId.ToString(), RegionTypeEnum.ElementId,
-                                          pressure, load.TwoD, load.Complex, load.PhaseDeg.Value);
+                        DLoad dLoad = new DLoad("ElementID_" + elementId.ToString(), elementId, entry.Key, pressure, load.TwoD,
+                                                load.Complex, load.PhaseDeg.Value);
                         dLoad.AmplitudeName = load.AmplitudeName;
                         loads[elementCount + i] = dLoad;
                     }

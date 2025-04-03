@@ -66,14 +66,16 @@ namespace CaeGlobals
         }
         public static void WriteStringToFileStream(FileStream fileStream, string value)
         {
-            WriteIntToFileStream(fileStream, value.Length);
-            WriteStringToFileStream(fileStream, value, value.Length);
+            byte[] byteData = Encoding.UTF8.GetBytes(value);
+            int numOfBytes = Encoding.UTF8.GetBytes(value).Length;
+            WriteIntToFileStream(fileStream, numOfBytes);
+            fileStream.Write(byteData, 0, numOfBytes);
         }
         public static void WriteStringToFileStream(FileStream fileStream, string value, int numOfBytes)
         {
-            byte[] byteData = Encoding.ASCII.GetBytes(value);
+            byte[] byteData = Encoding.UTF8.GetBytes(value);
             byte[] buffer = new byte[numOfBytes];
-            byteData.CopyTo(buffer, 0);
+            byteData.CopyTo(buffer, 0); // buffer can be longer than byteData
             //
             fileStream.Write(buffer, 0, numOfBytes);
         }
@@ -87,13 +89,12 @@ namespace CaeGlobals
         {
             int numOfBytes = ReadIntFromFileStream(fileStream);
             return ReadStringFromFileStream(fileStream, numOfBytes);
-
         }
         public static string ReadStringFromFileStream(FileStream fileStream, int numOfBytes)
         {
             byte[] buffer = new byte[numOfBytes];
             fileStream.Read(buffer, 0, buffer.Length);
-            return Encoding.ASCII.GetString(buffer);
+            return Encoding.UTF8.GetString(buffer);
         }
         //
         public static string GetLocalPath(string path)

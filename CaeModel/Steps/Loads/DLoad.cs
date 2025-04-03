@@ -14,25 +14,37 @@ namespace CaeModel
     public class DLoad : Load, IPreviewable, ISerializable
     {
         // Variables                                                                                                                
-        private string _surfaceName;                //ISerializable
+        private string _regionName;                 //ISerializable
         private RegionTypeEnum _regionType;         //ISerializable
+        private int _elementId;                     //ISerializable
+        private FeFaceName _elementFaceName;        //ISerializable
         private EquationContainer _magnitude;       //ISerializable
 
 
         // Properties                                                                                                               
-        public override string RegionName { get { return _surfaceName; } set { _surfaceName = value; } }
+        public override string RegionName { get { return _regionName; } set { _regionName = value; } }
         public override RegionTypeEnum RegionType { get { return _regionType; } set { _regionType = value; } }
-        public string SurfaceName { get { return _surfaceName; } set { _surfaceName = value; } }
+        public int  ElementId { get { return _elementId; } set { _elementId = value; } }
+        public FeFaceName ElementFaceName { get { return _elementFaceName; } set { _elementFaceName = value; } }
         public EquationContainer Magnitude { get { return _magnitude; } set { SetMagnitude(value); } }
 
 
         // Constructors                                                                                                             
+        public DLoad(string name, int elementId, FeFaceName elementFaceName, double magnitude,
+                     bool twoD, bool complex, double phaseDeg)
+            : this(name, "", RegionTypeEnum.ElementId, magnitude, twoD, complex, phaseDeg )
+        {
+            _elementId = elementId;
+            _elementFaceName = elementFaceName;
+        }
         public DLoad(string name, string surfaceName, RegionTypeEnum regionType, double magnitude,
                      bool twoD, bool complex, double phaseDeg)
             : base(name, twoD, complex, phaseDeg)
         {
-            _surfaceName = surfaceName;
+            _regionName = surfaceName;
             _regionType = regionType;
+            _elementId = -1;
+            _elementFaceName = FeFaceName.Empty;
             Magnitude = new EquationContainer(typeof(StringPressureConverter), magnitude);
         }
         public DLoad(SerializationInfo info, StreamingContext context)
@@ -42,10 +54,15 @@ namespace CaeModel
             {
                 switch (entry.Name)
                 {
-                    case "_surfaceName":
-                        _surfaceName = (string)entry.Value; break;
+                    case "_surfaceName":    // Compatibility for version v2.3.0
+                    case "_regionName":     
+                        _regionName = (string)entry.Value; break;
                     case "_regionType":
                         _regionType = (RegionTypeEnum)entry.Value; break;
+                    case "_elementId":
+                        _elementId = (int)entry.Value; break;
+                    case "_elementFaceName":
+                        _elementFaceName = (FeFaceName)entry.Value; break;
                     case "_magnitude":
                         // Compatibility for version v1.4.0
                         if (entry.Value is double valueDouble)
@@ -79,7 +96,7 @@ namespace CaeModel
             targetMesh.GetAllNodesAndCells(out allData.Nodes.Ids, out allData.Nodes.Coor, out allData.Cells.Ids,
                                            out allData.Cells.CellNodeIds, out allData.Cells.Types);
             //
-            FeSurface surface = targetMesh.Surfaces[_surfaceName];
+            FeSurface surface = targetMesh.Surfaces[_regionName];
             FeNodeSet nodeSet = targetMesh.NodeSets[surface.NodeSetName];
             HashSet<int> nodeIds = new HashSet<int>(nodeSet.Labels);
             //
@@ -116,8 +133,10 @@ namespace CaeModel
             // Using typeof() works also for null fields
             base.GetObjectData(info, context);
             //
-            info.AddValue("_surfaceName", _surfaceName, typeof(string));
+            info.AddValue("_regionName", _regionName, typeof(string));
             info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
+            info.AddValue("_elementId", _elementId, typeof(int));
+            info.AddValue("_elementFaceName", _elementFaceName, typeof(FeFaceName));
             info.AddValue("_magnitude", _magnitude, typeof(EquationContainer));
         }
     }

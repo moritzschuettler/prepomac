@@ -14,8 +14,9 @@ namespace FileInOut.Output.Calculix
     {
         // Variables                                                                                                                
         private HydrostaticPressure _load;
-        private CLoad[] _cLoads;
+        private DLoad[] _dLoads;
         private ComplexLoadTypeEnum _complexLoadType;
+        private FeSurfaceFaceTypes _surfaceFaceType;
 
 
         // Properties                                                                                                               
@@ -25,8 +26,10 @@ namespace FileInOut.Output.Calculix
         public CalHydrostaticPressureLoad(FeModel model, HydrostaticPressure load, ComplexLoadTypeEnum complexLoadType)
         {
             _load = load;
-            _cLoads = model.GetNodalCLoadsFromVariablePressureLoad(_load);
+            _dLoads = model.GetElementDLoadsFromVariablePressureLoad(_load);
             _complexLoadType = complexLoadType;
+            //
+            _surfaceFaceType = model.Mesh.Surfaces[load.SurfaceName].SurfaceFaceTypes;
         }
 
 
@@ -40,7 +43,7 @@ namespace FileInOut.Output.Calculix
             //
             string loadCase = GetComplexLoadCase(_complexLoadType);
             //
-            sb.AppendFormat("*Cload{0}{1}{2}", amplitude, loadCase, Environment.NewLine);
+            sb.AppendFormat("*Dload{0}{1}{2}", amplitude, loadCase, Environment.NewLine);
             //
             return sb.ToString();
         }
@@ -50,22 +53,32 @@ namespace FileInOut.Output.Calculix
             //
             double ratio = GetComplexRatio(_complexLoadType, _load.PhaseDeg.Value);
             //
-            if (_cLoads != null)
+            if (_dLoads != null)
             {
-                List<int> directions = new List<int>();
-                foreach (var cLoad in _cLoads)
+                string faceKey = "";
+                FeFaceName faceName;
+                double magnitude;
+                //
+                foreach (var dLoad in _dLoads)
                 {
-                    directions.Clear();
-                    if (cLoad.F1.Value != 0) directions.Add(1);
-                    if (cLoad.F2.Value != 0) directions.Add(2);
-                    if (cLoad.F3.Value != 0) directions.Add(3);
-                    //
-                    foreach (var dir in directions)
+                    faceName = dLoad.ElementFaceName;
+                    if (_load.TwoD)
                     {
-                        sb.AppendFormat("{0}, {1}, {2}", cLoad.NodeId, dir,
-                                        (ratio * cLoad.GetComponent(dir - 1)).ToCalculiX16String());
-                        sb.AppendLine();
+                        if (faceName == FeFaceName.S1 || faceName == FeFaceName.S2) throw new NotSupportedException();
+                        else if (faceName == FeFaceName.S3) faceKey = "P1";
+                        else if (faceName == FeFaceName.S4) faceKey = "P2";
+                        else if (faceName == FeFaceName.S5) faceKey = "P3";
+                        else if (faceName == FeFaceName.S6) faceKey = "P4";
                     }
+                    else
+                    {
+                        faceKey = "P" + faceName.ToString()[1];
+                    }
+                    //
+                    magnitude = ratio * dLoad.Magnitude.Value;
+                    if (_surfaceFaceType == FeSurfaceFaceTypes.ShellFaces && faceName == FeFaceName.S2) magnitude *= -1;
+                    //
+                    sb.AppendFormat("{0}, {1}, {2}", dLoad.ElementId, faceKey, magnitude.ToCalculiX16String()).AppendLine();
                 }
             }
             return sb.ToString();

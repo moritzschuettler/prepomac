@@ -1935,7 +1935,7 @@ namespace FileInOut.Output
                 }
                 else if (load is DLoad dl)
                 {
-                    CalDLoad dLoad = new CalDLoad(dl, model.Mesh.Surfaces[dl.SurfaceName], complexLoadType);
+                    CalDLoad dLoad = new CalDLoad(dl, model.Mesh.Surfaces[dl.RegionName], complexLoadType);
                     parent.AddKeyword(dLoad);
                 }
                 else if (load is HydrostaticPressure hpl)

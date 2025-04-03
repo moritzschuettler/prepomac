@@ -30,7 +30,7 @@ namespace FileInOut.Output.Calculix
             _load = load;
             _load.ImportPressure(model.UnitSystem);
             //_cLoads = model.GetNodalCLoadsFromVariablePressureLoad(_load);
-            _dLoads = model.GetNodalDLoadsFromVariablePressureLoad(_load);
+            _dLoads = model.GetElementDLoadsFromVariablePressureLoad(_load);
             _complexLoadType = complexLoadType;
             //
             _surfaceFaceType = model.Mesh.Surfaces[load.SurfaceName].SurfaceFaceTypes;
@@ -65,7 +65,7 @@ namespace FileInOut.Output.Calculix
                 //
                 foreach (var dLoad in _dLoads)
                 {
-                    faceName = (FeFaceName)Enum.Parse(typeof(FeFaceName), dLoad.Name);
+                    faceName = dLoad.ElementFaceName;
                     if (_load.TwoD)
                     {
                         if (faceName == FeFaceName.S1 || faceName == FeFaceName.S2) throw new NotSupportedException();
@@ -82,7 +82,7 @@ namespace FileInOut.Output.Calculix
                     magnitude = ratio * dLoad.Magnitude.Value;
                     if (_surfaceFaceType == FeSurfaceFaceTypes.ShellFaces && faceName == FeFaceName.S2) magnitude *= -1;
                     //
-                    sb.AppendFormat("{0}, {1}, {2}", dLoad.SurfaceName, faceKey, magnitude.ToCalculiX16String()).AppendLine();
+                    sb.AppendFormat("{0}, {1}, {2}", dLoad.ElementId, faceKey, magnitude.ToCalculiX16String()).AppendLine();
                 }
             }
             return sb.ToString();

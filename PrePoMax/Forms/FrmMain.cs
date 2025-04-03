@@ -1684,7 +1684,7 @@ namespace PrePoMax
                     }
                     else throw new CaeException("No mesh parts to export.");
                 }
-                else MessageBoxes.ShowError("Deformed mesh can only be exported while results are drawn.");
+                else MessageBoxes.ShowError("To export the results use the option Export → Deformed visualization.");
             }
             catch (Exception ex)
             {
@@ -1708,7 +1708,7 @@ namespace PrePoMax
                         {
                             // the filter adds the extension to the file name
                             SetStateWorking(Globals.ExportingText);
-                            _controller.ExportToCalculix(saveFileDialog.FileName);
+                            _controller.ExportToCalculixCommand(saveFileDialog.FileName);
                         }
                     }
                 }
@@ -1740,7 +1740,7 @@ namespace PrePoMax
                             // the filter adds the extension to the file name
                             SetStateWorking(Globals.ExportingText);
                             //_controller.ExportToCalculix(saveFileDialog.FileName);
-                            _controller.ExportToAbaqus(saveFileDialog.FileName);
+                            _controller.ExportToAbaqusCommand(saveFileDialog.FileName);
                         }
                     }
                 }
@@ -2044,7 +2044,7 @@ namespace PrePoMax
                         // The filter adds the extension to the file name
                         SetStateWorking(Globals.ExportingText);
                         //
-                        await Task.Run(() => _controller.ExportCADGeometryPartsAsStep(partNames, saveFileDialog.FileName));
+                        await Task.Run(() => _controller.ExportCADGeometryPartsAsStepCommand(partNames, saveFileDialog.FileName));
                     }
                 }
             }
@@ -2072,7 +2072,7 @@ namespace PrePoMax
                         // The filter adds the extension to the file name
                         SetStateWorking(Globals.ExportingText);
                         //
-                        await Task.Run(() => _controller.ExportCADGeometryPartsAsBrep(partNames, saveFileDialog.FileName));
+                        await Task.Run(() => _controller.ExportCADGeometryPartsAsBrepCommand(partNames, saveFileDialog.FileName));
                     }
                 }
             }
@@ -2100,7 +2100,7 @@ namespace PrePoMax
                         // The filter adds the extension to the file name
                         SetStateWorking(Globals.ExportingText);
                         //
-                        await Task.Run(() => _controller.ExportToStl(partNames, saveFileDialog.FileName));
+                        await Task.Run(() => _controller.ExportToStlCommand(partNames, saveFileDialog.FileName));
                     }
                 }
             }
@@ -2128,7 +2128,7 @@ namespace PrePoMax
                         // The filter adds the extension to the file name
                         SetStateWorking(Globals.ExportingText);
                         //
-                        await Task.Run(() => _controller.ExportGeometryPartsAsGmshMesh(saveFileDialog.FileName));
+                        await Task.Run(() => _controller.ExportPartsAsGmshMeshCommand(saveFileDialog.FileName));
                     }
                 }
             }
@@ -2156,7 +2156,7 @@ namespace PrePoMax
                         // The filter adds the extension to the file name
                         SetStateWorking(Globals.ExportingText);
                         //
-                        await Task.Run(() => _controller.ExportPartsAsMmgMesh(partNames, saveFileDialog.FileName));
+                        await Task.Run(() => _controller.ExportPartsAsMmgMeshCommand(partNames, saveFileDialog.FileName));
                     }
                 }
             }
@@ -2184,7 +2184,7 @@ namespace PrePoMax
                         // The filter adds the extension to the file name
                         SetStateWorking(Globals.ExportingText);
                         //
-                        await Task.Run(() => _controller.ExportDeformedPartsToCalculix(partNames, saveFileDialog.FileName));
+                        await Task.Run(() => _controller.ExportDeformedPartsToCalculixCommand(partNames, saveFileDialog.FileName));
                     }
                 }
             }

@@ -25,7 +25,7 @@ namespace PrePoMax
         [OrderedDisplayName(2, 10, "Surface")]
         [DescriptionAttribute("Select the surface for the creation of the load.")]
         [Id(3, 2)]
-        public string SurfaceName { get { return _dLoad.SurfaceName; } set {_dLoad.SurfaceName = value;} }
+        public string SurfaceName { get { return _dLoad.RegionName; } set {_dLoad.RegionName = value;} }
         //
         [CategoryAttribute("Pressure magnitude")]
         [OrderedDisplayName(0, 10, "Magnitude")]

@@ -246,8 +246,8 @@ namespace PrePoMax.Forms
             _dctd.GetProperty(nameof(Z2)).SetIsBrowsable(!_coordinateSystem.TwoD);
             _dctd.GetProperty(nameof(Z3)).SetIsBrowsable(!_coordinateSystem.TwoD);
             //
-            if (_coordinateSystem.TwoD) _coordinateSystem.Type = CoordinateSystemTypeEnum.Rectangular;
-            _dctd.GetProperty(nameof(Type)).SetIsReadOnly(_coordinateSystem.TwoD);
+            //if (_coordinateSystem.TwoD) _coordinateSystem.Type = CoordinateSystemTypeEnum.Rectangular;
+            //_dctd.GetProperty(nameof(Type)).SetIsReadOnly(_coordinateSystem.TwoD);
             //
             _dctd.RenameBooleanPropertyToYesNo(nameof(NameVisible));
             //

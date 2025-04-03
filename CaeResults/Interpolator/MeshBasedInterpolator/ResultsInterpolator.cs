@@ -67,7 +67,7 @@ namespace CaeResults
         }
         public PartExchangeData ConvertSourceToTriangularFaces(PartExchangeData source)
         {
-            PartExchangeData clone = source.DeepClone();
+            PartExchangeData clone = source.DeepCopy();
             //
             List<int> ids = new List<int>();
             List<int[]> cellNodeIds = new List<int[]>();
