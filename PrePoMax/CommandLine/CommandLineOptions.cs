@@ -19,12 +19,12 @@ namespace PrePoMax
         [Option('f', "file", Required = false, HelpText = "File name to be opened/imported.")]
         public string FileName { get; set; }
         // Gui
-        [Option('g', "showGui", Required = false, Default ="Yes", HelpText = "Show Graphical User Interface [Yes | No]. " +
+        [Option('g', "showGui", Required = false, Default ="Yes", HelpText = "Show graphical user interface: Yes | No. " +
                                                                              "No can only be used for regeneration.")]
         public string ShowGui { get; set; }
         // Overwrite
-        [Option('o', "overwrite", Required = false, Default = "No", HelpText = "Overwrite the .pmx file after regeneration " +
-                                                                                "[Yes | No]. Can only be used for regeneration.")]
+        [Option('o', "overwrite", Required = false, Default = "No", HelpText = "Overwrite the .pmx file after regeneration: " +
+                                                                                "Yes | No. Can only be used for regeneration.")]
         public string Overwrite { get; set; }
         // Parameters
         [Option('p', "parameters", Required = false, HelpText = "Overwrite the .pmx parameters. To overwrite parameter a " +
@@ -67,15 +67,15 @@ namespace PrePoMax
 
 
         // UnitSystem
-        [Option('u', "unitSystem", Required = false, HelpText = "Unit system type to be used when importing [M_KG_S_C | " +
-                                                                "MM_TON_S_C | M_TON_S_C | IN_LB_S_F | UNIT_LESS].")]
+        [Option('u', "unitSystem", Required = false, HelpText = "Unit system type to be used when importing: M_KG_S_C | " +
+                                                                "MM_TON_S_C | M_TON_S_C | IN_LB_S_F | UNIT_LESS.")]
         public string UnitSystem { get; set; }
         // WorkDirectory
         [Option('w', "workDirectory", Required = false, HelpText = "A directory path to be used as work directory.")]
         public string WorkDirectory { get; set; }
         // ExitAfterRegeneration
-        [Option('x', "exitAfterRegeneration", Required = false, Default = "Yes", HelpText = "Exit PrePoMax after regeneration " +
-                                                                                            "[Yes | No].")]
+        [Option('x', "exitAfterRegeneration", Required = false, Default = "Yes", HelpText = "Exit PrePoMax after regeneration: " +
+                                                                                            "Yes | No.")]
         public string ExitAfterRegeneration { get; set; }
 
 

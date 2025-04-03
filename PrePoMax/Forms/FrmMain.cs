@@ -630,6 +630,7 @@ namespace PrePoMax
                             {
                                 if (!Enum.TryParse(_cmdOptions.UnitSystem.ToUpper(), out unitSystemType))
                                     throw new CaeException("The unit system type " + _cmdOptions.UnitSystem + " is not supported.");
+                                parameters = _cmdOptions.UnitSystem;
                             }
                         }
                         // Check for open last file
@@ -1921,7 +1922,7 @@ namespace PrePoMax
                 else MessageBoxes.ShowWarning("Another task is already running.");
                 // If the model space or the unit system are undefined
                 if (_controller.ModelInitialized) IfNeededSelectAndSetNewModelProperties();
-                if (_controller.ResultsInitialized) SelectResultsUnitSystem();
+                if (_controller.ResultsInitialized) SelectResultsUnitSystem(parameters);
             }
             catch (Exception ex)
             {
@@ -6932,7 +6933,7 @@ namespace PrePoMax
                 }
             });
         }
-        public void SelectResultsUnitSystem()
+        public void SelectResultsUnitSystem(string parameters = null)
         {
             InvokeIfRequired(() =>
             {
@@ -6945,16 +6946,24 @@ namespace PrePoMax
                         //
                         if (unitSystemType == UnitSystemType.Undefined)
                         {
-                            CloseAllForms();
-                            SetFormLocation(_frmNewModel);
-                            //
-                            if (_frmNewModel.PrepareForm("", "Results"))
+                            UnitSystemType unitSystemTypeFromParameters;
+                            if (Enum.TryParse(parameters, out unitSystemTypeFromParameters))
                             {
-                                if (_frmNewModel.ShowDialog(this) == DialogResult.OK)
+                                _controller.SetResultsUnitSystem(unitSystemTypeFromParameters);
+                            }
+                            else
+                            {
+                                CloseAllForms();
+                                SetFormLocation(_frmNewModel);
+                                //
+                                if (_frmNewModel.PrepareForm("", "Results"))
                                 {
-                                    _controller.SetResultsUnitSystem(_frmNewModel.UnitSystem.UnitSystemType);
+                                    if (_frmNewModel.ShowDialog(this) == DialogResult.OK)
+                                    {
+                                        _controller.SetResultsUnitSystem(_frmNewModel.UnitSystem.UnitSystemType);
+                                    }
+                                    else throw new NotSupportedException();
                                 }
-                                else throw new NotSupportedException();
                             }
                         }
                     }
