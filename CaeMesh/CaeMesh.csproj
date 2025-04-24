@@ -131,6 +131,7 @@
     <Compile Include="Parts\BasePart.cs" />
     <Compile Include="Parts\CompoundGeometryPart.cs" />
     <Compile Include="Parts\GeometryPart.cs" />
+    <Compile Include="Parts\PartMassProperties.cs" />
     <Compile Include="Parts\ResultPart.cs" />
     <Compile Include="Parts\MeshPart.cs" />
     <Compile Include="FeSurface.cs" />

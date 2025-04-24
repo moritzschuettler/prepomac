@@ -557,6 +557,14 @@ namespace vtkControl
             this.FindPokedRenderer(_x, _y);
             this.Select(_x, _y);
         }
+        public bool IsPositionOverWidget(int x, int y)
+        {
+            foreach (vtkMaxBorderWidget widget in _widgets)
+            {
+                if (widget.MouseOver(x, y)) return true;
+            }
+            return false;
+        }
         //
         public void AddVtkMaxWidget(vtkMaxBorderWidget widget)
         {

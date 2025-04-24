@@ -164,6 +164,16 @@ namespace CaeMesh
             double[] cg = GeometryTools.TriangleCG(nodes[cell[0]], nodes[cell[1]], nodes[cell[2]], out area);
             return cg;
         }
+        public override double GetVolume(Dictionary<int, FeNode> nodes)
+        {
+            return GeometryTools.TetrahedronVolume(nodes[NodeIds[0]], nodes[NodeIds[1]],
+                                                   nodes[NodeIds[2]], nodes[NodeIds[3]]);
+        }
+        public override double[] GetCG(Dictionary<int, FeNode> nodes, out double volume)
+        {
+            return GeometryTools.TetrahedronCG(nodes[NodeIds[0]], nodes[NodeIds[1]],
+                                               nodes[NodeIds[2]], nodes[NodeIds[3]], out volume);
+        }
         public override FeElement DeepCopy()
         {
             return new LinearTetraElement(Id, PartId, NodeIds.ToArray());

@@ -400,6 +400,17 @@ namespace PrePoMax.Forms
             Form_WriteDataToOutput(data);
             data = string.Format("{0} {1}", nodesName, part.NodeLabels.Length);
             Form_WriteDataToOutput(data);
+            //
+            string volumeArea = "Area:";
+            string unit = _controller.GetLengthUnit();
+            if (part.PartType == PartType.SolidAsShell || part.PartType == PartType.Solid || part.PartType == PartType.Compound)
+            {
+                volumeArea = "Volume:";
+                unit = _controller.GetVolumeUnit();
+            }
+            data = string.Format("{0} {1} {2}", volumeArea, part.MassProperties.Volume, unit);
+            Form_WriteDataToOutput(data);
+            //
             Form_WriteDataToOutput("");
             //
             _controller.ClearSelectionHistoryAndCallSelectionChanged();

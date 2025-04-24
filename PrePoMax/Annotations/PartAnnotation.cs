@@ -52,7 +52,9 @@ namespace PrePoMax
             bool showPartType = Controller.Settings.Annotations.ShowPartType;
             bool showPartNumberOfElements = Controller.Settings.Annotations.ShowPartNumberOfElements;
             bool showPartNumberOfNodes = Controller.Settings.Annotations.ShowPartNumberOfNodes;
-            if (!showPartId && !showPartType && !showPartNumberOfElements && !showPartNumberOfNodes) showPartName = true;
+            bool showPartVolumeArea = Controller.Settings.Annotations.ShowPartVolumeArea;
+            if (!showPartId && !showPartType && !showPartNumberOfElements && !showPartNumberOfNodes && !showPartVolumeArea)
+                showPartName = true;
             // Item name
             string elementsName = "Number of elements:";
             string nodesName = "Number of nodes:";
@@ -61,6 +63,14 @@ namespace PrePoMax
                 elementsName = "Number of facets:";
                 nodesName = "Number of vertices:";
             }
+            // Volume/Area
+            string areaUnit = Controller.GetAreaUnit();
+            string volumeUnit = Controller.GetVolumeUnit();
+            bool volume = part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell ||
+                          part.PartType == PartType.Compound;
+            string volumeArea;
+            if (volume) volumeArea = string.Format("Volume: {0} {1}", part.MassProperties.Volume, volumeUnit);
+            else volumeArea = string.Format("Area: {0} {1}", part.MassProperties.Area, areaUnit);
             //
             text = "";
             //
@@ -75,8 +85,12 @@ namespace PrePoMax
             }
             if (showPartType)
             {
+                string partTypeName;
+                if (part.PartType == PartType.SolidAsShell) partTypeName = "Solid as shell";
+                else partTypeName = part.PartType.ToString();
+                //
                 if (text.Length > 0) text += Environment.NewLine;
-                text += string.Format("Part type: {0}", part.PartType);
+                text += string.Format("Part type: {0}", partTypeName);
             }
             if (showPartNumberOfElements)
             {
@@ -87,6 +101,11 @@ namespace PrePoMax
             {
                 if (text.Length > 0) text += Environment.NewLine;
                 text += string.Format("{0} {1}", nodesName, part.NodeLabels.Length);
+            }
+            if (showPartVolumeArea)
+            {
+                if (text.Length > 0) text += Environment.NewLine;
+                text += volumeArea;
             }
             //
             if (IsTextOverridden) text = OverriddenText;

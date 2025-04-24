@@ -206,8 +206,11 @@ namespace CaeModel
             //
             _unitSystem.SetConverterUnits();
             //
-            _parameters.OnDeserialization(null);    // call it to load the dictionary immediately
-            UpdateNCalcParameters();
+            // Call it to load the dictionary immediately
+            //_parameters.OnDeserialization(null);    
+            //_geometry.Parts.OnDeserialization(null);
+            //_mesh.Parts.OnDeserialization(null);
+            //UpdateNCalcParameters();  // is called after the data is read from binary reader
         }
 
 
@@ -2753,6 +2756,7 @@ namespace CaeModel
             try
             {
                 MyNCalc.ExistingParameters = new OrderedDictionary<string, object>("Parameters");
+                MyNCalc.AddPropertyParameters(GetPropertyParameters());
                 foreach (var entry in _parameters) MyNCalc.ExistingParameters.Add(entry.Key, entry.Value.Value);
             }
             catch
@@ -2760,6 +2764,125 @@ namespace CaeModel
                 MessageBoxes.ShowError("The parameters could not be evaluated. Check the parameter equations.");
             }
         }
+        public Dictionary<string, object> GetPropertyParameters()
+        {
+            double volume;
+            double area;
+            string prefix = "Geometry";
+            Dictionary<string, object> propParameters = new Dictionary<string, object>();
+            // Geometry
+            string volumePrefix = prefix + ".Volume";
+            propParameters.Add(volumePrefix, 0);
+            string areaPrefix = prefix + ".Area";
+            propParameters.Add(areaPrefix, 0);
+            // 
+            volume = 0;
+            area = 0;
+            HashSet<string> compoundSubpartNames = new HashSet<string>();
+            foreach (var partEntry in _geometry.Parts)
+            {
+                if (partEntry.Value is CompoundGeometryPart cgp) compoundSubpartNames.UnionWith(cgp.SubPartNames);
+            }
+            foreach (var partEntry in _geometry.Parts)
+            {
+                if (partEntry.Value is CompoundGeometryPart cgp)
+                {
+                    AddCompoundPartProperties(prefix, cgp, ref propParameters);
+                    volume += (double)propParameters[prefix + "." + partEntry.Value.Name + ".Volume"];
+                    area += (double)propParameters[prefix + "." + partEntry.Value.Name + ".Area"];
+                }
+                else if (!compoundSubpartNames.Contains(partEntry.Value.Name))
+                {
+                    AddNonCompoundPartProperties(prefix, partEntry.Value, ref propParameters);
+                    volume += (double)propParameters[prefix + "." + partEntry.Value.Name + ".Volume"];
+                    area += (double)propParameters[prefix + "." + partEntry.Value.Name + ".Area"];
+                }
+            }
+            propParameters[volumePrefix] = volume;
+            propParameters[areaPrefix] = area;
+            // Mesh
+            prefix = "FEModel";
+            volumePrefix = prefix + ".Volume";
+            propParameters.Add(volumePrefix, 0);
+            areaPrefix = prefix + ".Area";
+            propParameters.Add(areaPrefix, 0);
+            // 
+            volume = 0;
+            area = 0;
+            foreach (var partEntry in _mesh.Parts)
+            {
+                AddNonCompoundPartProperties(prefix, partEntry.Value, ref propParameters);
+                volume += (double)propParameters[prefix + "." + partEntry.Value.Name + ".Volume"];
+                area += (double)propParameters[prefix + "." + partEntry.Value.Name + ".Area"];
+            }
+            propParameters[volumePrefix] = volume;
+            propParameters[areaPrefix] = area;
+            //
+            return propParameters;
+        }
+        private void AddCompoundPartProperties(string prefix, CompoundGeometryPart part,
+                                               ref Dictionary<string, object> propParameters)
+        {
+            // Geometry
+            prefix += "." + part.Name;
+            string volumePrefix = prefix + ".Volume";
+            propParameters.Add(volumePrefix, 0);
+            string areaPrefix = prefix + ".Area";
+            propParameters.Add(areaPrefix, 0);
+            double volume = 0;
+            double area = 0;
+            foreach (var subPartName in part.SubPartNames)
+            {
+                AddNonCompoundPartProperties(prefix, _geometry.Parts[subPartName], ref propParameters);
+                volume += (double)propParameters[prefix + "." + subPartName + ".Volume"];
+                area += (double)propParameters[prefix + "." + subPartName + ".Area"];
+            }
+            propParameters[volumePrefix] = volume;
+            propParameters[areaPrefix] = area;
+        }
+        private void AddNonCompoundPartProperties(string prefix, BasePart part, ref Dictionary<string, object> propParameters)
+        {
+            bool solid = part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell;
+            if (part is CompoundGeometryPart)
+                throw new NotSupportedException();
+            else
+            {
+                VisualizationData vis = part.Visualization;
+                prefix += "." + part.Name;
+                // Volume
+                double volume = 0;
+                if (solid) volume = part.MassProperties.Volume;
+                propParameters.Add(prefix + ".Volume", volume);
+                // Area
+                string areaPrefix = prefix + ".Area";
+                propParameters.Add(areaPrefix, -1);
+                // Surfaces
+                double area = 0;
+                double perimeter;
+                string surfacePrefix;
+                for (int i = 0; i < vis.FaceCount; i++)
+                {
+                    surfacePrefix = prefix + ".Surface-" + (i + 1);
+                    propParameters.Add(surfacePrefix + ".Area", vis.FaceAreas[i]);
+                    area += vis.FaceAreas[i];
+                    perimeter = 0;
+                    for (int j = 0; j < vis.FaceEdgeIds[i].Length; j++) perimeter += vis.EdgeLengths[vis.FaceEdgeIds[i][j]];
+                    propParameters.Add(surfacePrefix + ".Perimeter", perimeter);
+                }
+                //
+                propParameters[areaPrefix] = area;
+                // Edges
+                string edgePrefix;
+                for (int i = 0; i < vis.EdgeCount; i++)
+                {
+                    edgePrefix = prefix + ".Edge-" + (i + 1);
+                    propParameters.Add(edgePrefix + ".Length", vis.EdgeLengths[i]);
+                }
+            }
+        }
+
+
+
         // 3D - 2D                                                                                  
         public void UpdateMeshPartsElementTypes(bool allowMixedModel)
         {

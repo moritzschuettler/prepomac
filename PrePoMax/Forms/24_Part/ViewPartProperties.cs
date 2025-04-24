@@ -45,7 +45,7 @@ namespace PrePoMax.Forms
         public int NumberOfNodes { get { return _partProperties.NumberOfNodes; } }
         //
         [Category("Element type")]
-        [OrderedDisplayName(0, 20, "Linear tria type")]
+        [OrderedDisplayName(0, 20, "Linear triangle")]
         [Description("Select the type of the linear triangular elements.")]
         [Id(1, 3)]
         public FeElementTypeLinearTria LinearTriaType
@@ -55,7 +55,7 @@ namespace PrePoMax.Forms
         }
         //
         [Category("Element type")]
-        [OrderedDisplayName(1, 20, "Parabolic tria type")]
+        [OrderedDisplayName(1, 20, "Parabolic triangle")]
         [Description("Select the type of the parabolic triangular elements.")]
         [Id(2, 3)]
         public FeElementTypeParabolicTria ParabolicTriaType
@@ -65,7 +65,7 @@ namespace PrePoMax.Forms
         }
         //
         [Category("Element type")]
-        [OrderedDisplayName(2, 20, "Linear quad type")]
+        [OrderedDisplayName(2, 20, "Linear quadrilateral")]
         [Description("Select the type of the linear quadrilateral elements.")]
         [Id(3, 3)]
         public FeElementTypeLinearQuad LinearQuadType
@@ -75,7 +75,7 @@ namespace PrePoMax.Forms
         }
         //
         [Category("Element type")]
-        [OrderedDisplayName(3, 20, "Parabolic quad type")]
+        [OrderedDisplayName(3, 20, "Parabolic quadrilateral")]
         [Description("Select the type of the parabolic quadrilateral elements.")]
         [Id(4, 3)]
         public FeElementTypeParabolicQuad ParabolicQuadType
@@ -85,7 +85,7 @@ namespace PrePoMax.Forms
         }
         //
         [Category("Element type")]
-        [OrderedDisplayName(4, 20, "Linear tetra type")]
+        [OrderedDisplayName(4, 20, "Linear tetrahedron")]
         [Description("Select the type of the linear tetrahedron elements.")]
         [Id(5, 3)]
         public FeElementTypeLinearTetra LinearTetraType 
@@ -95,7 +95,7 @@ namespace PrePoMax.Forms
         }
         //
         [Category("Element type")]
-        [OrderedDisplayName(5, 20, "Parabolic tetra type")]
+        [OrderedDisplayName(5, 20, "Parabolic tetrahedron")]
         [Description("Select the type of the parabolic tetrahedron elements.")]
         [Id(6, 3)]
         public FeElementTypeParabolicTetra ParabolicTetraType
@@ -105,7 +105,7 @@ namespace PrePoMax.Forms
         }
         //
         [Category("Element type")]
-        [OrderedDisplayName(6, 20, "Linear pyramid type")]
+        [OrderedDisplayName(6, 20, "Linear pyramid")]
         [Description("Select the type of the linear pyramid elements.")]
         [Id(7, 3)]
         public FeElementTypeLinearPyramid LinearPyramidType
@@ -115,7 +115,7 @@ namespace PrePoMax.Forms
         }
         //
         [Category("Element type")]
-        [OrderedDisplayName(7, 20, "Parabolic pyramid type")]
+        [OrderedDisplayName(7, 20, "Parabolic pyramid")]
         [Description("Select the type of the parabolic pyramid elements.")]
         [Id(8, 3)]
         public FeElementTypeParabolicPyramid ParabolicPyramidType
@@ -125,7 +125,7 @@ namespace PrePoMax.Forms
         }
         //
         [Category("Element type")]
-        [OrderedDisplayName(8, 20, "Linear wedge type")]
+        [OrderedDisplayName(8, 20, "Linear wedge")]
         [Description("Select the type of the linear wedge elements.")]
         [Id(9, 3)]
         public FeElementTypeLinearWedge LinearWedgeType
@@ -135,7 +135,7 @@ namespace PrePoMax.Forms
         }
         //
         [Category("Element type")]
-        [OrderedDisplayName(9, 20, "Parabolic wedge type")]
+        [OrderedDisplayName(9, 20, "Parabolic wedge")]
         [Description("Select the type of the parabolic wedge elements.")]
         [Id(10, 3)]
         public FeElementTypeParabolicWedge ParabolicWedgeType
@@ -145,7 +145,7 @@ namespace PrePoMax.Forms
         }
         //
         [Category("Element type")]
-        [OrderedDisplayName(10, 20, "Linear hexa type")]
+        [OrderedDisplayName(10, 20, "Linear hexahedron")]
         [Description("Select the type of the linear hexahedron elements.")]
         [Id(11, 3)]
         public FeElementTypeLinearHexa LinearHexaType
@@ -155,7 +155,7 @@ namespace PrePoMax.Forms
         }
         //
         [Category("Element type")]
-        [OrderedDisplayName(11, 20, "Parabolic hexa type")]
+        [OrderedDisplayName(11, 20, "Parabolic hexahedron")]
         [Description("Select the type of the parabolic hexahedron elements.")]
         [Id(12, 3)]
         public FeElementTypeParabolicHexa ParabolicHexaType
@@ -164,11 +164,90 @@ namespace PrePoMax.Forms
             set { _partProperties.ParabolicHexaType = value; }
         }
         //
+
+
+        [Category("Geometry")]
+        [OrderedDisplayName(0, 10, "Volume")]
+        [Description("Part volume.")]
+        [TypeConverter(typeof(StringVolumeUnknownConverter))]
+        [Id(1, 4)]
+        public double Volume
+        {
+            get
+            {
+                if (_partProperties.MassProperties.CenterOfMass != null)
+                    return Math.Round(_partProperties.MassProperties.Volume, 6);
+                else return double.NaN;
+            }
+        }
+        //
+        [Category("Geometry")]
+        [OrderedDisplayName(1, 10, "Area")]
+        [Description("Part area.")]
+        [TypeConverter(typeof(StringAreaUnknownConverter))]
+        [Id(2, 4)]
+        public double Area
+        {
+            get
+            {
+                if (_partProperties.MassProperties.CenterOfMass != null)
+                    return Math.Round(_partProperties.MassProperties.Area, 6);
+                else return double.NaN;
+            }
+        }
+        //
+        [Category("Center of mass")]
+        [OrderedDisplayName(0, 10, "X")]
+        [Description("X coordinate of center of mass.")]
+        [TypeConverter(typeof(StringLengthUnknownConverter))]
+        [Id(1, 5)]
+        public double X
+        {
+            get
+            {
+                if (_partProperties.MassProperties.CenterOfMass != null)
+                    return Math.Round(_partProperties.MassProperties.CenterOfMass[0], 6);
+                else return double.NaN;
+            }
+        }
+        //
+        [Category("Center of mass")]
+        [OrderedDisplayName(1, 10, "Y")]
+        [Description("Y coordinate of center of mass.")]
+        [TypeConverter(typeof(StringLengthUnknownConverter))]
+        [Id(2, 5)]
+        public double Y
+        {
+            get
+            {
+                if (_partProperties.MassProperties.CenterOfMass != null)
+                    return Math.Round(_partProperties.MassProperties.CenterOfMass[1], 6);
+                else return double.NaN;
+            }
+        }
+        //
+        [Category("Center of mass")]
+        [OrderedDisplayName(2, 10, "Z")]
+        [Description("Z coordinate of center of mass.")]
+        [TypeConverter(typeof(StringLengthUnknownConverter))]
+        [Id(2, 5)]
+        public double Z
+        {
+            get
+            {
+                if (_partProperties.MassProperties.CenterOfMass != null)
+                    return Math.Round(_partProperties.MassProperties.CenterOfMass[2], 6);
+                else return double.NaN;
+            }
+        }
+
+
+
         [Category("Appearance")]
         [OrderedDisplayName(0, 10, "Part color")]
         [Description("Select part color.")]
         [Editor(typeof(UserControls.ColorEditorEx), typeof(UITypeEditor))]
-        [Id(1, 4)]
+        [Id(1, 6)]
         public System.Drawing.Color Color
         {
             get { return _partProperties.Color; }
@@ -188,10 +267,17 @@ namespace PrePoMax.Forms
             _dctd.CategorySortOrder = CustomSortOrder.AscendingById;
             _dctd.PropertySortOrder = CustomSortOrder.AscendingById;
             //
+            bool visible = _partProperties.PartType == PartType.Solid || _partProperties.PartType == PartType.SolidAsShell ||
+                           _partProperties.PartType == PartType.Compound;
+            _dctd.GetProperty(nameof(Volume)).SetIsBrowsable(visible);
+            _dctd.GetProperty(nameof(Area)).SetIsBrowsable(!visible);
+            //
             if (currentView == ViewGeometryModelResults.Geometry)
             {
-                _dctd.GetProperty(nameof(NumberOfElements)).SetIsBrowsable(true);
-                _dctd.GetProperty(nameof(NumberOfNodes)).SetIsBrowsable(true);
+                visible = _partProperties.PartType != PartType.Compound;
+                _dctd.GetProperty(nameof(NumberOfElements)).SetIsBrowsable(visible);
+                _dctd.GetProperty(nameof(NumberOfNodes)).SetIsBrowsable(visible);
+                _dctd.GetProperty(nameof(Color)).SetIsBrowsable(visible);
                 //
                 _dctd.GetProperty(nameof(LinearTriaType)).SetIsBrowsable(false);
                 _dctd.GetProperty(nameof(ParabolicTriaType)).SetIsBrowsable(false);

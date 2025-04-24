@@ -6,12 +6,14 @@ using System.Threading.Tasks;
 using System.IO;
 using CaeMesh;
 using CaeGlobals;
+using CaeModel;
 
 namespace FileInOut.Input
 {
     static public class VisFileReader
     {
         private static string[] spaceSplitter = new string[] { " " };
+        private static string[] colonSplitter = new string[] { ":" };
         private static string[] lineSplitter = new string[] { "\r", "\n" };
         private static string[] allSplitter = new string[] { " ", "\r", "\n" };
 
@@ -71,11 +73,10 @@ namespace FileInOut.Input
                 {
                     string[] partData = data.Split(new string[] { textToFind }, StringSplitOptions.RemoveEmptyEntries);
                     //
-                    //if (partData.Length > 2) throw new Exception("The file: " + fileName + " contains more than one part.");
-                    //
                     for (int k = 1; k < partData.Length; k++)
                     {
-                        string[] faceData = partData[k].Split(new string[] { "Face number: " }, StringSplitOptions.RemoveEmptyEntries);
+                        string[] faceData = partData[k].Split(new string[] { "Face number: " },
+                                                              StringSplitOptions.RemoveEmptyEntries);
                         //
                         for (int i = 1; i < faceData.Length; i++)   // start with 1 to skip first line: ********
                         {
@@ -99,6 +100,17 @@ namespace FileInOut.Input
                     mesh.RemoveElementsByType<FeElement1D>();
                     mesh.RemoveElementsByType<FeElement3D>();
                     //
+                    if (mesh.Parts.Count == 1)
+                    {
+                        PartMassProperties massProperties;
+                        string[] massData = data.Split(new string[] { "Geometry properties" },
+                                                       StringSplitOptions.RemoveEmptyEntries);
+                        if (massData.Length == 2)
+                        {
+                            massProperties = ReadMass(massData[1]);
+                            mesh.Parts.First().Value.MassProperties = massProperties;
+                        }
+                    }
                     return mesh;
                 }
             }
@@ -127,6 +139,8 @@ namespace FileInOut.Input
             if (!faceTypes.ContainsKey(surfaceId)) faceTypes.Add(surfaceId, faceType);
             //
             Dictionary<int, FeNode> surfaceNodes = new Dictionary<int, FeNode>();
+            CompareIntArray comparer = new CompareIntArray();
+            HashSet<int[]> freeEdgeKeys = new HashSet<int[]>(comparer);
             for (int i = 1; i < data.Length; i++)
             {
                 if (data[i].StartsWith("nodes"))
@@ -136,12 +150,13 @@ namespace FileInOut.Input
                 }
                 else if (data[i].StartsWith("triangles"))
                 {
-                    numOfElements = ReadTriangles(data[i], reverse, offsetNodeId, offsetElementId, elements);
+                    numOfElements = ReadTriangles(data[i], reverse, offsetNodeId, offsetElementId, elements, freeEdgeKeys);
                     offsetElementId += numOfElements;
                 }
                 else if (data[i].StartsWith("edges"))
                 {
-                    numOfElements = ReadEdges(data[i], offsetNodeId, offsetElementId, elements, edgeIdNodeIds, edgeTypes);
+                    numOfElements = ReadEdges(data[i], offsetNodeId, offsetElementId, elements, edgeIdNodeIds,
+                                              edgeTypes, freeEdgeKeys);
                     offsetElementId += numOfElements;
                 }
             }
@@ -178,14 +193,18 @@ namespace FileInOut.Input
             return data.Length - 1; // return number of read nodes
         }
         private static int ReadTriangles(string elementData, bool reverse, int offsetNodeId, int offsetElementId,
-                                         Dictionary<int, FeElement> elements)
+                                         Dictionary<int, FeElement> elements, HashSet<int[]> freeEdgeKeys)
         {
+            int id;
+            int[] key;
+            int[] count;
+            int[] nodeIds;
             string[] data = elementData.Split(lineSplitter, StringSplitOptions.RemoveEmptyEntries);
             string[] tmp;
-            int id;
-            int[] nodeIds;
             LinearTriangleElement element;
-
+            CompareIntArray comparer = new CompareIntArray();
+            Dictionary<int[], int[]> edgeKeyCount = new Dictionary<int[], int[]>(comparer);
+            //
             for (int i = 1; i < data.Length; i++)   // skip first row: Number of elements: 23
             {
                 tmp = data[i].Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
@@ -203,15 +222,31 @@ namespace FileInOut.Input
                     nodeIds[2] = int.Parse(tmp[3]) + offsetNodeId;
                 }
                 element = new LinearTriangleElement(id, nodeIds);
-
+                //
                 elements.Add(element.Id, element);
+                //
+                key = nodeIds[0] < nodeIds[1] ? new int[] { nodeIds[0], nodeIds[1] } : new int[] { nodeIds[1], nodeIds[0] };
+                if (edgeKeyCount.TryGetValue(key, out count)) count[0]++;
+                else edgeKeyCount[key] = new int[] { 1 };
+                //
+                key = nodeIds[1] < nodeIds[2] ? new int[] { nodeIds[1], nodeIds[2] } : new int[] { nodeIds[2], nodeIds[1] };
+                if (edgeKeyCount.TryGetValue(key, out count)) count[0]++;
+                else edgeKeyCount[key] = new int[] { 1 };
+                //
+                key = nodeIds[2] < nodeIds[0] ? new int[] { nodeIds[2], nodeIds[0] } : new int[] { nodeIds[0], nodeIds[2] };
+                if (edgeKeyCount.TryGetValue(key, out count)) count[0]++;
+                else edgeKeyCount[key] = new int[] { 1 };
             }
-
+            //
+            foreach (var entry in edgeKeyCount)
+            {
+                if (entry.Value[0] == 1) freeEdgeKeys.Add(entry.Key);
+            }
             return data.Length - 1; // return number of read elements
         }
         private static int ReadEdges(string elementData, int offsetNodeId, int offsetElementId,
                                      Dictionary<int, FeElement> elements, Dictionary<int, HashSet<int>> edgeIdNodeIds,
-                                     Dictionary<int, GeomCurveType> edgeTypes)
+                                     Dictionary<int, GeomCurveType> edgeTypes, HashSet<int[]> freeEdgeKeys)
         {
             string[] data = elementData.Split(lineSplitter, StringSplitOptions.RemoveEmptyEntries);
             GeomCurveType edgeType;
@@ -223,6 +258,8 @@ namespace FileInOut.Input
             LinearBeamElement element;
             //
             int edgeId;
+            int[] key;
+            int[] edgeNodeIdsArr;
             HashSet<int> edgeNodeIds = new HashSet<int>();
             HashSet<int> edgeNodeIdsOut;
             //
@@ -235,7 +272,6 @@ namespace FileInOut.Input
                 edgeNodeIds.Clear();
                 for (int j = 2; j < splitData.Length - 1; j++)
                 {
-                    id = internalId + offsetElementId;
                     nodeIds = new int[2];
                     nodeIds[0] = int.Parse(splitData[j]) + offsetNodeId;
                     nodeIds[1] = int.Parse(splitData[j + 1]) + offsetNodeId;
@@ -243,10 +279,26 @@ namespace FileInOut.Input
                     edgeNodeIds.Add(nodeIds[0]);
                     edgeNodeIds.Add(nodeIds[1]);
                     //
-                    element = new LinearBeamElement(id, nodeIds);
-                    elements.Add(element.Id, element);
-                    //
-                    internalId++;
+                    //id = internalId + offsetElementId;
+                    //element = new LinearBeamElement(id, nodeIds);
+                    //elements.Add(element.Id, element);
+                    //internalId++;
+                }
+                edgeNodeIdsArr = edgeNodeIds.ToArray();
+                for (int j = 0; j < edgeNodeIdsArr.Length; j++)
+                {
+                    for (int k = j + 1; k < edgeNodeIdsArr.Length; k++)
+                    {
+                        key = edgeNodeIdsArr[j] < edgeNodeIdsArr[k] ? new int[] { edgeNodeIdsArr[j], edgeNodeIdsArr[k] } :
+                              new int[] { edgeNodeIdsArr[k], edgeNodeIdsArr[j] };
+                        if (freeEdgeKeys.Contains(key))
+                        {
+                            id = internalId + offsetElementId;
+                            element = new LinearBeamElement(id, new int[] { edgeNodeIdsArr[j] , edgeNodeIdsArr[k] });
+                            elements.Add(element.Id, element);
+                            internalId++;
+                        }
+                    }
                 }
                 //
                 if (edgeIdNodeIds.TryGetValue(edgeId, out edgeNodeIdsOut)) edgeNodeIdsOut.UnionWith(edgeNodeIds);
@@ -261,7 +313,49 @@ namespace FileInOut.Input
             //
             return internalId - 1; // return number of read edges
         }
-
+        private static PartMassProperties ReadMass(string massData)
+        {
+            PartMassProperties massProperties = new PartMassProperties(true);
+            string[] data = massData.Split(lineSplitter, StringSplitOptions.RemoveEmptyEntries);
+            if (data.Length >= 11)
+            {
+                string[] tmp;
+                tmp = data[1].Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+                if (tmp[0].ToUpper().StartsWith("VOL")) massProperties.Volume = double.Parse(tmp[1]);
+                else if (tmp[0].ToUpper().StartsWith("ARE")) massProperties.Area = double.Parse(tmp[1]);
+                tmp = data[2].Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+                massProperties.CenterOfMass[0] = double.Parse(tmp[3]);
+                massProperties.CenterOfMass[1] = double.Parse(tmp[4]);
+                massProperties.CenterOfMass[2] = double.Parse(tmp[5]);
+                // InertiaMatrixCG
+                tmp = data[4].Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+                massProperties.InertiaMatrixCG[0][0] = double.Parse(tmp[0]);
+                massProperties.InertiaMatrixCG[0][1] = double.Parse(tmp[1]);
+                massProperties.InertiaMatrixCG[0][2] = double.Parse(tmp[2]);
+                tmp = data[5].Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+                massProperties.InertiaMatrixCG[1][0] = double.Parse(tmp[0]);
+                massProperties.InertiaMatrixCG[1][1] = double.Parse(tmp[1]);
+                massProperties.InertiaMatrixCG[1][2] = double.Parse(tmp[2]);
+                tmp = data[6].Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+                massProperties.InertiaMatrixCG[2][0] = double.Parse(tmp[0]);
+                massProperties.InertiaMatrixCG[2][1] = double.Parse(tmp[1]);
+                massProperties.InertiaMatrixCG[2][2] = double.Parse(tmp[2]);
+                // InertiaMatrixOrigin
+                tmp = data[8].Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+                massProperties.InertiaMatrixOrigin[0][0] = double.Parse(tmp[0]);
+                massProperties.InertiaMatrixOrigin[0][1] = double.Parse(tmp[1]);
+                massProperties.InertiaMatrixOrigin[0][2] = double.Parse(tmp[2]);
+                tmp = data[9].Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+                massProperties.InertiaMatrixOrigin[1][0] = double.Parse(tmp[0]);
+                massProperties.InertiaMatrixOrigin[1][1] = double.Parse(tmp[1]);
+                massProperties.InertiaMatrixOrigin[1][2] = double.Parse(tmp[2]);
+                tmp = data[10].Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+                massProperties.InertiaMatrixOrigin[2][0] = double.Parse(tmp[0]);
+                massProperties.InertiaMatrixOrigin[2][1] = double.Parse(tmp[1]);
+                massProperties.InertiaMatrixOrigin[2][2] = double.Parse(tmp[2]);
+            }
+            return massProperties;
+        }
         private static void MergeNodes(Dictionary<int, FeNode> nodes,
                                        Dictionary<int, FeElement> elements,
                                        Dictionary<int, HashSet<int>> surfaceIdNodeIds,

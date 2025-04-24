@@ -193,6 +193,17 @@ namespace CaeMesh
             double[] cg = GeometryTools.RectangleCG(nodes[cell[0]], nodes[cell[1]], nodes[cell[2]], nodes[cell[3]], out area);
             return cg;
         }
+        public override double GetVolume(Dictionary<int, FeNode> nodes)
+        {
+            return GeometryTools.HexahedronVolume(nodes[NodeIds[0]], nodes[NodeIds[1]], nodes[NodeIds[2]], nodes[NodeIds[3]],
+                                                  nodes[NodeIds[4]], nodes[NodeIds[5]], nodes[NodeIds[6]], nodes[NodeIds[7]]);
+        }
+        public override double[] GetCG(Dictionary<int, FeNode> nodes, out double volume)
+        {
+            return GeometryTools.HexahedronCG(nodes[NodeIds[0]], nodes[NodeIds[1]], nodes[NodeIds[2]], nodes[NodeIds[3]],
+                                              nodes[NodeIds[4]], nodes[NodeIds[5]], nodes[NodeIds[6]], nodes[NodeIds[7]],
+                                              out volume);
+        }
         public override FeElement DeepCopy()
         {
             return new LinearHexaElement(Id, PartId, NodeIds.ToArray());

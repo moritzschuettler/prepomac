@@ -44,5 +44,6 @@ namespace CaeMesh
             }
             return vtkCellId;
         }
+        abstract public double GetVolume(Dictionary<int, FeNode> nodes);
     }
 }

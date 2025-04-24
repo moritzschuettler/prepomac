@@ -37,6 +37,7 @@ namespace PrePoMax
         private bool _showPartType;
         private bool _showPartNumberOfElements;
         private bool _showPartNumberOfNodes;
+        private bool _showPartVolumeArea;
 
 
         // Properties                                                                                                               
@@ -86,6 +87,7 @@ namespace PrePoMax
             set { _showPartNumberOfElements = value; }
         }
         public bool ShowPartNumberOfNodes { get { return _showPartNumberOfNodes; } set { _showPartNumberOfNodes = value; } }
+        public bool ShowPartVolumeArea { get { return _showPartVolumeArea; } set { _showPartVolumeArea = value; } }
 
 
         // Constructors                                                                                                             
@@ -124,6 +126,7 @@ namespace PrePoMax
             _showPartType = true;
             _showPartNumberOfElements = true;
             _showPartNumberOfNodes = true;
+            _showPartVolumeArea = true;
         }
         public string GetNumberFormat()
         {

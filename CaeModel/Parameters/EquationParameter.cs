@@ -25,8 +25,8 @@ namespace CaeModel
             get { return _name; }
             set
             {
-                if (value.Contains('-'))
-                    throw new CaeException("The hyphen (minus) character cannot be used in the parameter name.");
+                //if (value.Contains('-'))
+                //    throw new CaeException("The hyphen (minus) character cannot be used in the parameter name.");
                 base.Name = value;
                 if (_equation != null) CheckSelfReference(value, _equation.Equation.Equation);
             }
@@ -70,6 +70,7 @@ namespace CaeModel
                 if (equation.StartsWith("="))
                 {
                     equation = equation.Substring(1, equation.Length - 1);
+                    equation = MyNCalc.PreprocessExpression(equation);
                     HashSet<string> parameters = MyNCalc.GetParameters(equation);
                     if (parameters.Contains(name))
                         throw new CaeException("The equation contains self reference to the parameter name.");

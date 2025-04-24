@@ -189,6 +189,15 @@ namespace PrePoMax.Settings
             get { return _annotationSettings.ShowPartNumberOfNodes; }
             set { _annotationSettings.ShowPartNumberOfNodes = value; }
         }
+        //
+        [CategoryAttribute("Part annotation")]
+        [OrderedDisplayName(5, 10, "Show volume/area")]
+        [DescriptionAttribute("Show part volume/area in the annotation.")]
+        public bool ShowPartVolumeArea
+        {
+            get { return _annotationSettings.ShowPartVolumeArea; }
+            set { _annotationSettings.ShowPartVolumeArea = value; }
+        }
 
 
         // Constructors                                                                               
@@ -216,6 +225,7 @@ namespace PrePoMax.Settings
             _dctd.RenameBooleanPropertyToYesNo(nameof(ShowPartType));
             _dctd.RenameBooleanPropertyToYesNo(nameof(ShowPartNumberOfElements));
             _dctd.RenameBooleanPropertyToYesNo(nameof(ShowPartNumberOfNodes));
+            _dctd.RenameBooleanPropertyToYesNo(nameof(ShowPartVolumeArea));
         }
 
 

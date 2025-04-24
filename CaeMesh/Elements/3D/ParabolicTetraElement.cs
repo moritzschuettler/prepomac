@@ -184,6 +184,22 @@ namespace CaeMesh
                                                    nodes[cell[3]], nodes[cell[4]], nodes[cell[5]], out area);
             return cg;
         }
+        public override double GetVolume(Dictionary<int, FeNode> nodes)
+        {
+            return GeometryTools.TetrahedronVolume(nodes[NodeIds[0]], nodes[NodeIds[1]],
+                                                   nodes[NodeIds[2]], nodes[NodeIds[3]],
+                                                   nodes[NodeIds[4]], nodes[NodeIds[5]],
+                                                   nodes[NodeIds[6]], nodes[NodeIds[7]],
+                                                   nodes[NodeIds[8]], nodes[NodeIds[9]]);
+        }
+        public override double[] GetCG(Dictionary<int, FeNode> nodes, out double volume)
+        {
+            return GeometryTools.TetrahedronCG(nodes[NodeIds[0]], nodes[NodeIds[1]],
+                                               nodes[NodeIds[2]], nodes[NodeIds[3]],
+                                               nodes[NodeIds[4]], nodes[NodeIds[5]],
+                                               nodes[NodeIds[6]], nodes[NodeIds[7]],
+                                               nodes[NodeIds[8]], nodes[NodeIds[9]], out volume);
+        }
         public override FeElement DeepCopy()
         {
             return new ParabolicTetraElement(Id, PartId, NodeIds.ToArray());

@@ -21,8 +21,10 @@ namespace PrePoMax.Forms
         // Variables                                                                                                                
         private Controller _controller;
         private List<EquationParameter> _parameters;
+        private Dictionary<string, object> _propertyParameters;
         private int _cellRow;
         private int _cellCol;
+
 
 
         // Constructors                                                                                                             
@@ -34,6 +36,10 @@ namespace PrePoMax.Forms
             _cellRow = -1;
             _cellCol = -1;
             dgvData.ShowErrorMsg = false;
+            //
+            _propertyParameters = _controller.GetPropertyParameters();
+            //
+            dgvData.BuildAutocompleteMenu(_propertyParameters.Keys, 1);
         }
 
 
@@ -85,8 +91,7 @@ namespace PrePoMax.Forms
                 {
                     HashSet<string> existingNames = new HashSet<string>(MyNCalc.ExistingParameters.Keys);
                     // If an existing parameter is renamed remove it from a list
-                    // If a new parameter is added no need to remove it
-                    if (existingNames.Count == _parameters.Count()) existingNames.Remove(_parameters[e.RowIndex].Name);
+                    existingNames.Remove(_parameters[e.RowIndex].Name);
                     //
                     UpdateNCalcParameters(e.RowIndex, false);
                     //
@@ -95,6 +100,8 @@ namespace PrePoMax.Forms
                     // Test the name
                     if (e.ColumnIndex == 0)
                     {
+                        if (value.Length > 0 && char.IsDigit(value[0]))
+                            throw new CaeException("The parameter name '" + value + "' must not start with a digit.");
                         if (existingNames.Contains(value))
                             throw new CaeException("The parameter named '" + value + "' already exists.");
                         //
@@ -192,9 +199,7 @@ namespace PrePoMax.Forms
             BindingSource binding = new BindingSource();
             binding.DataSource = data;
             dgvData.DataSource = binding; // bind datagridview to binding source - enables adding of new lines
-            binding.ListChanged += Binding_ListChanged;
             //
-            //int columnWidth;
             foreach (DataGridViewColumn column in dgvData.Columns)
             {
                 if (column.Index == 1)
@@ -212,26 +217,33 @@ namespace PrePoMax.Forms
                 column.HeaderCell.Style.Alignment = DataGridViewContentAlignment.BottomLeft;
             }
         }
-        private void Binding_ListChanged(object sender, ListChangedEventArgs e)
-        {
-        }
         private void UpdateNCalcParameters(int upToRow = int.MaxValue, bool refresh = true)
         {
             int rowCount = 0;
+            HashSet<string> autocompleteItems = new HashSet<string>();
+            //
             MyNCalc.ExistingParameters.Clear();
+            MyNCalc.AddPropertyParameters(_propertyParameters);
+            autocompleteItems.UnionWith(_propertyParameters.Keys);
+            //
             foreach (var parameter in _parameters)
             {
                 // Add parameters up to this row
                 if (rowCount < upToRow)
                 {
-                    try { MyNCalc.ExistingParameters.Add(parameter.Name, parameter.Value); }
+                    try
+                    {
+                        MyNCalc.ExistingParameters.Add(parameter.Name, parameter.Value);
+                        autocompleteItems.Add(parameter.Name);
+                    }
                     catch { }
                 }
                 rowCount++;
             }
+            dgvData.BuildAutocompleteMenu(autocompleteItems, 1);
+            //
             if (refresh) dgvData.Refresh();
         }
-
         
     }
 }

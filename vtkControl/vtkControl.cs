@@ -1332,6 +1332,9 @@ namespace vtkControl
         }
         private double[] GetPickPoint(out vtkActor pickedActor, int x, int y)
         {
+            pickedActor = null;
+            if (_style.IsPositionOverWidget(x, y)) return null;
+            //
             double[] p = null;
             int cellId = -1;
             vtkCell cell;

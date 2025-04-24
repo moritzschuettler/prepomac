@@ -72,6 +72,7 @@
             this.dgvData.Margin = new System.Windows.Forms.Padding(6, 8, 6, 8);
             this.dgvData.Name = "dgvData";
             this.dgvData.RowHeadersWidth = 82;
+            this.dgvData.ShowErrorMsg = true;
             this.dgvData.Size = new System.Drawing.Size(598, 350);
             this.dgvData.StartPlotAtZero = false;
             this.dgvData.TabIndex = 1;

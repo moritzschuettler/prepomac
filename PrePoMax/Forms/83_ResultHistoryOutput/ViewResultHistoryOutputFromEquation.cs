@@ -22,7 +22,7 @@ namespace PrePoMax
         //
         [CategoryAttribute("Data")]
         [OrderedDisplayName(1, 10, "Equation")]
-        [DescriptionAttribute("Example equation: =[From_Field - 1.DISP.ALL]\r\n" +
+        [DescriptionAttribute("Example equation: =[From_Field-1.DISP.ALL]\r\n" +
                               "Use square brackets [] to include a history component into the equation " +
                               "and refer to the component with its full name as " +
                               "History_Output_Name.Field_Name.Component_Name. All names are case sensitive.")]

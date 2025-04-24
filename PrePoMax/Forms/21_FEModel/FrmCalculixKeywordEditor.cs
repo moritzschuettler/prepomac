@@ -264,7 +264,6 @@ namespace PrePoMax.Forms
             //
             TreeNode node = new TreeNode();
             node.Text = "CalculiX inp file";
-            cltvKeywordsTree.Nodes.Add(node);
             // Build the keyword tree
             int index;
             foreach (CalculixKeyword keyword in _keywords)
@@ -277,9 +276,11 @@ namespace PrePoMax.Forms
             {
                 foreach (var entry in _userKeywords)
                 {
-                    AddUserKeywordToTreeByIndex(entry.Key, entry.Value.DeepClone());
+                    AddUserKeywordToTreeByIndex(node, entry.Key, entry.Value.DeepClone());
                 }
             }
+            // At the end add nodes to the tree
+            cltvKeywordsTree.Nodes.Add(node);
             // Clear the keyword editor
             fctbKeyword.Clear();
             // Output tree to the inp read-only textbox
@@ -320,25 +321,23 @@ namespace PrePoMax.Forms
                 keywordAtNode.Data.Split(new string[] { Environment.NewLine }, StringSplitOptions.None).Length;
             node.Tag = keywordAtNode;
             //
+            int count = 0;
             foreach (var childKeyword in keyword.Keywords)
             {
                 TreeNode childNode = new TreeNode();
                 node.Nodes.Add(childNode);
                 AddKeywordToTreeNode(childKeyword, childNode);
+                count++;
             }
         }
-        private void AddUserKeywordToTreeByIndex(int[] indices, CalculixKeyword keyword)
+        private void AddUserKeywordToTreeByIndex(TreeNode node, int[] indices, CalculixKeyword keyword)
         {
-            bool deactivated = false;
-            TreeNode node = cltvKeywordsTree.Nodes[0];
-            //
             for (int i = 0; i < indices.Length - 1; i++)
             {
                 node.Expand();
                 if (indices[i] < node.Nodes.Count)
                 {
                     node = node.Nodes[indices[i]];
-                    if (node.Tag != null && node.Tag is CalDeactivated) deactivated = true;
                 }
                 else return;
             }

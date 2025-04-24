@@ -384,6 +384,26 @@ namespace vtkControl
                 return false;
         }
         //
+        public virtual bool MouseOver(int x, int y)
+        {
+            if (!_visibility) return false;
+            //
+            int[] size = _renderer.GetSize();
+            double[] position = _position.ToArray();
+            if (_widgetPosition == vtkMaxWidgetPosition.FromTopLeft)
+            {
+                position[1] = size[1] - _size[1] - position[1];
+            }
+            //
+            if (x >= position[0] && x <= position[0] + _size[0] &&
+                y >= position[1] && y <= position[1] + _size[1])
+            {
+                // inside click
+                return true;
+            }
+            else
+                return false;
+        }
         public virtual bool MouseMove(int x, int y)
         {
             if (!_visibility) return false;

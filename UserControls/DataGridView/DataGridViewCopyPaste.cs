@@ -1,4 +1,6 @@
-﻿using CaeGlobals;
+﻿using AutocompleteMenuNS;
+using CaeGlobals;
+using CaeMesh;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -16,6 +18,8 @@ namespace UserControls
         // Variables                                                                                                                
         private int _xColIndex;
         private bool _showErrorMsg;
+        private Control _editControl;
+        private int _autocompleteMenuColumn;
         //
         private ContextMenuStrip cmsCopyPaste;
         private IContainer components;
@@ -24,6 +28,7 @@ namespace UserControls
         private ToolStripMenuItem tsmiPaste;
         private ToolStripSeparator tssDivider1;
         private ToolStripMenuItem tsmiPlot;
+        private AutocompleteMenu autocompleteMenu;
         private FrmDiagramView frmDiagramView;
 
 
@@ -46,6 +51,7 @@ namespace UserControls
             get { return frmDiagramView.StartPlotAtZero; }
             set { frmDiagramView.StartPlotAtZero = value; }
         }
+        public AutocompleteMenu AutocompleteMenu { get { return autocompleteMenu; } }
 
 
         // Constructors                                                                                                             
@@ -57,6 +63,8 @@ namespace UserControls
             //
             _showErrorMsg = true;
             frmDiagramView = new FrmDiagramView();
+            //
+            _autocompleteMenuColumn = -1;
         }
         private void InitializeComponent()
         {
@@ -68,6 +76,7 @@ namespace UserControls
             this.tsmiPaste = new System.Windows.Forms.ToolStripMenuItem();
             this.tssDivider1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiPlot = new System.Windows.Forms.ToolStripMenuItem();
+            this.autocompleteMenu = new AutocompleteMenuNS.AutocompleteMenu();
             this.cmsCopyPaste.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this)).BeginInit();
             this.SuspendLayout();
@@ -81,52 +90,62 @@ namespace UserControls
             this.tssDivider1,
             this.tsmiPlot});
             this.cmsCopyPaste.Name = "cmsCopyPaste";
-            this.cmsCopyPaste.Size = new System.Drawing.Size(145, 98);
+            this.cmsCopyPaste.Size = new System.Drawing.Size(162, 98);
             // 
             // tsmiCut
             // 
             this.tsmiCut.Image = global::UserControls.Properties.Resources.Cut;
             this.tsmiCut.Name = "tsmiCut";
-            this.tsmiCut.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.X)));
-            this.tsmiCut.Size = new System.Drawing.Size(144, 22);
-            this.tsmiCut.Text = "Cut";
+            this.tsmiCut.Size = new System.Drawing.Size(161, 22);
+            this.tsmiCut.Text = "Cut           Ctrl+X";
             this.tsmiCut.Click += new System.EventHandler(this.tsmiCut_Click);
             // 
             // tsmiCopy
             // 
             this.tsmiCopy.Image = global::UserControls.Properties.Resources.Copy;
             this.tsmiCopy.Name = "tsmiCopy";
-            this.tsmiCopy.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.C)));
-            this.tsmiCopy.Size = new System.Drawing.Size(144, 22);
-            this.tsmiCopy.Text = "Copy";
+            this.tsmiCopy.Size = new System.Drawing.Size(161, 22);
+            this.tsmiCopy.Text = "Copy        Ctrl+C";
             this.tsmiCopy.Click += new System.EventHandler(this.tsmiCopy_Click);
             // 
             // tsmiPaste
             // 
             this.tsmiPaste.Image = global::UserControls.Properties.Resources.Paste;
             this.tsmiPaste.Name = "tsmiPaste";
-            this.tsmiPaste.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.V)));
-            this.tsmiPaste.Size = new System.Drawing.Size(144, 22);
-            this.tsmiPaste.Text = "Paste";
+            this.tsmiPaste.Size = new System.Drawing.Size(161, 22);
+            this.tsmiPaste.Text = "Paste        Ctrl+V";
             this.tsmiPaste.Click += new System.EventHandler(this.tsmiPaste_Click);
             // 
             // tssDivider1
             // 
             this.tssDivider1.Name = "tssDivider1";
-            this.tssDivider1.Size = new System.Drawing.Size(141, 6);
+            this.tssDivider1.Size = new System.Drawing.Size(158, 6);
             // 
             // tsmiPlot
             // 
             this.tsmiPlot.Image = ((System.Drawing.Image)(resources.GetObject("tsmiPlot.Image")));
             this.tsmiPlot.Name = "tsmiPlot";
-            this.tsmiPlot.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.P)));
-            this.tsmiPlot.Size = new System.Drawing.Size(144, 22);
-            this.tsmiPlot.Text = "Plot";
+            this.tsmiPlot.Size = new System.Drawing.Size(161, 22);
+            this.tsmiPlot.Text = "Plot          Ctrl+P";
             this.tsmiPlot.Click += new System.EventHandler(this.tsmiPlot_Click);
+            // 
+            // autocompleteMenu
+            // 
+            this.autocompleteMenu.AllowsTabKey = true;
+            this.autocompleteMenu.Colors = ((AutocompleteMenuNS.Colors)(resources.GetObject("autocompleteMenu.Colors")));
+            this.autocompleteMenu.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.autocompleteMenu.ImageList = null;
+            this.autocompleteMenu.Items = new string[0];
+            this.autocompleteMenu.MaximumSize = new System.Drawing.Size(360, 200);
+            this.autocompleteMenu.MinFragmentLength = 1;
+            this.autocompleteMenu.SearchPattern = "[\\w\\.]+";
+            this.autocompleteMenu.TargetControlWrapper = null;
             // 
             // DataGridViewCopyPaste
             // 
             this.ContextMenuStrip = this.cmsCopyPaste;
+            this.CellEndEdit += new System.Windows.Forms.DataGridViewCellEventHandler(this.DataGridViewCopyPaste_CellEndEdit);
+            this.EditingControlShowing += new System.Windows.Forms.DataGridViewEditingControlShowingEventHandler(this.DataGridViewCopyPaste_EditingControlShowing);
             this.cmsCopyPaste.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this)).EndInit();
             this.ResumeLayout(false);
@@ -156,9 +175,6 @@ namespace UserControls
                     tsmiPlot_Click(null, null);
                 }
             }
-        }
-        private void DataGridViewCopyPaste_KeyPress(object sender, KeyPressEventArgs e)
-        {
         }
         // Context menu
         private void dgvData_CellMouseDown(object sender, DataGridViewCellMouseEventArgs e)
@@ -215,7 +231,7 @@ namespace UserControls
         {
             try
             {
-                // Perform paste Operation
+                // Perform paste operation from outside the cell
                 if (tsmiPaste.Enabled) PasteClipboardValue();
             }
             catch { }
@@ -229,11 +245,11 @@ namespace UserControls
                 if (IsPlottingPossible(values))
                 {
                     //
-                    HashSet<int> numberOfcolumns = new HashSet<int>();
-                    foreach (var entry in values) numberOfcolumns.Add(entry.Value.Count);
+                    HashSet<int> numberOfColumns = new HashSet<int>();
+                    foreach (var entry in values) numberOfColumns.Add(entry.Value.Count);
                     //
                     double[] xData = new double[values.Count];
-                    double[][] yData = new double[numberOfcolumns.First() - 1][];
+                    double[][] yData = new double[numberOfColumns.First() - 1][];
                     string[] yNames = new string[yData.Length];
                     int yIndex = 0;
                     int[] colIndices = null;
@@ -288,6 +304,29 @@ namespace UserControls
                 MessageBoxes.ShowError(ex.Message);
             }
         }
+        // Autocomplete menu
+        private void DataGridViewCopyPaste_CellEndEdit(object sender, DataGridViewCellEventArgs e)
+        {
+            if (_editControl != null)
+            {
+                // Remove autocompleteMenu from edit control
+                autocompleteMenu.TargetControlWrapper = null;
+                autocompleteMenu.SetAutocompleteMenu(_editControl, null);
+                _editControl = null;
+            }
+        }
+        private void DataGridViewCopyPaste_EditingControlShowing(object sender, DataGridViewEditingControlShowingEventArgs e)
+        {
+            if (_autocompleteMenuColumn == -1 || CurrentCell.ColumnIndex == _autocompleteMenuColumn)
+            {
+                if (e.Control is TextBox tb)
+                {
+                    // Add autocompleteMenu to edit control
+                    _editControl = tb;
+                    autocompleteMenu.SetAutocompleteMenu(tb, autocompleteMenu);
+                }
+            }
+        }
 
 
         // Overrides                                                                                                                
@@ -302,6 +341,27 @@ namespace UserControls
             if (_showErrorMsg) MessageBoxes.ShowError(e.Exception.Message);
             //
             base.OnDataError(displayErrorDialogIfNoHandler, e);
+        }
+        // Autocomplete menu
+        protected override bool ProcessDialogKey(Keys keyData)
+        {
+            if (_editControl != null && autocompleteMenu.Visible)
+            {
+                if (keyData == Keys.Enter || keyData == Keys.Tab || keyData == Keys.Escape) return false;
+            }
+            return base.ProcessDialogKey(keyData);
+        }
+        protected override bool ProcessDataGridViewKey(KeyEventArgs e)
+        {
+            if (_editControl != null && autocompleteMenu.Visible)
+            {
+                if (e.KeyCode == Keys.Down || e.KeyCode == Keys.Up || e.KeyCode == Keys.Enter ||
+                    e.KeyCode == Keys.Tab || e.KeyCode == Keys.Escape)
+                {
+                    return false;
+                }
+            }
+            return base.ProcessDataGridViewKey(e);
         }
 
 
@@ -337,19 +397,19 @@ namespace UserControls
             // Number of rows > 1
             if (values.Count > 1)
             {
-                HashSet<int> numberOfcolumns = new HashSet<int>();
+                HashSet<int> numberOfColumns = new HashSet<int>();
                 HashSet<int> columnIndices = new HashSet<int>();
                 foreach (var entry in values)
                 {
-                    numberOfcolumns.Add(entry.Value.Count);
+                    numberOfColumns.Add(entry.Value.Count);
                     columnIndices.UnionWith(entry.Value.Keys);
                     // Number of columns must be equal in all rows; number of columns must be > 2
-                    if (numberOfcolumns.Count > 1 || entry.Value.Count < 2) plottingPossible = false;
+                    if (numberOfColumns.Count > 1 || entry.Value.Count < 2) plottingPossible = false;
                     // X column index must be within range
                     if (XColIndex >= entry.Value.Count) plottingPossible = false;
                 }
                 // Allow only plotting if unbroken columns are selected
-                if (columnIndices.Count != numberOfcolumns.First()) plottingPossible = false;
+                if (columnIndices.Count != numberOfColumns.First()) plottingPossible = false;
             }
             // Number of rows <= 1
             else plottingPossible = false;
@@ -379,39 +439,11 @@ namespace UserControls
             int iRowIndex = startCell.RowIndex;
             // Add new rows
             int numOfRows = cbValues.Keys.Count;
-            int lastRow = iRowIndex + numOfRows;
+            int lastRow = iRowIndex + numOfRows - 1;
             BindingSource bindingSource = (BindingSource)DataSource;
+            //
             while (RowCount < lastRow + 1) bindingSource.AddNew();
             //
-            
-            // CONVERTERS
-            
-            //TypeConverter[] converters = null;
-            //if (this.DataSource is BindingSource bs && bs.DataSource is System.Collections.ICollection ic)
-            //{
-            //    //Get the type you are interested in.
-            //    Type myListElementType = ic.GetType().GetGenericArguments().Single();
-
-            //    //Get information about the property you are interested in on the type.
-            //    var properties = myListElementType.GetProperties();
-            //    //
-            //    converters = new TypeConverter[properties.Length];
-            //    for (int i = 0; i < properties.Length; i++)
-            //    {
-            //        //Pull off the TypeConverterAttribute.
-            //        var attr = properties[i].GetCustomAttribute<TypeConverterAttribute>();
-            //        //The attribute only stores the name of the TypeConverter as a string.
-            //        var converterTypeName = attr.ConverterTypeName;
-
-            //        // Get the actual Type of the TypeConverter from the string.
-            //        var converterType = Type.GetType(converterTypeName);
-
-            //        //Create an instance of the TypeConverter.
-            //        converters[i] = (TypeConverter)Activator.CreateInstance(converterType);
-            //    }
-            //}
-
-
             foreach (int rowKey in cbValues.Keys)
             {
                 int iColIndex = startCell.ColumnIndex;
@@ -426,16 +458,23 @@ namespace UserControls
                         //
                         try
                         {
-                            //if (converters != null) cell.Value = converters[iColIndex].ConvertFrom(valueString);
-                            //else 
-                            cell.Value = valueString;
+                            // Last row - this ensures adding a new row bellow the table
+                            if (iRowIndex == Rows.Count - 1)    
+                            {
+                                CurrentCell = cell;
+                                BeginEdit(false);
+                                EditingControl.Text = valueString;
+                                EndEdit();
+                            }
+                            else
+                            {
+                                cell.Value = valueString;
+                            }
                         }
                         catch
                         {
                             cell.Value = double.NaN;
                         }
-                        //
-                        cell.Selected = true;
                     }
                     iColIndex++;
                 }
@@ -479,6 +518,17 @@ namespace UserControls
             //
             return copyValues;
         }
+        // Autocomplete menu
+        public void BuildAutocompleteMenu(IEnumerable<string> items, int column = -1)
+        {
+            // -1 is used for all columns
+            _autocompleteMenuColumn = column;
+            List<AutocompleteItem> acItems = new List<AutocompleteItem>();
+            foreach (var item in items) acItems.Add(new AutocompleteItem(item));
+            // Set as autocomplete source
+            autocompleteMenu.SetAutocompleteItems(acItems);
+        }
+        
         
     }
 }

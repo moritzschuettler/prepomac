@@ -204,6 +204,16 @@ namespace CaeMesh
                 cg = GeometryTools.RectangleCG(nodes[cell[0]], nodes[cell[1]], nodes[cell[2]], nodes[cell[3]], out area);
             return cg;
         }
+        public override double GetVolume(Dictionary<int, FeNode> nodes)
+        {
+            return GeometryTools.WedgeVolume(nodes[NodeIds[0]], nodes[NodeIds[1]], nodes[NodeIds[2]],
+                                             nodes[NodeIds[3]], nodes[NodeIds[4]], nodes[NodeIds[5]]);
+        }
+        public override double[] GetCG(Dictionary<int, FeNode> nodes, out double volume)
+        {
+            return GeometryTools.WedgeCG(nodes[NodeIds[0]], nodes[NodeIds[1]], nodes[NodeIds[2]],
+                                         nodes[NodeIds[3]], nodes[NodeIds[4]], nodes[NodeIds[5]], out volume);
+        }
         public override FeElement DeepCopy()
         {
             return new LinearWedgeElement(Id, PartId, NodeIds.ToArray());

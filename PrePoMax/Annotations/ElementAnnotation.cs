@@ -43,7 +43,7 @@ namespace PrePoMax
                     text += string.Format("{0}Element type: {1}", Environment.NewLine, elementType);
                 }
             }
-            coor = Controller.GetElement(_elementId).GetCG(Controller.DisplayedMesh.Nodes);
+            coor = Controller.GetElement(_elementId).GetCG(Controller.DisplayedMesh.Nodes, out _);
             //
             if (IsTextOverridden) text = OverriddenText;
         }

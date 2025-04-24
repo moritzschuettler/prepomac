@@ -68,26 +68,7 @@ namespace CaeMesh
         {
             return (FeFaceName)(vtkCellId + 1);
         }
-        //
-        public double[] GetCG(Dictionary<int, FeNode> nodes)
-        {
-            FeNode node;
-            double[] cg = new double[3];
-            //
-            for (int i = 0; i < NodeIds.Length; i++)
-            {
-                node = nodes[NodeIds[i]];
-                cg[0] += node.X;
-                cg[1] += node.Y;
-                cg[2] += node.Z;
-            }
-            //
-            cg[0] /= NodeIds.Length;
-            cg[1] /= NodeIds.Length;
-            cg[2] /= NodeIds.Length;
-            //
-            return cg;
-        }
+
 
         // Abstract methods                                                                                                         
         abstract public int[] GetVtkNodeIds();
@@ -186,6 +167,26 @@ namespace CaeMesh
         }
         abstract public double GetArea(FeFaceName faceName, Dictionary<int, FeNode> nodes);
         abstract public double[] GetFaceCG(FeFaceName faceName, Dictionary<int, FeNode> nodes, out double area);
+        virtual public double[] GetCG(Dictionary<int, FeNode> nodes, out double elementSize)
+        {
+            FeNode node;
+            double[] cg = new double[3];
+            //
+            for (int i = 0; i < NodeIds.Length; i++)
+            {
+                node = nodes[NodeIds[i]];
+                cg[0] += node.X;
+                cg[1] += node.Y;
+                cg[2] += node.Z;
+            }
+            //
+            cg[0] /= NodeIds.Length;
+            cg[1] /= NodeIds.Length;
+            cg[2] /= NodeIds.Length;
+            //
+            elementSize = double.NaN;
+            return cg;
+        }
         abstract public FeElement DeepCopy();
     }
 }

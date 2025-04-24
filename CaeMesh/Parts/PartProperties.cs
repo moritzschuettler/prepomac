@@ -24,6 +24,7 @@ namespace CaeMesh
         public bool ColorContours;
         public int NumberOfElements;
         public int NumberOfNodes;
+        public PartMassProperties MassProperties;
         //
         public FeElementTypeLinearBeam LinearBeamType;
         public FeElementTypeParabolicBeam ParabolicBeamType;

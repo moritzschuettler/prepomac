@@ -74,6 +74,8 @@ namespace FileInOut.Input
                     if (!elementsToImport.HasFlag(ElementsToImport.Shell)) mesh.RemoveElementsByType<FeElement2D>();
                     if (!elementsToImport.HasFlag(ElementsToImport.Solid)) mesh.RemoveElementsByType<FeElement3D>();
                 }
+
+                mesh.ComputeVolumes();
                 //
                 return mesh;
             }

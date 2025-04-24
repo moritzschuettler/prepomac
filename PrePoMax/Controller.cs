@@ -1344,6 +1344,7 @@ namespace PrePoMax
                     allResults = tmp._allResults;
                     //
                     FeModel.ReadFromBinaryReader(model, br, version);
+                    model.UpdateNCalcParameters();
                     //
                     if (!ResultsCollection.ReadFromFileStream(allResults, fileStream, version))
                     {
@@ -1696,8 +1697,27 @@ namespace PrePoMax
                 // Create compound part
                 CompoundGeometryPart compPart = new CompoundGeometryPart(compoundPartName, createdFromPartNames,
                                                                          importedPartNames);
+                BasePart part;
+                double volume = 0;
+                Vec3D cm = new Vec3D();
                 for (int i = 0; i < importedPartNames.Length; i++)
-                    compPart.BoundingBox.IncludeBox(_model.Geometry.Parts[importedPartNames[i]].BoundingBox);
+                {
+                    part = _model.Geometry.Parts[importedPartNames[i]];
+                    //
+                    if (part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell)
+                    {
+                        volume += part.MassProperties.Volume;
+                        cm += new Vec3D(part.MassProperties.CenterOfMass);
+                    }
+                    else throw new NotSupportedException();
+                    //
+                    compPart.BoundingBox.IncludeBox(part.BoundingBox);
+                }
+                PartMassProperties massProperties = compPart.MassProperties;
+                massProperties.Volume = volume;
+                massProperties.CenterOfMass = cm.Coor;
+                compPart.MassProperties = massProperties;
+                //
                 compPart.CADFileDataFromFile(brepFileName);
                 compPart.PartId = _model.Geometry.GetMaxPartId() + 1;
                 _model.Geometry.SetPartColorFromColorTable(compPart);
@@ -2898,6 +2918,9 @@ namespace PrePoMax
             // Update
             if (!(geomPart is CompoundGeometryPart)) _form.UpdateActor(oldPartName, geomPart.Name, geomPart.Color);
             _form.UpdateTreeNode(ViewGeometryModelResults.Geometry, oldPartName, geomPart, null);
+            // Annotations
+            _annotations.DrawAnnotations();
+            // Color legend
             AnnotateWithColorLegend();
             // Update the mesh part in pair with the geometry part properties
             if (_model.Mesh != null && _model.Mesh.Parts.ContainsKey(oldPartName))
@@ -8330,6 +8353,11 @@ namespace PrePoMax
                 if (ss.CreationData != null && ss.RegionName != null)
                     RemoveSurfaces(new string[] { ss.RegionName }, false);
             }
+            else if (constraint is CompressionOnly co)
+            {
+                if (co.CreationData != null && co.RegionName != null)
+                    RemoveSurfaces(new string[] { co.RegionName }, false);
+            }
             else if (constraint is RigidBody rb && rb.CreationData != null && rb.RegionName != null)
             {
                 RemoveNodeSets(new string[] { rb.RegionName }, false);
@@ -8796,7 +8824,6 @@ namespace PrePoMax
                 contactPair.SlaveCreationData = null;
                 contactPair.SlaveCreationIds = null;
             }
-
         }
         private void DeleteSelectionBasedContactPairSets(string oldContactPairName)
         {
@@ -10352,15 +10379,22 @@ namespace PrePoMax
             UpdateNCalcParameters();
         }
         //
-        public void UpdateNCalcParameters()
+        public void UpdateNCalcParameters(bool update = true)
         {
             _model.UpdateNCalcParameters();
             _allResults.UpdateResultEquations();
             //
-            if (_currentView == ViewGeometryModelResults.Model)
-                FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
-            else if (_currentView == ViewGeometryModelResults.Results)
-                FeResultsUpdate(UpdateType.Check | UpdateType.RedrawSymbols | UpdateType.DrawResults);
+            if (update)
+            {
+                if (_currentView == ViewGeometryModelResults.Model)
+                    FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+                else if (_currentView == ViewGeometryModelResults.Results)
+                    FeResultsUpdate(UpdateType.Check | UpdateType.RedrawSymbols | UpdateType.DrawResults);
+            }
+        }
+        public Dictionary<string, object> GetPropertyParameters()
+        {
+            return _model.GetPropertyParameters();
         }
         #endregion #################################################################################################################
 
@@ -10395,6 +10429,18 @@ namespace PrePoMax
                 unit = _model.UnitSystem.AreaUnitAbbreviation;
             else if (_currentView == ViewGeometryModelResults.Results)
                 unit = _allResults.CurrentResult.UnitSystem.AreaUnitAbbreviation;
+            else throw new NotSupportedException();
+            //
+            return unit;
+        }
+        public string GetVolumeUnit()
+        {
+            string unit;
+            //
+            if (_currentView == ViewGeometryModelResults.Geometry || _currentView == ViewGeometryModelResults.Model)
+                unit = _model.UnitSystem.VolumeUnitAbbreviation;
+            else if (_currentView == ViewGeometryModelResults.Results)
+                unit = _allResults.CurrentResult.UnitSystem.VolumeUnitAbbreviation;
             else throw new NotSupportedException();
             //
             return unit;

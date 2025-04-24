@@ -607,7 +607,9 @@ namespace CaeGlobals
             StringTemperatureUndefinedConverter.SetUnit = TemperatureUnitAbbreviation;
             // Derived units
             StringAreaConverter.SetUnit = AreaUnitAbbreviation;
+            StringAreaDefaultConverter.SetUnit = AreaUnitAbbreviation;
             StringVolumeConverter.SetUnit = VolumeUnitAbbreviation;
+            StringVolumeDefaultConverter.SetUnit = VolumeUnitAbbreviation;
             StringRotationalSpeedConverter.SetUnit = RotationalSpeedUnitAbbreviation;
             StringVelocityConverter.SetUnit = VelocityUnitAbbreviation;
             StringAccelerationConverter.SetUnit = AccelerationUnitAbbreviation;

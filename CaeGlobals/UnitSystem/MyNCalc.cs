@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using UnitsNet;
 using UnitsNet.Units;
 using NCalc;
+using System.Text.RegularExpressions;
+using System.Reflection;
 
 
 namespace CaeGlobals
@@ -28,6 +30,7 @@ namespace CaeGlobals
                 if (valueString.StartsWith("="))
                 {
                     valueString = valueString.Substring(1, valueString.Length - 1);
+                    valueString = PreprocessExpression(valueString);
                     //List<string> parameters = GetParameters(valueString);
                     Expression e = GetExpression(valueString);
                     if (!e.HasErrors())
@@ -149,10 +152,9 @@ namespace CaeGlobals
             {
                 foreach (var entry in ExistingParameters) e.Parameters.Add(entry.Key, entry.Value);
             }
-            //e.EvaluateParameter += EvaluateParameter;
             return e;
         }
-
+        //
         static public Expression GetArrayExpression(string expression)
         {
             Expression e = new Expression(expression, EvaluateOptions.IgnoreCase | EvaluateOptions.IterateParameters);
@@ -189,6 +191,45 @@ namespace CaeGlobals
             {
             }
             return parameters;
+        }
+        //
+        static public void AddPropertyParameters(Dictionary<string, object> propParameters)
+        {
+            ExistingParameters.AddRange(propParameters);
+        }
+        //
+        static public string PreprocessExpression(string expr)
+        {
+            // Sort parameter names by length (longest first)
+            var sortedNames = ExistingParameters.Keys
+                .OrderByDescending(name => name.Length)
+                .ToList();
+            // Step 1: Replace each parameter with a unique placeholder
+            int count = 0;
+            string placeholder;
+            Dictionary<string, string> placeholders = new Dictionary<string, string>();
+            //
+            foreach (var param in sortedNames)
+            {
+                // Create a unique placeholder
+                placeholder = $"@{count++}@";
+                // Replace all instances of the parameter with the placeholder
+                if (expr.Contains(param))
+                {
+                    expr = expr.Replace(param, placeholder);
+                    // Store the mapping between placeholder and actual parameter
+                    placeholders[placeholder] = param;
+                }
+            }
+            // Step 2: Replace the placeholders with the bracketed parameter names
+            string bracketed;
+            foreach (var entry in placeholders)
+            {
+                bracketed = $"[{entry.Value}]";
+                expr = expr.Replace(entry.Key, bracketed);
+            }
+            //
+            return expr;
         }
     }
 }

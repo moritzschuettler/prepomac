@@ -18,6 +18,7 @@ using System.Drawing;
 using static GmshCommon.Gmsh;
 using System.Security.Cryptography;
 using System.Collections.ObjectModel;
+using System.Windows.Input;
 
 namespace CaeMesh
 {
@@ -42,6 +43,7 @@ namespace CaeMesh
         private int _maxNodeId;                                                     //ISerializable
         private int _maxElementId;                                                  //ISerializable
         private BoundingBox _boundingBox;                                           //ISerializable
+        private object targetNodeIdEdgeIds;
 
 
         // Properties                                                                                                               
@@ -1810,36 +1812,24 @@ namespace CaeMesh
             Vec3D v2;
             VisualizationData visualization = part.Visualization;
             double[] edgeLengths = new double[visualization.EdgeCellIdsByEdge.Length];
-
-            // for each edge
+            // For each edge
             for (int i = 0; i < visualization.EdgeCellIdsByEdge.Length; i++)
             {
                 edgeLengths[i] = 0;
-                // for each edge cell
+                // For each edge cell
                 for (int j = 0; j < visualization.EdgeCellIdsByEdge[i].Length; j++)
                 {
                     edgeCellId = visualization.EdgeCellIdsByEdge[i][j];
                     edgeCell = visualization.EdgeCells[edgeCellId];
-
+                    //
                     if (edgeCell.Length == 2)
-                    {
-                        v1 = new Vec3D(_nodes[edgeCell[0]].Coor);
-                        v2 = new Vec3D(_nodes[edgeCell[1]].Coor);
-                        edgeLengths[i] += (v2 - v1).Len;
-                    }
+                        edgeLengths[i] += GeometryTools.EdgeLength(_nodes[edgeCell[0]], _nodes[edgeCell[1]]);
                     else if (edgeCell.Length == 3)
-                    {
-                        v1 = new Vec3D(_nodes[edgeCell[0]].Coor);
-                        v2 = new Vec3D(_nodes[edgeCell[2]].Coor);
-                        edgeLengths[i] += (v2 - v1).Len;
-
-                        v1 = new Vec3D(_nodes[edgeCell[1]].Coor);
-                        edgeLengths[i] += (v2 - v1).Len;
-                    }
+                        edgeLengths[i] += GeometryTools.EdgeLength(_nodes[edgeCell[0]], _nodes[edgeCell[1]], _nodes[edgeCell[2]]);
                     else throw new NotSupportedException();
                 }
             }
-
+            //
             visualization.EdgeLengths = edgeLengths;
         }
         private void SplitVisualizationFacesByEdges(BasePart part)
@@ -2383,7 +2373,7 @@ namespace CaeMesh
                                                                   Dictionary<int, GeomFaceType> faceTypes = null)
         {
             VisualizationData vis;
-            HashSet<int> surfaceNodeIds;        // node ids of the part surface
+            HashSet<int> faceNodeIds;        // node ids of the part surface
             Dictionary<int, int> oldIdNewId = new Dictionary<int, int>();
             int[] newSurfaceIds;
             int[] oldSurfaceIds;
@@ -2399,36 +2389,64 @@ namespace CaeMesh
             newSurfaceIds = new int[vis.CellIdsByFace.Length];
             oldSurfaceIds = new int[vis.CellIdsByFace.Length];
             partFaceTypes = new GeomFaceType[vis.CellIdsByFace.Length];
-            Dictionary<int, HashSet<int>> nodeIdsBySurfaces = vis.GetSurfaceIdNodeIds();
+            Dictionary<int, HashSet<int>> faceIdNodeIds = vis.GetSurfaceIdNodeIds();
+            // Prepare a list of surfaces for each node id for netgen ids
+            List<int> surfaceIds;
+            Dictionary<int, List<int>> nodeIdSurfaceIds = new Dictionary<int, List<int>>();
+            foreach (var entry in surfaceIdNodeIds)
+            {
+                foreach (var nodeId in entry.Value)
+                {
+                    if (nodeIdSurfaceIds.TryGetValue(nodeId, out surfaceIds)) surfaceIds.Add(entry.Key);
+                    else nodeIdSurfaceIds.Add(nodeId, new List<int> { entry.Key });
+                }
+            }
             // For each part surface
             int foundKey;
             int foundFirstKey;
             int foundSecondKey;
+            HashSet<int> surfaceNodeIds;
             for (int i = 0; i < vis.CellIdsByFace.Length; i++)
             {
-                surfaceNodeIds = nodeIdsBySurfaces[i];
+                faceNodeIds = faceIdNodeIds[i];
                 // Find the surface with the same node ids
                 foundFirstKey = -1;
                 foundSecondKey = -1;
                 oneSurfCount = 0;
                 //
-                foreach (var surfaceNodeIdsEntry in surfaceIdNodeIds)
+                foreach (var nodeId in faceNodeIds)
                 {
-                    if (surfaceNodeIdsEntry.Value.Count > 0)
+                    if (nodeIdSurfaceIds.TryGetValue(nodeId, out surfaceIds))
                     {
-                        if (surfaceNodeIdsEntry.Value.Count == surfaceNodeIds.Count &&
-                            surfaceNodeIdsEntry.Value.Except(surfaceNodeIds).Count() == 0)
+                        // If nodeIdSurfaceIds does not contain a node id, this node id was created during conversion
+                        // of first order mesh to second order mesh and does not exist in netgen
+                        if (surfaceIds.Count > 0)
                         {
-                            foundFirstKey = surfaceNodeIdsEntry.Key;
+                            foreach (var surfaceId in surfaceIds)
+                            {
+                                surfaceNodeIds = surfaceIdNodeIds[surfaceId];
+                                //
+                                if (surfaceNodeIds.Count > 0)
+                                {
+                                    if (surfaceNodeIds.Count == faceNodeIds.Count &&
+                                        surfaceNodeIds.Except(faceNodeIds).Count() == 0)
+                                    {
+                                        foundFirstKey = surfaceId;
+                                        break;
+                                    }
+                                    else if (surfaceNodeIds.Intersect(faceNodeIds).Count() == surfaceNodeIds.Count())
+                                    {
+                                        foundSecondKey = surfaceId;
+                                        // Do not break, search the rest of the faces for possible firstKey
+                                    }
+                                }
+                            }
+                            // if node exists in netgen its surfaces must contain the face
                             break;
-                        }
-                        else if (surfaceNodeIdsEntry.Value.Intersect(surfaceNodeIds).Count() == surfaceNodeIdsEntry.Value.Count())
-                        {
-                            foundSecondKey = surfaceNodeIdsEntry.Key;
-                            // Do not break, search all faces for possible firstKey
                         }
                     }
                 }
+                //
                 if (foundFirstKey != -1 || foundSecondKey != -1)
                 {
                     foundKey = foundFirstKey != -1 ? foundFirstKey : foundSecondKey;
@@ -2444,10 +2462,15 @@ namespace CaeMesh
                 //
                 if (oneSurfCount == 0)
                 {
-                    oneSurfCount = 0;
-                    //throw new Exception("RenumberVisualizationSurfaces: the surface to renumber was not found.");
+                    if (Debugger.IsAttached)
+                    {
+                        try
+                        {
+                            throw new Exception("RenumberVisualizationSurfaces: the surface to renumber was not found.");
+                        }
+                        catch { }
+                    }
                 }
-
             }
             Array.Sort(newSurfaceIds, oldSurfaceIds);
             // Renumber surfaces
@@ -2480,7 +2503,7 @@ namespace CaeMesh
             // For each part
             foreach (var entry in _parts)
             {
-                newEdgeIdOldEdgeId = RenumberPartVisualizationEdges(entry.Value, partEdgeIdNodeIds[entry.Key], null);
+                newEdgeIdOldEdgeId = RenumberPartVisualizationEdges(entry.Value, partEdgeIdNodeIds[entry.Key]);
                 if (partIdNewEdgeIdOldEdgeId != null && newEdgeIdOldEdgeId != null)
                     partIdNewEdgeIdOldEdgeId.Add(entry.Key, newEdgeIdOldEdgeId);
             }
@@ -2489,16 +2512,29 @@ namespace CaeMesh
                                                Dictionary<int, GeomCurveType> edgeTypes = null,
                                                Dictionary<string, Dictionary<int, int>> partIdNewEdgeIdOldEdgeId = null)
         {
-            Dictionary<int, int> newEdgeIdOldEdgeId;
+            // Prepare a list of edges for each node id - speedup
+            List<int> edgeIds;
+            Dictionary<int, List<int>> nodeIdEdgeIds = new Dictionary<int, List<int>>();
+            foreach (var entry in edgeIdNodeIds)
+            {
+                foreach (var nodeId in entry.Value)
+                {
+                    if (nodeIdEdgeIds.TryGetValue(nodeId, out edgeIds)) edgeIds.Add(entry.Key);
+                    else nodeIdEdgeIds.Add(nodeId, new List<int> { entry.Key });
+                }
+            }
             // For each part
+            Dictionary<int, int> newEdgeIdOldEdgeId;
             foreach (var entry in _parts)
             {
-                newEdgeIdOldEdgeId = RenumberPartVisualizationEdges(entry.Value, edgeIdNodeIds, edgeTypes);
+                newEdgeIdOldEdgeId = RenumberPartVisualizationEdges(entry.Value, edgeIdNodeIds, nodeIdEdgeIds, edgeTypes);
                 if (partIdNewEdgeIdOldEdgeId != null && newEdgeIdOldEdgeId != null)
                     partIdNewEdgeIdOldEdgeId.Add(entry.Key, newEdgeIdOldEdgeId);
             }
         }
-        public Dictionary<int, int> RenumberPartVisualizationEdges(BasePart part, Dictionary<int, HashSet<int>> edgeIdNodeIds,
+        public Dictionary<int, int> RenumberPartVisualizationEdges(BasePart part,
+                                                                   Dictionary<int, HashSet<int>> targetEdgeIdNodeIds,
+                                                                   Dictionary<int, List<int>> targetNodeIdEdgeIds = null,
                                                                    Dictionary<int, GeomCurveType> edgeTypes = null)
         {
             VisualizationData vis;
@@ -2508,13 +2544,26 @@ namespace CaeMesh
             int[] oldEdgeIds;
             GeomCurveType[] partEdgeTypes;
             int edgeCount;
-            bool edgeFound;
             //
             vis = part.Visualization;
             // Skip wire parts
             if (vis.EdgeCellIdsByEdge == null) return null;
+            // Prepare a list of edges for each node id for target ids
+            List<int> targetEdgeIds;
+            if (targetNodeIdEdgeIds == null)
+            {
+                targetNodeIdEdgeIds = new Dictionary<int, List<int>>();
+                foreach (var entry in targetEdgeIdNodeIds)
+                {
+                    foreach (var nodeId in entry.Value)
+                    {
+                        if (targetNodeIdEdgeIds.TryGetValue(nodeId, out targetEdgeIds)) targetEdgeIds.Add(entry.Key);
+                        else targetNodeIdEdgeIds.Add(nodeId, new List<int> { entry.Key });
+                    }
+                }
+            }
             // Split edges with midpoints
-            if (SplitVisualizationEdges(vis, edgeIdNodeIds)) ComputeEdgeLengths(part);
+            if (SplitVisualizationEdges(vis, targetEdgeIdNodeIds, targetNodeIdEdgeIds)) ComputeEdgeLengths(part);
             //
             edgeCount = 0;
             newEdgeIds = new int[vis.EdgeCellIdsByEdge.Length];
@@ -2522,51 +2571,75 @@ namespace CaeMesh
             partEdgeTypes = new GeomCurveType[vis.EdgeCellIdsByEdge.Length];
             Dictionary<int, HashSet<int>> nodeIdsByEdges = vis.GetEdgeIdNodeIds();
             // For each part edge
-            for (int i = 0; i < vis.EdgeCellIdsByEdge.Length; i++)
+            int oneEdgeCount;
+            int foundKey;
+            int foundFirstKey;
+            int foundSecondKey;
+            HashSet<int> netgenNodeIds;
+            foreach (var entry in nodeIdsByEdges)
             {
-                edgeNodeIds = nodeIdsByEdges[i];
-                // Find the edge with the same node ids
-                edgeFound = false;
-                foreach (var edgeEntry in edgeIdNodeIds)
+                edgeNodeIds = entry.Value;
+                // Find the surface with the same node ids
+                foundFirstKey = -1;
+                foundSecondKey = -1;
+                oneEdgeCount = 0;
+                //
+                foreach (var nodeId in edgeNodeIds)
                 {
-                    if (edgeEntry.Value.Count > 0)  // for remeshing it can be 0
+                    if (targetNodeIdEdgeIds.TryGetValue(nodeId, out targetEdgeIds))
                     {
-                        if (edgeEntry.Value.Count == edgeNodeIds.Count && edgeEntry.Value.Except(edgeNodeIds).ToArray().Length == 0)
+                        // If targetNodeIdEdgeIds does not contain a node id, this node id was created during conversion
+                        // of first order mesh to second order mesh and does not exist in target ids
+                        if (targetEdgeIds.Count > 0)
                         {
-                            newEdgeIds[edgeCount] = edgeEntry.Key;
-                            oldEdgeIds[edgeCount] = edgeCount;
-                            oldIdNewId.Add(edgeCount, edgeEntry.Key);
-                            //
-                            edgeCount++;
-                            edgeFound = true;
+                            foreach (var netgenEdgeId in targetEdgeIds)
+                            {
+                                netgenNodeIds = targetEdgeIdNodeIds[netgenEdgeId];
+                                //
+                                if (netgenNodeIds.Count > 0)
+                                {
+                                    if (netgenNodeIds.Count == edgeNodeIds.Count &&
+                                        netgenNodeIds.Except(edgeNodeIds).Count() == 0)
+                                    {
+                                        foundFirstKey = netgenEdgeId;
+                                        break;
+                                    }
+                                    else if (netgenNodeIds.Intersect(edgeNodeIds).Count() == netgenNodeIds.Count())
+                                    {
+                                        foundSecondKey = netgenEdgeId;
+                                        // Do not break, search the rest of the edges for possible firstKey
+                                    }
+                                }
+                            }
+                            // if node exists in target ids its edge must contain the paired edge
                             break;
                         }
                     }
                 }
-                // Next line is for when the mesh is converted to parabolic outside netgen
-                if (!edgeFound)
+                //
+                if (foundFirstKey != -1 || foundSecondKey != -1)
                 {
-                    foreach (var edgeEntry in edgeIdNodeIds)
-                    {
-                        if (edgeEntry.Value.Count > 0)  // for remeshing it can be 0
-                        {
-                            if (edgeEntry.Value.Intersect(edgeNodeIds).Count() == edgeEntry.Value.Count())
-                            {
-                                newEdgeIds[edgeCount] = edgeEntry.Key;
-                                oldEdgeIds[edgeCount] = edgeCount;
-                                oldIdNewId.Add(edgeCount, edgeEntry.Key);
-                                //
-                                edgeCount++;
-                                edgeFound = true;
-                                break;
-                            }
-                        }
-                    }
+                    foundKey = foundFirstKey != -1 ? foundFirstKey : foundSecondKey;
+                    //
+                    newEdgeIds[edgeCount] = foundKey;
+                    oldEdgeIds[edgeCount] = edgeCount;
+                    //
+                    oldIdNewId.Add(edgeCount, foundKey);
+                    //
+                    edgeCount++;
+                    oneEdgeCount++;
                 }
                 //
-                if (!edgeFound)
+                if (oneEdgeCount == 0)
                 {
-                    int error = 1;
+                    if (Debugger.IsAttached)
+                    {
+                        try
+                        {
+                            throw new Exception("RenumberPartVisualizationEdges: the edge to renumber was not found.");
+                        }
+                        catch { }
+                    }
                 }
             }
             //
@@ -2594,42 +2667,59 @@ namespace CaeMesh
             //
             return oldIdNewId;
         }
-        private bool SplitVisualizationEdges(VisualizationData visualization, Dictionary<int, HashSet<int>> edgeIdNodeIds)
+        private bool SplitVisualizationEdges(VisualizationData visualization, Dictionary<int, HashSet<int>> targetEdgeIdNodeIds,
+                                             Dictionary<int, List<int>> targetNodeIdEdgeIds)
         {
             bool edgeFound;
-            bool parabolic = false;
+            bool parabolic;
             int[] edgeCellIdsByEdge;
             int[] edgeCell;
             List<int> newEdge = new List<int>();
             List<int> oldEdge = new List<int>();
             List<int[]> newEdges = new List<int[]>();
-            HashSet<int> edgeNodeIds = new HashSet<int>();
+            List<int> targetEdgeIds;
+            HashSet<int> edgeNodeIds;
+            HashSet<int> targetEdgeNodeIds;
             HashSet<int> edgeCellHash = new HashSet<int>();
             Dictionary<int, List<int>> edgeSplitTo = new Dictionary<int, List<int>>();
             //
             parabolic = visualization.EdgeCells.Length > 0 && visualization.EdgeCells[0].Length == 3;
+            Dictionary<int, HashSet<int>> nodeIdsByEdges = visualization.GetEdgeIdNodeIds();
             // For each edge
             for (int i = 0; i < visualization.EdgeCellIdsByEdge.Length; i++)
             {
-                // Create a list of nodes on the edge
-                edgeNodeIds.Clear();
+                edgeNodeIds = nodeIdsByEdges[i];
                 edgeCellIdsByEdge = visualization.EdgeCellIdsByEdge[i];
-                for (int j = 0; j < edgeCellIdsByEdge.Length; j++) edgeNodeIds.UnionWith(visualization.EdgeCells[edgeCellIdsByEdge[j]]);
-                // Find the edge with the same node ids
+                //
                 edgeFound = false;
-                foreach (var entry in edgeIdNodeIds)
+                foreach (var nodeId in edgeNodeIds)
                 {
-                    // All nodes are the same
-                    if (entry.Value.Count == edgeNodeIds.Count && entry.Value.Except(edgeNodeIds).Count() == 0)
+                    if (targetNodeIdEdgeIds.TryGetValue(nodeId, out targetEdgeIds))
                     {
-                        edgeFound = true;
-                        break;
-                    }
-                    // Next line is for when the mesh is converted to parabolic outside netgen
-                    if (parabolic & entry.Value.Intersect(edgeNodeIds).Count() == entry.Value.Count())
-                    {
-                        edgeFound = true;
-                        break;
+                        // If targetNodeIdEdgeIds does not contain a node id, this node id was created during conversion
+                        // of first order mesh to second order mesh and does not exist in netgen
+                        if (targetEdgeIds.Count > 0)
+                        {
+                            foreach (var targetEdgeId in targetEdgeIds)
+                            {
+                                targetEdgeNodeIds = targetEdgeIdNodeIds[targetEdgeId];
+                                // All nodes are the same
+                                if (targetEdgeNodeIds.Count == edgeNodeIds.Count &&
+                                    targetEdgeNodeIds.Except(edgeNodeIds).Count() == 0)
+                                {
+                                    edgeFound = true;
+                                    break;
+                                }
+                                // Next line is for when the mesh is converted to parabolic outside netgen
+                                if (parabolic & targetEdgeNodeIds.Intersect(edgeNodeIds).Count() == targetEdgeNodeIds.Count())
+                                {
+                                    edgeFound = true;
+                                    break;
+                                }
+                            }
+                            // if node exists in target ids its edge must contain the paired edge
+                            break;
+                        }
                     }
                 }
                 // Try to find all nodes of the new edge inside the existing edge
@@ -2638,7 +2728,7 @@ namespace CaeMesh
                     int newEdgeId;
                     edgeFound = false;
                     List<int> newEdgeIds = new List<int>();
-                    foreach (var entry in edgeIdNodeIds)
+                    foreach (var entry in targetEdgeIdNodeIds)
                     {
                         // Check if it is a part of the edge
                         if (entry.Value.IsProperSubsetOf(edgeNodeIds))
@@ -2725,7 +2815,6 @@ namespace CaeMesh
             // If changes were made return true in order to recompute edge lengths
             return true;
         }
-        
         // Merge and split parts
         public bool ArePartsMergeable(string[] partNames)
         {
@@ -3120,6 +3209,7 @@ namespace CaeMesh
                 newBasePart.Name = part.Name;
                 newBasePart.PartId = part.PartId;
                 SetPartColorFromColorTable(newBasePart);
+                ComputeVolume(newBasePart);
                 // Replace part
                 _parts[newBasePart.Name] = newBasePart;
                 // Keep existing edges
@@ -3153,6 +3243,7 @@ namespace CaeMesh
                 //
                 newBasePart.PartId = maxPartId + count;
                 SetPartColorFromColorTable(newBasePart);
+                ComputeVolume(newBasePart);
                 //
                 _parts.Add(newBasePart.Name, newBasePart);
                 newParts[count++] = newBasePart;
@@ -7380,6 +7471,8 @@ namespace CaeMesh
                 _parts.Add(entryName, newPart);
                 addedPartNames.Add(entryName);
                 allNames.Add(entryName);
+                //
+                newPart.MassProperties = entry.Value.MassProperties;
             }
             // Bounding box
             _boundingBox.IncludeBox(mesh.BoundingBox);
@@ -10589,6 +10682,42 @@ namespace CaeMesh
             }
             //
             return nodeIdNormal;
+        }
+        //
+        public void ComputeVolumes()
+        {
+            foreach (var entry in _parts) ComputeVolume(entry.Value);
+        }
+        public void ComputeVolume(BasePart part)
+        {
+            double volumeEl;
+            double volume = 0;
+            double[] cgEl;
+            double[] cg = new double[3];
+            FeElement element;
+            PartMassProperties massProperties;
+            //
+            foreach (int elementId in part.Labels)
+            {
+                element = _elements[elementId];
+                if (element is FeElement3D el)
+                {
+                    cgEl = el.GetCG(_nodes, out volumeEl);
+                    //
+                    volume += volumeEl;
+                    cg[0] += cgEl[0] * volumeEl;
+                    cg[1] += cgEl[1] * volumeEl;
+                    cg[2] += cgEl[2] * volumeEl;
+                }
+            }
+            cg[0] /= volume;
+            cg[1] /= volume;
+            cg[2] /= volume;
+            //
+            massProperties = part.MassProperties;
+            massProperties.Volume = volume;
+            massProperties.CenterOfMass = cg;
+            part.MassProperties = massProperties;
         }
         // Clone
         public FeMesh DeepCopy()

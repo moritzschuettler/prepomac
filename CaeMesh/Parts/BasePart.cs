@@ -15,12 +15,12 @@ namespace CaeMesh
         protected PartType _partType;
         protected System.Drawing.Color _color;
         protected Type[] _elementTypes;
-        //[NonSerialized]
         protected VisualizationData _visualization;
         protected int[] _nodeLabels;
         protected bool _smoothShaded;
         protected BoundingBox _boundingBox;
         protected double[] _offset;
+        protected PartMassProperties _massProperties;
 
         [NonSerialized]
         protected VisualizationData _visualizationCopy; // temp copy while saving
@@ -41,6 +41,7 @@ namespace CaeMesh
         public bool SmoothShaded { get { return _smoothShaded; } set { _smoothShaded = value; } }
         public BoundingBox BoundingBox { get { return _boundingBox; } set { _boundingBox = value; } }
         public double[] Offset { get { return _offset; } set { _offset = value; } }
+        public PartMassProperties MassProperties { get { return _massProperties; } set { _massProperties = value; } }
 
 
         // Constructors                                                                                                             
@@ -56,6 +57,7 @@ namespace CaeMesh
             _smoothShaded = false;
             _boundingBox = new BoundingBox();
             _offset = new double[3];
+            _massProperties = new PartMassProperties(false);
             //
             if (IsSolid()) _partType = PartType.Solid;
             else if (IsShell()) _partType = PartType.Shell;
@@ -85,6 +87,8 @@ namespace CaeMesh
             _boundingBox = part.BoundingBox.DeepClone();
             //
             if (part.Offset != null) _offset = part.Offset.ToArray();
+            //
+
         }
 
 
@@ -148,6 +152,7 @@ namespace CaeMesh
             properties.Color = _color;
             properties.NumberOfNodes = _nodeLabels.Length;
             properties.NumberOfElements = Labels.Length;
+            properties.MassProperties = _massProperties;
             return properties;
         }
         public virtual void SetProperties(PartProperties properties)

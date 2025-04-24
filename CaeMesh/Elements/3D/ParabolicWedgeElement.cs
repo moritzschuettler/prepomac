@@ -238,6 +238,23 @@ namespace CaeMesh
                                                nodes[cell[4]], nodes[cell[5]], nodes[cell[6]], nodes[cell[7]], out area);
             return cg;
         }
+        public override double GetVolume(Dictionary<int, FeNode> nodes)
+        {
+            return  GeometryTools.WedgeVolume(nodes[NodeIds[0]], nodes[NodeIds[1]], nodes[NodeIds[2]],
+                                              nodes[NodeIds[3]], nodes[NodeIds[4]], nodes[NodeIds[5]], 
+                                              nodes[NodeIds[6]], nodes[NodeIds[7]], nodes[NodeIds[8]],
+                                              nodes[NodeIds[9]], nodes[NodeIds[10]], nodes[NodeIds[11]],
+                                              nodes[NodeIds[12]], nodes[NodeIds[13]], nodes[NodeIds[14]]);
+        }
+        public override double[] GetCG(Dictionary<int, FeNode> nodes, out double volume)
+        {
+            return GeometryTools.WedgeCG(nodes[NodeIds[0]], nodes[NodeIds[1]], nodes[NodeIds[2]],
+                                         nodes[NodeIds[3]], nodes[NodeIds[4]], nodes[NodeIds[5]],
+                                         nodes[NodeIds[6]], nodes[NodeIds[7]], nodes[NodeIds[8]],
+                                         nodes[NodeIds[9]], nodes[NodeIds[10]], nodes[NodeIds[11]],
+                                         nodes[NodeIds[12]], nodes[NodeIds[13]], nodes[NodeIds[14]], out volume);
+        }
+
         public override FeElement DeepCopy()
         {
             return new ParabolicWedgeElement(Id, PartId, NodeIds.ToArray());

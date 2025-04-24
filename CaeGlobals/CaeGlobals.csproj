@@ -188,6 +188,7 @@
     <Compile Include="UnitSystem\EquationToString\EquationPowerPerVolumeConverter.cs" />
     <Compile Include="UnitSystem\MyNCalc.cs" />
     <Compile Include="UnitSystem\MyUnit.cs" />
+    <Compile Include="UnitSystem\StringToDouble\StringAreaDefaultConverter.cs" />
     <Compile Include="UnitSystem\StringToDouble\StringDoubleArrayConverter.cs" />
     <Compile Include="UnitSystem\StringToDouble\StringAngleDegMoreThanConverter.cs" />
     <Compile Include="UnitSystem\StringToDouble\StringForceDefaultConverter.cs" />
@@ -199,6 +200,9 @@
     <Compile Include="UnitSystem\StringToDouble\StringFrequencyConverter.cs" />
     <Compile Include="UnitSystem\EquationToString\EquationToString.cs" />
     <Compile Include="UnitSystem\EquationToString\EquationLengthDefaultConverter.cs" />
+    <Compile Include="UnitSystem\StringToDouble\StringAreaUnknownConverter.cs" />
+    <Compile Include="UnitSystem\StringToDouble\StringVolumeUnknownConverter.cs" />
+    <Compile Include="UnitSystem\StringToDouble\StringLengthUnknownConverter.cs" />
     <Compile Include="UnitSystem\StringToDouble\StringReciprocalTimeConverter.cs" />
     <Compile Include="UnitSystem\StringToDouble\StringVelocityConverter.cs" />
     <Compile Include="UnitSystem\StringToDouble\StringAccelerationConverter.cs" />
@@ -235,6 +239,7 @@
     <Compile Include="UnitSystem\StringToDouble\StringThermalExpansionFromConverter.cs" />
     <Compile Include="UnitSystem\StringToDouble\StringTemperatureFromConverter.cs" />
     <Compile Include="UnitSystem\StringToDouble\StringTemperatureConverter.cs" />
+    <Compile Include="UnitSystem\StringToDouble\StringVolumeDefaultConverter.cs" />
     <Compile Include="UnitSystem\StringToDouble\StringVolumeConverter.cs" />
     <Compile Include="UnitSystem\StringToDouble\StringLengthConverter.cs" />
     <Compile Include="UnitSystem\StringToDouble\StringLengthDefaultConverter.cs" />
