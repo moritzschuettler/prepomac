@@ -329,13 +329,9 @@ namespace UserControls
                 }
             }
         }
-
         private void EditControl_TextChanged(object sender, EventArgs e)
         {
-            if (_editControl != null && _editControl.Text.Trim().StartsWith("="))
-                autocompleteMenu.Enabled = true;
-            else
-                autocompleteMenu.Enabled = false;
+            autocompleteMenu.Enabled = _editControl != null && _editControl.Text.Trim()[0] == '=';
         }
 
 
