@@ -202,7 +202,7 @@ namespace CaeMesh
             double[] cg;
             int[] cell = GetVtkCellFromFaceName(faceName);
             if (cell.Length == 4)   // faceName == FeFaceName.S1
-                cg = GeometryTools.RectangleCG(nodes[cell[0]], nodes[cell[1]], nodes[cell[2]], nodes[cell[3]], out area);
+                cg = GeometryTools.QuadrilateralCG(nodes[cell[0]], nodes[cell[1]], nodes[cell[2]], nodes[cell[3]], out area);
             else
                 cg = GeometryTools.TriangleCG(nodes[cell[0]], nodes[cell[1]], nodes[cell[2]], out area);
             return cg;

@@ -1265,6 +1265,10 @@ namespace CaeModel
             _mesh.RenumberPartVisualizationEdges(part, edgeIdNodeIds);
             //
             _mesh.RemoveElementsByType<FeElement1D>();
+            //
+            _mesh.ComputeVolumeArea(part);
+            //
+            UpdateMeshPartsElementTypes(false);
         }
         public List<string> ImportModelFromInpFile(string fileName, Action<string> WriteDataToOutput)
         {

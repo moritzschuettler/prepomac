@@ -1707,12 +1707,14 @@ namespace PrePoMax
                     if (part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell)
                     {
                         volume += part.MassProperties.Volume;
-                        cm += new Vec3D(part.MassProperties.CenterOfMass);
+                        cm += new Vec3D(part.MassProperties.CenterOfMass) * part.MassProperties.Volume;
                     }
                     else throw new NotSupportedException();
                     //
                     compPart.BoundingBox.IncludeBox(part.BoundingBox);
                 }
+                cm = cm * (1 / volume);
+                //
                 PartMassProperties massProperties = compPart.MassProperties;
                 massProperties.Volume = volume;
                 massProperties.CenterOfMass = cm.Coor;
@@ -1918,8 +1920,6 @@ namespace PrePoMax
             else
             {
                 _model.ImportGeneratedRemeshFromMeshFile(fileName, elementIds, part, convertToSecondOrder, midNodes);
-                // Update finite element types based on model dimensionality
-                _model.UpdateMeshPartsElementTypes(false);
                 // Regenerate and change the DisplayedMesh to Model before updating sets
                 _form.Clear3D();
                 _currentView = ViewGeometryModelResults.Model;
@@ -5530,7 +5530,7 @@ namespace PrePoMax
             MmgFileWriter.WriteMaterial(mmgMatFileName, baseParts);
             //
             PerformanceCounter ramCounter;
-            ramCounter = new System.Diagnostics.PerformanceCounter("Memory", "Available MBytes");
+            ramCounter = new PerformanceCounter("Memory", "Available MBytes");
             //
             string argument = "-ls " + //splitPartMeshData.Offset + " " +  // offset is applied in the signed distance field
                               "-rmc " +

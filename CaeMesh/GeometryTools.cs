@@ -15,9 +15,12 @@ namespace CaeMesh
         static double[] e_xi = new double[] { -1.0 / Math.Sqrt(3), 1.0 / Math.Sqrt(3) };
         static double[] e_w = new double[] { 1.0, 1.0 };
         // Triangle
-        static double[] t_xi = new double[] { 1.0 / 6.0, 2.0 / 3.0, 1.0 / 6.0 };
-        static double[] t_eta = new double[] { 1.0 / 6.0, 1.0 / 6.0, 2.0 / 3.0 };
-        static double[] t_w = new double[] { 1.0 / 6.0, 1.0 / 6.0, 1.0 / 6.0 };
+        static double[] t_xi = new double[] { 0.091576213509771, 0.816847572980459, 0.091576213509771,
+                                              0.445948490915965, 0.108103018168070, 0.445948490915965 };
+        static double[] t_eta = new double[] { 0.091576213509771, 0.091576213509771, 0.816847572980459,
+                                               0.445948490915965, 0.445948490915965, 0.108103018168070 };
+        static double[] t_w = new double[] { 0.109951743655322 * 0.5, 0.109951743655322 * 0.5, 0.109951743655322 * 0.5,
+                                             0.223381589678011 * 0.5, 0.223381589678011 * 0.5, 0.223381589678011 * 0.5 };
         // Tetrahedron
         static double a = 0.7272727272727273;
         static double b = 0.0909090909090909;
@@ -37,14 +40,14 @@ namespace CaeMesh
 
         // Methods                                                                                                                  
         // Length
-        static public double EdgeLength(FeNode n1, FeNode n2)
+        static public double BeamLength(FeNode n1, FeNode n2)
         {
             return Math.Sqrt(Math.Pow(n1.X - n2.X, 2) + Math.Pow(n1.Y - n2.Y, 2) + Math.Pow(n1.Z - n2.Z, 2));
         }
-        static public double EdgeLength(FeNode n1, FeNode n2, FeNode n3)
+        static public double BeamLength(FeNode n1, FeNode n2, FeNode n3)
         {
-            double length = e_w[0] * EdgeJNorm(n1, n2, n3, e_xi[0]) +
-                            e_w[1] * EdgeJNorm(n1, n2, n3, e_xi[1]);
+            double length = e_w[0] * BeamJNorm(n1, n2, n3, e_xi[0]) +
+                            e_w[1] * BeamJNorm(n1, n2, n3, e_xi[1]);
             return length;
         }
         // Area
@@ -57,59 +60,15 @@ namespace CaeMesh
             double s = (a + b + c) * 0.5;
             return Math.Sqrt(s * (s - a) * (s - b) * (s - c));
         }
-        static public double TriangleAreaWithInterpolation(FeNode n1, FeNode n2, FeNode n3)
-        {
-            return Math.Sqrt(((n2.Y * n2.Y) - 2 * n1.Y * n2.Y + (n2.X * n2.X) - 2 * n1.X * n2.X + (n1.Y * n1.Y) +
-                (n1.X * n1.X)) * (n3.Z * n3.Z) + (((2 * n1.Y - 2 * n2.Y) * n2.Z + 2 * n1.Z * n2.Y -
-                2 * n1.Y * n1.Z) * n3.Y + ((2 * n1.X - 2 * n2.X) * n2.Z + 2 * n1.Z * n2.X -
-                2 * n1.X * n1.Z) * n3.X + (2 * n1.Y * n2.Y + 2 * n1.X * n2.X - 2 * (n1.Y * n1.Y) -
-                2 * (n1.X * n1.X)) * n2.Z - 2 * n1.Z * (n2.Y * n2.Y) + 2 * n1.Y * n1.Z * n2.Y -
-                2 * n1.Z * (n2.X * n2.X) + 2 * n1.X * n1.Z * n2.X) * n3.Z +
-                ((n2.Z * n2.Z) - 2 * n1.Z * n2.Z + (n2.X * n2.X) - 2 * n1.X * n2.X + (n1.Z * n1.Z) +
-                (n1.X * n1.X)) * (n3.Y * n3.Y) + (((2 * n1.X - 2 * n2.X) * n2.Y +
-                2 * n1.Y * n2.X - 2 * n1.X * n1.Y) * n3.X - 2 * n1.Y * (n2.Z * n2.Z) +
-                (2 * n1.Z * n2.Y + 2 * n1.Y * n1.Z) * n2.Z + (2 * n1.X * n2.X - 2 * (n1.Z * n1.Z) -
-                2 * (n1.X * n1.X)) * n2.Y - 2 * n1.Y * (n2.X * n2.X) + 2 * n1.X * n1.Y * n2.X) * n3.Y +
-                ((n2.Z * n2.Z) - 2 * n1.Z * n2.Z + (n2.Y * n2.Y) - 2 * n1.Y * n2.Y + (n1.Z * n1.Z) + (n1.Y * n1.Y)) *
-                (n3.X * n3.X) + (-2 * n1.X * (n2.Z * n2.Z) + (2 * n1.Z * n2.X + 2 * n1.X * n1.Z) * n2.Z -
-                2 * n1.X * (n2.Y * n2.Y) + (2 * n1.Y * n2.X + 2 * n1.X * n1.Y) * n2.Y + (-2 * (n1.Z * n1.Z) -
-                2 * (n1.Y * n1.Y)) * n2.X) * n3.X + ((n1.Y * n1.Y) + (n1.X * n1.X)) * (n2.Z * n2.Z) +
-                (-2 * n1.Y * n1.Z * n2.Y - 2 * n1.X * n1.Z * n2.X) * n2.Z + ((n1.Z * n1.Z) +
-                (n1.X * n1.X)) * (n2.Y * n2.Y) - 2 * n1.X * n1.Y * n2.X * n2.Y + ((n1.Z * n1.Z) +
-                (n1.Y * n1.Y)) * (n2.X * n2.X)) / 2;
-        }
         static public double TriangleArea(FeNode n1, FeNode n2, FeNode n3, FeNode n4, FeNode n5, FeNode n6)
         {
-            double area = t_w[0] * TriangleJNorm(n1, n2, n3, n4, n5, n6, t_xi[0], t_eta[0]) +
-                          t_w[1] * TriangleJNorm(n1, n2, n3, n4, n5, n6, t_xi[1], t_eta[1]) +
-                          t_w[2] * TriangleJNorm(n1, n2, n3, n4, n5, n6, t_xi[2], t_eta[2]);
-            return area;
-        }
-        static public double TriangleAreaByDivision(FeNode n1, FeNode n2, FeNode n3, FeNode n4, FeNode n5, FeNode n6)
-        {
-            double area = TriangleArea(n4, n6, n1);
-            area += TriangleArea(n4, n5, n6);
-            area += TriangleArea(n4, n2, n5);
-            area += TriangleArea(n6, n5, n3);
-            return area;
-        }
-        static public double TriangleArea6GaussPoints(FeNode n1, FeNode n2, FeNode n3, FeNode n4, FeNode n5, FeNode n6)
-        {
             // https://doi.org/10.1002/nme.1620070316
-            double[] xi = new double[] { 0.091576213509771, 0.816847572980459, 0.091576213509771,
-                                         0.445948490915965, 0.108103018168070, 0.445948490915965 };
-            double[] yi = new double[] { 0.091576213509771, 0.091576213509771, 0.816847572980459,
-                                         0.445948490915965, 0.445948490915965, 0.108103018168070 };
-            double[] w = new double[] { 0.109951743655322, 0.109951743655322, 0.109951743655322,
-                                        0.223381589678011, 0.223381589678011, 0.223381589678011 };
-            //
-            double area = w[0] * TriangleJNorm(n1, n2, n3, n4, n5, n6, xi[0], yi[0]) +
-                          w[1] * TriangleJNorm(n1, n2, n3, n4, n5, n6, xi[1], yi[1]) +
-                          w[2] * TriangleJNorm(n1, n2, n3, n4, n5, n6, xi[2], yi[2]) +
-                          w[3] * TriangleJNorm(n1, n2, n3, n4, n5, n6, xi[3], yi[3]) +
-                          w[4] * TriangleJNorm(n1, n2, n3, n4, n5, n6, xi[4], yi[4]) +
-                          w[5] * TriangleJNorm(n1, n2, n3, n4, n5, n6, xi[5], yi[5]);
-            return area * 0.5;
+            return t_w[0] * TriangleJNorm(n1, n2, n3, n4, n5, n6, t_xi[0], t_eta[0]) +
+                   t_w[1] * TriangleJNorm(n1, n2, n3, n4, n5, n6, t_xi[1], t_eta[1]) +
+                   t_w[2] * TriangleJNorm(n1, n2, n3, n4, n5, n6, t_xi[2], t_eta[2]) +
+                   t_w[3] * TriangleJNorm(n1, n2, n3, n4, n5, n6, t_xi[3], t_eta[3]) +
+                   t_w[4] * TriangleJNorm(n1, n2, n3, n4, n5, n6, t_xi[4], t_eta[4]) +
+                   t_w[5] * TriangleJNorm(n1, n2, n3, n4, n5, n6, t_xi[5], t_eta[5]);
         }
         static public double RectangleArea(FeNode n1, FeNode n2, FeNode n3, FeNode n4)
         {
@@ -246,39 +205,44 @@ namespace CaeMesh
             return vol;
         }
         // Center of mass
-        static public double[] EdgeCG(FeNode n1, FeNode n2, out double length)
+        static public double[] BeamCG(FeNode n1, FeNode n2, out double length)
         {
-            length = EdgeLength(n1, n2);
+            length = BeamLength(n1, n2);
             //
             double[] cg = new double[3];
-            cg[0] = (n1.X + n2.X) / 2;
-            cg[1] = (n1.Y + n2.Y) / 2;
-            cg[2] = (n1.Z + n2.Z) / 2;
+            cg[0] = (n1.X + n2.X) * 0.5;
+            cg[1] = (n1.Y + n2.Y) * 0.5;
+            cg[2] = (n1.Z + n2.Z) * 0.5;
             return cg;
         }
-        static public double[] EdgeCG(FeNode n1, FeNode n2, FeNode n3, out double length)
+        static public double[] BeamCG(FeNode n1, FeNode n2, FeNode n3, out double length)
         {
-            double[] cg = new double[3];
-            double[] cg1;
-            double l;
+            if (Math.Abs((n1.X + n2.X) / 2 - n3.X) < eps &&
+                Math.Abs((n1.Y + n2.Y) / 2 - n3.Y) < eps &&
+                Math.Abs((n1.Z + n2.Z) / 2 - n3.Z) < eps)
+            {
+                return BeamCG(n1, n2, out length);
+            }
             //
-            cg1 = EdgeCG(n1, n3, out l);
-            cg[0] += cg1[0] * l;
-            cg[1] += cg1[1] * l;
-            cg[2] += cg1[2] * l;
-            length = l;
+            double JNorm0 = BeamJNorm(n1, n2, n3, e_xi[0]);
+            double JNorm1 = BeamJNorm(n1, n2, n3, e_xi[1]);
             //
-            cg1 = EdgeCG(n3, n2, out l);
-            cg[0] += cg1[0] * l;
-            cg[1] += cg1[1] * l;
-            cg[2] += cg1[2] * l;
-            length += l;
+            double x0 = InterpolateInBeam(n1.X, n2.X, n3.X, e_xi[0]);
+            double x1 = InterpolateInBeam(n1.X, n2.X, n3.X, e_xi[1]);
             //
-            cg[0] /= length;
-            cg[1] /= length;
-            cg[2] /= length;
+            double y0 = InterpolateInBeam(n1.Y, n2.Y, n3.Y, e_xi[0]);
+            double y1 = InterpolateInBeam(n1.Y, n2.Y, n3.Y, e_xi[1]);
             //
-            return cg;
+            double z0 = InterpolateInBeam(n1.Z, n2.Z, n3.Z, e_xi[0]);
+            double z1 = InterpolateInBeam(n1.Z, n2.Z, n3.Z, e_xi[1]);
+            //
+            length = e_w[0] * JNorm0 + e_w[1] * JNorm1;
+            double x = e_w[0] * x0 * JNorm0 + e_w[1] * x1 * JNorm1;
+            double y = e_w[0] * y0 * JNorm0 + e_w[1] * y1 * JNorm1;
+            double z = e_w[0] * z0 * JNorm0 + e_w[1] * z1 * JNorm1;
+            //
+            double lenInv = 1.0 / length;
+            return new double[] { lenInv * x, lenInv * y, lenInv * z };
         }
         //
         static public double[] TriangleCG(FeNode n1, FeNode n2, FeNode n3, out double area)
@@ -294,113 +258,91 @@ namespace CaeMesh
         static public double[] TriangleCG(FeNode n1, FeNode n2, FeNode n3, FeNode n4, FeNode n5, FeNode n6,
                                           out double area)
         {
-            double[] cg = new double[3];
-            double[] cg1;
-            double a;
+            if (Math.Abs((n1.X + n2.X) / 2 - n4.X) < eps &&
+                Math.Abs((n1.Y + n2.Y) / 2 - n4.Y) < eps &&
+                Math.Abs((n1.Z + n2.Z) / 2 - n4.Z) < eps &&
+                Math.Abs((n2.X + n3.X) / 2 - n5.X) < eps &&
+                Math.Abs((n2.Y + n3.Y) / 2 - n5.Y) < eps &&
+                Math.Abs((n2.Z + n3.Z) / 2 - n5.Z) < eps &&
+                Math.Abs((n3.X + n1.X) / 2 - n6.X) < eps &&
+                Math.Abs((n3.Y + n1.Y) / 2 - n6.Y) < eps &&
+                Math.Abs((n3.Z + n1.Z) / 2 - n6.Z) < eps)
+            {
+                return TriangleCG(n1, n2, n3, out area);
+            }
             //
-            cg1 = TriangleCG(n4, n6, n1, out a);
-            cg[0] += cg1[0] * a;
-            cg[1] += cg1[1] * a;
-            cg[2] += cg1[2] * a;
-            area = a;
+            double JNorm0 = TriangleJNorm(n1, n2, n3, n4, n5, n6, t_xi[0], t_eta[0]);
+            double JNorm1 = TriangleJNorm(n1, n2, n3, n4, n5, n6, t_xi[1], t_eta[1]);
+            double JNorm2 = TriangleJNorm(n1, n2, n3, n4, n5, n6, t_xi[2], t_eta[2]);
+            double JNorm3 = TriangleJNorm(n1, n2, n3, n4, n5, n6, t_xi[3], t_eta[3]);
+            double JNorm4 = TriangleJNorm(n1, n2, n3, n4, n5, n6, t_xi[4], t_eta[4]);
+            double JNorm5 = TriangleJNorm(n1, n2, n3, n4, n5, n6, t_xi[5], t_eta[5]);
             //
-            cg1 = TriangleCG(n4, n5, n6, out a);
-            cg[0] += cg1[0] * a;
-            cg[1] += cg1[1] * a;
-            cg[2] += cg1[2] * a;
-            area += a;
+            double x0 = InterpolateInTriangle(n1.X, n2.X, n3.X, n4.X, n5.X, n6.X, t_xi[0], t_eta[0]);
+            double x1 = InterpolateInTriangle(n1.X, n2.X, n3.X, n4.X, n5.X, n6.X, t_xi[1], t_eta[1]);
+            double x2 = InterpolateInTriangle(n1.X, n2.X, n3.X, n4.X, n5.X, n6.X, t_xi[2], t_eta[2]);
+            double x3 = InterpolateInTriangle(n1.X, n2.X, n3.X, n4.X, n5.X, n6.X, t_xi[3], t_eta[3]);
+            double x4 = InterpolateInTriangle(n1.X, n2.X, n3.X, n4.X, n5.X, n6.X, t_xi[4], t_eta[4]);
+            double x5 = InterpolateInTriangle(n1.X, n2.X, n3.X, n4.X, n5.X, n6.X, t_xi[5], t_eta[5]);
             //
-            cg1 = TriangleCG(n4, n2, n5, out a);
-            cg[0] += cg1[0] * a;
-            cg[1] += cg1[1] * a;
-            cg[2] += cg1[2] * a;
-            area += a;
+            double y0 = InterpolateInTriangle(n1.Y, n2.Y, n3.Y, n4.Y, n5.Y, n6.Y, t_xi[0], t_eta[0]);
+            double y1 = InterpolateInTriangle(n1.Y, n2.Y, n3.Y, n4.Y, n5.Y, n6.Y, t_xi[1], t_eta[1]);
+            double y2 = InterpolateInTriangle(n1.Y, n2.Y, n3.Y, n4.Y, n5.Y, n6.Y, t_xi[2], t_eta[2]);
+            double y3 = InterpolateInTriangle(n1.Y, n2.Y, n3.Y, n4.Y, n5.Y, n6.Y, t_xi[3], t_eta[3]);
+            double y4 = InterpolateInTriangle(n1.Y, n2.Y, n3.Y, n4.Y, n5.Y, n6.Y, t_xi[4], t_eta[4]);
+            double y5 = InterpolateInTriangle(n1.Y, n2.Y, n3.Y, n4.Y, n5.Y, n6.Y, t_xi[5], t_eta[5]);
             //
-            cg1 = TriangleCG(n6, n5, n3, out a);
-            cg[0] += cg1[0] * a;
-            cg[1] += cg1[1] * a;
-            cg[2] += cg1[2] * a;
-            area += a;
+            double z0 = InterpolateInTriangle(n1.Z, n2.Z, n3.Z, n4.Z, n5.Z, n6.Z, t_xi[0], t_eta[0]);
+            double z1 = InterpolateInTriangle(n1.Z, n2.Z, n3.Z, n4.Z, n5.Z, n6.Z, t_xi[1], t_eta[1]);
+            double z2 = InterpolateInTriangle(n1.Z, n2.Z, n3.Z, n4.Z, n5.Z, n6.Z, t_xi[2], t_eta[2]);
+            double z3 = InterpolateInTriangle(n1.Z, n2.Z, n3.Z, n4.Z, n5.Z, n6.Z, t_xi[3], t_eta[3]);
+            double z4 = InterpolateInTriangle(n1.Z, n2.Z, n3.Z, n4.Z, n5.Z, n6.Z, t_xi[4], t_eta[4]);
+            double z5 = InterpolateInTriangle(n1.Z, n2.Z, n3.Z, n4.Z, n5.Z, n6.Z, t_xi[5], t_eta[5]);
             //
-            cg[0] /= area;
-            cg[1] /= area;
-            cg[2] /= area;
+            area = t_w[0] * JNorm0 + t_w[1] * JNorm1 + t_w[2] * JNorm2 +
+                   t_w[3] * JNorm3 + t_w[4] * JNorm4 + t_w[5] * JNorm5;
+            double x = t_w[0] * x0 * JNorm0 + t_w[1] * x1 * JNorm1 + t_w[2] * x2 * JNorm2 +
+                       t_w[3] * x3 * JNorm3 + t_w[4] * x4 * JNorm4 + t_w[5] * x5 * JNorm5;
+            double y = t_w[0] * y0 * JNorm0 + t_w[1] * y1 * JNorm1 + t_w[2] * y2 * JNorm2 +
+                       t_w[3] * y3 * JNorm3 + t_w[4] * y4 * JNorm4 + t_w[5] * y5 * JNorm5;
+            double z = t_w[0] * z0 * JNorm0 + t_w[1] * z1 * JNorm1 + t_w[2] * z2 * JNorm2 +
+                       t_w[3] * z3 * JNorm3 + t_w[4] * z4 * JNorm4 + t_w[5] * z5 * JNorm5;
             //
-            return cg;
+            double aInv = 1.0 / area;
+            return new double[] { aInv * x, aInv * y, aInv * z };
         }
-        static public double[] RectangleCG(FeNode n1, FeNode n2, FeNode n3, FeNode n4, out double area)
+        static public double[] QuadrilateralCG(FeNode n1, FeNode n2, FeNode n3, FeNode n4, out double area)
         {
-            double[] cg = new double[3];
-            double[] cg1;
-            double a;
+            double a1;
+            double a2;
+            double[] cg1 = TriangleCG(n1, n2, n3, out a1);
+            double[] cg2 = TriangleCG(n1, n3, n4, out a2);
+            area = a1 + a2;
+            double aInv = 1.0 / area;
             //
-            cg1 = TriangleCG(n1, n2, n3, out a);
-            cg[0] += cg1[0] * a;
-            cg[1] += cg1[1] * a;
-            cg[2] += cg1[2] * a;
-            area = a;
+            cg1[0] = (cg1[0] * a1 + cg2[0] * a2) * aInv;
+            cg1[1] = (cg1[1] * a1 + cg2[1] * a2) * aInv;
+            cg1[2] = (cg1[2] * a1 + cg2[2] * a2) * aInv;
             //
-            cg1 = TriangleCG(n1, n3, n4, out a);
-            cg[0] += cg1[0] * a;
-            cg[1] += cg1[1] * a;
-            cg[2] += cg1[2] * a;
-            area += a;
-            //
-            cg[0] /= area;
-            cg[1] /= area;
-            cg[2] /= area;
-            //
-            return cg;
+            return cg1;
         }
-        static public double[] RectangleCG(FeNode n1, FeNode n2, FeNode n3, FeNode n4, FeNode n5, FeNode n6,
-                                           FeNode n7, FeNode n8, out double area)
+        static public double[] QuadrilateralCG(FeNode n1, FeNode n2, FeNode n3, FeNode n4, FeNode n5, FeNode n6,
+                                               FeNode n7, FeNode n8, out double area)
         {
-            double[] cg = new double[3];
-            double[] cg1;
-            double a;
+            double a1;
+            double a2;
+            FeNode[] faceNodes = GetInterpolatedMidNodeOnQuad(n1, n2, n3, n4, n5, n6, n7, n8);
+            FeNode n9 = faceNodes[0];
+            double[] cg1 = TriangleCG(n1, n2, n3, n5, n6, n9, out a1);
+            double[] cg2 = TriangleCG(n1, n3, n4, n9, n7, n8, out a2);
+            area = a1 + a2;
+            double aInv = 1.0 / area;
             //
-            cg1 = TriangleCG(n8, n1, n5, out a);
-            cg[0] += cg1[0] * a;
-            cg[1] += cg1[1] * a;
-            cg[2] += cg1[2] * a;
-            area = a;
+            cg1[0] = (cg1[0] * a1 + cg2[0] * a2) * aInv;
+            cg1[1] = (cg1[1] * a1 + cg2[1] * a2) * aInv;
+            cg1[2] = (cg1[2] * a1 + cg2[2] * a2) * aInv;
             //
-            cg1 = TriangleCG(n8, n5, n7, out a);
-            cg[0] += cg1[0] * a;
-            cg[1] += cg1[1] * a;
-            cg[2] += cg1[2] * a;
-            area += a;
-            //
-            cg1 = TriangleCG(n8, n7, n4, out a);
-            cg[0] += cg1[0] * a;
-            cg[1] += cg1[1] * a;
-            cg[2] += cg1[2] * a;
-            area += a;
-            //
-            //
-            cg1 = TriangleCG(n6, n3, n7, out a);
-            cg[0] += cg1[0] * a;
-            cg[1] += cg1[1] * a;
-            cg[2] += cg1[2] * a;
-            area += a;
-            //
-            cg1 = TriangleCG(n6, n7, n5, out a);
-            cg[0] += cg1[0] * a;
-            cg[1] += cg1[1] * a;
-            cg[2] += cg1[2] * a;
-            area += a;
-            //
-            cg1 = TriangleCG(n6, n5, n2, out a);
-            cg[0] += cg1[0] * a;
-            cg[1] += cg1[1] * a;
-            cg[2] += cg1[2] * a;
-            area += a;
-            //
-            cg[0] /= area;
-            cg[1] /= area;
-            cg[2] /= area;
-            //
-            return cg;
+            return cg1;
         }
         //
         public static double[] TetrahedronCG(FeNode n1, FeNode n2, FeNode n3, FeNode n4, out double volume)
@@ -639,6 +581,21 @@ namespace CaeMesh
             return cg1;
         }
         // Mid-nodes
+        private static FeNode[] GetInterpolatedMidNodeOnQuad(FeNode n1, FeNode n2, FeNode n3, FeNode n4, FeNode n5,
+                                                             FeNode n6, FeNode n7, FeNode n8)
+        {
+            double x;
+            double y;
+            double z;
+            FeNode[] faceNodes = new FeNode[1];
+            //
+            x = QuadMidPoint(n1.X, n2.X, n3.X, n4.X, n5.X, n6.X, n7.X, n8.X);
+            y = QuadMidPoint(n1.Y, n2.Y, n3.Y, n4.Y, n5.Y, n6.Y, n7.Y, n8.Y);
+            z = QuadMidPoint(n1.Z, n2.Z, n3.Z, n4.Z, n5.Z, n6.Z, n7.Z, n8.Z);
+            faceNodes[0] = new FeNode(0, x, y, z);
+            //
+            return faceNodes;
+        }
         private static FeNode[] GetInterpolatedMidNodesOnPyramid(FeNode n1, FeNode n2, FeNode n3, FeNode n4, FeNode n5,
                                                                  FeNode n6, FeNode n7, FeNode n8, FeNode n9, FeNode n10,
                                                                  FeNode n11, FeNode n12, FeNode n13)
@@ -706,6 +663,24 @@ namespace CaeMesh
         private static double QuadMidPoint(double u1, double u2, double u3, double u4, double u5, double u6, double u7, double u8)
         {
             return -0.25 * u1 - 0.25 * u2 - 0.25 * u3 - 0.25 * u4 + 0.5 * u5 + 0.5 * u6 + 0.5 * u7 + 0.5 * u8;
+        }
+        // Interpolate in
+        private static double InterpolateInBeam(double u1, double u2, double u3, double g)
+        {
+            return 0.5 * g * (g - 1) * u1 +
+                0.5 * g * (g + 1) * u2 +
+                (1 - g * g) * u3;
+        }
+        private static double InterpolateInTriangle(double u1, double u2, double u3, double u4,
+                                                    double u5, double u6, double g, double h)
+        {
+            double gh1 = 1 - g - h;
+            return 2 * gh1 * (gh1 - 0.5) * u1 +
+                2 * g * (g - 0.5) * u2 +
+                2 * h * (h - 0.5) * u3 +
+                4 * g * gh1 * u4 +
+                4 * g * h * u5 +
+                4 * h * gh1 * u6;
         }
         private static double InterpolateInQuad(double u1, double u2, double u3, double u4,
                                                 double u5, double u6, double u7, double u8,
@@ -789,7 +764,7 @@ namespace CaeMesh
                 0.25 * (1 - r) * (1 + r) * (1 - g) * (1 + h) * u20;
         }
         // Gauss
-        static public double EdgeJNorm(FeNode n1, FeNode n2, FeNode n3, double g)
+        static public double BeamJNorm(FeNode n1, FeNode n2, FeNode n3, double g)
         {
             double a = -2 * g * n3.Z + (g + 1) * n2.Z / 2 + g * n2.Z / 2 + g * n1.Z / 2 + (g - 1) * n1.Z / 2;
             double b = -2 * g * n3.Y + (g + 1) * n2.Y / 2 + g * n2.Y / 2 + g * n1.Y / 2 + (g - 1) * n1.Y / 2;

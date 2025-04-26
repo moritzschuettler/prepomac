@@ -152,6 +152,8 @@ namespace CaeMesh
             UpdateNodeIdElementIds();
             // Bounding box
             ComputeBoundingBox();
+            //
+            ComputeVolumeArea();
         }
         public FeMesh(FeMesh mesh, string[] partsToKeep)
         {
@@ -299,7 +301,12 @@ namespace CaeMesh
             // Compatibility for version v.2.1.0
             if (_coordinateSystems == null)
                 _coordinateSystems = new OrderedDictionary<string, CoordinateSystem>("Coordinate Systems", sc);
-
+            // Compatibility for version v.2.3.1
+            if (_parts.Count > 0)
+            {
+                if (_parts.First().Value.MassProperties.CenterOfMass == null) ComputeVolumeArea();
+            }
+            
         }
 
 
@@ -1823,9 +1830,9 @@ namespace CaeMesh
                     edgeCell = visualization.EdgeCells[edgeCellId];
                     //
                     if (edgeCell.Length == 2)
-                        edgeLengths[i] += GeometryTools.EdgeLength(_nodes[edgeCell[0]], _nodes[edgeCell[1]]);
+                        edgeLengths[i] += GeometryTools.BeamLength(_nodes[edgeCell[0]], _nodes[edgeCell[1]]);
                     else if (edgeCell.Length == 3)
-                        edgeLengths[i] += GeometryTools.EdgeLength(_nodes[edgeCell[0]], _nodes[edgeCell[1]], _nodes[edgeCell[2]]);
+                        edgeLengths[i] += GeometryTools.BeamLength(_nodes[edgeCell[0]], _nodes[edgeCell[1]], _nodes[edgeCell[2]]);
                     else throw new NotSupportedException();
                 }
             }
@@ -2932,42 +2939,6 @@ namespace CaeMesh
             newMeshPart = (MeshPart)newParts[0];
             mergedPartNames = partNamesToMerge;
             return;
-            //
-            //newMeshPart = null;
-            //mergedPartNames = null;
-            //if (partNamesToMerge == null || partNamesToMerge.Length < 2) return;
-            //// Find parts to merge
-            //HashSet<int> allElementIds = new HashSet<int>();
-            //List<string> mergedPartsList = new List<string>();
-            //int minId = int.MaxValue;
-            //BasePart part;
-            //foreach (string partName in partNamesToMerge)
-            //{
-            //    if (_parts.TryGetValue(partName, out part) && part is MeshPart meshPart)
-            //    {
-            //        mergedPartsList.Add(partName);
-            //        allElementIds.UnionWith(meshPart.Labels);
-            //        if (meshPart.PartId < minId) minId = meshPart.PartId;
-            //    }
-            //}
-            //if (mergedPartsList.Count == 1) return;
-            ////
-            //mergedPartNames = mergedPartsList.ToArray();
-            //// Remove parts
-            //foreach (var partName in mergedPartNames) _parts.Remove(partName);
-            //// Create new part
-            //part = CreateBasePartFromElementIds(allElementIds.ToArray());
-            ////
-            //newMeshPart = new MeshPart(part);
-            //newMeshPart.Name = _parts.GetNextNumberedKey("Merged_part");
-            //newMeshPart.PartId = minId;
-            //SetPartColorFromColorTable(newMeshPart);
-            //// Renumber elements
-            //foreach (var elementId in newMeshPart.Labels) _elements[elementId].PartId = minId;
-            //// Add new part
-            //_parts.Add(newMeshPart.Name, newMeshPart);
-            //// Update bounding boxes
-            //ComputeBoundingBox();
         }
         public void MergeResultParts(string[] partNamesToMerge, out ResultPart newResultPart, out string[] mergedParts)
         {
@@ -3209,7 +3180,7 @@ namespace CaeMesh
                 newBasePart.Name = part.Name;
                 newBasePart.PartId = part.PartId;
                 SetPartColorFromColorTable(newBasePart);
-                ComputeVolume(newBasePart);
+                ComputeVolumeArea(newBasePart);
                 // Replace part
                 _parts[newBasePart.Name] = newBasePart;
                 // Keep existing edges
@@ -3243,7 +3214,7 @@ namespace CaeMesh
                 //
                 newBasePart.PartId = maxPartId + count;
                 SetPartColorFromColorTable(newBasePart);
-                ComputeVolume(newBasePart);
+                ComputeVolumeArea(newBasePart);
                 //
                 _parts.Add(newBasePart.Name, newBasePart);
                 newParts[count++] = newBasePart;
@@ -8196,6 +8167,8 @@ namespace CaeMesh
                 //    _nodes[entry.Key] = node.d()
                 //}
             }
+            //
+            ComputeVolumeArea();
         }
         public int[] GetNodeIdsFromElementSet(FeElementSet elementSet)
         {
@@ -8250,6 +8223,8 @@ namespace CaeMesh
             RenumberNodeReferences(oldIdNewId);
             //
             RemoveUnreferencedNodes(oldIdNewId.Keys.ToHashSet(), false, false);
+            //
+            ComputeVolumeArea();
         }
         public Dictionary<int, int> GetCoincidentNodeMap(string nodeSetName, MergeCoincidentNodes mergeCoincidentNodes)
         {
@@ -9469,6 +9444,8 @@ namespace CaeMesh
             // Update bounding box
             ComputeBoundingBox();
             //
+            ComputeVolumeArea();
+            //
             if (copy) return translatedPartNames;
             else return null;
         }
@@ -9510,6 +9487,8 @@ namespace CaeMesh
             foreach (var entry in _referencePoints) UpdateReferencePoint(entry.Value);
             // Update bounding box
             ComputeBoundingBox();
+            //
+            ComputeVolumeArea();
             // Update visibility
             if (copy) return scaledPartNames;
             else return null;
@@ -9565,6 +9544,8 @@ namespace CaeMesh
             foreach (var entry in _referencePoints) UpdateReferencePoint(entry.Value);
             // Update bounding box
             ComputeBoundingBox();
+            //
+            ComputeVolumeArea();
             //
             if (copy) return rotatedPartNames;
             else return null;
@@ -9758,8 +9739,7 @@ namespace CaeMesh
                         oldNewNodeIds.Add(oldNodeId, node.Id);
                     }
                     inPressedNodes = inPressedNodesList.ToArray();
-                    if (preview)
-                        return errors.ToArray();
+                    if (preview) return errors.ToArray();
                     // Add inPressed nodes to the mesh
                     foreach (var inPressedNode in inPressedNodesList)
                     {
@@ -9903,7 +9883,6 @@ namespace CaeMesh
                     foreach (var entry in midNodes) _nodes.Add(entry.Value.Id, entry.Value);
 
                     //
-
 
                     // Find outside node ids of all selected surfaces                                                               
                     Dictionary<int, int[]> edgeIdEdgeCount = new Dictionary<int, int[]>();
@@ -10049,7 +10028,6 @@ namespace CaeMesh
                             }
                         }
                     }
-
                     // Create new visualization 
                     HashSet<int> newPartNodeIds = new HashSet<int>(part.NodeLabels);
                     newPartNodeIds.UnionWith(oldNewNodeIds.Values);
@@ -10072,6 +10050,8 @@ namespace CaeMesh
                     ConvertEdgeNodesToEdges(part, edgeIdNodeIds);
                     RenumberVisualizationSurfaces(part, surfaceIdNodeIds);
                     RenumberPartVisualizationEdges(part, edgeIdNodeIds);
+                    //
+                    ComputeVolumeArea(part);
                 }
                 else
                 {
@@ -10405,6 +10385,8 @@ namespace CaeMesh
                     solidPart.Color = shellPart.Color;
                     solidPart.Offset = shellPart.Offset;
                     solidPart.SmoothShaded = shellPart.SmoothShaded;
+                    //
+                    ComputeVolumeArea(solidPart);
                 }
             }
             //
@@ -10684,14 +10666,14 @@ namespace CaeMesh
             return nodeIdNormal;
         }
         //
-        public void ComputeVolumes()
+        public void ComputeVolumeArea()
         {
-            foreach (var entry in _parts) ComputeVolume(entry.Value);
+            foreach (var entry in _parts) ComputeVolumeArea(entry.Value);
         }
-        public void ComputeVolume(BasePart part)
+        public void ComputeVolumeArea(BasePart part)
         {
-            double volumeEl;
-            double volume = 0;
+            double elementSize;
+            double size = 0;
             double[] cgEl;
             double[] cg = new double[3];
             FeElement element;
@@ -10700,22 +10682,25 @@ namespace CaeMesh
             foreach (int elementId in part.Labels)
             {
                 element = _elements[elementId];
-                if (element is FeElement3D el)
-                {
-                    cgEl = el.GetCG(_nodes, out volumeEl);
-                    //
-                    volume += volumeEl;
-                    cg[0] += cgEl[0] * volumeEl;
-                    cg[1] += cgEl[1] * volumeEl;
-                    cg[2] += cgEl[2] * volumeEl;
-                }
+                cgEl = element.GetCG(_nodes, out elementSize);
+                //
+                size += elementSize;
+                cg[0] += cgEl[0] * elementSize;
+                cg[1] += cgEl[1] * elementSize;
+                cg[2] += cgEl[2] * elementSize;
             }
-            cg[0] /= volume;
-            cg[1] /= volume;
-            cg[2] /= volume;
+            cg[0] /= size;
+            cg[1] /= size;
+            cg[2] /= size;
             //
             massProperties = part.MassProperties;
-            massProperties.Volume = volume;
+            if (part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell || part.PartType == PartType.Compound)
+                massProperties.Volume = size;
+            else if (part.PartType == PartType.Shell)
+                massProperties.Area = size;
+            else if (Debugger.IsAttached)
+                throw new NotImplementedException();
+            //
             massProperties.CenterOfMass = cg;
             part.MassProperties = massProperties;
         }

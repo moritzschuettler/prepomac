@@ -1,6 +1,7 @@
 ﻿using CaeGlobals;
 using CaeMesh;
 using CaeModel;
+using FastColoredTextBoxNS;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -240,6 +241,7 @@ namespace PrePoMax.Forms
                 }
                 rowCount++;
             }
+            //
             dgvData.BuildAutocompleteMenu(autocompleteItems, 1);
             //
             if (refresh) dgvData.Refresh();

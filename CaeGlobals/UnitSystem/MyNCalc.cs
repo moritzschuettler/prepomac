@@ -231,5 +231,32 @@ namespace CaeGlobals
             //
             return expr;
         }
+        //
+        static public string[] GetFunctionSnippets()
+        {
+            return new string[] { "Abs(^)",
+                                  "Acos(^)",
+                                  "Asin(^)",
+                                  "Atan(^)",
+                                  "Ceiling(^)",
+                                  "Cos(^)",
+                                  "Exp(^)",
+                                  "Floor(^)",
+                                  "IEEERemainder(^, )",
+                                  "Ln(^)",
+                                  "Log(^, )",
+                                  "Log10(^)",
+                                  "Max(^, )",
+                                  "Min(^, )",
+                                  "Pow(^, )",
+                                  "Round(^, )",
+                                  "Sign(^)",
+                                  "Sin(^)",
+                                  "Sqrt(^)",
+                                  "Tan(^)",
+                                  "Truncate(^)",
+                                  "If(^, , )",
+            };
+        }
     }
 }

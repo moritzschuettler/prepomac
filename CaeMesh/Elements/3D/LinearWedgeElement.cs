@@ -201,7 +201,7 @@ namespace CaeMesh
             if (cell.Length == 3)   //(faceName == FeFaceName.S1 || faceName == FeFaceName.S2)
                 cg = GeometryTools.TriangleCG(nodes[cell[0]], nodes[cell[1]], nodes[cell[2]], out area);
             else
-                cg = GeometryTools.RectangleCG(nodes[cell[0]], nodes[cell[1]], nodes[cell[2]], nodes[cell[3]], out area);
+                cg = GeometryTools.QuadrilateralCG(nodes[cell[0]], nodes[cell[1]], nodes[cell[2]], nodes[cell[3]], out area);
             return cg;
         }
         public override double GetVolume(Dictionary<int, FeNode> nodes)

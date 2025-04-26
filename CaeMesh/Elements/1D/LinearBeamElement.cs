@@ -76,6 +76,10 @@ namespace CaeMesh
         {
             throw new NotImplementedException();
         }
+        public override double[] GetCG(Dictionary<int, FeNode> nodes, out double length)
+        {
+            return GeometryTools.BeamCG(nodes[NodeIds[0]], nodes[NodeIds[1]], out length);
+        }
         public override FeElement DeepCopy()
         {
             return new LinearBeamElement(Id, PartId, NodeIds.ToArray());

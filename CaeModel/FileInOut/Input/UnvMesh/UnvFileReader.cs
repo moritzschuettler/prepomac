@@ -69,6 +69,8 @@ namespace FileInOut.Input
                     if (!elementsToImport.HasFlag(ElementsToImport.Solid)) mesh.RemoveElementsByType<FeElement3D>();
                 }
                 //
+                mesh.ComputeVolumeArea();
+                //
                 return mesh;
             }
             //

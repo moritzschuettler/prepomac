@@ -86,8 +86,7 @@ namespace FileInOut.Input
                     }
                     //
                     double max = bBox.GetDiagonal();
-                    int[] mergedNodeIds;
-                    MergeNodes(nodes, elements, surfaceIdNodeIds, edgeIdNodeIds, epsilon * max, out mergedNodeIds);
+                    MergeNodes(nodes, elements, surfaceIdNodeIds, edgeIdNodeIds, epsilon * max, out _);
                     MergeEdgeElements(elements);
                     //
                     FeMesh mesh = new FeMesh(nodes, elements, MeshRepresentation.Geometry, importOptions);
@@ -99,7 +98,7 @@ namespace FileInOut.Input
                     //
                     mesh.RemoveElementsByType<FeElement1D>();
                     mesh.RemoveElementsByType<FeElement3D>();
-                    //
+                    // Read mass data and overwrite the one computed in new FeMesh
                     if (mesh.Parts.Count == 1)
                     {
                         PartMassProperties massProperties;

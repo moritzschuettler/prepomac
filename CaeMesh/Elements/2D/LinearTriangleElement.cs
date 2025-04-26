@@ -171,7 +171,7 @@ namespace CaeMesh
             if (cell.Length == 3)
                 return GeometryTools.TriangleArea(nodes[cell[0]], nodes[cell[1]], nodes[cell[2]]);
             else if (cell.Length == 2)
-                return GeometryTools.EdgeLength(nodes[cell[0]], nodes[cell[1]]);
+                return GeometryTools.BeamLength(nodes[cell[0]], nodes[cell[1]]);
             else throw new NotSupportedException();
         }
         public override double[] GetFaceCG(FeFaceName faceName, Dictionary<int, FeNode> nodes, out double area)
@@ -180,8 +180,12 @@ namespace CaeMesh
             if (cell.Length == 3)
                 return GeometryTools.TriangleCG(nodes[cell[0]], nodes[cell[1]], nodes[cell[2]], out area);
             else if (cell.Length == 2)
-                return GeometryTools.EdgeCG(nodes[cell[0]], nodes[cell[1]], out area);
+                return GeometryTools.BeamCG(nodes[cell[0]], nodes[cell[1]], out area);
             else throw new NotSupportedException();
+        }
+        public override double[] GetCG(Dictionary<int, FeNode> nodes, out double area)
+        {
+            return GeometryTools.TriangleCG(nodes[NodeIds[0]], nodes[NodeIds[1]], nodes[NodeIds[2]], out area);
         }
         public override FeElement DeepCopy()
         {

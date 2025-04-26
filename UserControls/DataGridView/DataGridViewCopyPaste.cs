@@ -312,6 +312,7 @@ namespace UserControls
                 // Remove autocompleteMenu from edit control
                 autocompleteMenu.TargetControlWrapper = null;
                 autocompleteMenu.SetAutocompleteMenu(_editControl, null);
+                _editControl.TextChanged -= EditControl_TextChanged;
                 _editControl = null;
             }
         }
@@ -323,9 +324,18 @@ namespace UserControls
                 {
                     // Add autocompleteMenu to edit control
                     _editControl = tb;
+                    _editControl.TextChanged += EditControl_TextChanged;
                     autocompleteMenu.SetAutocompleteMenu(tb, autocompleteMenu);
                 }
             }
+        }
+
+        private void EditControl_TextChanged(object sender, EventArgs e)
+        {
+            if (_editControl != null && _editControl.Text.Trim().StartsWith("="))
+                autocompleteMenu.Enabled = true;
+            else
+                autocompleteMenu.Enabled = false;
         }
 
 
@@ -525,6 +535,9 @@ namespace UserControls
             _autocompleteMenuColumn = column;
             List<AutocompleteItem> acItems = new List<AutocompleteItem>();
             foreach (var item in items) acItems.Add(new AutocompleteItem(item));
+            //
+            var snippets = MyNCalc.GetFunctionSnippets();
+            foreach (var snippet in snippets) acItems.Add(new SnippetAutocompleteItem(snippet));
             // Set as autocomplete source
             autocompleteMenu.SetAutocompleteItems(acItems);
         }
