@@ -1233,6 +1233,8 @@ namespace PrePoMax
                         throw new CaeException("IncompatibleVersion");
                     //
                     model.UpdateMeshPartsElementTypes(true);
+                    //
+                    if (version < 2_003_003) model.Mesh.ComputeVolumeArea();
                 }
                 return data;
             }
@@ -10343,6 +10345,16 @@ namespace PrePoMax
 
         #region Parameters menu   ##################################################################################################
         // COMMANDS ********************************************************************************
+        public void ExportParametersCommand(string fileName)
+        {
+            CExportParameters comm = new CExportParameters(fileName);
+            _commands.AddAndExecute(comm);
+        }
+        public void ImportParametersCommand(string fileName)
+        {
+            CImportParameters comm = new CImportParameters(fileName);
+            _commands.AddAndExecute(comm);
+        }
         public void AddParameterCommand(EquationParameter parameter)
         {
             CAddParameter comm = new CAddParameter(parameter);
@@ -10359,6 +10371,14 @@ namespace PrePoMax
             _commands.AddAndExecute(comm);
         }
         //******************************************************************************************
+        public void ExportParametersToFile(string fileName)
+        {
+            _model.Parameters.ExportToFile(fileName);
+        }
+        public void ImportParametersFromFile(string fileName)
+        {
+            _model.Parameters.ImportFromFile(fileName);
+        }
         public void AddParameter(EquationParameter parameter)
         {
             _model.Parameters.Add(parameter.Name, parameter);

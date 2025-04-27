@@ -523,6 +523,10 @@ namespace PrePoMax
             this.tbOutput = new UserControls.AutoScrollTextBox();
             this.timerTest = new System.Windows.Forms.Timer(this.components);
             this.timerOutput = new System.Windows.Forms.Timer(this.components);
+            this.tsmiEditParameters = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripMenuItem5 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiExportParameters = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiImportParameters = new System.Windows.Forms.ToolStripMenuItem();
             this.tsFile.SuspendLayout();
             this.tsViews.SuspendLayout();
             this.tsSymbols.SuspendLayout();
@@ -980,7 +984,6 @@ namespace PrePoMax
             // 
             // tstbDeformationFactor
             // 
-            this.tstbDeformationFactor.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.tstbDeformationFactor.Name = "tstbDeformationFactor";
             this.tstbDeformationFactor.ShortcutsEnabled = false;
             this.tstbDeformationFactor.Size = new System.Drawing.Size(45, 25);
@@ -1018,7 +1021,6 @@ namespace PrePoMax
             // 
             // tstbAngle
             // 
-            this.tstbAngle.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.tstbAngle.Name = "tstbAngle";
             this.tstbAngle.Size = new System.Drawing.Size(45, 25);
             this.tstbAngle.Text = "0 °";
@@ -1050,7 +1052,7 @@ namespace PrePoMax
             this.toolStripSeparator2});
             this.tsResults.Location = new System.Drawing.Point(3, 75);
             this.tsResults.Name = "tsResults";
-            this.tsResults.Size = new System.Drawing.Size(481, 25);
+            this.tsResults.Size = new System.Drawing.Size(450, 25);
             this.tsResults.TabIndex = 7;
             this.tsResults.Text = "Results";
             // 
@@ -4286,32 +4288,36 @@ namespace PrePoMax
             // tsmiSettings
             // 
             this.tsmiSettings.Name = "tsmiSettings";
-            this.tsmiSettings.Size = new System.Drawing.Size(133, 22);
+            this.tsmiSettings.Size = new System.Drawing.Size(180, 22);
             this.tsmiSettings.Text = "Settings";
             this.tsmiSettings.Click += new System.EventHandler(this.tsmiSettings_Click);
             // 
             // tsmiDividerTools1
             // 
             this.tsmiDividerTools1.Name = "tsmiDividerTools1";
-            this.tsmiDividerTools1.Size = new System.Drawing.Size(130, 6);
+            this.tsmiDividerTools1.Size = new System.Drawing.Size(177, 6);
             // 
             // tsmiParameters
             // 
+            this.tsmiParameters.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmiEditParameters,
+            this.toolStripMenuItem5,
+            this.tsmiExportParameters,
+            this.tsmiImportParameters});
             this.tsmiParameters.Name = "tsmiParameters";
-            this.tsmiParameters.Size = new System.Drawing.Size(133, 22);
+            this.tsmiParameters.Size = new System.Drawing.Size(180, 22);
             this.tsmiParameters.Text = "Parameters";
-            this.tsmiParameters.Click += new System.EventHandler(this.tsmiParameters_Click);
             // 
             // tsmiDividerTools2
             // 
             this.tsmiDividerTools2.Name = "tsmiDividerTools2";
-            this.tsmiDividerTools2.Size = new System.Drawing.Size(130, 6);
+            this.tsmiDividerTools2.Size = new System.Drawing.Size(177, 6);
             // 
             // tsmiQuery
             // 
             this.tsmiQuery.Image = global::PrePoMax.Properties.Resources.Query;
             this.tsmiQuery.Name = "tsmiQuery";
-            this.tsmiQuery.Size = new System.Drawing.Size(133, 22);
+            this.tsmiQuery.Size = new System.Drawing.Size(180, 22);
             this.tsmiQuery.Text = "Query";
             this.tsmiQuery.Click += new System.EventHandler(this.tsmiQuery_Click);
             // 
@@ -4319,7 +4325,7 @@ namespace PrePoMax
             // 
             this.tsmiFind.Image = global::PrePoMax.Properties.Resources.Search;
             this.tsmiFind.Name = "tsmiFind";
-            this.tsmiFind.Size = new System.Drawing.Size(133, 22);
+            this.tsmiFind.Size = new System.Drawing.Size(180, 22);
             this.tsmiFind.Text = "Find";
             this.tsmiFind.Click += new System.EventHandler(this.tsmiFind_Click);
             // 
@@ -4590,6 +4596,32 @@ namespace PrePoMax
             // timerOutput
             // 
             this.timerOutput.Tick += new System.EventHandler(this.timerOutput_Tick);
+            // 
+            // tsmiEditParameters
+            // 
+            this.tsmiEditParameters.Name = "tsmiEditParameters";
+            this.tsmiEditParameters.Size = new System.Drawing.Size(180, 22);
+            this.tsmiEditParameters.Text = "Edit";
+            this.tsmiEditParameters.Click += new System.EventHandler(this.tsmiEditParameters_Click);
+            // 
+            // toolStripMenuItem5
+            // 
+            this.toolStripMenuItem5.Name = "toolStripMenuItem5";
+            this.toolStripMenuItem5.Size = new System.Drawing.Size(177, 6);
+            // 
+            // tsmiExportParameters
+            // 
+            this.tsmiExportParameters.Name = "tsmiExportParameters";
+            this.tsmiExportParameters.Size = new System.Drawing.Size(180, 22);
+            this.tsmiExportParameters.Text = "Export";
+            this.tsmiExportParameters.Click += new System.EventHandler(this.tsmiExportParameters_Click);
+            // 
+            // tsmiImportParameters
+            // 
+            this.tsmiImportParameters.Name = "tsmiImportParameters";
+            this.tsmiImportParameters.Size = new System.Drawing.Size(180, 22);
+            this.tsmiImportParameters.Text = "Import";
+            this.tsmiImportParameters.Click += new System.EventHandler(this.tsmiImportParameters_Click);
             // 
             // FrmMain
             // 
@@ -5141,6 +5173,10 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripSeparator tsmiDividerDefinedField2;
         private System.Windows.Forms.ToolStripMenuItem tsmiAnnotateDefinedFields;
         private System.Windows.Forms.ToolStripMenuItem tsmiRunHistoryFile;
+        private System.Windows.Forms.ToolStripMenuItem tsmiEditParameters;
+        private System.Windows.Forms.ToolStripSeparator toolStripMenuItem5;
+        private System.Windows.Forms.ToolStripMenuItem tsmiExportParameters;
+        private System.Windows.Forms.ToolStripMenuItem tsmiImportParameters;
     }
 }
 

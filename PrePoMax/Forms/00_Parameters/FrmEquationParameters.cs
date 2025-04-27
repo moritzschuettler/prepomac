@@ -2,6 +2,7 @@
 using CaeMesh;
 using CaeModel;
 using FastColoredTextBoxNS;
+using PrePoMax.Commands;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -134,6 +135,35 @@ namespace PrePoMax.Forms
             _cellCol = -1;
         }
         //
+        private void tsmiOpen_Click(object sender, EventArgs e)
+        {
+
+        }
+        private void tsmiSaveAs_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                using (SaveFileDialog saveFileDialog = new SaveFileDialog())
+                {
+                    saveFileDialog.Filter = "PrePoMax parameters|*.pmp";
+                    saveFileDialog.FileName = "Parameters";
+                    //
+                    if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                    {
+                        SavePmp(saveFileDialog.FileName);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiClose_Click(object sender, EventArgs e)
+        {
+            btnCancel_Click(null, null);
+        }
+        //
         private void btnOK_Click(object sender, EventArgs e)
         {
             try
@@ -208,10 +238,6 @@ namespace PrePoMax.Forms
                     column.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
                     column.MinimumWidth = 150;
                 }
-                //column.AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells;
-                //columnWidth = column.Width;
-                //column.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
-                //column.Width = columnWidth * 2;
                 //
                 column.Width = 150;
                 column.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft;
@@ -246,6 +272,20 @@ namespace PrePoMax.Forms
             //
             if (refresh) dgvData.Refresh();
         }
-        
+        private void SavePmp(string fileName)
+        {
+            bool focused = dgvData.Focused;
+            if (focused) btnCancel.Focus(); // removes the last uncomitted row
+            //
+            //_controller.AddParameter
+            //
+            if (focused)
+            {
+                dgvData.ClearSelection();
+                dgvData.Focus();
+            }
+        }
+
+
     }
 }

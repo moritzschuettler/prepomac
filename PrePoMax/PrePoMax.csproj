@@ -192,6 +192,8 @@
     <Compile Include="Commands\0075_InitialCondition\CShowInitialConditions.cs" />
     <Compile Include="Commands\0086_DefinedField\CHideDefinedFields.cs" />
     <Compile Include="Commands\0086_DefinedField\CShowDefinedFields.cs" />
+    <Compile Include="Commands\0090_Tools\CImportParameters.cs" />
+    <Compile Include="Commands\0090_Tools\CExportParameters.cs" />
     <Compile Include="Commands\00_Base\ICommandAsynchronous.cs" />
     <Compile Include="Commands\00_Base\IExportFileCommand.cs" />
     <Compile Include="Commands\00_Base\IFileCommand.cs" />

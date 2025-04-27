@@ -6616,7 +6616,7 @@ namespace PrePoMax
             }
            
         }
-        private void tsmiParameters_Click(object sender, EventArgs e)
+        private void tsmiEditParameters_Click(object sender, EventArgs e)
         {
             try
             {
@@ -6628,6 +6628,48 @@ namespace PrePoMax
                     CloseAllForms();
                     SetFormLocation(fpe);
                     fpe.ShowDialog();
+                }
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiExportParameters_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                using (SaveFileDialog saveFileDialog = new SaveFileDialog())
+                {
+                    saveFileDialog.Filter = "PrePoMax parameters|*.pmp";
+                    saveFileDialog.FileName = "Parameters";
+                    //
+                    if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                    {
+                        _controller.ExportParametersCommand(saveFileDialog.FileName);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiImportParameters_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                using (OpenFileDialog openFileDialog = new OpenFileDialog())
+                {
+                    openFileDialog.Filter = "PrePoMax parameters|*.pmp";
+                    openFileDialog.FileName = "";
+                    //
+                    if (openFileDialog.ShowDialog() == DialogResult.OK)
+                    {
+                        _controller.ImportParametersCommand(openFileDialog.FileName);
+                        //
+                        tsmiEditParameters_Click(null, null);
+                    }
                 }
             }
             catch (Exception ex)
@@ -10643,7 +10685,7 @@ namespace PrePoMax
             }
         }
 
-       
+        
     }
 }
 

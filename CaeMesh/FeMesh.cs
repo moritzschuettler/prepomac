@@ -300,13 +300,7 @@ namespace CaeMesh
             foreach (var entry in meshRefinements) _meshSetupItems.Add(entry.Key, entry.Value);
             // Compatibility for version v.2.1.0
             if (_coordinateSystems == null)
-                _coordinateSystems = new OrderedDictionary<string, CoordinateSystem>("Coordinate Systems", sc);
-            // Compatibility for version v.2.3.1
-            if (_parts.Count > 0)
-            {
-                if (_parts.First().Value.MassProperties.CenterOfMass == null) ComputeVolumeArea();
-            }
-            
+                _coordinateSystems = new OrderedDictionary<string, CoordinateSystem>("Coordinate Systems", sc);   
         }
 
 
@@ -10698,6 +10692,7 @@ namespace CaeMesh
                 massProperties.Volume = size;
             else if (part.PartType == PartType.Shell)
                 massProperties.Area = size;
+            else if (part.PartType == PartType.Wire) { }
             else if (Debugger.IsAttached)
                 throw new NotImplementedException();
             //
