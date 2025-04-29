@@ -39,7 +39,11 @@ namespace CaeModel
         public EquationString EquationStr
         {
             get { return _equation.Equation; }
-            set { CheckSelfReference(_name, value.Equation); _equation.Equation = value; }
+            set
+            {
+                if (value != null) CheckSelfReference(_name, value.Equation);
+                _equation.Equation = value;
+            }
         }
         //
         [ReadOnly(true)]

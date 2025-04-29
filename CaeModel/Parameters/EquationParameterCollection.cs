@@ -77,20 +77,28 @@ namespace CaeModel
         {
             double value;
             string[] tmp;
-            string[] parameters = parametersString.Split(new string[] { ";"}, StringSplitOptions.RemoveEmptyEntries);
-            EquationParameter p;
-            //
-            foreach (string parameter in parameters)
+            //đ+'špoiuztrfedsa
+            if (parametersString.Contains("="))
             {
-                tmp = parameter.Split(new string[] { "=" }, StringSplitOptions.RemoveEmptyEntries);
-                if (tmp.Length == 2 && double.TryParse(tmp[1], out value))
+                string[] parameters = parametersString.Split(new string[] { ";" }, StringSplitOptions.RemoveEmptyEntries);
+                EquationParameter p;
+                //
+                foreach (string parameter in parameters)
                 {
-                    p = new EquationParameter();
-                    p.Name = tmp[0];
-                    p.Equation.SetEquationFromValue(value);
-                    AddOverriddenParameter(p.Name, p);
+                    tmp = parameter.Split(new string[] { "=" }, StringSplitOptions.RemoveEmptyEntries);
+                    if (tmp.Length == 2 && double.TryParse(tmp[1], out value))
+                    {
+                        p = new EquationParameter();
+                        p.Name = tmp[0];
+                        p.Equation.SetEquationFromValue(value);
+                        AddOverriddenParameter(p.Name, p);
+                    }
+                    else throw new CaeException("The parameter " + parameter + " cannot be parsed.");
                 }
-                else throw new CaeException("The parameter " + parameter + " cannot be parsed.");
+            }
+            else
+            {
+                ImportFromFile(parametersString, true);
             }
         }
         public void AddOverriddenParameter(string name, EquationParameter parameter)
@@ -139,7 +147,7 @@ namespace CaeModel
             //
             System.IO.File.WriteAllText(fileName, sb.ToString());
         }
-        public void ImportFromFile(string fileName)
+        public void ImportFromFile(string fileName, bool overriddenParameters = false)
         {
             string[] lines = System.IO.File.ReadAllLines(fileName);
             //
@@ -172,9 +180,16 @@ namespace CaeModel
                 else throw new CaeException("Line " + (i+1) + " of the parametes file in not correctly formated.");
             }
             //
-            _parameters.Clear();
-            foreach (var parameter in parameters) _parameters.Add(parameter.Name, parameter);
-
+            if (overriddenParameters)
+            {
+                _overriddenParameters.Clear();
+                foreach (var parameter in parameters) _overriddenParameters.Add(parameter.Name, parameter);
+            }
+            else
+            {
+                _parameters.Clear();
+                foreach (var parameter in parameters) _parameters.Add(parameter.Name, parameter);
+            }
         }
         public void OnDeserialization(object sender)
         {

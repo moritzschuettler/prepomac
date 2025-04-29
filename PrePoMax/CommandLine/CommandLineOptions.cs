@@ -12,7 +12,7 @@ using static System.Windows.Forms.Design.AxImporter;
 
 namespace PrePoMax
 {
-    // https://github.com/commandlineparser/commandline
+    // https://github.com/commandlineparser/commandline                                                                             
     public class CommandLineOptions
     {
         // FileName
@@ -24,16 +24,21 @@ namespace PrePoMax
         public string ShowGui { get; set; }
         // Overwrite
         [Option('o', "overwrite", Required = false, Default = "No", HelpText = "Overwrite the .pmx file after regeneration: " +
-                                                                                "Yes | No. Can only be used for regeneration.")]
+                                                                               "Yes | No. Can only be used for regeneration.")]
         public string Overwrite { get; set; }
         // Parameters
-        [Option('p', "parameters", Required = false, HelpText = "Overwrite the .pmx parameters. To overwrite parameter a " +
-                                                                "use [a=1.2]. To overwrite parameters a and b use quotations and " +
-                                                                "semicolons [\"a=1.2; b=31.4\"]. " +
+        [Option('p', "parameters", Required = false, HelpText = "Overwrite the model parameters. To overwrite parameter p1 " +
+                                                                "use p1=1.2. To overwrite parameters p1 and p2 use quotations " +
+                                                                "and semicolons \"a=1.2; b=31.4\". To overwrite parameters by " +
+                                                                "importing a parameters file, specify the .pmp file name." +
                                                                 "Can only be used for regeneration.")]
         public string Parameters { get; set; }
+        // Parameters export
+        [Option("parametersExport", Required = false, HelpText = "The .pmp file name to be used for exporting parameters from the " +
+                                                                 ".pmx file defined by the -r switch.")]
+        public string ParametersExportFileName { get; set; }
         // RegenerationFileName
-        [Option('r', "regenerate", Required = false, HelpText = "A .pmx file name to be used for regeneration. " +
+        [Option('r', "regenerate", Required = false, HelpText = "The .pmx file name to be used for regeneration. " +
                                                                 "Use r1, r2 or r3 to only regenerate the pre-processing commands, " +
                                                                 "the analysis commands or the post-processing commands." +
                                                                 "A work directory -w can be defined for regeneration. " +
@@ -71,7 +76,7 @@ namespace PrePoMax
                                                                 "MM_TON_S_C | M_TON_S_C | IN_LB_S_F | UNIT_LESS.")]
         public string UnitSystem { get; set; }
         // WorkDirectory
-        [Option('w', "workDirectory", Required = false, HelpText = "A directory path to be used as work directory.")]
+        [Option('w', "workDirectory", Required = false, HelpText = "The directory path to be used as work directory.")]
         public string WorkDirectory { get; set; }
         // ExitAfterRegeneration
         [Option('x', "exitAfterRegeneration", Required = false, Default = "Yes", HelpText = "Exit PrePoMax after regeneration: " +
@@ -91,6 +96,8 @@ namespace PrePoMax
                 text += "Overwrite .pmx file: " + cmdOptions.Overwrite + Environment.NewLine;
             if (cmdOptions.RegenerationFileName != null && cmdOptions.Parameters != null)
                 text += "Parameters: " + cmdOptions.Parameters + Environment.NewLine;
+            if (cmdOptions.RegenerationFileName != null && cmdOptions.ParametersExportFileName != null)
+                text += "Export parameters file name: " + cmdOptions.ParametersExportFileName + Environment.NewLine;
             if (cmdOptions.RegenerationFileName != null)
                 text += "Regeneration file name: " + cmdOptions.RegenerationFileName + Environment.NewLine;
             if (cmdOptions.UnitSystem != null)
@@ -109,6 +116,17 @@ namespace PrePoMax
         {
             try
             {
+                // Work directory - should be first
+                if (cmdOptions.WorkDirectory != null)
+                {
+                    if (!Directory.Exists(cmdOptions.WorkDirectory))
+                        throw new CaeException("The work directory " + cmdOptions.WorkDirectory + " does not exist.");
+                }
+                else
+                {
+                    // Use current directory if no work directory is specified
+                    cmdOptions.WorkDirectory = Directory.GetCurrentDirectory();
+                }
                 // Options
                 if (cmdOptions == null)
                     throw new CaeException("The command line parameters are null.");
@@ -133,31 +151,43 @@ namespace PrePoMax
                 string[] tmp;
                 if (cmdOptions.Parameters != null)
                 {
-                    string[] parameters = cmdOptions.Parameters.Split(new string[] { ";" }, StringSplitOptions.RemoveEmptyEntries);
-                    foreach (string parameter in parameters)
+                    if (cmdOptions.Parameters.Contains("="))
                     {
-                        tmp = parameter.Split(new string[] { "=" }, StringSplitOptions.RemoveEmptyEntries);
-                        if (tmp.Length != 2 || !double.TryParse(tmp[1], out _)) error = true;
+                        string[] parameters = cmdOptions.Parameters.Split(new string[] { ";" }, StringSplitOptions.RemoveEmptyEntries);
+                        foreach (string parameter in parameters)
+                        {
+                            tmp = parameter.Split(new string[] { "=" }, StringSplitOptions.RemoveEmptyEntries);
+                            if (tmp.Length != 2 || !double.TryParse(tmp[1], out _)) error = true;
+                            //
+                            if (error) throw new CaeException("The parameter " + parameter + " cannot be parsed.");
+                        }
+                    }
+                    else // use parameters file
+                    {
+                        string fileDirectory = Path.GetDirectoryName(cmdOptions.Parameters);
+                        string fileName = Path.GetFileName(cmdOptions.Parameters);
+                        if (fileDirectory == "")
+                        {
+                            fileName = Path.Combine(cmdOptions.WorkDirectory, fileName);
+                            cmdOptions.Parameters = fileName;
+                        }
                         //
-                        if (error) throw new CaeException("The parameter " + parameter + " cannot be parsed.");
+                        if (!File.Exists(cmdOptions.Parameters))
+                        {
+                            throw new CaeException("The parameters file " + cmdOptions.Parameters + " does not exist.");
+                        }
                     }
                 }
-                // Work directory
-                if (cmdOptions.WorkDirectory != null)
+                // Parameters export
+                if (cmdOptions.ParametersExportFileName != null)
                 {
-                    if (!Directory.Exists(cmdOptions.WorkDirectory))
-                        throw new CaeException("The work directory " + cmdOptions.WorkDirectory + " does not exist.");
-                }
-                else
-                {
-                    // Use current directory if no work directory is specified
-                    cmdOptions.WorkDirectory = Directory.GetCurrentDirectory();
-                }
-                // Unit system
-                if (cmdOptions.UnitSystem != null)
-                {
-                    if (!Enum.TryParse(cmdOptions.UnitSystem.ToUpper(), out UnitSystemType unitSystemType))
-                        throw new CaeException("The unit system type " + cmdOptions.UnitSystem + " is not supported.");
+                    string fileDirectory = Path.GetDirectoryName(cmdOptions.ParametersExportFileName);
+                    string fileName = Path.GetFileName(cmdOptions.ParametersExportFileName);
+                    if (fileDirectory == "")
+                    {
+                        fileName = Path.Combine(cmdOptions.WorkDirectory, fileName);
+                        cmdOptions.ParametersExportFileName = fileName;
+                    }
                 }
                 // Regeneration
                 if (cmdOptions.RegenerationFileName != null)
@@ -187,6 +217,12 @@ namespace PrePoMax
                         throw new CaeException("The parameters switch can only be used for regeneration.");
                     if (cmdOptions.ShowGui == "No")
                         throw new CaeException("The No GUI switch can only be used for regeneration.");
+                }
+                // Unit system
+                if (cmdOptions.UnitSystem != null)
+                {
+                    if (!Enum.TryParse(cmdOptions.UnitSystem.ToUpper(), out UnitSystemType unitSystemType))
+                        throw new CaeException("The unit system type " + cmdOptions.UnitSystem + " is not supported.");
                 }
                 // Exit
                 string exit = cmdOptions.ExitAfterRegeneration.ToUpper().Trim();

@@ -579,20 +579,28 @@ namespace PrePoMax
                     _controller.RegenerationWorkDirectory = _cmdOptions.WorkDirectory;
                     // Open
                     await Task.Run(() => OpenAsync(fileName, _controller.Open));
-                    // Parameters
-                    if (_cmdOptions.Parameters != null)
-                        _controller.AddOverriddenParametersFromString(_cmdOptions.Parameters);
-                    // Regenerate
                     //
-                    await Task.Run(() => _controller.RegenerateHistoryCommands(false, false, _cmdOptions.GetRegenerateType()));
-                    // Check for errors
-                    if (_controller.GetCommandCollectionErrors() != null && _controller.GetCommandCollectionErrors().Count > 0)
-                        throw new CaeException("Failed to regenerate some commands.");
-                    // Overwrite
-                    if (_cmdOptions.Overwrite == "Yes")
+                    if (_cmdOptions.ParametersExportFileName != null)
                     {
-                        WriteDataToOutput("Overwrite: " + fileName);
-                        _controller.SaveToPmx(fileName);
+                        // Parameters export
+                        await Task.Run(() => _controller.ExportParametersToFile(_cmdOptions.ParametersExportFileName));
+                    }
+                    else
+                    {
+                        // Parameters override
+                        if (_cmdOptions.Parameters != null)
+                            _controller.AddOverriddenParametersFromString(_cmdOptions.Parameters);
+                        // Regenerate
+                        await Task.Run(() => _controller.RegenerateHistoryCommands(false, false, _cmdOptions.GetRegenerateType()));
+                        // Check for errors
+                        if (_controller.GetCommandCollectionErrors() != null && _controller.GetCommandCollectionErrors().Count > 0)
+                            throw new CaeException("Failed to regenerate some commands.");
+                        // Overwrite
+                        if (_cmdOptions.Overwrite == "Yes")
+                        {
+                            WriteDataToOutput("Overwrite: " + fileName);
+                            _controller.SaveToPmx(fileName);
+                        }
                     }
                     // Exit
                     if (_cmdOptions.ExitAfterRegeneration == "Yes")

@@ -135,35 +135,6 @@ namespace PrePoMax.Forms
             _cellCol = -1;
         }
         //
-        private void tsmiOpen_Click(object sender, EventArgs e)
-        {
-
-        }
-        private void tsmiSaveAs_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                using (SaveFileDialog saveFileDialog = new SaveFileDialog())
-                {
-                    saveFileDialog.Filter = "PrePoMax parameters|*.pmp";
-                    saveFileDialog.FileName = "Parameters";
-                    //
-                    if (saveFileDialog.ShowDialog() == DialogResult.OK)
-                    {
-                        SavePmp(saveFileDialog.FileName);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                ExceptionTools.Show(this, ex);
-            }
-        }
-        private void tsmiClose_Click(object sender, EventArgs e)
-        {
-            btnCancel_Click(null, null);
-        }
-        //
         private void btnOK_Click(object sender, EventArgs e)
         {
             try

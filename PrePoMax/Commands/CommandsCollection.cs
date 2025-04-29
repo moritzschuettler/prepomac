@@ -238,11 +238,11 @@ namespace PrePoMax.Commands
                                                               Path.GetFileName(cOpenFile.FileName));
                             if (File.Exists(newFileName)) cOpenFile.FileName = newFileName;
                         }
-                        else if (command is CImportFile cImportFile)
+                        else if (command is IImportFileCommand importFileCommand)
                         {
                             string newFileName = Path.Combine(_controller.Settings.GetWorkDirectory(),
-                                                              Path.GetFileName(cImportFile.FileName));
-                            if (File.Exists(newFileName)) cImportFile.FileName = newFileName;
+                                                              Path.GetFileName(importFileCommand.FileName));
+                            if (File.Exists(newFileName)) importFileCommand.FileName = newFileName;
                         }
                         else if (command is IExportFileCommand exportFileCommand)
                         {

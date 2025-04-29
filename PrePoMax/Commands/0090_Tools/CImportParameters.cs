@@ -12,24 +12,28 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CImportParameters : PreprocessCommand
+    class CImportParameters : PreprocessCommand, IImportFileCommand
     {
         // Variables                                                                                                                
         private string _fileName;
+
+
+        // Properties                                                                                                               
+        public string FileName { get { return _fileName; } set { _fileName = value; } }
 
 
         // Constructor                                                                                                              
         public CImportParameters(string fileName)
             : base("Import parameters")
         {
-            _fileName = fileName;
+            _fileName = Tools.GetLocalPath(fileName);
         }
 
 
         // Methods                                                                                                                  
         public override bool Execute(Controller receiver)
         {
-            receiver.ImportParametersFromFile(_fileName);
+            receiver.ImportParametersFromFile(Tools.GetGlobalPath(_fileName));
             return true;
         }
 

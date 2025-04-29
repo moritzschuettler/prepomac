@@ -197,6 +197,7 @@
     <Compile Include="Commands\00_Base\ICommandAsynchronous.cs" />
     <Compile Include="Commands\00_Base\IExportFileCommand.cs" />
     <Compile Include="Commands\00_Base\IFileCommand.cs" />
+    <Compile Include="Commands\00_Base\IImportFileCommand.cs" />
     <Compile Include="Commands\00_Base\SaveCommand.cs" />
     <Compile Include="Commands\0100_Analysis\CAddDeafaultJob.cs" />
     <Compile Include="Commands\0100_Analysis\CPrepareAndRunJob.cs" />

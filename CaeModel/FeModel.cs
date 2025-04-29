@@ -2871,7 +2871,7 @@ namespace CaeModel
                     area += vis.FaceAreas[i];
                     perimeter = 0;
                     for (int j = 0; j < vis.FaceEdgeIds[i].Length; j++) perimeter += vis.EdgeLengths[vis.FaceEdgeIds[i][j]];
-                    propParameters.Add(surfacePrefix + ".Perimeter", perimeter);
+                    //propParameters.Add(surfacePrefix + ".Perimeter", perimeter);
                 }
                 //
                 propParameters[areaPrefix] = area;
@@ -2880,7 +2880,7 @@ namespace CaeModel
                 for (int i = 0; i < vis.EdgeCount; i++)
                 {
                     edgePrefix = prefix + ".Edge-" + (i + 1);
-                    propParameters.Add(edgePrefix + ".Length", vis.EdgeLengths[i]);
+                    //propParameters.Add(edgePrefix + ".Length", vis.EdgeLengths[i]);
                 }
             }
         }
