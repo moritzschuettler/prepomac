@@ -7,6 +7,7 @@ using System.ComponentModel;
 using CaeGlobals;
 using DynamicTypeDescriptor;
 using CaeModel;
+using System.Drawing.Design;
 
 namespace PrePoMax
 {

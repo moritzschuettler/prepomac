@@ -8154,12 +8154,6 @@ namespace CaeMesh
                 {
                     _nodes[key] = node;
                 }
-
-                //if (mesh.Nodes.TryGetValue(entry.Key, out node))
-                //{
-                //    entry.Value.SetCoor(node.X, node.Y, node.Z);
-                //    _nodes[entry.Key] = node.d()
-                //}
             }
             //
             ComputeVolumeArea();
@@ -10687,16 +10681,21 @@ namespace CaeMesh
             cg[1] /= size;
             cg[2] /= size;
             //
+            bool addCG = true;
+            //
             massProperties = part.MassProperties;
             if (part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell || part.PartType == PartType.Compound)
-                massProperties.Volume = size;
+            {
+                if (part is GeometryPart gp && gp.IsCADPart) massProperties.Volume = size;
+                else addCG = false;
+            }
             else if (part.PartType == PartType.Shell)
                 massProperties.Area = size;
             else if (part.PartType == PartType.Wire) { }
             else if (Debugger.IsAttached)
                 throw new NotImplementedException();
             //
-            massProperties.CenterOfMass = cg;
+            if (addCG) massProperties.CenterOfMass = cg;
             part.MassProperties = massProperties;
         }
         // Clone

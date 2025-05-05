@@ -60,6 +60,7 @@ namespace CaeGlobals
         static public double[] SolveArrayEquation(string equation)
         {
             double[] values;
+            string scalarEquation = equation;
             equation = equation.Trim();
             //
             if (equation.Length == 0 || equation == "=")
@@ -68,31 +69,35 @@ namespace CaeGlobals
             if (equation.StartsWith("="))
             {
                 equation = equation.Substring(1, equation.Length - 1);
+                equation = PreprocessExpression(equation);
                 //
                 Expression e = GetArrayExpression(equation);
                 if (!e.HasErrors())
                 {
                     object result = e.Evaluate();
-                    //if (result is bool[] bla) values = bla.ToDouble();
-                    //else if (result is byte[] byta) values = byta.ToDouble();
-                    //else if (result is decimal[] deca) values = deca.ToDouble();
-                    //else if (result is int[] ia) values = ia.ToDouble();
-                    //else if (result is float[] fa) values = fa.ToDouble();
-                    //else if (result is double[] da) values = da;
-                    //else
                     if (result is List<object> list)
                     {
-                        int count = 0;
-                        values = new double[list.Count];
-                        foreach (var obj in list)
+                        // Array equation
+                        if (list.Count > 0)
                         {
-                            if (obj is bool bl) values[count++] = bl ? 1 : 0;
-                            else if (obj is byte byt) values[count++] = byt;
-                            else if (obj is decimal dec) values[count++] = (double)dec;
-                            else if (obj is int i) values[count++] = i;
-                            else if (obj is float f) values[count++] = f;
-                            else if (obj is double d) values[count++] = d;
-                            else count++;
+                            int count = 0;
+                            values = new double[list.Count];
+                            foreach (var obj in list)
+                            {
+                                if (obj is bool bl) values[count++] = bl ? 1 : 0;
+                                else if (obj is byte byt) values[count++] = byt;
+                                else if (obj is decimal dec) values[count++] = (double)dec;
+                                else if (obj is int i) values[count++] = i;
+                                else if (obj is float f) values[count++] = f;
+                                else if (obj is double d) values[count++] = d;
+                                else count++;
+                            }
+                        }
+                        // Scalar equation
+                        else
+                        {
+                            double value = ConvertFromString(scalarEquation, null);
+                            return new double[] { value };
                         }
                     }
                     else
@@ -122,6 +127,7 @@ namespace CaeGlobals
                 if (equation.StartsWith("="))
                 {
                     equation = equation.Substring(1, equation.Length - 1);
+                    equation = PreprocessExpression(equation);
                     Expression e = GetExpression(equation);
                     parameterNames = GetParameters(equation);
                     //
@@ -129,11 +135,6 @@ namespace CaeGlobals
                     {
                         object result = e.Evaluate();
                     }
-                    //foreach (var name in parameterNames)
-                    //{
-                    //    if (!e.Parameters.ContainsKey(name))
-                    //        throw new CaeException("The parameter " + name + " does not exits!");
-                    //}
                     return e.HasErrors(); 
                 }
                 else return false;
@@ -166,22 +167,20 @@ namespace CaeGlobals
             {
                 foreach (var entry in ExistingParameters) e.Parameters.Add(entry.Key, entry.Value);
             }
-            //e.EvaluateParameter += EvaluateParameter;
             return e;
         }
         static public HashSet<string> GetParameters(string expression)
         {
             HashSet<string> parameters = new HashSet<string>();
-            //Random random = new Random();
             Expression e = new Expression(expression);
             //
             e.EvaluateFunction += delegate (string name, FunctionArgs args) {
                 args.EvaluateParameters();
-                args.Result = 0;// random.Next(0, 100);
+                args.Result = 0;
             };
             e.EvaluateParameter += delegate (string name, ParameterArgs args) {
                 parameters.Add(name);
-                args.Result = 0;// random.Next(0, 100);
+                args.Result = 0;
             };
             try
             {
@@ -207,14 +206,22 @@ namespace CaeGlobals
             // Step 1: Replace each parameter with a unique placeholder
             int count = 0;
             string placeholder;
+            string bracketedParam;
             Dictionary<string, string> placeholders = new Dictionary<string, string>();
             //
             foreach (var param in sortedNames)
             {
                 // Create a unique placeholder
                 placeholder = $"@{count++}@";
+                bracketedParam = $"[{param}]";
                 // Replace all instances of the parameter with the placeholder
-                if (expr.Contains(param))
+                if (expr.Contains(bracketedParam))
+                {
+                    expr = expr.Replace(bracketedParam, placeholder);
+                    // Store the mapping between placeholder and actual parameter
+                    placeholders[placeholder] = param;
+                }
+                else if (expr.Contains(param))
                 {
                     expr = expr.Replace(param, placeholder);
                     // Store the mapping between placeholder and actual parameter

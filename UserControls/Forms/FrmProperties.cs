@@ -187,6 +187,5 @@ namespace UserControls
             throw new CaeException("The selected "+ messageName + " name already exists. " +
                 "Uppercase and lowercase letters are regarded as equal.");
         }
-        
     }
 }

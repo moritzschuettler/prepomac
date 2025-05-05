@@ -2805,7 +2805,7 @@ namespace CaeModel
             propParameters[volumePrefix] = volume;
             propParameters[areaPrefix] = area;
             // Mesh
-            prefix = "FEModel";
+            prefix = "Mesh";
             volumePrefix = prefix + ".Volume";
             propParameters.Add(volumePrefix, 0);
             areaPrefix = prefix + ".Area";

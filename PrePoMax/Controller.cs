@@ -736,6 +736,8 @@ namespace PrePoMax
             if (ResultsInitialized)
                 CurrentFieldData = _allResults.CurrentResult.GetFirstComponentOfTheFirstFieldAtDefaultIncrement();
             //
+            UpdateAfterPartsChanged(); // must be here before any drawing
+            //
             UpdateExplodedView(false);
             // Settings
             if (parameters != null && parameters.Contains(Globals.FromMonitorForm)) { }
@@ -794,10 +796,6 @@ namespace PrePoMax
             _form.RegenerateTree(false);
             // Set tree states
             if (data[2] is bool[][] states) _form.SetTreeExpandCollapseState(states);
-            //
-            //JsonSerializerSettings settings = new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.Auto };
-            //string json = JsonConvert.SerializeObject(_commands, Formatting.Indented, settings);
-            //File.WriteAllText(@"D:\out.txt", json);
         }
         private void OpenPmh(string fileName, string parameters)
         {
@@ -904,11 +902,6 @@ namespace PrePoMax
             Dictionary<int, FeElement> elements;
             Dictionary<string, FeElementSet> elementSets;
             FileInOut.Input.InpFileReader.ReadCel(fileName, out elements, out elementSets);
-            //_results.Mesh.Elements.AddRange(elements);
-            //_results.Mesh.ElementSets.AddRange(elementSets);
-            //_results.Mesh.CreatePartsFromElementSets(elementSets.Keys.ToArray(),
-            //                                         out BasePart[] modifiedParts,
-            //                                         out BasePart[] newParts);
             //
             if (elements == null)
             {
@@ -1087,6 +1080,8 @@ namespace PrePoMax
                 datFileName = Path.Combine(Path.GetDirectoryName(_allResults.CurrentResult.FileName), datFileName);
                 if (File.Exists(datFileName)) OpenDat(datFileName, parameters, false);
             }
+            //
+            UpdateAfterPartsChanged(); // must be here before any drawing
             // Redraw
             // Set the view but do not draw
             _currentView = ViewGeometryModelResults.Results;
@@ -1135,6 +1130,8 @@ namespace PrePoMax
                         throw new CaeException("The selected result file does not have the same mesh as the current result.");
                     }
                 }
+                //
+                UpdateAfterPartsChanged(); // must be here before any drawing
                 // Model changed
                 _modelChanged = true;
                 // Redraw
@@ -1234,7 +1231,7 @@ namespace PrePoMax
                     //
                     model.UpdateMeshPartsElementTypes(true);
                     //
-                    if (version < 2_003_003) model.Mesh.ComputeVolumeArea();
+                    if (version < 2_003_002) model.Mesh.ComputeVolumeArea();
                 }
                 return data;
             }
@@ -1480,6 +1477,7 @@ namespace PrePoMax
         }
         private void UpdateAfterImport(string extension)
         {
+            UpdateAfterPartsChanged(); // must be here before any drawing
             // Exploded view
             UpdateExplodedView(false);
             // Visualization
@@ -1857,6 +1855,8 @@ namespace PrePoMax
                     if (_model.Mesh.Parts.TryGetValue(partName, out basePart)) basePart.SmoothShaded = true;
                 }
             }
+            //
+            UpdateAfterPartsChanged(); // must be here before any drawing
             // Regenerate and change the DisplayedMesh to Model before updating sets
             _form.Clear3D();
             _currentView = ViewGeometryModelResults.Model;
@@ -1922,6 +1922,8 @@ namespace PrePoMax
             else
             {
                 _model.ImportGeneratedRemeshFromMeshFile(fileName, elementIds, part, convertToSecondOrder, midNodes);
+                //
+                UpdateAfterPartsChanged(); // must be here before any drawing
                 // Regenerate and change the DisplayedMesh to Model before updating sets
                 _form.Clear3D();
                 _currentView = ViewGeometryModelResults.Model;
@@ -2940,6 +2942,8 @@ namespace PrePoMax
                     _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldPartName, meshPart, null);
                 }
             }
+            //
+            UpdateAfterPartsChanged();
         }
         // Transform
         public void ScaleGeometryParts(string[] partNames, double[] scaleCenter, double[] scaleFactors, bool copy)
@@ -2978,6 +2982,8 @@ namespace PrePoMax
                         _form.AddTreeNode(ViewGeometryModelResults.Geometry, _model.Geometry.Parts[scaledPartName], null);
                     }
                 }
+                //
+                UpdateAfterPartsChanged(); // must be here before any drawing
                 //
                 DrawGeometry(false);
             }
@@ -3865,6 +3871,8 @@ namespace PrePoMax
                 _form.UpdateTreeNode(ViewGeometryModelResults.Geometry, geometryPart.Name, geometryPart, null);
             }
             //
+            UpdateAfterPartsChanged();
+            //
             CheckAndUpdateModelValidity();
             // Draw
             DrawGeometry(false);
@@ -3888,6 +3896,8 @@ namespace PrePoMax
                 }
             }
             //
+            UpdateAfterPartsChanged();
+            //
             CheckAndUpdateModelValidity();
             //
             DrawGeometry(false);
@@ -3904,7 +3914,6 @@ namespace PrePoMax
                 _form.SmoothPart(partName, 0, fileName);
                 //
                 ImportFile(fileName, false);
-                //ReplacePartGeometryFromFile(part, fileName);
             }
         }
         public void DeleteStlPartFaces(GeometrySelection geometrySelection)
@@ -3963,6 +3972,8 @@ namespace PrePoMax
                 string warning = "Only faces of stl parts can be deleted using this function.";
                 if (numOfShellParts <= 0) MessageBoxes.ShowWarning(warning);
             }
+            //
+            UpdateAfterPartsChanged();
             //
             CheckAndUpdateModelValidity();
             //
@@ -5190,9 +5201,13 @@ namespace PrePoMax
                 // Update
                 _form.UpdateTreeNode(ViewGeometryModelResults.Model, meshPart.Name, meshPart, null);
             }
+            //
+            UpdateAfterPartsChanged(); // must be here before any drawing
             // Update
             FeModelUpdate(UpdateType.DrawModel);
+            //
             UpdateGeometryBasedItems(false);
+            //
             FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
         }
         public void CreateBoundaryLayer(int[] geometryIds, double thickness)
@@ -5204,6 +5219,8 @@ namespace PrePoMax
                 string[] errors = null;
                 if (_model != null)
                     errors = _model.Mesh.CreatePrismaticBoundaryLayer(geometryIds, thickness, false, out FeNode[] inPressedNodes);
+                //
+                UpdateAfterPartsChanged(); // must be here before any drawing
                 // Redraw the geometry for update of the selection based sets
                 FeModelUpdate(UpdateType.DrawModel);
                 // Update sets - must be called with rendering off - SetStateWorking
@@ -5267,6 +5284,8 @@ namespace PrePoMax
             result = RemeshShellElements(elementSet, remeshingParameters, preview);
             //
             RemoveElementSets(new string[] { elementSet.Name });
+            //
+            UpdateAfterPartsChanged(); // must be here before any drawing
             //
             return result;
         }
@@ -5417,6 +5436,8 @@ namespace PrePoMax
                 {
                     _form.UpdateTreeNode(ViewGeometryModelResults.Model, partName, _model.Mesh.Parts[partName], null);
                 }
+                //
+                UpdateAfterPartsChanged(); // must be here before any drawing
                 // Redraw the geometry for update of the selection based sets
                 FeModelUpdate(UpdateType.DrawModel);
                 // Update sets - must be called with rendering off - SetStateWorking
@@ -5565,7 +5586,7 @@ namespace PrePoMax
                 //
                 HideModelParts(basePartNames);
                 //
-                UpdateAfterImport(".mesh");
+                UpdateAfterImport(".mesh"); // calls UpdateAfterPartsChanged();
                 //
                 return true;
             }
@@ -5692,9 +5713,9 @@ namespace PrePoMax
             newModel.ImportModelFromInpFile(fileName, _form.WriteDataToOutput);
             _model.Mesh.UpdateNodalCoordinatesFromMesh(newModel.Mesh);
             //
-            ResumeExplodedViews(false);
+            UpdateAfterPartsChanged(); // must be here before any drawing
             //
-            ClearSelectionBuffer();
+            ResumeExplodedViews(false);
             //
             FeModelUpdate(UpdateType.DrawModel);
         }
@@ -5737,6 +5758,8 @@ namespace PrePoMax
             SuppressExplodedView();
             //
             _model.Mesh.MergeCoincidentNodes(name, mergeCoincidentNodes);
+            //
+            UpdateAfterPartsChanged();
             //
             if (isExplodedViewActive) TurnExplodedViewOnOff(false);
             //
@@ -6236,6 +6259,8 @@ namespace PrePoMax
                 }
             }
             //
+            UpdateAfterPartsChanged(); // must be here before any drawing
+            //
             if (IsExplodedViewActive()) UpdateExplodedView(false);
             //
             FeModelUpdate(UpdateType.DrawModel | UpdateType.RedrawSymbols);
@@ -6258,6 +6283,8 @@ namespace PrePoMax
                 }
             }
             //
+            UpdateAfterPartsChanged(); // must be here before any drawing
+            //
             if (explodedViewActive) TurnExplodedViewOnOff(false);
             //
             FeModelUpdate(UpdateType.DrawModel | UpdateType.RedrawSymbols);
@@ -6277,6 +6304,8 @@ namespace PrePoMax
                     _form.AddTreeNode(ViewGeometryModelResults.Model, _model.Mesh.Parts[partName], null);
                 }
             }
+            //
+            UpdateAfterPartsChanged(); // must be here before any drawing
             //
             if (IsExplodedViewActive()) UpdateExplodedView(false);
             //
@@ -6308,6 +6337,10 @@ namespace PrePoMax
                 }
                 //
                 _form.AddTreeNode(ViewGeometryModelResults.Model, newMeshPart, null);
+                //
+                UpdateGeometryBasedItems(false);
+                //
+                UpdateAfterPartsChanged(); // must be here before any drawing
                 //
                 AnnotateWithColorLegend();
                 //
@@ -6533,7 +6566,12 @@ namespace PrePoMax
                 }
             }
         }
-
+        private void UpdateAfterPartsChanged()
+        {
+            ClearSelectionBuffer();
+            //
+            UpdateNCalcParameters(false);
+        }
         #endregion #################################################################################################################
 
         #region Node set   #########################################################################################################
@@ -6898,6 +6936,10 @@ namespace PrePoMax
             {
                 _form.RemoveTreeNode<FeElementSet>(ViewGeometryModelResults.Model, elementSetName, null);
             }
+            //
+            UpdateGeometryBasedItems(false);
+            //
+            UpdateAfterPartsChanged(); // must be here before any drawing
             //
             AnnotateWithColorLegend();
             //
@@ -10373,11 +10415,13 @@ namespace PrePoMax
         //******************************************************************************************
         public void ExportParametersToFile(string fileName)
         {
+            UpdateNCalcParameters();
             _model.Parameters.ExportToFile(fileName);
         }
         public void ImportParametersFromFile(string fileName)
         {
             _model.Parameters.ImportFromFile(fileName);
+            UpdateNCalcParameters();
         }
         public void AddParameter(EquationParameter parameter)
         {
@@ -17598,8 +17642,6 @@ namespace PrePoMax
                 }
             }
             //
-
-
             int[] nodeIds = mesh.GetIdsFromGeometryIds(nodeIdsList.ToArray(), vtkSelectItem.Node, onlyVisible);
             int[] edgeIds = mesh.GetIdsFromGeometryIds(edgeIdsList.ToArray(), vtkSelectItem.GeometryEdge, onlyVisible);
             int[] surfaceFaceIds = mesh.GetIdsFromGeometryIds(surfaceIdsList.ToArray(), vtkSelectItem.Surface, onlyVisible);
@@ -18342,7 +18384,7 @@ namespace PrePoMax
             //
             int symbolSize = _settings.Pre.SymbolSize;
             int nodeSize = _settings.Pre.HighlightNodeSymbolSize;
-            DrawBoundaryCondition("Step-Highlight", boundaryCondition, Color.Red, symbolSize,
+            DrawBoundaryCondition("Highlight", boundaryCondition, Color.Red, symbolSize,
                                   nodeSize, vtkRendererLayer.Selection, false);
         }
         public void HighlightLoad(Load load, bool mouseOver = false)

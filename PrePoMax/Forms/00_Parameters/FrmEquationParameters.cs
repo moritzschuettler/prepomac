@@ -26,6 +26,7 @@ namespace PrePoMax.Forms
         private Dictionary<string, object> _propertyParameters;
         private int _cellRow;
         private int _cellCol;
+        private bool _bindingInProgress;
 
 
 
@@ -40,8 +41,7 @@ namespace PrePoMax.Forms
             dgvData.ShowErrorMsg = false;
             //
             _propertyParameters = _controller.GetPropertyParameters();
-            //
-            dgvData.BuildAutocompleteMenu(_propertyParameters.Keys, 1);
+            _bindingInProgress = false;
         }
 
 
@@ -55,7 +55,9 @@ namespace PrePoMax.Forms
                     _parameters = new List<EquationParameter>();
                     foreach (var entry in _controller.Model.Parameters) _parameters.Add(entry.Value.DeepClone());
                     // Binding
+                    _bindingInProgress = true;
                     SetDataGridViewBinding(_parameters);
+                    _bindingInProgress = false;
                     //
                     UpdateNCalcParameters();
                 }
@@ -63,6 +65,7 @@ namespace PrePoMax.Forms
             catch (Exception ex)
             {
                 ExceptionTools.Show(this, ex);
+                _bindingInProgress = false;
             }
         }
         private void FrmParametersEditor_FormClosing(object sender, FormClosingEventArgs e)
@@ -72,11 +75,11 @@ namespace PrePoMax.Forms
         //
         private void dgvData_RowsAdded(object sender, DataGridViewRowsAddedEventArgs e)
         {
-            UpdateNCalcParameters();
+            if (!_bindingInProgress) UpdateNCalcParameters();
         }
         private void dgvData_RowsRemoved(object sender, DataGridViewRowsRemovedEventArgs e)
         {
-            UpdateNCalcParameters();
+            if (!_bindingInProgress) UpdateNCalcParameters();
         }
         //
         private void dgvData_CellBeginEdit(object sender, DataGridViewCellCancelEventArgs e)

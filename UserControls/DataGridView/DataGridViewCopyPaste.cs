@@ -51,7 +51,6 @@ namespace UserControls
             get { return frmDiagramView.StartPlotAtZero; }
             set { frmDiagramView.StartPlotAtZero = value; }
         }
-        public AutocompleteMenu AutocompleteMenu { get { return autocompleteMenu; } }
 
 
         // Constructors                                                                                                             

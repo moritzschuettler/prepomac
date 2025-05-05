@@ -108,6 +108,9 @@
     <Compile Include="TextBoxes\AnnotationEditorRichTextBox.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="TextBoxes\Class1.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="TextBoxes\MultiIntegerTextBox.cs">
       <SubType>Component</SubType>
     </Compile>

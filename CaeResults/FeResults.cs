@@ -3658,10 +3658,10 @@ namespace CaeResults
                 CheckResultHistoryOutputEquation(resultHistoryOutput.Equation, out parentNames, out parameterNameHistoryComponent);
                 resultHistoryOutput.SetParentNames(parentNames.ToArray());
                 //
+                int numCol;
+                int numRow;
+                List<double> time;
                 double[][] values;
-                List<double> time = parameterNameHistoryComponent.First().Value.Entries.First().Value.Time;
-                int numCol = parameterNameHistoryComponent.First().Value.Entries.Count();
-                int numRow = parameterNameHistoryComponent.First().Value.Entries.First().Value.Values.Count();
                 Dictionary<string, double[]> parameterNameValues = new Dictionary<string, double[]>();
                 //
                 bool entryNamesEqual = true;
@@ -3670,6 +3670,10 @@ namespace CaeResults
                 //
                 if (parameterNameHistoryComponent.Count > 0)
                 {
+                    numCol = parameterNameHistoryComponent.First().Value.Entries.Count();
+                    numRow = parameterNameHistoryComponent.First().Value.Entries.First().Value.Values.Count();
+                    time = parameterNameHistoryComponent.First().Value.Entries.First().Value.Time;
+                    //
                     foreach (var componentEntry in parameterNameHistoryComponent)
                     {
                         values = componentEntry.Value.GetAllValues();
@@ -3690,6 +3694,13 @@ namespace CaeResults
                         //
                         parameterNameValues.Add(componentEntry.Key, values.ToFlatArray());
                     }
+                }
+                else
+                {
+                    numCol = 1;
+                    numRow = 1;
+                    time = new List<double>() { 1 };
+                    entryNames = new string[] { "1" };
                 }
                 // Evaluate the array equation
                 foreach (var entry in parameterNameValues) MyNCalc.ExistingParameters[entry.Key] = entry.Value;
@@ -4330,9 +4341,9 @@ namespace CaeResults
                 HashSet<string> parameterNames;
                 bool hasErrors = MyNCalc.HasErrors(equation, out parameterNames);
                 //
-                if (parameterNames == null || parameterNames.Count == 0 ||
-                    parameterNames.Intersect(possibleEquationParameters).Count() == 0)
-                    throw new CaeException("At least one history output component must be used in the equation.");
+                //if (parameterNames == null || parameterNames.Count == 0 ||
+                //    parameterNames.Intersect(possibleEquationParameters).Count() == 0)
+                //    throw new CaeException("At least one history output component must be used in the equation.");
                 //
                 string[] tmp;
                 string[] splitter = new string[] { ResultHistoryOutputFromEquation.EquationSeparator };
@@ -4385,8 +4396,8 @@ namespace CaeResults
                     parameterNameHistoryComponent.Add(parameterName, historyResultComponent);
                 }
                 //
-                if (parentNames.Count == 0)
-                    throw new CaeException("The equation must contain at least one history output reference.");
+                //if (parentNames.Count == 0)
+                //    throw new CaeException("The equation must contain at least one history output reference.");
                 //
                 return null;
             }

@@ -6676,7 +6676,7 @@ namespace PrePoMax
                     {
                         _controller.ImportParametersCommand(openFileDialog.FileName);
                         //
-                        tsmiEditParameters_Click(null, null);
+                        //tsmiEditParameters_Click(null, null);
                     }
                 }
             }
