@@ -52,6 +52,7 @@ namespace AutocompleteMenuNS
             Host = new AutocompleteMenuHost(this);
             Host.ListView.ItemSelected += new EventHandler(ListView_ItemSelected);
             Host.ListView.ItemHovered += new EventHandler<HoveredEventArgs>(ListView_ItemHovered);
+            Host.ListView.MouseEnter += new EventHandler(ListView_MouseEnter);
             VisibleItems = new List<AutocompleteItem>();
             Enabled = true;
             AppearInterval = 500;
@@ -81,6 +82,11 @@ namespace AutocompleteMenuNS
         void ListView_ItemHovered(object sender, HoveredEventArgs e)
         {
             OnHovered(e);
+        }
+
+        private void ListView_MouseEnter(object sender, EventArgs e)
+        {
+            Host.Hide();
         }
 
         public void OnHovered(HoveredEventArgs e)

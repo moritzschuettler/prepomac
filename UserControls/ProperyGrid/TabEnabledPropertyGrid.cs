@@ -10,6 +10,7 @@ using System.Resources;
 using AutocompleteMenuNS;
 using CaeGlobals;
 using System.Diagnostics;
+using System.Drawing;
 
 namespace UserControls
 {
@@ -17,7 +18,7 @@ namespace UserControls
     public class TabEnabledPropertyGrid : PropertyGrid
     {
         // Variables                                                                                                                
-        private AutocompleteMenuNS.AutocompleteMenu autocompleteMenu;
+        private AutocompleteMenu autocompleteMenu;
         private TextBox _editControl;
         private bool _tabInitialized;
         private bool _readOnly;
@@ -42,7 +43,6 @@ namespace UserControls
         }
         private void InitializeComponent()
         {
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(TabEnabledPropertyGrid));
             this.autocompleteMenu = new AutocompleteMenuNS.AutocompleteMenu();
             this.SuspendLayout();
             // 
@@ -52,15 +52,13 @@ namespace UserControls
             this.autocompleteMenu.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.autocompleteMenu.ImageList = null;
             this.autocompleteMenu.Items = new string[0];
-            this.autocompleteMenu.MaximumSize = new System.Drawing.Size(360, 200);
+            this.autocompleteMenu.MaximumSize = new System.Drawing.Size(260, 200);
             this.autocompleteMenu.MinFragmentLength = 1;
             this.autocompleteMenu.SearchPattern = "[\\w\\.]+";
             this.autocompleteMenu.TargetControlWrapper = null;
             this.ResumeLayout(false);
+
         }
-
-        
-
        
         
         // Event handlers                                                                                                           
@@ -182,8 +180,6 @@ namespace UserControls
             autocompleteMenu.Enabled = _editControl != null && _editControl.Text.Trim().Length > 0 &&
                                        _editControl.Text.Trim()[0] == '=';
         }
-
-
         private void EditControl_PreviewKeyDown(object sender, PreviewKeyDownEventArgs e)
         {
             // Must be active to forward these keys to 
@@ -194,6 +190,7 @@ namespace UserControls
             }
         }
 
+        
 
         // Overrides                                                                                                                
         protected override void OnSelectedObjectsChanged(EventArgs e)
@@ -219,8 +216,6 @@ namespace UserControls
             //
             base.OnSelectedObjectsChanged(e);
         }
-
-
         protected override void OnGotFocus(EventArgs e)
         {
             //System.Diagnostics.Debug.WriteLine(DateTime.Now.Millisecond + " OnGotFocus");
@@ -312,6 +307,9 @@ namespace UserControls
             // Set as autocomplete source
             autocompleteMenu.SetAutocompleteItems(acItems);
         }
+
+
+        
     }
        
 }

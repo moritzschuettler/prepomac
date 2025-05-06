@@ -230,6 +230,8 @@ namespace PrePoMax.Forms
             //
             HighlightReferencePoint();
             //
+            propertyGrid.BuildAutocompleteMenu(_controller.GetPropertyParameters().Keys);
+            //
             return true;
         }
         private void tsmiResetAll_Click(object sender, EventArgs e)

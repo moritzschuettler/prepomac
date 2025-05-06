@@ -46,6 +46,11 @@ namespace AutocompleteMenuNS
         event EventHandler<HoveredEventArgs> ItemHovered;
 
         /// <summary>
+        /// Occurs when mouse enters the list view
+        /// </summary>
+        event EventHandler MouseEnter;
+
+        /// <summary>
         /// Shows tooltip
         /// </summary>
         /// <param name="autocompleteItem"></param>

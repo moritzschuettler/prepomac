@@ -392,6 +392,8 @@ namespace PrePoMax.Forms
             }
             ShowHideSelectionForm();
             //
+            propertyGrid.BuildAutocompleteMenu(_controller.GetPropertyParameters().Keys);
+            //
             return true;
         }
         private void SetCreationDataToSelection(Constraint constraint)

@@ -26,11 +26,15 @@ namespace AutocompleteMenuNS
         /// </summary>
         public event EventHandler ItemSelected;
 
-
         /// <summary>
         /// Occurs when current hovered item is changing
         /// </summary>
         public event EventHandler<HoveredEventArgs> ItemHovered;
+
+        /// <summary>
+        /// Occurs when mouse enters the list view
+        /// </summary>
+        event EventHandler MouseEnter;
 
         /// <summary>
         /// Colors
@@ -244,6 +248,8 @@ namespace AutocompleteMenuNS
         {
             base.OnMouseEnter(e);
             mouseEnterPoint = Control.MousePosition;
+            //
+            if (MouseEnter != null) MouseEnter(this, e);
         }
 
         protected override void OnMouseMove(MouseEventArgs e)

@@ -120,6 +120,7 @@
     <Compile Include="IMultiRegion.cs" />
     <Compile Include="KeyboardHook.cs" />
     <Compile Include="MessageBoxManager.cs" />
+    <Compile Include="MouseHook.cs" />
     <Compile Include="Octree\BoundsOctree.cs" />
     <Compile Include="Octree\BoundsOctreeNode.cs" />
     <Compile Include="Octree\Data\BoundingBox.cs" />
