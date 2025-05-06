@@ -15,11 +15,12 @@ using System.IO;
 using System.Text.RegularExpressions;
 using System.Collections.ObjectModel;
 using System.Reflection;
+using UserControls;
 
 namespace PrePoMax.Forms
 {
     
-    public partial class FrmCalculixKeywordEditor : UserControls.PrePoMaxChildForm
+    public partial class FrmCalculixKeywordEditor : PrePoMaxChildForm
     {
         // dll routines
         [System.Runtime.InteropServices.DllImport("user32.dll")]
@@ -43,7 +44,11 @@ namespace PrePoMax.Forms
 
         // Properties                                                                                                               
         public List<CalculixKeyword> Keywords { get { return _keywords; } set { _keywords = value; } }
-        public OrderedDictionary<int[], CalculixUserKeyword> UserKeywords { get { return _userKeywords; } set { _userKeywords = value; } }
+        public OrderedDictionary<int[], CalculixUserKeyword> UserKeywords
+        {
+            get { return _userKeywords; }
+            set { _userKeywords = value; }
+        }
 
 
         // Constructors                                                                                                             

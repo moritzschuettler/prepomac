@@ -34,6 +34,7 @@ namespace PrePoMax.Forms
             this.btnAddKeyword = new System.Windows.Forms.Button();
             this.btnOK = new System.Windows.Forms.Button();
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
+            this.panel1 = new System.Windows.Forms.Panel();
             this.label2 = new System.Windows.Forms.Label();
             this.cltvKeywordsTree = new UserControls.CodersLabTreeView();
             this.btnMoveDown = new System.Windows.Forms.Button();
@@ -45,7 +46,6 @@ namespace PrePoMax.Forms
             this.label3 = new System.Windows.Forms.Label();
             this.label1 = new System.Windows.Forms.Label();
             this.tUpdate = new System.Windows.Forms.Timer(this.components);
-            this.panel1 = new System.Windows.Forms.Panel();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
@@ -121,6 +121,16 @@ namespace PrePoMax.Forms
             this.splitContainer1.SplitterDistance = 469;
             this.splitContainer1.TabIndex = 0;
             // 
+            // panel1
+            // 
+            this.panel1.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.panel1.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.panel1.Location = new System.Drawing.Point(468, 18);
+            this.panel1.Name = "panel1";
+            this.panel1.Size = new System.Drawing.Size(131, 537);
+            this.panel1.TabIndex = 11;
+            // 
             // label2
             // 
             this.label2.AutoSize = true;
@@ -142,6 +152,7 @@ namespace PrePoMax.Forms
             this.cltvKeywordsTree.ForeColor = System.Drawing.SystemColors.WindowText;
             this.cltvKeywordsTree.HighlightForeErrorColor = System.Drawing.Color.Red;
             this.cltvKeywordsTree.Location = new System.Drawing.Point(3, 18);
+            this.cltvKeywordsTree.MouseOverColor = System.Drawing.Color.FromArgb(((int)(((byte)(204)))), ((int)(((byte)(228)))), ((int)(((byte)(247)))));
             this.cltvKeywordsTree.Name = "cltvKeywordsTree";
             this.cltvKeywordsTree.SelectionBackColor = System.Drawing.SystemColors.Highlight;
             this.cltvKeywordsTree.SelectionMode = UserControls.TreeViewSelectionMode.SingleSelect;
@@ -174,6 +185,7 @@ namespace PrePoMax.Forms
             // btnDelete
             // 
             this.btnDelete.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnDelete.DialogResult = System.Windows.Forms.DialogResult.Cancel;
             this.btnDelete.Image = global::PrePoMax.Properties.Resources.Remove;
             this.btnDelete.Location = new System.Drawing.Point(439, 84);
             this.btnDelete.Name = "btnDelete";
@@ -189,7 +201,7 @@ namespace PrePoMax.Forms
             this.cbHide.CheckState = System.Windows.Forms.CheckState.Checked;
             this.cbHide.Location = new System.Drawing.Point(166, 180);
             this.cbHide.Name = "cbHide";
-            this.cbHide.Size = new System.Drawing.Size(193, 19);
+            this.cbHide.Size = new System.Drawing.Size(186, 19);
             this.cbHide.TabIndex = 13;
             this.cbHide.Text = "Use hiding for faster operation";
             this.cbHide.UseVisualStyleBackColor = true;
@@ -290,16 +302,6 @@ namespace PrePoMax.Forms
             // 
             this.tUpdate.Interval = 500;
             this.tUpdate.Tick += new System.EventHandler(this.tUpdate_Tick);
-            // 
-            // panel1
-            // 
-            this.panel1.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.panel1.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.panel1.Location = new System.Drawing.Point(468, 18);
-            this.panel1.Name = "panel1";
-            this.panel1.Size = new System.Drawing.Size(131, 537);
-            this.panel1.TabIndex = 11;
             // 
             // FrmCalculixKeywordEditor
             // 

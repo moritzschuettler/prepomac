@@ -5,6 +5,11 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Reflection;
+using UserControls.Properties;
+using System.Resources;
+using AutocompleteMenuNS;
+using CaeGlobals;
+using System.Diagnostics;
 
 namespace UserControls
 {
@@ -12,6 +17,8 @@ namespace UserControls
     public class TabEnabledPropertyGrid : PropertyGrid
     {
         // Variables                                                                                                                
+        private AutocompleteMenuNS.AutocompleteMenu autocompleteMenu;
+        private TextBox _editControl;
         private bool _tabInitialized;
         private bool _readOnly;
 
@@ -23,82 +30,87 @@ namespace UserControls
         // Constructors                                                                                                             
         public TabEnabledPropertyGrid() : base()
         {
+            InitializeComponent();
+            //
             this.LineColor = System.Drawing.SystemColors.Control;
             this.DisabledItemForeColor = System.Drawing.Color.FromArgb(80, 80, 80);
             //
             _tabInitialized = false;
             _readOnly = false;
             //
-            //Site = new MySite(this); moved to OnSelectedObjectsChanged
+            BuildAutocompleteMenu(new string[0]);
         }
-        //
-        public void SetLabelColumnWidth(double labelRatio)
+        private void InitializeComponent()
         {
-            // get the grid view
-
-            Control view = (Control)typeof(PropertyGrid).GetField("gridView", BindingFlags.Instance | BindingFlags.NonPublic).GetValue((PropertyGrid)this);
-            //Control view = (Control)typeof(PropertyGrid).GetField("gridView", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(grid);
-
-            // set label width
-            //FieldInfo fi = view.GetType().GetField("labelWidth", BindingFlags.Instance | BindingFlags.NonPublic);
-            //fi.SetValue(view, width);
-
-            FieldInfo fi2 = view.GetType().GetField("labelRatio");
-            fi2.SetValue(view, labelRatio);
-
-            // refresh
-            view.Invalidate();
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(TabEnabledPropertyGrid));
+            this.autocompleteMenu = new AutocompleteMenuNS.AutocompleteMenu();
+            this.SuspendLayout();
+            // 
+            // autocompleteMenu
+            // 
+            this.autocompleteMenu.AllowsTabKey = true;
+            this.autocompleteMenu.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.autocompleteMenu.ImageList = null;
+            this.autocompleteMenu.Items = new string[0];
+            this.autocompleteMenu.MaximumSize = new System.Drawing.Size(360, 200);
+            this.autocompleteMenu.MinFragmentLength = 1;
+            this.autocompleteMenu.SearchPattern = "[\\w\\.]+";
+            this.autocompleteMenu.TargetControlWrapper = null;
+            this.ResumeLayout(false);
         }
-        //
+
+        
+
+       
+        
+        // Event handlers                                                                                                           
         private void Form_KeyDown(object sender, KeyEventArgs e)
         {
-            //System.Diagnostics.Debug.WriteLine(DateTime.Now.Millisecond + e.KeyCode.ToString());
-            // Exit if cursor not in control
-            //if (!this.RectangleToScreen(this.ClientRectangle).Contains(Cursor.Position))
-            if (!this.ContainsFocus)
+            if (!this.ContainsFocus) return;
+            if (autocompleteMenu.Visible)
             {
+                if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Tab || e.KeyCode == Keys.Escape)
+                {
+                    e.Handled = true;
+                    e.SuppressKeyPress = true;
+                }
+                //
+                if (e.KeyCode == Keys.Enter) autocompleteMenu.ProcessKey((char)Keys.Return, Keys.None);
+                else if (e.KeyCode == Keys.Tab) autocompleteMenu.ProcessKey((char)Keys.Tab, Keys.None);
+                else if (e.KeyCode == Keys.Escape) autocompleteMenu.ProcessKey((char)Keys.Escape, Keys.None);
+                //
                 return;
             }
-
-            //if (e.KeyCode == Keys.Return) 
-            //{
-            //    SendKeys.Send("{Tab}");
-            //    SendKeys.Send("{Tab}");
-            //    return;
-            //}
-
-            // Handle tab key
-            if (e.KeyCode != Keys.Tab) { return; }
-            e.Handled = true;
-            e.SuppressKeyPress = true;
-
-            // Get selected grid item
-            GridItem gridItem = this.SelectedGridItem;
-            if (gridItem == null) { return; }
-
-            // Create a collection all visible child grid items in property grid
-            GridItem root = gridItem;
-            while (root.GridItemType != GridItemType.Root)
+            // Handle tab key of the property grid
+            if (e.KeyCode == Keys.Tab)
             {
-                root = root.Parent;
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                // Get selected grid item
+                GridItem gridItem = this.SelectedGridItem;
+                if (gridItem == null) { return; }
+                // Create a collection all visible child grid items in property grid
+                GridItem root = gridItem;
+                while (root.GridItemType != GridItemType.Root)
+                {
+                    root = root.Parent;
+                }
+                List<GridItem> gridItems = new List<GridItem>();
+                this.FindItems(root, gridItems);
+                // Get position of selected grid item in collection
+                int index = gridItems.IndexOf(gridItem);
+                int nextIndex = index + 1;
+                if (nextIndex >= gridItems.Count)
+                {
+                    e.Handled = false;
+                    e.SuppressKeyPress = false;
+                    return;
+                }
+                // Select next grid item in collection
+                this.SelectedGridItem = gridItems[nextIndex];
+                SendKeys.Send("{Tab}");
             }
-            List<GridItem> gridItems = new List<GridItem>();
-            this.FindItems(root, gridItems);
-
-            // Get position of selected grid item in collection
-            int index = gridItems.IndexOf(gridItem);
-
-            int nextIndex = index + 1;
-            if (nextIndex >= gridItems.Count)
-            {
-                //this.SelectedGridItem = gridItems[0];
-                e.Handled = false;
-                e.SuppressKeyPress = false;
-                return;
-            }
-            // Select next griditem in collection
-            this.SelectedGridItem = gridItems[nextIndex];
-            SendKeys.Send("{Tab}");
+            
         }
         private void FindItems(GridItem item, List<GridItem> gridItems)
         {
@@ -125,7 +137,65 @@ namespace UserControls
                     break;
             }
         }
-        // Overrides
+        // Autocomplete menu
+        private void AttachAutocompleteToInternalTextBox()
+        {
+            TextBox editTextBox = FindPropertyGridTextBox();
+            if (editTextBox != null)
+            {
+                // Add autocompleteMenu to edit control
+                _editControl = editTextBox;
+                _editControl.TextChanged += EditControl_TextChanged;
+                _editControl.PreviewKeyDown += EditControl_PreviewKeyDown;
+                autocompleteMenu.SetAutocompleteMenu(editTextBox, autocompleteMenu);
+            }
+        }
+        private void DetachAutocompleteFromInternalTextBox()
+        {
+            if (_editControl != null)
+            {
+                // Remove autocompleteMenu from edit control
+                autocompleteMenu.TargetControlWrapper = null;
+                autocompleteMenu.SetAutocompleteMenu(_editControl, null);
+                _editControl.TextChanged -= EditControl_TextChanged;
+                _editControl.PreviewKeyDown -= EditControl_PreviewKeyDown;
+                _editControl = null;
+            }
+        }
+        private TextBox FindPropertyGridTextBox()
+        {
+            foreach (Control control in Controls)
+            {
+                if (control.GetType().Name == "PropertyGridView")
+                {
+                    foreach (Control subControl in control.Controls)
+                    {
+                        if (subControl is TextBox tb && tb.Visible && !tb.ReadOnly)
+                            return tb;
+                    }
+                }
+            }
+            return null;
+        }
+        private void EditControl_TextChanged(object sender, EventArgs e)
+        {
+            autocompleteMenu.Enabled = _editControl != null && _editControl.Text.Trim().Length > 0 &&
+                                       _editControl.Text.Trim()[0] == '=';
+        }
+
+
+        private void EditControl_PreviewKeyDown(object sender, PreviewKeyDownEventArgs e)
+        {
+            // Must be active to forward these keys to 
+            if (autocompleteMenu.Visible)
+            {
+                if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Tab || e.KeyCode == Keys.Escape)
+                    e.IsInputKey = true;
+            }
+        }
+
+
+        // Overrides                                                                                                                
         protected override void OnSelectedObjectsChanged(EventArgs e)
         {
             // Site
@@ -149,6 +219,8 @@ namespace UserControls
             //
             base.OnSelectedObjectsChanged(e);
         }
+
+
         protected override void OnGotFocus(EventArgs e)
         {
             //System.Diagnostics.Debug.WriteLine(DateTime.Now.Millisecond + " OnGotFocus");
@@ -205,15 +277,40 @@ namespace UserControls
                 }
             }
             else base.OnSelectedGridItemChanged(e);
+            //
+            this.BeginInvoke(new Action(DetachAutocompleteFromInternalTextBox));
+            this.BeginInvoke(new Action(AttachAutocompleteToInternalTextBox));
         }
-        //
-        private void InitializeComponent()
+        
+        
+        // Methods                                                                                                                  
+        public void SetLabelColumnWidth(double labelRatio)
         {
-            this.SuspendLayout();
-            // 
-            // TabEnabledPropertyGrid
-            // 
-            this.ResumeLayout(false);
+            // get the grid view
+
+            Control view = (Control)typeof(PropertyGrid).GetField("gridView", BindingFlags.Instance | BindingFlags.NonPublic).GetValue((PropertyGrid)this);
+            //Control view = (Control)typeof(PropertyGrid).GetField("gridView", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(grid);
+
+            // set label width
+            //FieldInfo fi = view.GetType().GetField("labelWidth", BindingFlags.Instance | BindingFlags.NonPublic);
+            //fi.SetValue(view, width);
+
+            FieldInfo fi2 = view.GetType().GetField("labelRatio");
+            fi2.SetValue(view, labelRatio);
+
+            // refresh
+            view.Invalidate();
+        }
+        // Autocomplete menu
+        public void BuildAutocompleteMenu(IEnumerable<string> items)
+        {
+            List<AutocompleteItem> acItems = new List<AutocompleteItem>();
+            foreach (var item in items) acItems.Add(new AutocompleteItem(item));
+            //
+            var snippets = MyNCalc.GetFunctionSnippets();
+            foreach (var snippet in snippets) acItems.Add(new SnippetAutocompleteItem(snippet));
+            // Set as autocomplete source
+            autocompleteMenu.SetAutocompleteItems(acItems);
         }
     }
        

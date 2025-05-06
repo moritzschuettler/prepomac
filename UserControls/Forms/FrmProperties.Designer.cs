@@ -59,6 +59,7 @@
             this.propertyGrid.LineColor = System.Drawing.SystemColors.Control;
             this.propertyGrid.Location = new System.Drawing.Point(6, 22);
             this.propertyGrid.Name = "propertyGrid";
+            this.propertyGrid.ReadOnly = false;
             this.propertyGrid.Size = new System.Drawing.Size(298, 336);
             this.propertyGrid.TabIndex = 3;
             this.propertyGrid.ToolbarVisible = false;

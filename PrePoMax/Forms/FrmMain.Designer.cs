@@ -515,8 +515,6 @@ namespace PrePoMax
             this.tsslCancel = new System.Windows.Forms.ToolStripStatusLabel();
             this.tsslEmpty = new System.Windows.Forms.ToolStripStatusLabel();
             this.tsslUnitSystem = new System.Windows.Forms.ToolStripStatusLabel();
-            this.saveFileDialog = new System.Windows.Forms.SaveFileDialog();
-            this.openFileDialog = new System.Windows.Forms.OpenFileDialog();
             this.toolStripContainer1 = new System.Windows.Forms.ToolStripContainer();
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
             this.splitContainer2 = new System.Windows.Forms.SplitContainer();
@@ -4509,10 +4507,6 @@ namespace PrePoMax
             this.tsslUnitSystem.Text = "Unit system: Undefined";
             this.tsslUnitSystem.Click += new System.EventHandler(this.tsslUnitSystem_Click);
             // 
-            // openFileDialog
-            // 
-            this.openFileDialog.FileName = "openFileDialog";
-            // 
             // toolStripContainer1
             // 
             this.toolStripContainer1.BottomToolStripPanelVisible = false;
@@ -4697,9 +4691,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiExit;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerFile1;
         private System.Windows.Forms.ToolStripMenuItem tsmiSave;
-        private System.Windows.Forms.SaveFileDialog saveFileDialog;
         private System.Windows.Forms.ToolStripMenuItem tsmiOpen;
-        private System.Windows.Forms.OpenFileDialog openFileDialog;
         private System.Windows.Forms.ToolStripMenuItem tsmiImportFile;
         private System.Windows.Forms.ToolStripMenuItem tsmiSaveAs;
         private System.Windows.Forms.ToolStripMenuItem tsmiView;

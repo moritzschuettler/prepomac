@@ -3961,17 +3961,18 @@ namespace PrePoMax
             {
                 if (CheckValidity())
                 {
-                    if (_frmCalculixKeywordEditor == null) _frmCalculixKeywordEditor = new FrmCalculixKeywordEditor();
-                    //
-                    _frmCalculixKeywordEditor.Keywords = _controller.GetCalculixModelKeywords();
-                    _frmCalculixKeywordEditor.UserKeywords = _controller.GetCalculixUserKeywords();
-                    //
-                    if (_frmCalculixKeywordEditor.Keywords != null)
+                    using (_frmCalculixKeywordEditor = new FrmCalculixKeywordEditor())
                     {
-                        _frmCalculixKeywordEditor.PrepareForm(); // must be here to check for errors
-                        if (_frmCalculixKeywordEditor.ShowDialog() == DialogResult.OK)
+                        _frmCalculixKeywordEditor.Keywords = _controller.GetCalculixModelKeywords();
+                        _frmCalculixKeywordEditor.UserKeywords = _controller.GetCalculixUserKeywords();
+                        //
+                        if (_frmCalculixKeywordEditor.Keywords != null)
                         {
-                            _controller.SetCalculixUserKeywordsCommand(_frmCalculixKeywordEditor.UserKeywords);
+                            _frmCalculixKeywordEditor.PrepareForm(); // must be here to check for errors
+                            if (_frmCalculixKeywordEditor.ShowDialog() == DialogResult.OK)
+                            {
+                                _controller.SetCalculixUserKeywordsCommand(_frmCalculixKeywordEditor.UserKeywords);
+                            }
                         }
                     }
                 }
@@ -4950,14 +4951,17 @@ namespace PrePoMax
             {
                 _controller.CurrentView = ViewGeometryModelResults.Model;
                 //
-                saveFileDialog.Filter = "Calculix files | *.inp";
-                //
-                if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                using (SaveFileDialog saveFileDialog = new SaveFileDialog())
                 {
-                    // The filter adds the extension to the file name
-                    SetStateWorking(Globals.ExportingText);
+                    saveFileDialog.Filter = "Calculix files | *.inp";
                     //
-                    await Task.Run(() => _controller.ExportMaterials(materialNames, saveFileDialog.FileName));
+                    if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                    {
+                        // The filter adds the extension to the file name
+                        SetStateWorking(Globals.ExportingText);
+                        //
+                        await Task.Run(() => _controller.ExportMaterials(materialNames, saveFileDialog.FileName));
+                    }
                 }
             }
             catch (Exception ex)
@@ -4993,10 +4997,12 @@ namespace PrePoMax
         {
             if (_controller.Model.Mesh != null)
             {
-                FrmMaterialLibrary fml = new FrmMaterialLibrary(_controller);
-                CloseAllForms();
-                SetFormLocation(fml);
-                fml.ShowDialog();                
+                using (FrmMaterialLibrary fml = new FrmMaterialLibrary(_controller))
+                {
+                    CloseAllForms();
+                    SetFormLocation(fml);
+                    fml.ShowDialog();
+                }
             }
         }
 
@@ -6630,12 +6636,14 @@ namespace PrePoMax
             {
                 if (_controller.Model != null)
                 {
-                    FrmParametersEditor fpe = new FrmParametersEditor(_controller);
-                    fpe.Icon = Icon;
-                    fpe.Owner = this;
-                    CloseAllForms();
-                    SetFormLocation(fpe);
-                    fpe.ShowDialog();
+                    using (FrmParametersEditor fpe = new FrmParametersEditor(_controller))
+                    {
+                        fpe.Icon = Icon;
+                        fpe.Owner = this;
+                        CloseAllForms();
+                        SetFormLocation(fpe);
+                        fpe.ShowDialog();
+                    }
                 }
             }
             catch (Exception ex)
@@ -8052,9 +8060,11 @@ namespace PrePoMax
         }
         private void tsmiAbout_Click(object sender, EventArgs e)
         {
-            FrmSplash frmSplash = new FrmSplash();
-            frmSplash.ShowHelp = true;
-            frmSplash.ShowDialog();
+            using (FrmSplash frmSplash = new FrmSplash())
+            {
+                frmSplash.ShowHelp = true;
+                frmSplash.ShowDialog();
+            }
         }
         #endregion  ################################################################################################################
 
@@ -9089,11 +9099,14 @@ namespace PrePoMax
             string fileName = null;
             InvokeIfRequired(() =>
             {
-                openFileDialog.Filter = filter;
-                openFileDialog.FileName = "";
-                if (openFileDialog.ShowDialog() == DialogResult.OK)
+                using (OpenFileDialog openFileDialog = new OpenFileDialog())
                 {
-                    fileName = openFileDialog.FileName;
+                    openFileDialog.Filter = filter;
+                    openFileDialog.FileName = "";
+                    if (openFileDialog.ShowDialog() == DialogResult.OK)
+                    {
+                        fileName = openFileDialog.FileName;
+                    }
                 }
             });
             return fileName;
@@ -9107,11 +9120,14 @@ namespace PrePoMax
             string fileName = null;
             InvokeIfRequired(() =>
             {
-                openFileDialog.Filter = filter;
-                openFileDialog.FileName = "";
-                if (openFileDialog.ShowDialog() == DialogResult.OK)
+                using (OpenFileDialog openFileDialog = new OpenFileDialog())
                 {
-                    fileName = openFileDialog.FileName;
+                    openFileDialog.Filter = filter;
+                    openFileDialog.FileName = "";
+                    if (openFileDialog.ShowDialog() == DialogResult.OK)
+                    {
+                        fileName = openFileDialog.FileName;
+                    }
                 }
             });
             return fileName;
@@ -9121,15 +9137,18 @@ namespace PrePoMax
             string fileName = null;
             InvokeIfRequired(() =>
             {
-                saveFileDialog.Filter = "PrePoMax files | *.pmx";
-                //
-                fileName = Path.GetFileName(_controller.OpenedFileName);
-                saveFileDialog.FileName = fileName;
-                //
-                saveFileDialog.OverwritePrompt = true;
-                //
-                if (saveFileDialog.ShowDialog() == DialogResult.OK) fileName = saveFileDialog.FileName;
-                else fileName = null;
+                using (SaveFileDialog saveFileDialog = new SaveFileDialog())
+                {
+                    saveFileDialog.Filter = "PrePoMax files | *.pmx";
+                    //
+                    fileName = Path.GetFileName(_controller.OpenedFileName);
+                    saveFileDialog.FileName = fileName;
+                    //
+                    saveFileDialog.OverwritePrompt = true;
+                    //
+                    if (saveFileDialog.ShowDialog() == DialogResult.OK) fileName = saveFileDialog.FileName;
+                    else fileName = null;
+                }
             });
             return fileName;
         }

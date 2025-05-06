@@ -131,7 +131,6 @@ namespace UserControls
             // autocompleteMenu
             // 
             this.autocompleteMenu.AllowsTabKey = true;
-            this.autocompleteMenu.Colors = ((AutocompleteMenuNS.Colors)(resources.GetObject("autocompleteMenu.Colors")));
             this.autocompleteMenu.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.autocompleteMenu.ImageList = null;
             this.autocompleteMenu.Items = new string[0];

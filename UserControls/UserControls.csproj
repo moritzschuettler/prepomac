@@ -31,9 +31,6 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="AutocompleteMenu, Version=1.3.5.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\AutocompleteMenu.1.3.5.0\lib\net40\AutocompleteMenu.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Drawing" />
@@ -49,6 +46,23 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AutocompleteMenu\AutocompleteItem.cs" />
+    <Compile Include="AutocompleteMenu\AutocompleteItems.cs" />
+    <Compile Include="AutocompleteMenu\AutocompleteListView.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="AutocompleteMenu\AutocompleteMenu.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="AutocompleteMenu\AutocompleteMenuHost.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="AutocompleteMenu\Colors.cs" />
+    <Compile Include="AutocompleteMenu\EventArgs.cs" />
+    <Compile Include="AutocompleteMenu\IAutocompleteListView.cs" />
+    <Compile Include="AutocompleteMenu\ITextBoxWrapper.cs" />
+    <Compile Include="AutocompleteMenu\Range.cs" />
+    <Compile Include="AutocompleteMenu\TextBoxWrapper.cs" />
     <Compile Include="Forms\FrmPropertyDataListView.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -208,14 +222,19 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="AutocompleteMenu\AutocompleteMenu.resx">
+      <DependentUpon>AutocompleteMenu.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="DataGridView\DataGridViewCopyPaste.resx">
       <DependentUpon>DataGridViewCopyPaste.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="DiagramView\DiagramView.resx">
       <DependentUpon>DiagramView.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\FrmProperties.resx">
       <DependentUpon>FrmProperties.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\FrmPropertyDataListView.resx">
       <DependentUpon>FrmPropertyDataListView.cs</DependentUpon>
@@ -263,6 +282,7 @@
     </EmbeddedResource>
     <EmbeddedResource Include="ProperyGrid\TabEnabledPropertyGrid.resx">
       <DependentUpon>TabEnabledPropertyGrid.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="Trees\CodersLabTreeView.resx">
       <DependentUpon>CodersLabTreeView.cs</DependentUpon>

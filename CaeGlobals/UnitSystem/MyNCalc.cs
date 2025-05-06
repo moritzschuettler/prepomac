@@ -255,6 +255,7 @@ namespace CaeGlobals
                                   "Log10(^)",
                                   "Max(^, )",
                                   "Min(^, )",
+                                  "Pi^",
                                   "Pow(^, )",
                                   "Round(^, )",
                                   "Sign(^)",

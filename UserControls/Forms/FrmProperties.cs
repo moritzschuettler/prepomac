@@ -9,6 +9,8 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Reflection;
 using CaeGlobals;
+using System.Diagnostics;
+using AutocompleteMenuNS;
 
 namespace UserControls
 {
@@ -47,7 +49,7 @@ namespace UserControls
         }
 
 
-        // Event hadlers                                                                                                            
+        // Event handlers                                                                                                           
         private void propertyGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)
         {
             try
