@@ -295,6 +295,8 @@ namespace PrePoMax.Forms
             //
             _controller.SetSelectByToOff();
             //
+            propertyGrid.BuildAutocompleteMenu(_controller.GetAllParameterAndFieldNames());
+            //
             return true;
         }
         

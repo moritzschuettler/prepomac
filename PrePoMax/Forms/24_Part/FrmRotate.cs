@@ -157,6 +157,8 @@ namespace PrePoMax.Forms
             //
             HighlightNodes();
             //
+            propertyGrid.BuildAutocompleteMenu(_controller.GetAllParameterNames());
+            //
             return true;
         }
         private void tsmiResetAll_Click(object sender, EventArgs e)

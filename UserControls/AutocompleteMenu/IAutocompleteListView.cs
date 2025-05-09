@@ -46,9 +46,9 @@ namespace AutocompleteMenuNS
         event EventHandler<HoveredEventArgs> ItemHovered;
 
         /// <summary>
-        /// Occurs when mouse enters the list view
+        /// Occurs when mouse click is outside the controls area
         /// </summary>
-        event EventHandler MouseEnter;
+        event EventHandler OutsideMouseClick;
 
         /// <summary>
         /// Shows tooltip

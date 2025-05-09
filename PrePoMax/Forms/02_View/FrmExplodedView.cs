@@ -158,6 +158,8 @@ namespace PrePoMax.Forms
             _controller.ClearSelectionHistory();
             _controller.SetSelectByToOff();
             //
+            propertyGrid.BuildAutocompleteMenu(_controller.GetAllParameterNames());
+            //
             return true;
         }
         //

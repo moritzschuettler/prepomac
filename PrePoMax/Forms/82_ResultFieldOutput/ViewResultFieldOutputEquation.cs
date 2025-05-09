@@ -22,9 +22,9 @@ namespace PrePoMax
         //
         [CategoryAttribute("Data")]
         [OrderedDisplayName(1, 10, "Equation")]
-        [DescriptionAttribute("Example equation: =[DISP.ALL]\r\n" +
-                              "Use square brackets [] to include a field component into the equation " +
-                              "and refer to the component with its full name as " +
+        [DescriptionAttribute("Example equation: =DISP.ALL\r\n" +
+                              "To include a field component into the equation " +
+                              "refer to the component with its full name as " +
                               "Field_Name.Component_Name. All names are case sensitive.")]
         [Id(2, 1)]
         public string Equation

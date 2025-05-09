@@ -200,6 +200,8 @@ namespace PrePoMax.Forms
             //
             propertyGrid.Refresh();
             //
+            propertyGrid.BuildAutocompleteMenu(_controller.GetAllParameterNames());
+            //
             return true;
         }
         //

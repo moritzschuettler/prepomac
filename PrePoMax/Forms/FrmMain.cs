@@ -3158,7 +3158,7 @@ namespace PrePoMax
         {
             if (_controller.Model.Geometry == null) return;
             //
-            using (FrmGetValue frmGetValue = new FrmGetValue())
+            using (FrmGetValue frmGetValue = new FrmGetValue(_controller))
             {
                 frmGetValue.NumOfDigits = 0;
                 frmGetValue.MinValue = 25;
@@ -3535,7 +3535,7 @@ namespace PrePoMax
         }
         private void FindEdgesByAngleForGeometryParts(string[] partNames)
         {
-            using (FrmGetValue frmGetValue = new FrmGetValue())
+            using (FrmGetValue frmGetValue = new FrmGetValue(_controller))
             {
                 SetUpFrmGetValueForEdgeAngle(frmGetValue, partNames);
                 //
@@ -3985,7 +3985,7 @@ namespace PrePoMax
         // Tools
         private void FindEdgesByAngleForModelParts(string[] partNames)
         {
-            using (FrmGetValue frmGetValue = new FrmGetValue())
+            using (FrmGetValue frmGetValue = new FrmGetValue(_controller))
             {
                 SetUpFrmGetValueForEdgeAngle(frmGetValue, partNames);
                 //
@@ -4064,7 +4064,7 @@ namespace PrePoMax
             {
                 if (_controller.Model.Mesh == null) return;
                 //
-                using (FrmGetValue frmGetValue = new FrmGetValue())
+                using (FrmGetValue frmGetValue = new FrmGetValue(_controller))
                 {
                     frmGetValue.NumOfDigits = 0;
                     frmGetValue.MinValue = 1;
@@ -4110,7 +4110,7 @@ namespace PrePoMax
             {
                 if (_controller.Model.Mesh == null) return;
                 //
-                using (FrmGetValue frmGetValue = new FrmGetValue())
+                using (FrmGetValue frmGetValue = new FrmGetValue(_controller))
                 {
                     frmGetValue.NumOfDigits = 0;
                     frmGetValue.MinValue = 1;
@@ -4371,7 +4371,7 @@ namespace PrePoMax
         {
             if (_controller.Model.Mesh == null) return;
             //
-            using (FrmGetValue frmGetValue = new FrmGetValue())
+            using (FrmGetValue frmGetValue = new FrmGetValue(_controller))
             {
                 frmGetValue.NumOfDigits = 0;
                 frmGetValue.MinValue = 25;
@@ -7589,7 +7589,7 @@ namespace PrePoMax
         {
             if (_controller.CurrentResult == null || _controller.CurrentResult.Mesh == null) return;
             //
-            using (FrmGetValue frmGetValue = new FrmGetValue())
+            using (FrmGetValue frmGetValue = new FrmGetValue(_controller))
             {
                 frmGetValue.NumOfDigits = 0;
                 frmGetValue.MinValue = 25;

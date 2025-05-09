@@ -184,8 +184,6 @@ namespace PrePoMax.Forms
         }
         protected override bool OnPrepareForm(string stepName, string itemToEditName)
         {
-            
-            //
             _highlightEnabled = true;
             _propertyItemChanged = false;
             _viewSplitPartMeshData = null;
@@ -221,6 +219,8 @@ namespace PrePoMax.Forms
             ShowHideSelectionForm();
             //
             HighlightSplit();
+            //
+            propertyGrid.BuildAutocompleteMenu(_controller.GetAllParameterNames());
             //
             return true;
         }

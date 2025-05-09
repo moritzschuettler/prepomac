@@ -193,6 +193,8 @@ namespace PrePoMax.Forms
             //
             HighlightSurface();
             //
+            propertyGrid.BuildAutocompleteMenu(_controller.GetAllParameterNames());
+            //
             return true;
         }
 

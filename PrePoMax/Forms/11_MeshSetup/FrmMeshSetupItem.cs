@@ -31,7 +31,6 @@ namespace PrePoMax.Forms
         public Func<string[], MeshSetupItem, Task> PreviewEdgeMeshAsync;
 
 
-
         // Properties                                                                                                               
         public MeshSetupItem MeshSetupItem
         {
@@ -374,9 +373,10 @@ namespace PrePoMax.Forms
                 lvTypes.Items[selectedId].Tag = _viewMeshSetupItem;
                 _preselectIndex = selectedId;
             }
-
             //
             ShowHideSelectionForm();
+            //
+            propertyGrid.BuildAutocompleteMenu(_controller.GetAllParameterNames());
             //
             return true;
         }

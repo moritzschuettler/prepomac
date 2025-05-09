@@ -224,7 +224,7 @@ namespace PrePoMax.Forms
             HashSet<string> autocompleteItems = new HashSet<string>();
             //
             MyNCalc.ExistingParameters.Clear();
-            MyNCalc.AddPropertyParameters(_propertyParameters);
+            MyNCalc.ExistingParameters.AddRange(_propertyParameters);
             autocompleteItems.UnionWith(_propertyParameters.Keys);
             //
             foreach (var parameter in _parameters)
@@ -241,7 +241,7 @@ namespace PrePoMax.Forms
                 }
                 rowCount++;
             }
-            //
+            // Add property parameters and parameters up to editing row
             dgvData.BuildAutocompleteMenu(autocompleteItems, 1);
             //
             if (refresh) dgvData.Refresh();

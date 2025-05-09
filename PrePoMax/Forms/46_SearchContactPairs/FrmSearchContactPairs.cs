@@ -332,6 +332,8 @@ namespace PrePoMax.Forms
                 //
                 _firstTime = false;
             }
+            //
+            propertyGrid.BuildAutocompleteMenu(_controller.GetAllParameterNames());
         }
         private List<SearchContactPair> GetSelectedContactPairs()
         {

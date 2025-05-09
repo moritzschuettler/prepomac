@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
+using System.Drawing;
+using System.Windows.Forms;
 
 namespace CaeGlobals
 {
@@ -15,12 +17,16 @@ namespace CaeGlobals
         /// </summary>
         private delegate IntPtr MouseHookHandler(int nCode, IntPtr wParam, IntPtr lParam);
         private MouseHookHandler hookHandler;
+        private static long _lastClickTime = 0;
+        private static Point _lastClickPosition;
+        private static readonly int DoubleClickTime = SystemInformation.DoubleClickTime;
+        private static readonly Size DoubleClickSize = SystemInformation.DoubleClickSize;
 
         /// <summary>
         /// Function to be called when defined even occurs
         /// </summary>
         /// <param name="mouseStruct">MSLLHOOKSTRUCT mouse structure</param>
-        public delegate void MouseHookCallback(MSLLHOOKSTRUCT mouseStruct);
+        public delegate bool MouseHookCallback(MSLLHOOKSTRUCT mouseStruct);
 
         #region Events
         public event MouseHookCallback LeftButtonDown;
@@ -85,38 +91,53 @@ namespace CaeGlobals
         /// </summary>
         private IntPtr HookFunc(int nCode, IntPtr wParam, IntPtr lParam)
         {
+            bool callNextHook = true;
             // parse system messages
             if (nCode >= 0)
             {
                 if (MouseMessages.WM_LBUTTONDOWN == (MouseMessages)wParam)
-                    if (LeftButtonDown != null)
-                        LeftButtonDown((MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT)));
+                {
+                    var mouseStruct = (MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT));
+                    var currentTime = Environment.TickCount;
+                    var currentPosition = new Point(mouseStruct.pt.x, mouseStruct.pt.y);
+                    //
+                    if (currentTime - _lastClickTime <= DoubleClickTime &&
+                            Math.Abs(currentPosition.X - _lastClickPosition.X) <= DoubleClickSize.Width &&
+                            Math.Abs(currentPosition.Y - _lastClickPosition.Y) <= DoubleClickSize.Height &&
+                            DoubleClick != null)
+                    {
+                        callNextHook = DoubleClick(mouseStruct);
+                    }
+                    else if (LeftButtonDown != null) callNextHook = LeftButtonDown(mouseStruct);
+                    //
+                    _lastClickTime = currentTime;
+                    _lastClickPosition = currentPosition;
+                }
                 if (MouseMessages.WM_LBUTTONUP == (MouseMessages)wParam)
                     if (LeftButtonUp != null)
-                        LeftButtonUp((MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT)));
+                        callNextHook = LeftButtonUp((MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT)));
                 if (MouseMessages.WM_RBUTTONDOWN == (MouseMessages)wParam)
                     if (RightButtonDown != null)
-                        RightButtonDown((MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT)));
+                        callNextHook = RightButtonDown((MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT)));
                 if (MouseMessages.WM_RBUTTONUP == (MouseMessages)wParam)
                     if (RightButtonUp != null)
-                        RightButtonUp((MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT)));
+                        callNextHook = RightButtonUp((MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT)));
                 if (MouseMessages.WM_MOUSEMOVE == (MouseMessages)wParam)
                     if (MouseMove != null)
-                        MouseMove((MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT)));
+                        callNextHook = MouseMove((MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT)));
                 if (MouseMessages.WM_MOUSEWHEEL == (MouseMessages)wParam)
                     if (MouseWheel != null)
-                        MouseWheel((MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT)));
-                if (MouseMessages.WM_LBUTTONDBLCLK == (MouseMessages)wParam)
-                    if (DoubleClick != null)
-                        DoubleClick((MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT)));
+                        callNextHook = MouseWheel((MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT)));
                 if (MouseMessages.WM_MBUTTONDOWN == (MouseMessages)wParam)
                     if (MiddleButtonDown != null)
-                        MiddleButtonDown((MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT)));
+                        callNextHook = MiddleButtonDown((MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT)));
                 if (MouseMessages.WM_MBUTTONUP == (MouseMessages)wParam)
                     if (MiddleButtonUp != null)
-                        MiddleButtonUp((MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT)));
+                        callNextHook = MiddleButtonUp((MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT)));
             }
-            return CallNextHookEx(hookID, nCode, wParam, lParam);
+            //
+            if (callNextHook) return CallNextHookEx(hookID, nCode, wParam, lParam);
+            return (IntPtr)1;
         }
 
         #region WinAPI

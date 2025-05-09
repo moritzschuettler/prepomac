@@ -120,7 +120,7 @@ namespace PrePoMax.Forms
                 object itemTag = lvTypes.SelectedItems[0].Tag;
                 if (itemTag is ViewAmplitudeTabular vat)
                 {
-                    tcProperties.TabPages.Add(_pages[0]);   // properites
+                    tcProperties.TabPages.Add(_pages[0]);   // properties
                     tcProperties.TabPages.Add(_pages[1]);   // data points
                     //
                     SetDataGridViewBinding(vat.DataPoints);
@@ -132,6 +132,9 @@ namespace PrePoMax.Forms
                 propertyGrid.SelectedObject = lvTypes.SelectedItems[0].Tag;
                 //
                 SetAllGridViewUnits();
+                //
+                propertyGrid.BuildAutocompleteMenu(_controller.GetAllParameterNames());
+                dgvData.BuildAutocompleteMenu(_controller.GetAllParameterNames());
             }
         }
         protected override void OnApply(bool onOkAddNew)

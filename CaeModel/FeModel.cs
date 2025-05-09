@@ -2760,7 +2760,7 @@ namespace CaeModel
             try
             {
                 MyNCalc.ExistingParameters = new OrderedDictionary<string, object>("Parameters");
-                MyNCalc.AddPropertyParameters(GetPropertyParameters());
+                MyNCalc.ExistingParameters.AddRange(GetPropertyParameters());
                 foreach (var entry in _parameters) MyNCalc.ExistingParameters.Add(entry.Key, entry.Value.Value);
             }
             catch
@@ -2823,6 +2823,13 @@ namespace CaeModel
             propParameters[areaPrefix] = area;
             //
             return propParameters;
+        }
+        public string[] GetAllParameterNames()
+        {
+            List<string> parameterNames = new List<string>();
+            parameterNames.AddRange(_parameters.Keys);
+            parameterNames.AddRange(GetPropertyParameters().Keys);
+            return parameterNames.ToArray();
         }
         private void AddCompoundPartProperties(string prefix, CompoundGeometryPart part,
                                                ref Dictionary<string, object> propParameters)

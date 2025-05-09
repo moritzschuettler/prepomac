@@ -1,4 +1,5 @@
-﻿using System;
+﻿using CaeGlobals;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -15,6 +16,8 @@ namespace AutocompleteMenuNS
         private int oldItemCount;
         private int selectedItemIndex = -1;
         private IList<AutocompleteItem> visibleItems;
+        private MouseHook mouseHook;
+        private bool inside;
 
         /// <summary>
         /// Duration (ms) of tooltip showing
@@ -32,9 +35,9 @@ namespace AutocompleteMenuNS
         public event EventHandler<HoveredEventArgs> ItemHovered;
 
         /// <summary>
-        /// Occurs when mouse enters the list view
+        /// Occurs when mouse click is outside the controls area
         /// </summary>
-        event EventHandler MouseEnter;
+        public event EventHandler OutsideMouseClick;
 
         /// <summary>
         /// Colors
@@ -74,6 +77,7 @@ namespace AutocompleteMenuNS
                 VerticalScroll.SmallChange = value;
                 oldItemCount = -1;
                 AdjustScroll();
+                Debug.WriteLine("ItemHeight");
             }
         }
 
@@ -247,9 +251,16 @@ namespace AutocompleteMenuNS
         protected override void OnMouseEnter(EventArgs e)
         {
             base.OnMouseEnter(e);
-            mouseEnterPoint = Control.MousePosition;
             //
-            if (MouseEnter != null) MouseEnter(this, e);
+            inside = true;
+            mouseEnterPoint = Control.MousePosition;
+        }
+
+        protected override void OnMouseLeave(EventArgs e)
+        {
+            base.OnMouseLeave(e);
+            //
+            inside = false;
         }
 
         protected override void OnMouseMove(MouseEventArgs e)
@@ -266,6 +277,7 @@ namespace AutocompleteMenuNS
         protected override void OnMouseDoubleClick(MouseEventArgs e)
         {
             base.OnMouseDoubleClick(e);
+
             SelectedItemIndex = PointToItemIndex(e.Location);
             Invalidate();
             OnItemSelected();
@@ -276,7 +288,6 @@ namespace AutocompleteMenuNS
             if (ItemSelected != null)
                 ItemSelected(this, EventArgs.Empty);
         }
-
 
         private int PointToItemIndex(Point p)
         {
@@ -332,6 +343,62 @@ namespace AutocompleteMenuNS
                 toolTip.ToolTipTitle = title;
                 toolTip.Show(text, control, Width + 3, 0, ToolTipDuration);
             }
+        }
+        // Mouse hook
+        public void InstallMouseHook()
+        {
+            mouseHook = new MouseHook();
+            mouseHook.LeftButtonDown += MouseHook_LeftButtonDown;
+            mouseHook.DoubleClick += MouseHook_DoubleClick;
+            mouseHook.RightButtonDown += MouseHook_RightButtonDown;
+            mouseHook.MiddleButtonDown += MouseHook_MiddleButtonDown;
+            mouseHook.Install();
+        }
+        public void UninstallMouseHook()
+        {
+            if (mouseHook != null)
+            {
+                mouseHook.LeftButtonDown -= MouseHook_LeftButtonDown;
+                mouseHook.DoubleClick -= MouseHook_DoubleClick;
+                mouseHook.RightButtonDown -= MouseHook_RightButtonDown;
+                mouseHook.MiddleButtonDown -= MouseHook_MiddleButtonDown;
+                mouseHook.Uninstall();
+                mouseHook = null;
+            }
+        }
+        private bool MouseHook_LeftButtonDown(MouseHook.MSLLHOOKSTRUCT mouseStruct)
+        {
+            if (inside)
+            {
+                Point p = new Point(mouseStruct.pt.x, mouseStruct.pt.y);
+                p = PointToClient(p);
+                MouseEventArgs mea = new MouseEventArgs(MouseButtons.Left, 1, p.X, p.Y, 0);
+                OnMouseClick(mea);
+            }
+            else if (OutsideMouseClick != null) OutsideMouseClick(null, null);
+            //
+            return false;
+        }
+        private bool MouseHook_DoubleClick(MouseHook.MSLLHOOKSTRUCT mouseStruct)
+        {
+            if (inside)
+            {
+                Point p = new Point(mouseStruct.pt.x, mouseStruct.pt.y);
+                p = PointToClient(p);
+                MouseEventArgs mea = new MouseEventArgs(MouseButtons.Left, 2, p.X, p.Y, 0);
+                OnMouseDoubleClick(mea);
+            }
+            else if (OutsideMouseClick != null) OutsideMouseClick(null, null);
+            //
+            return false;
+        }
+        private bool MouseHook_RightButtonDown(MouseHook.MSLLHOOKSTRUCT mouseStruct)
+        {
+            return MouseHook_LeftButtonDown(mouseStruct);
+        }
+        private bool MouseHook_MiddleButtonDown(MouseHook.MSLLHOOKSTRUCT mouseStruct)
+        {
+            return MouseHook_LeftButtonDown(mouseStruct);
         }
     }
 }

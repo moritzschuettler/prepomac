@@ -1293,7 +1293,11 @@ namespace PrePoMax
                     {
                         oldResults = true;
                         allResults = new ResultsCollection();
-                        if (tmp._results != null) allResults.Add(tmp._results.HashName, tmp._results);
+                        if (tmp._results != null)
+                        {
+                            if (tmp._results.HashName == null) tmp._results.HashName = tmp._results.FileName;
+                            allResults.Add(tmp._results.HashName, tmp._results);
+                        }
                     }
                     else allResults = tmp._allResults;
                     //
@@ -10459,6 +10463,26 @@ namespace PrePoMax
         public Dictionary<string, object> GetPropertyParameters()
         {
             return _model.GetPropertyParameters();
+        }
+        public string[] GetAllParameterNames()
+        {
+            return _model.GetAllParameterNames();
+        }
+        public string[] GetAllParameterAndHistoryNames()
+        {
+            List<string> names = new List<string>();
+            names.AddRange(_model.GetAllParameterNames());
+            if (_allResults != null && _allResults.CurrentResult != null)
+                names.AddRange(_allResults.CurrentResult.GetPossibleHistoryEquationParameters());
+            return names.ToArray();
+        }
+        public string[] GetAllParameterAndFieldNames()
+        {
+            List<string> names = new List<string>();
+            names.AddRange(_model.GetAllParameterNames());
+            if (_allResults != null && _allResults.CurrentResult != null)
+                names.AddRange(_allResults.CurrentResult.GetPossibleFieldEquationParameters());
+            return names.ToArray();
         }
         #endregion #################################################################################################################
 

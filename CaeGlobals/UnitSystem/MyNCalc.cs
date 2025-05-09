@@ -192,11 +192,6 @@ namespace CaeGlobals
             return parameters;
         }
         //
-        static public void AddPropertyParameters(Dictionary<string, object> propParameters)
-        {
-            ExistingParameters.AddRange(propParameters);
-        }
-        //
         static public string PreprocessExpression(string expr)
         {
             // Sort parameter names by length (longest first)
@@ -239,6 +234,10 @@ namespace CaeGlobals
             return expr;
         }
         //
+        static public string[] GetFunctionConstants()
+        {
+            return new string[] { "Pi" };
+        }
         static public string[] GetFunctionSnippets()
         {
             return new string[] { "Abs(^)",
@@ -255,7 +254,6 @@ namespace CaeGlobals
                                   "Log10(^)",
                                   "Max(^, )",
                                   "Min(^, )",
-                                  "Pi^",
                                   "Pow(^, )",
                                   "Round(^, )",
                                   "Sign(^)",
@@ -263,8 +261,7 @@ namespace CaeGlobals
                                   "Sqrt(^)",
                                   "Tan(^)",
                                   "Truncate(^)",
-                                  "If(^, , )",
-            };
+                                  "If(^, , )" };
         }
     }
 }

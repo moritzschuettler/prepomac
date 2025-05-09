@@ -260,6 +260,8 @@ namespace PrePoMax.Forms
             //
             ShowHideSelectionForm();
             //
+            propertyGrid.BuildAutocompleteMenu(_controller.GetAllParameterAndHistoryNames());
+            //
             return true;
         }
 

@@ -197,6 +197,8 @@ namespace PrePoMax.Forms
             //
             HighlightElementSet();
             //
+            propertyGrid.BuildAutocompleteMenu(_controller.GetAllParameterNames());
+            //
             return true;
         }
 

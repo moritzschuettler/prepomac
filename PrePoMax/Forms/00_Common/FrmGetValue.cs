@@ -34,13 +34,15 @@ namespace PrePoMax.Forms
 
 
         // Constructors                                                                                                             
-        public FrmGetValue()
+        public FrmGetValue(Controller controller)
         {
             InitializeComponent();
             //
             _viewValue = new ViewDoubleValue();
             //
             propertyGrid.SetLabelColumnWidth(_labelRatio);
+            //
+            propertyGrid.BuildAutocompleteMenu(controller.GetAllParameterNames());
         }
 
 

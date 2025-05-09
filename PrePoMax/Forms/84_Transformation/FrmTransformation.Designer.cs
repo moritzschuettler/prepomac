@@ -262,7 +262,7 @@
             this.ShowInTaskbar = false;
             this.StartPosition = System.Windows.Forms.FormStartPosition.Manual;
             this.Text = "Create Transformation";
-            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FrmTrasformations_FormClosing);
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FrmTransformations_FormClosing);
             this.gbTypes.ResumeLayout(false);
             this.gbTypes.PerformLayout();
             this.gbProperties.ResumeLayout(false);

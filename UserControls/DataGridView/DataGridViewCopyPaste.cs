@@ -528,8 +528,14 @@ namespace UserControls
         {
             // -1 is used for all columns
             _autocompleteMenuColumn = column;
+            //
+            List<string> autoCompleteItems = new List<string>();
+            var constants = MyNCalc.GetFunctionConstants();
+            autoCompleteItems.AddRange(items);
+            autoCompleteItems.AddRange(constants);
+            autoCompleteItems.Sort();
             List<AutocompleteItem> acItems = new List<AutocompleteItem>();
-            foreach (var item in items) acItems.Add(new AutocompleteItem(item));
+            foreach (var item in autoCompleteItems) acItems.Add(new AutocompleteItem(item));
             //
             var snippets = MyNCalc.GetFunctionSnippets();
             foreach (var snippet in snippets) acItems.Add(new SnippetAutocompleteItem(snippet));

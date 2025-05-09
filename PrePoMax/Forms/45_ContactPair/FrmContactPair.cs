@@ -214,6 +214,8 @@ namespace PrePoMax.Forms
             //
             HighlightContactPair(); // must be here if called from the menu
             //
+            propertyGrid.BuildAutocompleteMenu(_controller.GetAllParameterNames());
+            //
             return true;
         }
 

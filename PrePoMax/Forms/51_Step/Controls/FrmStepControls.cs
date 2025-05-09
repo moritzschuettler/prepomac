@@ -292,6 +292,9 @@ namespace PrePoMax.Forms
             //
             _controller.SetSelectByToOff();
             //
+            propertyGrid.BuildAutocompleteMenu(_controller.GetAllParameterNames());
+            dgvData.BuildAutocompleteMenu(_controller.GetAllParameterNames());
+            //
             return true;
         }
         private void ClearControls()

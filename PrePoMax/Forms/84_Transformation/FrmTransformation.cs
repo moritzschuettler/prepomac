@@ -154,7 +154,7 @@ namespace PrePoMax.Forms
         {
             Hide();
         }
-        private void FrmTrasformations_FormClosing(object sender, FormClosingEventArgs e)
+        private void FrmTransformations_FormClosing(object sender, FormClosingEventArgs e)
         {
             if (e.CloseReason == CloseReason.UserClosing)
             {
@@ -209,6 +209,8 @@ namespace PrePoMax.Forms
             _controller.SetSelectByToOff();
             //
             _controller.ClearSelectionHistory();
+            //
+            propertyGrid.BuildAutocompleteMenu(_controller.GetAllParameterNames());
             //
             return true;
         }

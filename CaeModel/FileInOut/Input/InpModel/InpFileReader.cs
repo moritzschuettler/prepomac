@@ -1325,7 +1325,7 @@ namespace FileInOut.Input
                 if (record1.Length > 1)
                 {
                     record1 = record1[1].Split(_splitterEqual, StringSplitOptions.RemoveEmptyEntries);
-                    hardening = (PlasticHardening)Enum.Parse(typeof(PlasticHardening), record1[1]);
+                    hardening = (PlasticHardening)Enum.Parse(typeof(PlasticHardening), record1[1].Replace(" ", ""), true);
                 }
                 //
                 for (int i = 1; i < lines.Length; i++)
@@ -1979,7 +1979,7 @@ namespace FileInOut.Input
         }
         private static SolverTypeEnum GetSolverType(string solverName)
         {
-            SolverTypeEnum solverType = (SolverTypeEnum)Enum.Parse(typeof(SolverTypeEnum), solverName.Replace(" ", ""));
+            SolverTypeEnum solverType = (SolverTypeEnum)Enum.Parse(typeof(SolverTypeEnum), solverName.Replace(" ", ""), true);
             return solverType;
         }
         // BCs
@@ -2332,10 +2332,10 @@ namespace FileInOut.Input
                 record1 = lines[1].Split(_splitterComma, StringSplitOptions.RemoveEmptyEntries);
                 if (record1.Length > 0)
                 {
-                    variables = (NodalFieldVariable)Enum.Parse(typeof(NodalFieldVariable), record1[0].ToUpper());
+                    variables = (NodalFieldVariable)Enum.Parse(typeof(NodalFieldVariable), record1[0].Replace(" ", ""), true);
                     for (int i = 1; i < record1.Length; i++)
                     {
-                        variables |= (NodalFieldVariable)Enum.Parse(typeof(NodalFieldVariable), record1[i].ToUpper());
+                        variables |= (NodalFieldVariable)Enum.Parse(typeof(NodalFieldVariable), record1[i].Replace(" ", ""), true);
                     }
                     NodalFieldOutput nodalFieldOutput = new NodalFieldOutput(name, variables);
                     // Add to step
@@ -2372,12 +2372,13 @@ namespace FileInOut.Input
                 record1 = lines[1].Split(_splitterComma, StringSplitOptions.RemoveEmptyEntries);
                 if (record1.Length > 0)
                 {
-                    variables = (ElementFieldVariable)Enum.Parse(typeof(ElementFieldVariable), record1[0].Trim().ToUpper());
+                    variables = (ElementFieldVariable)Enum.Parse(typeof(ElementFieldVariable), record1[0].Replace(" ", ""), true);
                     for (int i = 1; i < record1.Length; i++)
                     {
                         record1[i] = record1[i].Trim().ToUpper();
                         if (record1[i] != "NOE")
-                            variables |= (ElementFieldVariable)Enum.Parse(typeof(ElementFieldVariable), record1[i]);
+                            variables |= (ElementFieldVariable)Enum.Parse(typeof(ElementFieldVariable),
+                                                                          record1[i].Replace(" ", ""), true);
                     }
                     ElementFieldOutput elementFieldOutput = new ElementFieldOutput(name, variables);
                     // Add to step
@@ -2414,10 +2415,11 @@ namespace FileInOut.Input
                 record1 = lines[1].Split(_splitterComma, StringSplitOptions.RemoveEmptyEntries);
                 if (record1.Length > 0)
                 {
-                    variables = (ContactFieldVariable)Enum.Parse(typeof(ContactFieldVariable), record1[0].ToUpper());
+                    variables = (ContactFieldVariable)Enum.Parse(typeof(ContactFieldVariable), record1[0].Replace(" ", ""), true);
                     for (int i = 1; i < record1.Length; i++)
                     {
-                        variables |= (ContactFieldVariable)Enum.Parse(typeof(ContactFieldVariable), record1[i].ToUpper());
+                        variables |= (ContactFieldVariable)Enum.Parse(typeof(ContactFieldVariable),
+                                                                      record1[i].Replace(" ", ""), true);
                     }
                     ContactFieldOutput contactFieldOutput = new ContactFieldOutput(name, variables);
                     // Add to step
@@ -2456,7 +2458,7 @@ namespace FileInOut.Input
                     }
                     else if (record2[0].ToUpper().StartsWith("TOTALS"))
                     {
-                        totalsType = (TotalsTypeEnum)Enum.Parse(typeof(TotalsTypeEnum), record2[1]);
+                        totalsType = (TotalsTypeEnum)Enum.Parse(typeof(TotalsTypeEnum), record2[1].Replace(" ", ""), true);
                     }
                     else if (record2[0].ToUpper().StartsWith("FREQUENCY"))
                     {
@@ -2467,10 +2469,11 @@ namespace FileInOut.Input
                 record1 = lines[1].Split(_splitterComma, StringSplitOptions.RemoveEmptyEntries);
                 if (record1.Length > 0)
                 {
-                    variables = (NodalHistoryVariable)Enum.Parse(typeof(NodalHistoryVariable), record1[0].ToUpper());
+                    variables = (NodalHistoryVariable)Enum.Parse(typeof(NodalHistoryVariable), record1[0].Replace(" ", ""), true);
                     for (int i = 1; i < record1.Length; i++)
                     {
-                        variables |= (NodalHistoryVariable)Enum.Parse(typeof(NodalHistoryVariable), record1[i].ToUpper());
+                        variables |= (NodalHistoryVariable)Enum.Parse(typeof(NodalHistoryVariable),
+                                                                      record1[i].Replace(" ", ""), true);
                     }
                     if (regionName != null)
                     {
@@ -2512,7 +2515,7 @@ namespace FileInOut.Input
                     }
                     else if (record2[0].ToUpper().StartsWith("TOTALS"))
                     {
-                        totalsType = (TotalsTypeEnum)Enum.Parse(typeof(TotalsTypeEnum), record2[1]);
+                        totalsType = (TotalsTypeEnum)Enum.Parse(typeof(TotalsTypeEnum), record2[1].Replace(" ", ""), true);
                     }
                     else if (record2[0].ToUpper().StartsWith("FREQUENCY"))
                     {
@@ -2523,10 +2526,12 @@ namespace FileInOut.Input
                 record1 = lines[1].Split(_splitterComma, StringSplitOptions.RemoveEmptyEntries);
                 if (record1.Length > 0)
                 {
-                    variables = (ElementHistoryVariable)Enum.Parse(typeof(ElementHistoryVariable), record1[0].ToUpper());
+                    variables = (ElementHistoryVariable)Enum.Parse(typeof(ElementHistoryVariable),
+                                                                   record1[0].Replace(" ", ""), true);
                     for (int i = 1; i < record1.Length; i++)
                     {
-                        variables |= (ElementHistoryVariable)Enum.Parse(typeof(ElementHistoryVariable), record1[i].ToUpper());
+                        variables |= (ElementHistoryVariable)Enum.Parse(typeof(ElementHistoryVariable),
+                                                                        record1[i].Replace(" ", ""), true);
                     }
                     if (regionName != null)
                     {
@@ -2575,7 +2580,7 @@ namespace FileInOut.Input
                     }
                     else if (record2[0].ToUpper().StartsWith("TOTALS"))
                     {
-                        totalsType = (TotalsTypeEnum)Enum.Parse(typeof(TotalsTypeEnum), record2[1]);
+                        totalsType = (TotalsTypeEnum)Enum.Parse(typeof(TotalsTypeEnum), record2[1].Replace(" ", ""), true);
                     }
                     else if (record2[0].ToUpper().StartsWith("FREQUENCY"))
                     {
@@ -2586,10 +2591,12 @@ namespace FileInOut.Input
                 record1 = lines[1].Split(_splitterComma, StringSplitOptions.RemoveEmptyEntries);
                 if (record1.Length > 0)
                 {
-                    variables = (ContactHistoryVariable)Enum.Parse(typeof(ContactHistoryVariable), record1[0].ToUpper());
+                    variables = (ContactHistoryVariable)Enum.Parse(typeof(ContactHistoryVariable),
+                                                                   record1[0].Replace(" ", ""), true);
                     for (int i = 1; i < record1.Length; i++)
                     {
-                        variables |= (ContactHistoryVariable)Enum.Parse(typeof(ContactHistoryVariable), record1[i].ToUpper());
+                        variables |= (ContactHistoryVariable)Enum.Parse(typeof(ContactHistoryVariable),
+                                                                        record1[i].Replace(" ", ""), true);
                     }
                     // Find the contact pair
                     if (masterName != null && slaveName != null)

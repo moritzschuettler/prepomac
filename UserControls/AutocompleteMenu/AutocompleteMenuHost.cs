@@ -56,6 +56,12 @@ namespace AutocompleteMenuNS
 
             Menu = menu;
             ListView = new AutocompleteListView();
+            ListView.OutsideMouseClick += ListView_OutsideMouseClick;
+        }
+
+        private void ListView_OutsideMouseClick(object sender, EventArgs e)
+        {
+            Close();
         }
 
         protected override void OnPaintBackground(PaintEventArgs e)
@@ -64,7 +70,6 @@ namespace AutocompleteMenuNS
                 e.Graphics.FillRectangle(brush, e.ClipRectangle);
         }
        
-
         internal void CalcSize()
         {
             Host.Size = (ListView as Control).Size;
@@ -89,6 +94,17 @@ namespace AutocompleteMenuNS
             base.OnLostFocus(e);
             if(!(ListView as Control).Focused)
                 Close();
+        }
+
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            if (listView is AutocompleteListView aclw)
+            {
+                if (Visible) aclw.InstallMouseHook();
+                else aclw.UninstallMouseHook();
+            }
+            //
+            base.OnVisibleChanged(e);
         }
 
         void ListView_LostFocus(object sender, EventArgs e)

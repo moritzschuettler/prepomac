@@ -40,7 +40,8 @@ namespace PrePoMax.Forms
         //
         [CategoryAttribute("Data")]
         [OrderedDisplayName(2, 10, "Executable arguments")]
-        [DescriptionAttribute("Addtional Calculix arguments. Change this value only if you want to run the solver in a different way.")]
+        [DescriptionAttribute("Additional Calculix arguments. " + 
+                              "Change this value only if you want to run the solver in a different way.")]
         [Id(3, 1)]
         public string Argument
         {
