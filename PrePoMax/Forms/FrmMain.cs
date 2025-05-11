@@ -692,6 +692,11 @@ namespace PrePoMax
             }
             finally
             {
+                if (FirstRunChecker.IsFirstRun(Application.StartupPath))
+                {
+                    if (_controller.BatchRegenerationMode) WriteDataToOutput("Starting regeneration");
+                    else _controller.Settings.CheckWorkingDirectory();
+                }
             }
         }
         private void FrmMain_Resize(object sender, EventArgs e)
@@ -1401,8 +1406,8 @@ namespace PrePoMax
                     // File menu
                     tsmiNew.Enabled = true;
                     tsmiOpen.Enabled = true;
-                    tsmiOpenRecent.Enabled = true;
                     tsmiRunHistoryFile.Enabled = true;
+                    tsmiOpenRecent.Enabled = true;
                     tsmiExit.Enabled = true;
                 }
                 //
@@ -1553,7 +1558,7 @@ namespace PrePoMax
         {
             New(ModelSpaceEnum.Undefined, UnitSystemType.Undefined);
         }
-        private async void tsmiOpen_Click(object sender, EventArgs e)
+        private void tsmiOpen_Click(object sender, EventArgs e)
         {
             try
             {
@@ -1563,24 +1568,18 @@ namespace PrePoMax
                     openFileDialog.FileName = "";
                     if (openFileDialog.ShowDialog() == DialogResult.OK)
                     {
-                        string parameters = Globals.FromFileOpenMenu;
-                        if (CheckBeforeOpen(openFileDialog.FileName))
-                            await OpenAsync(openFileDialog.FileName, _controller.OpenFileCommand, true, null, parameters);
-                        //
-                        string extension = Path.GetExtension(openFileDialog.FileName).ToLower();
-                        if (extension == ".frd") RunHistoryPostprocessing();    // must be here
+                        TryOpen(openFileDialog.FileName);
                     }
                 }
             }
             catch (Exception ex)
             {
                 ExceptionTools.Show(this, ex);
-                _controller.ModelChanged = false;   // hide message box
-                tsmiNew_Click(null, null);
             }
         }
         private void tsmiRunHistoryFile_Click(object sender, EventArgs e)
         {
+            // This adds commands to the history - it is not the same as Open
             try
             {
                 using (OpenFileDialog openFileDialog = new OpenFileDialog())
@@ -1898,7 +1897,7 @@ namespace PrePoMax
             if (_controller.ModelChanged)
             {
                 string extension = Path.GetExtension(fileName).ToLower();
-                if (extension == ".pmx")
+                if (extension == ".pmx" || extension == ".pmh")
                 {
                     if (MessageBoxes.ShowWarningQuestionOKCancel("OK to close the current model?") != DialogResult.OK)
                         return false;
@@ -1910,6 +1909,24 @@ namespace PrePoMax
                 }
             }
             return true;
+        }
+        private async void TryOpen(string fileName)
+        {
+            try
+            {
+                string parameters = Globals.FromFileOpenMenu;
+                if (CheckBeforeOpen(fileName))
+                    await OpenAsync(fileName, _controller.OpenFileCommand, true, null, parameters);
+                //
+                string extension = Path.GetExtension(fileName).ToLower();
+                if (extension == ".frd") RunHistoryPostprocessing();    // must be here
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+                _controller.ModelChanged = false;   // hide message box
+                tsmiNew_Click(null, null);
+            }
         }
         private async Task OpenAsync(string fileName, Action<string, string> ActionOnFile, bool resetCamera = true,
                                      Action callback = null, string parameters = null)
@@ -1939,22 +1956,14 @@ namespace PrePoMax
             finally
             {
                 if (stateSet) SetStateReady(stateText);
+                SetMenuAndToolStripVisibility();
             }
         }
         public void Open(string fileName, Action<string, string> ActionOnFile, bool resetCamera = true, string parameters = null)
         {
             ActionOnFile(fileName, parameters);
             //
-            if (_controller.CurrentResult != null && _controller.CurrentResult.Mesh != null)
-            {
-                SetResultNames();
-                // Reset the previous step and increment
-                SetAllStepAndIncrementIds(true);
-                // Set last increment
-                SetDefaultStepAndIncrementIds();
-                // Show the selection in the results tree
-                SelectFirstComponentOfFirstFieldOutput();
-            }
+            UpdateResultMenus();
             //
             if (_controller.CurrentView == ViewGeometryModelResults.Geometry) _controller.DrawGeometry(resetCamera);
             else if (_controller.CurrentView == ViewGeometryModelResults.Model) _controller.DrawModel(resetCamera);
@@ -1966,11 +1975,23 @@ namespace PrePoMax
                 if (resetCamera) tsmiFrontView_Click(null, null);
             }
             else throw new NotSupportedException();
-            //
-            SetMenuAndToolStripVisibility();
+        }
+        private void UpdateResultMenus()
+        {
+            if (_controller.CurrentResult != null && _controller.CurrentResult.Mesh != null)
+            {
+                SetResultNames();
+                // Reset the previous step and increment
+                SetAllStepAndIncrementIds(true);
+                // Set last increment
+                SetDefaultStepAndIncrementIds();
+                // Show the selection in the results tree
+                SelectFirstComponentOfFirstFieldOutput();
+            }
         }
         public async void RunHistoryFile(string fileName)
         {
+            // This adds commands to the history - it is not the same as Open
             try
             {
                 CloseAllForms();
@@ -2282,7 +2303,7 @@ namespace PrePoMax
             try
             {
                 string fileName = ((ToolStripMenuItem)sender).Name;
-                if (CheckBeforeOpen(fileName)) OpenAsync(fileName, _controller.Open);
+                TryOpen(fileName);
             }
             catch (Exception ex)
             {
@@ -2402,6 +2423,8 @@ namespace PrePoMax
                 SetStateWorking(Globals.RegeneratingText);
                 _modelTree.ScreenUpdating = false;
                 await Task.Run(() => _controller.RegenerateHistoryCommands(showFileDialog, showMeshDialog, regenerateType));
+                //
+                UpdateResultMenus();
             }
             catch (Exception ex)
             {
@@ -6898,9 +6921,9 @@ namespace PrePoMax
             }
         }
         // Settings
-        private void UpdateSettings(Dictionary<string, ISettings> items)
+        private void UpdateSettings(SettingsContainer settings)
         {
-            _controller.Settings = new SettingsContainer(items);
+            _controller.Settings = settings;
         }
 
         // Unit system
@@ -10712,7 +10735,7 @@ namespace PrePoMax
             }
         }
 
-        
+       
     }
 }
 

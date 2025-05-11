@@ -201,7 +201,7 @@ namespace CaeGlobals
                 }
             }
         }
-        // controls
+        // Controls
         public static void SetDoubleBuffered(System.Windows.Forms.Control c)
         {
             //Taxes: Remote Desktop Connection and painting
@@ -280,6 +280,12 @@ namespace CaeGlobals
         {
             byte[] bytes = Encoding.ASCII.GetBytes(text);
             return Encoding.Default.GetString(bytes);
+        }
+        //
+        public static bool ContainsNonEnglishCharacters(this string text)
+        {
+            // Check if any character is outside the ASCII range
+            return text.Any(c => c > 127);
         }
         //
         public static string ToShortString(this string[] stringArray)

@@ -10,6 +10,7 @@ using CaeJob;
 using FileInOut.Output.Calculix;
 using DynamicTypeDescriptor;
 using CaeModel;
+using System.Windows.Forms;
 
 namespace PrePoMax
 {
@@ -24,6 +25,9 @@ namespace PrePoMax
         private int _numCPUs;
         private List<EnvironmentVariable> _environmentVariables;
         private ConvertPyramidsToEnum _convertPyramidsTo;
+        public static string NonEnglishDirectoryWarning = "The selected work directory path contains non-English characters. " +
+                                                          "Some program features might not work as expected.";
+
 
         // Properties                                                                                                               
         public string WorkDirectoryForSettingsOnly
@@ -53,7 +57,7 @@ namespace PrePoMax
                 _executable = Tools.GetLocalPath(path);
             }
         }
-        public CaeModel.SolverTypeEnum DefaultSolverType { get { return _solverTypeEnum; } set { _solverTypeEnum = value; } }
+        public SolverTypeEnum DefaultSolverType { get { return _solverTypeEnum; } set { _solverTypeEnum = value; } }
         public int NumCPUs
         {
             get { return _numCPUs; }

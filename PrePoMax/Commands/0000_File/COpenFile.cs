@@ -7,6 +7,7 @@ using PrePoMax;
 using CaeModel;
 using CaeMesh;
 using CaeGlobals;
+using System.IO;
 
 
 namespace PrePoMax.Commands
@@ -21,6 +22,7 @@ namespace PrePoMax.Commands
 
         // Properties                                                                                                               
         public string FileName { get { return _fileName; } set { _fileName = value; } }
+        public string FileExtension { get { return Path.GetExtension(_fileName).ToLower(); } }
 
 
         // Constructor                                                                                                              

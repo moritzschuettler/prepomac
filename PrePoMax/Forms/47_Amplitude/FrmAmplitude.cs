@@ -84,7 +84,7 @@ namespace PrePoMax.Forms
         }
 
 
-        // Event hadlers                                                                                                            
+        // Event handlers                                                                                                           
         private void FrmAmplitude_VisibleChanged(object sender, EventArgs e)
         {
             if (Visible) { }

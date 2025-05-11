@@ -395,7 +395,7 @@ namespace UserControls
         }
 
 
-        // Event hadlers                                                                                                            
+        // Event handlers                                                                                                           
         private void tcGeometryModelResults_Deselecting(object sender, TabControlCancelEventArgs e)
         {
             e.Cancel = _disableMouse;

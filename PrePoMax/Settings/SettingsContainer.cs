@@ -224,7 +224,6 @@ namespace PrePoMax
         {
             return _regenerationWorkDirectory;
         }
-
         public string GetWorkDirectory()
         {
             string lastFileName = _general.LastFileName;
@@ -241,6 +240,11 @@ namespace PrePoMax
             {
                 return _calculix.WorkDirectoryForSettingsOnly;
             }
+        }
+        public void CheckWorkingDirectory()
+        {
+            if (GetWorkDirectory().ContainsNonEnglishCharacters())
+                MessageBoxes.ShowWarning(CalculixSettings.NonEnglishDirectoryWarning);
         }
     }
 }

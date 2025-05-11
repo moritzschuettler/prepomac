@@ -65,9 +65,12 @@ namespace PrePoMax.Commands
         public CommandsCollection(Controller controller, CommandsCollection commandsCollection)
             :this(controller)
         {
-            _currPositionIndex = commandsCollection._currPositionIndex;
-            _commands = commandsCollection._commands;
-            _previousView = commandsCollection._previousView;
+            if (commandsCollection != null)
+            {
+                _currPositionIndex = commandsCollection._currPositionIndex;
+                _commands = commandsCollection._commands;
+                _previousView = commandsCollection._previousView;
+            }
             //
             WriteToFile();
         }
@@ -96,7 +99,7 @@ namespace PrePoMax.Commands
                         if (command is CSaveToPmx) { }  // skip save commands
                         else if (command is CClear)
                         {
-                            Clear();    // remove all previous commands
+                            Clear(false);    // remove all previous commands
                             result &= AddAndExecute(command, true);
                         }
                         else result &= AddAndExecute(command, true);
@@ -163,17 +166,22 @@ namespace PrePoMax.Commands
             // First execute to check for errors
             if (command is SaveCommand || ExecuteCommandWithTimer(command, false, executeSynchronous))
             {
-                // Add command
-                if (addCommand) AddCommand(command);
-                // Check model changed
-                CheckModelChanged(command);
-                // Write to file
-                WriteToFile();
-                //
-                _currPositionIndex++;
-                //
-                OnEnableDisableUndoRedo();
-                //
+                // There is no need to add open .pmx or open .pmh commands to the list
+                if (command is COpenFile cof && (cof.FileExtension == ".pmx" || cof.FileExtension == ".pmh"))
+                { }
+                else
+                {
+                    // Add command
+                    if (addCommand) AddCommand(command);
+                    // Check model changed
+                    CheckModelChanged(command);
+                    // Write to file
+                    WriteToFile();
+                    //
+                    _currPositionIndex++;
+                    //
+                    OnEnableDisableUndoRedo();
+                }
                 result = true;
             }
             // Execute the save command at the end to include all changes in the file
@@ -255,7 +263,7 @@ namespace PrePoMax.Commands
                     if (command is SaveCommand)
                     {
                         if (lastSave != null && command == lastSave) lastSave = null;
-                        continue;
+                        else continue;
                     }
                     // Skip command before writing to form
                     if ((regenerateType == RegenerateTypeEnum.PreProcess && !(command is PreprocessCommand)) ||
@@ -435,12 +443,12 @@ namespace PrePoMax.Commands
         }
 
         // Clear
-        public void Clear()
+        public void Clear(bool setErrorsToNull = true)
         {
             _currPositionIndex = -1;
             _commands.Clear();
             _previousView = ViewGeometryModelResults.Geometry;
-            _errors = null;
+            if (setErrorsToNull) _errors = null;
             // Write to file
             WriteToFile();
             //
@@ -516,15 +524,12 @@ namespace PrePoMax.Commands
         }
         public static void WriteToFile(List<Command> commands, string fileName)
         {
-            if (commands.Count > 1)
-            {
-                // Use other file
-                string fileNameCopy = Tools.GetNonExistentRandomFileName(Path.GetDirectoryName(fileName), "pmh");
-                commands.DumpToFile(fileNameCopy);
-                //
-                File.Copy(fileNameCopy, fileName, true);
-                File.Delete(fileNameCopy);
-            }
+            // Use other file
+            string fileNameCopy = Tools.GetNonExistentRandomFileName(Path.GetDirectoryName(fileName), "pmh");
+            commands.DumpToFile(fileNameCopy);
+            //
+            File.Copy(fileNameCopy, fileName, true);
+            File.Delete(fileNameCopy);
         }
         // Read
         public void ReadFromFile(string fileName)

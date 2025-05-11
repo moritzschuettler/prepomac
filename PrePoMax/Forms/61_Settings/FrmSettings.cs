@@ -69,7 +69,7 @@ namespace PrePoMax.Forms
 
 
         // Events                                                                                                                   
-        public event Action<Dictionary<string, ISettings>> UpdateSettings;
+        public event Action<SettingsContainer> UpdateSettings;
 
 
         // Constructors                                                                                                             
@@ -83,7 +83,7 @@ namespace PrePoMax.Forms
         }
 
 
-        // Event hadlers                                                                                                            
+        // Event handlers                                                                                                           
         private void lvSettings_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (lvSettings.SelectedItems.Count > 0)
@@ -116,31 +116,22 @@ namespace PrePoMax.Forms
         }
         private void btnApply_Click(object sender, EventArgs e)
         {
-            if (_propertyItemChanged)
-            {
-                Dictionary<string, ISettings> settings = Settings;
-                //
-                foreach (var entry in settings)
-                {
-                    entry.Value.CheckValues();
-                }
-                //
-                UpdateSettings?.Invoke(settings);
-                _propertyItemChanged = false;
-            }
+            Apply();
         }
         private void btnOK_Click(object sender, EventArgs e)
         {
             try
             {
-                btnApply_Click(null, null);
-                //
-                DialogResult = System.Windows.Forms.DialogResult.OK;
-                Hide();
+                if (Apply())
+                {
+                    //
+                    DialogResult = DialogResult.OK;
+                    Hide();
+                }
             }
             catch (Exception ex)
             {
-                CaeGlobals.ExceptionTools.Show(this, ex);
+                ExceptionTools.Show(this, ex);
             }
         }
         private void btnCancel_Click(object sender, EventArgs e)
@@ -202,12 +193,26 @@ namespace PrePoMax.Forms
         {
             _previousSettings = name;
         }
-
-      
-
-        
-
-       
-      
+        public bool Apply()
+        {
+            Dictionary<string, ISettings> settings = Settings;
+            //
+            foreach (var entry in settings) entry.Value.CheckValues();
+            //
+            SettingsContainer settingsContainer = new SettingsContainer(settings);
+            if (settingsContainer.GetWorkDirectory().ContainsNonEnglishCharacters())
+            {
+                if (MessageBoxes.ShowWarningQuestionOKCancel(CalculixSettings.NonEnglishDirectoryWarning) ==
+                    DialogResult.Cancel)
+                    return false;
+            }
+            //
+            if (_propertyItemChanged)
+            {
+                UpdateSettings?.Invoke(settingsContainer);
+                _propertyItemChanged = false;
+            }
+            return true;
+        }
     }
 }

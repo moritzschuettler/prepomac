@@ -35,9 +35,11 @@ namespace PrePoMax.Settings
                 if (value != _calculixSettings.WorkDirectoryForSettingsOnly)
                 {
                     if (!Directory.Exists(value) &&
-                        MessageBoxes.ShowWarningQuestionOKCancel("The selected work directory does not exist.") == DialogResult.Cancel)
+                        MessageBoxes.ShowWarningQuestionOKCancel("The selected work directory does not exist.") ==
+                        DialogResult.Cancel)
                         return;
-                    else _calculixSettings.WorkDirectoryForSettingsOnly = value;
+                    //
+                    _calculixSettings.WorkDirectoryForSettingsOnly = value;
                 }
             }
         }

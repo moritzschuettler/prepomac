@@ -54,7 +54,7 @@ namespace PrePoMax.Forms
         }
 
 
-        // Event hadlers                                                                                                            
+        // Event handlers                                                                                                           
         private void btnOK_Click(object sender, EventArgs e)
         {
             try

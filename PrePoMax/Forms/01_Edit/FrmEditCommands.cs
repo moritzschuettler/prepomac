@@ -20,7 +20,6 @@ using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
 
 namespace PrePoMax.Forms
 {
-
     public partial class FrmEditCommands : Form
     {
         // Variables                                                                                                                

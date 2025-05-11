@@ -741,7 +741,7 @@ namespace PrePoMax
             UpdateExplodedView(false);
             // Settings
             if (parameters != null && parameters.Contains(Globals.FromMonitorForm)) { }
-            else AddFileNameToRecentFiles(fileName);  // this redraws the scene
+            else AddFileNameToRecentFiles(fileName);
         }
         private void OpenPmx(string fileName)
         {
@@ -774,11 +774,7 @@ namespace PrePoMax
             // Regeneration
             if (_batchRegenerationMode) tmp.BatchRegenerationMode = true;
             // Commands
-            _commands.EnableDisableUndoRedo -= _commands_CommandExecuted;
-            _commands = new CommandsCollection(this, tmp._commands); // to recreate the history file
-            _commands.WriteOutput = _form.WriteDataToOutput;
-            _commands.EnableDisableUndoRedo += _commands_CommandExecuted;
-            _commands.OnEnableDisableUndoRedo();
+            InitializeNewCommands(tmp._commands);
             // Annotations
             _annotations = new AnnotationContainer(tmp._annotations, this);
             // Jobs
@@ -797,14 +793,24 @@ namespace PrePoMax
             // Set tree states
             if (data[2] is bool[][] states) _form.SetTreeExpandCollapseState(states);
         }
+        private void InitializeNewCommands(CommandsCollection commandsCollection)
+        {
+            _commands.EnableDisableUndoRedo -= _commands_CommandExecuted;
+            _commands = new CommandsCollection(this, commandsCollection); // to recreate the history file
+            _commands.WriteOutput = _form.WriteDataToOutput;
+            _commands.EnableDisableUndoRedo += _commands_CommandExecuted;
+            _commands.OnEnableDisableUndoRedo();
+        }
         private void OpenPmh(string fileName, string parameters)
         {
             New();
             //
+            InitializeNewCommands(null);
             _commands.ReadFromFile(fileName);
             //
             RegenerateTypeEnum regenerateType;
-            if (parameters != null && parameters.Contains(Globals.RegenerateAll)) regenerateType = RegenerateTypeEnum.All;
+            if (parameters != null && (parameters.Contains(Globals.RegenerateAll) || parameters.Contains(Globals.FromFileOpenMenu)))
+                regenerateType = RegenerateTypeEnum.All;
             else regenerateType = RegenerateTypeEnum.PreProcess;
             //
             CSaveToPmx lastSave = _commands.GetLastSaveCommand();
@@ -812,7 +818,8 @@ namespace PrePoMax
             {
                 CommandsCollection prevCommands = new CommandsCollection(this, _commands);
                 _form.Open(lastSave.FileName, Open, true);    // form open redraws the scene
-                _commands = new CommandsCollection(this, prevCommands);
+                //
+                InitializeNewCommands(prevCommands);
                 //
                 _commands.ExecuteAllCommandsFromLastSave(regenerateType, lastSave);
             }
@@ -821,7 +828,6 @@ namespace PrePoMax
                 _commands.ExecuteAllCommands(false, false, regenerateType);
             }
             //
-            _commands.EnableDisableUndoRedo += _commands_CommandExecuted;
             _commands.OnEnableDisableUndoRedo();
             // Model changed
             _modelChanged = true;
@@ -1376,7 +1382,7 @@ namespace PrePoMax
                 using (FileStream fs = new FileStream(fileName, FileMode.Open))
                 using (BinaryReader br = new BinaryReader(fs))
                 {
-                    data = CaeGlobals.Tools.LoadDumpFromFile<object[]>(br);
+                    data = Tools.LoadDumpFromFile<object[]>(br);
                     tmp = (Controller)data[0];
                     model = tmp._model;
                     allResults.Add(tmp._results.FileName, tmp._results);

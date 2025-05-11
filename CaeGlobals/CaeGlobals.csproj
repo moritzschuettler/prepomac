@@ -93,6 +93,7 @@
     <Compile Include="CommonClasses\DataExchange\PartExchangeData.cs" />
     <Compile Include="CommonClasses\EmptyNamedClass.cs" />
     <Compile Include="CommonClasses\EventArgs.cs" />
+    <Compile Include="CommonClasses\FirstRunChecker.cs" />
     <Compile Include="CommonClasses\Geometry.cs" />
     <Compile Include="CommonClasses\Geometry2.cs" />
     <Compile Include="CommonClasses\Matrix.cs" />

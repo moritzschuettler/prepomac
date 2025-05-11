@@ -43,7 +43,6 @@ namespace CaeMesh
         private int _maxNodeId;                                                     //ISerializable
         private int _maxElementId;                                                  //ISerializable
         private BoundingBox _boundingBox;                                           //ISerializable
-        private object targetNodeIdEdgeIds;
 
 
         // Properties                                                                                                               

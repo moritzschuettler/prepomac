@@ -44,7 +44,7 @@ namespace PrePoMax.Forms
         }
 
 
-        // Event hadlers                                                                                                            
+        // Event handlers                                                                                                           
         private void FrmAnalysis_VisibleChanged(object sender, EventArgs e)
         {
             // This must be here and not in PrepareForm since PrepareForm is called by GetDefaultJob

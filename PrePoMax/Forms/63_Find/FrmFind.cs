@@ -31,7 +31,7 @@ namespace PrePoMax.Forms
         }
 
 
-        // Event hadlers                                                                                                            
+        // Event handlers                                                                                                           
         private void rbItem_CheckedChanged(object sender, EventArgs e)
         {
         }

@@ -63,7 +63,7 @@ namespace PrePoMax.Forms
         }
 
 
-        // Event hadlers                                                                                                            
+        // Event handlers                                                                                                           
         private void FrmSearchContactPairs_Load(object sender, EventArgs e)
         {
             PrepareForm();

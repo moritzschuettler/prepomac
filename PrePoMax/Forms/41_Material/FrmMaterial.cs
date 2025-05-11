@@ -72,7 +72,7 @@ namespace PrePoMax.Forms
         }
 
 
-        // Event hadlers                                                                                                            
+        // Event handlers                                                                                                           
         private void FrmMaterial_VisibleChanged(object sender, EventArgs e)
         {
             cbTemperatureDependent.Enabled = !(_useSimpleEditor || _preview);

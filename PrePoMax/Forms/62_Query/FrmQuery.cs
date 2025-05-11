@@ -34,7 +34,7 @@ namespace PrePoMax.Forms
         }
 
 
-        // Event hadlers                                                                                                            
+        // Event handlers                                                                                                           
         private void lvQueries_MouseDown(object sender, MouseEventArgs e)
         {
             lvQueries.SelectedItems.Clear();
