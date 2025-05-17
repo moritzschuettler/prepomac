@@ -188,7 +188,7 @@ namespace AutocompleteMenuNS
         /// <summary>
         /// Colors of foreground and background
         /// </summary>
-        [Browsable(true)]
+        [Browsable(false)]
         [Description("Colors of foreground and background.")]
         [TypeConverter(typeof(ExpandableObjectConverter))]
         public Colors Colors

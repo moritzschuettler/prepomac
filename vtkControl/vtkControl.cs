@@ -3343,7 +3343,8 @@ namespace vtkControl
             vtkPoints pointData = vtkPoints.New();
             for (int i = 0; i < points.GetLength(0); i++)
             {
-                pointData.InsertNextPoint(points[i][0], points[i][1], points[i][2]);
+                if (points[i] != null && points[i].Length == 3)
+                    pointData.InsertNextPoint(points[i][0], points[i][1], points[i][2]);
             }
             // Normals
             vtkDoubleArray pointNormalsArray = vtkDoubleArray.New();

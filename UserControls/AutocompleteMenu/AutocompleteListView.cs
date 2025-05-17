@@ -77,7 +77,6 @@ namespace AutocompleteMenuNS
                 VerticalScroll.SmallChange = value;
                 oldItemCount = -1;
                 AdjustScroll();
-                Debug.WriteLine("ItemHeight");
             }
         }
 

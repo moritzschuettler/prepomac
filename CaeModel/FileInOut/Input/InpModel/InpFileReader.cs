@@ -8,8 +8,6 @@ using CaeMesh;
 using CaeGlobals;
 using CaeModel;
 using FileInOut.Output.Calculix;
-using System.Reflection;
-using Octree;
 
 namespace FileInOut.Input
 {
@@ -112,6 +110,7 @@ namespace FileInOut.Input
                 int[] ids;
                 string name;
                 string keyword;
+                Dictionary<string, FeNodeSet> nodeSets = new Dictionary<string, FeNodeSet>();
                 List<InpElementSet> inpElementTypeSets = new List<InpElementSet>();
                 // Nodes and elements
                 for (int i = 0; i < dataSets.Length; i++)
@@ -122,7 +121,7 @@ namespace FileInOut.Input
                     if (keyword == "*NODE") // nodes
                     {
                         WriteDataToOutputStatic?.Invoke("Reading keyword line: " + dataSet[0]);
-                        nodes.AddRange(GetNodes(dataSet));
+                        AddNodes(dataSet, ref nodes, ref nodeSets);
                     }
                     else if (keyword == "*ELEMENT") // elements
                     {
@@ -132,6 +131,8 @@ namespace FileInOut.Input
                 }
                 // Element sets are used to separate elements into parts
                 FeMesh mesh = new FeMesh(nodes, elements, MeshRepresentation.Mesh, inpElementTypeSets);
+                // Node sets from nodes keyword
+                mesh.NodeSets.AddRange(nodeSets);
                 // Element sets from element keywords
                 int[] labels;
                 foreach (var inpElementTypeSet in inpElementTypeSets)
@@ -289,6 +290,7 @@ namespace FileInOut.Input
                 Dictionary<int, FeElement> elements = new Dictionary<int, FeElement>();
                 //
                 string keyword;
+                Dictionary<string, FeNodeSet> nodeSets = new Dictionary<string, FeNodeSet>();
                 List<InpElementSet> inpElementTypeSets = new List<InpElementSet>();
                 // Nodes and elements
                 for (int i = 0; i < dataSets.Length; i++)
@@ -298,7 +300,7 @@ namespace FileInOut.Input
                     //
                     if (keyword == "*NODE") // nodes
                     {
-                        nodes.AddRange(GetNodes(dataSet));
+                        AddNodes(dataSet, ref nodes, ref nodeSets);
                     }
                     else if (keyword == "*ELEMENT") // elements
                     {
@@ -320,6 +322,8 @@ namespace FileInOut.Input
                 else //if (elementsToImport == ElementsToImport.Shell) // do not split
                     mesh = new FeMesh(nodes, elements, MeshRepresentation.Mesh);
                 //else throw new NotSupportedException();
+                // Node sets from nodes keyword
+                mesh.NodeSets.AddRange(nodeSets);
                 //
                 mesh.ConvertLineFeElementsToEdges(vertexNodeIds, true);
                 //
@@ -629,34 +633,61 @@ namespace FileInOut.Input
             }
             return null;
         }
-       
-        //
-        private static Dictionary<int, FeNode> GetNodes(string[] lines)
-        {
-            Dictionary<int, FeNode> nodes = new Dictionary<int, FeNode>();
-            int id;
-            FeNode node;
-            string[] record;
-            string[] splitter = new string[] { " ", ",", "\t" };
 
-            // line 0 is the line with the keyword
+        //
+        private static void AddNodes(string[] lines, ref Dictionary<int, FeNode> nodes, ref Dictionary<string, FeNodeSet> nodeSets)
+        {
+            //*NODE, NSET = Nall
+            int id;
+            HashSet<int> ids = new HashSet<int>();
+            FeNode node;
+            string nodeSetName = null;
+            string[] record1;
+            string[] record2;
+            string[] splitter = new string[] { " ", ",", "\t" };
+            // Line 0 - keyword
+            record1 = lines[0].Split(_splitterComma, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var rec in record1)
+            {
+                record2 = rec.Split(_splitterEqual, StringSplitOptions.RemoveEmptyEntries);
+                if (record2.Length == 2)
+                {
+                    if (record2[0].Trim().ToUpper() == "NSET") nodeSetName = record2[1].Trim();
+                }
+            }
+            // Lines from 1 to end
             for (int i = 1; i < lines.Length; i++)
             {
                 if (lines[i].StartsWith("*")) continue;
                 //
-                record = lines[i].Split(splitter, StringSplitOptions.RemoveEmptyEntries);
+                record1 = lines[i].Split(splitter, StringSplitOptions.RemoveEmptyEntries);
                 //
-                id = int.Parse(record[0]);
+                id = int.Parse(record1[0]);
                 node = new FeNode();
                 node.Id = id;
-                node.X = double.Parse(record[1]);
-                node.Y = double.Parse(record[2]);
-                if (record.Length == 4) node.Z = double.Parse(record[3]);
+                node.X = double.Parse(record1[1]);
+                node.Y = double.Parse(record1[2]);
+                if (record1.Length == 4) node.Z = double.Parse(record1[3]);
                 //
+                ids.Add(id);
                 nodes.Add(id, node);
             }
             //
-            return nodes;
+            if (nodeSetName != null && ids.Count > 0)
+            {
+                FeNodeSet nodeSet;
+                if (nodeSets.TryGetValue(nodeSetName, out nodeSet))
+                {
+                    ids.UnionWith(nodeSet.Labels);
+                    nodeSet.Labels = ids.ToArray();
+                }
+                else
+                {
+                    nodeSet = new FeNodeSet(nodeSetName, ids.ToArray());
+                    nodeSets.Add(nodeSetName, nodeSet);
+                }
+            }
+
         }
         private static void AddElements(string[] lines, ref Dictionary<int, FeElement> elements,
                                         ref List<InpElementSet> inpElementTypeSets)
@@ -1708,6 +1739,7 @@ namespace FileInOut.Input
                     if (keyword == "*STATIC") step = GetStaticStep(dataSet);
                     else if (keyword == "*FREQUENCY") step = GetFrequencyStep(dataSet);
                     else if (keyword == "*BUCKLE") step = GetBuckleStep(dataSet);
+                    else if (keyword == "*DYNAMIC") step = GetDynamicStep(dataSet);
                     else if (keyword == "*HEAT TRANSFER") step = GetHeatTransferStep(dataSet);
                     else if (keyword == "*UNCOUPLED TEMPERATURE-DISPLACEMENT") step = GetUncoupledTempDispStep(dataSet);
                     else if (keyword == "*COUPLED TEMPERATURE-DISPLACEMENT") step = GetCoupledTempDispStep(dataSet);
@@ -1856,6 +1888,50 @@ namespace FileInOut.Input
             }
             //
             return buckleStep;
+        }
+        private static DynamicStep GetDynamicStep(string[] dataSet)
+        {
+            //*Dynamic, Solver = Pardiso, Alpha = -0.06, Explicit = 1, Relative to absolute
+            //0.1, 1, 1E-05, 0.1
+            string[] record1 = dataSet[0].Split(_splitterComma, StringSplitOptions.RemoveEmptyEntries);
+            string[] record2;
+            DynamicStep dynamicStep = new DynamicStep("Dynamic");
+            //
+            for (int i = 1; i < record1.Length; i++)
+            {
+                record2 = record1[i].Split(_splitterEqual, StringSplitOptions.RemoveEmptyEntries);
+                if (record2.Length == 2)
+                {
+                    if (record2[0].Trim().ToUpper() == "SOLVER") dynamicStep.SolverType = GetSolverType(record2[1]);
+                    else if (record2[0].Trim().ToUpper() == "ALPHA") dynamicStep.Alpha = double.Parse(record2[1]);
+                    else if (record2[0].Trim().ToUpper() == "EXPLICIT")
+                        dynamicStep.SolutionProcedure = (SolutionProcedureEnum)int.Parse(record2[1]);
+                }
+                else if (record2.Length == 1)
+                {
+                    if (record2[0].Trim().ToUpper() == "DIRECT") dynamicStep.Direct = true;
+                    else if (record2[0].Trim().ToUpper().StartsWith("RELATIVE"))
+                        dynamicStep.RelativeToAbsolute = true;
+                }
+            }
+            if (dataSet.Length == 2)
+            {
+                // If the second line exists the incrementation is Direct or Automatic
+                if (!dynamicStep.Direct) dynamicStep.IncrementationType = IncrementationTypeEnum.Automatic;
+                //
+                record2 = dataSet[1].Split(_splitterComma, StringSplitOptions.None); // must be none
+                //
+                if (record2.Length > 0 && record2[0].Trim().Length > 0)
+                    dynamicStep.InitialTimeIncrement = double.Parse(record2[0]);
+                if (record2.Length > 1 && record2[1].Trim().Length > 0)
+                    dynamicStep.TimePeriod = double.Parse(record2[1]);
+                if (record2.Length > 2 && record2[2].Trim().Length > 0)
+                    dynamicStep.MinTimeIncrement = double.Parse(record2[2]);
+                if (record2.Length > 3 && record2[3].Trim().Length > 0)
+                    dynamicStep.MaxTimeIncrement = double.Parse(record2[3]);
+            }
+            //
+            return dynamicStep;
         }
         private static HeatTransferStep GetHeatTransferStep(string[] dataSet)
         {
@@ -2020,7 +2096,7 @@ namespace FileInOut.Input
                     // Get the prescribed displacement
                     int dofStart = int.Parse(recordBC[1]);
                     int dofEnd = dofStart;
-                    if (int.TryParse(recordBC[2], out dof)) dofEnd = dof;
+                    if (recordBC.Length > 2 && int.TryParse(recordBC[2], out dof)) dofEnd = dof;
                     double dofValue = 0;
                     if (recordBC.Length == 4 && double.TryParse(recordBC[3], out value)) dofValue = value;
                     //

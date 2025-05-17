@@ -92,6 +92,10 @@ namespace CaeGlobals
                 if (value == MyUnit.QuadInchPerPoundForceQuadSecondAbbreviation)
                     _newtonGravityUnit = MyUnit.QuadInchPerPoundForceQuadSecond;
                 else throw new NotSupportedException();
+                //
+                _forceUnit = (ForceUnit)MyUnit.NoUnit;
+                _lengthUnit = (LengthUnit)MyUnit.NoUnit;
+                _massUnit = (MassUnit)MyUnit.NoUnit;
             }
         }
         public static double SetInitialValue
@@ -115,8 +119,17 @@ namespace CaeGlobals
                         Mass.GetAbbreviation(massUnit) + "²";
             return unit;
         }
-        
-        
+        public static bool HasNoUnit
+        {
+            get
+            {
+                bool hasUnit = ((int)_forceUnit != MyUnit.NoUnit && (int)_lengthUnit != MyUnit.NoUnit &&
+                                (int)_massUnit != MyUnit.NoUnit) || ((int)_newtonGravityUnit != MyUnit.NoUnit);
+                return !hasUnit;
+            }
+        }
+
+
         // Constructors                                                                                                             
         public StringNewtonGravityUndefinedConverter()
         {
@@ -241,7 +254,7 @@ namespace CaeGlobals
                 conversionFromSI = 1 / 9.35725E-08;
             }
             // To no unit
-            else if ((int)_forceUnit == MyUnit.NoUnit || (int)_lengthUnit == MyUnit.NoUnit || (int)_massUnit == MyUnit.NoUnit)
+            else if (HasNoUnit)
             {
                 conversionFromSI = 1;
             }
@@ -265,7 +278,7 @@ namespace CaeGlobals
                 double conversionFromSI;
                 GetConversionToSI(valueWithUnitString, out valueDouble, out conversionToSI);
                 // To no unit
-                if ((int)_forceUnit == MyUnit.NoUnit || (int)_lengthUnit == MyUnit.NoUnit || (int)_massUnit == MyUnit.NoUnit) { }
+                if (HasNoUnit) { }
                 else
                 {
                     GetConversionFromSI(out conversionFromSI);

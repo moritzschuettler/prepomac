@@ -123,10 +123,12 @@
     <Compile Include="Commands\0010_Edit\CSetCalculixUserKeywords.cs" />
     <Compile Include="Commands\0030_Geometry\01_Part\CResetColorForGeometryParts.cs" />
     <Compile Include="Commands\0030_Geometry\01_Part\CSetColorForGeometryParts.cs" />
+    <Compile Include="Commands\0030_Geometry\CConvertSolidToShell.cs" />
     <Compile Include="Commands\0030_Geometry\CDeleteStlPartFaces.cs" />
     <Compile Include="Commands\0030_Geometry\CDefeature.cs" />
     <Compile Include="Commands\0030_Geometry\CRegenerateCompoundParts.cs" />
     <Compile Include="Commands\0030_Geometry\CFlipStlPartSurfacesNormal.cs" />
+    <Compile Include="Commands\0030_Geometry\CConvertShellToSolid.cs" />
     <Compile Include="Commands\0030_Geometry\CSwapPartGeometries.cs" />
     <Compile Include="Commands\0030_Geometry\CCreateAndImportCompoundPart.cs" />
     <Compile Include="Commands\0030_Geometry\01_Part\CScaleGeometryParts.cs" />

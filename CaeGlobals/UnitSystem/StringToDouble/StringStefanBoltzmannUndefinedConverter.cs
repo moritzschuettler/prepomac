@@ -91,6 +91,10 @@ namespace CaeGlobals
                 if (value == MyUnit.PoundForcePerInchSecondQuadFahrenheitAbbreviation)
                     _stefanBoltzmannUnit = MyUnit.PoundForcePerInchSecondQuadFahrenheit;
                 else throw new NotSupportedException();
+                //
+                _massUnit = (MassUnit)MyUnit.NoUnit;
+                _timeUnit = (DurationUnit)MyUnit.NoUnit;
+                _temperatureDeltaUnit = (TemperatureDeltaUnit)MyUnit.NoUnit;
             }
         }
         public static double SetInitialValue
@@ -115,7 +119,16 @@ namespace CaeGlobals
                         TemperatureDelta.GetAbbreviation(temperatureDeltaUnit) + "⁴)";
             return unit.Replace("∆", "");
         }
-        
+        public static bool HasNoUnit
+        {
+            get
+            {
+                bool hasUnit = ((int)_massUnit != MyUnit.NoUnit && (int)_timeUnit != MyUnit.NoUnit &&
+                                (int)_temperatureDeltaUnit != MyUnit.NoUnit) || ((int)_stefanBoltzmannUnit != MyUnit.NoUnit);
+                return !hasUnit;
+            }
+        }
+
 
         // Constructors                                                                                                             
         public StringStefanBoltzmannUndefinedConverter()
@@ -247,8 +260,7 @@ namespace CaeGlobals
                 conversionFromSI = 1 / 315.2283038;
             }
             // To no unit
-            else if ((int)_massUnit == MyUnit.NoUnit || (int)_timeUnit == MyUnit.NoUnit ||
-                     (int)_temperatureDeltaUnit == MyUnit.NoUnit)
+            else if (HasNoUnit)
             {
                 conversionFromSI = 1;
             }
@@ -273,8 +285,7 @@ namespace CaeGlobals
                 double conversionFromSI;
                 GetConversionToSI(valueWithUnitString, out valueDouble, out conversionToSI);
                 // To no unit
-                if ((int)_massUnit == MyUnit.NoUnit || (int)_timeUnit == MyUnit.NoUnit ||
-                    (int)_temperatureDeltaUnit == MyUnit.NoUnit) { }
+                if (HasNoUnit) { }
                 else
                 {
                     GetConversionFromSI(out conversionFromSI);

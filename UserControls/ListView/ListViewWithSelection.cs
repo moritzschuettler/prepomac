@@ -221,10 +221,11 @@ namespace UserControls
         //https://stackoverflow.com/questions/2691726/how-can-i-remove-the-selection-border-on-a-listviewitem                       
         protected override void OnSelectedIndexChanged(EventArgs e)
         {
-            base.OnSelectedIndexChanged(e); // must be first
-            //
+            // One item should always be selected
             if (SelectedItems.Count > 0)
             {
+                base.OnSelectedIndexChanged(e);
+                //
                 ClearPrevSelection();
                 //
                 if (Enabled)

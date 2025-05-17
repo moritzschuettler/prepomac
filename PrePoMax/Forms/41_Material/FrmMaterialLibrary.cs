@@ -274,18 +274,26 @@ namespace PrePoMax.Forms
             {
                 _previousControl = lvModelMaterials;
                 //
-                if (lvModelMaterials.SelectedItems != null && lvModelMaterials.SelectedItems.Count == 1 &&
-                   lvModelMaterials.SelectedItems[0].Tag != null)
+                if (lvModelMaterials.PossiblySelectedItems != null && lvModelMaterials.PossiblySelectedItems.Count == 1 &&
+                   lvModelMaterials.PossiblySelectedItems[0].Tag != null)
                 {
                     if (_frmMaterial.Material != null)
                     {
-                        Material previewMaterial = (Material)lvModelMaterials.SelectedItems[0].Tag.DeepClone();
+                        Material previewMaterial = (Material)lvModelMaterials.PossiblySelectedItems[0].Tag.DeepClone();
                         _frmMaterial.Material = previewMaterial;
                     }
                 }
             }
             catch
             { }
+        }
+        private void lvModelMaterials_MouseDoubleClick(object sender, MouseEventArgs e)
+        {
+            if (lvModelMaterials.PossiblySelectedItems != null && lvModelMaterials.PossiblySelectedItems.Count == 1 &&
+                   lvModelMaterials.PossiblySelectedItems[0].Tag != null)
+            {
+                btnCopyToLibrary_Click(null, null);
+            }
         }
         //
         private void tbCategoryName_KeyDown(object sender, KeyEventArgs e)
@@ -718,5 +726,7 @@ namespace PrePoMax.Forms
             catch
             { }
         }
+
+        
     }
 }

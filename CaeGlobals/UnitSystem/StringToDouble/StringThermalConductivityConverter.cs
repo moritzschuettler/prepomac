@@ -77,14 +77,12 @@ namespace CaeGlobals
             set
             {
                 if (value == MyUnit.PoundForcePerSecondFahrenheitAbbreviation)
-                {
-                    _powerUnit = (PowerUnit)MyUnit.NoUnit;
-                    _lengthUnit = (LengthUnit)MyUnit.NoUnit;
-                    _temperatureDeltaUnit = (TemperatureDeltaUnit)MyUnit.NoUnit;
-                    //
                     _thermalConductivityUnit = MyUnit.PoundForcePerSecondFahrenheit;
-                }
                 else throw new NotSupportedException();
+                //
+                _powerUnit = (PowerUnit)MyUnit.NoUnit;
+                _lengthUnit = (LengthUnit)MyUnit.NoUnit;
+                _temperatureDeltaUnit = (TemperatureDeltaUnit)MyUnit.NoUnit;
             }
         }
         public static string GetUnitAbbreviation(PowerUnit powerUnit, LengthUnit lengthUnit,
@@ -101,8 +99,17 @@ namespace CaeGlobals
                         TemperatureDelta.GetAbbreviation(temperatureDeltaUnit) + ")";
             return unit.Replace("∆", "");
         }
-        
-        
+        public static bool HasNoUnit
+        {
+            get
+            {
+                bool hasUnit = ((int)_powerUnit != MyUnit.NoUnit && (int)_lengthUnit != MyUnit.NoUnit &&
+                                (int)_temperatureDeltaUnit != MyUnit.NoUnit) || ((int)_thermalConductivityUnit != MyUnit.NoUnit);
+                return !hasUnit;
+            }
+        }
+
+
         // Constructors                                                                                                             
         public StringThermalConductivityConverter()
         {
@@ -200,8 +207,7 @@ namespace CaeGlobals
                 conversionFromSI = 1 / 8.006798852;
             }
             // To no unit
-            else if ((int)_powerUnit == MyUnit.NoUnit || (int)_lengthUnit == MyUnit.NoUnit ||
-                     (int)_temperatureDeltaUnit == MyUnit.NoUnit)
+            else if (HasNoUnit)
             {
                 conversionFromSI = 1;
             }
@@ -227,8 +233,7 @@ namespace CaeGlobals
                 double conversionFromSI;
                 GetConversionToSI(valueWithUnitString, out valueDouble, out conversionToSI);
                 // To no unit
-                if ((int)_powerUnit == MyUnit.NoUnit || (int)_lengthUnit == MyUnit.NoUnit ||
-                    (int)_temperatureDeltaUnit == MyUnit.NoUnit) { }
+                if (HasNoUnit) { }
                 else
                 {
                     GetConversionFromSI(out conversionFromSI);

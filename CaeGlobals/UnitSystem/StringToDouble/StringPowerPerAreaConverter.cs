@@ -62,6 +62,9 @@ namespace CaeGlobals
                 if (value == MyUnit.PoundForcePerInchSecondAbbreviation)
                     _powerPerAreaUnit = MyUnit.PoundForcePerInchSecond;
                 else throw new NotSupportedException();
+                //
+                _powerUnit = (PowerUnit)MyUnit.NoUnit;
+                _areaUnit = (AreaUnit)MyUnit.NoUnit;
             }
         }
         public static string GetUnitAbbreviation(PowerUnit powerUnit, AreaUnit areaUnit,
@@ -75,7 +78,16 @@ namespace CaeGlobals
             else unit = Power.GetAbbreviation(powerUnit) + "/" + Area.GetAbbreviation(areaUnit);
             return unit;
         }
-        
+        public static bool HasNoUnit
+        {
+            get
+            {
+                bool hasUnit = ((int)_powerUnit != MyUnit.NoUnit && (int)_areaUnit != MyUnit.NoUnit) ||
+                                ((int)_powerPerAreaUnit != MyUnit.NoUnit);
+                return !hasUnit;
+            }
+        }
+
         
         // Constructors                                                                                                             
         public StringPowerPerAreaConverter()
@@ -166,7 +178,7 @@ namespace CaeGlobals
                 conversionFromSI = 1 / 175.12684;
             }
             // To no unit
-            else if ((int)_powerUnit == MyUnit.NoUnit || (int)_areaUnit == MyUnit.NoUnit)
+            else if (HasNoUnit)
             {
                 conversionFromSI = 1;
             }
@@ -189,7 +201,7 @@ namespace CaeGlobals
                 double conversionFromSI;
                 GetConversionToSI(valueWithUnitString, out valueDouble, out conversionToSI);
                 // To no unit
-                if ((int)_powerUnit == MyUnit.NoUnit || (int)_areaUnit == MyUnit.NoUnit) { }
+                if (HasNoUnit) { }
                 else
                 {
                     GetConversionFromSI(out conversionFromSI);

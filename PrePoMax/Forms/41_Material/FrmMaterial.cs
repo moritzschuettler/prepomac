@@ -214,66 +214,66 @@ namespace PrePoMax.Forms
         //
         private void lvAddedProperties_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if (lvAddedProperties.SelectedItems.Count == 1)
+            if (lvAddedProperties.PossiblySelectedItems.Count == 1)
             {
                 // Clear
                 dgvData.DataSource = null;      
                 dgvData.Columns.Clear();
                 tcProperties.TabPages.Clear();
                 //
-                if (lvAddedProperties.SelectedItems[0].Tag is ViewDensity vd)
+                if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewDensity vd)
                 {
                     tcProperties.TabPages.Add(_pages[0]);   // properties
                     tcProperties.TabPages.Add(_pages[1]);   // data points
                     //
                     SetDataGridViewBinding(vd.DataPoints);
                 }
-                else if (lvAddedProperties.SelectedItems[0].Tag is ViewElastic ve)
+                else if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewElastic ve)
                 {
                     tcProperties.TabPages.Add(_pages[0]);   // properties
                     tcProperties.TabPages.Add(_pages[1]);   // data points
                     //
                     SetDataGridViewBinding(ve.DataPoints);
                 }
-                else if (lvAddedProperties.SelectedItems[0].Tag is ViewElasticWithDensity)
+                else if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewElasticWithDensity)
                 {
                     tcProperties.TabPages.Add(_pages[0]);   // properties
                 }
-                else if (lvAddedProperties.SelectedItems[0].Tag is ViewPlastic vp)
+                else if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewPlastic vp)
                 {
                     tcProperties.TabPages.Add(_pages[1]);   // data points
                     tcProperties.TabPages.Add(_pages[0]);   // properties
                     //
                     SetDataGridViewBinding(vp.DataPoints);
                 }
-                else if (lvAddedProperties.SelectedItems[0].Tag is ViewThermalExpansion vte)
+                else if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewThermalExpansion vte)
                 {
                     tcProperties.TabPages.Add(_pages[0]);   // properties
                     tcProperties.TabPages.Add(_pages[1]);   // data points
                     //
                     SetDataGridViewBinding(vte.DataPoints);
                 }
-                else if (lvAddedProperties.SelectedItems[0].Tag is ViewThermalConductivity vtc)
+                else if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewThermalConductivity vtc)
                 {
                     tcProperties.TabPages.Add(_pages[0]);   // properties
                     tcProperties.TabPages.Add(_pages[1]);   // data points
                     //
                     SetDataGridViewBinding(vtc.DataPoints);
                 }
-                else if (lvAddedProperties.SelectedItems[0].Tag is ViewSpecificHeat vsh)
+                else if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewSpecificHeat vsh)
                 {
                     tcProperties.TabPages.Add(_pages[0]);   // properties
                     tcProperties.TabPages.Add(_pages[1]);   // data points
                     //
                     SetDataGridViewBinding(vsh.DataPoints);
                 }
-                else if (lvAddedProperties.SelectedItems[0].Tag is ViewSlipWear vsw)
+                else if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewSlipWear vsw)
                 {
                     tcProperties.TabPages.Add(_pages[0]);   // properties
                 }
                 else throw new NotSupportedException();
                 //
-                propertyGrid.SelectedObject = lvAddedProperties.SelectedItems[0].Tag;
+                propertyGrid.SelectedObject = lvAddedProperties.PossiblySelectedItems[0].Tag;
                 //
                 SetAllGridViewUnits();
                 //
@@ -642,12 +642,12 @@ namespace PrePoMax.Forms
         }
         private void HideShowTemperature()
         {
-            if (lvAddedProperties.SelectedItems.Count > 0)
+            if (lvAddedProperties.PossiblySelectedItems.Count > 0)
             {
-                if (lvAddedProperties.SelectedItems[0].Tag is ViewDensity ||
-                    lvAddedProperties.SelectedItems[0].Tag is ViewElastic ||
-                    lvAddedProperties.SelectedItems[0].Tag is ViewThermalConductivity ||
-                    lvAddedProperties.SelectedItems[0].Tag is ViewSpecificHeat)
+                if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewDensity ||
+                    lvAddedProperties.PossiblySelectedItems[0].Tag is ViewElastic ||
+                    lvAddedProperties.PossiblySelectedItems[0].Tag is ViewThermalConductivity ||
+                    lvAddedProperties.PossiblySelectedItems[0].Tag is ViewSpecificHeat)
                 {
                     tcProperties.TabPages.Clear();
                     // Properites
@@ -655,7 +655,7 @@ namespace PrePoMax.Forms
                     // Data points
                     if (cbTemperatureDependent.Checked) tcProperties.TabPages.Add(_pages[1]);
                 }
-                else if (lvAddedProperties.SelectedItems[0].Tag is ViewThermalExpansion vte)
+                else if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewThermalExpansion vte)
                 {
                     tcProperties.TabPages.Clear();
                     // Properites
@@ -666,7 +666,7 @@ namespace PrePoMax.Forms
                     vte.SetTemperatureDependence(cbTemperatureDependent.Checked);
                     propertyGrid.Refresh();
                 }
-                else if (lvAddedProperties.SelectedItems[0].Tag is ViewSlipWear)
+                else if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewSlipWear)
                 {
                     tcProperties.TabPages.Clear();
                     tcProperties.TabPages.Add(_pages[0]);

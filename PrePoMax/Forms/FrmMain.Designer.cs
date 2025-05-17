@@ -103,6 +103,7 @@ namespace PrePoMax
             this.tsmiNew = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiOpen = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiOpenRecent = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiRunHistoryFile = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiImportFile = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerFile1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiSave = new System.Windows.Forms.ToolStripMenuItem();
@@ -198,8 +199,12 @@ namespace PrePoMax
             this.tsmiDividerGeomPart4 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiDeleteGeometryParts = new System.Windows.Forms.ToolStripMenuItem();
             this.cADPartToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiConvertShellToSolidCAD = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiDividerCAD1 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiConvertSolidToShellCAD = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiFlipFaceNormalCAD = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSplitAFaceUsingTwoPoints = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiDividerCAD2 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiDefeature = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiStlPart = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiFindStlEdgesByAngleForGeometryParts = new System.Windows.Forms.ToolStripMenuItem();
@@ -524,7 +529,6 @@ namespace PrePoMax
             this.tbOutput = new UserControls.AutoScrollTextBox();
             this.timerTest = new System.Windows.Forms.Timer(this.components);
             this.timerOutput = new System.Windows.Forms.Timer(this.components);
-            this.tsmiRunHistoryFile = new System.Windows.Forms.ToolStripMenuItem();
             this.tsFile.SuspendLayout();
             this.tsViews.SuspendLayout();
             this.tsSymbols.SuspendLayout();
@@ -1266,6 +1270,13 @@ namespace PrePoMax
             this.tsmiOpenRecent.Name = "tsmiOpenRecent";
             this.tsmiOpenRecent.Size = new System.Drawing.Size(219, 22);
             this.tsmiOpenRecent.Text = "Open Recent";
+            // 
+            // tsmiRunHistoryFile
+            // 
+            this.tsmiRunHistoryFile.Name = "tsmiRunHistoryFile";
+            this.tsmiRunHistoryFile.Size = new System.Drawing.Size(219, 22);
+            this.tsmiRunHistoryFile.Text = "Run History File";
+            this.tsmiRunHistoryFile.Click += new System.EventHandler(this.tsmiRunHistoryFile_Click);
             // 
             // tsmiImportFile
             // 
@@ -2014,12 +2025,35 @@ namespace PrePoMax
             // cADPartToolStripMenuItem
             // 
             this.cADPartToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmiConvertShellToSolidCAD,
+            this.tsmiConvertSolidToShellCAD,
+            this.tsmiDividerCAD1,
             this.tsmiFlipFaceNormalCAD,
             this.tsmiSplitAFaceUsingTwoPoints,
+            this.tsmiDividerCAD2,
             this.tsmiDefeature});
             this.cADPartToolStripMenuItem.Name = "cADPartToolStripMenuItem";
             this.cADPartToolStripMenuItem.Size = new System.Drawing.Size(221, 22);
             this.cADPartToolStripMenuItem.Text = "CAD Part";
+            // 
+            // tsmiConvertShellToSolidCAD
+            // 
+            this.tsmiConvertShellToSolidCAD.Name = "tsmiConvertShellToSolidCAD";
+            this.tsmiConvertShellToSolidCAD.Size = new System.Drawing.Size(226, 22);
+            this.tsmiConvertShellToSolidCAD.Text = "Convert Shell to Solid";
+            this.tsmiConvertShellToSolidCAD.Click += new System.EventHandler(this.tsmiConvertShellToSolidCAD_Click);
+            // 
+            // tsmiDividerCAD1
+            // 
+            this.tsmiDividerCAD1.Name = "tsmiDividerCAD1";
+            this.tsmiDividerCAD1.Size = new System.Drawing.Size(223, 6);
+            // 
+            // tsmiConvertSolidToShellCAD
+            // 
+            this.tsmiConvertSolidToShellCAD.Name = "tsmiConvertSolidToShellCAD";
+            this.tsmiConvertSolidToShellCAD.Size = new System.Drawing.Size(226, 22);
+            this.tsmiConvertSolidToShellCAD.Text = "Convert Solid to Shell";
+            this.tsmiConvertSolidToShellCAD.Click += new System.EventHandler(this.TsmiConvertSolidToShellCAD_Click);
             // 
             // tsmiFlipFaceNormalCAD
             // 
@@ -2034,6 +2068,11 @@ namespace PrePoMax
             this.tsmiSplitAFaceUsingTwoPoints.Size = new System.Drawing.Size(226, 22);
             this.tsmiSplitAFaceUsingTwoPoints.Text = "Split a Face Using Two Points";
             this.tsmiSplitAFaceUsingTwoPoints.Click += new System.EventHandler(this.tsmiSplitAFaceUsingTwoPoints_Click);
+            // 
+            // tsmiDividerCAD2
+            // 
+            this.tsmiDividerCAD2.Name = "tsmiDividerCAD2";
+            this.tsmiDividerCAD2.Size = new System.Drawing.Size(223, 6);
             // 
             // tsmiDefeature
             // 
@@ -4612,13 +4651,6 @@ namespace PrePoMax
             // 
             this.timerOutput.Tick += new System.EventHandler(this.timerOutput_Tick);
             // 
-            // tsmiRunHistoryFile
-            // 
-            this.tsmiRunHistoryFile.Name = "tsmiRunHistoryFile";
-            this.tsmiRunHistoryFile.Size = new System.Drawing.Size(219, 22);
-            this.tsmiRunHistoryFile.Text = "Run History File";
-            this.tsmiRunHistoryFile.Click += new System.EventHandler(this.tsmiRunHistoryFile_Click);
-            // 
             // FrmMain
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
@@ -5171,6 +5203,10 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiExportParameters;
         private System.Windows.Forms.ToolStripMenuItem tsmiImportParameters;
         private System.Windows.Forms.ToolStripMenuItem tsmiRunHistoryFile;
+        private System.Windows.Forms.ToolStripMenuItem tsmiConvertSolidToShellCAD;
+        private System.Windows.Forms.ToolStripMenuItem tsmiConvertShellToSolidCAD;
+        private System.Windows.Forms.ToolStripSeparator tsmiDividerCAD1;
+        private System.Windows.Forms.ToolStripSeparator tsmiDividerCAD2;
     }
 }
 

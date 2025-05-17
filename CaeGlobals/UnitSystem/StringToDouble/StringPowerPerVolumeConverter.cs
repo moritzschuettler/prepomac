@@ -62,6 +62,9 @@ namespace CaeGlobals
                 if (value == MyUnit.PoundForcePerSquareInchSecondAbbreviation)
                     _powerPerVolumeUnit = MyUnit.PoundForcePerSquareInchSecond;
                 else throw new NotSupportedException();
+                //
+                _powerUnit = (PowerUnit)MyUnit.NoUnit;
+                _volumeUnit = (VolumeUnit)MyUnit.NoUnit;
             }
         }
         public static string GetUnitAbbreviation(PowerUnit powerUnit, VolumeUnit volumeUnit,
@@ -75,8 +78,17 @@ namespace CaeGlobals
             else unit = Power.GetAbbreviation(powerUnit) + "/" + Volume.GetAbbreviation(volumeUnit);
             return unit;
         }
-        
-        
+        public static bool HasNoUnit
+        {
+            get
+            {
+                bool hasUnit = ((int)_powerUnit != MyUnit.NoUnit && (int)_volumeUnit != MyUnit.NoUnit) ||
+                                ((int)_powerPerVolumeUnit != MyUnit.NoUnit);
+                return !hasUnit;
+            }
+        }
+
+
         // Constructors                                                                                                             
         public StringPowerPerVolumeConverter()
         {
@@ -166,7 +178,7 @@ namespace CaeGlobals
                 conversionFromSI = 1 / 6894.7573;
             }
             // To no unit
-            else if ((int)_powerUnit == MyUnit.NoUnit || (int)_volumeUnit == MyUnit.NoUnit)
+            else if (HasNoUnit)
             {
                 conversionFromSI = 1;
             }
@@ -189,7 +201,7 @@ namespace CaeGlobals
                 double conversionFromSI;
                 GetConversionToSI(valueWithUnitString, out valueDouble, out conversionToSI);
                 // To no unit
-                if ((int)_powerUnit == MyUnit.NoUnit || (int)_volumeUnit == MyUnit.NoUnit) { }
+                if (HasNoUnit) { }
                 else
                 {
                     GetConversionFromSI(out conversionFromSI);

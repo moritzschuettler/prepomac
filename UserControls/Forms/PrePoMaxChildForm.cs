@@ -13,42 +13,42 @@ namespace UserControls
 
 
         // Methods                                                                                                                  
-        protected void CheckMissingValueRef(ref string[] allvalues, string currentValue, Action<string> valueSetter)
+        protected void CheckMissingValueRef(ref string[] allValues, string currentValue, Action<string> valueSetter)
         {
-            if (allvalues.Length == 0 || (allvalues.Length > 0 && !allvalues.Contains(currentValue)))
+            if (allValues.Length == 0 || (allValues.Length > 0 && !allValues.Contains(currentValue)))
             {
                 string value = "Missing";
-                if (allvalues.Length > 0) value = allvalues[0];
+                if (allValues.Length > 0) value = allValues[0];
 
                 if (currentValue != null && currentValue != value)
                 {
-                    ShowProperyMissingBox(currentValue, value);
+                    ShowMissingBox(currentValue, value);
                     valueSetter(value);                    
                     _propertyItemChanged = true;
                 }
 
-                if (allvalues.Length == 0) allvalues = new string[] { value };
+                if (allValues.Length == 0) allValues = new string[] { value };
             }
         }
-        protected void CheckMissingValue(string[] allvalues, string currentValue, Action<string> valueSetter)
+        protected void CheckMissingValue(string[] allValues, string currentValue, Action<string> valueSetter)
         {
-            if (allvalues.Length == 0 || (allvalues.Length > 0 && !allvalues.Contains(currentValue)))
+            if (allValues.Length == 0 || (allValues.Length > 0 && !allValues.Contains(currentValue)))
             {
                 string value = "Missing";
-                if (allvalues.Length > 0) value = allvalues[0];
+                if (allValues.Length > 0) value = allValues[0];
 
                 if (currentValue != null && currentValue != value)
                 {
-                    ShowProperyMissingBox(currentValue, value);
+                    ShowMissingBox(currentValue, value);
                     valueSetter(value);
-                    Array.Resize(ref allvalues, 1);
-                    allvalues[0] = value;
+                    Array.Resize(ref allValues, 1);
+                    allValues[0] = value;
                     _propertyItemChanged = true;
                 }
             }
         }
 
-        private void ShowProperyMissingBox(string missingValue, string newValue)
+        private void ShowMissingBox(string missingValue, string newValue)
         {
             CaeGlobals.MessageBoxes.ShowError("The property value '" + missingValue + "' no longer exists." + Environment.NewLine + 
                                               "The value was changed to '" + newValue + "'.");

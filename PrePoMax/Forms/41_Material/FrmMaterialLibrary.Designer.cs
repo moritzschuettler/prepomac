@@ -95,6 +95,7 @@
             this.lvModelMaterials.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.None;
             this.lvModelMaterials.HideSelection = false;
             this.lvModelMaterials.Location = new System.Drawing.Point(6, 51);
+            this.lvModelMaterials.MouseOverColor = System.Drawing.Color.FromArgb(((int)(((byte)(204)))), ((int)(((byte)(228)))), ((int)(((byte)(247)))));
             this.lvModelMaterials.MultiSelect = false;
             this.lvModelMaterials.Name = "lvModelMaterials";
             this.lvModelMaterials.ShowGroups = false;
@@ -102,6 +103,7 @@
             this.lvModelMaterials.TabIndex = 1;
             this.lvModelMaterials.UseCompatibleStateImageBehavior = false;
             this.lvModelMaterials.View = System.Windows.Forms.View.List;
+            this.lvModelMaterials.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.lvModelMaterials_MouseDoubleClick);
             this.lvModelMaterials.MouseUp += new System.Windows.Forms.MouseEventHandler(this.lvModelMaterials_MouseUp);
             // 
             // btnRename
@@ -171,6 +173,7 @@
             this.cltvLibrary.DisableMouse = false;
             this.cltvLibrary.HighlightForeErrorColor = System.Drawing.Color.Red;
             this.cltvLibrary.Location = new System.Drawing.Point(6, 51);
+            this.cltvLibrary.MouseOverColor = System.Drawing.Color.FromArgb(((int)(((byte)(204)))), ((int)(((byte)(228)))), ((int)(((byte)(247)))));
             this.cltvLibrary.Name = "cltvLibrary";
             treeNode1.Name = "Materials";
             treeNode1.Text = "Materials";
@@ -313,6 +316,7 @@
             this.lvLibraries.DisableMouse = false;
             this.lvLibraries.HideSelection = false;
             this.lvLibraries.Location = new System.Drawing.Point(6, 22);
+            this.lvLibraries.MouseOverColor = System.Drawing.Color.FromArgb(((int)(((byte)(204)))), ((int)(((byte)(228)))), ((int)(((byte)(247)))));
             this.lvLibraries.MultiSelect = false;
             this.lvLibraries.Name = "lvLibraries";
             this.lvLibraries.Size = new System.Drawing.Size(482, 110);

@@ -392,7 +392,7 @@ namespace CaeMesh
         }
         private void ExtractCellNeighboursOverCell(Dictionary<int, FeElement> elements, int[] elementIds)
         {
-            int[] sorted;
+            int[] key;
             CompareIntArray comparer = new CompareIntArray();
             CellNeighbour cellNeighbour;
             _cellNeighboursOverCell = new Dictionary<int[], CellNeighbour>(elementIds.Length, comparer);
@@ -401,11 +401,11 @@ namespace CaeMesh
             {
                 foreach (int[] cell in ((FeElement3D)elements[id]).GetAllVtkCells())
                 {
-                    sorted = cell.ToArray();
-                    Array.Sort(sorted);
+                    key = cell.ToArray();
+                    Array.Sort(key);
                     //
-                    if (_cellNeighboursOverCell.TryGetValue(sorted, out cellNeighbour)) cellNeighbour.Id2 = id;
-                    else _cellNeighboursOverCell.Add(sorted, new CellNeighbour(id, -1, cell));
+                    if (_cellNeighboursOverCell.TryGetValue(key, out cellNeighbour)) cellNeighbour.Id2 = id;
+                    else _cellNeighboursOverCell.Add(key, new CellNeighbour(id, -1, cell));
                 }
             }
         }
@@ -445,32 +445,51 @@ namespace CaeMesh
             }
             // Cell neighbours over cell
             bool error = false;
+            int[] cellIds = new int[4];
             if (_cellNeighboursOverCell != null)
             {
                 int[] renumberedKey;
                 int[] renumberedCell;
                 CellNeighbour cellNeighbour;
+                CellNeighbour existingCellNeighbour;
                 CompareIntArray comparer = new CompareIntArray();
                 Dictionary<int[], CellNeighbour> renumberedNeighbours =
                     new Dictionary<int[], CellNeighbour>(_cellNeighboursOverCell.Count, comparer);
                 //
                 foreach (var entry in _cellNeighboursOverCell)
                 {
-                    renumberedKey = entry.Key.ToArray();           // not all nodes are renumbered
-                    renumberedCell = entry.Value.Cell1.ToArray();   // not all nodes are renumbered
+                    renumberedCell = entry.Value.Cell1.ToArray();   // not all nodes are renumbered - make a copy
                     //
                     for (int i = 0; i < renumberedCell.Length; i++)
                     {
-                        if (newIds.TryGetValue(entry.Key[i], out id)) renumberedKey[i] = id;
                         if (newIds.TryGetValue(entry.Value.Cell1[i], out id)) renumberedCell[i] = id;
                     }
                     //
+                    renumberedKey = renumberedCell.ToArray();
+                    Array.Sort(renumberedKey);
+                    //
                     cellNeighbour = entry.Value;
                     cellNeighbour.Cell1 = renumberedCell;
-                    if (!renumberedNeighbours.ContainsKey(renumberedKey))
-                        renumberedNeighbours.Add(renumberedKey, cellNeighbour);
-                    else
-                        error = true;
+                    //
+                    if (renumberedNeighbours.TryGetValue(renumberedKey, out existingCellNeighbour))
+                    {
+                        cellIds[0] = cellNeighbour.Id1;
+                        cellIds[1] = cellNeighbour.Id2;
+                        cellIds[2] = existingCellNeighbour.Id1;
+                        cellIds[3] = existingCellNeighbour.Id2;
+                        Array.Sort(cellIds);
+                        // The same cell
+                        if (cellIds[0] == cellIds[1] && cellIds[2] == cellIds[3]) error = true;
+                        // Two outer cells connected together
+                        else if (cellIds[0] == -1 && cellIds[1] == -1 && cellIds[2] != -1 && cellIds[3] != -1)
+                        {
+                            existingCellNeighbour.Id1 = cellIds[2];
+                            existingCellNeighbour.Id2 = cellIds[3];
+                        }
+                        // The rest
+                        else error = true;
+                    }
+                    else renumberedNeighbours.Add(renumberedKey, cellNeighbour);
                 }
                 _cellNeighboursOverCell = renumberedNeighbours;
             }

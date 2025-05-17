@@ -132,21 +132,24 @@ namespace CaeMesh
             return _elementTypeEnums;
         }
         public void AddElementTypeEnums(List<Enum> elementTypeEnums)
-        {            
-            Dictionary<Type, Enum> oldEnums = new Dictionary<Type, Enum>();
-            if (_elementTypeEnums != null)
+        {     
+            if (elementTypeEnums != null)
             {
-                foreach (var oldElementTypeEnum in _elementTypeEnums)
-                    oldEnums.Add(oldElementTypeEnum.GetType(), oldElementTypeEnum);
+                Dictionary<Type, Enum> oldEnums = new Dictionary<Type, Enum>();
+                if (_elementTypeEnums != null)
+                {
+                    foreach (var oldElementTypeEnum in _elementTypeEnums)
+                        oldEnums.Add(oldElementTypeEnum.GetType(), oldElementTypeEnum);
+                }
+                //
+                foreach (var newEnum in elementTypeEnums)
+                {
+                    if (oldEnums.ContainsKey(newEnum.GetType())) oldEnums[newEnum.GetType()] = newEnum;
+                    else oldEnums.Add(newEnum.GetType(), newEnum);
+                }
+                //
+                _elementTypeEnums = oldEnums.Values.ToList();
             }
-            //
-            foreach (var newEnum in elementTypeEnums)
-            {
-                if (oldEnums.ContainsKey(newEnum.GetType())) oldEnums[newEnum.GetType()] = newEnum;
-                else oldEnums.Add(newEnum.GetType(), newEnum);
-            }
-            //
-            _elementTypeEnums = oldEnums.Values.ToList();
         }
         public override void RenumberVisualizationElements(Dictionary<int, int> newIds)
         {

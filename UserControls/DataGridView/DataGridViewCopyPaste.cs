@@ -136,7 +136,7 @@ namespace UserControls
             this.autocompleteMenu.Items = new string[0];
             this.autocompleteMenu.MaximumSize = new System.Drawing.Size(360, 200);
             this.autocompleteMenu.MinFragmentLength = 1;
-            this.autocompleteMenu.SearchPattern = "[\\w\\.]+";
+            this.autocompleteMenu.SearchPattern = "[\\w\\.\\-]+";
             this.autocompleteMenu.TargetControlWrapper = null;
             // 
             // DataGridViewCopyPaste

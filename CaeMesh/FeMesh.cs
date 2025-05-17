@@ -3173,7 +3173,6 @@ namespace CaeMesh
                 newBasePart.Name = part.Name;
                 newBasePart.PartId = part.PartId;
                 SetPartColorFromColorTable(newBasePart);
-                ComputeVolumeArea(newBasePart);
                 // Replace part
                 _parts[newBasePart.Name] = newBasePart;
                 // Keep existing edges
@@ -3181,6 +3180,8 @@ namespace CaeMesh
                 ConvertLineFeElementsToEdges(edgeElements, new string[] { newBasePart.Name }, vertices);
                 //
                 modifiedParts[count++] = newBasePart;
+                //
+                ComputeVolumeArea(newBasePart); // after convert line elements to edges
             }
             // Create new parts
             count = 0;
@@ -3207,12 +3208,13 @@ namespace CaeMesh
                 //
                 newBasePart.PartId = maxPartId + count;
                 SetPartColorFromColorTable(newBasePart);
-                ComputeVolumeArea(newBasePart);
                 //
                 _parts.Add(newBasePart.Name, newBasePart);
                 newParts[count++] = newBasePart;
                 // Keep existing edges
                 ConvertLineFeElementsToEdges(edgeElements, new string[] { newBasePart.Name }, vertices);
+                //
+                ComputeVolumeArea(newBasePart); // after convert line elements to edges
             }
             // Remove element sets
             for (int i = 0; i < elementSetNames.Length; i++) _elementSets.Remove(elementSetNames[i]);
@@ -8173,7 +8175,7 @@ namespace CaeMesh
         public void MergeCoincidentNodes(string nodeSetName, MergeCoincidentNodes mergeCoincidentNodes)
         {
             Dictionary<int, int> oldIdNewId = GetCoincidentNodeMap(nodeSetName, mergeCoincidentNodes);
-            // Build merged nodes groups
+            // Build merged nodes groups - 
             bool groupFound;
             List<HashSet<int>> coincidentGroups = new List<HashSet<int>>();
             foreach (var idEntry in oldIdNewId)
@@ -8211,7 +8213,39 @@ namespace CaeMesh
             //
             RemoveUnreferencedNodes(oldIdNewId.Keys.ToHashSet(), false, false);
             //
-            ComputeVolumeArea();
+            HashSet<int> partIds = new HashSet<int>();
+            HashSet<int> newNodeIds = new HashSet<int>(oldIdNewId.Values);
+            foreach (var nodeId in newNodeIds)
+            {
+                foreach (var elementId in _nodeIdElementIds[nodeId])
+                {
+                    partIds.Add(_elements[elementId].PartId);
+                }
+            }
+            BasePart part;
+            foreach (var partId in partIds)
+            {
+                part = GetPartFromId(partId);
+                //
+                HashSet<int> vertices = new HashSet<int>();
+                vertices.UnionWith(part.Visualization.VertexNodeIds);
+                //
+                List<FeElement1D> edgeElements = new List<FeElement1D>();
+                edgeElements.AddRange(GetLineElementsFromEdges(part));
+                //
+                if (part.PartType == PartType.Solid)
+                    ExtractSolidPartVisualization(part, Globals.EdgeAngle);
+                else if (part.PartType == PartType.Shell || part.PartType == PartType.SolidAsShell)
+                    ExtractShellPartVisualization(part, isCADPart: false, Globals.EdgeAngle);
+                else if (part.PartType == PartType.Wire)
+                    ExtractWirePartVisualization(part, Globals.EdgeAngle);
+                else if (part.PartType == PartType.Unknown)
+                    throw new NotSupportedException();
+                //
+                ConvertLineFeElementsToEdges(edgeElements, new string[] { part.Name }, vertices);
+                //
+                ComputeVolumeArea(part);
+            }
         }
         public Dictionary<int, int> GetCoincidentNodeMap(string nodeSetName, MergeCoincidentNodes mergeCoincidentNodes)
         {
@@ -10683,13 +10717,18 @@ namespace CaeMesh
             bool addCG = true;
             //
             massProperties = part.MassProperties;
+            // Solid
             if (part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell || part.PartType == PartType.Compound)
             {
-                if (part is GeometryPart gp && gp.IsCADPart) massProperties.Volume = size;
-                else addCG = false;
+                // Stl solid
+                if (part is GeometryPart gp && !gp.IsCADPart) addCG = false;
+                // Other solids
+                else massProperties.Volume = size; 
             }
+            // Shell
             else if (part.PartType == PartType.Shell)
                 massProperties.Area = size;
+            // Wire
             else if (part.PartType == PartType.Wire) { }
             else if (Debugger.IsAttached)
                 throw new NotImplementedException();

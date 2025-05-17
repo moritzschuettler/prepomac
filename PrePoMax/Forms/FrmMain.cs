@@ -2936,7 +2936,7 @@ namespace PrePoMax
         {
             try
             {
-                SelectMultipleEntities("Parts", _controller.GetGeometryParts(), ScaleGeometryParts);
+                SelectMultipleEntities("Parts", _controller.GetGeometryPartsWithoutSubParts(), ScaleGeometryParts);
             }
             catch (Exception ex)
             {
@@ -3320,6 +3320,28 @@ namespace PrePoMax
         #endregion  ################################################################################################################
 
         #region Geometry CAD part menu   ###########################################################################################
+        private void tsmiConvertShellToSolidCAD_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Parts", _controller.GetCADGeometryShellParts(), ConvertShellToSolid);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void TsmiConvertSolidToShellCAD_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Parts", _controller.GetCADGeometrySolidParts(), ConvertSolidToShell);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
         private async void tsmiFlipFaceNormalCAD_Click(object sender, EventArgs e)
         {
             try
@@ -3420,6 +3442,14 @@ namespace PrePoMax
             }
         }
         //
+        private void ConvertShellToSolid(string[] partNames)
+        {
+            _controller.ConvertShellToSolidCommand(partNames);
+        }
+        private void ConvertSolidToShell(string[] partNames)
+        {
+            _controller.ConvertSolidToShellCommand(partNames);
+        }
         private void FlipFaces(GeometrySelection geometrySelection)
         {
             try
@@ -3752,7 +3782,7 @@ namespace PrePoMax
                 //
                 CloseAllForms();
                 //
-                System.Diagnostics.Stopwatch watch = new System.Diagnostics.Stopwatch();
+                Stopwatch watch = new Stopwatch();
                 watch.Start();
                 //
                 GeometryPart part;
@@ -6909,7 +6939,7 @@ namespace PrePoMax
                 {
                     if (AnnotationContainer.IsAnnotationNameReserved(annotationName)) return;
                     //
-                    if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected annotation?") == DialogResult.OK)
+                    //if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected annotation?") == DialogResult.OK)
                     {
                         _controller.Annotations.RemoveCurrentArrowAnnotation(annotationName);
                     }
@@ -8487,7 +8517,7 @@ namespace PrePoMax
             {
                 if (_controller.Annotations.GetCurrentAnnotationNames().Length > 0)
                 {
-                    if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete current view annotations?") == DialogResult.OK)
+                    if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete all current view annotations?") == DialogResult.OK)
                     {
                         _controller.Annotations.RemoveCurrentArrowAnnotations();
                     }
@@ -10735,7 +10765,7 @@ namespace PrePoMax
             }
         }
 
-       
+        
     }
 }
 

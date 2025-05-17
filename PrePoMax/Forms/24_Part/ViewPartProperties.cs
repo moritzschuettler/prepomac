@@ -164,8 +164,6 @@ namespace PrePoMax.Forms
             set { _partProperties.ParabolicHexaType = value; }
         }
         //
-
-
         [Category("Geometry")]
         [OrderedDisplayName(0, 10, "Volume")]
         [Description("Part volume.")]
@@ -240,9 +238,6 @@ namespace PrePoMax.Forms
                 else return double.NaN;
             }
         }
-
-
-
         [Category("Appearance")]
         [OrderedDisplayName(0, 10, "Part color")]
         [Description("Select part color.")]
@@ -267,11 +262,27 @@ namespace PrePoMax.Forms
             _dctd.CategorySortOrder = CustomSortOrder.AscendingById;
             _dctd.PropertySortOrder = CustomSortOrder.AscendingById;
             //
-            bool visible = _partProperties.PartType == PartType.Solid || _partProperties.PartType == PartType.SolidAsShell ||
-                           _partProperties.PartType == PartType.Compound;
-            _dctd.GetProperty(nameof(Volume)).SetIsBrowsable(visible);
-            _dctd.GetProperty(nameof(Area)).SetIsBrowsable(!visible);
+            SetVisibility(currentView, elementTypeNamesToRemove);
+        }
+
+
+        // Methods                                                                                                                  
+        public PartProperties GetBase()
+        {
+            return _partProperties;
+        }
+        private void SetVisibility(ViewGeometryModelResults currentView, Dictionary<Type, HashSet<string>> elementTypeNamesToRemove)
+        {
+            bool solid = _partProperties.PartType == PartType.Solid || _partProperties.PartType == PartType.SolidAsShell ||
+                         _partProperties.PartType == PartType.Compound;
             //
+            _dctd.GetProperty(nameof(Volume)).SetIsBrowsable(solid && !double.IsNaN(Volume));
+            _dctd.GetProperty(nameof(Area)).SetIsBrowsable(!solid && !double.IsNaN(Area));
+            _dctd.GetProperty(nameof(X)).SetIsBrowsable(!double.IsNaN(X));
+            _dctd.GetProperty(nameof(Y)).SetIsBrowsable(!double.IsNaN(Y));
+            _dctd.GetProperty(nameof(Z)).SetIsBrowsable(!double.IsNaN(Z));
+            //
+            bool visible;
             if (currentView == ViewGeometryModelResults.Geometry)
             {
                 visible = _partProperties.PartType != PartType.Compound;
@@ -335,13 +346,6 @@ namespace PrePoMax.Forms
                 _dctd.GetProperty(nameof(ParabolicHexaType)).SetIsBrowsable(false);
             }
         }
-
-
-        // Methods                                                                                                                  
-        public PartProperties GetBase()
-        {
-            return _partProperties;
-        }
         private void ShowHide(int propertyElType, string propertyName, Type elType,
                               Dictionary<Type, HashSet<string>> elementTypeNamesToRemove)
         {
@@ -355,5 +359,6 @@ namespace PrePoMax.Forms
             }
             else _dctd.GetProperty(propertyName).SetIsBrowsable(false);
         }
+        
     }
 }

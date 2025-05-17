@@ -88,6 +88,10 @@ namespace CaeGlobals
                 if (value == MyUnit.SquareInchPerSquareSecondFahrenheitAbbreviation)
                     _specificHeatUnit = MyUnit.SquareInchPerSquareSecondFahrenheit;
                 else throw new NotSupportedException();
+                //
+                _energyUnit = (EnergyUnit)MyUnit.NoUnit;
+                _massUnit = (MassUnit)MyUnit.NoUnit;
+                _temperatureDeltaUnit = (TemperatureDeltaUnit)MyUnit.NoUnit;
             }
         }
         public static string GetUnitAbbreviation(EnergyUnit energyUnit, MassUnit massUnit,
@@ -107,8 +111,17 @@ namespace CaeGlobals
             }
             return unit.Replace("∆", "");
         }
-        
-        
+        public static bool HasNoUnit
+        {
+            get
+            {
+                bool hasUnit = ((int)_energyUnit != MyUnit.NoUnit && (int)_massUnit != MyUnit.NoUnit &&
+                                (int)_temperatureDeltaUnit != MyUnit.NoUnit) || ((int)_specificHeatUnit != MyUnit.NoUnit);
+                return !hasUnit;
+            }
+        }
+
+
         // Constructors                                                                                                             
         public StringSpecificHeatConverter()
         {
@@ -207,8 +220,7 @@ namespace CaeGlobals
                 conversionFromSI = 1 / 0.001161288;
             }
             // To no unit
-            else if ((int)_energyUnit == MyUnit.NoUnit || (int)_massUnit == MyUnit.NoUnit ||
-                     (int)_temperatureDeltaUnit == MyUnit.NoUnit)
+            else if (HasNoUnit)
             {
                 conversionFromSI = 1;
             }
@@ -233,8 +245,7 @@ namespace CaeGlobals
                 double conversionFromSI;
                 GetConversionToSI(valueWithUnitString, out valueDouble, out conversionToSI);
                 // To no unit
-                if ((int)_energyUnit == MyUnit.NoUnit || (int)_massUnit == MyUnit.NoUnit ||
-                    (int)_temperatureDeltaUnit == MyUnit.NoUnit) { }
+                if (HasNoUnit) { }
                 else
                 {
                     GetConversionFromSI(out conversionFromSI);
