@@ -68,7 +68,7 @@ namespace CaeModel
             _upperFrequency = double.NaN;
             _storage = false;
             //
-            AddFieldOutput(new NodalFieldOutput("NF-Output-1", NodalFieldVariable.U | NodalFieldVariable.RF));
+            AddFieldOutput(new NodalFieldOutput("NF-Output-1", NodalFieldVariable.U));
             AddFieldOutput(new ElementFieldOutput("EF-Output-1", ElementFieldVariable.E | ElementFieldVariable.S));
         }
         //ISerializable

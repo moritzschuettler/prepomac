@@ -238,7 +238,7 @@ namespace AutocompleteMenuNS
         /// <summary>
         /// Regex pattern for serach fragment around caret
         /// </summary>
-        [Description("Regex pattern for serach fragment around caret")]
+        [Description("Regex pattern for searach fragment around caret")]
         [DefaultValue(@"[\w\.]")]
         public string SearchPattern { get; set; }
 

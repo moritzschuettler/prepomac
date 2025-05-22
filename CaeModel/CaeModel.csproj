@@ -73,6 +73,7 @@
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Section\CalMembraneSection.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Section\CalLinearSpringSection.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\SurfaceInteraction\CalGapConductance.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\Step\CalComplexFrequencyStep.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\CalOpParameter.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\BC\CalTemperatureBC.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\CalModalDynamicsStep.cs" />
@@ -161,6 +162,7 @@
     <Compile Include="Steps\Damping\DampingRatioFromTo.cs" />
     <Compile Include="Steps\Damping\Damping.cs" />
     <Compile Include="Steps\Damping\ModalDamping.cs" />
+    <Compile Include="Steps\ComplexFrequencyStep.cs" />
     <Compile Include="Steps\Loads\Imported\ImportedSTLoad.cs" />
     <Compile Include="Steps\ModalDynamicsStep.cs" />
     <Compile Include="Steps\SteadyStateDynamicsStep.cs" />

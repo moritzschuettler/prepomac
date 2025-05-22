@@ -33,6 +33,8 @@ namespace PrePoMax.Forms
                     _viewStep = new ViewBoundaryDisplacementStep(bds.DeepClone());
                 else if (value is FrequencyStep fs)
                     _viewStep = new ViewFrequencyStep(fs.DeepClone());
+                else if (value is ComplexFrequencyStep cfs)
+                    _viewStep = new ViewComplexFrequencyStep(cfs.DeepClone());
                 else if (value is BuckleStep bs)
                     _viewStep = new ViewBuckleStep(bs.DeepClone());
                 else if (value is ModalDynamicsStep md)
@@ -197,6 +199,7 @@ namespace PrePoMax.Forms
             bool addSlipWearStep = false;
             bool addBoundaryDisplacementStep = false;
             bool addFrequencyStep = false;
+            bool addComplexFrequencyStep = false;
             bool addBuckleStep = false;
             bool addModalDynamicsStep = false;
             bool addSteadyStepDynamicsStep = false;
@@ -206,11 +209,6 @@ namespace PrePoMax.Forms
             bool addCoupledTemDispStep = false;
             bool cannotAdd;
             //
-            //if (prevOrLastStep is BoundaryDisplacementStep)
-            {
-                // no possible steps to add
-            }
-            //else if (prevOrLastStep is SlipWearStep)
             if (prevOrLastStep is SlipWearStep)
             {
                 addSlipWearStep = true;
@@ -225,6 +223,7 @@ namespace PrePoMax.Forms
                     addSlipWearStep = true;
                 }
                 if (!(prevOrLastStep is FrequencyStep)) addFrequencyStep = true;
+                if (!(prevOrLastStep is FrequencyStep)) addComplexFrequencyStep = true;
                 if (!(prevOrLastStep is BuckleStep)) addBuckleStep = true;
                 //
                 addModalDynamicsStep = true;
@@ -238,6 +237,7 @@ namespace PrePoMax.Forms
                 {
                     addStaticStep = true;
                     addFrequencyStep = true;
+                    addComplexFrequencyStep = true;
                     addBuckleStep = true;
                     addModalDynamicsStep = true;
                     addSteadyStepDynamicsStep = true;
@@ -248,9 +248,9 @@ namespace PrePoMax.Forms
                 }
             }
             //
-            cannotAdd = !(addStaticStep || addSlipWearStep || addBoundaryDisplacementStep || addFrequencyStep || addBuckleStep ||
-                          addModalDynamicsStep || addSteadyStepDynamicsStep || addDynamicStep || addHeatTransferStep ||
-                          addUncoupledTemDispStep || addCoupledTemDispStep);
+            cannotAdd = !(addStaticStep || addSlipWearStep || addBoundaryDisplacementStep || addFrequencyStep ||
+                          addComplexFrequencyStep || addBuckleStep || addModalDynamicsStep || addSteadyStepDynamicsStep ||
+                          addDynamicStep || addHeatTransferStep || addUncoupledTemDispStep || addCoupledTemDispStep);
             //
             ListViewItem item;
             if (cannotAdd)
@@ -296,6 +296,15 @@ namespace PrePoMax.Forms
                     FrequencyStep frequencyStep = new FrequencyStep(GetStepName());
                     frequencyStep.SolverType = defaultSolverType;
                     item.Tag = new ViewFrequencyStep(frequencyStep);
+                    lvTypes.Items.Add(item);
+                }
+                if (addComplexFrequencyStep)
+                {
+                    // Complex frequency step
+                    item = new ListViewItem("Complex Frequency Step");
+                    ComplexFrequencyStep complexFrequencyStep = new ComplexFrequencyStep(GetStepName());
+                    complexFrequencyStep.SolverType = defaultSolverType;
+                    item.Tag = new ViewComplexFrequencyStep(complexFrequencyStep);
                     lvTypes.Items.Add(item);
                 }
                 if (addBuckleStep)

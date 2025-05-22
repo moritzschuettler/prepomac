@@ -121,7 +121,7 @@ namespace AutocompleteMenuNS
 
                 if (item != null)
                 {
-                    ShowToolTip(item);
+                    ShowToolTip(item, this);
                     ScrollToSelected();
                 }
 
@@ -141,11 +141,24 @@ namespace AutocompleteMenuNS
                 return;
             if (oldItemCount == VisibleItems.Count)
                 return;
-
+            // Height
             int needHeight = ItemHeight*VisibleItems.Count + 1;
             Height = Math.Min(needHeight, MaximumSize.Height);
             AutoScrollMinSize = new Size(0, needHeight);
             oldItemCount = VisibleItems.Count;
+            // Width
+            int maxWidth = 0;
+            using (Graphics g = this.CreateGraphics())
+            {
+                foreach (var item in VisibleItems)
+                {
+                    string text = item.ToString();
+                    SizeF size = g.MeasureString(text, Font);
+                    maxWidth = Math.Max(maxWidth, (int)Math.Ceiling(size.Width));
+                }
+            }
+            int padding = 35;
+            Width = Math.Min(MaximumSize.Width, maxWidth + padding);
         }
 
         private void ScrollToSelected()

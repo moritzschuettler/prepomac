@@ -52,7 +52,7 @@ namespace UserControls
             this.autocompleteMenu.Font = new Font("Segoe UI", 9F);
             this.autocompleteMenu.ImageList = null;
             this.autocompleteMenu.Items = new string[0];
-            this.autocompleteMenu.MaximumSize = new Size(260, 200);
+            this.autocompleteMenu.MaximumSize = new Size(600, 200);
             this.autocompleteMenu.MinFragmentLength = 1;
             this.autocompleteMenu.SearchPattern = "[\\w\\.\\-]+";
             this.autocompleteMenu.TargetControlWrapper = null;

@@ -348,10 +348,10 @@ namespace CaeResults
         public const string S12 = "S12";
         public const string S23 = "S23";
         public const string S13 = "S13";
-        public const string SgnMaxAbsPri = "SGN-MAX-ABS-PRI";
-        public const string PrincipalMax = "PRINCIPAL-MAX";
-        public const string PrincipalMid = "PRINCIPAL-MID";
-        public const string PrincipalMin = "PRINCIPAL-MIN";
+        public const string SgnMaxAbsPri = "SGN_MAX_ABS_PRI";
+        public const string PrincipalMax = "PRINCIPAL_MAX";
+        public const string PrincipalMid = "PRINCIPAL_MID";
+        public const string PrincipalMin = "PRINCIPAL_MIN";
         //
         public const string MAGXX = "MAGXX";
         public const string MAGYY = "MAGYY";

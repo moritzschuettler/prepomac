@@ -557,6 +557,7 @@
     <Compile Include="Forms\51_Step\FrmGetDampingRatios.Designer.cs">
       <DependentUpon>FrmGetDampingRatios.cs</DependentUpon>
     </Compile>
+    <Compile Include="Forms\51_Step\ViewComplexFrequencyStep.cs" />
     <Compile Include="Forms\51_Step\ViewModalDynamics.cs" />
     <Compile Include="Forms\51_Step\ViewSteadyStateDynamics.cs" />
     <Compile Include="Forms\51_Step\ViewCoupledTempDispStep.cs" />

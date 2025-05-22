@@ -16,25 +16,30 @@ namespace CaeResults
     [Serializable]
     public static class DatFileReader
     {
-        private static readonly string[] spaceSplitter = new string[] { " " };
-        private static readonly string[] commaSplitter = new string[] { "," };
-        private static readonly string[] underscoreSplitter = new string[] { "_" };
-        private static readonly string[] parenthesesSplitter = new string[] { "(", ")" };
-        private static readonly string[] componentsSplitter = new string[] { " ", "," };
-        private static readonly string[] dataSplitter = new string[] { " ", "for set", "and time" };
-        private static readonly string[] signSplitter = new string[] { "-", "+" };
-        private static readonly string[] atSplitter = new string[] { "@@@" };
-        private static readonly string stepKey = "S T E P";
-        private static readonly string incrementKey = "INCREMENT";
-        private static readonly string entireModelKey = "ENTIRE_MODEL";
-        private static readonly string steadyStateDynamicsKey =
+        private static readonly string[] _spaceSplitter = new string[] { " " };
+        private static readonly string[] _commaSplitter = new string[] { "," };
+        private static readonly string[] _underscoreSplitter = new string[] { "_" };
+        private static readonly string[] _parenthesesSplitter = new string[] { "(", ")" };
+        private static readonly string[] _componentsSplitter = new string[] { " ", "," };
+        private static readonly string[] _dataSplitter = new string[] { " ", "for set", "and time" };
+        private static readonly string[] _signSplitter = new string[] { "-", "+" };
+        private static readonly string[] _atSplitter = new string[] { "@@@" };
+        private static readonly string _stepKey = "S T E P";
+        private static readonly string _incrementKey = "INCREMENT";
+        private static readonly string _stepNumberKey = "STEP_";
+        private static readonly string _steadyStateDynamicsKey =
             "P A R T I C I P A T I O N   F A C T O R S   F O R   F R E Q U E N C Y";
-        public const string EigenvalueOutputKey = "E I G E N V A L U E   O U T P U T";
-        public const string ParticipationFactorsKey = "P A R T I C I P A T I O N   F A C T O R S";
-        public const string EffectiveModalMassKey = "E F F E C T I V E   M O D A L   M A S S";
-        public const string TotalEffectiveMassKey = "T O T A L   E F F E C T I V E   M A S S";
-        public const string EigenvalueNumberKey = "E I G E N V A L U E    N U M B E R";
-        public const string BucklingFactorKey = "B U C K L I N G   F A C T O R   O U T P U T";
+        private const string _eigenvalueOutputKey = "E I G E N V A L U E   O U T P U T";
+        private const string _participationFactorsKey = "P A R T I C I P A T I O N   F A C T O R S";
+        
+        private const string _effectiveModalMassKey = "E F F E C T I V E   M O D A L   M A S S";
+        private const string _totalEffectiveMassKey = "T O T A L   E F F E C T I V E   M A S S";
+        private const string _eigenvalueNumberKey = "E I G E N V A L U E    N U M B E R";
+        private const string _bucklingFactorKey = "B U C K L I N G   F A C T O R   O U T P U T";
+        // Complex frequency
+        private const string _participationFactorsForModeKey = "P A R T I C I P A T I O N   F A C T O R S   F O R   M O D E";
+        private const string _modalAssuranceCriterium = "Modal Assurance Criterium";
+        private const string _eigenmodeTurningDirection = "E I G E N M O D E   T U R N I N G   D I R E C T I O N";
         //
         private static readonly Dictionary<string, string> compMapRP = new Dictionary<string, string>()
         {
@@ -82,18 +87,18 @@ namespace CaeResults
                 dataSetNames.Add(HOFieldNames.HeatGeneration);
                 dataSetNames.Add(HOFieldNames.TotalHeatGeneration);
                 // Frequency                                                            
-                dataSetNames.Add(stepKey);
-                dataSetNames.Add(incrementKey);
-                dataSetNames.Add(EigenvalueOutputKey);
-                dataSetNames.Add(ParticipationFactorsKey);
-                dataSetNames.Add(EffectiveModalMassKey);
-                dataSetNames.Add(TotalEffectiveMassKey);
-                dataSetNames.Add(EigenvalueNumberKey);
-                dataSetNames.Add(BucklingFactorKey);
-                //dataSetNames.Add(HOFieldNames.EigenvalueOutput);
-                //dataSetNames.Add(HOFieldNames.ParticipationFactors);
-                //dataSetNames.Add(HOFieldNames.EffectiveModalMass);
-                //dataSetNames.Add(HOFieldNames.TotalEffectiveMass);
+                dataSetNames.Add(_stepKey);
+                dataSetNames.Add(_incrementKey);
+                dataSetNames.Add(_eigenvalueOutputKey);
+                dataSetNames.Add(_participationFactorsKey);
+                dataSetNames.Add(_effectiveModalMassKey);
+                dataSetNames.Add(_totalEffectiveMassKey);
+                dataSetNames.Add(_eigenvalueNumberKey);
+                dataSetNames.Add(_bucklingFactorKey);
+                // Complex frequency
+                dataSetNames.Add(_participationFactorsForModeKey);
+                dataSetNames.Add(_modalAssuranceCriterium);
+                dataSetNames.Add(_eigenmodeTurningDirection);
                 // Contact                                                              
                 dataSetNames.Add(HOFieldNames.RelativeContactDisplacement);
                 dataSetNames.Add(HOFieldNames.ContactStress);
@@ -131,6 +136,7 @@ namespace CaeResults
                 int incrementId = -1;
                 int eigenvalueNumber = -1;
                 string tmp;
+                string stepKey = null;
                 DatDataSet newDataSet;
                 DatDataSet existingDataSet;
                 Dictionary<double, double> timeFrequency = null;
@@ -142,88 +148,109 @@ namespace CaeResults
                 HistoryResults bucklingHistoryOutput = new HistoryResults("HistoryOutput");
                 foreach (string[] dataSetLines in dataSetLinesList)
                 {
-                    // Frequency
-                    if (dataSetLines[0] == EigenvalueOutputKey ||
-                        dataSetLines[0] == ParticipationFactorsKey ||
-                        dataSetLines[0] == EffectiveModalMassKey ||
-                        dataSetLines[0] == TotalEffectiveMassKey)
+                    try
                     {
-                        frequencyHistoryOutput.AppendSets(GetFrequencyDatDataSets(dataSetLines));
-                    }
-                    // Buckling
-                    else if (dataSetLines[0] == BucklingFactorKey)
-                    {
-                        bucklingHistoryOutput.AppendSets(GetBucklingDatDataSets(dataSetLines));
-                    }
-                    // Save the step id
-                    else if (dataSetLines[0].StartsWith(stepKey))
-                    {
-                        len = stepKey.Length;
-                        tmp = dataSetLines[0].Substring(len, dataSetLines[0].Length - len);
-                        stepId = int.Parse(tmp);
-                        //
-                        eigenvalueNumber = -1;  // reset the eigenvalue number
-                    }
-                    // Save the increment id
-                    else if (dataSetLines[0].StartsWith(incrementKey))
-                    {
-                        len = incrementKey.Length;
-                        tmp = dataSetLines[0].Substring(len, dataSetLines[0].Length - len);
-                        incrementId = int.Parse(tmp);
-                    }
-                    else
-                    {
-                        // Save the eigenvalue number
-                        if (dataSetLines.Length == 1 && dataSetLines[0].StartsWith(EigenvalueNumberKey))
+                        // Frequency
+                        if (dataSetLines[0] == _eigenvalueOutputKey ||
+                            dataSetLines[0] == _participationFactorsKey ||
+                            dataSetLines[0] == _effectiveModalMassKey ||
+                            dataSetLines[0] == _totalEffectiveMassKey ||
+                            // Complex frequency
+                            dataSetLines[0].ToUpper().StartsWith(_participationFactorsKey) ||
+                            dataSetLines[0] == _modalAssuranceCriterium)
                         {
-                            len = EigenvalueNumberKey.Length;
+                            if (stepKey == null) stepKey = _stepNumberKey + stepId;
+                            frequencyHistoryOutput.AppendSets(GetFrequencyDatDataSets(dataSetLines, stepId));
+                        }
+                        else if (dataSetLines[0] == _eigenmodeTurningDirection)
+                        {
+                            if (stepKey == null) stepKey = _stepNumberKey + stepId;
+                            frequencyHistoryOutput.AppendSets(GetComplexFrequencyTurningDirection(dataSetLines, stepId));
+                        }
+                        // Buckling
+                        else if (dataSetLines[0] == _bucklingFactorKey)
+                        {
+                            if (stepKey == null) stepKey = _stepNumberKey + stepId;
+                            bucklingHistoryOutput.AppendSets(GetBucklingDatDataSets(dataSetLines, stepId));
+                        }
+                        // Save the step id
+                        else if (dataSetLines[0].StartsWith(_stepKey))
+                        {
+                            len = _stepKey.Length;
                             tmp = dataSetLines[0].Substring(len, dataSetLines[0].Length - len);
-                            eigenvalueNumber = int.Parse(tmp);
+                            stepId = int.Parse(tmp);
+                            //
+                            eigenvalueNumber = -1;  // reset the eigenvalue number
+                        }
+                        // Save the increment id
+                        else if (dataSetLines[0].StartsWith(_incrementKey))
+                        {
+                            len = _incrementKey.Length;
+                            tmp = dataSetLines[0].Substring(len, dataSetLines[0].Length - len);
+                            incrementId = int.Parse(tmp);
                         }
                         else
                         {
-                            // Read the dataset
-                            newDataSet = GetDatDataSet(dataSetNames, dataSetLines, repairedSetNames);
-                            if (stepId != -1) newDataSet.StepId = stepId;
-                            if (incrementId != -1) newDataSet.IncrementId = incrementId;
-                            if (newDataSet.SetName == steadyStateDynamicsKey) continue;
-                            // Steady state dynamics
-                            if (steadyStateDynamics && dataSets.TryGetValue(newDataSet.GetHashKey(), out existingDataSet))
+                            // Save the eigenvalue number
+                            if (dataSetLines.Length == 1 && dataSetLines[0].StartsWith(_eigenvalueNumberKey))
                             {
-                                existingDataSet.FieldName += HOFieldNames.ComplexRealSuffix;
-                                dataSets.Replace(newDataSet.GetHashKey(), existingDataSet.GetHashKey(), existingDataSet);
-                                //
-                                newDataSet.FieldName += HOFieldNames.ComplexImaginarySuffix;
-                            }
-                            // Fix the time if reported inside an eigenvalue number block from time to frequency
-                            if (eigenvalueNumber != -1 && newDataSet.Time == 1)   // 1 ... frequency
-                            {
-                                if (timeFrequency == null) timeFrequency = GetTimeFrequencyPairs(frequencyHistoryOutput);
-                                // Change the frequency step time to frequency
-                                if (timeFrequency != null) newDataSet.Time = timeFrequency[newDataSet.Time + eigenvalueNumber - 1];
-                            }
-                            // Fix the time if reported inside an eigenvalue number block from time to frequency
-                            if (eigenvalueNumber != -1 && newDataSet.Time == 0)   // 0... buckling
-                            {
-                                if (timeFrequency == null) timeModeNumber = GetTimeModeNumberPairs(bucklingHistoryOutput);
-                                // Change the frequency step time to frequency
-                                if (timeModeNumber != null) newDataSet.Time = timeModeNumber[eigenvalueNumber];
-                            }
-                            // Add
-                            if (newDataSet.FieldName != HOFieldNames.Error)
-                            {
-                                if (!dataSets.ContainsKey(newDataSet.GetHashKey()))
-                                    dataSets.Add(newDataSet.GetHashKey(), newDataSet);
-                                else
-                                    errorsList.Add("Data sets already contains the item key " + newDataSet.GetHashKey() +
-                                                   " the data was not be added to the history.");
+                                len = _eigenvalueNumberKey.Length;
+                                tmp = dataSetLines[0].Substring(len, dataSetLines[0].Length - len);
+                                eigenvalueNumber = int.Parse(tmp);
                             }
                             else
                             {
-                                errorsList.Add("Data failed to be parsed." + Environment.NewLine +
-                                               "First data line: " + dataSetLines[0]);
+                                // Read the dataset
+                                newDataSet = GetDatDataSet(dataSetNames, dataSetLines, repairedSetNames);
+                                if (stepId != -1) newDataSet.StepId = stepId;
+                                if (incrementId != -1) newDataSet.IncrementId = incrementId;
+                                if (newDataSet.SetName == _steadyStateDynamicsKey) continue;
+                                // Steady state dynamics
+                                if (steadyStateDynamics && dataSets.TryGetValue(newDataSet.GetHashKey(), out existingDataSet))
+                                {
+                                    existingDataSet.FieldName += HOFieldNames.ComplexRealSuffix;
+                                    dataSets.Replace(newDataSet.GetHashKey(), existingDataSet.GetHashKey(), existingDataSet);
+                                    //
+                                    newDataSet.FieldName += HOFieldNames.ComplexImaginarySuffix;
+                                }
+                                // Fix the time if reported inside an eigenvalue number block from time to frequency
+                                if (eigenvalueNumber != -1 && newDataSet.Time == 1)   // 1 ... frequency
+                                {
+                                    if (timeFrequency == null)
+                                        timeFrequency = GetTimeFrequencyPairs(frequencyHistoryOutput, stepKey);
+                                    // Change the frequency step time to frequency
+                                    if (timeFrequency != null)
+                                        newDataSet.Time = timeFrequency[newDataSet.Time + eigenvalueNumber - 1];
+                                }
+                                // Fix the time if reported inside an eigenvalue number block from time to frequency
+                                if (eigenvalueNumber != -1 && newDataSet.Time == 0)   // 0... buckling
+                                {
+                                    if (timeFrequency == null)
+                                        timeModeNumber = GetTimeModeNumberPairs(bucklingHistoryOutput, stepKey);
+                                    // Change the frequency step time to frequency
+                                    if (timeModeNumber != null)
+                                        newDataSet.Time = timeModeNumber[eigenvalueNumber];
+                                }
+                                // Add
+                                if (newDataSet.FieldName != HOFieldNames.Error)
+                                {
+                                    if (!dataSets.ContainsKey(newDataSet.GetHashKey()))
+                                        dataSets.Add(newDataSet.GetHashKey(), newDataSet);
+                                    else
+                                        errorsList.Add("Data sets already contains the item key " + newDataSet.GetHashKey() +
+                                                       " the data was not be added to the history.");
+                                }
+                                else
+                                {
+                                    errorsList.Add("Data failed to be parsed." + Environment.NewLine +
+                                                   "First data line: " + dataSetLines[0]);
+                                }
                             }
                         }
+                    }
+                    catch (Exception ex)
+                    {
+                        errorsList.Add(ex.Message);
                     }
                 }
                 //
@@ -267,16 +294,16 @@ namespace CaeResults
             for (int i = 0; i < lines.Length; i++)
             {
                 if (lines[i].Length == 0) continue;
-                if (!steadyStateDynamics && lines[i].ToUpper().StartsWith(steadyStateDynamicsKey))
+                if (!steadyStateDynamics && lines[i].ToUpper().StartsWith(_steadyStateDynamicsKey))
                 {
                     steadyStateDynamics = true;
                     foreach (var dataSetToRemove in dataSets.ToArray())
                     {
                         firstLine = dataSetToRemove[0].ToUpper();
-                        if (!firstLine.StartsWith(EigenvalueOutputKey) &&
-                            !firstLine.StartsWith(ParticipationFactorsKey) &&
-                            !firstLine.StartsWith(EffectiveModalMassKey) &&
-                            !firstLine.StartsWith(TotalEffectiveMassKey))
+                        if (!firstLine.StartsWith(_eigenvalueOutputKey) &&
+                            !firstLine.StartsWith(_participationFactorsKey) &&
+                            !firstLine.StartsWith(_effectiveModalMassKey) &&
+                            !firstLine.StartsWith(_totalEffectiveMassKey))
                         {
                             dataSets.Remove(dataSetToRemove);
                         }
@@ -293,10 +320,13 @@ namespace CaeResults
                     }
                 }
                 // Frequency
-                if (theName == EigenvalueOutputKey ||
-                    theName == ParticipationFactorsKey ||
-                    theName == EffectiveModalMassKey ||
-                    theName == TotalEffectiveMassKey)
+                if (theName == _eigenvalueOutputKey ||
+                    theName == _participationFactorsKey ||
+                    theName == _effectiveModalMassKey ||
+                    theName == _totalEffectiveMassKey ||
+                    // Complex
+                    theName == _participationFactorsForModeKey ||
+                    theName == _modalAssuranceCriterium)
                 {
                     int emptyLinesCounter = 0;
                     dataSet = new List<string> { lines[i] };
@@ -306,15 +336,29 @@ namespace CaeResults
                     {
                         if (lines[i].Length == 0) emptyLinesCounter++;
                         else dataSet.Add(lines[i]);
-                        if (emptyLinesCounter >= 3) break;
-                        //
+                        i++;
+                    }
+                    //
+                    dataSets.Add(dataSet.ToArray());
+                }
+                // Complex frequency
+                if (theName == _eigenmodeTurningDirection)
+                {
+                    int emptyLinesCounter = 0;
+                    dataSet = new List<string> { lines[i] };
+                    i++;
+                    //
+                    while (i < lines.Length && emptyLinesCounter <= 4)
+                    {
+                        if (lines[i].Length == 0) emptyLinesCounter++;
+                        else dataSet.Add(lines[i]);
                         i++;
                     }
                     //
                     dataSets.Add(dataSet.ToArray());
                 }
                 // Buckling
-                else if (theName == BucklingFactorKey)
+                else if (theName == _bucklingFactorKey)
                 {
                     int emptyLinesCounter = 0;
                     dataSet = new List<string> { lines[i] };
@@ -352,7 +396,7 @@ namespace CaeResults
                     dataSet = new List<string> { lines[i] };
                     i++;
                     //
-                    if (theName == stepKey || theName == incrementKey || theName == EigenvalueNumberKey) { }
+                    if (theName == _stepKey || theName == _incrementKey || theName == _eigenvalueNumberKey) { }
                     else
                     {
                         while (i < lines.Length && lines[i].Length == 0) i++;    // skip empty lines
@@ -396,7 +440,7 @@ namespace CaeResults
             string masterName = tmp[2].Trim();
             string time = tmp[3].Trim();
             //
-            string name = slaveName + atSplitter[0] + masterName;
+            string name = slaveName + _atSplitter[0] + masterName;
             //
             HashSet<string> existingNamesAtTime;
             if (existingNames.TryGetValue(time, out existingNamesAtTime))
@@ -408,7 +452,7 @@ namespace CaeResults
                 existingNames.Add(time, new HashSet<string>() { name });
             }
             // Total surface force
-            tmp = lines[2].Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+            tmp = lines[2].Split(_spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
             dataSet = new string[2];
             dataSet[0] = "Total surface force (FX, FY, FZ) for set " + name + " and time " + time;
             dataSet[1] = string.Format("{0} {1} {2}", tmp[0], tmp[1], tmp[2]);
@@ -419,7 +463,7 @@ namespace CaeResults
             dataSet[1] = string.Format("{0} {1} {2}", tmp[3], tmp[4], tmp[5]);
             repairedDataSets.Add(dataSet);
             // Center of gravity CG
-            tmp = lines[4].Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+            tmp = lines[4].Split(_spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
             dataSet = new string[2];
             dataSet[0] = "Center of gravity CG (X, Y, Z) for set " + name + " and time " + time;
             dataSet[1] = string.Format("{0} {1} {2}", tmp[0], tmp[1], tmp[2]);
@@ -430,13 +474,13 @@ namespace CaeResults
             dataSet[1] = string.Format("{0} {1} {2}", tmp[3], tmp[4], tmp[5]);
             repairedDataSets.Add(dataSet);
             // Moment about CG
-            tmp = lines[6].Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+            tmp = lines[6].Split(_spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
             dataSet = new string[2];
             dataSet[0] = "Moment about CG (MX, MY, MZ) for set " + name + " and time " + time;
             dataSet[1] = string.Format("{0} {1} {2}", tmp[0], tmp[1], tmp[2]);
             repairedDataSets.Add(dataSet);
             // Area
-            tmp = lines[8].Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+            tmp = lines[8].Split(_spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
             dataSet = new string[2];
             dataSet[0] = "Surface area (A) for set " + name + " and time " + time;
             dataSet[1] = tmp[0];
@@ -655,11 +699,11 @@ namespace CaeResults
         {
             string[] tmp;
             string newName = setName;
-            if (setName.Contains(atSplitter[0]))    // must be first
+            if (setName.Contains(_atSplitter[0]))    // must be first
             {
                 if (!repairedSetNames.TryGetValue(setName, out newName))
                 {
-                    tmp = setName.Split(atSplitter, StringSplitOptions.None);
+                    tmp = setName.Split(_atSplitter, StringSplitOptions.None);
                     if (tmp.Length == 2)
                     {
                         string slaveName = RepairSetName(tmp[0], repairedSetNames);
@@ -685,7 +729,7 @@ namespace CaeResults
             {
                 if (!repairedSetNames.TryGetValue(setName, out newName))
                 {
-                    tmp = setName.Split(underscoreSplitter, StringSplitOptions.None);
+                    tmp = setName.Split(_underscoreSplitter, StringSplitOptions.None);
                     newName = "";
                     for (int i = 2; i < tmp.Length; i++)
                     {
@@ -705,7 +749,7 @@ namespace CaeResults
             {
                 if (!repairedSetNames.TryGetValue(setName, out newName))
                 {
-                    tmp = setName.Split(underscoreSplitter, StringSplitOptions.None);
+                    tmp = setName.Split(_underscoreSplitter, StringSplitOptions.None);
                     newName = "";
                     for (int i = 1; i < tmp.Length; i++)
                     {
@@ -723,50 +767,106 @@ namespace CaeResults
             }
             return newName;
         }
-        static private HistoryResults GetFrequencyDatDataSets(string[] dataSetLines)
+        static private HistoryResults GetFrequencyDatDataSets(string[] dataSetLines, int stepId)
         {
+            int len;
             int firstDataRowId = 1;
+            string mode;
             string entryName = null;
             string totalEntryName = HOFieldNames.TotalEffectiveModalMass;
+            string historyResultFieldName = HOFieldNames.Frequency;
+            string[] tmp;
             string[] componentNames = null;
             double time = 0;
             List<double[]> valuesList = null;
             double[] rowValues = null;
             List<DatDataSet> dataSets = new List<DatDataSet>();
             //
-            if (dataSetLines[0] == EigenvalueOutputKey)
+            if (dataSetLines[0] == _eigenvalueOutputKey)
             {
                 firstDataRowId = 4;
-                entryName = HOFieldNames.EigenvalueOutput;
-                componentNames = new string[] { HOComponentNames.EIGENVALUE, HOComponentNames.OMEGA, HOComponentNames.FREQUENCY,
-                                                HOComponentNames.FREQUENCY_IM};
+                //
+                historyResultFieldName = HOFieldNames.Frequency;
+                //
+                tmp = dataSetLines[firstDataRowId].Split(_spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+                if (tmp.Length == 5)
+                {
+                    entryName = HOFieldNames.EigenvalueOutput;
+                    componentNames = new string[] { HOComponentNames.EIGENVALUE, HOComponentNames.OMEGA,
+                                                    HOComponentNames.FREQUENCY, HOComponentNames.FREQUENCY_IM};
+                }
+                // Complex frequency                            
+                else if (tmp.Length == 4)
+                {
+                    entryName = HOFieldNames.EigenvalueOutput;
+                    componentNames = new string[] { HOComponentNames.OMEGA, HOComponentNames.FREQUENCY,
+                                                    HOComponentNames.FREQUENCY_IM};
+                }
             }
-            else if (dataSetLines[0] == ParticipationFactorsKey)
+            else if (dataSetLines[0] == _participationFactorsKey)
             {
                 firstDataRowId = 2;
+                //
+                historyResultFieldName = HOFieldNames.Factor;
+                //
                 entryName = HOFieldNames.ParticipationFactors;
-                componentNames = new string[] { HOComponentNames.XCOMPONENT,HOComponentNames.YCOMPONENT, HOComponentNames.ZCOMPONENT,
-                                                HOComponentNames.XROTATION,HOComponentNames.YROTATION, HOComponentNames.ZROTATION };
+                componentNames = new string[] { HOComponentNames.XCOMPONENT, HOComponentNames.YCOMPONENT,
+                                                HOComponentNames.ZCOMPONENT, HOComponentNames.XROTATION,
+                                                HOComponentNames.YROTATION, HOComponentNames.ZROTATION };
             }
-            else if (dataSetLines[0] == EffectiveModalMassKey)
+            else if (dataSetLines[0] == _effectiveModalMassKey)
             {
                 firstDataRowId = 2;
+                //
+                historyResultFieldName = HOFieldNames.Factor;
+                //
                 entryName = HOFieldNames.EffectiveModalMass;
-                componentNames = new string[] { HOComponentNames.XCOMPONENT,HOComponentNames.YCOMPONENT, HOComponentNames.ZCOMPONENT,
-                                                HOComponentNames.XROTATION,HOComponentNames.YROTATION, HOComponentNames.ZROTATION };
+                componentNames = new string[] { HOComponentNames.XCOMPONENT, HOComponentNames.YCOMPONENT,
+                                                HOComponentNames.ZCOMPONENT, HOComponentNames.XROTATION,
+                                                HOComponentNames.YROTATION, HOComponentNames.ZROTATION };
             }
-            else if (dataSetLines[0] == TotalEffectiveMassKey)
+            else if (dataSetLines[0] == _totalEffectiveMassKey)
             {
                 firstDataRowId = 2;
+                //
+                historyResultFieldName = HOFieldNames.Factor;
+                //
                 entryName = HOFieldNames.TotalEffectiveMass;
-                componentNames = new string[] { HOComponentNames.XCOMPONENT,HOComponentNames.YCOMPONENT, HOComponentNames.ZCOMPONENT,
-                                                HOComponentNames.XROTATION,HOComponentNames.YROTATION, HOComponentNames.ZROTATION };
+                componentNames = new string[] { HOComponentNames.XCOMPONENT, HOComponentNames.YCOMPONENT,
+                                                HOComponentNames.ZCOMPONENT, HOComponentNames.XROTATION,
+                                                HOComponentNames.YROTATION, HOComponentNames.ZROTATION };
+            }
+            // Complex frequency                                
+            else if (dataSetLines[0].ToUpper().StartsWith(_participationFactorsForModeKey))
+            {
+                firstDataRowId = 3;
+                //
+                historyResultFieldName = HOFieldNames.Factor;
+                //
+                len = _participationFactorsForModeKey.Length;
+                mode = dataSetLines[0].Substring(len, dataSetLines[0].Length - len).Trim();
+                entryName = HOFieldNames.ParticipationFactorsForMode + "_" + mode;
+                componentNames = new string[] { HOComponentNames.FREQUENCY, HOComponentNames.PAR_FACTOR,
+                                                HOComponentNames.PAR_FACTOR_IM };
+            }
+            else if (dataSetLines[0] == _modalAssuranceCriterium)
+            {
+                firstDataRowId = 1;
+                //
+                historyResultFieldName = HOFieldNames.Factor;
+                //
+                tmp = dataSetLines[firstDataRowId].Split(_spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+                entryName = HOFieldNames.ModalAssuranceCriterium;
+                componentNames = new string[tmp.Length];
+                for (int i = 0; i < componentNames.Length; i++)
+                {
+                    componentNames[i] = HOComponentNames.MODE + "_" + (i + 1);
+                }
             }
             //
-            string[] tmp;
             HistoryResults historyResults = new HistoryResults("HistoryResults");
-            HistoryResultSet historyResultSet = new HistoryResultSet(entireModelKey);
-            HistoryResultField historyResultField = new HistoryResultField(HOFieldNames.Frequency);
+            HistoryResultSet historyResultSet = new HistoryResultSet(_stepNumberKey + stepId);
+            HistoryResultField historyResultField = new HistoryResultField(historyResultFieldName);
             HistoryResultComponent historyResultComponent = new HistoryResultComponent(entryName);
             HistoryResultComponent totalHistoryResultComponent = new HistoryResultComponent(totalEntryName);
             HistoryResultEntries historyResultEntries = null;
@@ -775,7 +875,7 @@ namespace CaeResults
             //
             for (int i = firstDataRowId; i < dataSetLines.Length; i++)
             {
-                tmp = dataSetLines[i].Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+                tmp = dataSetLines[i].Split(_spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
                 if (tmp.Length >= 2)
                 {
                     rowValues = new double[tmp.Length];
@@ -813,7 +913,57 @@ namespace CaeResults
             //
             return historyResults;
         }
-        static private HistoryResults GetBucklingDatDataSets(string[] dataSetLines)
+        static private HistoryResults GetComplexFrequencyTurningDirection(string[] dataSetLines, int stepId)
+        {
+            string[] tmp;
+            HistoryResults historyResults = new HistoryResults("HistoryResults");
+            HistoryResultSet historyResultSet = new HistoryResultSet(_stepNumberKey + stepId);
+            HistoryResultField historyResultField = new HistoryResultField(HOFieldNames.Rotation);
+            HistoryResultComponent hrcAxisDirection = new HistoryResultComponent(HOFieldNames.AxisDirection);
+            HistoryResultComponent hrcTurningDirection = new HistoryResultComponent(HOFieldNames.TurningDirection);
+            HistoryResultEntries historyResultEntries;
+            // Axis
+            tmp = dataSetLines[1].Split(_spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+            if (tmp.Length == 6)
+            {
+                historyResultEntries = new HistoryResultEntries(HOComponentNames.X, false);
+                historyResultEntries.Add(1, ParseStringToDouble(tmp[3]));
+                hrcAxisDirection.Entries.Add(historyResultEntries.Name, historyResultEntries);
+                //
+                historyResultEntries = new HistoryResultEntries(HOComponentNames.Y, false);
+                historyResultEntries.Add(1, ParseStringToDouble(tmp[4]));
+                hrcAxisDirection.Entries.Add(historyResultEntries.Name, historyResultEntries);
+                //
+                historyResultEntries = new HistoryResultEntries(HOComponentNames.Z, false);
+                historyResultEntries.Add(1, ParseStringToDouble(tmp[5]));
+                hrcAxisDirection.Entries.Add(historyResultEntries.Name, historyResultEntries);
+            }
+            //
+            historyResultField.Components.Add(hrcAxisDirection.Name, hrcAxisDirection);
+            // Direction
+            historyResultEntries = new HistoryResultEntries(HOComponentNames.DIRECTION, false);
+            int modeNumber;
+            double direction;
+            for (int i = 3; i < dataSetLines.Length; i++)
+            {
+                tmp = dataSetLines[i].Split(_spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+                if (tmp.Length == 2)
+                {
+                    int.TryParse(tmp[0], out modeNumber);
+                    if (tmp[1].Trim().ToUpper() == "F") direction = 1;
+                    else direction = -1;
+                    historyResultEntries.Add(modeNumber, direction);
+                }
+            }
+            hrcTurningDirection.Entries.Add(historyResultEntries.Name, historyResultEntries);
+            historyResultField.Components.Add(hrcTurningDirection.Name, hrcTurningDirection);
+            //
+            historyResultSet.Fields.Add(historyResultField.Name, historyResultField);
+            historyResults.Sets.Add(historyResultSet.Name, historyResultSet);
+            //
+            return historyResults;
+        }
+        static private HistoryResults GetBucklingDatDataSets(string[] dataSetLines, int stepId)
         {
             int firstDataRowId = 1;
             string[] componentNames = null;
@@ -822,7 +972,7 @@ namespace CaeResults
             double[] rowValues = null;
             List<DatDataSet> dataSets = new List<DatDataSet>();
             //
-            if (dataSetLines[0] == BucklingFactorKey)
+            if (dataSetLines[0] == _bucklingFactorKey)
             {
                 firstDataRowId = 3;
                 componentNames = new string[] { HOComponentNames.BUCKLINGFACTOR};
@@ -830,7 +980,7 @@ namespace CaeResults
             //
             string[] tmp;
             HistoryResults historyResults = new HistoryResults("HistoryResults");
-            HistoryResultSet historyResultSet = new HistoryResultSet(entireModelKey);
+            HistoryResultSet historyResultSet = new HistoryResultSet(_stepNumberKey + stepId);
             HistoryResultField historyResultField = new HistoryResultField(HOFieldNames.Buckling);
             HistoryResultComponent historyResultComponent = new HistoryResultComponent(HOComponentNames.BUCKLINGFACTOR);
             HistoryResultEntries historyResultEntries = null;
@@ -838,7 +988,7 @@ namespace CaeResults
             //
             for (int i = firstDataRowId; i < dataSetLines.Length; i++)
             {
-                tmp = dataSetLines[i].Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+                tmp = dataSetLines[i].Split(_spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
                 if (tmp.Length >= 2)
                 {
                     rowValues = new double[tmp.Length];
@@ -871,7 +1021,7 @@ namespace CaeResults
             //
             return historyResults;
         }
-        static private Dictionary<double, double> GetTimeFrequencyPairs(HistoryResults frequencyHistoryOutput)
+        static private Dictionary<double, double> GetTimeFrequencyPairs(HistoryResults frequencyHistoryOutput, string stepKey)
         {
             HistoryResultSet hrs;
             HistoryResultField hrf;
@@ -879,7 +1029,7 @@ namespace CaeResults
             HistoryResultEntries hre;
             Dictionary<double, double> timeFrequency = null;
             //
-            if (frequencyHistoryOutput.Sets.TryGetValue(entireModelKey, out hrs) &&
+            if (frequencyHistoryOutput.Sets.TryGetValue(stepKey, out hrs) &&
                 hrs.Fields.TryGetValue(HOFieldNames.Frequency, out hrf) &&
                 hrf.Components.TryGetValue(HOFieldNames.EigenvalueOutput, out hrc) &&
                 hrc.Entries.TryGetValue(HOComponentNames.FREQUENCY, out hre))
@@ -890,7 +1040,7 @@ namespace CaeResults
             //
             return timeFrequency;
         }
-        static private Dictionary<double, double> GetTimeModeNumberPairs(HistoryResults bucklingHistoryOutput)
+        static private Dictionary<double, double> GetTimeModeNumberPairs(HistoryResults bucklingHistoryOutput, string stepKey)
         {
             HistoryResultSet hrs;
             HistoryResultField hrf;
@@ -898,7 +1048,7 @@ namespace CaeResults
             HistoryResultEntries hre;
             Dictionary<double, double> timeFrequency = null;
             //
-            if (bucklingHistoryOutput.Sets.TryGetValue(entireModelKey, out hrs) &&
+            if (bucklingHistoryOutput.Sets.TryGetValue(_stepNumberKey, out hrs) &&
                 hrs.Fields.TryGetValue(HOFieldNames.Buckling, out hrf) &&
                 hrf.Components.TryGetValue(HOComponentNames.BUCKLINGFACTOR, out hrc) &&
                 hrc.Entries.TryGetValue(HOComponentNames.BUCKLINGFACTOR, out hre))
@@ -919,9 +1069,9 @@ namespace CaeResults
                 DatDataSet dataSet = new DatDataSet();
                 //
                 string firstLine = dataSetLines[0];
-                if (firstLine.ToUpper().StartsWith(steadyStateDynamicsKey))
+                if (firstLine.ToUpper().StartsWith(_steadyStateDynamicsKey))
                 {
-                    dataSet.SetName = steadyStateDynamicsKey;
+                    dataSet.SetName = _steadyStateDynamicsKey;
                     return dataSet;
                 }
                 //
@@ -934,12 +1084,12 @@ namespace CaeResults
                     }
                 }
                 //
-                string[] tmp = firstLine.Split(parenthesesSplitter, StringSplitOptions.RemoveEmptyEntries);
+                string[] tmp = firstLine.Split(_parenthesesSplitter, StringSplitOptions.RemoveEmptyEntries);
                 //
-                string[] tmp2 = tmp[1].Split(componentsSplitter, StringSplitOptions.RemoveEmptyEntries);
+                string[] tmp2 = tmp[1].Split(_componentsSplitter, StringSplitOptions.RemoveEmptyEntries);
                 componentNames = tmp2.ToList();
                 //
-                tmp2 = tmp[2].Split(dataSplitter, StringSplitOptions.RemoveEmptyEntries);
+                tmp2 = tmp[2].Split(_dataSplitter, StringSplitOptions.RemoveEmptyEntries);
                 dataSet.BaseSetName = tmp2[0];
                 dataSet.SetName = RepairSetName(tmp2[0].Trim(), repairedSetNames);
                 dataSet.Time = double.Parse(tmp2[1]);
@@ -950,7 +1100,7 @@ namespace CaeResults
                 List<double[]> allValues = new List<double[]>();
                 for (int i = 1; i < dataSetLines.Length; i++)
                 {
-                    tmp = dataSetLines[i].Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+                    tmp = dataSetLines[i].Split(_spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
                     // Local result
                     if (tmp[tmp.Length - 1].ToUpper() == "L")
                     {
@@ -1012,7 +1162,7 @@ namespace CaeResults
                 // Try to repair values as:
                 // 1.090361-282  8.468565-284 -8.171595-285
                 tmp3 = valueAsString;
-                tmp2 = tmp3.Split(signSplitter, StringSplitOptions.RemoveEmptyEntries);
+                tmp2 = tmp3.Split(_signSplitter, StringSplitOptions.RemoveEmptyEntries);
                 if (tmp2.Length == 2)
                 {
                     count = tmp3.Length - (tmp2[1].Length + 1);
@@ -1555,7 +1705,7 @@ namespace CaeResults
             {
                 foreach (var fieldEntry in setsEntry.Value.Fields)
                 {
-                    if (fieldEntry.Key == HOFieldNames.Frequency)
+                    if (fieldEntry.Key == HOFieldNames.Factor)
                     {
                         if (fieldEntry.Value.Components.TryGetValue(HOFieldNames.EffectiveModalMass, out effectiveModalMass) &&
                             fieldEntry.Value.Components.TryGetValue(HOFieldNames.TotalEffectiveModalMass, out totalModalMass) &&

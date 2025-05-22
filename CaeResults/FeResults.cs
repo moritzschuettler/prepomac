@@ -1796,6 +1796,14 @@ namespace CaeResults
                         unitConverter = new StringFrequencyConverter();
                         unitAbbreviation = _unitSystem.FrequencyUnitAbbreviation;
                         break;
+                    case HOFieldNames.Factor:
+                        unitConverter = new DoubleConverter();
+                        unitAbbreviation = "/";
+                        break;
+                    case HOFieldNames.Rotation:
+                        unitConverter = new StringLengthConverter();
+                        unitAbbreviation = _unitSystem.LengthUnitAbbreviation;
+                        break;
                     case HOFieldNames.Buckling:
                         unitConverter = new DoubleConverter();
                         unitAbbreviation = "/";
@@ -2563,8 +2571,7 @@ namespace CaeResults
                         nodesData.Coor[0] = new double[3];  // should not happen
                     //
                     if (_mesh.Nodes.TryGetValue(maxId, out node))nodesData.Coor[1] = node.Coor;
-                    else
-                        nodesData.Coor[1] = new double[3];  // should not happen
+                    else nodesData.Coor[1] = new double[3];  // should not happen
                     //
                     nodesData.Values[0] = 0;
                     nodesData.Values[1] = 0;
@@ -4150,6 +4157,64 @@ namespace CaeResults
                     }
                 }
                 columnName = "Total";
+            }
+            // Complex frequency data units
+            else if (component.Name.StartsWith(HOFieldNames.ParticipationFactorsForMode))
+            {
+                foreach (var entry in component.Entries)
+                {
+                    if (entry.Key == HOComponentNames.XCOMPONENT ||
+                        entry.Key == HOComponentNames.YCOMPONENT ||
+                        entry.Key == HOComponentNames.ZCOMPONENT)
+                    {
+                        entry.Value.Unit = "/";
+                    }
+                    else if (entry.Key == HOComponentNames.XROTATION ||
+                             entry.Key == HOComponentNames.YROTATION ||
+                             entry.Key == HOComponentNames.ZROTATION)
+                    {
+                        entry.Value.Unit = "/";
+                    }
+                    else if (entry.Key == HOComponentNames.PAR_FACTOR ||
+                             entry.Key == HOComponentNames.PAR_FACTOR_IM)
+                    {
+                        entry.Value.Unit = "/";
+                    }
+                }
+                columnName = "Base Mode";
+            }
+            else if (component.Name == HOFieldNames.ModalAssuranceCriterium)
+            {
+                foreach (var entry in component.Entries)
+                {
+                    if (entry.Key.StartsWith(HOComponentNames.MODE))
+                    {
+                        entry.Value.Unit = "/"; 
+                    }
+                }
+                columnName = "Base Mode";
+            }
+            else if (component.Name == HOFieldNames.AxisDirection)
+            {
+                foreach (var entry in component.Entries)
+                {
+                    if (entry.Key == HOComponentNames.X || entry.Key == HOComponentNames.Y || entry.Key == HOComponentNames.Z)
+                    {
+                        entry.Value.Unit = _unitSystem.LengthUnitAbbreviation;
+                    }
+                }
+                columnName = "Axis";
+            }
+            else if (component.Name == HOFieldNames.TurningDirection)
+            {
+                foreach (var entry in component.Entries)
+                {
+                    if (entry.Key == HOComponentNames.DIRECTION)
+                    {
+                        entry.Value.Unit = "1:F, -1:B";
+                    }
+                }
+                columnName = "Mode";
             }
             return columnName;
         }

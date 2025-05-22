@@ -13,13 +13,15 @@ namespace CaeResults
     }
     class HOFieldNames
     {
-        public const string ComplexRealSuffix = " RE";
-        public const string ComplexImaginarySuffix = " IM";
-        public const string ComplexMagnitudeSuffix = " MAG";
-        public const string ComplexPhaseSuffix = " PHA";
+        public const string ComplexRealSuffix = "_RE";
+        public const string ComplexImaginarySuffix = "_IM";
+        public const string ComplexMagnitudeSuffix = "_MAG";
+        public const string ComplexPhaseSuffix = "_PHA";
         //
         public const string Time = "TIME";
+        public const string Factor = "FACTOR";
         public const string Frequency = "FREQUENCY";
+        public const string Rotation = "ROTATION";
         public const string Buckling = "BUCKLING";
         // Nodal
         public const string Coordinates = "COORDINATES";
@@ -29,48 +31,53 @@ namespace CaeResults
         public const string TotalForce = "TOTAL FORCE";
         public const string Stresses = "STRESSES";
         public const string Strains = "STRAINS";
-        public const string MechanicalStrains = "MECHANICAL STRAINS";
-        public const string EquivalentPlasticStrains = "EQUIVALENT PLASTIC STRAIN";
-        public const string InternalEnergyDensity = "INTERNAL ENERGY DENSITY";
+        public const string MechanicalStrains = "MECHANICAL_STRAINS";
+        public const string EquivalentPlasticStrains = "EQUIVALENT_PLASTIC_STRAIN";
+        public const string InternalEnergyDensity = "INTERNAL_ENERGY_DENSITY";
         // Thermal
         public const string Temperatures = "TEMPERATURES";
-        public const string HeatGeneration = "HEAT GENERATION";
-        public const string TotalHeatGeneration = "TOTAL HEAT GENERATION";
+        public const string HeatGeneration = "HEAT_GENERATION";
+        public const string TotalHeatGeneration = "TOTAL_HEAT_GENERATION";
         // Frequency
-        public const string EigenvalueOutput = "EIGENVALUE OUTPUT";
-        public const string ParticipationFactors = "PARTICIPATION FACTORS";
-        public const string EffectiveModalMass = "EFFECTIVE MODAL MASS";
-        public const string TotalEffectiveModalMass = "TOTAL EFFECTIVE MODAL MASS";
-        public const string TotalEffectiveMass = "TOTAL EFFECTIVE MASS";
-        public const string RelativeEffectiveModalMass = "RELATIVE EFFECTIVE MODAL MASS";
-        public const string RelativeTotalEffectiveModalMass = "RELATIVE TOTAL EFFECTIVE MODAL MASS";
-        // Contact
-        public const string RelativeContactDisplacement = "RELATIVE CONTACT DISPLACEMENT";
-        public const string ContactStress = "CONTACT STRESS";
-        public const string ContactPrintEnergy = "CONTACT PRINT ENERGY";    // for CalculiX 2.21
-        public const string ContactSpringEnergy = "CONTACT SPRING ENERGY";
-        public const string TotalNumberOfContactElements = "TOTAL NUMBER OF CONTACT ELEMENTS";
-        public const string StatisticsForSlaveSet = "STATISTICS FOR SLAVE SET";
-        public const string TotalSurfaceForce = "TOTAL SURFACE FORCE";
-        public const string MomentAboutOrigin = "MOMENT ABOUT ORIGIN";
-        public const string CenterOgGravityCG = "CENTER OF GRAVITY CG";
-        public const string MeanSurfaceNormal = "MEAN SURFACE NORMAL";
-        public const string MomentAboutCG = "MOMENT ABOUT CG";
-        public const string SurfaceArea = "SURFACE AREA";
-        public const string NormalSurfaceForce = "NORMAL SURFACE FORCE";
-        public const string ShearSurfaceForce = "SHEAR SURFACE FORCE";
+        public const string EigenvalueOutput = "EIGENVALUE_OUTPUT";
+        public const string ParticipationFactors = "PARTICIPATION_FACTORS";
+        public const string EffectiveModalMass = "EFFECTIVE_MODAL_MASS";
+        public const string TotalEffectiveModalMass = "TOTAL_EFFECTIVE_MODAL_MASS";
+        public const string TotalEffectiveMass = "TOTAL_EFFECTIVE_MASS";
+        public const string RelativeEffectiveModalMass = "RELATIVE_EFFECTIVE_MODAL_MASS";
+        public const string RelativeTotalEffectiveModalMass = "RELATIVE_TOTAL_EFFECTIVE_MODAL_MASS";
+        // Complex frequency
+        public const string ParticipationFactorsForMode = "PARTICIPATION_FACTORS_FOR_MODE";
+        public const string ModalAssuranceCriterium = "MODAL_ASSURANCE_CRITERIUM";
+        public const string AxisDirection = "AXIS_DIRECTION";
+        public const string TurningDirection = "TURNING_DIRECTION";
+        //
+        public const string RelativeContactDisplacement = "RELATIVE_CONTACT_DISPLACEMENT";
+        public const string ContactStress = "CONTACT_STRESS";
+        public const string ContactPrintEnergy = "CONTACT_PRINT_ENERGY";    // for CalculiX 2.21
+        public const string ContactSpringEnergy = "CONTACT_SPRING_ENERGY";
+        public const string TotalNumberOfContactElements = "TOTAL_NUMBER_OF_CONTACT_ELEMENTS";
+        public const string StatisticsForSlaveSet = "STATISTICS_FOR_SLAVE_SET";
+        public const string TotalSurfaceForce = "TOTAL_SURFACE_FORCE";
+        public const string MomentAboutOrigin = "MOMENT_ABOUT_ORIGIN";
+        public const string CenterOgGravityCG = "CENTER_OF_GRAVITY_CG";
+        public const string MeanSurfaceNormal = "MEAN_SURFACE_NORMAL";
+        public const string MomentAboutCG = "MOMENT_ABOUT_CG";
+        public const string SurfaceArea = "SURFACE_AREA";
+        public const string NormalSurfaceForce = "NORMAL_SURFACE_FORCE";
+        public const string ShearSurfaceForce = "SHEAR_SURFACE_FORCE";
         // Element
         public const string Volume = "VOLUME";
-        public const string TotalVolume = "TOTAL VOLUME";
-        public const string InternalEnergy = "INTERNAL ENERGY";
-        public const string TotalInternalEnergy = "TOTAL INTERNAL ENERGY";
+        public const string TotalVolume = "TOTAL_VOLUME";
+        public const string InternalEnergy = "INTERNAL_ENERGY";
+        public const string TotalInternalEnergy = "TOTAL_INTERNAL_ENERGY";
         // Thermal
-        public const string HeatFlux = "HEAT FLUX";
-        public const string BodyHeating = "BODY HEATING";
-        public const string TotalBodyHeating = "TOTAL BODY HEATING";
+        public const string HeatFlux = "HEAT_FLUX";
+        public const string BodyHeating = "BODY_HEATING";
+        public const string TotalBodyHeating = "TOTAL_BODY_HEATING";
         // Wear
-        public const string SlidingDistance = "SLIDING DISTANCE";
-        public const string SurfaceNormal = "SURFACE NORMAL";
+        public const string SlidingDistance = "SLIDING_DISTANCE";
+        public const string SurfaceNormal = "SURFACE_NORMAL";
         // Error
         public const string Error = "ERROR";
 
@@ -117,10 +124,10 @@ namespace CaeResults
         public const string S23 = "S23";
         public const string S13 = "S13";
         //
-        public const string SgnMaxAbsPri = "SGN-MAX-ABS-PRI";
-        public const string PrincipalMax = "PRINCIPAL-MAX";
-        public const string PrincipalMid = "PRINCIPAL-MID";
-        public const string PrincipalMin = "PRINCIPAL-MIN";
+        public const string SgnMaxAbsPri = "SGN_MAX_ABS_PRI";
+        public const string PrincipalMax = "PRINCIPAL_MAX";
+        public const string PrincipalMid = "PRINCIPAL_MID";
+        public const string PrincipalMin = "PRINCIPAL_MIN";
         //
         public const string E11 = "E11";
         public const string E22 = "E22";
@@ -141,17 +148,22 @@ namespace CaeResults
         public const string EIGENVALUE = "EIGENVALUE";
         public const string OMEGA = "OMEGA";
         public const string FREQUENCY = "FREQUENCY";
-        public const string FREQUENCY_IM = "FREQUENCY IM";
+        public const string FREQUENCY_IM = "FREQUENCY_IM";
+        // Complex frequency
+        public const string PAR_FACTOR = "PAR_FACTOR";  // participation factor
+        public const string PAR_FACTOR_IM = "PAR_FACTOR_IM";
+        public const string MODE = "MODE";
+        public const string DIRECTION = "DIRECTION";
         // Buckling
-        public const string MODENUMBER = "MODE NUMBER";
-        public const string BUCKLINGFACTOR = "BUCKLING FACTOR";
+        public const string MODENUMBER = "MODE_NUMBER";
+        public const string BUCKLINGFACTOR = "BUCKLING_FACTOR";
         //
-        public const string XCOMPONENT = "X COMPONENT";
-        public const string YCOMPONENT = "Y COMPONENT";
-        public const string ZCOMPONENT = "Z COMPONENT";
-        public const string XROTATION = "X ROTATION";
-        public const string YROTATION = "Y ROTATION";
-        public const string ZROTATION = "Z ROTATION";
+        public const string XCOMPONENT = "X_COMPONENT";
+        public const string YCOMPONENT = "Y_COMPONENT";
+        public const string ZCOMPONENT = "Z_COMPONENT";
+        public const string XROTATION = "X_ROTATION";
+        public const string YROTATION = "Y_ROTATION";
+        public const string ZROTATION = "Z_ROTATION";
         //
         public const string X = "X";
         public const string Y = "Y";

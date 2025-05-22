@@ -1639,6 +1639,11 @@ namespace FileInOut.Output
                         CalFrequencyStep calFrequencyStep = new CalFrequencyStep(frequencyStep);
                         calStep.AddKeyword(calFrequencyStep);
                     }
+                    else if (step is ComplexFrequencyStep complexFrequencyStep)
+                    {
+                        CalComplexFrequencyStep calComplexFrequencyStep = new CalComplexFrequencyStep(complexFrequencyStep);
+                        calStep.AddKeyword(calComplexFrequencyStep);
+                    }
                     else if (step is BuckleStep buckleStep)
                     {
                         CalBuckleStep calBuckleStep = new CalBuckleStep(buckleStep);
