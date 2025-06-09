@@ -27,7 +27,7 @@ namespace CaeResults
         private static readonly string _stepKey = "S T E P";
         private static readonly string _incrementKey = "INCREMENT";
         private static readonly string _stepNumberKey = "STEP_";
-        private static readonly string _steadyStateDynamicsKey =
+        private static readonly string _participationFactorsForFrequencyKey =
             "P A R T I C I P A T I O N   F A C T O R S   F O R   F R E Q U E N C Y";
         private const string _eigenvalueOutputKey = "E I G E N V A L U E   O U T P U T";
         private const string _participationFactorsKey = "P A R T I C I P A T I O N   F A C T O R S";
@@ -95,6 +95,8 @@ namespace CaeResults
                 dataSetNames.Add(_totalEffectiveMassKey);
                 dataSetNames.Add(_eigenvalueNumberKey);
                 dataSetNames.Add(_bucklingFactorKey);
+                // Steady state
+                dataSetNames.Add(_participationFactorsForFrequencyKey);
                 // Complex frequency
                 dataSetNames.Add(_participationFactorsForModeKey);
                 dataSetNames.Add(_modalAssuranceCriterium);
@@ -155,8 +157,10 @@ namespace CaeResults
                             dataSetLines[0] == _participationFactorsKey ||
                             dataSetLines[0] == _effectiveModalMassKey ||
                             dataSetLines[0] == _totalEffectiveMassKey ||
+                            // Steady state
+                            dataSetLines[0].ToUpper().StartsWith(_participationFactorsForFrequencyKey) ||
                             // Complex frequency
-                            dataSetLines[0].ToUpper().StartsWith(_participationFactorsKey) ||
+                            dataSetLines[0].ToUpper().StartsWith(_participationFactorsForModeKey) ||
                             dataSetLines[0] == _modalAssuranceCriterium)
                         {
                             if (stepKey == null) stepKey = _stepNumberKey + stepId;
@@ -204,7 +208,7 @@ namespace CaeResults
                                 newDataSet = GetDatDataSet(dataSetNames, dataSetLines, repairedSetNames);
                                 if (stepId != -1) newDataSet.StepId = stepId;
                                 if (incrementId != -1) newDataSet.IncrementId = incrementId;
-                                if (newDataSet.SetName == _steadyStateDynamicsKey) continue;
+                                if (newDataSet.SetName == _participationFactorsForFrequencyKey) continue;
                                 // Steady state dynamics
                                 if (steadyStateDynamics && dataSets.TryGetValue(newDataSet.GetHashKey(), out existingDataSet))
                                 {
@@ -289,26 +293,10 @@ namespace CaeResults
             List<string[]> dataSets = new List<string[]>();
             //
             string theName;
-            string firstLine;
             steadyStateDynamics = false;
             for (int i = 0; i < lines.Length; i++)
             {
                 if (lines[i].Length == 0) continue;
-                if (!steadyStateDynamics && lines[i].ToUpper().StartsWith(_steadyStateDynamicsKey))
-                {
-                    steadyStateDynamics = true;
-                    foreach (var dataSetToRemove in dataSets.ToArray())
-                    {
-                        firstLine = dataSetToRemove[0].ToUpper();
-                        if (!firstLine.StartsWith(_eigenvalueOutputKey) &&
-                            !firstLine.StartsWith(_participationFactorsKey) &&
-                            !firstLine.StartsWith(_effectiveModalMassKey) &&
-                            !firstLine.StartsWith(_totalEffectiveMassKey))
-                        {
-                            dataSets.Remove(dataSetToRemove);
-                        }
-                    }
-                }
                 //
                 theName = null;
                 foreach (var name in dataSetNames)
@@ -324,25 +312,31 @@ namespace CaeResults
                     theName == _participationFactorsKey ||
                     theName == _effectiveModalMassKey ||
                     theName == _totalEffectiveMassKey ||
+                    // Steady state
+                    theName == _participationFactorsForFrequencyKey ||
                     // Complex
                     theName == _participationFactorsForModeKey ||
                     theName == _modalAssuranceCriterium)
                 {
+                    if (!steadyStateDynamics && lines[i].ToUpper().StartsWith(_participationFactorsForFrequencyKey))
+                        steadyStateDynamics = true;
+                    //
                     int emptyLinesCounter = 0;
                     dataSet = new List<string> { lines[i] };
                     i++;
                     //
-                    while (i < lines.Length && emptyLinesCounter <= 2)
+                    while (i < lines.Length)
                     {
                         if (lines[i].Length == 0) emptyLinesCounter++;
                         else dataSet.Add(lines[i]);
+                        if (emptyLinesCounter == 3) break;  // must be here to prevent i++
                         i++;
                     }
                     //
                     dataSets.Add(dataSet.ToArray());
                 }
                 // Complex frequency
-                if (theName == _eigenmodeTurningDirection)
+                else if (theName == _eigenmodeTurningDirection)
                 {
                     int emptyLinesCounter = 0;
                     dataSet = new List<string> { lines[i] };
@@ -364,11 +358,11 @@ namespace CaeResults
                     dataSet = new List<string> { lines[i] };
                     i++;
                     //
-                    while (i < lines.Length && emptyLinesCounter <= 2)
+                    while (i < lines.Length)
                     {
                         if (lines[i].Length == 0) emptyLinesCounter++;
                         else dataSet.Add(lines[i]);
-                        if (emptyLinesCounter >= 3) break;
+                        if (emptyLinesCounter == 3) break;
                         //
                         i++;
                     }
@@ -772,6 +766,7 @@ namespace CaeResults
             int len;
             int firstDataRowId = 1;
             string mode;
+            string timeFrequency;
             string entryName = null;
             string totalEntryName = HOFieldNames.TotalEffectiveModalMass;
             string historyResultFieldName = HOFieldNames.Frequency;
@@ -836,6 +831,20 @@ namespace CaeResults
                                                 HOComponentNames.ZCOMPONENT, HOComponentNames.XROTATION,
                                                 HOComponentNames.YROTATION, HOComponentNames.ZROTATION };
             }
+            // Steady state                                     
+            else if (dataSetLines[0].ToUpper().StartsWith(_participationFactorsForFrequencyKey))
+            {
+                firstDataRowId = 3;
+                //
+                historyResultFieldName = HOFieldNames.Factor;
+                //
+                len = _participationFactorsForFrequencyKey.Length;
+                timeFrequency = dataSetLines[0].Substring(len, dataSetLines[0].Length - len).Trim();
+                tmp = timeFrequency.Split(_spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+                entryName = HOFieldNames.ParticipationFactorsForFrequency + "_" + tmp[0];
+                componentNames = new string[] { HOComponentNames.FREQUENCY, HOComponentNames.PAR_FACTOR,
+                                                HOComponentNames.PAR_FACTOR_IM };
+            }
             // Complex frequency                                
             else if (dataSetLines[0].ToUpper().StartsWith(_participationFactorsForModeKey))
             {
@@ -846,6 +855,7 @@ namespace CaeResults
                 len = _participationFactorsForModeKey.Length;
                 mode = dataSetLines[0].Substring(len, dataSetLines[0].Length - len).Trim();
                 entryName = HOFieldNames.ParticipationFactorsForMode + "_" + mode;
+                //
                 componentNames = new string[] { HOComponentNames.FREQUENCY, HOComponentNames.PAR_FACTOR,
                                                 HOComponentNames.PAR_FACTOR_IM };
             }
@@ -1069,9 +1079,9 @@ namespace CaeResults
                 DatDataSet dataSet = new DatDataSet();
                 //
                 string firstLine = dataSetLines[0];
-                if (firstLine.ToUpper().StartsWith(_steadyStateDynamicsKey))
+                if (firstLine.ToUpper().StartsWith(_participationFactorsForFrequencyKey))
                 {
-                    dataSet.SetName = _steadyStateDynamicsKey;
+                    dataSet.SetName = _participationFactorsForFrequencyKey;
                     return dataSet;
                 }
                 //

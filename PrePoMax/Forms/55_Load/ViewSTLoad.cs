@@ -53,7 +53,43 @@ namespace PrePoMax
         [DescriptionAttribute("Value of the surface traction load magnitude.")]
         [TypeConverter(typeof(EquationForceConverter))]
         [Id(1, 4)]
-        public EquationString Magnitude { get { return _stLoad.Magnitude.Equation; } set { _stLoad.Magnitude.Equation = value; } }
+        public EquationString FMagnitude
+        {
+            get { return _stLoad.FMagnitude.Equation; }
+            set { _stLoad.FMagnitude.Equation = value; }
+        }
+        //
+        [CategoryAttribute("Force per area components")]
+        [OrderedDisplayName(0, 10, "F1")]
+        [DescriptionAttribute("Value of the force component in the direction of the first axis.")]
+        [TypeConverter(typeof(EquationPressureConverter))]
+        [Id(1, 3)]
+        public EquationString P1 { get { return _stLoad.P1.Equation; } set { _stLoad.P1.Equation = value; } }
+        //
+        [CategoryAttribute("Force per area components")]
+        [OrderedDisplayName(1, 10, "F2")]
+        [DescriptionAttribute("Value of the force component in the direction of the second axis.")]
+        [TypeConverter(typeof(EquationPressureConverter))]
+        [Id(2, 3)]
+        public EquationString P2 { get { return _stLoad.P2.Equation; } set { _stLoad.P2.Equation = value; } }
+        //
+        [CategoryAttribute("Force per area components")]
+        [OrderedDisplayName(2, 10, "F3")]
+        [DescriptionAttribute("Value of the force component in the direction of the third axis.")]
+        [TypeConverter(typeof(EquationPressureConverter))]
+        [Id(3, 3)]
+        public EquationString P3 { get { return _stLoad.P3.Equation; } set { _stLoad.P3.Equation = value; } }
+        //
+        [CategoryAttribute("Force per area magnitude")]
+        [OrderedDisplayName(0, 10, "Magnitude")]
+        [DescriptionAttribute("Value of the surface traction load magnitude.")]
+        [TypeConverter(typeof(EquationPressureConverter))]
+        [Id(1, 4)]
+        public EquationString PMagnitude
+        {
+            get { return _stLoad.PMagnitude.Equation; }
+            set { _stLoad.PMagnitude.Equation = value; }
+        }
         //
         [CategoryAttribute("Force phase")]
         [OrderedDisplayName(0, 10, "Phase")]
@@ -61,6 +97,20 @@ namespace PrePoMax
         [TypeConverter(typeof(EquationAngleDegConverter))]
         [Id(1, 5)]
         public EquationString Phase { get { return _stLoad.PhaseDeg.Equation; } set { _stLoad.PhaseDeg.Equation = value; } }
+        //
+        [CategoryAttribute("Distribution")]
+        [OrderedDisplayName(0, 10, "Distribution")]
+        [DescriptionAttribute("Select the distribution for the load.")]
+        [Id(1, 17)]
+        public string DistributionName
+        {
+            get { return _stLoad.DistributionName; }
+            set
+            {
+                _stLoad.DistributionName = value;
+                UpdateVisibility();
+            }
+        }
         //
         public override string AmplitudeName { get { return _stLoad.AmplitudeName; } set { _stLoad.AmplitudeName = value; } }
         public override string CoordinateSystemName
@@ -87,6 +137,8 @@ namespace PrePoMax
             DynamicCustomTypeDescriptor.GetProperty(nameof(F3)).SetIsBrowsable(!stLoad.TwoD);
             // Phase
             DynamicCustomTypeDescriptor.GetProperty(nameof(Phase)).SetIsBrowsable(stLoad.Complex);
+            //
+            UpdateVisibility();
         }
 
 
@@ -96,17 +148,38 @@ namespace PrePoMax
         {
             return _stLoad;
         }
-
-        public void PopulateDropDownLists(string[] surfaceNames, string[] amplitudeNames, string[] coordinateSystemNames)
+        public void PopulateDropDownLists(string[] surfaceNames, string[] distributionNames, string[] amplitudeNames,
+                                          string[] coordinateSystemNames)
         {
             Dictionary<RegionTypeEnum, string[]> regionTypeListItemsPairs = new Dictionary<RegionTypeEnum, string[]>();
             regionTypeListItemsPairs.Add(RegionTypeEnum.Selection, new string[] { "Hidden" });
             regionTypeListItemsPairs.Add(RegionTypeEnum.SurfaceName, surfaceNames);
             PopulateDropDownLists(regionTypeListItemsPairs);
             //
+            PopulateDistributionNames(distributionNames);
+            //
             PopulateAmplitudeNames(amplitudeNames);
             //
             PopulateCoordinateSystemNames(coordinateSystemNames);
+        }
+        public void PopulateDistributionNames(string[] distributionNames)
+        {
+            List<string> names = new List<string>() { Load.DefaultDistributionName };
+            names.AddRange(distributionNames);
+            DynamicCustomTypeDescriptor.PopulateProperty(nameof(DistributionName), names.ToArray(), false, 2);
+        }
+        public void UpdateVisibility()
+        {
+            bool visible = _stLoad.DistributionName == Load.DefaultDistributionName;
+            DynamicCustomTypeDescriptor.GetProperty(nameof(F1)).SetIsBrowsable(visible);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(F2)).SetIsBrowsable(visible);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(F3)).SetIsBrowsable(visible);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(FMagnitude)).SetIsBrowsable(visible);
+            //
+            DynamicCustomTypeDescriptor.GetProperty(nameof(P1)).SetIsBrowsable(!visible);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(P2)).SetIsBrowsable(!visible);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(P3)).SetIsBrowsable(!visible);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(PMagnitude)).SetIsBrowsable(!visible);
         }
     }
 

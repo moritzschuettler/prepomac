@@ -46,6 +46,8 @@ namespace CaeResults
         public const string TotalEffectiveMass = "TOTAL_EFFECTIVE_MASS";
         public const string RelativeEffectiveModalMass = "RELATIVE_EFFECTIVE_MODAL_MASS";
         public const string RelativeTotalEffectiveModalMass = "RELATIVE_TOTAL_EFFECTIVE_MODAL_MASS";
+        // Steady state
+        public const string ParticipationFactorsForFrequency = "PARTICIPATION_FACTORS_FOR_FREQUENCY";
         // Complex frequency
         public const string ParticipationFactorsForMode = "PARTICIPATION_FACTORS_FOR_MODE";
         public const string ModalAssuranceCriterium = "MODAL_ASSURANCE_CRITERIUM";

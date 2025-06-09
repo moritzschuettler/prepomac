@@ -25,7 +25,6 @@ namespace CaeModel
         private AmplitudeTimeSpanEnum _timeSpan;
         private double _shiftX;
         private double _shiftY;
-        //
         protected double[][] _timeAmplitude;
 
 
@@ -48,3 +47,5 @@ namespace CaeModel
         // Methods                                                                                                                  
     }
 }
+
+

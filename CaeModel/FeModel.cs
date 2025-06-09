@@ -34,6 +34,7 @@ namespace CaeModel
         private OrderedDictionary<string, Constraint> _constraints;                             //ISerializable
         private OrderedDictionary<string, SurfaceInteraction> _surfaceInteractions;             //ISerializable
         private OrderedDictionary<string, ContactPair> _contactPairs;                           //ISerializable
+        private OrderedDictionary<string, Distribution> _distributions;                         //ISerializable
         private OrderedDictionary<string, Amplitude> _amplitudes;                               //ISerializable
         private OrderedDictionary<string, InitialCondition> _initialConditions;                 //ISerializable
         private StepCollection _stepCollection;                                                 //ISerializable
@@ -53,6 +54,7 @@ namespace CaeModel
         public OrderedDictionary<string, Constraint> Constraints { get { return _constraints; } }
         public OrderedDictionary<string, SurfaceInteraction> SurfaceInteractions { get { return _surfaceInteractions; } }
         public OrderedDictionary<string, ContactPair> ContactPairs { get { return _contactPairs; } }
+        public OrderedDictionary<string, Distribution> Distributions { get { return _distributions; } }
         public OrderedDictionary<string, Amplitude> Amplitudes { get { return _amplitudes; } }
         public OrderedDictionary<string, InitialCondition> InitialConditions { get { return _initialConditions; } }
         public StepCollection StepCollection { get { return _stepCollection; } }
@@ -88,6 +90,7 @@ namespace CaeModel
             _surfaceInteractions = new OrderedDictionary<string, SurfaceInteraction>("Surface Tractions", sc);
             _contactPairs = new OrderedDictionary<string, ContactPair>("Contact Pairs", sc);
             _initialConditions = new OrderedDictionary<string, InitialCondition>("Initial Conditions", sc);
+            _distributions = new OrderedDictionary<string, Distribution>("Distributions", sc);
             _amplitudes = new OrderedDictionary<string, Amplitude>("Amplitudes", sc);
             _stepCollection = new StepCollection();
             _properties = new ModelProperties();
@@ -113,6 +116,8 @@ namespace CaeModel
             _hashName = Tools.GetRandomString(8);
             // Compatibility for version v.1.0.0
             _initialConditions = new OrderedDictionary<string, InitialCondition>("Initial Conditions", sc);
+            // Compatibility for version v.2.3.3
+            _distributions = new OrderedDictionary<string, Distribution>("Distributions", sc);
             // Compatibility for version v.1.2.1
             _amplitudes = new OrderedDictionary<string, Amplitude>("Amplitudes", sc);
             // Compatibility for version v.1.4.0
@@ -174,6 +179,8 @@ namespace CaeModel
                         _surfaceInteractions = (OrderedDictionary<string, SurfaceInteraction>)entry.Value; break;
                     case "_contactPairs":
                         _contactPairs = (OrderedDictionary<string, ContactPair>)entry.Value; break;
+                    case "_distributions":
+                        _distributions = (OrderedDictionary<string, Distribution>)entry.Value; break;
                     case "_amplitudes":
                         _amplitudes = (OrderedDictionary<string, Amplitude>)entry.Value; break;
                     case "_initialConditions":
@@ -388,6 +395,12 @@ namespace CaeModel
                         {
                             if (cf.Axisymmetric == false) valid = false;
                         }
+                    }
+                    // Distribution
+                    if (load is ILoadWithDistribution lwd)
+                    {
+                        if (lwd.DistributionName != Load.DefaultDistributionName &&
+                            !_distributions.ContainsValidKey(lwd.DistributionName)) valid = false;
                     }
                     // Amplitude
                     if (load.AmplitudeName != Load.DefaultAmplitudeName && 
@@ -985,7 +998,7 @@ namespace CaeModel
             string[] addedPartNames = ImportGeometry(mesh, GetReservedPartNames());
             //
             return addedPartNames;
-        }        
+        }
         public void ImportMeshFromVolFile(string fileName)
         {
             FeMesh mesh = VolFileReader.Read(fileName, ElementsToImport.Shell | ElementsToImport.Solid);
@@ -1361,6 +1374,19 @@ namespace CaeModel
                 mesh.ResetPartsColor();
             }
             _mesh.AddMesh(mesh, reservedPartNames, GetReservedPartIds(), forceRenameParts, renumberNodesAndElements);
+        }
+        // Update                                                                                   
+        public void UpdateGeometryPartMassPropertiesFromVisFile(string visFileName, string partName)
+        {
+            FeMesh mesh = VisFileReader.Read(visFileName);
+            //
+            if (mesh.Parts.Count == 1)
+            {
+                BasePart part = _geometry.Parts[partName];
+                BasePart updatedPart = mesh.Parts.First().Value;
+                //part.Visualization = updatedPart.Visualization;
+                part.MassProperties = updatedPart.MassProperties;
+            }
         }
         // Setters                                                                                  
         public void SetMesh(FeMesh mesh)
@@ -2127,16 +2153,60 @@ namespace CaeModel
             return springs.ToArray();
         }
         // Loads                                                                                    
+        public double GetAreaForSTLoad(STLoad load)
+        {
+            int sectionId = 0;
+            double A;
+            double thickness;
+            double area = 0;
+            FeElement element;
+            Dictionary<int, int> elementIdSectionId;
+            Dictionary<int, double> sectionIdThickness = new Dictionary<int, double>();
+            // Get element thicknesses
+            GetSectionAssignments(out elementIdSectionId);
+            foreach (var entry in _sections)
+            {
+                thickness = entry.Value.Thickness.Value;
+                sectionIdThickness.Add(sectionId++, thickness);
+            }
+            //
+            FeSurface surface = _mesh.Surfaces[load.SurfaceName];
+            if (surface.ElementFaces == null) return 0;
+            //
+            foreach (var entry in surface.ElementFaces)
+            {
+                foreach (var elementId in _mesh.ElementSets[entry.Value].Labels)
+                {
+                    element = _mesh.Elements[elementId];
+                    A = element.GetArea(entry.Key, _mesh.Nodes);
+                    // Is shell edge face
+                    if (element is FeElement2D element2D && entry.Key != FeFaceName.S1 && entry.Key != FeFaceName.S2)
+                    {
+                        sectionId = elementIdSectionId[elementId];
+                        if (sectionId == -1) throw new CaeException("Missing section assignment at element " + elementId +
+                                                                    " from part " + _mesh.GetPartFromId(element.PartId) + ".");
+                        thickness = sectionIdThickness[sectionId];
+                        A *= thickness;
+                    }
+                    area += A;
+                }
+            }
+            return area;
+        }
         public CLoad[] GetNodalCLoadsFromSurfaceTraction(STLoad load)
+        {
+            if (load.DistributionName == Load.DefaultDistributionName) return GetNodalCLoadsFromConstantSurfaceTraction(load);
+            else return GetNodalCLoadsFromSurfaceTractionByDistribution(load);
+        }
+        public CLoad[] GetNodalCLoadsFromConstantSurfaceTraction(STLoad load)
         {
             List<CLoad> loads = new List<CLoad>();
             //
-            if (load.Magnitude.Value != 0)
+            if (load.FMagnitude.Value != 0)
             {
                 double area;
                 Dictionary<int, double> nodalForces;
                 GetDistributedNodalValuesFromSurface(load.SurfaceName, out nodalForces, out area);
-                //
                 //
                 double f1ByArea = load.F1.Value / area;
                 double f2ByArea = load.F2.Value / area;
@@ -2160,12 +2230,144 @@ namespace CaeModel
             //
             return loads.ToArray();
         }
+        public CLoad[] GetNodalCLoadsFromSurfaceTractionByDistribution(STLoad load)
+        {
+            Distribution distribution = _distributions[load.DistributionName];
+            Dictionary<int, int> elementIdSectionId;
+            double[] sectionIdThickness = new double[_sections.Count];
+            // Get element thicknesses
+            GetSectionAssignments(out elementIdSectionId);
+            //
+            int sectionId = 0;
+            double thickness;
+            string surfaceName = load.SurfaceName;
+            foreach (var entry in _sections)
+            {
+                thickness = entry.Value.Thickness.Value;
+                sectionIdThickness[sectionId++] = thickness;
+            }
+            // Surface
+            FeSurface surface = _mesh.Surfaces[surfaceName];
+            if (surface.ElementFaces == null) return null;
+            //
+            int nodeId;
+            int[] nodeIds;
+            double A;
+            double area = 0;
+            double[] magnitude;
+            double[] force;
+            double[] nodalForce;
+            double[] faceNormal;
+            double[][] magnitudeByComponent;
+            double[][] nodalForceMagnitudes;
+            FeElement element;
+            Dictionary<int, double[]> nodeIdForcePerArea = new Dictionary<int, double[]>();
+            Dictionary<int, double[]> nodeIdForce = new Dictionary<int, double[]>();
+            //
+            foreach (var entry in surface.ElementFaces)
+            {
+                foreach (var elementId in _mesh.ElementSets[entry.Value].Labels)
+                {
+                    element = _mesh.Elements[elementId];
+                    // Node ids
+                    nodeIds = element.GetNodeIdsFromFaceName(entry.Key);
+                    //
+                    _mesh.GetElementFaceCenterAndNormal(elementId, entry.Key, out double[] faceCenter, out faceNormal,
+                                                        out bool shellElement);
+                    //
+                    A = element.GetArea(entry.Key, _mesh.Nodes);
+                    // Account for 2D area when an edge is selected
+                    if (element is FeElement2D element2D && entry.Key != FeFaceName.S1 && entry.Key != FeFaceName.S2)
+                    {
+                        sectionId = elementIdSectionId[elementId];
+                        if (sectionId == -1) throw new CaeException("Missing section assignment at element " + elementId +
+                                                                    " from part " + _mesh.GetPartFromId(element.PartId) + ".");
+                        thickness = sectionIdThickness[sectionId];
+                        A *= thickness;
+                    }
+                    // Force magnitude
+                    magnitudeByComponent = new double[distribution.NumOfComponents][];
+                    for (int i = 0; i < nodeIds.Length; i++)
+                    {
+                        nodeId = nodeIds[i];
+                        if (!nodeIdForcePerArea.TryGetValue(nodeId, out magnitude))
+                        {
+                            magnitude = distribution.GetMagnitudeForPoint(_mesh.Nodes[nodeId].Coor);
+                            nodeIdForcePerArea.Add(nodeId, magnitude);
+                        }
+                        for (int j = 0; j < magnitudeByComponent.Length; j++)
+                        {
+                            if (magnitudeByComponent[j] == null) magnitudeByComponent[j] = new double[nodeIds.Length];
+                            magnitudeByComponent[j][i] = magnitude[j];
+                        }
+                    }
+                    // Force magnitudes without area
+                    nodalForceMagnitudes = new double[distribution.NumOfComponents][];
+                    for (int i = 0; i < nodalForceMagnitudes.Length; i++)
+                    {
+                        nodalForceMagnitudes[i] = element.GetEquivalentForcesFromFaceName(entry.Key, magnitudeByComponent[i]);
+                    }
+                    // Force vectors
+                    for (int i = 0; i < nodeIds.Length; i++)
+                    {
+                        if (distribution.NumOfComponents == 1)
+                        {
+                            force = new double[] { A * nodalForceMagnitudes[0][i],
+                                                   A * nodalForceMagnitudes[0][i],
+                                                   A * nodalForceMagnitudes[0][i] };
+                        }
+                        else if (distribution.NumOfComponents == 3)
+                        {
+                            force = new double[] { A * nodalForceMagnitudes[0][i],
+                                                   A * nodalForceMagnitudes[1][i],
+                                                   A * nodalForceMagnitudes[2][i] };
+                        }
+                        else throw new NotSupportedException();
+                        //
+                        if (!nodeIdForce.TryGetValue(nodeIds[i], out nodalForce))
+                        {
+                            nodalForce = new double[3];
+                            nodeIdForce.Add(nodeIds[i], nodalForce);
+                        }
+                        nodalForce[0] += force[0];
+                        nodalForce[1] += force[1];
+                        nodalForce[2] += force[2];
+                    }
+                    //
+                    area += A;
+                }
+            }
+            // Concentrated loads
+            CLoad cLoad;
+            List<CLoad> loads = new List<CLoad>();
+            double phaseDeg = load.PhaseDeg.Value;
+            double p1ByArea = load.P1.Value;
+            double p2ByArea = load.P2.Value;
+            double p3ByArea = load.P3.Value;
+            foreach (var entry in nodeIdForce)
+            {
+                if (entry.Value[0] != 0 || entry.Value[1] != 0 || entry.Value[2] != 0)
+                {
+                    cLoad = new CLoad("_CLoad_" + entry.Key.ToString(), entry.Key,
+                                      p1ByArea * entry.Value[0],
+                                      p2ByArea * entry.Value[1],
+                                      p3ByArea * entry.Value[2],
+                                      load.TwoD, load.Complex, phaseDeg, true);
+                    //
+                    cLoad.AmplitudeName = load.AmplitudeName;
+                    //
+                    loads.Add(cLoad);
+                }
+            }
+            //
+            return loads.ToArray();
+        }
         public void GetDistributedNodalValuesFromSurface(string surfaceName,
                                                          out Dictionary<int, double> nodalValues,
-                                                         out double aSum)
+                                                         out double area)
         {
             nodalValues = new Dictionary<int, double>();
-            aSum = 0;
+            area = 0;
             //
             int nodeId;
             int sectionId = 0;
@@ -2202,7 +2404,7 @@ namespace CaeModel
                         thickness = sectionIdThickness[sectionId];
                         A *= thickness;
                     }
-                    aSum += A;
+                    area += A;
                     nodeIds = element.GetNodeIdsFromFaceName(entry.Key);
                     equValue = element.GetEquivalentForcesFromFaceName(entry.Key);
                     //
@@ -2269,7 +2471,7 @@ namespace CaeModel
                         A *= thickness;
                     }
                     // Force per area
-                    forcePerAreaByValueId = new double[load.Interpolator.NumValues][];
+                    forcePerAreaByValueId = new double[load.Interpolator.NumOfValues][];
                     for (int i = 0; i < nodeIds.Length; i++)
                     {
                         nodeId = nodeIds[i];
@@ -2285,7 +2487,7 @@ namespace CaeModel
                         }
                     }
                     // Force magnitudes without area
-                    nodalForceMagnitudes = new double[load.Interpolator.NumValues][];
+                    nodalForceMagnitudes = new double[load.Interpolator.NumOfValues][];
                     for (int i = 0; i < nodalForceMagnitudes.Length; i++)
                     {
                         nodalForceMagnitudes[i] = element.GetEquivalentForcesFromFaceName(entry.Key, forcePerAreaByValueId[i]);
@@ -2926,6 +3128,13 @@ namespace CaeModel
                 constraint = entry.Value.DeepClone();
                 bdmModel.Constraints.Add(constraint.Name, constraint);
             }
+            // Distributions
+            Distribution distribution;
+            foreach (var entry in _distributions)
+            {
+                distribution = entry.Value.DeepClone();
+                bdmModel.Distributions.Add(distribution.Name, distribution);
+            }
             // Amplitudes
             Amplitude amplitude;
             foreach (var entry in _amplitudes)
@@ -2989,6 +3198,7 @@ namespace CaeModel
             info.AddValue("_constraints", _constraints, typeof(OrderedDictionary<string, Constraint>));
             info.AddValue("_surfaceInteractions", _surfaceInteractions, typeof(OrderedDictionary<string, SurfaceInteraction>));
             info.AddValue("_contactPairs", _contactPairs, typeof(OrderedDictionary<string, ContactPair>));
+            info.AddValue("_distributions", _distributions, typeof(OrderedDictionary<string, Distribution>));
             info.AddValue("_amplitudes", _amplitudes, typeof(OrderedDictionary<string, Amplitude>));
             info.AddValue("_initialConditions", _initialConditions, typeof(OrderedDictionary<string, InitialCondition>));
             info.AddValue("_stepCollection", _stepCollection, typeof(StepCollection));

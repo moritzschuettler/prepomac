@@ -20,7 +20,7 @@ namespace PrePoMax
         // Properties                                                                                                               
         [CategoryAttribute("Data")]
         [OrderedDisplayName(0, 10, "Name")]
-        [DescriptionAttribute("Name of the field output.")]
+        [DescriptionAttribute("Name of the amplitude.")]
         public abstract string Name { get; set; }
         //
         [CategoryAttribute("Data")]
@@ -44,7 +44,7 @@ namespace PrePoMax
         public DynamicCustomTypeDescriptor DynamicCustomTypeDescriptor { get { return _dctd; } set { _dctd = value; } }
         //
         [Browsable(false)]
-        public abstract Amplitude Base { get; }
+        public abstract Amplitude GetBase();
 
 
         // Constructors                                                                                                             

@@ -114,6 +114,7 @@ namespace UserControls
         private TreeNode _contacts;                 //   2
         private TreeNode _surfaceInteractions;      //      3
         private TreeNode _contactPairs;             //      3
+        private TreeNode _distributions;            //   2
         private TreeNode _amplitudes;               //   2
         private TreeNode _initialConditions;        //   2
         private TreeNode _steps;                    //   2
@@ -150,6 +151,7 @@ namespace UserControls
         private string _contactsName = "Contacts";
         private string _surfaceInteractionsName = "Surface Interactions";
         private string _contactPairsName = "Contact Pairs";
+        private string _distributionsName = "Distributions";
         private string _amplitudesName = "Amplitudes";
         private string _initialConditionsName = "Initial Conditions";
         private string _stepsName = "Steps";
@@ -245,6 +247,7 @@ namespace UserControls
         public string ConstraintsName { get { return _constraintsName; } }
         public string SurfaceInteractionsName { get { return _surfaceInteractionsName; } }
         public string ContactPairsName { get { return _contactPairsName; } }
+        public string DistributionsName { get { return _distributionsName; } }
         public string AmplitudesName { get { return _amplitudesName; } }
         public string InitialConditionsName { get { return _initialConditionsName; } }
         public string StepsName { get { return _stepsName; } }
@@ -332,6 +335,7 @@ namespace UserControls
             _contacts = cltvModel.Nodes.Find(_contactsName, true)[0];
             _surfaceInteractions = cltvModel.Nodes.Find(_surfaceInteractionsName, true)[0];
             _contactPairs = cltvModel.Nodes.Find(_contactPairsName, true)[0];
+            _distributions = cltvModel.Nodes.Find(_distributionsName, true)[0];
             _amplitudes = cltvModel.Nodes.Find(_amplitudesName, true)[0];
             _initialConditions = cltvModel.Nodes.Find(_initialConditionsName, true)[0];
             _steps = cltvModel.Nodes.Find(_stepsName, true)[0];
@@ -368,6 +372,7 @@ namespace UserControls
             _constraints.StateImageKey = "Constraints";
             _surfaceInteractions.StateImageKey = "SurfaceInteractions";
             _contactPairs.StateImageKey = "ContactPairs";
+            _distributions.StateImageKey = "Distributions";
             _amplitudes.StateImageKey = "Amplitudes";
             _initialConditions.StateImageKey = "InitialConditions";
             _steps.StateImageKey = "Step";
@@ -1737,6 +1742,7 @@ namespace UserControls
             _contacts.Nodes.Clear();
             _surfaceInteractions.Nodes.Clear();
             _contactPairs.Nodes.Clear();
+            _distributions.Nodes.Clear();
             _amplitudes.Nodes.Clear();
             _initialConditions.Nodes.Clear();
             _steps.Nodes.Clear();
@@ -1759,6 +1765,7 @@ namespace UserControls
             _constraints.Text = _constraintsName;
             _surfaceInteractions.Text = _surfaceInteractionsName;
             _contactPairs.Text = _contactPairsName;
+            _distributions.Text = _distributionsName;
             _amplitudes.Text = _amplitudesName;
             _initialConditions.Text = _initialConditionsName;
             _steps.Text = _stepsName;
@@ -1785,6 +1792,7 @@ namespace UserControls
             _model.Nodes.Add(_contacts);
             _contacts.Nodes.Add(_surfaceInteractions);
             _contacts.Nodes.Add(_contactPairs);
+            _model.Nodes.Add(_distributions);
             _model.Nodes.Add(_amplitudes);
             _model.Nodes.Add(_initialConditions);
             _model.Nodes.Add(_steps);
@@ -1985,6 +1993,8 @@ namespace UserControls
                     AddObjectsToNode(_surfaceInteractionsName, _surfaceInteractions, model.SurfaceInteractions);
                     // Contact pairs
                     AddObjectsToNode(_contactPairsName, _contactPairs, model.ContactPairs);
+                    // Distributions
+                    AddObjectsToNode(_distributionsName, _distributions, model.Distributions);
                     // Amplitudes
                     AddObjectsToNode(_amplitudesName, _amplitudes, model.Amplitudes);
                     // Initial conditions
@@ -2203,6 +2213,13 @@ namespace UserControls
                 else if (item is InitialCondition)
                 {
                     parent = _initialConditions;
+                    node = parent.Nodes.Add(item.Name);
+                    node.Name = node.Text;
+                    node.Tag = item;
+                }
+                else if (item is Distribution)
+                {
+                    parent = _distributions;
                     node = parent.Nodes.Add(item.Name);
                     node.Name = node.Text;
                     node.Tag = item;
@@ -3111,6 +3128,7 @@ namespace UserControls
             else if (node.Name == _constraintsName) return true;
             else if (node.Name == _surfaceInteractionsName) return true;
             else if (node.Name == _contactPairsName) return true;
+            else if (node.Name == _distributionsName) return true;
             else if (node.Name == _amplitudesName) return true;
             else if (node.Name == _initialConditionsName) return true;
             else if (node.Name == _stepsName) return true;
@@ -3143,6 +3161,7 @@ namespace UserControls
             else if (node.Tag is Constraint) return true;
             else if (node.Tag is SurfaceInteraction) return true;
             else if (node.Tag is ContactPair) return true;
+            else if (node.Tag is Distribution) return true;
             else if (node.Tag is Amplitude) return true;
             else if (node.Tag is InitialCondition) return true;
             else if (node.Tag is Step) return true;

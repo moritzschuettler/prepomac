@@ -78,7 +78,7 @@ namespace PrePoMax
 
 
         // Constructors                                                                                                             
-        public ViewCLoad(CaeModel.CLoad cLoad)
+        public ViewCLoad(CLoad cLoad)
         {
             // The order is important
             _cLoad = cLoad;
@@ -98,7 +98,7 @@ namespace PrePoMax
 
 
         // Methods                                                                                                                  
-        public override CaeModel.Load GetBase()
+        public override Load GetBase()
         {
             return _cLoad;
         }

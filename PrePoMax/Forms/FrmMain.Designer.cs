@@ -200,8 +200,8 @@ namespace PrePoMax
             this.tsmiDeleteGeometryParts = new System.Windows.Forms.ToolStripMenuItem();
             this.cADPartToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiConvertShellToSolidCAD = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiDividerCAD1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiConvertSolidToShellCAD = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiDividerCAD1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiFlipFaceNormalCAD = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSplitAFaceUsingTwoPoints = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerCAD2 = new System.Windows.Forms.ToolStripSeparator();
@@ -529,6 +529,12 @@ namespace PrePoMax
             this.tbOutput = new UserControls.AutoScrollTextBox();
             this.timerTest = new System.Windows.Forms.Timer(this.components);
             this.timerOutput = new System.Windows.Forms.Timer(this.components);
+            this.tsmiDistribution = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiCreateDistribution = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiEditDistribution = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiDuplicateDistribution = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiDeleteDistribution = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiDividerDistribution1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsFile.SuspendLayout();
             this.tsViews.SuspendLayout();
             this.tsSymbols.SuspendLayout();
@@ -1213,6 +1219,7 @@ namespace PrePoMax
             this.tsmiModel,
             this.tsmiProperty,
             this.tsmiInteraction,
+            this.tsmiDistribution,
             this.tsmiAmplitude,
             this.tsmiInitialCondition,
             this.tsmiStepMenu,
@@ -2043,17 +2050,17 @@ namespace PrePoMax
             this.tsmiConvertShellToSolidCAD.Text = "Convert Shell to Solid";
             this.tsmiConvertShellToSolidCAD.Click += new System.EventHandler(this.tsmiConvertShellToSolidCAD_Click);
             // 
-            // tsmiDividerCAD1
-            // 
-            this.tsmiDividerCAD1.Name = "tsmiDividerCAD1";
-            this.tsmiDividerCAD1.Size = new System.Drawing.Size(223, 6);
-            // 
             // tsmiConvertSolidToShellCAD
             // 
             this.tsmiConvertSolidToShellCAD.Name = "tsmiConvertSolidToShellCAD";
             this.tsmiConvertSolidToShellCAD.Size = new System.Drawing.Size(226, 22);
             this.tsmiConvertSolidToShellCAD.Text = "Convert Solid to Shell";
             this.tsmiConvertSolidToShellCAD.Click += new System.EventHandler(this.TsmiConvertSolidToShellCAD_Click);
+            // 
+            // tsmiDividerCAD1
+            // 
+            this.tsmiDividerCAD1.Name = "tsmiDividerCAD1";
+            this.tsmiDividerCAD1.Size = new System.Drawing.Size(223, 6);
             // 
             // tsmiFlipFaceNormalCAD
             // 
@@ -3241,33 +3248,33 @@ namespace PrePoMax
             // tsmiCreateAmplitude
             // 
             this.tsmiCreateAmplitude.Name = "tsmiCreateAmplitude";
-            this.tsmiCreateAmplitude.Size = new System.Drawing.Size(124, 22);
+            this.tsmiCreateAmplitude.Size = new System.Drawing.Size(180, 22);
             this.tsmiCreateAmplitude.Text = "Create";
             this.tsmiCreateAmplitude.Click += new System.EventHandler(this.tsmiCreateAmplitude_Click);
             // 
             // tsmiEditAmplitude
             // 
             this.tsmiEditAmplitude.Name = "tsmiEditAmplitude";
-            this.tsmiEditAmplitude.Size = new System.Drawing.Size(124, 22);
+            this.tsmiEditAmplitude.Size = new System.Drawing.Size(180, 22);
             this.tsmiEditAmplitude.Text = "Edit";
             this.tsmiEditAmplitude.Click += new System.EventHandler(this.tsmiEditAmplitude_Click);
             // 
             // tsmiDuplicateAmplitude
             // 
             this.tsmiDuplicateAmplitude.Name = "tsmiDuplicateAmplitude";
-            this.tsmiDuplicateAmplitude.Size = new System.Drawing.Size(124, 22);
+            this.tsmiDuplicateAmplitude.Size = new System.Drawing.Size(180, 22);
             this.tsmiDuplicateAmplitude.Text = "Duplicate";
             this.tsmiDuplicateAmplitude.Click += new System.EventHandler(this.tsmiDuplicateAmplitude_Click);
             // 
             // tsmiDividerAmplitude1
             // 
             this.tsmiDividerAmplitude1.Name = "tsmiDividerAmplitude1";
-            this.tsmiDividerAmplitude1.Size = new System.Drawing.Size(121, 6);
+            this.tsmiDividerAmplitude1.Size = new System.Drawing.Size(177, 6);
             // 
             // tsmiDeleteAmplitude
             // 
             this.tsmiDeleteAmplitude.Name = "tsmiDeleteAmplitude";
-            this.tsmiDeleteAmplitude.Size = new System.Drawing.Size(124, 22);
+            this.tsmiDeleteAmplitude.Size = new System.Drawing.Size(180, 22);
             this.tsmiDeleteAmplitude.Text = "Delete";
             this.tsmiDeleteAmplitude.Click += new System.EventHandler(this.tsmiDeleteAmplitude_Click);
             // 
@@ -4651,6 +4658,51 @@ namespace PrePoMax
             // 
             this.timerOutput.Tick += new System.EventHandler(this.timerOutput_Tick);
             // 
+            // tsmiDistribution
+            // 
+            this.tsmiDistribution.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmiCreateDistribution,
+            this.tsmiEditDistribution,
+            this.tsmiDuplicateDistribution,
+            this.tsmiDividerDistribution1,
+            this.tsmiDeleteDistribution});
+            this.tsmiDistribution.Name = "tsmiDistribution";
+            this.tsmiDistribution.Size = new System.Drawing.Size(81, 20);
+            this.tsmiDistribution.Text = "Distribution";
+            // 
+            // tsmiCreateDistribution
+            // 
+            this.tsmiCreateDistribution.Name = "tsmiCreateDistribution";
+            this.tsmiCreateDistribution.Size = new System.Drawing.Size(180, 22);
+            this.tsmiCreateDistribution.Text = "Create";
+            this.tsmiCreateDistribution.Click += new System.EventHandler(this.tsmiCreateDistribution_Click);
+            // 
+            // tsmiEditDistribution
+            // 
+            this.tsmiEditDistribution.Name = "tsmiEditDistribution";
+            this.tsmiEditDistribution.Size = new System.Drawing.Size(180, 22);
+            this.tsmiEditDistribution.Text = "Edit";
+            this.tsmiEditDistribution.Click += new System.EventHandler(this.tsmiEditDistribution_Click);
+            // 
+            // tsmiDuplicateDistribution
+            // 
+            this.tsmiDuplicateDistribution.Name = "tsmiDuplicateDistribution";
+            this.tsmiDuplicateDistribution.Size = new System.Drawing.Size(180, 22);
+            this.tsmiDuplicateDistribution.Text = "Duplicate";
+            this.tsmiDuplicateDistribution.Click += new System.EventHandler(this.tsmiDuplicateDistribution_Click);
+            // 
+            // tsmiDeleteDistribution
+            // 
+            this.tsmiDeleteDistribution.Name = "tsmiDeleteDistribution";
+            this.tsmiDeleteDistribution.Size = new System.Drawing.Size(180, 22);
+            this.tsmiDeleteDistribution.Text = "Delete";
+            this.tsmiDeleteDistribution.Click += new System.EventHandler(this.tsmiDeleteDistribution_Click);
+            // 
+            // tsmiDividerDistribution1
+            // 
+            this.tsmiDividerDistribution1.Name = "tsmiDividerDistribution1";
+            this.tsmiDividerDistribution1.Size = new System.Drawing.Size(177, 6);
+            // 
             // FrmMain
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
@@ -5207,6 +5259,12 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiConvertShellToSolidCAD;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerCAD1;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerCAD2;
+        private System.Windows.Forms.ToolStripMenuItem tsmiDistribution;
+        private System.Windows.Forms.ToolStripMenuItem tsmiCreateDistribution;
+        private System.Windows.Forms.ToolStripMenuItem tsmiEditDistribution;
+        private System.Windows.Forms.ToolStripMenuItem tsmiDuplicateDistribution;
+        private System.Windows.Forms.ToolStripSeparator tsmiDividerDistribution1;
+        private System.Windows.Forms.ToolStripMenuItem tsmiDeleteDistribution;
     }
 }
 

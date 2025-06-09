@@ -96,8 +96,9 @@ namespace CaeModel
             _temperature.CheckEquation();
         }
         // IPreviewable
-        public FeResults GetPreview(FeMesh targetMesh, string resultName, UnitSystem unitSystem)
+        public FeResults GetPreview(FeModel model, string resultName, UnitSystem unitSystem)
         {
+            FeMesh targetMesh = model.Mesh;
             if (Type == DefinedTemperatureTypeEnum.ByValue)
             {
                 PartExchangeData allData = new PartExchangeData();

@@ -398,7 +398,13 @@ namespace PrePoMax.Forms
             }
             else if (FELoad is STLoad stl)
             {
-                if (stl.Magnitude.Value == 0)
+                // Reset unused magnitude to 0
+                if (stl.DistributionName == CaeModel.Load.DefaultDistributionName)
+                    stl.PMagnitude.SetEquationFromValue(0, true);
+                else
+                    stl.FMagnitude.SetEquationFromValue(0, true);
+                //
+                if (stl.FMagnitude.Value == 0 && stl.PMagnitude.Value == 0)
                     throw new CaeException("At least one surface traction load component must not be equal to 0.");
             }
             else if (FELoad is ImportedSTLoad istl)
@@ -511,6 +517,7 @@ namespace PrePoMax.Forms
                                                                              FeSurfaceFaceTypes.SolidFaces);
             string[] referencePointNames = _controller.GetModelReferencePointNames();
             string[] massSectionNames = _controller.GetMassSectionNames();
+            string[] distributionNames = _controller.GetDistributionNames();
             string[] amplitudeNames = _controller.GetAmplitudeNames();
             string[] coordinateSystemNames = _controller.GetModelCoordinateSystemNames();
             //
@@ -521,6 +528,7 @@ namespace PrePoMax.Forms
             if (shellEdgeSurfaceNames == null) shellEdgeSurfaceNames = new string[0];
             if (referencePointNames == null) referencePointNames = new string[0];
             if (massSectionNames == null) massSectionNames = new string[0];
+            if (distributionNames == null) distributionNames = new string[0];
             if (amplitudeNames == null) amplitudeNames = new string[0];
             if (coordinateSystemNames == null) coordinateSystemNames = new string[0];
             //
@@ -531,7 +539,7 @@ namespace PrePoMax.Forms
             //
             PopulateListOfLoads(partNames, nodeSetNames, elementSetNames, referencePointNames, elementBasedSurfaceNames,
                                 solidFaceSurfaceNames, noEdgeSurfaceNames, shellEdgeSurfaceNames, massSectionNames,
-                                amplitudeNames, coordinateSystemNames);
+                                distributionNames, amplitudeNames, coordinateSystemNames);
             // Check if this step supports any loads
             if (lvTypes.Items.Count == 0) return false;
             // Create new load
@@ -561,6 +569,12 @@ namespace PrePoMax.Forms
                 bool twoD = FELoad.TwoD;
                 // Convert the load to internal to hide it
                 LoadInternal(true);
+                // Check for deleted distributions
+                if (FELoad is ILoadWithDistribution lwd)
+                {
+                    if (lwd.DistributionName != null && lwd.DistributionName != CaeModel.Load.DefaultDistributionName)
+                        CheckMissingValueRef(ref distributionNames, lwd.DistributionName, a => { lwd.DistributionName = a; });
+                }
                 // Check for deleted amplitudes
                 if (_viewLoad.AmplitudeName != null && _viewLoad.AmplitudeName != CaeModel.Load.DefaultAmplitudeName)
                     CheckMissingValueRef(ref amplitudeNames, _viewLoad.AmplitudeName, a => { _viewLoad.AmplitudeName = a; });
@@ -654,7 +668,7 @@ namespace PrePoMax.Forms
                         CheckMissingValueRef(ref surfaceNames, vstl.SurfaceName, s => { vstl.SurfaceName = s; });
                     else throw new NotSupportedException();
                     //
-                    vstl.PopulateDropDownLists(surfaceNames, amplitudeNames, coordinateSystemNames);
+                    vstl.PopulateDropDownLists(surfaceNames, distributionNames, amplitudeNames, coordinateSystemNames);
                 }
                 else if (_viewLoad is ViewImportedSTLoad vistl)
                 {
@@ -662,7 +676,7 @@ namespace PrePoMax.Forms
                     if (twoD) surfaceNames = shellEdgeSurfaceNames.ToArray();
                     else surfaceNames = elementBasedSurfaceNames.ToArray();
                     //
-                    selectedId = lvTypes.FindItemWithText("Imported Surface Traction").Index;
+                    selectedId = lvTypes.FindItemWithText("Surface Traction").Index;
                     // Check for deleted regions
                     if (vistl.RegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
                     else if (vistl.RegionType == RegionTypeEnum.SurfaceName.ToFriendlyString())
@@ -819,7 +833,8 @@ namespace PrePoMax.Forms
                                          string[] referencePointNames, string[] elementBasedSurfaceNames,
                                          string[] solidFaceSurfaceNames, string[] noEdgeSurfaceNames,
                                          string[] shellEdgeSurfaceNames, string[] massSectionNames,
-                                         string[] amplitudeNames, string[] coordinateSystemNames)
+                                         string[] distributionNames, string[] amplitudeNames,
+                                         string[] coordinateSystemNames)
         {
             Step step = _controller.GetStep(_stepName);
             System.Drawing.Color color = _controller.Settings.Pre.LoadSymbolColor;
@@ -918,28 +933,28 @@ namespace PrePoMax.Forms
                 else surfaceNames = elementBasedSurfaceNames.ToArray();
                 //
                 ViewSTLoad vstl = new ViewSTLoad(sTLoad);
-                vstl.PopulateDropDownLists(surfaceNames, amplitudeNames, coordinateSystemNames);
+                vstl.PopulateDropDownLists(surfaceNames, distributionNames, amplitudeNames, coordinateSystemNames);
                 vstl.Color = color;
                 item.Tag = vstl;
                 lvTypes.Items.Add(item);
             }
             // Imported surface traction
-            name = "Imported Surface Traction";
-            loadName = GetLoadName(name);
-            item = new ListViewItem(name);
-            ImportedSTLoad istl = new ImportedSTLoad(loadName, "", RegionTypeEnum.Selection, twoD, complex, 0);
-            if (step.IsLoadSupported(istl))
-            {
-                string[] surfaceNames;
-                if (twoD) surfaceNames = shellEdgeSurfaceNames.ToArray();
-                else surfaceNames = noEdgeSurfaceNames.ToArray();
-                //
-                ViewImportedSTLoad vistl = new ViewImportedSTLoad(istl);
-                vistl.PopulateDropDownLists(surfaceNames, amplitudeNames);
-                vistl.Color = color;
-                item.Tag = vistl;
-                lvTypes.Items.Add(item);
-            }
+            //name = "Imported Surface Traction";
+            //loadName = GetLoadName(name);
+            //item = new ListViewItem(name);
+            //ImportedSTLoad istl = new ImportedSTLoad(loadName, "", RegionTypeEnum.Selection, twoD, complex, 0);
+            //if (step.IsLoadSupported(istl))
+            //{
+            //    string[] surfaceNames;
+            //    if (twoD) surfaceNames = shellEdgeSurfaceNames.ToArray();
+            //    else surfaceNames = noEdgeSurfaceNames.ToArray();
+            //    //
+            //    ViewImportedSTLoad vistl = new ViewImportedSTLoad(istl);
+            //    vistl.PopulateDropDownLists(surfaceNames, amplitudeNames);
+            //    vistl.Color = color;
+            //    item.Tag = vistl;
+            //    lvTypes.Items.Add(item);
+            //}
             // Shell edge load
             name = "Normal Shell Edge Load";
             loadName = GetLoadName(name);

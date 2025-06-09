@@ -87,6 +87,7 @@ namespace PrePoMax
         private FrmContactPair _frmContactPair;
         private FrmSearchContactPairs _frmSearchContactPairs;
         private FrmInitialCondition _frmInitialCondition;
+        private FrmDistribution _frmDistribution;
         private FrmAmplitude _frmAmplitude;
         private FrmStep _frmStep;
         private FrmStepControls _frmStepControls;
@@ -438,6 +439,9 @@ namespace PrePoMax
                 _frmInitialCondition = new FrmInitialCondition(_controller);
                 AddFormToAllForms(_frmInitialCondition);
                 //
+                _frmDistribution = new FrmDistribution(_controller);
+                AddFormToAllForms(_frmDistribution);
+                //
                 _frmAmplitude = new FrmAmplitude(_controller);
                 AddFormToAllForms(_frmAmplitude);
                 //
@@ -528,7 +532,6 @@ namespace PrePoMax
             //
             if (!Debugger.IsAttached)
             {
-                tsmiExportToGmshMesh.Visible = false;
                 tsmiTest.Visible = false;
                 tsmiCropStlPartWithCylinder.Visible = false;
                 tsmiCropStlPartWithCube.Visible = false;
@@ -971,6 +974,7 @@ namespace PrePoMax
                 else if (nodeName == _modelTree.ConstraintsName) tsmiCreateConstraint_Click(null, null);
                 else if (nodeName == _modelTree.SurfaceInteractionsName) tsmiCreateSurfaceInteraction_Click(null, null);
                 else if (nodeName == _modelTree.ContactPairsName) tsmiCreateContactPair_Click(null, null);
+                else if (nodeName == _modelTree.DistributionsName) tsmiCreateDistribution_Click(null, null);
                 else if (nodeName == _modelTree.AmplitudesName) tsmiCreateAmplitude_Click(null, null);
                 else if (nodeName == _modelTree.InitialConditionsName) tsmiCreateInitialCondition_Click(null, null);
                 else if (nodeName == _modelTree.StepsName) tsmiCreateStep_Click(null, null);
@@ -1016,6 +1020,7 @@ namespace PrePoMax
                 else if (namedClass is CaeModel.Constraint) EditConstraint(namedClass.Name);
                 else if (namedClass is SurfaceInteraction) EditSurfaceInteraction(namedClass.Name);
                 else if (namedClass is ContactPair) EditContactPair(namedClass.Name);
+                else if (namedClass is Distribution) EditDistribution(namedClass.Name);
                 else if (namedClass is Amplitude) EditAmplitude(namedClass.Name);
                 else if (namedClass is InitialCondition) EditInitialCondition(namedClass.Name);
                 else if (namedClass is Step) EditStep(namedClass.Name);
@@ -1061,6 +1066,7 @@ namespace PrePoMax
                 ApplyActionOnItems<CaeModel.Constraint>(items, DuplicateConstraints);
                 ApplyActionOnItems<SurfaceInteraction>(items, DuplicateSurfaceInteractions);
                 ApplyActionOnItems<ContactPair>(items, DuplicateContactPairs);
+                ApplyActionOnItems<Distribution>(items, DuplicateDistributions);
                 ApplyActionOnItems<Amplitude>(items, DuplicateAmplitudes);
                 ApplyActionOnItems<InitialCondition>(items, DuplicateInitialConditions);
                 //
@@ -1223,6 +1229,7 @@ namespace PrePoMax
                 ApplyActionOnItems<CaeModel.Constraint>(items, DeleteConstraints);
                 ApplyActionOnItems<SurfaceInteraction>(items, DeleteSurfaceInteractions);
                 ApplyActionOnItems<ContactPair>(items, DeleteContactPairs);
+                ApplyActionOnItems<Distribution>(items, DeleteDistributions);
                 ApplyActionOnItems<Amplitude>(items, DeleteAmplitudes);
                 ApplyActionOnItems<InitialCondition>(items, DeleteInitialConditions);
                 // First delete step items and then steps
@@ -1439,6 +1446,7 @@ namespace PrePoMax
                     tsmiProperty.Enabled = true;
                     tsmiInteraction.Enabled = true;
                     tsmiInitialCondition.Enabled = true;
+                    tsmiDistribution.Enabled = true;
                     tsmiAmplitude.Enabled = true;
                     tsmiStepMenu.Enabled = true;
                     tsmiBC.Enabled = true;
@@ -5504,6 +5512,78 @@ namespace PrePoMax
             }
         }
 
+        #endregion  ################################################################################################################
+
+        #region Distribution menu  #################################################################################################
+        private void tsmiCreateDistribution_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                CreateDistribution();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+
+        private void tsmiEditDistribution_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectOneEntity("Distributions", _controller.GetAllDistributions(), EditDistribution);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+
+        private void tsmiDuplicateDistribution_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Distributions", _controller.GetAllDistributions(), DuplicateDistributions);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+
+        private void tsmiDeleteDistribution_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Distributions", _controller.GetAllDistributions(), DeleteDistributions);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        //
+        private void CreateDistribution()
+        {
+            if (_controller.Model.Mesh == null) return;
+            ShowForm(_frmDistribution, "Create Distribution", null);
+        }
+        private void EditDistribution(string amplitudeName)
+        {
+            ShowForm(_frmDistribution, "Edit Distribution", amplitudeName);
+        }
+        private void DuplicateDistributions(string[] distributionNames)
+        {
+            _controller.DuplicateDistributionsCommand(distributionNames);
+        }
+        private void DeleteDistributions(string[] distributionNames)
+        {
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected distribution?" + Environment.NewLine
+                                                 + distributionNames.ToRows()) == DialogResult.OK)
+            {
+                _controller.RemoveDistributionsCommand(distributionNames);
+            }
+        }
         #endregion  ################################################################################################################
 
         #region Amplitude menu  ####################################################################################################
@@ -10765,7 +10845,7 @@ namespace PrePoMax
             }
         }
 
-        
+       
     }
 }
 

@@ -180,11 +180,41 @@ namespace PrePoMax.Forms
         }
         //
         [Category("Geometry")]
+        [OrderedDisplayName(0, 10, "Undeformed volume")]
+        [Description("Part undeformed volume.")]
+        [TypeConverter(typeof(StringVolumeUnknownConverter))]
+        [Id(1, 4)]
+        public double UndeformedVolume
+        {
+            get
+            {
+                if (_partProperties.MassProperties.CenterOfMass != null)
+                    return Math.Round(_partProperties.MassProperties.Volume, 6);
+                else return double.NaN;
+            }
+        }
+        //
+        [Category("Geometry")]
         [OrderedDisplayName(1, 10, "Area")]
         [Description("Part area.")]
         [TypeConverter(typeof(StringAreaUnknownConverter))]
         [Id(2, 4)]
         public double Area
+        {
+            get
+            {
+                if (_partProperties.MassProperties.CenterOfMass != null)
+                    return Math.Round(_partProperties.MassProperties.Area, 6);
+                else return double.NaN;
+            }
+        }
+        //
+        [Category("Geometry")]
+        [OrderedDisplayName(1, 10, "Undeformed area")]
+        [Description("Part undeformed area.")]
+        [TypeConverter(typeof(StringAreaUnknownConverter))]
+        [Id(2, 4)]
+        public double UndeformedArea
         {
             get
             {
@@ -276,8 +306,6 @@ namespace PrePoMax.Forms
             bool solid = _partProperties.PartType == PartType.Solid || _partProperties.PartType == PartType.SolidAsShell ||
                          _partProperties.PartType == PartType.Compound;
             //
-            _dctd.GetProperty(nameof(Volume)).SetIsBrowsable(solid && !double.IsNaN(Volume));
-            _dctd.GetProperty(nameof(Area)).SetIsBrowsable(!solid && !double.IsNaN(Area));
             _dctd.GetProperty(nameof(X)).SetIsBrowsable(!double.IsNaN(X));
             _dctd.GetProperty(nameof(Y)).SetIsBrowsable(!double.IsNaN(Y));
             _dctd.GetProperty(nameof(Z)).SetIsBrowsable(!double.IsNaN(Z));
@@ -285,6 +313,11 @@ namespace PrePoMax.Forms
             bool visible;
             if (currentView == ViewGeometryModelResults.Geometry)
             {
+                _dctd.GetProperty(nameof(Volume)).SetIsBrowsable(solid && !double.IsNaN(Volume));
+                _dctd.GetProperty(nameof(Area)).SetIsBrowsable(!solid && !double.IsNaN(Area));
+                _dctd.GetProperty(nameof(UndeformedVolume)).SetIsBrowsable(false);
+                _dctd.GetProperty(nameof(UndeformedArea)).SetIsBrowsable(false);
+                //
                 visible = _partProperties.PartType != PartType.Compound;
                 _dctd.GetProperty(nameof(NumberOfElements)).SetIsBrowsable(visible);
                 _dctd.GetProperty(nameof(NumberOfNodes)).SetIsBrowsable(visible);
@@ -306,6 +339,11 @@ namespace PrePoMax.Forms
             }
             else if (currentView == ViewGeometryModelResults.Model)
             {
+                _dctd.GetProperty(nameof(Volume)).SetIsBrowsable(solid && !double.IsNaN(Volume));
+                _dctd.GetProperty(nameof(Area)).SetIsBrowsable(!solid && !double.IsNaN(Area));
+                _dctd.GetProperty(nameof(UndeformedVolume)).SetIsBrowsable(false);
+                _dctd.GetProperty(nameof(UndeformedArea)).SetIsBrowsable(false);
+                //
                 _dctd.GetProperty(nameof(NumberOfElements)).SetIsBrowsable(true);
                 _dctd.GetProperty(nameof(NumberOfNodes)).SetIsBrowsable(true);
                 //
@@ -328,6 +366,11 @@ namespace PrePoMax.Forms
             }
             else if (currentView == ViewGeometryModelResults.Results)
             {
+                _dctd.GetProperty(nameof(Volume)).SetIsBrowsable(false);
+                _dctd.GetProperty(nameof(Area)).SetIsBrowsable(false);
+                _dctd.GetProperty(nameof(UndeformedVolume)).SetIsBrowsable(solid && !double.IsNaN(UndeformedVolume));
+                _dctd.GetProperty(nameof(UndeformedArea)).SetIsBrowsable(!solid && !double.IsNaN(UndeformedArea));
+                //
                 _dctd.GetProperty(nameof(NumberOfElements)).SetIsBrowsable(true);
                 _dctd.GetProperty(nameof(NumberOfNodes)).SetIsBrowsable(true);
                 //

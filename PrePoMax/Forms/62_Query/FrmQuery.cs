@@ -402,13 +402,37 @@ namespace PrePoMax.Forms
             Form_WriteDataToOutput(data);
             //
             string volumeArea = "Area:";
-            string unit = _controller.GetLengthUnit();
-            if (part.PartType == PartType.SolidAsShell || part.PartType == PartType.Solid || part.PartType == PartType.Compound)
+            string unit = _controller.GetAreaUnit();
+            bool volume = part.PartType == PartType.SolidAsShell || part.PartType == PartType.Solid ||
+                          part.PartType == PartType.Compound;
+            if (part is ResultPart)
             {
-                volumeArea = "Volume:";
-                unit = _controller.GetVolumeUnit();
+                if (volume)
+                {
+                    volumeArea = "Undeformed volume:";
+                    unit = _controller.GetVolumeUnit();
+                }
+                else
+                {
+                    volumeArea = "Undeformed area:";
+                    unit = _controller.GetAreaUnit();
+                }
             }
-            data = string.Format("{0} {1} {2}", volumeArea, part.MassProperties.Volume, unit);
+            else
+            {
+                if (volume)
+                {
+                    volumeArea = "Volume:";
+                    unit = _controller.GetVolumeUnit();
+                }
+                else
+                {
+                    volumeArea = "Area:";
+                    unit = _controller.GetAreaUnit();
+                }
+            }
+            //
+            data = string.Format("{0} {1,16:E} {2}", volumeArea, part.MassProperties.Volume, unit);
             Form_WriteDataToOutput(data);
             //
             Form_WriteDataToOutput("");

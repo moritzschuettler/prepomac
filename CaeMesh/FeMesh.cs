@@ -26,6 +26,9 @@ namespace CaeMesh
     public class FeMesh : ISerializable
     {
         // Variables                                                                                                                
+        private static int _partDigits = 10000;
+        private static int _typeDigits = _partDigits * 10;
+        //
         [NonSerialized] private Dictionary<int, FeNode> _nodes;
         [NonSerialized] private Dictionary<int, FeElement> _elements;
         [NonSerialized] private Octree.PointOctree<int> _octree;
@@ -3247,6 +3250,8 @@ namespace CaeMesh
                 ExtractWirePartVisualization(part, Globals.EdgeAngle);
             else if (part.PartType == PartType.Unknown)
                 throw new NotSupportedException();
+            //
+            ComputeVolumeArea(part);
             //
             return part;
         }
@@ -6993,17 +6998,17 @@ namespace CaeMesh
         public static int[] GetItemTypePartIdsFromGeometryId(int geometryId)
         {
             // geometryId = itemId * 100000 + typeId * 10000 + partId;
-            int partId = geometryId % 10000;
-            int typeId = (geometryId / 10000) % 10;     // GeometryType
-            int itemId = geometryId / 100000;
+            int partId = geometryId % _partDigits;
+            int typeId = (geometryId / _partDigits) % 10;     // GeometryType
+            int itemId = geometryId / _typeDigits;
             return new int[] { itemId, typeId, partId };
         }
         public static int GetItemIdFromGeometryId(int geometryId)
         {
             // geometryId = itemId * 100000 + typeId * 10000 + partId;
-            int partId = geometryId % 10000;
+            int partId = geometryId % _partDigits;
             //int typeId = (geometryId / 10000) % 10;     // GeometryType
-            int itemId = geometryId / 100000;
+            int itemId = geometryId / _typeDigits;
             return itemId;
         }
         public static int GetGeometryPartIdFromGeometryId(int geometryId)
@@ -7013,7 +7018,7 @@ namespace CaeMesh
         }
         public static int GetGeometryId(int itemId, int typeId, int partId)
         {
-            return itemId * 100000 + typeId * 10000 + partId;
+            return itemId * _typeDigits + typeId * _partDigits + partId;
         }
         //
         private int GetNextEdgeNodeId(int n1Id, int n2Id, HashSet<int> n2Neighbours, double angle)

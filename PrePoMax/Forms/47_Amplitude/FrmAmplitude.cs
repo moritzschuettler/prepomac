@@ -24,7 +24,7 @@ namespace PrePoMax.Forms
         // Properties                                                                                                               
         public Amplitude Amplitude
         {
-            get { return _viewAmplitude.Base; }
+            get { return _viewAmplitude.GetBase(); }
             set
             {
                 var clone = value.DeepClone();
@@ -187,7 +187,7 @@ namespace PrePoMax.Forms
                 Amplitude = _controller.GetAmplitude(amplitudeToEditName); // to clone
                 //
                 int selectedId;
-                if (_viewAmplitude.Base is AmplitudeTabular) selectedId = 0;
+                if (_viewAmplitude.GetBase() is AmplitudeTabular) selectedId = 0;
                 else throw new NotSupportedException();
                 //
                 lvTypes.Items[selectedId].Tag = _viewAmplitude;

@@ -57,6 +57,44 @@ namespace CaeGlobals
             //
             return valueDouble;
         }
+        static public double SolveEquation(string valueString)
+        {
+            double valueDouble;
+            valueString = valueString.Trim();
+            //
+            if (valueString.Length == 0 || valueString == "=") return 0;   // empty string -> 0
+            if (!double.TryParse(valueString, out valueDouble))
+            {
+                if (valueString.StartsWith("="))
+                {
+                    valueString = valueString.Substring(1, valueString.Length - 1);
+                    valueString = PreprocessExpression(valueString);
+                    //List<string> parameters = GetParameters(valueString);
+                    Expression e = GetExpression(valueString);
+                    if (!e.HasErrors())
+                    {
+                        object result = e.Evaluate();
+                        if (result is bool bl) valueDouble = bl ? 1 : 0;
+                        else if (result is byte byt) valueDouble = byt;
+                        else if (result is decimal dec) valueDouble = (double)dec;
+                        else if (result is int i) valueDouble = i;
+                        else if (result is float f) valueDouble = f;
+                        else if (result is double d) valueDouble = d;
+                        else
+                        {
+                            double.TryParse(result.ToString(), out valueDouble);
+                        }
+                    }
+                    else
+                    {
+                        throw new CaeException("Equation error:" + Environment.NewLine + e.Error);
+                    }
+                }
+                else throw new CaeException("Equation error:" + Environment.NewLine + "Equation must start with = sign.");
+            }
+            //
+            return valueDouble;
+        }
         static public double[] SolveArrayEquation(string equation)
         {
             double[] values;
@@ -232,6 +270,10 @@ namespace CaeGlobals
             }
             //
             return expr;
+        }
+        static public string[] GetReservedParameterNames()
+        {
+            return new string[] { "Pi", "pi", "x", "y", "z" };
         }
         //
         static public string[] GetFunctionConstants()

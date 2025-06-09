@@ -18,7 +18,7 @@ namespace CaeResults
         private int _ny;
         private int _nz;
         private int _nxy;
-        private int _numValues;
+        private int _numOfValues;
         private double _deltaX;
         private double _deltaY;
         private double _deltaZ;
@@ -28,7 +28,7 @@ namespace CaeResults
 
 
         // Variables                                                                                                                
-        public int NumValues { get { return _numValues; } }
+        public int NumOfValues { get { return _numOfValues; } } // number of values/dimensions per point
         public CloudPoint[] CloudPoints { get { return _cloudPoints; } }
 
 
@@ -171,13 +171,13 @@ namespace CaeResults
                 double wSum = 0;
                 foreach (var entry in cloudPointWeight) wSum += entry.Value;
                 //
-                values = new double[_numValues];
+                values = new double[_numOfValues];
                 //
                 CloudPoint cp;
                 foreach (var entry in cloudPointWeight)
                 {
                     cp = entry.Key;
-                    for (int i = 0; i < _numValues; i++)
+                    for (int i = 0; i < _numOfValues; i++)
                     {
                         values[i] += (entry.Value / wSum) * cp.Values[i];
                     }
@@ -187,7 +187,7 @@ namespace CaeResults
             }
             else
             {
-                values = new double[_numValues];
+                values = new double[_numOfValues];
                 distance = new double[] { radius, radius, radius };
             }
             //
@@ -235,13 +235,13 @@ namespace CaeResults
                 double wSum = 0;
                 foreach (var entry in cloudPointWeight) wSum += entry.Value;
                 //
-                values = new double[_numValues];
+                values = new double[_numOfValues];
                 //
                 CloudPoint cp;
                 foreach (var entry in cloudPointWeight)
                 {
                     cp = entry.Key;
-                    for (int i = 0; i < _numValues; i++)
+                    for (int i = 0; i < _numOfValues; i++)
                     {
                         values[i] += (entry.Value / wSum) * cp.Values[i];
                     }
@@ -251,7 +251,7 @@ namespace CaeResults
             }
             else
             {
-                values = new double[_numValues];
+                values = new double[_numOfValues];
                 distance = new double[] { radius, radius, radius };
             }
             //
@@ -355,14 +355,14 @@ namespace CaeResults
         //
         private BoundingBox ComputeAllPointsBoundingBox(CloudPoint[] cloudPoints)
         {
-            _numValues = -1;
+            _numOfValues = -1;
             BoundingBox bb = new BoundingBox();
             bb.IncludeFirstCoor(cloudPoints[0].Coor);
             for (int i = 1; i < cloudPoints.Length; i++)
             {
                 bb.IncludeCoorFast(cloudPoints[i].Coor);
-                if (_numValues == -1) _numValues = cloudPoints[i].Values.Length;
-                if (_numValues != cloudPoints[i].Values.Length)
+                if (_numOfValues == -1) _numOfValues = cloudPoints[i].Values.Length;
+                if (_numOfValues != cloudPoints[i].Values.Length)
                     throw new CaeException("The interpolator does not contain the same number of values at each cloud point.");
             }
             return bb;

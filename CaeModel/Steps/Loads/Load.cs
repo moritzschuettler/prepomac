@@ -22,6 +22,7 @@ namespace CaeModel
         protected bool _complex;                                    //ISerializable
         protected EquationContainer _phaseDeg;                      //ISerializable
         protected Color _color;                                     //ISerializable
+        public const string DefaultDistributionName = "Constant";
         public const string DefaultAmplitudeName = "Default";
         public const string DefaultCoordinateSystemName = "Global";
 

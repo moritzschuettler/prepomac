@@ -144,13 +144,43 @@ namespace CaeModel
         }
         private void MagnitudeEquationChanged()
         {
-            double mag = Math.Sqrt(_m1.Value * _m1.Value + _m2.Value * _m2.Value + _m3.Value * _m3.Value);
-            double r;
-            if (mag == 0) r = 0;
-            else r = _magnitude.Value / mag;
-            _m1.SetEquationFromValue(_m1.Value * r, false);
-            _m2.SetEquationFromValue(_m2.Value * r, false);
-            _m3.SetEquationFromValue(_m3.Value * r, false);
+            double c1;
+            double c2;
+            double c3;
+            //
+            if (_magnitude.Value == 0)
+            {
+                c1 = 0;
+                c2 = 0;
+                c3 = 0;
+            }
+            else
+            {
+                double r;
+                c1 = _m1.Value;
+                c2 = _m2.Value;
+                c3 = _m3.Value;
+                double mag = Math.Sqrt(c1 * c1 + c2 * c2 + c3 * c3);
+                //
+                if (mag != 0)
+                {
+                    r = _magnitude.Value / mag;
+                    c1 *= r;
+                    c2 *= r;
+                    c3 *= r;
+                }
+                else
+                {
+                    r = Math.Sqrt(Math.Pow(_magnitude.Value, 2) / 3);
+                    c1 = r;
+                    c2 = r;
+                    c3 = r;
+                }
+            }
+            //
+            _m1.SetEquationFromValue(c1, false);
+            _m2.SetEquationFromValue(c2, false);
+            _m3.SetEquationFromValue(c3, false);
         }
         //
         private double Check2D(double value)

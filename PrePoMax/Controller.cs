@@ -769,6 +769,8 @@ namespace PrePoMax
                 New();
                 throw new CaeException("The file cannot be read. It is either corrupt or was created by a previous version.");
             }
+            // Compatibility v2.3.4
+            UpdateGeometryPartMassProperties(false);
             // Get controller
             tmp = (Controller)data[0];
             // Regeneration
@@ -1401,6 +1403,32 @@ namespace PrePoMax
                 return null;
             }
         }
+        private void UpdateGeometryPartMassProperties(bool showError = true)
+        {
+            string workDirectory = _settings.GetWorkDirectory();
+            //
+            if (workDirectory == null || !Directory.Exists(workDirectory))
+            {
+                MessageBoxes.ShowWorkDirectoryError();
+                return;
+            }
+            //
+            string visFileName;
+            string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
+            //
+            foreach (var entry in _model.Geometry.Parts)
+            {
+                if (entry.Value is GeometryPart gp)
+                {
+                    if (gp.MassProperties.CenterOfMass == null)
+                    {
+                        File.WriteAllText(brepFileName, gp.CADFileData);
+                        visFileName = CreateVisFile(brepFileName, showError);
+                        _model.UpdateGeometryPartMassPropertiesFromVisFile(visFileName, gp.Name);
+                    }   
+                }
+            }
+        }
         // Run history
         public void RunHistoryFile(string fileName)
         {
@@ -1695,19 +1723,34 @@ namespace PrePoMax
             compoundPartName = _model.Geometry.Parts.GetNextNumberedKey("Compound");
             importedPartNames = ImportCADAssemblyFile(brepFileName, "BREP_ASSEMBLY_SPLIT_TO_PARTS");
             //
-            if (importedPartNames.Length == 1)  // only one part was imported - shell compound
+            bool shellParts = true;
+            BasePart part;
+            foreach (var partName in importedPartNames)
             {
-                // Rename the part
-                PartProperties properties = _model.Geometry.Parts[importedPartNames[0]].GetProperties();
-                properties.Name = compoundPartName;
-                ReplaceGeometryPartProperties(importedPartNames[0], properties);
+                part = _model.Geometry.Parts[partName];
+                if (part.PartType != PartType.Shell)
+                {
+                    shellParts = false;
+                    break;
+                }
+            }
+            //
+            if (shellParts)
+            {
+                foreach (var partName in importedPartNames)
+                {
+                    compoundPartName = _model.Geometry.Parts.GetNextNumberedKey("Compound");
+                    // Rename the part
+                    PartProperties properties = _model.Geometry.Parts[partName].GetProperties();
+                    properties.Name = compoundPartName;
+                    ReplaceGeometryPartProperties(partName, properties);
+                }
             }
             else
             {
                 // Create compound part
                 CompoundGeometryPart compPart = new CompoundGeometryPart(compoundPartName, createdFromPartNames,
                                                                          importedPartNames);
-                BasePart part;
                 double volume = 0;
                 Vec3D cm = new Vec3D();
                 for (int i = 0; i < importedPartNames.Length; i++)
@@ -1741,6 +1784,58 @@ namespace PrePoMax
         //
         public string[] ImportBrepPartFile(string brepFileName, bool showError = true)
         {
+            //string workDirectory = _settings.GetWorkDirectory();
+            ////
+            //if (workDirectory == null || !Directory.Exists(workDirectory))
+            //{
+            //    MessageBoxes.ShowWorkDirectoryError();
+            //    return null;
+            //}
+            ////
+            //string executable = Application.StartupPath + Globals.NetGenMesher;
+            //string visFileName = Path.Combine(workDirectory, Globals.VisFileName);
+            ////
+            //if (File.Exists(visFileName)) File.Delete(visFileName);
+            ////
+            //string argument = "BREP_VISUALIZATION " +
+            //                  "\"" + brepFileName.ToUTF8() + "\" " +
+            //                  "\"" + visFileName + "\" " +
+            //                  _settings.Graphics.GeometryDeflection.ToString();
+            ////
+            //_executableJob = new ExecutableJob("Brep", executable, argument, workDirectory);
+            //_executableJob.AppendOutput += executableJob_AppendOutput;
+            //_executableJob.Submit();
+            ////
+            //if (_executableJob.JobStatus == JobStatus.OK)
+            //{
+            //    string[] addedPartNames = _model.ImportGeometryFromBrepFile(visFileName, brepFileName);
+            //    if (addedPartNames.Length == 0)
+            //    {
+            //        if (showError) MessageBoxes.ShowError("No geometry to import.");
+            //        return null;
+            //    }
+            //    return addedPartNames;
+            //}
+            //else
+            //{
+            //    if (showError) MessageBoxes.ShowError("Importing brep file failed.");
+            //    return null;
+            //}
+            string visFileName = CreateVisFile(brepFileName, showError);
+            if (visFileName != null)
+            {
+                string[] addedPartNames = _model.ImportGeometryFromBrepFile(visFileName, brepFileName);
+                if (addedPartNames.Length == 0)
+                {
+                    if (showError) MessageBoxes.ShowError("No geometry to import.");
+                    return null;
+                }
+                return addedPartNames;
+            }
+            else return null;
+        }
+        public string CreateVisFile(string brepFileName, bool showError = true)
+        {
             string workDirectory = _settings.GetWorkDirectory();
             //
             if (workDirectory == null || !Directory.Exists(workDirectory))
@@ -1763,16 +1858,7 @@ namespace PrePoMax
             _executableJob.AppendOutput += executableJob_AppendOutput;
             _executableJob.Submit();
             //
-            if (_executableJob.JobStatus == JobStatus.OK)
-            {
-                string[] addedPartNames = _model.ImportGeometryFromBrepFile(visFileName, brepFileName);
-                if (addedPartNames.Length == 0)
-                {
-                    if (showError) MessageBoxes.ShowError("No geometry to import.");
-                    return null;
-                }
-                return addedPartNames;
-            }
+            if (_executableJob.JobStatus == JobStatus.OK) return visFileName;
             else
             {
                 if (showError) MessageBoxes.ShowError("Importing brep file failed.");
@@ -9126,39 +9212,116 @@ namespace PrePoMax
 
         #endregion #################################################################################################################
 
+        #region Distribution menu   ################################################################################################
+        // COMMANDS ********************************************************************************
+        public void AddDistributionCommand(Distribution distribution)
+        {
+            CAddDistribution comm = new CAddDistribution(distribution);
+            _commands.AddAndExecute(comm);
+        }
+        public void ReplaceDistributionCommand(string oldDistributionName, Distribution newDistribution)
+        {
+            CReplaceDistribution comm = new CReplaceDistribution(oldDistributionName, newDistribution);
+            _commands.AddAndExecute(comm);
+        }
+        public void DuplicateDistributionsCommand(string[] distributionNames)
+        {
+            CDuplicateDistributions comm = new CDuplicateDistributions(distributionNames);
+            _commands.AddAndExecute(comm);
+        }
+        public void RemoveDistributionsCommand(string[] distributionNames)
+        {
+            CRemoveDistributions comm = new CRemoveDistributions(distributionNames);
+            _commands.AddAndExecute(comm);
+        }
+        //******************************************************************************************
+        public string[] GetDistributionNames()
+        {
+            return _model.Distributions.Keys.ToArray();
+        }
+        public string[] GetDistributionNamesIncludingDefault()
+        {
+            List<string> names = new List<string>();
+            names.Add("Default");
+            names.AddRange(_model.Distributions.Keys);
+            return names.ToArray();
+        }
+        public void AddDistribution(Distribution distribution)
+        {
+            _model.Distributions.Add(distribution.Name, distribution);
+            //
+            _form.AddTreeNode(ViewGeometryModelResults.Model, distribution, null);
+            //
+            FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+        }
+        public Distribution GetDistribution(string distributionName)
+        {
+            return _model.Distributions[distributionName];
+        }
+        public Distribution[] GetAllDistributions()
+        {
+            return _model.Distributions.Values.ToArray();
+        }
+        public void ReplaceDistribution(string oldDistributionName, Distribution distribution)
+        {
+            _model.Distributions.Replace(oldDistributionName, distribution.Name, distribution);
+            //
+            _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldDistributionName, distribution, null);
+            //
+            FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+        }
+        public void DuplicateDistributions(string[] distributionNames)
+        {
+            Distribution newDistribution;
+            foreach (var name in distributionNames)
+            {
+                newDistribution = _model.Distributions[name].DeepClone();
+                newDistribution.Name = NamedClass.GetNameWithoutLastValue(newDistribution.Name);
+                newDistribution.Name = _model.Distributions.GetNextNumberedKey(newDistribution.Name);
+                AddDistribution(newDistribution);
+            }
+        }
+        public void RemoveDistributions(string[] distributionNames)
+        {
+            foreach (var name in distributionNames)
+            {
+                _model.Distributions.Remove(name);
+                _form.RemoveTreeNode<Distribution>(ViewGeometryModelResults.Model, name, null);
+            }
+            //
+            FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+        }
+        //
+        
+
+        #endregion #################################################################################################################
+
         #region Amplitude menu   ###################################################################################################
         // COMMANDS ********************************************************************************
         public void AddAmplitudeCommand(Amplitude amplitude)
         {
-            Commands.CAddAmplitude comm = new Commands.CAddAmplitude(amplitude);
+            CAddAmplitude comm = new CAddAmplitude(amplitude);
             _commands.AddAndExecute(comm);
         }
         public void ReplaceAmplitudeCommand(string oldAmplitudeName, Amplitude newAmplitude)
         {
-            Commands.CReplaceAmplitude comm = new Commands.CReplaceAmplitude(oldAmplitudeName, newAmplitude);
+            CReplaceAmplitude comm = new CReplaceAmplitude(oldAmplitudeName, newAmplitude);
             _commands.AddAndExecute(comm);
         }
         public void DuplicateAmplitudesCommand(string[] amplitudeNames)
         {
-            Commands.CDuplicateAmplitudes comm = new Commands.CDuplicateAmplitudes(amplitudeNames);
+            CDuplicateAmplitudes comm = new CDuplicateAmplitudes(amplitudeNames);
             _commands.AddAndExecute(comm);
         }
         public void RemoveAmplitudesCommand(string[] amplitudeNames)
         {
-            Commands.CRemoveAmplitudes comm = new Commands.CRemoveAmplitudes(amplitudeNames);
+            CRemoveAmplitudes comm = new CRemoveAmplitudes(amplitudeNames);
             _commands.AddAndExecute(comm);
         }
         //******************************************************************************************
         public string[] GetAmplitudeNames()
         {
             return _model.Amplitudes.Keys.ToArray();
-        }
-        public string[] GetAmplitudeNamesIncludingDefault()
-        {
-            List<string> names = new List<string>();
-            names.Add("Default");
-            names.AddRange(_model.Amplitudes.Keys);
-            return names.ToArray();
         }
         public void AddAmplitude(Amplitude amplitude)
         {
@@ -9271,15 +9434,15 @@ namespace PrePoMax
                 FeResults results;
                 if (initialCondition is InitialTemperature it)
                 {
-                    results = it.GetPreview(_model.Mesh, initialConditionName, _model.UnitSystem);
+                    results = it.GetPreview(_model, initialConditionName, _model.UnitSystem);
                 }
                 else if (initialCondition is InitialTranslationalVelocity itv)
                 {
-                    results = itv.GetPreview(_model.Mesh, initialConditionName, _model.UnitSystem);
+                    results = itv.GetPreview(_model, initialConditionName, _model.UnitSystem);
                 }
                 else if (initialCondition is InitialAngularVelocity iav)
                 {
-                    results = iav.GetPreview(_model.Mesh, initialConditionName, _model.UnitSystem);
+                    results = iav.GetPreview(_model, initialConditionName, _model.UnitSystem);
                 }
                 else throw new CaeException("It is not possible to preview this initial condition type.");
                 //
@@ -10119,19 +10282,23 @@ namespace PrePoMax
                 FeResults results;
                 if (load is DLoad dl)
                 {
-                    results = dl.GetPreview(_model.Mesh, stepName + "_" + loadName, _model.UnitSystem);
+                    results = dl.GetPreview(_model, stepName + "_" + loadName, _model.UnitSystem);
                 }
                 else if (load is HydrostaticPressure hp)
                 {
-                    results = hp.GetPreview(_model.Mesh, stepName + "_" + loadName, _model.UnitSystem);
+                    results = hp.GetPreview(_model, stepName + "_" + loadName, _model.UnitSystem);
                 }
                 else if (load is ImportedPressure ip)
                 {
-                    results = ip.GetPreview(_model.Mesh, stepName + "_" + loadName, _model.UnitSystem);
+                    results = ip.GetPreview(_model, stepName + "_" + loadName, _model.UnitSystem);
+                }
+                else if (load is STLoad st)
+                {
+                    results = st.GetPreview(_model, stepName + "_" + loadName, _model.UnitSystem);
                 }
                 else if (load is ImportedSTLoad ist)
                 {
-                    results = ist.GetPreview(_model.Mesh, stepName + "_" + loadName, _model.UnitSystem);
+                    results = ist.GetPreview(_model, stepName + "_" + loadName, _model.UnitSystem);
                 }
                 else throw new CaeException("It is not possible to preview this load type.");
                 //
@@ -10376,7 +10543,7 @@ namespace PrePoMax
                 FeResults results;
                 if (definedField is DefinedTemperature dt)
                 {
-                    results = dt.GetPreview(_model.Mesh, stepName + "_" + definedFieldName, _model.UnitSystem);
+                    results = dt.GetPreview(_model, stepName + "_" + definedFieldName, _model.UnitSystem);
                 }
                 else throw new CaeException("It is not possible to preview this defined field type.");
                 //
@@ -10731,10 +10898,12 @@ namespace PrePoMax
         // COMMANDS ********************************************************************************
         public void AddDefaultJobCommand()
         {
+            int numJobs = _jobs.Count();
+            // The command ads a default job if none exists
             CAddDeafaultJob comm = new CAddDeafaultJob();
             _commands.AddAndExecute(comm);
             // Rename default job if necessary
-            if (_jobs.Count() > 0)
+            if (numJobs == 0 && _jobs.Count() == 1)
             {
                 AnalysisJob job = _jobs.Last().Value;
                 string name = _form.GetDefaultJobName();
@@ -11493,6 +11662,13 @@ namespace PrePoMax
             _annotations.RemoveCurrentArrowAnnotationsByParts(partNames, view);
             // Remove exploded view
             result.Mesh.RemoveExplodedView();
+            // Scale to 0 to compute the volume
+            BasePart part;
+            foreach (var partName in partNames)
+            {
+                part = result.Mesh.Parts[partName];
+                result.SetPartDeformation(part, 0, -1, -1);
+            }
             // Merge
             result.Mesh.MergeResultParts(partNames, out newResultPart, out mergedParts);
             // Update exploded view
@@ -11503,6 +11679,8 @@ namespace PrePoMax
                 foreach (var partName in mergedParts) _form.RemoveTreeNode<ResultPart>(view, partName, null);
                 //
                 _form.AddTreeNode(view, newResultPart, null);
+                //
+                UpdateAfterPartsChanged(); // must be here before any drawing
                 //
                 AnnotateWithColorLegend();
                 //
@@ -16018,7 +16196,17 @@ namespace PrePoMax
             if (layer == vtkRendererLayer.Selection)
                 DrawSurfaceEdge(prefixName, stLoad.SurfaceName, color, layer, true, false, onlyVisible);
             //
-            if (count > 0) DrawSTLoadSymbols(prefixName, stLoad, coor, color, symbolSize, symbolLayer);
+            if (count > 0)
+            {
+                if (stLoad.DistributionName == Load.DefaultDistributionName)
+                {
+                    DrawConstantSTLoadSymbols(prefixName, stLoad, coor, color, symbolSize, symbolLayer);
+                }
+                else
+                {
+                    DrawDistributedSTLoadSymbols(prefixName, stLoad, color, symbolSize, symbolLayer, onlyVisible);
+                }
+            }
         }
         public void DrawImportedSTLoad(string prefixName, ImportedSTLoad istLoad, Color color, int symbolSize,
                                        int nodeSymbolSize, vtkRendererLayer layer, bool onlyVisible)
@@ -16289,14 +16477,7 @@ namespace PrePoMax
                 DrawSurfaceEdge(prefixName, rhtLoad.SurfaceName, color, layer, true, false, onlyVisible);
             if (count > 0) DrawRadiateSymbols(prefixName, rhtLoad, color, symbolSize, layer, onlyVisible);
         }
-
-
-
-
-
-
-
-
+        //
         public void DrawCLoadSymbols(string prefixName, CLoad cLoad, Color color, int symbolSize,
                                      vtkRendererLayer layer, bool onlyVisible)
         {
@@ -16638,8 +16819,8 @@ namespace PrePoMax
                 _form.AddOrientedArrowsActor(data, symbolSize, translate, p);
             }
         }
-        public void DrawSTLoadSymbols(string prefixName, STLoad stLoad, double[][] symbolCoor, Color color,
-                                      int symbolSize, vtkRendererLayer layer)
+        public void DrawConstantSTLoadSymbols(string prefixName, STLoad stLoad, double[][] symbolCoor, Color color,
+                                              int symbolSize, vtkRendererLayer layer)
         {
             CoordinateSystem coordinateSystem;
             _model.Mesh.CoordinateSystems.TryGetValue(stLoad.CoordinateSystemName, out coordinateSystem);
@@ -16684,6 +16865,90 @@ namespace PrePoMax
                 data.Geometry.Nodes.Normals = allLoadNormals;
                 ApplyLighting(data);
                 _form.AddOrientedArrowsActor(data, symbolSize);
+            }
+        }
+        public void DrawDistributedSTLoadSymbols(string prefixName, STLoad stLoad, Color color, int symbolSize,
+                                                  vtkRendererLayer layer, bool onlyVisible)
+        {
+            Distribution distribution;
+            if (!_model.Distributions.TryGetValue(stLoad.DistributionName, out distribution)) return;
+            if (!distribution.IsInitialized()) distribution.ImportLoad();
+            //
+            FeSurface surface = _model.Mesh.Surfaces[stLoad.SurfaceName];
+            //
+            List<int> allElementIds = new List<int>();
+            List<FeFaceName> allElementFaceNames = new List<FeFaceName>();
+            List<double[]> allCoor = new List<double[]>();
+            double[] faceCenter;
+            FeElementSet elementSet;
+            HashSet<int> visibleElementIds;
+            List<bool> elementVisibilities = new List<bool>();
+            foreach (var entry in surface.ElementFaces)     // entry:  S3; elementSetName
+            {
+                elementSet = _model.Mesh.ElementSets[entry.Value];
+                visibleElementIds = _model.Mesh.GetVisibleElementIds(entry.Value);
+                foreach (var elementId in elementSet.Labels)
+                {
+                    allElementIds.Add(elementId);
+                    allElementFaceNames.Add(entry.Key);
+                    _model.Mesh.GetElementFaceCenter(elementId, entry.Key, out faceCenter);
+                    allCoor.Add(faceCenter);
+                    if (onlyVisible) elementVisibilities.Add(visibleElementIds.Contains(elementId));
+                }
+            }
+            // Compute max force magnitude on all coordinates
+            double[] force;
+            double forceMagnitude;
+            double maxForceMagnitude = 0;
+            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6, null);
+            double[][] forces;
+            stLoad.GetForcesPerAreaAndDistancesForPoints(_model, allCoor.ToArray(), out _, out forces);
+            //
+            for (int i = 0; i < distributedElementIds.Length; i++)
+            {
+                force = forces[distributedElementIds[i]];
+                forceMagnitude = Math.Sqrt(Math.Pow(force[0], 2) + Math.Pow(force[1], 2) + Math.Pow(force[2], 2));
+                if (Math.Abs(forceMagnitude) > maxForceMagnitude) maxForceMagnitude = forceMagnitude;
+            }
+            // Reduce all coordinates to only visible
+            if (onlyVisible)
+                distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6, elementVisibilities.ToArray());
+            // Front shell face which is a S2 POS face works in the same way as a solid face
+            // Back shell face which is a S1 NEG must be inverted
+            int id;
+            double[][] faceNormal = new double[distributedElementIds.Length][];
+            double[][] distributedCoor = new double[distributedElementIds.Length][];
+            double[][] distributedLoadNormals = new double[distributedElementIds.Length][];
+            for (int i = 0; i < distributedElementIds.Length; i++)
+            {
+                id = distributedElementIds[i];
+                _model.Mesh.GetElementFaceCenterAndNormal(allElementIds[id], allElementFaceNames[id], out _,
+                                                          out faceNormal[i], out _);
+                // Direction
+                distributedCoor[i] = allCoor[id];
+                distributedLoadNormals[i] = forces[id];
+            }
+            // Arrows
+            vtkMaxActorData data;
+            for (int i = 0; i < distributedElementIds.Length; i++)
+            {
+                data = new vtkMaxActorData();
+                data.Name = prefixName + "_" + i.ToString();
+                data.Color = color;
+                data.Layer = layer;
+                data.Geometry.Nodes.Coor = new double[][] { distributedCoor[i] };
+                data.Geometry.Nodes.Normals = new double[][] { distributedLoadNormals[i] };
+                data.SectionViewPossible = false;
+                ApplyLighting(data);
+                //
+                force = distributedLoadNormals[i];
+                forceMagnitude = Math.Sqrt(Math.Pow(force[0], 2) + Math.Pow(force[1], 2) + Math.Pow(force[2], 2));
+                forceMagnitude = Math.Abs(forceMagnitude / maxForceMagnitude);
+                if (forceMagnitude < 0.01) forceMagnitude = 0.01;
+                bool translate = distributedLoadNormals[i][0] * faceNormal[i][0] +
+                                 distributedLoadNormals[i][1] * faceNormal[i][1] +
+                                 distributedLoadNormals[i][2] * faceNormal[i][2] > 0;
+                _form.AddOrientedArrowsActor(data, symbolSize, translate, forceMagnitude);
             }
         }
         public void DrawImportedSTLoadSymbols(string prefixName, ImportedSTLoad istLoad, Color color, int symbolSize,
@@ -16768,7 +17033,6 @@ namespace PrePoMax
                 _form.AddOrientedArrowsActor(data, symbolSize, translate, forceMagnitude);
             }
         }
-
         public void DrawShellEdgeLoadSymbols(string prefixName, string surfaceName, double magnitude, Color color,
                                              int symbolSize, vtkRendererLayer layer, bool onlyVisible)
         {

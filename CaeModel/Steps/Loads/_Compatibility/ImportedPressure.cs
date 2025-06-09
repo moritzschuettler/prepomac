@@ -201,8 +201,9 @@ namespace CaeModel
                 _interpolator = new ResultsInterpolator(results.GetAllNodesCellsAndValues(pressureData));
             }
         }
-        public FeResults GetPreview(FeMesh targetMesh, string resultName, UnitSystem unitSystem)
+        public FeResults GetPreview(FeModel model, string resultName, UnitSystem unitSystem)
         {
+            FeMesh targetMesh = model.Mesh;
             ImportPressure(unitSystem);
             //
             PartExchangeData allData = new PartExchangeData();

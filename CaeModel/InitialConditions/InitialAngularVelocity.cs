@@ -147,8 +147,9 @@ namespace CaeModel
             _rotationalSpeed.CheckEquation();
         }
         // IPreviewable
-        public FeResults GetPreview(FeMesh targetMesh, string resultName, UnitSystem unitSystem)
+        public FeResults GetPreview(FeModel model, string resultName, UnitSystem unitSystem)
         {
+            FeMesh targetMesh = model.Mesh;
             PartExchangeData allData = new PartExchangeData();
             targetMesh.GetAllNodesAndCells(out allData.Nodes.Ids, out allData.Nodes.Coor, out allData.Cells.Ids,
                                            out allData.Cells.CellNodeIds, out allData.Cells.Types);

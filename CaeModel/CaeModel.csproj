@@ -46,8 +46,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Amplitude\Amplitude.cs" />
-    <Compile Include="Amplitude\AmplitudeTabular.cs" />
+    <Compile Include="Amplitudes\Amplitude.cs" />
+    <Compile Include="Amplitudes\AmplitudeTabular.cs" />
     <Compile Include="Constraints\PointSpringData.cs" />
     <Compile Include="Constraints\SpringConstraint.cs" />
     <Compile Include="Constraints\SurfaceSpring.cs" />
@@ -57,6 +57,9 @@
     <Compile Include="Contact\Surface interaction\SurfaceBehavior.cs" />
     <Compile Include="Contact\Surface interaction\SurfaceInteraction.cs" />
     <Compile Include="Contact\Surface interaction\SurfaceInteractionProperty.cs" />
+    <Compile Include="Distributions\DistributionFromEquation.cs" />
+    <Compile Include="Distributions\MappedDistribution.cs" />
+    <Compile Include="Distributions\Distribution.cs" />
     <Compile Include="FileInOut\Input\Mmg\MmgFileReader.cs" />
     <Compile Include="FileInOut\Input\ObjFileReader\ObjFileReader.cs" />
     <Compile Include="FileInOut\Output\Calculix\Enums\ConvertPyramidsToEnum.cs" />
@@ -163,7 +166,8 @@
     <Compile Include="Steps\Damping\Damping.cs" />
     <Compile Include="Steps\Damping\ModalDamping.cs" />
     <Compile Include="Steps\ComplexFrequencyStep.cs" />
-    <Compile Include="Steps\Loads\Imported\ImportedSTLoad.cs" />
+    <Compile Include="Steps\Loads\ILoadWithDistribution.cs" />
+    <Compile Include="Steps\Loads\_Compatibility\ImportedSTLoad.cs" />
     <Compile Include="Steps\ModalDynamicsStep.cs" />
     <Compile Include="Steps\SteadyStateDynamicsStep.cs" />
     <Compile Include="Steps\DefinedFields\DefinedField.cs" />
@@ -219,7 +223,7 @@
     <Compile Include="Steps\DynamicStep.cs" />
     <Compile Include="Steps\Loads\IPreviewLoad.cs" />
     <Compile Include="Steps\Loads\VariablePressure.cs" />
-    <Compile Include="Steps\Loads\Imported\ImportedPressure.cs" />
+    <Compile Include="Steps\Loads\_Compatibility\ImportedPressure.cs" />
     <Compile Include="Steps\Loads\HydrostaticPressure.cs" />
     <Compile Include="Steps\SlipWearStep.cs" />
     <Compile Include="Steps\BoundaryDisplacementStep.cs" />

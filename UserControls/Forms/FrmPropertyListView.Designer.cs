@@ -113,7 +113,6 @@
             this.MinimumSize = new System.Drawing.Size(350, 500);
             this.Name = "FrmPropertyListView";
             this.Text = "FrmPropertyListView";
-            this.Shown += new System.EventHandler(this.FrmPropertyListView_Shown);
             this.VisibleChanged += new System.EventHandler(this.FrmPropertyListView_VisibleChanged);
             this.Resize += new System.EventHandler(this.FrmPropertyListView_Resize);
             this.Controls.SetChildIndex(this.gbProperties, 0);

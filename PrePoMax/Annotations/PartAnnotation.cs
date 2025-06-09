@@ -66,11 +66,22 @@ namespace PrePoMax
             // Volume/Area
             string areaUnit = Controller.GetAreaUnit();
             string volumeUnit = Controller.GetVolumeUnit();
+            string numberFormat = Controller.Settings.Annotations.GetNumberFormat();
             bool volume = part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell ||
                           part.PartType == PartType.Compound;
             string volumeArea;
-            if (volume) volumeArea = string.Format("Volume: {0} {1}", part.MassProperties.Volume, volumeUnit);
-            else volumeArea = string.Format("Area: {0} {1}", part.MassProperties.Area, areaUnit);
+            string title;
+            if (part is ResultPart)
+            {
+                if (volume) title = "Undeformed volume";
+                else title = "Undeformed area";
+            }
+            else
+            {
+                if (volume) title = "Volume";
+                else title = "Area";
+            }
+            volumeArea = string.Format(title + ": {0} {1}", part.MassProperties.Volume.ToString(numberFormat), volumeUnit);
             //
             text = "";
             //

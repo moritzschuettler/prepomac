@@ -179,7 +179,7 @@ namespace CaeResults
             _nodeIdsLookUp = null;
             _fields = new OrderedDictionary<FieldData, Field>("Fields");
             _fieldDataHashField = new OrderedDictionary<string, Field>("HashFieldPairs");
-            _history = null;
+            _history = new HistoryResults("History");
             if (unitSystem == null) _unitSystem = new UnitSystem();
             else _unitSystem = unitSystem;
             _deformationFieldOutputName = FOFieldNames.Disp;
@@ -1596,7 +1596,6 @@ namespace CaeResults
                     case FOFieldNames.Disp:
                     case FOFieldNames.DispR:
                     case FOFieldNames.DispI:
-                    case FOFieldNames.Distance: // Imported pressure
                         unitConverter = new StringLengthConverter();
                         unitAbbreviation = _unitSystem.LengthUnitAbbreviation;
                         break;
@@ -1701,15 +1700,7 @@ namespace CaeResults
                             }
                         }
                         break;
-                    // Wear
-                    case FOFieldNames.SlidingDistance:
-                    case FOFieldNames.SurfaceNormal:
-                    case FOFieldNames.WearDepth:
-                    case FOFieldNames.MeshDeformation:
-                    case FOFieldNames.DispDeformationDepth:
-                        unitConverter = new StringLengthConverter();
-                        unitAbbreviation = _unitSystem.LengthUnitAbbreviation;
-                        break;
+                    
                     // Thermal
                     case FOFieldNames.NdTemp:
                         unitConverter = new StringTemperatureConverter();
@@ -1737,6 +1728,24 @@ namespace CaeResults
                     case FOFieldNames.SenFreq:
                         unitConverter = new DoubleConverter();
                         unitAbbreviation = "/";
+                        break;
+                    // Wear
+                    case FOFieldNames.SlidingDistance:
+                    case FOFieldNames.SurfaceNormal:
+                    case FOFieldNames.WearDepth:
+                    case FOFieldNames.MeshDeformation:
+                    case FOFieldNames.DispDeformationDepth:
+                        unitConverter = new StringLengthConverter();
+                        unitAbbreviation = _unitSystem.LengthUnitAbbreviation;
+                        break;
+                    // Imported
+                    case FOFieldNames.Distance:
+                        unitConverter = new StringLengthConverter();
+                        unitAbbreviation = _unitSystem.LengthUnitAbbreviation;
+                        break;
+                    case FOFieldNames.ForcePerArea:
+                        unitConverter = new StringPressureConverter();
+                        unitAbbreviation = _unitSystem.PressureUnitAbbreviation;
                         break;
                     default:
                         unitConverter = new DoubleConverter();
@@ -4158,6 +4167,23 @@ namespace CaeResults
                 }
                 columnName = "Total";
             }
+            // Steady state
+            else if (component.Name.StartsWith(HOFieldNames.ParticipationFactorsForFrequency))
+            {
+                foreach (var entry in component.Entries)
+                {
+                    if (entry.Key == HOComponentNames.FREQUENCY)
+                    {
+                        entry.Value.Unit = UnitSystem.FrequencyUnitAbbreviation;
+                    }
+                    else if (entry.Key == HOComponentNames.PAR_FACTOR ||
+                             entry.Key == HOComponentNames.PAR_FACTOR_IM)
+                    {
+                        entry.Value.Unit = "/";
+                    }
+                }
+                columnName = "Mode";
+            }
             // Complex frequency data units
             else if (component.Name.StartsWith(HOFieldNames.ParticipationFactorsForMode))
             {
@@ -4198,7 +4224,9 @@ namespace CaeResults
             {
                 foreach (var entry in component.Entries)
                 {
-                    if (entry.Key == HOComponentNames.X || entry.Key == HOComponentNames.Y || entry.Key == HOComponentNames.Z)
+                    if (entry.Key == HOComponentNames.X ||
+                        entry.Key == HOComponentNames.Y ||
+                        entry.Key == HOComponentNames.Z)
                     {
                         entry.Value.Unit = _unitSystem.LengthUnitAbbreviation;
                     }
@@ -4424,45 +4452,45 @@ namespace CaeResults
                 //HashSet<string> entryNames = null;
                 foreach (var parameterName in parameterNames)
                 {
-                    tmp = parameterName.Split(splitter, StringSplitOptions.None);
-                    if (tmp.Length != 3) continue;
-                    //
-                    if (!_history.Sets.TryGetValue(tmp[0], out historyResultSet))
-                        throw new CaeException("The history output " + tmp[0] + " does not exist.");
-                    if (!historyResultSet.Fields.TryGetValue(tmp[1], out historyResultField))
-                        throw new CaeException("The field " + tmp[1] + " of the history output " + tmp[0] + " does not exist.");
-                    if (!historyResultField.Components.TryGetValue(tmp[2], out historyResultComponent))
-                        throw new CaeException("The component " + tmp[2] + " of the history output " + tmp[0] + " does not exist.");
-                    //
-                    values = historyResultComponent.GetAllValues();
-                    if (numRows == -1) numRows = values.Length;
-                    if (numColumns == -1) numColumns = values[0].Length;
-                    //
-                    if (numRows != values.Length)
-                        throw new CaeException("All history output components used in the equation must contain the same number of " +
-                                               "time increments (rows).");
-                    //
-                    if (numColumns != values[0].Length)
-                        throw new CaeException("All history output components used in the equation must contain the same number of " +
-                                               "items (columns).");
-                    //
-                    //if (entryNames == null) entryNames = new HashSet<string>(historyResultComponent.Entries.Keys);
-                    //else if (entryNames.Union(historyResultComponent.Entries.Keys).Count() != entryNames.Count)
-                    //    throw new CaeException("All selected history output components must contain the same items.");
-                    //
-                    //historyResultEntry = historyResultComponent.Entries.First().Value;
-                    ////
-                    //if (numIncrements == -1) numIncrements = historyResultEntry.Values.Count();
-                    //else if (numIncrements != historyResultEntry.Values.Count())
-                    //    throw new CaeException("All selected history output components must contain the same number " +
-                    //                           "of time increments.");
-                    //
-                    parentNames.Add(tmp[0]);
-                    parameterNameHistoryComponent.Add(parameterName, historyResultComponent);
+                    if (possibleEquationParameters.Contains(parameterName))
+                    {
+                        tmp = parameterName.Split(splitter, StringSplitOptions.None);
+                        if (tmp.Length != 3) continue;
+                        //
+                        if (!_history.Sets.TryGetValue(tmp[0], out historyResultSet))
+                            throw new CaeException("The history output " + tmp[0] + " does not exist.");
+                        if (!historyResultSet.Fields.TryGetValue(tmp[1], out historyResultField))
+                            throw new CaeException("The field " + tmp[1] + " of the history output " + tmp[0] + " does not exist.");
+                        if (!historyResultField.Components.TryGetValue(tmp[2], out historyResultComponent))
+                            throw new CaeException("The component " + tmp[2] + " of the history output " + tmp[0] + " does not exist.");
+                        //
+                        values = historyResultComponent.GetAllValues();
+                        if (numRows == -1) numRows = values.Length;
+                        if (numColumns == -1) numColumns = values[0].Length;
+                        //
+                        if (numRows != values.Length)
+                            throw new CaeException("All history output components used in the equation must contain the same number of " +
+                                                   "time increments (rows).");
+                        //
+                        if (numColumns != values[0].Length)
+                            throw new CaeException("All history output components used in the equation must contain the same number of " +
+                                                   "items (columns).");
+                        //
+                        //if (entryNames == null) entryNames = new HashSet<string>(historyResultComponent.Entries.Keys);
+                        //else if (entryNames.Union(historyResultComponent.Entries.Keys).Count() != entryNames.Count)
+                        //    throw new CaeException("All selected history output components must contain the same items.");
+                        //
+                        //historyResultEntry = historyResultComponent.Entries.First().Value;
+                        ////
+                        //if (numIncrements == -1) numIncrements = historyResultEntry.Values.Count();
+                        //else if (numIncrements != historyResultEntry.Values.Count())
+                        //    throw new CaeException("All selected history output components must contain the same number " +
+                        //                           "of time increments.");
+                        //
+                        parentNames.Add(tmp[0]);
+                        parameterNameHistoryComponent.Add(parameterName, historyResultComponent);
+                    }
                 }
-                //
-                //if (parentNames.Count == 0)
-                //    throw new CaeException("The equation must contain at least one history output reference.");
                 //
                 return null;
             }
@@ -6063,7 +6091,6 @@ namespace CaeResults
             float maxMisesAll = maxMisses.Last();
             maxMisesAll = maxMisses.Last();
         }
-
         private float[][] GetWeightsLC1(int numSteps)
         {
             float[][] weights = new float[numSteps][];
@@ -6111,7 +6138,7 @@ namespace CaeResults
             //
             return weights;
         }
-
+        //
         public void TestLineProbe(int stepId, int incrementId)
         {
             FieldData fieldData;
@@ -6127,15 +6154,5 @@ namespace CaeResults
         }
     }
 
-    public static class ListExtensions
-    {
-        public static List<List<T>> ChunkBy<T>(this List<T> source, int chunkSize)
-        {
-            return source
-                .Select((x, i) => new { Index = i, Value = x })
-                .GroupBy(x => x.Index / chunkSize)
-                .Select(x => x.Select(v => v.Value).ToList())
-                .ToList();
-        }
-    }
+   
 }

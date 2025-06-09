@@ -88,7 +88,7 @@ namespace CaeMesh
             //
             if (part.Offset != null) _offset = part.Offset.ToArray();
             //
-
+            _massProperties = part.MassProperties.DeepClone();
         }
 
 

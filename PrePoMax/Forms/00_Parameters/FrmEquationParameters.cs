@@ -95,6 +95,8 @@ namespace PrePoMax.Forms
                 if (e.RowIndex == _cellRow && e.ColumnIndex == _cellCol)
                 {
                     HashSet<string> existingNames = new HashSet<string>(MyNCalc.ExistingParameters.Keys);
+                    HashSet<string> reservedNames = new HashSet<string>(MyNCalc.GetReservedParameterNames());
+                    existingNames.UnionWith(reservedNames);
                     // If an existing parameter is renamed remove it from a list
                     existingNames.Remove(_parameters[e.RowIndex].Name);
                     //
@@ -107,7 +109,9 @@ namespace PrePoMax.Forms
                     {
                         if (value.Length > 0 && char.IsDigit(value[0]))
                             throw new CaeException("The parameter name '" + value + "' must not start with a digit.");
-                        if (existingNames.Contains(value))
+                        if (reservedNames.Contains(value))
+                            throw new CaeException("The parameter name '" + value + "' cannot be used since it is a reserved name.");
+                        else if (existingNames.Contains(value))
                             throw new CaeException("The parameter named '" + value + "' already exists.");
                         //
                         ep.Name = value;

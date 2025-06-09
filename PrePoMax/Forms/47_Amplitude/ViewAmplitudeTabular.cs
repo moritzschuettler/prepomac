@@ -29,24 +29,21 @@ namespace PrePoMax
         public override double ShiftY { get { return _amplitudeTabular.ShiftY; } set { _amplitudeTabular.ShiftY = value; } }
 
         [Browsable(false)]
-        public override Amplitude Base
+        public override Amplitude GetBase()
         {
-            get
+            int i = 0;
+            double[][] timeAmplitude = new double[_points.Count][];
+            //
+            foreach (AmplitudeDataPoint point in _points)
             {
-                int i = 0;
-                double[][] timeAmplitude = new double[_points.Count][];
-                //
-                foreach (AmplitudeDataPoint point in _points)
-                {
-                    timeAmplitude[i] = new double[2];
-                    timeAmplitude[i][0] = point.Time;
-                    timeAmplitude[i][1] = point.Amplitude;
-                    i++;
-                }
-                _amplitudeTabular.TimeAmplitude = timeAmplitude;
-                //
-                return _amplitudeTabular;
+                timeAmplitude[i] = new double[2];
+                timeAmplitude[i][0] = point.Time;
+                timeAmplitude[i][1] = point.Amplitude;
+                i++;
             }
+            _amplitudeTabular.TimeAmplitude = timeAmplitude;
+            //
+            return _amplitudeTabular;
         }
         //
         [Browsable(false)]

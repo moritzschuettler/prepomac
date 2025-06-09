@@ -17,7 +17,7 @@ namespace UserControls
         // Variables                                                                                                                
         protected int _preselectIndex;
         //
-        protected bool _firstTime;
+        protected int _numItems;
         protected int _maxTopLvHeight;
         protected int _minTopLvHeight;
         protected int _initialFormHeight;
@@ -42,14 +42,14 @@ namespace UserControls
             InitializeComponent();
             //
             _preselectIndex = -1;
-            _firstTime = true;
+            _numItems = -1;
         }
 
 
         // Event handlers                                                                                                           
         private void FrmPropertyListView_Resize(object sender, EventArgs e)
         {
-            if (!_firstTime)
+            if (_numItems == lvTypes.Items.Count)
             {
                 int delta = Height - _initialFormHeight;
                 int deltaTop = delta;
@@ -62,13 +62,14 @@ namespace UserControls
                 gbProperties.Height = _initialBottomGbHeight + deltaBottom;
             }
         }
-        private void FrmPropertyListView_Shown(object sender, EventArgs e)
+        private void FrmPropertyListView_VisibleChanged(object sender, EventArgs e)
         {
-            if (_firstTime)
+            if (Visible)
             {
+                // Set max list view height based on number of items
                 _maxTopLvHeight = 0;
                 foreach (ListViewItem item in lvTypes.Items) _maxTopLvHeight += item.Bounds.Height;
-                _minTopLvHeight = _maxTopLvHeight / lvTypes.Items.Count * 3;        // show at least three items
+                _minTopLvHeight = _maxTopLvHeight / lvTypes.Items.Count * 3;    // show at least three items
                 _maxTopLvHeight += 4;
                 _minTopLvHeight += 4;
                 _maxTopLvHeight = Math.Max(_maxTopLvHeight, lvTypes.Height);
@@ -79,13 +80,8 @@ namespace UserControls
                 _initialBetweenHeight = gbProperties.Top - gbType.Bottom;
                 _initialBottomGbHeight = gbProperties.Height;
                 //
-                _firstTime = false;
-            }
-        }
-        private void FrmPropertyListView_VisibleChanged(object sender, EventArgs e)
-        {
-            if (Visible)
-            {
+                _numItems = lvTypes.Items.Count;
+                //
                 OnListViewTypeSelectedIndexChanged();
             }
         }

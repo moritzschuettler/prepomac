@@ -194,8 +194,9 @@ namespace CaeModel
                 _interpolator = new CloudInterpolator(cloudPoints);
             }
         }
-        public FeResults GetPreview(FeMesh targetMesh, string resultName, UnitSystem unitSystem)
+        public FeResults GetPreview(FeModel model, string resultName, UnitSystem unitSystem)
         {
+            FeMesh targetMesh = model.Mesh;
             ImportLoad();
             //
             PartExchangeData allData = new PartExchangeData();
