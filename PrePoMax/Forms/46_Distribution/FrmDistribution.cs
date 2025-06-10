@@ -8,6 +8,7 @@ using CaeGlobals;
 using System.Windows.Forms;
 using System.Drawing;
 using System.ComponentModel;
+using CaeResults;
 
 namespace PrePoMax.Forms
 {
@@ -30,6 +31,7 @@ namespace PrePoMax.Forms
                 var clone = value.DeepClone();
                 if (clone == null) _viewDistribution = null;
                 else if (clone is DistributionFromEquation dfe) _viewDistribution = new ViewDistributionFromEquation(dfe);
+                else if (clone is DistributionFromFile dff) _viewDistribution = new ViewDistributionFromFile(dff);
                 else throw new NotImplementedException();
             }
         }
@@ -129,6 +131,13 @@ namespace PrePoMax.Forms
                     additionalParameterNames.Add("y");
                     additionalParameterNames.Add("z");
                 }
+                else if (itemTag is ViewDistributionFromFile vdff)
+                {
+                    tcProperties.TabPages.Add(_pages[0]);   // properties
+                    //
+                    vdff.UpdateFileBrowserDialog();
+                    _viewDistribution = vdff;
+                }
                 //if (itemTag is ViewAmplitudeTabular vat)
                 //{
                 //    tcProperties.TabPages.Add(_pages[0]);   // properties
@@ -148,7 +157,24 @@ namespace PrePoMax.Forms
                 parameterNames.UnionWith(additionalParameterNames);
                 propertyGrid.BuildAutocompleteMenu(parameterNames);
                 dgvData.BuildAutocompleteMenu(parameterNames);
+                //
+                HighlightDistribution();
             }
+        }
+        protected override void OnPropertyGridSelectedGridItemChanged()
+        {
+            if (propertyGrid.SelectedGridItem.PropertyDescriptor != null)
+            {
+                string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
+                //
+                if (_viewDistribution is ViewDistributionFromEquation vdfe) { }
+                else if (_viewDistribution is ViewDistributionFromFile vdff)
+                {
+                    HighlightDistribution();
+                }
+            }
+            //
+            base.OnPropertyGridSelectedGridItemChanged();
         }
         protected override void OnApply(bool onOkAddNew)
         {
@@ -161,6 +187,13 @@ namespace PrePoMax.Forms
             if (Distribution is DistributionFromEquation dfe)
             {
                 string error = dfe.CheckEquations();
+                if (error != null) throw new CaeException(error);
+            }
+            else if (Distribution is DistributionFromFile dff)
+            {
+                string error;
+                dff.CheckEquations();
+                dff.IsProperlyDefined(out error);
                 if (error != null) throw new CaeException(error);
             }
             // Create
@@ -184,6 +217,8 @@ namespace PrePoMax.Forms
             _distributionToEditName = null;
             _viewDistribution = null;
             lvTypes.Items.Clear();
+            tcProperties.TabPages.Clear();
+            tcProperties.TabPages.Add(_pages[0]);   // properties
             propertyGrid.SelectedObject = null;
             //
             _stepName = stepName;
@@ -207,6 +242,7 @@ namespace PrePoMax.Forms
                 //
                 int selectedId;
                 if (_viewDistribution.GetBase() is DistributionFromEquation) selectedId = 0;
+                else if (_viewDistribution.GetBase() is DistributionFromFile) selectedId = 1;
                 else throw new NotSupportedException();
                 //
                 lvTypes.Items[selectedId].Tag = _viewDistribution;
@@ -224,11 +260,17 @@ namespace PrePoMax.Forms
         {
             // Populate list view
             ListViewItem item;
-            // Equation
+            // From equation
             item = new ListViewItem("From Equation");
             ViewDistributionFromEquation vdfe = 
                 new ViewDistributionFromEquation(new DistributionFromEquation(GetDistributionName("From Equation"), "=1"));
             item.Tag = vdfe;
+            lvTypes.Items.Add(item);
+            // From file
+            item = new ListViewItem("From File");
+            ViewDistributionFromFile vdff =
+                new ViewDistributionFromFile(new DistributionFromFile(GetDistributionName("From File")));
+            item.Tag = vdff;
             lvTypes.Items.Add(item);
         }
         private string GetDistributionName(string name)
@@ -277,6 +319,36 @@ namespace PrePoMax.Forms
                 // Converter
                 col.Tag = converter;
             }
+        }
+        //
+        private void HighlightDistribution()
+        {
+            try
+            {
+                _controller.ClearSelectionHistory();
+                Distribution distribution = Distribution;
+                //
+                if (distribution is DistributionFromEquation dfe) { }
+                else if (distribution is DistributionFromFile dff)
+                {
+                    string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
+                    if (dff.Interpolator == null) dff.ImportDistribution();
+                    //
+                    if (dff.Interpolator != null && dff.Interpolator.CloudPoints != null)
+                    {
+                        CloudPoint[] cloudPoints = dff.Interpolator.CloudPoints;
+                        double[][] nodeCoor = new double[cloudPoints.Length][];
+                        //
+                        for (int i = 0; i < cloudPoints.Length; i++)
+                        {
+                            nodeCoor[i] = new double[] { cloudPoints[i].Coor[0], cloudPoints[i].Coor[1], cloudPoints[i].Coor[2] };
+                        }
+                        _controller.HighlightNodes(nodeCoor, true);
+                    }
+                }
+                else throw new NotSupportedException();
+            }
+            catch { }
         }
     }
 }

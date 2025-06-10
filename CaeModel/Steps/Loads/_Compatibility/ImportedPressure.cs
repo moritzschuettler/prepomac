@@ -283,12 +283,23 @@ namespace CaeModel
             _interpolator.InterpolateAt(point, _interpolatorType, out distance, out value);
             value *= _magnitudeFactor.Value;
         }
-        public override double GetPressureForPoint(double[] point)
+        // Variable pressure
+        public override double GetPressureForPoint(FeModel model, double[] point)
         {
             _interpolator.InterpolateAt(point, _interpolatorType, out double[] distance, out double value);
             return value * _magnitudeFactor.Value;
         }
-        
+        public override double[] GetPressuresForPoints(FeModel model, double[][] points)
+        {
+            double[] values = new double[points.Length];
+            double magnitude = _magnitudeFactor.Value;
+            for (int i = 0; i < points.Length; i++)
+            {
+                _interpolator.InterpolateAt(points[i], _interpolatorType, out _, out values[i]);
+                values[i] *= magnitude;
+            }
+            return values;
+        }
         // ISerialization
         public new void GetObjectData(SerializationInfo info, StreamingContext context)
         {

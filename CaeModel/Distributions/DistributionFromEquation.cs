@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.IO;
 using System.Linq;
+using System.Runtime.Serialization;
 using System.Text;
 using CaeGlobals;
 using CaeResults;
@@ -11,13 +13,13 @@ using static CaeGlobals.Geometry2;
 namespace CaeModel
 {
     [Serializable]
-    public class DistributionFromEquation : Distribution
+    public class DistributionFromEquation : Distribution, ISerializable
     {
         // Variables                                                                                                                
-        private string _equationMagnitude;
-        private string _equationD1;
-        private string _equationD2;
-        private string _equationD3;
+        private string _equationMagnitude;          //ISerializable
+        private string _equationD1;                 //ISerializable
+        private string _equationD2;                 //ISerializable
+        private string _equationD3;                 //ISerializable
 
 
         // Properties                                                                                                               
@@ -31,7 +33,10 @@ namespace CaeModel
         public DistributionFromEquation(string name, string equation)
             : base(name)
         {
-            Reset();
+            _equationMagnitude = "=1";
+            _equationD1 = "=1";
+            _equationD2 = "=1";
+            _equationD3 = "=1";
             //
             _distributionType = DistributionTypeEnum.Scalar;
             _equationMagnitude = equation;
@@ -39,19 +44,35 @@ namespace CaeModel
         public DistributionFromEquation(string name, string equationD1, string equationD2, string equationD3)
             : base(name)
         {
-            Reset();
+            _equationMagnitude = "=1";
+            _equationD1 = "=1";
+            _equationD2 = "=1";
+            _equationD3 = "=1";
             //
             _distributionType = DistributionTypeEnum.Vector;
             _equationD1 = equationD1;
             _equationD2 = equationD2;
             _equationD3 = equationD3;
         }
-        private void Reset()
+        public DistributionFromEquation(SerializationInfo info, StreamingContext context)
+            : base(info, context)
         {
-            _equationMagnitude = "=1";
-            _equationD1 = "=1";
-            _equationD2 = "=1";
-            _equationD3 = "=1";
+            foreach (SerializationEntry entry in info)
+            {
+                switch (entry.Name)
+                {
+                    case "_equationMagnitude":
+                        _equationMagnitude = (string)entry.Value; break;
+                    case "_equationD1":
+                        _equationD1 = (string)entry.Value; break;
+                    case "_equationD2":
+                        _equationD2 = (string)entry.Value; break;
+                    case "_equationD3":
+                        _equationD3 = (string)entry.Value; break;
+                    default:
+                        break;
+                }
+            }
         }
 
 
@@ -105,12 +126,13 @@ namespace CaeModel
         {
             return true;
         }
-        public override bool ImportLoad()
+        public override bool ImportDistribution()
         { 
             return true;
         }
-        public override double[] GetMagnitudeForPoint(double[] point)
+        public override void GetMagnitudeAndDistanceForPoint(double[] point, out double[] magnitude, out double[] distance)
         {
+            distance = null;
             OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters.DeepCopy();
             try
             {
@@ -118,18 +140,16 @@ namespace CaeModel
                 MyNCalc.ExistingParameters["y"] = point[1];
                 MyNCalc.ExistingParameters["z"] = point[2];
                 //
-
                 if (_distributionType == DistributionTypeEnum.Scalar)
                 {
-                    return new double[1] { MyNCalc.SolveEquation(_equationMagnitude) };
+                    magnitude = new double[1] { MyNCalc.SolveEquation(_equationMagnitude) };
                 }
                 else if (_distributionType == DistributionTypeEnum.Vector)
                 {
-                    double[] result = new double[3];
-                    result[0] = MyNCalc.SolveEquation(_equationD1);
-                    result[1] = MyNCalc.SolveEquation(_equationD2);
-                    result[2] = MyNCalc.SolveEquation(_equationD3);
-                    return result;
+                    magnitude = new double[3];
+                    magnitude[0] = MyNCalc.SolveEquation(_equationD1);
+                    magnitude[1] = MyNCalc.SolveEquation(_equationD2);
+                    magnitude[2] = MyNCalc.SolveEquation(_equationD3);
                 }
                 else throw new NotSupportedException();
             }
@@ -142,8 +162,10 @@ namespace CaeModel
                 MyNCalc.ExistingParameters = existingParameters;
             }
         }
-        public override double[][] GetMagnitudesForPoints(double[][] points)
+        public override void GetMagnitudesAndDistancesForPoints(double[][] points, out double[][] magnitudes,
+                                                                out double[][] distances)
         {
+            distances = null;
             OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters.DeepCopy();
             try
             {
@@ -164,18 +186,16 @@ namespace CaeModel
                 if (_distributionType == DistributionTypeEnum.Scalar)
                 {
                     double[] result = MyNCalc.SolveArrayEquation(_equationMagnitude);
-                    double[][] magnitudes = new double[result.Length][];
+                    magnitudes = new double[result.Length][];
                     for (int i = 0; i < result.Length; i++) magnitudes[i] = new double[] { result[i] };
-                    return magnitudes;
                 }
                 else if (_distributionType == DistributionTypeEnum.Vector)
                 {
                     double[] result1 = MyNCalc.SolveArrayEquation(_equationD1);
                     double[] result2 = MyNCalc.SolveArrayEquation(_equationD2);
                     double[] result3 = MyNCalc.SolveArrayEquation(_equationD3);
-                    double[][] magnitudes = new double[result1.Length][];
+                    magnitudes = new double[result1.Length][];
                     for (int i = 0; i < result1.Length; i++) magnitudes[i] = new double[] { result1[i], result2[i], result3[i] };
-                    return magnitudes;
                 }
                 else throw new NotSupportedException();
             }
@@ -187,6 +207,17 @@ namespace CaeModel
             {
                 MyNCalc.ExistingParameters = existingParameters;
             }
+        }
+        // ISerialization
+        public new void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            // Using typeof() works also for null fields
+            base.GetObjectData(info, context);
+            //
+            info.AddValue("_equationMagnitude", _equationMagnitude, typeof(string));
+            info.AddValue("_equationD1", _equationD1, typeof(string));
+            info.AddValue("_equationD2", _equationD2, typeof(string));
+            info.AddValue("_equationD3", _equationD3, typeof(string));
         }
     }
 }

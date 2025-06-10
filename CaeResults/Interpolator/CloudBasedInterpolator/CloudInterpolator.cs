@@ -197,6 +197,7 @@ namespace CaeResults
         {
             Dictionary<int, BoundingBox> regions = GetClosestRegions(point, radius);
             //
+            bool foundExactPosition = false;
             double absX;
             double absY;
             double absZ;
@@ -221,13 +222,24 @@ namespace CaeResults
                                 {
                                     d = Math.Sqrt(absX * absX + absY * absY + absZ * absZ);
                                     //
-                                    w = 1 / Math.Pow(d, 2);
-                                    cloudPointWeight.Add(cloudPoint, w);
+                                    if (d == 0)
+                                    {
+                                        cloudPointWeight.Clear();
+                                        cloudPointWeight.Add(cloudPoint, 1);
+                                        foundExactPosition = true;
+                                        break;
+                                    }
+                                    else
+                                    {
+                                        w = 1 / Math.Pow(d, 2);
+                                        cloudPointWeight.Add(cloudPoint, w);
+                                    }
                                 }
                             }
                         }
                     }
                 }
+                if (foundExactPosition) break;
             }
             //
             if (cloudPointWeight.Count > 0)

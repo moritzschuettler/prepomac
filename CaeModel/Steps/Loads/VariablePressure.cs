@@ -24,8 +24,9 @@ namespace CaeModel
         
 
         // Constructors                                                                                                             
-        public VariablePressure(string name, string regionName, RegionTypeEnum regionType, bool twoD, bool complex, double phaseDeg)
-            : base(name, twoD, complex, phaseDeg)
+        public VariablePressure(string name, string regionName, RegionTypeEnum regionType, bool twoD, bool complex, double phaseDeg,
+                                bool constant = false)
+            : base(name, twoD, complex, phaseDeg, constant)
         {
             _surfaceName = regionName;
             _regionType = regionType;
@@ -50,8 +51,8 @@ namespace CaeModel
         }
 
         // Methods                                                                                                                  
-        public abstract double GetPressureForPoint(double[] point);
-
+        public abstract double GetPressureForPoint(FeModel model, double[] point);
+        public abstract double[] GetPressuresForPoints(FeModel model, double[][] points);
         // ISerialization
         public new void GetObjectData(SerializationInfo info, StreamingContext context)
         {

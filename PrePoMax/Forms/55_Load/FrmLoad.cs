@@ -346,7 +346,8 @@ namespace PrePoMax.Forms
             //
             if (_viewLoad == null) throw new CaeException("No load selected.");
             // Check if the name exists
-            CheckName(_loadToEditName, FELoad.Name, _loadNames, "load");
+            string[] loadNames = _controller.GetStepLoadNames(_stepName);
+            CheckName(_loadToEditName, FELoad.Name, loadNames, "load");
             // Check equations
             _viewLoad.GetBase().CheckEquations();
             //
@@ -616,14 +617,14 @@ namespace PrePoMax.Forms
                     if (twoD) surfaceNames = shellEdgeSurfaceNames.ToArray();
                     else surfaceNames = noEdgeSurfaceNames.ToArray();
                     //
-                    selectedId = lvTypes.FindItemWithText("Uniform Pressure").Index;
+                    selectedId = lvTypes.FindItemWithText("Pressure").Index;
                     // Check for deleted regions
                     if (vdl.RegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
                     else if (vdl.RegionType == RegionTypeEnum.SurfaceName.ToFriendlyString())
                         CheckMissingValueRef(ref surfaceNames, vdl.SurfaceName, s => { vdl.SurfaceName = s; });
                     else throw new NotSupportedException();
                     //
-                    vdl.PopulateDropDownLists(surfaceNames, amplitudeNames);
+                    vdl.PopulateDropDownLists(surfaceNames, distributionNames, amplitudeNames);
                 }
                 else if (_viewLoad is ViewHydrostaticPressureLoad vhpl)
                 {
@@ -871,7 +872,7 @@ namespace PrePoMax.Forms
                 lvTypes.Items.Add(item);
             }
             // Pressure
-            name = "Uniform Pressure";
+            name = "Pressure";
             loadName = GetLoadName(name);
             item = new ListViewItem(name);
             DLoad dLoad = new DLoad(loadName, "", RegionTypeEnum.Selection, 0, twoD, complex, 0);
@@ -882,7 +883,7 @@ namespace PrePoMax.Forms
                 else surfaceNames = noEdgeSurfaceNames.ToArray();
                 //
                 ViewDLoad vdl = new ViewDLoad(dLoad);
-                vdl.PopulateDropDownLists(surfaceNames, amplitudeNames);
+                vdl.PopulateDropDownLists(surfaceNames, distributionNames, amplitudeNames);
                 vdl.Color = color;
                 item.Tag = vdl;
                 lvTypes.Items.Add(item);
@@ -938,23 +939,6 @@ namespace PrePoMax.Forms
                 item.Tag = vstl;
                 lvTypes.Items.Add(item);
             }
-            // Imported surface traction
-            //name = "Imported Surface Traction";
-            //loadName = GetLoadName(name);
-            //item = new ListViewItem(name);
-            //ImportedSTLoad istl = new ImportedSTLoad(loadName, "", RegionTypeEnum.Selection, twoD, complex, 0);
-            //if (step.IsLoadSupported(istl))
-            //{
-            //    string[] surfaceNames;
-            //    if (twoD) surfaceNames = shellEdgeSurfaceNames.ToArray();
-            //    else surfaceNames = noEdgeSurfaceNames.ToArray();
-            //    //
-            //    ViewImportedSTLoad vistl = new ViewImportedSTLoad(istl);
-            //    vistl.PopulateDropDownLists(surfaceNames, amplitudeNames);
-            //    vistl.Color = color;
-            //    item.Tag = vistl;
-            //    lvTypes.Items.Add(item);
-            //}
             // Shell edge load
             name = "Normal Shell Edge Load";
             loadName = GetLoadName(name);

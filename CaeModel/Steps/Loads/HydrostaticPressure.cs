@@ -294,7 +294,7 @@ namespace CaeModel
             {
                 if (nodeIds.Contains(allData.Nodes.Ids[i]))
                 {
-                    values[i] = (float)GetPressureForPoint(allData.Nodes.Coor[i]);
+                    values[i] = (float)GetPressureForPoint(model, allData.Nodes.Coor[i]);
                 }
                 else
                 {
@@ -321,7 +321,8 @@ namespace CaeModel
             //
             return results;
         }
-        public override double GetPressureForPoint(double[] point)
+        // Variable pressure
+        public override double GetPressureForPoint(FeModel model, double[] point)
         {
             DateTime now = DateTime.Now;
             TimeSpan delta = now - _lastUpdate;
@@ -346,6 +347,33 @@ namespace CaeModel
             else if (_hydrostaticPressureCutoff == HydrostaticPressureCutoffEnum.Positive) return p > 0 ? 0 : p;
             else if (_hydrostaticPressureCutoff == HydrostaticPressureCutoffEnum.Negative) return p < 0 ? 0 : p;
             else throw new NotSupportedException();
+        }
+        public override double[] GetPressuresForPoints(FeModel model, double[][] points)
+        {
+            double[] values = new double[points.Length];
+            _n = new Vec3D(_n1.Value, _n2.Value, _n3.Value);
+            _n.Normalize();
+            //
+            _d1 = -(_x1.Value * _n.X + _y1.Value * _n.Y + _z1.Value * _n.Z);
+            _d2 = -(_x2.Value * _n.X + _y2.Value * _n.Y + _z2.Value * _n.Z);
+            //
+            _a = _firstPointPressure.Value;
+            _b = (_secondPointPressure.Value - _firstPointPressure.Value) / (_d2 - _d1);
+            //
+            double d;
+            double p;
+            for (int i = 0; i < points.Length; i++)
+            {
+                d = -(points[i][0] * _n.X + points[i][1] * _n.Y + points[i][2] * _n.Z);
+                //
+                p = _a + _b * (d - _d1);
+                //
+                if (_hydrostaticPressureCutoff == HydrostaticPressureCutoffEnum.None) values[i] = p;
+                else if (_hydrostaticPressureCutoff == HydrostaticPressureCutoffEnum.Positive) values[i] = p > 0 ? 0 : p;
+                else if (_hydrostaticPressureCutoff == HydrostaticPressureCutoffEnum.Negative) values[i] = p < 0 ? 0 : p;
+                else throw new NotSupportedException();
+            }
+            return values;
         }
         // ISerialization
         public new void GetObjectData(SerializationInfo info, StreamingContext context)

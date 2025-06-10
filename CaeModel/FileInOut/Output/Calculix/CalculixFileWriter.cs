@@ -1025,7 +1025,7 @@ namespace FileInOut.Output
                 !(keyword is CalElement) &&
                 !(keyword is CalNodeSet) &&
                 !(keyword is CalElementSet) &&
-                !(keyword is CalHydrostaticPressureLoad) &&
+                !(keyword is CalVariablePressureLoad) &&
                 !(keyword is CalImportedPressureLoad) &&
                 !(keyword is CalSTLoad) &&
                 !(keyword is CalAdditional))
@@ -1940,13 +1940,21 @@ namespace FileInOut.Output
                 }
                 else if (load is DLoad dl)
                 {
-                    CalDLoad dLoad = new CalDLoad(dl, model.Mesh.Surfaces[dl.RegionName], complexLoadType);
-                    parent.AddKeyword(dLoad);
+                    if (dl.DistributionName == Load.DefaultDistributionName)
+                    {
+                        CalDLoad dLoad = new CalDLoad(dl, model.Mesh.Surfaces[dl.RegionName], complexLoadType);
+                        parent.AddKeyword(dLoad);
+                    }
+                    else
+                    {
+                        CalVariablePressureLoad vpLoad = new CalVariablePressureLoad(model, dl, complexLoadType);
+                        parent.AddKeyword(vpLoad);
+                    }
                 }
                 else if (load is HydrostaticPressure hpl)
                 {
-                    CalHydrostaticPressureLoad hpLoad = new CalHydrostaticPressureLoad(model, hpl, complexLoadType);
-                    parent.AddKeyword(hpLoad);
+                    CalVariablePressureLoad vpLoad = new CalVariablePressureLoad(model, hpl, complexLoadType);
+                    parent.AddKeyword(vpLoad);
                 }
                 else if (load is ImportedPressure ipl)
                 {

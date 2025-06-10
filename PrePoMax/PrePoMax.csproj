@@ -533,6 +533,8 @@
     <Compile Include="Forms\46_Distribution\FrmDistribution.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Forms\46_Distribution\ViewMappedDistribution.cs" />
+    <Compile Include="Forms\46_Distribution\ViewDistributionFromFile.cs" />
     <Compile Include="Forms\46_Distribution\ViewDistributionFromEquation.cs" />
     <Compile Include="Forms\46_Distribution\ViewDistribution.cs" />
     <Compile Include="Forms\48_InitialConditions\FrmInitialCondition.cs">

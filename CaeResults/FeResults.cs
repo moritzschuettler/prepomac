@@ -1627,6 +1627,7 @@ namespace CaeResults
                     case FOFieldNames.ZZStrR:
                     case FOFieldNames.ZZStrI:
                     case FOFieldNames.Imported: // Imported pressure
+                    case FOFieldNames.Pressure: // Imported pressure
                         unitConverter = new StringPressureConverter();
                         unitAbbreviation = _unitSystem.PressureUnitAbbreviation;
                         break;

@@ -121,7 +121,6 @@ namespace CaeModel
         {
             ImportLoad();
         }
-        
         // IContainsEquations
         public override void CheckEquations()
         {

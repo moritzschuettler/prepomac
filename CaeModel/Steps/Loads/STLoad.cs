@@ -99,7 +99,6 @@ namespace CaeModel
                     case "_fMagnitude":
                     case "_magnitude":  // Compatibility for version v2.2.4
                         SetFMagnitude((EquationContainer)entry.Value, false); break;
-                        //
                     case "_p1":
                         SetP1((EquationContainer)entry.Value, false);
                         break;
@@ -111,7 +110,6 @@ namespace CaeModel
                         break;
                     case "_pMagnitude":
                         SetPMagnitude((EquationContainer)entry.Value, false); break;
-                    //
                     case "_distributionName":
                         _distributionName = (string)entry.Value; break;
                     default:
@@ -333,10 +331,9 @@ namespace CaeModel
             targetMesh.GetAllNodesAndCells(out allData.Nodes.Ids, out allData.Nodes.Coor, out allData.Cells.Ids,
                                            out allData.Cells.CellNodeIds, out allData.Cells.Types);
             //
-            bool addDistances = true;
-            if (_distributionName != Load.DefaultDistributionName &&
-                model.Distributions[_distributionName] is DistributionFromEquation) addDistances = false;
-            else addDistances = false;
+            bool addDistances = _distributionName != DefaultDistributionName &&
+                model.Distributions[_distributionName] is MappedDistribution md &&
+                md.InterpolatorType == CloudInterpolatorEnum.ClosestPoint;
             //
             double area = model.GetAreaForSTLoad(this);
             FeSurface surface = targetMesh.Surfaces[SurfaceName];
@@ -382,11 +379,11 @@ namespace CaeModel
                 if (nodeIds.Contains(nId))
                 {
                     arrayId = nodeIdArrayId[nId];
-                    distance = distances[arrayId];
                     force = forces[arrayId];
                     //
                     if (addDistances)
                     {
+                        distance = distances[arrayId];
                         distances1[i] = (float)distance[0];
                         distances2[i] = (float)distance[1];
                         distances3[i] = (float)distance[2];
@@ -470,7 +467,7 @@ namespace CaeModel
                 double f3 = _f3.Value;
                 for (int i = 0; i < points.Length; i++)
                 {
-                    distances[i] = new double[3];
+                    distances[i] = null;
                     values[i] = new double[] { f1 / area, f2 / area, f3 / area };
                 }
             }
@@ -482,7 +479,7 @@ namespace CaeModel
                 double[][] magnitudes;
                 Distribution distribution = model.Distributions[_distributionName];
                 //
-                magnitudes = distribution.GetMagnitudesForPoints(points);
+                distribution.GetMagnitudesAndDistancesForPoints(points, out magnitudes, out distances);
                 //
                 for (int i = 0; i < points.Length; i++)
                 {
@@ -513,12 +510,10 @@ namespace CaeModel
             info.AddValue("_f2", _f2, typeof(EquationContainer));
             info.AddValue("_f3", _f3, typeof(EquationContainer));
             info.AddValue("_fMagnitude", _fMagnitude, typeof(EquationContainer));
-            //
             info.AddValue("_p1", _p1, typeof(EquationContainer));
             info.AddValue("_p2", _p2, typeof(EquationContainer));
             info.AddValue("_p3", _p3, typeof(EquationContainer));
             info.AddValue("_pMagnitude", _pMagnitude, typeof(EquationContainer));
-            //
             info.AddValue("_distributionName", _distributionName, typeof(string));
         }
     }

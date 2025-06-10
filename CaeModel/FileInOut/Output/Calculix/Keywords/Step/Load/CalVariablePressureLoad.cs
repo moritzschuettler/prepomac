@@ -10,10 +10,10 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
-    internal class CalHydrostaticPressureLoad : CalculixKeyword
+    internal class CalVariablePressureLoad : CalculixKeyword
     {
         // Variables                                                                                                                
-        private HydrostaticPressure _load;
+        private VariablePressure _load;
         private DLoad[] _dLoads;
         private ComplexLoadTypeEnum _complexLoadType;
         private FeSurfaceFaceTypes _surfaceFaceType;
@@ -23,7 +23,7 @@ namespace FileInOut.Output.Calculix
 
 
         // Constructor                                                                                                              
-        public CalHydrostaticPressureLoad(FeModel model, HydrostaticPressure load, ComplexLoadTypeEnum complexLoadType)
+        public CalVariablePressureLoad(FeModel model, VariablePressure load, ComplexLoadTypeEnum complexLoadType)
         {
             _load = load;
             _dLoads = model.GetElementDLoadsFromVariablePressureLoad(_load);

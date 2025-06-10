@@ -21,11 +21,13 @@ namespace PrePoMax
         [CategoryAttribute("Data")]
         [OrderedDisplayName(0, 10, "Name")]
         [DescriptionAttribute("Name of the distribution.")]
+        [Id(1, 1)]
         public abstract string Name { get; set; }
         //
         [CategoryAttribute("Data")]
         [OrderedDisplayName(1, 10, "Type")]
         [DescriptionAttribute("Select the distribution type.")]
+        [Id(2, 1)]
         public abstract DistributionTypeEnum DistributionType { get; set; }
         //
         [Browsable(false)]

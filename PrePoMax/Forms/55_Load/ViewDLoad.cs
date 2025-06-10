@@ -41,6 +41,12 @@ namespace PrePoMax
         [Id(1, 4)]
         public EquationString Phase { get { return _dLoad.PhaseDeg.Equation; } set { _dLoad.PhaseDeg.Equation = value; } }
         //
+        [CategoryAttribute("Distribution")]
+        [OrderedDisplayName(0, 10, "Distribution")]
+        [DescriptionAttribute("Select the distribution for the load.")]
+        [Id(1, 17)]
+        public string DistributionName { get { return _dLoad.DistributionName; } set { _dLoad.DistributionName = value; } }
+        //
         public override string AmplitudeName { get { return _dLoad.AmplitudeName; } set { _dLoad.AmplitudeName = value; } }
         [Browsable(false)]
         public override string CoordinateSystemName
@@ -72,14 +78,22 @@ namespace PrePoMax
         {
             return _dLoad;
         }
-        public void PopulateDropDownLists(string[] surfaceNames, string[] amplitudeNames)
+        public void PopulateDropDownLists(string[] surfaceNames, string[] distributionNames, string[] amplitudeNames)
         {
             Dictionary<RegionTypeEnum, string[]> regionTypeListItemsPairs = new Dictionary<RegionTypeEnum, string[]>();
             regionTypeListItemsPairs.Add(RegionTypeEnum.Selection, new string[] { "Hidden" });
             regionTypeListItemsPairs.Add(RegionTypeEnum.SurfaceName, surfaceNames);
             PopulateDropDownLists(regionTypeListItemsPairs);
             //
+            PopulateDistributionNames(distributionNames);
+            //
             PopulateAmplitudeNames(amplitudeNames);
+        }
+        public void PopulateDistributionNames(string[] distributionNames)
+        {
+            List<string> names = new List<string>() { Load.DefaultDistributionName };
+            names.AddRange(distributionNames);
+            DynamicCustomTypeDescriptor.PopulateProperty(nameof(DistributionName), names.ToArray(), false, 2);
         }
     }
 }

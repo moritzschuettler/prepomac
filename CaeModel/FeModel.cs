@@ -18,6 +18,7 @@ using System.Xml.Linq;
 using FileInOut.Input;
 using CaeResults;
 using System.CodeDom;
+using System.Collections.Concurrent;
 
 namespace CaeModel
 {
@@ -2261,8 +2262,31 @@ namespace CaeModel
             double[][] magnitudeByComponent;
             double[][] nodalForceMagnitudes;
             FeElement element;
-            Dictionary<int, double[]> nodeIdForcePerArea = new Dictionary<int, double[]>();
             Dictionary<int, double[]> nodeIdForce = new Dictionary<int, double[]>();
+            // Collect all node ids - speed up
+            HashSet<int> allNodeIdsHash = new HashSet<int>();
+            foreach (var entry in surface.ElementFaces)
+            {
+                foreach (var elementId in _mesh.ElementSets[entry.Value].Labels)
+                {
+                    element = _mesh.Elements[elementId];
+                    allNodeIdsHash.UnionWith(element.GetNodeIdsFromFaceName(entry.Key));
+                }
+            }
+            // Collect all points - speed up
+            int[] allNodeIds = allNodeIdsHash.ToArray();
+            double[][] points = new double[allNodeIds.Length][];
+            for (int i = 0; i < allNodeIds.Length; i++)
+            {
+                nodeId = allNodeIds[i];
+                points[i] = _mesh.Nodes[nodeId].Coor;
+            }
+            // Get all nodal values
+            double[][] values;
+            distribution.GetMagnitudesAndDistancesForPoints(points, out values, out _);
+            // Get all nodal values as dictionary - speed up
+            Dictionary<int, double[]> nodeIdValues = new Dictionary<int, double[]>();
+            for (int i = 0; i < allNodeIds.Length; i++) nodeIdValues.Add(allNodeIds[i], values[i]);
             //
             foreach (var entry in surface.ElementFaces)
             {
@@ -2290,11 +2314,8 @@ namespace CaeModel
                     for (int i = 0; i < nodeIds.Length; i++)
                     {
                         nodeId = nodeIds[i];
-                        if (!nodeIdForcePerArea.TryGetValue(nodeId, out magnitude))
-                        {
-                            magnitude = distribution.GetMagnitudeForPoint(_mesh.Nodes[nodeId].Coor);
-                            nodeIdForcePerArea.Add(nodeId, magnitude);
-                        }
+                        magnitude = nodeIdValues[nodeId];
+                        //
                         for (int j = 0; j < magnitudeByComponent.Length; j++)
                         {
                             if (magnitudeByComponent[j] == null) magnitudeByComponent[j] = new double[nodeIds.Length];
@@ -2594,7 +2615,7 @@ namespace CaeModel
                         for (int i = 0; i < nodalPressures.Length; i++)
                         {
                             nodeId = expandedNodeIds[i];
-                            pressure = load.GetPressureForPoint(expandedNodes[nodeId].Coor);
+                            pressure = load.GetPressureForPoint(this, expandedNodes[nodeId].Coor);
                             nodalPressures[i] = pressure;
                         }
                         // Force magnitudes without area
@@ -2687,7 +2708,7 @@ namespace CaeModel
                             nodeId = nodeIds[i];
                             if (!nodeIdPressure.TryGetValue(nodeId, out pressure))
                             {
-                                pressure = load.GetPressureForPoint(_mesh.Nodes[nodeId].Coor);
+                                pressure = load.GetPressureForPoint(this, _mesh.Nodes[nodeId].Coor);
                                 nodeIdPressure.Add(nodeId, pressure);
                             }
                             nodalPressures[i] = pressure;
@@ -2825,75 +2846,43 @@ namespace CaeModel
             }
             else throw new NotSupportedException();
         }
-        public DLoad[] GetElementDLoadsFromVariablePressureLoad_(VariablePressure load)
-        {
-            // Surface
-            FeSurface surface = _mesh.Surfaces[load.SurfaceName];
-            if (surface.ElementFaces == null) return null;
-            //
-            double sign;
-            double pressure;
-            double[] faceNormal;
-            FeElement element;
-            DLoad dLoad;
-            List<DLoad> loads = new List<DLoad>();
-            //
-            foreach (var entry in surface.ElementFaces)
-            {
-                foreach (var elementId in _mesh.ElementSets[entry.Value].Labels)
-                {
-                    element = _mesh.Elements[elementId];
-                    //
-                    _mesh.GetElementFaceCenterAndNormal(elementId, entry.Key, out double[] faceCenter, out faceNormal,
-                                                        out bool shellElement);
-                    // Pressure
-                    pressure = load.GetPressureForPoint(faceCenter);
-                    // Pressure loads
-                    if (pressure != 0)
-                    {
-                        dLoad = new DLoad(entry.Key.ToString(), elementId.ToString(), RegionTypeEnum.ElementId,
-                                          pressure, load.TwoD, load.Complex, load.PhaseDeg.Value);
-                        dLoad.AmplitudeName = load.AmplitudeName;
-                        loads.Add(dLoad);
-                    }
-                }
-            }
-            //
-            return loads.ToArray();
-        }
         public DLoad[] GetElementDLoadsFromVariablePressureLoad(VariablePressure load)
         {
             // Surface
             FeSurface surface = _mesh.Surfaces[load.SurfaceName];
             if (surface.ElementFaces == null) return null;
             //
-            int elementCount = 0;
-            foreach (var entry in surface.ElementFaces) elementCount += _mesh.ElementSets[entry.Value].Labels.Length;
-            DLoad[] loads = new DLoad[elementCount];
+            double[][] faceCenters;
+            ConcurrentBag<DLoad> loads = new ConcurrentBag<DLoad>();
             //
-            elementCount = 0;
             foreach (var entry in surface.ElementFaces) // this are faces S1, S2, ...
             {
+                // Parallel
+                faceCenters = new double[_mesh.ElementSets[entry.Value].Labels.Length][];
+                Parallel.For(0, _mesh.ElementSets[entry.Value].Labels.Length, i =>
+                //for (int i = 0; i < _mesh.ElementSets[entry.Value].Labels.Length; i++)
+                {
+                    int elementId = _mesh.ElementSets[entry.Value].Labels[i];
+                    _mesh.GetElementFaceCenterAndNormal(elementId, entry.Key, out faceCenters[i], out _, out _);
+                }
+                );
+                // Pressure
+                double[] pressure = load.GetPressuresForPoints(this, faceCenters);
                 // Parallel
                 Parallel.For(0, _mesh.ElementSets[entry.Value].Labels.Length, i =>
                 //for (int i = 0; i < _mesh.ElementSets[entry.Value].Labels.Length; i++)
                 {
                     int elementId = _mesh.ElementSets[entry.Value].Labels[i];
-                    double[] faceCenter;
-                    _mesh.GetElementFaceCenterAndNormal(elementId, entry.Key, out faceCenter, out _, out _);
-                    // Pressure
-                    double pressure = load.GetPressureForPoint(faceCenter);
                     // Pressure loads
-                    if (pressure != 0)
+                    if (pressure[i] != 0)
                     {
-                        DLoad dLoad = new DLoad("ElementID_" + elementId.ToString(), elementId, entry.Key, pressure, load.TwoD,
-                                                load.Complex, load.PhaseDeg.Value);
+                        DLoad dLoad = new DLoad("ElementID_" + elementId.ToString(), elementId, entry.Key, pressure[i], load.TwoD,
+                                                load.Complex, load.PhaseDeg.Value, true);
                         dLoad.AmplitudeName = load.AmplitudeName;
-                        loads[elementCount + i] = dLoad;
+                        loads.Add(dLoad);
                     }
                 }
                 );
-                elementCount += _mesh.ElementSets[entry.Value].Labels.Length;
             }
             //
             return loads.ToArray();

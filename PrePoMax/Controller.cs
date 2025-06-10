@@ -10209,6 +10209,10 @@ namespace PrePoMax
         {
             return _model.StepCollection.GetAllLoadNames();
         }
+        public string[] GetStepLoadNames(string stepName)
+        {
+            return _model.StepCollection.GetStep(stepName).Loads.Keys.ToArray();
+        }
         public Load GetLoad(string stepName, string loadName)
         {
             return _model.StepCollection.GetStep(stepName).Loads[loadName];
@@ -16037,11 +16041,9 @@ namespace PrePoMax
                 if (!((load.Active && load.Visible && load.Valid && !load.Internal) || layer == vtkRendererLayer.Selection))
                     return;
                 //
-                double[][] coor = null;
                 string prefixName = stepName + Globals.NameSeparator + "LOAD" + Globals.NameSeparator + load.Name;
                 vtkRendererLayer symbolLayer = layer == vtkRendererLayer.Selection ? layer : vtkRendererLayer.Overlay;
                 //
-                int count = 0;
                 if (load is CLoad cLoad)
                     DrawCLoad(prefixName, cLoad, color, symbolSize, nodeSymbolSize, layer, onlyVisible);
                 else if (load is MomentLoad mLoad)
@@ -16186,11 +16188,9 @@ namespace PrePoMax
                                int nodeSymbolSize, vtkRendererLayer layer, bool onlyVisible)
         {
             int count = 0;
-            double[][] coor;
             vtkRendererLayer symbolLayer = layer == vtkRendererLayer.Selection ? layer : vtkRendererLayer.Overlay;
             //
             if (!_model.Mesh.Surfaces.ContainsKey(stLoad.SurfaceName)) return;
-            coor = new double[][] { _model.Mesh.GetSurfaceCG(stLoad.SurfaceName) };
             //
             count += DrawSurface(prefixName, stLoad.SurfaceName, color, layer, true, false, onlyVisible);
             if (layer == vtkRendererLayer.Selection)
@@ -16198,14 +16198,7 @@ namespace PrePoMax
             //
             if (count > 0)
             {
-                if (stLoad.DistributionName == Load.DefaultDistributionName)
-                {
-                    DrawConstantSTLoadSymbols(prefixName, stLoad, coor, color, symbolSize, symbolLayer);
-                }
-                else
-                {
-                    DrawDistributedSTLoadSymbols(prefixName, stLoad, color, symbolSize, symbolLayer, onlyVisible);
-                }
+                DrawSTLoadSymbols(prefixName, stLoad, color, symbolSize, symbolLayer, onlyVisible);
             }
         }
         public void DrawImportedSTLoad(string prefixName, ImportedSTLoad istLoad, Color color, int symbolSize,
@@ -16587,7 +16580,7 @@ namespace PrePoMax
                 _form.AddOrientedDoubleArrowsActor(data, symbolSize);
             }
         }
-        public void DrawDLoadSymbols(string prefixName, DLoad dLoad, Color color, int symbolSize,
+        public void DrawDLoadSymbols1(string prefixName, DLoad dLoad, Color color, int symbolSize,
                                      vtkRendererLayer layer, bool onlyVisible)
         {
             FeSurface surface = _model.Mesh.Surfaces[dLoad.RegionName];
@@ -16652,6 +16645,94 @@ namespace PrePoMax
                 _form.AddOrientedArrowsActor(data, symbolSize, translate);
             }
         }
+        public void DrawDLoadSymbols(string prefixName, DLoad dLoad, Color color, int symbolSize,
+                                     vtkRendererLayer layer, bool onlyVisible)
+        {
+            Distribution distribution;
+            if (dLoad.DistributionName != Load.DefaultDistributionName &&
+                _model.Distributions.TryGetValue(dLoad.DistributionName, out distribution)
+                && !distribution.IsInitialized())
+                distribution.ImportDistribution();
+            //
+            FeSurface surface = _model.Mesh.Surfaces[dLoad.RegionName];
+            //
+            List<int> allElementIds = new List<int>();
+            List<FeFaceName> allElementFaceNames = new List<FeFaceName>();
+            List<double[]> allCoor = new List<double[]>();
+            double[] faceCenter;
+            FeElementSet elementSet;
+            HashSet<int> visibleElementIds;
+            List<bool> elementVisibilities = new List<bool>();
+            foreach (var entry in surface.ElementFaces)     // entry:  S3; elementSetName
+            {
+                elementSet = _model.Mesh.ElementSets[entry.Value];
+                visibleElementIds = _model.Mesh.GetVisibleElementIds(entry.Value);
+                foreach (var elementId in elementSet.Labels)
+                {
+                    allElementIds.Add(elementId);
+                    allElementFaceNames.Add(entry.Key);
+                    _model.Mesh.GetElementFaceCenter(elementId, entry.Key, out faceCenter);
+                    allCoor.Add(faceCenter);
+                    if (onlyVisible) elementVisibilities.Add(visibleElementIds.Contains(elementId));
+                }
+            }
+            // Compute max pressure on all coordinates
+            double p;
+            double maxPressure = 0;
+            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6, null);
+            for (int i = 0; i < distributedElementIds.Length; i++)
+            {
+                p = dLoad.GetPressureForPoint(_model, allCoor[distributedElementIds[i]]);
+                if (Math.Abs(p) > maxPressure) maxPressure = Math.Abs(p);
+            }
+            // Reduce all coordinates to only visible
+            if (onlyVisible)
+                distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6, elementVisibilities.ToArray());
+            // Front shell face which is a S2 POS face works in the same way as a solid face
+            // Back shell face which is a S1 NEG must be inverted
+            int id;
+            bool shellElement;
+            double[] faceNormal;
+            double[] pressures = new double[distributedElementIds.Length];
+            double[][] distributedCoor = new double[distributedElementIds.Length][];
+            double[][] distributedLoadNormals = new double[distributedElementIds.Length][];
+            for (int i = 0; i < distributedElementIds.Length; i++)
+            {
+                id = distributedElementIds[i];
+                _model.Mesh.GetElementFaceCenterAndNormal(allElementIds[id], allElementFaceNames[id], out faceCenter,
+                                                          out faceNormal, out shellElement);
+                // Pressure
+                pressures[i] = dLoad.GetPressureForPoint(_model, faceCenter);
+                //
+                if ((dLoad.TwoD && pressures[i] < 0) ||    // only 2d edges can be selected, 3d edges cannot be selected
+                    (!dLoad.TwoD && (pressures[i] < 0) != shellElement))   // if both are equal no need to reverse the direction
+                {
+                    faceNormal[0] *= -1;
+                    faceNormal[1] *= -1;
+                    faceNormal[2] *= -1;
+                }
+                //
+                distributedCoor[i] = faceCenter;
+                distributedLoadNormals[i] = faceNormal;
+            }
+            // Arrows
+            vtkMaxActorData data;
+            for (int i = 0; i < distributedElementIds.Length; i++)
+            {
+                data = new vtkMaxActorData();
+                data.Name = prefixName + "_" + i.ToString();
+                data.Color = color;
+                data.Layer = layer;
+                data.Geometry.Nodes.Coor = new double[][] { distributedCoor[i] };
+                data.Geometry.Nodes.Normals = new double[][] { distributedLoadNormals[i] };
+                data.SectionViewPossible = false;
+                ApplyLighting(data);
+                bool translate = pressures[i] > 0;
+                p = Math.Abs(pressures[i]) / maxPressure;
+                if (p < 0.01) p = 0.01;
+                _form.AddOrientedArrowsActor(data, symbolSize, translate, p);
+            }
+        }
         public void DrawHydrostaticPressureLoadSymbols(string prefixName, HydrostaticPressure hpLoad, Color color, int symbolSize,
                                                        vtkRendererLayer layer, bool onlyVisible)
         {
@@ -16683,7 +16764,7 @@ namespace PrePoMax
             int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6, null);
             for (int i = 0; i < distributedElementIds.Length; i++)
             {
-                p = hpLoad.GetPressureForPoint(allCoor[distributedElementIds[i]]);
+                p = hpLoad.GetPressureForPoint(_model, allCoor[distributedElementIds[i]]);
                 if (Math.Abs(p) > maxPressure) maxPressure = Math.Abs(p);
             }
             // Reduce all coordinates to only visible
@@ -16703,7 +16784,7 @@ namespace PrePoMax
                 _model.Mesh.GetElementFaceCenterAndNormal(allElementIds[id], allElementFaceNames[id], out faceCenter,
                                                           out faceNormal, out shellElement);
                 // Pressure
-                pressures[i] = hpLoad.GetPressureForPoint(faceCenter);
+                pressures[i] = hpLoad.GetPressureForPoint(_model, faceCenter);
                 //
                 if ((hpLoad.TwoD && pressures[i] < 0) ||    // only 2d edges can be selected, 3d edges cannot be selected
                     (!hpLoad.TwoD && (pressures[i] < 0) != shellElement))   // if both are equal no need to reverse the direction
@@ -16768,7 +16849,7 @@ namespace PrePoMax
             int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6, null);
             for (int i = 0; i < distributedElementIds.Length; i++)
             {
-                p = ipLoad.GetPressureForPoint(allCoor[distributedElementIds[i]]);
+                p = ipLoad.GetPressureForPoint(_model, allCoor[distributedElementIds[i]]);
                 if (Math.Abs(p) > maxPressure) maxPressure = Math.Abs(p);
             }
             // Reduce all coordinates to only visible
@@ -16788,7 +16869,7 @@ namespace PrePoMax
                 _model.Mesh.GetElementFaceCenterAndNormal(allElementIds[id], allElementFaceNames[id], out faceCenter,
                                                           out faceNormal, out shellElement);
                 // Pressure
-                pressures[i] = ipLoad.GetPressureForPoint(faceCenter);
+                pressures[i] = ipLoad.GetPressureForPoint(_model, faceCenter);
                 //
                 if ((ipLoad.TwoD && pressures[i] < 0) ||    // only 2d edges can be selected, 3d edges cannot be selected
                     (!ipLoad.TwoD && (pressures[i] < 0) != shellElement))   // if both are equal no need to reverse the direction
@@ -16819,60 +16900,14 @@ namespace PrePoMax
                 _form.AddOrientedArrowsActor(data, symbolSize, translate, p);
             }
         }
-        public void DrawConstantSTLoadSymbols(string prefixName, STLoad stLoad, double[][] symbolCoor, Color color,
-                                              int symbolSize, vtkRendererLayer layer)
-        {
-            CoordinateSystem coordinateSystem;
-            _model.Mesh.CoordinateSystems.TryGetValue(stLoad.CoordinateSystemName, out coordinateSystem);
-            if (coordinateSystem != null && coordinateSystem.Type == CoordinateSystemTypeEnum.Cylindrical)
-            {
-                double[] faceCenter;
-                FeElementSet elementSet;
-                List<double[]> allCoor = new List<double[]>();
-                FeSurface surface = _model.Mesh.Surfaces[stLoad.SurfaceName];
-                //
-                foreach (var entry in surface.ElementFaces)     // entry:  S3; elementSetName
-                {
-                    elementSet = _model.Mesh.ElementSets[entry.Value];
-                    foreach (var elementId in elementSet.Labels)
-                    {
-                        _model.Mesh.GetElementFaceCenter(elementId, entry.Key, out faceCenter);
-                        allCoor.Add(faceCenter);
-                    }
-                }
-                symbolCoor = allCoor.ToArray();
-                int[] distributedCoorIds = GetSpatiallyEquallyDistributedCoor(symbolCoor, 6, null);
-                double[][] reducedCoor = new double[distributedCoorIds.Length][];
-                for (int i = 0; i < distributedCoorIds.Length; i++) reducedCoor[i] = symbolCoor[distributedCoorIds[i]];
-                symbolCoor = reducedCoor;
-            }
-            // Arrows
-            double[] normal;
-            double[][] allLoadNormals = new double[symbolCoor.Length][];
-            for (int i = 0; i < symbolCoor.Length; i++)
-            {
-                normal = stLoad.GetDirection(coordinateSystem, symbolCoor[i]);
-                allLoadNormals[i] = normal;
-            }
-            //
-            if (symbolCoor.Length > 0)
-            {
-                vtkMaxActorData data = new vtkMaxActorData();
-                data.Name = prefixName;
-                data.Color = color;
-                data.Layer = layer;
-                data.Geometry.Nodes.Coor = symbolCoor;
-                data.Geometry.Nodes.Normals = allLoadNormals;
-                ApplyLighting(data);
-                _form.AddOrientedArrowsActor(data, symbolSize);
-            }
-        }
-        public void DrawDistributedSTLoadSymbols(string prefixName, STLoad stLoad, Color color, int symbolSize,
-                                                  vtkRendererLayer layer, bool onlyVisible)
+        public void DrawSTLoadSymbols(string prefixName, STLoad stLoad, Color color, int symbolSize,
+                                      vtkRendererLayer layer, bool onlyVisible)
         {
             Distribution distribution;
-            if (!_model.Distributions.TryGetValue(stLoad.DistributionName, out distribution)) return;
-            if (!distribution.IsInitialized()) distribution.ImportLoad();
+            if (stLoad.DistributionName != Load.DefaultDistributionName && 
+                _model.Distributions.TryGetValue(stLoad.DistributionName, out distribution)
+                && !distribution.IsInitialized())
+                distribution.ImportDistribution();
             //
             FeSurface surface = _model.Mesh.Surfaces[stLoad.SurfaceName];
             //

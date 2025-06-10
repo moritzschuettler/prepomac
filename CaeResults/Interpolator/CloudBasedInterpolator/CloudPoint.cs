@@ -21,5 +21,10 @@ namespace CaeResults
             Coor = null;
             Values = null;
         }
+        public CloudPoint(CloudPoint cloudPoint)
+        {
+            Coor = cloudPoint.Coor.ToArray();
+            Values = cloudPoint.Values.ToArray();
+        }
     }
 }
