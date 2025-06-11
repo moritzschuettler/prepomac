@@ -122,10 +122,6 @@ namespace CaeModel
             }
         }
         //
-        public override bool IsInitialized()
-        {
-            return true;
-        }
         public override bool ImportDistribution()
         { 
             return true;

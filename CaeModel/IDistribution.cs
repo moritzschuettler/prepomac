@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace CaeModel
 {
-    public interface ILoadWithDistribution
+    public interface IDistribution
     {
         string DistributionName { get; set; }
     }

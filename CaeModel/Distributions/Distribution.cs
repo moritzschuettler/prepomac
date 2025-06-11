@@ -60,7 +60,6 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
-        public abstract bool IsInitialized();
         public abstract bool ImportDistribution();
         public abstract void GetMagnitudeAndDistanceForPoint(double[] point, out double[] magnitude, out double[] distance);
         public abstract void GetMagnitudesAndDistancesForPoints(double[][] points, out double[][] magnitudes,

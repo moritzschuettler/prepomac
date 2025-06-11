@@ -236,11 +236,17 @@ namespace PrePoMax.Forms
             string[] nodeSetNames = _controller.GetUserNodeSetNames();
             string[] surfaceNames = _controller.GetUserSurfaceNames();
             string[] referencePointNames = _controller.GetModelReferencePointNames();
+            string[] distributionNames = _controller.GetDistributionNames();
+            //
+            if (nodeSetNames == null) nodeSetNames = new string[0];
+            if (surfaceNames == null) surfaceNames = new string[0];
+            if (referencePointNames == null) referencePointNames = new string[0];
+            if (distributionNames == null) distributionNames = new string[0];
             //
             if (_initialConditionNames == null)
                 throw new CaeException("The initial condition names must be defined first.");
             // Populate list view
-            PopulateListOfInitialConditions(nodeSetNames, surfaceNames, referencePointNames);
+            PopulateListOfInitialConditions(nodeSetNames, surfaceNames, referencePointNames, distributionNames);
             // Create new initial condition
             if (_initialConditionToEditName == null)
             {
@@ -270,6 +276,12 @@ namespace PrePoMax.Forms
                 // Convert the initial condition to internal to hide it
                 InitialConditionInternal(true);
                 //
+                // Check for deleted distributions
+                if (InitialCondition is IDistribution icd)
+                {
+                    if (icd.DistributionName != null && icd.DistributionName != CaeModel.Load.DefaultDistributionName)
+                        CheckMissingValueRef(ref distributionNames, icd.DistributionName, a => { icd.DistributionName = a; });
+                }
                 int selectedId;
                 if (_viewInitialCondition is ViewInitialTemperature vit)
                 {
@@ -282,7 +294,7 @@ namespace PrePoMax.Forms
                         CheckMissingValueRef(ref surfaceNames, vit.SurfaceName, s => { vit.SurfaceName = s; });
                     else throw new NotSupportedException();
                     //
-                    vit.PopulateDropDownLists(nodeSetNames, surfaceNames);
+                    vit.PopulateDropDownLists(nodeSetNames, surfaceNames, distributionNames);
                 }
                 else if (_viewInitialCondition is ViewInitialTranslationalVelocity vitv)
                 {
@@ -330,7 +342,8 @@ namespace PrePoMax.Forms
 
 
         // Methods                                                                                                                  
-        private void PopulateListOfInitialConditions(string[] nodeSetNames, string[] surfaceNames, string[] referencePointNames)
+        private void PopulateListOfInitialConditions(string[] nodeSetNames, string[] surfaceNames, string[] referencePointNames,
+                                                     string[] distributionNames)
         {
             ListViewItem item;
             System.Drawing.Color color = _controller.Settings.Pre.InitialConditionSymbolColor;
@@ -338,9 +351,9 @@ namespace PrePoMax.Forms
             // Initial temperature
             string name = "Temperature";
             item = new ListViewItem(name);
-            InitialTemperature it = new InitialTemperature(GetInitialConditionName(name), "", RegionTypeEnum.Selection);
+            InitialTemperature it = new InitialTemperature(GetInitialConditionName(name), "", RegionTypeEnum.Selection, 0);
             ViewInitialTemperature vit = new ViewInitialTemperature(it);
-            vit.PopulateDropDownLists(nodeSetNames, surfaceNames);
+            vit.PopulateDropDownLists(nodeSetNames, surfaceNames, distributionNames);
             vit.Color = color;
             item.Tag = vit;
             lvTypes.Items.Add(item);

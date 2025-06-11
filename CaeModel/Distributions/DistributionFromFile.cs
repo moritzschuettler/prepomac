@@ -78,10 +78,6 @@ namespace CaeModel
             //
             return true;
         }
-        public override bool IsInitialized()
-        {
-            return _interpolator != null;
-        }
         public override bool ImportDistribution()
         {
             bool updateData = false;
@@ -146,6 +142,8 @@ namespace CaeModel
         {
             try
             {
+                ImportDistribution();
+                //
                 double r = _interpolatorRadius.Value;
                 _interpolator.InterpolateAt(point, _interpolatorType, r, out distance, out magnitude);
             }
@@ -159,6 +157,8 @@ namespace CaeModel
         {
             try
             {
+                ImportDistribution();
+                //
                 double r = _interpolatorRadius.Value;
                 magnitudes = new double[points.Length][];
                 distances = new double[points.Length][];

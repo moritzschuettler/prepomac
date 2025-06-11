@@ -166,7 +166,7 @@
     <Compile Include="Steps\Damping\Damping.cs" />
     <Compile Include="Steps\Damping\ModalDamping.cs" />
     <Compile Include="Steps\ComplexFrequencyStep.cs" />
-    <Compile Include="Steps\Loads\ILoadWithDistribution.cs" />
+    <Compile Include="IDistribution.cs" />
     <Compile Include="Steps\Loads\_Compatibility\ImportedSTLoad.cs" />
     <Compile Include="Steps\ModalDynamicsStep.cs" />
     <Compile Include="Steps\SteadyStateDynamicsStep.cs" />

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.ComponentModel;
 using CaeGlobals;
 using DynamicTypeDescriptor;
+using CaeModel;
 
 namespace PrePoMax
 {
@@ -13,7 +14,7 @@ namespace PrePoMax
     public class ViewInitialTemperature : ViewInitialCondition
     {
         // Variables                                                                                                                
-        private CaeModel.InitialTemperature _initialTemperature;
+        private InitialTemperature _initialTemperature;
 
 
         // Properties                                                                                                               
@@ -41,6 +42,16 @@ namespace PrePoMax
             get { return _initialTemperature.Temperature.Equation; }
             set { _initialTemperature.Temperature.Equation = value; }
         }
+        //
+        [CategoryAttribute("Distribution")]
+        [OrderedDisplayName(0, 10, "Distribution")]
+        [DescriptionAttribute("Select the distribution for the initial condition.")]
+        [Id(1, 17)]
+        public string DistributionName
+        {
+            get { return _initialTemperature.DistributionName; }
+            set { _initialTemperature.DistributionName = value; }
+        }
         public override System.Drawing.Color Color
         {
             get { return _initialTemperature.Color; }
@@ -49,7 +60,7 @@ namespace PrePoMax
 
 
         // Constructors                                                                                                             
-        public ViewInitialTemperature(CaeModel.InitialTemperature initialTemperature)
+        public ViewInitialTemperature(InitialTemperature initialTemperature)
         {
             // The order is important
             _initialTemperature = initialTemperature;
@@ -65,17 +76,25 @@ namespace PrePoMax
 
 
         // Methods                                                                                                                  
-        public override CaeModel.InitialCondition GetBase()
+        public override InitialCondition GetBase()
         {
             return _initialTemperature;
         }
-        public void PopulateDropDownLists(string[] nodeSetNames, string[] surfaceNames)
+        public void PopulateDropDownLists(string[] nodeSetNames, string[] surfaceNames, string[] distributionNames)
         {
             Dictionary<RegionTypeEnum, string[]> regionTypeListItemsPairs = new Dictionary<RegionTypeEnum, string[]>();
             regionTypeListItemsPairs.Add(RegionTypeEnum.Selection, new string[] { "Hidden" });
             regionTypeListItemsPairs.Add(RegionTypeEnum.NodeSetName, nodeSetNames);
             regionTypeListItemsPairs.Add(RegionTypeEnum.SurfaceName, surfaceNames);
             base.PopulateDropDownLists(regionTypeListItemsPairs);
+            //
+            PopulateDistributionNames(distributionNames);
+        }
+        public void PopulateDistributionNames(string[] distributionNames)
+        {
+            List<string> names = new List<string>() { Load.DefaultDistributionName };
+            names.AddRange(distributionNames);
+            DynamicCustomTypeDescriptor.PopulateProperty(nameof(DistributionName), names.ToArray(), false, 2);
         }
     }
 

@@ -12,7 +12,7 @@ using System.Drawing;
 namespace CaeModel
 {
     [Serializable]
-    public class DLoad : VariablePressure, ILoadWithDistribution, IPreviewable, ISerializable
+    public class DLoad : VariablePressure, IDistribution, IPreviewable, ISerializable
     {
         // Variables                                                                                                                
         private int _elementId;                     //ISerializable
@@ -208,10 +208,10 @@ namespace CaeModel
         {
             distances = new double[points.Length][];
             values = new double[points.Length];
+            double magnitude = _magnitude.Value;
             //
             if (_distributionName == DefaultDistributionName)
             {
-                double magnitude = _magnitude.Value;
                 for (int i = 0; i < points.Length; i++)
                 {
                     distances[i] = null;
@@ -220,7 +220,6 @@ namespace CaeModel
             }
             else
             {
-                double magnitude = _magnitude.Value;
                 double[][] magnitudes;
                 Distribution distribution = model.Distributions[_distributionName];
                 //

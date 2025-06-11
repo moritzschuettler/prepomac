@@ -142,10 +142,6 @@ namespace CaeModel
             //
             return true;
         }
-        public bool IsInitialized()
-        {
-            return _interpolator != null;
-        }
         public void ImportLoad()
         {
             bool updateData = false;
@@ -195,8 +191,9 @@ namespace CaeModel
         }
         public FeResults GetPreview(FeModel model, string resultName, UnitSystem unitSystem)
         {
-            FeMesh targetMesh = model.Mesh;
             ImportLoad();
+            //
+            FeMesh targetMesh = model.Mesh;
             //
             PartExchangeData allData = new PartExchangeData();
             targetMesh.GetAllNodesAndCells(out allData.Nodes.Ids, out allData.Nodes.Coor, out allData.Cells.Ids,
@@ -287,6 +284,8 @@ namespace CaeModel
         }
         public void GetForcePerAreaAndDistanceForPoint(double[] point, out double[] distance, out double[] values)
         {
+            ImportLoad();
+            //
             _interpolator.InterpolateAt(point, _interpolatorType, _interpolatorRadius.Value,
                                         out distance, out values);
             for (int i = 0; i < values.Length; i++) values[i] *= _magnitudeFactor.Value;
@@ -294,6 +293,8 @@ namespace CaeModel
         }
         public double[] GetForcePerAreaForPoint(double[] point)
         {
+            ImportLoad();
+            //
             _interpolator.InterpolateAt(point, _interpolatorType, _interpolatorRadius.Value, 
                                         out double[] distance, out double[] values);
             for (int i = 0; i < values.Length; i++) values[i] *= _magnitudeFactor.Value;

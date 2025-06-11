@@ -1025,6 +1025,7 @@ namespace FileInOut.Output
                 !(keyword is CalElement) &&
                 !(keyword is CalNodeSet) &&
                 !(keyword is CalElementSet) &&
+                !(keyword is CalInitialTemperature it && it.CanHideData) &&
                 !(keyword is CalVariablePressureLoad) &&
                 !(keyword is CalImportedPressureLoad) &&
                 !(keyword is CalSTLoad) &&

@@ -15,15 +15,18 @@ namespace FileInOut.Output.Calculix
         // Variables                                                                                                                
         private string _regionName;
         private InitialTemperature _initialTemperature;
+        private InitialTemperature[] _initialTemperatures;
 
 
         // Properties                                                                                                               
+        public bool CanHideData { get { return _initialTemperatures != null; } }
 
 
         // Constructor                                                                                                              
         public CalInitialTemperature(FeModel model, InitialTemperature initialTemperature)
         {
             _initialTemperature = initialTemperature;
+            _initialTemperatures = model.GetNodalTemperaturesFromVariableInitialTemperature(_initialTemperature);
             //
             _regionName = "";
             if (_initialTemperature.RegionType == RegionTypeEnum.NodeSetName)
@@ -45,8 +48,20 @@ namespace FileInOut.Output.Calculix
         public override string GetDataString()
         {
             StringBuilder sb = new StringBuilder();
-            sb.AppendFormat("{0}, {1}{2}", _regionName, _initialTemperature.Temperature.Value.ToCalculiX16String(),
-                            Environment.NewLine);
+            if (_initialTemperatures == null)
+            {
+                sb.AppendFormat("{0}, {1}{2}", _regionName, _initialTemperature.Temperature.Value.ToCalculiX16String(),
+                                Environment.NewLine);
+            }
+            else
+            {
+                InitialTemperature it;
+                for (int i = 0; i < _initialTemperatures.Length; i++)
+                {
+                    it = _initialTemperatures[i];
+                    sb.AppendFormat("{0}, {1}{2}", it.NodeId, it.Temperature.Value.ToCalculiX16String(), Environment.NewLine);
+                }
+            }
             return sb.ToString();
         }
     }

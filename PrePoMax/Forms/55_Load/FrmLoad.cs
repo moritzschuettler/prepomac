@@ -571,10 +571,10 @@ namespace PrePoMax.Forms
                 // Convert the load to internal to hide it
                 LoadInternal(true);
                 // Check for deleted distributions
-                if (FELoad is ILoadWithDistribution lwd)
+                if (FELoad is IDistribution ld)
                 {
-                    if (lwd.DistributionName != null && lwd.DistributionName != CaeModel.Load.DefaultDistributionName)
-                        CheckMissingValueRef(ref distributionNames, lwd.DistributionName, a => { lwd.DistributionName = a; });
+                    if (ld.DistributionName != null && ld.DistributionName != CaeModel.Load.DefaultDistributionName)
+                        CheckMissingValueRef(ref distributionNames, ld.DistributionName, a => { ld.DistributionName = a; });
                 }
                 // Check for deleted amplitudes
                 if (_viewLoad.AmplitudeName != null && _viewLoad.AmplitudeName != CaeModel.Load.DefaultAmplitudeName)

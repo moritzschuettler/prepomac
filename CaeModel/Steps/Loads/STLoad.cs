@@ -12,7 +12,7 @@ using System.IO;
 namespace CaeModel
 {
     [Serializable]
-    public class STLoad : Load, ILoadWithDistribution, IPreviewable, ISerializable
+    public class STLoad : Load, IDistribution, IPreviewable, ISerializable
     {
         // Variables                                                                                                                
         private string _surfaceName;            //ISerializable

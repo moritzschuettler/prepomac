@@ -18,24 +18,14 @@ using System.Runtime.Serialization;
 using vtkControl;
 using PrePoMax.Forms;
 using PrePoMax.Commands;
-using System.IO.Ports;
 using FileInOut.Output;
-using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.ComTypes;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 using UserControls;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolTip;
 using System.Xml.Linq;
 using CommandLine;
 using System.Security.Policy;
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Runtime.Serialization.Formatters.Binary;
-using System.Reflection.Emit;
 using System.Collections;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
-using static CaeGlobals.Geometry2;
-using System.Runtime.Remoting.Metadata.W3cXsd2001;
 
 namespace PrePoMax
 {
@@ -16648,12 +16638,6 @@ namespace PrePoMax
         public void DrawDLoadSymbols(string prefixName, DLoad dLoad, Color color, int symbolSize,
                                      vtkRendererLayer layer, bool onlyVisible)
         {
-            Distribution distribution;
-            if (dLoad.DistributionName != Load.DefaultDistributionName &&
-                _model.Distributions.TryGetValue(dLoad.DistributionName, out distribution)
-                && !distribution.IsInitialized())
-                distribution.ImportDistribution();
-            //
             FeSurface surface = _model.Mesh.Surfaces[dLoad.RegionName];
             //
             List<int> allElementIds = new List<int>();
@@ -16903,12 +16887,6 @@ namespace PrePoMax
         public void DrawSTLoadSymbols(string prefixName, STLoad stLoad, Color color, int symbolSize,
                                       vtkRendererLayer layer, bool onlyVisible)
         {
-            Distribution distribution;
-            if (stLoad.DistributionName != Load.DefaultDistributionName && 
-                _model.Distributions.TryGetValue(stLoad.DistributionName, out distribution)
-                && !distribution.IsInitialized())
-                distribution.ImportDistribution();
-            //
             FeSurface surface = _model.Mesh.Surfaces[stLoad.SurfaceName];
             //
             List<int> allElementIds = new List<int>();
@@ -16989,8 +16967,6 @@ namespace PrePoMax
         public void DrawImportedSTLoadSymbols(string prefixName, ImportedSTLoad istLoad, Color color, int symbolSize,
                                               vtkRendererLayer layer, bool onlyVisible)
         {
-            if (!istLoad.IsInitialized()) istLoad.ImportLoad();
-            //
             FeSurface surface = _model.Mesh.Surfaces[istLoad.SurfaceName];
             //
             List<int> allElementIds = new List<int>();

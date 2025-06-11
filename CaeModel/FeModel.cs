@@ -398,7 +398,7 @@ namespace CaeModel
                         }
                     }
                     // Distribution
-                    if (load is ILoadWithDistribution lwd)
+                    if (load is IDistribution lwd)
                     {
                         if (lwd.DistributionName != Load.DefaultDistributionName &&
                             !_distributions.ContainsValidKey(lwd.DistributionName)) valid = false;
@@ -2944,6 +2944,45 @@ namespace CaeModel
             }
             //
             return translationalVelocities;
+        }
+        public InitialTemperature[] GetNodalTemperaturesFromVariableInitialTemperature(InitialTemperature initialTemperature)
+        {
+            if (initialTemperature.DistributionName == InitialCondition.DefaultDistributionName) return null;
+            // Node set
+            FeNodeSet nodeSet;
+            if (initialTemperature.RegionType == RegionTypeEnum.NodeSetName)
+            {
+                nodeSet = _mesh.NodeSets[initialTemperature.RegionName];
+            }
+            else if (initialTemperature.RegionType == RegionTypeEnum.SurfaceName)
+            {
+                FeSurface surface = _mesh.Surfaces[initialTemperature.RegionName];
+                nodeSet = _mesh.NodeSets[surface.NodeSetName];
+            }
+            else throw new NotSupportedException();
+            //
+            double[][] coor = new double[nodeSet.Labels.Length][];
+            
+            // Parallel
+            Parallel.For(0, nodeSet.Labels.Length, i =>
+            {
+                int nodeId = nodeSet.Labels[i];
+                coor[i] = _mesh.Nodes[nodeId].Coor;
+            });
+            // Temperature
+            double[] temperatures;
+            initialTemperature.GetTemperaturesAndDistancesForPoints(this, coor, out _, out temperatures);
+            // Parallel
+            ConcurrentBag<InitialTemperature> initialTemperatures = new ConcurrentBag<InitialTemperature>();
+            Parallel.For(0, nodeSet.Labels.Length, i =>
+            {
+                int nodeId = nodeSet.Labels[i];
+                // Temperature loads
+                InitialTemperature it = new InitialTemperature("NodeID_" + nodeId.ToString(), nodeId, temperatures[i], true);
+                initialTemperatures.Add(it);
+            });
+            //
+            return initialTemperatures.ToArray();
         }
         // Parameters                                                                               
         public void UpdateNCalcParameters()
