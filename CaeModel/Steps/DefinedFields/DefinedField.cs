@@ -19,6 +19,7 @@ namespace CaeModel
         private RegionTypeEnum _regionType;         //ISerializable
         private int[] _creationIds;                 //ISerializable
         private Selection _creationData;            //ISerializable
+        protected string _amplitudeName;            //ISerializable
         private Color _color;                       //ISerializable
 
 
@@ -27,6 +28,19 @@ namespace CaeModel
         public RegionTypeEnum RegionType { get { return _regionType; } set { _regionType = value; } }
         public int[] CreationIds { get { return _creationIds; } set { _creationIds = value; } }
         public Selection CreationData { get { return _creationData; } set { _creationData = value; } }
+        public string AmplitudeName
+        {
+            get
+            {
+                if (_amplitudeName == null) return Amplitude.DefaultAmplitudeName;
+                else return _amplitudeName;
+            }
+            set
+            {
+                _amplitudeName = value;
+                if (_amplitudeName == Amplitude.DefaultAmplitudeName) _amplitudeName = null;
+            }
+        }
         public Color Color
         {
             get
@@ -48,6 +62,7 @@ namespace CaeModel
             _regionType = regionType;
             _creationIds = null;
             _creationData = null;
+            _amplitudeName = null;
             _color = Color.Tomato;
         }
         public DefinedField(SerializationInfo info, StreamingContext context)
@@ -65,6 +80,8 @@ namespace CaeModel
                         _creationIds = (int[])entry.Value; break;
                     case "_creationData":
                         _creationData = (Selection)entry.Value; break;
+                    case "_amplitudeName":
+                        _amplitudeName = (string)entry.Value; break;
                     case "_color":
                         _color = (Color)entry.Value; break;
                     default:
@@ -98,6 +115,7 @@ namespace CaeModel
             info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
             info.AddValue("_creationIds", _creationIds, typeof(int[]));
             info.AddValue("_creationData", _creationData, typeof(Selection));
+            info.AddValue("_amplitudeName", _amplitudeName, typeof(string));
             info.AddValue("_color", _color, typeof(Color));
         }
     }

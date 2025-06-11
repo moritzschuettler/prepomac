@@ -51,13 +51,13 @@ namespace CaeModel
         {
             get
             {
-                if (_emissivityAmplitudeName == null) return DefaultAmplitudeName;
+                if (_emissivityAmplitudeName == null) return Amplitude.DefaultAmplitudeName;
                 else return _emissivityAmplitudeName;
             }
             set
             {
                 _emissivityAmplitudeName = value;
-                if (_emissivityAmplitudeName == DefaultAmplitudeName) _emissivityAmplitudeName = null;
+                if (_emissivityAmplitudeName == Amplitude.DefaultAmplitudeName) _emissivityAmplitudeName = null;
             }
         }
 

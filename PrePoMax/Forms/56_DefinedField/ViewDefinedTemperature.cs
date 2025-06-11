@@ -28,7 +28,7 @@ namespace PrePoMax
         public DefinedTemperatureTypeEnum DefinedTemperatureType
         {
             get { return _definedTemperature.Type; }
-            set { _definedTemperature.Type = value; UpdateFieldView(); }
+            set { _definedTemperature.Type = value; UpdateVisibilities(); }
         }
         //
         [CategoryAttribute("Region")]
@@ -84,11 +84,26 @@ namespace PrePoMax
             set { _definedTemperature.StepNumber = value; }
         }
         //
+        [CategoryAttribute("Distribution")]
+        [OrderedDisplayName(0, 10, "Distribution")]
+        [DescriptionAttribute("Select the distribution for the initial condition.")]
+        [Id(1, 17)]
+        public string DistributionName
+        {
+            get { return _definedTemperature.DistributionName; }
+            set { _definedTemperature.DistributionName = value; }
+        }
+        //
+        public override string AmplitudeName
+        {
+            get { return _definedTemperature.AmplitudeName; }
+            set { _definedTemperature.AmplitudeName = value; }
+        }
         public override Color Color { get { return _definedTemperature.Color; } set { _definedTemperature.Color = value; } }
 
 
         // Constructors                                                                                                             
-        public ViewDefinedTemperature(CaeModel.DefinedTemperature definedTemperature)
+        public ViewDefinedTemperature(DefinedTemperature definedTemperature)
         {
             // The order is important
             _definedTemperature = definedTemperature;
@@ -106,11 +121,12 @@ namespace PrePoMax
 
 
         // Methods                                                                                                                  
-        public override CaeModel.DefinedField GetBase()
+        public override DefinedField GetBase()
         {
             return _definedTemperature;
         }
-        public void PopulateDropDownLists(string[] nodeSetNames, string[] surfaceNames)
+        public void PopulateDropDownLists(string[] nodeSetNames, string[] surfaceNames, string[] distributionNames,
+                                          string[] amplitudeNames)
         {
             Dictionary<RegionTypeEnum, string[]> regionTypeListItemsPairs = new Dictionary<RegionTypeEnum, string[]>();
             regionTypeListItemsPairs.Add(RegionTypeEnum.Selection, new string[] { "Hidden" });
@@ -118,11 +134,21 @@ namespace PrePoMax
             regionTypeListItemsPairs.Add(RegionTypeEnum.SurfaceName, surfaceNames);
             PopulateDropDownLists(regionTypeListItemsPairs);
             //
-            UpdateFieldView();
+            PopulateDistributionNames(distributionNames);
+            //
+            PopulateAmplitudeNames(amplitudeNames);
+            //
+            UpdateVisibilities();
         }
-        private void UpdateFieldView()
+        public void PopulateDistributionNames(string[] distributionNames)
         {
-            bool byValue = _definedTemperature.Type == CaeModel.DefinedTemperatureTypeEnum.ByValue;
+            List<string> names = new List<string>() { Distribution.DefaultDistributionName };
+            names.AddRange(distributionNames);
+            DynamicCustomTypeDescriptor.PopulateProperty(nameof(DistributionName), names.ToArray(), false, 2);
+        }
+        private void UpdateVisibilities()
+        {
+            bool byValue = _definedTemperature.Type == DefinedTemperatureTypeEnum.ByValue;
             //
             DynamicCustomTypeDescriptor.GetProperty(nameof(Temperature)).SetIsBrowsable(byValue);
             DynamicCustomTypeDescriptor.GetProperty(nameof(FileName)).SetIsBrowsable(!byValue);
@@ -138,10 +164,9 @@ namespace PrePoMax
                 DynamicCustomTypeDescriptor.GetProperty(nameof(NodeSetName)).SetIsBrowsable(byValue);
                 DynamicCustomTypeDescriptor.GetProperty(nameof(SurfaceName)).SetIsBrowsable(byValue);
             }
+            //
+            DynamicCustomTypeDescriptor.GetProperty(nameof(DistributionName)).SetIsBrowsable(byValue);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(AmplitudeName)).SetIsBrowsable(byValue);
         }
     }
-
-
-
-   
 }

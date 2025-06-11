@@ -13,17 +13,20 @@ namespace FileInOut.Output.Calculix
     internal class CalTemperatureBC : CalculixKeyword
     {
         // Variables                                                                                                                
-        private TemperatureBC _temperatureBC;
         private string _nodeSetNameOfSurface;
+        private TemperatureBC _temperatureBC;
+        private TemperatureBC[] _temperatureBCs;
 
 
         // Properties                                                                                                               
+        public bool CanHideData { get { return _temperatureBCs != null; } }
 
 
         // Constructor                                                                                                              
-        public CalTemperatureBC(TemperatureBC temperatureBC, string nodeSetNameOfSurface)
+        public CalTemperatureBC(FeModel model, TemperatureBC temperatureBC, string nodeSetNameOfSurface)
         {
             _temperatureBC = temperatureBC;
+            _temperatureBCs = model.GetNodalTemperaturesFromVariableTemperatureBC(temperatureBC);
             _nodeSetNameOfSurface = nodeSetNameOfSurface;
         }
 
@@ -34,7 +37,7 @@ namespace FileInOut.Output.Calculix
             StringBuilder sb = new StringBuilder();
             sb.AppendLine("** Name: " + _temperatureBC.Name);
             string amplitude = "";
-            if (_temperatureBC.AmplitudeName != BoundaryCondition.DefaultAmplitudeName)
+            if (_temperatureBC.AmplitudeName != Amplitude.DefaultAmplitudeName)
                 amplitude = ", Amplitude=" + _temperatureBC.AmplitudeName;
             //
             sb.AppendFormat("*Boundary{0}{1}", amplitude, Environment.NewLine);
@@ -47,21 +50,34 @@ namespace FileInOut.Output.Calculix
             // *Boundary
             // 6975, 11, 11, 100        node id, start DOF, end DOF, value
             // Node set
-            string regionName;
-            if (_temperatureBC.RegionType == RegionTypeEnum.NodeSetName)
+            if (_temperatureBCs == null)
             {
-                regionName = _temperatureBC.RegionName;
+                string regionName;
+                if (_temperatureBC.RegionType == RegionTypeEnum.NodeSetName)
+                {
+                    regionName = _temperatureBC.RegionName;
+                }
+                // Surface
+                else if (_temperatureBC.RegionType == RegionTypeEnum.SurfaceName)
+                {
+                    if (_nodeSetNameOfSurface == null) throw new ArgumentException();
+                    regionName = _nodeSetNameOfSurface;
+                }
+                else throw new NotSupportedException();
+                //
+                sb.AppendFormat("{0}, 11, 11, {1}{2}", regionName, _temperatureBC.Temperature.Value.ToCalculiX16String(),
+                                Environment.NewLine);
             }
-            // Surface
-            else if (_temperatureBC.RegionType == RegionTypeEnum.SurfaceName)
+            else
             {
-                if (_nodeSetNameOfSurface == null) throw new ArgumentException();
-                regionName = _nodeSetNameOfSurface;
+                TemperatureBC tbc;
+                for (int i = 0; i < _temperatureBCs.Length; i++)
+                {
+                    tbc = _temperatureBCs[i];
+                    sb.AppendFormat("{0}, 11, 11, {1}{2}", tbc.NodeId, tbc.Temperature.Value.ToCalculiX16String(),
+                                    Environment.NewLine);
+                }
             }
-            else throw new NotSupportedException();
-            //
-            sb.AppendFormat("{0}, 11, 11, {1}{2}", regionName, _temperatureBC.Temperature.Value.ToCalculiX16String(),
-                            Environment.NewLine);
             //
             return sb.ToString();
         }

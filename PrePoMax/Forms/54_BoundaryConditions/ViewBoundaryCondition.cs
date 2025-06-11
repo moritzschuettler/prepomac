@@ -58,20 +58,20 @@ namespace PrePoMax
         [CategoryAttribute("Time/Frequency")]
         [OrderedDisplayName(0, 10, "Amplitude")]
         [DescriptionAttribute("Select the amplitude for the boundary condition.")]
-        [Id(1, 8)]
+        [Id(1, 18)]
         public abstract string AmplitudeName { get; set; }
         //
         [CategoryAttribute("Orientation")]
         [OrderedDisplayName(0, 10, "Coordinate system")]
         [DescriptionAttribute("Select the coordinate system for the boundary condition.")]
-        [Id(1, 9)]
+        [Id(1, 19)]
         public abstract string CoordinateSystemName { get; set; }
         //
         [Category("Appearance")]
         [DisplayName("Color")]
         [Description("Select boundary condition color.")]
         [Editor(typeof(UserControls.ColorEditorEx), typeof(UITypeEditor))]
-        [Id(1, 10)]
+        [Id(1, 20)]
         public abstract System.Drawing.Color Color { get; set; }
 
 
@@ -92,13 +92,13 @@ namespace PrePoMax
         }
         public void PopulateAmplitudeNames(string[] amplitudeNames)
         {
-            List<string> names = new List<string>() { CaeModel.BoundaryCondition.DefaultAmplitudeName };
+            List<string> names = new List<string>() { CaeModel.Amplitude.DefaultAmplitudeName };
             names.AddRange(amplitudeNames);
             DynamicCustomTypeDescriptor.PopulateProperty(nameof(AmplitudeName), names.ToArray(), false, 2);
         }
         public void PopulateCoordinateSystemNames(string[] coordinateSystemNames)
         {
-            List<string> names = new List<string>() { CaeModel.BoundaryCondition.DefaultCoordinateSystemName };
+            List<string> names = new List<string>() { CaeMesh.CoordinateSystem.DefaultCoordinateSystemName };
             names.AddRange(coordinateSystemNames);
             DynamicCustomTypeDescriptor.PopulateProperty(nameof(CoordinateSystemName), names.ToArray(), false, 2);
         }

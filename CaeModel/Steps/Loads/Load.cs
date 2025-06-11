@@ -22,9 +22,6 @@ namespace CaeModel
         protected bool _complex;                                    //ISerializable
         protected EquationContainer _phaseDeg;                      //ISerializable
         protected Color _color;                                     //ISerializable
-        public const string DefaultDistributionName = "Constant";
-        public const string DefaultAmplitudeName = "Default";
-        public const string DefaultCoordinateSystemName = "Global";
 
 
         // Properties                                                                                                               
@@ -37,26 +34,26 @@ namespace CaeModel
         {
             get
             {
-                if (_amplitudeName == null) return DefaultAmplitudeName;
+                if (_amplitudeName == null) return Amplitude.DefaultAmplitudeName;
                 else return _amplitudeName;
             }
             set
             {
                 _amplitudeName = value;
-                if (_amplitudeName == DefaultAmplitudeName) _amplitudeName = null;
+                if (_amplitudeName == Amplitude.DefaultAmplitudeName) _amplitudeName = null;
             }
         }
         public string CoordinateSystemName
         {
             get
             {
-                if (_coordinateSystemName == null) return DefaultCoordinateSystemName;
+                if (_coordinateSystemName == null) return CoordinateSystem.DefaultCoordinateSystemName;
                 else return _coordinateSystemName;
             }
             set
             {
                 _coordinateSystemName = value;
-                if (_coordinateSystemName == DefaultCoordinateSystemName) _coordinateSystemName = null;
+                if (_coordinateSystemName == CoordinateSystem.DefaultCoordinateSystemName) _coordinateSystemName = null;
             }
         }
         public bool Complex { get { return _complex; } set { _complex = value; } }

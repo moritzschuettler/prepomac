@@ -31,10 +31,10 @@ namespace FileInOut.Output.Calculix
             StringBuilder sb = new StringBuilder();
             sb.AppendLine("** Name: " + _radiationHeatTransfer.Name);
             string sinkAmplitude = "";
-            if (_radiationHeatTransfer.AmplitudeName != Load.DefaultAmplitudeName)
+            if (_radiationHeatTransfer.AmplitudeName != Amplitude.DefaultAmplitudeName)
                 sinkAmplitude = ", Amplitude=" + _radiationHeatTransfer.AmplitudeName;
             string emissivityAmplitude = "";
-            if (_radiationHeatTransfer.EmissivityAmplitudeName != Load.DefaultAmplitudeName)
+            if (_radiationHeatTransfer.EmissivityAmplitudeName != Amplitude.DefaultAmplitudeName)
                 emissivityAmplitude = ", Radiation amplitude=" + _radiationHeatTransfer.EmissivityAmplitudeName;
             string cavity = "";
             if (_radiationHeatTransfer.CavityRadiation) cavity = "Cavity=" + _radiationHeatTransfer.CavityName;

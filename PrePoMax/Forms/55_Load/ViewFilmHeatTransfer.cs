@@ -117,7 +117,7 @@ namespace PrePoMax
         }
         public void PopulateCoefficientAmplitudeNames(string[] amplitudeNames)
         {
-            List<string> names = new List<string>() { Load.DefaultAmplitudeName };
+            List<string> names = new List<string>() { Amplitude.DefaultAmplitudeName };
             names.AddRange(amplitudeNames);
             DynamicCustomTypeDescriptor.PopulateProperty(nameof(CoefficientAmplitudeName), names.ToArray(), false, 2);
         }

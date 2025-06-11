@@ -905,7 +905,6 @@
             treeNode29.SelectedImageKey = "Steps.ico";
             treeNode29.Text = "Steps";
             treeNode29.ToolTipText = "Steps";
-            treeNode30.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(204)))), ((int)(((byte)(228)))), ((int)(((byte)(247)))));
             treeNode30.ImageKey = "Dots.ico";
             treeNode30.Name = "Model";
             treeNode30.Text = "Model";

@@ -21,7 +21,6 @@ namespace CaeModel
         private Selection _creationData;        //ISerializable
         protected bool _twoD;                   //ISerializable
         protected Color _color;                 //ISerializable
-        public const string DefaultDistributionName = "Constant";
 
 
         // Properties                                                                                                               

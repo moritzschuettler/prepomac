@@ -291,7 +291,7 @@ namespace CaeModel
             foreach (var entry in _sections)
             {
                 section = entry.Value;
-                //
+                // Region
                 valid = IsSectionRegionValid(section);
                 //
                 if (section is SolidSection || section is ShellSection || section is MembraneSection)
@@ -309,7 +309,7 @@ namespace CaeModel
             foreach (var entry in _constraints)
             {
                 constraint = entry.Value;
-                //
+                // Region
                 valid = IsConstraintRegionValid(constraint);
                 // Check equations
                 valid &= constraint.TryCheckEquations();
@@ -334,8 +334,14 @@ namespace CaeModel
             foreach (var entry in _initialConditions)
             {
                 initialCondition = entry.Value;
-                //
+                // Region
                 valid = IsInitialConditionRegionValid(initialCondition);
+                // Distribution
+                if (initialCondition is IDistribution icd)
+                {
+                    if (icd.DistributionName != Distribution.DefaultDistributionName &&
+                        !_distributions.ContainsValidKey(icd.DistributionName)) valid = false;
+                }
                 // Check equations
                 valid &= initialCondition.TryCheckEquations();
                 //
@@ -354,7 +360,7 @@ namespace CaeModel
                 foreach (var hoEntry in step.HistoryOutputs)
                 {
                     historyOutput = hoEntry.Value;
-                    //
+                    // Region
                     valid = IsHistoryOutputRegionValid(historyOutput);
                     //
                     SetItemValidity(step.Name, historyOutput, valid, items);
@@ -366,11 +372,17 @@ namespace CaeModel
                     bc = bcEntry.Value;
                     // Region
                     valid = IsBoundaryConditionRegionValid(bc);
+                    // Distribution
+                    if (bc is IDistribution bcd)
+                    {
+                        if (bcd.DistributionName != Distribution.DefaultDistributionName &&
+                            !_distributions.ContainsValidKey(bcd.DistributionName)) valid = false;
+                    }
                     // Amplitude
-                    if (bc.AmplitudeName != BoundaryCondition.DefaultAmplitudeName &&
+                    if (bc.AmplitudeName != Amplitude.DefaultAmplitudeName &&
                         !_amplitudes.ContainsValidKey(bc.AmplitudeName)) valid = false;
                     // Coordinate system
-                    if (bc.CoordinateSystemName != BoundaryCondition.DefaultCoordinateSystemName &&
+                    if (bc.CoordinateSystemName != CaeMesh.CoordinateSystem.DefaultCoordinateSystemName &&
                         !_mesh.CoordinateSystems.ContainsValidKey(bc.CoordinateSystemName)) valid = false;
                     // Check equations
                     valid &= bc.TryCheckEquations();
@@ -400,14 +412,14 @@ namespace CaeModel
                     // Distribution
                     if (load is IDistribution lwd)
                     {
-                        if (lwd.DistributionName != Load.DefaultDistributionName &&
+                        if (lwd.DistributionName != Distribution.DefaultDistributionName &&
                             !_distributions.ContainsValidKey(lwd.DistributionName)) valid = false;
                     }
                     // Amplitude
-                    if (load.AmplitudeName != Load.DefaultAmplitudeName && 
+                    if (load.AmplitudeName != Amplitude.DefaultAmplitudeName && 
                         !_amplitudes.ContainsValidKey(load.AmplitudeName)) valid = false;
                     // Coordinate system
-                    if (load.CoordinateSystemName != Load.DefaultCoordinateSystemName &&
+                    if (load.CoordinateSystemName != CoordinateSystem.DefaultCoordinateSystemName &&
                         !_mesh.CoordinateSystems.ContainsValidKey(load.CoordinateSystemName)) valid = false;
                     // Check equations
                     valid &= load.TryCheckEquations();
@@ -419,8 +431,14 @@ namespace CaeModel
                 foreach (var fieldEntry in step.DefinedFields)
                 {
                     definedField = fieldEntry.Value;
-                    //
+                    // Region
                     valid = IsDefinedFieldRegionValid(definedField);
+                    // Distribution
+                    if (definedField is IDistribution dfd)
+                    {
+                        if (dfd.DistributionName != Distribution.DefaultDistributionName &&
+                            !_distributions.ContainsValidKey(dfd.DistributionName)) valid = false;
+                    }
                     // Check equations
                     valid &= definedField.TryCheckEquations();
                     //
@@ -2153,6 +2171,85 @@ namespace CaeModel
             //
             return springs.ToArray();
         }
+        // Initial conditions                                                                       
+        public InitialTemperature[] GetNodalTemperaturesFromVariableInitialTemperature(InitialTemperature initialTemperature)
+        {
+            if (initialTemperature.DistributionName == Distribution.DefaultDistributionName) return null;
+            // Node set
+            FeNodeSet nodeSet;
+            if (initialTemperature.RegionType == RegionTypeEnum.NodeSetName)
+            {
+                nodeSet = _mesh.NodeSets[initialTemperature.RegionName];
+            }
+            else if (initialTemperature.RegionType == RegionTypeEnum.SurfaceName)
+            {
+                FeSurface surface = _mesh.Surfaces[initialTemperature.RegionName];
+                nodeSet = _mesh.NodeSets[surface.NodeSetName];
+            }
+            else throw new NotSupportedException();
+            //
+            double[][] coor = new double[nodeSet.Labels.Length][];
+            // Parallel
+            Parallel.For(0, nodeSet.Labels.Length, i =>
+            {
+                int nodeId = nodeSet.Labels[i];
+                coor[i] = _mesh.Nodes[nodeId].Coor;
+            });
+            // Temperature
+            double[] temperatures;
+            initialTemperature.GetTemperaturesAndDistancesForPoints(this, coor, out _, out temperatures);
+            // Parallel
+            ConcurrentBag<InitialTemperature> initialTemperatures = new ConcurrentBag<InitialTemperature>();
+            Parallel.For(0, nodeSet.Labels.Length, i =>
+            {
+                int nodeId = nodeSet.Labels[i];
+                // Temperature conditions
+                InitialTemperature it = new InitialTemperature("NodeID_" + nodeId.ToString(), nodeId, temperatures[i], true);
+                initialTemperatures.Add(it);
+            });
+            //
+            return initialTemperatures.ToArray();
+        }
+        // Boundary conditions                                                                      
+        public TemperatureBC[] GetNodalTemperaturesFromVariableTemperatureBC(TemperatureBC temperatureBC)
+        {
+            if (temperatureBC.DistributionName == Distribution.DefaultDistributionName) return null;
+            // Node set
+            FeNodeSet nodeSet;
+            if (temperatureBC.RegionType == RegionTypeEnum.NodeSetName)
+            {
+                nodeSet = _mesh.NodeSets[temperatureBC.RegionName];
+            }
+            else if (temperatureBC.RegionType == RegionTypeEnum.SurfaceName)
+            {
+                FeSurface surface = _mesh.Surfaces[temperatureBC.RegionName];
+                nodeSet = _mesh.NodeSets[surface.NodeSetName];
+            }
+            else throw new NotSupportedException();
+            //
+            double[][] coor = new double[nodeSet.Labels.Length][];
+            // Parallel
+            Parallel.For(0, nodeSet.Labels.Length, i =>
+            {
+                int nodeId = nodeSet.Labels[i];
+                coor[i] = _mesh.Nodes[nodeId].Coor;
+            });
+            // Temperature
+            double[] temperatures;
+            temperatureBC.GetTemperaturesAndDistancesForPoints(this, coor, out _, out temperatures);
+            // Parallel
+            ConcurrentBag<TemperatureBC> temperatureBCs = new ConcurrentBag<TemperatureBC>();
+            Parallel.For(0, nodeSet.Labels.Length, i =>
+            {
+                int nodeId = nodeSet.Labels[i];
+                // Temperature bcs
+                TemperatureBC tbc = new TemperatureBC("NodeID_" + nodeId.ToString(), nodeId, temperatures[i], true);
+                tbc.AmplitudeName = temperatureBC.AmplitudeName;
+                temperatureBCs.Add(tbc);
+            });
+            //
+            return temperatureBCs.ToArray();
+        }
         // Loads                                                                                    
         public double GetAreaForSTLoad(STLoad load)
         {
@@ -2196,8 +2293,10 @@ namespace CaeModel
         }
         public CLoad[] GetNodalCLoadsFromSurfaceTraction(STLoad load)
         {
-            if (load.DistributionName == Load.DefaultDistributionName) return GetNodalCLoadsFromConstantSurfaceTraction(load);
-            else return GetNodalCLoadsFromSurfaceTractionByDistribution(load);
+            if (load.DistributionName == Distribution.DefaultDistributionName)
+                return GetNodalCLoadsFromConstantSurfaceTraction(load);
+            else
+                return GetNodalCLoadsFromSurfaceTractionByDistribution(load);
         }
         public CLoad[] GetNodalCLoadsFromConstantSurfaceTraction(STLoad load)
         {
@@ -2945,24 +3044,25 @@ namespace CaeModel
             //
             return translationalVelocities;
         }
-        public InitialTemperature[] GetNodalTemperaturesFromVariableInitialTemperature(InitialTemperature initialTemperature)
+        // Defined fields                                                                           
+        public DefinedTemperature[] GetNodalTemperaturesFromVariableDefinedTemperature(DefinedTemperature definedTemperature)
         {
-            if (initialTemperature.DistributionName == InitialCondition.DefaultDistributionName) return null;
+            if (definedTemperature.Type == DefinedTemperatureTypeEnum.FromFile) return null;
+            if (definedTemperature.DistributionName == Distribution.DefaultDistributionName) return null;
             // Node set
             FeNodeSet nodeSet;
-            if (initialTemperature.RegionType == RegionTypeEnum.NodeSetName)
+            if (definedTemperature.RegionType == RegionTypeEnum.NodeSetName)
             {
-                nodeSet = _mesh.NodeSets[initialTemperature.RegionName];
+                nodeSet = _mesh.NodeSets[definedTemperature.RegionName];
             }
-            else if (initialTemperature.RegionType == RegionTypeEnum.SurfaceName)
+            else if (definedTemperature.RegionType == RegionTypeEnum.SurfaceName)
             {
-                FeSurface surface = _mesh.Surfaces[initialTemperature.RegionName];
+                FeSurface surface = _mesh.Surfaces[definedTemperature.RegionName];
                 nodeSet = _mesh.NodeSets[surface.NodeSetName];
             }
             else throw new NotSupportedException();
             //
             double[][] coor = new double[nodeSet.Labels.Length][];
-            
             // Parallel
             Parallel.For(0, nodeSet.Labels.Length, i =>
             {
@@ -2971,18 +3071,19 @@ namespace CaeModel
             });
             // Temperature
             double[] temperatures;
-            initialTemperature.GetTemperaturesAndDistancesForPoints(this, coor, out _, out temperatures);
+            definedTemperature.GetTemperaturesAndDistancesForPoints(this, coor, out _, out temperatures);
             // Parallel
-            ConcurrentBag<InitialTemperature> initialTemperatures = new ConcurrentBag<InitialTemperature>();
+            ConcurrentBag<DefinedTemperature> definedTemperatures = new ConcurrentBag<DefinedTemperature>();
             Parallel.For(0, nodeSet.Labels.Length, i =>
             {
                 int nodeId = nodeSet.Labels[i];
-                // Temperature loads
-                InitialTemperature it = new InitialTemperature("NodeID_" + nodeId.ToString(), nodeId, temperatures[i], true);
-                initialTemperatures.Add(it);
+                // Temperature definitions
+                DefinedTemperature dt = new DefinedTemperature("NodeID_" + nodeId.ToString(), nodeId, temperatures[i], true);
+                dt.AmplitudeName = definedTemperature.AmplitudeName;
+                definedTemperatures.Add(dt);
             });
             //
-            return initialTemperatures.ToArray();
+            return definedTemperatures.ToArray();
         }
         // Parameters                                                                               
         public void UpdateNCalcParameters()

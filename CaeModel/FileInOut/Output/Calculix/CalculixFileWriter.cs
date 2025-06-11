@@ -1026,9 +1026,11 @@ namespace FileInOut.Output
                 !(keyword is CalNodeSet) &&
                 !(keyword is CalElementSet) &&
                 !(keyword is CalInitialTemperature it && it.CanHideData) &&
+                !(keyword is CalTemperatureBC tbc && tbc.CanHideData) &&
                 !(keyword is CalVariablePressureLoad) &&
                 !(keyword is CalImportedPressureLoad) &&
                 !(keyword is CalSTLoad) &&
+                !(keyword is CalDefinedTemperature dt && dt.CanHideData) &&
                 !(keyword is CalAdditional))
             {
                 sb.Append(keyword.GetDataString());
@@ -1882,7 +1884,7 @@ namespace FileInOut.Output
                     string surfaceNodeSetName = null;
                     if (tmp.RegionType == RegionTypeEnum.SurfaceName)
                         surfaceNodeSetName = model.Mesh.Surfaces[tmp.RegionName].NodeSetName;
-                    CalTemperatureBC calTemperatureBC = new CalTemperatureBC(tmp, surfaceNodeSetName);
+                    CalTemperatureBC calTemperatureBC = new CalTemperatureBC(model, tmp, surfaceNodeSetName);
                     parent.AddKeyword(calTemperatureBC);
                 }
                 else throw new NotImplementedException();
@@ -1941,7 +1943,7 @@ namespace FileInOut.Output
                 }
                 else if (load is DLoad dl)
                 {
-                    if (dl.DistributionName == Load.DefaultDistributionName)
+                    if (dl.DistributionName == Distribution.DefaultDistributionName)
                     {
                         CalDLoad dLoad = new CalDLoad(dl, model.Mesh.Surfaces[dl.RegionName], complexLoadType);
                         parent.AddKeyword(dLoad);

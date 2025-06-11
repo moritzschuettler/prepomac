@@ -37,7 +37,7 @@ namespace FileInOut.Output.Calculix
             StringBuilder sb = new StringBuilder();
             sb.AppendLine("** Name: " + _load.Name);
             string amplitude = "";
-            if (_load.AmplitudeName != Load.DefaultAmplitudeName) amplitude = ", Amplitude=" + _load.AmplitudeName;
+            if (_load.AmplitudeName != Amplitude.DefaultAmplitudeName) amplitude = ", Amplitude=" + _load.AmplitudeName;
             //
             string loadCase = GetComplexLoadCase(_complexLoadType);
             //

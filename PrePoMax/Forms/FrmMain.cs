@@ -1110,6 +1110,7 @@ namespace PrePoMax
             else if (_controller.CurrentView == ViewGeometryModelResults.Model)
             {
                 ApplyActionOnItems<InitialCondition>(items, PreviewInitialConditions);
+                ApplyActionOnItemsInStep<BoundaryCondition>(items, stepNames, PreviewBoundaryCondition);
                 ApplyActionOnItemsInStep<Load>(items, stepNames, PreviewLoad);
                 ApplyActionOnItemsInStep<DefinedField>(items, stepNames, PreviewDefinedField);
             }
@@ -6191,6 +6192,18 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
+        private void tsmiPreviewBC_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectOneEntity("Steps", _controller.GetAllSteps(), SelectAndPreviewBoundaryCondition);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+
         private void tsmiHideBC_Click(object sender, EventArgs e)
         {
             try
@@ -6239,6 +6252,11 @@ namespace PrePoMax
         {
             SelectOneEntityInStep("Boundary conditions", _controller.GetStepBoundaryConditions(stepName), stepName,
                                   PropagateBoundaryCondition);
+        }
+        private void SelectAndPreviewBoundaryCondition(string stepName)
+        {
+            SelectOneEntityInStep("Boundary conditions", _controller.GetStepBoundaryConditions(stepName),
+                                  stepName, PreviewBoundaryCondition);
         }
         private void SelectAndHideBoundaryConditions(string stepName)
         {
@@ -6294,6 +6312,25 @@ namespace PrePoMax
                                                      + "?") == DialogResult.Cancel) propagate = false;
             }
             if (propagate) _controller.PropagateBoundaryConditionCommand(stepName, boundaryConditionName);
+        }
+        private void PreviewBoundaryCondition(string stepName, string boundaryConditionName)
+        {
+            _controller.PreviewBoundaryCondition(stepName, boundaryConditionName);
+            //
+            if (_controller.CurrentResult != null && _controller.CurrentResult.Mesh != null)
+            {
+                SetResultNames();
+                // Reset the previous step and increment
+                SetAllStepAndIncrementIds();
+                // Set last increment
+                SetDefaultStepAndIncrementIds();
+                // Show the selection in the results tree
+                SelectFirstComponentOfFirstFieldOutput();
+            }
+            // Set the representation which also calls Draw
+            _controller.ViewResultsType = ViewResultsTypeEnum.ColorContours;  // Draw
+            //
+            SetMenuAndToolStripVisibility();
         }
         private void HideBoundaryConditions(string stepName, string[] boundaryConditionNames)
         {

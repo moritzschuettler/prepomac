@@ -195,21 +195,9 @@ namespace CaeModel
             if (value < 0) throw new Exception("Value of the force load magnitude must be non-negative.");
             else return value;
         }
-        public double[] GetDirection(CoordinateSystem coordinateSystem, double[] coor = null)
+        public double[] GetDirection()
         {
-            double f1 = _f1.Value;
-            double f2 = _f2.Value;
-            double f3 = _f3.Value;
-            //
-            if (coordinateSystem == null) return new double[] { f1, f2, f3 };
-            else
-            {
-                Vec3D directionX = new Vec3D(GetDirectionX(coordinateSystem, coor));
-                Vec3D directionY = new Vec3D(GetDirectionY(coordinateSystem, coor));
-                Vec3D directionZ = new Vec3D(GetDirectionZ(coordinateSystem, coor));
-                Vec3D direction = f1 * directionX + f2 * directionY + f3 * directionZ;
-                return direction.Coor;
-            }
+            return new double[] { _f1.Value, _f2.Value, _f3.Value };
         }
         // IContainsEquations
         public override void CheckEquations()

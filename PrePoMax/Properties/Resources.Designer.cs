@@ -543,6 +543,16 @@ namespace PrePoMax.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        public static System.Drawing.Bitmap Preview_boundary_condition {
+            get {
+                object obj = ResourceManager.GetObject("Preview_boundary_condition", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         public static System.Drawing.Bitmap Preview_defined_field {
             get {
                 object obj = ResourceManager.GetObject("Preview_defined_field", resourceCulture);

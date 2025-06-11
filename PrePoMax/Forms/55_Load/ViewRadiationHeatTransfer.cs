@@ -149,7 +149,7 @@ namespace PrePoMax
         }
         public void PopulateEmissivityAmplitudeNames(string[] amplitudeNames)
         {
-            List<string> names = new List<string>() { Load.DefaultAmplitudeName };
+            List<string> names = new List<string>() { Amplitude.DefaultAmplitudeName };
             names.AddRange(amplitudeNames);
             DynamicCustomTypeDescriptor.PopulateProperty(nameof(EmissivityAmplitudeName), names.ToArray(), false, 2);
         }

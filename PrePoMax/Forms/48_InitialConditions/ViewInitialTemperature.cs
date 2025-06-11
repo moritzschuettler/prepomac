@@ -92,13 +92,9 @@ namespace PrePoMax
         }
         public void PopulateDistributionNames(string[] distributionNames)
         {
-            List<string> names = new List<string>() { Load.DefaultDistributionName };
+            List<string> names = new List<string>() { Distribution.DefaultDistributionName };
             names.AddRange(distributionNames);
             DynamicCustomTypeDescriptor.PopulateProperty(nameof(DistributionName), names.ToArray(), false, 2);
         }
     }
-
-
-
-   
 }

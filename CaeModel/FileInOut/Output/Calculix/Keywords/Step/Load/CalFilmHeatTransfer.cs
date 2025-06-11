@@ -31,10 +31,10 @@ namespace FileInOut.Output.Calculix
             StringBuilder sb = new StringBuilder();
             sb.AppendLine("** Name: " + _filmHeatTransfer.Name);
             string sinkAmplitude = "";
-            if (_filmHeatTransfer.AmplitudeName != Load.DefaultAmplitudeName)
+            if (_filmHeatTransfer.AmplitudeName != Amplitude.DefaultAmplitudeName)
                 sinkAmplitude = ", Amplitude=" + _filmHeatTransfer.AmplitudeName;
             string coefficientAmplitudeName = "";
-            if (_filmHeatTransfer.CoefficientAmplitudeName != Load.DefaultAmplitudeName)
+            if (_filmHeatTransfer.CoefficientAmplitudeName != Amplitude.DefaultAmplitudeName)
                 coefficientAmplitudeName = ", Film amplitude=" + _filmHeatTransfer.CoefficientAmplitudeName;
             //
             sb.AppendFormat("*Film{0}{1}{2}", sinkAmplitude, coefficientAmplitudeName, Environment.NewLine);

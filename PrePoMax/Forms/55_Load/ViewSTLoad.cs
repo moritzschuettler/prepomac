@@ -164,13 +164,13 @@ namespace PrePoMax
         }
         public void PopulateDistributionNames(string[] distributionNames)
         {
-            List<string> names = new List<string>() { Load.DefaultDistributionName };
+            List<string> names = new List<string>() { Distribution.DefaultDistributionName };
             names.AddRange(distributionNames);
             DynamicCustomTypeDescriptor.PopulateProperty(nameof(DistributionName), names.ToArray(), false, 2);
         }
         public void UpdateVisibility()
         {
-            bool visible = _stLoad.DistributionName == Load.DefaultDistributionName;
+            bool visible = _stLoad.DistributionName == Distribution.DefaultDistributionName;
             DynamicCustomTypeDescriptor.GetProperty(nameof(F1)).SetIsBrowsable(visible);
             DynamicCustomTypeDescriptor.GetProperty(nameof(F2)).SetIsBrowsable(visible);
             DynamicCustomTypeDescriptor.GetProperty(nameof(F3)).SetIsBrowsable(visible);

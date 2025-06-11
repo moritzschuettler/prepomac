@@ -41,7 +41,7 @@ namespace FileInOut.Output.Calculix
             string fixedBc = "";
             if (_displacementRotation.GetFixedDirections().Length > 0) fixedBc = ", Fixed";
             string amplitude = "";
-            if (_displacementRotation.AmplitudeName != BoundaryCondition.DefaultAmplitudeName)
+            if (_displacementRotation.AmplitudeName != Amplitude.DefaultAmplitudeName)
                 amplitude = ", Amplitude=" + _displacementRotation.AmplitudeName;
             //
             string loadCase = GetComplexLoadCase(_complexLoadType);

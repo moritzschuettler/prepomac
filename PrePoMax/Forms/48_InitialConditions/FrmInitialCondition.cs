@@ -279,7 +279,7 @@ namespace PrePoMax.Forms
                 // Check for deleted distributions
                 if (InitialCondition is IDistribution icd)
                 {
-                    if (icd.DistributionName != null && icd.DistributionName != CaeModel.Load.DefaultDistributionName)
+                    if (icd.DistributionName != null && icd.DistributionName != Distribution.DefaultDistributionName)
                         CheckMissingValueRef(ref distributionNames, icd.DistributionName, a => { icd.DistributionName = a; });
                 }
                 int selectedId;

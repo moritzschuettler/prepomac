@@ -22,6 +22,7 @@ namespace CaeModel
     {
         // Variables                                                                                                                
         protected DistributionTypeEnum _distributionType;           //ISerializable
+        public const string DefaultDistributionName = "Constant";
 
 
         // Properties                                                                                                               

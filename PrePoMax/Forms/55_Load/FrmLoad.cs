@@ -400,7 +400,7 @@ namespace PrePoMax.Forms
             else if (FELoad is STLoad stl)
             {
                 // Reset unused magnitude to 0
-                if (stl.DistributionName == CaeModel.Load.DefaultDistributionName)
+                if (stl.DistributionName == CaeModel.Distribution.DefaultDistributionName)
                     stl.PMagnitude.SetEquationFromValue(0, true);
                 else
                     stl.FMagnitude.SetEquationFromValue(0, true);
@@ -573,14 +573,14 @@ namespace PrePoMax.Forms
                 // Check for deleted distributions
                 if (FELoad is IDistribution ld)
                 {
-                    if (ld.DistributionName != null && ld.DistributionName != CaeModel.Load.DefaultDistributionName)
+                    if (ld.DistributionName != null && ld.DistributionName != Distribution.DefaultDistributionName)
                         CheckMissingValueRef(ref distributionNames, ld.DistributionName, a => { ld.DistributionName = a; });
                 }
                 // Check for deleted amplitudes
-                if (_viewLoad.AmplitudeName != null && _viewLoad.AmplitudeName != CaeModel.Load.DefaultAmplitudeName)
+                if (_viewLoad.AmplitudeName != null && _viewLoad.AmplitudeName != Amplitude.DefaultAmplitudeName)
                     CheckMissingValueRef(ref amplitudeNames, _viewLoad.AmplitudeName, a => { _viewLoad.AmplitudeName = a; });
                 // Check for deleted coordinate systems
-                if (_viewLoad.CoordinateSystemName != CaeModel.Load.DefaultCoordinateSystemName)
+                if (_viewLoad.CoordinateSystemName != CoordinateSystem.DefaultCoordinateSystemName)
                     CheckMissingValueRef(ref coordinateSystemNames, _viewLoad.CoordinateSystemName,
                                          s => { _viewLoad.CoordinateSystemName = s; });
                 //

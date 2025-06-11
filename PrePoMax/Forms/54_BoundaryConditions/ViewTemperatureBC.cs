@@ -7,6 +7,7 @@ using System.ComponentModel;
 using CaeGlobals;
 using DynamicTypeDescriptor;
 using System.Drawing;
+using CaeModel;
 
 namespace PrePoMax
 {
@@ -38,6 +39,16 @@ namespace PrePoMax
             set { _temperatureBC.Temperature.Equation = value; }
         }
         //
+        [CategoryAttribute("Distribution")]
+        [OrderedDisplayName(0, 10, "Distribution")]
+        [DescriptionAttribute("Select the distribution for the initial condition.")]
+        [Id(1, 17)]
+        public string DistributionName
+        {
+            get { return _temperatureBC.DistributionName; }
+            set { _temperatureBC.DistributionName = value; }
+        }
+        //
         public override string AmplitudeName
         {
             get { return _temperatureBC.AmplitudeName; }
@@ -54,7 +65,7 @@ namespace PrePoMax
 
 
         // Constructors                                                                                                             
-        public ViewTemperatureBC(CaeModel.TemperatureBC temperatureBC)
+        public ViewTemperatureBC(TemperatureBC temperatureBC)
         {
             // The order is important
             _temperatureBC = temperatureBC;
@@ -72,11 +83,12 @@ namespace PrePoMax
 
 
         // Methods                                                                                                                  
-        public override CaeModel.BoundaryCondition GetBase()
+        public override BoundaryCondition GetBase()
         {
             return _temperatureBC;
         }
-        public void PopulateDropDownLists(string[] nodeSetNames, string[] surfaceNames, string[] amplitudeNames)
+        public void PopulateDropDownLists(string[] nodeSetNames, string[] surfaceNames, string[] distributionNames,
+                                          string[] amplitudeNames)
         {
             Dictionary<RegionTypeEnum, string[]> regionTypeListItemsPairs = new Dictionary<RegionTypeEnum, string[]>();
             regionTypeListItemsPairs.Add(RegionTypeEnum.Selection, new string[] { "Hidden" });
@@ -84,7 +96,15 @@ namespace PrePoMax
             regionTypeListItemsPairs.Add(RegionTypeEnum.SurfaceName, surfaceNames);
             PopulateDropDownLists(regionTypeListItemsPairs);
             //
+            PopulateDistributionNames(distributionNames);
+            //
             PopulateAmplitudeNames(amplitudeNames);
+        }
+        public void PopulateDistributionNames(string[] distributionNames)
+        {
+            List<string> names = new List<string>() { Distribution.DefaultDistributionName };
+            names.AddRange(distributionNames);
+            DynamicCustomTypeDescriptor.PopulateProperty(nameof(DistributionName), names.ToArray(), false, 2);
         }
     }
 

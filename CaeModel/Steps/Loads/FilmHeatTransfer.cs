@@ -30,13 +30,13 @@ namespace CaeModel
         {
             get
             {
-                if (_coefficientAmplitudeName == null) return DefaultAmplitudeName;
+                if (_coefficientAmplitudeName == null) return Amplitude.DefaultAmplitudeName;
                 else return _coefficientAmplitudeName;
             }
             set
             {
                 _coefficientAmplitudeName = value;
-                if (_coefficientAmplitudeName == DefaultAmplitudeName) _coefficientAmplitudeName = null;
+                if (_coefficientAmplitudeName == Amplitude.DefaultAmplitudeName) _coefficientAmplitudeName = null;
             }
         }
 

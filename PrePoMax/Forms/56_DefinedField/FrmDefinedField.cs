@@ -45,10 +45,39 @@ namespace PrePoMax.Forms
             this.gbProperties.SuspendLayout();
             this.SuspendLayout();
             // 
+            // gbType
+            // 
+            this.gbType.Size = new System.Drawing.Size(310, 108);
+            // 
+            // lvTypes
+            // 
+            this.lvTypes.Size = new System.Drawing.Size(298, 80);
+            // 
+            // gbProperties
+            // 
+            this.gbProperties.Location = new System.Drawing.Point(12, 126);
+            this.gbProperties.Size = new System.Drawing.Size(310, 314);
+            // 
+            // propertyGrid
+            // 
+            this.propertyGrid.Size = new System.Drawing.Size(298, 286);
+            // 
+            // btnOK
+            // 
+            this.btnOK.Location = new System.Drawing.Point(160, 446);
+            // 
+            // btnCancel
+            // 
+            this.btnCancel.Location = new System.Drawing.Point(241, 446);
+            // 
+            // btnOkAddNew
+            // 
+            this.btnOkAddNew.Location = new System.Drawing.Point(79, 446);
+            // 
             // FrmDefinedField
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
-            this.ClientSize = new System.Drawing.Size(334, 461);
+            this.ClientSize = new System.Drawing.Size(334, 481);
             this.Name = "FrmDefinedField";
             this.Text = "Edit Defined Field";
             this.gbType.ResumeLayout(false);
@@ -162,11 +191,18 @@ namespace PrePoMax.Forms
             _definedFieldToEditName = definedFieldToEditName;
             string[] nodeSetNames = _controller.GetUserNodeSetNames();
             string[] surfaceNames = _controller.GetUserSurfaceNames();
+            string[] distributionNames = _controller.GetDistributionNames();
+            string[] amplitudeNames = _controller.GetAmplitudeNames();
+            //
+            if (nodeSetNames == null) nodeSetNames = new string[0];
+            if (surfaceNames == null) surfaceNames = new string[0];
+            if (distributionNames == null) distributionNames = new string[0];
+            if (amplitudeNames == null) amplitudeNames = new string[0];
             //
             if (_definedFieldNames == null)
                 throw new CaeException("The defined field names must be defined first.");
             // Populate list view
-            PopulateListOfDefinedFields(nodeSetNames, surfaceNames);
+            PopulateListOfDefinedFields(nodeSetNames, surfaceNames, distributionNames, amplitudeNames);
             // Check if this step supports any defined fields
             if (lvTypes.Items.Count == 0) return false;
             // Create new defined field
@@ -193,6 +229,16 @@ namespace PrePoMax.Forms
                     }
                     DefinedField.RegionType = RegionTypeEnum.Selection;
                 }
+                // Check for deleted distributions
+                if (DefinedField is IDistribution dfd)
+                {
+                    if (dfd.DistributionName != null && dfd.DistributionName != Distribution.DefaultDistributionName)
+                        CheckMissingValueRef(ref distributionNames, dfd.DistributionName, a => { dfd.DistributionName = a; });
+                }
+                // Check for deleted amplitudes
+                if (_viewDefinedField.AmplitudeName != null && _viewDefinedField.AmplitudeName != Amplitude.DefaultAmplitudeName)
+                    CheckMissingValueRef(ref amplitudeNames, _viewDefinedField.AmplitudeName, 
+                                         a => { _viewDefinedField.AmplitudeName = a; });
                 //
                 int selectedId;
                 if (_viewDefinedField is ViewDefinedTemperature vdt)
@@ -206,7 +252,7 @@ namespace PrePoMax.Forms
                         CheckMissingValueRef(ref surfaceNames, vdt.SurfaceName, s => { vdt.SurfaceName = s; });
                     else throw new NotSupportedException();
                     //
-                    vdt.PopulateDropDownLists(nodeSetNames, surfaceNames);
+                    vdt.PopulateDropDownLists(nodeSetNames, surfaceNames, distributionNames, amplitudeNames);
                 }
                 else throw new NotSupportedException();
                 //
@@ -222,7 +268,8 @@ namespace PrePoMax.Forms
 
 
         // Methods                                                                                                                  
-        private void PopulateListOfDefinedFields(string[] nodeSetNames, string[] surfaceNames)
+        private void PopulateListOfDefinedFields(string[] nodeSetNames, string[] surfaceNames, string[] distributionNames,
+                                                 string[] amplitudeNames)
         {
             Step step = _controller.GetStep(_stepName);
             System.Drawing.Color color = _controller.Settings.Pre.DefinedFieldSymbolColor;
@@ -236,7 +283,7 @@ namespace PrePoMax.Forms
             if (step.IsDefinedFieldSupported(definedTemperature))
             {
                 ViewDefinedTemperature vdt = new ViewDefinedTemperature(definedTemperature);
-                vdt.PopulateDropDownLists(nodeSetNames, surfaceNames);
+                vdt.PopulateDropDownLists(nodeSetNames, surfaceNames, distributionNames, amplitudeNames);
                 vdt.Color = color;
                 item.Tag = vdt;
                 lvTypes.Items.Add(item);

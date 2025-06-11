@@ -63,6 +63,7 @@ namespace CaeMesh
         [NonSerialized] private Vec3D _dx;
         [NonSerialized] private Vec3D _dy;
         [NonSerialized] private Vec3D _dz;
+        public const string DefaultCoordinateSystemName = "Global";
 
 
         // Properties                                                                                                               
@@ -394,6 +395,14 @@ namespace CaeMesh
         {
             if (_dz == null) EquationChanged();
             return _dz;
+        }
+        public double[] GetOrientedVectorAtPoint(double[] vector, double[] coor)
+        {
+            Vec3D directionX = DirectionX(coor);
+            Vec3D directionY = DirectionY(coor);
+            Vec3D directionZ = DirectionZ(coor);
+            Vec3D direction = vector[0] * directionX + vector[1] * directionY + vector[2] * directionZ;
+            return direction.Coor;
         }
         public bool IsProperlyDefined(out string error)
         {

@@ -36,11 +36,17 @@ namespace PrePoMax
         [Id(2, 2)]
         public string SelectionHidden { get { return _selectionHidden; } set { _selectionHidden = value; } }
         //
+        [CategoryAttribute("Time/Frequency")]
+        [OrderedDisplayName(0, 10, "Amplitude")]
+        [DescriptionAttribute("Select the amplitude for the load.")]
+        [Id(1, 18)]
+        public abstract string AmplitudeName { get; set; }
+        //
         [Category("Appearance")]
         [DisplayName("Color")]
         [Description("Select boundary condition color.")]
         [Editor(typeof(UserControls.ColorEditorEx), typeof(UITypeEditor))]
-        [Id(1, 10)]
+        [Id(1, 20)]
         public abstract System.Drawing.Color Color { get; set; }
 
 
@@ -59,6 +65,12 @@ namespace PrePoMax
                 cpd = base.DynamicCustomTypeDescriptor.GetProperty(nameof(SelectionHidden));
                 cpd.SetIsBrowsable(false);
             }
+        }
+        public void PopulateAmplitudeNames(string[] amplitudeNames)
+        {
+            List<string> names = new List<string>() { CaeModel.Amplitude.DefaultAmplitudeName };
+            names.AddRange(amplitudeNames);
+            DynamicCustomTypeDescriptor.PopulateProperty(nameof(AmplitudeName), names.ToArray(), false, 2);
         }
     }
 }

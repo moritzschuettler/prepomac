@@ -234,18 +234,21 @@ namespace PrePoMax.Forms
             string[] nodeSetNames = _controller.GetUserNodeSetNames();
             string[] surfaceNames = _controller.GetUserSurfaceNames();
             string[] referencePointNames = _controller.GetModelReferencePointNames();
+            string[] distributionNames = _controller.GetDistributionNames();
             string[] amplitudeNames = _controller.GetAmplitudeNames();
             string[] coordinateSystemNames = _controller.GetModelCoordinateSystemNames();
             if (nodeSetNames == null) nodeSetNames = new string[0];
             if (surfaceNames == null) surfaceNames = new string[0];
             if (referencePointNames == null) referencePointNames = new string[0];
+            if (distributionNames == null) distributionNames = new string[0];
             if (amplitudeNames == null) amplitudeNames = new string[0];
             if (coordinateSystemNames == null) coordinateSystemNames = new string[0];
             //
             if (_boundaryConditionNames == null)
                 throw new CaeException("The boundary condition names must be defined first.");
             // Populate list view
-            PopulateListOfBCs(nodeSetNames, surfaceNames, referencePointNames, amplitudeNames, coordinateSystemNames);
+            PopulateListOfBCs(nodeSetNames, surfaceNames, referencePointNames, distributionNames, amplitudeNames,
+                              coordinateSystemNames);
             // Check if this step supports any boundary conditions
             if (lvTypes.Items.Count == 0) return false;
             // Create new boundary condition
@@ -280,11 +283,17 @@ namespace PrePoMax.Forms
                 }
                 // Convert the boundary condition to internal to hide it
                 BoundaryConditionInternal(true);
+                // Check for deleted distributions
+                if (BoundaryCondition is IDistribution icd)
+                {
+                    if (icd.DistributionName != null && icd.DistributionName != Distribution.DefaultDistributionName)
+                        CheckMissingValueRef(ref distributionNames, icd.DistributionName, a => { icd.DistributionName = a; });
+                }
                 // Check for deleted amplitudes
-                if (_viewBc.AmplitudeName != BoundaryCondition.DefaultAmplitudeName)
+                if (_viewBc.AmplitudeName != Amplitude.DefaultAmplitudeName)
                     CheckMissingValueRef(ref amplitudeNames, _viewBc.AmplitudeName, s => { _viewBc.AmplitudeName = s; });
                 // Check for deleted coordinate systems
-                if (_viewBc.CoordinateSystemName != BoundaryCondition.DefaultCoordinateSystemName)
+                if (_viewBc.CoordinateSystemName != CoordinateSystem.DefaultCoordinateSystemName)
                     CheckMissingValueRef(ref coordinateSystemNames, _viewBc.CoordinateSystemName,
                                          s => { _viewBc.CoordinateSystemName = s; });
                 //
@@ -344,7 +353,7 @@ namespace PrePoMax.Forms
                         CheckMissingValueRef(ref surfaceNames, vtmp.SurfaceName, s => { vtmp.SurfaceName = s; });
                     else throw new NotSupportedException();
                     //
-                    vtmp.PopulateDropDownLists(nodeSetNames, surfaceNames, amplitudeNames);
+                    vtmp.PopulateDropDownLists(nodeSetNames, surfaceNames, distributionNames, amplitudeNames);
                 }
                 else throw new NotSupportedException();
                 //
@@ -361,7 +370,7 @@ namespace PrePoMax.Forms
 
         // Methods                                                                                                                  
         private void PopulateListOfBCs(string[] nodeSetNames, string[] surfaceNames, string[] referencePointNames,
-                                       string[] amplitudeNames, string[] coordinateSystemNames)
+                                       string[] distributionNames, string[] amplitudeNames, string[] coordinateSystemNames)
         {
             Step step = _controller.GetStep(_stepName);
             System.Drawing.Color color = _controller.Settings.Pre.BoundaryConditionSymbolColor;
@@ -410,7 +419,7 @@ namespace PrePoMax.Forms
             if (step.IsBoundaryConditionSupported(temperatureBC))
             {
                 ViewTemperatureBC vtmp = new ViewTemperatureBC(temperatureBC);
-                vtmp.PopulateDropDownLists(nodeSetNames, surfaceNames, amplitudeNames);
+                vtmp.PopulateDropDownLists(nodeSetNames, surfaceNames, distributionNames, amplitudeNames);
                 vtmp.Color = color;
                 item.Tag = vtmp;
                 lvTypes.Items.Add(item);

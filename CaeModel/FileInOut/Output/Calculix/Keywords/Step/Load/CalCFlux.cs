@@ -32,7 +32,7 @@ namespace FileInOut.Output.Calculix
             StringBuilder sb = new StringBuilder();
             sb.AppendLine("** Name: " + _flux.Name);
             string amplitude = "";
-            if (_flux.AmplitudeName != Load.DefaultAmplitudeName) amplitude = ", Amplitude=" + _flux.AmplitudeName;
+            if (_flux.AmplitudeName != Amplitude.DefaultAmplitudeName) amplitude = ", Amplitude=" + _flux.AmplitudeName;
             string add = "";
             if (_flux.AddFlux) add = ", Add";
             //

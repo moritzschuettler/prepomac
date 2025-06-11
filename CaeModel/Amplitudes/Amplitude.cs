@@ -26,6 +26,7 @@ namespace CaeModel
         private double _shiftX;
         private double _shiftY;
         protected double[][] _timeAmplitude;
+        public const string DefaultAmplitudeName = "Default";
 
 
         // Properties                                                                                                               

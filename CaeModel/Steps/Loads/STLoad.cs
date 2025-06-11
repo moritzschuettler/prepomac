@@ -8,6 +8,7 @@ using CaeGlobals;
 using System.Runtime.Serialization;
 using CaeResults;
 using System.IO;
+using System.Runtime.InteropServices;
 
 namespace CaeModel
 {
@@ -62,7 +63,7 @@ namespace CaeModel
             P3 = new EquationContainer(typeof(StringPressureConverter), 0);
             PMagnitude = new EquationContainer(typeof(StringPressureConverter), 0);
             //
-            _distributionName = DefaultDistributionName;
+            _distributionName = Distribution.DefaultDistributionName;
         }
         public STLoad(SerializationInfo info, StreamingContext context)
             : base(info, context)
@@ -123,7 +124,7 @@ namespace CaeModel
                 FMagnitude = new EquationContainer(typeof(StringForceConverter), mag);
             }
             // Compatibility for version v2.2.4
-            if (_distributionName == null) _distributionName = DefaultDistributionName;
+            if (_distributionName == null) _distributionName = Distribution.DefaultDistributionName;
             if (_p1 == null) P1 = new EquationContainer(typeof(StringPressureConverter), 0);
             if (_p2 == null) P2 = new EquationContainer(typeof(StringPressureConverter), 0);
             if (_p3 == null) P3 = new EquationContainer(typeof(StringPressureConverter), 0);
@@ -280,12 +281,12 @@ namespace CaeModel
             if (value < 0) throw new Exception("Value of the force load magnitude must be non-negative.");
             else return value;
         }
-        public double[] GetDirection(CoordinateSystem coordinateSystem, double[] coor = null)
+        public double[] GetDirection()
         {
             double d1;
             double d2;
             double d3;
-            if (_distributionName == DefaultDistributionName)
+            if (_distributionName == Distribution.DefaultDistributionName)
             {
                 d1 = _f1.Value;
                 d2 = _f2.Value;
@@ -297,16 +298,7 @@ namespace CaeModel
                 d2 = _p2.Value;
                 d3 = _p3.Value;
             }
-            //
-            if (coordinateSystem == null) return new double[] { d1, d2, d3 };
-            else
-            {
-                Vec3D directionX = new Vec3D(GetDirectionX(coordinateSystem, coor));
-                Vec3D directionY = new Vec3D(GetDirectionY(coordinateSystem, coor));
-                Vec3D directionZ = new Vec3D(GetDirectionZ(coordinateSystem, coor));
-                Vec3D direction = d1 * directionX + d2 * directionY + d3 * directionZ;
-                return direction.Coor;
-            }
+            return new double[] { d1, d2, d3 };
         }
         // IContainsEquations
         public override void CheckEquations()
@@ -331,7 +323,7 @@ namespace CaeModel
             targetMesh.GetAllNodesAndCells(out allData.Nodes.Ids, out allData.Nodes.Coor, out allData.Cells.Ids,
                                            out allData.Cells.CellNodeIds, out allData.Cells.Types);
             //
-            bool addDistances = _distributionName != DefaultDistributionName &&
+            bool addDistances = _distributionName != Distribution.DefaultDistributionName &&
                 model.Distributions[_distributionName] is MappedDistribution md &&
                 md.InterpolatorType == CloudInterpolatorEnum.ClosestPoint;
             //
@@ -367,6 +359,9 @@ namespace CaeModel
             double[][] forces;
             GetForcesPerAreaAndDistancesForPoints(model, coor, out distances, out forces);
             //
+            CoordinateSystem coordinateSystem;
+            model.Mesh.CoordinateSystems.TryGetValue(CoordinateSystemName, out coordinateSystem);
+            //
             Parallel.For(0, forcesAll.Length, i =>
             //for (int i = 0; i < forcesAll.Length; i++)
             {
@@ -379,7 +374,11 @@ namespace CaeModel
                 if (nodeIds.Contains(nId))
                 {
                     arrayId = nodeIdArrayId[nId];
-                    force = forces[arrayId];
+                    // Direction
+                    if (coordinateSystem != null)
+                        force = coordinateSystem.GetOrientedVectorAtPoint(forces[arrayId], coor[arrayId]);
+                    else
+                        force = forces[arrayId];
                     //
                     if (addDistances)
                     {
@@ -460,15 +459,15 @@ namespace CaeModel
             distances = new double[points.Length][];
             values = new double[points.Length][];
             //
-            if (_distributionName == DefaultDistributionName)
+            if (_distributionName == Distribution.DefaultDistributionName)
             {
-                double f1 = _f1.Value;
-                double f2 = _f2.Value;
-                double f3 = _f3.Value;
+                double fpa1 = _f1.Value / area;
+                double fpa2 = _f2.Value / area;
+                double fpa3 = _f3.Value / area;
                 for (int i = 0; i < points.Length; i++)
                 {
                     distances[i] = null;
-                    values[i] = new double[] { f1 / area, f2 / area, f3 / area };
+                    values[i] = new double[] { fpa1, fpa2, fpa3 };
                 }
             }
             else

@@ -193,6 +193,10 @@ namespace CaeModel
             if (value < 0) throw new Exception("Value of the moment load magnitude must be non-negative.");
             else return value;
         }
+        public double[] GetDirection()
+        {
+            return new double[] { _m1.Value, _m2.Value, _m3.Value };
+        }
         // IContainsEquations
         public override void CheckEquations()
         {

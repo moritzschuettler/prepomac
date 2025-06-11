@@ -26,6 +26,7 @@ using System.Security.Policy;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Collections;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolTip;
 
 namespace PrePoMax
 {
@@ -10063,6 +10064,21 @@ namespace PrePoMax
                     AddBoundaryCondition(nextStepName, boundaryConditionClone);
             }
         }
+        public void PreviewBoundaryCondition(string stepName, string boundaryConditionName)
+        {
+            BoundaryCondition boundaryCondition = GetBoundaryCondition(stepName, boundaryConditionName);
+            if (boundaryCondition != null)
+            {
+                FeResults results;
+                if (boundaryCondition is TemperatureBC tbc)
+                {
+                    results = tbc.GetPreview(_model, stepName + "_" + boundaryConditionName, _model.UnitSystem);
+                }
+                else throw new CaeException("It is not possible to preview this boundary condition type.");
+                //
+                SetResults(results);
+            }
+        }
         public void HideBoundaryConditions(string stepName, string[] boundaryConditionNames)
         {
             BeforeHideShow();
@@ -16178,9 +16194,11 @@ namespace PrePoMax
                                int nodeSymbolSize, vtkRendererLayer layer, bool onlyVisible)
         {
             int count = 0;
+            double[][] coor;
             vtkRendererLayer symbolLayer = layer == vtkRendererLayer.Selection ? layer : vtkRendererLayer.Overlay;
             //
             if (!_model.Mesh.Surfaces.ContainsKey(stLoad.SurfaceName)) return;
+            coor = new double[][] { _model.Mesh.GetSurfaceCG(stLoad.SurfaceName) };
             //
             count += DrawSurface(prefixName, stLoad.SurfaceName, color, layer, true, false, onlyVisible);
             if (layer == vtkRendererLayer.Selection)
@@ -16188,7 +16206,15 @@ namespace PrePoMax
             //
             if (count > 0)
             {
-                DrawSTLoadSymbols(prefixName, stLoad, color, symbolSize, symbolLayer, onlyVisible);
+                if (stLoad.DistributionName == Distribution.DefaultDistributionName)
+                {
+                    // Draw only one arrow
+                    DrawConstantSTLoadSymbols(prefixName, stLoad, coor, color, symbolSize, symbolLayer);
+                }
+                else
+                {
+                    DrawDistributedSTLoadSymbols(prefixName, stLoad, color, symbolSize, symbolLayer, onlyVisible);
+                }
             }
         }
         public void DrawImportedSTLoad(string prefixName, ImportedSTLoad istLoad, Color color, int symbolSize,
@@ -16495,14 +16521,16 @@ namespace PrePoMax
             }
             else throw new NotSupportedException();
             // Arrows
-            double[] normal;
+            double[] normal = cLoad.GetDirection();
             double[][] allLoadNormals = new double[distributedNodeCoor.Length][];
             CoordinateSystem coordinateSystem;
             _model.Mesh.CoordinateSystems.TryGetValue(cLoad.CoordinateSystemName, out coordinateSystem);
             for (int i = 0; i < distributedNodeCoor.Length; i++)
             {
-                normal = cLoad.GetDirection(coordinateSystem, distributedNodeCoor[i]);
-                allLoadNormals[i] = normal;
+                if (coordinateSystem != null)
+                    allLoadNormals[i] = coordinateSystem.GetOrientedVectorAtPoint(normal, distributedNodeCoor[i]);
+                else
+                    allLoadNormals[i] = normal;
             }
             //
             if (distributedNodeCoor.Length > 0)
@@ -16551,11 +16579,17 @@ namespace PrePoMax
             }
             else throw new NotSupportedException();
             // Arrows
-            List<double[]> allLoadNormals = new List<double[]>();
-            double[] normal = new double[] { momentLoad.M1.Value, momentLoad.M2.Value, momentLoad.M3.Value };
+            double[][] allLoadNormals = new double[distributedNodeCoor.Length][];
+            CoordinateSystem coordinateSystem;
+            _model.Mesh.CoordinateSystems.TryGetValue(momentLoad.CoordinateSystemName, out coordinateSystem);
+            //
+            double[] normal = momentLoad.GetDirection();
             for (int i = 0; i < distributedNodeCoor.Length; i++)
             {
-                allLoadNormals.Add(normal);
+                if (coordinateSystem != null)
+                    allLoadNormals[i] = coordinateSystem.GetOrientedVectorAtPoint(normal, distributedNodeCoor[i]);
+                else
+                    allLoadNormals[i] = normal;
             }
             //
             if (distributedNodeCoor.Length > 0)
@@ -16565,7 +16599,7 @@ namespace PrePoMax
                 data.Color = color;
                 data.Layer = layer;
                 data.Geometry.Nodes.Coor = distributedNodeCoor.ToArray();
-                data.Geometry.Nodes.Normals = allLoadNormals.ToArray();
+                data.Geometry.Nodes.Normals = allLoadNormals;
                 ApplyLighting(data);
                 _form.AddOrientedDoubleArrowsActor(data, symbolSize);
             }
@@ -16884,7 +16918,57 @@ namespace PrePoMax
                 _form.AddOrientedArrowsActor(data, symbolSize, translate, p);
             }
         }
-        public void DrawSTLoadSymbols(string prefixName, STLoad stLoad, Color color, int symbolSize,
+        public void DrawConstantSTLoadSymbols(string prefixName, STLoad stLoad, double[][] symbolCoor, Color color,
+                                              int symbolSize, vtkRendererLayer layer)
+        {
+            CoordinateSystem coordinateSystem;
+            _model.Mesh.CoordinateSystems.TryGetValue(stLoad.CoordinateSystemName, out coordinateSystem);
+            if (coordinateSystem != null && coordinateSystem.Type == CoordinateSystemTypeEnum.Cylindrical)
+            {
+                double[] faceCenter;
+                FeElementSet elementSet;
+                List<double[]> allCoor = new List<double[]>();
+                FeSurface surface = _model.Mesh.Surfaces[stLoad.SurfaceName];
+                //
+                foreach (var entry in surface.ElementFaces)     // entry:  S3; elementSetName
+                {
+                    elementSet = _model.Mesh.ElementSets[entry.Value];
+                    foreach (var elementId in elementSet.Labels)
+                    {
+                        _model.Mesh.GetElementFaceCenter(elementId, entry.Key, out faceCenter);
+                        allCoor.Add(faceCenter);
+                    }
+                }
+                symbolCoor = allCoor.ToArray();
+                int[] distributedCoorIds = GetSpatiallyEquallyDistributedCoor(symbolCoor, 6, null);
+                double[][] reducedCoor = new double[distributedCoorIds.Length][];
+                for (int i = 0; i < distributedCoorIds.Length; i++) reducedCoor[i] = symbolCoor[distributedCoorIds[i]];
+                symbolCoor = reducedCoor;
+            }
+            // Arrows
+            double[] normal = stLoad.GetDirection();
+            double[][] allLoadNormals = new double[symbolCoor.Length][];
+            for (int i = 0; i < symbolCoor.Length; i++)
+            {
+                if (coordinateSystem != null)
+                    allLoadNormals[i] = coordinateSystem.GetOrientedVectorAtPoint(normal, symbolCoor[i]);
+                else
+                    allLoadNormals[i] = normal;
+            }
+            //
+            if (symbolCoor.Length > 0)
+            {
+                vtkMaxActorData data = new vtkMaxActorData();
+                data.Name = prefixName;
+                data.Color = color;
+                data.Layer = layer;
+                data.Geometry.Nodes.Coor = symbolCoor;
+                data.Geometry.Nodes.Normals = allLoadNormals;
+                ApplyLighting(data);
+                _form.AddOrientedArrowsActor(data, symbolSize);
+            }
+        }
+        public void DrawDistributedSTLoadSymbols(string prefixName, STLoad stLoad, Color color, int symbolSize,
                                       vtkRendererLayer layer, bool onlyVisible)
         {
             FeSurface surface = _model.Mesh.Surfaces[stLoad.SurfaceName];
@@ -16932,14 +17016,21 @@ namespace PrePoMax
             double[][] faceNormal = new double[distributedElementIds.Length][];
             double[][] distributedCoor = new double[distributedElementIds.Length][];
             double[][] distributedLoadNormals = new double[distributedElementIds.Length][];
+            CoordinateSystem coordinateSystem;
+            _model.Mesh.CoordinateSystems.TryGetValue(stLoad.CoordinateSystemName, out coordinateSystem);
+            //
             for (int i = 0; i < distributedElementIds.Length; i++)
             {
                 id = distributedElementIds[i];
                 _model.Mesh.GetElementFaceCenterAndNormal(allElementIds[id], allElementFaceNames[id], out _,
                                                           out faceNormal[i], out _);
-                // Direction
+                // Coor
                 distributedCoor[i] = allCoor[id];
-                distributedLoadNormals[i] = forces[id];
+                // Direction
+                if (coordinateSystem != null)
+                    distributedLoadNormals[i] = coordinateSystem.GetOrientedVectorAtPoint(forces[id], allCoor[id]);
+                else
+                    distributedLoadNormals[i] = forces[id];
             }
             // Arrows
             vtkMaxActorData data;

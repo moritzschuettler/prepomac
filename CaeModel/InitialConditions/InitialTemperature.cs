@@ -39,7 +39,7 @@ namespace CaeModel
         {
             _nodeId = -1;
             Temperature = new EquationContainer(typeof(StringTemperatureConverter), temperature, null, constant);
-            _distributionName = DefaultDistributionName;
+            _distributionName = Distribution.DefaultDistributionName;
         }
         public InitialTemperature(SerializationInfo info, StreamingContext context)
             : base(info, context)
@@ -64,7 +64,7 @@ namespace CaeModel
                 }
             }
             // Compatibility for version v2.2.4
-            if (_distributionName == null) _distributionName = DefaultDistributionName;
+            if (_distributionName == null) _distributionName = Distribution.DefaultDistributionName;
         }
 
 
@@ -88,7 +88,7 @@ namespace CaeModel
             targetMesh.GetAllNodesAndCells(out allData.Nodes.Ids, out allData.Nodes.Coor, out allData.Cells.Ids,
                                            out allData.Cells.CellNodeIds, out allData.Cells.Types);
             //
-            bool addDistances = _distributionName != DefaultDistributionName &&
+            bool addDistances = _distributionName != Distribution.DefaultDistributionName &&
                 model.Distributions[_distributionName] is MappedDistribution md &&
                 md.InterpolatorType == CloudInterpolatorEnum.ClosestPoint;
             //
@@ -211,7 +211,7 @@ namespace CaeModel
             values = new double[points.Length];
             double temperature = _temperature.Value;
             //
-            if (_distributionName == DefaultDistributionName)
+            if (_distributionName == Distribution.DefaultDistributionName)
             {
                 for (int i = 0; i < points.Length; i++)
                 {

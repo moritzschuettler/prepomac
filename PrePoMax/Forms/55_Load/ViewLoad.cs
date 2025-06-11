@@ -73,13 +73,13 @@ namespace PrePoMax
         }
         public void PopulateAmplitudeNames(string[] amplitudeNames)
         {
-            List<string> names = new List<string>() { CaeModel.Load.DefaultAmplitudeName };
+            List<string> names = new List<string>() { CaeModel.Amplitude.DefaultAmplitudeName };
             names.AddRange(amplitudeNames);
             DynamicCustomTypeDescriptor.PopulateProperty(nameof(AmplitudeName), names.ToArray(), false, 2);
         }
         public void PopulateCoordinateSystemNames(string[] coordinateSystemNames)
         {
-            List<string> names = new List<string>() { CaeModel.BoundaryCondition.DefaultCoordinateSystemName };
+            List<string> names = new List<string>() { CoordinateSystem.DefaultCoordinateSystemName };
             names.AddRange(coordinateSystemNames);
             DynamicCustomTypeDescriptor.PopulateProperty(nameof(CoordinateSystemName), names.ToArray(), false, 2);
         }
