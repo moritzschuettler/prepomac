@@ -38,10 +38,10 @@ namespace CaeResults
         private const string _bucklingFactorKey = "B U C K L I N G   F A C T O R   O U T P U T";
         // Complex frequency
         private const string _participationFactorsForModeKey = "P A R T I C I P A T I O N   F A C T O R S   F O R   M O D E";
-        private const string _modalAssuranceCriterium = "Modal Assurance Criterium";
-        private const string _eigenmodeTurningDirection = "E I G E N M O D E   T U R N I N G   D I R E C T I O N";
+        private const string _modalAssuranceCriteriumKey = "Modal Assurance Criterium";
+        private const string _eigenmodeTurningDirectionKey = "E I G E N M O D E   T U R N I N G   D I R E C T I O N";
         //
-        private static readonly Dictionary<string, string> compMapRP = new Dictionary<string, string>()
+        private static readonly Dictionary<string, string> _compMapRP = new Dictionary<string, string>()
         {
             { "Id", "Id" },
             //
@@ -59,7 +59,62 @@ namespace CaeResults
             //
             { "T", "T" }
         };
-
+        private static readonly Dictionary<string, string> nameKeyMap = new Dictionary<string, string>()
+        {
+            // Nodal                                                                
+            { HOFieldNames.Displacements, HOFieldNames.Displacements.Replace('_', ' ')},
+            { HOFieldNames.Velocities, HOFieldNames.Velocities.Replace('_', ' ')},
+            { HOFieldNames.Forces, HOFieldNames.Forces.Replace('_', ' ')},
+            { HOFieldNames.TotalForce, HOFieldNames.TotalForce.Replace('_', ' ')},
+            { HOFieldNames.Stresses, HOFieldNames.Stresses.Replace('_', ' ')},
+            { HOFieldNames.Strains, HOFieldNames.Strains.Replace('_', ' ')},
+            { HOFieldNames.MechanicalStrains, HOFieldNames.MechanicalStrains.Replace('_', ' ')},
+            { HOFieldNames.EquivalentPlasticStrains, HOFieldNames.EquivalentPlasticStrains.Replace('_', ' ')},
+            { HOFieldNames.InternalEnergyDensity, HOFieldNames.InternalEnergyDensity.Replace('_', ' ')},
+            // Thermal
+            { HOFieldNames.Temperatures, HOFieldNames.Temperatures.Replace('_', ' ')},
+            { HOFieldNames.HeatGeneration, HOFieldNames.HeatGeneration.Replace('_', ' ')},
+            { HOFieldNames.TotalHeatGeneration, HOFieldNames.TotalHeatGeneration.Replace('_', ' ')},
+            // Frequency                                                            
+            { _stepKey, _stepKey},
+            { _incrementKey, _incrementKey},
+            { _eigenvalueOutputKey, _eigenvalueOutputKey},
+            { _participationFactorsKey, _participationFactorsKey},
+            { _effectiveModalMassKey, _effectiveModalMassKey},
+            { _totalEffectiveMassKey, _totalEffectiveMassKey},
+            { _eigenvalueNumberKey, _eigenvalueNumberKey},
+            { _bucklingFactorKey, _bucklingFactorKey},
+            // Steady state                                                         
+            { _participationFactorsForFrequencyKey, _participationFactorsForFrequencyKey},
+            // Complex frequency                                                    
+            { _participationFactorsForModeKey, _participationFactorsForModeKey},
+            { _modalAssuranceCriteriumKey, _modalAssuranceCriteriumKey},
+            { _eigenmodeTurningDirectionKey, _eigenmodeTurningDirectionKey},
+            // Contact                                                              
+            { HOFieldNames.RelativeContactDisplacement, HOFieldNames.RelativeContactDisplacement.Replace('_', ' ')},
+            { HOFieldNames.ContactStress, HOFieldNames.ContactStress.Replace('_', ' ')},
+            { HOFieldNames.ContactPrintEnergy, HOFieldNames.ContactPrintEnergy.Replace('_', ' ')},
+            { HOFieldNames.ContactSpringEnergy, HOFieldNames.ContactSpringEnergy.Replace('_', ' ')},
+            { HOFieldNames.TotalNumberOfContactElements, HOFieldNames.TotalNumberOfContactElements.Replace('_', ' ')},
+            { HOFieldNames.StatisticsForSlaveSet, HOFieldNames.StatisticsForSlaveSet.Replace('_', ' ')},
+            { HOFieldNames.TotalSurfaceForce, HOFieldNames.TotalSurfaceForce.Replace('_', ' ')},
+            { HOFieldNames.MomentAboutOrigin, HOFieldNames.MomentAboutOrigin.Replace('_', ' ')},
+            { HOFieldNames.CenterOgGravityCG, HOFieldNames.CenterOgGravityCG.Replace('_', ' ')},
+            { HOFieldNames.MeanSurfaceNormal, HOFieldNames.MeanSurfaceNormal.Replace('_', ' ')},
+            { HOFieldNames.MomentAboutCG, HOFieldNames.MomentAboutCG.Replace('_', ' ')},
+            { HOFieldNames.SurfaceArea, HOFieldNames.SurfaceArea.Replace('_', ' ')},
+            { HOFieldNames.NormalSurfaceForce, HOFieldNames.NormalSurfaceForce.Replace('_', ' ')},
+            { HOFieldNames.ShearSurfaceForce, HOFieldNames.ShearSurfaceForce.Replace('_', ' ')},
+            // Element                                                              
+            { HOFieldNames.Volume, HOFieldNames.Volume.Replace('_', ' ')},
+            { HOFieldNames.TotalVolume, HOFieldNames.TotalVolume.Replace('_', ' ')},
+            { HOFieldNames.InternalEnergy, HOFieldNames.InternalEnergy.Replace('_', ' ')},
+            { HOFieldNames.TotalInternalEnergy, HOFieldNames.TotalInternalEnergy.Replace('_', ' ')},
+            // Thermal                                                              
+            { HOFieldNames.HeatFlux, HOFieldNames.HeatFlux.Replace('_', ' ')},
+            { HOFieldNames.BodyHeating, HOFieldNames.BodyHeating.Replace('_', ' ')},
+            { HOFieldNames.TotalBodyHeating, HOFieldNames.TotalBodyHeating.Replace('_', ' ')},
+        };
 
         // Methods                                                                                                                  
         static public HistoryResults Read(string fileName, out string[] errors)
@@ -71,67 +126,11 @@ namespace CaeResults
             {
                 string[] lines = Tools.ReadAllLines(fileName, true);
                 //
-                List<string> dataSetNames = new List<string>();
-                // Nodal                                                                
-                dataSetNames.Add(HOFieldNames.Displacements);
-                dataSetNames.Add(HOFieldNames.Velocities);
-                dataSetNames.Add(HOFieldNames.Forces);
-                dataSetNames.Add(HOFieldNames.TotalForce);
-                dataSetNames.Add(HOFieldNames.Stresses);
-                dataSetNames.Add(HOFieldNames.Strains);
-                dataSetNames.Add(HOFieldNames.MechanicalStrains);
-                dataSetNames.Add(HOFieldNames.EquivalentPlasticStrains);
-                dataSetNames.Add(HOFieldNames.InternalEnergyDensity);
-                // Thermal
-                dataSetNames.Add(HOFieldNames.Temperatures);
-                dataSetNames.Add(HOFieldNames.HeatGeneration);
-                dataSetNames.Add(HOFieldNames.TotalHeatGeneration);
-                // Frequency                                                            
-                dataSetNames.Add(_stepKey);
-                dataSetNames.Add(_incrementKey);
-                dataSetNames.Add(_eigenvalueOutputKey);
-                dataSetNames.Add(_participationFactorsKey);
-                dataSetNames.Add(_effectiveModalMassKey);
-                dataSetNames.Add(_totalEffectiveMassKey);
-                dataSetNames.Add(_eigenvalueNumberKey);
-                dataSetNames.Add(_bucklingFactorKey);
-                // Steady state
-                dataSetNames.Add(_participationFactorsForFrequencyKey);
-                // Complex frequency
-                dataSetNames.Add(_participationFactorsForModeKey);
-                dataSetNames.Add(_modalAssuranceCriterium);
-                dataSetNames.Add(_eigenmodeTurningDirection);
-                // Contact                                                              
-                dataSetNames.Add(HOFieldNames.RelativeContactDisplacement);
-                dataSetNames.Add(HOFieldNames.ContactStress);
-                dataSetNames.Add(HOFieldNames.ContactPrintEnergy);
-                dataSetNames.Add(HOFieldNames.ContactSpringEnergy);
-                dataSetNames.Add(HOFieldNames.TotalNumberOfContactElements);
-                dataSetNames.Add(HOFieldNames.StatisticsForSlaveSet);
-                dataSetNames.Add(HOFieldNames.TotalSurfaceForce);
-                dataSetNames.Add(HOFieldNames.MomentAboutOrigin);
-                dataSetNames.Add(HOFieldNames.CenterOgGravityCG);
-                dataSetNames.Add(HOFieldNames.MeanSurfaceNormal);
-                dataSetNames.Add(HOFieldNames.MomentAboutCG);
-                dataSetNames.Add(HOFieldNames.SurfaceArea);
-                dataSetNames.Add(HOFieldNames.NormalSurfaceForce);
-                dataSetNames.Add(HOFieldNames.ShearSurfaceForce);
-                // Element                                                              
-                dataSetNames.Add(HOFieldNames.Volume);
-                dataSetNames.Add(HOFieldNames.TotalVolume);
-                dataSetNames.Add(HOFieldNames.InternalEnergy);
-                dataSetNames.Add(HOFieldNames.TotalInternalEnergy);
-                // Thermal
-                dataSetNames.Add(HOFieldNames.HeatFlux);
-                dataSetNames.Add(HOFieldNames.BodyHeating);
-                dataSetNames.Add(HOFieldNames.TotalBodyHeating);
-                //                                                                      
                 Dictionary<string, string> repairedSetNames = new Dictionary<string, string>();
                 //
                 bool steadyStateDynamics;
-                List<string[]> dataSetLinesList = SplitToDataSetLinesList(dataSetNames, lines, repairedSetNames,
-                                                                          out steadyStateDynamics);
-                Repair(dataSetLinesList, dataSetNames);
+                IEnumerable<string[]> dataSetLinesList = SplitToDataSetLinesList(lines, repairedSetNames, out steadyStateDynamics);
+                Repair(dataSetLinesList);
                 //
                 int len;
                 int stepId = -1;
@@ -161,12 +160,12 @@ namespace CaeResults
                             dataSetLines[0].ToUpper().StartsWith(_participationFactorsForFrequencyKey) ||
                             // Complex frequency
                             dataSetLines[0].ToUpper().StartsWith(_participationFactorsForModeKey) ||
-                            dataSetLines[0] == _modalAssuranceCriterium)
+                            dataSetLines[0] == _modalAssuranceCriteriumKey)
                         {
                             if (stepKey == null) stepKey = _stepNumberKey + stepId;
                             frequencyHistoryOutput.AppendSets(GetFrequencyDatDataSets(dataSetLines, stepId));
                         }
-                        else if (dataSetLines[0] == _eigenmodeTurningDirection)
+                        else if (dataSetLines[0] == _eigenmodeTurningDirectionKey)
                         {
                             if (stepKey == null) stepKey = _stepNumberKey + stepId;
                             frequencyHistoryOutput.AppendSets(GetComplexFrequencyTurningDirection(dataSetLines, stepId));
@@ -205,7 +204,7 @@ namespace CaeResults
                             else
                             {
                                 // Read the dataset
-                                newDataSet = GetDatDataSet(dataSetNames, dataSetLines, repairedSetNames);
+                                newDataSet = GetDatDataSet(dataSetLines, repairedSetNames);
                                 if (stepId != -1) newDataSet.StepId = stepId;
                                 if (incrementId != -1) newDataSet.IncrementId = incrementId;
                                 if (newDataSet.SetName == _participationFactorsForFrequencyKey) continue;
@@ -275,9 +274,8 @@ namespace CaeResults
             //
             return null;
         }
-        static private List<string[]> SplitToDataSetLinesList(List<string> dataSetNames, string[] lines,
-                                                              Dictionary<string, string> repairedSetNames,
-                                                              out bool steadyStateDynamics)
+        static private IEnumerable<string[]> SplitToDataSetLinesList(string[] lines, Dictionary<string, string> repairedSetNames,
+                                                                     out bool steadyStateDynamics)
         {
             // displacements (vx, vy, vz) for set DISP and time  0.1000000E+00
             //         5   5.080202E+00  0.000000E+00  0.000000E+00
@@ -299,11 +297,11 @@ namespace CaeResults
                 if (lines[i].Length == 0) continue;
                 //
                 theName = null;
-                foreach (var name in dataSetNames)
+                foreach (var entry in nameKeyMap)
                 {
-                    if (lines[i].ToUpper().StartsWith(name.ToUpper()))
+                    if (lines[i].ToUpper().StartsWith(entry.Value.ToUpper()))
                     {
-                        theName = name;
+                        theName = entry.Key;
                         break;
                     }
                 }
@@ -316,7 +314,7 @@ namespace CaeResults
                     theName == _participationFactorsForFrequencyKey ||
                     // Complex
                     theName == _participationFactorsForModeKey ||
-                    theName == _modalAssuranceCriterium)
+                    theName == _modalAssuranceCriteriumKey)
                 {
                     if (!steadyStateDynamics && lines[i].ToUpper().StartsWith(_participationFactorsForFrequencyKey))
                         steadyStateDynamics = true;
@@ -336,7 +334,7 @@ namespace CaeResults
                     dataSets.Add(dataSet.ToArray());
                 }
                 // Complex frequency
-                else if (theName == _eigenmodeTurningDirection)
+                else if (theName == _eigenmodeTurningDirectionKey)
                 {
                     int emptyLinesCounter = 0;
                     dataSet = new List<string> { lines[i] };
@@ -381,7 +379,7 @@ namespace CaeResults
                     // At the end reduce the i for 1 since it will be increased next time in the loop
                     i--;
                     //
-                    List<string[]> repairedSets = RepairContactStatistics(dataSet.ToArray(), ref existingNames, repairedSetNames);
+                    IEnumerable<string[]> repairedSets = RepairContactStatistics(dataSet.ToArray(), ref existingNames, repairedSetNames);
                     //
                     if (repairedSets != null) dataSets.AddRange(repairedSets);
                 }
@@ -493,41 +491,41 @@ namespace CaeResults
             //
             return repairedDataSets;
         }
-        static private void Repair(List<string[]> dataSetLinesList, List<string> dataSetNames)
+        static private void Repair(IEnumerable<string[]> dataSetLinesList)
         {
             foreach (var lines in dataSetLinesList)
             {
                 if (lines.Length > 0)
                 {
-                    foreach (var name in dataSetNames)
+                    foreach (var entry in nameKeyMap)
                     {
-                        if (lines[0].ToUpper().StartsWith(name.ToUpper()))
+                        if (lines[0].ToUpper().StartsWith(entry.Value.ToUpper()))
                         {
-                            if (name == HOFieldNames.Displacements)
+                            if (entry.Key == HOFieldNames.Displacements)
                             {
                                 //displacements (vx,vy,vz) for set NODESET-1 and time  0.1000000E+01
                                 //       310 -2.462709E-03 -6.331758E-04 -4.384750E-05
                                 lines[0] = lines[0].Replace("(vx,vy,vz)", "(Id,U1,U2,U3)");
                             }
-                            else if (name == HOFieldNames.Velocities)
+                            else if (entry.Key == HOFieldNames.Velocities)
                             {
                                 //velocities (vx,vy,vz) for set INTERNAL_SELECTION-1_NH_OUTPUT-1 and time  0.8102399E-05
                                 //       40  1.162032E-17 -7.948453E-02 -8.204195E-18
                                 lines[0] = lines[0].Replace("(vx,vy,vz)", "(Id,V1,V2,V3)");
                             }
-                            else if (name ==HOFieldNames.Forces)
+                            else if (entry.Key == HOFieldNames.Forces)
                             {
                                 //forces (fx,fy,fz) for set NODESET-1 and time  0.1000000E+01
                                 //       310 -2.582430E-13 -1.013333E-01  6.199805E-14
                                 lines[0] = lines[0].Replace("(fx,fy,fz)", "(Id,RF1,RF2,RF3)");
                             }
-                            else if (name == HOFieldNames.TotalForce)
+                            else if (entry.Key == HOFieldNames.TotalForce)
                             {
                                 //total force (fx,fy,fz) for set NODESET-1 and time  0.1000000E+01
                                 //       -5.868470E-13 -1.000000E+00 -1.028019E-13
                                 lines[0] = lines[0].Replace("(fx,fy,fz)", "(RF1,RF2,RF3)");
                             }
-                            else if (name == HOFieldNames.Stresses)
+                            else if (entry.Key == HOFieldNames.Stresses)
                             {
                                 //stresses (elem, integ.pnt.,sxx,syy,szz,sxy,sxz,syz) for set SOLID_PART-1 and time  0.1000000E+01
                                 //      1655   1  1.186531E-02 -3.997792E-02 -3.119545E-03  1.104426E-02  2.740127E-03 -9.467634E-03
@@ -535,7 +533,7 @@ namespace CaeResults
                                                             "(Id,Int.Pnt.,S11,S22,S33,S12,S13,S23)");
                                 RepairShellStressLines(lines);
                             }
-                            else if (name == HOFieldNames.Strains)
+                            else if (entry.Key == HOFieldNames.Strains)
                             {
                                 //strains (elem, integ.pnt.,exx,eyy,ezz,exy,exz,eyz) forset SOLID_PART-1 and time  0.1000000E+01
                                 //      1655   1  1.180693E-07 -2.028650E-07  2.530589E-08  6.836925E-08  1.696269E-08 -5.860917E-08
@@ -543,7 +541,7 @@ namespace CaeResults
                                                             "(Id,Int.Pnt.,E11,E22,E33,E12,E13,E23)");
                                 lines[0] = lines[0].Replace(" forset ", " for set ");
                             }
-                            else if (name == HOFieldNames.MechanicalStrains)
+                            else if (entry.Key == HOFieldNames.MechanicalStrains)
                             {
                                 // mechanical strains (elem, integ.pnt.,exx,eyy,ezz,exy,exz,eyz) forset ELEMENTSET-1 and time  0.1000000E+01
                                 //      2030   1  1.428572E-07 -4.761905E-07  1.428571E-07 -1.951987E-14  2.100533E-15  1.625910E-15
@@ -551,7 +549,7 @@ namespace CaeResults
                                                             "(Id,Int.Pnt.,E11,E22,E33,E12,E13,E23)");
                                 lines[0] = lines[0].Replace(" forset ", " for set ");
                             }
-                            else if (name == HOFieldNames.EquivalentPlasticStrains)
+                            else if (entry.Key == HOFieldNames.EquivalentPlasticStrains)
                             {
                                 // equivalent plastic strain (elem, integ.pnt.,pe)for set ELEMENTSET-1 and time  0.6250000E-01
                                 //      1682   1  0.000000E+00
@@ -560,19 +558,19 @@ namespace CaeResults
                                 lines[0] = lines[0].Replace(")for set ", ") for set ");
                             }
                             // Thermal                                                                                              
-                            else if (name == HOFieldNames.Temperatures)
+                            else if (entry.Key == HOFieldNames.Temperatures)
                             {
                                 // temperatures for set INTERNAL_SELECTION-1_NH_OUTPUT-1 and time  0.1000000E+01
                                 //      3450  1.000000E+02
                                 lines[0] = lines[0].Replace("temperatures for set", "temperatures (Id,T) for set");
                             }
-                            else if (name == HOFieldNames.HeatGeneration)
+                            else if (entry.Key == HOFieldNames.HeatGeneration)
                             {
                                 // heat generation for set INTERNAL_SELECTION-4_NH_OUTPUT-1 and time  0.1000000E+01
                                 //       793  6.764684E+02
                                 lines[0] = lines[0].Replace("heat generation for set", "heat generation (Id,RFL) for set");
                             }
-                            else if (name == HOFieldNames.TotalHeatGeneration)
+                            else if (entry.Key == HOFieldNames.TotalHeatGeneration)
                             {
                                 // total heat generation for set INTERNAL_SELECTION-4_NH_OUTPUT-1 and time  0.5750000E+01
                                 //        9.890290E+02
@@ -581,7 +579,7 @@ namespace CaeResults
                             //                                                                                                      
                             // Contact                                                                                              
                             //                                                                                                      
-                            else if (name == HOFieldNames.RelativeContactDisplacement)
+                            else if (entry.Key == HOFieldNames.RelativeContactDisplacement)
                             {
                                 // relative contact displacement (slave element+face,normal,tang1,tang2) for all contact elements and time 0.1000000E+01
                                 //     84102          4 -1.111983E-07 -2.300226E-07  1.142343E-07
@@ -589,7 +587,7 @@ namespace CaeResults
                                                             "(Id,Int.Pnt.,NORMAL,TANG1,TANG2)");
                                 lines[0] = lines[0].Replace("for all contact elements", "for set ALL_CONTACT_ELEMENTS");
                             }
-                            else if (name == HOFieldNames.ContactStress)
+                            else if (entry.Key == HOFieldNames.ContactStress)
                             {
                                 // contact stress (slave element+face,press,tang1,tang2) for all contact elements and time 0.5000000E+00
                                 //     97837          4  9.511105E-01 -2.082501E-01 -2.605988E-02
@@ -597,7 +595,7 @@ namespace CaeResults
                                                             "(Id,Int.Pnt.,PRESS,TANG1,TANG2)");
                                 lines[0] = lines[0].Replace("for all contact elements", "for set ALL_CONTACT_ELEMENTS");
                             }
-                            else if (name == HOFieldNames.ContactPrintEnergy || name == HOFieldNames.ContactSpringEnergy)
+                            else if (entry.Key == HOFieldNames.ContactPrintEnergy || entry.Key == HOFieldNames.ContactSpringEnergy)
                             {
                                 // contact print energy (slave element+face,energy)for all contact elements and time 0.5000000E+00
                                 //     98823          4  6.898953E-06
@@ -605,9 +603,10 @@ namespace CaeResults
                                 // contact spring energy (slave element+face,energy) for all contact elements and time 0.1000000E+01
                                 //       345          3  7.965814E-03
                                 lines[0] = lines[0].Replace("(slave element+face,energy) for", "(Id,Int.Pnt.,ENERGY) for");
+                                lines[0] = lines[0].Replace("(slave element+face,energy)for", "(Id,Int.Pnt.,ENERGY) for");
                                 lines[0] = lines[0].Replace("for all contact elements", "for set ALL_CONTACT_ELEMENTS");
                             }
-                            else if (name == HOFieldNames.TotalNumberOfContactElements)
+                            else if (entry.Key == HOFieldNames.TotalNumberOfContactElements)
                             {
                                 // total number of contact elements for time  0.5000000E+00
                                 // 560
@@ -616,7 +615,7 @@ namespace CaeResults
                             //                                                                                                      
                             // Element                                                                                              
                             //                                                                                                      
-                            else if (name == HOFieldNames.InternalEnergyDensity)
+                            else if (entry.Key == HOFieldNames.InternalEnergyDensity)
                             {
                                 // internal energy density (elem, integ.pnt.,eneset ELEMENTSET-1 and time  0.6250000E-01
                                 //      3068   1  4.313000E-01
@@ -626,45 +625,45 @@ namespace CaeResults
                                 lines[0] = lines[0].Replace("(elem, integ.pnt.,energy",
                                                             "(Id,Int.Pnt.,ENER");
                             }
-                            else if (name == HOFieldNames.InternalEnergy)
+                            else if (entry.Key == HOFieldNames.InternalEnergy)
                             {
                                 //internal energy (element, energy) for set SOLID_PART-1 and time  0.1000000E+01
                                 //      1655  9.342906E-09
                                 lines[0] = lines[0].Replace("(element, energy)", "(Id,ELSE)");
                             }
-                            else if (name == HOFieldNames.TotalInternalEnergy)
+                            else if (entry.Key == HOFieldNames.TotalInternalEnergy)
                             {
                                 //total internal energy for set SOLID_PART-1 and time  0.1000000E+01
                                 //        3.249095E-04
                                 lines[0] = lines[0].Replace("total internal energy for set",
                                                             "total internal energy (SE) for set");
                             }
-                            else if (name == HOFieldNames.Volume)
+                            else if (entry.Key == HOFieldNames.Volume)
                             {
                                 //volume (element, volume) for set SOLID_PART-1 and time  0.1000000E+01
                                 //      1655  1.538557E+00
                                 lines[0] = lines[0].Replace("(element, volume)", "(Id,EVOL)");
                             }
-                            else if (name == HOFieldNames.TotalVolume)
+                            else if (entry.Key == HOFieldNames.TotalVolume)
                             {
                                 //total volume for set SOLID_PART-1 and time  0.1000000E+01
                                 //        2.322033E+03
                                 lines[0] = lines[0].Replace("total volume for set", "total volume (VOL) for set");
                             }
                             // Thermal                                                                                              
-                            else if (name == HOFieldNames.HeatFlux)
+                            else if (entry.Key == HOFieldNames.HeatFlux)
                             {
                                 // heat flux (elem, integ.pnt.,qx,qy,qz) for set INTERNAL_SELECTION-3_EH_OUTPUT-1 and time  0.1000000E+01
                                 //       477   1 -6.733427E+00  1.076158E+01 -1.030648E+01
                                 lines[0] = lines[0].Replace("(elem, integ.pnt.,qx,qy,qz)", "(Id,Int.Pnt.,Q1,Q2,Q3)");
                             }
-                            else if (name == HOFieldNames.BodyHeating)
+                            else if (entry.Key == HOFieldNames.BodyHeating)
                             {
                                 // body heating (element, volume) for set INTERNAL_SELECTION-3_EH_OUTPUT-1 and time  0.1000000E+01
                                 //       477  0.000000E+00
                                 lines[0] = lines[0].Replace("(element, volume)", "(Id,EBHE)");
                             }
-                            else if (name == HOFieldNames.TotalBodyHeating)
+                            else if (entry.Key == HOFieldNames.TotalBodyHeating)
                             {
                                 // total body heating for set INTERNAL_SELECTION-3_EH_OUTPUT-1 and time  0.1000000E+01
                                 //        0.126000E+00
@@ -775,7 +774,7 @@ namespace CaeResults
             double time = 0;
             List<double[]> valuesList = null;
             double[] rowValues = null;
-            List<DatDataSet> dataSets = new List<DatDataSet>();
+            IEnumerable<DatDataSet> dataSets = new List<DatDataSet>();
             //
             if (dataSetLines[0] == _eigenvalueOutputKey)
             {
@@ -859,7 +858,7 @@ namespace CaeResults
                 componentNames = new string[] { HOComponentNames.FREQUENCY, HOComponentNames.PAR_FACTOR,
                                                 HOComponentNames.PAR_FACTOR_IM };
             }
-            else if (dataSetLines[0] == _modalAssuranceCriterium)
+            else if (dataSetLines[0] == _modalAssuranceCriteriumKey)
             {
                 firstDataRowId = 1;
                 //
@@ -980,7 +979,7 @@ namespace CaeResults
             double time = 0;
             List<double[]> valuesList = null;
             double[] rowValues = null;
-            List<DatDataSet> dataSets = new List<DatDataSet>();
+            IEnumerable<DatDataSet> dataSets = new List<DatDataSet>();
             //
             if (dataSetLines[0] == _bucklingFactorKey)
             {
@@ -1069,13 +1068,12 @@ namespace CaeResults
             //
             return timeFrequency;
         }
-        static private DatDataSet GetDatDataSet(List<string> dataSetNames, string[] dataSetLines,
-                                                Dictionary<string, string> repairedSetNames)
+        static private DatDataSet GetDatDataSet(string[] dataSetLines, Dictionary<string, string> repairedSetNames)
         {
             try
             {
                 // displacements (vx, vy, vz) for set DISP and time  0.1000000E+00
-                List<string> componentNames = new List<string>();
+                IEnumerable<string> componentNames = new List<string>();
                 DatDataSet dataSet = new DatDataSet();
                 //
                 string firstLine = dataSetLines[0];
@@ -1085,11 +1083,11 @@ namespace CaeResults
                     return dataSet;
                 }
                 //
-                foreach (var name in dataSetNames)
+                foreach (var entry in nameKeyMap)
                 {
-                    if (firstLine.ToLower().StartsWith(name.ToLower()))
+                    if (firstLine.ToLower().StartsWith(entry.Value.ToLower()))
                     {
-                        dataSet.FieldName = name;
+                        dataSet.FieldName = entry.Key;
                         break;
                     }
                 }
@@ -1317,7 +1315,7 @@ namespace CaeResults
                 dataSet.SetName = tmp[0];
                 for (int i = 0; i < dataSet.ComponentNames.Length; i++)
                 {
-                    dataSet.ComponentNames[i] = compMapRP[dataSet.ComponentNames[i]];
+                    dataSet.ComponentNames[i] = _compMapRP[dataSet.ComponentNames[i]];
                 }
             }
             //

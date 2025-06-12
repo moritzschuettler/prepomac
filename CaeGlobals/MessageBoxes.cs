@@ -11,6 +11,7 @@ using System.ComponentModel;
 using DynamicTypeDescriptor;
 using System.Linq.Expressions;
 using System.Drawing;
+using static System.ComponentModel.Design.ObjectSelectorEditor;
 
 namespace CaeGlobals
 {
@@ -35,6 +36,12 @@ namespace CaeGlobals
         }
         public static DialogResult Show(string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon)
         {
+            DialogResult result = DialogResult.None;
+            InvokeIfRequired(() => result = ShowCrossThread(text, caption, buttons, icon));
+            return result;
+        }
+        public static DialogResult ShowCrossThread(string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon)
+        {
             using (new CenterWinDialog(ParentForm))
             {
                 if (WriteDataToOutput != null)
@@ -46,9 +53,22 @@ namespace CaeGlobals
                     else if (buttons == MessageBoxButtons.YesNoCancel) return DialogResult.Yes;
                     else return DialogResult.OK;
                 }
-                else return MessageBox.Show(text, caption, buttons, icon);
+                else return MessageBox.Show(ParentForm, text, caption, buttons, icon);
             }
         }
+        private static object InvokeIfRequired(Func<object> function)
+        {
+            if (ParentForm.InvokeRequired)
+            {
+                return (object)ParentForm.Invoke((MethodInvoker)delegate () { function(); });
+            }
+            else
+            {
+                return function();
+            }
+        }
+
+
         // Information
         public static void ShowInfo(string text)
         {
