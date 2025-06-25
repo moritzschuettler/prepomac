@@ -822,7 +822,22 @@ namespace CaeResults
                 // -2           0.00000E+00 0.00000E+00 0.00000E+00 0.00000E+00 0.00000E+00 0.00000E+00
                 // -2           0.00000E+00 0.00000E+00 0.00000E+00 0.00000E+00 0.00000E+00 0.00000E+00
                 // -2           0.00000E+00 0.00000E+00 0.00000E+00 0.00000E+00 0.00000E+00 0.00000E+00
+
+                // Are there multiple data lines for one node
+                int numDataLines = 0;
+                if (numOfVal < lines.Length - lineNumInt)
+                {
+                    for (int i = lineNumInt; i < lines.Length; i++)
+                    {
+                        if (numDataLines == 0 && lines[i].Trim().StartsWith("-1", StringComparison.Ordinal)) numDataLines = 1;
+                        else if (numDataLines >= 1 && lines[i].Trim().StartsWith("-2", StringComparison.Ordinal)) numDataLines++;
+                        else if (numDataLines >= 1 && lines[i].Trim().StartsWith("-1", StringComparison.Ordinal)) break;
+                    }
+                }
+                else numDataLines = 1;
+                //
                 width = 12;
+                //
                 //for (int i = 0; i < numOfVal; i++)
                 Parallel.For(0, numOfVal, i =>  
                 {
@@ -834,7 +849,7 @@ namespace CaeResults
                     string substring;
                     float value;
                     //
-                    lineId = lineNumInt + i;
+                    lineId = lineNumInt + i * numDataLines;
                     line = lines[lineId];
                     // Node id
                     if (directIds) nodeValueId = i;
@@ -853,6 +868,7 @@ namespace CaeResults
                         {
                             if (lines.Length > lineId + 1 && lines[lineId + 1].Trim().StartsWith("-2", StringComparison.Ordinal))
                             {
+                                i++;
                                 lineId++;
                                 line = lines[lineId];
                                 start = 13;

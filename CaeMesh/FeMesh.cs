@@ -10584,12 +10584,10 @@ namespace CaeMesh
             Vec3D normalAvg;
             Vec3D normalAvg1 = null;
             Vec3D normalAvg2 = null;
-            Vec3D normalAvg3 = null;
-            Vec3D normalAvg4 = null;
             List<double> normalLengthsList = new List<double>();
             double[] normalLengths;
             Vec3D p1;
-            Vec3D p2 = null;
+            Vec3D p2;
             Vec3D p2Sum;
             Vec3D[] normals;
             Dictionary<int, Vec3D> nodeIdNormal = new Dictionary<int, Vec3D>();
@@ -10637,34 +10635,34 @@ namespace CaeMesh
                             normalAvg2 = p2 - p1;
                             normalLengthsList.Add(normalAvg2.Len);
                         }
-                        // A plane through element 1 and both edges
-                        normals[1] = Vec3D.CrossProduct(edgeTangentCellNormalList[0][0], edgeTangentCellNormalList[0][1]);
-                        //
-                        d2 = Vec3D.DotProduct(normals[1], p1 + normals[1]);
-                        //
-                        p2 = Geometry.IntersectPlanes(normals[0], normals[1], normals[2], d1, d2, d3);
-                        if (p2 != null)
-                        {
-                            normalAvg3 = p2 - p1;
-                            normalLengthsList.Add(normalAvg3.Len);
-                        }
-                        // A plane through element 2 and both edges
-                        normals[0] = edgeTangentCellNormalList[1][1];
-                        //
-                        d1 = Vec3D.DotProduct(normals[0], p1 + normals[0]);
-                        //
-                        p2 = Geometry.IntersectPlanes(normals[0], normals[1], normals[2], d1, d2, d3);
-                        if (p2 != null)
-                        {
-                            normalAvg4 = p2 - p1;
-                            normalLengthsList.Add(normalAvg4.Len);
-                        }
+                        //// A plane through element 1 and both edges
+                        //normals[1] = Vec3D.CrossProduct(edgeTangentCellNormalList[0][0], edgeTangentCellNormalList[0][1]);
+                        ////
+                        //d2 = Vec3D.DotProduct(normals[1], p1 + normals[1]);
+                        ////
+                        //p2 = Geometry.IntersectPlanes(normals[0], normals[1], normals[2], d1, d2, d3);
+                        //if (p2 != null)
+                        //{
+                        //    normalAvg3 = p2 - p1;
+                        //    normalLengthsList.Add(normalAvg3.Len);
+                        //}
+                        //// A plane through element 2 and both edges
+                        //normals[0] = edgeTangentCellNormalList[1][1];
+                        ////
+                        //d1 = Vec3D.DotProduct(normals[0], p1 + normals[0]);
+                        ////
+                        //p2 = Geometry.IntersectPlanes(normals[0], normals[1], normals[2], d1, d2, d3);
+                        //if (p2 != null)
+                        //{
+                        //    normalAvg4 = p2 - p1;
+                        //    normalLengthsList.Add(normalAvg4.Len);
+                        //}
                         //
                         normalLengths = normalLengthsList.ToArray();
                         Array.Sort(normalLengths); 
                         if (normalLengths[0] == 0)
                             normalAvg = null;
-                        else if (normalLengths[normalLengths.Length - 1] / normalLengths[0] > 1.2)
+                        else if (normalLengths[1] / normalLengths[0] > 1.2)
                             normalAvg = null;
                         else
                         {
@@ -10672,10 +10670,6 @@ namespace CaeMesh
                                 if (normalAvg == null) normalAvg = normalAvg1; else normalAvg += normalAvg1;
                             if (normalAvg2 != null)
                                 if (normalAvg == null) normalAvg = normalAvg2; else normalAvg += normalAvg2;
-                            if (normalAvg3 != null)
-                                if (normalAvg == null) normalAvg = normalAvg3; else normalAvg += normalAvg3;
-                            if (normalAvg4 != null)
-                                if (normalAvg == null) normalAvg = normalAvg4; else normalAvg += normalAvg4;
                             //
                             normalAvg *= 1.0 / normalLengths.Length;
                         }

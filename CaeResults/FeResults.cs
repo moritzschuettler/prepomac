@@ -375,8 +375,8 @@ namespace CaeResults
                             new OrderedDictionary<string, ResultFieldOutput>("ResultFieldOutputs",
                                                                              StringComparer.OrdinalIgnoreCase);
                 }
-                // Compatibility v2.3.4
-                if (version > 2_003_004)
+                // Compatibility v2.3.5
+                if (version > 2_003_005)
                 {
                     // Read the history state
                     exists = Tools.ReadIntFromFileStream(fileStream);
