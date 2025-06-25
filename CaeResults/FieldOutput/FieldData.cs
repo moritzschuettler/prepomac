@@ -76,7 +76,7 @@ namespace CaeResults
 
 
         // Static methods                                                                                                           
-        public static void WriteToFile(FieldData fieldData, System.IO.BinaryWriter bw)
+        public static void WriteToBinaryWriter(FieldData fieldData, System.IO.BinaryWriter bw)
         {
             if (fieldData == null)
             {
@@ -114,7 +114,7 @@ namespace CaeResults
                 bw.Write(fieldData.Internal);
             }
         }
-        public static FieldData ReadFromFile(System.IO.BinaryReader br, int version)
+        public static FieldData ReadFromBinaryReader(System.IO.BinaryReader br, int version)
         {
             int fieldDataExists = br.ReadInt32();
             if (fieldDataExists == 1)

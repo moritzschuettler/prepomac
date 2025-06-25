@@ -1303,7 +1303,7 @@ namespace PrePoMax
                     FeModel.ReadFromBinaryReader(model, br, version);
                     //
                     if (oldResults) FeResults.ReadFromBinaryReader(allResults.CurrentResult, br, version);
-                    else if (ResultsCollection.ReadFromBinaryReader(allResults, br, version)) ;
+                    else if (ResultsCollection.ReadFromBinaryReader(allResults, br, version)) { }
                     else
                     {
                         _form.WriteDataToOutput("Warning: There were errors reading the results.");

@@ -57,7 +57,13 @@ namespace CaeGlobals
             await Task.Run(() => a = LoadDumpFromFile<T>(fileName));
             return a;
         }
-        //
+        // Write
+        public static void WriteBoolToFileStream(FileStream fileStream, bool value)
+        {
+            byte[] buffer = BitConverter.GetBytes(value);
+            if (buffer.Length != 1) throw new NotSupportedException();
+            fileStream.Write(buffer, 0, 1);
+        }
         public static void WriteIntToFileStream(FileStream fileStream, int value)
         {
             byte[] buffer = BitConverter.GetBytes(value);
@@ -66,6 +72,7 @@ namespace CaeGlobals
         }
         public static void WriteStringToFileStream(FileStream fileStream, string value)
         {
+            if (value == null) value = "@null#";
             byte[] byteData = Encoding.UTF8.GetBytes(value);
             int numOfBytes = Encoding.UTF8.GetBytes(value).Length;
             WriteIntToFileStream(fileStream, numOfBytes);
@@ -73,11 +80,19 @@ namespace CaeGlobals
         }
         public static void WriteStringToFileStream(FileStream fileStream, string value, int numOfBytes)
         {
+            if (value == null) value = "@null#";
             byte[] byteData = Encoding.UTF8.GetBytes(value);
             byte[] buffer = new byte[numOfBytes];
             byteData.CopyTo(buffer, 0); // buffer can be longer than byteData
             //
             fileStream.Write(buffer, 0, numOfBytes);
+        }
+        // Read
+        public static bool ReadBoolFromFileStream(FileStream fileStream)
+        {
+            byte[] buffer = new byte[1];
+            fileStream.Read(buffer, 0, buffer.Length);
+            return BitConverter.ToBoolean(buffer, 0);
         }
         public static int ReadIntFromFileStream(FileStream fileStream)
         {
@@ -88,13 +103,17 @@ namespace CaeGlobals
         public static string ReadStringFromFileStream(FileStream fileStream)
         {
             int numOfBytes = ReadIntFromFileStream(fileStream);
-            return ReadStringFromFileStream(fileStream, numOfBytes);
+            string value = ReadStringFromFileStream(fileStream, numOfBytes);
+            if (value == "@null#") value = null;
+            return value;
         }
         public static string ReadStringFromFileStream(FileStream fileStream, int numOfBytes)
         {
             byte[] buffer = new byte[numOfBytes];
             fileStream.Read(buffer, 0, buffer.Length);
-            return Encoding.UTF8.GetString(buffer);
+            string value = Encoding.UTF8.GetString(buffer);
+            if (value == "@null#") value = null;
+            return value;
         }
         //
         public static string GetLocalPath(string path)

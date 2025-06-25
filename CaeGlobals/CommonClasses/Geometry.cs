@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -726,6 +727,22 @@ namespace CaeGlobals
             }
             //
             return new Vec3D(Vec3D.DotProduct(d, u) / k, Vec3D.DotProduct(m3, v) / k, -Vec3D.DotProduct(m2, v) / k);
+        }
+        public static Vec3D IntersectPlanes(Vec3D n1, Vec3D n2, Vec3D n3, double d1, double d2, double d3)
+        {
+            // Calculate triple scalar product (determinant)
+            double denom = Vec3D.DotProduct(n1, Vec3D.CrossProduct(n2, n3));
+            //
+            if (Math.Abs(denom) < 1e-6)
+                //throw new InvalidOperationException("The planes do not intersect at a single point (they may be parallel or intersect along a line).");
+                return null;
+            
+            Vec3D term1 = Vec3D.CrossProduct(n2, n3) * d1;
+            Vec3D term2 = Vec3D.CrossProduct(n3, n1) * d2;
+            Vec3D term3 = Vec3D.CrossProduct(n1, n2) * d3;
+
+            Vec3D intersection = (term1 + term2 + term3) * (1 / denom);
+            return intersection;
         }
     }
 }

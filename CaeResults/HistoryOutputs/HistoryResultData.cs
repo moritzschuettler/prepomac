@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 namespace CaeResults
 {
     [Serializable]
-    public class HistoryResultData : CaeGlobals.NamedClass, ISerializable
+    public class HistoryResultData : NamedClass, ISerializable
     {
         // Variables                                                                                                                
         public string SetName;                  //ISerializable

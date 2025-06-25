@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using CaeMesh;
 using CaeGlobals;
 using System.Runtime.Serialization;
+using System.IO.Compression;
+using System.IO;
 
 namespace CaeResults
 {
@@ -31,7 +33,6 @@ namespace CaeResults
             _unit = null;
             _entries = new OrderedDictionary<string, HistoryResultEntries>("Entries");
         }
-        //ISerializable
         public HistoryResultComponent(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
@@ -56,6 +57,158 @@ namespace CaeResults
 
 
         // Static methods                                                                                                           
+        public static void WriteToBinaryWriter(HistoryResultComponent historyResultComponent, BinaryWriter bw)
+        {
+            if (historyResultComponent == null)
+            {
+                bw.Write((int)0);
+            }
+            else
+            {
+                bw.Write((int)1);
+                // Name
+                bw.Write(historyResultComponent.Name);
+                // Unit
+                if (historyResultComponent.Unit == null) bw.Write("null");
+                else bw.Write(historyResultComponent.Unit);
+                // Entries
+                if (historyResultComponent.Entries == null) bw.Write((int)0);
+                else
+                {
+                    
+
+
+                    bw.Write((int)1);
+                    bw.Write((int)historyResultComponent.Entries.Count);
+                    foreach (var entry in historyResultComponent.Entries)
+                        HistoryResultEntries.WriteToBinaryWriter(entry.Value, bw);
+                }
+            }
+        }
+        public static void WriteToFileStream(HistoryResultComponent historyResultComponent, FileStream fileStream,
+                                             CompressionLevel compressionLevel)
+        {
+            if (historyResultComponent == null)
+            {
+                Tools.WriteIntToFileStream(fileStream, 0);
+            }
+            else
+            {
+                Tools.WriteIntToFileStream(fileStream, 1);
+                // Name
+                Tools.WriteStringToFileStream(fileStream, historyResultComponent.Name);
+                // Unit
+                Tools.WriteStringToFileStream(fileStream, historyResultComponent.Unit);
+                // Entries
+                if (historyResultComponent.Entries == null)
+                {
+                    Tools.WriteIntToFileStream(fileStream, 0);
+                }
+                else
+                {
+                    // If all time arrays are equal, remove all except the first
+                    if (historyResultComponent.Entries.Count > 0)
+                    {
+                        bool allTimesEqual = true;
+                        List<double> time = historyResultComponent.Entries.First().Value.Time;
+                        foreach (var entry in historyResultComponent.Entries)
+                        {
+                            if (!AreTimesEqual(entry.Value.Time, time))
+                            {
+                                allTimesEqual = false;
+                                break;
+                            }
+                        }
+                        if (allTimesEqual)
+                        {
+                            int count = 0;
+                            foreach (var entry in historyResultComponent.Entries)
+                            {
+                                if (count++ > 0) entry.Value.Time = new List<double>();
+                            }
+                        }
+                    }
+                    //
+                    Tools.WriteIntToFileStream(fileStream, 1);
+                    Tools.WriteIntToFileStream(fileStream, historyResultComponent.Entries.Count);
+                    //
+                    foreach (var entry in historyResultComponent.Entries)
+                        HistoryResultEntries.WriteToFileStream(entry.Value, fileStream, compressionLevel);
+                }
+            }
+        }
+        public static HistoryResultComponent ReadFromBinaryReader(BinaryReader br, int version)
+        {
+            int numItems;
+            HistoryResultEntries historyResultEntry;
+            HistoryResultComponent historyResultComponent;
+            //
+            int exists = br.ReadInt32();
+            if (exists == 1)
+            {
+                // Name
+                string name = br.ReadString();
+                historyResultComponent = new HistoryResultComponent(name);
+                // Unit
+                historyResultComponent.Unit = br.ReadString();
+                if (historyResultComponent.Unit == "null") historyResultComponent.Unit = null;
+                // Entries
+                exists = br.ReadInt32();
+                if (exists == 1)
+                {
+                    numItems = br.ReadInt32();
+                    //
+                    for (int i = 0; i < numItems; i++)
+                    {
+                        historyResultEntry = HistoryResultEntries.ReadFromBinaryReader(br, version);
+                        historyResultComponent.Entries.Add(historyResultEntry.Name, historyResultEntry);
+                    }
+                }
+                //
+                return historyResultComponent;
+            }
+            return null;
+        }
+        public static HistoryResultComponent ReadFromFileStream(FileStream fileStream, int version)
+        {
+            int numItems;
+            HistoryResultEntries historyResultEntry;
+            HistoryResultComponent historyResultComponent;
+            //
+            int exists = Tools.ReadIntFromFileStream(fileStream);
+            if (exists == 1)
+            {
+                // Name
+                string name = Tools.ReadStringFromFileStream(fileStream);
+                historyResultComponent = new HistoryResultComponent(name);
+                // Unit
+                historyResultComponent.Unit = Tools.ReadStringFromFileStream(fileStream);
+                // Entries
+                exists = Tools.ReadIntFromFileStream(fileStream);
+                if (exists == 1)
+                {
+                    numItems = Tools.ReadIntFromFileStream(fileStream);
+                    //
+                    for (int i = 0; i < numItems; i++)
+                    {
+                        historyResultEntry = HistoryResultEntries.ReadFromFileStream(fileStream, version);
+                        historyResultComponent.Entries.Add(historyResultEntry.Name, historyResultEntry);
+                    }
+                }
+                // If all time arrays are equal, they were removed before saving
+                if (historyResultComponent.Entries.Count > 0)
+                {
+                    List<double> time = historyResultComponent.Entries.First().Value.Time;
+                    foreach (var entry in historyResultComponent.Entries)
+                    {
+                        if (entry.Value.Time.Count == 0) entry.Value.Time = new List<double>(time);
+                    }
+                }
+                //
+                return historyResultComponent;
+            }
+            return null;
+        }
 
 
         // Methods                                                                                                                  
@@ -273,13 +426,27 @@ namespace CaeResults
             }
             else throw new NotSupportedException();
         }
+        private static bool AreTimesEqual(List<double> list1, List<double> list2)
+        {
+            if (list1.Count != list2.Count)
+                return false;
+
+            for (int i = 0; i < list1.Count; i++)
+            {
+                if (list1[i] != list2[i])
+                    return false;
+            }
+
+            return true;
+        }
+        // ISerialization
         public new void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             // Using typeof() works also for null fields
             base.GetObjectData(info, context);
             //
             info.AddValue("_unit", _unit, typeof(string));
-            info.AddValue("_entries", _entries, typeof(OrderedDictionary<string, HistoryResultEntries>));
+            info.AddValue("_entries", _entries, typeof(OrderedDictionary<string, HistoryResultComponent>));
         }
 
     }

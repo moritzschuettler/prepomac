@@ -1420,7 +1420,8 @@ namespace CaeResults
                 {
                     string noSuffixName = HOFieldNames.GetNoSuffixName(fieldEntry.Key);
                     //
-                    if (noSuffixName == HOFieldNames.Stresses && HOFieldNames.HasRealComplexSuffix(fieldEntry.Key))
+                    if (noSuffixName == HOFieldNames.Stresses &&
+                        (noSuffixName == fieldEntry.Key || HOFieldNames.HasRealComplexSuffix(fieldEntry.Key)))
                     {
                         vonMisesCom = new HistoryResultComponent(HOComponentNames.Mises);
                         trescaCom = new HistoryResultComponent(HOComponentNames.Tresca);
@@ -1559,7 +1560,7 @@ namespace CaeResults
                     string noSuffixName = HOFieldNames.GetNoSuffixName(fieldEntry.Key);
                     //
                     if ((noSuffixName == HOFieldNames.Strains || noSuffixName == HOFieldNames.MechanicalStrains) &&
-                        HOFieldNames.HasRealComplexSuffix(fieldEntry.Key))
+                        (noSuffixName == fieldEntry.Key || HOFieldNames.HasRealComplexSuffix(fieldEntry.Key)))
                     {
                         HistoryResultComponent vonMisesCom = new HistoryResultComponent(HOComponentNames.Mises);
                         HistoryResultComponent trescaCom = new HistoryResultComponent(HOComponentNames.Tresca);

@@ -46,16 +46,6 @@ namespace CaeResults
                 if (entry.Value != null) CaeMesh.FeMesh.ResetAfterSaving(entry.Value.Mesh);
             }
         }
-        public static void WriteToBinaryWriter(ResultsCollection allResults, BinaryWriter bw)
-        {
-            bw.Write(allResults.Count);
-            //
-            foreach (var entry in allResults._results)
-            {
-                bw.Write(entry.Key);
-                FeResults.WriteToBinaryWriter(entry.Value, bw);
-            }
-        }
         public static void WriteToFileStream(ResultsCollection allResults, FileStream fileStream,
                                              CompressionLevel compressionLevel)
         {

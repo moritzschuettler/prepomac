@@ -7,6 +7,8 @@ using CaeMesh;
 using CaeGlobals;
 using System.Runtime.Serialization;
 using vtkControl;
+using System.IO.Compression;
+using System.IO;
 
 namespace CaeResults
 {
@@ -35,7 +37,6 @@ namespace CaeResults
             _fields = new OrderedDictionary<string, HistoryResultField>("Fields");
             _baseSetName = null;
         }
-        //ISerializable
         public HistoryResultSet(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
@@ -60,7 +61,130 @@ namespace CaeResults
             }
         }
 
+
         // Static methods                                                                                                           
+        public static void WriteToBinaryWriter(HistoryResultSet historyResultSet, BinaryWriter bw)
+        {
+            if (historyResultSet == null)
+            {
+                bw.Write((int)0);
+            }
+            else
+            {
+                bw.Write((int)1);
+                // Name
+                bw.Write(historyResultSet.Name);
+                // Harmonic
+                bw.Write(historyResultSet.Harmonic);
+                // Fields
+                if (historyResultSet.Fields == null) bw.Write((int)0);
+                else
+                {
+                    bw.Write((int)1);
+                    bw.Write((int)historyResultSet.Fields.Count);
+                    foreach (var entry in historyResultSet.Fields)
+                        HistoryResultField.WriteToBinaryWriter(entry.Value, bw);
+                }
+                // BaseSetName
+                if (historyResultSet.BaseSetName == null) bw.Write("null");
+                else bw.Write(historyResultSet.BaseSetName);
+            }
+        }
+        public static void WriteToFileStream(HistoryResultSet historyResultSet, FileStream fileStream,
+                                             CompressionLevel compressionLevel)
+        {
+            if (historyResultSet == null)
+            {
+                Tools.WriteIntToFileStream(fileStream, 0);
+            }
+            else
+            {
+                Tools.WriteIntToFileStream(fileStream, 1);
+                // Name
+                Tools.WriteStringToFileStream(fileStream, historyResultSet.Name);
+                // Harmonic
+                Tools.WriteBoolToFileStream(fileStream, historyResultSet.Harmonic);
+                // Fields
+                if (historyResultSet.Fields == null) Tools.WriteIntToFileStream(fileStream, 0);
+                else
+                {
+                    Tools.WriteIntToFileStream(fileStream, 1);
+                    Tools.WriteIntToFileStream(fileStream, historyResultSet.Fields.Count);
+                    //
+                    foreach (var entry in historyResultSet.Fields)
+                        HistoryResultField.WriteToFileStream(entry.Value, fileStream, compressionLevel);
+                }
+                // BaseSetName
+                Tools.WriteStringToFileStream(fileStream, historyResultSet.BaseSetName);
+            }
+        }
+        public static HistoryResultSet ReadFromBinaryReader(BinaryReader br, int version)
+        {
+            int numItems;
+            HistoryResultField historyResultField;
+            HistoryResultSet historyResultSet;
+            //
+            int exists = br.ReadInt32();
+            if (exists == 1)
+            {
+                // Name
+                string name = br.ReadString();
+                historyResultSet = new HistoryResultSet(name);
+                // Harmonic
+                historyResultSet.Harmonic = br.ReadBoolean();
+                // Fields
+                exists = br.ReadInt32();
+                if (exists == 1)
+                {
+                    numItems = br.ReadInt32();
+                    //
+                    for (int i = 0; i < numItems; i++)
+                    {
+                        historyResultField = HistoryResultField.ReadFromBinaryReader(br, version);
+                        historyResultSet.Fields.Add(historyResultField.Name, historyResultField);
+                    }
+                }
+                // BaseSetName
+                historyResultSet.BaseSetName = br.ReadString();
+                if (historyResultSet.BaseSetName == "null") historyResultSet.BaseSetName = null;
+                //
+                return historyResultSet;
+            }
+            return null;
+        }
+        public static HistoryResultSet ReadFromFileStream(FileStream fileStream, int version)
+        {
+            int numItems;
+            HistoryResultField historyResultField;
+            HistoryResultSet historyResultSet;
+            //
+            int exists = Tools.ReadIntFromFileStream(fileStream);
+            if (exists == 1)
+            {
+                // Name
+                string name = Tools.ReadStringFromFileStream(fileStream);
+                historyResultSet = new HistoryResultSet(name);
+                // Harmonic
+                historyResultSet.Harmonic = Tools.ReadBoolFromFileStream(fileStream);
+                // Fields
+                exists = Tools.ReadIntFromFileStream(fileStream);
+                if (exists == 1)
+                {
+                    numItems = Tools.ReadIntFromFileStream(fileStream);
+                    //
+                    for (int i = 0; i < numItems; i++)
+                    {
+                        historyResultField = HistoryResultField.ReadFromFileStream(fileStream, version);
+                        historyResultSet.Fields.Add(historyResultField.Name, historyResultField);
+                    }
+                }
+                // BaseSetName
+                historyResultSet.BaseSetName = Tools.ReadStringFromFileStream(fileStream);
+                //
+                return historyResultSet;
+            }
+            return null;
+        }
 
 
         // Methods                                                                                                                  
@@ -82,7 +206,6 @@ namespace CaeResults
             }
             return fieldNameComponentNames;
         }
-
         // ISerialization
         public new void GetObjectData(SerializationInfo info, StreamingContext context)
         {

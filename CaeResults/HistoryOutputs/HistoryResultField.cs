@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using CaeMesh;
 using CaeGlobals;
 using System.Runtime.Serialization;
+using System.IO.Compression;
+using System.IO;
 
 namespace CaeResults
 {
@@ -32,7 +34,6 @@ namespace CaeResults
             _name = name;
             _components = new OrderedDictionary<string, HistoryResultComponent>("Components");
         }
-        //ISerializable
         public HistoryResultField(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
@@ -55,6 +56,110 @@ namespace CaeResults
 
 
         // Static methods                                                                                                           
+        public static void WriteToBinaryWriter(HistoryResultField historyResultField, BinaryWriter bw)
+        {
+            if (historyResultField == null)
+            {
+                bw.Write((int)0);
+            }
+            else
+            {
+                bw.Write((int)1);
+                // Name
+                bw.Write(historyResultField.Name);
+                // Components
+                if (historyResultField.Components == null) bw.Write((int)0);
+                else
+                {
+                    bw.Write((int)1);
+                    bw.Write((int)historyResultField.Components.Count);
+                    foreach (var entry in historyResultField.Components)
+                        HistoryResultComponent.WriteToBinaryWriter(entry.Value, bw);
+                }
+            }
+        }
+        public static void WriteToFileStream(HistoryResultField historyResultField, FileStream fileStream,
+                                             CompressionLevel compressionLevel)
+        {
+            if (historyResultField == null)
+            {
+                Tools.WriteIntToFileStream(fileStream, 0);
+            }
+            else
+            {
+                Tools.WriteIntToFileStream(fileStream, 1);
+                // Name
+                Tools.WriteStringToFileStream(fileStream, historyResultField.Name);
+                // Components
+                if (historyResultField.Components == null) Tools.WriteIntToFileStream(fileStream, 0);
+                else
+                {
+                    Tools.WriteIntToFileStream(fileStream, 1);
+                    Tools.WriteIntToFileStream(fileStream, historyResultField.Components.Count);
+                    //
+                    foreach (var entry in historyResultField.Components)
+                        HistoryResultComponent.WriteToFileStream(entry.Value, fileStream, compressionLevel);
+                }
+            }
+        }
+        public static HistoryResultField ReadFromBinaryReader(System.IO.BinaryReader br, int version)
+        {
+            int numItems;
+            HistoryResultComponent historyResultComponent;
+            HistoryResultField historyResultField;
+            //
+            int exists = br.ReadInt32();
+            if (exists == 1)
+            {
+                // Name
+                string name = br.ReadString();
+                historyResultField = new HistoryResultField(name);
+                // Components
+                exists = br.ReadInt32();
+                if (exists == 1)
+                {
+                    numItems = br.ReadInt32();
+                    //
+                    for (int i = 0; i < numItems; i++)
+                    {
+                        historyResultComponent = HistoryResultComponent.ReadFromBinaryReader(br, version);
+                        historyResultField.Components.Add(historyResultComponent.Name, historyResultComponent);
+                    }
+                }
+                //
+                return historyResultField;
+            }
+            return null;
+        }
+        public static HistoryResultField ReadFromFileStream(FileStream fileStream, int version)
+        {
+            int numItems;
+            HistoryResultComponent historyResultComponent;
+            HistoryResultField historyResultField;
+            //
+            int exists = Tools.ReadIntFromFileStream(fileStream);
+            if (exists == 1)
+            {
+                // Name
+                string name = Tools.ReadStringFromFileStream(fileStream);
+                historyResultField = new HistoryResultField(name);
+                // Components
+                exists = Tools.ReadIntFromFileStream(fileStream);
+                if (exists == 1)
+                {
+                    numItems = Tools.ReadIntFromFileStream(fileStream);
+                    //
+                    for (int i = 0; i < numItems; i++)
+                    {
+                        historyResultComponent = HistoryResultComponent.ReadFromFileStream(fileStream, version);
+                        historyResultField.Components.Add(historyResultComponent.Name, historyResultComponent);
+                    }
+                }
+                //
+                return historyResultField;
+            }
+            return null;
+        }
 
 
         // Methods                                                                                                                  
@@ -67,7 +172,6 @@ namespace CaeResults
                 else _components.Add(entry.Key, entry.Value);
             }
         }
-
         // ISerialization
         public new void GetObjectData(SerializationInfo info, StreamingContext context)
         {
