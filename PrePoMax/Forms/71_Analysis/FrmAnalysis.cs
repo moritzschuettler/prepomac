@@ -19,7 +19,7 @@ namespace PrePoMax.Forms
         // Variables                                                                                                                
         private string[] _jobNames;
         private string _jobToEditName;
-        private ViewJob _viewJob;
+        private ViewAnalysisJob _viewJob;
         private Controller _controller;
         private double _labelRatio = 3;
 
@@ -28,7 +28,7 @@ namespace PrePoMax.Forms
         public AnalysisJob Job 
         {
             get { return _viewJob.GetBase(); }
-            set { _viewJob = new ViewJob(value.DeepClone()); }
+            set { _viewJob = new ViewAnalysisJob(value.DeepClone()); }
         }
 
 
@@ -59,7 +59,7 @@ namespace PrePoMax.Forms
         {
             try
             {
-                _viewJob = (ViewJob)propertyGrid.SelectedObject;
+                _viewJob = (ViewAnalysisJob)propertyGrid.SelectedObject;
                 // Check if the name exists
                 UserControls.FrmProperties.CheckName(_jobToEditName, _viewJob.Name, _jobNames, "analysis");
                 //
@@ -115,6 +115,12 @@ namespace PrePoMax.Forms
             {
                 Job = _controller.GetJob(_jobToEditName); // to clone
             }
+            _viewJob.PopulateSolverSettings(new FEMSolverEnum[] { FEMSolverEnum.Calculix,
+                                                                  FEMSolverEnum.Abaqus},
+                                            new string[] { _controller.Settings.Calculix.CalculixExe,
+                                                           _controller.Settings.Abaqus.AbaqusExe },
+                                            new string[] { _controller.Settings.GetWorkDirectory(),
+                                                           _controller.Settings.GetAbaqusWorkDirectory()});
             //
             propertyGrid.SelectedObject = _viewJob;
             propertyGrid.Select();            

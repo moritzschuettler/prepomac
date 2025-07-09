@@ -10,7 +10,7 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
-    internal class CalRadiationHeatTransfer : CalculixKeyword
+    internal class CalRadiationHeatTransfer : CalLoad
     {
         // Variables                                                                                                                
         private RadiationHeatTransfer _radiationHeatTransfer;
@@ -39,7 +39,8 @@ namespace FileInOut.Output.Calculix
             string cavity = "";
             if (_radiationHeatTransfer.CavityRadiation) cavity = "Cavity=" + _radiationHeatTransfer.CavityName;
             //
-            sb.AppendFormat("*Radiate{0}{1}{2}{3}", sinkAmplitude, emissivityAmplitude, cavity, Environment.NewLine);
+            sb.AppendFormat("*Radiate{0}{1}{2}{3}{4}", sinkAmplitude, emissivityAmplitude, cavity, OpTypeString(),
+                            Environment.NewLine);
             //
             return sb.ToString();
         }

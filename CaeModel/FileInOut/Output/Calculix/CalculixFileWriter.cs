@@ -1733,7 +1733,7 @@ namespace FileInOut.Output
                     title = new CalTitle("Output frequency", "");
                     calStep.AddKeyword(title);
                     CalOutput calOutput = new CalOutput(step.OutputFrequency);
-                    title.AddKeyword(calOutput);
+                    if (!calOutput.IsDefault()) title.AddKeyword(calOutput);
                 }
                 else calStep.AddKeyword(new CalDeactivated(step.GetType().ToString()));
                 // Boundary conditions title

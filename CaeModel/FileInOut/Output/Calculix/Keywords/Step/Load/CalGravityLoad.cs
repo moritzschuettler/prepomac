@@ -10,7 +10,7 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
-    internal class CalGravityLoad : CalculixKeyword
+    internal class CalGravityLoad : CalLoad
     {
         // Variables                                                                                                                
         private GravityLoad _load;
@@ -38,7 +38,7 @@ namespace FileInOut.Output.Calculix
             //
             string loadCase = GetComplexLoadCase(_complexLoadType);
             //
-            sb.AppendFormat("*Dload{0}{1}{2}", amplitude, loadCase, Environment.NewLine);
+            sb.AppendFormat("*Dload{0}{1}{2}{3}", amplitude, loadCase, OpTypeString(), Environment.NewLine);
             //
             return sb.ToString();
         }

@@ -10,7 +10,7 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
-    internal class CalTemperatureBC : CalculixKeyword
+    internal class CalTemperatureBC : CalBC
     {
         // Variables                                                                                                                
         private string _nodeSetNameOfSurface;
@@ -40,7 +40,7 @@ namespace FileInOut.Output.Calculix
             if (_temperatureBC.AmplitudeName != Amplitude.DefaultAmplitudeName)
                 amplitude = ", Amplitude=" + _temperatureBC.AmplitudeName;
             //
-            sb.AppendFormat("*Boundary{0}{1}", amplitude, Environment.NewLine);
+            sb.AppendFormat("*Boundary{0}{1}{2}", amplitude, OpTypeString(), Environment.NewLine);
             //
             return sb.ToString();
         }

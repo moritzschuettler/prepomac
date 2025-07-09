@@ -2182,7 +2182,7 @@ namespace PrePoMax
         public void ExportToAbaqus(string fileName)
         {
             SuppressExplodedView();
-            FileInOut.Output.AbaqusFileWriter.Write(fileName, _model);
+            AbaqusFileWriter.Write(fileName, _model, _settings.Calculix.ConvertPyramidsTo);
             ResumeExplodedViews(false);
             //
             _form.WriteDataToOutput("Model exported to file: " + fileName);
@@ -10741,12 +10741,24 @@ namespace PrePoMax
             if (_jobs != null)
             {
                 CalculixSettings cs = _settings.Calculix;
+                AbaqusSettings abs = _settings.Abaqus;
+                //
                 foreach (var entry in _jobs)
                 {
-                    entry.Value.WorkDirectory = Settings.GetWorkDirectory();
-                    entry.Value.Executable = cs.CalculixExe;
-                    entry.Value.NumCPUs = cs.NumCPUs;
-                    entry.Value.EnvironmentVariables = cs.EnvironmentVariables;
+                    if (entry.Value.FEMSolver == FEMSolverEnum.Calculix)
+                    {
+                        entry.Value.WorkDirectory = Settings.GetWorkDirectory();
+                        entry.Value.Executable = cs.CalculixExe;
+                        entry.Value.NumCPUs = cs.NumCPUs;
+                        entry.Value.EnvironmentVariables = cs.EnvironmentVariables;
+                    }
+                    else if (entry.Value.FEMSolver == FEMSolverEnum.Abaqus)
+                    {
+                        entry.Value.WorkDirectory = Settings.GetAbaqusWorkDirectory();
+                        entry.Value.Executable = abs.AbaqusExe;
+                        entry.Value.NumCPUs = abs.NumCPUs;
+                    }
+                    else throw new NotSupportedException();
                 }
             }
         }
@@ -11145,7 +11157,10 @@ namespace PrePoMax
         }
         private bool RunJob(string inputFileName, AnalysisJob job, bool useBackgroundWorker = true)
         {
-            ExportToCalculix(inputFileName);
+            if (job.FEMSolver == FEMSolverEnum.Calculix) ExportToCalculix(inputFileName);
+            else if (job.FEMSolver == FEMSolverEnum.Abaqus) ExportToAbaqus(inputFileName);
+            else throw new NotSupportedException();
+            //
             job.JobStatusChanged = JobStatusChanged;
             //
             job.DataOutputEvent -= JobDataOutputChanged;

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 using CaeMesh;
 
 namespace CaeModel
@@ -87,8 +88,6 @@ namespace CaeModel
             if (_variables.HasFlag(ElementFieldVariable.S) && !error) result += ", NOE";
             return result;
         }
-
-
         // ISerialization
         public new void GetObjectData(SerializationInfo info, StreamingContext context)
         {

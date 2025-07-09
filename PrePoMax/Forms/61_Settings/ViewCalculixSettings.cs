@@ -56,7 +56,7 @@ namespace PrePoMax.Settings
         //
         [CategoryAttribute("Calculix")]
         [OrderedDisplayName(2, 10, "Executable")]
-        [DescriptionAttribute("Select the calculix executable file (ccx.exe).")]
+        [DescriptionAttribute("Select the Calculix executable file (ccx.exe).")]
         [EditorAttribute(typeof(System.Windows.Forms.Design.FileNameEditor), typeof(UITypeEditor))]
         [Id(3, 1)]
         public string CalculixExe

@@ -10,7 +10,7 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
-    internal class CalFilmHeatTransfer : CalculixKeyword
+    internal class CalFilmHeatTransfer : CalLoad
     {
         // Variables                                                                                                                
         private FilmHeatTransfer _filmHeatTransfer;
@@ -37,7 +37,7 @@ namespace FileInOut.Output.Calculix
             if (_filmHeatTransfer.CoefficientAmplitudeName != Amplitude.DefaultAmplitudeName)
                 coefficientAmplitudeName = ", Film amplitude=" + _filmHeatTransfer.CoefficientAmplitudeName;
             //
-            sb.AppendFormat("*Film{0}{1}{2}", sinkAmplitude, coefficientAmplitudeName, Environment.NewLine);
+            sb.AppendFormat("*Film{0}{1}{2}{3}", sinkAmplitude, coefficientAmplitudeName, OpTypeString(), Environment.NewLine);
             //
             return sb.ToString();
         }

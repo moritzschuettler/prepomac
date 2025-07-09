@@ -10,7 +10,7 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
-    internal class CalCFlux : CalculixKeyword
+    internal class CalCFlux : CalLoad
     {
         // Variables                                                                                                                
         private CFlux _flux;
@@ -36,7 +36,7 @@ namespace FileInOut.Output.Calculix
             string add = "";
             if (_flux.AddFlux) add = ", Add";
             //
-            sb.AppendFormat("*Cflux{0}{1}{2}", amplitude, add, Environment.NewLine);
+            sb.AppendFormat("*Cflux{0}{1}{2}{3}", amplitude, add, OpTypeString(), Environment.NewLine);
             //
             return sb.ToString();
         }

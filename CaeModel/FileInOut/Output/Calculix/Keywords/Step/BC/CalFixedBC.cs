@@ -9,7 +9,7 @@ using CaeMesh;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
-    internal class CalFixedBC : CalculixKeyword
+    internal class CalFixedBC : CalBC
     {
         // Variables                                                                                                                
         private FixedBC _fixedBC;
@@ -35,7 +35,7 @@ namespace FileInOut.Output.Calculix
         {
             StringBuilder sb = new StringBuilder();
             sb.AppendLine("** Name: " + _fixedBC.Name);
-            sb.AppendLine("*Boundary");
+            sb.AppendLine("*Boundary" + OpTypeString());
             return sb.ToString();
         }
         public override string GetDataString()

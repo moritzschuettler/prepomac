@@ -1509,7 +1509,11 @@ namespace FileInOut.Input
                 }
                 // Thickness for 2D
                 double thickness = 1;
-                if (dataSet.Length == 2) thickness = double.Parse(dataSet[1]);
+                if (dataSet.Length == 2)
+                {
+                    double.TryParse(dataSet[1], out thickness);
+                    if (thickness <= 0) thickness = 1;
+                }
                 //
                 string name = sections.GetNextNumberedKey("Section");
                 var section = new SolidSection(name, materialName, regionName, RegionTypeEnum.ElementSetName, thickness, false);
@@ -2093,56 +2097,74 @@ namespace FileInOut.Input
                         //
                         regionName = nodeSetName;
                     }
-                    // Get the prescribed displacement
-                    int dofStart = int.Parse(recordBC[1]);
-                    int dofEnd = dofStart;
-                    if (recordBC.Length > 2 && int.TryParse(recordBC[2], out dof)) dofEnd = dof;
-                    double dofValue = 0;
-                    if (recordBC.Length == 4 && double.TryParse(recordBC[3], out value)) dofValue = value;
-                    //
-                    if (dofStart == 11)
-                    {
-                        name = allBCNames.GetNextNumberedKey("Temperature");
-                        TemperatureBC tempBC = new TemperatureBC(name, regionName, RegionTypeEnum. NodeSetName, dofValue, false);
-                        // Amplitude
-                        if (amplitudeName != null) tempBC.AmplitudeName = amplitudeName;
-                        // Add
-                        boundaryConditions.Add(name, tempBC);
-                    }
-                    else
+                    // Abaqus
+                    if (recordBC[1].Trim().ToUpper() == "ENCASTRE")
                     {
                         name = allBCNames.GetNextNumberedKey("Displacement_rotation");
                         DisplacementRotation dispRotBC = new DisplacementRotation(name, regionName, RegionTypeEnum.NodeSetName,
                                                                                   false, false, 0);
-                        // Amplitude
-                        if (amplitudeName != null) dispRotBC.AmplitudeName = amplitudeName;
-                        // Assign DOF prescribed displacement
-                        for (var j = dofStart; j <= dofEnd; j++)
-                        {
-                            switch (j)
-                            {
-                                case 1:
-                                    dispRotBC.U1.SetEquationFromValue(dofValue);
-                                    break;
-                                case 2:
-                                    dispRotBC.U2.SetEquationFromValue(dofValue);
-                                    break;
-                                case 3:
-                                    dispRotBC.U3.SetEquationFromValue(dofValue);
-                                    break;
-                                case 4:
-                                    dispRotBC.UR1.SetEquationFromValue(dofValue);
-                                    break;
-                                case 5:
-                                    dispRotBC.UR2.SetEquationFromValue(dofValue);
-                                    break;
-                                case 6:
-                                    dispRotBC.UR3.SetEquationFromValue(dofValue);
-                                    break;
-                            }
-                        }
+                        dispRotBC.U1.SetEquationFromValue(0);
+                        dispRotBC.U2.SetEquationFromValue(0);
+                        dispRotBC.U3.SetEquationFromValue(0);
+                        dispRotBC.UR1.SetEquationFromValue(0);
+                        dispRotBC.UR2.SetEquationFromValue(0);
+                        dispRotBC.UR3.SetEquationFromValue(0);
                         // Add
                         boundaryConditions.Add(name, dispRotBC);
+                    }
+                    else
+                    {
+                        // Get the prescribed displacement
+                        int dofStart = int.Parse(recordBC[1]);
+                        int dofEnd = dofStart;
+                        if (recordBC.Length > 2 && int.TryParse(recordBC[2], out dof)) dofEnd = dof;
+                        double dofValue = 0;
+                        if (recordBC.Length == 4 && double.TryParse(recordBC[3], out value)) dofValue = value;
+                        //
+                        if (dofStart == 11)
+                        {
+                            name = allBCNames.GetNextNumberedKey("Temperature");
+                            TemperatureBC tempBC = new TemperatureBC(name, regionName, RegionTypeEnum.NodeSetName, dofValue, false);
+                            // Amplitude
+                            if (amplitudeName != null) tempBC.AmplitudeName = amplitudeName;
+                            // Add
+                            boundaryConditions.Add(name, tempBC);
+                        }
+                        else
+                        {
+                            name = allBCNames.GetNextNumberedKey("Displacement_rotation");
+                            DisplacementRotation dispRotBC = new DisplacementRotation(name, regionName, RegionTypeEnum.NodeSetName,
+                                                                                      false, false, 0);
+                            // Amplitude
+                            if (amplitudeName != null) dispRotBC.AmplitudeName = amplitudeName;
+                            // Assign DOF prescribed displacement
+                            for (var j = dofStart; j <= dofEnd; j++)
+                            {
+                                switch (j)
+                                {
+                                    case 1:
+                                        dispRotBC.U1.SetEquationFromValue(dofValue);
+                                        break;
+                                    case 2:
+                                        dispRotBC.U2.SetEquationFromValue(dofValue);
+                                        break;
+                                    case 3:
+                                        dispRotBC.U3.SetEquationFromValue(dofValue);
+                                        break;
+                                    case 4:
+                                        dispRotBC.UR1.SetEquationFromValue(dofValue);
+                                        break;
+                                    case 5:
+                                        dispRotBC.UR2.SetEquationFromValue(dofValue);
+                                        break;
+                                    case 6:
+                                        dispRotBC.UR3.SetEquationFromValue(dofValue);
+                                        break;
+                                }
+                            }
+                            // Add
+                            boundaryConditions.Add(name, dispRotBC);
+                        }
                     }
                     allBCNames.Add(name);
                 }

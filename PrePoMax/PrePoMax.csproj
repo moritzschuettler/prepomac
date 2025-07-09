@@ -596,6 +596,7 @@
     </Compile>
     <Compile Include="Forms\56_DefinedField\ViewDefinedField.cs" />
     <Compile Include="Forms\56_DefinedField\ViewDefinedTemperature.cs" />
+    <Compile Include="Forms\61_Settings\ViewAbaqusSettings.cs" />
     <Compile Include="Forms\61_Settings\ViewCalculixSettings.cs" />
     <Compile Include="Forms\61_Settings\ViewColorSettings.cs" />
     <Compile Include="Forms\61_Settings\ViewAnnotationSettings.cs" />
@@ -780,7 +781,7 @@
     <Compile Include="Forms\71_Analysis\FrmMonitor.Designer.cs">
       <DependentUpon>FrmMonitor.cs</DependentUpon>
     </Compile>
-    <Compile Include="Forms\71_Analysis\ViewJob.cs" />
+    <Compile Include="Forms\71_Analysis\ViewAnalysisJob.cs" />
     <Compile Include="Forms\81_Animation\FrmAnimation.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -827,6 +828,7 @@
     </Compile>
     <Compile Include="Selection\ItemSet\ItemSetDataEditor.cs" />
     <Compile Include="Settings.cs" />
+    <Compile Include="Settings\AbaqusSettings.cs" />
     <Compile Include="Settings\ColorSettings.cs" />
     <Compile Include="Settings\AnnotationSettings.cs" />
     <Compile Include="Settings\MeshingSettings.cs" />

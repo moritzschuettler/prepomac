@@ -28,9 +28,9 @@ namespace FileInOut.Output.Calculix
         // Methods                                                                                                                  
         public override string GetKeywordString()
         {
-            string frequency = ", Frequency=";
-            if (_outputFrequency == int.MinValue) frequency += "1";
-            else frequency += _outputFrequency;
+            string frequency;
+            if (IsDefault()) frequency = ", Frequency=1";
+            else frequency = ", Frequency=" + _outputFrequency;
             //
             StringBuilder sb = new StringBuilder();
             sb.AppendFormat("*Output{0}{1}", frequency, Environment.NewLine);
@@ -39,6 +39,10 @@ namespace FileInOut.Output.Calculix
         public override string GetDataString()
         {
             return "";
+        }
+        public bool IsDefault()
+        {
+            return _outputFrequency == int.MinValue;
         }
     }
 }

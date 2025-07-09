@@ -56,6 +56,8 @@ namespace PrePoMax.Forms
                         _viewSettings.Add(entry.Key, new ViewPreSettings(prs.DeepClone()));
                     else if (entry.Value is CalculixSettings cas)
                         _viewSettings.Add(entry.Key, new ViewCalculixSettings(cas.DeepClone()));
+                    else if (entry.Value is AbaqusSettings abs)
+                        _viewSettings.Add(entry.Key, new ViewAbaqusSettings(abs.DeepClone()));
                     else if (entry.Value is PostSettings pos)
                         _viewSettings.Add(entry.Key, new ViewPostSettings(pos.DeepClone()));
                     else if (entry.Value is LegendSettings les)

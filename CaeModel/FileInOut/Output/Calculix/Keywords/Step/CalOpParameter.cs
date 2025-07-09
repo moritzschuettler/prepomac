@@ -20,7 +20,6 @@ namespace FileInOut.Output.Calculix
         Film,
         Radiate,
         Temperature
-
     }
     //
     [Serializable]

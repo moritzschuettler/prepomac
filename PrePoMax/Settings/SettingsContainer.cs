@@ -21,6 +21,7 @@ namespace PrePoMax
         private MeshingSettings _meshing;
         private PreSettings _pre;
         private CalculixSettings _calculix;
+        private AbaqusSettings _abaqus;
         private PostSettings _post;
         private LegendSettings _legend;
         private StatusBlockSettings _statusBlock;
@@ -34,6 +35,7 @@ namespace PrePoMax
         public MeshingSettings Meshing { get { return _meshing; } set { _meshing = value; } }
         public PreSettings Pre { get { return _pre; } set { _pre = value; } }
         public CalculixSettings Calculix { get { return _calculix; } set { _calculix = value; } }
+        public AbaqusSettings Abaqus { get { return _abaqus; } set { _abaqus = value; } }
         public PostSettings Post { get { return _post; } set { _post = value; } }
         public LegendSettings Legend { get { return _legend; } set { _legend = value; } }
         public StatusBlockSettings StatusBlock { get { return _statusBlock; } set { _statusBlock = value; } }
@@ -63,6 +65,7 @@ namespace PrePoMax
             _meshing = new MeshingSettings();
             _pre = new PreSettings();
             _calculix = new CalculixSettings();
+            _abaqus = new AbaqusSettings();
             _post = new PostSettings();
             _legend = new LegendSettings();
             _statusBlock = new StatusBlockSettings();
@@ -76,6 +79,7 @@ namespace PrePoMax
             _meshing.Reset();
             _pre.Reset();
             _calculix.Reset();
+            _abaqus.Reset();
             _post.Reset();
             _legend.Reset();
             _statusBlock.Reset();
@@ -136,6 +140,7 @@ namespace PrePoMax
             _meshing = clone._meshing;
             _pre = clone._pre;
             _calculix = clone._calculix;
+            _abaqus = clone._abaqus;
             _post = clone._post;
             _legend = clone._legend;
             _statusBlock = clone._statusBlock;
@@ -150,6 +155,7 @@ namespace PrePoMax
             items.Add(Globals.MeshingSettingsName, _meshing);
             items.Add(Globals.PreSettingsName, _pre);
             items.Add(Globals.CalculixSettingsName, _calculix);
+            items.Add(Globals.AbaqusSettingsName, _abaqus);
             items.Add(Globals.PostSettingsName, _post);
             items.Add(Globals.LegendSettingsName, _legend);
             items.Add(Globals.StatusBlockSettingsName, _statusBlock);
@@ -166,6 +172,7 @@ namespace PrePoMax
                 _meshing = (MeshingSettings)items[Globals.MeshingSettingsName];
                 _pre = (PreSettings)items[Globals.PreSettingsName];
                 _calculix = (CalculixSettings)items[Globals.CalculixSettingsName];
+                _abaqus = (AbaqusSettings)items[Globals.AbaqusSettingsName];
                 _post = (PostSettings)items[Globals.PostSettingsName];
                 _legend = (LegendSettings)items[Globals.LegendSettingsName];
                 _statusBlock = (StatusBlockSettings)items[Globals.StatusBlockSettingsName];
@@ -239,6 +246,23 @@ namespace PrePoMax
             else
             {
                 return _calculix.WorkDirectoryForSettingsOnly;
+            }
+        }
+        public string GetAbaqusWorkDirectory()
+        {
+            string lastFileName = _general.LastFileName;
+            if (_regenerationWorkDirectory != null)
+            {
+                return _regenerationWorkDirectory;
+            }
+            else if (_abaqus.UsePmxFolderAsWorkDirectory && lastFileName != null && File.Exists(lastFileName) &&
+                     Path.GetExtension(lastFileName) == ".pmx")
+            {
+                return Path.GetDirectoryName(lastFileName);
+            }
+            else
+            {
+                return _abaqus.WorkDirectoryForSettingsOnly;
             }
         }
         public void CheckWorkingDirectory()

@@ -9,7 +9,7 @@ using CaeMesh;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
-    internal class CalSubmodelBC : CalculixKeyword
+    internal class CalSubmodelBC : CalBC
     {
         // Variables                                                                                                                
         private SubmodelBC _submodel;
@@ -32,7 +32,7 @@ namespace FileInOut.Output.Calculix
         {
             StringBuilder sb = new StringBuilder();
             sb.AppendLine("** Name: " + _submodel.Name);
-            sb.AppendLine("*Boundary, Submodel, Step=" + _submodel.StepNumber.Value);
+            sb.AppendLine("*Boundary, Submodel, Step=" + _submodel.StepNumber.Value + OpTypeString());
             return sb.ToString();
         }
         public override string GetDataString()

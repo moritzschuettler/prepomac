@@ -51,9 +51,9 @@ namespace PrePoMax
             {
                 string path = Tools.GetGlobalPath(value);
                 if (!File.Exists(path))
-                    throw new Exception("The selected calculix executable does not exist.");
+                    throw new Exception("The selected Calculix executable does not exist.");
                 if (Path.GetExtension(path) != ".exe" && Path.GetExtension(path) != ".bat" && Path.GetExtension(path) != ".cmd")
-                    throw new Exception("The selected executable's file extension is not '.exe', '.bat' or '.cmd'.");
+                    throw new Exception("The selected executable's file extension is not .exe, .bat or .cmd.");
                 _executable = Tools.GetLocalPath(path);
             }
         }

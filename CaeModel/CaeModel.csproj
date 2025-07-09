@@ -63,6 +63,12 @@
     <Compile Include="Distributions\Distribution.cs" />
     <Compile Include="FileInOut\Input\Mmg\MmgFileReader.cs" />
     <Compile Include="FileInOut\Input\ObjFileReader\ObjFileReader.cs" />
+    <Compile Include="FileInOut\Output\Abaqus\AbaqusFileWriter.cs" />
+    <Compile Include="FileInOut\Output\Abaqus\Keywords\ModelDefinition\AbqElement.cs" />
+    <Compile Include="FileInOut\Output\Abaqus\Keywords\ModelDefinition\Constraints\AbqRigidBody.cs" />
+    <Compile Include="FileInOut\Output\Abaqus\Keywords\Step\FieldOutput\AbqElementOutput.cs" />
+    <Compile Include="FileInOut\Output\Abaqus\Keywords\Step\FieldOutput\AbqNodeOutput.cs" />
+    <Compile Include="FileInOut\Output\Abaqus\Keywords\Step\FieldOutput\AbqContactOutput.cs" />
     <Compile Include="FileInOut\Output\Calculix\Enums\ConvertPyramidsToEnum.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalTransform.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalAmplitude.cs" />
@@ -77,6 +83,7 @@
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Section\CalMembraneSection.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Section\CalLinearSpringSection.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\SurfaceInteraction\CalGapConductance.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\Step\BC\CalBC.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\CalComplexFrequencyStep.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\CalOpParameter.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\BC\CalTemperatureBC.cs" />
@@ -114,6 +121,7 @@
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalSubmodel.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalCFlux.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalBodyFlux.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalLoad.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalVariablePressureLoad.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalLoadEnums.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalDFlux.cs" />
@@ -185,7 +193,7 @@
     <Compile Include="FileInOut\Input\UnvMesh\UnvFeDescriptorId.cs" />
     <Compile Include="FileInOut\Input\UnvMesh\UnvFileReader.cs" />
     <Compile Include="FileInOut\Input\VolMesh\VolFileReader.cs" />
-    <Compile Include="FileInOut\Output\Abaqus\AbaqusFileWriter.cs" />
+    <Compile Include="FileInOut\Output\Abaqus\AbaqusFileWriterOld.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalCentrifLoad.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\CalBuckleStep.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalGravityLoad.cs" />
@@ -291,6 +299,17 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="FileInOut\Output\Abaqus\Enums\" />
+    <Folder Include="FileInOut\Output\Abaqus\Keywords\ModelDefinition\InitialConditions\" />
+    <Folder Include="FileInOut\Output\Abaqus\Keywords\ModelDefinition\Material\" />
+    <Folder Include="FileInOut\Output\Abaqus\Keywords\ModelDefinition\Section\" />
+    <Folder Include="FileInOut\Output\Abaqus\Keywords\ModelDefinition\SurfaceInteraction\" />
+    <Folder Include="FileInOut\Output\Abaqus\Keywords\Step\BC\" />
+    <Folder Include="FileInOut\Output\Abaqus\Keywords\Step\Controls\" />
+    <Folder Include="FileInOut\Output\Abaqus\Keywords\Step\Damping\" />
+    <Folder Include="FileInOut\Output\Abaqus\Keywords\Step\DefinedField\" />
+    <Folder Include="FileInOut\Output\Abaqus\Keywords\Step\HistoryOutput\" />
+    <Folder Include="FileInOut\Output\Abaqus\Keywords\Step\Load\Imported\" />
     <Folder Include="_Compatibility\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

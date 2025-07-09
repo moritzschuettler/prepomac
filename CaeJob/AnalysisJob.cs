@@ -29,7 +29,14 @@ namespace CaeJob
         Failed,
         FailedWithResults,
     }
-
+    //
+    [Serializable]
+    public enum FEMSolverEnum
+    {
+        Calculix,
+        Abaqus
+    }
+    //
     [Serializable]
     public class AnalysisJob : NamedClass, ISerializable
     {
@@ -46,6 +53,7 @@ namespace CaeJob
         protected long _convergenceFileLength;                          // ISerializable
         protected string _convergenceFileContents;                      // ISerializable
         protected DateTime _endTime;                                    // ISerializable
+        protected FEMSolverEnum _femSolver;                             // ISerializable
         //
         [NonSerialized] protected Stopwatch _watch;
         [NonSerialized] private Process _exe;
@@ -61,7 +69,8 @@ namespace CaeJob
         [NonSerialized] private int _currentRunIncrement;
         [NonSerialized] private object _tag;
         [NonSerialized] private bool _useBackgroundWorker;
-        [NonSerialized] private double _prevWatchMiliseconds;
+        [NonSerialized] private double _prevWatchMilliseconds;
+
 
         // Properties                                                                                                               
         public override string Name
@@ -69,8 +78,14 @@ namespace CaeJob
             get { return base.Name; }
             set
             {
-                base.Name = value;
-                _argument = Name;
+                if (base.Name != value)
+                {
+                    base.Name = value;
+                    //
+                    if (_femSolver == FEMSolverEnum.Calculix) _argument = Name;
+                    else if (_femSolver == FEMSolverEnum.Abaqus) _argument = "job=" + Name;
+                    else throw new NotSupportedException();
+                }
             }
         }
         public string WorkDirectory
@@ -123,6 +138,21 @@ namespace CaeJob
         public int CurrentRunStep { get { return _currentRunStep; } }
         public int CurrentRunIncrement { get { return _currentRunIncrement; } }
         public string InputFileName { get { return _inputFileName; } }
+        public FEMSolverEnum FEMSolver
+        {
+            get { return _femSolver; }
+            set
+            {
+                if (_femSolver != value)
+                {
+                    _femSolver = value;
+                    //
+                    if (_femSolver == FEMSolverEnum.Calculix) _argument = Name;
+                    else if (_femSolver == FEMSolverEnum.Abaqus) _argument = "job=" + Name;
+                    else throw new NotSupportedException();
+                }
+            }
+        }
         public object Tag { get { return _tag; } set { _tag = value; } }
 
 
@@ -158,6 +188,9 @@ namespace CaeJob
         public AnalysisJob(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
+            // Compatibility v 2.3.5
+            _femSolver = FEMSolverEnum.Calculix;
+            //
             foreach (SerializationEntry entry in info)
             {
                 switch (entry.Name)
@@ -186,6 +219,8 @@ namespace CaeJob
                         _convergenceFileContents = (string)entry.Value; break;
                     case "_endTime":
                         _endTime = (DateTime)entry.Value; break;
+                    case "_femSolver":
+                        _femSolver = (FEMSolverEnum)entry.Value; break;
                     default:
                         break;
                 }
@@ -218,7 +253,7 @@ namespace CaeJob
             //
             _watch = new Stopwatch();
             _watch.Start();
-            _prevWatchMiliseconds = 0;
+            _prevWatchMilliseconds = 0;
             //
             SubmitNextRun();
         }
@@ -453,7 +488,11 @@ namespace CaeJob
             ProcessStartInfo psi = new ProcessStartInfo();
             psi.CreateNoWindow = true;
             psi.FileName = _executable;
-            psi.Arguments = _argument;
+            //
+            if (_femSolver == FEMSolverEnum.Calculix) psi.Arguments = _argument;
+            else if (_femSolver == FEMSolverEnum.Abaqus) psi.Arguments = "interactive ask_delete=OFF " + _argument;
+            else throw new NotSupportedException();
+            //
             psi.WorkingDirectory = _workDirectory;
             psi.WindowStyle = ProcessWindowStyle.Hidden;
             psi.UseShellExecute = false;
@@ -504,7 +543,7 @@ namespace CaeJob
                 {
                     // Process completed. Check process.ExitCode here.
                     // after Kill() _jobStatus is Killed
-                    if (_jobStatus != JobStatus.Killed) _jobStatus = CaeJob.JobStatus.OK;
+                    if (_jobStatus != JobStatus.Killed) _jobStatus = JobStatus.OK;
                 }
                 else
                 {
@@ -514,6 +553,18 @@ namespace CaeJob
                     _jobStatus = JobStatus.TimedOut;
                 }               
                 _exe.Close();
+                // Abaqus
+                if (_femSolver == FEMSolverEnum.Abaqus)
+                {
+                    string fileName = Path.Combine(_workDirectory, Name + ".dat");
+                    if (File.Exists(fileName))
+                    {
+                        AppendDataToOutput(Environment.NewLine + 
+                                           "########   ABAQUS .dat FILE CONTENT   ########" +
+                                           Environment.NewLine);
+                        AppendDataToOutput(File.ReadAllText(fileName));
+                    }
+                }
             }            
         }
         public void Kill(string message)
@@ -611,10 +662,10 @@ namespace CaeJob
                 _sbOutput.AppendLine(data);
             }
             //
-            if (_watch.ElapsedMilliseconds - _prevWatchMiliseconds > 1000)
+            if (_watch.ElapsedMilliseconds - _prevWatchMilliseconds > 1000)
             {
                 SendDataToOutput();
-                _prevWatchMiliseconds = _watch.ElapsedMilliseconds;
+                _prevWatchMilliseconds = _watch.ElapsedMilliseconds;
             }
         }
         private void GetStatusFileContents()
@@ -649,11 +700,12 @@ namespace CaeJob
                 string convergenceFileName = Path.Combine(_workDirectory, Name + ".cvg");
                 if (!File.Exists(convergenceFileName)) return;
                 //
-                long size = new System.IO.FileInfo(convergenceFileName).Length;
+                long size = new FileInfo(convergenceFileName).Length;
                 //
                 if (size != _convergenceFileLength)
                 {
-                    using (FileStream fileStream = new FileStream(convergenceFileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                    using (FileStream fileStream = new FileStream(convergenceFileName, FileMode.Open, FileAccess.Read,
+                                                                  FileShare.ReadWrite))
                     {
                         using (StreamReader streamReader = new StreamReader(fileStream))
                         {
@@ -737,6 +789,7 @@ namespace CaeJob
             info.AddValue("_convergenceFileLength", _convergenceFileLength, typeof(long));
             info.AddValue("_convergenceFileContents", _convergenceFileContents, typeof(string));
             info.AddValue("_endTime", _endTime, typeof(DateTime));
+            info.AddValue("_femSolver", _femSolver, typeof(FEMSolverEnum));
         }
     }
 }

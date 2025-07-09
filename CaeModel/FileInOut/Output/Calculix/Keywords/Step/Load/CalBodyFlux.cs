@@ -10,7 +10,7 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
-    internal class CalBodyFlux : CalculixKeyword
+    internal class CalBodyFlux : CalLoad
     {
         // Variables                                                                                                                
         private BodyFlux _flux;
@@ -31,7 +31,7 @@ namespace FileInOut.Output.Calculix
             string amplitude = "";
             if (_flux.AmplitudeName != Amplitude.DefaultAmplitudeName) amplitude = ", Amplitude=" + _flux.AmplitudeName;
             //
-            sb.AppendFormat("*Dflux{0}{1}", amplitude, Environment.NewLine);
+            sb.AppendFormat("*Dflux{0}{1}{3}", amplitude, OpTypeString(), Environment.NewLine);
             //
             return sb.ToString();
         }

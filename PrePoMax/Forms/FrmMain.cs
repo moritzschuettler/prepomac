@@ -18,17 +18,10 @@ using CaeMesh;
 using CaeResults;
 using vtkControl;
 using System.Threading;
-using System.Runtime.InteropServices;
 using PrePoMax.Commands;
-using System.Timers;
-using PrePoMax.Properties;
-using System.Runtime;
-using System.Runtime.InteropServices.ComTypes;
-using System.Runtime.Remoting.Metadata.W3cXsd2001;
 using System.Diagnostics;
 using FileInOut.Output;
-using System.Security.Cryptography;
-using System.Runtime.Remoting.Messaging;
+
 
 namespace PrePoMax
 {
