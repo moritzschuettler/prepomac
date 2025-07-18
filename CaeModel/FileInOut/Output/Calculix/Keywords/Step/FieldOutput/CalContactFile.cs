@@ -12,13 +12,17 @@ namespace FileInOut.Output.Calculix
     internal class CalContactFile : CalculixKeyword
     {
         // Variables                                                                                                                
-        private ContactFieldOutput _contactFieldOutput;
+        protected ContactFieldOutput _contactFieldOutput;
 
 
         // Properties                                                                                                               
 
 
         // Constructor                                                                                                              
+        public CalContactFile(CalContactFile calContactFile)
+            : this(calContactFile._contactFieldOutput)
+        {
+        }
         public CalContactFile(ContactFieldOutput contactFieldOutput)
         {
             _contactFieldOutput = contactFieldOutput;

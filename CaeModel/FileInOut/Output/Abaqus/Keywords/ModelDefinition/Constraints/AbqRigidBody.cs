@@ -9,30 +9,29 @@ using CaeMesh;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
-    internal class AbqRigidBody : CalculixKeyword
+    internal class AbqRigidBody : CalRigidBody
     {
         // Variables                                                                                                                
-        private RigidBody _rigidBody;
-        private Dictionary<string, int[]> _referencePointsNodeIds;
-        private string _surfaceNodeSetName;
 
 
         // Properties                                                                                                               
 
 
         // Constructor                                                                                                              
-        public AbqRigidBody(RigidBody rigidBody, Dictionary<string, int[]> referencePointsNodeIds, string surfaceNodeSetName)
+        public AbqRigidBody(CalRigidBody calRigidBody)
+            : base(calRigidBody)
         {
-            _rigidBody = rigidBody;
-            _referencePointsNodeIds = referencePointsNodeIds;
-            _surfaceNodeSetName = surfaceNodeSetName;
+        }
+        public AbqRigidBody(RigidBody rigidBody, Dictionary<string, int[]> referencePointsNodeIds, string surfaceNodeSetName)
+            : base(rigidBody, referencePointsNodeIds, surfaceNodeSetName)
+        {
         }
 
 
         // Methods                                                                                                                  
         public override string GetKeywordString()
         {
-            //*RIGID BODY,NSET=rigid1,REF NODE=100,ROT NODE=101
+            //*RIGID BODY,TIE NSET=rigid1,REF NODE=100
             string nodeSetName;
             if (_rigidBody.RegionType == CaeGlobals.RegionTypeEnum.NodeSetName) nodeSetName = _rigidBody.RegionName;
             else if (_rigidBody.RegionType == CaeGlobals.RegionTypeEnum.SurfaceName) nodeSetName = _surfaceNodeSetName;
@@ -41,10 +40,6 @@ namespace FileInOut.Output.Calculix
             return string.Format("*Rigid body, Tie Nset={0}, Ref node={1}{2}", nodeSetName,
                                  _referencePointsNodeIds[_rigidBody.ReferencePointName][0],
                                  Environment.NewLine);
-        }
-        public override string GetDataString()
-        {
-            return "";
         }
     }
 }

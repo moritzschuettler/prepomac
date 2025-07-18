@@ -90,6 +90,9 @@ namespace UserControls
 
         public void AutoScrollSetText(string text)
         {
+
+
+
             bool bottomFlag = false;
             int VSmin;
             int VSmax;
@@ -102,7 +105,10 @@ namespace UserControls
             GetScrollRange(this.Handle, SB_VERT, out VSmin, out VSmax);
             if (savedVpos >= (VSmax - sbOffset - 1))
                 bottomFlag = true;
-            this.Text = text;
+            //
+            if (text != this.Text)
+                this.Text = text;
+            //
             if (bottomFlag)
             {
                 GetScrollRange(this.Handle, SB_VERT, out VSmin, out VSmax);
@@ -112,6 +118,5 @@ namespace UserControls
             SetScrollPos(this.Handle, SB_VERT, savedVpos, true);
             PostMessageA(this.Handle, WM_VSCROLL, SB_THUMBPOSITION + 0x10000 * savedVpos, 0);
         }
-
     }
 }

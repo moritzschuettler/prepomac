@@ -9,21 +9,18 @@ using CaeMesh;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
-    internal class AbqNodeOutput : CalculixKeyword
+    internal class AbqFieldElementOutput : CalElFile
     {
         // Variables                                                                                                                
-        private NodalFieldOutput _nodalFieldOutput;
-        private int _outputFrequency;
 
 
         // Properties                                                                                                               
 
 
         // Constructor                                                                                                              
-        public AbqNodeOutput(NodalFieldOutput nodalFieldOutput, int outputFrequency)
+        public AbqFieldElementOutput(CalElFile calElFile)
+            : base(calElFile)
         {
-            _nodalFieldOutput = nodalFieldOutput;
-            _outputFrequency = outputFrequency;
         }
 
 
@@ -35,24 +32,33 @@ namespace FileInOut.Output.Calculix
             //
             StringBuilder sb = new StringBuilder();
             sb.AppendFormat("*Output, Field{0}{1}", frequency, Environment.NewLine);
-            sb.AppendFormat("*Node Output{0}", Environment.NewLine);
+            sb.AppendFormat("*Element Output{0}", Environment.NewLine);
             return sb.ToString();
         }
         public override string GetDataString()
         {
             /*
-            RF = 1,
-            U = 2,
-            PU = 4,
-            V = 8,
+            S = 1,
+            PHS = 2,
+            E = 4,
+            ME = 8,
+            PEEQ = 16,
+            ENER = 32,
             // Thermal
-            NT = 16,
-            PNT = 32,
-            RFL = 64,
+            HFL = 64,
+            // Error
+            ERR = 128,
+            HER = 256,
+            ZZS = 512,
+            //
+            SDV = 1073741824,
             */
-            string variables = _nodalFieldOutput.Variables.ToString();
-            //variables = variables.Replace("PU", "");
-            //variables = variables.Replace("PNT", "");
+            string variables = _elementFieldOutput.GetVariablesString();
+            //variables = variables.Replace("ME", "");
+            //variables = variables.Replace("ERR", "");
+            //variables = variables.Replace("HER", "");
+            //variables = variables.Replace("ZZS", "");
+            variables = variables.Replace("NOE", "");
             //
             return string.Format("{0}{1}", variables, Environment.NewLine);
         }

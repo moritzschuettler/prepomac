@@ -9,127 +9,36 @@ using CaeMesh;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
-    internal class AbqElement : CalculixKeyword
+    internal class AbqElement : CalElement
     {
         // Variables                                                                                                                
-        private string _elementType;
-        private string _elementSetName;
-        private List<FeElement> _elements;
 
 
         // Properties                                                                                                               
 
 
         // Constructor                                                                                                              
-        public AbqElement(string elementType, string elementSetName, List<FeElement> elements)
-            : this(elementType, elementSetName, elements, ConvertPyramidsToEnum.Wedges)
+        public AbqElement(CalElement calElement)
+            : base(calElement)
         {
+            ConvertElementTypeToAbaqus();
         }
         public AbqElement(string elementType, string elementSetName, List<FeElement> elements,
                           ConvertPyramidsToEnum convertPyramidsTo)
+            : base(elementType, elementSetName, elements, convertPyramidsTo)
         {
-            // Abaqus
-            if (elementType == "B31R") elementType = "B31";
-            else if (elementType == "B32R") elementType = "B32";
-            else if (elementType == "S6") elementType = "STRI65";
-            else if (elementType == "S8") elementType = "S8R";
-            else if (elementType == "C3D10T") elementType = "C3D10";
-            // Linear pyramids
-            if (elementType == "C3D5")
-            {
-                _elementSetName = elementSetName;
-                List<FeElement> collapsedElements = new List<FeElement>();
-                //
-                if (convertPyramidsTo == ConvertPyramidsToEnum.Wedges)
-                {
-                    _elementType = "C3D6";
-                    //
-                    foreach (var element in elements)
-                    {
-                        if (element is LinearPyramidElement lpe) collapsedElements.Add(lpe.ConvertToWedge());
-                    }
-                }
-                else // Hexahedrons
-                {
-                    _elementType = "C3D8";
-                    //
-                    foreach (var element in elements)
-                    {
-                        if (element is LinearPyramidElement lpe) collapsedElements.Add(lpe.ConvertToHex());
-                    }
-                }
-                _elements = collapsedElements;
-            }
-            // Parabolic pyramids
-            else if (elementType == "C3D13")
-            {
-                _elementSetName = elementSetName;
-                List<FeElement> collapsedElements = new List<FeElement>();
-                //
-                if (convertPyramidsTo == ConvertPyramidsToEnum.Wedges)
-                {
-                    _elementType = "C3D15";
-                    //
-                    foreach (var element in elements)
-                    {
-                        if (element is ParabolicPyramidElement ppe) collapsedElements.Add(ppe.ConvertToWedge());
-                    }
-                }
-                else // Hexahedrons
-                {
-                    _elementType = "C3D20";
-                    //
-                    foreach (var element in elements)
-                    {
-                        if (element is ParabolicPyramidElement ppe) collapsedElements.Add(ppe.ConvertToHex());
-                    }
-                }
-                _elements = collapsedElements;
-            }
-            else
-            {
-                _elementType = elementType;
-                _elementSetName = elementSetName;
-                _elements = elements;
-            }
+            ConvertElementTypeToAbaqus();
         }
-
 
         // Methods                                                                                                                  
-        public override string GetKeywordString()
+        private void ConvertElementTypeToAbaqus()
         {
-            string elSet = "";
-            if (_elementSetName != null && _elementSetName.Length > 0) elSet = ", Elset=" + _elementSetName;
-            //
-            return string.Format("*Element, Type={0}{1}{2}", _elementType, elSet, Environment.NewLine);
+            if (_elementType == "B31R") _elementType = "B31";
+            else if (_elementType == "B32R") _elementType = "B32";
+            else if (_elementType == "S6") _elementType = "STRI65";
+            else if (_elementType == "S8") _elementType = "S8R";
+            else if (_elementType == "C3D10T") _elementType = "C3D10";
         }
-        public override string GetDataString()
-        {
-            StringBuilder sb = new StringBuilder();
-            int count;
-            // Sort
-            List<FeElement> sortedElements = _elements.OrderBy(element => element.Id).ToList();
-            //
-            foreach (FeElement feElement in sortedElements)
-            {
-                sb.AppendFormat("{0}", feElement.Id);
-                count = 1;
-                foreach (int nodeId in feElement.NodeIds)
-                {
-                    count++;
-                    if (count == 17)        // 16 entries per line; 17th entry goes in new line
-                    {
-                        sb.Append(",");
-                        sb.AppendLine();
-                        sb.Append(nodeId);
-                    }
-                    else
-                        sb.AppendFormat(", {0}", nodeId);
 
-                }
-                sb.AppendLine();
-            }
-            return sb.ToString();
-        }
     }
 }

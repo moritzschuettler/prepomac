@@ -12,20 +12,34 @@ namespace FileInOut.Output.Calculix
     internal class CalContactPrint : CalculixKeyword
     {
         // Variables                                                                                                                
-        private readonly ContactHistoryOutput _contactHistoryOutput;
-        private string _masterName;
-        private string _slaveName;
+        protected readonly ContactHistoryOutput _contactHistoryOutput;
+        protected string _masterSurfaceName;
+        protected string _slaveSurfaceName;
+        protected string _masterNodeSetName;
+        protected string _slaveNodeSetName;
+        protected int _outputFrequency;
 
 
         // Properties                                                                                                               
+        public bool OutputFrequency { get; set; }
 
 
         // Constructor                                                                                                              
-        public CalContactPrint(ContactHistoryOutput contactHistoryOutput, string masterName, string slaveName)
+        public CalContactPrint(CalContactPrint calContactPrint)
+            : this(calContactPrint._contactHistoryOutput, calContactPrint._masterSurfaceName, calContactPrint._slaveSurfaceName,
+                   calContactPrint._masterNodeSetName, calContactPrint._slaveNodeSetName, calContactPrint._outputFrequency)
+        {
+        }
+        public CalContactPrint(ContactHistoryOutput contactHistoryOutput, string masterSurfaceName, string slaveSurfaceName,
+                               string masterNodeSetName, string slaveNodeSetName, int outputFrequency)
         {
             _contactHistoryOutput = contactHistoryOutput;
-            _masterName = masterName;
-            _slaveName = slaveName;
+            _masterSurfaceName = masterSurfaceName;
+            _slaveSurfaceName = slaveSurfaceName;
+            _masterNodeSetName = masterNodeSetName;
+            _slaveNodeSetName = slaveNodeSetName;
+            _outputFrequency = outputFrequency;
+            OutputFrequency = false;
         }
 
 
@@ -37,9 +51,10 @@ namespace FileInOut.Output.Calculix
             else if (_contactHistoryOutput.TotalsType == TotalsTypeEnum.Only) totals = ", Totals=Only";
             string masterSlave = "";
             if (_contactHistoryOutput.Variables.HasFlag(ContactHistoryVariable.CF))
-                masterSlave = ", Master=" + _masterName + ", Slave=" + _slaveName;
+                masterSlave = ", Master=" + _masterSurfaceName + ", Slave=" + _slaveSurfaceName;
+            string frequency = OutputFrequency ? ", Frequency=" + _outputFrequency : "";
             //
-            return string.Format("*Contact print{0}{1}{2}", totals, masterSlave, Environment.NewLine);
+            return string.Format("*Contact print{0}{1}{2}{3}", totals, masterSlave, frequency, Environment.NewLine);
         }
         public override string GetDataString()
         {

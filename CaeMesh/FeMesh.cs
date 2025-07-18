@@ -10594,9 +10594,6 @@ namespace CaeMesh
             // Average normals
             foreach (var entry in nodeIdNormals)
             {
-                if (entry.Key == 37)
-                    normalAvg = null;
-
                 if (entry.Value.Count == 1) nodeIdNormal.Add(entry.Key, entry.Value[0]);
                 else
                 {

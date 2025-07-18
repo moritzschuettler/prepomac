@@ -12,19 +12,26 @@ namespace FileInOut.Output.Calculix
     internal class CalNodePrint : CalculixKeyword
     {
         // Variables                                                                                                                
-        private string _regionName;
-        private readonly NodalHistoryOutput _nodalHistoryOutput;
+        protected readonly NodalHistoryOutput _nodalHistoryOutput;
+        protected string _regionName;
+        protected int _outputFrequency;
 
 
         // Properties                                                                                                               
+        public string RegionName { get { return _regionName; } }
+        public bool OutputFrequency { get; set; }
 
 
         // Constructors                                                                                                             
-        public CalNodePrint(FeModel model, NodalHistoryOutput nodalHistoryOutput)
+        public CalNodePrint(CalNodePrint calNodePrint)
+            : this(calNodePrint._nodalHistoryOutput, calNodePrint._regionName, calNodePrint._outputFrequency)
+        {
+        }
+        public CalNodePrint(FeModel model, NodalHistoryOutput nodalHistoryOutput, int outputFrequency)
         {
             _nodalHistoryOutput = nodalHistoryOutput;   // set this first
             //
-            _regionName = ", Nset=";
+            _regionName = "";
             if (_nodalHistoryOutput.RegionType == CaeGlobals.RegionTypeEnum.NodeSetName)
                 _regionName += _nodalHistoryOutput.RegionName;
             else if (_nodalHistoryOutput.RegionType == CaeGlobals.RegionTypeEnum.SurfaceName)
@@ -32,23 +39,30 @@ namespace FileInOut.Output.Calculix
             else if (_nodalHistoryOutput.RegionType == CaeGlobals.RegionTypeEnum.Selection)
             { }
             else throw new NotSupportedException();
+            //
+            _outputFrequency = outputFrequency;
+            OutputFrequency = false;
         }
-        public CalNodePrint(FeModel model, NodalHistoryOutput nodalHistoryOutput, string regionName)
+        public CalNodePrint(NodalHistoryOutput nodalHistoryOutput, string regionName, int outputFrequency)
         {
-            _regionName = ", Nset=" + regionName;
             _nodalHistoryOutput = nodalHistoryOutput;
+            _regionName = regionName;
+            _outputFrequency = outputFrequency;
+            OutputFrequency = false;
         }
 
 
         // Methods                                                                                                                  
         public override string GetKeywordString()
         {
+            string regionName = ", Nset=" + _regionName;
             string totals = "";
             if (_nodalHistoryOutput.TotalsType == TotalsTypeEnum.Yes) totals = ", Totals=Yes";
             else if (_nodalHistoryOutput.TotalsType == TotalsTypeEnum.Only) totals = ", Totals=Only";
             string global = _nodalHistoryOutput.Global ? ", Global=Yes" : "";
+            string frequency = OutputFrequency ? ", Frequency=" + _outputFrequency : "";
             //
-            return string.Format("*Node print{0}{1}{2}{3}", _regionName, totals, global, Environment.NewLine);
+            return string.Format("*Node print{0}{1}{2}{3}{4}", regionName, totals, global, frequency, Environment.NewLine);
         }
         public override string GetDataString()
         {

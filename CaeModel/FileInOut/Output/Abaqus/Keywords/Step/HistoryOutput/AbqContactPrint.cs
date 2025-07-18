@@ -9,40 +9,37 @@ using CaeMesh;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
-    internal class CalOutput : CalculixKeyword
+    internal class AbqContactPrint : CalContactPrint
     {
         // Variables                                                                                                                
-        private int _outputFrequency;
 
 
         // Properties                                                                                                               
 
 
         // Constructor                                                                                                              
-        public CalOutput(int outputFrequency)
+        public AbqContactPrint(CalContactPrint calContactFile)
+            : base(calContactFile)
         {
-            _outputFrequency = outputFrequency;
+            OutputFrequency = true;
         }
 
 
         // Methods                                                                                                                  
         public override string GetKeywordString()
         {
-            string frequency;
-            if (IsDefault()) frequency = ", Frequency=1";
-            else frequency = ", Frequency=" + _outputFrequency;
-            //
-            StringBuilder sb = new StringBuilder();
-            sb.AppendFormat("*Output{0}{1}", frequency, Environment.NewLine);
-            return sb.ToString();
+            string keywordString = base.GetKeywordString();
+            keywordString = keywordString.Replace(", Master=", ", Main=");
+            keywordString = keywordString.Replace(", Slave=", ", Secondary=");
+            return keywordString;
         }
         public override string GetDataString()
         {
-            return "";
-        }
-        public bool IsDefault()
-        {
-            return _outputFrequency == int.MinValue;
+            string variables = _contactHistoryOutput.Variables.ToString();
+            variables = variables.Replace("CF", "CFT");
+            variables = variables.Replace("CDIS", "CDISP");
+            variables = variables.Replace("CSTR", "CSTRESS");
+            return string.Format("{0}{1}", variables, Environment.NewLine);
         }
     }
 }

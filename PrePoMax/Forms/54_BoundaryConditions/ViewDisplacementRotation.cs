@@ -189,11 +189,15 @@ namespace PrePoMax
             int numItems = DynamicCustomTypeDescriptor.GetProperty(nameof(CoordinateSystemName)).StatandardValues.Count;
             bool visible = RegionType != RegionTypeEnum.ReferencePointName.ToFriendlyString() && numItems > 1;
             DynamicCustomTypeDescriptor.GetProperty(nameof(CoordinateSystemName)).SetIsBrowsable(visible);
-            // Rotations
-            visible = _displacementRotation.CoordinateSystemName == CaeMesh.CoordinateSystem.DefaultCoordinateSystemName;
+            // Rotations 2D
+            visible = !_displacementRotation.TwoD;
             DynamicCustomTypeDescriptor.GetProperty(nameof(UR1)).SetIsBrowsable(visible);
             DynamicCustomTypeDescriptor.GetProperty(nameof(UR2)).SetIsBrowsable(visible);
-            DynamicCustomTypeDescriptor.GetProperty(nameof(UR3)).SetIsBrowsable(visible);
+            // Rotations - coordinate system
+            //visible = _displacementRotation.CoordinateSystemName == CaeMesh.CoordinateSystem.DefaultCoordinateSystemName;
+            //DynamicCustomTypeDescriptor.GetProperty(nameof(UR1)).SetIsBrowsable(visible);
+            //DynamicCustomTypeDescriptor.GetProperty(nameof(UR2)).SetIsBrowsable(visible);
+            //DynamicCustomTypeDescriptor.GetProperty(nameof(UR3)).SetIsBrowsable(visible);
             // Phase
             visible = _displacementRotation.Complex && !_displacementRotation.IsFreeFixedOrZero();
             DynamicCustomTypeDescriptor.GetProperty(nameof(Phase)).SetIsBrowsable(visible);

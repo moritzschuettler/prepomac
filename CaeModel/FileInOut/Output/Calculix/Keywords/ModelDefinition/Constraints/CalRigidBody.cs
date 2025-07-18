@@ -12,15 +12,19 @@ namespace FileInOut.Output.Calculix
     internal class CalRigidBody : CalculixKeyword
     {
         // Variables                                                                                                                
-        private RigidBody _rigidBody;
-        private Dictionary<string, int[]> _referencePointsNodeIds;
-        private string _surfaceNodeSetName;
+        protected RigidBody _rigidBody;
+        protected Dictionary<string, int[]> _referencePointsNodeIds;
+        protected string _surfaceNodeSetName;
 
 
         // Properties                                                                                                               
 
 
         // Constructor                                                                                                              
+        public CalRigidBody(CalRigidBody calRigidBody)
+            :this(calRigidBody._rigidBody, calRigidBody._referencePointsNodeIds, calRigidBody._surfaceNodeSetName)
+        {
+        }
         public CalRigidBody(RigidBody rigidBody, Dictionary<string, int[]> referencePointsNodeIds, string surfaceNodeSetName)
         {
             _rigidBody = rigidBody;

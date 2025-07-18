@@ -12,15 +12,21 @@ namespace FileInOut.Output.Calculix
     internal class CalElement : CalculixKeyword
     {
         // Variables                                                                                                                
-        private string _elementType;
-        private string _elementSetName;
-        private List<FeElement> _elements;
+        protected string _elementType;
+        protected string _elementSetName;
+        protected List<FeElement> _elements;
+        protected ConvertPyramidsToEnum _convertPyramidsTo;
 
 
         // Properties                                                                                                               
 
 
         // Constructor                                                                                                              
+        public CalElement(CalElement calElement)
+            : this(calElement._elementType, calElement._elementSetName, calElement._elements,
+                   calElement._convertPyramidsTo)
+        {
+        }
         public CalElement(string elementType, string elementSetName, List<FeElement> elements)
             : this(elementType, elementSetName, elements, ConvertPyramidsToEnum.Wedges)
         {
@@ -28,13 +34,14 @@ namespace FileInOut.Output.Calculix
         public CalElement(string elementType, string elementSetName, List<FeElement> elements,
                           ConvertPyramidsToEnum convertPyramidsTo)
         {
+            _convertPyramidsTo = convertPyramidsTo;
             // Linear pyramids
             if (elementType == "C3D5")
             {
                 _elementSetName = elementSetName;
                 List<FeElement> collapsedElements = new List<FeElement>();
                 //
-                if (convertPyramidsTo == ConvertPyramidsToEnum.Wedges)
+                if (_convertPyramidsTo == ConvertPyramidsToEnum.Wedges)
                 {
                     _elementType = "C3D6";
                     //
@@ -60,7 +67,7 @@ namespace FileInOut.Output.Calculix
                 _elementSetName = elementSetName;
                 List<FeElement> collapsedElements = new List<FeElement>();
                 //
-                if (convertPyramidsTo == ConvertPyramidsToEnum.Wedges)
+                if (_convertPyramidsTo == ConvertPyramidsToEnum.Wedges)
                 {
                     _elementType = "C3D15";
                     //

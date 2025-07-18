@@ -13,16 +13,23 @@ namespace FileInOut.Output.Calculix
     internal class CalDisplacementRotation : CalBC
     {
         // Variables                                                                                                                
-        private DisplacementRotation _displacementRotation;
-        private Dictionary<string, int[]> _referencePointsNodeIds;
-        private string _nodeSetNameOfSurface;
-        private ComplexLoadTypeEnum _complexLoadType;
+        protected DisplacementRotation _displacementRotation;
+        protected Dictionary<string, int[]> _referencePointsNodeIds;
+        protected string _nodeSetNameOfSurface;
+        protected ComplexLoadTypeEnum _complexLoadType;
+        protected int _maxNumberNodeDOFs;
 
 
         // Properties                                                                                                               
+        public int MaxNumberNodeDOFs { get { return _maxNumberNodeDOFs; } set { _maxNumberNodeDOFs = value; } }
 
 
         // Constructor                                                                                                              
+        public CalDisplacementRotation(CalDisplacementRotation displacementRotation)
+            : this(displacementRotation._displacementRotation, displacementRotation._referencePointsNodeIds,
+                   displacementRotation._nodeSetNameOfSurface, displacementRotation._complexLoadType)
+        {
+        }
         public CalDisplacementRotation(DisplacementRotation displacementRotation, Dictionary<string, int[]> referencePointsNodeIds,
                                        string nodeSetNameOfSurface, ComplexLoadTypeEnum complexLoadType)
         {
@@ -30,6 +37,7 @@ namespace FileInOut.Output.Calculix
             _referencePointsNodeIds = referencePointsNodeIds;
             _nodeSetNameOfSurface = nodeSetNameOfSurface;
             _complexLoadType = complexLoadType;
+            _maxNumberNodeDOFs = 3; // 3 for Calculix and 6 for Abaqus
         }
 
 
@@ -101,7 +109,8 @@ namespace FileInOut.Output.Calculix
                 for (int i = 0; i < directions.Length; i++)
                 {
                     // Translational directions - first node id:        6975, 1, 1, 0
-                    if (directions[i] <= 3) sb.AppendFormat("{0}, {1}, {2}", rpNodeIds[0], directions[i], directions[i]);
+                    if (directions[i] <= _maxNumberNodeDOFs)
+                        sb.AppendFormat("{0}, {1}, {2}", rpNodeIds[0], directions[i], directions[i]);
                     // Rotational directions - second node id:          6976, 2, 2, 0
                     else sb.AppendFormat("{0}, {1}, {2}", rpNodeIds[1], directions[i] - 3, directions[i] - 3);
                     if (!fixedBc) sb.AppendFormat(", {0}", stringValues[i]);
@@ -112,5 +121,6 @@ namespace FileInOut.Output.Calculix
             //
             return sb.ToString();
         }
+
     }
 }

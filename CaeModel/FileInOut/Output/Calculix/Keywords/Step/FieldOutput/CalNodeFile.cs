@@ -12,16 +12,22 @@ namespace FileInOut.Output.Calculix
     internal class CalNodeFile : CalculixKeyword
     {
         // Variables                                                                                                                
-        private NodalFieldOutput _nodalFieldOutput;
+        protected NodalFieldOutput _nodalFieldOutput;
+        protected int _outputFrequency;
 
 
         // Properties                                                                                                               
 
 
         // Constructor                                                                                                              
-        public CalNodeFile(NodalFieldOutput nodalFieldOutput)
+        public CalNodeFile(CalNodeFile calNodeFile)
+            : this(calNodeFile._nodalFieldOutput, calNodeFile._outputFrequency)
+        {
+        }
+        public CalNodeFile(NodalFieldOutput nodalFieldOutput, int outputFrequency)
         {
             _nodalFieldOutput = nodalFieldOutput;
+            _outputFrequency = outputFrequency;
         }
 
 

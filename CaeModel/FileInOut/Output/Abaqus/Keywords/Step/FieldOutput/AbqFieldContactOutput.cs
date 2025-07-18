@@ -9,19 +9,18 @@ using CaeMesh;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
-    internal class AbqContactOutput : CalculixKeyword
+    internal class AbqFieldContactOutput : CalContactFile
     {
         // Variables                                                                                                                
-        private ContactFieldOutput _contactFieldOutput;
 
 
         // Properties                                                                                                               
 
 
         // Constructor                                                                                                              
-        public AbqContactOutput(ContactFieldOutput contactFieldOutput)
+        public AbqFieldContactOutput(CalContactFile calContactFile)
+            : base(calContactFile)
         {
-            _contactFieldOutput = contactFieldOutput;
         }
 
 

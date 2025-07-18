@@ -125,8 +125,16 @@ namespace PrePoMax.Forms
             tbOutput.ScrollToCaret();
             //
             tbStatus.Text = _job.StatusFileData;
-            tbStatus.Select(tbOutput.TextLength, 0);
+            tbStatus.Select(tbStatus.TextLength, 0);
             tbStatus.ScrollToCaret();
+            //
+            tbConvergence.Text = _job.ConvergenceFileData;
+            tbConvergence.Select(tbConvergence.TextLength, 0);
+            tbConvergence.ScrollToCaret();
+            //
+            tbDatFile.Text = _job.DatFileData;
+            tbDatFile.Select(tbDatFile.TextLength, 0);
+            tbDatFile.ScrollToCaret();
         }
 
         private void UpdateOutput(AnalysisJob job, string data)
@@ -144,9 +152,8 @@ namespace PrePoMax.Forms
                     {
                         // It's on the same thread, no need for Invoke
                         tbOutput.AutoScrollAppendText(data);
-                        //
+                        tbDatFile.AutoScrollSetText(_job.DatFileData);
                         tbStatus.AutoScrollSetText(_job.StatusFileData);
-                        //
                         tbConvergence.AutoScrollSetText(_job.ConvergenceFileData);
                     }
                 }
@@ -162,19 +169,19 @@ namespace PrePoMax.Forms
                 {
                     pbAnalysisStatus.Style = ProgressBarStyle.Marquee;
                     labAnalysisStatus.Text = "      " + _job.JobStatus.ToString();
-                    labAnalysisStatus.Image = global::PrePoMax.Properties.Resources.Running;
+                    labAnalysisStatus.Image = Properties.Resources.Running;
                 }
                 else if (_job.JobStatus == JobStatus.OK)
                 {
                     pbAnalysisStatus.Style = ProgressBarStyle.Blocks;
                     labAnalysisStatus.Text = "      " + "Finished";
-                    labAnalysisStatus.Image = global::PrePoMax.Properties.Resources.OK;
+                    labAnalysisStatus.Image = Properties.Resources.OK;
                 }
                 else if (_job.JobStatus == JobStatus.FailedWithResults)
                 {
                     pbAnalysisStatus.Style = ProgressBarStyle.Blocks;
                     labAnalysisStatus.Text = "      " + "Failed with results";
-                    labAnalysisStatus.Image = global::PrePoMax.Properties.Resources.Warning;
+                    labAnalysisStatus.Image = Properties.Resources.Warning;
                     //
                     CheckForErrors();
                 }
@@ -182,7 +189,7 @@ namespace PrePoMax.Forms
                 {
                     pbAnalysisStatus.Style = ProgressBarStyle.Blocks;
                     labAnalysisStatus.Text = "      " + _job.JobStatus.ToString();
-                    labAnalysisStatus.Image = global::PrePoMax.Properties.Resources.NoResult;
+                    labAnalysisStatus.Image = Properties.Resources.NoResult;
                     //
                     CheckForErrors();
                 }
@@ -206,11 +213,11 @@ namespace PrePoMax.Forms
                         tmp = sets[i].Split(new string[] { "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
                         errorElementIds.Add(int.Parse(tmp[0]));
                     }
-                    string elementSetName = _controller.Model.Mesh.ElementSets.GetNextNumberedKey("Nonpositive_jacobian");
+                    string elementSetName = _controller.Model.Mesh.ElementSets.GetNextNumberedKey("Nonpositive_Jacobian");
                     _controller.AddElementSet(new CaeMesh.FeElementSet(elementSetName, errorElementIds.ToArray()));
                     //
                     tbOutput.AppendText(Environment.NewLine);
-                    tbOutput.AppendText(" An element set containing elements with nonpositive jacobian determinant was created.");
+                    tbOutput.AppendText(" An element set containing elements with nonpositive Jacobian determinant was created.");
                     tbOutput.AppendText(Environment.NewLine);
                 }
             }

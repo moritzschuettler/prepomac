@@ -12,16 +12,22 @@ namespace FileInOut.Output.Calculix
     internal class CalElFile : CalculixKeyword
     {
         // Variables                                                                                                                
-        private ElementFieldOutput _elementFieldOutput;
+        protected ElementFieldOutput _elementFieldOutput;
+        protected int _outputFrequency;
 
 
         // Properties                                                                                                               
 
 
         // Constructor                                                                                                              
-        public CalElFile(ElementFieldOutput elementFieldOutput)
+        public CalElFile(CalElFile calElFile)
+            : this(calElFile._elementFieldOutput, calElFile._outputFrequency)
+        {
+        }
+        public CalElFile(ElementFieldOutput elementFieldOutput, int outputFrequency)
         {
             _elementFieldOutput = elementFieldOutput;
+            _outputFrequency = outputFrequency;
         }
 
 

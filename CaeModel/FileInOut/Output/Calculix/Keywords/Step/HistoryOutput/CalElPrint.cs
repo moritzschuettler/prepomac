@@ -12,16 +12,27 @@ namespace FileInOut.Output.Calculix
     internal class CalElPrint : CalculixKeyword
     {
         // Variables                                                                                                                
-        private readonly ElementHistoryOutput _elementHistoryOutput;
+        protected readonly ElementHistoryOutput _elementHistoryOutput;
+        protected int _outputFrequency;
 
 
         // Properties                                                                                                               
+        public bool OutputFrequency { get; set; }
+        public bool OutputGlobal { get; set; }
 
 
         // Constructor                                                                                                              
-        public CalElPrint(ElementHistoryOutput elementHistoryOutput)
+        public CalElPrint(CalElPrint calElPrint)
+            : this(calElPrint._elementHistoryOutput, calElPrint._outputFrequency)
+        {
+        }
+        public CalElPrint(ElementHistoryOutput elementHistoryOutput, int outputFrequency)
         {
             _elementHistoryOutput = elementHistoryOutput;
+            _outputFrequency = outputFrequency;
+            //
+            OutputGlobal = true;
+            OutputFrequency = false;
         }
 
 
@@ -32,9 +43,10 @@ namespace FileInOut.Output.Calculix
             string totals = "";
             if (_elementHistoryOutput.TotalsType == TotalsTypeEnum.Yes) totals = ", Totals=Yes";
             else if (_elementHistoryOutput.TotalsType == TotalsTypeEnum.Only) totals = ", Totals=Only";
-            string global = _elementHistoryOutput.Global ? ", Global=Yes" : "";
+            string global = OutputGlobal && _elementHistoryOutput.Global ? ", Global=Yes" : "";
+            string frequency = OutputFrequency ? ", Frequency=" + _outputFrequency : "";
             //
-            return string.Format("*El print{0}{1}{2}{3}", regionName, totals, global, Environment.NewLine);
+            return string.Format("*El print{0}{1}{2}{3}{4}", regionName, totals, global, frequency, Environment.NewLine);
         }
         public override string GetDataString()
         {

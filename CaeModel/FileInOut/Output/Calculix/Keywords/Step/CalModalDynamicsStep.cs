@@ -10,7 +10,7 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
-    internal class CalModalDynamicsStep : CalculixKeyword
+    internal class CalModalDynamicsStep : CalStep
     {
         // Variables                                                                                                                
         private ModalDynamicsStep _step;
@@ -23,13 +23,16 @@ namespace FileInOut.Output.Calculix
         public CalModalDynamicsStep(ModalDynamicsStep step)
         {
             _step = step;
+            OutputSolver = true;
+            OutputNoAnalysis = true;
         }
 
 
         // Methods                                                                                                                  
         public override string GetKeywordString()
         {
-            string solver = _step.SolverType == SolverTypeEnum.Default ? "" : ", Solver=" + _step.SolverType.GetDisplayedName();
+            string solver = !OutputSolver || _step.SolverType == SolverTypeEnum.Default ?
+                "" : ", Solver=" + _step.SolverType.GetDisplayedName();
             string steadyState = _step.SteadyState ? ", Steady state" : "";
             return string.Format("*Modal dynamics{0}{1}{2}", solver, steadyState, Environment.NewLine);
         }
@@ -50,7 +53,7 @@ namespace FileInOut.Output.Calculix
             }
             
             //
-            if (!_step.RunAnalysis) data += "*No Analysis" + Environment.NewLine;
+            if (OutputNoAnalysis && !_step.RunAnalysis) data += "*No Analysis" + Environment.NewLine;
             return data;
         }
     }

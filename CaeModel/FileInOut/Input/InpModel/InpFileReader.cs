@@ -601,7 +601,7 @@ namespace FileInOut.Input
             {
                 stackIndices.Push(i);
                 //
-                if (userKeyword.Parent.ToString() == "Model" && keyword is CalStep)
+                if (userKeyword.Parent.ToString() == "Model" && keyword is CalStepHeader)
                 {
                     userKeyword.Parent = null;
                     while (stackIndices.Peek() == 0) stackIndices.Pop();
@@ -615,7 +615,7 @@ namespace FileInOut.Input
                     stackIndices.Push(count);
                     return stackIndices.ToArray().Reverse().ToArray();
                 }
-                else if (keyword is CalStep calS && calS.GetBase == userKeyword.Parent)
+                else if (keyword is CalStepHeader calS && calS.GetBase == userKeyword.Parent)
                 {
                     userKeyword.Parent = null;
                     count = keyword.Keywords.Count();

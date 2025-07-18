@@ -20,10 +20,6 @@ namespace FileInOut.Output
     [Serializable]
     public static class CalculixFileWriter
     {
-        // Variables                                                                                                                
-        private static ConvertPyramidsToEnum _convertPyramidsToEnum;
-
-
         // Methods                                                                                                                  
         static public void Write(string fileName, FeModel model, ConvertPyramidsToEnum convertPyramidsTo,
                                  Dictionary<int, double[]> deformations = null)
@@ -1187,14 +1183,9 @@ namespace FileInOut.Output
         }
         static private void AppendAdditionalElements(List<CalElement> additionalElementKeywords, CalculixKeyword parent)
         {
-            StringBuilder sb = new StringBuilder();
-            foreach (var keyword in additionalElementKeywords)
-            {
-                sb.Append(keyword.GetKeywordString());
-                sb.Append(keyword.GetDataString());
-            }
-            //
-            CalAdditional calAdditionalElements = new CalAdditional("Additional elements", sb.ToString());
+            List<CalculixKeyword> keywords = new List<CalculixKeyword>();
+            foreach (var item in additionalElementKeywords) keywords.Add(item);
+            CalAdditional calAdditionalElements = new CalAdditional("Additional elements", keywords);
             if (calAdditionalElements.GetDataString().Length > 0) parent.AddKeyword(calAdditionalElements);
         }
         static private void AppendNodeSets(FeModel model, List<FeNodeSet> additionalNodeSets, CalculixKeyword parent)
@@ -1225,21 +1216,19 @@ namespace FileInOut.Output
                                                                   ref HashSet<string> nodeSetNames)
         {
             CalculixKeyword keyword;
-            StringBuilder sb = new StringBuilder();
+            List<CalculixKeyword> keywords = new List<CalculixKeyword>();
             foreach (var nodeSet in additionalNodeSets)
             {
                 if (nodeSet.Active)
                 {
                     keyword = new CalNodeSet(nodeSet);
-                    //
-                    sb.Append(keyword.GetKeywordString());
-                    sb.Append(keyword.GetDataString());
+                    keywords.Add(keyword);
                     //
                     nodeSetNames.Add(nodeSet.Name);
                 }
             }
             //
-            CalAdditional calAdditionalNodeSets = new CalAdditional("Additional node sets", sb.ToString());
+            CalAdditional calAdditionalNodeSets = new CalAdditional("Additional node sets", keywords);
             return calAdditionalNodeSets;
         }
         static private void AppendParts(FeModel model, CalculixKeyword parent)
@@ -1269,14 +1258,7 @@ namespace FileInOut.Output
                     else AppendElementSet(model, entry.Value, parent);
                 }
                 //
-                StringBuilder sb = new StringBuilder();
-                foreach (var keyword in tmp.Keywords)
-                {
-                    sb.Append(keyword.GetKeywordString());
-                    sb.Append(keyword.GetDataString());
-                }
-                //
-                CalAdditional calAdditionalElementSets = new CalAdditional("Additional element sets", sb.ToString());
+                CalAdditional calAdditionalElementSets = new CalAdditional("Additional element sets", tmp.Keywords);
                 if (calAdditionalElementSets.GetDataString().Length > 0) parent.AddKeyword(calAdditionalElementSets);
             }
         }
@@ -1426,7 +1408,7 @@ namespace FileInOut.Output
         static private void AppendAdditionalSections(List<SectionData> additionalSectionData, CalculixKeyword parent)
         {
             CalculixKeyword keyword;
-            StringBuilder sb = new StringBuilder();
+            List<CalculixKeyword> keywords = new List<CalculixKeyword>();
             //
             foreach (var section in additionalSectionData)
             {
@@ -1437,15 +1419,11 @@ namespace FileInOut.Output
                     else if (section is MassSectionData msd) keyword = new CalMassSection(msd);
                     else throw new NotSupportedException();
                     //
-                    if (keyword != null)
-                    {
-                        sb.Append(keyword.GetKeywordString());
-                        sb.Append(keyword.GetDataString());
-                    }
+                    if (keyword != null) keywords.Add(keyword);
                 }
             }
             //
-            CalAdditional calAdditionalSections = new CalAdditional("Additional sections", sb.ToString());
+            CalAdditional calAdditionalSections = new CalAdditional("Additional sections", keywords);
             if (calAdditionalSections.GetDataString().Length > 0) parent.AddKeyword(calAdditionalSections);
         }
         static private HashSet<string> MaterialNamesUsedInActiveSections(FeModel model)
@@ -1624,10 +1602,10 @@ namespace FileInOut.Output
                 title = new CalTitle(step.Name, "");
                 parent.AddKeyword(title);
                 //
-                CalculixKeyword calStep;
-                if (step.Active) calStep = new CalStep(step);
-                else calStep = new CalDeactivated(step.Name);
-                title.AddKeyword(calStep);
+                CalculixKeyword calStepHeader;
+                if (step.Active) calStepHeader = new CalStepHeader(step);
+                else calStepHeader = new CalDeactivated(step.Name);
+                title.AddKeyword(calStepHeader);
                 // Step type
                 if (step.Active)
                 {
@@ -1635,85 +1613,85 @@ namespace FileInOut.Output
                     {
                         StaticStep staticStep = step as StaticStep;
                         CalStaticStep calStaticStep = new CalStaticStep(staticStep);
-                        calStep.AddKeyword(calStaticStep);                        
+                        calStepHeader.AddKeyword(calStaticStep);                        
                     }
                     else if (step is FrequencyStep frequencyStep)
                     {
                         CalFrequencyStep calFrequencyStep = new CalFrequencyStep(frequencyStep);
-                        calStep.AddKeyword(calFrequencyStep);
+                        calStepHeader.AddKeyword(calFrequencyStep);
                     }
                     else if (step is ComplexFrequencyStep complexFrequencyStep)
                     {
                         CalComplexFrequencyStep calComplexFrequencyStep = new CalComplexFrequencyStep(complexFrequencyStep);
-                        calStep.AddKeyword(calComplexFrequencyStep);
+                        calStepHeader.AddKeyword(calComplexFrequencyStep);
                     }
                     else if (step is BuckleStep buckleStep)
                     {
                         CalBuckleStep calBuckleStep = new CalBuckleStep(buckleStep);
-                        calStep.AddKeyword(calBuckleStep);
+                        calStepHeader.AddKeyword(calBuckleStep);
                     }
                     else if (step is ModalDynamicsStep modalStep)
                     {
                         CalModalDynamicsStep calModalStep = new CalModalDynamicsStep(modalStep);
-                        calStep.AddKeyword(calModalStep);
+                        calStepHeader.AddKeyword(calModalStep);
                         // Damping
                         if (modalStep.ModalDamping.DampingType != ModalDampingTypeEnum.Off)
                         {
                             CalTitle damping = new CalTitle("Damping", "");
                             CalModalDamping calModalDamping = new CalModalDamping(modalStep.ModalDamping);
                             damping.AddKeyword(calModalDamping);
-                            calStep.AddKeyword(damping);
+                            calStepHeader.AddKeyword(damping);
                         }
                     }
                     else if (step is SteadyStateDynamicsStep steadyStep)
                     {
                         CalSteadyStateDynamicsStep calSteadyStep = new CalSteadyStateDynamicsStep(steadyStep);
-                        calStep.AddKeyword(calSteadyStep);
+                        calStepHeader.AddKeyword(calSteadyStep);
                         // Damping
                         if (steadyStep.ModalDamping.DampingType != ModalDampingTypeEnum.Off)
                         {
                             CalTitle damping = new CalTitle("Damping", "");
                             CalModalDamping calModalDamping = new CalModalDamping(steadyStep.ModalDamping);
                             damping.AddKeyword(calModalDamping);
-                            calStep.AddKeyword(damping);
+                            calStepHeader.AddKeyword(damping);
                         }
                     }
                     else if (step.GetType() == typeof(DynamicStep))
                     {
                         DynamicStep dynamicStep = step as DynamicStep;
                         CalDynamicStep calDynamicStep = new CalDynamicStep(dynamicStep);
-                        calStep.AddKeyword(calDynamicStep);
+                        calStepHeader.AddKeyword(calDynamicStep);
                         // Damping
                         if (dynamicStep.Damping.DampingType != DampingTypeEnum.Off)
                         {
                             CalTitle damping = new CalTitle("Damping", "");
                             CalDamping calDamping = new CalDamping(dynamicStep.Damping);
                             damping.AddKeyword(calDamping);
-                            calStep.AddKeyword(damping);
+                            calStepHeader.AddKeyword(damping);
                         }
                     }
                     else if (step.GetType() == typeof(HeatTransferStep))
                     {
                         HeatTransferStep heatTransferStep = step as HeatTransferStep;
                         CalHeatTransferStep calHeatTransferStep = new CalHeatTransferStep(heatTransferStep);
-                        calStep.AddKeyword(calHeatTransferStep);
+                        calStepHeader.AddKeyword(calHeatTransferStep);
                     }
                     else if (step.GetType() == typeof(UncoupledTempDispStep))
                     {
                         UncoupledTempDispStep uncoupledTempDispStep = step as UncoupledTempDispStep;
                         CalUncoupledTempDispStep calUncoupledTempDispStep = new CalUncoupledTempDispStep(uncoupledTempDispStep);
-                        calStep.AddKeyword(calUncoupledTempDispStep);
+                        calStepHeader.AddKeyword(calUncoupledTempDispStep);
                     }
                     else if (step.GetType() == typeof(CoupledTempDispStep))
                     {
                         CoupledTempDispStep coupledTempDispStep = step as CoupledTempDispStep;
                         CalCoupledTempDispStep calCoupledTempDispStep = new CalCoupledTempDispStep(coupledTempDispStep);
-                        calStep.AddKeyword(calCoupledTempDispStep);
+                        calStepHeader.AddKeyword(calCoupledTempDispStep);
                     }
                     else throw new NotImplementedException();
                     // Controls
                     title = new CalTitle("Controls", "");
-                    calStep.AddKeyword(title);
+                    calStepHeader.AddKeyword(title);
                     CalculixKeyword calParameter;
                     foreach (var parameter in step.StepControls.Parameters)
                     {
@@ -1731,14 +1709,14 @@ namespace FileInOut.Output
                     }
                     // Frequency
                     title = new CalTitle("Output frequency", "");
-                    calStep.AddKeyword(title);
-                    CalOutput calOutput = new CalOutput(step.OutputFrequency);
-                    if (!calOutput.IsDefault()) title.AddKeyword(calOutput);
+                    calStepHeader.AddKeyword(title);
+                    CalOutputFrequency calOutputFrequency = new CalOutputFrequency(step.OutputFrequency);
+                    if (!calOutputFrequency.IsDefault()) title.AddKeyword(calOutputFrequency);
                 }
-                else calStep.AddKeyword(new CalDeactivated(step.GetType().ToString()));
+                else calStepHeader.AddKeyword(new CalDeactivated(step.GetType().ToString()));
                 // Boundary conditions title
                 title = new CalTitle("Boundary conditions", "");
-                calStep.AddKeyword(title);
+                calStepHeader.AddKeyword(title);
                 // Boundary conditions op
                 if (step.Active && !(step is ModalDynamicsStep))
                 {
@@ -1755,7 +1733,7 @@ namespace FileInOut.Output
                 AppendAdditionalBoundaryConditions(model, step, additionalBoundaryConditions, referencePointsNodeIds, title);
                 // Loads title
                 title = new CalTitle("Loads", "");
-                calStep.AddKeyword(title);
+                calStepHeader.AddKeyword(title);
                 // Load op
                 if (step.Active)
                 {
@@ -1794,7 +1772,7 @@ namespace FileInOut.Output
                 }
                 // Defined fields title
                 title = new CalTitle("Defined fields", "");
-                calStep.AddKeyword(title);
+                calStepHeader.AddKeyword(title);
                 // Defined fields op
                 if (step.Active && step.DefinedFields.Count > 0)
                 {
@@ -1808,26 +1786,28 @@ namespace FileInOut.Output
                 }
                 // History outputs
                 title = new CalTitle("History outputs", "");
-                calStep.AddKeyword(title);
+                calStepHeader.AddKeyword(title);
                 //
                 foreach (var historyOutputEntry in step.HistoryOutputs)
                 {
-                    if (step.Active && historyOutputEntry.Value.Active) AppendHistoryOutput(model, historyOutputEntry.Value,
+                    if (step.Active && historyOutputEntry.Value.Active) AppendHistoryOutput(model, step, 
+                                                                                            historyOutputEntry.Value,
                                                                                             title);
                     else title.AddKeyword(new CalDeactivated(historyOutputEntry.Value.Name));
                 }
                 // Field outputs
                 title = new CalTitle("Field outputs", "");
-                calStep.AddKeyword(title);
+                calStepHeader.AddKeyword(title);
                 //
                 foreach (var fieldOutputEntry in step.FieldOutputs)
                 {
-                    if (step.Active && fieldOutputEntry.Value.Active) AppendFieldOutput(model, fieldOutputEntry.Value, title);
+                    if (step.Active && fieldOutputEntry.Value.Active)
+                        AppendFieldOutput(model, step, fieldOutputEntry.Value, title);
                     else title.AddKeyword(new CalDeactivated(fieldOutputEntry.Value.Name));
                 }
                 //
                 title = new CalTitle("End step", "");
-                calStep.AddKeyword(title);
+                calStepHeader.AddKeyword(title);
                 if (step.Active)
                 {
                     CalEndStep endStep = new CalEndStep();
@@ -1904,14 +1884,7 @@ namespace FileInOut.Output
                 else tmp.AddKeyword(new CalDeactivated(additionalBoundaryCondition.Name));
             }
             //
-            StringBuilder sb = new StringBuilder();
-            foreach (var keyword in tmp.Keywords)
-            {
-                sb.Append(keyword.GetKeywordString());
-                sb.Append(keyword.GetDataString());
-            }
-            //
-            CalAdditional calAdditionalBoundaryConditions = new CalAdditional("Additional boundary conditions", sb.ToString());
+            CalAdditional calAdditionalBoundaryConditions = new CalAdditional("Additional boundary conditions", tmp.Keywords);
             if (calAdditionalBoundaryConditions.GetDataString().Length > 0) parent.AddKeyword(calAdditionalBoundaryConditions);
         }
         static private void AppendLoad(FeModel model, Step step, Load load, Dictionary<string, int[]> referencePointsNodeIds,
@@ -2070,7 +2043,8 @@ namespace FileInOut.Output
             }
             else throw new NotImplementedException();
         }
-        static private void AppendHistoryOutput(FeModel model, HistoryOutput historyOutput, CalculixKeyword parent)
+        static private void AppendHistoryOutput(FeModel model, Step step, HistoryOutput historyOutput,
+                                                CalculixKeyword parent)
         {
             if (historyOutput is NodalHistoryOutput nho)
             {
@@ -2078,40 +2052,44 @@ namespace FileInOut.Output
                 if (nho.RegionType == RegionTypeEnum.ReferencePointName)
                 {
                     FeReferencePoint rp = model.Mesh.ReferencePoints[nho.RegionName];
-                    nodePrint = new CalNodePrint(model, nho, rp.RefNodeSetName);
+                    nodePrint = new CalNodePrint(nho, rp.RefNodeSetName, step.OutputFrequency);
                     parent.AddKeyword(nodePrint);
-                    nodePrint = new CalNodePrint(model, nho, rp.RotNodeSetName);
+                    nodePrint = new CalNodePrint(nho, rp.RotNodeSetName, step.OutputFrequency);
                     parent.AddKeyword(nodePrint);
                 }
                 else
                 {
-                    nodePrint = new CalNodePrint(model, nho);
+                    nodePrint = new CalNodePrint(model, nho, step.OutputFrequency);
                     parent.AddKeyword(nodePrint);
                 }
             }
             else if (historyOutput is ElementHistoryOutput eho)
             {
-                CalElPrint elPrint = new CalElPrint(eho);
+                CalElPrint elPrint = new CalElPrint(eho, step.OutputFrequency);
                 parent.AddKeyword(elPrint);
             }
             else if (historyOutput is ContactHistoryOutput cho)
             {
                 ContactPair cp = model.ContactPairs[cho.RegionName];
-                CalContactPrint contactPrint = new CalContactPrint(cho, cp.MasterRegionName, cp.SlaveRegionName);
+
+                CalContactPrint contactPrint = new CalContactPrint(cho, cp.MasterRegionName, cp.SlaveRegionName,
+                                                                   model.Mesh.Surfaces[cp.MasterRegionName].NodeSetName,
+                                                                   model.Mesh.Surfaces[cp.SlaveRegionName].NodeSetName,
+                                                                   step.OutputFrequency);
                 parent.AddKeyword(contactPrint);
             }
             else throw new NotImplementedException();
         }
-        static private void AppendFieldOutput(FeModel model, FieldOutput fieldOutput, CalculixKeyword parent)
+        static private void AppendFieldOutput(FeModel model, Step step, FieldOutput fieldOutput, CalculixKeyword parent)
         {
             if (fieldOutput is NodalFieldOutput nfo)
             {
-                CalNodeFile nodeFile = new CalNodeFile(nfo);
+                CalNodeFile nodeFile = new CalNodeFile(nfo, step.OutputFrequency);
                 parent.AddKeyword(nodeFile);
             }
             else if (fieldOutput is ElementFieldOutput efo)
             {
-                CalElFile elFile = new CalElFile(efo);
+                CalElFile elFile = new CalElFile(efo, step.OutputFrequency);
                 parent.AddKeyword(elFile);
             }
             else if (fieldOutput is ContactFieldOutput cfo)

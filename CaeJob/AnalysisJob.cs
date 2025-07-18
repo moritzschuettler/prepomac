@@ -48,17 +48,21 @@ namespace CaeJob
         protected JobStatus _jobStatus;                                 // ISerializable
         protected int _numCPUs;                                         // ISerializable
         protected List<EnvironmentVariable> _environmentVariables;      // ISerializable
+        protected long _datFileLength;                                  // ISerializable
+        protected string _datFileContents;                              // ISerializable
         protected long _statusFileLength;                               // ISerializable
         protected string _statusFileContents;                           // ISerializable
         protected long _convergenceFileLength;                          // ISerializable
         protected string _convergenceFileContents;                      // ISerializable
         protected DateTime _endTime;                                    // ISerializable
         protected FEMSolverEnum _femSolver;                             // ISerializable
+        protected bool _onlyCheckModel;                                 // ISerializable
         //
         [NonSerialized] protected Stopwatch _watch;
         [NonSerialized] private Process _exe;
         [NonSerialized] private StringBuilder _sbOutput;
         [NonSerialized] private StringBuilder _sbAllOutput;
+        [NonSerialized] private bool _datFileToLong;
         [NonSerialized] private string _outputFileName;
         [NonSerialized] private string _errorFileName;
         [NonSerialized] private object _myLock;
@@ -105,7 +109,12 @@ namespace CaeJob
         }
         public string ResultsFileName
         {
-            get { return Path.Combine(WorkDirectory, _name + ".frd"); }
+            get
+            {
+                if (_femSolver == FEMSolverEnum.Calculix) return Path.Combine(WorkDirectory, _name + ".frd");
+                else if (_femSolver == FEMSolverEnum.Abaqus) return Path.Combine(WorkDirectory, _name + ".odb");
+                else throw new NotSupportedException();
+            }
         }
         public bool IsUpToDate
         {
@@ -133,6 +142,7 @@ namespace CaeJob
             get { return _environmentVariables; }
             set { _environmentVariables = value; }
         }
+        public string DatFileData { get { return _datFileContents; } }
         public string StatusFileData { get { return _statusFileContents; } }
         public string ConvergenceFileData { get { return _convergenceFileContents; } }
         public int CurrentRunStep { get { return _currentRunStep; } }
@@ -153,6 +163,7 @@ namespace CaeJob
                 }
             }
         }
+        public bool OnlyCheckModel { get { return _onlyCheckModel; } set { _onlyCheckModel = value; } }
         public object Tag { get { return _tag; } set { _tag = value; } }
 
 
@@ -184,6 +195,7 @@ namespace CaeJob
             _watch = null;
             _sbOutput = null;
             _sbAllOutput = null;
+            _onlyCheckModel = false;
         }
         public AnalysisJob(SerializationInfo info, StreamingContext context)
             : base(info, context)
@@ -209,6 +221,10 @@ namespace CaeJob
                         _numCPUs = (int)entry.Value; break;
                     case "_environmentVariables":
                         _environmentVariables = (List<EnvironmentVariable>)entry.Value; break;
+                    case "_datFileLength":
+                        _datFileLength = (long)entry.Value; break;
+                    case "_datFileContents":
+                        _datFileContents = (string)entry.Value; break;
                     case "_statusFileLength":
                         _statusFileLength = (long)entry.Value; break;
                     case "_statusFileContents":
@@ -221,6 +237,8 @@ namespace CaeJob
                         _endTime = (DateTime)entry.Value; break;
                     case "_femSolver":
                         _femSolver = (FEMSolverEnum)entry.Value; break;
+                    case "_onlyCheckModel":
+                        _onlyCheckModel = (bool)entry.Value; break;
                     default:
                         break;
                 }
@@ -301,6 +319,10 @@ namespace CaeJob
                                "   Increment number: "  + _currentRunIncrement + "   ########" +  Environment.NewLine);
             AppendDataToOutput("Running command: " + _executable + " " + _argument);
             //
+            _datFileLength = -1;
+            _datFileToLong = false;
+            _datFileContents = "";
+            //
             _statusFileLength = -1;
             _statusFileContents = "";
             //
@@ -340,13 +362,22 @@ namespace CaeJob
         }
         private void bwStart_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
-            string frdFileName = ResultsFileName;
-            bool resultsExist = File.Exists(frdFileName);
-            if (resultsExist)
+            bool resultsExist = false;
+            if (_femSolver == FEMSolverEnum.Calculix)
             {
-                long length = new FileInfo(frdFileName).Length;
-                if (length < 15 * 20) resultsExist = false;
+                string resultsFileName = ResultsFileName;
+                if (File.Exists(resultsFileName))
+                {
+                    long length = new FileInfo(resultsFileName).Length;
+                    if (length > 15 * 20) resultsExist = true;
+                }
             }
+            else if (_femSolver == FEMSolverEnum.Abaqus)
+            {
+                string odbFailFileName = Path.Combine(WorkDirectory, _name + ".odb_f");
+                if (!File.Exists(odbFailFileName)) resultsExist = true;
+            }
+            else throw new NotSupportedException();
             //
             bool continueAnalysis = false;
             AppendDataToOutput("");
@@ -382,19 +413,27 @@ namespace CaeJob
         }
         private bool ContainsError(string text)
         {
-            //*ERROR reading *DYNAMIC: initial increment size exce eds step size
-            if (text.Contains("*ERROR"))
+            if (_femSolver == FEMSolverEnum.Calculix)
             {
-                if (text.Contains("*ERROR reading *DYNAMIC: initial increment size"))
-                    return text.AllIndicesOf("*ERROR").Count() > 1;
-                else
-                    return true;
+                //*ERROR reading *DYNAMIC: initial increment size exce eds step size
+                if (text.Contains("*ERROR"))
+                {
+                    if (text.Contains("*ERROR reading *DYNAMIC: initial increment size"))
+                        return text.AllIndicesOf("*ERROR").Count() > 1;
+                    else return true;
+                }
             }
-            else return false;
+            else if (_femSolver == FEMSolverEnum.Abaqus)
+            {
+                if (text.Contains("Abaqus/Analysis exited with errors")) return true;
+            }
+            else throw new NotSupportedException();
+            //
+            return false;
         }
         private bool ContainsNoAnalysis(string text)
         {
-            //*ERROR reading *DYNAMIC: initial increment size exce eds step size
+            //*ERROR reading *DYNAMIC: initial increment size exceeds step size
             if (text.Contains("*WARNING: no analysis option was chosen")) return true;
             else return false;
         }
@@ -490,7 +529,11 @@ namespace CaeJob
             psi.FileName = _executable;
             //
             if (_femSolver == FEMSolverEnum.Calculix) psi.Arguments = _argument;
-            else if (_femSolver == FEMSolverEnum.Abaqus) psi.Arguments = "interactive ask_delete=OFF " + _argument;
+            else if (_femSolver == FEMSolverEnum.Abaqus)
+            {
+                psi.Arguments = "interactive ask_delete=OFF " + _argument;
+                if (_onlyCheckModel) psi.Arguments = "datacheck " + psi.Arguments;
+            }
             else throw new NotSupportedException();
             //
             psi.WorkingDirectory = _workDirectory;
@@ -553,18 +596,19 @@ namespace CaeJob
                     _jobStatus = JobStatus.TimedOut;
                 }               
                 _exe.Close();
+                
                 // Abaqus
-                if (_femSolver == FEMSolverEnum.Abaqus)
-                {
-                    string fileName = Path.Combine(_workDirectory, Name + ".dat");
-                    if (File.Exists(fileName))
-                    {
-                        AppendDataToOutput(Environment.NewLine + 
-                                           "########   ABAQUS .dat FILE CONTENT   ########" +
-                                           Environment.NewLine);
-                        AppendDataToOutput(File.ReadAllText(fileName));
-                    }
-                }
+                //if (_femSolver == FEMSolverEnum.Abaqus)
+                //{
+                //    string fileName = Path.Combine(_workDirectory, Name + ".dat");
+                //    if (File.Exists(fileName))
+                //    {
+                //        AppendDataToOutput(Environment.NewLine + 
+                //                           "########   ABAQUS .dat FILE CONTENT   ########" +
+                //                           Environment.NewLine);
+                //        AppendDataToOutput(File.ReadAllText(fileName));
+                //    }
+                //}
             }            
         }
         public void Kill(string message)
@@ -642,6 +686,7 @@ namespace CaeJob
                 //
                 if (_outputFileName != null) File.AppendAllText(_outputFileName, outputData);
                 //
+                GetDatFileContents();
                 GetStatusFileContents();
                 GetConvergenceFileContents();
                 //
@@ -666,6 +711,46 @@ namespace CaeJob
             {
                 SendDataToOutput();
                 _prevWatchMilliseconds = _watch.ElapsedMilliseconds;
+            }
+        }
+        private void GetDatFileContents()
+        {
+            try
+            {
+                if (!_datFileToLong)
+                {
+                    string datFileName = Path.Combine(_workDirectory, Name + ".dat");
+                    if (!File.Exists(datFileName)) return;
+                    //
+                    long size = new FileInfo(datFileName).Length;
+                    //
+                    if (size != _datFileLength)
+                    {
+                        using (FileStream fileStream = new FileStream(datFileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                        {
+                            using (StreamReader streamReader = new StreamReader(fileStream))
+                            {
+                                _datFileContents = streamReader.ReadToEnd();
+                            }
+                        }
+                        _datFileLength = size;
+                    }
+                    //
+                    int sizeLimit = 100_000;
+                    if (_datFileLength > sizeLimit)
+                    {
+                        if (!_datFileToLong)    // first time
+                        {
+                            _datFileContents = _datFileContents.Substring(0, sizeLimit);
+                            _datFileContents += Environment.NewLine + Environment.NewLine +
+                                                "Warning: .dat file is to log to be displayed in the Monitor form.";
+                        }
+                        _datFileToLong = true;
+                    }
+                }
+            }
+            catch
+            {
             }
         }
         private void GetStatusFileContents()
@@ -722,10 +807,12 @@ namespace CaeJob
         //
         public void ClearFileContents()
         {
-            _statusFileContents = "";
+            _datFileLength = 0;
+            _datFileContents = "";
             _statusFileLength = 0;
-            _convergenceFileContents = "";
+            _statusFileContents = "";
             _convergenceFileLength = 0;
+            _convergenceFileContents = "";
         }
         //
         public static bool IsAdministrator()
@@ -784,12 +871,15 @@ namespace CaeJob
             info.AddValue("_jobStatus", _jobStatus, typeof(JobStatus));
             info.AddValue("_numCPUs", _numCPUs, typeof(int));
             info.AddValue("_environmentVariables", _environmentVariables, typeof(List<EnvironmentVariable>));
+            info.AddValue("_datFileLength", _datFileLength, typeof(long));
+            info.AddValue("_datFileContents", _datFileContents, typeof(string));
             info.AddValue("_statusFileLength", _statusFileLength, typeof(long));
             info.AddValue("_statusFileContents", _statusFileContents, typeof(string));
             info.AddValue("_convergenceFileLength", _convergenceFileLength, typeof(long));
             info.AddValue("_convergenceFileContents", _convergenceFileContents, typeof(string));
             info.AddValue("_endTime", _endTime, typeof(DateTime));
             info.AddValue("_femSolver", _femSolver, typeof(FEMSolverEnum));
+            info.AddValue("_onlyCheckModel", _onlyCheckModel, typeof(bool));
         }
     }
 }

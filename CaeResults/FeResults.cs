@@ -5382,6 +5382,10 @@ namespace CaeResults
                     coorAvg[1] = (coor1[1] + coor2[1]) / 2;
                     coorAvg[2] = (coor1[2] + coor2[2]) / 2;
                     //
+
+                    if (entry.Key == 1169)
+                        coorAvg[2] = coorAvg[2];
+
                     coorMid = _mesh.Nodes[entry.Key].Coor.ToArray();
                     xyz = entry.Value;
                     xyz[0] = coorAvg[0] - coorMid[0];

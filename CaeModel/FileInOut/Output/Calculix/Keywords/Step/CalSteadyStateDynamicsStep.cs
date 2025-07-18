@@ -10,7 +10,7 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
-    internal class CalSteadyStateDynamicsStep : CalculixKeyword
+    internal class CalSteadyStateDynamicsStep : CalStep
     {
         // Variables                                                                                                                
         private SteadyStateDynamicsStep _step;
@@ -23,13 +23,16 @@ namespace FileInOut.Output.Calculix
         public CalSteadyStateDynamicsStep(SteadyStateDynamicsStep step)
         {
             _step = step;
+            OutputSolver = true;
+            OutputNoAnalysis = true;
         }
 
 
         // Methods                                                                                                                  
         public override string GetKeywordString()
         {
-            string solver = _step.SolverType == SolverTypeEnum.Default ? "" : ", Solver=" + _step.SolverType.GetDisplayedName();
+            string solver = !OutputSolver || _step.SolverType == SolverTypeEnum.Default ?
+                "" : ", Solver=" + _step.SolverType.GetDisplayedName();
             string harmonic = _step.Harmonic ? "" : ", Harmonic=No";
             return string.Format("*Steady state dynamics{0}{1}{2}", harmonic, solver, Environment.NewLine);
         }
@@ -43,7 +46,7 @@ namespace FileInOut.Output.Calculix
                                                                         _step.TimeLower.ToCalculiX16String(),
                                                                         _step.TimeUpper.ToCalculiX16String());
             data += Environment.NewLine;
-            if (!_step.RunAnalysis) data += "*No Analysis" + Environment.NewLine;
+            if (OutputNoAnalysis && !_step.RunAnalysis) data += "*No Analysis" + Environment.NewLine;
             return data;
         }
     }

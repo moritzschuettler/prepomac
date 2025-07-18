@@ -10,7 +10,7 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
-    internal class CalStaticStep : CalculixKeyword
+    internal class CalStaticStep : CalStep
     {
         // Variables                                                                                                                
         private StaticStep _step;
@@ -23,13 +23,16 @@ namespace FileInOut.Output.Calculix
         public CalStaticStep(StaticStep step)
         {
             _step = step;
+            OutputSolver = true;
+            OutputNoAnalysis = true;
         }
 
 
         // Methods                                                                                                                  
         public override string GetKeywordString()
         {
-            string solver = _step.SolverType == SolverTypeEnum.Default ? "" : ", Solver=" + _step.SolverType.GetDisplayedName();
+            string solver = !OutputSolver || _step.SolverType == SolverTypeEnum.Default ?
+                "" : ", Solver=" + _step.SolverType.GetDisplayedName();
             string direct = _step.IncrementationType == IncrementationTypeEnum.Direct ? ", Direct" : "";
             return string.Format("*Static{0}{1}{2}", solver, direct, Environment.NewLine);
         }
@@ -47,7 +50,7 @@ namespace FileInOut.Output.Calculix
                                      _step.TimePeriod.ToCalculiX16String(), minMax, Environment.NewLine);
             }
             //
-            if (!_step.RunAnalysis) data += "*No Analysis" + Environment.NewLine;
+            if (OutputNoAnalysis && !_step.RunAnalysis) data += "*No Analysis" + Environment.NewLine;
             return data;
         }
     }

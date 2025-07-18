@@ -15,9 +15,11 @@ namespace FileInOut.Output.Calculix
         private FixedBC _fixedBC;
         private Dictionary<string, int[]> _referencePointsNodeIds;
         private string _nodeSetNameOfSurface;
+        protected int _maxNumberNodeDOFs;
 
 
         // Properties                                                                                                               
+        public int MaxNumberNodeDOFs { get { return _maxNumberNodeDOFs; } set { _maxNumberNodeDOFs = value; } }
 
 
         // Constructor                                                                                                              
@@ -27,6 +29,7 @@ namespace FileInOut.Output.Calculix
             _fixedBC = fixedBC;
             _referencePointsNodeIds = referencePointsNodeIds;
             _nodeSetNameOfSurface = nodeSetNameOfSurface;
+            _maxNumberNodeDOFs = 3; // 3 for Calculix and 6 for Abaqus
         }
 
 
@@ -47,51 +50,51 @@ namespace FileInOut.Output.Calculix
             // Node set
             if (_fixedBC.RegionType == CaeGlobals.RegionTypeEnum.NodeSetName)
             {
-                if (_fixedBC.TwoD)
-                {
-                    sb.AppendFormat("{0}, 1, 2, 0", _fixedBC.RegionName); sb.AppendLine();
-                    sb.AppendFormat("{0}, 6, 6, 0", _fixedBC.RegionName);
-                }
-                else
-                {
-                    sb.AppendFormat("{0}, 1, 6, 0", _fixedBC.RegionName);
-                }
-                sb.AppendLine();
+                AppendDOFs(sb, _fixedBC.RegionName);
             }
             // Surface
             else if (_fixedBC.RegionType == CaeGlobals.RegionTypeEnum.SurfaceName)
             {
                 if (_nodeSetNameOfSurface == null) throw new ArgumentException();
-                if (_fixedBC.TwoD)
-                {
-                    sb.AppendFormat("{0}, 1, 2, 0", _nodeSetNameOfSurface); sb.AppendLine();
-                    sb.AppendFormat("{0}, 6, 6, 0", _nodeSetNameOfSurface);
-                }
-                else
-                {
-                    sb.AppendFormat("{0}, 1, 6, 0", _nodeSetNameOfSurface);
-                }
-                sb.AppendLine();
+                AppendDOFs(sb, _nodeSetNameOfSurface);
             }
             // Reference point
             else if (_fixedBC.RegionType == CaeGlobals.RegionTypeEnum.ReferencePointName)
             {
                 int[] rpNodeIds = _referencePointsNodeIds[_fixedBC.RegionName];
                 //
-                if (_fixedBC.TwoD)
+                if (_maxNumberNodeDOFs == 3)
                 {
-                    sb.AppendFormat("{0}, 1, 2, 0", rpNodeIds[0]); sb.AppendLine();
-                    sb.AppendFormat("{0}, 3, 3, 0", rpNodeIds[1]); sb.AppendLine();
+                    if (_fixedBC.TwoD)
+                    {
+                        sb.AppendFormat("{0}, 1, 2, 0", rpNodeIds[0]); sb.AppendLine();
+                        sb.AppendFormat("{0}, 3, 3, 0", rpNodeIds[1]); sb.AppendLine();
+                    }
+                    else
+                    {
+                        sb.AppendFormat("{0}, 1, 3, 0", rpNodeIds[0]); sb.AppendLine();
+                        sb.AppendFormat("{0}, 1, 3, 0", rpNodeIds[1]); sb.AppendLine();
+                    }
                 }
-                else
-                {
-                    sb.AppendFormat("{0}, 1, 3, 0", rpNodeIds[0]); sb.AppendLine();
-                    sb.AppendFormat("{0}, 1, 3, 0", rpNodeIds[1]); sb.AppendLine();
-                }
+                else if (_maxNumberNodeDOFs == 6) AppendDOFs(sb, rpNodeIds[0].ToString());
+                else throw new NotSupportedException();
             }
             else throw new NotSupportedException();
             //
             return sb.ToString();
+        }
+        private void AppendDOFs(StringBuilder sb, string regionName)
+        {
+            if (_fixedBC.TwoD)
+            {
+                sb.AppendFormat("{0}, 1, 2, 0", regionName); sb.AppendLine();
+                //sb.AppendFormat("{0}, 6, 6, 0", regionName); // not working
+            }
+            else
+            {
+                sb.AppendFormat("{0}, 1, 6, 0", regionName);
+            }
+            sb.AppendLine();
         }
     }
 }

@@ -5648,6 +5648,7 @@ namespace PrePoMax
         {
             string[] errors = null;
             double[][][] connectedEdges = null;
+            AreSelectedPartsShells(partNames);
             //
             Dictionary<int, Vec3D> nodeIdNormal;
             if (_model.Geometry.GetAllCADPartNames().Intersect(partNames).Count() == partNames.Length)
@@ -5677,6 +5678,8 @@ namespace PrePoMax
             try
             {
                 _form.SetStateWorking("Creating...");
+                //
+                AreSelectedPartsShells(partNames);
                 //
                 string[] errors = null;
                 //
@@ -5725,6 +5728,17 @@ namespace PrePoMax
             {
                 _form.SetStateReady("Creating...");
             }
+        }
+        private bool AreSelectedPartsShells(string[] partNames)
+        {
+            BasePart part;
+            foreach (var partName in partNames)
+            {
+                part = _model.Mesh.Parts[partName];
+                if (part.PartType != PartType.Shell)
+                    throw new CaeException("The selected feature can only be performed on shell parts.");
+            }
+            return true;
         }
         private Dictionary<int, List<Vec3D>> GeNormalsFromGeometryAtMeshNodes(GeometryPart part, FeMesh mesh)
         {
@@ -11022,12 +11036,13 @@ namespace PrePoMax
             bool useBackgroundWorker = asynchronous;
             AnalysisJob job = _jobs[jobName];
             job.LastRunCompleted = LastRunCompleted;
+            job.OnlyCheckModel = onlyCheckModel;
             //
             _watch = Stopwatch.StartNew();
             //
             if (File.Exists(job.Executable))
             {
-                if (CheckModelBeforeJobRun() && DeleteFilesBeforeJobRun(inputFileName)) // must be separate due to exception
+                if (CheckModelBeforeJobRun() && DeleteFilesBeforeJobRun(inputFileName, job)) // must be separate due to exception
                 {
                     if (onlyCheckModel) _model.StepCollection.SetCheckModel();
                     else _model.StepCollection.SetRunAnalysis();
@@ -11128,22 +11143,32 @@ namespace PrePoMax
             }
             return true;
         }
-        private bool DeleteFilesBeforeJobRun(string inputFileName)
+        private bool DeleteFilesBeforeJobRun(string inputFileName, AnalysisJob job)
         {
             // Delete old files
             string directory = Path.GetDirectoryName(inputFileName);
             string inputFileNameWithoutExtension = Path.GetFileNameWithoutExtension(inputFileName);
-            string[] files = new string[] { Path.Combine(directory, inputFileNameWithoutExtension + ".inp"),
-                                            Path.Combine(directory, inputFileNameWithoutExtension + ".dat"),
-                                            Path.Combine(directory, inputFileNameWithoutExtension + ".sta"),
-                                            Path.Combine(directory, inputFileNameWithoutExtension + ".cvg"),
-                                            Path.Combine(directory, inputFileNameWithoutExtension + ".12d"),
-                                            Path.Combine(directory, inputFileNameWithoutExtension + ".cel"), // contact elements
-                                            Path.Combine(directory, inputFileNameWithoutExtension +
-                                                         "_WarnNodeMissTiedContact.nam"), // missing contact nodes
-                                            Path.Combine(directory, "ResultsForLastIterations.frd"),
-                                            Path.Combine(directory, inputFileNameWithoutExtension + ".frd")
-                                           };
+            List<string> files = new List<string> { Path.Combine(directory, inputFileNameWithoutExtension + ".inp"),
+                                                    Path.Combine(directory, inputFileNameWithoutExtension + ".dat"),
+                                                    Path.Combine(directory, inputFileNameWithoutExtension + ".sta"),
+                                                    Path.Combine(directory, inputFileNameWithoutExtension + ".cvg"),
+                                                    Path.Combine(directory, inputFileNameWithoutExtension + ".12d"),
+                                                    Path.Combine(directory, inputFileNameWithoutExtension + ".cel"), // contact elements
+                                                    Path.Combine(directory, inputFileNameWithoutExtension +
+                                                    "_WarnNodeMissTiedContact.nam"),  // missing contact nodes
+                                                    };
+            if (job.FEMSolver == FEMSolverEnum.Calculix)
+            {
+                files.Add(Path.Combine(directory, "ResultsForLastIterations.frd"));
+                files.Add(Path.Combine(directory, inputFileNameWithoutExtension + ".frd"));
+            }
+            else if (job.FEMSolver == FEMSolverEnum.Abaqus)
+            {
+                files.Add(Path.Combine(directory, inputFileNameWithoutExtension + ".odb"));
+                files.Add(Path.Combine(directory, inputFileNameWithoutExtension + ".odb_f"));
+            }
+            else throw new NotSupportedException();
+            //
             try
             {
                 foreach (var fileName in files) File.Delete(fileName);
@@ -11191,7 +11216,7 @@ namespace PrePoMax
             Dictionary<int, double[]> deformations = null;
             if (job.Tag != null) deformations = (Dictionary<int, double[]>)job.Tag;
             //
-            DeleteFilesBeforeJobRun(job.InputFileName);
+            DeleteFilesBeforeJobRun(job.InputFileName, job);
             //
             if (job.CurrentRunIncrement == 1)
             {

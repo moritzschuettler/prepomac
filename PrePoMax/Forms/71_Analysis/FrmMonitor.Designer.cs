@@ -40,10 +40,13 @@
             this.tbConvergence = new UserControls.AutoScrollTextBox();
             this.pbAnalysisStatus = new System.Windows.Forms.ProgressBar();
             this.labAnalysisStatus = new System.Windows.Forms.Label();
+            this.tpDatFile = new System.Windows.Forms.TabPage();
+            this.tbDatFile = new UserControls.AutoScrollTextBox();
             this.tabControl1.SuspendLayout();
             this.tpOutput.SuspendLayout();
             this.tpStatus.SuspendLayout();
             this.tpCovergence.SuspendLayout();
+            this.tpDatFile.SuspendLayout();
             this.SuspendLayout();
             // 
             // btnClose
@@ -104,6 +107,7 @@
             this.tabControl1.Controls.Add(this.tpOutput);
             this.tabControl1.Controls.Add(this.tpStatus);
             this.tabControl1.Controls.Add(this.tpCovergence);
+            this.tabControl1.Controls.Add(this.tpDatFile);
             this.tabControl1.Location = new System.Drawing.Point(12, 12);
             this.tabControl1.Name = "tabControl1";
             this.tabControl1.SelectedIndex = 0;
@@ -151,6 +155,7 @@
             this.tpCovergence.Controls.Add(this.tbConvergence);
             this.tpCovergence.Location = new System.Drawing.Point(4, 24);
             this.tpCovergence.Name = "tpCovergence";
+            this.tpCovergence.Padding = new System.Windows.Forms.Padding(3);
             this.tpCovergence.Size = new System.Drawing.Size(702, 326);
             this.tpCovergence.TabIndex = 2;
             this.tpCovergence.Text = "Convergence";
@@ -162,11 +167,11 @@
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.tbConvergence.Font = new System.Drawing.Font("Consolas", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
-            this.tbConvergence.Location = new System.Drawing.Point(6, 6);
+            this.tbConvergence.Location = new System.Drawing.Point(9, 9);
             this.tbConvergence.Multiline = true;
             this.tbConvergence.Name = "tbConvergence";
             this.tbConvergence.ScrollBars = System.Windows.Forms.ScrollBars.Both;
-            this.tbConvergence.Size = new System.Drawing.Size(690, 314);
+            this.tbConvergence.Size = new System.Drawing.Size(684, 308);
             this.tbConvergence.TabIndex = 2;
             // 
             // pbAnalysisStatus
@@ -193,6 +198,30 @@
             this.labAnalysisStatus.Text = "      Running";
             this.labAnalysisStatus.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.labAnalysisStatus.UseMnemonic = false;
+            // 
+            // tpDatFile
+            // 
+            this.tpDatFile.Controls.Add(this.tbDatFile);
+            this.tpDatFile.Location = new System.Drawing.Point(4, 24);
+            this.tpDatFile.Name = "tpDatFile";
+            this.tpDatFile.Padding = new System.Windows.Forms.Padding(3);
+            this.tpDatFile.Size = new System.Drawing.Size(702, 326);
+            this.tpDatFile.TabIndex = 3;
+            this.tpDatFile.Text = "Dat File";
+            this.tpDatFile.UseVisualStyleBackColor = true;
+            // 
+            // tbDatFile
+            // 
+            this.tbDatFile.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.tbDatFile.Font = new System.Drawing.Font("Consolas", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
+            this.tbDatFile.Location = new System.Drawing.Point(6, 6);
+            this.tbDatFile.Multiline = true;
+            this.tbDatFile.Name = "tbDatFile";
+            this.tbDatFile.ScrollBars = System.Windows.Forms.ScrollBars.Both;
+            this.tbDatFile.Size = new System.Drawing.Size(690, 314);
+            this.tbDatFile.TabIndex = 2;
             // 
             // FrmMonitor
             // 
@@ -222,6 +251,8 @@
             this.tpStatus.PerformLayout();
             this.tpCovergence.ResumeLayout(false);
             this.tpCovergence.PerformLayout();
+            this.tpDatFile.ResumeLayout(false);
+            this.tpDatFile.PerformLayout();
             this.ResumeLayout(false);
 
         }
@@ -240,5 +271,7 @@
         private System.Windows.Forms.Label labAnalysisStatus;
         private System.Windows.Forms.TabPage tpCovergence;
         private UserControls.AutoScrollTextBox tbConvergence;
+        private System.Windows.Forms.TabPage tpDatFile;
+        private UserControls.AutoScrollTextBox tbDatFile;
     }
 }

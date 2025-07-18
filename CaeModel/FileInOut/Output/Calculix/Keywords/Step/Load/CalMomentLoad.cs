@@ -15,10 +15,12 @@ namespace FileInOut.Output.Calculix
         // Variables                                                                                                                
         private MomentLoad _load;
         private Dictionary<string, int[]> _referencePointsNodeIds;
-        private ComplexLoadTypeEnum _complexLoadType;
+        protected ComplexLoadTypeEnum _complexLoadType;
+        protected int _maxNumberNodeDOFs;
 
 
         // Properties                                                                                                               
+        public int MaxNumberNodeDOFs { get { return _maxNumberNodeDOFs; } set { _maxNumberNodeDOFs = value; } }
 
 
         // Constructor                                                                                                              
@@ -27,6 +29,7 @@ namespace FileInOut.Output.Calculix
             _load = load;
             _referencePointsNodeIds = referencePointsNodeIds;
             _complexLoadType = complexLoadType;
+            _maxNumberNodeDOFs = 3; // 3 for Calculix and 6 for Abaqus
         }
 
 
@@ -67,8 +70,15 @@ namespace FileInOut.Output.Calculix
                     sb.AppendFormat("{0}, {1}, {2}", _load.RegionName, dir,
                                     (ratio * _load.GetDirection(dir - 4)).ToCalculiX16String());
                 else if (_load.RegionType == RegionTypeEnum.ReferencePointName) // reference point
-                    sb.AppendFormat("{0}, {1}, {2}", rpNodeIds[1], dir - 3,
-                                    (ratio * _load.GetDirection(dir - 4)).ToCalculiX16String());
+                {
+                    if (_maxNumberNodeDOFs == 3)
+                        sb.AppendFormat("{0}, {1}, {2}", rpNodeIds[1], dir - 3,
+                                        (ratio * _load.GetDirection(dir - 4)).ToCalculiX16String());
+                    else if (_maxNumberNodeDOFs == 6)
+                        sb.AppendFormat("{0}, {1}, {2}", rpNodeIds[0], dir,
+                                        (ratio * _load.GetDirection(dir - 4)).ToCalculiX16String());
+                    else throw new NotSupportedException();
+                }
                 sb.AppendLine();
             }
             //

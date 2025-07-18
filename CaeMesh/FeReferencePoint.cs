@@ -31,8 +31,8 @@ namespace CaeMesh
     public class FeReferencePoint : NamedClass, IMultiRegion, ISerializable, IContainsEquations
     {
         // Variables                                                                                                                
-        public const string RefName = "_ref_";
-        public const string RotName = "_rot_";
+        public const string RefName = "_Ref_";
+        public const string RotName = "_Rot_";
         private EquationContainer _x;                           //ISerializable
         private EquationContainer _y;                           //ISerializable
         private EquationContainer _z;                           //ISerializable
