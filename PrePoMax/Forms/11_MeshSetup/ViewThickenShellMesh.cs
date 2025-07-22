@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -32,7 +32,7 @@ namespace PrePoMax.Forms
         //
         [CategoryAttribute("Mesh size")]
         [OrderedDisplayName(1, 10, "Thickness")]
-        [DescriptionAttribute("Enter teh thickness of the resulting solid mesh.")]
+        [DescriptionAttribute("Enter the thickness of the resulting solid mesh.")]
         [TypeConverter(typeof(StringLengthConverter))]
         [Id(1, 3)]
         public double Thickness { get { return _thickenShellMesh.Thickness; } set { _thickenShellMesh.Thickness = value; } }
