@@ -9,6 +9,7 @@ using System.Windows.Forms;
 using System.Drawing;
 using System.ComponentModel;
 using CaeResults;
+using CaeMesh;
 
 namespace PrePoMax.Forms
 {
@@ -225,10 +226,14 @@ namespace PrePoMax.Forms
             _distributionNames = _controller.GetDistributionNames();
             _distributionToEditName = distributionToEditName;
             //
+            string[] coordinateSystemNames = _controller.GetModelCoordinateSystemNames();
+            //
+            if (coordinateSystemNames == null) coordinateSystemNames = new string[0];
+            //
             if (_distributionNames == null)
                 throw new CaeException("The distribution names must be defined first.");
             //
-            PopulateListOfDistributions();
+            PopulateListOfDistributions(coordinateSystemNames);
             //
             if (distributionToEditName == null)
             {
@@ -239,10 +244,21 @@ namespace PrePoMax.Forms
             else
             {
                 Distribution = _controller.GetDistribution(distributionToEditName); // to clone
+                // Check for deleted coordinate systems
+                if (_viewDistribution.CoordinateSystemName != CoordinateSystem.DefaultCoordinateSystemName)
+                    CheckMissingValueRef(ref coordinateSystemNames, _viewDistribution.CoordinateSystemName,
+                                         s => { _viewDistribution.CoordinateSystemName = s; });
                 //
                 int selectedId;
-                if (_viewDistribution.GetBase() is DistributionFromEquation) selectedId = 0;
-                else if (_viewDistribution.GetBase() is DistributionFromFile) selectedId = 1;
+                if (_viewDistribution is ViewDistributionFromEquation vdfe)
+                {
+                    selectedId = 0;
+                    vdfe.PopulateDropDownLists(coordinateSystemNames);
+                }
+                else if (_viewDistribution is ViewDistributionFromFile)
+                {
+                    selectedId = 1;
+                }
                 else throw new NotSupportedException();
                 //
                 lvTypes.Items[selectedId].Tag = _viewDistribution;
@@ -256,7 +272,7 @@ namespace PrePoMax.Forms
         
 
         // Methods                                                                                                                  
-        private void PopulateListOfDistributions()
+        private void PopulateListOfDistributions(string[] coordinateSystemNames)
         {
             // Populate list view
             ListViewItem item;
@@ -264,6 +280,7 @@ namespace PrePoMax.Forms
             item = new ListViewItem("From Equation");
             ViewDistributionFromEquation vdfe = 
                 new ViewDistributionFromEquation(new DistributionFromEquation(GetDistributionName("From Equation"), "=1"));
+            vdfe.PopulateDropDownLists(coordinateSystemNames);
             item.Tag = vdfe;
             lvTypes.Items.Add(item);
             // From file

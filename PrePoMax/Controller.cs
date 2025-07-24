@@ -16984,7 +16984,7 @@ namespace PrePoMax
             }
         }
         public void DrawDistributedSTLoadSymbols(string prefixName, STLoad stLoad, Color color, int symbolSize,
-                                      vtkRendererLayer layer, bool onlyVisible)
+                                                 vtkRendererLayer layer, bool onlyVisible)
         {
             FeSurface surface = _model.Mesh.Surfaces[stLoad.SurfaceName];
             //

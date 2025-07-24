@@ -404,6 +404,52 @@ namespace CaeMesh
             Vec3D direction = vector[0] * directionX + vector[1] * directionY + vector[2] * directionZ;
             return direction.Coor;
         }
+        public double[] GetLocalCoordinates(double[] globalCoor)
+        {
+            Vec3D center = Center();
+            Vec3D directionX = _dx; // DirectionX(globalCoor);
+            Vec3D directionY = _dy; // DirectionY(globalCoor);
+            Vec3D directionZ = _dz; // DirectionZ(globalCoor);
+            //
+            Vec3D global = new Vec3D(globalCoor);
+            Vec3D v = global - center;
+            //
+            if (_type == CoordinateSystemTypeEnum.Rectangular)
+            {
+                double x = Vec3D.DotProduct(v, directionX);
+                double y = Vec3D.DotProduct(v, directionY);
+                double z = Vec3D.DotProduct(v, directionZ);
+            }
+            else if (_type == CoordinateSystemTypeEnum.Cylindrical)
+            {
+                //center = new Vec3D(0, 0, 0);
+                //directionX = new Vec3D(1, 0, 0);
+                //directionY = new Vec3D(0, 1, 0);
+                //directionZ = new Vec3D(0, 0, 1);
+                //globalCoor = new double[] { 3, 2, 5 };
+                //global = new Vec3D(globalCoor);
+                //v = global - center;
+
+
+                // Z component
+                double z = Vec3D.DotProduct(v, directionZ);
+                // Transverse vector
+                Vec3D vPerp = v - z * directionZ;
+                // Radial distance
+                double rho = vPerp.Len;
+                // Compute angle φ
+                double xProj = Vec3D.DotProduct(vPerp, directionX);
+                double yProj = Vec3D.DotProduct(vPerp, directionY);
+                double phi = Math.Atan2(yProj, xProj);  // in radians
+                //
+                v.X = rho;
+                v.Y = phi;
+                v.Z = z;
+            }
+            else throw new NotSupportedException();
+            //
+            return v.Coor;
+        }
         public bool IsProperlyDefined(out string error)
         {
             error = null;

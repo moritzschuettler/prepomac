@@ -329,6 +329,19 @@ namespace CaeModel
                 SetItemValidity(null, contactPair, valid, items);
                 if (!valid && contactPair.Active) invalidItems.Add("Contact pair: " + contactPair.Name);
             }
+            // Distributions
+            Distribution distribution;
+            foreach (var entry in _distributions)
+            {
+                distribution = entry.Value;
+                valid = true;
+                // Coordinate system
+                if (distribution.CoordinateSystemName != CaeMesh.CoordinateSystem.DefaultCoordinateSystemName &&
+                    !_mesh.CoordinateSystems.ContainsValidKey(distribution.CoordinateSystemName)) valid = false;
+                //
+                SetItemValidity(null, distribution, valid, items);
+                if (!valid && distribution.Active) invalidItems.Add("Distribution: " + distribution.Name);
+            }
             // Initial conditions
             InitialCondition initialCondition;
             foreach (var entry in _initialConditions)
@@ -2382,7 +2395,7 @@ namespace CaeModel
             }
             // Get all nodal values
             double[][] values;
-            distribution.GetMagnitudesAndDistancesForPoints(points, out values, out _);
+            distribution.GetMagnitudesAndDistancesForPoints(this, points, out values, out _);
             // Get all nodal values as dictionary - speed up
             Dictionary<int, double[]> nodeIdValues = new Dictionary<int, double[]>();
             for (int i = 0; i < allNodeIds.Length; i++) nodeIdValues.Add(allNodeIds[i], values[i]);

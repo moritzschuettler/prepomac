@@ -4,6 +4,7 @@ using System.IO;
 using System.Runtime.Serialization;
 using System.Text;
 using CaeGlobals;
+using CaeMesh;
 using CaeResults;
 using DynamicTypeDescriptor;
 
@@ -22,6 +23,7 @@ namespace CaeModel
     {
         // Variables                                                                                                                
         protected DistributionTypeEnum _distributionType;           //ISerializable
+        protected string _coordinateSystemName;                     //ISerializable
         public const string DefaultDistributionName = "Constant";
 
 
@@ -36,6 +38,19 @@ namespace CaeModel
                 else throw new NotSupportedException();
             }
         }
+        public string CoordinateSystemName
+        {
+            get
+            {
+                if (_coordinateSystemName == null) return CoordinateSystem.DefaultCoordinateSystemName;
+                else return _coordinateSystemName;
+            }
+            set
+            {
+                _coordinateSystemName = value;
+                if (_coordinateSystemName == CoordinateSystem.DefaultCoordinateSystemName) _coordinateSystemName = null;
+            }
+        }
 
 
         // Constructors                                                                                                             
@@ -43,6 +58,7 @@ namespace CaeModel
             : base(name)
         {
             _distributionType = DistributionTypeEnum.Scalar;
+            _coordinateSystemName = null;
         }
         public Distribution(SerializationInfo info, StreamingContext context)
             : base(info, context)
@@ -53,6 +69,8 @@ namespace CaeModel
                 {
                     case "_distributionType":
                         _distributionType = (DistributionTypeEnum)entry.Value; break;
+                    case "_coordinateSystemName":
+                        _coordinateSystemName = (string)entry.Value; break;
                     default:
                         break;
                 }
@@ -62,8 +80,7 @@ namespace CaeModel
 
         // Methods                                                                                                                  
         public abstract bool ImportDistribution();
-        public abstract void GetMagnitudeAndDistanceForPoint(double[] point, out double[] magnitude, out double[] distance);
-        public abstract void GetMagnitudesAndDistancesForPoints(double[][] points, out double[][] magnitudes,
+        public abstract void GetMagnitudesAndDistancesForPoints(FeModel model, double[][] points, out double[][] magnitudes,
                                                                 out double[][] distances);
         // ISerialization
         public new void GetObjectData(SerializationInfo info, StreamingContext context)
@@ -72,6 +89,7 @@ namespace CaeModel
             base.GetObjectData(info, context);
             //
             info.AddValue("_distributionType", _distributionType, typeof(DistributionTypeEnum));
+            info.AddValue("_coordinateSystemName", _coordinateSystemName, typeof(string));
         }
     }
 }

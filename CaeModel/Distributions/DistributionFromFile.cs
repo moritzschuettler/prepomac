@@ -138,21 +138,7 @@ namespace CaeModel
                 return true;
             }
         }
-        public override void GetMagnitudeAndDistanceForPoint(double[] point, out double[] magnitude, out double[] distance)
-        {
-            try
-            {
-                ImportDistribution();
-                //
-                double r = _interpolatorRadius.Value;
-                _interpolator.InterpolateAt(point, _interpolatorType, r, out distance, out magnitude);
-            }
-            catch (Exception ex)
-            {
-                throw new Exception(ex.Message);
-            }
-        }
-        public override void GetMagnitudesAndDistancesForPoints(double[][] points, out double[][] magnitudes,
+        public override void GetMagnitudesAndDistancesForPoints(FeModel model, double[][] points, out double[][] magnitudes,
                                                                 out double[][] distances)
         {
             try

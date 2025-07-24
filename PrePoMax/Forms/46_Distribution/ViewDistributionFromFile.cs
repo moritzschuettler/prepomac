@@ -80,6 +80,8 @@ namespace PrePoMax
             //
             DynamicCustomTypeDescriptor.GetProperty(nameof(InterpolatorRadius)).SetIsBrowsable(visibility);
             DynamicCustomTypeDescriptor.GetProperty(nameof(InterpolatorRadius)).SetIsBrowsable(visibility);
+            //
+            DynamicCustomTypeDescriptor.GetProperty(nameof(CoordinateSystemName)).SetIsBrowsable(false);
         }
         public void UpdateFileBrowserDialog()
         {
