@@ -406,49 +406,35 @@ namespace CaeMesh
         }
         public double[] GetLocalCoordinates(double[] globalCoor)
         {
-            Vec3D center = Center();
-            Vec3D directionX = _dx; // DirectionX(globalCoor);
-            Vec3D directionY = _dy; // DirectionY(globalCoor);
-            Vec3D directionZ = _dz; // DirectionZ(globalCoor);
-            //
-            Vec3D global = new Vec3D(globalCoor);
-            Vec3D v = global - center;
+            double[] result = new double[3];
+            Vec3D v = new Vec3D(globalCoor) - Center();
             //
             if (_type == CoordinateSystemTypeEnum.Rectangular)
             {
-                double x = Vec3D.DotProduct(v, directionX);
-                double y = Vec3D.DotProduct(v, directionY);
-                double z = Vec3D.DotProduct(v, directionZ);
+                result[0] = Vec3D.DotProduct(v, _dx);
+                result[1] = Vec3D.DotProduct(v, _dy);
+                result[2] = Vec3D.DotProduct(v, _dz);
             }
             else if (_type == CoordinateSystemTypeEnum.Cylindrical)
             {
-                //center = new Vec3D(0, 0, 0);
-                //directionX = new Vec3D(1, 0, 0);
-                //directionY = new Vec3D(0, 1, 0);
-                //directionZ = new Vec3D(0, 0, 1);
-                //globalCoor = new double[] { 3, 2, 5 };
-                //global = new Vec3D(globalCoor);
-                //v = global - center;
-
-
                 // Z component
-                double z = Vec3D.DotProduct(v, directionZ);
+                double z = Vec3D.DotProduct(v, _dz);
                 // Transverse vector
-                Vec3D vPerp = v - z * directionZ;
+                Vec3D vPerp = v - z * _dz;
                 // Radial distance
                 double rho = vPerp.Len;
                 // Compute angle φ
-                double xProj = Vec3D.DotProduct(vPerp, directionX);
-                double yProj = Vec3D.DotProduct(vPerp, directionY);
+                double xProj = Vec3D.DotProduct(vPerp, _dx);
+                double yProj = Vec3D.DotProduct(vPerp, _dy);
                 double phi = Math.Atan2(yProj, xProj);  // in radians
                 //
-                v.X = rho;
-                v.Y = phi;
-                v.Z = z;
+                result[0] = rho;
+                result[1] = phi;
+                result[2] = z;
             }
             else throw new NotSupportedException();
             //
-            return v.Coor;
+            return result;
         }
         public bool IsProperlyDefined(out string error)
         {

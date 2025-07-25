@@ -131,10 +131,6 @@ namespace PrePoMax
             DynamicCustomTypeDescriptor.GetProperty(nameof(EquationD1)).SetIsBrowsable(!visible);
             DynamicCustomTypeDescriptor.GetProperty(nameof(EquationD2)).SetIsBrowsable(!visible);
             DynamicCustomTypeDescriptor.GetProperty(nameof(EquationD3)).SetIsBrowsable(!visible);
-            // Coordinate systems
-            int numItems = DynamicCustomTypeDescriptor.GetProperty(nameof(CoordinateSystemName)).StatandardValues.Count;
-            visible = numItems > 1;
-            DynamicCustomTypeDescriptor.GetProperty(nameof(CoordinateSystemName)).SetIsBrowsable(visible);
         }
     }
 }

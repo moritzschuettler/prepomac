@@ -255,9 +255,10 @@ namespace PrePoMax.Forms
                     selectedId = 0;
                     vdfe.PopulateDropDownLists(coordinateSystemNames);
                 }
-                else if (_viewDistribution is ViewDistributionFromFile)
+                else if (_viewDistribution is ViewDistributionFromFile vdff)
                 {
                     selectedId = 1;
+                    vdff.PopulateDropDownLists(coordinateSystemNames);
                 }
                 else throw new NotSupportedException();
                 //
@@ -287,6 +288,7 @@ namespace PrePoMax.Forms
             item = new ListViewItem("From File");
             ViewDistributionFromFile vdff =
                 new ViewDistributionFromFile(new DistributionFromFile(GetDistributionName("From File")));
+            vdff.PopulateDropDownLists(coordinateSystemNames);
             item.Tag = vdff;
             lvTypes.Items.Add(item);
         }

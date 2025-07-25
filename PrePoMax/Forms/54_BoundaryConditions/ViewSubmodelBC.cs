@@ -15,7 +15,7 @@ namespace PrePoMax
     public class ViewSubmodelBC : ViewBoundaryCondition
     {
         // Variables                                                                                                                
-        private CaeModel.SubmodelBC _submodel;
+        private SubmodelBC _submodel;
 
 
         // Properties                                                                                                               
@@ -84,7 +84,7 @@ namespace PrePoMax
 
 
         // Constructors                                                                                                             
-        public ViewSubmodelBC(CaeModel.SubmodelBC submodel)
+        public ViewSubmodelBC(SubmodelBC submodel)
         {
             // The order is important
             _submodel = submodel;
@@ -112,7 +112,7 @@ namespace PrePoMax
 
 
         // Methods                                                                                                                  
-        public override CaeModel.BoundaryCondition GetBase()
+        public override BoundaryCondition GetBase()
         {
             return _submodel;
         }

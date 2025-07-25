@@ -74,14 +74,16 @@ namespace PrePoMax
         {
             return _distributionFromFile;
         }
+        public void PopulateDropDownLists(string[] coordinateSystemNames)
+        {
+            base.PopulateCoordinateSystemNames(coordinateSystemNames);
+        }
         private void UpdateVisibility()
         {
-            bool visibility = _distributionFromFile.InterpolatorType != CaeResults.CloudInterpolatorEnum.ClosestPoint;
+            bool visible = _distributionFromFile.InterpolatorType != CaeResults.CloudInterpolatorEnum.ClosestPoint;
             //
-            DynamicCustomTypeDescriptor.GetProperty(nameof(InterpolatorRadius)).SetIsBrowsable(visibility);
-            DynamicCustomTypeDescriptor.GetProperty(nameof(InterpolatorRadius)).SetIsBrowsable(visibility);
-            //
-            DynamicCustomTypeDescriptor.GetProperty(nameof(CoordinateSystemName)).SetIsBrowsable(false);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(InterpolatorRadius)).SetIsBrowsable(visible);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(InterpolatorRadius)).SetIsBrowsable(visible);
         }
         public void UpdateFileBrowserDialog()
         {
