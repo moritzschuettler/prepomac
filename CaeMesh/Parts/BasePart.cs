@@ -149,6 +149,7 @@ namespace CaeMesh
             PartProperties properties = new PartProperties();
             properties.Name = Name;
             properties.PartType = _partType;
+            properties.IsCADPart = false;
             properties.Color = _color;
             properties.NumberOfNodes = _nodeLabels.Length;
             properties.NumberOfElements = Labels.Length;

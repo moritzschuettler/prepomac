@@ -32,6 +32,12 @@ namespace PrePoMax.Forms
         [Id(2, 1)]
         public PartType PartType { get { return _partProperties.PartType; } }
         //
+        [Category("Data")]
+        [OrderedDisplayName(2, 10, "Geometry")]
+        [Description("Geometry type.")]
+        [Id(3, 1)]
+        public string GeometryType { get { return _partProperties.IsCADPart ? "CAD" : "STL"; } }
+        //
         [Category("Mesh")]
         [OrderedDisplayName(0, 10, "Number of elements")]
         [Description("Number of elements.")]
@@ -313,6 +319,8 @@ namespace PrePoMax.Forms
             bool visible;
             if (currentView == ViewGeometryModelResults.Geometry)
             {
+                _dctd.GetProperty(nameof(GeometryType)).SetIsBrowsable(true);
+                //
                 _dctd.GetProperty(nameof(Volume)).SetIsBrowsable(solid && !double.IsNaN(Volume));
                 _dctd.GetProperty(nameof(Area)).SetIsBrowsable(!solid && !double.IsNaN(Area));
                 _dctd.GetProperty(nameof(UndeformedVolume)).SetIsBrowsable(false);
@@ -339,6 +347,8 @@ namespace PrePoMax.Forms
             }
             else if (currentView == ViewGeometryModelResults.Model)
             {
+                _dctd.GetProperty(nameof(GeometryType)).SetIsBrowsable(false);
+                //
                 _dctd.GetProperty(nameof(Volume)).SetIsBrowsable(solid && !double.IsNaN(Volume));
                 _dctd.GetProperty(nameof(Area)).SetIsBrowsable(!solid && !double.IsNaN(Area));
                 _dctd.GetProperty(nameof(UndeformedVolume)).SetIsBrowsable(false);
@@ -366,6 +376,8 @@ namespace PrePoMax.Forms
             }
             else if (currentView == ViewGeometryModelResults.Results)
             {
+                _dctd.GetProperty(nameof(GeometryType)).SetIsBrowsable(false);
+                //
                 _dctd.GetProperty(nameof(Volume)).SetIsBrowsable(false);
                 _dctd.GetProperty(nameof(Area)).SetIsBrowsable(false);
                 _dctd.GetProperty(nameof(UndeformedVolume)).SetIsBrowsable(solid && !double.IsNaN(UndeformedVolume));

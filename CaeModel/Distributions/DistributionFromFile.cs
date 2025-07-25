@@ -7,6 +7,7 @@ using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 using CaeGlobals;
+using CaeMesh;
 using CaeResults;
 using DynamicTypeDescriptor;
 using static CaeGlobals.Geometry2;
@@ -138,21 +139,7 @@ namespace CaeModel
                 return true;
             }
         }
-        public override void GetMagnitudeAndDistanceForPoint(double[] point, out double[] magnitude, out double[] distance)
-        {
-            try
-            {
-                ImportDistribution();
-                //
-                double r = _interpolatorRadius.Value;
-                _interpolator.InterpolateAt(point, _interpolatorType, r, out distance, out magnitude);
-            }
-            catch (Exception ex)
-            {
-                throw new Exception(ex.Message);
-            }
-        }
-        public override void GetMagnitudesAndDistancesForPoints(double[][] points, out double[][] magnitudes,
+        public override void GetMagnitudesAndDistancesForPoints(FeModel model, double[][] points, out double[][] magnitudes,
                                                                 out double[][] distances)
         {
             try
@@ -160,11 +147,18 @@ namespace CaeModel
                 ImportDistribution();
                 //
                 double r = _interpolatorRadius.Value;
+                CoordinateSystem cs = null;
+                double[] localCoor;
                 magnitudes = new double[points.Length][];
                 distances = new double[points.Length][];
+                if (_coordinateSystemName != null) cs = model.Mesh.CoordinateSystems[_coordinateSystemName];
+                //
                 for (int i = 0; i < points.Length; i++)
                 {
-                    _interpolator.InterpolateAt(points[i], _interpolatorType, r, out distances[i], out magnitudes[i]);
+                    if (cs == null) localCoor = points[i];
+                    else localCoor = cs.GetLocalCoordinates(points[i]);
+                    //
+                    _interpolator.InterpolateAt(localCoor, _interpolatorType, r, out distances[i], out magnitudes[i]);
                 }
             }
             catch (Exception ex)

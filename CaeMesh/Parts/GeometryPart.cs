@@ -121,6 +121,7 @@ namespace CaeMesh
         public override PartProperties GetProperties()
         {
             PartProperties properties = base.GetProperties();
+            properties.IsCADPart = IsCADPart;
             return properties;
         }
         public override void SetProperties(PartProperties properties)

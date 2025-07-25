@@ -223,7 +223,7 @@ namespace CaeModel
                 double[][] magnitudes;
                 Distribution distribution = model.Distributions[_distributionName];
                 //
-                distribution.GetMagnitudesAndDistancesForPoints(points, out magnitudes, out distances);
+                distribution.GetMagnitudesAndDistancesForPoints(model, points, out magnitudes, out distances);
                 //
                 for (int i = 0; i < points.Length; i++)
                 {

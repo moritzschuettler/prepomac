@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
 using CaeGlobals;
+using CaeMesh;
 using CaeResults;
 using DynamicTypeDescriptor;
 using static CaeGlobals.Geometry2;
@@ -126,59 +127,40 @@ namespace CaeModel
         { 
             return true;
         }
-        public override void GetMagnitudeAndDistanceForPoint(double[] point, out double[] magnitude, out double[] distance)
-        {
-            distance = null;
-            OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters.DeepCopy();
-            try
-            {
-                MyNCalc.ExistingParameters["x"] = point[0];
-                MyNCalc.ExistingParameters["y"] = point[1];
-                MyNCalc.ExistingParameters["z"] = point[2];
-                //
-                if (_distributionType == DistributionTypeEnum.Scalar)
-                {
-                    magnitude = new double[1] { MyNCalc.SolveEquation(_equationMagnitude) };
-                }
-                else if (_distributionType == DistributionTypeEnum.Vector)
-                {
-                    magnitude = new double[3];
-                    magnitude[0] = MyNCalc.SolveEquation(_equationD1);
-                    magnitude[1] = MyNCalc.SolveEquation(_equationD2);
-                    magnitude[2] = MyNCalc.SolveEquation(_equationD3);
-                }
-                else throw new NotSupportedException();
-            }
-            catch (Exception ex)
-            {
-                throw new Exception(ex.Message);
-            }
-            finally
-            {
-                MyNCalc.ExistingParameters = existingParameters;
-            }
-        }
-        public override void GetMagnitudesAndDistancesForPoints(double[][] points, out double[][] magnitudes,
+        public override void GetMagnitudesAndDistancesForPoints(FeModel model, double[][] points, out double[][] magnitudes,
                                                                 out double[][] distances)
         {
             distances = null;
             OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters.DeepCopy();
             try
             {
+                CoordinateSystem cs = null;
+                double[] localCoor;
+                if (_coordinateSystemName != null) cs = model.Mesh.CoordinateSystems[_coordinateSystemName];
+                //
                 double[] x = new double[points.Length];
                 double[] y = new double[points.Length];
                 double[] z = new double[points.Length];
                 for (int i = 0; i < points.Length; i++)
                 {
-                    x[i] = points[i][0];
-                    y[i] = points[i][1];
-                    z[i] = points[i][2];
+                    if (cs == null)
+                    {
+                        x[i] = points[i][0];
+                        y[i] = points[i][1];
+                        z[i] = points[i][2];
+                    }
+                    else
+                    {
+                        localCoor = cs.GetLocalCoordinates(points[i]);
+                        x[i] = localCoor[0];
+                        y[i] = localCoor[1];
+                        z[i] = localCoor[2];
+                    }
                 }
                 MyNCalc.ExistingParameters["x"] = x;
                 MyNCalc.ExistingParameters["y"] = y;
                 MyNCalc.ExistingParameters["z"] = z;
                 //
-
                 if (_distributionType == DistributionTypeEnum.Scalar)
                 {
                     double[] result = MyNCalc.SolveArrayEquation(_equationMagnitude);

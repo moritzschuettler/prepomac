@@ -7,6 +7,7 @@ using System.ComponentModel;
 using CaeGlobals;
 using CaeModel;
 using DynamicTypeDescriptor;
+using CaeMesh;
 
 namespace PrePoMax
 {
@@ -30,6 +31,12 @@ namespace PrePoMax
         [Id(2, 1)]
         public abstract DistributionTypeEnum DistributionType { get; set; }
         //
+        [CategoryAttribute("Orientation")]
+        [DisplayName("Coordinate system")]
+        [DescriptionAttribute("Select the coordinate system for the boundary condition.")]
+        [Id(1, 20)]
+        public abstract string CoordinateSystemName { get; set; }
+        //
         [Browsable(false)]
         public DynamicCustomTypeDescriptor DynamicCustomTypeDescriptor { get { return _dctd; } set { _dctd = value; } }
         //
@@ -41,5 +48,11 @@ namespace PrePoMax
 
 
         // Methods
+        public void PopulateCoordinateSystemNames(string[] coordinateSystemNames)
+        {
+            List<string> names = new List<string>() { CoordinateSystem.DefaultCoordinateSystemName };
+            names.AddRange(coordinateSystemNames);
+            DynamicCustomTypeDescriptor.PopulateProperty(nameof(CoordinateSystemName), names.ToArray(), false, 2);
+        }
     }
 }

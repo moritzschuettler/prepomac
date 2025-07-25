@@ -97,6 +97,12 @@ namespace PrePoMax
             get { return _mappedDistribution.TranslateZ.Equation; }
             set { _mappedDistribution.TranslateZ.Equation = value; }
         }
+        //
+        public override string CoordinateSystemName
+        {
+            get { return _mappedDistribution.CoordinateSystemName; }
+            set { _mappedDistribution.CoordinateSystemName = value; }
+        }
 
 
         // Constructors                                                                                                             

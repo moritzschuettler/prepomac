@@ -264,7 +264,7 @@ namespace CaeModel
                 double[][] temperatures;
                 Distribution distribution = model.Distributions[_distributionName];
                 //
-                distribution.GetMagnitudesAndDistancesForPoints(points, out temperatures, out distances);
+                distribution.GetMagnitudesAndDistancesForPoints(model, points, out temperatures, out distances);
                 //
                 for (int i = 0; i < points.Length; i++)
                 {

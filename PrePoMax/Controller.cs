@@ -1411,7 +1411,7 @@ namespace PrePoMax
             {
                 if (entry.Value is GeometryPart gp)
                 {
-                    if (gp.MassProperties.CenterOfMass == null)
+                    if (gp.IsCADPart && gp.MassProperties.CenterOfMass == null)
                     {
                         File.WriteAllText(brepFileName, gp.CADFileData);
                         visFileName = CreateVisFile(brepFileName, showError);
@@ -17009,7 +17009,7 @@ namespace PrePoMax
             }
         }
         public void DrawDistributedSTLoadSymbols(string prefixName, STLoad stLoad, Color color, int symbolSize,
-                                      vtkRendererLayer layer, bool onlyVisible)
+                                                 vtkRendererLayer layer, bool onlyVisible)
         {
             FeSurface surface = _model.Mesh.Surfaces[stLoad.SurfaceName];
             //

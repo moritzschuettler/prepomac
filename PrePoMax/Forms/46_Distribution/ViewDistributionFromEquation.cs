@@ -7,6 +7,7 @@ using System.ComponentModel;
 using CaeGlobals;
 using CaeModel;
 using DynamicTypeDescriptor;
+using System.Security.Policy;
 
 namespace PrePoMax
 {
@@ -95,6 +96,12 @@ namespace PrePoMax
                 _distributionFromEquation.EquationD3 = value;
             }
         }
+        //
+        public override string CoordinateSystemName
+        {
+            get { return _distributionFromEquation.CoordinateSystemName; }
+            set { _distributionFromEquation.CoordinateSystemName = value; }
+        }
 
 
         // Constructors                                                                                                             
@@ -113,13 +120,17 @@ namespace PrePoMax
         {
             return _distributionFromEquation;
         }
+        public void PopulateDropDownLists(string[] coordinateSystemNames)
+        {
+            base.PopulateCoordinateSystemNames(coordinateSystemNames);
+        }
         private void UpdateVisibility()
         {
-            bool scalar = _distributionFromEquation.DistributionType == DistributionTypeEnum.Scalar;
-            DynamicCustomTypeDescriptor.GetProperty(nameof(EquationMagnitude)).SetIsBrowsable(scalar);
-            DynamicCustomTypeDescriptor.GetProperty(nameof(EquationD1)).SetIsBrowsable(!scalar);
-            DynamicCustomTypeDescriptor.GetProperty(nameof(EquationD2)).SetIsBrowsable(!scalar);
-            DynamicCustomTypeDescriptor.GetProperty(nameof(EquationD3)).SetIsBrowsable(!scalar);
+            bool visible = _distributionFromEquation.DistributionType == DistributionTypeEnum.Scalar;
+            DynamicCustomTypeDescriptor.GetProperty(nameof(EquationMagnitude)).SetIsBrowsable(visible);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(EquationD1)).SetIsBrowsable(!visible);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(EquationD2)).SetIsBrowsable(!visible);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(EquationD3)).SetIsBrowsable(!visible);
         }
     }
 }

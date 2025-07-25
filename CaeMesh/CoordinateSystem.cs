@@ -404,6 +404,38 @@ namespace CaeMesh
             Vec3D direction = vector[0] * directionX + vector[1] * directionY + vector[2] * directionZ;
             return direction.Coor;
         }
+        public double[] GetLocalCoordinates(double[] globalCoor)
+        {
+            double[] result = new double[3];
+            Vec3D v = new Vec3D(globalCoor) - Center();
+            //
+            if (_type == CoordinateSystemTypeEnum.Rectangular)
+            {
+                result[0] = Vec3D.DotProduct(v, _dx);
+                result[1] = Vec3D.DotProduct(v, _dy);
+                result[2] = Vec3D.DotProduct(v, _dz);
+            }
+            else if (_type == CoordinateSystemTypeEnum.Cylindrical)
+            {
+                // Z component
+                double z = Vec3D.DotProduct(v, _dz);
+                // Transverse vector
+                Vec3D vPerp = v - z * _dz;
+                // Radial distance
+                double rho = vPerp.Len;
+                // Compute angle φ
+                double xProj = Vec3D.DotProduct(vPerp, _dx);
+                double yProj = Vec3D.DotProduct(vPerp, _dy);
+                double phi = Math.Atan2(yProj, xProj);  // in radians
+                //
+                result[0] = rho;
+                result[1] = phi;
+                result[2] = z;
+            }
+            else throw new NotSupportedException();
+            //
+            return result;
+        }
         public bool IsProperlyDefined(out string error)
         {
             error = null;
