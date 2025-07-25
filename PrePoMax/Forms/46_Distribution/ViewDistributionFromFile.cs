@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -32,8 +32,8 @@ namespace PrePoMax
         //
         [CategoryAttribute("Interpolation")]
         [OrderedDisplayName(0, 10, "Interpolator")]
-        [DescriptionAttribute("Select the interpolation type. The Gauss interpoaltion uses the kernel equation: exp(-(r/R)²), " +
-                              "while the Shepard interpolation uses the kernel equation: 1/r². R is the interploator radius and " +
+        [DescriptionAttribute("Select the interpolation type. The Gauss interpolation uses the kernel equation: exp(-(r/R)²), " +
+                              "while the Shepard interpolation uses the kernel equation: 1/r². R is the interpolator radius and " +
                               "r is the distance to the neighbouring point.")]
         [Id(1, 3)]
         public CaeResults.CloudInterpolatorEnum Interpolator

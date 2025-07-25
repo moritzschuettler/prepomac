@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -37,7 +37,7 @@ namespace FileInOut.Output.Calculix
             if (_radiationHeatTransfer.EmissivityAmplitudeName != Amplitude.DefaultAmplitudeName)
                 emissivityAmplitude = ", Radiation amplitude=" + _radiationHeatTransfer.EmissivityAmplitudeName;
             string cavity = "";
-            if (_radiationHeatTransfer.CavityRadiation) cavity = "Cavity=" + _radiationHeatTransfer.CavityName;
+            if (_radiationHeatTransfer.CavityRadiation) cavity = ", Cavity=" + _radiationHeatTransfer.CavityName;
             //
             sb.AppendFormat("*Radiate{0}{1}{2}{3}{4}", sinkAmplitude, emissivityAmplitude, cavity, OpTypeString(),
                             Environment.NewLine);
