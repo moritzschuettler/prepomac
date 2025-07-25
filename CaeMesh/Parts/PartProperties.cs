@@ -20,6 +20,7 @@ namespace CaeMesh
             }
         }
         public PartType PartType;
+        public bool IsCADPart;
         public System.Drawing.Color Color;
         public bool ColorContours;
         public int NumberOfElements;

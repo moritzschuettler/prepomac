@@ -1411,7 +1411,7 @@ namespace PrePoMax
             {
                 if (entry.Value is GeometryPart gp)
                 {
-                    if (gp.MassProperties.CenterOfMass == null)
+                    if (gp.IsCADPart && gp.MassProperties.CenterOfMass == null)
                     {
                         File.WriteAllText(brepFileName, gp.CADFileData);
                         visFileName = CreateVisFile(brepFileName, showError);
