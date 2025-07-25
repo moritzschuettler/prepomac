@@ -317,7 +317,7 @@ namespace CaeJob
             AppendDataToOutput(DateTime.Now + Environment.NewLine);
             AppendDataToOutput("########   Starting run step number: " + _currentRunStep +
                                "   Increment number: "  + _currentRunIncrement + "   ########" +  Environment.NewLine);
-            AppendDataToOutput("Running command: " + _executable + " " + _argument);
+            AppendDataToOutput("Running command: " + _executable + " " + GetArgument());
             //
             _datFileLength = -1;
             _datFileToLong = false;
@@ -495,7 +495,7 @@ namespace CaeJob
         {
             ProcessStartInfo psi = new ProcessStartInfo();
             psi.FileName = _executable;
-            psi.Arguments = _argument;
+            psi.Arguments = GetArgument();
             psi.WorkingDirectory = _workDirectory;
             psi.UseShellExecute = false;
             //
@@ -528,14 +528,7 @@ namespace CaeJob
             psi.CreateNoWindow = true;
             psi.FileName = _executable;
             //
-            if (_femSolver == FEMSolverEnum.Calculix) psi.Arguments = _argument;
-            else if (_femSolver == FEMSolverEnum.Abaqus)
-            {
-                psi.Arguments = "interactive ask_delete=OFF " + _argument;
-                if (_onlyCheckModel) psi.Arguments = "datacheck " + psi.Arguments;
-            }
-            else throw new NotSupportedException();
-            //
+            psi.Arguments = GetArgument();
             psi.WorkingDirectory = _workDirectory;
             psi.WindowStyle = ProcessWindowStyle.Hidden;
             psi.UseShellExecute = false;
@@ -858,6 +851,21 @@ namespace CaeJob
             {
                 AppendDataToOutput("To add environmental variable '" + environmentVariable.Name + "' to the analysis the program must be run with elevated permisions (Run as administrator).");
             }
+        }
+        private string GetArgument()
+        {
+            string argument = "";
+            if (_femSolver == FEMSolverEnum.Calculix) argument = _argument;
+            else if (_femSolver == FEMSolverEnum.Abaqus)
+            {
+                if (_onlyCheckModel) argument = "datacheck ";
+                argument += "interactive ask_delete=OFF ";
+                if (_numCPUs > 1) argument += "cpus=" + _numCPUs + " ";
+                argument += _argument;
+            }
+            else throw new NotSupportedException();
+            //
+            return argument;
         }
         // ISerialization
         public new void GetObjectData(SerializationInfo info, StreamingContext context)
