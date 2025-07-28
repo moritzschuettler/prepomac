@@ -2491,7 +2491,7 @@ namespace vtkControl
 
             ResetCamera();
 
-            SetVerticalView(false, false);
+            //SetVerticalView(false, false);
 
             if (animate) AnimateCamera(cameraStart, camera, camera);
             else RenderScene();
@@ -3469,6 +3469,8 @@ namespace vtkControl
         }
         public void AddOrientedArrowsActor(vtkMaxActorData data, double symbolSize, bool invert, double relativeSize = 1)
         {
+            data.Geometry.RemoveZeroLengthNormals();
+            //
             if (symbolSize > _maxSymbolSize) _maxSymbolSize = symbolSize;
             // Points
             vtkPoints pointData = vtkPoints.New();
@@ -3545,6 +3547,8 @@ namespace vtkControl
         }
         public void AddOrientedDoubleArrowsActor(vtkMaxActorData data, double symbolSize)
         {
+            data.Geometry.RemoveZeroLengthNormals();
+            //
             if (symbolSize > _maxSymbolSize) _maxSymbolSize = symbolSize;
             // Double arrow for moment loads
             // Points
