@@ -57,6 +57,36 @@ namespace CaeGlobals
         {
             return new PartExchangeData(this);
         }
+        public void RemoveZeroLengthNormals()
+        {
+            List<double[]> normals = new List<double[]>();
+            List<double[]> coor = new List<double[]>();
+            //
+            double len;
+            double max = -double.MaxValue;
+            double[] normal;
+            //
+            for (int i = 0; i < Nodes.Normals.Length; i++)
+            {
+                normal = Nodes.Normals[i];
+                len = normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2];
+                if (len > max) max = len;
+            }
+            //
+            for (int i = 0; i < Nodes.Normals.Length; i++)
+            {
+                normal = Nodes.Normals[i];
+                len = normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2];
+                if (len > max * 1E-3)
+                {
+                    normals.Add(normal);
+                    coor.Add(Nodes.Coor[i]);
+                }
+            }
+            //
+            Nodes.Normals = normals.ToArray();
+            Nodes.Coor = coor.ToArray();
+        }
 
     }
 }

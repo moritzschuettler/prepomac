@@ -9594,11 +9594,11 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.AddActor, actor);
         }
-        public void AddScalarFieldOn3DCells(vtkControl.vtkMaxActorData actorData, bool update)
+        public void AddScalarFieldOn3DCells(vtkMaxActorData actorData, bool update)
         {
             InvokeIfRequired(_vtk.AddScalarFieldOnCells, actorData, update);
         }
-        public bool AddAnimatedScalarFieldOn3DCells(vtkControl.vtkMaxActorData actorData)
+        public bool AddAnimatedScalarFieldOn3DCells(vtkMaxActorData actorData)
         {
             return _vtk.AddAnimatedScalarFieldOnCells(actorData);
         }
@@ -9611,7 +9611,7 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.UpdateActorsColorContoursVisibility, actorNames, colorContour);
         }
-        public void AddSphereActor(vtkControl.vtkMaxActorData actorData, double symbolSize)
+        public void AddSphereActor(vtkMaxActorData actorData, double symbolSize)
         {
             InvokeIfRequired(_vtk.AddSphereActor, actorData, symbolSize);
         }
@@ -9624,32 +9624,32 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.AddCaptionActor, name, caption, color, position, offsetVector, fontScaleFactor, layer);
         }
-        public void AddOrientedDisplacementConstraintActor(vtkControl.vtkMaxActorData actorData, double symbolSize)
+        public void AddOrientedDisplacementConstraintActor(vtkMaxActorData actorData, double symbolSize)
         {
             InvokeIfRequired(_vtk.AddOrientedDisplacementConstraintActor, actorData, symbolSize);
         }
-        public void AddOrientedRotationalConstraintActor(vtkControl.vtkMaxActorData actorData, double symbolSize)
+        public void AddOrientedRotationalConstraintActor(vtkMaxActorData actorData, double symbolSize)
         {
             InvokeIfRequired(_vtk.AddOrientedRotationalConstraintActor, actorData, symbolSize);
         }
-        public void AddOrientedArrowsActor(vtkControl.vtkMaxActorData actorData, double symbolSize, bool invert = false, 
+        public void AddOrientedArrowsActor(vtkMaxActorData actorData, double symbolSize, bool invert = false, 
                                            double relativeSize = 1)
         {
             InvokeIfRequired(_vtk.AddOrientedArrowsActor, actorData, symbolSize, invert, relativeSize);
         }
-        public void AddOrientedDoubleArrowsActor(vtkControl.vtkMaxActorData actorData, double symbolSize)
+        public void AddOrientedDoubleArrowsActor(vtkMaxActorData actorData, double symbolSize)
         {
             InvokeIfRequired(_vtk.AddOrientedDoubleArrowsActor, actorData, symbolSize);
         }
-        public void AddOrientedSpringActor(vtkControl.vtkMaxActorData actorData, double symbolSize, bool invert = false)
+        public void AddOrientedSpringActor(vtkMaxActorData actorData, double symbolSize, bool invert = false)
         {
             InvokeIfRequired(_vtk.AddOrientedSpringActor, actorData, symbolSize, invert);
         }
-        public void AddOrientedThermosActor(vtkControl.vtkMaxActorData actorData, double symbolSize, bool invert = false)
+        public void AddOrientedThermosActor(vtkMaxActorData actorData, double symbolSize, bool invert = false)
         {
             InvokeIfRequired(_vtk.AddOrientedThermoActor, actorData, symbolSize, invert);
         }
-        public void AddOrientedFluxActor(vtkControl.vtkMaxActorData actorData, double symbolSize, bool center, bool invert)
+        public void AddOrientedFluxActor(vtkMaxActorData actorData, double symbolSize, bool center, bool invert)
         {
             InvokeIfRequired(_vtk.AddOrientedFluxActor, actorData, symbolSize, center, invert);
         }
