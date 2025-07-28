@@ -822,7 +822,7 @@ namespace CaeMesh
                 FeNode node1;
                 FeNode node2;
                 //
-                double epsilon = mesh.BoundingBox.GetDiagonal() / 1000000;
+                double epsilon = mesh.BoundingBox.GetDiagonal() / 100000;
                 if (epsilon < 1E-6) epsilon = 1E-6;
                 //
                 for (int i = 0; i < n; i++)
