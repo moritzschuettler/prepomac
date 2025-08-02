@@ -166,15 +166,15 @@ namespace vtkControl
 
         public static double[] VectorLerp(double[] v1, double[] v2, double t)
         {
-            double[] v = new double[3];
-
+            double[] v = new double[v1.Length];
+            //
             if (t == 0) return v1;
             else if (t == 1) return v2;
-
+            //
             v[0] = v1[0] + t * (v2[0] - v1[0]);
             v[1] = v1[1] + t * (v2[1] - v1[1]);
-            v[2] = v1[2] + t * (v2[2] - v1[2]);
-
+            if (v.Length == 3) v[2] = v1[2] + t * (v2[2] - v1[2]);
+            //
             return v;
         }
     }

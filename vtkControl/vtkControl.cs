@@ -23,6 +23,7 @@ using CaeMesh;
 using Octree;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.ProgressBar;
 using System.Reflection;
+using System.Runtime;
 
 namespace vtkControl
 {
@@ -107,7 +108,10 @@ namespace vtkControl
         private HashSet<string> _selectableActorsFilter;
         //
         private object myLock = new object();
-
+        // Camera path
+        private bool _drawCameraPath = false;
+        private List<double[]> _positions;
+        private List<double[]> _focalPoints;
 
         // Properties                                                                                                               
         public bool RenderingOn
@@ -2351,6 +2355,8 @@ namespace vtkControl
             int delta = 1;
             if (!front) delta = -1;
 
+            if (_drawCameraPath) ClearOverlay();
+
             vtkCamera camera = _renderer.GetActiveCamera();
             vtkCamera cameraStart = vtkCamera.New();
             cameraStart.DeepCopy(camera);
@@ -2371,6 +2377,8 @@ namespace vtkControl
 
             int delta = 1;
             if (!top) delta = -1;
+
+            if (_drawCameraPath) ClearOverlay();
 
             vtkCamera camera = _renderer.GetActiveCamera();
             vtkCamera cameraStart = vtkCamera.New();
@@ -2393,6 +2401,8 @@ namespace vtkControl
             int delta = -1;
             if (!left) delta = 1;
 
+            if (_drawCameraPath) ClearOverlay();
+
             vtkCamera camera = _renderer.GetActiveCamera();
             vtkCamera cameraStart = vtkCamera.New();
             cameraStart.DeepCopy(camera);
@@ -2413,6 +2423,8 @@ namespace vtkControl
                 if (_animating) return;
                 _animating = animate;
             }
+
+            if (_drawCameraPath) ClearOverlay();
 
             vtkCamera camera = _renderer.GetActiveCamera();
             vtkCamera cameraStart = vtkCamera.New();
@@ -2455,6 +2467,8 @@ namespace vtkControl
             else if (Math.Max(Math.Max(x[0], y[0]), Math.Max(y[0], z[0])) == z[0])
                 camera.SetViewUp(0, 0, Math.Sign(z[1]));
 
+            ResetCamera();
+
             if (updateView)
             {
                 if (animate) AnimateCamera(cameraStart, camera, camera);
@@ -2465,34 +2479,27 @@ namespace vtkControl
         {
             if (_animating) return;
             _animating = animate;
-
+            //
+            if (_drawCameraPath) ClearOverlay();
+            //
             vtkCamera camera = _renderer.GetActiveCamera();
             vtkCamera cameraStart = vtkCamera.New();
             cameraStart.DeepCopy(camera);
-
-
-            double[] x = { 1, 0, 0 };
-            double[] y = { 0, 1, 0 };
-            double[] z = { 0, 0, 1 };
+            //
             double[] direction = camera.GetViewPlaneNormal();
-
-            double angle1 = GetAngle(x, direction);
-            double angle2 = GetAngle(y, direction);
-            double angle3 = GetAngle(z, direction);
-
+            double[] abs = new double[] { Math.Abs(direction[0]), Math.Abs(direction[1]), Math.Abs(direction[2]) };
+            int[] ids = new int[] { 0, 1, 2 };
+            Array.Sort(abs, ids);
+            int maxId = ids[2];
+            //
+            double[] delta = new double[3];
+            delta[maxId] = Math.Abs(direction[maxId]) == 1 ? -Math.Sign(direction[maxId]) : Math.Sign(direction[maxId]);
+            //
             double[] fPoint = camera.GetFocalPoint();
-
-            if (Math.Min(Math.Min(angle1, angle2), Math.Min(angle2, angle3)) == angle1)
-                camera.SetPosition(fPoint[0] + Math.Sign(direction[0]), fPoint[1], fPoint[2]);
-            if (Math.Min(Math.Min(angle1, angle2), Math.Min(angle2, angle3)) == angle2)
-                camera.SetPosition(fPoint[0], fPoint[1] + Math.Sign(direction[1]), fPoint[2]);
-            if (Math.Min(Math.Min(angle1, angle2), Math.Min(angle2, angle3)) == angle3)
-                camera.SetPosition(fPoint[0], fPoint[1], fPoint[2] + Math.Sign(direction[2]));
-
-            ResetCamera();
-
-            //SetVerticalView(false, false);
-
+            camera.SetPosition(fPoint[0] + delta[0], fPoint[1] + delta[1], fPoint[2] + delta[2]);
+            //
+            SetVerticalView(false, false);
+            //
             if (animate) AnimateCamera(cameraStart, camera, camera);
             else RenderScene();
         }
@@ -2503,6 +2510,8 @@ namespace vtkControl
 
             int delta = 1;
             if (!positive) delta = -1;
+
+            if (_drawCameraPath) ClearOverlay();
 
             vtkCamera camera = _renderer.GetActiveCamera();
             vtkCamera cameraStart = vtkCamera.New();
@@ -2555,6 +2564,8 @@ namespace vtkControl
             if (_animating) return;
             _animating = true;
             //
+            if (_drawCameraPath) ClearOverlay();
+            //
             vtkCamera camera = _renderer.GetActiveCamera();
             vtkCamera cameraStart = vtkCamera.New();
             cameraStart.DeepCopy(camera);
@@ -2567,6 +2578,8 @@ namespace vtkControl
         {
             if (_animating) return;
             _animating = animate;
+            //
+            if (_drawCameraPath) ClearOverlay();
             //
             vtkCamera camera = _renderer.GetActiveCamera();
             vtkCamera cameraStart = vtkCamera.New();
@@ -2921,12 +2934,57 @@ namespace vtkControl
         }
         public void AnimateCamera(vtkCamera cameraStart, vtkCamera cameraEnd, vtkCamera camera, int timeMs = 500)
         {
+            // The idea is to use quaternions to interpolate the camera orientation while maintaining the
+            // focal point (end camera position) in the center of the screen. Then use projections to pan
+            // the cmara in 2D display coordinates from the start to end positions
             ((vtkInteractorStyleControl)_renderWindowInteractor.GetInteractorStyle()).Animating = true;
             IntPtr pq1 = new IntPtr();
             IntPtr pq2 = new IntPtr();
             IntPtr pq = new IntPtr();
             try
             {
+                // Get camera end data                                                              
+                vtkMatrix4x4 mCamEnd = cameraEnd.GetViewTransformMatrix();
+                double[][] rEnd = new double[3][];
+                for (int i = 0; i < 3; i++)
+                {
+                    rEnd[i] = new double[3];
+                    for (int j = 0; j < 3; j++)
+                    {
+                        rEnd[i][j] = mCamEnd.GetElement(i, j);
+                        if (double.IsNaN(rEnd[i][j])) throw new NotSupportedException();
+                    }
+                }
+                double[] tEnd = new double[3];
+                for (int i = 0; i < 3; i++)
+                {
+                    tEnd[i] = mCamEnd.GetElement(i, 3);
+                }
+                double[] fpEnd = cameraEnd.GetFocalPoint();
+                double zEnd = cameraEnd.GetParallelScale();
+                double[] q2 = QuaternionHelper.QuaternionFromMatrix3x3(rEnd);
+                pq2 = QuaternionHelper.IntPtrFromQuaternion(q2);
+                // Get display (XY) projection of the final focal point (model center) for both cameras
+                double[] fpEndXY = vtkInteractorStyleControl.WorldToDisplay(_renderer, fpEnd);
+                _renderer.SetActiveCamera(cameraStart);
+                double[] fpStartXY = vtkInteractorStyleControl.WorldToDisplay(_renderer, fpEnd);
+                // Project both XY points into 3D
+                double[] fpEndworld;
+                double[] fpStartWorld;
+                fpEndworld = vtkInteractorStyleControl.DisplayToWorld(_renderer, fpEndXY);
+                fpStartWorld = vtkInteractorStyleControl.DisplayToWorld(_renderer, fpStartXY);
+                // Assign the end camera back to the renderer
+                _renderer.SetActiveCamera(camera);
+                // Compute the delta of the 3D projected points
+                double[] fpDelta = new double[] { fpStartWorld[0] - fpEndworld[0],
+                                                  fpStartWorld[1] - fpEndworld[1],
+                                                  fpStartWorld[2] - fpEndworld[2]};
+                // Pan the start camera to look at the model center 
+                double[] cPos = cameraStart.GetPosition();
+                double[] fPos = cameraStart.GetFocalPoint();
+                cameraStart.SetPosition(cPos[0] + fpDelta[0], cPos[1] + fpDelta[1], cPos[2] + fpDelta[2]);
+                cameraStart.SetFocalPoint(fPos[0] + fpDelta[0], fPos[1] + fpDelta[1], fPos[2] + fpDelta[2]);
+                // Get camera start data                                                            
                 vtkMatrix4x4 mCamStart = cameraStart.GetViewTransformMatrix();
                 double[][] rStart = new double[3][];
                 for (int i = 0; i < 3; i++)
@@ -2948,27 +3006,6 @@ namespace vtkControl
                 double[] q1 = QuaternionHelper.QuaternionFromMatrix3x3(rStart);
                 pq1 = QuaternionHelper.IntPtrFromQuaternion(q1);
                 //
-                vtkMatrix4x4 mCamEnd = cameraEnd.GetViewTransformMatrix();
-                double[][] rEnd = new double[3][];
-                for (int i = 0; i < 3; i++)
-                {
-                    rEnd[i] = new double[3];
-                    for (int j = 0; j < 3; j++)
-                    {
-                        rEnd[i][j] = mCamEnd.GetElement(i, j);
-                        if (double.IsNaN(rEnd[i][j])) throw new NotSupportedException();
-                    }
-                }
-                double[] tEnd = new double[3];
-                for (int i = 0; i < 3; i++)
-                {
-                    tEnd[i] = mCamEnd.GetElement(i, 3);
-                }
-                double[] fpEnd = cameraEnd.GetFocalPoint();
-                double zEnd = cameraEnd.GetParallelScale();
-                double[] q2 = QuaternionHelper.QuaternionFromMatrix3x3(rEnd);
-                pq2 = QuaternionHelper.IntPtrFromQuaternion(q2);
-                //
                 double[] q;
                 double[][] rOut;
                 double[][] rOutT;
@@ -2976,6 +3013,7 @@ namespace vtkControl
                 double[] fp;
                 double[] pos = new double[3];
                 double[] up = new double[3];
+                double[] fpXY;
                 double z;
                 double t;
                 //
@@ -2986,9 +3024,12 @@ namespace vtkControl
                 pq = Marshal.AllocHGlobal(Marshal.SizeOf(q1[0]) * q1.Length);
                 //
                 DateTime start = DateTime.Now;
-                int delta = timeMs; //ms
+                int delta = timeMs;
                 double currentDelta = 0;
                 //
+                _positions = new List<double[]>();
+                _focalPoints = new List<double[]>();
+                // Do interpolation
                 do
                 {
                     //
@@ -3015,7 +3056,8 @@ namespace vtkControl
                     }
                     //
                     transform = QuaternionHelper.VectorLerp(tStart, tEnd, t);
-                    fp = QuaternionHelper.VectorLerp(fpStart, fpEnd, t);
+                    //fp = QuaternionHelper.VectorLerp(fpStart, fpEnd, t);
+                    fp = fpEnd;
                     z = zStart + (t) * (zEnd - zStart);
                     rOut = QuaternionHelper.Matrix3x3FromQuaternion(q);
                     rOutT = QuaternionHelper.TransponseMatrix3x3(rOut);
@@ -3027,16 +3069,34 @@ namespace vtkControl
                     up[0] = rOutT[0][1];
                     up[1] = rOutT[1][1];
                     up[2] = rOutT[2][1];
-                    //
+                    // Update camera to get correct projections
                     camera.SetPosition(pos[0], pos[1], pos[2]);
                     camera.SetFocalPoint(fp[0], fp[1], fp[2]);
-                    camera.SetViewUp(up[0], up[1], up[2]);
                     camera.SetParallelScale(z);
+                    // Pan the camera in the 2D display coordinates                                 
+                    fpXY = QuaternionHelper.VectorLerp(fpStartXY, fpEndXY, t);
+                    fpEndworld = vtkInteractorStyleControl.DisplayToWorld(_renderer, fpEndXY);
+                    fpStartWorld = vtkInteractorStyleControl.DisplayToWorld(_renderer, fpXY);
+                    // Compute the delta of the 3D projected points
+                    fpDelta = new double[] { fpEndworld[0] - fpStartWorld[0],
+                                             fpEndworld[1] - fpStartWorld[1],
+                                             fpEndworld[2] - fpStartWorld[2]};
+                    // Pan the camera to look at the model center 
+                    camera.SetPosition(pos[0] + fpDelta[0], pos[1] + fpDelta[1], pos[2] + fpDelta[2]);
+                    camera.SetFocalPoint(fp[0] + fpDelta[0], fp[1] + fpDelta[1], fp[2] + fpDelta[2]);
+                    //
+                    camera.SetViewUp(up[0], up[1], up[2]);
                     camera.OrthogonalizeViewUp();
                     _style.AdjustCameraDistanceAndClipping();
                     //System.Threading.Thread.Sleep(5);
                     _renderWindowInteractor.Modified(); // this updates the vtkMax annotation objects
                     RenderScene();
+                    //
+                    if (_drawCameraPath)
+                    {
+                        _positions.Add(pos.ToArray());
+                        _focalPoints.Add(fp.ToArray());
+                    }
                     //
                     Application.DoEvents();
                 }
@@ -3049,9 +3109,31 @@ namespace vtkControl
                 Marshal.FreeHGlobal(pq2);
                 Marshal.FreeHGlobal(pq);
                 _animating = false;
-
+                //
                 ((vtkInteractorStyleControl)_renderWindowInteractor.GetInteractorStyle()).Animating = false;
+                //
+                if (_drawCameraPath) DrawCameraPath();
             }
+        }
+        private void DrawCameraPath()
+        {
+            ClearOverlay();
+            //
+            vtkMaxActorData data = new vtkMaxActorData();
+            data.Name = "positions" + Globals.NameSeparator + "nodes";
+            data.NodeSize = 3;
+            data.Color = Color.Red;
+            data.Layer = vtkRendererLayer.Overlay;
+            data.Geometry.Nodes.Coor = _positions.ToArray();
+            AddPoints(data);
+
+            data = new vtkMaxActorData();
+            data.Name = "focalPoints" + Globals.NameSeparator + "nodes";
+            data.NodeSize = 3;
+            data.Color = Color.Black;
+            data.Layer = vtkRendererLayer.Overlay;
+            data.Geometry.Nodes.Coor = _focalPoints.ToArray();
+            AddPoints(data);
         }
         //
         public void AdjustCameraDistanceAndClipping()
@@ -6560,6 +6642,11 @@ namespace vtkControl
             {
                 this.Invalidate();
                 //Application.DoEvents();
+
+
+                vtkCamera camera = _renderer.GetActiveCamera();
+                double[] pos = camera.GetPosition();
+                System.Diagnostics.Debug.WriteLine("Position: " + pos[0] + "   " + pos[1] + "   " + pos[2]);
             }
         }
 
