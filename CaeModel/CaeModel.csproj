@@ -65,12 +65,17 @@
     <Compile Include="FileInOut\Input\ObjFileReader\ObjFileReader.cs" />
     <Compile Include="FileInOut\Output\Abaqus\AbaqusFileWriter.cs" />
     <Compile Include="FileInOut\Output\Abaqus\Keywords\ModelDefinition\AbqElement.cs" />
+    <Compile Include="FileInOut\Output\Abaqus\Keywords\ModelDefinition\AbqSurface.cs" />
     <Compile Include="FileInOut\Output\Abaqus\Keywords\ModelDefinition\Constraints\AbqRigidBody.cs" />
     <Compile Include="FileInOut\Output\Abaqus\Keywords\Step\BC\AbqFixedBC.cs" />
     <Compile Include="FileInOut\Output\Abaqus\Keywords\Step\FieldOutput\AbqFieldElementOutput.cs" />
     <Compile Include="FileInOut\Output\Abaqus\Keywords\Step\FieldOutput\AbqFieldNodeOutput.cs" />
     <Compile Include="FileInOut\Output\Abaqus\Keywords\Step\FieldOutput\AbqFieldContactOutput.cs" />
     <Compile Include="FileInOut\Output\Abaqus\Keywords\Step\HistoryOutput\AbqContactPrint.cs" />
+    <Compile Include="FileInOut\Output\Abaqus\Keywords\Step\Load\AbqDLoad.cs" />
+    <Compile Include="FileInOut\Output\Abaqus\Keywords\Step\Load\AbqVariablePressureLoad.cs" />
+    <Compile Include="FileInOut\Output\Abaqus\Keywords\Step\Load\AbqShellEdgeLoad.cs" />
+    <Compile Include="FileInOut\Output\Abaqus\Keywords\Step\Load\Imported\AbqImportedPressureLoad.cs" />
     <Compile Include="FileInOut\Output\Calculix\Enums\ConvertPyramidsToEnum.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalTransform.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalAmplitude.cs" />
@@ -309,7 +314,6 @@
     <Folder Include="FileInOut\Output\Abaqus\Keywords\Step\Controls\" />
     <Folder Include="FileInOut\Output\Abaqus\Keywords\Step\Damping\" />
     <Folder Include="FileInOut\Output\Abaqus\Keywords\Step\DefinedField\" />
-    <Folder Include="FileInOut\Output\Abaqus\Keywords\Step\Load\Imported\" />
     <Folder Include="_Compatibility\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

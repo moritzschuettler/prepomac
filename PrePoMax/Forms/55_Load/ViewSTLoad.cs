@@ -133,8 +133,6 @@ namespace PrePoMax
             //
             SetBase(_stLoad, regionTypePropertyNamePairs);
             DynamicCustomTypeDescriptor = ProviderInstaller.Install(this);
-            // 2D
-            DynamicCustomTypeDescriptor.GetProperty(nameof(F3)).SetIsBrowsable(!stLoad.TwoD);
             // Phase
             DynamicCustomTypeDescriptor.GetProperty(nameof(Phase)).SetIsBrowsable(stLoad.Complex);
             //
@@ -173,12 +171,12 @@ namespace PrePoMax
             bool visible = _stLoad.DistributionName == Distribution.DefaultDistributionName;
             DynamicCustomTypeDescriptor.GetProperty(nameof(F1)).SetIsBrowsable(visible);
             DynamicCustomTypeDescriptor.GetProperty(nameof(F2)).SetIsBrowsable(visible);
-            DynamicCustomTypeDescriptor.GetProperty(nameof(F3)).SetIsBrowsable(visible);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(F3)).SetIsBrowsable(visible && !_stLoad.TwoD);
             DynamicCustomTypeDescriptor.GetProperty(nameof(FMagnitude)).SetIsBrowsable(visible);
             //
             DynamicCustomTypeDescriptor.GetProperty(nameof(P1)).SetIsBrowsable(!visible);
             DynamicCustomTypeDescriptor.GetProperty(nameof(P2)).SetIsBrowsable(!visible);
-            DynamicCustomTypeDescriptor.GetProperty(nameof(P3)).SetIsBrowsable(!visible);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(P3)).SetIsBrowsable(!visible && !_stLoad.TwoD);
             DynamicCustomTypeDescriptor.GetProperty(nameof(PMagnitude)).SetIsBrowsable(!visible);
         }
     }

@@ -118,6 +118,10 @@ namespace PrePoMax.Forms
             _job = _controller.GetJob(jobName);
             _job.DataOutputEvent += UpdateOutput;
             //
+            if (_job.FEMSolver == FEMSolverEnum.Calculix) btnResults.Enabled = true;
+            else if (_job.FEMSolver == FEMSolverEnum.Abaqus) btnResults.Enabled = false;
+            else throw new NotSupportedException();
+            //
             UpdateProgress();
             //
             tbOutput.Text = _job.GetAllOutputData();

@@ -14,22 +14,33 @@ namespace FileInOut.Output.Calculix
     internal class CalImportedPressureLoad : CalLoad
     {
         // Variables                                                                                                                
-        private ImportedPressure _load;
-        private CLoad[] _cLoads;
-        private DLoad[] _dLoads;
-        private ComplexLoadTypeEnum _complexLoadType;
-        private FeSurfaceFaceTypes _surfaceFaceType;
+        protected ImportedPressure _load;
+        protected DLoad[] _dLoads;
+        protected ComplexLoadTypeEnum _complexLoadType;
+        protected FeSurfaceFaceTypes _surfaceFaceType;
 
 
         // Properties                                                                                                               
 
 
         // Constructor                                                                                                              
+        public CalImportedPressureLoad(CalImportedPressureLoad calImportedPressureLoad)
+            : this(calImportedPressureLoad._load, calImportedPressureLoad._dLoads, calImportedPressureLoad._complexLoadType,
+                   calImportedPressureLoad._surfaceFaceType)
+        {
+        }
+        public CalImportedPressureLoad(ImportedPressure load, DLoad[] dLoads, ComplexLoadTypeEnum complexLoadType,
+                                       FeSurfaceFaceTypes surfaceFaceType)
+        {
+            _load = load;
+            _dLoads = dLoads;
+            _complexLoadType = complexLoadType;
+            _surfaceFaceType = surfaceFaceType;
+        }
         public CalImportedPressureLoad(FeModel model, ImportedPressure load, ComplexLoadTypeEnum complexLoadType)
         {
             _load = load;
             _load.ImportPressure(model.UnitSystem);
-            //_cLoads = model.GetNodalCLoadsFromVariablePressureLoad(_load);
             _dLoads = model.GetElementDLoadsFromVariablePressureLoad(_load);
             _complexLoadType = complexLoadType;
             //

@@ -69,10 +69,12 @@ namespace FileInOut.Output
             foreach (var entry in model.Mesh.ReferencePoints) rpRotNames.Add(entry.Value.RotNodeSetName);
             // Element
             if (keyword is CalElement ce) keyword = new AbqElement(ce);
+            // Surface
+            else if (keyword is CalSurface cs) keyword = new AbqSurface(cs);
             // Rigid body
             else if (keyword is CalRigidBody crb) keyword = new AbqRigidBody(crb);
             // Step
-            else if (keyword is CalStep cs) { cs.OutputSolver = false; cs.OutputNoAnalysis = false; }
+            else if (keyword is CalStep cst) { cst.OutputSolver = false; cst.OutputNoAnalysis = false; }
             // Output
             else if (keyword is CalOutputFrequency) keyword = new CalTitle("", "");
             // History output
@@ -98,6 +100,11 @@ namespace FileInOut.Output
             else if (keyword is CalLoad cl)
             {
                 if (cl is CalMomentLoad cml) cml.MaxNumberNodeDOFs = 6;
+                else if (cl is CalDLoad cdl) keyword = new AbqDLoad(cdl);
+                else if (cl is CalVariablePressureLoad cvpl) keyword = new AbqVariablePressureLoad(cvpl);
+                else if (cl is CalImportedPressureLoad cipl) keyword = new AbqImportedPressureLoad(cipl);
+                else if (cl is CalShellEdgeLoad csel) keyword = new AbqShellEdgeLoad(csel);
+                //
                 cl.OpType = OpTypeEnum.New;
             }
             // Additional

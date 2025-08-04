@@ -13,15 +13,19 @@ namespace FileInOut.Output.Calculix
     internal class CalShellEdgeLoad : CalLoad
     {
         // Variables                                                                                                                
-        private ShellEdgeLoad _load;
-        private FeSurface _surface;
-        private ComplexLoadTypeEnum _complexLoadType;
+        protected ShellEdgeLoad _load;
+        protected FeSurface _surface;
+        protected ComplexLoadTypeEnum _complexLoadType;
 
 
         // Properties                                                                                                               
 
 
         // Constructor                                                                                                              
+        public CalShellEdgeLoad(CalShellEdgeLoad calShellEdgeLoad)
+            :this(calShellEdgeLoad._load, calShellEdgeLoad._surface, calShellEdgeLoad._complexLoadType)
+        {
+        }
         public CalShellEdgeLoad(ShellEdgeLoad load, FeSurface surface, ComplexLoadTypeEnum complexLoadType)
         {
             _load = load;

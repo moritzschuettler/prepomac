@@ -12,14 +12,18 @@ namespace FileInOut.Output.Calculix
     internal class CalSurface : CalculixKeyword
     {
         // Variables                                                                                                                
-        private FeSurface _surface;
-        private bool _twoD;
+        protected FeSurface _surface;
+        protected bool _twoD;
 
 
         // Properties                                                                                                               
 
 
         // Constructor                                                                                                              
+        public CalSurface(CalSurface calSurface)
+            :this(calSurface._surface, calSurface._twoD)
+        {
+        }
         public CalSurface(FeSurface surface, bool twoD)
         {
             _surface = surface;

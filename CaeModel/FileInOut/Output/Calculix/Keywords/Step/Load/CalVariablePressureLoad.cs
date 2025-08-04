@@ -13,16 +13,29 @@ namespace FileInOut.Output.Calculix
     internal class CalVariablePressureLoad : CalLoad
     {
         // Variables                                                                                                                
-        private VariablePressure _load;
-        private DLoad[] _dLoads;
-        private ComplexLoadTypeEnum _complexLoadType;
-        private FeSurfaceFaceTypes _surfaceFaceType;
+        protected VariablePressure _load;
+        protected DLoad[] _dLoads;
+        protected ComplexLoadTypeEnum _complexLoadType;
+        protected FeSurfaceFaceTypes _surfaceFaceType;
 
 
         // Properties                                                                                                               
 
 
         // Constructor                                                                                                              
+        public CalVariablePressureLoad(CalVariablePressureLoad calVariablePressureLoad)
+            :this(calVariablePressureLoad._load, calVariablePressureLoad._dLoads, calVariablePressureLoad._complexLoadType,
+                  calVariablePressureLoad._surfaceFaceType)
+        {
+        }
+        public CalVariablePressureLoad(VariablePressure load, DLoad[] dLoads, ComplexLoadTypeEnum complexLoadType,
+                                       FeSurfaceFaceTypes surfaceFaceType)
+        {
+            _load = load;
+            _dLoads = dLoads;
+            _complexLoadType = complexLoadType;
+            _surfaceFaceType = surfaceFaceType;
+        }
         public CalVariablePressureLoad(FeModel model, VariablePressure load, ComplexLoadTypeEnum complexLoadType)
         {
             _load = load;

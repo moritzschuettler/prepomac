@@ -13,15 +13,19 @@ namespace FileInOut.Output.Calculix
     internal class CalDLoad : CalLoad
     {
         // Variables                                                                                                                
-        private DLoad _load;
-        private FeSurface _surface;
-        private ComplexLoadTypeEnum _complexLoadType;
+        protected DLoad _load;
+        protected FeSurface _surface;
+        protected ComplexLoadTypeEnum _complexLoadType;
 
 
         // Properties                                                                                                               
 
 
         // Constructor                                                                                                              
+        public CalDLoad(CalDLoad calDLoad)
+            :this(calDLoad._load, calDLoad._surface, calDLoad._complexLoadType)
+        {
+        }
         public CalDLoad(DLoad load, FeSurface surface, ComplexLoadTypeEnum complexLoadType)
         {
             _load = load;
