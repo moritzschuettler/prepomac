@@ -490,20 +490,12 @@ namespace PrePoMax.Forms
                     KeywordAtNode keywordAtNode = fctbKeyword.Tag as KeywordAtNode;
                     if (keywordAtNode.Keyword is CalculixUserKeyword userKeyword && userKeyword != null)
                     {
-                        userKeyword.Data = "";
-                        int count = 0;
-                        //
-                        foreach (var line in fctbKeyword.Lines)
-                        {
-                            if (count > 0) userKeyword.Data += Environment.NewLine;
-                            userKeyword.Data += line;
-                            count++;
-                        }
+                        userKeyword.Data = fctbKeyword.Lines.ToArray().ToRows(fctbKeyword.Lines.Count);
                         keywordAtNode.Data = fctbKeyword.Text;
-                        keywordAtNode.NumOfLines = count;
+                        keywordAtNode.NumOfLines = fctbKeyword.Lines.Count;
                         //
                         ReplaceText(_selectedKeywordFirstLine, _selectedKeywordNumOfLines, userKeyword.Data);
-                        _selectedKeywordNumOfLines = count;
+                        _selectedKeywordNumOfLines = fctbKeyword.Lines.Count;
                         // Change the name of the Selected tree node
                         LockWindowUpdate(cltvKeywordsTree.Handle);
                         if (fctbKeyword.Lines.Count > 0 && fctbKeyword.Lines[0].Length > 0)
@@ -527,7 +519,7 @@ namespace PrePoMax.Forms
         //
         private string ReplaceText(int firstLine, int numOfLines, string newText)
         {
-            string oldText = null;
+            StringBuilder sb = new StringBuilder();
             //
             if (firstLine >= 0)
             {
@@ -537,11 +529,10 @@ namespace PrePoMax.Forms
                 fctbInpFile.Selection.Start = new Place(0, firstLine);
                 fctbInpFile.Selection.End = new Place(0, lastLine);
                 //
-                oldText = "";
                 for (int i = firstLine; i < firstLine + numOfLines; i++)
                 {
-                    if (i != firstLine) oldText += Environment.NewLine;
-                    oldText += fctbInpFile.Selection.tb[i].Text;
+                    if (i < firstLine + numOfLines - 1) sb.AppendLine(fctbInpFile.Selection.tb[i].Text);
+                    else sb.Append(fctbInpFile.Selection.tb[i].Text);
                 }
                 //
                 fctbInpFile.ClearSelected();
@@ -551,7 +542,7 @@ namespace PrePoMax.Forms
                 fctbInpFile.InsertText(text);
             }
             //
-            return oldText;
+            return sb.ToString();
         }
         private void SelectKeywordLinesAndScrollToSelection()
         {

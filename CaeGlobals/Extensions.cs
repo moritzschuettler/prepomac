@@ -423,14 +423,32 @@ namespace CaeGlobals
         // String[]
         public static string ToRows(this string[] names, int maxRows = 30)
         {
-            string rows = "";
+            if (maxRows < 30)
+            {
+                string rows = "";
+                for (int i = 0; i < Math.Min(names.Length, maxRows); i++)
+                {
+                    rows += names[i];
+                    if (i < names.Length - 1) rows += Environment.NewLine;
+                }
+                if (maxRows < names.Length) rows += "...";
+                return rows;
+            }
+            else
+            {
+                return ToRowsSb(names, maxRows);
+            }
+        }
+        public static string ToRowsSb(this string[] names, int maxRows = 30)
+        {
+            StringBuilder sb = new StringBuilder();
             for (int i = 0; i < Math.Min(names.Length, maxRows); i++)
             {
-                rows += names[i];
-                if (i < names.Length - 1) rows += Environment.NewLine;
+                if (i < names.Length - 1) sb.AppendLine(names[i]); 
+                else sb.Append(names[i]);
             }
-            if (maxRows < names.Length) rows += "...";
-            return rows;
+            if (maxRows < names.Length) sb.Append("...");
+            return sb.ToString();
         }
         // Enum
         public static string GetDescription<T>(this T enumerationValue) where T : struct
