@@ -170,19 +170,27 @@ namespace UserControls
 			//
 			// Eat left and right mouse clicks and buttons
 			//
-			if (_disableMouse && ((m.Msg >= 512 && m.Msg <= 522) || (m.Msg >= 512 && m.Msg <= 522)))
+            try
             {
-                // Eat message
+                if (_disableMouse && ((m.Msg >= 512 && m.Msg <= 522) || (m.Msg >= 512 && m.Msg <= 522)))
+                {
+                    // Eat message
+                }
+                else
+                {
+                    // Scroll events
+                    if (m.Msg == 277 || m.Msg == 276) OnBeforeScroll();
+                    //
+                    base.WndProc(ref m);
+                    //
+                    if (m.Msg == 277 || m.Msg == 276) OnAfterScroll();
+                }
             }
-            else
+            catch (Exception ex) 
             {
-				// Scroll events
-				if (m.Msg == 277 || m.Msg == 276) OnBeforeScroll();
-				//
-                base.WndProc(ref m);
-				//
-				if (m.Msg == 277 || m.Msg == 276) OnAfterScroll();
-			}
+                MessageBoxes.ShowError(ex.Message);
+            }
+			
         }
         // Scrolling
         private const int ScrollBarHorizontal = 0x0;

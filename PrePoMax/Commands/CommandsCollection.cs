@@ -399,8 +399,11 @@ namespace PrePoMax.Commands
                 // Add all post processing commands to dictionary
                 else if (command is PostprocessCommand)
                 {
-                    if (postprocessCommands.TryGetValue(currentAnalysisName, out commandsList)) commandsList.Add(command);
-                    else postprocessCommands.Add(currentAnalysisName, new List<Command> { command });
+                    if (currentAnalysisName != null) // null is for post processing commands done of preview of loads, ...
+                    {
+                        if (postprocessCommands.TryGetValue(currentAnalysisName, out commandsList)) commandsList.Add(command);
+                        else postprocessCommands.Add(currentAnalysisName, new List<Command> { command });
+                    }
                 }
             }
             // Run postprocessing commands for the last opened analysis

@@ -6642,11 +6642,6 @@ namespace vtkControl
             {
                 this.Invalidate();
                 //Application.DoEvents();
-
-
-                vtkCamera camera = _renderer.GetActiveCamera();
-                double[] pos = camera.GetPosition();
-                System.Diagnostics.Debug.WriteLine("Position: " + pos[0] + "   " + pos[1] + "   " + pos[2]);
             }
         }
 

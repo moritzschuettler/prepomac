@@ -12,11 +12,13 @@ namespace FileInOut.Output.Calculix
     public class CalculixUserKeyword : CalculixKeyword
     {
         // Variables                                                                                                                
+        private string _firstLine;
         private string _data;
         private object _parent;
 
 
         // Properties                                                                                                               
+        public string FirstLine { get { return _firstLine; } set { _firstLine = value; } }
         public string Data { get { return _data; } set { _data = value; } }
         public object Parent { get { return _parent; } set { _parent = value; } }
 

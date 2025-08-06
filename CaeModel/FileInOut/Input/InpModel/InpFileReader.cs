@@ -152,7 +152,7 @@ namespace FileInOut.Input
                 OrderedDictionary<string, Material> materials = new OrderedDictionary<string, Material>("Materials", sc);
                 OrderedDictionary<string, Section> sections = new OrderedDictionary<string, Section>("Sections", sc);
                 OrderedDictionary<string, Constraint> constraints = new OrderedDictionary<string, Constraint>("Constraints", sc);
-                OrderedDictionary<string, SurfaceInteraction> surfaceInteractions = 
+                OrderedDictionary<string, SurfaceInteraction> surfaceInteractions =
                     new OrderedDictionary<string, SurfaceInteraction>("Surface Interactions", sc);
                 OrderedDictionary<string, ContactPair> contactPairs =
                     new OrderedDictionary<string, ContactPair>("Contact Pairs", sc);
@@ -235,6 +235,7 @@ namespace FileInOut.Input
                     {
                         // User keyword
                         CalculixUserKeyword userKeyword = new CalculixUserKeyword(dataSet.ToRows(dataSet.Length));
+                        userKeyword.FirstLine = dataSet[0];
                         userKeyword.Parent = "Model";
                         userKeywords.Add(userKeyword);
                     }
@@ -257,12 +258,42 @@ namespace FileInOut.Input
                 foreach (var entry in contactPairs) model.ContactPairs.Add(entry.Key, entry.Value);
                 foreach (var entry in amplitudes) model.Amplitudes.Add(entry.Key, entry.Value);
                 foreach (var entry in steps) model.StepCollection.AddStep(entry.Value, false);
+                // Group user keywords
+                StringBuilder sb;
+                CalculixUserKeyword mergedKeyword;
+                List<CalculixUserKeyword> keywordsGroup;
+                Dictionary<string, List<CalculixUserKeyword>> keywordLineKeywords =
+                    new Dictionary<string, List<CalculixUserKeyword>>();
+                //
+                if (userKeywords.Count > 100)
+                {
+                    foreach (CalculixUserKeyword userKeyword in userKeywords)
+                    {
+                        if (keywordLineKeywords.TryGetValue(userKeyword.FirstLine, out keywordsGroup))
+                            keywordsGroup.Add(userKeyword);
+                        else keywordLineKeywords.Add(userKeyword.FirstLine, new List<CalculixUserKeyword>() { userKeyword });
+                    }
+                    //
+                    userKeywords = new List<CalculixUserKeyword>();
+                    foreach (var entry in keywordLineKeywords)
+                    {
+                        sb = new StringBuilder();
+                        foreach (CalculixUserKeyword userKeyword in entry.Value)
+                        {
+                            sb.Append(userKeyword.GetKeywordString());
+                        }
+                        mergedKeyword = new CalculixUserKeyword(sb.ToString());
+                        mergedKeyword.Parent = entry.Value.First().Parent;
+                        userKeywords.Add(mergedKeyword);
+                    }
+                }
                 // Add indices of user keywords
                 int[] indices;
                 Stack<int> indexStack = new Stack<int>();
-                List<CalculixKeyword> keywords = Output.CalculixFileWriter.GetModelKeywords(model, ConvertPyramidsToEnum.Wedges,
-                                                                                            null, true);
+                List<CalculixKeyword> keywords =
+                    Output.CalculixFileWriter.GetModelKeywords(model, ConvertPyramidsToEnum.Wedges, null, true);
                 indexedUserKeywords = new OrderedDictionary<int[], CalculixUserKeyword>("User Calculix keywords");
+                //
                 foreach (CalculixUserKeyword userKeyword in userKeywords)
                 {
                     indexStack.Clear();
@@ -273,6 +304,9 @@ namespace FileInOut.Input
                         indexedUserKeywords.Add(indices, userKeyword);
                     }
                 }
+
+
+
             }
         }
         static public FeMesh ReadMesh(string fileName, ElementsToImport elementsToImport, bool convertToSecondOrder)
@@ -1216,6 +1250,7 @@ namespace FileInOut.Input
                         {
                             // User keyword
                             CalculixUserKeyword userKeyword = new CalculixUserKeyword(dataSet.ToRows(dataSet.Length));
+                            userKeyword.FirstLine = dataSet[0];
                             userKeyword.Parent = material;
                             userKeywords.Add(userKeyword);
                         }
@@ -1611,6 +1646,7 @@ namespace FileInOut.Input
                         {
                             // User keyword
                             CalculixUserKeyword userKeyword = new CalculixUserKeyword(dataSet.ToRows(dataSet.Length));
+                            userKeyword.FirstLine = dataSet[0];
                             userKeyword.Parent = surfaceInteraction;
                             userKeywords.Add(userKeyword);
                         }
@@ -1789,6 +1825,7 @@ namespace FileInOut.Input
                     {
                         // User keyword
                         CalculixUserKeyword userKeyword = new CalculixUserKeyword(dataSet.ToRows(dataSet.Length));
+                        userKeyword.FirstLine = dataSet[0];
                         userKeyword.Parent = step;
                         userKeywords.Add(userKeyword);
                     }
