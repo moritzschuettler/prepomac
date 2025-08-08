@@ -10570,11 +10570,16 @@ namespace CaeMesh
             Dictionary<int, List<Vec3D>> nodeIdMergedNormals = new Dictionary<int, List<Vec3D>>();
             foreach (var entry in nodeIdNormals)
             {
+                if (entry.Key == 32)
+                    mergedNormals.Clear();
+                //
                 mergedNormals.Clear();
                 mergedNormals.UnionWith(entry.Value);
                 nodeIdMergedNormals.Add(entry.Key, mergedNormals.ToList());
             }
             nodeIdNormals = nodeIdMergedNormals;
+
+            //comparer.Equals(nodeIdNormals[32][1], nodeIdNormals[32][2]);
             //
             int count;
             double dot;

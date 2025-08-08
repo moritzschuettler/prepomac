@@ -28,6 +28,8 @@ namespace CaeGlobals
         // Methods                                                                                                                  
         public bool Equals(Vec3D v1, Vec3D v2)
         {
+            if (v1.X == v2.X && v1.Y == v2.Y && v1.Z == v2.Z) return true;
+            //
             double angle = Vec3D.GetAngleAtP2Deg(v1, _zero, v2);
             if (Math.Abs(angle) < _angleRad) return true;
             return false;
@@ -35,10 +37,11 @@ namespace CaeGlobals
         //
         public int GetHashCode(Vec3D v)
         {
+            // Only items with equal hash get compared using Equals
             int hash = 23;
-            hash = hash * 31 + v.X.GetHashCode();
-            hash = hash * 31 + v.Y.GetHashCode();
-            hash = hash * 31 + v.Z.GetHashCode();
+            //hash = hash * 31 + v.X.GetHashCode();
+            //hash = hash * 31 + v.Y.GetHashCode();
+            //hash = hash * 31 + v.Z.GetHashCode();
             return hash;
         }
     }

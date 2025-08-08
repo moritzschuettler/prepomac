@@ -77,6 +77,9 @@ namespace PrePoMax.Forms
             {
                 ThickenShellMesh thickenShellMesh = ThickenShellMesh;
                 //
+                if (thickenShellMesh.CreationIds == null || thickenShellMesh.CreationIds.Length == 0)
+                    throw new CaeException("The thicken shell selection must contain at least one item.");
+                //
                 if (thickenShellMesh.CreationIds != null && thickenShellMesh.CreationIds.Length > 0)
                 {
                     HighlightSelection();
