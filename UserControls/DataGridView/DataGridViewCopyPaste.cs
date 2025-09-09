@@ -35,7 +35,7 @@ namespace UserControls
         private ToolStripMenuItem tsmiPlot;
         private AutocompleteMenu autocompleteMenu;
         private FrmDiagramView frmDiagramView;
-
+        private object _myLock;
 
         // Properties                                                                                                               
         public XColIndexEnum XColIndex { get { return _xColIndex; } set { _xColIndex = value; } }
@@ -62,6 +62,8 @@ namespace UserControls
             _autocompleteMenuColumn = -1;
             //
             frmDiagramView = new FrmDiagramView();
+            //
+            _myLock = new object();
         }
         private void InitializeComponent()
         {
@@ -353,23 +355,71 @@ namespace UserControls
         // Autocomplete menu
         protected override bool ProcessDialogKey(Keys keyData)
         {
-            if (_editControl != null && autocompleteMenu.Visible)
+            // Used inside a WinForms control (commonly a Form or a custom control derived from Control) to handle special
+            // dialog keys before they are sent to the focused control.
+            try
             {
-                if (keyData == Keys.Enter || keyData == Keys.Tab || keyData == Keys.Escape) return false;
+                if (_editControl != null && autocompleteMenu.Visible)
+                {
+                    if (keyData == Keys.Enter || keyData == Keys.Tab || keyData == Keys.Escape) return false;
+                }
+                //
+                return base.ProcessDialogKey(keyData);
             }
-            return base.ProcessDialogKey(keyData);
+            catch (Exception ex)
+            {
+                MessageBoxes.ShowError(ex.Message);
+                return false;
+            }
         }
         protected override bool ProcessDataGridViewKey(KeyEventArgs e)
         {
-            if (_editControl != null && autocompleteMenu.Visible)
+            try
             {
-                if (e.KeyCode == Keys.Down || e.KeyCode == Keys.Up || e.KeyCode == Keys.Enter ||
-                    e.KeyCode == Keys.Tab || e.KeyCode == Keys.Escape)
+                if (_editControl != null && autocompleteMenu.Visible)
                 {
-                    return false;
+                    if (e.KeyCode == Keys.Down || e.KeyCode == Keys.Up || e.KeyCode == Keys.Enter ||
+                        e.KeyCode == Keys.Tab || e.KeyCode == Keys.Escape)
+                    {
+                        return false;
+                    }
                 }
+
+
+
+                if (e.Control)
+                {
+                    if (e.KeyCode == Keys.C)
+                    {
+                        tsmiCopy_Click(null, null); return true;
+                    }
+                    else if (e.KeyCode == Keys.X)
+                    {
+                        tsmiCut_Click(null, null); return true;
+                    }
+                    else if (e.KeyCode == Keys.V)
+                    {
+                        tsmiPaste_Click(null, null); return true;
+                    }
+                    else if (e.KeyCode == Keys.P)
+                    {
+                        tsmiPlot_Click(null, null); return true;
+                    }
+                }
+
+
+
+                //else if (e.KeyCode == Keys.Control && e.KeyCode == Keys.C)
+                //{
+                //    return false;
+                //}
+                return base.ProcessDataGridViewKey(e);
             }
-            return base.ProcessDataGridViewKey(e);
+            catch (Exception ex)
+            {
+                MessageBoxes.ShowError(ex.Message);
+                return false;
+            }
         }
 
 
@@ -426,9 +476,16 @@ namespace UserControls
         }
         private void CopyToClipboard()
         {
-            // Copy to clipboard
-            DataObject dataObj = GetClipboardContent();
-            if (dataObj != null) Clipboard.SetDataObject(dataObj);
+            lock (_myLock)
+            {
+                System.Diagnostics.Debug.WriteLine("CopyToClipboard: Start");
+
+                // Copy to clipboard
+                DataObject dataObj = GetClipboardContent();
+                if (dataObj != null) Clipboard.SetDataObject(dataObj);
+
+                System.Diagnostics.Debug.WriteLine("CopyToClipboard: End");
+            }
         }
         private void PasteClipboardValue()
         {
