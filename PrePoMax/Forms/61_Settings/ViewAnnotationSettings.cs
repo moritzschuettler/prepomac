@@ -92,21 +92,21 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Edge/Surface annotation")]
-        [OrderedDisplayName(2, 10, "Show edge/surface topology")]
-        [DescriptionAttribute("Show edge/surface topology in the annotation.")]
-        public bool ShowEdgeSurTopology
-        {
-            get { return _annotationSettings.ShowEdgeSurTopology; }
-            set { _annotationSettings.ShowEdgeSurTopology = value; }
-        }
-        //
-        [CategoryAttribute("Edge/Surface annotation")]
-        [OrderedDisplayName(3, 10, "Show edge/surface size")]
+        [OrderedDisplayName(2, 10, "Show edge/surface size")]
         [DescriptionAttribute("Show edge/surface size in the annotation.")]
         public bool ShowEdgeLength
         {
             get { return _annotationSettings.ShowEdgeSurSize; }
             set { _annotationSettings.ShowEdgeSurSize = value; }
+        }
+        //
+        [CategoryAttribute("Edge/Surface annotation")]
+        [OrderedDisplayName(3, 10, "Show edge/surface topology")]
+        [DescriptionAttribute("Show edge/surface topology in the annotation.")]
+        public bool ShowEdgeSurTopology
+        {
+            get { return _annotationSettings.ShowEdgeSurTopology; }
+            set { _annotationSettings.ShowEdgeSurTopology = value; }
         }
         //
         [CategoryAttribute("Edge/Surface annotation")]
@@ -173,7 +173,16 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Part annotation")]
-        [OrderedDisplayName(3, 10, "Show number of elements")]
+        [OrderedDisplayName(3, 10, "Show volume/area")]
+        [DescriptionAttribute("Show part volume/area in the annotation.")]
+        public bool ShowPartVolumeArea
+        {
+            get { return _annotationSettings.ShowPartVolumeArea; }
+            set { _annotationSettings.ShowPartVolumeArea = value; }
+        }
+        //
+        [CategoryAttribute("Part annotation")]
+        [OrderedDisplayName(4, 10, "Show number of elements")]
         [DescriptionAttribute("Show part number of elements in the annotation.")]
         public bool ShowPartNumberOfElements
         {
@@ -182,21 +191,12 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Part annotation")]
-        [OrderedDisplayName(4, 10, "Show number of nodes")]
+        [OrderedDisplayName(5, 10, "Show number of nodes")]
         [DescriptionAttribute("Show part number of nodes in the annotation.")]
         public bool ShowPartNumberOfNodes
         {
             get { return _annotationSettings.ShowPartNumberOfNodes; }
             set { _annotationSettings.ShowPartNumberOfNodes = value; }
-        }
-        //
-        [CategoryAttribute("Part annotation")]
-        [OrderedDisplayName(5, 10, "Show volume/area")]
-        [DescriptionAttribute("Show part volume/area in the annotation.")]
-        public bool ShowPartVolumeArea
-        {
-            get { return _annotationSettings.ShowPartVolumeArea; }
-            set { _annotationSettings.ShowPartVolumeArea = value; }
         }
 
 

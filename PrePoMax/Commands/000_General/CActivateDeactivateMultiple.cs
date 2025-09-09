@@ -1,12 +1,13 @@
-﻿using System;
+﻿using CaeGlobals;
+using CaeMesh;
+using CaeModel;
+using FastColoredTextBoxNS;
+using PrePoMax;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using PrePoMax;
-using CaeModel;
-using CaeMesh;
-using CaeGlobals;
 
 
 namespace PrePoMax.Commands
@@ -42,6 +43,14 @@ namespace PrePoMax.Commands
             string[] names = new string[_items.Length];
             for (int i = 0; i < names.Length; i++) names[i] = _items[i].Name;
             return base.GetCommandString() + GetArrayAsString(names);
+        }
+        public bool ContainsMeshSetupItem()
+        {
+            foreach (var item in _items)
+            {
+                if (item is MeshSetupItem) return true;
+            }
+            return false;
         }
     }
 }

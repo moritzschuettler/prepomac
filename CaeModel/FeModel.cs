@@ -76,7 +76,8 @@ namespace CaeModel
 
 
         // Constructors                                                                                                             
-        public FeModel(string name, UnitSystem unitSystem, OrderedDictionary<string, EquationParameter> overriddenParameters = null)
+        public FeModel(string name, UnitSystem unitSystem, bool resetGlobalNCalcParameters,
+                       OrderedDictionary<string, EquationParameter> overriddenParameters = null)
         {
             StringComparer sc = StringComparer.OrdinalIgnoreCase;
             //
@@ -97,13 +98,13 @@ namespace CaeModel
             _properties = new ModelProperties();
             if (unitSystem == null) _unitSystem = new UnitSystem();
             else _unitSystem = unitSystem;
+            //
+            if (resetGlobalNCalcParameters) UpdateNCalcParameters();
             // Set overridden parameters
             if (overriddenParameters != null)
             {
                 foreach (var entry in overriddenParameters) _parameters.AddOverriddenParameter(entry.Key, entry.Value);
             }
-            //
-            UpdateNCalcParameters();
         }
         public FeModel(SerializationInfo info, StreamingContext context)
         {
@@ -431,6 +432,8 @@ namespace CaeModel
                     // Amplitude
                     if (load.AmplitudeName != Amplitude.DefaultAmplitudeName && 
                         !_amplitudes.ContainsValidKey(load.AmplitudeName)) valid = false;
+                    if (load is FilmHeatTransfer fht && fht.CoefficientAmplitudeName != Amplitude.DefaultAmplitudeName &&
+                        !_amplitudes.ContainsValidKey(fht.CoefficientAmplitudeName)) valid = false;
                     // Coordinate system
                     if (load.CoordinateSystemName != CoordinateSystem.DefaultCoordinateSystemName &&
                         !_mesh.CoordinateSystems.ContainsValidKey(load.CoordinateSystemName)) valid = false;
@@ -897,7 +900,7 @@ namespace CaeModel
                 {
                     if (property is SlipWear sw)
                     {
-                        coefficient = sw.WearCoefficient.Value / sw.Hardness.Value * _properties.CyclesIncrement;
+                        coefficient = sw.WearCoefficient.Value / sw.Hardness.Value * _properties.CyclesIncrement.Value;
                         containsWear = true;
                         break;
                     }
@@ -1330,7 +1333,7 @@ namespace CaeModel
         }
         public List<string> ImportMaterialsFromInpFile(string fileName, Action<string> WriteDataToOutput)
         {
-            FeModel model = new FeModel("Imported Materials", _unitSystem);
+            FeModel model = new FeModel("Imported Materials", _unitSystem, false);
             model.Properties.ModelSpace = _properties.ModelSpace;
             // Add existing model materials to account for indexing of material user keywords
             string existingMaterialName;
@@ -3248,7 +3251,7 @@ namespace CaeModel
         public FeModel PrepareBdmModel(Dictionary<int, double[]> deformations)
         {
             // Mesh
-            FeModel bdmModel = new FeModel("BDMmodel", _unitSystem);
+            FeModel bdmModel = new FeModel("BDMmodel", _unitSystem, false);
             bdmModel.Properties = _properties;
             bdmModel.SetMesh(_mesh.DeepCopy());
             // Materials
@@ -3264,11 +3267,22 @@ namespace CaeModel
                 bdmModel.Sections.Add(section.Name, section);
             }
             // Constraints
+            HashSet<int> constrainedNodeIds = new HashSet<int>();
             Constraint constraint;
             foreach (var entry in _constraints)
             {
                 constraint = entry.Value.DeepClone();
                 bdmModel.Constraints.Add(constraint.Name, constraint);
+                //
+                if (constraint is RigidBody rb)
+                {
+                    if (rb.SlaveRegionType == RegionTypeEnum.Selection)
+                        constrainedNodeIds.UnionWith(rb.SlaveCreationIds);
+                    else if (rb.SlaveRegionType == RegionTypeEnum.NodeSetName)
+                        constrainedNodeIds.UnionWith(_mesh.NodeSets[rb.SlaveRegionName].Labels);
+                    else if (rb.SlaveRegionType == RegionTypeEnum.SurfaceName)
+                        constrainedNodeIds.UnionWith(_mesh.NodeSets[_mesh.Surfaces[rb.SlaveRegionName].NodeSetName].Labels);
+                }
             }
             // Distributions
             Distribution distribution;
@@ -3309,19 +3323,22 @@ namespace CaeModel
             {
                 foreach (var entry in deformations)
                 {
-                    // Node set
-                    name = bdmModel.Mesh.NodeSets.GetNextNumberedKey("BDM", "_" + entry.Key);
-                    nodeSet = new FeNodeSet(name, new int[] { entry.Key });
-                    bdmModel.Mesh.NodeSets.Add(nodeSet.Name, nodeSet);
-                    // Boundary condition
-                    xyz = entry.Value;
-                    name = staticStep.BoundaryConditions.GetNextNumberedKey("BDM-" + entry.Key);
-                    displacementRotation = new DisplacementRotation(name, nodeSet.Name, RegionTypeEnum.NodeSetName, twoD,
-                                                                    false, 0);
-                    if (xyz[0] != 0) displacementRotation.U1.SetEquationFromValue(xyz[0]);
-                    if (xyz[1] != 0) displacementRotation.U2.SetEquationFromValue(xyz[1]);
-                    if (xyz[2] != 0) displacementRotation.U3.SetEquationFromValue(xyz[2]);
-                    staticStep.AddBoundaryCondition(displacementRotation);
+                    if (!constrainedNodeIds.Contains(entry.Key))
+                    {
+                        // Node set
+                        name = bdmModel.Mesh.NodeSets.GetNextNumberedKey("BDM", "_" + entry.Key);
+                        nodeSet = new FeNodeSet(name, new int[] { entry.Key });
+                        bdmModel.Mesh.NodeSets.Add(nodeSet.Name, nodeSet);
+                        // Boundary condition
+                        xyz = entry.Value;
+                        name = staticStep.BoundaryConditions.GetNextNumberedKey("BDM-" + entry.Key);
+                        displacementRotation = new DisplacementRotation(name, nodeSet.Name, RegionTypeEnum.NodeSetName, twoD,
+                                                                        false, 0);
+                        if (xyz[0] != 0) displacementRotation.U1.SetEquationFromValue(xyz[0]);
+                        if (xyz[1] != 0) displacementRotation.U2.SetEquationFromValue(xyz[1]);
+                        if (xyz[2] != 0) displacementRotation.U3.SetEquationFromValue(xyz[2]);
+                        staticStep.AddBoundaryCondition(displacementRotation);
+                    }
                 }
             }
             //

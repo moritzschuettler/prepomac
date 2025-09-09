@@ -82,31 +82,34 @@ namespace PrePoMax.Forms
         [Category("Slip wear model")]
         [OrderedDisplayName(1, 10, "Number of cycles")]
         [Description("Set the number of slip wear cycles.")]
+        [TypeConverter(typeof(EquationIntegerConverter))]
         [Id(2, 3)]
-        public int NumberOfCycles
+        public EquationString NumberOfCycles
         {
-            get { return _modelProperties.NumberOfCycles; }
-            set { _modelProperties.NumberOfCycles = value; }
+            get { return _modelProperties.NumberOfCycles.Equation; }
+            set { _modelProperties.NumberOfCycles.Equation = value; }
         }
         //
         [Category("Slip wear model")]
         [OrderedDisplayName(2, 10, "Cycles increment")]
         [Description("Set the increment of slip wear cycles.")]
+        [TypeConverter(typeof(EquationIntegerConverter))]
         [Id(3, 3)]
-        public int CyclesIncrement
+        public EquationString CyclesIncrement
         {
-            get { return _modelProperties.CyclesIncrement; }
-            set { _modelProperties.CyclesIncrement = value; }
+            get { return _modelProperties.CyclesIncrement.Equation; }
+            set { _modelProperties.CyclesIncrement.Equation = value; }
         }
         //
         [Category("Slip wear model")]
         [OrderedDisplayName(3, 10, "Wear smoothing steps")]
         [Description("Set the number of slip wear smoothing steps using the node averaging method.")]
+        [TypeConverter(typeof(EquationIntegerConverter))]
         [Id(4, 3)]
-        public int NumOfSmoothingLoops
+        public EquationString NumOfSmoothingLoops
         {
-            get { return _modelProperties.NumOfSmoothingSteps; }
-            set { _modelProperties.NumOfSmoothingSteps = value; }
+            get { return _modelProperties.NumOfSmoothingSteps.Equation; }
+            set { _modelProperties.NumOfSmoothingSteps.Equation = value; }
         }
         [Category("Slip wear model")]
         [OrderedDisplayName(4, 10, "BDM remeshing")]

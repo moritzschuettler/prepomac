@@ -613,7 +613,8 @@ namespace PrePoMax.Forms
             SetGridViewUnit(nameof(TempDataPoint.TemperatureEq), _controller.Model.UnitSystem.TemperatureUnitAbbreviation,
                             new StringTemperatureFromConverter());
             //
-            dgvData.XColIndex = 1;
+            dgvData.XColIndex = UserControls.XColIndexEnum.Last;
+            //
             dgvData.StartPlotAtZero = true;
         }
         private void SetGridViewUnit(string columnName, string unit, TypeConverter converter)

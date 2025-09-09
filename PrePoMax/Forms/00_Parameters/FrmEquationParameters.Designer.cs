@@ -76,7 +76,6 @@
             this.dgvData.Size = new System.Drawing.Size(598, 350);
             this.dgvData.StartPlotAtZero = false;
             this.dgvData.TabIndex = 1;
-            this.dgvData.XColIndex = 0;
             this.dgvData.CellBeginEdit += new System.Windows.Forms.DataGridViewCellCancelEventHandler(this.dgvData_CellBeginEdit);
             this.dgvData.CellEndEdit += new System.Windows.Forms.DataGridViewCellEventHandler(this.dgvData_CellEndEdit);
             this.dgvData.CellValidating += new System.Windows.Forms.DataGridViewCellValidatingEventHandler(this.dgvData_CellValidating);

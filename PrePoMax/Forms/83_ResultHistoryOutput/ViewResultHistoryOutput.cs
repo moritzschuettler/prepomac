@@ -31,7 +31,7 @@ namespace PrePoMax
         [CategoryAttribute("Region")]
         [OrderedDisplayName(0, 10, "Region type")]
         [DescriptionAttribute("Select the region type for the creation of the history output.")]
-        [Id(2, 1)]
+        [Id(1, 2)]
         public override string RegionType { get { return base.RegionType; } set { base.RegionType = value; } }
         //
         [CategoryAttribute("Region")]

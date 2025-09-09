@@ -26,7 +26,7 @@ namespace CaeModel
         [StandardValue("SlipWear", DisplayName = "Slip wear model")]
         SlipWearModel
     }
-
+    //
     [Serializable]
     public enum ModelSpaceEnum
     {
@@ -41,6 +41,7 @@ namespace CaeModel
         [StandardValue("Axisymmetric", DisplayName = "2D axisymmetric")]
         Axisymmetric = 4
     }    
+    //
     public static class ExtensionMethods
     {
         // ModelSpaceEnum
@@ -130,9 +131,9 @@ namespace CaeModel
             return unavailableElementTypeNames;
         }
     }
-
+    //
     [Serializable]
-    public class ModelProperties : ISerializable
+    public class ModelProperties : ISerializable, IContainsEquations
     {
         // Variables                                                                                                                
         private ModelSpaceEnum _modelSpace;                 //ISerializable
@@ -141,9 +142,9 @@ namespace CaeModel
         private string _globalResultsFileName;              //ISerializable
         // Slip wear model
         private SlipWearResultsEnum _slipWearResults;       //ISerializable
-        private int _numberOfCycles;                        //ISerializable
-        private int _cyclesIncrement;                       //ISerializable
-        private int _numOfSmoothingSteps;                   //ISerializable
+        private EquationContainer _numberOfCycles;          //ISerializable
+        private EquationContainer _cyclesIncrement;         //ISerializable
+        private EquationContainer _numOfSmoothingSteps;     //ISerializable
         private bool _bdmRemeshing;                         //ISerializable
         //
         private double _absoluteZero;                       //ISerializable
@@ -162,33 +163,9 @@ namespace CaeModel
         }
         //
         public SlipWearResultsEnum SlipWearResults { get { return _slipWearResults; } set { _slipWearResults = value; } }
-        public int NumberOfCycles
-        {
-            get { return _numberOfCycles; }
-            set
-            {
-                _numberOfCycles = value;
-                if (_numberOfCycles < 1) _numberOfCycles = 1;
-            }
-        }
-        public int CyclesIncrement
-        {
-            get { return _cyclesIncrement; }
-            set
-            {
-                _cyclesIncrement = value;
-                if (_cyclesIncrement < 1) _cyclesIncrement = 1;
-            }
-        }
-        public int NumOfSmoothingSteps
-        {
-            get { return _numOfSmoothingSteps; }
-            set
-            {
-                _numOfSmoothingSteps = value;
-                if (_numOfSmoothingSteps < 0) _numOfSmoothingSteps = 0;
-            }
-        }
+        public EquationContainer NumberOfCycles { get { return _numberOfCycles; } set { SetNumOfCycles(value); } }
+        public EquationContainer CyclesIncrement { get { return _cyclesIncrement; } set { SetCyclesIncrement(value); } }
+        public EquationContainer NumOfSmoothingSteps { get { return _numOfSmoothingSteps; } set { SetNumOfSmoothingSteps(value); } }
         public bool BdmRemeshing { get { return _bdmRemeshing; } set { _bdmRemeshing = value; } }
         //
         public double AbsoluteZero { get { return _absoluteZero; } set { _absoluteZero = value; } }
@@ -205,9 +182,9 @@ namespace CaeModel
             _globalResultsFileName = null;
             // Slip wear model
             _slipWearResults = SlipWearResultsEnum.All;
-            _numberOfCycles = 1;
-            _cyclesIncrement = 1;
-            _numOfSmoothingSteps = 1;
+            NumberOfCycles = new EquationContainer(typeof(StringIntegerConverter), 1, CheckLessThanOne);
+            CyclesIncrement = new EquationContainer(typeof(StringIntegerConverter), 1, CheckLessThanOne);
+            NumOfSmoothingSteps = new EquationContainer(typeof(StringIntegerConverter), 1, CheckNegative);
             _bdmRemeshing = false;
             //
             _absoluteZero = double.PositiveInfinity;
@@ -233,11 +210,24 @@ namespace CaeModel
                     case "_slipWearResults":
                         _slipWearResults = (SlipWearResultsEnum)entry.Value; break;
                     case "_numberOfCycles":
-                        _numberOfCycles = (int)entry.Value; break;
+                        if (entry.Value is int valueNC)
+                            NumberOfCycles = new EquationContainer(typeof(StringIntegerConverter), valueNC);
+                        else
+                            SetNumOfCycles((EquationContainer)entry.Value, false);
+                        break;
                     case "_cyclesIncrement":
-                        _cyclesIncrement = (int)entry.Value; break;
+                        if (entry.Value is int valueCI)
+                            CyclesIncrement = new EquationContainer(typeof(StringIntegerConverter), valueCI);
+                        else
+                            SetCyclesIncrement((EquationContainer)entry.Value, false);
+                        break;
                     case "_numOfSmoothingSteps":
-                        _numOfSmoothingSteps = (int)entry.Value; break;
+                        // Compatibility for version v2.3.9
+                        if (entry.Value is int valueNSS)
+                            NumOfSmoothingSteps = new EquationContainer(typeof(StringIntegerConverter), valueNSS);
+                        else
+                            SetNumOfSmoothingSteps((EquationContainer)entry.Value, false);
+                        break;
                     case "_bdmRemeshing":
                         _bdmRemeshing = (bool)entry.Value; break;
                     case "AbsoluteZero":            // Compatibility for version v1.4.0
@@ -257,6 +247,26 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        private void SetNumOfCycles(EquationContainer value, bool checkEquation = true)
+        {
+            EquationContainer.SetAndCheck(ref _numberOfCycles, value, CheckLessThanOne, checkEquation);
+        }
+        private void SetCyclesIncrement(EquationContainer value, bool checkEquation = true)
+        {
+            EquationContainer.SetAndCheck(ref _cyclesIncrement, value, CheckLessThanOne, checkEquation);
+        }
+        private void SetNumOfSmoothingSteps(EquationContainer value, bool checkEquation = true)
+        {
+            EquationContainer.SetAndCheck(ref _numOfSmoothingSteps, value, CheckNegative, checkEquation);
+        }
+        private double CheckNegative(double value)
+        {
+            return value < 0 ? 0 : value;
+        }
+        private double CheckLessThanOne(double value)
+        {
+            return value < 1 ? 1 : value;
+        }
         public bool IsAbsoluteZeroDefined()
         {
             return AbsoluteZero != double.PositiveInfinity;
@@ -264,6 +274,20 @@ namespace CaeModel
         public bool IsStefanBoltzmannDefined()
         {
             return StefanBoltzmann != double.PositiveInfinity;
+        }
+        // IContainsEquations
+        public virtual void CheckEquations()
+        {
+            _numOfSmoothingSteps.CheckEquation();
+        }
+        public virtual bool TryCheckEquations()
+        {
+            try
+            {
+                CheckEquations();
+                return true;
+            }
+            catch (Exception ex) { return false; }
         }
         // ISerialization
         public void GetObjectData(SerializationInfo info, StreamingContext context)
@@ -273,9 +297,9 @@ namespace CaeModel
             info.AddValue("ModelType", _modelType, typeof(ModelType));
             info.AddValue("GlobalResultsFileName", _globalResultsFileName, typeof(string));
             info.AddValue("SlipWearResults", _slipWearResults, typeof(SlipWearResultsEnum));
-            info.AddValue("_numberOfCycles", _numberOfCycles, typeof(int));
-            info.AddValue("_cyclesIncrement", _cyclesIncrement, typeof(int));
-            info.AddValue("_numOfSmoothingSteps", _numOfSmoothingSteps, typeof(int));
+            info.AddValue("_numberOfCycles", _numberOfCycles, typeof(EquationContainer));
+            info.AddValue("_cyclesIncrement", _cyclesIncrement, typeof(EquationContainer));
+            info.AddValue("_numOfSmoothingSteps", _numOfSmoothingSteps, typeof(EquationContainer));
             info.AddValue("_bdmRemeshing", _bdmRemeshing, typeof(bool));
             info.AddValue("AbsoluteZero", _absoluteZero, typeof(double));
             info.AddValue("StefanBoltzmann", _stefanBoltzmann, typeof(double));

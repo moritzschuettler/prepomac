@@ -317,7 +317,6 @@ namespace PrePoMax.Forms
             SetGridViewUnit(nameof(AmplitudeDataPoint.Amplitude), noUnit, null,
                             new StringDoubleConverter());
             //
-            dgvData.XColIndex = 0;
             dgvData.StartPlotAtZero = true;
         }
         private void SetGridViewUnit(string columnName, string unit1, string unit2, TypeConverter converter)

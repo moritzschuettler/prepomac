@@ -15,7 +15,13 @@ namespace CaeGlobals
     public static class MyNCalc
     {
         // Variables                                                                                                                
-        public static OrderedDictionary<string, object> ExistingParameters = null;
+        public static OrderedDictionary<string, object> _existingParameters = null;
+
+        public static OrderedDictionary<string, object> ExistingParameters
+        {
+            get { return _existingParameters; }
+            set { _existingParameters = value; }
+        }
 
 
         // Methods                                                                                                                  
@@ -187,9 +193,9 @@ namespace CaeGlobals
             e.Parameters.Add("pi", Math.PI);
             e.Parameters.Add("Pi", Math.PI);
             //
-            if (ExistingParameters != null)
+            if (_existingParameters != null)
             {
-                foreach (var entry in ExistingParameters) e.Parameters.Add(entry.Key, entry.Value);
+                foreach (var entry in _existingParameters) e.Parameters.Add(entry.Key, entry.Value);
             }
             return e;
         }
@@ -201,9 +207,9 @@ namespace CaeGlobals
             e.Parameters.Add("pi", Math.PI);
             e.Parameters.Add("Pi", Math.PI);
             //
-            if (ExistingParameters != null)
+            if (_existingParameters != null)
             {
-                foreach (var entry in ExistingParameters) e.Parameters.Add(entry.Key, entry.Value);
+                foreach (var entry in _existingParameters) e.Parameters.Add(entry.Key, entry.Value);
             }
             return e;
         }
@@ -233,7 +239,7 @@ namespace CaeGlobals
         static public string PreprocessExpression(string expr)
         {
             // Sort parameter names by length (longest first)
-            var sortedNames = ExistingParameters.Keys
+            var sortedNames = _existingParameters.Keys
                 .OrderByDescending(name => name.Length)
                 .ToList();
             // Step 1: Replace each parameter with a unique placeholder

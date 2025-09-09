@@ -65,7 +65,7 @@ namespace PrePoMax
             }
             set
             {
-                _historyOutput.Variables = (CaeModel.ElementHistoryVariable)value;
+                _historyOutput.Variables = (ElementHistoryVariable)value;
             }
         }
         //
@@ -83,7 +83,7 @@ namespace PrePoMax
         
 
         // Constructors                                                                                                             
-        public ViewElementHistoryOutput(CaeModel.ElementHistoryOutput historyOutput)
+        public ViewElementHistoryOutput(ElementHistoryOutput historyOutput)
         {
             // The order is important
             _historyOutput = historyOutput;

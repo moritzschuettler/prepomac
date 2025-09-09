@@ -71,7 +71,7 @@ namespace PrePoMax.Forms
 
 
         // Event handlers                                                                                                           
-        private void btnPreview_Click(object sender, EventArgs e)
+        private async void btnPreview_Click(object sender, EventArgs e)
         {
             try
             {
@@ -83,9 +83,9 @@ namespace PrePoMax.Forms
                 if (thickenShellMesh.CreationIds != null && thickenShellMesh.CreationIds.Length > 0)
                 {
                     HighlightSelection();
-                    _controller.PreviewThickenShellMesh(thickenShellMesh.PartNames, thickenShellMesh.Thickness,
-                                                        thickenShellMesh.NumberOfLayers, thickenShellMesh.Offset,
-                                                        thickenShellMesh.KeepModelEdges);
+                    await _controller.PreviewThickenShellMeshAsync(thickenShellMesh.PartNames, thickenShellMesh.Thickness,
+                                                                   thickenShellMesh.NumberOfLayers, thickenShellMesh.Offset,
+                                                                   thickenShellMesh.KeepModelEdges);
                 }
             }
             catch (Exception ex)

@@ -107,6 +107,7 @@
   <ItemGroup>
     <Compile Include="Collections\ExplodedViewsCollection.cs" />
     <Compile Include="Collections\EdgesVisibilitiesCollection.cs" />
+    <Compile Include="Collections\FollowerViewsCollection.cs" />
     <Compile Include="Collections\TransformationsCollection.cs" />
     <Compile Include="CommandLine\CommandLineOptions.cs" />
     <Compile Include="Commands\0000_File\CExportToStl.cs" />
@@ -393,6 +394,14 @@
       <DependentUpon>FrmEditCommands.cs</DependentUpon>
     </Compile>
     <Compile Include="Forms\01_Edit\ViewCommand.cs" />
+    <Compile Include="Forms\02_View\FollowerViewParameters.cs" />
+    <Compile Include="Forms\02_View\FrmFollowerView.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\02_View\FrmFollowerView.Designer.cs">
+      <DependentUpon>FrmFollowerView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\02_View\ViewFollowerViewParameters.cs" />
     <Compile Include="Forms\11_MeshSetup\FrmMeshSetupItem.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -637,6 +646,7 @@
     </Compile>
     <Compile Include="Forms\83_ResultHistoryOutput\ViewHistoryResultSetExporter.cs" />
     <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutputFromEquation.cs" />
+    <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutputFromElementSize.cs" />
     <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutputFromField.cs" />
     <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutput.cs" />
     <Compile Include="Forms\84_Transformation\FrmTransformation.cs">
@@ -862,6 +872,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\01_Edit\FrmEditCommands.resx">
       <DependentUpon>FrmEditCommands.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\02_View\FrmFollowerView.resx">
+      <DependentUpon>FrmFollowerView.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\11_MeshSetup\FrmMeshSetupItem.resx">
       <DependentUpon>FrmMeshSetupItem.cs</DependentUpon>

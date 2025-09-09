@@ -120,17 +120,17 @@ namespace PrePoMax
                 if (text.Length > 0) text += Environment.NewLine;
                 text += string.Format("Surface type: {0}", faceType.ToString());
             }
+            if (showSurfaceLength)
+            {
+                if (text.Length > 0) text += Environment.NewLine;
+                text += string.Format("Surface area: {0} {1}", area.ToString(numberFormat), areaUnit);
+            }
             if (showSurfaceTopology)
             {
                 if (text.Length > 0) text += Environment.NewLine;
                 text += string.Format("Edges: {0}", numEdges);
                 text += Environment.NewLine;
                 text += string.Format("Vertices: {0}", numVertices);
-            }
-            if (showSurfaceLength)
-            {
-                if (text.Length > 0) text += Environment.NewLine;
-                text += string.Format("Surface area: {0} {1}", area.ToString(numberFormat), areaUnit);
             }
             if (showSurfaceMax)
             {

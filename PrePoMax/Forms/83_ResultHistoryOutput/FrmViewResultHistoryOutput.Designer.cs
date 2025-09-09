@@ -100,7 +100,6 @@
             this.dgvHistory.Size = new System.Drawing.Size(248, 480);
             this.dgvHistory.StartPlotAtZero = false;
             this.dgvHistory.TabIndex = 0;
-            this.dgvHistory.XColIndex = 0;
             // 
             // Column1
             // 

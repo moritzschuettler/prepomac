@@ -63,7 +63,7 @@ namespace PrePoMax.Forms
 
 
         // Event handlers                                                                                                           
-        private void btnPreview_Click(object sender, EventArgs e)
+        private async void btnPreview_Click(object sender, EventArgs e)
         {
             try
             {
@@ -72,7 +72,7 @@ namespace PrePoMax.Forms
                 if (_viewBoundaryLayer.GeometryIds != null && _viewBoundaryLayer.GeometryIds.Length > 0)
                 {
                     HighlightSurface();
-                    _controller.PreviewBoundaryLayer(_viewBoundaryLayer.GeometryIds, _viewBoundaryLayer.Thickness);
+                    await _controller.PreviewBoundaryLayerAsync(_viewBoundaryLayer.GeometryIds, _viewBoundaryLayer.Thickness);
                 }
             }
             catch (Exception ex)

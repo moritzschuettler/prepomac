@@ -86,6 +86,7 @@
     <Compile Include="FileInOut\Input\CalculiX\FrdFileReader.cs" />
     <Compile Include="HistoryOutputs\HistoryResultSetExporter.cs" />
     <Compile Include="HistoryOutputs\ResultHistoryOutput.cs" />
+    <Compile Include="HistoryOutputs\ResultHistoryOutputFromElementSize.cs" />
     <Compile Include="HistoryOutputs\ResultHistoryOutputFromEquation.cs" />
     <Compile Include="HistoryOutputs\ResultHistoryOutputFromField.cs" />
     <Compile Include="Interpolator\CloudBasedInterpolator\CloudPoint.cs" />

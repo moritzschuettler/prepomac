@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Data;
 using System.Drawing;
 using System.Linq;
+using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
@@ -345,10 +346,6 @@ namespace PrePoMax.Forms
             Form_WriteDataToOutput(data);
             data = string.Format("{0,16}{1,8}{2,16}{3,16}", "Surface".PadRight(16), "[/]", "id:", surfaceId + 1);
             Form_WriteDataToOutput(data);
-            data = string.Format("{0,16}{1,8}{2,16}{3,16}", "Edges".PadRight(16), "[/]", "#:", numEdges);
-            Form_WriteDataToOutput(data);
-            data = string.Format("{0,16}{1,8}{2,16}{3,16}", "Vertices".PadRight(16), "[/]", "#:", numVertices);
-            Form_WriteDataToOutput(data);
             data = string.Format("{0,16}{1,8}{2,16}{3,16:E}", "Base".PadRight(16), areaUnit, "A:", area1);
             Form_WriteDataToOutput(data);
             //
@@ -366,6 +363,11 @@ namespace PrePoMax.Forms
                 data = string.Format("{0,16}{1,8}{2,16}{3,16:E}", "Delta".PadRight(16), areaUnit, "A:", area2 - area1);
                 Form_WriteDataToOutput(data);
             }
+            data = string.Format("{0,16}{1,8}{2,16}{3,16}", "Edges".PadRight(16), "[/]", "#:", numEdges);
+            Form_WriteDataToOutput(data);
+            data = string.Format("{0,16}{1,8}{2,16}{3,16}", "Vertices".PadRight(16), "[/]", "#:", numVertices);
+            Form_WriteDataToOutput(data);
+            //
             Form_WriteDataToOutput("");
             //
             _controller.ClearSelectionHistoryAndCallSelectionChanged();    // in order to prevent SHIFT ADD
@@ -388,7 +390,38 @@ namespace PrePoMax.Forms
             Form_WriteDataToOutput(data);
             data = string.Format("Part type: {0}", part.PartType);
             Form_WriteDataToOutput(data);
-            // Item name
+            // Volume/Area
+            bool volume = part.PartType == PartType.SolidAsShell || part.PartType == PartType.Solid ||
+                          part.PartType == PartType.Compound;
+            string unit;
+            if (volume) unit = "[" + _controller.GetVolumeUnit() + "]";
+            else unit = "[" + _controller.GetAreaUnit() + "]";
+            string label;
+            if (volume) label = "V:";
+            else label = "A:";
+            double value1;
+            if (volume) value1 = part.MassProperties.Volume;
+            else value1 = part.MassProperties.Area;
+            //
+            data = string.Format("{0,16}{1,8}{2,16}{3,16:E}", "Base".PadRight(16), unit, label, value1);
+            Form_WriteDataToOutput(data);
+            //
+            if (_controller.CurrentView == ViewGeometryModelResults.Results)
+            {
+                FeNode[] nodes = _controller.GetScaledNodes(1, part.NodeLabels);
+                Dictionary<int, FeNode> nodesDic = new Dictionary<int, FeNode>();
+                foreach (var node in nodes) nodesDic.Add(node.Id, node);
+                PartMassProperties massProperties = mesh.ComputeVolumeArea(part, nodesDic);
+                double value2;
+                if (volume) value2 = massProperties.Volume;
+                else value2 = massProperties.Area;
+                //
+                data = string.Format("{0,16}{1,8}{2,16}{3,16:E}", "Deformed".PadRight(16), unit, label, value2);
+                Form_WriteDataToOutput(data);
+                data = string.Format("{0,16}{1,8}{2,16}{3,16:E}", "Delta".PadRight(16), unit, label, value2 - value1);
+                Form_WriteDataToOutput(data);
+            }
+            // Mesh
             string elementsName = "Number of elements:";
             string nodesName = "Number of nodes:";
             if (_controller.CurrentView == ViewGeometryModelResults.Geometry)
@@ -399,40 +432,6 @@ namespace PrePoMax.Forms
             data = string.Format("{0} {1}", elementsName, part.Labels.Length);
             Form_WriteDataToOutput(data);
             data = string.Format("{0} {1}", nodesName, part.NodeLabels.Length);
-            Form_WriteDataToOutput(data);
-            //
-            string volumeArea = "Area:";
-            string unit = _controller.GetAreaUnit();
-            bool volume = part.PartType == PartType.SolidAsShell || part.PartType == PartType.Solid ||
-                          part.PartType == PartType.Compound;
-            if (part is ResultPart)
-            {
-                if (volume)
-                {
-                    volumeArea = "Undeformed volume:";
-                    unit = _controller.GetVolumeUnit();
-                }
-                else
-                {
-                    volumeArea = "Undeformed area:";
-                    unit = _controller.GetAreaUnit();
-                }
-            }
-            else
-            {
-                if (volume)
-                {
-                    volumeArea = "Volume:";
-                    unit = _controller.GetVolumeUnit();
-                }
-                else
-                {
-                    volumeArea = "Area:";
-                    unit = _controller.GetAreaUnit();
-                }
-            }
-            //
-            data = string.Format("{0} {1,16:E} {2}", volumeArea, part.MassProperties.Volume, unit);
             Form_WriteDataToOutput(data);
             //
             Form_WriteDataToOutput("");

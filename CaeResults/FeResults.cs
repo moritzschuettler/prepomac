@@ -21,6 +21,7 @@ using System.Numerics;
 using System.Linq.Expressions;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Diagnostics;
+using vtkControl;
 
 namespace CaeResults
 {
@@ -1083,9 +1084,12 @@ namespace CaeResults
         // Complex                                  
         public bool ContainsComplexResults()
         {
-            foreach (var entry in _fields)
+            if (_fields != null)
             {
-                if (entry.Value.Complex) return true;
+                foreach (var entry in _fields)
+                {
+                    if (entry.Value.Complex) return true;
+                }
             }
             return false;
         }
@@ -2351,6 +2355,30 @@ namespace CaeResults
             }
             return stepMaxTime;
         }
+        public Dictionary<int, float[]> GetMinMaxStepTimes()
+        {
+            int[] stepIds = GetAllStepIds();
+            Dictionary<int, float[]> stepMinMaxTime = new Dictionary<int, float[]>();
+            //
+            if (stepIds.Length == 0)
+            {
+                stepMinMaxTime.Add(-1, new float[] { -1, -1 });
+            }
+            else
+            {
+                foreach (var stepId in stepIds) stepMinMaxTime.Add(stepId, new float[2]);
+                if (!stepMinMaxTime.ContainsKey(0)) stepMinMaxTime.Add(0, new float[2]); // Zero increment - Find all occurrences!!!
+                //
+                float[] minMaxTime;
+                foreach (var entry in _fields)
+                {
+                    stepMinMaxTime.TryGetValue(entry.Key.StepId, out minMaxTime);
+                    if (entry.Key.Time < minMaxTime[0]) stepMinMaxTime[entry.Key.StepId][0] = entry.Key.Time;
+                    if (entry.Key.Time > minMaxTime[1]) stepMinMaxTime[entry.Key.StepId][1] = entry.Key.Time;
+                }
+            }
+            return stepMinMaxTime;
+        }
         public Dictionary<string, string[]> GetAllFiledNameComponentNames()
         {
             HashSet<string> componentNames;
@@ -3115,7 +3143,6 @@ namespace CaeResults
             {
                 MyNCalc.ExistingParameters = existingParameters;
             }
-            
         }
         private float[][] ComputeFieldFromResultFieldOutputCoordinateSystemTransform(
             ResultFieldOutputCoordinateSystemTransform resultFieldOutput, Field sourceField)
@@ -3494,6 +3521,7 @@ namespace CaeResults
                 // Add set
                 _history.Sets.Add(historyResultSet.Name, historyResultSet);
             }
+            else throw new CaeException("The historyResultSet can not be created.");
         }
         public HistoryResultSet GetHistorySetFromResultHistoryOutput(ResultHistoryOutput resultHistoryOutput)
         {
@@ -3510,6 +3538,11 @@ namespace CaeResults
             {
                 historyResultSet = GetHistorySetFromEquation(rhofe);
             }
+            else if (resultHistoryOutput is ResultHistoryOutputFromElementSize rhofes)
+            {
+                historyResultSet = GetHistorySetFromElementSize(rhofes);
+            }
+            else throw new NotSupportedException();
             //
             resultHistoryOutput.HistoryResultSet = historyResultSet;
             //
@@ -3733,6 +3766,93 @@ namespace CaeResults
             {
                 MyNCalc.ExistingParameters = existingParameters;
             }
+        }
+        private HistoryResultSet GetHistorySetFromElementSize(ResultHistoryOutputFromElementSize resultHistoryOutput)
+        {
+            // Collect node ids
+            int[] elementIds = null;
+            HistoryResultSet historyResultSet = null;
+            //
+            if (resultHistoryOutput.RegionType == RegionTypeEnum.ElementSetName)
+            {
+                elementIds = _mesh.ElementSets[resultHistoryOutput.RegionName].Labels;
+            }
+            else if (resultHistoryOutput.RegionType == RegionTypeEnum.Selection)
+            {
+                elementIds = resultHistoryOutput.CreationIds;
+            }
+            //
+            if (elementIds != null)
+            {
+                int[] nodeIds = _mesh.GetNodeIdsFromElementIds(elementIds);
+                double[][] undeformedCoor = new double[nodeIds.Length][];
+                for (int i = 0; i < nodeIds.Length; i++) undeformedCoor[i] = _undeformedNodes[nodeIds[i]].Coor;
+                //
+                Type elementFilter;
+                HistoryResultField historyResultField = new HistoryResultField(HOFieldNames.Volume);
+                HistoryResultComponent component = new HistoryResultComponent("EVOL");
+                //
+                if (resultHistoryOutput.ElementSizeType == ElementSizeTypeEnum.Volume)
+                {
+                    elementFilter = typeof(FeElement3D);
+                    historyResultField = new HistoryResultField(HOFieldNames.Volume);
+                    component = new HistoryResultComponent("EVOL");
+                }
+                else if (resultHistoryOutput.ElementSizeType == ElementSizeTypeEnum.Area)
+                {
+                    elementFilter = typeof(FeElement2D);
+                    historyResultField = new HistoryResultField(HOFieldNames.SurfaceArea);
+                    component = new HistoryResultComponent("EAREA");
+                }
+                else throw new NotSupportedException();
+                // Prepare component entries
+                string name;
+                component.Entries.Clear();
+                for (int i = 0; i < elementIds.Length; i++)
+                {
+                    name = elementIds[i].ToString();
+                    component.Entries.Add(name, new HistoryResultEntries(name, false));
+                }
+                // Get all existing increments
+                Dictionary<int, int[]> existingStepIncrementIds = GetAllExistingIncrementIds();
+                string fieldName = GetPossibleDeformationFieldOutputNamesMap()[resultHistoryOutput.DeformationVariableName];
+                //
+                double time;
+                double[][] coor;
+                
+                foreach (var existingStepEntry in existingStepIncrementIds)
+                {
+                    foreach (var incrementId in existingStepEntry.Value)
+                    {
+                        
+                        coor = new double[undeformedCoor.Length][];
+                        for (int i = 0; i < undeformedCoor.Length; i++) coor[i] = undeformedCoor[i].ToArray();
+                        ScaleNodeCoordinates(fieldName, 1, existingStepEntry.Key, incrementId, nodeIds, ref coor);
+                        Dictionary<int, FeNode> nodes = new Dictionary<int, FeNode>();
+                        for (int i = 0; i < nodeIds.Length; i++) nodes.Add(nodeIds[i], new FeNode(nodeIds[i], coor[i]));
+                        Dictionary<int, double> elementIdSize = _mesh.ComputeVolumeArea(elementIds, nodes, elementFilter);
+                        //
+                        time = GetIncrementTime(existingStepEntry.Key, incrementId);
+                        foreach (var entry in elementIdSize)
+                        {
+                            name = entry.Key.ToString();
+                            component.Entries[name].Add(time,entry.Value);
+                        }
+                    }
+                }
+                
+                // Filter
+                if (resultHistoryOutput.Filter1 != null) component.ApplyFilter(resultHistoryOutput.Filter1);
+                    if (resultHistoryOutput.Filter2 != null) component.ApplyFilter(resultHistoryOutput.Filter2);
+                    // Add component to field
+                    historyResultField.Components.Add(component.Name, component);
+                
+                //
+                historyResultSet = new HistoryResultSet(resultHistoryOutput.Name);
+                historyResultSet.Fields.Add(historyResultField.Name, historyResultField);
+            }
+            //
+            return historyResultSet;
         }
         private HistoryResultField GetNodeCoordinatesHistoryResultField(int[] nodeIds, OutputNodeCoordinatesEnum nodeCoorType,
                                                                         Dictionary<int, int[]> existingStepIncrementIds)
@@ -4884,6 +5004,7 @@ namespace CaeResults
         {
             if (slipStepIds != null && slipStepIds.Length > 0 && CheckFieldAndHistoryTimes())
             {
+                // History output is based on element faces
                 ComputeHistoryWearSlidingDistance();
                 //
                 HistoryResultComponent slidingDistanceAll =
@@ -5043,6 +5164,9 @@ namespace CaeResults
                         if (pressureField != null)
                         {
                             pressureValues = pressureField.GetComponentValues(FOComponentNames.CPress);
+
+                            MapScalarFromSourceToDestination(ref pressureValues);
+
                             // Disp
                             dispData = GetFieldData(FOFieldNames.Disp, "", slipStepIds[i], stepIncrementIds[j]);
                             dispField = GetField(dispData);
@@ -5055,12 +5179,20 @@ namespace CaeResults
                                                                slipStepIds[i], stepIncrementIds[j]);
                             slidingDistanceField = GetField(slidingDistanceData);
                             slidingDistanceValues = slidingDistanceField.GetComponentValues(FOComponentNames.All);
+
+                            MapScalarFromSourceToDestination(ref slidingDistanceValues);
+
                             // Normal
                             normalData = GetFieldData(FOFieldNames.SurfaceNormal, "", slipStepIds[i], stepIncrementIds[j]);
                             normalField = GetField(normalData);
                             normalN1Values = normalField.GetComponentValues(FOComponentNames.N1).ToArray();
                             normalN2Values = normalField.GetComponentValues(FOComponentNames.N2).ToArray();
                             normalN3Values = normalField.GetComponentValues(FOComponentNames.N3).ToArray();
+
+
+                            MapVectorFromSourceToDestination(ref normalN1Values, ref normalN2Values, ref normalN3Values);
+
+
                             // Adjust normals based on zero BCs inside the wear step
                             if (nodeIdZeroDisplacements != null)
                             {
@@ -5157,6 +5289,116 @@ namespace CaeResults
                 return true;
             }
             else return false;
+        }
+        private void MapScalarFromSourceToDestination(ref float[] values)
+        {
+            if (_mesh.NodeSets.TryGetValue("SourceToothWear", out _) && _mesh.NodeSets.TryGetValue("DestinationToothWear", out _))
+            {
+                double angle1 = 10.0 * Math.PI / 180.0;
+                double angle2 = -10.0 * Math.PI / 180.0;
+                double value;
+                double[] coor;
+                double[] rotatedCoor;
+                int[] sourceNodeIds = _mesh.NodeSets["SourceToothWear"].Labels;
+                List<CloudPoint> cloudPoints = new List<CloudPoint>();
+                //
+                foreach (var nodeId in sourceNodeIds)
+                {
+                    // Source point
+                    coor = _undeformedNodes[nodeId].Coor;
+                    value = values[_nodeIdsLookUp[nodeId]];
+                    //
+                    //cloudPoints.Add(new CloudPoint() { Values = new double[] { value }, Coor = coor });
+                    // Transform - rotate for alpha1
+                    rotatedCoor = new double[3];
+                    rotatedCoor[0] = coor[0] * Math.Cos(angle1) - coor[1] * Math.Sin(angle1);
+                    rotatedCoor[1] = coor[0] * Math.Sin(angle1) + coor[1] * Math.Cos(angle1);
+                    rotatedCoor[2] = coor[2];
+                    cloudPoints.Add(new CloudPoint() { Values = new double[] { value }, Coor = rotatedCoor });
+                    // Transform - rotate for alpha2
+                    rotatedCoor = new double[3];
+                    rotatedCoor[0] = coor[0] * Math.Cos(angle2) - coor[1] * Math.Sin(angle2);
+                    rotatedCoor[1] = coor[0] * Math.Sin(angle2) + coor[1] * Math.Cos(angle2);
+                    rotatedCoor[2] = coor[2];
+                    cloudPoints.Add(new CloudPoint() { Values = new double[] { value }, Coor = rotatedCoor });
+                }
+                // Interpolator
+                CloudInterpolator cloudInterpolator = new CloudInterpolator(cloudPoints.ToArray());
+                //
+                double[] result;
+                double[] distance;
+                int[] destinationNodeIds = _mesh.NodeSets["DestinationToothWear"].Labels;
+                foreach (var nodeId in destinationNodeIds)
+                {
+                    cloudInterpolator.InterpolateAt(_undeformedNodes[nodeId].Coor,
+                                                    CloudInterpolatorEnum.ClosestPoint, 0, out distance, out result);
+                    //Vec3D dist = new Vec3D(distance);
+                    //if (dist.Len2 > 1)
+                    //    result = result;
+                    //if (result[0] != 0)
+                    //    result = result;
+                    values[_nodeIdsLookUp[nodeId]] = (float)result[0];
+                }
+            }
+        }
+        private void MapVectorFromSourceToDestination(ref float[] comp1, ref float[] comp2, ref float[] comp3)
+        {
+            if (_mesh.NodeSets.TryGetValue("SourceToothWear", out _) && _mesh.NodeSets.TryGetValue("DestinationToothWear", out _))
+            {
+                double angle1 = 10.0 * Math.PI / 180.0;
+                double angle2 = -10.0 * Math.PI / 180.0;
+                double[] vector;
+                double[] coor;
+                double[] rotatedCoor;
+                double[] rotatedVector;
+                int[] sourceNodeIds = _mesh.NodeSets["SourceToothWear"].Labels;
+                List<CloudPoint> cloudPoints = new List<CloudPoint>();
+                //
+                foreach (var nodeId in sourceNodeIds)
+                {
+                    // Source point
+                    coor = _undeformedNodes[nodeId].Coor;
+                    vector = new double[] { comp1[_nodeIdsLookUp[nodeId]],
+                                            comp2[_nodeIdsLookUp[nodeId]],
+                                            comp3[_nodeIdsLookUp[nodeId]]};
+                        
+                    //
+                    // Transform - rotate for alpha1
+                    rotatedCoor = new double[3];
+                    rotatedCoor[0] = coor[0] * Math.Cos(angle1) - coor[1] * Math.Sin(angle1);
+                    rotatedCoor[1] = coor[0] * Math.Sin(angle1) + coor[1] * Math.Cos(angle1);
+                    rotatedCoor[2] = coor[2];
+                    rotatedVector = new double[3];
+                    rotatedVector[0] = vector[0] * Math.Cos(angle1) - vector[1] * Math.Sin(angle1);
+                    rotatedVector[1] = vector[0] * Math.Sin(angle1) + vector[1] * Math.Cos(angle1);
+                    rotatedVector[2] = vector[2];
+                    cloudPoints.Add(new CloudPoint() { Values = rotatedVector, Coor = rotatedCoor });
+                    // Transform - rotate for alpha2
+                    rotatedCoor = new double[3];
+                    rotatedCoor[0] = coor[0] * Math.Cos(angle2) - coor[1] * Math.Sin(angle2);
+                    rotatedCoor[1] = coor[0] * Math.Sin(angle2) + coor[1] * Math.Cos(angle2);
+                    rotatedCoor[2] = coor[2];
+                    rotatedVector = new double[3];
+                    rotatedVector[0] = vector[0] * Math.Cos(angle2) - vector[1] * Math.Sin(angle2);
+                    rotatedVector[1] = vector[0] * Math.Sin(angle2) + vector[1] * Math.Cos(angle2);
+                    rotatedVector[2] = vector[2];
+                    cloudPoints.Add(new CloudPoint() { Values = rotatedVector, Coor = rotatedCoor });
+                }
+                // Interpolator
+                CloudInterpolator cloudInterpolator = new CloudInterpolator(cloudPoints.ToArray());
+                //
+                double[] result;
+                double[] distance;
+                int[] destinationNodeIds = _mesh.NodeSets["DestinationToothWear"].Labels;
+                foreach (var nodeId in destinationNodeIds)
+                {
+                    cloudInterpolator.InterpolateAt(_undeformedNodes[nodeId].Coor,
+                                                    CloudInterpolatorEnum.ClosestPoint, 0, out distance, out result);
+                    comp1[_nodeIdsLookUp[nodeId]] = (float)result[0];
+                    comp2[_nodeIdsLookUp[nodeId]] = (float)result[1];
+                    comp3[_nodeIdsLookUp[nodeId]] = (float)result[2];
+                }
+            }
         }
         private void SmoothVectorField(ref float[] component1, ref float[] component2, ref float[] component3,
                                        ref float[] componentMag, int numOfSmoothingSteps)
@@ -5764,13 +6006,12 @@ namespace CaeResults
             return timeValues;
         }
         // Select slip wear results
-        public void KeepOnlySelectedSlipWearResults(OrderedDictionary<int, double> stepIdDuration, int[] slipStepIds,
-                                                    SlipWearResultsEnum slipWearResultsToKeep)
+        public void KeepOnlySelectedSlipWearResults(int[] slipStepIds, SlipWearResultsEnum slipWearResultsToKeep)
         {
             Dictionary<int, float> stepIdMaxTime = GetMaxStepTime();
             //
             KeepOnlySelectedFieldSlipWearResults(slipStepIds, slipWearResultsToKeep);
-            KeepOnlySelectedHistorySlipWearResults(stepIdDuration, slipStepIds, slipWearResultsToKeep);
+            KeepOnlySelectedHistorySlipWearResults(slipStepIds, slipWearResultsToKeep);
         }
         private void KeepOnlySelectedFieldSlipWearResults(int[] slipStepIds, SlipWearResultsEnum slipWearResultsToKeep)
         {
@@ -5807,7 +6048,8 @@ namespace CaeResults
                 }
                 _fields = fields;
             }
-            else if (slipWearResultsToKeep == SlipWearResultsEnum.LastIncrementOfLastSlipWearStep)
+            else if (slipWearResultsToKeep == SlipWearResultsEnum.LastIncrementOfLastSlipWearStep ||
+                     slipWearResultsToKeep == SlipWearResultsEnum.LastIncrementOfAllSteps)
             {
                 int lastIncrementId;
                 int lastStepId = slipStepIds.Last();
@@ -5830,65 +6072,64 @@ namespace CaeResults
             }
             else throw new NotSupportedException();
         }
-        private void KeepOnlySelectedHistorySlipWearResults(OrderedDictionary<int, double> stepIdDuration, int[] slipStepIds,
-                                                            SlipWearResultsEnum slipWearResultsToKeep)
+        private void KeepOnlySelectedHistorySlipWearResults(int[] slipStepIds, SlipWearResultsEnum slipWearResultsToKeep)
         {
             HashSet<int> slipStepIdsHash = new HashSet<int>(slipStepIds);
             //
-            double sumTime = 0;
-            OrderedDictionary<int, double> stepIdStartTime = new OrderedDictionary<int, double>("Step id - step time");
-            foreach (var entry in stepIdDuration)
+            float minTime = 0;
+            float maxTime = 0;
+            Dictionary<int, float[]> minMaxStepTimes = GetMinMaxStepTimes();
+            foreach (var entry in minMaxStepTimes)
             {
-                stepIdStartTime.Add(entry.Key, sumTime);
-                sumTime += entry.Value;
+                if (entry.Value[0] < minTime) minTime = entry.Value[0];
+                if (entry.Value[1] > maxTime) maxTime = entry.Value[1];
             }
             //
-            int stepId;
-            double startTime;
-            double endTime;
+            float[] stepTimes;
             List<double[]> minMaxTimeList = new List<double[]>();
+            //
+            int[] stepIds = GetAllStepIds();
+            Array.Sort(stepIds);
             //
             if (slipWearResultsToKeep == SlipWearResultsEnum.All) 
             {
-                minMaxTimeList.Add(new double[] { 0, sumTime });
+                minMaxTimeList.Add(new double[] { minTime, maxTime });
             }
             else if (slipWearResultsToKeep == SlipWearResultsEnum.SlipWearSteps)
             {
-                foreach (var entry in stepIdDuration)
+                foreach (var stepId in stepIds)
                 {
-                    stepId = entry.Key;
-                    //
                     if (slipStepIdsHash.Contains(stepId))
                     {
-                        startTime = stepIdStartTime[stepId];
-                        endTime = startTime + entry.Value;
-                        minMaxTimeList.Add(new double[] { startTime, endTime });
+                        stepTimes = minMaxStepTimes[stepId];
+                        minMaxTimeList.Add(new double[] { stepTimes[0], stepTimes[1] });
                     }
                 }
             }
             else if (slipWearResultsToKeep == SlipWearResultsEnum.LastIncrementOfSlipWearSteps)
             {
-                foreach (var entry in stepIdDuration)
+                foreach (var stepId in stepIds)
                 {
-                    stepId = entry.Key;
-                    //
                     if (slipStepIdsHash.Contains(stepId))
                     {
-                        startTime = stepIdStartTime[stepId];
-                        endTime = startTime + entry.Value;
-                        minMaxTimeList.Add(new double[] { endTime, endTime });
+                        stepTimes = minMaxStepTimes[stepId];
+                        minMaxTimeList.Add(new double[] { stepTimes[0], stepTimes[1] });
                     }
                 }
             }
-            else if (slipWearResultsToKeep == SlipWearResultsEnum.LastIncrementOfLastSlipWearStep)
+            else if (slipWearResultsToKeep == SlipWearResultsEnum.LastIncrementOfLastSlipWearStep ||
+                     slipWearResultsToKeep == SlipWearResultsEnum.LastIncrementOfAllSteps)
             {
-                stepId = slipStepIds.Last();
+                Array.Reverse(stepIds);
                 //
-                if (slipStepIdsHash.Contains(stepId))
+                foreach (var stepId in stepIds)
                 {
-                    startTime = stepIdStartTime[stepId];
-                    endTime = startTime + stepIdDuration[stepId];
-                    minMaxTimeList.Add(new double[] { endTime, endTime });
+                    if (slipStepIdsHash.Contains(stepId))
+                    {
+                        stepTimes = minMaxStepTimes[stepId];
+                        minMaxTimeList.Add(new double[] { stepTimes[0], stepTimes[1] });
+                        break;
+                    }
                 }
             }
             else throw new NotSupportedException();

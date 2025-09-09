@@ -1,29 +1,30 @@
+using CaeGlobals;
+using CaeMesh;
+using Kitware.VTK;
+using Octree;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Drawing;
 using System.Data;
-using System.Text;
-using System.Windows.Forms;
-using Kitware.VTK;
-using System.Runtime.InteropServices;
-using System.Linq;
-using CaeGlobals;
-using System.Threading.Tasks;
-using System.Management;
-using System.Reflection.Emit;
-using System.Windows;
+using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO;
+using System.Linq;
+using System.Management;
 using System.Management.Instrumentation;
-using static System.Windows.Forms.AxHost;
+using System.Reflection;
+using System.Reflection.Emit;
+using System.Runtime;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Forms;
+using static System.Windows.Forms.AxHost;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.ProgressBar;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.TreeView;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
-using CaeMesh;
-using Octree;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.ProgressBar;
-using System.Reflection;
-using System.Runtime;
 
 namespace vtkControl
 {
@@ -91,8 +92,9 @@ namespace vtkControl
         private bool _mouseIn;
         //
         OrderedDictionary<vtkTransform, int> _transforms;
-        // Section
+        // Section view
         private SectionViewData _sectionViewData;
+        private object myLock = new object();
         // Selection
         private vtkSelectItem _selectItem;
         private vtkSelectBy _selectBy;
@@ -106,8 +108,8 @@ namespace vtkControl
         private int[] _mouseSelectionCurrentIds;
         //
         private HashSet<string> _selectableActorsFilter;
-        //
-        private object myLock = new object();
+        // Follower view
+        private double[] _followerViewPoint1Display;
         // Camera path
         private bool _drawCameraPath = false;
         private List<double[]> _positions;
@@ -5124,6 +5126,40 @@ namespace vtkControl
             }
             //
             RenderScene();
+        }
+
+        #endregion  ################################################################################################################
+
+
+        #region Follower view  #####################################################################################################
+
+        public void SetFollowerView(double[] coor1)
+        {
+            //_followerViewPoint1Display = vtkInteractorStyleControl.WorldToDisplay(_renderer, coor1);
+        }
+        public void ApplyFollowerView(double[] coor1)
+        {
+            if (_followerViewPoint1Display == null || _followerViewPoint1Display.Length != 3) _followerViewPoint1Display = coor1;
+
+            double[] display = vtkInteractorStyleControl.WorldToDisplay(_renderer, _followerViewPoint1Display);
+
+            double[] followerViewPoint1World = vtkInteractorStyleControl.DisplayToWorld(_renderer, display);
+            Vec3D delta = new Vec3D(followerViewPoint1World) - new Vec3D(coor1);
+            //
+            vtkCamera camera = _renderer.GetActiveCamera();
+            Vec3D position = new Vec3D(camera.GetPosition());
+            Vec3D focalPoint = new Vec3D(camera.GetFocalPoint());
+            //Vec3D normal = new Vec3D(camera.GetViewPlaneNormal());
+            //
+            position -= delta;
+            focalPoint -= delta;
+
+            camera.SetPosition(position.X, position.Y, position.Z);
+            camera.SetFocalPoint(focalPoint.X, focalPoint.Y, focalPoint.Z);
+            _renderer.SetActiveCamera(camera);
+            _style.AdjustCameraDistanceAndClipping();
+
+            _followerViewPoint1Display = coor1;
         }
 
         #endregion  ################################################################################################################

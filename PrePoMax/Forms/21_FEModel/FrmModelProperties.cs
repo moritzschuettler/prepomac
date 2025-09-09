@@ -1,10 +1,11 @@
-﻿using System;
+﻿using CaeGlobals;
+using CaeModel;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using CaeGlobals;
 
 
 namespace PrePoMax.Forms
@@ -69,8 +70,9 @@ namespace PrePoMax.Forms
             }
             else if (_viewModelProperties.ModelType == CaeModel.ModelType.SlipWearModel)
             {
-                if (_viewModelProperties.NumberOfCycles % _viewModelProperties.CyclesIncrement != 0)
-                    throw new CaeException("The number of slip wear cycles must be divided by the cycles increment.");
+                ModelProperties modelProperties = _viewModelProperties.GetBase();
+                if (modelProperties.NumberOfCycles.Value % modelProperties.CyclesIncrement.Value != 0)
+                    throw new CaeException("The number of slip wear cycles must be a multiple of the cycles increment.");
             }
             // Replace
             if (_propertyItemChanged)

@@ -187,6 +187,14 @@ namespace PrePoMax.Forms
                 {
                     meshSetupCommands.Add(command);
                 }
+                else if (command is CActivateDeactivate ad && ad.ContainsMeshSetupItem())
+                {
+                    meshSetupCommands.Add(command);
+                }
+                else if (command is CActivateDeactivateMultiple adm && adm.ContainsMeshSetupItem())
+                {
+                    meshSetupCommands.Add(command);
+                }
                 else if (command is CCreateMesh cm)
                 {
                     meshCommands.Add(cm);

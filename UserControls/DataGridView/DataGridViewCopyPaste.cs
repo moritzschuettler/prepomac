@@ -13,10 +13,15 @@ using System.Windows.Forms;
 
 namespace UserControls
 {
+    public enum XColIndexEnum
+    {
+        First,
+        Last
+    }
     public class DataGridViewCopyPaste : DataGridView
     {
         // Variables                                                                                                                
-        private int _xColIndex;
+        private XColIndexEnum _xColIndex;
         private bool _showErrorMsg;
         private Control _editControl;
         private int _autocompleteMenuColumn;
@@ -33,15 +38,7 @@ namespace UserControls
 
 
         // Properties                                                                                                               
-        public int XColIndex 
-        {
-            get { return _xColIndex; } 
-            set
-            {
-                _xColIndex = value;
-                if (_xColIndex < 0) _xColIndex = 0;
-            }
-        }
+        public XColIndexEnum XColIndex { get { return _xColIndex; } set { _xColIndex = value; } }
         public bool ShowErrorMsg { get { return _showErrorMsg; } set { _showErrorMsg = value; } }
         public bool EnableCutMenu { get { return tsmiCut.Enabled; } set { tsmiCut.Enabled = value; } }
         public bool EnablePasteMenu { get { return tsmiPaste.Enabled; } set { tsmiPaste.Enabled = value; } }
@@ -60,10 +57,11 @@ namespace UserControls
             //
             this.KeyDown += DataGridViewCopyPaste_KeyDown;
             //
+            _xColIndex = XColIndexEnum.First;
             _showErrorMsg = true;
-            frmDiagramView = new FrmDiagramView();
-            //
             _autocompleteMenuColumn = -1;
+            //
+            frmDiagramView = new FrmDiagramView();
         }
         private void InitializeComponent()
         {
@@ -238,8 +236,10 @@ namespace UserControls
         {
             try
             {
+                int xColIndexLoc = 0;
                 Dictionary<int, double> rowValues;
                 Dictionary<int, Dictionary<int, double>> values = GetValues();
+                //
                 if (IsPlottingPossible(values))
                 {
                     //
@@ -261,18 +261,21 @@ namespace UserControls
                         colIndices = rowValues.Keys.ToArray();
                         // Sort col indices
                         Array.Sort(colIndices);
+                        // Set x as first or last column
+                        if (_xColIndex == XColIndexEnum.First) xColIndexLoc = 0;
+                        else xColIndexLoc = colIndices[colIndices.Length - 1];
                         // For each column
                         for (int j = 0; j < colIndices.Length; j++)
                         {
                             // Get x value
-                            if (j == _xColIndex)
+                            if (j == xColIndexLoc)
                             {
                                 xData[i] = rowValues[colIndices[j]];
                             }
                             // Get y value
                             else
                             {
-                                if (j < _xColIndex) yIndex = j;
+                                if (j < xColIndexLoc) yIndex = j;
                                 else yIndex = j - 1;
                                 // First row
                                 if (i == 0)
@@ -281,13 +284,13 @@ namespace UserControls
                                     yNames[yIndex] = Columns[colIndices[j]].HeaderText.Replace("\n", " ");
                                 }
                                 // Get y data
-                                yData[yIndex][i] = rowValues[colIndices[j]];                                
+                                yData[yIndex][i] = rowValues[colIndices[j]];
                             }
                         }
                     }
                     //
                     frmDiagramView.CurveNames = yNames;
-                    if (colIndices != null) frmDiagramView.XAxisTitle = Columns[colIndices[XColIndex]].HeaderText;
+                    if (colIndices != null) frmDiagramView.XAxisTitle = Columns[colIndices[xColIndexLoc]].HeaderText;
                     if (yData.Length == 1) frmDiagramView.YAxisTitle = yNames[0];
                     else frmDiagramView.YAxisTitle = "Data";
                     // After the axis names were set plot the data
@@ -411,7 +414,7 @@ namespace UserControls
                     // Number of columns must be equal in all rows; number of columns must be > 2
                     if (numberOfColumns.Count > 1 || entry.Value.Count < 2) plottingPossible = false;
                     // X column index must be within range
-                    if (XColIndex >= entry.Value.Count) plottingPossible = false;
+                    //if (XColIndex >= entry.Value.Count) plottingPossible = false;
                 }
                 // Allow only plotting if unbroken columns are selected
                 if (columnIndices.Count != numberOfColumns.First()) plottingPossible = false;

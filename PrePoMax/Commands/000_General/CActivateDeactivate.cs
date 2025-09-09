@@ -36,12 +36,15 @@ namespace PrePoMax.Commands
             receiver.ActivateDeactivate(_item.DeepClone(), _activate, _stepName);
             return true;
         }
-
         public override string GetCommandString()
         {
             string data = base.GetCommandString();
             if (_stepName != null) data += _stepName + ": ";
             return data + _item.ToString();
+        }
+        public bool ContainsMeshSetupItem()
+        {
+            return _item is MeshSetupItem;
         }
     }
 }

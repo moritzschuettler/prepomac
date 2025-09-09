@@ -1,31 +1,32 @@
-﻿using System;
+﻿using CaeGlobals;
+using CaeJob;
+using CaeMesh;
+using CaeModel;
+using CaeResults;
+using CommandLine;
+using FileInOut.Output;
+using PrePoMax.Commands;
+using PrePoMax.Forms;
+using System;
+using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Drawing;
+using System.IO;
+using System.IO.Compression;
 using System.Linq;
+using System.Management;
+using System.Runtime.Serialization;
+using System.Security.Policy;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using CaeModel;
-using CaeMesh;
-using CaeJob;
-using CaeResults;
-using System.IO;
-using CaeGlobals;
-using System.IO.Compression;
-using System.Drawing;
-using System.ComponentModel;
-using System.Management;
-using System.Runtime.Serialization;
-using vtkControl;
-using PrePoMax.Forms;
-using PrePoMax.Commands;
-using FileInOut.Output;
-using UserControls;
 using System.Xml.Linq;
-using CommandLine;
-using System.Security.Policy;
-using System.Collections.Concurrent;
-using System.Diagnostics;
-using System.Collections;
+using UserControls;
+using vtkControl;
+using static CaeGlobals.Geometry2;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolTip;
 
 namespace PrePoMax
@@ -48,6 +49,7 @@ namespace PrePoMax
         [NonSerialized] protected EdgesVisibilitiesCollection _edgesVisibilities;
         [NonSerialized] protected SectionViewsCollection _sectionViews;
         [NonSerialized] protected ExplodedViewsCollection _explodedViews;
+        [NonSerialized] protected FollowerViewsCollection _followerViews;
         [NonSerialized] protected AnnotateWithColorEnum _annotateWithColor;
         [NonSerialized] protected string _drawSymbolName;
         // Selection
@@ -196,6 +198,15 @@ namespace PrePoMax
         public ExplodedViewParameters GetCurrentExplodedViewParameters()
         {
             return _explodedViews.GetCurrentExplodedViewParameters();
+        }
+        // Follower view
+        public bool IsFollowerViewActive()
+        {
+            return _followerViews.IsFollowerViewActive();
+        }
+        public FollowerViewParameters GetCurrentFollowerViewParameters()
+        {
+            return _followerViews.GetCurrentFollowerViewParameters();
         }
         // Annotate
         public AnnotateWithColorEnum AnnotateWithColor
@@ -415,6 +426,8 @@ namespace PrePoMax
             _sectionViews = new SectionViewsCollection(this);
             // Exploded view
             _explodedViews = new ExplodedViewsCollection(this);
+            // Follower view
+            _followerViews = new FollowerViewsCollection(this);
             // Annotations
             _annotations = new AnnotationContainer(this);
             // Selection
@@ -580,10 +593,12 @@ namespace PrePoMax
             _sectionViews.ClearModelSectionViews();
             // Exploded view
             _explodedViews.ClearModelExplodedViews();
+            // Follower view
+            _followerViews.ClearModelFollowerViews();
             // New
             OrderedDictionary<string, EquationParameter> overriddenParameters = null;
             if (_model != null) overriddenParameters = _model.Parameters.OverriddenParameters;
-            _model = new FeModel("Model-1", null, overriddenParameters);
+            _model = new FeModel("Model-1", null, true, overriddenParameters);
             //
             SetNewModelProperties(_model.Properties.ModelSpace, _model.UnitSystem.UnitSystemType);   // update widgets
             //
@@ -597,9 +612,11 @@ namespace PrePoMax
         public void ClearResults()
         {
             // Section view
-            _sectionViews.ClearAllResultsSectionViews();
+            _sectionViews.ClearResultsSectionViews();
             // Exploded view
-            _explodedViews.ClearAllResultsExplodedViews();
+            _explodedViews.ClearResultsExplodedViews();
+            // Exploded view
+            _followerViews.ClearResultFollowerViews();
             // Annotations
             _annotations.RemoveAllResultArrowAnnotations();
             //
@@ -868,7 +885,7 @@ namespace PrePoMax
                 // Wear
                 _allResults.CurrentResult.ComputeWear(_model.StepCollection.GetSlipWearStepIds(),
                                                       _model.GetNodalSlipWearCoefficients(),
-                                                      _model.Properties.NumOfSmoothingSteps,
+                                                      (int)_model.Properties.NumOfSmoothingSteps.Value,
                                                       null);
                 //
                 if (_allResults.CurrentResult.GetHistory() == null)
@@ -2159,7 +2176,7 @@ namespace PrePoMax
             if (_allResults.CurrentResult != null && _allResults.CurrentResult.Mesh != null)
             {
                 SuppressExplodedView();
-                FeModel newModel = new FeModel("Deformed", _allResults.CurrentResult.UnitSystem);
+                FeModel newModel = new FeModel("Deformed", _allResults.CurrentResult.UnitSystem, false);
                 newModel.Properties.ModelSpace = ModelSpaceEnum.ThreeD;
                 newModel.Mesh.AddPartsFromMesh(_allResults.CurrentResult.Mesh, partNames, null, null, false, false);
                 // Change result parts to mesh parts
@@ -2733,6 +2750,15 @@ namespace PrePoMax
             _form.SetExplodedViewStatus(false);
             //
             return partOffsets;
+        }
+        // Follower view
+        public void ApplyFollowerView(FollowerViewParameters parameters)
+        {
+            _followerViews.SetCurrentFollowerViewParameters(parameters);
+        }
+        public FollowerViewParameters GetFollowerViewParameters()
+        {
+            return _followerViews.GetCurrentFollowerViewParameters();
         }
         // Parameterization
         public void ViewParameterization()
@@ -5507,6 +5533,12 @@ namespace PrePoMax
                 _form.SetStateReady("Creating...");
             }
         }
+        public async Task PreviewBoundaryLayerAsync(int[] geometryIds, double thickness)
+        {
+            _form.SetStateWorking(Globals.PreviewText, false);
+            await Task.Run(() => PreviewBoundaryLayer(geometryIds, thickness));
+            _form.SetStateReady(Globals.PreviewText);
+        }
         public void PreviewBoundaryLayer(int[] geometryIds, double thickness)
         {
             string[] errors = null;
@@ -5642,6 +5674,13 @@ namespace PrePoMax
                 return true;
             }
             else throw new CaeException("Mesh generation failed.");
+        }
+        public async Task PreviewThickenShellMeshAsync(string[] partNames, double thickness, int numberOfLayers, double offset,
+                                                       bool keepModelEdges)
+        {
+            _form.SetStateWorking(Globals.PreviewText, false);
+            await Task.Run(() => PreviewThickenShellMesh(partNames, thickness, numberOfLayers, offset, keepModelEdges));
+            _form.SetStateReady(Globals.PreviewText);
         }
         public bool PreviewThickenShellMesh(string[] partNames, double thickness, int numberOfLayers, double offset,
                                             bool keepModelEdges)
@@ -5990,7 +6029,7 @@ namespace PrePoMax
         {
             SuppressExplodedView();
             //
-            FeModel newModel = new FeModel("Deformed", _model.UnitSystem);
+            FeModel newModel = new FeModel("Deformed", _model.UnitSystem, false);
             newModel.Properties.ModelSpace = _model.Properties.ModelSpace;
             newModel.ImportModelFromInpFile(fileName, _form.WriteDataToOutput);
             _model.Mesh.UpdateNodalCoordinatesFromMesh(newModel.Mesh);
@@ -11204,7 +11243,7 @@ namespace PrePoMax
             job.PreRun = PreWearRun;
             job.PostRun = PostWearRun;
             //
-            int numOfRunSteps = _model.Properties.NumberOfCycles / _model.Properties.CyclesIncrement;
+            int numOfRunSteps = (int)(_model.Properties.NumberOfCycles.Value / _model.Properties.CyclesIncrement.Value);
             int numOfRunIncrements = _model.Properties.BdmRemeshing ? 2 : 1;
             //
             job.Submit(numOfRunSteps, numOfRunIncrements, useBackgroundWorker);
@@ -11220,7 +11259,8 @@ namespace PrePoMax
             //
             if (job.CurrentRunIncrement == 1)
             {
-                _form.WriteDataToOutput("Starting wear cycle number: " + job.CurrentRunStep * _model.Properties.CyclesIncrement);
+                _form.WriteDataToOutput("Starting wear cycle number: " +
+                                        job.CurrentRunStep * _model.Properties.CyclesIncrement.Value);
                 //
                 ExportToCalculix(job.InputFileName, deformations);
                 //
@@ -11231,7 +11271,7 @@ namespace PrePoMax
             {
                 SuppressExplodedView();
                 FeModel model = _model.PrepareBdmModel(deformations);
-                FileInOut.Output.CalculixFileWriter.Write(job.InputFileName, model, _settings.Calculix.ConvertPyramidsTo, null);
+                CalculixFileWriter.Write(job.InputFileName, model, _settings.Calculix.ConvertPyramidsTo, null);
                 ResumeExplodedViews(false);
             }
         }
@@ -11259,6 +11299,11 @@ namespace PrePoMax
         }
         private void LastRunCompleted(AnalysisJob job)
         {
+            if (_wearResults != null && _model.Properties.SlipWearResults == SlipWearResultsEnum.LastIncrementOfAllSteps)
+            {
+                int[] slipWearStepIds = _wearResults.GetAllStepIds();
+                _wearResults.KeepOnlySelectedSlipWearResults(slipWearStepIds, _model.Properties.SlipWearResults);
+            }
             _watch.Stop();
             //
             _commands.SetLastAnalysisTime(_watch.Elapsed);
@@ -11278,6 +11323,11 @@ namespace PrePoMax
                 if (results == null || results.Mesh == null) job.Kill("Intermediate wear results do not exist.");
                 //
                 _model.GetMaterialAssignments(out _);
+                // Add node sets for wear results mapping
+                foreach (var entry in _model.Mesh.NodeSets)
+                {
+                    results.Mesh.NodeSets.Add(entry.Key, entry.Value.DeepClone());
+                }
                 //
                 results.SetHistory(ReadHistoryResults(resultsFileDat));
                 // Open .cel file
@@ -11298,16 +11348,16 @@ namespace PrePoMax
                 //
                 int[] slipWearStepIds = _model.StepCollection.GetSlipWearStepIds();
                 if (results.ComputeWear(slipWearStepIds, _model.GetNodalSlipWearCoefficients(),
-                                        _model.Properties.NumOfSmoothingSteps, null))
+                                        (int)_model.Properties.NumOfSmoothingSteps.Value, null))
                 {
-                    results.KeepOnlySelectedSlipWearResults(_model.StepCollection.GetStepIdDuration(),
-                                                            slipWearStepIds,
-                                                            _model.Properties.SlipWearResults);
+                    results.KeepOnlySelectedSlipWearResults(slipWearStepIds, _model.Properties.SlipWearResults);
                     //
                     if (_wearResults == null) _wearResults = results;
                     else _wearResults.AddResults(results);
                 }
                 else job.Kill("The computation of wear variables failed.");
+                // Remove node sets for wear results mapping
+                results.Mesh.NodeSets.Clear();
             }
         }
         public void ReadFrdFileAsWear(string fileName)
@@ -11327,11 +11377,9 @@ namespace PrePoMax
                 //
                 int[] slipWearStepIds = _model.StepCollection.GetSlipWearStepIds();
                 if (results.ComputeWear(slipWearStepIds, _model.GetNodalSlipWearCoefficients(),
-                                        _model.Properties.NumOfSmoothingSteps, null))
+                                        (int)_model.Properties.NumOfSmoothingSteps.Value, null))
                 {
-                    results.KeepOnlySelectedSlipWearResults(_model.StepCollection.GetStepIdDuration(),
-                                                            slipWearStepIds,
-                                                            _model.Properties.SlipWearResults);
+                    results.KeepOnlySelectedSlipWearResults(slipWearStepIds, _model.Properties.SlipWearResults);
                     //
                     if (_wearResults == null) _wearResults = results;
                     else _wearResults.AddResults(results);
@@ -11472,6 +11520,8 @@ namespace PrePoMax
             _sectionViews.RemoveCurrentSectionView();
             // Exploded view
             _explodedViews.RemoveCurrentExplodedView();
+            // Follower view
+            _followerViews.RemoveCurrentFollowerView();
             // Annotations
             _annotations.RemoveCurrentResultArrowAnnotations();
             // Transformations
@@ -19044,9 +19094,11 @@ namespace PrePoMax
         }
         public void HighlightResultHistoryOutput(ResultHistoryOutput resultHistoryOutput)
         {
-            if (resultHistoryOutput is ResultHistoryOutputFromField)
+            if (resultHistoryOutput is ResultHistoryOutputFromField ||
+                resultHistoryOutput is ResultHistoryOutputFromElementSize)
             {
                 if (resultHistoryOutput.RegionType == RegionTypeEnum.NodeSetName ||
+                    resultHistoryOutput.RegionType == RegionTypeEnum.ElementSetName ||
                     resultHistoryOutput.RegionType == RegionTypeEnum.SurfaceName)
                 {
                     Highlight3DObjects(new object[] { resultHistoryOutput.RegionName });
@@ -19229,6 +19281,10 @@ namespace PrePoMax
             bool rendering = _form.RenderingOn;
             try
             {
+                double[] coor1 = _model.Mesh.Nodes[3929].Coor;
+                _form.SetFollowerView(coor1);
+
+
                 // Set the current view and call DrawResults
                 if (_currentView != ViewGeometryModelResults.Results) CurrentView = ViewGeometryModelResults.Results;
                 // Draw results
@@ -19253,6 +19309,11 @@ namespace PrePoMax
                                                                  _currentFieldData.StepIncrementId);
                     DrawAllResultParts(_currentFieldData, _settings.Post.UndeformedModelType,
                                        _settings.Post.UndeformedModelColor);
+
+                    
+                    double[] coor2 = GetScaledNode(scale, 3929).Coor;
+                    _form.ApplyFollowerView(coor2);
+
                     // Transformation
                     ApplyTransformation();
                     // Symbols

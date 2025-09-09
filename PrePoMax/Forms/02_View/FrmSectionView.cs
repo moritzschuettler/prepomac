@@ -301,9 +301,10 @@ namespace PrePoMax.Forms
                 if (ratio > 1) ratio = 1;
                 else if (ratio < -1) ratio = -1;
                 //
-                ratio = (ratio + 1) / 2;        // to iterval from 0 to 1;
+                ratio = (ratio + 1) / 2;        // to interval from 0 to 1;
                 //
-                hsbPosition.Value = (int)Math.Round((hsbPosition.Maximum - hsbPosition.Minimum) * ratio, MidpointRounding.AwayFromZero);
+                hsbPosition.Value = (int)Math.Round((hsbPosition.Maximum - hsbPosition.Minimum) * ratio,
+                                                    MidpointRounding.AwayFromZero);
             }
             catch
             { }

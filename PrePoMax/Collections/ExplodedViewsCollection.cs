@@ -13,7 +13,7 @@ namespace PrePoMax
         [NonSerialized] private Controller _controller;
         private ExplodedViewParameters _geometryExplodedViewParameters;
         private ExplodedViewParameters _modelExplodedViewParameters;
-        private Dictionary<string, ExplodedViewParameters> _allResultsExplodedViewParameters;
+        private Dictionary<string, ExplodedViewParameters> _resultNameExplodedViewParameters;
 
 
         // Properties                                                                                                               
@@ -25,7 +25,7 @@ namespace PrePoMax
         {
             _controller = controller;
             ClearModelExplodedViews();
-            _allResultsExplodedViewParameters = new Dictionary<string, ExplodedViewParameters>();
+            _resultNameExplodedViewParameters = new Dictionary<string, ExplodedViewParameters>();
         }
 
 
@@ -45,13 +45,13 @@ namespace PrePoMax
         public bool IsResultExplodedViewActive(string name)
         {
             ExplodedViewParameters parameters;
-            _allResultsExplodedViewParameters.TryGetValue(name, out parameters);
+            _resultNameExplodedViewParameters.TryGetValue(name, out parameters);
             return parameters != null;
         }
         public ExplodedViewParameters GetResultExplodedViewParameters(string name)
         {
             ExplodedViewParameters parameters;
-            _allResultsExplodedViewParameters.TryGetValue(name, out parameters);
+            _resultNameExplodedViewParameters.TryGetValue(name, out parameters);
             return parameters;
         }
         public ExplodedViewParameters GetCurrentExplodedViewParameters()
@@ -68,7 +68,7 @@ namespace PrePoMax
             {
                 string name = CurrentResultName;
                 ExplodedViewParameters parameters;
-                if (name != null && _allResultsExplodedViewParameters.TryGetValue(name, out parameters)) return parameters;
+                if (name != null && _resultNameExplodedViewParameters.TryGetValue(name, out parameters)) return parameters;
                 else return null;
             }
             else throw new NotSupportedException();
@@ -86,9 +86,9 @@ namespace PrePoMax
                 string name = CurrentResultName;
                 if (name != null)
                 {
-                    if (!_allResultsExplodedViewParameters.ContainsKey(name))
-                        _allResultsExplodedViewParameters.Add(name, evp);
-                    else _allResultsExplodedViewParameters[name] = evp;
+                    if (!_resultNameExplodedViewParameters.ContainsKey(name))
+                        _resultNameExplodedViewParameters.Add(name, evp);
+                    else _resultNameExplodedViewParameters[name] = evp;
                 }
             }
             else throw new NotSupportedException();
@@ -101,9 +101,9 @@ namespace PrePoMax
             _geometryExplodedViewParameters = null;
             _modelExplodedViewParameters = null;
         }
-        public void ClearAllResultsExplodedViews()
+        public void ClearResultsExplodedViews()
         {
-            _allResultsExplodedViewParameters.Clear();
+            _resultNameExplodedViewParameters.Clear();
         }
         // Remove
         public void RemoveCurrentExplodedView()
@@ -113,7 +113,7 @@ namespace PrePoMax
             else if (_controller.CurrentView == ViewGeometryModelResults.Results)
             {
                 string name = CurrentResultName;
-                if (name != null) _allResultsExplodedViewParameters.Remove(CurrentResultName);
+                if (name != null) _resultNameExplodedViewParameters.Remove(CurrentResultName);
             }
             else throw new NotSupportedException();
         }

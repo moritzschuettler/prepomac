@@ -29,6 +29,8 @@ namespace PrePoMax.Forms
                         new ViewResultHistoryOutputFromField(rhoff.DeepClone(), _controller.CurrentResult.ContainsComplexResults());
                 else if (value is ResultHistoryOutputFromEquation rhofe) _viewResultHistoryOutput =
                         new ViewResultHistoryOutputFromEquation(rhofe.DeepClone());
+                else if (value is ResultHistoryOutputFromElementSize rhofes) _viewResultHistoryOutput =
+                        new ViewResultHistoryOutputFromElementSize(rhofes.DeepClone());
                 else throw new NotImplementedException();
             }
         }
@@ -106,6 +108,7 @@ namespace PrePoMax.Forms
                 if (itemTag is ViewError) _viewResultHistoryOutput = null;
                 else if (itemTag is ViewResultHistoryOutputFromField vrhoff) _viewResultHistoryOutput = vrhoff;
                 else if (itemTag is ViewResultHistoryOutputFromEquation vrhofe) _viewResultHistoryOutput = vrhofe;
+                else if (itemTag is ViewResultHistoryOutputFromElementSize vrhofes) _viewResultHistoryOutput = vrhofes;
                 else throw new NotImplementedException();
                 //
                 ShowHideSelectionForm();
@@ -133,6 +136,11 @@ namespace PrePoMax.Forms
             }
             else if (_viewResultHistoryOutput is ViewResultHistoryOutputFromEquation vrhofe)
             { }
+            else if (_viewResultHistoryOutput is ViewResultHistoryOutputFromElementSize vrhofes &&
+                     (property == nameof(vrhofes.ElementSetName)))
+            {
+                HighlightHistoryOutput();
+            }
             //
             base.OnPropertyGridPropertyValueChanged();
         }
@@ -199,6 +207,7 @@ namespace PrePoMax.Forms
             _resultHistoryOutputSetNames = _controller.GetHistoryResultSetNames();
             _resultHistoryOutputToEditName = historyOutputToEditName;
             string[] nodeSetNames = _controller.GetResultUserNodeSetNames();
+            string[] elementSetNames = _controller.GetResultUserElementSetNames();
             string[] surfaceNames = _controller.GetResultUserSurfaceNames();
             Dictionary<string, string[]> filedNameComponentNames =
                 _controller.CurrentResult.GetAllVisibleFiledNameComponentNames();
@@ -207,7 +216,8 @@ namespace PrePoMax.Forms
             if (_resultHistoryOutputSetNames == null)
                 throw new CaeException("The history output names must be defined first.");
             // Populate list view
-            PopulateListOfHistoryOutputs(nodeSetNames, surfaceNames, filedNameComponentNames, stepIdStepIncrementIds);
+            PopulateListOfHistoryOutputs(nodeSetNames, elementSetNames, surfaceNames, filedNameComponentNames,
+                                         stepIdStepIncrementIds);
             // Create new history output
             if (_resultHistoryOutputToEditName == null)
             {
@@ -241,7 +251,7 @@ namespace PrePoMax.Forms
                         else hroff.ComponentNames = componentNames;
                         //
                         MessageBoxes.ShowWarning("Some selected components no longer exist. The selected components were " +
-                            "cnaged to existing ones");
+                            "changed to existing ones");
                     }
                     // Populate
                     vrhoff.PopulateDropDownLists(nodeSetNames, surfaceNames, filedNameComponentNames, stepIdStepIncrementIds);
@@ -251,6 +261,16 @@ namespace PrePoMax.Forms
                     selectedId = 1;
                     // Populate
                     vrhofe.PopulateDropDownLists();
+                }
+                else if (_viewResultHistoryOutput is ViewResultHistoryOutputFromElementSize vrhofes)
+                {
+                    selectedId = 0;
+                    // Check
+                    string[] deformationVariableNames = FeResults.GetPossibleDeformationFieldOutputNamesMap().Keys.ToArray();
+                    CheckMissingValueRef(ref deformationVariableNames, vrhofes.DeformationVariableName,
+                                         s => { vrhofes.DeformationVariableName = s; });
+                    // Populate
+                    vrhofes.PopulateDropDownLists(elementSetNames);
                 }
                 else throw new NotSupportedException();
                 //
@@ -267,7 +287,7 @@ namespace PrePoMax.Forms
 
 
         // Methods                                                                                                                  
-        private void PopulateListOfHistoryOutputs(string[] nodeSetNames, string[] surfaceNames,
+        private void PopulateListOfHistoryOutputs(string[] nodeSetNames, string[] elementSetNames, string[] surfaceNames,
                                                   Dictionary<string, string[]> filedNameComponentNames,
                                                   Dictionary<int, int[]> stepIdStepIncrementIds) 
         {
@@ -289,6 +309,16 @@ namespace PrePoMax.Forms
             ViewResultHistoryOutputFromEquation vrhofe = new ViewResultHistoryOutputFromEquation(rhofe);
             vrhofe.PopulateDropDownLists();
             item.Tag = vrhofe;
+            lvTypes.Items.Add(item);
+            // History output from volume
+            string defVar = FeResults.GetPossibleDeformationFieldOutputNamesMap().First().Key;
+            item = new ListViewItem("From Element Size");
+            ResultHistoryOutputFromElementSize rhofes =
+                new ResultHistoryOutputFromElementSize(GetHistoryOutputName("From_Element_Size"),
+                                                       ElementSizeTypeEnum.Volume, "", RegionTypeEnum.Selection, defVar);
+            ViewResultHistoryOutputFromElementSize vrhofes = new ViewResultHistoryOutputFromElementSize(rhofes);
+            vrhofes.PopulateDropDownLists(elementSetNames);
+            item.Tag = vrhofes;
             lvTypes.Items.Add(item);
         }
         private string GetHistoryOutputName(string prefix)
@@ -323,6 +353,24 @@ namespace PrePoMax.Forms
                 }
                 else if (ResultHistoryOutput is ResultHistoryOutputFromEquation)
                 { }
+                else if (ResultHistoryOutput is ResultHistoryOutputFromElementSize)
+                {
+                    if (ResultHistoryOutput.RegionType == RegionTypeEnum.ElementSetName)
+                    {
+                        _controller.Highlight3DObjects(new object[] { ResultHistoryOutput.RegionName });
+                    }
+                    else if (ResultHistoryOutput.RegionType == RegionTypeEnum.Selection)
+                    {
+                        SetSelectItem();
+                        //
+                        if (ResultHistoryOutput.CreationData != null)
+                        {
+                            _controller.Selection = ResultHistoryOutput.CreationData.DeepClone();
+                            _controller.HighlightSelection();
+                        }
+                    }
+                    else throw new NotImplementedException();
+                }
                 else throw new NotSupportedException();
             }
             catch { }
@@ -342,6 +390,7 @@ namespace PrePoMax.Forms
             {
                 if (ResultHistoryOutput is null) { }
                 else if (ResultHistoryOutput is ResultHistoryOutputFromField) _controller.SetSelectItemToNode();
+                else if (ResultHistoryOutput is ResultHistoryOutputFromElementSize) _controller.SetSelectItemToElement();
             }
             else _controller.SetSelectByToOff();
         }
@@ -350,7 +399,8 @@ namespace PrePoMax.Forms
         {
             if (ResultHistoryOutput != null && ResultHistoryOutput.RegionType == RegionTypeEnum.Selection)
             {
-                if (ResultHistoryOutput is ResultHistoryOutputFromField)
+                if (ResultHistoryOutput is ResultHistoryOutputFromField ||
+                    ResultHistoryOutput is ResultHistoryOutputFromElementSize)
                 {
                     ResultHistoryOutput.CreationIds = ids;
                     ResultHistoryOutput.CreationData = _controller.Selection.DeepClone();

@@ -19,6 +19,7 @@ using static GmshCommon.Gmsh;
 using System.Security.Cryptography;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
+using System.Collections;
 
 namespace CaeMesh
 {
@@ -8166,8 +8167,12 @@ namespace CaeMesh
         }
         public int[] GetNodeIdsFromElementSet(FeElementSet elementSet)
         {
+            return GetNodeIdsFromElementIds(elementSet.Labels);
+        }
+        public int[] GetNodeIdsFromElementIds(IEnumerable<int> elementIds)
+        {
             HashSet<int> nodeIds = new HashSet<int>();
-            foreach (var elementId in elementSet.Labels) nodeIds.UnionWith(_elements[elementId].NodeIds);
+            foreach (var elementId in elementIds) nodeIds.UnionWith(_elements[elementId].NodeIds);
             return nodeIds.ToArray();
         }
         public int[] GetNodeIdsFromParts(string[] partNames)
@@ -10746,17 +10751,27 @@ namespace CaeMesh
         }
         public void ComputeVolumeArea(BasePart part)
         {
+            PartMassProperties partMassProperties = part.MassProperties;
+            PartMassProperties massProperties = ComputeVolumeArea(part, _nodes);
+            //
+            if (massProperties.Volume != 0) partMassProperties.Volume = massProperties.Volume;
+            if (massProperties.Area != 0) partMassProperties.Area = massProperties.Area;
+            if (massProperties.CenterOfMass != null) partMassProperties.CenterOfMass = massProperties.CenterOfMass;
+            //
+            part.MassProperties = partMassProperties;
+        }
+        public PartMassProperties ComputeVolumeArea(BasePart part, Dictionary<int, FeNode> nodes)
+        {
             double elementSize;
             double size = 0;
             double[] cgEl;
             double[] cg = new double[3];
             FeElement element;
-            PartMassProperties massProperties;
             //
             foreach (int elementId in part.Labels)
             {
                 element = _elements[elementId];
-                cgEl = element.GetCG(_nodes, out elementSize);
+                cgEl = element.GetCG(nodes, out elementSize);
                 //
                 size += elementSize;
                 cg[0] += cgEl[0] * elementSize;
@@ -10768,8 +10783,7 @@ namespace CaeMesh
             cg[2] /= size;
             //
             bool addCG = true;
-            //
-            massProperties = part.MassProperties;
+            PartMassProperties massProperties = new PartMassProperties();
             // Solid
             if (part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell || part.PartType == PartType.Compound)
             {
@@ -10787,7 +10801,27 @@ namespace CaeMesh
                 throw new NotImplementedException();
             //
             if (addCG) massProperties.CenterOfMass = cg;
-            part.MassProperties = massProperties;
+            //
+            return massProperties;
+        }
+        public Dictionary<int, double> ComputeVolumeArea(int[] elementIds, Dictionary<int, FeNode> nodes, Type elementFilter)
+        {
+            double size;
+            double[] cg = new double[3];
+            FeElement element;
+            Dictionary<int, double> elementIdSize = new Dictionary<int, double>();
+            //
+            foreach (int elementId in elementIds)
+            {
+                element = _elements[elementId];
+                if (element.GetType().IsSubclassOf(elementFilter))
+                {
+                    element.GetCG(nodes, out size);
+                    elementIdSize.Add(elementId, size);
+                }
+            }
+            //
+            return elementIdSize;
         }
         // Clone
         public FeMesh DeepCopy()

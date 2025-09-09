@@ -32,6 +32,7 @@ namespace PrePoMax
             if (part == null) throw new NotSupportedException();
             //
             double[][] nodeCoor = new double[part.NodeLabels.Length][];
+            //
             if (Controller.CurrentView == ViewGeometryModelResults.Geometry ||
                 Controller.CurrentView == ViewGeometryModelResults.Model)
             {
@@ -69,19 +70,25 @@ namespace PrePoMax
             string numberFormat = Controller.Settings.Annotations.GetNumberFormat();
             bool volume = part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell ||
                           part.PartType == PartType.Compound;
+            double value = 0;
             string volumeArea;
-            string title;
-            if (part is ResultPart)
+            if (Controller.CurrentView == ViewGeometryModelResults.Results)
             {
-                if (volume) title = "Undeformed volume";
-                else title = "Undeformed area";
+                FeNode[] nodes = Controller.GetScaledNodes(1, part.NodeLabels);
+                Dictionary<int, FeNode> nodesDic = new Dictionary<int, FeNode>();
+                foreach (var node in nodes) nodesDic.Add(node.Id, node);
+                PartMassProperties massProperties = mesh.ComputeVolumeArea(part, nodesDic);
+                //
+                if (volume) value = massProperties.Volume;
+                else value = massProperties.Area;
             }
             else
             {
-                if (volume) title = "Volume";
-                else title = "Area";
+                if (volume) value = part.MassProperties.Volume;
+                else value = part.MassProperties.Area;
             }
-            volumeArea = string.Format(title + ": {0} {1}", part.MassProperties.Volume.ToString(numberFormat), volumeUnit);
+            if (volume) volumeArea = string.Format("Part volume: {0} {1}", value.ToString(numberFormat), volumeUnit);
+            else volumeArea = string.Format("Part area: {0} {1}", value.ToString(numberFormat), areaUnit);
             //
             text = "";
             //
@@ -103,6 +110,11 @@ namespace PrePoMax
                 if (text.Length > 0) text += Environment.NewLine;
                 text += string.Format("Part type: {0}", partTypeName);
             }
+            if (showPartVolumeArea)
+            {
+                if (text.Length > 0) text += Environment.NewLine;
+                text += volumeArea;
+            }
             if (showPartNumberOfElements)
             {
                 if (text.Length > 0) text += Environment.NewLine;
@@ -112,11 +124,6 @@ namespace PrePoMax
             {
                 if (text.Length > 0) text += Environment.NewLine;
                 text += string.Format("{0} {1}", nodesName, part.NodeLabels.Length);
-            }
-            if (showPartVolumeArea)
-            {
-                if (text.Length > 0) text += Environment.NewLine;
-                text += volumeArea;
             }
             //
             if (IsTextOverridden) text = OverriddenText;

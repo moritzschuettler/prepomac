@@ -20,6 +20,9 @@ namespace CaeResults
         LastIncrementOfSlipWearSteps,
         //
         [StandardValue("LastIncrementOfLastSlipWearStep", DisplayName = "Last increment of last slip wear step")]
-        LastIncrementOfLastSlipWearStep
+        LastIncrementOfLastSlipWearStep,
+        //
+        [StandardValue("LastIncrementOfAllSteps", DisplayName = "Last increment of all steps")]
+        LastIncrementOfAllSteps
     }
 }

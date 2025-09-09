@@ -225,7 +225,6 @@
             this.dgvData.Size = new System.Drawing.Size(339, 315);
             this.dgvData.StartPlotAtZero = false;
             this.dgvData.TabIndex = 0;
-            this.dgvData.XColIndex = 0;
             // 
             // label2
             // 

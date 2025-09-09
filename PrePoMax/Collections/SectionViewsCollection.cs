@@ -14,7 +14,7 @@ namespace PrePoMax
         [NonSerialized] private Controller _controller;
         private Octree.Plane _geometrySectionViewPlane;
         private Octree.Plane _modelSectionViewPlane;
-        private Dictionary<string, Octree.Plane> _allResultsSectionViewPlane;
+        private Dictionary<string, Octree.Plane> _resultNameSectionViewPlane;
         private bool _lightenColors;
         private Color _sectionColor;
 
@@ -30,7 +30,7 @@ namespace PrePoMax
         {
             _controller = controller;
             ClearModelSectionViews();
-            _allResultsSectionViewPlane = new Dictionary<string, Octree.Plane>();
+            _resultNameSectionViewPlane = new Dictionary<string, Octree.Plane>();
             _lightenColors = true;
             _sectionColor = Color.Empty;
         }
@@ -48,7 +48,7 @@ namespace PrePoMax
             else if (_controller.CurrentView == ViewGeometryModelResults.Results)
             {
                 string name = CurrentResultName;
-                if (name != null && _allResultsSectionViewPlane.TryGetValue(name, out Octree.Plane plane)) return plane;
+                if (name != null && _resultNameSectionViewPlane.TryGetValue(name, out Octree.Plane plane)) return plane;
                 else return null;
             }
             else throw new NotSupportedException();
@@ -67,9 +67,9 @@ namespace PrePoMax
                 string name = CurrentResultName;
                 if (name != null)
                 {
-                    if (!_allResultsSectionViewPlane.ContainsKey(name))
-                        _allResultsSectionViewPlane.Add(name, plane);
-                    else _allResultsSectionViewPlane[name] = plane;
+                    if (!_resultNameSectionViewPlane.ContainsKey(name))
+                        _resultNameSectionViewPlane.Add(name, plane);
+                    else _resultNameSectionViewPlane[name] = plane;
                 }
             }
             else throw new NotSupportedException();
@@ -85,9 +85,9 @@ namespace PrePoMax
             _geometrySectionViewPlane = null;
             _modelSectionViewPlane = null;
         }
-        public void ClearAllResultsSectionViews()
+        public void ClearResultsSectionViews()
         {
-            _allResultsSectionViewPlane.Clear();
+            _resultNameSectionViewPlane.Clear();
         }
         // Remove
         public void RemoveCurrentSectionView()
@@ -97,7 +97,7 @@ namespace PrePoMax
             else if (_controller.CurrentView == ViewGeometryModelResults.Results)
             {
                 string name = CurrentResultName;
-                if (name != null) _allResultsSectionViewPlane.Remove(CurrentResultName);
+                if (name != null) _resultNameSectionViewPlane.Remove(CurrentResultName);
             }
             else throw new NotSupportedException();
         }

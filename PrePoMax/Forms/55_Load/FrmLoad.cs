@@ -23,7 +23,7 @@ namespace PrePoMax.Forms
 
         // Properties                                                                                                               
         // SetLoad and GetLoad to distinguish from Load event
-        public Load FELoad 
+        public Load FELoad
         {
             get { return _viewLoad != null ? _viewLoad.GetBase() : null; }
             set
@@ -798,6 +798,10 @@ namespace PrePoMax.Forms
                     else if (vfht.RegionType == RegionTypeEnum.SurfaceName.ToFriendlyString())
                         CheckMissingValueRef(ref surfaceNames, vfht.SurfaceName, s => { vfht.SurfaceName = s; });
                     else throw new NotSupportedException();
+                    // Check for deleted coefficient amplitude name
+                    if (vfht.CoefficientAmplitudeName != null && vfht.CoefficientAmplitudeName != Amplitude.DefaultAmplitudeName)
+                        CheckMissingValueRef(ref amplitudeNames, vfht.CoefficientAmplitudeName,
+                                             a => { vfht.CoefficientAmplitudeName = a; });
                     //
                     vfht.PopulateDropDownLists(surfaceNames, amplitudeNames);
                 }

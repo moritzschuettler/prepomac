@@ -9084,7 +9084,7 @@ namespace PrePoMax
             tsmiTransformation_Click(null, null);
         }
         //
-        private void FieldOutput_SelectionChanged(object sender, EventArgs e)
+        private void tscbStepAndIncrement_SelectionChanged(object sender, EventArgs e)
         {
             try
             {
@@ -9534,6 +9534,15 @@ namespace PrePoMax
         {
             InvokeIfRequired(() => { tsbExplodedView.Checked = status; });
         }
+        // Follower view
+        public void SetFollowerView(double[] coor1)
+        {
+            InvokeIfRequired(_vtk.SetFollowerView, coor1);
+        }
+        public void ApplyFollowerView(double[] coor1)
+        {
+            InvokeIfRequired(_vtk.ApplyFollowerView, coor1);
+        }
         // Transformations
         public void AddSymmetry(int symmetryPlane, double[] symmetryPoint)
         {
@@ -9885,7 +9894,7 @@ namespace PrePoMax
                     prevStepIncrementIds = currentStepIncrement.Split(new string[] { ",", " " }, StringSplitOptions.RemoveEmptyEntries);
                 }
                 // Set all increments
-                tscbStepAndIncrement.SelectedIndexChanged -= FieldOutput_SelectionChanged;  // detach event
+                tscbStepAndIncrement.SelectedIndexChanged -= tscbStepAndIncrement_SelectionChanged;  // detach event
                 tscbStepAndIncrement.Items.Clear();
                 Dictionary<int, int[]> allIds = _controller.CurrentResult.GetAllExistingIncrementIds();
                 int lastStepId = 1;
@@ -9899,7 +9908,7 @@ namespace PrePoMax
                     }
                     lastStepId = entry.Key;
                 }
-                tscbStepAndIncrement.SelectedIndexChanged += FieldOutput_SelectionChanged;  // reattach event
+                tscbStepAndIncrement.SelectedIndexChanged += tscbStepAndIncrement_SelectionChanged;  // reattach event
                 // Reselect previous step and increment
                 if (prevStepIncrementIds != null)
                 {
@@ -9918,14 +9927,14 @@ namespace PrePoMax
                 // Set the combo box
                 if (tscbStepAndIncrement.Items.Contains(stepIncrement))
                 {
-                    tscbStepAndIncrement.SelectedIndexChanged -= FieldOutput_SelectionChanged;
+                    tscbStepAndIncrement.SelectedIndexChanged -= tscbStepAndIncrement_SelectionChanged;    // detach event
                     tscbStepAndIncrement.SelectedItem = stepIncrement;
                     // Set the step and increment if the combo box set was successful
                     FieldData data = _controller.CurrentFieldData;
                     data.StepId = stepId;
                     data.StepIncrementId = incrementId;
                     _controller.CurrentFieldData = data;   // to correctly update the increment time
-                    tscbStepAndIncrement.SelectedIndexChanged += FieldOutput_SelectionChanged;
+                    tscbStepAndIncrement.SelectedIndexChanged += tscbStepAndIncrement_SelectionChanged;  // reattach event
                 }
                 else SetDefaultStepAndIncrementIds();
             });
