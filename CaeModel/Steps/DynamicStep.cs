@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -60,7 +60,7 @@ namespace CaeModel
             : base(name, false)
         {
             _alpha = AlphaDefault;
-            _solutionProcedure = SolutionProcedureEnum.ExplicitExplicit;
+            _solutionProcedure = SolutionProcedureEnum.ImplicitImplicit;
             _relativeToAbsolute = false;
             _damping = new Damping();
             _incrementationType = IncrementationTypeEnum.Automatic;
