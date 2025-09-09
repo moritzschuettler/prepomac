@@ -156,22 +156,10 @@ namespace UserControls
         {
             if (e.Control)
             {
-                if (e.KeyCode == Keys.C)
-                {
-                    tsmiCopy_Click(null, null);
-                }
-                else if (e.KeyCode == Keys.X)
-                {
-                    tsmiCut_Click(null, null);
-                }
-                else if (e.KeyCode == Keys.V)
-                {
-                    tsmiPaste_Click(null, null);
-                }
-                else if (e.KeyCode == Keys.P)
-                {
-                    tsmiPlot_Click(null, null);
-                }
+                if (e.KeyCode == Keys.C) tsmiCopy_Click(null, null);
+                else if (e.KeyCode == Keys.X) tsmiCut_Click(null, null);
+                else if (e.KeyCode == Keys.V) tsmiPaste_Click(null, null);
+                else if (e.KeyCode == Keys.P) tsmiPlot_Click(null, null);
             }
         }
         // Context menu
@@ -356,7 +344,7 @@ namespace UserControls
         protected override bool ProcessDialogKey(Keys keyData)
         {
             // Used inside a WinForms control (commonly a Form or a custom control derived from Control) to handle special
-            // dialog keys before they are sent to the focused control.
+            // dialog keys before they are sent to the focused control
             try
             {
                 if (_editControl != null && autocompleteMenu.Visible)
@@ -374,6 +362,7 @@ namespace UserControls
         }
         protected override bool ProcessDataGridViewKey(KeyEventArgs e)
         {
+            // Customize how a DataGridView handles keyboard input before it gets processed normally
             try
             {
                 if (_editControl != null && autocompleteMenu.Visible)
@@ -384,35 +373,13 @@ namespace UserControls
                         return false;
                     }
                 }
-
-
-
+                // Process Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+P
                 if (e.Control)
                 {
-                    if (e.KeyCode == Keys.C)
-                    {
-                        tsmiCopy_Click(null, null); return true;
-                    }
-                    else if (e.KeyCode == Keys.X)
-                    {
-                        tsmiCut_Click(null, null); return true;
-                    }
-                    else if (e.KeyCode == Keys.V)
-                    {
-                        tsmiPaste_Click(null, null); return true;
-                    }
-                    else if (e.KeyCode == Keys.P)
-                    {
-                        tsmiPlot_Click(null, null); return true;
-                    }
+                    if (e.KeyCode == Keys.C || e.KeyCode == Keys.X || e.KeyCode == Keys.V || e.KeyCode == Keys.P)
+                        return true;
                 }
-
-
-
-                //else if (e.KeyCode == Keys.Control && e.KeyCode == Keys.C)
-                //{
-                //    return false;
-                //}
+                //
                 return base.ProcessDataGridViewKey(e);
             }
             catch (Exception ex)
@@ -476,15 +443,11 @@ namespace UserControls
         }
         private void CopyToClipboard()
         {
-            lock (_myLock)
+            lock (_myLock)  // not sure this helps
             {
-                System.Diagnostics.Debug.WriteLine("CopyToClipboard: Start");
-
                 // Copy to clipboard
                 DataObject dataObj = GetClipboardContent();
                 if (dataObj != null) Clipboard.SetDataObject(dataObj);
-
-                System.Diagnostics.Debug.WriteLine("CopyToClipboard: End");
             }
         }
         private void PasteClipboardValue()
