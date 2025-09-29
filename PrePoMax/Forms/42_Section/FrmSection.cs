@@ -509,7 +509,7 @@ namespace PrePoMax.Forms
             {
                 if (Section is null) { }
                 else if (Section is SolidSection) _controller.SetSelectItemToPart();
-                else if (Section is ShellSection) _controller.SetSelectItemToGeometry();
+                else if (Section is ShellSection) _controller.SetSelectItemToGeometrySurface();
                 else if (Section is MembraneSection) _controller.SetSelectItemToGeometry();
                 else if (Section is PointMassSection) _controller.SetSelectItemToNode();
                 else if (Section is DistributedMassSection) _controller.SetSelectItemToSurface();

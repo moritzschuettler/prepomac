@@ -736,7 +736,8 @@ namespace CaeResults
                     // Replace field
                     results.ReplaceOrAddField(fieldData, currentField);
                 }
-                else if (fieldData.Name == FOFieldNames.MeshDeformation || fieldData.Name == FOFieldNames.DispDeformationDepth)
+                else if (fieldData.Name == FOFieldNames.MeshDeformation || fieldData.Name == FOFieldNames.DispDeformation || 
+                         fieldData.Name == FOFieldNames.DispDeformationDepth)
                 {
                     // U1
                     values1 = currentField.GetComponentValues(FOComponentNames.U1);
@@ -1034,6 +1035,7 @@ namespace CaeResults
             names.Add("Surface Normals", FOFieldNames.SurfaceNormal);
             names.Add("Wear Depths", FOFieldNames.WearDepth);
             names.Add("Mesh Deformation", FOFieldNames.MeshDeformation);
+            names.Add("Disp&Def", FOFieldNames.DispDeformation);
             names.Add("Disp&Def&Depth", FOFieldNames.DispDeformationDepth);
             return names;
         }
@@ -1055,7 +1057,10 @@ namespace CaeResults
         private string[] GetDeformationFieldOutputComponentNames(string deformationFieldOutputName)
         {
             string[] componentNames = null;
-            if (deformationFieldOutputName == FOFieldNames.Disp || deformationFieldOutputName == FOFieldNames.DispR)
+            if (deformationFieldOutputName == FOFieldNames.Disp || deformationFieldOutputName == FOFieldNames.DispR ||
+                deformationFieldOutputName == FOFieldNames.MeshDeformation ||
+                deformationFieldOutputName == FOFieldNames.DispDeformation ||
+                deformationFieldOutputName == FOFieldNames.DispDeformationDepth)
             {
                 componentNames = new string[] { FOComponentNames.U1, FOComponentNames.U2, FOComponentNames.U3 };
             }
@@ -1070,14 +1075,6 @@ namespace CaeResults
             else if (deformationFieldOutputName == FOFieldNames.WearDepth)
             {
                 componentNames = new string[] { FOComponentNames.H1, FOComponentNames.H2, FOComponentNames.H3 };
-            }
-            else if (deformationFieldOutputName == FOFieldNames.MeshDeformation)
-            {
-                componentNames = new string[] { FOComponentNames.U1, FOComponentNames.U2, FOComponentNames.U3 };
-            }
-            else if (deformationFieldOutputName == FOFieldNames.DispDeformationDepth)
-            {
-                componentNames = new string[] { FOComponentNames.U1, FOComponentNames.U2, FOComponentNames.U3 };
             }
             return componentNames;
         }
@@ -1709,6 +1706,7 @@ namespace CaeResults
                     case FOFieldNames.SurfaceNormal:
                     case FOFieldNames.WearDepth:
                     case FOFieldNames.MeshDeformation:
+                    case FOFieldNames.DispDeformation:
                     case FOFieldNames.DispDeformationDepth:
                         unitConverter = new StringLengthConverter();
                         unitAbbreviation = _unitSystem.LengthUnitAbbreviation;
@@ -5133,6 +5131,10 @@ namespace CaeResults
                 float[] dispValuesU1;
                 float[] dispValuesU2;
                 float[] dispValuesU3;
+                float[] dispDefWearValuesMag = null;
+                float[] dispDefWearValuesU1 = null;
+                float[] dispDefWearValuesU2 = null;
+                float[] dispDefWearValuesU3 = null;
                 //
                 Field pressureField;
                 Field slidingDistanceField;
@@ -5170,10 +5172,10 @@ namespace CaeResults
                             // Disp
                             dispData = GetFieldData(FOFieldNames.Disp, "", slipStepIds[i], stepIncrementIds[j]);
                             dispField = GetField(dispData);
-                            dispValuesMag = new float[pressureValues.Length];
                             dispValuesU1 = dispField.GetComponentValues(FOComponentNames.U1).ToArray(); // copy
                             dispValuesU2 = dispField.GetComponentValues(FOComponentNames.U2).ToArray(); // copy
                             dispValuesU3 = dispField.GetComponentValues(FOComponentNames.U3).ToArray(); // copy
+                            dispValuesMag = dispField.GetComponentValues(FOComponentNames.All).ToArray(); // copy
                             // Sliding distance
                             slidingDistanceData = GetFieldData(FOFieldNames.SlidingDistance, "",
                                                                slipStepIds[i], stepIncrementIds[j]);
@@ -5189,9 +5191,7 @@ namespace CaeResults
                             normalN2Values = normalField.GetComponentValues(FOComponentNames.N2).ToArray();
                             normalN3Values = normalField.GetComponentValues(FOComponentNames.N3).ToArray();
 
-
                             MapVectorFromSourceToDestination(ref normalN1Values, ref normalN2Values, ref normalN3Values);
-
 
                             // Adjust normals based on zero BCs inside the wear step
                             if (nodeIdZeroDisplacements != null)
@@ -5213,11 +5213,7 @@ namespace CaeResults
                                     normalN3Values[id] = (float)normal.Z;
                                 }
                             }
-                            // Wear depth
-                            depthValuesMag = new float[pressureValues.Length];
-                            depthValuesH1 = new float[pressureValues.Length];
-                            depthValuesH2 = new float[pressureValues.Length];
-                            depthValuesH3 = new float[pressureValues.Length];
+                            // Initialize 
                             if (prevDepthValuesMag == null)
                             {
                                 prevDepthValuesMag = new float[pressureValues.Length];
@@ -5225,6 +5221,11 @@ namespace CaeResults
                                 prevDepthValuesH2 = new float[pressureValues.Length];
                                 prevDepthValuesH3 = new float[pressureValues.Length];
                             }
+                            // Wear depth
+                            depthValuesMag = new float[pressureValues.Length];
+                            depthValuesH1 = new float[pressureValues.Length];
+                            depthValuesH2 = new float[pressureValues.Length];
+                            depthValuesH3 = new float[pressureValues.Length];
                             //
                             for (int k = 0; k < depthValuesMag.Length; k++)
                             {
@@ -5233,22 +5234,30 @@ namespace CaeResults
                                 depthValuesH1[k] = dh * normalN1Values[k] + prevDepthValuesH1[k];
                                 depthValuesH2[k] = dh * normalN2Values[k] + prevDepthValuesH2[k];
                                 depthValuesH3[k] = dh * normalN3Values[k] + prevDepthValuesH3[k];
-                                // Disp with wear depth
-                                dispValuesU1[k] += depthValuesH1[k];
-                                dispValuesU2[k] += depthValuesH2[k];
-                                dispValuesU3[k] += depthValuesH3[k];
-                                dispValuesMag[k] = (float)Math.Sqrt(Math.Pow(dispValuesU1[k], 2) +
-                                                                    Math.Pow(dispValuesU2[k], 2) +
-                                                                    Math.Pow(dispValuesU3[k], 2));
                             }
                             //
                             prevDepthValuesMag = depthValuesMag.ToArray(); // must copy due to smoothing
                             prevDepthValuesH1 = depthValuesH1.ToArray();
                             prevDepthValuesH2 = depthValuesH2.ToArray();
                             prevDepthValuesH3 = depthValuesH3.ToArray();
-                            // Smoothing
+                            // Smoothing      !!!!!!!!!!!!
                             SmoothVectorField(ref depthValuesH1, ref depthValuesH2, ref depthValuesH3, ref depthValuesMag,
                                               numOfSmoothingSteps);
+                            // Displacements and wear depth - mesh deformation is added later - private void AddFieldOutputs
+                            dispDefWearValuesU1 = new float[pressureValues.Length];
+                            dispDefWearValuesU2 = new float[pressureValues.Length];
+                            dispDefWearValuesU3 = new float[pressureValues.Length];
+                            dispDefWearValuesMag = new float[pressureValues.Length];
+                            for (int k = 0; k < depthValuesMag.Length; k++)
+                            {
+                                // Displacements with wear depth
+                                dispDefWearValuesU1[k] = dispValuesU1[k] + depthValuesH1[k];
+                                dispDefWearValuesU2[k] = dispValuesU2[k] + depthValuesH2[k];
+                                dispDefWearValuesU3[k] = dispValuesU3[k] + depthValuesH3[k];
+                                dispDefWearValuesMag[k] = (float)Math.Sqrt(Math.Pow(dispValuesU1[k], 2) +
+                                                                           Math.Pow(dispValuesU2[k], 2) +
+                                                                           Math.Pow(dispValuesU3[k], 2));
+                            }
                             // Wear depth
                             depthData = new FieldData(FOFieldNames.WearDepth);
                             depthData.StepId = slipStepIds[i];
@@ -5273,15 +5282,22 @@ namespace CaeResults
                             meshUpdateField.AddComponent(FOComponentNames.U2, new float[pressureValues.Length]);
                             meshUpdateField.AddComponent(FOComponentNames.U3, new float[pressureValues.Length]);
                             AddField(meshUpdateData, meshUpdateField);
-                            // Disp with wear depth
-                            dispData.Name = FOFieldNames.DispDeformationDepth;
+                            // Displacements and mesh deformation
+                            dispData.Name = FOFieldNames.DispDeformation;
                             dispField = new Field(dispData.Name);
                             dispField.AddComponent(FOComponentNames.All, dispValuesMag);
                             dispField.AddComponent(FOComponentNames.U1, dispValuesU1);
                             dispField.AddComponent(FOComponentNames.U2, dispValuesU2);
                             dispField.AddComponent(FOComponentNames.U3, dispValuesU3);
                             AddField(dispData, dispField);
-                           
+                            // Displacements and mesh deformation and wear depth
+                            dispData.Name = FOFieldNames.DispDeformationDepth;
+                            dispField = new Field(dispData.Name);
+                            dispField.AddComponent(FOComponentNames.All, dispDefWearValuesMag);
+                            dispField.AddComponent(FOComponentNames.U1, dispDefWearValuesU1);
+                            dispField.AddComponent(FOComponentNames.U2, dispDefWearValuesU2);
+                            dispField.AddComponent(FOComponentNames.U3, dispDefWearValuesU3);
+                            AddField(dispData, dispField);
                         }
                     }
                 }

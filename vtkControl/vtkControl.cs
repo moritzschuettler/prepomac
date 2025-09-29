@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
 using System.Management;
@@ -109,7 +108,9 @@ namespace vtkControl
         //
         private HashSet<string> _selectableActorsFilter;
         // Follower view
-        private double[] _followerViewPoint1Display;
+        private string[] _followerViewPartNames = null;
+        private int[] _followerViewPointIds = null;
+        private double[][] _followerViewPointCoor = null;
         // Camera path
         private bool _drawCameraPath = false;
         private List<double[]> _positions;
@@ -2500,7 +2501,7 @@ namespace vtkControl
             double[] fPoint = camera.GetFocalPoint();
             camera.SetPosition(fPoint[0] + delta[0], fPoint[1] + delta[1], fPoint[2] + delta[2]);
             //
-            SetVerticalView(false, false);
+            //SetVerticalView(false, false);
             //
             if (animate) AnimateCamera(cameraStart, camera, camera);
             else RenderScene();
@@ -5132,34 +5133,201 @@ namespace vtkControl
 
 
         #region Follower view  #####################################################################################################
-
-        public void SetFollowerView(double[] coor1)
+        public void ApplyFollowerView(string[] partNames, int[] nodeIds)
         {
-            //_followerViewPoint1Display = vtkInteractorStyleControl.WorldToDisplay(_renderer, coor1);
+            if (partNames == null || partNames.Length == 0 || nodeIds == null || partNames.Length != nodeIds.Length) return;
+            //
+            _followerViewPartNames = partNames;
+            _followerViewPointIds = new int[partNames.Length];
+            _followerViewPointCoor = new double[partNames.Length][];
+            //
+            _followerViewPointIds[0] = GetPointId(_followerViewPartNames[0], nodeIds[0]);
+            //
+            if (_followerViewPartNames.Length == 3)
+            {
+                _followerViewPointIds[1] = GetPointId(_followerViewPartNames[1], nodeIds[1]);
+                _followerViewPointIds[2] = GetPointId(_followerViewPartNames[2], nodeIds[2]);
+            }
+            //
+            UpdateFollowerView();
         }
-        public void ApplyFollowerView(double[] coor1)
+        private int GetPointId(string partName, int nodeId)
         {
-            if (_followerViewPoint1Display == null || _followerViewPoint1Display.Length != 3) _followerViewPoint1Display = coor1;
-
-            double[] display = vtkInteractorStyleControl.WorldToDisplay(_renderer, _followerViewPoint1Display);
-
-            double[] followerViewPoint1World = vtkInteractorStyleControl.DisplayToWorld(_renderer, display);
-            Vec3D delta = new Vec3D(followerViewPoint1World) - new Vec3D(coor1);
+            if (partName == null) return -1;
             //
+            vtkMaxActor actor;
+            if (_actors.TryGetValue(partName, out actor))
+            {
+                vtkDataSet dataset = actor.GeometryMapper.GetInputAsDataSet();
+                vtkUnsignedLongArray globalIds = vtkUnsignedLongArray.SafeDownCast(dataset.GetPointData().GetGlobalIds());
+                if (globalIds != null)
+                {
+                    long numPoints = dataset.GetNumberOfPoints();
+                    for (long i = 0; i < numPoints; i++)
+                    {
+                        if (globalIds.GetValue(i) == nodeId)
+                        {
+                            return (int)i;
+                        }
+                    }
+                }
+            }
+            return -1;
+        }
+        public void UpdateFollowerView()
+        {
+            if (_followerViewPartNames == null) return;
+            //
+            if (_followerViewPartNames.Length == 1)
+            {
+                UpdateFollowerViewPint();
+            }
+            else if (_followerViewPartNames.Length == 3)
+            {
+                UpdateFollowerViewPlane();
+            }
+        }
+        public void UpdateFollowerViewPint()
+        {
+            vtkMaxActor actor;
+            double[] centerPointCoor;
+            //
+            if (_actors.TryGetValue(_followerViewPartNames[0], out actor))
+            {
+                vtkDataSet dataset = actor.GeometryMapper.GetInputAsDataSet();
+                centerPointCoor = dataset.GetPoint(_followerViewPointIds[0]);
+            }
+            else return;
+            //
+            if (_followerViewPointCoor[0] == null) _followerViewPointCoor[0] = centerPointCoor;
+            else
+            {
+                Vec3D delta = new Vec3D(_followerViewPointCoor[0]) - new Vec3D(centerPointCoor);
+                //
+                vtkCamera camera = _renderer.GetActiveCamera();
+                Vec3D position = new Vec3D(camera.GetPosition());
+                Vec3D focalPoint = new Vec3D(camera.GetFocalPoint());
+                // Move only in the view plane
+                Vec3D normal = new Vec3D(camera.GetViewPlaneNormal());
+                double t = Vec3D.DotProduct(normal, delta);
+                Vec3D projection = t * normal;
+                delta -= projection;
+                //
+                position -= delta;
+                focalPoint -= delta;
+                //
+                camera.SetPosition(position.X, position.Y, position.Z);
+                camera.SetFocalPoint(focalPoint.X, focalPoint.Y, focalPoint.Z);
+                _renderer.SetActiveCamera(camera);
+                _style.AdjustCameraDistanceAndClipping();
+                //
+                _followerViewPointCoor[0] = centerPointCoor;
+            }
+        }
+        public void UpdateFollowerViewPlane()
+        {
+            Vec3D p1;
+            Vec3D p2;
+            Vec3D p3;
+            vtkMaxActor actor;
+            if (_actors.TryGetValue(_followerViewPartNames[0], out actor))
+            {
+                vtkDataSet dataset = actor.GeometryMapper.GetInputAsDataSet();
+                p1 = new Vec3D(dataset.GetPoint(_followerViewPointIds[0]));
+            }
+            else return;
+            if (_actors.TryGetValue(_followerViewPartNames[1], out actor))
+            {
+                vtkDataSet dataset = actor.GeometryMapper.GetInputAsDataSet();
+                p2 = new Vec3D(dataset.GetPoint(_followerViewPointIds[1]));
+            }
+            else return;
+            if (_actors.TryGetValue(_followerViewPartNames[2], out actor))
+            {
+                vtkDataSet dataset = actor.GeometryMapper.GetInputAsDataSet();
+                p3 = new Vec3D(dataset.GetPoint(_followerViewPointIds[2]));
+            }
+            else return;
+            //
+            if (_followerViewPointCoor[0] == null) _followerViewPointCoor[0] = p1.Coor;
+            if (_followerViewPointCoor[1] == null) _followerViewPointCoor[1] = p2.Coor;
+            if (_followerViewPointCoor[2] == null) _followerViewPointCoor[2] = p3.Coor;
+            // Get previous coordinates as vectors
+            Vec3D p1Prev = new Vec3D(_followerViewPointCoor[0]);
+            Vec3D p2Prev = new Vec3D(_followerViewPointCoor[1]);
+            Vec3D p3Prev = new Vec3D(_followerViewPointCoor[2]);
+            // Compute pervious centroid
+            Vec3D cPrev = (p1Prev + p2Prev + p3Prev) * (1.0 / 3.0);
+            // Compute previous basis
+            Vec3D e1Prev = p2Prev - p1Prev; e1Prev.Normalize();
+            Vec3D nPrev = Vec3D.CrossProduct(p2Prev - p1Prev, p3Prev - p1Prev); nPrev.Normalize();
+            Vec3D e2Prev = Vec3D.CrossProduct(nPrev, e1Prev);
+            // Compute rotation matrix from previous basis
+            double[][] RPrev = new double[3][]
+            {
+                new double[] { e1Prev.X, e2Prev.X, nPrev.X },
+                new double[] { e1Prev.Y, e2Prev.Y, nPrev.Y },
+                new double[] { e1Prev.Z, e2Prev.Z, nPrev.Z }
+            };
+            // Compute current centroid
+            Vec3D cCur = (p1 + p2 + p3) * (1.0 / 3.0);
+            // Compute current basis
+            Vec3D e1Cur = p2 - p1; e1Cur.Normalize();
+            Vec3D nCur = Vec3D.CrossProduct(p2 - p1, p3 - p1); nCur.Normalize();
+            Vec3D e2Cur = Vec3D.CrossProduct(nCur, e1Cur);
+            // Compute rotation matrix from current basis
+            double[][] RCur = new double[3][]
+            {
+                new double[] { e1Cur.X, e2Cur.X, nCur.X },
+                new double[] { e1Cur.Y, e2Cur.Y, nCur.Y },
+                new double[] { e1Cur.Z, e2Cur.Z, nCur.Z }
+            };
+            // Compute rotation delta
+            double[][] RPrevT = Matrix.MatrixTranspose(RPrev);
+            double[][] RDelta = Matrix.MatrixProduct(RCur, RPrevT);
+            // Compute translation delta
+            Vec3D Rc = MultiplyMatrixVector(RDelta, cPrev);
+            Vec3D tDelta = cCur - Rc;
+            // Inverse transform
+            double[][] RInv = (RDelta);
+            Vec3D tInv = MultiplyMatrixVector(RInv, tDelta);
+            // Apply to camera
             vtkCamera camera = _renderer.GetActiveCamera();
-            Vec3D position = new Vec3D(camera.GetPosition());
-            Vec3D focalPoint = new Vec3D(camera.GetFocalPoint());
-            //Vec3D normal = new Vec3D(camera.GetViewPlaneNormal());
+            Vec3D pos = new Vec3D(camera.GetPosition());
+            Vec3D foc = new Vec3D(camera.GetFocalPoint());
+            Vec3D up = new Vec3D(camera.GetViewUp());
             //
-            position -= delta;
-            focalPoint -= delta;
-
-            camera.SetPosition(position.X, position.Y, position.Z);
-            camera.SetFocalPoint(focalPoint.X, focalPoint.Y, focalPoint.Z);
+            pos = MultiplyMatrixVector(RInv, pos) + tInv;
+            foc = MultiplyMatrixVector(RInv, foc) + tInv;
+            up = MultiplyMatrixVector((RInv), up);
+            //
+            camera.SetPosition(pos.X, pos.Y, pos.Z);
+            camera.SetFocalPoint(foc.X, foc.Y, foc.Z);
+            camera.SetViewUp(up.X, up.Y, up.Z);
+            //
             _renderer.SetActiveCamera(camera);
             _style.AdjustCameraDistanceAndClipping();
+            //
+            _followerViewPointCoor[0] = p1.Coor;
+            _followerViewPointCoor[1] = p2.Coor;
+            _followerViewPointCoor[2] = p3.Coor;
+        }
 
-            _followerViewPoint1Display = coor1;
+        // --- Helper: multiply 3x3 matrix with Vec3D
+        private Vec3D MultiplyMatrixVector(double[][] M, Vec3D v)
+        {
+            return new Vec3D(
+                M[0][0] * v.X + M[0][1] * v.Y + M[0][2] * v.Z,
+                M[1][0] * v.X + M[1][1] * v.Y + M[1][2] * v.Z,
+                M[2][0] * v.X + M[2][1] * v.Y + M[2][2] * v.Z
+            );
+        }
+
+        public void RemoveFollowerView()
+        {
+            _followerViewPartNames = null;
+            _followerViewPointIds = null;
+            _followerViewPointCoor = null;
         }
 
         #endregion  ################################################################################################################
@@ -6033,6 +6201,12 @@ namespace vtkControl
         #endregion #################################################################################################################
 
         #region Animation ##########################################################################################################
+        public float GetAnimationScaleFactor(int frameNumber)
+        {
+            if (_animationFrameData != null && _animationFrameData.ScaleFactor != null &&
+                _animationFrameData.ScaleFactor.Length > frameNumber) return _animationFrameData.ScaleFactor[frameNumber];
+            else return float.NaN;
+        }
         public void SetAnimationFrameData(float[] time, int[] stepId, int[] stepIncrementId, float[] scale,
                                           double[] allFramesScalarRange, vtkMaxAnimationType animationType)
         {
@@ -6048,6 +6222,8 @@ namespace vtkControl
         {
             if (_animationAcceleration) SetAnimationFrameAllActors(frameNumber, scalarRangeFromAllFrames);
             else SetAnimationFrameAddRemoveActors(frameNumber, scalarRangeFromAllFrames);
+            //
+            UpdateFollowerView();
         }
         private void SetAnimationFrameAddRemoveActors(int frameNumber, bool scalarRangeFromAllFrames)
         {

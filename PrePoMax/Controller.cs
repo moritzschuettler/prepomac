@@ -18,6 +18,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Management;
+using System.Runtime.Remoting.Metadata.W3cXsd2001;
 using System.Runtime.Serialization;
 using System.Security.Policy;
 using System.Text;
@@ -27,6 +28,7 @@ using System.Xml.Linq;
 using UserControls;
 using vtkControl;
 using static CaeGlobals.Geometry2;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolTip;
 
 namespace PrePoMax
@@ -180,33 +182,6 @@ namespace PrePoMax
                     _form.SetCurrentEdgesVisibilities(value);
                 }
             }
-        }
-        // Section view
-        public bool IsSectionViewActive()
-        {
-            return _sectionViews.IsSectionViewActive();
-        }
-        public Octree.Plane GetSectionViewPlane()
-        {
-            return _sectionViews.GetCurrentSectionViewPlane();
-        }
-        // Exploded view
-        public bool IsExplodedViewActive()
-        {
-            return _explodedViews.IsExplodedViewActive();
-        }
-        public ExplodedViewParameters GetCurrentExplodedViewParameters()
-        {
-            return _explodedViews.GetCurrentExplodedViewParameters();
-        }
-        // Follower view
-        public bool IsFollowerViewActive()
-        {
-            return _followerViews.IsFollowerViewActive();
-        }
-        public FollowerViewParameters GetCurrentFollowerViewParameters()
-        {
-            return _followerViews.GetCurrentFollowerViewParameters();
         }
         // Annotate
         public AnnotateWithColorEnum AnnotateWithColor
@@ -593,8 +568,6 @@ namespace PrePoMax
             _sectionViews.ClearModelSectionViews();
             // Exploded view
             _explodedViews.ClearModelExplodedViews();
-            // Follower view
-            _followerViews.ClearModelFollowerViews();
             // New
             OrderedDictionary<string, EquationParameter> overriddenParameters = null;
             if (_model != null) overriddenParameters = _model.Parameters.OverriddenParameters;
@@ -615,8 +588,8 @@ namespace PrePoMax
             _sectionViews.ClearResultsSectionViews();
             // Exploded view
             _explodedViews.ClearResultsExplodedViews();
-            // Exploded view
-            _followerViews.ClearResultFollowerViews();
+            // Follower view
+            ClearAllFollowerViews();
             // Annotations
             _annotations.RemoveAllResultArrowAnnotations();
             //
@@ -1363,7 +1336,7 @@ namespace PrePoMax
                     allResults = tmp._allResults;
                     //
                     FeModel.ReadFromBinaryReader(model, br, version);
-                    model.UpdateNCalcParameters();
+                    UpdateNCalcParameters(false);
                     //
                     if (!ResultsCollection.ReadFromFileStream(allResults, fileStream, version))
                     {
@@ -2166,7 +2139,12 @@ namespace PrePoMax
         public void ExportToCalculix(string fileName, Dictionary<int, double[]> deformations = null)
         {
             SuppressExplodedView();
-            CalculixFileWriter.Write(fileName, _model, _settings.Calculix.ConvertPyramidsTo, deformations);
+            // Add deformations to model
+            _model.Mesh.UpdateNodalCoordinatesFromDeformations(deformations);   
+            UpdateNCalcParameters();
+            CalculixFileWriter.Write(fileName, _model, _settings.Calculix.ConvertPyramidsTo);
+            // Remove deformations from model
+            _model.Mesh.UpdateNodalCoordinatesFromDeformations(deformations, true);
             ResumeExplodedViews(false);
             //
             _form.WriteDataToOutput("Model exported to file: " + fileName);
@@ -2190,7 +2168,7 @@ namespace PrePoMax
                 }
                 newModel.Mesh.Parts = meshParts;
                 //
-                FileInOut.Output.CalculixFileWriter.Write(fileName, newModel, _settings.Calculix.ConvertPyramidsTo);
+                CalculixFileWriter.Write(fileName, newModel, _settings.Calculix.ConvertPyramidsTo);
                 ResumeExplodedViews(false);
                 //
                 _form.WriteDataToOutput("Deformed mesh exported to file: " + fileName);
@@ -2435,6 +2413,11 @@ namespace PrePoMax
 
         #region View menu   ########################################################################################################
         // Section view
+        public bool IsSectionViewActive()
+        {
+            return _sectionViews.IsSectionViewActive();
+        }
+        
         public void ApplySectionView()
         {
             Octree.Plane plane = _sectionViews.GetCurrentSectionViewPlane();
@@ -2479,15 +2462,6 @@ namespace PrePoMax
         {
             return _form.GetViewPlaneNormal();
         }
-        public Vec3D GetSectionViewBBCenter()
-        {
-            double[] box = GetBoundingBox();
-            Vec3D center = new Vec3D();
-            center.X = Tools.RoundToSignificantDigits((box[0] + box[1]) / 2, 6);
-            center.Y = Tools.RoundToSignificantDigits((box[2] + box[3]) / 2, 6);
-            center.Z = Tools.RoundToSignificantDigits((box[4] + box[5]) / 2, 6);
-            return center;
-        }
         public double[] GetDefaultSectionViewNormal()
         {
             double[] vpn = GetViewPlaneNormal();
@@ -2508,7 +2482,28 @@ namespace PrePoMax
             }
             return vpn;
         }
+        public Octree.Plane GetSectionViewPlane()
+        {
+            return _sectionViews.GetCurrentSectionViewPlane();
+        }
+        public Vec3D GetSectionViewBBCenter()
+        {
+            double[] box = GetBoundingBox();
+            Vec3D center = new Vec3D();
+            center.X = Tools.RoundToSignificantDigits((box[0] + box[1]) / 2, 6);
+            center.Y = Tools.RoundToSignificantDigits((box[2] + box[3]) / 2, 6);
+            center.Z = Tools.RoundToSignificantDigits((box[4] + box[5]) / 2, 6);
+            return center;
+        }
         // Exploded view
+        public bool IsExplodedViewActive()
+        {
+            return _explodedViews.IsExplodedViewActive();
+        }
+        public ExplodedViewParameters GetCurrentExplodedViewParameters()
+        {
+            return _explodedViews.GetCurrentExplodedViewParameters();
+        }
         public void PreviewExplodedView(ExplodedViewParameters parameters, bool animate,
                                         Dictionary<string, double[]> partOffsets = null,
                                         int timeMs = 500)
@@ -2752,13 +2747,54 @@ namespace PrePoMax
             return partOffsets;
         }
         // Follower view
-        public void ApplyFollowerView(FollowerViewParameters parameters)
+        public bool IsFollowerViewActive()
         {
-            _followerViews.SetCurrentFollowerViewParameters(parameters);
+            return _followerViews.IsFollowerViewActive();
         }
-        public FollowerViewParameters GetFollowerViewParameters()
+        public FollowerViewParameters GetCurrentFollowerViewParameters()
         {
             return _followerViews.GetCurrentFollowerViewParameters();
+        }
+        public void ApplyFollowerView(FollowerViewParameters parameters)
+        {
+            RemoveCurrentFollowerView();
+            //
+            int numOfNodes = parameters.Type == FollowerViewTypeEnum.Point ? 1 : 3;
+            string[] partNames = new string[numOfNodes];
+            int[] nodeIds = new int[numOfNodes];
+            FeMesh mesh = DisplayedMesh;
+            //
+            if (numOfNodes >= 1)
+            {
+                partNames[0] = mesh.GetPartNameFromNodeId(parameters.CenterNodeId);
+                nodeIds[0] = parameters.CenterNodeId;
+            }
+            if (numOfNodes == 3)
+            {
+                partNames[1] = mesh.GetPartNameFromNodeId(parameters.Direction1NodeId);
+                nodeIds[1] = parameters.Direction1NodeId;
+                partNames[2] = mesh.GetPartNameFromNodeId(parameters.Direction2NodeId);
+                nodeIds[2] = parameters.Direction2NodeId;
+            }
+            _followerViews.SetCurrentFollowerViewParameters(parameters);
+            //
+            _form.ApplyFollowerView(partNames, nodeIds);
+        }
+        public void RemoveCurrentFollowerView()
+        {
+            if (_followerViews != null)
+            {
+                _followerViews.RemoveCurrentFollowerView();
+                _form.RemoveFollowerView();
+            }
+        }
+        public void ClearAllFollowerViews()
+        {
+            if (_followerViews != null)
+            {
+                _followerViews.ClearResultFollowerViews();
+                _form.RemoveFollowerView();
+            }
         }
         // Parameterization
         public void ViewParameterization()
@@ -7292,7 +7328,8 @@ namespace PrePoMax
                     elementSet.CreationIds = GetSelectionIds();
                     elementSet.Labels = elementSet.CreationIds.ToArray();
                 }
-                else if (_selection.SelectItem == vtkSelectItem.Geometry)
+                else if (_selection.SelectItem == vtkSelectItem.Geometry ||
+                         _selection.SelectItem == vtkSelectItem.GeometrySurface)
                 {
                     if (_selection.CurrentView == (int)ViewGeometryModelResults.Model)
                     {
@@ -10878,6 +10915,12 @@ namespace PrePoMax
         //
         public void UpdateNCalcParameters(bool update = true)
         {
+            // Add functions
+            MyNCalc.Dist = Dist;
+            MyNCalc.DistX = DistX;
+            MyNCalc.DistY = DistY;
+            MyNCalc.DistZ = DistZ;
+            //
             _model.UpdateNCalcParameters();
             _allResults.UpdateResultEquations();
             //
@@ -10888,6 +10931,40 @@ namespace PrePoMax
                 else if (_currentView == ViewGeometryModelResults.Results)
                     FeResultsUpdate(UpdateType.Check | UpdateType.RedrawSymbols | UpdateType.DrawResults);
             }
+        }
+        public double Dist(int nodeId1, int nodeId2)
+        {
+            if (_model.Mesh.Nodes.TryGetValue(nodeId1, out FeNode n1) && _model.Mesh.Nodes.TryGetValue(nodeId2, out FeNode n2))
+            {
+                Vec3D v1 = new Vec3D(n1.Coor);
+                Vec3D v2 = new Vec3D(n2.Coor);
+                return (v2 - v1).Len;
+            }
+            else throw new CaeException("One of the node ids in the Dist() function does not exist.");
+        }
+        public double DistX(int nodeId1, int nodeId2)
+        {
+            if (_model.Mesh.Nodes.TryGetValue(nodeId1, out FeNode n1) && _model.Mesh.Nodes.TryGetValue(nodeId2, out FeNode n2))
+            {
+                return n2.X - n1.X;
+            }
+            else throw new CaeException("One of the node ids in the DistX() function does not exist.");
+        }
+        public double DistY(int nodeId1, int nodeId2)
+        {
+            if (_model.Mesh.Nodes.TryGetValue(nodeId1, out FeNode n1) && _model.Mesh.Nodes.TryGetValue(nodeId2, out FeNode n2))
+            {
+                return n2.Y - n1.Y;
+            }
+            else throw new CaeException("One of the node ids in the DistY() function does not exist.");
+        }
+        public double DistZ(int nodeId1, int nodeId2)
+        {
+            if (_model.Mesh.Nodes.TryGetValue(nodeId1, out FeNode n1) && _model.Mesh.Nodes.TryGetValue(nodeId2, out FeNode n2))
+            {
+                return n2.Z - n1.Z;
+            }
+            else throw new CaeException("One of the node ids in the DistZ() function does not exist.");
         }
         public Dictionary<string, object> GetPropertyParameters()
         {
@@ -18091,8 +18168,10 @@ namespace PrePoMax
                         // Create a key and check if the data already exists
                         vtkMaxActor[] actors;
                         FeNodeSet nodeSet = _model.Mesh.NodeSets[s.NodeSetName];
-                        string key =
-                            name + Globals.NameSeparator + Tools.GetHashCode(nodeSet.Labels) + Globals.NameSeparator + layer;
+                        string key = name + Globals.NameSeparator +
+                                     Tools.GetHashCode(nodeSet.Labels) + Globals.NameSeparator +
+                                     layer + Globals.NameSeparator +
+                                     backfaceCulling;   // for correct display of sections
                         if (!countOnly && GetActorsFromSelectionBuffer(key, out actors) && actors.Length == 1)
                         {
                             _form.AddActor(actors[0]);
@@ -18138,8 +18217,11 @@ namespace PrePoMax
                                 bool useSecondaryHighlightColor = false, bool drawEdges = false)
         {
             vtkMaxActor[] actors;
-            string key = _currentView + Globals.NameSeparator + prefixName + Globals.NameSeparator +
-                         Tools.GetHashCode(cells) + Globals.NameSeparator + layer;
+            string key = _currentView + Globals.NameSeparator + 
+                         prefixName + Globals.NameSeparator +
+                         Tools.GetHashCode(cells) + Globals.NameSeparator +
+                         layer + Globals.NameSeparator + 
+                         backfaceCulling;   // for correct display of sections
             if (GetActorsFromSelectionBuffer(key, out actors) && actors.Length == 2)
             {
                 _form.AddActor(actors[0]);
@@ -18203,8 +18285,11 @@ namespace PrePoMax
                     // Create a key and check if the data already exists
                     vtkMaxActor[] actors;
                     FeNodeSet nodeSet = _model.Mesh.NodeSets[s.NodeSetName];
-                    string key = _currentView + Globals.NameSeparator + name + Globals.NameSeparator +
-                                 Tools.GetHashCode(nodeSet.Labels) + Globals.NameSeparator + layer;
+                    string key = _currentView + Globals.NameSeparator +
+                                 name + Globals.NameSeparator +
+                                 Tools.GetHashCode(nodeSet.Labels) + Globals.NameSeparator +
+                                 layer + Globals.NameSeparator +
+                                 backfaceCulling;   // for correct display of sections
                     if (!countOnly && GetActorsFromSelectionBuffer(key, out actors) && actors.Length == 1)
                     {
                         _form.AddActor(actors[0]);
@@ -18327,7 +18412,8 @@ namespace PrePoMax
                     //
                     DrawNodes(name, nodeIds, color, layer, out _, nodeSize, onlyVisible, useSecondaryHighlightColor);
                 }
-                if (edgeIds.Length > 0) DrawEdgesByGeometryEdgeIds(name, edgeIds, color, layer, nodeSize, useSecondaryHighlightColor);
+                if (edgeIds.Length > 0) DrawEdgesByGeometryEdgeIds(name, edgeIds, color, layer, nodeSize,
+                                                                   useSecondaryHighlightColor);
                 if (surfaceFaceIds.Length > 0) DrawItemsBySurfaceIds(name + Globals.NameSeparator + "SurfaceFaces", surfaceFaceIds,
                                                                      color, layer, backfaceCulling,
                                                                      useSecondaryHighlightColor, drawSurfaceEdges);
@@ -19281,10 +19367,6 @@ namespace PrePoMax
             bool rendering = _form.RenderingOn;
             try
             {
-                double[] coor1 = _model.Mesh.Nodes[3929].Coor;
-                _form.SetFollowerView(coor1);
-
-
                 // Set the current view and call DrawResults
                 if (_currentView != ViewGeometryModelResults.Results) CurrentView = ViewGeometryModelResults.Results;
                 // Draw results
@@ -19309,11 +19391,6 @@ namespace PrePoMax
                                                                  _currentFieldData.StepIncrementId);
                     DrawAllResultParts(_currentFieldData, _settings.Post.UndeformedModelType,
                                        _settings.Post.UndeformedModelColor);
-
-                    
-                    double[] coor2 = GetScaledNode(scale, 3929).Coor;
-                    _form.ApplyFollowerView(coor2);
-
                     // Transformation
                     ApplyTransformation();
                     // Symbols
@@ -19322,7 +19399,9 @@ namespace PrePoMax
                     _annotations.DrawAnnotations();
                     // Section view
                     ApplySectionView();
-                    //
+                    // Follower view
+                    _form.UpdateFollowerView();
+                    // Selection
                     UpdateTreeSelection();
                     //
                     if (resetCamera) _form.SetFrontBackView(true, true); // animation:true is here to correctly draw max/min widgets 
@@ -19559,7 +19638,7 @@ namespace PrePoMax
             _annotations.DrawAnnotations(true);
             // Section view
             ApplySectionView();
-            // Animation field data
+            // Follower view
             var existingIncrements =
                 _allResults.CurrentResult.GetExistingIncrementIds(_currentFieldData.Name, _currentFieldData.Component);
             List<float> time = new List<float>();
@@ -19573,7 +19652,7 @@ namespace PrePoMax
                     time.Add(_allResults.CurrentResult.GetIncrementTime(entry.Key, entry.Value[i]));
                     stepId.Add(entry.Key);
                     stepIncrementId.Add(entry.Value[i]);
-                    animationScale.Add(-1);
+                    animationScale.Add(1);
                 }
             }
             _form.SetAnimationFrameData(time.ToArray(), stepId.ToArray(), stepIncrementId.ToArray(), animationScale.ToArray(),

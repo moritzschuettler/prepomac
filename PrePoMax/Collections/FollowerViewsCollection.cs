@@ -24,6 +24,7 @@ namespace PrePoMax
         {
             _controller = controller;
             _resultNameViewParameters = new Dictionary<string, FollowerViewParameters>();
+            _controller.ClearAllFollowerViews();
         }
 
 
@@ -57,9 +58,6 @@ namespace PrePoMax
             else throw new NotSupportedException();
         }
         // Clear
-        public void ClearModelFollowerViews()
-        {
-        }
         public void ClearResultFollowerViews()
         {
             _resultNameViewParameters.Clear();

@@ -166,22 +166,24 @@ namespace FileInOut.Input
                 int elementId = 1;
                 int maxParId = 1;
                 string[] lines = Tools.ReadAllLines(fileName);
+                string keyword;
                 // Read
                 for (int i = 0; i < lines.Length; i++)
                 {
-                    if (lines[i].ToUpper().StartsWith("VERTICES"))
+                    keyword = lines[i].Trim().ToUpper();
+                    if (keyword.StartsWith("VERTICES"))
                     {
                         ReadVertices(lines, ref i, ref nodeId, null, epsilon, ref nodes, out oldNodeIdNewNodeId);
                     }
-                    else if (lines[i].ToUpper().StartsWith("EDGES"))
+                    else if (keyword.StartsWith("EDGES"))
                     {
                         ReadEdges(lines, ref i, ref elementId, oldNodeIdNewNodeId, ref elements, out _, out _);
                     }
-                    else if (lines[i].ToUpper().StartsWith("TRIANGLES"))
+                    else if (keyword.StartsWith("TRIANGLES"))
                     {
                         ReadTriangles(lines, ref i, ref elementId, ref maxParId, oldNodeIdNewNodeId, ref elements, out _);
                     }
-                    else if (lines[i].ToUpper().StartsWith("TETRAHEDRA"))
+                    else if (keyword.StartsWith("TETRAHEDRA"))
                     {
                         ReadTetrahedrons(lines, ref i, ref elementId, ref maxParId, oldNodeIdNewNodeId, ref elements, out _);
                     }
@@ -254,7 +256,8 @@ namespace FileInOut.Input
                         node.X = double.Parse(tmp[0]);
                         node.Y = double.Parse(tmp[1]);
                         node.Z = double.Parse(tmp[2]);
-                        possibleNodeId = int.Parse(tmp[3]);
+                        if (tmp.Length > 3) possibleNodeId = int.Parse(tmp[3]);
+                        else possibleNodeId = 0;
                         // If the node id is not equal to 0 check if the node exists by coordinates
                         if (existingNodes != null && possibleNodeId != 0)
                             node.Id = GetExistingNodeId(node, possibleNodeId, existingNodes, epsilon);

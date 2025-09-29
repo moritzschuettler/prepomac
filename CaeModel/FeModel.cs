@@ -3115,6 +3115,7 @@ namespace CaeModel
                 MessageBoxes.ShowError("The parameters could not be evaluated. Check the parameter equations.");
             }
         }
+        
         public Dictionary<string, object> GetPropertyParameters()
         {
             double volume;

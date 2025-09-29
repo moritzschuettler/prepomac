@@ -1190,6 +1190,7 @@
     <None Include="Icons\Mesh\CoordinateSystem.ico" />
     <None Include="Icons\Step\Propagate.ico" />
     <None Include="Icons\Step\Preview_boundary_condition.ico" />
+    <None Include="Icons\View\FollowerView.ico" />
     <Content Include="main.ico" />
   </ItemGroup>
   <ItemGroup>

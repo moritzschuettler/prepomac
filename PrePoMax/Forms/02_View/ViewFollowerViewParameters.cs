@@ -31,7 +31,7 @@ namespace PrePoMax.Forms
         public FollowerViewTypeEnum Type { get { return _parameters.Type; } set { _parameters.Type = value; UpdateVisibility(); } }
         //
         [Category("Center node")]
-        [OrderedDisplayName(0, 10, "Select the center node")]
+        [OrderedDisplayName(0, 10, "Selection")]
         [DescriptionAttribute("Select the center node.")]
         [EditorAttribute(typeof(SinglePointDataEditor), typeof(UITypeEditor))]
         [Id(1, 2)]
@@ -41,15 +41,16 @@ namespace PrePoMax.Forms
             set { if (value != _centerNodeItemSetData) _centerNodeItemSetData = value; }
         }
         //
+        [ReadOnly(true)]
         [Category("Center node")]
-        [OrderedDisplayName(1, 10, "Id")]
+        [OrderedDisplayName(1, 10, "Node id")]
         [Description("Node id of the center node.")]
-        [TypeConverter(typeof(StringIntegerConverter))]
+        [TypeConverter(typeof(StringIntegerEmptyConverter))]
         [Id(2, 2)]
         public int CenterNodeId { get { return _parameters.CenterNodeId; } set { _parameters.CenterNodeId = value; } }
         //
         [Category("Direction 1 node")]
-        [OrderedDisplayName(0, 10, "Select the direction 1 node")]
+        [OrderedDisplayName(0, 10, "Selection ")]
         [DescriptionAttribute("Select the direction 1 node.")]
         [EditorAttribute(typeof(SinglePointDataEditor), typeof(UITypeEditor))]
         [Id(1, 3)]
@@ -59,15 +60,16 @@ namespace PrePoMax.Forms
             set { if (value != _direction1NodeItemSetData) _direction1NodeItemSetData = value; }
         }
         //
+        [ReadOnly(true)]
         [Category("Direction 1 node")]
-        [OrderedDisplayName(1, 10, "Id")]
+        [OrderedDisplayName(1, 10, "Node id")]
         [Description("Node id of the direction 1 node.")]
-        [TypeConverter(typeof(StringIntegerConverter))]
+        [TypeConverter(typeof(StringIntegerEmptyConverter))]
         [Id(2, 3)]
         public int Direction1NodeId { get { return _parameters.Direction1NodeId; } set { _parameters.Direction1NodeId = value; } }
         //
         [Category("Direction 2 node")]
-        [OrderedDisplayName(0, 10, "Select the direction 2 node")]
+        [OrderedDisplayName(0, 10, "Selection  ")]
         [DescriptionAttribute("Select the direction 2 node.")]
         [EditorAttribute(typeof(SinglePointDataEditor), typeof(UITypeEditor))]
         [Id(1, 4)]
@@ -77,10 +79,11 @@ namespace PrePoMax.Forms
             set { if (value != _direction2NodeItemSetData) _direction2NodeItemSetData = value; }
         }
         //
+        [ReadOnly(true)]
         [Category("Direction 2 node")]
-        [OrderedDisplayName(1, 10, "Id")]
+        [OrderedDisplayName(1, 10, "Node id")]
         [Description("Node id of the direction 2 node.")]
-        [TypeConverter(typeof(StringIntegerConverter))]
+        [TypeConverter(typeof(StringIntegerEmptyConverter))]
         [Id(2, 4)]
         public int Direction2NodeId { get { return _parameters.Direction2NodeId; } set { _parameters.Direction2NodeId = value; } }
 
@@ -95,13 +98,13 @@ namespace PrePoMax.Forms
             _dctd.PropertySortOrder = CustomSortOrder.AscendingById;
             //
             _centerNodeItemSetData = new ItemSetData(); // needed to display ItemSetData.ToString()
-            _centerNodeItemSetData.ToStringType = ItemSetDataToStringType.SelectSinglePoint;
+            _centerNodeItemSetData.ToStringType = ItemSetDataToStringType.SelectSingleNode;
             //
             _direction1NodeItemSetData = new ItemSetData(); // needed to display ItemSetData.ToString()
-            _direction1NodeItemSetData.ToStringType = ItemSetDataToStringType.SelectSinglePoint;
+            _direction1NodeItemSetData.ToStringType = ItemSetDataToStringType.SelectSingleNode;
             //
             _direction2NodeItemSetData = new ItemSetData(); // needed to display ItemSetData.ToString()
-            _direction2NodeItemSetData.ToStringType = ItemSetDataToStringType.SelectSinglePoint;
+            _direction2NodeItemSetData.ToStringType = ItemSetDataToStringType.SelectSingleNode;
             //
             UpdateVisibility();
         }
@@ -115,7 +118,9 @@ namespace PrePoMax.Forms
         private void UpdateVisibility()
         {
             bool visible = _parameters.Type == FollowerViewTypeEnum.Plane;
+            _dctd.GetProperty(nameof(Direction1NodeItemSetData)).SetIsBrowsable(visible);
             _dctd.GetProperty(nameof(Direction1NodeId)).SetIsBrowsable(visible);
+            _dctd.GetProperty(nameof(Direction2NodeItemSetData)).SetIsBrowsable(visible);
             _dctd.GetProperty(nameof(Direction2NodeId)).SetIsBrowsable(visible);
         }
 

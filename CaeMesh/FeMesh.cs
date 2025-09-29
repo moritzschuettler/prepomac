@@ -3633,6 +3633,14 @@ namespace CaeMesh
             int[] ids = GetPartIdsFromElementIds(elementIds);
             return GetPartNamesFromPartIds(ids);
         }
+        public string GetPartNameFromNodeId(int nodeId)
+        {
+            foreach (var entry in _parts)
+            {
+                if (entry.Value.NodeLabels.Contains(nodeId)) return entry.Value.Name;
+            }
+            return null;
+        }
         public int[] GetPartIdsFromNodeIds(int[] nodeIds)
         {
             List<int> partIds = new List<int>();
@@ -8160,6 +8168,33 @@ namespace CaeMesh
                 if (mesh.Nodes.TryGetValue(key, out node))
                 {
                     _nodes[key] = node;
+                }
+            }
+            //
+            ComputeVolumeArea();
+        }
+        public void UpdateNodalCoordinatesFromDeformations(Dictionary<int, double[]> deformations, bool subtract = false)
+        {
+            if (deformations == null || deformations.Count == 0) return;
+            //
+            FeNode node;
+            foreach (var entry in deformations)
+            {
+                if (_nodes.TryGetValue(entry.Key, out node))
+                {
+                    if (subtract)
+                    {
+                        node.X -= entry.Value[0];
+                        node.Y -= entry.Value[1];
+                        node.Z -= entry.Value[2];
+                    }
+                    else
+                    {
+                        node.X += entry.Value[0];
+                        node.Y += entry.Value[1];
+                        node.Z += entry.Value[2];
+                    }
+                    _nodes[entry.Key] = node;
                 }
             }
             //

@@ -48,6 +48,7 @@ namespace PrePoMax
         private List<Form> _allForms;
         private FrmSectionView _frmSectionView;
         private FrmExplodedView _frmExplodedView;
+        private FrmFollowerView _frmFollowerView;
         private FrmSelectEntity _frmSelectEntity;
         private FrmSelectGeometry _frmSelectGeometry;
         private FrmSelectItemSet _frmSelectItemSet;
@@ -344,6 +345,9 @@ namespace PrePoMax
                 _frmExplodedView = new FrmExplodedView(_controller);
                 _frmExplodedView.Clear3D = Clear3DSelection;
                 AddFormToAllForms(_frmExplodedView);
+                //
+                _frmFollowerView = new FrmFollowerView(_controller);
+                AddFormToAllForms(_frmFollowerView);
                 //
                 _frmNewModel = new FrmNewModel(_controller);
                 AddFormToAllForms(_frmNewModel);
@@ -1366,6 +1370,9 @@ namespace PrePoMax
                 tsmiHelp.Enabled = true;
                 // File menu
                 foreach (ToolStripItem item in tsmiFile.DropDownItems) item.Enabled = false;
+                // View menu
+                tsmiFollowerView.Enabled = false;
+                tsbFollowerView.Enabled = false;
                 // Tools menu
                 tsmiParameters.Enabled = false;
                 tsmiQuery.Enabled = false;
@@ -1456,6 +1463,9 @@ namespace PrePoMax
                 }
                 else if (setResultsView)
                 {
+                    // View menu
+                    tsmiFollowerView.Enabled = true;
+                    tsbFollowerView.Enabled = true;
                     // Main menu
                     tsmiView.Enabled = true;
                     tsmiResults.Enabled = true;
@@ -1475,6 +1485,7 @@ namespace PrePoMax
                 //                      Buttons                                                         
                 tsbSectionView.Checked = _controller.IsSectionViewActive();
                 tsbExplodedView.Checked = _controller.IsExplodedViewActive();
+                tsbFollowerView.Checked = _controller.IsFollowerViewActive();
                 tsbTransformation.Checked = _controller.AreTransformationsActive();
                 //                      Icons                                                           
                 UpdateResultsTypeIconStates();
@@ -1515,6 +1526,7 @@ namespace PrePoMax
             // Individual buttons
             tsbSectionView.Enabled = menusActive;
             tsbExplodedView.Enabled = menusActive;
+            tsbFollowerView.Enabled = menusActive;
             tsbQuery.Enabled = menusActive;
             tsbRemoveAnnotations.Enabled = menusActive;
             tsbShowAllParts.Enabled = menusActive;
@@ -2612,7 +2624,24 @@ namespace PrePoMax
                 SetStateReady(Globals.ExplodePartsText);
             }
         }
-        
+        private void tsmiFollowerView_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SinglePointDataEditor.ParentForm = _frmFollowerView;
+                SinglePointDataEditor.Controller = _controller;
+                //
+                FollowerViewParameters parameters = _controller.GetCurrentFollowerViewParameters();
+                _frmFollowerView.SetFollowerViewParameters(parameters);
+                //
+                ShowForm(_frmFollowerView, _frmFollowerView.Text, null);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+
         // Hide/Show
         private void tsmiHideAllParts_Click(object sender, EventArgs e)
         {
@@ -6793,6 +6822,10 @@ namespace PrePoMax
             }
            
         }
+        private void tsmiParameters_Click(object sender, EventArgs e)
+        {
+            tsmiEditParameters_Click(null, null);
+        }
         private void tsmiEditParameters_Click(object sender, EventArgs e)
         {
             try
@@ -8332,6 +8365,7 @@ namespace PrePoMax
             int[] ids = _controller.GetSelectionIds();
             // Must be here since it calls Clear which calls SelectionChanged
             if (_frmSectionView != null && _frmSectionView.Visible) _frmSectionView.PickedIds(ids);
+            if (_frmFollowerView != null && _frmFollowerView.Visible) _frmFollowerView.PickedIds(ids);
             if (_frmTranslate != null && _frmTranslate.Visible) _frmTranslate.PickedIds(ids);
             if (_frmScale != null && _frmScale.Visible) _frmScale.PickedIds(ids);
             if (_frmRotate != null && _frmRotate.Visible) _frmRotate.PickedIds(ids);
@@ -8602,6 +8636,10 @@ namespace PrePoMax
         {
             if (e.Button == MouseButtons.Left) TurnExplodedViewOnOff(true);
             else if (e.Button == MouseButtons.Right) tsmiExplodedView_Click(null, null);
+        }
+        private void tsbFollowerView_MouseUp(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left) tsmiFollowerView_Click(null, null);
         }
         //
         private void tsbHideAllParts_Click(object sender, EventArgs e)
@@ -9535,13 +9573,19 @@ namespace PrePoMax
             InvokeIfRequired(() => { tsbExplodedView.Checked = status; });
         }
         // Follower view
-        public void SetFollowerView(double[] coor1)
+        public void ApplyFollowerView(string[] partName, int[] nodeIds)
         {
-            InvokeIfRequired(_vtk.SetFollowerView, coor1);
+            InvokeIfRequired(_vtk.ApplyFollowerView, partName, nodeIds);
+            InvokeIfRequired(() => { tsbFollowerView.Checked = true; });
         }
-        public void ApplyFollowerView(double[] coor1)
+        public void UpdateFollowerView()
         {
-            InvokeIfRequired(_vtk.ApplyFollowerView, coor1);
+            InvokeIfRequired(_vtk.UpdateFollowerView);
+        }
+        public void RemoveFollowerView()
+        {
+            InvokeIfRequired(_vtk.RemoveFollowerView);
+            InvokeIfRequired(() => { tsbFollowerView.Checked = false; });
         }
         // Transformations
         public void AddSymmetry(int symmetryPlane, double[] symmetryPoint)
@@ -9973,6 +10017,10 @@ namespace PrePoMax
             string selectedStepIncrement = (string)tscbStepAndIncrement.SelectedItem;
             string[] tmp = selectedStepIncrement.Split(new string[] { ",", " " }, StringSplitOptions.RemoveEmptyEntries);
             return int.Parse(tmp[1]);
+        }
+        public float GetAnimationScaleFactor(int frameNumber)
+        {
+            return _vtk.GetAnimationScaleFactor(frameNumber);
         }
         public void SetAnimationAcceleration(bool animationAcceleration)
         {
@@ -10884,7 +10932,7 @@ namespace PrePoMax
             }
         }
 
-       
+        
     }
 }
 

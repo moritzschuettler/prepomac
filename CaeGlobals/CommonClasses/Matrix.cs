@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -196,8 +197,7 @@ namespace CaeGlobals
             return result;
         }
 
-        public static double[][] MatrixProduct(double[][] matrixA,
-          double[][] matrixB)
+        public static double[][] MatrixProduct(double[][] matrixA, double[][] matrixB)
         {
             int aRows = matrixA.Length;
             int aCols = matrixA[0].Length;
@@ -215,7 +215,21 @@ namespace CaeGlobals
 
             return result;
         }
-
+        public static double[][] ScalarProduct(double[][] matrix, double scalar)
+        {
+            int rows = matrix.Length;
+            int cols = matrix[0].Length;
+            double[][] result = MatrixCreate(rows, cols);
+            //
+            for (int i = 0; i < matrix.Length; i++)
+            {
+                for (global::System.Int32 j = 0; j < matrix[i].Length; j++)
+                {
+                    result[i][j] = matrix[i][j] * scalar;
+                }
+            }
+            return result;
+        }
         public static double[][] MatrixTranspose(double[][] matrix)
         {
             int aRows = matrix.Length;

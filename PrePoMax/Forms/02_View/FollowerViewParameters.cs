@@ -42,9 +42,9 @@ namespace PrePoMax
         public void Reset()
         {
             _followerViewType = FollowerViewTypeEnum.Point;
-            _centerNodeId = -1;
-            _direction1NodeId = -1;
-            _direction2NodeId = -1;
+            _centerNodeId = int.MinValue;
+            _direction1NodeId = int.MinValue;
+            _direction2NodeId = int.MinValue;
         }
     }
 }

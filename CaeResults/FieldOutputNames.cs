@@ -99,6 +99,7 @@ namespace CaeResults
         public const string SurfaceNormal = "SURFACE_NORMAL";           // vector
         public const string WearDepth = "WEAR_DEPTH";                   // vector
         public const string MeshDeformation = "MESH_DEF";               // vector
+        public const string DispDeformation = "DISP_DEF";               // vector
         public const string DispDeformationDepth = "DISP_DEF_DEPTH";    // vector
         // Imported
         public const string Distance = "DISTANCE";                      // vector

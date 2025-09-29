@@ -74,7 +74,7 @@ namespace CaeModel
                 if (equation.StartsWith("="))
                 {
                     equation = equation.Substring(1, equation.Length - 1);
-                    equation = MyNCalc.PreprocessExpression(equation);
+                    equation = MyNCalc.AddBracketsToSpecialParameterNames(equation);
                     HashSet<string> parameters = MyNCalc.GetParameters(equation);
                     if (parameters.Contains(name))
                         throw new CaeException("The equation contains self reference to the parameter name.");

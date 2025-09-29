@@ -13,6 +13,7 @@ namespace PrePoMax
     {
         NumberOfItems,
         SelectSinglePoint,
+        SelectSingleNode,
         SelectTwoPoints,
         SelectThreePoints,
     }
@@ -67,6 +68,10 @@ namespace PrePoMax
             else if (_toStringType == ItemSetDataToStringType.SelectSinglePoint)
             {
                 return "Select a point";
+            }
+            else if (_toStringType == ItemSetDataToStringType.SelectSingleNode)
+            {
+                return "Select a node";
             }
             else if (_toStringType == ItemSetDataToStringType.SelectTwoPoints)
             {

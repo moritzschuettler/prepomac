@@ -16,12 +16,15 @@ namespace CaeGlobals
     {
         // Variables                                                                                                                
         public static OrderedDictionary<string, object> _existingParameters = null;
-
         public static OrderedDictionary<string, object> ExistingParameters
         {
             get { return _existingParameters; }
             set { _existingParameters = value; }
         }
+        public static Func<int, int, double> Dist;
+        public static Func<int, int, double> DistX;
+        public static Func<int, int, double> DistY;
+        public static Func<int, int, double> DistZ;
 
 
         // Methods                                                                                                                  
@@ -36,7 +39,7 @@ namespace CaeGlobals
                 if (valueString.StartsWith("="))
                 {
                     valueString = valueString.Substring(1, valueString.Length - 1);
-                    valueString = PreprocessExpression(valueString);
+                    valueString = AddBracketsToSpecialParameterNames(valueString);
                     //List<string> parameters = GetParameters(valueString);
                     Expression e = GetExpression(valueString);
                     if (!e.HasErrors())
@@ -74,8 +77,7 @@ namespace CaeGlobals
                 if (valueString.StartsWith("="))
                 {
                     valueString = valueString.Substring(1, valueString.Length - 1);
-                    valueString = PreprocessExpression(valueString);
-                    //List<string> parameters = GetParameters(valueString);
+                    valueString = AddBracketsToSpecialParameterNames(valueString);
                     Expression e = GetExpression(valueString);
                     if (!e.HasErrors())
                     {
@@ -113,7 +115,7 @@ namespace CaeGlobals
             if (equation.StartsWith("="))
             {
                 equation = equation.Substring(1, equation.Length - 1);
-                equation = PreprocessExpression(equation);
+                equation = AddBracketsToSpecialParameterNames(equation);
                 //
                 Expression e = GetArrayExpression(equation);
                 if (!e.HasErrors())
@@ -171,7 +173,7 @@ namespace CaeGlobals
                 if (equation.StartsWith("="))
                 {
                     equation = equation.Substring(1, equation.Length - 1);
-                    equation = PreprocessExpression(equation);
+                    equation = AddBracketsToSpecialParameterNames(equation);
                     Expression e = GetExpression(equation);
                     parameterNames = GetParameters(equation);
                     //
@@ -186,23 +188,21 @@ namespace CaeGlobals
             //
             return false;
         }
+        //
         static public Expression GetExpression(string expression)
         {
             Expression e = new Expression(expression, EvaluateOptions.IgnoreCase);
-            // Add constants
-            e.Parameters.Add("pi", Math.PI);
-            e.Parameters.Add("Pi", Math.PI);
-            //
-            if (_existingParameters != null)
-            {
-                foreach (var entry in _existingParameters) e.Parameters.Add(entry.Key, entry.Value);
-            }
+            AddParametersToExpression(e);
             return e;
         }
-        //
         static public Expression GetArrayExpression(string expression)
         {
             Expression e = new Expression(expression, EvaluateOptions.IgnoreCase | EvaluateOptions.IterateParameters);
+            AddParametersToExpression(e);
+            return e;
+        }
+        static private void AddParametersToExpression(Expression e)
+        {
             // Add constants
             e.Parameters.Add("pi", Math.PI);
             e.Parameters.Add("Pi", Math.PI);
@@ -211,7 +211,54 @@ namespace CaeGlobals
             {
                 foreach (var entry in _existingParameters) e.Parameters.Add(entry.Key, entry.Value);
             }
-            return e;
+            //
+            e.EvaluateFunction += delegate (string name, FunctionArgs args)
+            {
+                if (name.ToLower() == "dist")
+                {
+                    if (args.Parameters.Length != 2)
+                        throw new ArgumentException("Dist() requires two parameters: Dist(NodeId1, NodeId2).");
+                    args.EvaluateParameters();
+                    int id1 = Convert.ToInt32(args.Parameters[0].Evaluate());
+                    int id2 = Convert.ToInt32(args.Parameters[1].Evaluate());
+                    //
+                    if (Dist != null) args.Result = Dist(id1, id2);
+                    else args.Result = double.NaN;
+                }
+                else if (name.ToLower() == "distx")
+                {
+                    if (args.Parameters.Length != 2)
+                        throw new ArgumentException("DistX() requires two parameters: DistX(NodeId1, NodeId2).");
+                    args.EvaluateParameters();
+                    int id1 = Convert.ToInt32(args.Parameters[0].Evaluate());
+                    int id2 = Convert.ToInt32(args.Parameters[1].Evaluate());
+                    //
+                    if (DistX != null) args.Result = DistX(id1, id2);
+                    else args.Result = double.NaN;
+                }
+                else if (name.ToLower() == "disty")
+                {
+                    if (args.Parameters.Length != 2)
+                        throw new ArgumentException("DistY() requires two parameters: DistY(NodeId1, NodeId2).");
+                    args.EvaluateParameters();
+                    int id1 = Convert.ToInt32(args.Parameters[0].Evaluate());
+                    int id2 = Convert.ToInt32(args.Parameters[1].Evaluate());
+                    //
+                    if (DistY != null) args.Result = DistY(id1, id2);
+                    else args.Result = double.NaN;
+                }
+                else if (name.ToLower() == "distz")
+                {
+                    if (args.Parameters.Length != 2)
+                        throw new ArgumentException("DistZ() requires two parameters: DistZ(NodeId1, NodeId2).");
+                    args.EvaluateParameters();
+                    int id1 = Convert.ToInt32(args.Parameters[0].Evaluate());
+                    int id2 = Convert.ToInt32(args.Parameters[1].Evaluate());
+                    //
+                    if (DistZ != null) args.Result = DistZ(id1, id2);
+                    else args.Result = double.NaN;
+                }
+            };
         }
         static public HashSet<string> GetParameters(string expression)
         {
@@ -236,7 +283,7 @@ namespace CaeGlobals
             return parameters;
         }
         //
-        static public string PreprocessExpression(string expr)
+        static public string AddBracketsToSpecialParameterNames(string expr)
         {
             // Sort parameter names by length (longest first)
             var sortedNames = _existingParameters.Keys
@@ -250,6 +297,7 @@ namespace CaeGlobals
             //
             foreach (var param in sortedNames)
             {
+                if (!param.Contains('.')) continue; // skip parameters without dots
                 // Create a unique placeholder
                 placeholder = $"@{count++}@";
                 bracketedParam = $"[{param}]";
@@ -294,6 +342,10 @@ namespace CaeGlobals
                                   "Atan(^)",
                                   "Ceiling(^)",
                                   "Cos(^)",
+                                  "Dist(^, )",
+                                  "DistX(^, )",
+                                  "DistY(^, )",
+                                  "DistZ(^, )",
                                   "Exp(^)",
                                   "Floor(^)",
                                   "IEEERemainder(^, )",
