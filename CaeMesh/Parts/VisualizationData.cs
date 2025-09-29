@@ -722,7 +722,7 @@ namespace CaeMesh
             }
             return surfaceNodeIds;
         }
-        public Dictionary<int, HashSet<int>> GetSurfaceIdNodeIds()
+        public Dictionary<int, HashSet<int>> GetSurfaceIdNodeIdsSlower()
         {
             HashSet<int> surfaceNodeIds;
             Dictionary<int, HashSet<int>> surfaceIdNodeIds = new Dictionary<int, HashSet<int>>();
@@ -737,6 +737,32 @@ namespace CaeMesh
             }
             return surfaceIdNodeIds;
         }
+        public Dictionary<int, HashSet<int>> GetSurfaceIdNodeIds()
+        {
+            int estimatedCapacity;
+            HashSet<int> surfaceNodeIds;
+            Dictionary<int, HashSet<int>> surfaceIdNodeIds = new Dictionary<int, HashSet<int>>(_cellIdsByFace.Length);
+            //
+            for (int i = 0; i < _cellIdsByFace.Length; i++)
+            {
+                // Estimate total nodes in this surface to reduce HashSet resizing
+                estimatedCapacity = _cellIdsByFace[i].Length * 8;
+                surfaceNodeIds = new HashSet<int>( estimatedCapacity);
+                //
+                for (int j = 0; j < _cellIdsByFace[i].Length; j++)
+                {
+                    foreach (var nodeId in _cells[_cellIdsByFace[i][j]])
+                    {
+                        surfaceNodeIds.Add(nodeId); // direct Add is faster than UnionWith for small collections
+                    }
+                }
+                //
+                surfaceIdNodeIds.Add(i, surfaceNodeIds);
+            }
+            //
+            return surfaceIdNodeIds;
+        }
+
         public Dictionary<int, HashSet<int>> GetSurfaceIdElementIds()
         {
             HashSet<int> surfaceElementIds;

@@ -2249,7 +2249,10 @@ namespace CaeResults
         public int[] GetAllStepIds()
         {
             HashSet<int> ids = new HashSet<int>();
-            foreach (var entry in _fields) ids.Add(entry.Key.StepId);
+            if (_fields != null)
+            {
+                foreach (var entry in _fields) ids.Add(entry.Key.StepId);
+            }
             //
             int[] sortedIds = ids.ToArray();
             Array.Sort(sortedIds);

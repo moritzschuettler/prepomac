@@ -53,7 +53,8 @@ namespace vtkControl
         //
         protected bool _canHaveElementEdges;
         protected vtkRendererLayer _layer;
-
+        //
+        private static object myLock = new object();
 
 
         // Properties                                                                                                               
@@ -1698,15 +1699,20 @@ namespace vtkControl
         }
         private vtkDataArray ComputeNormals(vtkPointSet pointSet)
         {
-            // Recompute poly data normals
-            vtkPolyDataNormals normalGenerator = vtkPolyDataNormals.New();
-            normalGenerator.SetInput(pointSet);
-            normalGenerator.SplittingOff(); // prevents changes in topology
-            //normalGenerator.SetFeatureAngle(0.001 * Math.PI / 180);
-            normalGenerator.ComputePointNormalsOn();
-            normalGenerator.ComputeCellNormalsOff();
-            normalGenerator.Update();
-            return normalGenerator.GetOutput().GetPointData().GetNormals();
+            vtkPolyDataNormals normalGenerator = null;
+            //
+            lock (myLock)
+            {
+                // Recompute poly data normals
+                normalGenerator = vtkPolyDataNormals.New();
+                normalGenerator.SetInput(pointSet);
+                normalGenerator.SplittingOff(); // prevents changes in topology
+                //normalGenerator.SetFeatureAngle(0.001 * Math.PI / 180);
+                normalGenerator.ComputePointNormalsOn();
+                normalGenerator.ComputeCellNormalsOff();
+                normalGenerator.Update();
+                return normalGenerator.GetOutput().GetPointData().GetNormals();
+            }
         }
 
 

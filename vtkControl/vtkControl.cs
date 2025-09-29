@@ -1608,8 +1608,9 @@ namespace vtkControl
             cellIds = new int[0];
             //
             vtkExtractSelectedFrustum extractor;
-            vtkDataArray globalPointIdsDataArray;
-            vtkDataArray globalCellIdsDataArray;
+            vtkUnstructuredGrid grid;
+            vtkUnsignedLongArray globalPointIdsDataArray;
+            vtkUnsignedLongArray globalCellIdsDataArray;
             HashSet<int> globalPointIds = new HashSet<int>();
             HashSet<int> globalCellIds = new HashSet<int>();
             vtkCellLocator locator;
@@ -1636,24 +1637,26 @@ namespace vtkControl
                         extractor.SetFrustum(planes);
                         extractor.Update();
                         //
-                        globalPointIdsDataArray = (extractor.GetOutput() as vtkUnstructuredGrid).GetPointData().GetGlobalIds();
+                        grid = (vtkUnstructuredGrid)extractor.GetOutput();
+                        globalPointIdsDataArray = (vtkUnsignedLongArray)grid.GetPointData().GetGlobalIds();
                         if (globalPointIdsDataArray != null)
                         {
                             for (int i = 0; i < globalPointIdsDataArray.GetNumberOfTuples(); i++)
                             {
-                                globalPointIds.Add((int)globalPointIdsDataArray.GetTuple1(i));
+                                globalPointIds.Add((int)globalPointIdsDataArray.GetValue(i));
                             }
                         }
                         // Inside and border cells      
                         extractor.SetFieldType((int)vtkSelectionField.CELL);
                         extractor.Update();
                         //
-                        globalCellIdsDataArray = (extractor.GetOutput() as vtkUnstructuredGrid).GetCellData().GetGlobalIds();
+                        grid = (vtkUnstructuredGrid)extractor.GetOutput();
+                        globalCellIdsDataArray = (vtkUnsignedLongArray)grid.GetCellData().GetGlobalIds();
                         if (globalCellIdsDataArray != null)
                         {
                             for (int i = 0; i < globalCellIdsDataArray.GetNumberOfTuples(); i++)
                             {
-                                globalCellIds.Add((int)globalCellIdsDataArray.GetTuple1(i));
+                                globalCellIds.Add((int)globalCellIdsDataArray.GetValue(i));
                             }
                         }
                     }
@@ -2419,6 +2422,38 @@ namespace vtkControl
             if (animate) AnimateCamera(cameraStart, camera, camera);
             else RenderScene();
         }
+        
+        public void SetNormalView(bool animate)
+        {
+            if (_animating) return;
+            _animating = animate;
+            //
+            if (_drawCameraPath) ClearOverlay();
+            //
+            vtkCamera camera = _renderer.GetActiveCamera();
+            vtkCamera cameraStart = vtkCamera.New();
+            cameraStart.DeepCopy(camera);
+            //
+            double[] direction = camera.GetViewPlaneNormal();
+            double[] abs = new double[] { Math.Abs(direction[0]), Math.Abs(direction[1]), Math.Abs(direction[2]) };
+            int[] ids = new int[] { 0, 1, 2 };
+            Array.Sort(abs, ids);
+            int maxId = ids[2];
+            //
+            double[] delta = new double[3];
+            // Reverse direction
+            delta[maxId] = Math.Abs(direction[maxId]) == 1 ? -Math.Sign(direction[maxId]) : Math.Sign(direction[maxId]);
+            //
+            double[] fPoint = camera.GetFocalPoint();
+            camera.SetPosition(fPoint[0] + delta[0], fPoint[1] + delta[1], fPoint[2] + delta[2]);
+            //
+            //SetVerticalView(false, false);
+            //
+            ResetCamera();
+            //
+            if (animate) AnimateCamera(cameraStart, camera, camera);
+            else RenderScene();
+        }
         public void SetVerticalView(bool animate, bool updateView)
         {
             if (updateView)
@@ -2477,34 +2512,6 @@ namespace vtkControl
                 if (animate) AnimateCamera(cameraStart, camera, camera);
                 else RenderScene();
             }
-        }
-        public void SetNormalView(bool animate)
-        {
-            if (_animating) return;
-            _animating = animate;
-            //
-            if (_drawCameraPath) ClearOverlay();
-            //
-            vtkCamera camera = _renderer.GetActiveCamera();
-            vtkCamera cameraStart = vtkCamera.New();
-            cameraStart.DeepCopy(camera);
-            //
-            double[] direction = camera.GetViewPlaneNormal();
-            double[] abs = new double[] { Math.Abs(direction[0]), Math.Abs(direction[1]), Math.Abs(direction[2]) };
-            int[] ids = new int[] { 0, 1, 2 };
-            Array.Sort(abs, ids);
-            int maxId = ids[2];
-            //
-            double[] delta = new double[3];
-            delta[maxId] = Math.Abs(direction[maxId]) == 1 ? -Math.Sign(direction[maxId]) : Math.Sign(direction[maxId]);
-            //
-            double[] fPoint = camera.GetFocalPoint();
-            camera.SetPosition(fPoint[0] + delta[0], fPoint[1] + delta[1], fPoint[2] + delta[2]);
-            //
-            //SetVerticalView(false, false);
-            //
-            if (animate) AnimateCamera(cameraStart, camera, camera);
-            else RenderScene();
         }
         public void SetIsometricView(bool animate, bool positive)
         {
@@ -3182,6 +3189,20 @@ namespace vtkControl
                     if (entry.Value.VtkMaxActorVisible) return true;
                 }
             }
+            if (_overlayActors != null && _overlayActors.Count > 0)
+            {
+                foreach (var entry in _overlayActors)
+                {
+                    if (entry.Value.VtkMaxActorVisible) return true;
+                }
+            }
+            if (_selectedActors != null && _selectedActors.Count > 0)
+            {
+                foreach (var entry in _selectedActors)
+                {
+                    if (entry.VtkMaxActorVisible) return true;
+                }
+            }
             return false;
         }
         public vtkMaxActor AddPoints(vtkMaxActorData data)
@@ -3203,6 +3224,21 @@ namespace vtkControl
             if (!AreAnyActorsVisible()) AdjustCameraDistanceAndClippingRedraw();
             //
             return actor;
+        }
+        public void AddCells(vtkMaxActorData[] data)
+        {
+            // Create actor
+            vtkMaxActor[] actors = new vtkMaxActor[data.Length];
+            //Parallel.For(0, data.Length, i =>
+            for (int i = 0; i < data.Length; i++)
+            {
+                actors[i] = new vtkMaxActor(data[i]);
+            }
+            //);
+            //
+            foreach (var actor in actors) AddActor(actor);
+            //
+            if (!AreAnyActorsVisible()) AdjustCameraDistanceAndClippingRedraw();
         }
         //
         public void AddSphereActor(vtkMaxActorData data, double symbolSize)
@@ -5130,7 +5166,6 @@ namespace vtkControl
         }
 
         #endregion  ################################################################################################################
-
 
         #region Follower view  #####################################################################################################
         public void ApplyFollowerView(string[] partNames, int[] nodeIds)

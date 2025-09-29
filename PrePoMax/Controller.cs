@@ -621,6 +621,7 @@ namespace PrePoMax
         public void ClearSelectionHistory()
         {
             _selection.Clear();
+            //_selection.ClearNodeIds();
             _form.Clear3DSelection();
         }
 
@@ -1336,13 +1337,14 @@ namespace PrePoMax
                     allResults = tmp._allResults;
                     //
                     FeModel.ReadFromBinaryReader(model, br, version);
-                    UpdateNCalcParameters(false);
                     //
                     if (!ResultsCollection.ReadFromFileStream(allResults, fileStream, version))
                     {
                         _form.WriteDataToOutput("Warning: There were errors reading the results.");
                         _form.WriteDataToOutput("Some results might not be loaded correctly. Check the results.");
                     }
+                    //
+                    UpdateNCalcParameters(false);
                 }
                 //
                 return data;
@@ -8222,10 +8224,7 @@ namespace PrePoMax
             _model.Sections.Add(section.Name, section);
             _form.AddTreeNode(ViewGeometryModelResults.Model, section, null);
             //
-            AnnotateWithColorEnum state = AnnotateWithColorEnum.Materials | AnnotateWithColorEnum.Sections |
-                                          AnnotateWithColorEnum.SectionThicknesses;
-            if (state.HasFlag(_annotateWithColor)) FeModelUpdate(UpdateType.DrawModel);
-            else AnnotateWithColorLegend();
+            AnnotateWithColorLegend(); 
             //
             CheckAndUpdateModelValidity();   // Check the model in both cases: FeModelUpdate and AnnotateWithColorLegend
         }
@@ -12882,7 +12881,7 @@ namespace PrePoMax
                     GetIdsFromSelectionNode(node, ref selectedIds);
                 // Return
                 int[] sorted = selectedIds.ToArray();
-                if (_selectBy != vtkSelectBy.QueryNode) Array.Sort(sorted);   // sorting of the ids breaks the angle query !!!
+                if (_selectBy != vtkSelectBy.QueryNode) Array.Sort(sorted);
                 return sorted;
             }
             catch
@@ -13071,6 +13070,9 @@ namespace PrePoMax
                     ids = idsHash.ToArray();
                 }
             }
+            //
+            Selection.AddToCache(selectionNodeMouse, ids);
+            //
             return ids;
         }
         private int[] GetIdsFromSelectionInArea(SelectionNodeMouse selectionNodeMouse, string[] partNames, bool keepGeometryIds)
@@ -14432,8 +14434,6 @@ namespace PrePoMax
             IDictionary<string, BasePart> parts = _model.Mesh.Parts;
             vtkRendererLayer layer = vtkRendererLayer.Base;
             //
-            List<string> hiddenActors = new List<string>();
-            //
             Dictionary<int, int> elementIdColorId = null;
             if (_annotateWithColor == AnnotateWithColorEnum.Sections)
                 _model.GetSectionAssignments(out elementIdColorId);
@@ -14442,12 +14442,25 @@ namespace PrePoMax
             else if (_annotateWithColor == AnnotateWithColorEnum.SectionThicknesses)
                 _model.GetSectionThicknessAssignments(out elementIdColorId);
             //
-            foreach (var entry in parts)
+            ConcurrentBag<string> hiddenActors = new ConcurrentBag<string>();
+            ConcurrentBag<vtkMaxActorData> allData = new ConcurrentBag<vtkMaxActorData>();
+            //
+            Parallel.ForEach(parts, entry =>
+            //foreach (var entry in parts)
             {
-                DrawModelPart(_model.Mesh, entry.Value, layer, elementIdColorId);
+                vtkMaxActorData data = GetModelPartActorData(_model.Mesh, entry.Value, layer, elementIdColorId);
+                if (data != null)
+                {
+                    ApplyLighting(data);
+                    allData.Add(data);
+                }
                 //
                 if (!entry.Value.Visible) hiddenActors.Add(entry.Key);
             }
+            );
+            //
+            if (allData.Count > 0) _form.Add3DCells(allData.ToArray());
+            //
             if (hiddenActors.Count > 0) _form.HideActors(hiddenActors.ToArray(), false);
         }
         public void DrawModelPart(FeMesh mesh, BasePart part, vtkRendererLayer layer,
@@ -14597,7 +14610,7 @@ namespace PrePoMax
                     {
                         if (activeMaterials.Contains(entry.Value.Name))
                         {
-                            materialColors.Add(colorSettings.ColorTable[count++]);
+                            materialColors.Add(colorSettings.ColorTable[count++ % colorSettings.ColorTable.Length]);
                             materialNames.Add(entry.Value.Name);
                         }
                     }
@@ -14613,7 +14626,7 @@ namespace PrePoMax
                     int count = 0;
                     foreach (var entry in _model.Sections)
                     {
-                        sectionColors.Add(colorSettings.ColorTable[count++]);
+                        sectionColors.Add(colorSettings.ColorTable[count++ % colorSettings.ColorTable.Length]);
                         sectionNames.Add(entry.Value.Name);
                     }
                     _form.SetColorBarColorsAndLabels(sectionColors.ToArray(), sectionNames.ToArray());
@@ -14633,7 +14646,7 @@ namespace PrePoMax
                         //
                         if (thickness != -1 && !sectionThickness.Contains(thickness))
                         {
-                            sectionThicknessColors.Add(colorSettings.ColorTable[count++]);
+                            sectionThicknessColors.Add(colorSettings.ColorTable[count++ % colorSettings.ColorTable.Length]);
                             sectionThickness.Add(thickness);
                         }
                     }
@@ -18103,23 +18116,28 @@ namespace PrePoMax
             {
                 BasePart[] parts = mesh.CreateBasePartsByTypeFromElementIds(elementIds, onlyVisible);
                 vtkMaxActorData data;
-                actors = new vtkMaxActor[parts.Length];
+                actors = new vtkMaxActor[2 * parts.Length];
                 //
                 int count = 0;
+                bool shell;
+                List<int[]> edgeCells = new List<int[]>();
                 foreach (BasePart part in parts)
                 {
+                    shell = part.PartType == PartType.Shell;
                     mesh.GetVisualizationNodesAndCells(part, out nodeIds, out nodeCoor, out cellIds, out cells, out cellTypes);
                     //
                     if (!countOnly)
                     {
+                        // Cells
                         data = new vtkMaxActorData();
                         data.Name = prefixName + Globals.NameSeparator + "elements";
                         data.Color = color;
                         data.Layer = layer;
                         if (part.PartType == PartType.Shell) data.BackfaceCulling = false;
-                        else data.BackfaceCulling = true;
-                        //
+                        else data.BackfaceCulling = !shell;
                         data.CanHaveElementEdges = canHaveEdges;
+                        data.DrawOnGeometry = shell;
+                        //
                         data.Geometry.Nodes.Ids = null;
                         data.Geometry.Nodes.Coor = nodeCoor;
                         data.Geometry.Cells.CellNodeIds = cells;
@@ -18127,6 +18145,37 @@ namespace PrePoMax
                         //
                         ApplyLighting(data);
                         actors[count] = _form.Add3DCells(data);
+                        count++;
+                        //
+                        //if (shell)
+                        {
+                            // Data
+                            data = new vtkMaxActorData();
+                            HashSet<int> freeEdgeIds = part.Visualization.GetFreeEdgeIds();
+                            edgeCells.Clear();
+                            foreach (var freeEdgeId in freeEdgeIds)
+                            {
+                                foreach (var edgeCellId in part.Visualization.EdgeCellIdsByEdge[freeEdgeId])
+                                {
+                                    edgeCells.Add(part.Visualization.EdgeCells[edgeCellId]);
+                                }
+                                
+                            }
+                            DisplayedMesh.GetNodesAndCellsForEdges(edgeCells.ToArray(), out data.Geometry.Nodes.Ids,
+                                                                   out data.Geometry.Nodes.Coor,
+                                                                   out data.Geometry.Cells.CellNodeIds,
+                                                                   out data.Geometry.Cells.Types);
+                            data.Name = prefixName + Globals.NameSeparator + "element_edges";
+                            data.Color = color;
+                            data.Layer = layer;
+                            data.CanHaveElementEdges = true;
+                            data.BackfaceCulling = true;
+                            data.UseSecondaryHighlightColor = false;
+                            //
+                            ApplyLighting(data);
+                            actors[count] = _form.Add3DCells(data);
+                            count++;
+                        }
                     }
                     //
                     numDrawnCells += cells.Length;
@@ -18958,7 +19007,8 @@ namespace PrePoMax
                 if (!countOnly)
                 {
                     // Draw nodes
-                    if (elementSet.Name.StartsWith(Globals.MissingSectionName))
+                    if (elementSet.Name.StartsWith(Globals.MissingSectionName) ||
+                        elementSet.Name.StartsWith(Globals.NonpositiveJacobian))
                     {
                         HashSet<int> nodeIds = new HashSet<int>();
                         foreach (var elementId in elementSets[elementSetName].Labels)
@@ -19314,6 +19364,8 @@ namespace PrePoMax
                 return;
             }
             else throw new NotSupportedException();
+            //
+            _form.AdjustCameraDistanceAndClipping();
         }
         private void HighlightItemsByNodeIds(int[] ids, bool useSecondaryHighlightColor)
         {

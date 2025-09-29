@@ -6030,7 +6030,7 @@ namespace CaeMesh
             foreach (var entry in _parts)
             {
                 if (entry.Value is CompoundGeometryPart) continue;
-                if (!entry.Value.Visible) continue;
+                //if (!entry.Value.Visible) continue;
                 //
                 partId = entry.Value.PartId;
                 visualization = entry.Value.Visualization;
@@ -6058,7 +6058,7 @@ namespace CaeMesh
                     }
                     else
                     {
-                        if (selectedNodes.Intersect(surfaceEntry.Value).Count() > 0)
+                        if (selectedNodes.Overlaps(surfaceEntry.Value))    // sloooow
                         {
                             itemId = surfaceEntry.Key;
                             geometryIds.Add(GetGeometryId(itemId, typeId, partId));
@@ -6574,6 +6574,8 @@ namespace CaeMesh
             else if (geomType.IsEdge()) containsEdge = true;
             else if (geomType.IsSurface() || geomType == GeometryType.Part) containsFace = true;
             else throw new NotSupportedException();
+            //
+            if (geomType == GeometryType.Vertex || geomType.IsEdge()) return new int[0]; // fix for section selection
             //
             int[] nodeIds = GetNodeIdsFromGeometryId(geometryId);
             return GetElementIdsFromNodeIds(nodeIds, containsEdge, containsFace, false, itemTypePartIds[2]);
@@ -8869,7 +8871,7 @@ namespace CaeMesh
         public int[][] GetFreeEdgesFromVisualizationCells(int[][] cells, ElementFaceType[] elementFaceTypes)
         {
             CompareIntArray comparer = new CompareIntArray();
-            HashSet<int[]> addedFaceCells = new HashSet<int[]>(comparer);   // cells might be from the front of back surface
+            HashSet<int[]> addedFaceCells = new HashSet<int[]>(comparer);   // cells might be from the front or back surface
             HashSet<int[]> freeEdges = new HashSet<int[]>(comparer);
             //
             int[] key;

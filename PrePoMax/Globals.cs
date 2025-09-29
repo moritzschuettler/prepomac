@@ -81,6 +81,7 @@ namespace PrePoMax
         // Names
         public static string NameSeparator = ":";        
         public static string MissingSectionName = "Missing_section";
+        public static string NonpositiveJacobian = "Nonpositive_Jacobian";
         public static string RegenerateAll = "RegenerateAll";
         public static string FromFileOpenMenu = "FromFileOpenMenu";
         public static string FromMonitorForm = "FromMonitorForm";

@@ -9643,6 +9643,10 @@ namespace PrePoMax
             }
             return actor;
         }
+        public void Add3DCells(vtkMaxActorData[] cellData)
+        {
+            InvokeIfRequired(_vtk.AddCells, cellData);
+        }
         public void AddActor(vtkMaxActor actor)
         {
             InvokeIfRequired(_vtk.AddActor, actor);

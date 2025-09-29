@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Serialization;
+using System.Security.Policy;
 using System.Text;
 using System.Threading.Tasks;
-using System.Runtime.Serialization;
 
 namespace CaeGlobals
 {
@@ -24,7 +25,7 @@ namespace CaeGlobals
         
 
         // Temporary storage for speed optimization: keep current ids; do not copy
-        [NonSerialized] private Dictionary<double, int[]> _nodeIds;
+        private static Dictionary<int, int[]> _nodeIds = new Dictionary<int, int[]>();
 
 
         // Properties                                                                                                               
@@ -101,8 +102,6 @@ namespace CaeGlobals
             _limitSelectionToFirstMesherType = false;
             _limitSelectionToShellEdges = false;
             _enableShellEdgeFaceSelection = false;
-            //
-            _nodeIds = null;
         }
         public Selection(SerializationInfo info, StreamingContext context)
         {
@@ -146,6 +145,26 @@ namespace CaeGlobals
 
 
         // Methods                                                                                                                  
+        public static void EnableSelectionCache(bool enable)
+        {
+            if (enable) _nodeIds = new Dictionary<int, int[]>();
+            else _nodeIds = null;
+        }
+        public static void AddToCache(SelectionNode node, int[] ids)
+        {
+            if (_nodeIds != null)   // enabled
+            {
+                if (node.Hash == -1)
+                {
+                    int hash;
+                    Random rnd = new Random((int)DateTime.Now.Ticks);
+                    do hash = rnd.Next();
+                    while (_nodeIds.ContainsKey(hash));
+                    node.Hash = hash;
+                }
+                _nodeIds[node.Hash] = ids;
+            }
+        }
         public void Add(SelectionNodeIds node)
         {
             Add(node, node.ItemIds);
@@ -153,17 +172,6 @@ namespace CaeGlobals
         public void Add(SelectionNode node, int[] ids)
         {
             _nodes.Add(node);
-            if (_nodeIds == null) _nodeIds = new Dictionary<double, int[]>();
-            //
-            double hash;
-            Random rnd = new Random((int)DateTime.Now.Ticks);
-            do
-            {
-                hash = rnd.NextDouble();
-            }
-            while (_nodeIds.ContainsKey(hash));
-            node.Hash = hash;
-            _nodeIds.Add(hash, ids);
         }
         public bool TryGetNodeIds(SelectionNode node, out int[] ids)
         {
@@ -196,7 +204,6 @@ namespace CaeGlobals
         public void Clear()
         {
             _nodes.Clear();
-            _nodeIds = null;
             //_selectItem = vtkSelectItem.None; - must not be used!!!
             //_currentView = -1;                - must not be used!!!
         }

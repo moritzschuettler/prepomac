@@ -1,9 +1,10 @@
-﻿using System;
+﻿using Kitware.VTK;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Windows;
 using System.Windows.Forms;
-using Kitware.VTK;
 
 namespace vtkControl
 {
@@ -434,6 +435,11 @@ namespace vtkControl
                     this.Pan();
                     this.InvokeEvent((uint)EventIds.InteractionEvent, IntPtr.Zero);
                     break;
+                case VTKIS_SPIN:
+                    this.FindPokedRenderer(_x, _y);
+                    this.Zoom();
+                    this.InvokeEvent((uint)EventIds.InteractionEvent, IntPtr.Zero);
+                    break;
             }
         }
         //
@@ -446,9 +452,14 @@ namespace vtkControl
                 vtkRenderer renderer = this.GetCurrentRenderer();
 
                 double[] worldPos = DisplayToWorld(renderer, new double[] { clickPos[0], clickPos[1] });
-
+                //
+                vtkRenderWindowInteractor rwi = this.GetInteractor();
+                double ctrlKeyFactor = rwi.GetControlKey();
+                if (ctrlKeyFactor == 0) ctrlKeyFactor = 1;
+                else ctrlKeyFactor = 0.2;
+                //
                 vtkCamera camera = renderer.GetActiveCamera();
-                double factor = Math.Pow(1.1, this._motionFactor * 0.2 * this.GetMouseWheelMotionFactor());
+                double factor = Math.Pow(1.1, this._motionFactor * ctrlKeyFactor * 0.2 * this.GetMouseWheelMotionFactor());
                 //factor = 1;
                 camera.SetParallelScale(camera.GetParallelScale() * factor);
 
@@ -478,11 +489,16 @@ namespace vtkControl
                 int[] clickPos = this.GetInteractor().GetEventPosition();
                 this.FindPokedRenderer(clickPos[0], clickPos[1]);
                 vtkRenderer renderer = this.GetCurrentRenderer();
-
+                //
                 double[] worldPos = DisplayToWorld(renderer, new double[] { clickPos[0], clickPos[1] });
-
+                //
+                vtkRenderWindowInteractor rwi = this.GetInteractor();
+                double ctrlKeyFactor = rwi.GetControlKey();
+                if (ctrlKeyFactor == 0) ctrlKeyFactor = 1;
+                else ctrlKeyFactor = 0.2;
+                //
                 vtkCamera camera = renderer.GetActiveCamera();
-                double factor = Math.Pow(1.1, this._motionFactor * 0.2 * this.GetMouseWheelMotionFactor());
+                double factor = Math.Pow(1.1, this._motionFactor * ctrlKeyFactor * 0.2 * this.GetMouseWheelMotionFactor());
                 //factor = 1.00;
                 camera.SetParallelScale(camera.GetParallelScale() / factor);
 
@@ -652,9 +668,9 @@ namespace vtkControl
             int dy;
             foreach (vtkMaxBorderWidget widget in _widgets)
             {
-                // compute the delta
-                dx = clickPos[0] - rwi.GetLastEventPosition()[0];
-                dy = clickPos[1] - rwi.GetLastEventPosition()[1];
+                // Compute the delta
+                dx = (int)(clickPos[0] - rwi.GetLastEventPosition()[0]);
+                dy = (int)(clickPos[1] - rwi.GetLastEventPosition()[1]);
                 //
                 widget.MousePan(dx, dy);
             }
@@ -676,6 +692,40 @@ namespace vtkControl
             camera.SetFocalPoint(fPos[0] + motionVector[0], fPos[1] + motionVector[1], fPos[2] + motionVector[2]);
             //
             AdjustCameraDistanceAndClipping();
+        }
+        //
+        public override void Zoom()
+        {
+            vtkRenderer renderer = this.GetCurrentRenderer();
+            if (renderer == null) return;
+            //
+            vtkRenderWindowInteractor rwi = this.GetInteractor();
+            int[] clickPos = rwi.GetEventPosition();
+            //
+            double[] newPickPoint;
+            double[] oldPickPoint;
+            //
+            newPickPoint = DisplayToWorld(renderer, new double[] { clickPos[0], clickPos[1] });
+            oldPickPoint = DisplayToWorld(renderer, new double[] { rwi.GetLastEventPosition()[0], rwi.GetLastEventPosition()[1] });
+            //
+            vtkCamera camera = renderer.GetActiveCamera();
+            double factor = rwi.GetLastEventPosition()[1] - clickPos[1];
+            if (factor < 0) factor = Math.Pow(1.001, factor);
+            else factor = Math.Pow(1 / 1.001, -factor);
+            //
+            camera.SetParallelScale(camera.GetParallelScale() * factor);
+            // Rubber band
+            //if (_rubberBandSelection) DrawRubberBandSelection(_x, _y);
+            // Widgets - mouse wheel scrolled
+            foreach (vtkMaxBorderWidget widget in _widgets)
+            {
+                widget.MouseWheelScrolled();
+            }
+            //
+            if (ZoomChangedEvent != null) ZoomChangedEvent();
+            //
+            this.GetInteractor().Modified();
+            this.GetInteractor().Render();
         }
         //
         public override void Rotate()

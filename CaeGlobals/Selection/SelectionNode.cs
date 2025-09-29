@@ -12,12 +12,12 @@ namespace CaeGlobals
     {
         // Variables                                                                                                                
         protected vtkSelectOperation _selectOperation;      //ISerializable
-        protected double _hash;
+        protected int _hash;
 
 
         // Properties                                                                                                               
         public vtkSelectOperation SelectOperation { get { return _selectOperation; } }
-        public double Hash { get { return _hash; } set { _hash = value; } }
+        public int Hash { get { return _hash; } set { _hash = value; } }
 
 
         // Constructors                                                                                                             
@@ -37,7 +37,7 @@ namespace CaeGlobals
                         _selectOperation = (vtkSelectOperation)entry.Value;
                         break;
                     case "_hash":
-                        _hash = (double)entry.Value;
+                        _hash = Convert.ToInt32(entry.Value);
                         break;
                     default:
                         break;
@@ -56,7 +56,7 @@ namespace CaeGlobals
         {
             // Using typeof() works also for null fields
             info.AddValue("_selectOperation", _selectOperation, typeof(vtkSelectOperation));
-            info.AddValue("_hash", _hash, typeof(double));
+            info.AddValue("_hash", _hash, typeof(int));
         }
     }
 }

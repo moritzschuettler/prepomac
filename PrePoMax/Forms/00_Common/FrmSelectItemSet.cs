@@ -92,8 +92,10 @@ namespace PrePoMax
                 //                          null,
                 //                          gbFEMesh,
                 //                          new object[] { true });
-                if (this.Visible) ResetSelection(false);
+                if (this.Visible)ResetSelection(false);
                 else _controller.SetSelectByToDefault();
+                //
+                Selection.EnableSelectionCache(this.Visible);
             }
             catch { }
         }
