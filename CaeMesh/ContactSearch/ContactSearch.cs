@@ -126,11 +126,14 @@ namespace CaeMesh
         }
         private void GetAllEdgeCellBaseCellIds()
         {
-            _edgeCellBaseCellIds = new int[_mesh.GetMaxPartId() + 1][];
+            int[] baseCellIds;
+            List<int[]> edgeCellBaseCellIds = new List<int[]>();
             foreach (var partEntry in _mesh.Parts)
             {
-                _edgeCellBaseCellIds[partEntry.Value.PartId] = partEntry.Value.Visualization.GetAllEdgeCellBaseCellIds();
+                baseCellIds = partEntry.Value.Visualization.GetAllEdgeCellBaseCellIds();
+                edgeCellBaseCellIds.Add(baseCellIds);
             }
+            _edgeCellBaseCellIds = edgeCellBaseCellIds.ToArray();
         }
         private ContactSurface[] GetAllContactSurfaces(double distance, GeometryFilterEnum filter)
         {

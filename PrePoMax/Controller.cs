@@ -12648,6 +12648,20 @@ namespace PrePoMax
                 _form.DeactivateUserPick();
             }
         }
+        public void AddSelectionNodes(SelectionNode[] nodes, bool highlight, bool callSelectionChanged)
+        {
+            try
+            {
+                Selection.EnableSelectionCache(true);
+                foreach (var node in nodes) AddSelectionNode(node, false, false);
+            }
+            catch
+            { }
+            finally
+            {
+                Selection.EnableSelectionCache(false);
+            }
+        }
         public void AddSelectionNode(SelectionNode node, bool highlight, bool callSelectionChanged)
         {
             SelectionNodeMouse singlePartSelection;
@@ -13666,6 +13680,7 @@ namespace PrePoMax
                 vtkSelectBy selectBy;
                 GeometryType geomType;
                 BasePart part;
+                List<SelectionNode> selectionNodes = new List<SelectionNode>();
                 SelectionNodeMouse mouseNode;
                 // Copy current selection
                 Selection currentSelection = _selection;
@@ -13773,11 +13788,13 @@ namespace PrePoMax
                                                                    new int[] { partId }, new double[][] { part.Offset },
                                                                    selectBy, -1);
                                 //
-                                AddSelectionNode(mouseNode, false, false);
+                                selectionNodes.Add(mouseNode);
                             }
                         }
                     }
                 }
+                //
+                AddSelectionNodes(selectionNodes.ToArray(), false, false);
                 // Restore current selection
                 Selection selectionOut = _selection.DeepClone();
                 _selection = currentSelection;
@@ -18179,7 +18196,6 @@ namespace PrePoMax
                     }
                     //
                     numDrawnCells += cells.Length;
-                    count++;
                 }
                 //
                 AddActorsToSelectionBuffer(key, actors);

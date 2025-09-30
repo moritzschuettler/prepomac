@@ -153,9 +153,9 @@ namespace PrePoMax.Forms
                     _contactSearch = new ContactSearch(_controller.Model.Mesh, _controller.Model.Geometry);
                 _contactSearch.GroupContactPairsBy = groupBy;
                 List<MasterSlaveItem> masterSlaveItems = _contactSearch.FindContactPairs(distance,
-                                                                                        angleDeg,
-                                                                                        filter,
-                                                                                        tryResolve);
+                                                                                         angleDeg,
+                                                                                         filter,
+                                                                                         tryResolve);
                 _controller.ResumeExplodedViews(false);
                 // Fill data
                 SearchContactPair contactPair;

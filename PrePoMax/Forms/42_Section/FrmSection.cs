@@ -397,18 +397,34 @@ namespace PrePoMax.Forms
                         {
                             if (Section.CreationIds != null)
                             {
-                                int partId;
                                 BasePart part;
-                                int[] geometryIds = Section.CreationIds;
-                                foreach (int geometryId in geometryIds)
+                                int[] ids = Section.CreationIds;
+                                HashSet<int> partIds = new HashSet<int>();
+
+                                if (Section.CreationData.IsGeometryBased()) // solid
                                 {
-                                    partId = FeMesh.GetItemTypePartIdsFromGeometryId(geometryId)[2];
+                                    foreach (int geometryId in ids)
+                                    {
+                                        partIds.Add(FeMesh.GetItemTypePartIdsFromGeometryId(geometryId)[2]);
+                                    }
+                                }
+                                else
+                                {
+                                    foreach (int elementId in ids)  // shell, membrane
+                                    {
+                                        partIds.Add(_controller.Model.Mesh.Elements[elementId].PartId);
+                                    }
+                                }
+                                //
+                                foreach (int partId in partIds)
+                                {
                                     part = _controller.Model.Mesh.GetPartFromId(partId);
                                     if (part == null) { }
                                     else if (Section is SolidSection && part.PartType != PartType.Solid) return false;
                                     else if (Section is ShellSection && part.PartType != PartType.Shell) return false;
                                     else if (Section is MembraneSection && part.PartType != PartType.Shell) return false;
                                 }
+                                //
                                 return true;
                             }
                         }
