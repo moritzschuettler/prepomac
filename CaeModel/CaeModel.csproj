@@ -278,6 +278,7 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Steps\StepCollection.cs" />
+    <Compile Include="Views\UserViewParameters.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\CaeGlobals\CaeGlobals.csproj">

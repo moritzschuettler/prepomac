@@ -776,6 +776,8 @@ namespace PrePoMax
             _form.RegenerateTree(false);
             // Set tree states
             if (data[2] is bool[][] states) _form.SetTreeExpandCollapseState(states);
+            // Set user views
+            _form.UpdateUserViewsThreadSafe(_model.UserViews.Keys.ToArray());
         }
         private void InitializeNewCommands(CommandsCollection commandsCollection)
         {
@@ -2414,12 +2416,38 @@ namespace PrePoMax
         #endregion ################################################################################################################
 
         #region View menu   ########################################################################################################
+        // User views
+        public void GetViewParameters(out double[] position, out double[] focalPoint, out double[] viewUp)
+        {
+            _form.GetViewParameters(out position, out focalPoint, out viewUp);
+        }
+        public void SetViewParameters(bool animate, double[] position, double[] focalPoint, double[] viewUp)
+        {
+            _form.SetViewParameters(animate, position, focalPoint, viewUp);
+        }
+        //
+        public List<UserViewParameters> GetUserViewParameters()
+        {
+            return _model.UserViews.Values.ToList();
+        }
+        public void SetUserViewParameters(List<UserViewParameters> userViews)
+        {
+            _model.UserViews.Clear();
+            foreach (var userView in userViews) _model.UserViews.Add(userView.Name, userView);
+            //
+            _form.UpdateUserViewsThreadSafe(_model.UserViews.Keys.ToArray());
+        }
+        public void SetUserView(string name)
+        {
+            UserViewParameters parameters = _model.UserViews[name];
+            SetViewParameters(true, parameters.Position, parameters.FocalPoint, parameters.UpVector);
+        }
         // Section view
         public bool IsSectionViewActive()
         {
             return _sectionViews.IsSectionViewActive();
         }
-        
+        //
         public void ApplySectionView()
         {
             Octree.Plane plane = _sectionViews.GetCurrentSectionViewPlane();
@@ -18118,9 +18146,13 @@ namespace PrePoMax
             //
             FeMesh mesh = DisplayedMesh;
             // Create a key and check if the data already exists
-            vtkMaxActor[] actors;
-            string key = _currentView + Globals.NameSeparator + prefixName + Globals.NameSeparator + Tools.GetHashCode(elementIds);
-            if (!countOnly && _selectionBuffer.TryGetValue(key, out actors))
+            
+            string key = _currentView + Globals.NameSeparator +
+                         prefixName + Globals.NameSeparator +
+                         Tools.GetHashCode(elementIds) + Globals.NameSeparator +
+                         layer;
+            //
+            if (!countOnly && _selectionBuffer.TryGetValue(key, out vtkMaxActor[] actors))
             {
                 for (int i = 0; i < actors.Length; i++)
                 {
@@ -18133,9 +18165,8 @@ namespace PrePoMax
             {
                 BasePart[] parts = mesh.CreateBasePartsByTypeFromElementIds(elementIds, onlyVisible);
                 vtkMaxActorData data;
-                actors = new vtkMaxActor[2 * parts.Length];
+                List<vtkMaxActor> actorsList = new List<vtkMaxActor>();
                 //
-                int count = 0;
                 bool shell;
                 List<int[]> edgeCells = new List<int[]>();
                 foreach (BasePart part in parts)
@@ -18161,9 +18192,7 @@ namespace PrePoMax
                         data.Geometry.Cells.Types = cellTypes;
                         //
                         ApplyLighting(data);
-                        actors[count] = _form.Add3DCells(data);
-                        count++;
-                        //
+                        actorsList.Add(_form.Add3DCells(data));
                         //if (shell)
                         {
                             // Data
@@ -18190,15 +18219,14 @@ namespace PrePoMax
                             data.UseSecondaryHighlightColor = false;
                             //
                             ApplyLighting(data);
-                            actors[count] = _form.Add3DCells(data);
-                            count++;
+                            actorsList.Add(_form.Add3DCells(data));
                         }
                     }
                     //
                     numDrawnCells += cells.Length;
                 }
                 //
-                AddActorsToSelectionBuffer(key, actors);
+                if (actorsList.Count > 0) AddActorsToSelectionBuffer(key, actorsList.ToArray());
             }
             //
             return numDrawnCells;

@@ -2353,6 +2353,33 @@ namespace vtkControl
 
         // Public methods                                                                                                          
         #region Views  #############################################################################################################
+        public void GetViewParameters(out double[] position, out double[] focalPoint, out double[] viewUp)
+        {
+            vtkCamera camera = _renderer.GetActiveCamera();
+            position = camera.GetPosition();
+            focalPoint = camera.GetFocalPoint();
+            viewUp = camera.GetViewUp();
+        }
+        public void SetViewParameters(bool animate, double[] position, double[] focalPoint, double[] viewUp)
+        {
+            if (_animating) return;
+            _animating = animate;
+            //
+            if (_drawCameraPath) ClearOverlay();
+            //
+            vtkCamera camera = _renderer.GetActiveCamera();
+            vtkCamera cameraStart = vtkCamera.New();
+            cameraStart.DeepCopy(camera);
+            //
+            camera.SetPosition(position[0], position[1], position[2]);
+            camera.SetFocalPoint(focalPoint[0], focalPoint[1], focalPoint[2]);
+            camera.SetViewUp(viewUp[0], viewUp[1], viewUp[2]);
+            //
+            ResetCamera();
+            //
+            if (animate) AnimateCamera(cameraStart, camera, camera);
+            else RenderScene();
+        }
         public void SetFrontBackView(bool animate, bool front)
         {
             if (_animating) return;
@@ -2422,7 +2449,7 @@ namespace vtkControl
             if (animate) AnimateCamera(cameraStart, camera, camera);
             else RenderScene();
         }
-        
+        //
         public void SetNormalView(bool animate)
         {
             if (_animating) return;

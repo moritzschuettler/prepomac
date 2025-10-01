@@ -394,6 +394,12 @@
       <DependentUpon>FrmEditCommands.cs</DependentUpon>
     </Compile>
     <Compile Include="Forms\01_Edit\ViewCommand.cs" />
+    <Compile Include="Forms\02_View\FrmUserVew.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\02_View\FrmUserVew.Designer.cs">
+      <DependentUpon>FrmUserVew.cs</DependentUpon>
+    </Compile>
     <Compile Include="Forms\02_View\FollowerViewParameters.cs" />
     <Compile Include="Forms\02_View\FrmFollowerView.cs">
       <SubType>Form</SubType>
@@ -401,6 +407,7 @@
     <Compile Include="Forms\02_View\FrmFollowerView.Designer.cs">
       <DependentUpon>FrmFollowerView.cs</DependentUpon>
     </Compile>
+    <Compile Include="Forms\02_View\ViewUserViewParameters.cs" />
     <Compile Include="Forms\02_View\ViewFollowerViewParameters.cs" />
     <Compile Include="Forms\11_MeshSetup\FrmMeshSetupItem.cs">
       <SubType>Form</SubType>
@@ -872,6 +879,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\01_Edit\FrmEditCommands.resx">
       <DependentUpon>FrmEditCommands.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\02_View\FrmUserVew.resx">
+      <DependentUpon>FrmUserVew.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\02_View\FrmFollowerView.resx">
       <DependentUpon>FrmFollowerView.cs</DependentUpon>

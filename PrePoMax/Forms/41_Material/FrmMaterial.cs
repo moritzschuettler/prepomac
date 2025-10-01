@@ -69,6 +69,11 @@ namespace PrePoMax.Forms
             ClearControls();
             //
             _useSimpleEditor = false;
+            //
+            ttText.SetToolTip(btnAdd, "Add model");
+            ttText.SetToolTip(btnMoveUp, "Move up");
+            ttText.SetToolTip(btnMoveDown, "Move down");
+            ttText.SetToolTip(btnRemove, "Remove model");
         }
 
 

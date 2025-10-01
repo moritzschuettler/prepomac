@@ -29,6 +29,7 @@ namespace CaeModel
         private string _hashName;                                                               //ISerializable
         private FeMesh _geometry;                                                               //ISerializable
         private FeMesh _mesh;                                                                   //ISerializable
+        protected OrderedDictionary<string, UserViewParameters> _userViews;                     //ISerializable
         private EquationParameterCollection _parameters;                                        //ISerializable
         private OrderedDictionary<string, Material> _materials;                                 //ISerializable
         private OrderedDictionary<string, Section> _sections;                                   //ISerializable
@@ -49,6 +50,7 @@ namespace CaeModel
         public string HashName { get { return _hashName; } }
         public FeMesh Geometry { get { return _geometry; } }
         public FeMesh Mesh { get { return _mesh; } }
+        public OrderedDictionary<string, UserViewParameters> UserViews { get { return _userViews; } }
         public EquationParameterCollection Parameters { get { return _parameters; } }
         public OrderedDictionary<string, Material> Materials { get { return _materials; } }
         public OrderedDictionary<string, Section> Sections { get { return _sections; } }
@@ -85,6 +87,7 @@ namespace CaeModel
             _hashName = Tools.GetRandomString(8);
             _geometry = new FeMesh(MeshRepresentation.Geometry);
             _mesh = new FeMesh(MeshRepresentation.Mesh);
+            _userViews = new OrderedDictionary<string, UserViewParameters>("User Views", sc);
             _parameters = new EquationParameterCollection();
             _materials = new OrderedDictionary<string, Material>("Materials", sc);
             _sections = new OrderedDictionary<string, Section>("Sections", sc);
@@ -124,6 +127,8 @@ namespace CaeModel
             _amplitudes = new OrderedDictionary<string, Amplitude>("Amplitudes", sc);
             // Compatibility for version v.1.4.0
             _parameters = new EquationParameterCollection();
+            // Compatibility for version v.2.3.9
+            _userViews = new OrderedDictionary<string, UserViewParameters>("User Views", sc);
             //
             foreach (SerializationEntry entry in info)
             {
@@ -136,6 +141,9 @@ namespace CaeModel
                         _geometry = (FeMesh)entry.Value; break;
                     case "_mesh":
                         _mesh = (FeMesh)entry.Value; break;
+                    case "_userViews":
+                        _userViews = (OrderedDictionary<string, UserViewParameters>)entry.Value;
+                        break;
                     case "_parameters":                         // Compatibility for version v.2.1.11
                         if (entry.Value is OrderedDictionary<string, EquationParameter> dic)
                         {
@@ -3352,6 +3360,7 @@ namespace CaeModel
             info.AddValue("_name", Name, typeof(string));
             info.AddValue("_geometry", _geometry, typeof(FeMesh));
             info.AddValue("_mesh", _mesh, typeof(FeMesh));
+            info.AddValue("_userViews", _userViews, typeof(OrderedDictionary<string, UserViewParameters>));
             info.AddValue("_parameters", _parameters, typeof(EquationParameterCollection));
             info.AddValue("_materials", _materials, typeof(OrderedDictionary<string, Material>));
             info.AddValue("_sections", _sections, typeof(OrderedDictionary<string, Section>));

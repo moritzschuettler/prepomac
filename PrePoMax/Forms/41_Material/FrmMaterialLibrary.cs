@@ -20,7 +20,7 @@ namespace PrePoMax.Forms
         private Controller _controller;
         private bool _modelChanged;
         private FrmMaterial _frmMaterial;
-        private int _yPadding;
+        private int _initialPadding;
         private object _previousControl;
         private bool _prevClickDouble;
         static bool _collapsed = true;
@@ -39,6 +39,11 @@ namespace PrePoMax.Forms
             _previousControl = null;
             //
             _controller.Model.UnitSystem.SetConverterUnits();
+            //
+            ttText.SetToolTip(btnCopyToModel, "Copy material to model");
+            ttText.SetToolTip(btnCopyToLibrary, "Copy material to library");
+            ttText.SetToolTip(btnMoveUp, "Move up");
+            ttText.SetToolTip(btnMoveDown, "Move down");
         }
 
 
@@ -88,7 +93,7 @@ namespace PrePoMax.Forms
                     _frmMaterial.Material = previewMaterial;
                 }
                 //
-                _yPadding = gbLibraries.Bottom - gbLibraryMaterials.Top;
+                _initialPadding = gbLibraries.Bottom - gbLibraryMaterials.Top;    // use the same equation as for newPadding
                 //
                 gbLibraries.IsCollapsed = _collapsed;
             }
@@ -109,9 +114,9 @@ namespace PrePoMax.Forms
         private void gbLibraries_OnCollapsedChanged(object sender)
         {
             int newPadding = gbLibraries.Bottom - gbLibraryMaterials.Top;
-            if (newPadding != _yPadding)
+            if (newPadding != _initialPadding)
             {
-                int delta = newPadding - _yPadding;
+                int delta = newPadding - _initialPadding;
                 gbLibraryMaterials.Top += delta;
                 gbModelMaterials.Top += delta;
                 btnCopyToModel.Top += delta;

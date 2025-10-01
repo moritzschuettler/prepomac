@@ -46,6 +46,7 @@ namespace PrePoMax
         //
         private Point _formLocation;
         private List<Form> _allForms;
+        private FrmUserVew _frmUserView;
         private FrmSectionView _frmSectionView;
         private FrmExplodedView _frmExplodedView;
         private FrmFollowerView _frmFollowerView;
@@ -338,6 +339,9 @@ namespace PrePoMax
                 //
                 _frmSelectItemSet = new FrmSelectItemSet(_controller);
                 AddFormToAllForms(_frmSelectItemSet);
+                //
+                _frmUserView = new FrmUserVew(_controller);
+                AddFormToAllForms(_frmUserView);
                 //
                 _frmSectionView = new FrmSectionView(_controller);
                 AddFormToAllForms(_frmSectionView);
@@ -666,7 +670,7 @@ namespace PrePoMax
                         }
                         else MessageBoxes.ShowError("The file name extension is not supported.");
                         //
-                        _vtk.SetFrontBackView(false, true);
+                        SetFrontBackView(false, true);
                     }
                     else
                     {
@@ -2491,11 +2495,11 @@ namespace PrePoMax
         #region View menu ##########################################################################################################
         private void tsmiFrontView_Click(object sender, EventArgs e)
         {
-            _vtk.SetFrontBackView(true, true);
+            SetFrontBackView(true, true);
         }
         private void tsmiBackView_Click(object sender, EventArgs e)
         {
-            _vtk.SetFrontBackView(true, false);
+            SetFrontBackView(true, false);
         }
         private void tsmiTopView_Click(object sender, EventArgs e)
         {
@@ -2530,6 +2534,58 @@ namespace PrePoMax
         private void tsmiZoomToFit_Click(object sender, EventArgs e)
         {
             SetZoomToFit(true);
+        }
+        //
+        private void tsmiUserViews_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                _frmUserView.UserViewParameters = _controller.GetUserViewParameters();
+                ShowForm(_frmUserView, tsmiUserViews.Text, null);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        public void UpdateUserViewsThreadSafe(string[] viewNames)
+        {
+            InvokeIfRequired(UpdateUserViews, viewNames);
+        }
+        public void UpdateUserViews(string[] viewNames)
+        {
+            try
+            {
+                if (viewNames != null)
+                {
+                    tsmiUserViews.DropDownItems.Clear();
+                    //
+                    ToolStripMenuItem menuItem;
+                    foreach (var viewName in viewNames)
+                    {
+                        menuItem = new ToolStripMenuItem(viewName);
+                        menuItem.Name = viewName;
+                        menuItem.Click += tsmiUserView_Click;
+                        tsmiUserViews.DropDownItems.Add(menuItem);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiUserView_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                string viewName = ((ToolStripMenuItem)sender).Name;
+                _controller.SetUserView(viewName);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
         }
         //
         private void tsmiShowWireframeEdges_Click(object sender, EventArgs e)
@@ -9512,6 +9568,23 @@ namespace PrePoMax
 
         #region vtkControl  ########################################################################################################
         // vtkControl
+        public void GetViewParameters(out double[] position, out double[] focalPoint, out double[] viewUp)
+        {
+            double[] pos = null;
+            double[] foc = null;
+            double[] up = null;
+            //
+            if (this.InvokeRequired) this.Invoke((MethodInvoker)delegate { _vtk.GetViewParameters(out pos, out foc, out up); });
+            else _vtk.GetViewParameters(out pos, out foc, out up);
+            // Assign to out parameters after Invoke completes
+            position = pos;
+            focalPoint = foc;
+            viewUp = up;
+        }
+        public void SetViewParameters(bool animate, double[] position, double[] focalPoint, double[] viewUp)
+        {
+            InvokeIfRequired(_vtk.SetViewParameters, animate, position, focalPoint, viewUp);
+        }
         public void SetFrontBackView(bool animate, bool front)
         {
             InvokeIfRequired(_vtk.SetFrontBackView, animate, front);
@@ -9524,7 +9597,7 @@ namespace PrePoMax
         {
             if (this.InvokeRequired)
             {
-                return (double[])this.Invoke((MethodInvoker)delegate () { _vtk.GetViewPlaneNormal(); });
+                return (double[])this.Invoke((MethodInvoker)delegate { _vtk.GetViewPlaneNormal(); });
             }
             else
             {
