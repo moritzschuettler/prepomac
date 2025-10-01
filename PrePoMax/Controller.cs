@@ -2417,13 +2417,13 @@ namespace PrePoMax
 
         #region View menu   ########################################################################################################
         // User views
-        public void GetViewParameters(out double[] position, out double[] focalPoint, out double[] viewUp)
+        public void GetViewParameters(out double[] position, out double[] focalPoint, out double[] viewUp, out double parallelScale)
         {
-            _form.GetViewParameters(out position, out focalPoint, out viewUp);
+            _form.GetViewParameters(out position, out focalPoint, out viewUp, out parallelScale);
         }
-        public void SetViewParameters(bool animate, double[] position, double[] focalPoint, double[] viewUp)
+        public void SetViewParameters(bool animate, double[] position, double[] focalPoint, double[] viewUp, double parallelScale)
         {
-            _form.SetViewParameters(animate, position, focalPoint, viewUp);
+            _form.SetViewParameters(animate, position, focalPoint, viewUp, parallelScale);
         }
         //
         public List<UserViewParameters> GetUserViewParameters()
@@ -2440,7 +2440,7 @@ namespace PrePoMax
         public void SetUserView(string name)
         {
             UserViewParameters parameters = _model.UserViews[name];
-            SetViewParameters(true, parameters.Position, parameters.FocalPoint, parameters.UpVector);
+            SetViewParameters(true, parameters.Position, parameters.FocalPoint, parameters.UpVector, parameters.ParallelScale);
         }
         // Section view
         public bool IsSectionViewActive()

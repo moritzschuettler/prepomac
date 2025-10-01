@@ -125,6 +125,19 @@ namespace PrePoMax.Forms
             get { return _parameters.UpVector == null ? 0 : _parameters.UpVector[2]; }
             set { _parameters.UpVector[2] = value; }
         }
+        //
+        [CategoryAttribute("Zoom")]
+        [OrderedDisplayName(0, 10, "Value")]
+        [DescriptionAttribute("Zoom value.")]
+        [Id(1, 5)]
+        public double Zoom
+        {
+            get { return 1 / _parameters.ParallelScale; }
+            set
+            {
+                if (value > 0) _parameters.ParallelScale = 1 / value;
+            }
+        }
 
 
         // Constructors                                                                                                             

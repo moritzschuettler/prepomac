@@ -9568,22 +9568,27 @@ namespace PrePoMax
 
         #region vtkControl  ########################################################################################################
         // vtkControl
-        public void GetViewParameters(out double[] position, out double[] focalPoint, out double[] viewUp)
+        public void GetViewParameters(out double[] position, out double[] focalPoint, out double[] viewUp, out double parallelScale)
         {
             double[] pos = null;
             double[] foc = null;
             double[] up = null;
+            double ps = 1;
             //
-            if (this.InvokeRequired) this.Invoke((MethodInvoker)delegate { _vtk.GetViewParameters(out pos, out foc, out up); });
-            else _vtk.GetViewParameters(out pos, out foc, out up);
+            if (this.InvokeRequired) this.Invoke((MethodInvoker)delegate
+            {
+                _vtk.GetViewParameters(out pos, out foc, out up, out ps);
+            });
+            else _vtk.GetViewParameters(out pos, out foc, out up, out ps);
             // Assign to out parameters after Invoke completes
             position = pos;
             focalPoint = foc;
             viewUp = up;
+            parallelScale = ps;
         }
-        public void SetViewParameters(bool animate, double[] position, double[] focalPoint, double[] viewUp)
+        public void SetViewParameters(bool animate, double[] position, double[] focalPoint, double[] viewUp, double parallelScale)
         {
-            InvokeIfRequired(_vtk.SetViewParameters, animate, position, focalPoint, viewUp);
+            InvokeIfRequired(_vtk.SetViewParameters, animate, position, focalPoint, viewUp, parallelScale);
         }
         public void SetFrontBackView(bool animate, bool front)
         {

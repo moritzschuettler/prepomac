@@ -28,9 +28,9 @@
         /// </summary>
         private void InitializeComponent()
         {
-            System.Windows.Forms.ListViewItem listViewItem1 = new System.Windows.Forms.ListViewItem("1");
-            System.Windows.Forms.ListViewItem listViewItem2 = new System.Windows.Forms.ListViewItem("2");
-            System.Windows.Forms.ListViewItem listViewItem3 = new System.Windows.Forms.ListViewItem("3");
+            System.Windows.Forms.ListViewItem listViewItem13 = new System.Windows.Forms.ListViewItem("1");
+            System.Windows.Forms.ListViewItem listViewItem14 = new System.Windows.Forms.ListViewItem("2");
+            System.Windows.Forms.ListViewItem listViewItem15 = new System.Windows.Forms.ListViewItem("3");
             this.btnCancel = new System.Windows.Forms.Button();
             this.btnOK = new System.Windows.Forms.Button();
             this.gbViews = new System.Windows.Forms.GroupBox();
@@ -52,7 +52,7 @@
             // 
             this.btnCancel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.btnCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.btnCancel.Location = new System.Drawing.Point(217, 581);
+            this.btnCancel.Location = new System.Drawing.Point(217, 618);
             this.btnCancel.Name = "btnCancel";
             this.btnCancel.Size = new System.Drawing.Size(75, 23);
             this.btnCancel.TabIndex = 14;
@@ -64,7 +64,7 @@
             // 
             this.btnOK.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.btnOK.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.btnOK.Location = new System.Drawing.Point(136, 581);
+            this.btnOK.Location = new System.Drawing.Point(136, 618);
             this.btnOK.Name = "btnOK";
             this.btnOK.Size = new System.Drawing.Size(75, 23);
             this.btnOK.TabIndex = 15;
@@ -168,9 +168,9 @@
             this.lvViews.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.None;
             this.lvViews.HideSelection = false;
             this.lvViews.Items.AddRange(new System.Windows.Forms.ListViewItem[] {
-            listViewItem1,
-            listViewItem2,
-            listViewItem3});
+            listViewItem13,
+            listViewItem14,
+            listViewItem15});
             this.lvViews.Location = new System.Drawing.Point(6, 22);
             this.lvViews.MouseOverColor = System.Drawing.Color.FromArgb(((int)(((byte)(204)))), ((int)(((byte)(228)))), ((int)(((byte)(247)))));
             this.lvViews.MultiSelect = false;
@@ -196,7 +196,7 @@
             this.gbProperties.IsCollapsed = false;
             this.gbProperties.Location = new System.Drawing.Point(12, 220);
             this.gbProperties.Name = "gbProperties";
-            this.gbProperties.Size = new System.Drawing.Size(280, 355);
+            this.gbProperties.Size = new System.Drawing.Size(280, 392);
             this.gbProperties.TabIndex = 17;
             this.gbProperties.TabStop = false;
             this.gbProperties.Text = "Properties";
@@ -213,7 +213,7 @@
             this.pgProperties.Location = new System.Drawing.Point(6, 17);
             this.pgProperties.Name = "pgProperties";
             this.pgProperties.ReadOnly = false;
-            this.pgProperties.Size = new System.Drawing.Size(268, 332);
+            this.pgProperties.Size = new System.Drawing.Size(268, 369);
             this.pgProperties.TabIndex = 17;
             this.pgProperties.ToolbarVisible = false;
             this.pgProperties.PropertyValueChanged += new System.Windows.Forms.PropertyValueChangedEventHandler(this.pgProperties_PropertyValueChanged);
@@ -223,12 +223,13 @@
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.CancelButton = this.btnCancel;
-            this.ClientSize = new System.Drawing.Size(304, 616);
+            this.ClientSize = new System.Drawing.Size(304, 653);
             this.Controls.Add(this.gbProperties);
             this.Controls.Add(this.gbViews);
             this.Controls.Add(this.btnOK);
             this.Controls.Add(this.btnCancel);
             this.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
             this.MinimumSize = new System.Drawing.Size(300, 300);

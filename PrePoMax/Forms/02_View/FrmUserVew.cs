@@ -156,7 +156,7 @@ namespace PrePoMax.Forms
                 }
                 else
                 {
-                    btnApply_Click(null, null);
+                    //btnApply_Click(null, null);
                 }
             }
             catch
@@ -188,7 +188,8 @@ namespace PrePoMax.Forms
                 if (_viewUserViewParameters != null)
                 {
                     UserViewParameters parameters = _viewUserViewParameters.GetBase();
-                    _controller.SetViewParameters(true, parameters.Position, parameters.FocalPoint, parameters.UpVector);
+                    _controller.SetViewParameters(true, parameters.Position, parameters.FocalPoint,
+                                                  parameters.UpVector, parameters.ParallelScale);
                 }
             }
             catch
@@ -201,10 +202,12 @@ namespace PrePoMax.Forms
                 if (_viewUserViewParameters != null)
                 {
                     UserViewParameters parameters = _viewUserViewParameters.GetBase();
-                    _controller.GetViewParameters(out double[] position, out double[] focalPoint, out double[] upVector);
+                    _controller.GetViewParameters(out double[] position, out double[] focalPoint,
+                                                  out double[] upVector, out double parallelScale);
                     parameters.Position = position;
                     parameters.FocalPoint = focalPoint;
                     parameters.UpVector = upVector;
+                    parameters.ParallelScale = parallelScale;
                     //
                     pgProperties.Refresh();
                 }

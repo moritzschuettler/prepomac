@@ -3371,7 +3371,8 @@ namespace CaeModel
             info.AddValue("_amplitudes", _amplitudes, typeof(OrderedDictionary<string, Amplitude>));
             info.AddValue("_initialConditions", _initialConditions, typeof(OrderedDictionary<string, InitialCondition>));
             info.AddValue("_stepCollection", _stepCollection, typeof(StepCollection));
-            info.AddValue("_calculixUserKeywords", _calculixUserKeywords, typeof(OrderedDictionary<int[], Calculix.CalculixUserKeyword>));
+            info.AddValue("_calculixUserKeywords", _calculixUserKeywords,
+                          typeof(OrderedDictionary<int[], Calculix.CalculixUserKeyword>));
             info.AddValue("_properties", _properties, typeof(ModelProperties));
             info.AddValue("_unitSystem", _unitSystem, typeof(UnitSystem));
             info.AddValue("_hashName", _hashName, typeof(string));

@@ -2353,14 +2353,15 @@ namespace vtkControl
 
         // Public methods                                                                                                          
         #region Views  #############################################################################################################
-        public void GetViewParameters(out double[] position, out double[] focalPoint, out double[] viewUp)
+        public void GetViewParameters(out double[] position, out double[] focalPoint, out double[] viewUp, out double parallelScale)
         {
             vtkCamera camera = _renderer.GetActiveCamera();
             position = camera.GetPosition();
             focalPoint = camera.GetFocalPoint();
             viewUp = camera.GetViewUp();
+            parallelScale = camera.GetParallelScale();
         }
-        public void SetViewParameters(bool animate, double[] position, double[] focalPoint, double[] viewUp)
+        public void SetViewParameters(bool animate, double[] position, double[] focalPoint, double[] viewUp, double parallelScale)
         {
             if (_animating) return;
             _animating = animate;
@@ -2376,6 +2377,7 @@ namespace vtkControl
             camera.SetViewUp(viewUp[0], viewUp[1], viewUp[2]);
             //
             ResetCamera();
+            camera.SetParallelScale(parallelScale);
             //
             if (animate) AnimateCamera(cameraStart, camera, camera);
             else RenderScene();
