@@ -1058,7 +1058,7 @@ namespace FileInOut.Output
         //
         static private string[] GetAllSubmodelNodeSetNames(FeModel model)
         {
-            List<string> nodeSetNames = new List<string>();
+            HashSet<string> nodeSetNames = new HashSet<string>();
             foreach (var step in model.StepCollection.StepsList)
             {
                 foreach (var entry in step.BoundaryConditions)
