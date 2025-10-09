@@ -1669,6 +1669,11 @@ namespace DynamicTypeDescriptor
             m_pdl.Clear();
             GetProperties();
         }
+
+        public void PopulateProperty(string v, object surfaceInteracionNames)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     internal class CustomTypeDescriptionProvider : TypeDescriptionProvider

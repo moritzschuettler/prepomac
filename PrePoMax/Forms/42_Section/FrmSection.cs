@@ -401,20 +401,28 @@ namespace PrePoMax.Forms
                                 int[] ids = Section.CreationIds;
                                 HashSet<int> partIds = new HashSet<int>();
 
-                                if (Section.CreationData.IsGeometryBased()) // solid
+                                if (Section is SolidSection)
                                 {
-                                    foreach (int geometryId in ids)
+                                    if (Section.CreationData.IsGeometryBased()) // solid
                                     {
-                                        partIds.Add(FeMesh.GetItemTypePartIdsFromGeometryId(geometryId)[2]);
+                                        foreach (int geometryId in ids)
+                                        {
+                                            partIds.Add(FeMesh.GetItemTypePartIdsFromGeometryId(geometryId)[2]);
+                                        }
                                     }
+                                    else throw new NotSupportedException();
+
                                 }
-                                else
+                                else if (Section is ShellSection || Section is MembraneSection)
                                 {
                                     foreach (int elementId in ids)  // shell, membrane
                                     {
                                         partIds.Add(_controller.Model.Mesh.Elements[elementId].PartId);
                                     }
                                 }
+                                else if (Section is PointMassSection) { }
+                                else if (Section is DistributedMassSection) { }
+                                else throw new NotSupportedException();
                                 //
                                 foreach (int partId in partIds)
                                 {

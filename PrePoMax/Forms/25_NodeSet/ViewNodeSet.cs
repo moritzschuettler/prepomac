@@ -1,12 +1,17 @@
-﻿using System;
+﻿using CaeGlobals;
+using CaeMesh;
+using DynamicTypeDescriptor;
+using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.ComponentModel.Design;
+using System.Drawing.Design;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using CaeMesh;
-using CaeGlobals;
-using System.ComponentModel;
-using DynamicTypeDescriptor;
+using System.Windows.Forms;
+using System.Windows.Forms.Design;
 
 namespace PrePoMax.Forms
 {
@@ -22,20 +27,20 @@ namespace PrePoMax.Forms
         [CategoryAttribute("Data")]
         [DisplayName("Name")]
         [DescriptionAttribute("Name of the node set.")]
-        [Id(0, 0)]
+        [Id(1, 1)]
         public string Name { get { return _nodeSet.Name; } set { _nodeSet.Name = value; } }
         //
         [CategoryAttribute("Data")]
         [DisplayName("Number of nodes")]
         [DescriptionAttribute("Number of nodes in the nodes set.")]
-        [Id(1, 0)]
+        [Id(2, 1)]
         public int NumberOfNodes { get { return _nodeSet.Labels == null ? 0 : _nodeSet.Labels.Length; } }
         //
         [CategoryAttribute("Center of gravity")]
         [DisplayName("X")]
         [DescriptionAttribute("X center of gravity.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(0, 1)]
+        [Id(1, 2)]
         public double XCenterOfGravity
         {
             get 
@@ -49,7 +54,7 @@ namespace PrePoMax.Forms
         [DisplayName("Y")]
         [DescriptionAttribute("Y center of gravity.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(1, 1)]
+        [Id(2, 2)]
         public double YCenterOfGravity
         {
             get
@@ -63,7 +68,7 @@ namespace PrePoMax.Forms
         [DisplayName("Z")]
         [DescriptionAttribute("Z center of gravity.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(2, 1)]
+        [Id(3, 2)]
         public double ZCenterOfGravity
         {
             get
@@ -77,7 +82,7 @@ namespace PrePoMax.Forms
         [DisplayName("X")]
         [DescriptionAttribute("Bounding box X center of gravity.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(0, 2)]
+        [Id(1, 3)]
         public double XBoundingBoxCG
         {
             get
@@ -91,7 +96,7 @@ namespace PrePoMax.Forms
         [DisplayName("Y")]
         [DescriptionAttribute("Bounding box Y center of gravity.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(1, 2)]
+        [Id(2, 3)]
         public double YBoundingBoxCG
         {
             get
@@ -105,7 +110,7 @@ namespace PrePoMax.Forms
         [DisplayName("Z")]
         [DescriptionAttribute("Bounding box Z center of gravity.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(2, 2)]
+        [Id(3, 3)]
         public double ZBoundingBoxCG
         {
             get
@@ -117,7 +122,7 @@ namespace PrePoMax.Forms
 
 
         // Constructors                                                                                                             
-        public ViewNodeSet(System.Windows.Forms.Form parentForm, FeNodeSet nodeSet)
+        public ViewNodeSet(Form parentForm, FeNodeSet nodeSet)
         {
             _nodeSet = nodeSet;
             _dctd = ProviderInstaller.Install(this);

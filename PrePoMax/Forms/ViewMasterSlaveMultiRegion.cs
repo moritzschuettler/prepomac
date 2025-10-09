@@ -119,7 +119,7 @@ namespace PrePoMax
             UpdateRegionVisibility();
         }
         private void PopulateDropDownListForRegionType(Dictionary<RegionTypeEnum, string[]> masterRegionTypeListItemsPairs,
-                                                         Dictionary<RegionTypeEnum, string[]> slaveRegionTypeListItemsPairs)
+                                                       Dictionary<RegionTypeEnum, string[]> slaveRegionTypeListItemsPairs)
         {
             // Master
             List<string> types = new List<string>();

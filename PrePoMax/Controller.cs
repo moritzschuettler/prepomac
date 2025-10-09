@@ -11564,7 +11564,10 @@ namespace PrePoMax
         }
         public void RunHistoryPostprocessing()
         {
-            if (_settings.General.RunHistoryPostprocessing)
+            if (_settings.General.RunHistoryPostprocessing == RunPostProcessingEnum.Yes ||
+                (_settings.General.RunHistoryPostprocessing == RunPostProcessingEnum.Ask &&
+                _commands.GetNumberOfPostprocessCommands() > 0 &&
+                MessageBoxes.ShowQuestionYesNo("Postprocessing", "Run postprocessing commands?") == DialogResult.Yes))
             {
                 bool result = _commands.RunHistoryPostprocessing();
                 //
@@ -15011,8 +15014,8 @@ namespace PrePoMax
                     int symbolSize = _settings.Pre.SymbolSize;
                     double fontScaleFactor = 0.9 * symbolSize / 50d;
                     string caption = referencePoint.Name.Replace('-', ' ').Replace('_', ' ');
-                    _form.AddCaptionActor(referencePoint.Name + "_name", caption, Color.Black, coor[0], null,
-                                          fontScaleFactor, layer);
+                    _form.AddCaptionActor("RP" + Globals.NameSeparator + referencePoint.Name + "_name", caption, Color.Black,
+                                          coor[0], null, fontScaleFactor, layer);
                 }
             }
             catch { } // do not show the exception to the user
@@ -15085,8 +15088,8 @@ namespace PrePoMax
                 if (coordinateSystem.NameVisible)
                 {
                     string caption = coordinateSystem.Name.Replace('-', ' ').Replace('_', ' ');
-                    _form.AddCaptionActor(coordinateSystem.Name + "_name", caption, color, position, null,
-                                          fontScaleFactor, layer);
+                    _form.AddCaptionActor("CS" + Globals.NameSeparator + coordinateSystem.Name + "_name", caption, color,
+                                          position, null, fontScaleFactor, layer);
                 }
                 //
                 _form.AdjustCameraDistanceAndClipping();

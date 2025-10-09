@@ -14,6 +14,18 @@ using DynamicTypeDescriptor;
 namespace PrePoMax
 {
     [Serializable]
+    public enum RunPostProcessingEnum
+    {
+        [StandardValue("Yes", DisplayName = "Yes")]
+        Yes,
+        //
+        [StandardValue("No", DisplayName = "No")]
+        No,
+        //
+        [StandardValue("Ask", DisplayName = "Ask")]
+        Ask,
+    }
+    [Serializable]
     public class GeneralSettings : ISettings
     {
         // Variables                                                                                                                
@@ -27,7 +39,7 @@ namespace PrePoMax
         // Mesh edge angle
         private double _edgeAngle;
         // Post-processing
-        private bool _runHistoryPostprocessing;
+        private RunPostProcessingEnum _runHistoryPostprocessing;
         //
         private LinkedList<string> _recentFiles;
         private List<string> _materialLibraryFiles;
@@ -63,7 +75,7 @@ namespace PrePoMax
                 else if (_edgeAngle > 90) _edgeAngle = 90;
             }
         }
-        public bool RunHistoryPostprocessing
+        public RunPostProcessingEnum RunHistoryPostprocessing
         {
             get { return _runHistoryPostprocessing; }
             set { _runHistoryPostprocessing = value; }
@@ -90,7 +102,7 @@ namespace PrePoMax
             _unitSystemType = UnitSystemType.MM_TON_S_C;
             _numOfSplitFaces = 2;
             _edgeAngle = 30;
-            _runHistoryPostprocessing = true;
+            _runHistoryPostprocessing = RunPostProcessingEnum.Ask;
             //
             ResetFormSize();
         }

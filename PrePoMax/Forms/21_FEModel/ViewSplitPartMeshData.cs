@@ -148,19 +148,12 @@ namespace PrePoMax
         {
             base.UpdateRegionVisibility();
             // Hide SelectionHidden
-            CustomPropertyDescriptor cpd;
             // Master
             if (base.MasterRegionType == RegionTypeEnum.Selection.ToFriendlyString())
-            {
-                cpd = DynamicCustomTypeDescriptor.GetProperty(nameof(BasePartSelectionHidden));
-                cpd.SetIsBrowsable(false);
-            }
+                DynamicCustomTypeDescriptor.GetProperty(nameof(BasePartSelectionHidden)).SetIsBrowsable(false);
             // Slave
             if (base.SlaveRegionType == RegionTypeEnum.Selection.ToFriendlyString())
-            {
-                cpd = DynamicCustomTypeDescriptor.GetProperty(nameof(SplitterSurfaceSelectionHidden));
-                cpd.SetIsBrowsable(false);
-            }
+                DynamicCustomTypeDescriptor.GetProperty(nameof(SplitterSurfaceSelectionHidden)).SetIsBrowsable(false);
         }
     }
 

@@ -38,10 +38,10 @@
             this.tbStatus = new UserControls.AutoScrollTextBox();
             this.tpCovergence = new System.Windows.Forms.TabPage();
             this.tbConvergence = new UserControls.AutoScrollTextBox();
-            this.pbAnalysisStatus = new System.Windows.Forms.ProgressBar();
-            this.labAnalysisStatus = new System.Windows.Forms.Label();
             this.tpDatFile = new System.Windows.Forms.TabPage();
             this.tbDatFile = new UserControls.AutoScrollTextBox();
+            this.pbAnalysisStatus = new System.Windows.Forms.ProgressBar();
+            this.labAnalysisStatus = new System.Windows.Forms.Label();
             this.tabControl1.SuspendLayout();
             this.tpOutput.SuspendLayout();
             this.tpStatus.SuspendLayout();
@@ -174,6 +174,30 @@
             this.tbConvergence.Size = new System.Drawing.Size(684, 308);
             this.tbConvergence.TabIndex = 2;
             // 
+            // tpDatFile
+            // 
+            this.tpDatFile.Controls.Add(this.tbDatFile);
+            this.tpDatFile.Location = new System.Drawing.Point(4, 24);
+            this.tpDatFile.Name = "tpDatFile";
+            this.tpDatFile.Padding = new System.Windows.Forms.Padding(3);
+            this.tpDatFile.Size = new System.Drawing.Size(702, 326);
+            this.tpDatFile.TabIndex = 3;
+            this.tpDatFile.Text = "Dat File";
+            this.tpDatFile.UseVisualStyleBackColor = true;
+            // 
+            // tbDatFile
+            // 
+            this.tbDatFile.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.tbDatFile.Font = new System.Drawing.Font("Consolas", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
+            this.tbDatFile.Location = new System.Drawing.Point(6, 6);
+            this.tbDatFile.Multiline = true;
+            this.tbDatFile.Name = "tbDatFile";
+            this.tbDatFile.ScrollBars = System.Windows.Forms.ScrollBars.Both;
+            this.tbDatFile.Size = new System.Drawing.Size(690, 314);
+            this.tbDatFile.TabIndex = 2;
+            // 
             // pbAnalysisStatus
             // 
             this.pbAnalysisStatus.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
@@ -198,30 +222,6 @@
             this.labAnalysisStatus.Text = "      Running";
             this.labAnalysisStatus.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.labAnalysisStatus.UseMnemonic = false;
-            // 
-            // tpDatFile
-            // 
-            this.tpDatFile.Controls.Add(this.tbDatFile);
-            this.tpDatFile.Location = new System.Drawing.Point(4, 24);
-            this.tpDatFile.Name = "tpDatFile";
-            this.tpDatFile.Padding = new System.Windows.Forms.Padding(3);
-            this.tpDatFile.Size = new System.Drawing.Size(702, 326);
-            this.tpDatFile.TabIndex = 3;
-            this.tpDatFile.Text = "Dat File";
-            this.tpDatFile.UseVisualStyleBackColor = true;
-            // 
-            // tbDatFile
-            // 
-            this.tbDatFile.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.tbDatFile.Font = new System.Drawing.Font("Consolas", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
-            this.tbDatFile.Location = new System.Drawing.Point(6, 6);
-            this.tbDatFile.Multiline = true;
-            this.tbDatFile.Name = "tbDatFile";
-            this.tbDatFile.ScrollBars = System.Windows.Forms.ScrollBars.Both;
-            this.tbDatFile.Size = new System.Drawing.Size(690, 314);
-            this.tbDatFile.TabIndex = 2;
             // 
             // FrmMonitor
             // 

@@ -138,30 +138,14 @@ namespace PrePoMax.Forms
         }
         protected override void OnPropertyGridPropertyValueChanged()
         {
-            //string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
-            ////
+            string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
+            //
             //if (property == nameof(_viewSplitPartMeshData.MasterRegionType))
-            //{
-            //    ShowHideSelectionForm();
-            //    //
-            //    HighlightSplit();
-            //}
-            //else if (property == nameof(_viewSplitPartMeshData.BasePartPartName))
-            //{
-            //    HighlightSplit();
-            //}
-            //else if (property == nameof(_viewSplitPartMeshData.SlaveRegionType))
-            //{
-            //    ShowHideSelectionForm();
-            //    //
-            //    HighlightSplit();
-            //}
-            //else if (property == nameof(_viewSplitPartMeshData.SplitterSurfaceSurfaceName))
-            //{
-            //    HighlightSplit();
-            //}
-            ////
-            //base.OnPropertyGridPropertyValueChanged();
+            //{ }
+            //else if (property == nameof(_viewSplitPartMeshData.MasterRegionType))
+            //{ }
+            //
+            base.OnPropertyGridPropertyValueChanged();  // must be here
         }
         protected override void OnApply(bool onOkAddNew)
         {

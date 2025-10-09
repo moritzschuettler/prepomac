@@ -179,6 +179,15 @@ namespace PrePoMax.Forms
             if (BoundaryCondition is DisplacementRotation dr)
             {
                 if (!dr.IsProperlyDefined(out string error)) throw new CaeException(error);
+                //
+                if (dr.RegionType == RegionTypeEnum.ReferencePointName &&
+                    dr.CoordinateSystemName != CoordinateSystem.DefaultCoordinateSystemName)
+                {
+                    if (MessageBoxes.ShowWarningQuestionOKCancel(
+                        "A coordinate system will not be taken into account if applied on a reference point?") ==
+                        DialogResult.Cancel)
+                        throw new CaeException("BreakOnApply");
+                }
             }
             else if (BoundaryCondition is SubmodelBC sm)
             {

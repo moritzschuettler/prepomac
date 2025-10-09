@@ -90,8 +90,8 @@ namespace PrePoMax
         [OrderedDisplayName(1, 10, "Hidden")]
         [DescriptionAttribute("Hidden.")]
         [Id(2, 2)]
-        //
         public string MasterSelectionHidden { get { return _selectionHidden; } set { _selectionHidden = value; } }
+        //
         [CategoryAttribute("Master Region")]
         [OrderedDisplayName(2, 10, "Master surface")]
         [DescriptionAttribute("Select the master surface for the creation of the contact pair definition.")]
@@ -152,7 +152,7 @@ namespace PrePoMax
             slaveRegionTypePropertyNamePairs.Add(RegionTypeEnum.Selection, nameof(SlaveSelectionHidden));
             slaveRegionTypePropertyNamePairs.Add(RegionTypeEnum.SurfaceName, nameof(SlaveSurfaceName));
             //
-            SetBase(contactPair, masterRegionTypePropertyNamePairs, slaveRegionTypePropertyNamePairs);
+            SetBase(_contactPair, masterRegionTypePropertyNamePairs, slaveRegionTypePropertyNamePairs);
             DynamicCustomTypeDescriptor = ProviderInstaller.Install(this);
             //
             Method = _contactPair.Method;   // update visibility
@@ -173,9 +173,9 @@ namespace PrePoMax
             DynamicCustomTypeDescriptor.RenameBooleanPropertyToYesNo(nameof(SmallSliding));
             DynamicCustomTypeDescriptor.RenameBooleanPropertyToYesNo(nameof(Adjust));
         }
-        public void PopulateDropDownLists(string[] surfaceInteracionNames, string[] surfaceNames)
+        public void PopulateDropDownLists(string[] surfaceInteractionNames, string[] surfaceNames)
         {
-            DynamicCustomTypeDescriptor.PopulateProperty(nameof(SurfaceInteractionName), surfaceInteracionNames);
+            DynamicCustomTypeDescriptor.PopulateProperty(nameof(SurfaceInteractionName), surfaceInteractionNames);
             //
             Dictionary<RegionTypeEnum, string[]> masterRegionTypeListItemsPairs = new Dictionary<RegionTypeEnum, string[]>();
             masterRegionTypeListItemsPairs.Add(RegionTypeEnum.Selection, new string[] { "Hidden" });
@@ -191,19 +191,12 @@ namespace PrePoMax
         {
             base.UpdateRegionVisibility();
             // Hide SelectionHidden
-            CustomPropertyDescriptor cpd;
             // Master
             if (base.MasterRegionType == RegionTypeEnum.Selection.ToFriendlyString())
-            {
-                cpd = DynamicCustomTypeDescriptor.GetProperty(nameof(MasterSelectionHidden));
-                cpd.SetIsBrowsable(false);
-            }
+                DynamicCustomTypeDescriptor.GetProperty(nameof(MasterSelectionHidden)).SetIsBrowsable(false);
             // Slave
             if (base.SlaveRegionType == RegionTypeEnum.Selection.ToFriendlyString())
-            {
-                cpd = DynamicCustomTypeDescriptor.GetProperty(nameof(SlaveSelectionHidden));
-                cpd.SetIsBrowsable(false);
-            }
+                DynamicCustomTypeDescriptor.GetProperty(nameof(SlaveSelectionHidden)).SetIsBrowsable(false);
         }
     }
 

@@ -369,6 +369,16 @@ namespace PrePoMax.Commands
             }
         }
         // Post-process
+        public int GetNumberOfPostprocessCommands()
+        {
+            int count = 0;
+            foreach (var command in _commands)
+            {
+                if (command is PostprocessCommand && !(command is COpenResults || command is CSetCurrentResults))
+                    count++;
+            }
+            return count;
+        }
         public bool RunHistoryPostprocessing()
         {
             string currentAnalysisName = null;
@@ -433,7 +443,6 @@ namespace PrePoMax.Commands
                 // Remove unnecessary commands                                              
                 foreach (var command in postprocessCommandsList)
                 {
-                    if (command is COpenResults) { }
                     if (command is COpenResults) { }
                     else if (command is CSetCurrentResults) { }
                     else reducedCommands.Add(command);
