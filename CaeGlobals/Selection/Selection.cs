@@ -25,7 +25,7 @@ namespace CaeGlobals
         
 
         // Temporary storage for speed optimization: keep current ids; do not copy
-        private static Dictionary<int, int[]> _nodeIds = new Dictionary<int, int[]>();
+        private static Dictionary<int, int[]> _nodeIds;
 
 
         // Properties                                                                                                               

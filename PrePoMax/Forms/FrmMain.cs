@@ -2493,6 +2493,7 @@ namespace PrePoMax
         #endregion  ################################################################################################################
 
         #region View menu ##########################################################################################################
+        // Standard views
         private void tsmiFrontView_Click(object sender, EventArgs e)
         {
             SetFrontBackView(true, true);
@@ -2517,7 +2518,7 @@ namespace PrePoMax
         {
             _vtk.SetLeftRightView(true, false);
         }
-        //
+        // Normal and vertical views
         private void tsmiNormalView_Click(object sender, EventArgs e)
         {
             _vtk.SetNormalView(true);
@@ -2526,7 +2527,7 @@ namespace PrePoMax
         {
             _vtk.SetVerticalView(true, true);
         }
-        //
+        // Isometric view and zoom to fit
         private void tsmiIsometricView_Click(object sender, EventArgs e)
         {
             _vtk.SetIsometricView(true, true);
@@ -2535,8 +2536,8 @@ namespace PrePoMax
         {
             SetZoomToFit(true);
         }
-        //
-        private void tsmiUserViews_Click(object sender, EventArgs e)
+        // User views
+        private void tsmiEditUserViews_Click(object sender, EventArgs e)
         {
             try
             {
@@ -2559,6 +2560,8 @@ namespace PrePoMax
                 if (viewNames != null)
                 {
                     tsmiUserViews.DropDownItems.Clear();
+                    tsmiUserViews.DropDownItems.Add(tsmiEditUserViews);
+                    tsmiUserViews.DropDownItems.Add(new ToolStripSeparator());
                     //
                     ToolStripMenuItem menuItem;
                     foreach (var viewName in viewNames)
@@ -2587,7 +2590,7 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        //
+        // Model appearance
         private void tsmiShowWireframeEdges_Click(object sender, EventArgs e)
         {
             try
@@ -2620,7 +2623,7 @@ namespace PrePoMax
             }
             catch { }
         }
-        //
+        // Section view
         private void tsmiSectionView_Click(object sender, EventArgs e)
         {
             try
@@ -2650,6 +2653,7 @@ namespace PrePoMax
                 SetStateReady(Globals.ExplodePartsText);
             }
         }
+        // Exploded view
         private void tsmiExplodedView_Click(object sender, EventArgs e)
         {
             try
@@ -2697,7 +2701,6 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-
         // Hide/Show
         private void tsmiHideAllParts_Click(object sender, EventArgs e)
         {
