@@ -47,7 +47,7 @@ namespace UserControls
                 }
             }
         }
-
+        //
         private void ShowMissingBox(string missingValue, string newValue)
         {
             CaeGlobals.MessageBoxes.ShowError("The property value '" + missingValue + "' no longer exists." + Environment.NewLine + 

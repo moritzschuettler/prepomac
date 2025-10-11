@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using CaeGlobals;
 using CaeJob;
+using System.Runtime.InteropServices;
 
 namespace PrePoMax.Forms
 {
@@ -43,19 +44,10 @@ namespace PrePoMax.Forms
         }
         private void FrmMonitor_FormClosing(object sender, FormClosingEventArgs e)
         {
-            if (_job != null)
-            {
-                _job.DataOutputEvent -= UpdateOutput;
-                _job = null;
-            }
+            if (e.CloseReason == CloseReason.UserClosing) e.Cancel = true;
             //
-            if (e.CloseReason == CloseReason.UserClosing)
-            {
-                e.Cancel = true;
-                Hide();
-            }
+            btnClose_Click(null, null);
         }
-
         private void tabControl1_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (_job.JobStatus == JobStatus.Running)
@@ -77,7 +69,6 @@ namespace PrePoMax.Forms
                 }
             }
         }
-
         private void btnKill_Click(object sender, EventArgs e)
         {
             try
@@ -89,7 +80,6 @@ namespace PrePoMax.Forms
                 ExceptionTools.Show(this, ex);
             }
         }
-
         private void btnResults_Click(object sender, EventArgs e)
         {
             try
@@ -159,6 +149,7 @@ namespace PrePoMax.Forms
                         tbDatFile.AutoScrollSetText(_job.DatFileData);
                         tbStatus.AutoScrollSetText(_job.StatusFileData);
                         tbConvergence.AutoScrollSetText(_job.ConvergenceFileData);
+                        Refresh();
                     }
                 }
             }

@@ -526,7 +526,6 @@ namespace PrePoMax
             }
             finally
             {
-                this.TopMost = false;
                 // Set form size if visible - after top most
                 if (_cmdOptions.ShowGui == "Yes") _controller.Settings.General.ApplyFormSize(this);
             }
@@ -616,6 +615,9 @@ namespace PrePoMax
                 }
                 else
                 {
+                    this.Activate();    // must be here - otherwise the main form is hidden when started from debugger
+                    this.TopMost = false;
+                    //
                     string parameters = null;
                     // Try to recover unsaved progress due to crushed PrePoMax
                     if (File.Exists(_controller.GetHistoryFileNameBin()))
@@ -696,6 +698,9 @@ namespace PrePoMax
             }
             finally
             {
+                this.Activate();    // must be here - otherwise the main form is hidden when started from debugger
+                this.TopMost = false;
+                //
                 if (FirstRunChecker.IsFirstRun(Application.StartupPath))
                 {
                     if (_controller.BatchRegenerationMode) WriteDataToOutput("Starting regeneration");
@@ -860,6 +865,7 @@ namespace PrePoMax
                 //
                 this.Focus();
             }
+            this.TopMost = false;
         }
         private void itemForm_Move(object sender, EventArgs e)
         {
@@ -2561,7 +2567,8 @@ namespace PrePoMax
                 {
                     tsmiUserViews.DropDownItems.Clear();
                     tsmiUserViews.DropDownItems.Add(tsmiEditUserViews);
-                    tsmiUserViews.DropDownItems.Add(new ToolStripSeparator());
+                    // Separator
+                    if (viewNames.Length > 0) tsmiUserViews.DropDownItems.Add(new ToolStripSeparator());
                     //
                     ToolStripMenuItem menuItem;
                     foreach (var viewName in viewNames)
@@ -7444,7 +7451,8 @@ namespace PrePoMax
                 CloseAllForms();
                 SetFormLocation(_frmMonitor);
                 _frmMonitor.PrepareForm(jobName);
-                _frmMonitor.ShowDialog(this);
+                _frmMonitor.Owner = this;
+                _frmMonitor.ShowDialog();
             }
             catch (Exception ex)
             {
@@ -8580,7 +8588,7 @@ namespace PrePoMax
             //
             if (!intersects) location = Location;
             //
-            form.Location = location;
+            if (form.Location != location) form.Location = location;
         }
         private void SaveFormLocation(Form form)
         {
