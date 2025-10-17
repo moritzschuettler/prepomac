@@ -149,7 +149,6 @@ namespace PrePoMax.Forms
                         tbDatFile.AutoScrollSetText(_job.DatFileData);
                         tbStatus.AutoScrollSetText(_job.StatusFileData);
                         tbConvergence.AutoScrollSetText(_job.ConvergenceFileData);
-                        Refresh();
                     }
                 }
             }

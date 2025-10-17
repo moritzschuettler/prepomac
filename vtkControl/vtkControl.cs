@@ -2490,52 +2490,24 @@ namespace vtkControl
                 if (_animating) return;
                 _animating = animate;
             }
-
+            //
             if (_drawCameraPath) ClearOverlay();
-
+            //
             vtkCamera camera = _renderer.GetActiveCamera();
             vtkCamera cameraStart = vtkCamera.New();
             cameraStart.DeepCopy(camera);
-
-            double[] zRange = camera.GetClippingRange();
-            double aspect = (double)Width / Height;
-            vtkMatrix4x4 m = camera.GetCompositeProjectionTransformMatrix(aspect, zRange[0], zRange[1]);
-            double[] x = new double[2]; // 2d projection of the X axis
-            double[] y = new double[2]; // 2d projection of the Y axis
-            double[] z = new double[2]; // 2d projection of the Z axis
-
-            x[0] = m.GetElement(0, 0);
-            x[1] = m.GetElement(1, 0);
-
-            y[0] = m.GetElement(0, 1);
-            y[1] = m.GetElement(1, 1);
-
-            z[0] = m.GetElement(0, 2);
-            z[1] = m.GetElement(1, 2);
-
-            // normalize
-            double d;
-            d = Math.Sqrt(Math.Pow(x[0], 2) + Math.Pow(x[1], 2));
-            if (d != 0) x[1] /= d;
-            x[0] = Math.Abs(x[1]);
-
-            d = Math.Sqrt(Math.Pow(y[0], 2) + Math.Pow(y[1], 2));
-            if (d != 0) y[1] /= d;
-            y[0] = Math.Abs(y[1]);
-
-            d = Math.Sqrt(Math.Pow(z[0], 2) + Math.Pow(z[1], 2));
-            if (d != 0) z[1] /= d;
-            z[0] = Math.Abs(z[1]);
-
-            if (Math.Max(Math.Max(x[0], y[0]), Math.Max(y[0], z[0])) == x[0])
-                camera.SetViewUp(Math.Sign(x[1]), 0, 0);
-            else if (Math.Max(Math.Max(x[0], y[0]), Math.Max(y[0], z[0])) == y[0])
-                camera.SetViewUp(0, Math.Sign(y[1]), 0);
-            else if (Math.Max(Math.Max(x[0], y[0]), Math.Max(y[0], z[0])) == z[0])
-                camera.SetViewUp(0, 0, Math.Sign(z[1]));
-
+            //
+            double[] up = camera.GetViewUp();
+            //
+            if (Math.Max(Math.Max(up[0], up[1]), Math.Max(up[1], up[2])) == up[0])
+                camera.SetViewUp(Math.Sign(up[0]), 0, 0);
+            else if (Math.Max(Math.Max(up[0], up[1]), Math.Max(up[1], up[2])) == up[1])
+                camera.SetViewUp(0, Math.Sign(up[1]), 0);
+            else if (Math.Max(Math.Max(up[0], up[1]), Math.Max(up[1], up[2])) == up[2])
+                camera.SetViewUp(0, 0, Math.Sign(up[2]));
+            //
             ResetCamera();
-
+            //
             if (updateView)
             {
                 if (animate) AnimateCamera(cameraStart, camera, camera);
@@ -2628,6 +2600,16 @@ namespace vtkControl
             //_renderWindowInteractor.Modified(); // this updates the vtkMax annotation objects
             if (animate) AnimateCamera(cameraStart, camera, camera);
             else RenderScene();
+        }
+        double[] MultiplyPointSimple(vtkMatrix4x4 M, double[] v)
+        {
+            return new double[]
+            {
+                M.GetElement(0,0)*v[0] + M.GetElement(0,1)*v[1] + M.GetElement(0,2)*v[2] + M.GetElement(0,3)*v[3],
+                M.GetElement(1,0)*v[0] + M.GetElement(1,1)*v[1] + M.GetElement(1,2)*v[2] + M.GetElement(1,3)*v[3],
+                M.GetElement(2,0)*v[0] + M.GetElement(2,1)*v[1] + M.GetElement(2,2)*v[2] + M.GetElement(2,3)*v[3],
+                M.GetElement(3,0)*v[0] + M.GetElement(3,1)*v[1] + M.GetElement(3,2)*v[2] + M.GetElement(3,3)*v[3]
+            };
         }
         //
         private void ResetCamera()
@@ -5603,6 +5585,8 @@ namespace vtkControl
             _colorSpectrum.DeepCopy(colorSpectrum);
             //
             _scalarBarWidget.SetNumberOfColors(_colorSpectrum.NumberOfColors);  // for the scalar bar
+            _scalarBarWidget.MinColorVisible = colorSpectrum.MinColorVisible;
+            _scalarBarWidget.MaxColorVisible = colorSpectrum.MaxColorVisible;
             _scalarBarWidget.MinColor = colorSpectrum.MinColor;
             _scalarBarWidget.MaxColor = colorSpectrum.MaxColor;            
         }       

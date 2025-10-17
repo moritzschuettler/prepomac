@@ -865,7 +865,6 @@ namespace PrePoMax
                 //
                 this.Focus();
             }
-            this.TopMost = false;
         }
         private void itemForm_Move(object sender, EventArgs e)
         {
@@ -2850,6 +2849,7 @@ namespace PrePoMax
                     tsmiAnnotateInitialConditions.Checked = true;
                     tsmiAnnotateBCs.Checked = true;
                     tsmiAnnotateLoads.Checked = true;
+                    tsmiAnnotateDefinedFields.Checked = true;
                     //
                     _controller.AnnotateWithColor = AnnotateWithColorEnum.ReferencePoints |
                                                     AnnotateWithColorEnum.Constraints |
@@ -7451,8 +7451,7 @@ namespace PrePoMax
                 CloseAllForms();
                 SetFormLocation(_frmMonitor);
                 _frmMonitor.PrepareForm(jobName);
-                _frmMonitor.Owner = this;
-                _frmMonitor.ShowDialog();
+                _frmMonitor.Show(this);
             }
             catch (Exception ex)
             {
@@ -9570,6 +9569,7 @@ namespace PrePoMax
             tsmiAnnotateInitialConditions.Checked = false;
             tsmiAnnotateBCs.Checked = false;
             tsmiAnnotateLoads.Checked = false;
+            tsmiAnnotateDefinedFields.Checked = false;
             tsmiAnnotateAllSymbols.Checked = false;
             //
             HideColorBar();

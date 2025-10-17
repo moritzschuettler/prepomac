@@ -242,6 +242,9 @@
     <EmbeddedResource Include="Forms\FrmPropertyListView.resx">
       <DependentUpon>FrmPropertyListView.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Forms\PrePoMaxChildForm.resx">
+      <DependentUpon>PrePoMaxChildForm.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="ListView\ListViewWithSelection.resx">
       <DependentUpon>ListViewWithSelection.cs</DependentUpon>
     </EmbeddedResource>

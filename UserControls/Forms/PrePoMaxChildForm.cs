@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace UserControls
 {
@@ -23,7 +25,7 @@ namespace UserControls
                 if (currentValue != null && currentValue != value)
                 {
                     ShowMissingBox(currentValue, value);
-                    valueSetter(value);                    
+                    valueSetter(value);
                     _propertyItemChanged = true;
                 }
 
@@ -47,11 +49,40 @@ namespace UserControls
                 }
             }
         }
+        // There is a known issue when a DataGridView still holds an uncommitted or invalid value in its edit control when the form
+        // closes. The problem is that even if you close the form, the grid’s current cell value hasn’t yet been committed or
+        // reverted, so when you reopen it and try to clear the DataSource, it tries to push that invalid value back into the
+        // underlying data model — causing the same converter error.
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            if (!Visible) CancelAllEdits(this);
+            //
+            base.OnVisibleChanged(e);
+        }
+        private void CancelAllEdits(Control parent)
+        {
+            foreach (Control ctrl in parent.Controls)
+            {
+                // Check for DataGridView
+                if (ctrl is DataGridView dgv)
+                {
+                    if (dgv.IsCurrentCellInEditMode) dgv.CancelEdit();
+                    // Cancel any binding edits
+                    if (dgv.DataSource != null)
+                    {
+                        var bindingManager = this.BindingContext[dgv.DataSource, dgv.DataMember];
+                        bindingManager?.CancelCurrentEdit();
+                    }
+                }
+                // Recurse for child containers
+                if (ctrl.HasChildren) CancelAllEdits(ctrl);
+            }
+        }
         //
         private void ShowMissingBox(string missingValue, string newValue)
         {
             CaeGlobals.MessageBoxes.ShowError("The property value '" + missingValue + "' no longer exists." + Environment.NewLine + 
                                               "The value was changed to '" + newValue + "'.");
-        }        
+        }
     }
 }

@@ -6344,103 +6344,107 @@ namespace CaeMesh
             int faceId;
             if (GetFaceId(elementId, cellFaceNodeIds, out part, out faceId))
             {
-                int[][] cells = part.Visualization.Cells;
-                int count = 0;
-                int[] faceIdOfCells = new int[cells.Length];
-                // Create array of face ids for all cells
-                foreach (int[] faceCellIds in part.Visualization.CellIdsByFace)
-                {
-                    foreach (int cellId in faceCellIds)
-                    {
-                        faceIdOfCells[cellId] = count;
-                    }
-                    count++;
-                }
+                int count;
+                HashSet<int> surfaceIds = new HashSet<int>();
+                surfaceIds.Add(faceId);
                 //
-                int cell1Id;
-                int cell2Id;
-                int face1Id;
-                int face2Id;
-                int[] edgeHash;
-                double alpha;
-                double[] minAngle;  // Array for easier/faster assignment of new values                
-                HashSet<int> faceNeighbours;
-                Dictionary<int, HashSet<int>> allFaceNeighbours = new Dictionary<int, HashSet<int>>();
-                CompareIntArray comparer = new CompareIntArray();
-                Dictionary<int[], double[]> edgeAngles = new Dictionary<int[], double[]>(comparer);
-                // Create a face neighbours map and compute edge angles
-                for (int i = 0; i < part.Visualization.Cells.Length; i++)
+                ///if (angle >= 0)
                 {
-                    cell1Id = i;
-                    face1Id = faceIdOfCells[cell1Id];
-                    for (int j = 0; j < part.Visualization.CellNeighboursOverCellEdge[i].Length; j++)
+                    int[][] cells = part.Visualization.Cells;
+                    count = 0;
+                    int[] faceIdOfCells = new int[cells.Length];
+                    // Create array of face ids for all cells
+                    foreach (int[] faceCellIds in part.Visualization.CellIdsByFace)
                     {
-                        cell2Id = part.Visualization.CellNeighboursOverCellEdge[i][j];
-                        if (cell2Id == -1) continue;
-                        //
-                        face2Id = faceIdOfCells[cell2Id];
-                        // Compute angle only for edge cells
-                        if (face1Id != face2Id)
+                        foreach (int cellId in faceCellIds)
                         {
-                            if (allFaceNeighbours.TryGetValue(face1Id, out faceNeighbours)) faceNeighbours.Add(face2Id);
-                            else allFaceNeighbours.Add(face1Id, new HashSet<int>() { face2Id });
+                            faceIdOfCells[cellId] = count;
+                        }
+                        count++;
+                    }
+                    //
+                    int cell1Id;
+                    int cell2Id;
+                    int face1Id;
+                    int face2Id;
+                    int[] edgeHash;
+                    double alpha;
+                    double[] minAngle;  // Array for easier/faster assignment of new values                
+                    HashSet<int> faceNeighbours;
+                    Dictionary<int, HashSet<int>> allFaceNeighbours = new Dictionary<int, HashSet<int>>();
+                    CompareIntArray comparer = new CompareIntArray();
+                    Dictionary<int[], double[]> edgeAngles = new Dictionary<int[], double[]>(comparer);
+                    // Create a face neighbours map and compute edge angles
+                    for (int i = 0; i < part.Visualization.Cells.Length; i++)
+                    {
+                        cell1Id = i;
+                        face1Id = faceIdOfCells[cell1Id];
+                        for (int j = 0; j < part.Visualization.CellNeighboursOverCellEdge[i].Length; j++)
+                        {
+                            cell2Id = part.Visualization.CellNeighboursOverCellEdge[i][j];
+                            if (cell2Id == -1) continue;
                             //
-                            if (allFaceNeighbours.TryGetValue(face2Id, out faceNeighbours)) faceNeighbours.Add(face1Id);
-                            else allFaceNeighbours.Add(face2Id, new HashSet<int>() { face1Id });
-                            //
-                            alpha = ComputeAngleInRadFromCellIndices(cells[cell1Id], cells[cell2Id]);
-                            edgeHash = new int[] { Math.Min(face1Id, face2Id), Math.Max(face1Id, face2Id) };
-                            //
-                            if (edgeAngles.TryGetValue(edgeHash, out minAngle))
+                            face2Id = faceIdOfCells[cell2Id];
+                            // Compute angle only for edge cells
+                            if (face1Id != face2Id)
                             {
-                                if (alpha < minAngle[0]) minAngle[0] = alpha;
+                                if (allFaceNeighbours.TryGetValue(face1Id, out faceNeighbours)) faceNeighbours.Add(face2Id);
+                                else allFaceNeighbours.Add(face1Id, new HashSet<int>() { face2Id });
+                                //
+                                if (allFaceNeighbours.TryGetValue(face2Id, out faceNeighbours)) faceNeighbours.Add(face1Id);
+                                else allFaceNeighbours.Add(face2Id, new HashSet<int>() { face1Id });
+                                //
+                                alpha = ComputeAngleInRadFromCellIndices(cells[cell1Id], cells[cell2Id]);
+                                edgeHash = new int[] { Math.Min(face1Id, face2Id), Math.Max(face1Id, face2Id) };
+                                //
+                                if (edgeAngles.TryGetValue(edgeHash, out minAngle))
+                                {
+                                    if (alpha < minAngle[0]) minAngle[0] = alpha;
+                                }
+                                else edgeAngles.Add(edgeHash, new double[] { alpha });
                             }
-                            else edgeAngles.Add(edgeHash, new double[] { alpha });
                         }
                     }
-                }
-                //
-                angle *= Math.PI / 180;
-                HashSet<int> surfaceIds = new HashSet<int>();
-                HashSet<int> notVisitedSurfaceIds = new HashSet<int>();
-                HashSet<int> newSurfaceIds = new HashSet<int>();
-                surfaceIds.Add(faceId);
-                notVisitedSurfaceIds.Add(faceId);
-                // Spread
-                do
-                {
-                    if (allFaceNeighbours.Count == 0) break;    // for shells with 1 surface there is no neighbours
-                    // Find new surface candidates
-                    newSurfaceIds.Clear();
-                    foreach (var notVisitedSurfaceId in notVisitedSurfaceIds)
+                    //
+                    angle *= Math.PI / 180;
+                    HashSet<int> notVisitedSurfaceIds = new HashSet<int>();
+                    HashSet<int> newSurfaceIds = new HashSet<int>();
+                    notVisitedSurfaceIds.Add(faceId);
+                    // Spread
+                    do
                     {
-
-                        if (allFaceNeighbours.TryGetValue(notVisitedSurfaceId, out faceNeighbours))
+                        if (allFaceNeighbours.Count == 0) break;    // for shells with 1 surface there is no neighbours
+                                                                    // Find new surface candidates
+                        newSurfaceIds.Clear();
+                        foreach (var notVisitedSurfaceId in notVisitedSurfaceIds)
                         {
-                            foreach (var neighbourId in faceNeighbours)
+                            if (allFaceNeighbours.TryGetValue(notVisitedSurfaceId, out faceNeighbours))
                             {
-                                if (!surfaceIds.Contains(neighbourId) && !newSurfaceIds.Contains(neighbourId))
+                                foreach (var neighbourId in faceNeighbours)
                                 {
-                                    alpha = edgeAngles[new int[] { Math.Min(notVisitedSurfaceId, neighbourId),
-                                                               Math.Max(notVisitedSurfaceId, neighbourId) }][0];
-                                    if (alpha <= angle)
+                                    if (!surfaceIds.Contains(neighbourId) && !newSurfaceIds.Contains(neighbourId))
                                     {
-                                        newSurfaceIds.Add(neighbourId);
+                                        alpha = edgeAngles[new int[] { Math.Min(notVisitedSurfaceId, neighbourId),
+                                                                   Math.Max(notVisitedSurfaceId, neighbourId) }][0];
+                                        if (alpha <= angle)
+                                        {
+                                            newSurfaceIds.Add(neighbourId);
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
 
-                    // Add new surface candidates to surfaces and to surfaces to visit
-                    notVisitedSurfaceIds.Clear();
-                    foreach (var newSurfaceId in newSurfaceIds)
-                    {
-                        surfaceIds.Add(newSurfaceId);
-                        notVisitedSurfaceIds.Add(newSurfaceId);
+                        // Add new surface candidates to surfaces and to surfaces to visit
+                        notVisitedSurfaceIds.Clear();
+                        foreach (var newSurfaceId in newSurfaceIds)
+                        {
+                            surfaceIds.Add(newSurfaceId);
+                            notVisitedSurfaceIds.Add(newSurfaceId);
+                        }
                     }
+                    while (newSurfaceIds.Count > 0);
                 }
-                while (newSurfaceIds.Count > 0);
                 // Get geometry ids
                 int partId = part.PartId;
                 int typeId;

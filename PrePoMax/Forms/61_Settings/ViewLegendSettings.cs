@@ -58,7 +58,7 @@ namespace PrePoMax.Settings
         private DynamicCustomTypeDescriptor _dctd = null;
        
 
-        // Color spectrum settings                                                                   
+        // Color spectrum settings                                                                      
         [CategoryAttribute("Color spectrum settings")]
         [OrderedDisplayName(0, 10, "Color spectrum type")]
         [DescriptionAttribute("Select the color spectrum type for the visualization of the results.")]
@@ -149,9 +149,7 @@ namespace PrePoMax.Settings
             get { return _legendSettings.ColorSpectrum.NumberOfColors; }
             set { _legendSettings.ColorSpectrum.NumberOfColors = value; }
         }
-
-
-        // Color spectrum values                                                                     
+        // Color spectrum values                                                                        
         [CategoryAttribute("Color spectrum values")]
         [OrderedDisplayName(0, 10, "Number format")]
         [DescriptionAttribute("Select the number format.")]
@@ -171,31 +169,8 @@ namespace PrePoMax.Settings
             set 
             {
                 _legendSettings.ColorSpectrum.MinMaxType = value;
-                if (value == vtkControl.vtkColorSpectrumMinMaxType.Automatic)
-                {
-                    _dctd.GetProperty(nameof(ColorSpectrumMin)).SetIsBrowsable(false);
-                    _dctd.GetProperty(nameof(ColorSpectrumMax)).SetIsBrowsable(false);
-                    _dctd.GetProperty(nameof(ColorSpectrumMinColor)).SetIsBrowsable(false);
-                    _dctd.GetProperty(nameof(ColorSpectrumMaxColor)).SetIsBrowsable(false);
-                }
-                else 
-                {
-                    _dctd.GetProperty(nameof(ColorSpectrumMin)).SetIsBrowsable(true);
-                    _dctd.GetProperty(nameof(ColorSpectrumMax)).SetIsBrowsable(true);
-                    _dctd.GetProperty(nameof(ColorSpectrumMinColor)).SetIsBrowsable(true);
-                    _dctd.GetProperty(nameof(ColorSpectrumMaxColor)).SetIsBrowsable(true);
-                }
+                UpdateVisibility();
             }
-        }
-        //
-        [CategoryAttribute("Color spectrum values")]
-        [OrderedDisplayName(4, 10, "Max value")]
-        [DescriptionAttribute("Set the max limit value.")]
-        [TypeConverter(typeof(StringDoubleConverter))]
-        public double ColorSpectrumMax
-        {
-            get { return _legendSettings.ColorSpectrum.MaxUserValue; }
-            set { _legendSettings.ColorSpectrum.MaxUserValue = value; }
         }
         //
         [CategoryAttribute("Color spectrum values")]
@@ -209,12 +184,13 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Color spectrum values")]
-        [OrderedDisplayName(6, 10, "Max color")]
-        [DescriptionAttribute("Select the color for the values above the max value.")]
-        public System.Drawing.Color ColorSpectrumMaxColor
+        [OrderedDisplayName(4, 10, "Max value")]
+        [DescriptionAttribute("Set the max limit value.")]
+        [TypeConverter(typeof(StringDoubleConverter))]
+        public double ColorSpectrumMax
         {
-            get { return _legendSettings.ColorSpectrum.MaxColor; }
-            set { _legendSettings.ColorSpectrum.MaxColor = value; }
+            get { return _legendSettings.ColorSpectrum.MaxUserValue; }
+            set { _legendSettings.ColorSpectrum.MaxUserValue = value; }
         }
         //
         [CategoryAttribute("Color spectrum values")]
@@ -226,6 +202,33 @@ namespace PrePoMax.Settings
             set { _legendSettings.ColorSpectrum.MinColor = value; }
         }
         //
+        [CategoryAttribute("Color spectrum values")]
+        [OrderedDisplayName(6, 10, "Max color")]
+        [DescriptionAttribute("Select the color for the values above the max value.")]
+        public System.Drawing.Color ColorSpectrumMaxColor
+        {
+            get { return _legendSettings.ColorSpectrum.MaxColor; }
+            set { _legendSettings.ColorSpectrum.MaxColor = value; }
+        }
+        //
+        [CategoryAttribute("Color spectrum values")]
+        [OrderedDisplayName(7, 10, "Show min color in legend")]
+        [DescriptionAttribute("Set the min limit color visibility.")]
+        public bool MinColorVisible
+        {
+            get { return _legendSettings.ColorSpectrum.MinColorVisible; }
+            set { _legendSettings.ColorSpectrum.MinColorVisible = value; }
+        }
+        //
+        [CategoryAttribute("Color spectrum values")]
+        [OrderedDisplayName(8, 10, "Show max color in legend")]
+        [DescriptionAttribute("Set the max limit color visibility.")]
+        public bool MaxColorVisible
+        {
+            get { return _legendSettings.ColorSpectrum.MaxColorVisible; }
+            set { _legendSettings.ColorSpectrum.MaxColorVisible = value; }
+        }
+        // Design                                                                                       
         [CategoryAttribute("Design")]
         [OrderedDisplayName(0, 10, "Background type")]
         [DescriptionAttribute("Select the background type.")]
@@ -243,8 +246,8 @@ namespace PrePoMax.Settings
             get { return _legendSettings.DrawBorder; }
             set { _legendSettings.DrawBorder = value; }
         }
-
-
+        
+        
         // Constructors                                                                               
         public ViewLegendSettings(LegendSettings legendSettings)
         {
@@ -255,6 +258,8 @@ namespace PrePoMax.Settings
             // Now lets display Yes/No instead of True/False
             _dctd.RenameBooleanPropertyToYesNo(nameof(ReverseColors));
             _dctd.RenameBooleanPropertyToYesNo(nameof(DrawBorder));
+            _dctd.RenameBooleanPropertyToYesNo(nameof(MinColorVisible));
+            _dctd.RenameBooleanPropertyToYesNo(nameof(MaxColorVisible));
         }
 
 
@@ -268,6 +273,27 @@ namespace PrePoMax.Settings
             _legendSettings.Reset();
             //
             ColorSpectrumMinMaxType = _legendSettings.ColorSpectrum.MinMaxType;
+        }
+        public void UpdateVisibility()
+        {
+            if (_legendSettings.ColorSpectrum.MinMaxType == vtkControl.vtkColorSpectrumMinMaxType.Automatic)
+            {
+                _dctd.GetProperty(nameof(MinColorVisible)).SetIsBrowsable(false);
+                _dctd.GetProperty(nameof(MaxColorVisible)).SetIsBrowsable(false);
+                _dctd.GetProperty(nameof(ColorSpectrumMin)).SetIsBrowsable(false);
+                _dctd.GetProperty(nameof(ColorSpectrumMax)).SetIsBrowsable(false);
+                _dctd.GetProperty(nameof(ColorSpectrumMinColor)).SetIsBrowsable(false);
+                _dctd.GetProperty(nameof(ColorSpectrumMaxColor)).SetIsBrowsable(false);
+            }
+            else
+            {
+                _dctd.GetProperty(nameof(MinColorVisible)).SetIsBrowsable(true);
+                _dctd.GetProperty(nameof(MaxColorVisible)).SetIsBrowsable(true);
+                _dctd.GetProperty(nameof(ColorSpectrumMin)).SetIsBrowsable(true);
+                _dctd.GetProperty(nameof(ColorSpectrumMax)).SetIsBrowsable(true);
+                _dctd.GetProperty(nameof(ColorSpectrumMinColor)).SetIsBrowsable(true);
+                _dctd.GetProperty(nameof(ColorSpectrumMaxColor)).SetIsBrowsable(true);
+            }
         }
     }
 

@@ -1557,13 +1557,14 @@ namespace CaeModel
                             else if (part.Visualization.FaceEdgeIds[i].Length == 4) num4sided++;
                         }
                         if (!(num4sided == 6 || (num4sided == 3 && num3sided == 2)))
-                            return "The transfinite gmsh setup item can only be defined on solid parts with 3-sided and " +
-                                   "4-sided faces.";
+                            return part.Name + ": the transfinite gmsh setup item can only be defined on solid parts " +
+                                   "with 3-sided and 4-sided faces.";
                         if (num4sided == 3 && num3sided == 2 && triSurfaceEdgeIds.Count != 6)
-                            return "The transfinite gmsh setup item can only be defined on solid parts with non touching " +
-                                   "3-sided faces.";
+                            return part.Name + ": the transfinite gmsh setup item can only be defined on solid parts "+
+                                   "with non touching 3-sided faces.";
                     }
-                    else return "The transfinite gmsh setup item can only be defined on solid parts with 5 or 6 faces.";
+                    else return part.Name + ": the transfinite gmsh setup item can only be defined on solid parts " +
+                                "with 5 or 6 faces.";
                 }
             }
             return null;

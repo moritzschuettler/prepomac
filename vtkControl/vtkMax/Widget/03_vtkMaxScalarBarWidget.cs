@@ -32,14 +32,19 @@ namespace vtkControl
         private bool _addMaxColor;
         private double _minUserValue;
         private double _maxUserValue;
+        private bool _minColorVisible;
+        private bool _maxColorVisible;
         private System.Drawing.Color _minColor;
         private System.Drawing.Color _maxColor;
         private string _unitAbbreviation;
-
+        //
+        
 
         // Properties                                                                                                               
         public System.Drawing.Color MinColor { get { return _minColor; } set { _minColor = value; } }
         public System.Drawing.Color MaxColor { get { return _maxColor; } set { _maxColor = value; } }
+        public bool MinColorVisible { get { return _minColorVisible; } set { _minColorVisible = value; } }
+        public bool MaxColorVisible { get { return _maxColorVisible; } set { _maxColorVisible = value; } }
         public string UnitAbbreviation { get { return _unitAbbreviation; } }
 
 
@@ -62,6 +67,8 @@ namespace vtkControl
             //
             _addMinColor = false;
             _addMaxColor = false;
+            _maxColorVisible = true;
+            _minColorVisible = true;
             //
             _unitAbbreviation = "";
         }
@@ -139,14 +146,14 @@ namespace vtkControl
         {
             // Geometry
             double boxAspectRatio = 3.0 / 4.0;
-
+            //
             string tmp = _textMapperLabel.GetInput();
             _textMapperLabel.SetInput("1");
             int[] sizeOfOne = vtkMaxWidgetTools.GetTextSize(_textMapperLabel, _renderer);
             _textMapperLabel.SetInput("1" + Environment.NewLine + "1");
             int[] sizeOfTwo = vtkMaxWidgetTools.GetTextSize(_textMapperLabel, _renderer);
             _textMapperLabel.SetInput(tmp);
-
+            //
             double lineSpacing = ((double)sizeOfTwo[1] - 2 * sizeOfOne[1]);
             double boxHeight = sizeOfOne[1] + lineSpacing;
             double boxWidth = boxHeight / boxAspectRatio;
@@ -156,23 +163,20 @@ namespace vtkControl
             // Footer
             double[] size1 = GenerateFooter(_padding, _padding);
             size1[1] += spacing;
-
             // Labels
             double[] size2 = GenerateLabels(_padding + verticalLineLength + spacing, size1[1]);
             size2[1] += spacing;
-
             // Bar lines
             double offsetY = -lineOffset + 2.0 / 7 * sizeOfOne[1];
             GenerateBarBorders(_padding, offsetY + size1[1], boxWidth, boxHeight, verticalLineLength);
             GenerateBarColors(_padding, offsetY + size1[1], boxWidth, boxHeight, verticalLineLength);
-
             // Text
             double[] size3 = GenerateText(_padding, size2[1]);
-
+            //
             double maxX = size1[0];
             if (size2[0] > maxX) maxX = size2[0];
             if (size3[0] > maxX) maxX = size3[0];
-
+            //
             _size[0] = maxX + _padding;
             _size[1] = size3[1] + _padding;
         }
@@ -183,7 +187,7 @@ namespace vtkControl
             int[] sizeFooter = vtkMaxWidgetTools.GetTextSize(_textMapperFooter, _renderer);
             return new double[] { offsetX + sizeFooter[0], offsetY + sizeFooter[1] };
         }
-        private double[] GenerateLabels(double offsetX, double offsetY)
+        private double[] GenerateLabels_HideUserColors(double offsetX, double offsetY)
         {
             int _numberOfLabels = _numberOfColors + 1;
 
@@ -232,33 +236,30 @@ namespace vtkControl
 
             return new double[] { offsetX + size[0], offsetY + size[1] };
         }
-        private double[] GenerateLabels_HideUserColors(double offsetX, double offsetY)
+        private double[] GenerateLabels(double offsetX, double offsetY)
         {
             int _numberOfLabels = _numberOfColors + 1;
-
+            //
             int _numberOfAllLabels = _numberOfLabels;
-            if (_addMinColor) _numberOfAllLabels++;
-            if (_addMaxColor) _numberOfAllLabels++;
-
+            if (_addMinColor && _minColorVisible) _numberOfAllLabels++;
+            if (_addMaxColor && _maxColorVisible) _numberOfAllLabels++;
+            //
             double[] minMaxRange = _lookupTable.GetTableRange();    // min, max
             double[] labelsRange = new double[] { minMaxRange[1], minMaxRange[0] };
-
+            //
             if (_addMaxColor) labelsRange[0] = _maxUserValue;
             if (_addMinColor) labelsRange[1] = _minUserValue;
-
+            //
             int labelCount = 0;
             _labels = new string[_numberOfAllLabels];
-
-            // above range color
-            if (_addMaxColor) _labels[labelCount++] = GetString(minMaxRange[1]);
-
-            // between range color
+            // Above range color
+            if (_addMaxColor && _maxColorVisible) _labels[labelCount++] = GetString(minMaxRange[1]);
+            // Between range color
             double delta = (labelsRange[1] - labelsRange[0]) / (_numberOfLabels - 1);
             for (int i = 0; i < _numberOfLabels; i++) _labels[labelCount++] = GetString(labelsRange[0] + delta * i);
-
-            // below range color
-            if (_addMinColor) _labels[labelCount++] = GetString(minMaxRange[0]);
-
+            // Below range color
+            if (_addMinColor && _minColorVisible) _labels[labelCount++] = GetString(minMaxRange[0]);
+            //
             string label = "";
             for (int i = 0; i < _labels.Length; i++)
             {
@@ -266,10 +267,10 @@ namespace vtkControl
                 label += _labels[i];
             }
             _textMapperLabel.SetInput(label);
-
+            //
             int[] size = vtkMaxWidgetTools.GetTextSize(_textMapperLabel, _renderer);
             _textActorLabel.GetPositionCoordinate().SetValue(offsetX, offsetY);
-
+            //
             return new double[] { offsetX + size[0], offsetY + size[1] };
         }
         //
@@ -284,40 +285,42 @@ namespace vtkControl
         {
             vtkPoints scalarBarPoints = vtkPoints.New();
             vtkCellArray scalarBarLines = vtkCellArray.New();
-
-            int numOfTableColors = (int)_lookupTable.GetNumberOfColors();
-
+            //
+            int numOfTableColors = _numberOfColors;
+            if (_addMinColor && _minColorVisible) numOfTableColors++;
+            if (_addMaxColor && _maxColorVisible) numOfTableColors++;
+            //
             scalarBarPoints.SetNumberOfPoints(2 * (numOfTableColors + 1) + 2);
             scalarBarLines.SetNumberOfCells((numOfTableColors + 1) + 2);
-
+            //
             double h = 0;
-
+            //
             for (int i = 0; i <= numOfTableColors; i++)
             {
                 h = i * boxHeight;
                 scalarBarPoints.SetPoint(2 * i, 0, h, 0);
                 scalarBarPoints.SetPoint(2 * i + 1, verticalLineLength, h, 0);
-
+                //
                 scalarBarLines.InsertNextCell(2);
                 scalarBarLines.InsertCellPoint(2 * i);
                 scalarBarLines.InsertCellPoint(2 * i + 1);
             }
-
+            //
             scalarBarPoints.SetPoint(2 * (numOfTableColors + 1), boxWidth, 0, 0);
             scalarBarPoints.SetPoint(2 * (numOfTableColors + 1) + 1, boxWidth, h, 0);
-
+            //
             scalarBarLines.InsertNextCell(2);
             scalarBarLines.InsertCellPoint(0);
             scalarBarLines.InsertCellPoint(2 * numOfTableColors);
-
+            //
             scalarBarLines.InsertNextCell(2);
             scalarBarLines.InsertCellPoint(2 * (numOfTableColors + 1));
             scalarBarLines.InsertCellPoint(2 * (numOfTableColors + 1) + 1);
-
+            //
             vtkPolyData scalarBarPoly = _scalarBarBorderMapper.GetInput();
             scalarBarPoly.SetPoints(scalarBarPoints);
             scalarBarPoly.SetLines(scalarBarLines);
-
+            //
             _scalarBarBorderActor.GetPositionCoordinate().SetValue(offsetX, offsetY);
         }
         private void GenerateBarColors(double offsetX, double offsetY, double boxWidth, double boxHeight, double verticalLineLength)
@@ -325,51 +328,55 @@ namespace vtkControl
             vtkPoints scalarBarPoints = vtkPoints.New();
             vtkCellArray scalarBarPolygons = vtkCellArray.New();
             vtkFloatArray scalars = vtkFloatArray.New();
-
-            int numOfTableColors = (int)_lookupTable.GetNumberOfColors();
-
+            //
+            int numOfAllTableColors = (int)_lookupTable.GetNumberOfColors();
+            //
+            int numOfTableColors = _numberOfColors;
+            if (_addMinColor && _minColorVisible) numOfTableColors++;
+            if (_addMaxColor && _maxColorVisible) numOfTableColors++;
+            //
             scalarBarPoints.SetNumberOfPoints(4 * numOfTableColors);
             scalarBarPolygons.SetNumberOfCells(numOfTableColors);
             scalars.SetNumberOfValues(4 * numOfTableColors);
-
+            //
             double h;
-            float value;
-
+            float colorDelta = 1f / (numOfAllTableColors - 1);
+            float colorSum = 0;
+            if (_addMinColor && !_minColorVisible) colorSum += colorDelta;
+            //
             for (int i = 0; i < numOfTableColors; i++)
             {
                 h = i * boxHeight;
                 scalarBarPoints.SetPoint(4 * i + 0, 0, h, 0);
                 scalarBarPoints.SetPoint(4 * i + 1, boxWidth, h, 0);
-
+                //
                 h += boxHeight;
                 scalarBarPoints.SetPoint(4 * i + 2, boxWidth, h, 0);
                 scalarBarPoints.SetPoint(4 * i + 3, 0, h, 0);
-
-
+                //
                 scalarBarPolygons.InsertNextCell(4);
                 scalarBarPolygons.InsertCellPoint(4 * i + 0);
                 scalarBarPolygons.InsertCellPoint(4 * i + 1);
                 scalarBarPolygons.InsertCellPoint(4 * i + 2);
                 scalarBarPolygons.InsertCellPoint(4 * i + 3);
-
-                value = 1f / (numOfTableColors - 1) * i;
-                scalars.SetValue(4 * i + 0, value);
-                scalars.SetValue(4 * i + 1, value);
-                scalars.SetValue(4 * i + 2, value);
-                scalars.SetValue(4 * i + 3, value);
+                //
+                scalars.SetValue(4 * i + 0, colorSum);
+                scalars.SetValue(4 * i + 1, colorSum);
+                scalars.SetValue(4 * i + 2, colorSum);
+                scalars.SetValue(4 * i + 3, colorSum);
+                //
+                colorSum += colorDelta;
             }
-
+            //
             vtkPolyData scalarBarPoly = _scalarBarColorsMapper.GetInput();
             scalarBarPoly.SetPoints(scalarBarPoints);
             scalarBarPoly.SetPolys(scalarBarPolygons);
-
             // Set scalars
             _scalarBarColorsMapper.GetInput().GetPointData().SetScalars(scalars);
-
             // Edit actors mapper
             _scalarBarColorsMapper.SetScalarRange(0, 1);
             _scalarBarColorsMapper.SetLookupTable(_lookupTable);
-
+            //
             _scalarBarColorsActor.GetPositionCoordinate().SetValue(offsetX, offsetY);
         }
         private double[] GenerateText(double offsetX, double offsetY)
@@ -471,7 +478,7 @@ namespace vtkControl
         {
             CreateLookupTable(ctf, scalarRangeMin, scalarRangeMax, double.NaN, double.NaN);
         }
-        public void CreateLookupTable(vtkColorTransferFunction ctf, double scalarRangeMin, double scalarRangeMax, double minUserValue, double maxUserValue)
+        public void CreateLookupTable_HideUserColors(vtkColorTransferFunction ctf, double scalarRangeMin, double scalarRangeMax, double minUserValue, double maxUserValue)
         {
             double delta;
             double[] color;
@@ -538,7 +545,7 @@ namespace vtkControl
 
             OnSizeChanged();
         }
-        public void CreateLookupTable_HideUserColors(vtkColorTransferFunction ctf, double scalarRangeMin, double scalarRangeMax, double minUserValue, double maxUserValue)
+        public void CreateLookupTable(vtkColorTransferFunction ctf, double scalarRangeMin, double scalarRangeMax, double minUserValue, double maxUserValue)
         {
             double delta;
             double[] color;

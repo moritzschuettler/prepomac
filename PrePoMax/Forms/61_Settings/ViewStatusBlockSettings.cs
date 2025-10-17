@@ -53,7 +53,7 @@ namespace PrePoMax.Settings
             _statusBlockSettings = statusBlockSettings;
             _dctd = ProviderInstaller.Install(this);
             // Now lets display Yes/No instead of True/False
-            _dctd.RenameBooleanPropertyToYesNo(nameof(Visibility));
+            _dctd.RenameBooleanPropertyToOnOff(nameof(Visibility));
             _dctd.RenameBooleanPropertyToOnOff(nameof(DrawBorder));
         }
 

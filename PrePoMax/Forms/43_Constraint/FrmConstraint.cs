@@ -573,6 +573,8 @@ namespace PrePoMax.Forms
         //
         private void HighlightConstraint()
         {
+            if (!this.Visible) return;
+            //
             try
             {
                 if (propertyGrid.SelectedGridItem == null || propertyGrid.SelectedGridItem.PropertyDescriptor == null) return;

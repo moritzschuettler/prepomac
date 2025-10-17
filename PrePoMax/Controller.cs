@@ -6014,20 +6014,29 @@ namespace PrePoMax
                 }
                 else throw new NotSupportedException();
                 // Splitter surface
-                if (sp.SlaveRegionType == RegionTypeEnum.Selection &&
-                    (sp.SplitterSurfaceCreationIds == null || sp.SplitterSurfaceCreationIds.Length == 0))
-                    throw new CaeException("The splitter surface region must contain at least one item.");
-                //
-                int[] ids = sp.SplitterSurfaceCreationIds;
-                int[][] cells = GetSurfaceCellsByFaceIds(ids, out _);
+                PartExchangeData data = new PartExchangeData();
+                if (sp.SlaveRegionType == RegionTypeEnum.Selection)
+                {
+                    if ((sp.SplitterSurfaceCreationIds == null || sp.SplitterSurfaceCreationIds.Length == 0))
+                        throw new CaeException("The splitter surface region must contain at least one item.");
+                    //
+                    int[] ids = sp.SplitterSurfaceCreationIds;
+                    int[][] cells = GetSurfaceCellsByFaceIds(ids, out _);
+                    //
+                    data.Cells.CellNodeIds = cells;
+                    data.Cells.Ids = new int[cells.Length];
+                    for (int i = 0; i < cells.Length; i++) data.Cells.Ids[i] = i;
+                    mesh.GetSurfaceGeometry(cells, out data.Nodes.Ids, out data.Nodes.Coor, out data.Cells.Types);
+                }
+                else if (sp.SlaveRegionType == RegionTypeEnum.SurfaceName)
+                {
+                    FeSurface surface = mesh.Surfaces[sp.SlaveRegionName];
+                    mesh.GetSurfaceGeometry(sp.SlaveRegionName, out data.Nodes.Coor, out data.Cells.CellNodeIds,
+                                            out data.Cells.Types, false);
+                }
+                else throw new NotSupportedException();
                 //
                 SuppressExplodedView();
-                //
-                PartExchangeData data = new PartExchangeData();
-                data.Cells.CellNodeIds = cells;
-                data.Cells.Ids = new int[cells.Length];
-                for (int i = 0; i < cells.Length; i++) data.Cells.Ids[i] = i;
-                mesh.GetSurfaceGeometry(cells, out data.Nodes.Ids, out data.Nodes.Coor, out data.Cells.Types);
                 // Interpolator needs nodal values
                 data.Nodes.Values = new float[data.Nodes.Coor.Length];
                 //
@@ -8489,6 +8498,7 @@ namespace PrePoMax
                     update = true;
                 }
             }
+            ClearSelectionBuffer();
             //
             if (update) FeModelUpdate(UpdateType.RedrawSymbols);
         }
@@ -19984,9 +19994,6 @@ namespace PrePoMax
                 _form.SetStatusBlockVisibility(statusBlockSettings.Visible);
                 _form.DrawStatusBlockBackground(statusBlockSettings.BackgroundType == AnnotationBackgroundType.White);
                 _form.DrawStatusBlockBorder(statusBlockSettings.DrawBorder);
-                // Limits
-                //_form.SetShowMinValueLocation(postSettings.ShowMinValueLocation);
-                //_form.SetShowMaxValueLocation(postSettings.ShowMaxValueLocation);
             }
         }
         private void SetStatusBlock(float scale)

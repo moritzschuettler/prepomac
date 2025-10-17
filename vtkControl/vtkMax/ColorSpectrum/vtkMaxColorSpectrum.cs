@@ -18,6 +18,8 @@ namespace vtkControl
         private double _maxUserValue;
         private System.Drawing.Color _minColor;
         private System.Drawing.Color _maxColor;
+        private bool _minColorVisible;
+        private bool _maxColorVisible;
         private int _numberOfColors;
         private bool _reverseColors;
         private double _colorBrightness;
@@ -26,6 +28,8 @@ namespace vtkControl
         // Properties                                                                                                               
         public vtkColorSpectrumType Type { get { return _type; } set { _type = value; } }
         public vtkColorSpectrumMinMaxType MinMaxType { get { return _minMaxType; } set { _minMaxType = value; } }
+        public bool MinColorVisible { get { return _minColorVisible; } set { _minColorVisible = value; } }
+        public bool MaxColorVisible { get { return _maxColorVisible; } set { _maxColorVisible = value; } }
         public double MinUserValue
         {
             get { return _minUserValue; }
@@ -74,6 +78,8 @@ namespace vtkControl
         {
             _type = vtkColorSpectrumType.Rainbow;
             _minMaxType = vtkColorSpectrumMinMaxType.Automatic;
+            _minColorVisible = true;
+            _maxColorVisible = true;
             _minUserValue = 0;
             _maxUserValue = 1;
             _minColor = System.Drawing.Color.LightGray;
