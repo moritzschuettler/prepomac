@@ -200,6 +200,7 @@ namespace PrePoMax.Forms
             else if (_propertyItemChanged || !InitialCondition.Valid)
             {
                 _controller.ReplaceInitialConditionCommand(_initialConditionToEditName, InitialCondition);
+                _initialConditionToEditName = null; // prevents the execution of toInternal in OnHideOrClose
             }
             // Convert the initial condition from internal to show it
             else
