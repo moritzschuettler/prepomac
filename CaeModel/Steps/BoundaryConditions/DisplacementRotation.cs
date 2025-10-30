@@ -60,6 +60,7 @@ namespace CaeModel
                 switch (entry.Name)
                 {
                     case "_u1":
+                    case "<U1>k__BackingField":
                         // Compatibility for version v1.4.0
                         if (entry.Value is double valueU1)
                             U1 = new EquationContainer(typeof(StringLengthDOFConverter), valueU1);
@@ -67,6 +68,7 @@ namespace CaeModel
                             SetU1((EquationContainer)entry.Value, false);
                         break;
                     case "_u2":
+                    case "<U2>k__BackingField":
                         // Compatibility for version v1.4.0
                         if (entry.Value is double valueU2)
                             U2 = new EquationContainer(typeof(StringLengthDOFConverter), valueU2);
@@ -74,6 +76,7 @@ namespace CaeModel
                             SetU2((EquationContainer)entry.Value, false);
                         break;
                     case "_u3":
+                    case "<U3>k__BackingField":
                         // Compatibility for version v1.4.0
                         if (entry.Value is double valueU3)
                             U3 = new EquationContainer(typeof(StringLengthDOFConverter), valueU3);
@@ -81,6 +84,7 @@ namespace CaeModel
                             SetU3((EquationContainer)entry.Value, false);
                         break;
                     case "_ur1":
+                    case "<UR1>k__BackingField":
                         // Compatibility for version v1.4.0
                         if (entry.Value is double valueUR1)
                             UR1 = new EquationContainer(typeof(StringAngleDOFConverter), valueUR1);
@@ -88,6 +92,7 @@ namespace CaeModel
                             SetUR1((EquationContainer)entry.Value, false);
                         break;
                     case "_ur2":
+                    case "<UR2>k__BackingField":
                         // Compatibility for version v1.4.0
                         if (entry.Value is double valueUR2)
                             UR2 = new EquationContainer(typeof(StringAngleDOFConverter), valueUR2);
@@ -95,6 +100,7 @@ namespace CaeModel
                             SetUR2((EquationContainer)entry.Value, false);
                         break;
                     case "_ur3":
+                    case "<UR3>k__BackingField":
                         // Compatibility for version v1.4.0
                         if (entry.Value is double valueUR3)
                             UR3 = new EquationContainer(typeof(StringAngleDOFConverter), valueUR3);

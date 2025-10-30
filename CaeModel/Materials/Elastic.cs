@@ -38,6 +38,10 @@ namespace CaeModel
         public Elastic(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
+            // Compatibility for version v1.0.0
+            double youngsModulus = double.NaN;
+            double poissonsRatio = double.NaN;
+            //
             foreach (SerializationEntry entry in info)
             {
                 switch (entry.Name)
@@ -49,9 +53,21 @@ namespace CaeModel
                         else
                             SetYoungsPoissonsTemp((EquationContainer[][])entry.Value, false);
                         break;
+                    case "_youngsModulus":
+                        youngsModulus = (double)entry.Value;
+                        break;
+                    case "_poissonsRatio":
+                        poissonsRatio = (double)entry.Value;
+                        break;
                     default:
                         break;
                 }
+            }
+            //
+            if (!double.IsNaN(youngsModulus) && !double.IsNaN(poissonsRatio))
+            {
+                double[][] values = new double[][] { new double[] { youngsModulus, poissonsRatio, 0 } };
+                SetYoungsPoissonsTemp(values, false);
             }
         }
 

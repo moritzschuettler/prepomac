@@ -9055,8 +9055,8 @@ namespace PrePoMax
             {
                 contactPair = _model.ContactPairs[name];
                 contactPair.SwapMasterSlave();
-                //
-                if (_model.ContactPairs.ContainsKey(contactPair.Name))
+                // Is it a new name -> check if it exists
+                if (name != contactPair.Name && _model.ContactPairs.ContainsKey(contactPair.Name))
                     contactPair.Name = _model.ContactPairs.GetNextNumberedKey(contactPair.Name);
                 newName = contactPair.Name;
                 //
@@ -18280,6 +18280,8 @@ namespace PrePoMax
                                      backfaceCulling;   // for correct display of sections
                         if (!countOnly && GetActorsFromSelectionBuffer(key, out actors) && actors.Length == 1)
                         {
+                            actors[0].Color = color;
+                            actors[0].UseSecondaryHighlightColor = useSecondaryHighlightColor;
                             _form.AddActor(actors[0]);
                             return actors[0].GetNumberOfElements();
                         }
@@ -18330,7 +18332,11 @@ namespace PrePoMax
                          backfaceCulling;   // for correct display of sections
             if (GetActorsFromSelectionBuffer(key, out actors) && actors.Length == 2)
             {
+                actors[0].Color = color;
+                actors[0].UseSecondaryHighlightColor = useSecondaryHighlightColor;
                 _form.AddActor(actors[0]);
+                actors[1].Color = color;
+                actors[1].UseSecondaryHighlightColor = useSecondaryHighlightColor;
                 _form.AddActor(actors[1]);
             }
             // Create new data
@@ -18398,6 +18404,8 @@ namespace PrePoMax
                                  backfaceCulling;   // for correct display of sections
                     if (!countOnly && GetActorsFromSelectionBuffer(key, out actors) && actors.Length == 1)
                     {
+                        actors[0].Color = color;
+                        actors[0].UseSecondaryHighlightColor = useSecondaryHighlightColor;
                         _form.AddActor(actors[0]);
                         return actors[0].GetNumberOfElements();
                     }
