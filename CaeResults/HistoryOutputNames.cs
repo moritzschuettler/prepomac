@@ -53,21 +53,22 @@ namespace CaeResults
         public const string ModalAssuranceCriterium = "MODAL_ASSURANCE_CRITERIUM";                      //_
         public const string AxisDirection = "AXIS_DIRECTION";                                           //_
         public const string TurningDirection = "TURNING_DIRECTION";                                     //_
-        //
+        // Contact
         public const string RelativeContactDisplacement = "RELATIVE_CONTACT_DISPLACEMENT";              //_
         public const string ContactStress = "CONTACT_STRESS";                                           //_
         public const string ContactPrintEnergy = "CONTACT_PRINT_ENERGY";                                //_
         public const string ContactSpringEnergy = "CONTACT_SPRING_ENERGY";                              //_
         public const string TotalNumberOfContactElements = "TOTAL_NUMBER_OF_CONTACT_ELEMENTS";          //_
+        // Set
         public const string StatisticsForSlaveSet = "STATISTICS_FOR_SLAVE_SET";                         //_
+        public const string StatisticsForSurfaceSet = "STATISTICS_FOR_SURFACE_SET";                     //_
         public const string TotalSurfaceForce = "TOTAL_SURFACE_FORCE";                                  //_
         public const string MomentAboutOrigin = "MOMENT_ABOUT_ORIGIN";                                  //_
-        public const string CenterOgGravityCG = "CENTER_OF_GRAVITY_CG";                                 //_
+        public const string CenterOfGravityCG = "CENTER_OF_GRAVITY_CG";                                 //_
         public const string MeanSurfaceNormal = "MEAN_SURFACE_NORMAL";                                  //_
         public const string MomentAboutCG = "MOMENT_ABOUT_CG";                                          //_
         public const string SurfaceArea = "SURFACE_AREA";                                               //_
-        public const string NormalSurfaceForce = "NORMAL_SURFACE_FORCE";                                //_
-        public const string ShearSurfaceForce = "SHEAR_SURFACE_FORCE";                                  //_
+        public const string SurfaceLoads = "SURFACE_LOADS";                                             //_
         // Element
         public const string Volume = "VOLUME";
         public const string TotalVolume = "TOTAL_VOLUME";                                               //_
@@ -166,6 +167,11 @@ namespace CaeResults
         public const string XROTATION = "X_ROTATION";
         public const string YROTATION = "Y_ROTATION";
         public const string ZROTATION = "Z_ROTATION";
+        //
+        public const string NORMAL_FORCE = "NORMAL_FORCE";
+        public const string SHEAR_FORCE = "SHEAR_FORCE";
+        public const string TORQUE = "TORQUE";
+        public const string BENDING_MOMENT = "BENDING_MOMENT";
         //
         public const string X = "X";
         public const string Y = "Y";

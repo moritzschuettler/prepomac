@@ -590,6 +590,10 @@ namespace CaeModel
             {
                 valid = _contactPairs.ContainsValidKey(cho.RegionName);
             }
+            else if (historyOutput is SectionHistoryOutput sho)
+            {
+                valid = _mesh.Surfaces.ContainsValidKey(sho.RegionName);
+            }
             else throw new NotSupportedException();
             //
             return valid;

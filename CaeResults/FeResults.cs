@@ -1672,7 +1672,10 @@ namespace CaeResults
                             }
                         }
                         break;
-                    
+                    case FOFieldNames.Cels:
+                        unitConverter = new StringEnergyConverter();
+                        unitAbbreviation = _unitSystem.EnergyUnitAbbreviation;
+                        break;
                     // Thermal
                     case FOFieldNames.NdTemp:
                         unitConverter = new StringTemperatureConverter();
@@ -1792,7 +1795,7 @@ namespace CaeResults
                         break;
                     case HOFieldNames.Displacements:
                     case HOFieldNames.RelativeContactDisplacement:
-                    case HOFieldNames.CenterOgGravityCG:
+                    case HOFieldNames.CenterOfGravityCG:
                     case HOFieldNames.MeanSurfaceNormal:
                         if (componentName.ToUpper().StartsWith("UR"))
                         {
@@ -1828,10 +1831,11 @@ namespace CaeResults
                         break;
                     case HOFieldNames.Forces:
                     case HOFieldNames.TotalForce:
-                    case HOFieldNames.NormalSurfaceForce:
-                    case HOFieldNames.ShearSurfaceForce:
                     case HOFieldNames.TotalSurfaceForce:
-                        if (componentName.ToUpper().StartsWith("RM"))
+                    case HOFieldNames.SurfaceLoads:
+                        if (componentName.ToUpper().StartsWith("RM") ||
+                            componentName == HOComponentNames.TORQUE ||
+                            componentName == HOComponentNames.BENDING_MOMENT)
                         {
                             unitConverter = new StringMomentConverter();
                             unitAbbreviation = _unitSystem.MomentUnitAbbreviation;

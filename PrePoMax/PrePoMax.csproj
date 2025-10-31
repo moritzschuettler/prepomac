@@ -594,6 +594,7 @@
     <Compile Include="Forms\51_Step\ViewUncoupledTempDispStep.cs" />
     <Compile Include="Forms\51_Step\ViewHeatTransferStep.cs" />
     <Compile Include="Forms\52_HistoryOutput\ViewContactHistoryOutput.cs" />
+    <Compile Include="Forms\52_HistoryOutput\ViewSectionHistoryOutput.cs" />
     <Compile Include="Forms\53_FieldOutput\ViewContactFieldOutput.cs" />
     <Compile Include="Forms\43_Constraint\ViewPointSpring.cs" />
     <Compile Include="Forms\54_BoundaryConditions\ViewTemperatureBC.cs" />

@@ -77,6 +77,7 @@ namespace CaeResults
         public const string ForcMinAng = "FORCMINANG";                  // vector
         public const string Ener = "ENER";                              // scalar
         public const string Contact = "CONTACT";                        // scalar
+        public const string Cels = "CELS";                              // scalar
         // Thermal
         public const string NdTemp = "NDTEMP";                          // scalar
         public const string PNdTemp = "PNDTEMP";                        // scalar - kind of: mag, pha

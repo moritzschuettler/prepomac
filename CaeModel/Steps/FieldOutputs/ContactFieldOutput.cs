@@ -16,7 +16,7 @@ namespace CaeModel
         // Must start at 1 for the UI to work
         CDIS = 1,
         CSTR = 2,
-        //CELS = 4,
+        CELS = 4,
         PCON = 8
     }
 

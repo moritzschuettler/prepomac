@@ -27,6 +27,7 @@ namespace PrePoMax.Forms
                 if (value is NodalHistoryOutput nho) _viewHistoryOutput = new ViewNodalHistoryOutput(nho.DeepClone());
                 else if (value is ElementHistoryOutput eho) _viewHistoryOutput = new ViewElementHistoryOutput(eho.DeepClone());
                 else if (value is ContactHistoryOutput cho) _viewHistoryOutput = new ViewContactHistoryOutput(cho.DeepClone());
+                else if (value is SectionHistoryOutput sho) _viewHistoryOutput = new ViewSectionHistoryOutput(sho.DeepClone());
                 else throw new NotImplementedException();
             }
         }
@@ -75,6 +76,7 @@ namespace PrePoMax.Forms
                 else if (itemTag is ViewNodalHistoryOutput vnho) _viewHistoryOutput = vnho;
                 else if (itemTag is ViewElementHistoryOutput veho) _viewHistoryOutput = veho;
                 else if (itemTag is ViewContactHistoryOutput vcho) _viewHistoryOutput = vcho;
+                else if (itemTag is ViewSectionHistoryOutput vsho) _viewHistoryOutput = vsho;
                 else throw new NotImplementedException();
                 //
                 ShowHideSelectionForm();
@@ -108,6 +110,11 @@ namespace PrePoMax.Forms
             }
             else if (_viewHistoryOutput is ViewContactHistoryOutput vcho &&
                     property == nameof(vcho.ContactPairName))
+            {
+                HighlightHistoryOutput();
+            }
+            else if (_viewHistoryOutput is ViewSectionHistoryOutput vsho &&
+                    property == nameof(vsho.SurfaceName))
             {
                 HighlightHistoryOutput();
             }
@@ -233,6 +240,15 @@ namespace PrePoMax.Forms
                     //
                     vcho.PopulateDropDownLists(contactPairNames);
                 }
+                else if (_viewHistoryOutput is ViewSectionHistoryOutput vsho)
+                {
+                    selectedId = 3;
+                    // Check for deleted entities
+                    if (vsho.RegionType == RegionTypeEnum.SurfaceName.ToFriendlyString())
+                        CheckMissingValueRef(ref surfaceNames, vsho.SurfaceName, s => { vsho.SurfaceName = s; });
+                    //
+                    vsho.PopulateDropDownLists(surfaceNames);
+                }
                 else throw new NotSupportedException();
                 //
                 lvTypes.Items[selectedId].Tag = _viewHistoryOutput;
@@ -283,6 +299,14 @@ namespace PrePoMax.Forms
             }
             else item.Tag = new ViewError("There is no contact pair defined for the history output definition.");
             lvTypes.Items.Add(item);
+            // Section output
+            item = new ListViewItem("Section Output");
+            SectionHistoryOutput sho = new SectionHistoryOutput(GetHistoryOutputName("S"), SectionHistoryVariableEnum.SOF,
+                                                                "", RegionTypeEnum.Selection);
+            ViewSectionHistoryOutput vsho = new ViewSectionHistoryOutput(sho);
+            vsho.PopulateDropDownLists(surfaceNames);
+            item.Tag = vsho;
+            lvTypes.Items.Add(item);
         }
         private string GetHistoryOutputName(string prefix)
         {
@@ -295,7 +319,8 @@ namespace PrePoMax.Forms
                 _controller.ClearSelectionHistory();
                 //
                 if (_viewHistoryOutput == null) { }
-                else if (HistoryOutput is NodalHistoryOutput || HistoryOutput is ElementHistoryOutput)
+                else if (HistoryOutput is NodalHistoryOutput || HistoryOutput is ElementHistoryOutput ||
+                         HistoryOutput is SectionHistoryOutput)
                 {
                     if (HistoryOutput.RegionType == RegionTypeEnum.NodeSetName ||
                         HistoryOutput.RegionType == RegionTypeEnum.ReferencePointName ||
@@ -341,6 +366,7 @@ namespace PrePoMax.Forms
                 else if (HistoryOutput is NodalHistoryOutput) _controller.SetSelectItemToNode();
                 else if (HistoryOutput is ElementHistoryOutput) _controller.SetSelectItemToElement();
                 else if (HistoryOutput is ContactHistoryOutput) _controller.SelectItem = vtkSelectItem.None;
+                else if (HistoryOutput is SectionHistoryOutput) _controller.SetSelectItemToSurface();
             }
             else _controller.SetSelectByToOff();
         }
@@ -349,7 +375,8 @@ namespace PrePoMax.Forms
         {
             if (HistoryOutput != null && HistoryOutput.RegionType == RegionTypeEnum.Selection)
             {
-                if (HistoryOutput is NodalHistoryOutput || HistoryOutput is ElementHistoryOutput)
+                if (HistoryOutput is NodalHistoryOutput || HistoryOutput is ElementHistoryOutput ||
+                    HistoryOutput is SectionHistoryOutput)
                 {
                     HistoryOutput.CreationIds = ids;
                     HistoryOutput.CreationData = _controller.Selection.DeepClone();

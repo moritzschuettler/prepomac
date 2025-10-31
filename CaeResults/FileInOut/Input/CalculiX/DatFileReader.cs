@@ -1,14 +1,15 @@
-﻿using System;
+﻿using CaeGlobals;
+using CaeMesh;
+using Octree;
+using System;
 using System.Collections.Generic;
+using System.Configuration;
+using System.IO;
 using System.Linq;
+using System.Numerics;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
-using System.IO;
-using CaeMesh;
-using CaeGlobals;
-using System.Configuration;
-using Octree;
-using System.Numerics;
 using System.Xml.Linq;
 
 namespace CaeResults
@@ -96,15 +97,17 @@ namespace CaeResults
             { HOFieldNames.ContactPrintEnergy, HOFieldNames.ContactPrintEnergy.Replace('_', ' ')},
             { HOFieldNames.ContactSpringEnergy, HOFieldNames.ContactSpringEnergy.Replace('_', ' ')},
             { HOFieldNames.TotalNumberOfContactElements, HOFieldNames.TotalNumberOfContactElements.Replace('_', ' ')},
+            // Set                                                                  
             { HOFieldNames.StatisticsForSlaveSet, HOFieldNames.StatisticsForSlaveSet.Replace('_', ' ')},
+            { HOFieldNames.StatisticsForSurfaceSet, HOFieldNames.StatisticsForSurfaceSet.Replace('_', ' ')},
+            //
             { HOFieldNames.TotalSurfaceForce, HOFieldNames.TotalSurfaceForce.Replace('_', ' ')},
             { HOFieldNames.MomentAboutOrigin, HOFieldNames.MomentAboutOrigin.Replace('_', ' ')},
-            { HOFieldNames.CenterOgGravityCG, HOFieldNames.CenterOgGravityCG.Replace('_', ' ')},
+            { HOFieldNames.CenterOfGravityCG, HOFieldNames.CenterOfGravityCG.Replace('_', ' ')},
             { HOFieldNames.MeanSurfaceNormal, HOFieldNames.MeanSurfaceNormal.Replace('_', ' ')},
             { HOFieldNames.MomentAboutCG, HOFieldNames.MomentAboutCG.Replace('_', ' ')},
             { HOFieldNames.SurfaceArea, HOFieldNames.SurfaceArea.Replace('_', ' ')},
-            { HOFieldNames.NormalSurfaceForce, HOFieldNames.NormalSurfaceForce.Replace('_', ' ')},
-            { HOFieldNames.ShearSurfaceForce, HOFieldNames.ShearSurfaceForce.Replace('_', ' ')},
+            { HOFieldNames.SurfaceLoads, HOFieldNames.SurfaceLoads.Replace('_', ' ')},
             // Element                                                              
             { HOFieldNames.Volume, HOFieldNames.Volume.Replace('_', ' ')},
             { HOFieldNames.TotalVolume, HOFieldNames.TotalVolume.Replace('_', ' ')},
@@ -383,6 +386,21 @@ namespace CaeResults
                     //
                     if (repairedSets != null) dataSets.AddRange(repairedSets);
                 }
+                // Section statistics
+                else if (theName == HOFieldNames.StatisticsForSurfaceSet)
+                {
+                    dataSet = new List<string>();
+                    for (int j = 0; j <= 8 && i < lines.Length; j++)
+                    {
+                        if (lines[i].Length != 0) dataSet.Add(lines[i]);
+                        i += 2;
+                    }
+                    // At the end reduce the i for 1 since it will be increased next time in the loop
+                    i--;
+                    IEnumerable<string[]> repairedSets = RepairSectionStatistics(dataSet.ToArray(), ref existingNames, repairedSetNames);
+                    //
+                    if (repairedSets != null) dataSets.AddRange(repairedSets);
+                }
                 else if (theName != null)
                 {
                     dataSet = new List<string> { lines[i] };
@@ -477,16 +495,92 @@ namespace CaeResults
             dataSet[0] = "Surface area (A) for set " + name + " and time " + time;
             dataSet[1] = tmp[0];
             repairedDataSets.Add(dataSet);
-            //
-            // Normal surface force
+            // Surface load
             dataSet = new string[2];
-            dataSet[0] = "Normal surface force (FN) for set " + name + " and time " + time;
-            dataSet[1] = tmp[1];
+            dataSet[0] = string.Format("Surface loads ({0}, {1}) for set {2}  and time {3}",
+                                        HOComponentNames.NORMAL_FORCE,
+                                        HOComponentNames.SHEAR_FORCE,
+                                        name, time);
+            dataSet[1] = string.Format("{0} {1}", tmp[1], tmp[2]);
             repairedDataSets.Add(dataSet);
-            // Shear surface force
+            //
+            return repairedDataSets;
+        }
+        static private List<string[]> RepairSectionStatistics(string[] lines, ref Dictionary<string, HashSet<string>> existingNames,
+                                                              Dictionary<string, string> repairedSetNames)
+        {
+            // statistics for surface set SURFACE-1 and time  0.1000000E+00
+            //   total surface force(fx, fy, fz) and moment about the origin(mx, my, mz)
+            //   - 2.667946E+02 - 1.644923E-01  5.003642E+00  4.311920E+01  7.424729E+01  2.009665E+02
+            //   center of gravity and mean normal
+            //   - 4.802744E+00  2.625216E-04  4.805098E-05  4.819484E-01  3.554706E-17 - 6.629240E-19
+            //   moment about the center of gravity(mx, my, mz)
+            //    4.311787E+01  5.022890E+01  2.001065E+02
+            //   area, normal force(+ = tension), shear force(size), torque and bending moment(size)
+            //    3.872828E+02 - 1.285813E+02  2.048863E+02  2.078059E+01  2.089530E+02
+            //
+            string[] dataSet;
+            List<string[]> repairedDataSets = new List<string[]>();
+            //
+            if (lines.Length != 9) return repairedDataSets;
+            //
+            string[] tmp = lines[0].Split(new string[] { "surface set", "and time" },
+                                          StringSplitOptions.RemoveEmptyEntries);
+            string name = tmp[1].Trim();
+            string time = tmp[2].Trim();
+            //
+            HashSet<string> existingNamesAtTime;
+            if (existingNames.TryGetValue(time, out existingNamesAtTime))
+            {
+                if (existingNamesAtTime.Contains(name)) return null;
+            }
+            else
+            {
+                existingNames.Add(time, new HashSet<string>() { name });
+            }
+            // Total surface force
+            tmp = lines[2].Split(_spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
             dataSet = new string[2];
-            dataSet[0] = "Shear surface force (FS) for set " + name + " and time " + time;
-            dataSet[1] = tmp[2];
+            dataSet[0] = "Total surface force (FX, FY, FZ) for set " + name + " and time " + time;
+            dataSet[1] = string.Format("{0} {1} {2}", tmp[0], tmp[1], tmp[2]);
+            repairedDataSets.Add(dataSet);
+            // Moment about origin
+            dataSet = new string[2];
+            dataSet[0] = "Moment about origin (MX, MY, MZ) for set " + name + " and time " + time;
+            dataSet[1] = string.Format("{0} {1} {2}", tmp[3], tmp[4], tmp[5]);
+            repairedDataSets.Add(dataSet);
+            // Center of gravity CG
+            tmp = lines[4].Split(_spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+            dataSet = new string[2];
+            dataSet[0] = "Center of gravity CG (X, Y, Z) for set " + name + " and time " + time;
+            dataSet[1] = string.Format("{0} {1} {2}", tmp[0], tmp[1], tmp[2]);
+            repairedDataSets.Add(dataSet);
+            // Mean normal
+            dataSet = new string[2];
+            dataSet[0] = "Mean surface normal (NX, NY, NZ) for set " + name + " and time " + time;
+            dataSet[1] = string.Format("{0} {1} {2}", tmp[3], tmp[4], tmp[5]);
+            repairedDataSets.Add(dataSet);
+            // Moment about CG
+            tmp = lines[6].Split(_spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+            dataSet = new string[2];
+            dataSet[0] = "Moment about CG (MX, MY, MZ) for set " + name + " and time " + time;
+            dataSet[1] = string.Format("{0} {1} {2}", tmp[0], tmp[1], tmp[2]);
+            repairedDataSets.Add(dataSet);
+            // Area
+            tmp = lines[8].Split(_spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+            dataSet = new string[2];
+            dataSet[0] = "Surface area (A) for set " + name + " and time " + time;
+            dataSet[1] = tmp[0];
+            repairedDataSets.Add(dataSet);
+            // Surface load
+            dataSet = new string[2];
+            dataSet[0] = string.Format("Surface loads ({0}, {1}, {2}, {3}) for set {4}  and time {5}",
+                                        HOComponentNames.NORMAL_FORCE,
+                                        HOComponentNames.SHEAR_FORCE,
+                                        HOComponentNames.TORQUE,
+                                        HOComponentNames.BENDING_MOMENT,
+                                        name, time);
+            dataSet[1] = string.Format("{0} {1} {2} {3}", tmp[1], tmp[2], tmp[3], tmp[4]);
             repairedDataSets.Add(dataSet);
             //
             return repairedDataSets;

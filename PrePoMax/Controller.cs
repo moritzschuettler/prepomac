@@ -18,6 +18,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Management;
+using System.Reflection.Emit;
 using System.Runtime.Remoting.Metadata.W3cXsd2001;
 using System.Runtime.Serialization;
 using System.Security.Policy;
@@ -696,7 +697,7 @@ namespace PrePoMax
             // Annotations
             _annotations = new AnnotationContainer(this);
             //
-            _form.UpdateRecentFilesThreadSafe(_settings.General.GetRecentFiles());
+            _form.UpdateRecentFilesThreadSafe();
         }
         public string GetFileNameToOpen()
         {
@@ -2331,7 +2332,15 @@ namespace PrePoMax
             _settings.General.AddRecentFile(fileName);
             _settings.SaveToFile();
             //
-            _form.UpdateRecentFilesThreadSafe(_settings.General.GetRecentFiles());
+            _form.UpdateRecentFilesThreadSafe();
+        }
+        public void RemoveFileNameFromRecentFiles(string fileName)
+        {
+            // Settings
+            _settings.General.RemoveRecentFile(fileName);
+            _settings.SaveToFile();
+            //
+            _form.UpdateRecentFilesThreadSafe();
         }
         public void ClearRecentFiles()
         {
@@ -2339,7 +2348,7 @@ namespace PrePoMax
             _settings.General.ClearRecentFiles();
             Settings = _settings;   // save to file
             //
-            _form.UpdateRecentFilesThreadSafe(_settings.General.GetRecentFiles());
+            _form.UpdateRecentFilesThreadSafe();
         }
 
         #endregion ################################################################################################################
@@ -9950,6 +9959,18 @@ namespace PrePoMax
                     historyOutput.RegionName = name;
                     historyOutput.RegionType = RegionTypeEnum.ElementSetName;
                 }
+                // Section output
+                else if (historyOutput is SectionHistoryOutput)
+                {
+                    name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces, historyOutput.Name);
+                    FeSurface surface = new FeSurface(name, historyOutput.CreationIds, historyOutput.CreationData.DeepClone());
+                    surface.Internal = true;
+                    surface.ParentMultiRegion = historyOutput;
+                    AddSurface(surface);
+                    //
+                    historyOutput.RegionName = name;
+                    historyOutput.RegionType = RegionTypeEnum.SurfaceName;
+                }
                 else throw new NotSupportedException();
             }
             // Clear the creation data if not used
@@ -9972,6 +9993,8 @@ namespace PrePoMax
                     RemoveNodeSets(new string[] { historyOutput.RegionName }, false);
                 else if (historyOutput is ElementHistoryOutput)
                     RemoveElementSets(new string[] { historyOutput.RegionName }, false);
+                else if (historyOutput is SectionHistoryOutput)
+                    RemoveSurfaces(new string[] { historyOutput.RegionName }, false);
                 else throw new NotSupportedException();
             }
         }
@@ -13855,6 +13878,16 @@ namespace PrePoMax
             //
             int count = _selectionBuffer.Count - Globals.SelectionBufferSize;
             for (int i = 0; i < count; i++) _selectionBuffer.Remove(_selectionBuffer.Keys.First());
+        }
+        private string GetSelectionBufferKey(string prefixName, int hash, vtkRendererLayer layer, bool backfaceCulling)
+        {
+            string key = _currentView + Globals.NameSeparator +
+                         GetScale().ToString() + Globals.NameSeparator +
+                         prefixName + Globals.NameSeparator +
+                         hash + Globals.NameSeparator +
+                         layer + Globals.NameSeparator +
+                         backfaceCulling;   // for correct display of sections
+            return key;
         }
         private bool GetActorsFromSelectionBuffer(string key, out vtkMaxActor[] actors)
         {
@@ -18159,13 +18192,9 @@ namespace PrePoMax
             //
             FeMesh mesh = DisplayedMesh;
             // Create a key and check if the data already exists
-            
-            string key = _currentView + Globals.NameSeparator +
-                         prefixName + Globals.NameSeparator +
-                         Tools.GetHashCode(elementIds) + Globals.NameSeparator +
-                         layer;
+            string key = GetSelectionBufferKey(prefixName, Tools.GetHashCode(elementIds), layer, false);
             //
-            if (!countOnly && _selectionBuffer.TryGetValue(key, out vtkMaxActor[] actors))
+            if (!countOnly && GetActorsFromSelectionBuffer(key, out vtkMaxActor[] actors))
             {
                 for (int i = 0; i < actors.Length; i++)
                 {
@@ -18274,10 +18303,7 @@ namespace PrePoMax
                         // Create a key and check if the data already exists
                         vtkMaxActor[] actors;
                         FeNodeSet nodeSet = _model.Mesh.NodeSets[s.NodeSetName];
-                        string key = name + Globals.NameSeparator +
-                                     Tools.GetHashCode(nodeSet.Labels) + Globals.NameSeparator +
-                                     layer + Globals.NameSeparator +
-                                     backfaceCulling;   // for correct display of sections
+                        string key = GetSelectionBufferKey(name, Tools.GetHashCode(nodeSet.Labels), layer, backfaceCulling);
                         if (!countOnly && GetActorsFromSelectionBuffer(key, out actors) && actors.Length == 1)
                         {
                             actors[0].Color = color;
@@ -18285,7 +18311,7 @@ namespace PrePoMax
                             _form.AddActor(actors[0]);
                             return actors[0].GetNumberOfElements();
                         }
-                        // Create new data
+                        //Create new data
                         else
                         {
                             vtkMaxActorData data = new vtkMaxActorData();
@@ -18325,11 +18351,7 @@ namespace PrePoMax
                                 bool useSecondaryHighlightColor = false, bool drawEdges = false)
         {
             vtkMaxActor[] actors;
-            string key = _currentView + Globals.NameSeparator + 
-                         prefixName + Globals.NameSeparator +
-                         Tools.GetHashCode(cells) + Globals.NameSeparator +
-                         layer + Globals.NameSeparator + 
-                         backfaceCulling;   // for correct display of sections
+            string key = GetSelectionBufferKey(prefixName, Tools.GetHashCode(cells), layer, backfaceCulling);
             if (GetActorsFromSelectionBuffer(key, out actors) && actors.Length == 2)
             {
                 actors[0].Color = color;
@@ -18397,11 +18419,7 @@ namespace PrePoMax
                     // Create a key and check if the data already exists
                     vtkMaxActor[] actors;
                     FeNodeSet nodeSet = _model.Mesh.NodeSets[s.NodeSetName];
-                    string key = _currentView + Globals.NameSeparator +
-                                 name + Globals.NameSeparator +
-                                 Tools.GetHashCode(nodeSet.Labels) + Globals.NameSeparator +
-                                 layer + Globals.NameSeparator +
-                                 backfaceCulling;   // for correct display of sections
+                    string key = GetSelectionBufferKey(name, Tools.GetHashCode(nodeSet.Labels), layer, backfaceCulling);
                     if (!countOnly && GetActorsFromSelectionBuffer(key, out actors) && actors.Length == 1)
                     {
                         actors[0].Color = color;
@@ -19285,6 +19303,8 @@ namespace PrePoMax
                         HighlightNodeSet(historyResultSet.BaseSetName);
                     else if (_model.Mesh.ElementSets.ContainsKey(historyResultSet.BaseSetName))
                         HighlightElementSet(historyResultSet.BaseSetName, false);
+                    else if (_model.Mesh.Surfaces.ContainsKey(historyResultSet.BaseSetName))
+                        HighlightSurface(historyResultSet.BaseSetName, false);
                 }
                 else
                 {

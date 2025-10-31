@@ -2079,6 +2079,11 @@ namespace FileInOut.Output
                                                                    step.OutputFrequency);
                 parent.AddKeyword(contactPrint);
             }
+            else if (historyOutput is SectionHistoryOutput sho)
+            {
+                CalSectionPrint sectionPrint = new CalSectionPrint(sho, step.OutputFrequency);
+                parent.AddKeyword(sectionPrint);
+            }
             else throw new NotImplementedException();
         }
         static private void AppendFieldOutput(FeModel model, Step step, FieldOutput fieldOutput, CalculixKeyword parent)

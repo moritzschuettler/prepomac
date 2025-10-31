@@ -132,6 +132,12 @@ namespace PrePoMax
                 }
             }
         }
+        public void RemoveRecentFile(string fileNameWithPath)
+        {
+            if (_recentFiles == null) _recentFiles = new LinkedList<string>();
+            if (_recentFiles.Count > 0) _recentFiles.Remove(fileNameWithPath);
+        }
+
         public void ClearRecentFiles()
         {
             _recentFiles.Clear();

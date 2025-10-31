@@ -678,7 +678,7 @@ namespace PrePoMax
                     {
                         _controller.CurrentView = ViewGeometryModelResults.Geometry;
                         //
-                        UpdateRecentFilesThreadSafe(_controller.Settings.General.GetRecentFiles());
+                        UpdateRecentFilesThreadSafe();
                     }
                 }
             }
@@ -2286,14 +2286,15 @@ namespace PrePoMax
             this.Close();
         }
         //Recent
-        public void UpdateRecentFilesThreadSafe(string[] fileNames)
+        public void UpdateRecentFilesThreadSafe()
         {
-            InvokeIfRequired(UpdateRecentFiles, fileNames);
+            InvokeIfRequired(UpdateRecentFiles);
         }
-        public void UpdateRecentFiles(string[] fileNames)
+        public void UpdateRecentFiles()
         {
             try
             {
+                string[] fileNames = _controller.Settings.General.GetRecentFiles();
                 if (fileNames != null)
                 {
                     tsmiOpenRecent.DropDownItems.Clear();
@@ -2326,7 +2327,16 @@ namespace PrePoMax
             try
             {
                 string fileName = ((ToolStripMenuItem)sender).Name;
-                TryOpen(fileName);
+                if (!File.Exists(fileName))
+                {
+                    string text = "The file " + fileName + " does not exist. Remove it from the recent list?";
+                    if (MessageBoxes.ShowWarningQuestionYesNo(text) == DialogResult.Yes)
+                    {
+                        _controller.RemoveFileNameFromRecentFiles(fileName);
+                        UpdateRecentFilesThreadSafe();
+                    }
+                }
+                else TryOpen(fileName);
             }
             catch (Exception ex)
             {
