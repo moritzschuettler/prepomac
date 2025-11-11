@@ -22,6 +22,7 @@ namespace FileInOut.Output.Calculix
 
 
         // Properties                                                                                                               
+        public OpTypeEnum OpType { get { return _opType; } set { _opType = value; } }
         public bool CanHideData { get { return _definedTemperatures != null; } }
 
 
@@ -41,7 +42,7 @@ namespace FileInOut.Output.Calculix
             { }
             else throw new NotSupportedException();
             //
-            _opType = OpTypeEnum.New;
+            _opType = OpTypeEnum.None;
         }
 
 

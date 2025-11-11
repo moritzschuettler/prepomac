@@ -160,6 +160,7 @@ namespace CaeModel
         {
             _fieldOutputs.Add(fieldOutput.Name, fieldOutput);
         }
+        public abstract bool IsPerturbationSupported();
         public abstract bool IsBoundaryConditionSupported(BoundaryCondition boundaryCondition);
         public bool AddBoundaryCondition(BoundaryCondition boundaryCondition)
         {

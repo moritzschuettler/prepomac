@@ -386,7 +386,9 @@ namespace PrePoMax.Forms
                 //
                 if (prevOrLastStep != null)
                 {
-                    newStep.Perturbation = prevOrLastStep.Perturbation;
+                    if (newStep.IsPerturbationSupported()) newStep.Perturbation = prevOrLastStep.Perturbation;
+                    else newStep.Perturbation = false;
+                    //
                     newStep.Nlgeom = prevOrLastStep.Nlgeom;
                     newStep.MaxIncrements = prevOrLastStep.MaxIncrements;
                     newStep.IncrementationType = prevOrLastStep.IncrementationType;

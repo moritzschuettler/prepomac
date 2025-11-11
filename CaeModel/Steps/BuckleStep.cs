@@ -70,6 +70,10 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        public override bool IsPerturbationSupported()
+        {
+            return true;
+        }
         public override bool IsBoundaryConditionSupported(BoundaryCondition boundaryCondition)
         {
             if (boundaryCondition is FixedBC || 
@@ -106,7 +110,6 @@ namespace CaeModel
             }
             else throw new NotSupportedException();
         }
-
         public override bool IsDefinedFieldSupported(DefinedField definedField)
         {
             if (definedField is DefinedTemperature) return false;

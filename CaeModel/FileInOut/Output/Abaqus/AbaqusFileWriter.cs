@@ -74,7 +74,13 @@ namespace FileInOut.Output
             // Rigid body
             else if (keyword is CalRigidBody crb) keyword = new AbqRigidBody(crb);
             // Step
-            else if (keyword is CalStep cst) { cst.OutputSolver = false; cst.OutputNoAnalysis = false; }
+            else if (keyword is CalStep cst)
+            {
+                cst.OutputSolver = false;
+                cst.OutputNoAnalysis = false;
+                //
+                if (keyword is CalBuckleStep cbs) cbs.Accuracy = double.NaN;  // turn off accuracy output
+            }
             // Output
             else if (keyword is CalOutputFrequency) keyword = new CalTitle("", "");
             // History output
@@ -106,6 +112,10 @@ namespace FileInOut.Output
                 else if (cl is CalShellEdgeLoad csel) keyword = new AbqShellEdgeLoad(csel);
                 //
                 cl.OpType = OpTypeEnum.New;
+            }
+            else if (keyword is CalDefinedTemperature cdt)
+            {
+                cdt.OpType = OpTypeEnum.New;
             }
             // Additional
             else if (keyword is CalAdditional ca)

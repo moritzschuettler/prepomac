@@ -59,6 +59,10 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        public override bool IsPerturbationSupported()
+        {
+            return false;
+        }
         public override bool IsBoundaryConditionSupported(BoundaryCondition boundaryCondition)
         {
             if (boundaryCondition is FixedBC || 
