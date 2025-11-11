@@ -96,7 +96,7 @@ namespace CaeModel
             }
             else
             {
-                string missingFile = "The file from which the distribution should be imported does not exist.";
+                string missingFile = "The file used to define the distribution does not exist.";
                 throw new CaeException(missingFile);
             }
             //
@@ -163,7 +163,7 @@ namespace CaeModel
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                throw new CaeException(ex.Message);
             }
         }
         // ISerialization

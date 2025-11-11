@@ -1,11 +1,12 @@
-﻿using System;
+﻿using CaeGlobals;
+using CaeMesh;
+using CaeModel;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
-using CaeModel;
-using CaeMesh;
-using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
@@ -14,8 +15,10 @@ namespace FileInOut.Output.Calculix
     {
         // Variables                                                                                                                
         private string _regionName;
+        private OpTypeEnum _opType;
         private DefinedTemperature _definedTemperature;
         private DefinedTemperature[] _definedTemperatures;
+
 
 
         // Properties                                                                                                               
@@ -37,6 +40,8 @@ namespace FileInOut.Output.Calculix
                      _definedTemperature.RegionType == RegionTypeEnum.Selection)
             { }
             else throw new NotSupportedException();
+            //
+            _opType = OpTypeEnum.New;
         }
 
 
@@ -55,7 +60,7 @@ namespace FileInOut.Output.Calculix
             }
             //
             sb.AppendLine("** Name: " + _definedTemperature.Name);
-            sb.AppendFormat("*Temperature{0}{1}{2}", fileData, amplitude, Environment.NewLine);
+            sb.AppendFormat("*Temperature{0}{1}{2}{3}", fileData, amplitude, OpTypeString(), Environment.NewLine);
             return sb.ToString();
         }
         public override string GetDataString()
@@ -79,6 +84,13 @@ namespace FileInOut.Output.Calculix
                 }
             }
             return sb.ToString();
+        }
+        public string OpTypeString()
+        {
+            if (_opType == OpTypeEnum.None) return "";
+            else if (_opType == OpTypeEnum.New) return ", op=New";
+            else if (_opType == OpTypeEnum.Mod) return ", op=Mod";
+            else throw new NotSupportedException();
         }
     }
 }

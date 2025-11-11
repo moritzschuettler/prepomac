@@ -2498,12 +2498,16 @@ namespace vtkControl
             cameraStart.DeepCopy(camera);
             //
             double[] up = camera.GetViewUp();
+            double[] upAbs = new double[3];
+            upAbs[0] = Math.Abs(up[0]);
+            upAbs[1] = Math.Abs(up[1]);
+            upAbs[2] = Math.Abs(up[2]);
             //
-            if (Math.Max(Math.Max(up[0], up[1]), Math.Max(up[1], up[2])) == up[0])
+            if (Math.Max(Math.Max(upAbs[0], upAbs[1]), Math.Max(upAbs[1], upAbs[2])) == upAbs[0])
                 camera.SetViewUp(Math.Sign(up[0]), 0, 0);
-            else if (Math.Max(Math.Max(up[0], up[1]), Math.Max(up[1], up[2])) == up[1])
+            else if (Math.Max(Math.Max(upAbs[0], upAbs[1]), Math.Max(upAbs[1], upAbs[2])) == upAbs[1])
                 camera.SetViewUp(0, Math.Sign(up[1]), 0);
-            else if (Math.Max(Math.Max(up[0], up[1]), Math.Max(up[1], up[2])) == up[2])
+            else if (Math.Max(Math.Max(upAbs[0], upAbs[1]), Math.Max(upAbs[1], upAbs[2])) == upAbs[2])
                 camera.SetViewUp(0, 0, Math.Sign(up[2]));
             //
             ResetCamera();

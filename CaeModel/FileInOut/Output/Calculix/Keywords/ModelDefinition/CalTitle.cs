@@ -43,7 +43,12 @@ namespace FileInOut.Output.Calculix
         }
         public override string GetDataString()
         {
-            if (_data != null && _data.Length > 0) return string.Format("{0}{1}", _data, Environment.NewLine);
+            if (_data != null && _data.Length > 0)
+            {
+                string newLine = "";
+                if (!_data.EndsWith(Environment.NewLine)) newLine = Environment.NewLine;
+                return string.Format("{0}{1}", _data, newLine);
+            }
             else return "";
         }
     }

@@ -60,7 +60,7 @@ namespace PrePoMax.Forms
         {
             _viewModelProperties = (ViewModelProperties)propertyGrid.SelectedObject;
             //
-            if (_viewModelProperties.ModelType == CaeModel.ModelType.Submodel)
+            if (_viewModelProperties.ModelType == ModelType.Submodel)
             {
                 string fileName = _viewModelProperties.GlobalResultsFileName;
                 fileName = System.IO.Path.Combine(_controller.Settings.GetWorkDirectory(), fileName);
@@ -68,7 +68,7 @@ namespace PrePoMax.Forms
                 if (!System.IO.File.Exists(fileName))
                     throw new CaeException("The selected global results file " + fileName +" does not exist.");
             }
-            else if (_viewModelProperties.ModelType == CaeModel.ModelType.SlipWearModel)
+            else if (_viewModelProperties.ModelType == ModelType.SlipWearModel)
             {
                 ModelProperties modelProperties = _viewModelProperties.GetBase();
                 if (modelProperties.NumberOfCycles.Value % modelProperties.CyclesIncrement.Value != 0)
