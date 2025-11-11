@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -182,7 +182,7 @@ namespace PrePoMax.Forms
             tvTransformations.Nodes.Find("Linear", true)[0].Tag = new LinearPattern("Linear", new double[3],
                                                                                     new double[] { 1, 0, 0 }, 2);
             tvTransformations.Nodes.Find("Circular", true)[0].Tag = new CircularPattern("Circular", new double[3],
-                                                                                        new double[] { 0, 0, 1 }, 90, 2);
+                                                                                        new double[] { 0, 1, 0 }, 2, 45);
             tvTransformations.ExpandAll();
             //
             if (transformations.Count > 0)

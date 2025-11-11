@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -89,7 +89,7 @@ namespace PrePoMax
         //
         [CategoryAttribute("Translations")]
         [OrderedDisplayName(2, 10, "Z")]
-        [DescriptionAttribute("Translation in theZ direction.")]
+        [DescriptionAttribute("Translation in the Z direction.")]
         [TypeConverter(typeof(EquationLengthConverter))]
         [Id(3, 10)]
         public EquationString TranslateZ
