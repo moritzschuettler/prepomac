@@ -13,6 +13,7 @@ namespace CaeGlobals
         // Variables                                                                                                                
         private bool _selectAll;                                //ISerializable
         private int[] _itemIds;                                 //ISerializable
+        private int[] _partIds;                                 //ISerializable
         private bool _isGeometryBased;                          //ISerializable
         private GeometrySelectModeEnum _geometrySelectMode;     //ISerializable
 
@@ -20,6 +21,7 @@ namespace CaeGlobals
         // Properties                                                                                                               
         public bool SelectAll { get { return _selectAll; } set { _selectAll = value; } }
         public int[] ItemIds { get { return _itemIds; } set { _itemIds = value; } }
+        public int[] PartIds { get { return _partIds; } }
         public bool IsGeometryBased { get { return _isGeometryBased; } set { _isGeometryBased = value; } }
         public GeometrySelectModeEnum GeometrySelectMode { get { return _geometrySelectMode; } }
 
@@ -44,6 +46,7 @@ namespace CaeGlobals
             _selectAll = selectAll;
             if (itemIds != null) _itemIds = itemIds.ToArray(); // copy
             else _itemIds = null;
+            _partIds = null;
             _isGeometryBased = geometryBased;
             _geometrySelectMode = geometrySelectMode;
         }
@@ -58,6 +61,8 @@ namespace CaeGlobals
                         _selectAll = (bool)entry.Value; break;
                     case "_itemIds":
                         _itemIds = (int[])entry.Value; break;
+                    case "_partIds":
+                        _partIds = (int[])entry.Value; break;
                     case "_geometryIds":    // compatibility version v2.1.2
                     case "_isGeometryBased":
                         _isGeometryBased = (bool)entry.Value; break;
@@ -71,6 +76,10 @@ namespace CaeGlobals
 
 
         // Methods                                                                                                                  
+        public void SetPartIds(int[] partIds)
+        {
+            _partIds = partIds;
+        }
         public bool Equals(SelectionNodeIds selectionNode)
         {
             if (selectionNode != null && selectionNode.SelectAll == _selectAll)
@@ -102,6 +111,7 @@ namespace CaeGlobals
             // Using typeof() works also for null fields
             info.AddValue("_selectAll", _selectAll, typeof(bool));
             info.AddValue("_itemIds", _itemIds, typeof(int[]));
+            info.AddValue("_partIds", _partIds, typeof(int[]));
             info.AddValue("_isGeometryBased", _isGeometryBased, typeof(bool));
             info.AddValue("_geometrySelectMode", _geometrySelectMode, typeof(GeometrySelectModeEnum));
         }

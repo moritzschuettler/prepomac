@@ -15,6 +15,7 @@ namespace CaeGlobals
         protected string _name;                         //ISerializable
         protected bool _active;                         //ISerializable
         protected bool _visible;                        //ISerializable
+        protected bool _modified;                       //ISerializable
         protected bool _valid;                          //ISerializable
         protected bool _internal;                       //ISerializable
         protected bool _checkName;                      //ISerializable
@@ -39,6 +40,8 @@ namespace CaeGlobals
         public virtual bool Visible { get { return _visible; } set { _visible = value; } }
         //
         [Browsable(false)]
+        public virtual bool Modified { get { return _modified; } set { _modified = value; } }
+        [Browsable(false)]
         public virtual bool Valid { get { return _valid; } set { _valid = value; } }
         //
         [Browsable(false)]
@@ -62,6 +65,7 @@ namespace CaeGlobals
             //
             _active = true;
             _visible = true;
+            _modified = false;
             _valid = true;
             _internal = false;
         }
@@ -85,6 +89,8 @@ namespace CaeGlobals
                         _visible = (bool)entry.Value; count++; break;
                     case "_valid":
                         _valid = (bool)entry.Value; count++; break;
+                    case "_modified":
+                        _modified = (bool)entry.Value; count++; break;
                     case "_internal":
                         _internal = (bool)entry.Value; count++; break;
                     case "_checkName":
@@ -134,6 +140,7 @@ namespace CaeGlobals
             //
             _active = namedClass._active;
             _visible = namedClass._visible;
+            _modified = namedClass._modified;
             _valid = namedClass._valid;
             _internal = namedClass._internal;
             _checkName = namedClass._checkName;
@@ -232,6 +239,7 @@ namespace CaeGlobals
             info.AddValue("_name", _name, typeof(string));
             info.AddValue("_active", _active, typeof(bool));
             info.AddValue("_visible", _visible, typeof(bool));
+            info.AddValue("_modified", _modified, typeof(bool));
             info.AddValue("_valid", _valid, typeof(bool));
             info.AddValue("_internal", _internal, typeof(bool));
             info.AddValue("_checkName", _checkName, typeof(bool));

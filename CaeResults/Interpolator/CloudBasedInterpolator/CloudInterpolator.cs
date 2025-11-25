@@ -40,7 +40,7 @@ namespace CaeResults
             _sourceBox = ComputeAllPointsBoundingBox(_cloudPoints);
             _sourceBox.InflateIfThinn(1E-6);
             //
-            double l = _sourceBox.GetDiagonal() / 100;
+            double l = _sourceBox.GetDiagonal() / Math.Pow(_cloudPoints.Length, 0.333333);
             _nx = (int)Math.Ceiling(_sourceBox.GetXSize() / l);
             _ny = (int)Math.Ceiling(_sourceBox.GetYSize() / l);
             _nz = (int)Math.Ceiling(_sourceBox.GetZSize() / l);

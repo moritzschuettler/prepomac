@@ -107,6 +107,14 @@ namespace CaeModel
                 _cloudPoints = CloudPointReader.Read(FileName);
                 if (_cloudPoints == null) throw new CaeException("No distribution data was imported.");
                 //
+                if (_cloudPoints.Length > 0)
+                {
+                    if (_cloudPoints[0].Values.Length == 1) _distributionType = DistributionTypeEnum.Scalar;
+                    else if (_cloudPoints[0].Values.Length == 3) _distributionType = DistributionTypeEnum.Vector;
+                    else throw new CaeException("The number of values per point must be either 1 (scalar) or 3 (vector)!");
+                }
+                else throw new CaeException("No distribution data was imported.");
+                //
                 return UpdateScaleTranslate();
             }
             return true;

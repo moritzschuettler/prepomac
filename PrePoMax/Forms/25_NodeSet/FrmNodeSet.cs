@@ -71,7 +71,7 @@ namespace PrePoMax.Forms
                 // Replace
                 if (_propertyItemChanged || !NodeSet.Valid)
                 {
-                    // replace the ids by the previous selection
+                    // Replace the ids by the previous selection
                     Selection selection = NodeSet.CreationData;
                     if (selection.Nodes[0] is SelectionNodeIds sn && sn.Equals(_selectionNodeIds))
                     {

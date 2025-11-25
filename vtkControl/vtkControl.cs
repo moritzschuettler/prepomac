@@ -536,29 +536,34 @@ namespace vtkControl
                 {
                     double[] pickedPoint = GetPickPoint(out pickedActor, mea.Location.X, mea.Location.Y);
                     double[] direction = _renderer.GetActiveCamera().GetDirectionOfProjection();
-                    pickedActorNames = new string[] { GetActorName(pickedActor) };
+                    if (pickedActor == null) pickedActorNames = new string[0];
+                    else  pickedActorNames = new string[] { GetActorName(pickedActor) };
                     OnMouseLeftButtonUpSelection?.Invoke(pickedPoint, direction, null, completelyInside,
                                                          selectOperation, pickedActorNames);
                 }
                 // Area selection
                 else
                 {
+                    double[][] planeParameters = null;
                     PickByArea(mea.Location.X, mea.Location.Y, x2, y2, false, out pickedActorNames);
-                    vtkPlanes planes = _areaPicker.GetFrustum();
-                    vtkPlane plane;
-                    double[] origin;
-                    double[] normal;
-                    double[][] planeParameters = new double[planes.GetNumberOfPlanes()][];
                     //
-                    for (int i = 0; i < planes.GetNumberOfPlanes(); i++)
+                    if (!(pickedActorNames == null || pickedActorNames.Length == 0))
                     {
-                        plane = planes.GetPlane(i);
-                        origin = plane.GetOrigin();
-                        normal = plane.GetNormal();
-                        planeParameters[i] = new double[] { origin[0], origin[1], origin[2], normal[0], normal[1], normal[2] };
+                        vtkPlanes planes = _areaPicker.GetFrustum();
+                        vtkPlane plane;
+                        double[] origin;
+                        double[] normal;
+                        planeParameters = new double[planes.GetNumberOfPlanes()][];
+                        //
+                        for (int i = 0; i < planes.GetNumberOfPlanes(); i++)
+                        {
+                            plane = planes.GetPlane(i);
+                            origin = plane.GetOrigin();
+                            normal = plane.GetNormal();
+                            planeParameters[i] = new double[] { origin[0], origin[1], origin[2], normal[0], normal[1], normal[2] };
+                        }
                     }
                     //
-
                     OnMouseLeftButtonUpSelection?.Invoke(null, null, planeParameters, completelyInside,
                                                          selectOperation, pickedActorNames);
                 }
@@ -1468,7 +1473,7 @@ namespace vtkControl
                     if (_selectableActorsFilter.Contains(entry.Value.Name)) entry.Value.Geometry.VisibilityOn();
                     else entry.Value.Geometry.VisibilityOff();
                 }
-                // Skip invisible actors
+                // Find closest point on visible actors only
                 if (entry.Value.Geometry.GetVisibility() != 0)
                 {
                     locator = entry.Value.CellLocator;

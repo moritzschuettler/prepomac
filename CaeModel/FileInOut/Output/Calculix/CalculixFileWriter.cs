@@ -24,7 +24,12 @@ namespace FileInOut.Output
         static public void Write(string fileName, FeModel model, ConvertPyramidsToEnum convertPyramidsTo,
                                  Dictionary<int, double[]> deformations = null)
         {
-            List<CalculixKeyword> keywords = GetAllKeywords(model, convertPyramidsTo, deformations);
+            // Copy model
+            FeModel copy = model.DeepCopy();
+            string[] inactivePartNames = copy.Mesh.GetInactivePartNames();
+            copy.Mesh.RemoveParts(inactivePartNames, out _, false);
+            //
+            List<CalculixKeyword> keywords = GetAllKeywords(copy, convertPyramidsTo, deformations);
             // Write file
             StringBuilder sb = new StringBuilder();
             foreach (var keyword in keywords)
@@ -1111,6 +1116,8 @@ namespace FileInOut.Output
                 //
                 foreach (var entry in model.Mesh.Parts)
                 {
+                    //if (!entry.Value.Active) continue;
+                    //
                     elementTypes.Clear();
                     part = (MeshPart)entry.Value;
                     //

@@ -317,7 +317,7 @@ namespace CaeMesh
                 ReadWrite.ReadFromBinaryStream(out visualizationData._edgeCells, br);
                 ReadWrite.ReadFromBinaryStream(out visualizationData._edgeCellIdsByEdge, br);
                 ReadWrite.ReadFromBinaryStream(out visualizationData._edgeLengths, br);
-                if (version > 1_004_001)
+                if (version > 1_004_001 || version == -1)
                 {
                     ReadFromBinaryStream(out types, br);
                     visualizationData._edgeTypes = (GeomCurveType[])(object)types;

@@ -24,12 +24,17 @@ namespace FileInOut.Output
         static public void Write(string fileName, FeModel model, ConvertPyramidsToEnum convertPyramidsTo,
                                  Dictionary<int, double[]> deformations = null)
         {
+            // Copy model
+            FeModel copy = model.DeepCopy();
+            string[] inactivePartNames = copy.Mesh.GetInactivePartNames();
+            copy.Mesh.RemoveParts(inactivePartNames, out _, false);
+            //
             CalculixKeyword keywordToChange;
-            List<CalculixKeyword> keywords = CalculixFileWriter.GetAllKeywords(model, convertPyramidsTo, deformations);
+            List<CalculixKeyword> keywords = CalculixFileWriter.GetAllKeywords(copy, convertPyramidsTo, deformations);
             for (int i = 0; i < keywords.Count; i++)
             {
                 keywordToChange = keywords[i];
-                ConvertKeywordsToAbaqus(model, ref keywordToChange);
+                ConvertKeywordsToAbaqus(copy, ref keywordToChange);
                 keywords[i] = keywordToChange;
             }
             // Write file

@@ -255,7 +255,12 @@ namespace CaeMesh
         public void InflateIfThinn(double offsetFactor)
         {
             if (IsThinnInAnyDirection())
-                Inflate(GetDiagonal() * offsetFactor);
+            {
+                double diagonal = GetDiagonal();
+                if (diagonal < 1E-6) Inflate(offsetFactor);
+                //
+                Inflate(diagonal * offsetFactor);
+            }
         }
         public void Scale(double scaleFactor)
         {
@@ -552,7 +557,10 @@ namespace CaeMesh
         }
         public bool IsThinnInAnyDirection()
         {
-            double epsilon = GetDiagonal() * 1E-2;
+            double diagonal = GetDiagonal();
+            if (diagonal < 1E-12) return true;
+            //
+            double epsilon = diagonal * 1E-2;
             //
             if (Math.Abs(MaxX - MinX) < epsilon) return true;
             else if (Math.Abs(MaxY - MinY) < epsilon) return true;

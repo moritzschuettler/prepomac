@@ -24,8 +24,8 @@ namespace CaeGlobals
         private bool _enableShellEdgeFaceSelection;         //ISerializable
         
 
-        // Temporary storage for speed optimization: keep current ids; do not copy
-        private static Dictionary<int, int[]> _nodeIds;
+        // Temporary storage for speed optimization: keep current ids;
+        [NonSerialized] private static Dictionary<int, int[]> _nodeIds;
 
 
         // Properties                                                                                                               

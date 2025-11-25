@@ -26,6 +26,7 @@ namespace CaeModel
     public class FeModel : ISerializable
     {
         // Variables                                                                                                                
+        private string _name;                                                                   //ISerializable
         private string _hashName;                                                               //ISerializable
         private FeMesh _geometry;                                                               //ISerializable
         private FeMesh _mesh;                                                                   //ISerializable
@@ -46,7 +47,7 @@ namespace CaeModel
 
 
         // Properties                                                                                                               
-        public string Name { get; set; }
+        public string Name { get { return _name; } set { _name = value; } }
         public string HashName { get { return _hashName; } }
         public FeMesh Geometry { get { return _geometry; } }
         public FeMesh Mesh { get { return _mesh; } }
@@ -109,6 +110,28 @@ namespace CaeModel
                 foreach (var entry in overriddenParameters) _parameters.AddOverriddenParameter(entry.Key, entry.Value);
             }
         }
+        public FeModel(FeModel model)
+        {
+            FeModel copy = model.DeepCopy();
+            _name = copy._name;
+            _hashName = copy._hashName;
+            _geometry = copy._geometry;
+            _mesh = copy._mesh;
+            _userViews = copy._userViews;
+            _parameters = copy._parameters;
+            _materials = copy._materials;
+            _sections = copy._sections;
+            _constraints = copy._constraints;
+            _surfaceInteractions = copy._surfaceInteractions;
+            _contactPairs = copy._contactPairs;
+            _distributions = copy._distributions;
+            _amplitudes = copy._amplitudes;
+            _initialConditions = copy._initialConditions;
+            _stepCollection = copy._stepCollection;
+            _calculixUserKeywords = copy._calculixUserKeywords;
+            _properties = copy._properties;
+            _unitSystem = copy._unitSystem;
+        }
         public FeModel(SerializationInfo info, StreamingContext context)
         {
             StringComparer sc = StringComparer.OrdinalIgnoreCase;
@@ -136,7 +159,7 @@ namespace CaeModel
                 {
                     case "<Name>k__BackingField":               // Compatibility for version v.0.5.1
                     case "_name":
-                        Name = (string)entry.Value; break;
+                        _name = (string)entry.Value; break;
                     case "_geometry":
                         _geometry = (FeMesh)entry.Value; break;
                     case "_mesh":
@@ -854,9 +877,19 @@ namespace CaeModel
                 sectionId++;
             }
             // Not assigned
-            IEnumerable<int> unAssignedElementIds = _mesh.Elements.Keys.Except(elementIdSectionId.Keys);
+            HashSet<int> unAssignedElementIds = _mesh.Elements.Keys.Except(elementIdSectionId.Keys).ToHashSet();
+            // Not active
+            if (unAssignedElementIds.Count() > 0)
+            {
+                HashSet<int> inactiveElements = new HashSet<int>();
+                foreach (var entry in _mesh.Parts)
+                    if (!entry.Value.Active) inactiveElements.UnionWith(entry.Value.Labels);
+                unAssignedElementIds.ExceptWith(inactiveElements);
+            }
+            //
             int[] unAssignedElementIdsArray = new int[unAssignedElementIds.Count()];
             int count = 0;
+            
             foreach (var elementId in unAssignedElementIds)
             {
                 elementIdSectionId.Add(elementId, -1);
@@ -3358,11 +3391,48 @@ namespace CaeModel
             //
             return bdmModel;
         }
+        // Copy
+        public FeModel DeepCopy()
+        {
+            try
+            {
+                if (_geometry != null) FeMesh.PrepareForSaving(_geometry);
+                if (_mesh != null) FeMesh.PrepareForSaving(_mesh);
+                //
+                FeModel model = this.DeepClone();
+                //
+                using (MemoryStream ms = new MemoryStream())
+                {
+                    using (BinaryWriter bw = new BinaryWriter(ms))
+                    {
+                        WriteToBinaryWriter(this, bw);
+                        //
+                        bw.Flush();
+                        bw.BaseStream.Seek(0, SeekOrigin.Begin);
+                        using (BinaryReader br = new BinaryReader(bw.BaseStream))
+                        {
+                            ReadFromBinaryReader(model, br, -1);
+                        }
+                    }
+                }
+                //
+                return model;
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+                if (_geometry != null) FeMesh.ResetAfterSaving(_geometry);
+                if (_mesh != null) FeMesh.ResetAfterSaving(_mesh);
+            }
+        }
         // ISerialization
         public void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             // Using typeof() works also for null fields
-            info.AddValue("_name", Name, typeof(string));
+            info.AddValue("_name", _name, typeof(string));
             info.AddValue("_geometry", _geometry, typeof(FeMesh));
             info.AddValue("_mesh", _mesh, typeof(FeMesh));
             info.AddValue("_userViews", _userViews, typeof(OrderedDictionary<string, UserViewParameters>));
