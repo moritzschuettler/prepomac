@@ -12,16 +12,19 @@ namespace CaeModel
     {
         // Variables                                                                                                                
         private List<Step> _steps;
+        private bool _onlyCheckModel;
 
 
         // Properties                                                                                                               
         public List<Step> StepsList { get { return _steps; } }
+        public bool OnlyCheckModel { get { return _onlyCheckModel; } }
 
 
         // Constructors                                                                                                             
         public StepCollection()
         {
             _steps = new List<Step>();
+            _onlyCheckModel = false;
         }
 
 
@@ -134,6 +137,15 @@ namespace CaeModel
             foreach (var step in _steps) names.Add(step.Name);
             return names.ToArray();
         }
+        public int GetNumberOfActiveSteps()
+        {
+            int count = 0;
+            foreach (var entry in _steps)
+            {
+                if (entry.Active) count++;
+            }
+            return count;
+        }
         public void ReplaceStep(string oldStepName, Step newStep)
         {
             List<Step> newSteps = new List<Step>();
@@ -190,10 +202,12 @@ namespace CaeModel
         // Run or check analysis
         public void SetRunAnalysis()
         {
+            _onlyCheckModel = false;
             foreach (Step step in _steps) step.RunAnalysis = true;
         }
         public void SetCheckModel()
         {
+            _onlyCheckModel = true;
             foreach (Step step in _steps) step.RunAnalysis = false;
         }
         // History

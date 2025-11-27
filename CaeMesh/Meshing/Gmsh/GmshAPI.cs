@@ -1,22 +1,17 @@
-﻿using System;
+﻿using CaeGlobals;
+using CaeMesh;
+using CaeMesh.Meshing;
+using GmshCommon;
+using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using CaeMesh.Meshing;
-using GmshCommon;
-using CaeMesh;
-using System.IO;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
-using CaeGlobals;
-using System.Drawing.Printing;
-using System.Windows.Forms.VisualStyles;
-using System.Collections;
-using System.Diagnostics.CodeAnalysis;
 using System.Windows.Forms;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
-using System.Drawing;
 
 namespace CaeMesh
 {
@@ -82,7 +77,7 @@ namespace CaeMesh
                 _thread.Start();
                 //
                 int count = 0;
-                while (_thread.ThreadState == ThreadState.Running)
+                while (_thread.ThreadState == System.Threading.ThreadState.Running)
                 {
                     if (count++ % 10 == 0) WriteLog();
                     Application.DoEvents();
@@ -514,7 +509,7 @@ namespace CaeMesh
                 Gmsh.Model.Mesh.Optimize(sweepMesh.OptimizeFirstOrderShell.ToString(), false, 10, dimTags);
             }
             // Debug
-            if (System.Diagnostics.Debugger.IsAttached) Gmsh.Write(_gmshData.InpFileName);
+            if (Debugger.IsAttached) Gmsh.Write(_gmshData.InpFileName);
             //
             if (preview)
             {
@@ -1096,7 +1091,7 @@ namespace CaeMesh
                 {
                     if (netgenVertexIdGmshVertexId.TryGetValue(entry.Key, out vertexId))
                         vertexIdMeshSize[vertexId] = entry.Value;
-                    else if (System.Diagnostics.Debugger.IsAttached) throw new Exception();
+                    else if (Debugger.IsAttached) Debugger.Break();
                 }
                 _gmshData.VertexNodeIdMeshSize = vertexIdMeshSize;
             }
@@ -1109,11 +1104,10 @@ namespace CaeMesh
                 {
                     if (netgenEdgeIdGmshEdgeId.TryGetValue(entry.Key, out edgeId))
                         edgeIdNumElements[edgeId] = entry.Value;
-                    else if (System.Diagnostics.Debugger.IsAttached)
+                    else if (Debugger.IsAttached)
                     {
                         // Other part
-                        edgeId = edgeId;
-                        //throw new Exception();
+                        Debugger.Break();
                     }
                 }
                 _gmshData.EdgeIdNumElements = edgeIdNumElements;
@@ -1127,7 +1121,7 @@ namespace CaeMesh
                 {
                     if (netgenFaceIdGmshFaceId.TryGetValue(entry.Key, out faceId))
                         faceIdNodes[faceId] = entry.Value;
-                    else if (System.Diagnostics.Debugger.IsAttached) throw new Exception();
+                    else if (Debugger.IsAttached) Debugger.Break();
                 }
                 _gmshData.FaceIdNodes = faceIdNodes;
             }
@@ -1140,7 +1134,7 @@ namespace CaeMesh
                 {
                     if (netgenFaceIdGmshFaceId.TryGetValue(surfaceId, out faceId))
                         surfaceIdsList.Add(faceId);
-                    else if (System.Diagnostics.Debugger.IsAttached) throw new Exception();
+                    else if (Debugger.IsAttached) Debugger.Break();
                 }
                 _gmshData.SurfaceIds = surfaceIdsList.ToArray();
             }
@@ -1156,7 +1150,7 @@ namespace CaeMesh
                         {
                             if (netgenFaceIdGmshFaceId.TryGetValue(sw.SideSurfaceIds[i], out faceId))
                                 sw.SideSurfaceIds[i] = faceId;
-                            else if (System.Diagnostics.Debugger.IsAttached) throw new Exception();
+                            else if (Debugger.IsAttached) Debugger.Break();
                         }
                         //
                         int edgeId;
@@ -1168,7 +1162,7 @@ namespace CaeMesh
                                 {
                                     if (netgenEdgeIdGmshEdgeId.TryGetValue(sw.LayerGroupEdgeIds[i][j][z], out edgeId))
                                         sw.LayerGroupEdgeIds[i][j][z] = edgeId;
-                                    else if (System.Diagnostics.Debugger.IsAttached) throw new Exception();
+                                    else if (Debugger.IsAttached) Debugger.Break();
                                 }
                             }
                         }

@@ -17,7 +17,6 @@ namespace CaeGlobals
         private bool _completelyInside;                                 //ISerializable
         private vtkSelectBy _selectBy;                                  //ISerializable
         private double _angle;                                          //ISerializable
-        private int[] _partIds;                                         //ISerializable
         private double[][] _partOffsets;                                //ISerializable
         private double _precision;                                      //ISerializable
 
@@ -29,7 +28,6 @@ namespace CaeGlobals
         public bool CompletelyInside { get { return _completelyInside; } }
         public vtkSelectBy SelectBy { get { return _selectBy; } set { _selectBy = value; } }
         public double Angle { get { return _angle; } set { _angle = value; } }        
-        public int[] PartIds { get { return _partIds; } }
         public double[][] PartOffsets { get { return _partOffsets; } }
         public double Precision { get { return _precision; } set { _precision = value; } }
         public bool IsGeometryBased { get { return _selectBy.IsGeometryBased(); } }
@@ -40,7 +38,7 @@ namespace CaeGlobals
                                   double[][] planeParameters, bool completelyInside,
                                   vtkSelectOperation selectOperation, int[] partIds, double[][] partOffsets, 
                                   vtkSelectBy selectBy, double angle)
-            : base(selectOperation)
+            : base(selectOperation, partIds)
         {
             _pickedPoint = pickedPoint;
             _selectionDirection = selectionDirection;
@@ -48,14 +46,12 @@ namespace CaeGlobals
             _completelyInside = completelyInside;
             _selectBy = selectBy;
             _angle = angle;
-            _partIds = partIds;
             _partOffsets = partOffsets;
             _precision = -1;
         }
         public SelectionNodeMouse(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
-            _partIds = null;            // Compatibility for version v0.9.0
             _precision = -1;            // Compatibility for version v0.5.2
             _selectionDirection = null; // Compatibility for version v0.9.0
             _partOffsets = null;        // Compatibility for version v0.9.0
@@ -77,8 +73,6 @@ namespace CaeGlobals
                         _selectBy = (vtkSelectBy)entry.Value; break;
                     case "_angle":
                         _angle = (double)entry.Value; break;
-                    case "_partIds":
-                        _partIds = (int[])entry.Value; break;
                     case "_partOffsets":
                         _partOffsets = (double[][])entry.Value; break;
                     case "_precision":
@@ -147,7 +141,6 @@ namespace CaeGlobals
             info.AddValue("_completelyInside", _completelyInside, typeof(bool));
             info.AddValue("_selectBy", _selectBy, typeof(vtkSelectBy));
             info.AddValue("_angle", _angle, typeof(double));
-            info.AddValue("_partIds", _partIds, typeof(int[]));
             info.AddValue("_partOffsets", _partOffsets, typeof(double[][]));
             info.AddValue("_precision", _precision, typeof(double));
         }

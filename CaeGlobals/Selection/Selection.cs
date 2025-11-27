@@ -159,7 +159,7 @@ namespace CaeGlobals
                     int hash;
                     Random rnd = new Random((int)DateTime.Now.Ticks);
                     do hash = rnd.Next();
-                    while (_nodeIds.ContainsKey(hash));
+                    while (hash == 0 || _nodeIds.ContainsKey(hash));
                     node.Hash = hash;
                 }
                 _nodeIds[node.Hash] = ids;
@@ -189,6 +189,7 @@ namespace CaeGlobals
             {
                 SelectionNode node = _nodes.First();
                 if (_nodeIds != null) _nodeIds.Remove(node.Hash);
+                node.Hash = -1;
                 _nodes.Remove(node);
             }
         }
@@ -198,6 +199,7 @@ namespace CaeGlobals
             {
                 SelectionNode node = _nodes.Last();
                 if (_nodeIds != null) _nodeIds.Remove(node.Hash);
+                node.Hash = -1;
                 _nodes.Remove(node);
             }
         }

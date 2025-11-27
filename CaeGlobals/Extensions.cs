@@ -49,6 +49,14 @@ namespace CaeGlobals
                 fs.Close();
             }
         }
+        public static T LoadFromFile<T>(string fileName)
+        {
+            using (FileStream fs = new FileStream(fileName, FileMode.Open))
+            {
+                BinaryFormatter formatter = new BinaryFormatter();
+                return (T)formatter.Deserialize(fs);
+            }
+        }
         public static void DumpToStream<T>(this T a, BinaryWriter bw)
         {
             using (MemoryStream stream = new MemoryStream())

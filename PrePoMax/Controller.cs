@@ -4926,7 +4926,7 @@ namespace PrePoMax
             string argument = Globals.GmshDataFileName + " " + CaeMesh.Meshing.GmshCommandEnum.Mesh;
             //
             bool jobCompleted;
-            if (System.Diagnostics.Debugger.IsAttached)
+            if (Debugger.IsAttached)
             {
                 CaeMesh.GmshAPI gmshAPI = new GmshAPI(gmshData, _form.WriteDataToOutput);
                 string error = gmshAPI.CreateMesh();
@@ -5814,7 +5814,6 @@ namespace PrePoMax
                 if (_model != null)
                     errors = _model.Mesh.ThickenShellMesh(partNames, nodeIdNormal, thickness, numberOfLayers, offset,
                                                           false, out _);
-                //
                 ResumeExplodedViews(false);
                 // Update element type icon
                 foreach (var partName in partNames)
@@ -6792,6 +6791,8 @@ namespace PrePoMax
                 //
                 string[] removedParts;
                 removedPartIds = _model.Mesh.RemoveParts(partNames, out removedParts, removeForRemeshing);
+                //
+                if (!removeForRemeshing) UpdateGeometryBasedItems(false, true);
                 //
                 foreach (var name in removedParts) _form.RemoveTreeNode<MeshPart>(view, name, null);
             }
@@ -12583,6 +12584,7 @@ namespace PrePoMax
                 {
                     // Clone
                     singlePartSelection = snm.DeepClone();
+                    //
                     if (snm.PartOffsets == null) partOffset = null;
                     else partOffset = snm.PartOffsets[i];
                     singlePartSelection.SetSinglePartSelection(snm.PartIds[i], partOffset);
@@ -12633,9 +12635,7 @@ namespace PrePoMax
                     }
                     else if (_selection.SelectItem == vtkSelectItem.GeometryEdge || _selectBy == vtkSelectBy.QuerySurface)
                     {
-                        // Query edge
-                        // Query surface 
-                        // Both return geometry ids
+                        // Query edge, Query surface; both return geometry ids
                     }
                     else if (_selection.SelectItem == vtkSelectItem.Surface)
                     {
@@ -12811,7 +12811,8 @@ namespace PrePoMax
                     {
                         if (snm.PartIds == null || snm.PartIds.Length != 1)
                         {
-                            if (Debugger.IsAttached) MessageBoxes.ShowError("Controller:GetSelectionIds: This should not happen!");
+                            //"Controller:GetSelectionIds: This should not happen!"
+                            if (Debugger.IsAttached) Debugger.Break();
                         }
                         if (inactivePartIds.Contains(snm.PartIds[0])) continue;
                     }
@@ -12966,7 +12967,7 @@ namespace PrePoMax
                 }
                 else if (_selection.SelectItem == vtkSelectItem.None)
                 {
-                    if (Debugger.IsAttached) throw new NotSupportedException();
+                    if (Debugger.IsAttached) Debugger.Break();
                 }
                 else if (_selection.SelectItem == vtkSelectItem.Node)
                 {
@@ -13883,8 +13884,8 @@ namespace PrePoMax
             //
             if (faceIds.Length == 0)
             {
-                if (Debugger.IsAttached)
-                    MessageBoxes.ShowError("Controller:GetCellFaceActorData: This should not happen!");
+                //"Controller:GetCellFaceActorData: This should not happen!"
+                if (Debugger.IsAttached) Debugger.Break();
                 return null;
             }
             bool add;
@@ -19296,6 +19297,8 @@ namespace PrePoMax
             if (clear) _form.Clear3DSelection();
             //
             int[] ids = GetSelectionIds(false);
+            if (ids.Length > 0)
+                Debug.WriteLine("Selection ids: " + ids.Length + ": " + ids[0]);
             if (ids.Length == 0) return;
             //
             if (_selection.SelectItem == vtkSelectItem.Node)

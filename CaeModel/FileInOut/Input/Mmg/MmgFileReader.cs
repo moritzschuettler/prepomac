@@ -1,14 +1,15 @@
-﻿using System;
+﻿using CaeGlobals;
+using CaeMesh;
+using CaeResults;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
-using System.IO;
-using CaeMesh;
 using System.Xml.Linq;
-using System.Runtime.InteropServices;
-using CaeResults;
-using CaeGlobals;
 
 namespace FileInOut.Input
 {
@@ -320,9 +321,8 @@ namespace FileInOut.Input
                             else
                                 edgeIdElementIds.Add(edgeId, new HashSet<int> { beam.Id });
                         }
-                        //else if (System.Diagnostics.Debugger.IsAttached) throw new NotSupportedException();
                     }
-                    else if (System.Diagnostics.Debugger.IsAttached) throw new NotSupportedException();
+                    else if (Debugger.IsAttached) Debugger.Break();
                 }
             }
         }

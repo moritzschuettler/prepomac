@@ -17,6 +17,7 @@ using System.Security.AccessControl;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 using System.Windows.Forms.VisualStyles;
 using System.Windows.Input;
 using System.Xml.Linq;
@@ -473,7 +474,7 @@ namespace CaeMesh
                         mesh.Elements.Add(id, new ParabolicHexaElement(id, nodeIds) { PartId = partId });
                         break;
                     default:
-                        if (System.Diagnostics.Debugger.IsAttached) throw new NotSupportedException();
+                        if (Debugger.IsAttached) Debugger.Break();
                         break;
                 }
             }
@@ -2467,14 +2468,8 @@ namespace CaeMesh
                 //
                 if (oneSurfCount == 0)
                 {
-                    if (Debugger.IsAttached)
-                    {
-                        try
-                        {
-                            throw new Exception("RenumberVisualizationSurfaces: the surface to renumber was not found.");
-                        }
-                        catch { }
-                    }
+                    //"RenumberVisualizationSurfaces: the surface to renumber was not found.");
+                    if (Debugger.IsAttached) Debugger.Break();
                 }
             }
             Array.Sort(newSurfaceIds, oldSurfaceIds);
@@ -2637,14 +2632,8 @@ namespace CaeMesh
                 //
                 if (oneEdgeCount == 0)
                 {
-                    if (Debugger.IsAttached)
-                    {
-                        try
-                        {
-                            throw new Exception("RenumberPartVisualizationEdges: the edge to renumber was not found.");
-                        }
-                        catch { }
-                    }
+                    //"RenumberPartVisualizationEdges: the edge to renumber was not found."
+                    if (Debugger.IsAttached) Debugger.Break();
                 }
             }
             //
@@ -3001,47 +2990,6 @@ namespace CaeMesh
             }
             // Update bounding boxes
             ComputeBoundingBox();
-        }
-        public void SplitShellPartToFaceParts()
-        {
-            // Create element sets
-            int[] elementIds;
-            string elementSetName;
-            FeElementSet elementSet;
-            List<string> newElementSetNames = new List<string>();
-            foreach (var entry in _parts)
-            {
-                if (entry.Value.PartType == PartType.Shell)
-                {
-                    for (int i = 0; i < entry.Value.Visualization.CellIdsByFace.Length; i++)
-                    {
-                        elementSetName = _elementSets.GetNextNumberedKey(entry.Key, "_Face-" + (i + 1));
-                        newElementSetNames.Add(elementSetName);
-                        // Get element ids from face
-                        elementIds = new int[entry.Value.Visualization.CellIdsByFace[i].Length];
-                        for (int j = 0; j < entry.Value.Visualization.CellIdsByFace[i].Length; j++)
-                        {
-                            elementIds[j] = entry.Value.Visualization.CellIds[entry.Value.Visualization.CellIdsByFace[i][j]];
-                        }
-                        // Create
-                        elementSet = new FeElementSet(elementSetName, elementIds);
-                        _elementSets.Add(elementSet.Name, elementSet);
-                    }
-                }
-            }
-            // Create face parts
-            BasePart[] modifiedParts;
-            BasePart[] newParts;
-            CreatePartsFromElementSets(newElementSetNames.ToArray(), out modifiedParts, out newParts);
-            // Remove old parts
-            if (modifiedParts.Length > 0)
-            {
-                string[] partNamesToRemove = new string[modifiedParts.Length];
-                string[] removedPartNames;
-                for (int i = 0; i < modifiedParts.Length; i++) partNamesToRemove[i] = modifiedParts[i].Name;
-                //
-                RemoveParts(partNamesToRemove, out removedPartNames, false);
-            }
         }
         public void SplitSolidCompoundMesh()
         {
@@ -5568,8 +5516,8 @@ namespace CaeMesh
             //
             if (_nodeIdElementIds == null)
             {
-                if (Debugger.IsAttached)
-                    MessageBoxes.ShowError("FeMesh:GetElementIdsFromNodeIds: This should not happen!");
+                //"FeMesh:GetElementIdsFromNodeIds: This should not happen!"
+                if (Debugger.IsAttached) Debugger.Break();
                 UpdateNodeIdElementIds();
             }
             //
@@ -7766,24 +7714,15 @@ namespace CaeMesh
                 else throw new NotSupportedException("MeshSetupItemTypeException");
             }
         }
-        public HashSet<int> RemoveUnreferencedNodes(HashSet<int> possiblyUnrefNodeIds, bool removeEmptyNodeSets,
+        public HashSet<int> RemoveUnreferencedNodesOld(HashSet<int> possiblyUnrefNodeIds, bool removeEmptyNodeSets,
                                                     bool removeForRemeshing)
         {
-            // For each node find it's connected elements
-            Dictionary<int, List<FeElement>> nodeElements = new Dictionary<int, List<FeElement>>();
-            foreach (var entry in _elements)
-            {
-                foreach (var nodeId in entry.Value.NodeIds)
-                {
-                    if (nodeElements.ContainsKey(nodeId)) nodeElements[nodeId].Add(entry.Value);
-                    else nodeElements.Add(nodeId, new List<FeElement>() { entry.Value });
-                }
-            }
+            UpdateNodeIdElementIds();
             // Get unreferenced nodes
             HashSet<int> unreferenced = new HashSet<int>();
             foreach (var nodeId in possiblyUnrefNodeIds)
             {
-                if (!nodeElements.ContainsKey(nodeId)) unreferenced.Add(nodeId);
+                if (!_nodeIdElementIds.ContainsKey(nodeId)) unreferenced.Add(nodeId);
             }
             if (unreferenced.Count > 0)
             {
@@ -7855,68 +7794,114 @@ namespace CaeMesh
             //
             UpdateMaxNodeAndElementIds();
             //
+            return unreferenced;
+        }
+        public HashSet<int> RemoveUnreferencedNodes(HashSet<int> possiblyUnrefNodeIds, bool removeEmptyNodeSets,
+                                                     bool removeForRemeshing, HashSet<int> removedPartIds = null)
+        {
             UpdateNodeIdElementIds();
+            // Get unreferenced nodes
+            HashSet<int> unreferenced = new HashSet<int>();
+            foreach (var nodeId in possiblyUnrefNodeIds)
+            {
+                if (!_nodeIdElementIds.ContainsKey(nodeId)) unreferenced.Add(nodeId);
+            }
+            if (unreferenced.Count > 0)
+            {
+                // Remove unreferenced nodes
+                foreach (var key in unreferenced) _nodes.Remove(key);
+                // Remove unreferenced nodes from node sets
+                List<int> newNodeSetLabels = new List<int>();
+                List<string> emptyNodeSets = new List<string>();
+                List<string> changedNodeSets = new List<string>();
+                foreach (var entry in _nodeSets)
+                {
+                    newNodeSetLabels.Clear();
+                    foreach (var id in entry.Value.Labels)
+                    {
+                        if (!unreferenced.Contains(id)) newNodeSetLabels.Add(id);
+                    }
+                    if (newNodeSetLabels.Count != entry.Value.Labels.Length)
+                    {
+                        entry.Value.Labels = newNodeSetLabels.ToArray();
+                        changedNodeSets.Add(entry.Key);
+                    }
+                    if (entry.Value.Labels.Length == 0) emptyNodeSets.Add(entry.Key);
+                }
+                // Changed node sets
+                FeNodeSet nodeSet;
+                foreach (string name in changedNodeSets)
+                {
+                    nodeSet = _nodeSets[name];
+                    // Do not change the node set selection if remeshing is done
+                    if (nodeSet.CreationData != null)
+                    {
+                        if (!removeForRemeshing && removedPartIds != null)
+                        {
+                            nodeSet.CreationData = RemoveSelectionNodesByPartIds(nodeSet.CreationData, removedPartIds);
+                        }
+                    }
+                    if (nodeSet.Labels.Length == 0) nodeSet.Valid = false;  // mark it as invalid
+                }
+                // Remove empty node sets
+                if (removeEmptyNodeSets)
+                {
+                    foreach (var name in emptyNodeSets) _nodeSets.Remove(name);
+                }
+                // Remove unreferenced nodes from parts
+                foreach (var entry in _parts)
+                {
+                    newNodeSetLabels = entry.Value.NodeLabels.Except(unreferenced).ToList();
+                    if (newNodeSetLabels.Count != entry.Value.NodeLabels.Length)
+                    {
+                        entry.Value.NodeLabels = newNodeSetLabels.ToArray();
+                    }
+                }
+            }
+            //
+            foreach (var entry in _referencePoints)
+            {
+                UpdateReferencePoint(entry.Value);
+            }
+            //
+            UpdateMaxNodeAndElementIds();
             //
             return unreferenced;
         }
-        public string[] RemoveElementsFromElementSets(int[] removedPartIds, HashSet<int> removedElementIds,
-                                                      bool removeEmptyElementSets, bool removeForRemeshing)
+        public string[] RemoveElementsFromElementSets(HashSet<int> removedElementIds, bool removeEmptyElementSets,
+                                                      bool removeForRemeshing, HashSet<int> removedPartIds = null)
         {
             IEnumerable<int> newElementSetLabels;
             List<string> emptyElementSets = new List<string>();
             List<string> changedElementSets = new List<string>();
             //
-            bool geometryBased;
             FeElementSet elementSet;
             //
             foreach (var entry in _elementSets)
             {
                 elementSet = entry.Value;
                 //
-                if (elementSet.CreatedFromParts)
-                {
+                if (elementSet.CreatedFromParts)    // by selection of parts
                     newElementSetLabels = elementSet.Labels.Except(removedPartIds);
-                    //
-                    if (newElementSetLabels.Count() != elementSet.Labels.Length)
-                    {
-                        elementSet.Labels = newElementSetLabels.ToArray();
-                        //
-                        geometryBased = elementSet.CreationData != null && elementSet.CreationData.IsGeometryBased();
-                        // Do not change the geometry based element set if remeshing is done
-                        if (!(removeForRemeshing && geometryBased))
-                        {
-                            elementSet.CreationData = new Selection();
-                            elementSet.CreationData.SelectItem = vtkSelectItem.Part;
-                            if (elementSet.Labels.Length > 0)
-                                elementSet.CreationData.Add(new SelectionNodeIds(vtkSelectOperation.None, false, elementSet.Labels));
-                            if (elementSet.Labels.Length == 0)
-                                elementSet.Valid = false;   // mark it as invalid to highlight it for the user
-                        }
-                        changedElementSets.Add(elementSet.Name);
-                    }
-                }
                 else
-                {
                     newElementSetLabels = elementSet.Labels.Except(removedElementIds);
-                    //
-                    if (newElementSetLabels.Count() != elementSet.Labels.Length)
+                //
+                if (newElementSetLabels.Count() != elementSet.Labels.Length)
+                {
+                    elementSet.Labels = newElementSetLabels.ToArray();
+                    // Do not change the element set selection if remeshing is done
+                    if (elementSet.CreationData != null)
                     {
-                        elementSet.Labels = newElementSetLabels.ToArray();
-                        //
-                        geometryBased = elementSet.CreationData != null && elementSet.CreationData.IsGeometryBased();
-                        // Do not change the geometry based element set if remeshing is done
-                        if (!(removeForRemeshing && geometryBased))
+                        if (!removeForRemeshing && removedPartIds != null)
                         {
-                            elementSet.CreationData = new Selection();
-                            elementSet.CreationData.SelectItem = vtkSelectItem.Element;
-                            if (elementSet.Labels.Length > 0)
-                                elementSet.CreationData.Add(new SelectionNodeIds(vtkSelectOperation.None, false, elementSet.Labels));
-                            if (elementSet.Labels.Length == 0)
-                                elementSet.Valid = false;   // mark it as invalid to highlight it for the user
+                            elementSet.CreationData = RemoveSelectionNodesByPartIds(elementSet.CreationData, removedPartIds);
                         }
-                        changedElementSets.Add(elementSet.Name);
                     }
+                    if (elementSet.Labels.Length == 0) elementSet.Valid = false;  // mark it as invalid
+                    //
+                    changedElementSets.Add(elementSet.Name);
                 }
+                //
                 if (elementSet.Labels.Length == 0) emptyElementSets.Add(elementSet.Name);
             }
             // Remove empty element sets
@@ -7927,9 +7912,8 @@ namespace CaeMesh
             //
             return changedElementSets.ToArray();
         }
-        public string[] RemoveElementsFromSurfaceFaces(HashSet<int> removedElementIds,
-                                                       bool removeEmptySurfaces,
-                                                       bool removeForRemeshing)
+        public string[] RemoveElementsFromSurfaceFaces(HashSet<int> removedElementIds, bool removeEmptySurfaces,
+                                                       bool removeForRemeshing, HashSet<int> removedPartIds = null)
         {
             int elementId;
             List<int> newSurfaceFaceIds = new List<int>();
@@ -7955,33 +7939,28 @@ namespace CaeMesh
                 }
             }
             // Changed surfaces
-            bool geometryBased;
             FeSurface surface;
             foreach (string name in changedSurfaces)
             {
                 surface = _surfaces[name];
-                geometryBased = surface.CreationData.IsGeometryBased();
-                // Do not change the geometry based surface if remeshing is done
-                if (!(removeForRemeshing && geometryBased))
+                // Do not change the node set selection if remeshing is done
+                if (surface.CreationData != null)
                 {
-                    surface = new FeSurface(_surfaces[name]);
-                    surface.CreationData = new Selection();
-                    surface.CreationData.SelectItem = vtkSelectItem.Surface;
-                    surface.CreationData.Add(new SelectionNodeIds(vtkSelectOperation.None, false, surface.FaceIds));
-                    //
-                    foreach (var entry in surface.ElementFaces.ToList())  // use list to prevent modified collection exception
+                    if (!removeForRemeshing && removedPartIds != null)
                     {
-                        if (_elementSets[entry.Value].Labels.Length == 0)
-                        {
-                            surface.ElementFaces.Remove(entry.Key);
-                            _elementSets.Remove(entry.Value);
-                        }
+                        surface.CreationData = RemoveSelectionNodesByPartIds(surface.CreationData, removedPartIds);
                     }
-                    //
-                    if (surface.FaceIds.Length == 0)
-                        surface.Valid = false;      // mark it as invalid to highlight it for the user
-                    _surfaces[name] = surface;
                 }
+                // Remove empty element sets
+                foreach (var entry in surface.ElementFaces.ToList())  // use list to prevent modified collection exception
+                {
+                    if (_elementSets[entry.Value].Labels.Length == 0)
+                    {
+                        surface.ElementFaces.Remove(entry.Key);
+                        _elementSets.Remove(entry.Value);
+                    }
+                }
+                if (surface.FaceIds.Length == 0) surface.Valid = false;  // mark it as invalid
             }
             // Remove empty surfaces
             if (removeEmptySurfaces)
@@ -7996,18 +7975,18 @@ namespace CaeMesh
         //
         public int[] RemoveParts(string[] partNames, out string[] removedPartNames, bool removeForRemeshing)
         {
-            int[] removedPartIds = new int[partNames.Length];
             HashSet<int> possiblyUnrefNodeIds = new HashSet<int>();
-            List<string> removedPartNamesList = new List<string>();     // Use a list to keep the sorting of the input partNames
             HashSet<int> removedElementIds = new HashSet<int>();
+            HashSet<int> removedPartIds = new HashSet<int>();
+            List<string> removedPartNamesList = new List<string>();     // Use a list to keep the sorting of the input partNames
             //
             int partCount = 0;
             foreach (var name in partNames)
             {
-                if (!_parts.ContainsKey(name)) removedPartIds[partCount] = -1;
+                if (!_parts.ContainsKey(name)) removedPartIds.Add(-1);
                 else
                 {
-                    removedPartIds[partCount] = _parts[name].PartId;
+                    removedPartIds.Add(_parts[name].PartId);
                     // Remove elements
                     removedElementIds.UnionWith(_parts[name].Labels);
                     //
@@ -8026,15 +8005,15 @@ namespace CaeMesh
             // Remove parts from mesh setup items
             RemoveDeletedPartsFromMeshSetupItems(removeForRemeshing);
             // Remove unreferenced nodes and keep empty node sets
-            RemoveUnreferencedNodes(possiblyUnrefNodeIds, false, removeForRemeshing);
+            RemoveUnreferencedNodes(possiblyUnrefNodeIds, false, removeForRemeshing, removedPartIds);
             // Remove elements from element sets and find empty element sets but do not remove them
-            RemoveElementsFromElementSets(removedPartIds, removedElementIds, false, removeForRemeshing);
+            RemoveElementsFromElementSets(removedElementIds, false, removeForRemeshing, removedPartIds);
             // Find changed surfaces
-            RemoveElementsFromSurfaceFaces(removedElementIds, false, removeForRemeshing);
+            RemoveElementsFromSurfaceFaces(removedElementIds, false, removeForRemeshing, removedPartIds);
             // Bounding box
             ComputeBoundingBox();
             //
-            return removedPartIds;
+            return removedPartIds.ToArray();
         }
         public FeSurface[] RemoveSurfaces(string[] surfaceNames, out string[] removedNodeSets, out string[] removedElementSets)
         {
@@ -8152,6 +8131,53 @@ namespace CaeMesh
             for (int i = 0; i < newParts.Length; i++) newPartNames[i] = newParts[i].Name;
             RemoveParts(newPartNames, out _, false);
         }
+        //
+        private Selection RemoveSelectionNodesByPartIds(Selection selection, HashSet<int> removedPartIds)
+        {
+            bool removed = false;
+            List<SelectionNode> singlePartSelections = new List<SelectionNode>();
+            Selection splitSelection = SplitSelectionToSingleParts(selection);
+            //
+            if (removedPartIds != null)
+            {
+                foreach (var node in splitSelection.Nodes)
+                {
+                    if (node.PartIds != null && node.PartIds.Length == 1 && removedPartIds.Contains(node.PartIds[0]))
+                        removed = true;
+                    else singlePartSelections.Add(node);
+                }
+            }
+            //
+            if (removed) splitSelection.Nodes = singlePartSelections;
+            return splitSelection;
+        }
+        private Selection SplitSelectionToSingleParts(Selection selection)
+        {
+            bool mustSplit = false;
+            foreach (var node in selection.Nodes)
+            {
+                if (node is SelectionNodeIds) mustSplit = true;
+            }
+            //
+            bool wasSplit = false;
+            List<SelectionNode> singlePartSelections = new List<SelectionNode>();
+            if (mustSplit)
+            {
+                foreach (var node in selection.Nodes)
+                {
+                    if (node is SelectionNodeIds sni && (sni.PartIds == null || sni.PartIds.Length != 1))
+                    {
+                        singlePartSelections.AddRange(SplitSelectionToSingleParts(sni, selection.SelectItem));
+                        wasSplit = true;
+                    }
+                    else singlePartSelections.Add(node);
+                }
+            }
+            //
+            Selection splitSelection = selection.DeepClone();
+            if (wasSplit) splitSelection.Nodes = singlePartSelections;
+            return splitSelection;
+        }
         private List<SelectionNode> SplitSelectionToSingleParts(SelectionNodeIds selectionNode, vtkSelectItem selectItem)
         {
             BasePart part;
@@ -8167,11 +8193,12 @@ namespace CaeMesh
                     part = _parts[partName];
                     singlePartSelection = selectionNode.DeepClone();
                     singlePartSelection.SelectAll = false;
-                    singlePartSelection.SetPartIds(new int[] { _parts[partName].PartId });
+                    singlePartSelection.SetPartId(part.PartId);
                     //
                     if (selectItem == vtkSelectItem.Node)
                     {
                         singlePartSelection.ItemIds = part.NodeLabels.ToArray();
+                        
                     }
                     else if (selectItem == vtkSelectItem.Element)
                     {
@@ -8247,7 +8274,7 @@ namespace CaeMesh
                     foreach (var entry in partIdItemIds)
                     {
                         singlePartSelection = selectionNode.DeepClone();
-                        singlePartSelection.SetPartIds(new int[] { entry.Key });
+                        singlePartSelection.SetPartId(entry.Key);
                         singlePartSelection.ItemIds = entry.Value.ToArray();
                         //
                         singlePartSelections.Add(singlePartSelection);
@@ -11042,8 +11069,7 @@ namespace CaeMesh
                 massProperties.Area = size;
             // Wire
             else if (part.PartType == PartType.Wire) { }
-            else if (Debugger.IsAttached)
-                throw new NotImplementedException();
+            else if (Debugger.IsAttached) Debugger.Break();
             //
             if (addCG) massProperties.CenterOfMass = cg;
             //

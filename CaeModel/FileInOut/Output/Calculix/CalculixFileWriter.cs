@@ -1602,6 +1602,25 @@ namespace FileInOut.Output
             CalTitle title;
             HashSet<Type> loadTypes = model.StepCollection.GetAllLoadTypes();
             //
+            if (model.StepCollection.GetNumberOfActiveSteps() == 0 && model.StepCollection.OnlyCheckModel)
+            {
+                StaticStep step = new StaticStep("CheckModel");
+                step.RunAnalysis = false;
+                //
+                title = new CalTitle(step.Name, "");
+                parent.AddKeyword(title);
+                //
+                CalculixKeyword calStepHeader = new CalStepHeader(step);
+                title.AddKeyword(calStepHeader);
+                //
+                CalStaticStep calStaticStep = new CalStaticStep(step);
+                calStepHeader.AddKeyword(calStaticStep);
+                //
+                CalEndStep endStep = new CalEndStep();
+                title.AddKeyword(endStep);
+                return;
+            }
+            //
             foreach (var step in model.StepCollection.StepsList)
             {
                 if (step is InitialStep) continue;

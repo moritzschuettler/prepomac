@@ -1575,7 +1575,6 @@ namespace CaeModel
                 if (part.PartType != PartType.Solid && part.PartType != PartType.SolidAsShell)
                     return "The transfinite gmsh setup item can only be defined on solid parts.";
                 //
-                //if (System.Diagnostics.Debugger.IsAttached || transfiniteMesh.AllowPrismElements) return null;
                 if (transfiniteMesh.AllowPyramidElements) return null;
                 else
                 {

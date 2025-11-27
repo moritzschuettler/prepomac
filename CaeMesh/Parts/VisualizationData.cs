@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using System.Windows.Forms.VisualStyles;
+using System.Diagnostics;
 
 namespace CaeMesh
 {
@@ -495,7 +496,7 @@ namespace CaeMesh
             }
             //
             if (System.Diagnostics.Debugger.IsAttached && error)
-                MessageBoxes.ShowError("VisualizationData:RenumberNodes: This should not happen!");
+                Debugger.Break();   //VisualizationData:RenumberNodes: This should not happen!
         }
         public void RenumberElements(Dictionary<int, int> newIds)
         {

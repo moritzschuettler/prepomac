@@ -32,7 +32,7 @@ namespace PrePoMax
                     return _multiRegion.RegionType.ToFriendlyString();
                 else if (_multiRegion.RegionType == RegionTypeEnum.None)
                 {
-                    if (Debugger.IsAttached) MessageBoxes.ShowWarning("ViewMultiRegion: The region does not exist!");
+                    if (Debugger.IsAttached) Debugger.Break(); //ViewMultiRegion: The region does not exist!
                     return _multiRegion.RegionType.ToFriendlyString();
                 }
                 else throw new NotSupportedException();

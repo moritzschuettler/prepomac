@@ -1,26 +1,27 @@
-﻿using System;
+﻿using CaeGlobals;
+using CaeJob;
+using CaeMesh;
+using CaeModel;
+using CaeResults;
+using FileInOut.Output;
+using PrePoMax.Commands;
+using PrePoMax.Forms;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using System.IO;
-using PrePoMax.Forms;
-using CaeGlobals;
 using UserControls;
-using CaeJob;
-using System.Reflection;
-using CaeModel;
-using CaeMesh;
-using CaeResults;
 using vtkControl;
-using System.Threading;
-using PrePoMax.Commands;
-using System.Diagnostics;
-using FileInOut.Output;
+using static System.ComponentModel.Design.ObjectSelectorEditor;
 
 
 namespace PrePoMax
@@ -7180,7 +7181,7 @@ namespace PrePoMax
         {
             try
             {
-                if (System.Diagnostics.Debugger.IsAttached)
+                if (Debugger.IsAttached)
                 {
                     if (GetCurrentView() == ViewGeometryModelResults.Geometry ||
                         GetCurrentView() == ViewGeometryModelResults.Model)
@@ -8430,6 +8431,16 @@ namespace PrePoMax
                                       double[][] planeParameters, bool completelyInside,
                                       vtkSelectOperation selectOperation, string[] pickedPartNames)
         {
+            //pickedPoint = null;
+            //selectionDirection = null;
+            ////planeParameters.DumpToFile(@"C:\temp\planeParameters");
+            //completelyInside = true;
+            //selectOperation = vtkSelectOperation.None;
+            ////pickedPartNames.DumpToFile(@"C:\temp\partNames");
+            ////
+            //planeParameters = CaeGlobals.ExtensionMethods.LoadFromFile<double[][]>(@"C:\temp\planeParameters");
+            //pickedPartNames = CaeGlobals.ExtensionMethods.LoadFromFile<string[]>(@"C:\temp\partNames");
+            //
             PushMenuStates();
             //
             SetStateWorking(Globals.SelectionText);

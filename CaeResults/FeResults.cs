@@ -1744,7 +1744,7 @@ namespace CaeResults
                         if (stepId == 1 && incrementId == 0) unitAbbreviation = "/";    // User field outputs at 0 increment
                         else if (componentName.ToUpper() == "ALL" || componentName.ToUpper().StartsWith("VAL")) { }
                         else if (_unitSystem.UnitSystemType == UnitSystemType.UNIT_LESS) unitAbbreviation = "";
-                        else if (Debugger.IsAttached) throw new NotSupportedException();
+                        else if (Debugger.IsAttached) Debugger.Break();
                         //
                         break;
                 }
@@ -1899,9 +1899,7 @@ namespace CaeResults
                         string noSpacesName = noSuffixName.Replace(' ', '_');
                         GetFieldUnitConverterAndAbbreviation(noSpacesName.ToUpper(), componentName, stepId, incrementId,
                                                              out unitConverter, out unitAbbreviation);
-                        if (unitAbbreviation == "?" && Debugger.IsAttached)
-                            //throw new NotSupportedException();
-                        break;
+                        if (unitAbbreviation == "?" && Debugger.IsAttached) Debugger.Break();
                         break;
                 }
             }
@@ -2704,8 +2702,7 @@ namespace CaeResults
                             sfField = GetField(sfFieldData, false);
                             if (sfField != null) sfField.DataState = DataStateEnum.UpdateResultFieldOutput;
                         }
-                        else if (Debugger.IsAttached)
-                            throw new NotSupportedException();
+                        else if (Debugger.IsAttached) Debugger.Break();
                     }
                 }
             }
