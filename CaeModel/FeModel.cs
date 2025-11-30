@@ -327,7 +327,7 @@ namespace CaeModel
                 valid = IsSectionRegionValid(section);
                 //
                 if (section is SolidSection || section is ShellSection || section is MembraneSection)
-                    valid &= _materials.ContainsValidKey(section.MaterialName);
+                    valid &= _materials.ContainsValidActiveKey(section.MaterialName);
                 else if (section is PointMassSection || section is DistributedMassSection) { }
                 else throw new NotSupportedException();
                 // Check equations

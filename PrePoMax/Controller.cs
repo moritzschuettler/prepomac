@@ -8033,9 +8033,18 @@ namespace PrePoMax
         }
         public void ExportMaterials(string[] materialNames, string fileName)
         {
-            FileInOut.Output.CalculixFileWriter.WriteMaterials(fileName, _model, materialNames);
+            CalculixFileWriter.WriteMaterials(fileName, _model, materialNames);
             //
             _form.WriteDataToOutput("Materials exported to file: " + fileName);
+        }
+        public void ActivateDeactivateMaterials(string materialName, bool active)
+        {
+            Material material = _model.Materials[materialName];
+            material.Active = active;
+            //
+            _form.UpdateTreeNode(ViewGeometryModelResults.Model, materialName, material, null);
+            //
+            FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
         }
         public void RemoveMaterials(string[] materialNames)
         {
@@ -12442,6 +12451,7 @@ namespace PrePoMax
             item.Active = activate;
             if (item is MeshSetupItem msi) ActivateDeactivateMeshSetupItem(msi.Name, activate);
             else if (item is MeshPart mp) ActivateDeactivateModelPart(mp.Name, activate);
+            else if (item is Material ma) ActivateDeactivateMaterials(ma.Name, activate);
             else if (item is Constraint co) ActivateDeactivateConstraint(co.Name, activate);
             else if (item is ContactPair cp) ActivateDeactivateContactPair(cp.Name, activate);
             else if (item is InitialCondition ic) ActivateDeactivateInitialCondition(ic.Name, activate);

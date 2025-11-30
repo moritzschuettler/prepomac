@@ -71,7 +71,7 @@ namespace FileInOut.Output
             // Materials
             title = new CalTitle("Materials", "");
             keywords.Add(title);
-            AppendMaterials(model, title, null, materialNames, true);
+            AppendMaterials(model, title, null, materialNames);
             // Write file
             StringBuilder sb = new StringBuilder();
             foreach (var keyword in keywords)
@@ -196,7 +196,7 @@ namespace FileInOut.Output
                 // Materials
                 title = new CalTitle("Materials", "");
                 keywords.Add(title);
-                AppendMaterials(model, title, additionalMaterials, null, addAllMaterials);
+                AppendMaterials(model, title, additionalMaterials, null);
                 // Sections
                 title = new CalTitle("Sections", "");
                 keywords.Add(title);
@@ -1316,29 +1316,21 @@ namespace FileInOut.Output
         }
         static private void AppendMaterials(FeModel model, CalculixKeyword parent, 
                                             List<Material> additionalMaterials,
-                                            string[] materialNames = null,
-                                            bool addAllMaterials = false)
+                                            string[] materialNames = null)
         {
             CalMaterial calMaterial;
-            HashSet<string> activeMaterialNames;
-            //
-            if (addAllMaterials) activeMaterialNames = new HashSet<string>(model.Materials.Keys);
-            else activeMaterialNames = MaterialNamesUsedInActiveSections(model);
-            //
             List<Material> materials = model.Materials.Values.ToList();
             if (additionalMaterials != null)
             {
                 foreach (var additionalMaterial in additionalMaterials)
                 {
                     materials.Add(additionalMaterial);
-                    activeMaterialNames.Add(additionalMaterial.Name);
                 }
             }
             //
             foreach (var material in materials)
             {
-                if ((material.Active && activeMaterialNames.Contains(material.Name)) ||
-                    (materialNames != null && materialNames.Contains(material.Name)))
+                if ((materialNames != null && materialNames.Contains(material.Name)) || material.Active)
                 {
                     calMaterial = new CalMaterial(material);
                     parent.AddKeyword(calMaterial);

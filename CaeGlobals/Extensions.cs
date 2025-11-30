@@ -109,7 +109,17 @@ namespace CaeGlobals
             T value;
             if (dictionary.TryGetValue(key, out value))
             {
-                if (value is NamedClass) return (value as NamedClass).Valid;
+                if (value is NamedClass nc) return nc.Valid;
+                else return true;  // act as ordinary ContainsKey
+            }
+            else return false;
+        }
+        public static bool ContainsValidActiveKey<T>(this IDictionary<string, T> dictionary, string key)
+        {
+            T value;
+            if (dictionary.TryGetValue(key, out value))
+            {
+                if (value is NamedClass nc) return nc.Valid && nc.Active;
                 else return true;  // act as ordinary ContainsKey
             }
             else return false;

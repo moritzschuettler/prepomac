@@ -3218,6 +3218,7 @@ namespace UserControls
         {
             if (node.Tag is MeshSetupItem) return true;
             else if (node.Tag is MeshPart) return true;
+            else if (node.Tag is Material) return true;
             else if (node.Tag is Constraint) return true;
             else if (node.Tag is ContactPair) return true;
             else if (node.Tag is InitialCondition) return true;

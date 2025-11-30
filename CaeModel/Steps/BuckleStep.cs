@@ -32,7 +32,6 @@ namespace CaeModel
             set
             {
                 _accuracy = value;
-
                 if (_numOfBucklingFactors < 1) _numOfBucklingFactors = 1;
             }
         }
