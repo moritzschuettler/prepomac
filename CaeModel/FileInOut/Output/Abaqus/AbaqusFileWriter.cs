@@ -83,8 +83,7 @@ namespace FileInOut.Output
             {
                 cst.OutputSolver = false;
                 cst.OutputNoAnalysis = false;
-                //
-                if (keyword is CalBuckleStep cbs) cbs.Accuracy = double.NaN;  // turn off accuracy output
+                if (keyword is CalBuckleStep cbs) cbs.OutputAccuracy = false;   // turn off accuracy output
             }
             // Output
             else if (keyword is CalOutputFrequency) keyword = new CalTitle("", "");

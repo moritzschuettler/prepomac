@@ -12,16 +12,19 @@ namespace FileInOut.Output.Calculix
     {
         // Variables                                                                                                                
         protected List<CalculixKeyword> _keywords;
+        private bool _active;
 
 
         // Properties                                                                                                               
         public List<CalculixKeyword> Keywords { get { return _keywords; } }
+        public bool Active { get { return _active; } set { _active = value; } }
 
 
         // Constructor                                                                                                              
         public CalculixKeyword()
         {
             _keywords = new List<CalculixKeyword>();
+            _active = true;
         }
 
 

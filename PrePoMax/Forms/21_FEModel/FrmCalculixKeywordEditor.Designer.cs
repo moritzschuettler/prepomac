@@ -40,6 +40,7 @@ namespace PrePoMax.Forms
             this.btnMoveDown = new System.Windows.Forms.Button();
             this.btnMoveUp = new System.Windows.Forms.Button();
             this.btnDelete = new System.Windows.Forms.Button();
+            this.cbActive = new System.Windows.Forms.CheckBox();
             this.cbHide = new System.Windows.Forms.CheckBox();
             this.fctbKeyword = new FastColoredTextBoxNS.FastColoredTextBox();
             this.fctbInpFile = new FastColoredTextBoxNS.FastColoredTextBox();
@@ -111,6 +112,7 @@ namespace PrePoMax.Forms
             // 
             // splitContainer1.Panel2
             // 
+            this.splitContainer1.Panel2.Controls.Add(this.cbActive);
             this.splitContainer1.Panel2.Controls.Add(this.cbHide);
             this.splitContainer1.Panel2.Controls.Add(this.fctbKeyword);
             this.splitContainer1.Panel2.Controls.Add(this.fctbInpFile);
@@ -192,6 +194,17 @@ namespace PrePoMax.Forms
             this.btnDelete.TabIndex = 6;
             this.btnDelete.UseVisualStyleBackColor = true;
             this.btnDelete.Click += new System.EventHandler(this.btnDelete_Click);
+            // 
+            // cbActive
+            // 
+            this.cbActive.AutoSize = true;
+            this.cbActive.Location = new System.Drawing.Point(130, -1);
+            this.cbActive.Name = "cbActive";
+            this.cbActive.Size = new System.Drawing.Size(59, 19);
+            this.cbActive.TabIndex = 14;
+            this.cbActive.Text = "Active";
+            this.cbActive.UseVisualStyleBackColor = true;
+            this.cbActive.CheckedChanged += new System.EventHandler(this.cbActive_CheckedChanged);
             // 
             // cbHide
             // 
@@ -348,5 +361,6 @@ namespace PrePoMax.Forms
         private System.Windows.Forms.CheckBox cbHide;
         private System.Windows.Forms.Timer tUpdate;
         private System.Windows.Forms.Panel panel1;
+        private System.Windows.Forms.CheckBox cbActive;
     }
 }

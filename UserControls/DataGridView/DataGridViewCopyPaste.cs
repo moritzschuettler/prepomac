@@ -531,11 +531,12 @@ namespace UserControls
             //
             clipboardValue = clipboardValue.Replace("\r\n", "\n");
             string[] lines = clipboardValue.Split(new string[] { "\n" }, StringSplitOptions.RemoveEmptyEntries);
+            string[] splitter = new string[] { "/t", " ", ",", ";" };
             //
             for (int i = 0; i <= lines.Length - 1; i++)
             {
                 copyValues[i] = new Dictionary<int, string>();
-                string[] lineContent = lines[i].Split('\t');
+                string[] lineContent = lines[i].Split(splitter, StringSplitOptions.RemoveEmptyEntries);
                 // If an empty cell value copied, then set the dictionary with an empty string else Set value to dictionary
                 if (lineContent.Length == 0) copyValues[i][0] = string.Empty;
                 else

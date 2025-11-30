@@ -79,6 +79,19 @@ namespace PrePoMax.Forms
                 {
                     fctbKeyword.Text = kn2.Data;
                     fctbKeyword.ReadOnly = !userNode;
+                    // Activate/Deactivate
+                    cbActive.CheckedChanged -= cbActive_CheckedChanged;
+                    if (kn2.Keyword is CalculixUserKeyword ck)
+                    {
+                        cbActive.Checked = ck.Active;
+                        cbActive.Enabled = true;
+                    }
+                    else
+                    {
+                        cbActive.Checked = true;
+                        cbActive.Enabled = false;
+                    }
+                    cbActive.CheckedChanged += cbActive_CheckedChanged;
                     //
                     _selectedKeywordNumOfLines = kn2.NumOfLines;
                 }
@@ -108,7 +121,7 @@ namespace PrePoMax.Forms
         }
         private void fctbKeyword_TextChanged(object sender, TextChangedEventArgs e)
         {
-            System.Diagnostics.Debug.WriteLine(DateTime.Now.Millisecond.ToString() + " ms");
+            //System.Diagnostics.Debug.WriteLine(DateTime.Now.Millisecond.ToString() + " ms");
             tUpdate.Stop();
             tUpdate.Start();
             tUpdate.Interval = 500;
@@ -221,6 +234,23 @@ namespace PrePoMax.Forms
             }
         }
         //
+        private void cbActive_CheckedChanged(object sender, EventArgs e)
+        {
+            // De-reference text changed event
+            fctbKeyword.TextChanged -= fctbKeyword_TextChanged;
+            string data = "";
+            if (cbActive.Checked)
+                data = string.Join(Environment.NewLine, fctbKeyword.Lines.Select(line => line.Substring(2, line.Length - 2)));
+            else
+                data = string.Join(Environment.NewLine, fctbKeyword.Lines.Select(line => "**" + line));
+            
+            //
+            fctbKeyword.Text = data;
+            // Re-reference text changed event
+            fctbKeyword.TextChanged += fctbKeyword_TextChanged;
+            //
+            UpdateKeywordTextBox();
+        }
         private void cbHide_CheckedChanged(object sender, EventArgs e)
         {
             UpdateAllKeywords();
@@ -485,16 +515,16 @@ namespace PrePoMax.Forms
                 // De-reference text changed event
                 fctbKeyword.TextChanged -= fctbKeyword_TextChanged;
                 // rtbKeyword.Tag is set by clicking on the tree node
-                if (!fctbKeyword.ReadOnly && fctbKeyword.Tag != null && cltvKeywordsTree.SelectedNode != null)
+                if (fctbKeyword.Tag != null && fctbKeyword.Tag is KeywordAtNode kn &&
+                    cltvKeywordsTree.SelectedNode != null)
                 {
-                    KeywordAtNode keywordAtNode = fctbKeyword.Tag as KeywordAtNode;
-                    if (keywordAtNode.Keyword is CalculixUserKeyword userKeyword && userKeyword != null)
+                    if (kn.Keyword is CalculixUserKeyword ck && ck != null)
                     {
-                        userKeyword.Data = fctbKeyword.Lines.ToArray().ToRows(fctbKeyword.Lines.Count);
-                        keywordAtNode.Data = fctbKeyword.Text;
-                        keywordAtNode.NumOfLines = fctbKeyword.Lines.Count;
+                        ck.Data = fctbKeyword.Lines.ToArray().ToRows(fctbKeyword.Lines.Count);
+                        kn.Data = fctbKeyword.Text;
+                        kn.NumOfLines = fctbKeyword.Lines.Count;
                         //
-                        ReplaceText(_selectedKeywordFirstLine, _selectedKeywordNumOfLines, userKeyword.Data);
+                        ReplaceText(_selectedKeywordFirstLine, _selectedKeywordNumOfLines, ck.Data);
                         _selectedKeywordNumOfLines = fctbKeyword.Lines.Count;
                         // Change the name of the Selected tree node
                         LockWindowUpdate(cltvKeywordsTree.Handle);
@@ -506,13 +536,16 @@ namespace PrePoMax.Forms
                         else
                             cltvKeywordsTree.SelectedNode.Text = "User keyword";
                         LockWindowUpdate(IntPtr.Zero);
+                        // Enabled/disabled keyword
+                        ck.Active = cbActive.Checked;
+                        fctbKeyword.ReadOnly = !ck.Active;
                     }
                 }
                 //
                 SelectKeywordLinesAndScrollToSelection();
                 // Re-reference text changed event
                 fctbKeyword.TextChanged += fctbKeyword_TextChanged;
-            }
+                }
             catch
             { }
         }
@@ -564,6 +597,8 @@ namespace PrePoMax.Forms
             tUpdate.Stop();
             UpdateKeywordTextBox();
         }
+
+
     }
 }
 

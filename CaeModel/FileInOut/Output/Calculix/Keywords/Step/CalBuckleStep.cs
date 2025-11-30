@@ -18,12 +18,14 @@ namespace FileInOut.Output.Calculix
 
         // Properties                                                                                                               
         public double Accuracy { get { return _step.Accuracy; } set { _step.Accuracy = value; } }
+        public bool OutputAccuracy;
 
 
         // Constructor                                                                                                              
         public CalBuckleStep(BuckleStep step)
         {
             _step = step;
+            OutputAccuracy = true;
             OutputSolver = true;
             OutputNoAnalysis = true;
         }
@@ -38,7 +40,7 @@ namespace FileInOut.Output.Calculix
         }
         public override string GetDataString()
         {
-            string accuracy = double.IsNaN(_step.Accuracy) ? "" : ", " + _step.Accuracy.ToCalculiX16String();
+            string accuracy = OutputAccuracy ? ", " + _step.Accuracy.ToCalculiX16String() : "";
             string data = string.Format("{0}{1}{2}", _step.NumOfBucklingFactors, accuracy, Environment.NewLine);
             if (OutputNoAnalysis && !_step.RunAnalysis) data += "*No Analysis" + Environment.NewLine;
             return data;
