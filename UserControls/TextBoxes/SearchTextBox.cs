@@ -32,6 +32,7 @@ namespace UserControls
         {
             btnClear.Visible = tbSearchBox.Text.Length > 0;
             TextChanged?.Invoke(sender, e);
+            Focus();
         }
         private void btnClear_Click(object sender, EventArgs e)
         {

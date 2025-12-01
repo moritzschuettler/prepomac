@@ -6165,6 +6165,8 @@ namespace PrePoMax
             //
             UpdateAfterPartsChanged();
             //
+            UpdateGeometryBasedItems(false, true);
+            //
             if (isExplodedViewActive) TurnExplodedViewOnOff(false);
             //
             RemoveNodeSets(new string[] { name }, false);
