@@ -11,40 +11,40 @@ using CaeResults;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CExportResultHistoryOutput : PostprocessCommand, IExportFileCommand
+    class CExportResultHistoryOutputToCsv : PostprocessCommand, IExportFileCommand
     {
         // Variables                                                                                                                
-        private HistoryResultSetExporter _historyResultSetExporter;
+        private ExportHistoryResultSetFileProperties _properties;
 
 
         // Properties                                                                                                               
         public string FileName
         {
-            get { return _historyResultSetExporter.FileName; }
-            set { _historyResultSetExporter.FileName = value; }
+            get { return _properties.FileName; }
+            set { _properties.FileName = value; }
         }
 
 
         // Constructor                                                                                                              
-        public CExportResultHistoryOutput(HistoryResultSetExporter historyResultSetExporter)
+        public CExportResultHistoryOutputToCsv(ExportHistoryResultSetFileProperties properties)
             :base("Export result history output")
         {
-            _historyResultSetExporter = historyResultSetExporter.DeepClone();
-            _historyResultSetExporter.FileName = Tools.GetLocalPath(_historyResultSetExporter.FileName);
+            _properties = properties.DeepClone();
+            _properties.FileName = Tools.GetLocalPath(_properties.FileName);
         }
 
 
         // Methods                                                                                                                  
         public override bool Execute(Controller receiver)
         {
-            HistoryResultSetExporter historyResultSetExporter = _historyResultSetExporter.DeepClone();
-            historyResultSetExporter.FileName = Tools.GetGlobalPath(_historyResultSetExporter.FileName);
-            receiver.ExportResultHistoryOutput(historyResultSetExporter);
+            ExportHistoryResultSetFileProperties properties = _properties.DeepClone();
+            properties.FileName = Tools.GetGlobalPath(_properties.FileName);
+            receiver.ExportResultHistoryOutput(properties.FileName, properties.HistoryOutputNames, properties.Delimiter);
             return true;
         }
         public override string GetCommandString()
         {
-            return base.GetCommandString() + _historyResultSetExporter.FileName;
+            return base.GetCommandString() + _properties.FileName;
         }
     }
 }

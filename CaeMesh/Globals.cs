@@ -11,6 +11,7 @@ namespace CaeMesh
     {
         public static string InternalName = "Internal";
         public static string InternalSelectionName = "Internal_Selection";
+        public static string MergedCoincidentNodes = "MergedCoincidentNodes";
         public static string SlaveNameSuffix = "_Slave";
         public static string MasterNameSuffix = "_Master";
         public static string MasterSlaveSeparator = "_to_";

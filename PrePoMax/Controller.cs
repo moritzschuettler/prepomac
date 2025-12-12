@@ -646,21 +646,7 @@ namespace PrePoMax
             CSaveToPmx comm = new CSaveToPmx(fileName);
             _commands.AddAndExecute(comm);
         }
-        public void ExportToCalculixCommand(string fileName)
-        {
-            CExportToCalculix comm = new CExportToCalculix(fileName);
-            _commands.AddAndExecute(comm);
-        }
-        public void ExportDeformedPartsToCalculixCommand(string[] partNames, string fileName)
-        {
-            CExportDeformedPartsToCalculix comm = new CExportDeformedPartsToCalculix(partNames, fileName);
-            _commands.AddAndExecute(comm);
-        }
-        public void ExportToAbaqusCommand(string fileName)
-        {
-            CExportToAbaqus comm = new CExportToAbaqus(fileName);
-            _commands.AddAndExecute(comm);
-        }
+        //
         public void ExportCADGeometryPartsAsStepCommand(string[] partNames, string fileName)
         {
             CExportCADGeometryPartsAsStep comm = new CExportCADGeometryPartsAsStep(partNames, fileName);
@@ -669,6 +655,27 @@ namespace PrePoMax
         public void ExportCADGeometryPartsAsBrepCommand(string[] partNames, string fileName)
         {
             CExportCADGeometryPartsAsBrep comm = new CExportCADGeometryPartsAsBrep(partNames, fileName);
+            _commands.AddAndExecute(comm);
+        }
+        public void ExportTo3mfCommand(Export3mfFileProperties properties)
+        {
+            CExportTo3mf comm = new CExportTo3mf(properties);
+            _commands.AddAndExecute(comm);
+        }
+        public void ExportToStlCommand(string[] partNames, string fileName)
+        {
+            CExportToStl comm = new CExportToStl(partNames, fileName);
+            _commands.AddAndExecute(comm);
+        }
+        //
+        public void ExportToCalculixCommand(string fileName)
+        {
+            CExportToCalculix comm = new CExportToCalculix(fileName);
+            _commands.AddAndExecute(comm);
+        }
+        public void ExportToAbaqusCommand(string fileName)
+        {
+            CExportToAbaqus comm = new CExportToAbaqus(fileName);
             _commands.AddAndExecute(comm);
         }
         public void ExportPartsAsGmshMeshCommand(string fileName)
@@ -681,12 +688,13 @@ namespace PrePoMax
             CExportPartsAsMmgMesh comm = new CExportPartsAsMmgMesh(partNames, fileName, combine);
             _commands.AddAndExecute(comm);
         }
-        public void ExportToStlCommand(string[] partNames, string fileName)
+        //
+        public void ExportDeformedPartsToCalculixCommand(string[] partNames, string fileName)
         {
-            CExportToStl comm = new CExportToStl(partNames, fileName);
+            CExportDeformedPartsToCalculix comm = new CExportDeformedPartsToCalculix(partNames, fileName);
             _commands.AddAndExecute(comm);
         }
-
+        
         //******************************************************************************************
         public void New()
         {
@@ -711,6 +719,7 @@ namespace PrePoMax
             else if (extension == ".pmh") OpenPmh(fileName, parameters);
             else if (extension == ".frd") OpenFrd(fileName, parameters);
             else if (extension == ".dat") OpenDat(fileName, parameters);
+            else if (extension == ".odb") OpenOdb(fileName, parameters);
             else if (extension == ".foam") OpenFoam(fileName);
             else throw new NotSupportedException();
             // Check validity
@@ -763,7 +772,7 @@ namespace PrePoMax
             // Annotations
             _annotations = new AnnotationContainer(tmp._annotations, this);
             // Jobs
-            _jobs = (OrderedDictionary<string, AnalysisJob>)data[1];
+            if (data[1] is OrderedDictionary<string, AnalysisJob> od) _jobs = od;
             // Settings
             ApplySettings(); // work folder and executable
             // Determine view
@@ -823,7 +832,7 @@ namespace PrePoMax
         {
             FeResults results;
             bool useWearResults = _wearResults != null;
-            bool readDatFile = !useWearResults;
+            bool readDatFile = !useWearResults && !(parameters != null && parameters.Contains(Globals.FromAbaqus));
             //
             _watch = Stopwatch.StartNew();
             //
@@ -961,6 +970,60 @@ namespace PrePoMax
                 _modelChanged = true;
             }
         }
+        private void OpenOdb(string fileName, string parameters)
+        {
+            if (ConvertOdbToFrd(fileName))
+            {
+                if (parameters == null) parameters = Globals.FromAbaqus;
+                else parameters += Globals.NameSeparator + Globals.FromAbaqus;
+                //
+                fileName = Path.Combine(Path.GetDirectoryName(fileName), Path.GetFileNameWithoutExtension(fileName) + ".frd");
+                OpenFrd(fileName, parameters);
+            }
+        }
+        // Abaqus
+        public bool ConvertOdbToFrd(string fileName)
+        {
+            _form.WriteDataToOutput("");
+            // Get the work directory
+            string workDirectory = Path.GetDirectoryName(fileName);
+            if (workDirectory == null || !Directory.Exists(workDirectory))
+            {
+                MessageBoxes.ShowWorkDirectoryError();
+                return false;
+            }
+            // Get the Abaqus executable
+            string executable = _settings.Abaqus.AbaqusExe;
+            if (executable == null || !File.Exists(executable))
+            {
+                MessageBoxes.ShowError("The Abaqus executable does not exist!");
+                return false;
+            }
+            // Get the base script file
+            string scriptFileName = Application.StartupPath + Globals.OdbToFrd;
+            if (scriptFileName == null || !File.Exists(scriptFileName))
+            {
+                MessageBoxes.ShowError("The file " + scriptFileName + " does not exist!");
+                return false;
+            }
+            //
+            string argument = "cae noGUI=\"" + scriptFileName + "\" -- \"" + fileName + "\"";
+            //
+            bool jobCompleted;
+            _executableJob = new ExecutableJob("OdbToFrd", executable, argument, workDirectory);
+            _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
+            _executableJob.Submit();
+            // Job completed
+            jobCompleted = _executableJob.JobStatus == JobStatus.OK;
+            //
+            if (jobCompleted)
+            {
+                return true;
+            }
+            else return false;
+        }
+
+
         private void OpenFoam(string fileName)
         {
             FeResults results = OpenFoamFileReader.Read(fileName, _model.UnitSystem);
@@ -1224,7 +1287,7 @@ namespace PrePoMax
                     //
                     model.UpdateMeshPartsElementTypes(true);
                     //
-                    if (version < 2_003_002) model.Mesh.ComputeVolumeArea();
+                    if (version < 2_003_002 && model != null && model.Mesh != null) model.Mesh.ComputeVolumeArea();
                 }
                 return data;
             }
@@ -2141,52 +2204,22 @@ namespace PrePoMax
             }
         }
         // Export
-        public void ExportToCalculix(string fileName, Dictionary<int, double[]> deformations = null)
+        public void ExportUsingFileProperties(ExportFileProperties exportFileProperties)
         {
-            SuppressExplodedView();
-            // Add deformations to model
-            _model.Mesh.UpdateNodalCoordinatesFromDeformations(deformations);   
-            UpdateNCalcParameters();
-            CalculixFileWriter.Write(fileName, _model, _settings.Calculix.ConvertPyramidsTo);
-            // Remove deformations from model
-            _model.Mesh.UpdateNodalCoordinatesFromDeformations(deformations, true);
-            ResumeExplodedViews(false);
-            //
-            _form.WriteDataToOutput("Model exported to file: " + fileName);
-        }
-        public void ExportDeformedPartsToCalculix(string[] partNames, string fileName)
-        {
-            if (_allResults.CurrentResult != null && _allResults.CurrentResult.Mesh != null)
+            if (exportFileProperties is Export3mfFileProperties e3mf)
             {
-                SuppressExplodedView();
-                FeModel newModel = new FeModel("Deformed", _allResults.CurrentResult.UnitSystem, false);
-                newModel.Properties.ModelSpace = ModelSpaceEnum.ThreeD;
-                newModel.Mesh.AddPartsFromMesh(_allResults.CurrentResult.Mesh, partNames, null, null, false, false);
-                // Change result parts to mesh parts
-                OrderedDictionary<string, BasePart> meshParts =
-                    new OrderedDictionary<string, BasePart>("Base Parts", StringComparer.OrdinalIgnoreCase);
-                MeshPart meshPart;
-                foreach (var entry in newModel.Mesh.Parts)
-                {
-                    meshPart = new MeshPart(entry.Value);
-                    meshParts.Add(meshPart.Name, meshPart);
-                }
-                newModel.Mesh.Parts = meshParts;
-                //
-                CalculixFileWriter.Write(fileName, newModel, _settings.Calculix.ConvertPyramidsTo);
-                ResumeExplodedViews(false);
-                //
-                _form.WriteDataToOutput("Deformed mesh exported to file: " + fileName);
+                ExportTo3mfCommand(e3mf);
+            }
+            else if (exportFileProperties is ExportHistoryResultSetFileProperties ehrs)
+            {
+                ExportResultHistoryOutputCommand(ehrs);
+            }
+            else
+            {
+                throw new NotSupportedException();
             }
         }
-        public void ExportToAbaqus(string fileName)
-        {
-            SuppressExplodedView();
-            AbaqusFileWriter.Write(fileName, _model, _settings.Calculix.ConvertPyramidsTo);
-            ResumeExplodedViews(false);
-            //
-            _form.WriteDataToOutput("Model exported to file: " + fileName);
-        }
+        //
         public void ExportCADGeometryPartsAsStep(string[] partNames, string fileName)
         {
             string stepFileName;
@@ -2249,6 +2282,73 @@ namespace PrePoMax
                 _form.WriteDataToOutput("Part " + part.Name + " exported to file: " + fileName);
             else return;
         }
+        public void ExportTo3mf(Export3mfFileProperties export3mfFileProperties)
+        {
+            vtkMaxActorData[] vtkMaxActorDatas = _form.GetVtkMaxActorData();
+            vtkMaxLookupTable lookupTable = _form.GetLookupTable();
+            double[] closestUpView = _form.GetClosestUpView();
+            ThreeMFFileWriter.Write(export3mfFileProperties.FileName, vtkMaxActorDatas, lookupTable,
+                                    export3mfFileProperties.EdgeThicknessRatio, closestUpView);
+            //
+            _form.WriteDataToOutput("Model exported to file: " + export3mfFileProperties.FileName);
+        }
+        public void ExportToStl(string[] partNames, string fileName)
+        {
+            SuppressExplodedView(partNames);
+            //
+            FeMesh mesh = DisplayedMesh;
+            vtkMaxActorData data;
+            List<double[][]> stlTriangles = new List<double[][]>();
+            //
+            for (int i = 0; i < partNames.Length; i++)
+            {
+                if (_currentView == ViewGeometryModelResults.Geometry)
+                {
+                    data = GetGeometryPartActorData(mesh, mesh.Parts[partNames[i]], vtkRendererLayer.Base, false, false);
+                }
+                else if (_currentView == ViewGeometryModelResults.Model)
+                {
+                    data = GetModelPartActorData(mesh, mesh.Parts[partNames[i]], vtkRendererLayer.Base, null);
+                }
+                else if (_currentView == ViewGeometryModelResults.Results)
+                {
+                    data = GetResultPartActorData((ResultPart)mesh.Parts[partNames[i]], _currentFieldData);
+                }
+                else throw new NotSupportedException();
+                //
+                stlTriangles.AddRange(data.GetStlTriangles());
+            }
+            //
+            StlFileWriter.Write(fileName, stlTriangles);
+            ResumeExplodedViews(false);
+            //
+            foreach (var partName in partNames)
+            {
+                _form.WriteDataToOutput("Part " + partName + " exported to file: " + fileName);
+            }
+        }
+        //
+        public void ExportToCalculix(string fileName, Dictionary<int, double[]> deformations = null)
+        {
+            SuppressExplodedView();
+            // Add deformations to model
+            _model.Mesh.UpdateNodalCoordinatesFromDeformations(deformations);
+            UpdateNCalcParameters();
+            CalculixFileWriter.Write(fileName, _model, _settings.Calculix.ConvertPyramidsTo);
+            // Remove deformations from model
+            _model.Mesh.UpdateNodalCoordinatesFromDeformations(deformations, true);
+            ResumeExplodedViews(false);
+            //
+            _form.WriteDataToOutput("Model exported to file: " + fileName);
+        }
+        public void ExportToAbaqus(string fileName)
+        {
+            SuppressExplodedView();
+            AbaqusFileWriter.Write(fileName, _model, _settings.Calculix.ConvertPyramidsTo);
+            ResumeExplodedViews(false);
+            //
+            _form.WriteDataToOutput("Model exported to file: " + fileName);
+        }
         public void ExportPartsAsGmshMesh(string fileName)
         {
             SuppressExplodedView();
@@ -2290,40 +2390,39 @@ namespace PrePoMax
             //
             ResumeExplodedViews(false);
         }
-        public void ExportToStl(string[] partNames, string fileName)
+        //
+        public void ExportDeformedPartsToCalculix(string[] partNames, string fileName)
         {
-            SuppressExplodedView(partNames);
-            //
-            FeMesh mesh = DisplayedMesh;
-            vtkMaxActorData data;
-            List<double[][]> stlTriangles = new List<double[][]>();
-            //
-            for (int i = 0; i < partNames.Length; i++)
+            if (_allResults.CurrentResult != null && _allResults.CurrentResult.Mesh != null)
             {
-                if (_currentView == ViewGeometryModelResults.Geometry)
+                SuppressExplodedView();
+                FeModel newModel = new FeModel("Deformed", _allResults.CurrentResult.UnitSystem, false);
+                newModel.Properties.ModelSpace = ModelSpaceEnum.ThreeD;
+                newModel.Mesh.AddPartsFromMesh(_allResults.CurrentResult.Mesh, partNames, null, null, false, false);
+                // Change result parts to mesh parts
+                OrderedDictionary<string, BasePart> meshParts =
+                    new OrderedDictionary<string, BasePart>("Base Parts", StringComparer.OrdinalIgnoreCase);
+                MeshPart meshPart;
+                foreach (var entry in newModel.Mesh.Parts)
                 {
-                    data = GetGeometryPartActorData(mesh, mesh.Parts[partNames[i]], vtkRendererLayer.Base, false, false);
+                    meshPart = new MeshPart(entry.Value);
+                    meshParts.Add(meshPart.Name, meshPart);
                 }
-                else if (_currentView == ViewGeometryModelResults.Model)
-                {
-                    data = GetModelPartActorData(mesh, mesh.Parts[partNames[i]], vtkRendererLayer.Base, null);
-                }
-                else if (_currentView == ViewGeometryModelResults.Results)
-                {
-                    data = GetResultPartActorData((ResultPart)mesh.Parts[partNames[i]], _currentFieldData);
-                }
-                else throw new NotSupportedException();
+                newModel.Mesh.Parts = meshParts;
                 //
-                stlTriangles.AddRange(data.GetStlTriangles());
+                CalculixFileWriter.Write(fileName, newModel, _settings.Calculix.ConvertPyramidsTo);
+                ResumeExplodedViews(false);
+                //
+                _form.WriteDataToOutput("Deformed mesh exported to file: " + fileName);
             }
+        }
+        //
+        // Export
+        public void ExportResultHistoryOutput(string fileName, string[] historyOutputNames, string delimiter)
+        {
+            ResultHistoryOutputWriter.Write(fileName, historyOutputNames, delimiter, CurrentResult);
             //
-            StlFileWriter.Write(fileName, stlTriangles);
-            ResumeExplodedViews(false);
-            //
-            foreach (var partName in partNames)
-            {
-                _form.WriteDataToOutput("Part " + partName + " exported to file: " + fileName);
-            }
+            _form.WriteDataToOutput("Result history output exported to file: " + fileName);
         }
         // Recent
         private void AddFileNameToRecentFiles(string fileName)
@@ -4909,7 +5008,7 @@ namespace PrePoMax
             //
             string[] partNames = new string[] { part.Name };
             SuppressExplodedView(partNames);
-            FileInOut.Output.StlFileWriter.Write(stlFileName, _model.Geometry, partNames);
+            StlFileWriter.Write(stlFileName, _model.Geometry, partNames);
             MeshingParameters partMeshingParameters = GetPartMeshingParameters(part.Name);
             GmshData gmshData = new GmshData();
             gmshData.GeometryFileName = stlFileName;
@@ -6151,7 +6250,8 @@ namespace PrePoMax
         }
         public void MergeCoincidentNodes(MergeCoincidentNodes mergeCoincidentNodes)
         {
-            string name = _model.Mesh.NodeSets.GetNextNumberedKey(CaeMesh.Globals.InternalSelectionName + "_MergeCoincidentNodes");
+            string name = _model.Mesh.NodeSets.GetNextNumberedKey(CaeMesh.Globals.InternalSelectionName + "_" + 
+                                                                  CaeMesh.Globals.MergedCoincidentNodes);
             FeNodeSet nodeSet = new FeNodeSet(name, null);
             nodeSet.CreationData = mergeCoincidentNodes.CreationData;
             nodeSet.Internal = true;
@@ -6175,7 +6275,8 @@ namespace PrePoMax
         }
         public void PreviewMergeCoincidentNodes(MergeCoincidentNodes mergeCoincidentNodes)
         {
-            string name = _model.Mesh.NodeSets.GetNextNumberedKey(CaeMesh.Globals.InternalSelectionName + "_MergeCoincidentNodes");
+            string name = _model.Mesh.NodeSets.GetNextNumberedKey(CaeMesh.Globals.InternalSelectionName + "_" +
+                                                                  CaeMesh.Globals.MergedCoincidentNodes);
             FeNodeSet nodeSet = new FeNodeSet(name, null);
             nodeSet.CreationData = mergeCoincidentNodes.CreationData;   // regeneration
             nodeSet.Internal = true;
@@ -6199,7 +6300,8 @@ namespace PrePoMax
         }
         public Dictionary<int, int> GetCoincidentNodeMap(MergeCoincidentNodes mergeCoincidentNodes)
         {
-            string name = _model.Mesh.NodeSets.GetNextNumberedKey(CaeMesh.Globals.InternalSelectionName + "_MergeCoincidentNodes");
+            string name = _model.Mesh.NodeSets.GetNextNumberedKey(CaeMesh.Globals.InternalSelectionName + "_" +
+                                                                  CaeMesh.Globals.MergedCoincidentNodes);
             FeNodeSet nodeSet = new FeNodeSet(name, null);
             nodeSet.CreationData = mergeCoincidentNodes.CreationData;   // regeneration
             nodeSet.Internal = true;
@@ -12302,9 +12404,9 @@ namespace PrePoMax
             CRemoveResultHistoryFields comm = new CRemoveResultHistoryFields(historyResultSetName, historyResultFieldNames);
             _commands.AddAndExecute(comm);
         }
-        public void ExportResultHistoryOutputCommand(HistoryResultSetExporter exporter)
+        public void ExportResultHistoryOutputCommand(ExportHistoryResultSetFileProperties properties)
         {
-            CExportResultHistoryOutput comm = new CExportResultHistoryOutput(exporter);
+            CExportResultHistoryOutputToCsv comm = new CExportResultHistoryOutputToCsv(properties);
             _commands.AddAndExecute(comm);
         }
         public void RemoveResultHistoryFieldsCommand(string historyResultSetName, string historyResultFieldName,
@@ -12371,13 +12473,6 @@ namespace PrePoMax
             _form.UpdateTreeNode(ViewGeometryModelResults.Results, oldResultHistoryOutputName, resultHistoryOutput, null);
             //
             FeResultsUpdate(UpdateType.Check);
-        }
-        // Export
-        public void ExportResultHistoryOutput(HistoryResultSetExporter exporter)
-        {
-            if (File.Exists(exporter.FileName)) File.Delete(exporter.FileName);
-            //
-            exporter.Export(CurrentResult);
         }
         // Remove
         public void RemoveResultHistoryOutputs(string[] historyOutputNames)
@@ -15211,6 +15306,7 @@ namespace PrePoMax
                     data.Layer = layer;
                     data.CanHaveElementEdges = canHaveEdges;
                     data.Pickable = false;
+                    data.ActorRepresentation = vtkMaxActorRepresentation.Wire;
                     data.Geometry.Nodes.Ids = null;
                     data.Geometry.Nodes.Coor = nodeCoor.ToArray();
                     data.Geometry.Cells.CellNodeIds = cells;
@@ -19992,6 +20088,8 @@ namespace PrePoMax
             //
             if (undeformedModelType == UndeformedModelTypeEnum.WireframeBody)
             {
+                data.ActorRepresentation = vtkMaxActorRepresentation.Wire;
+                //
                 if (data.Color.A == 255) data.Color = Color.FromArgb(254, data.Color);
                 _allResults.CurrentResult.GetUndeformedModelEdges(part, out data.Geometry.Nodes.Coor,
                                                                   out data.Geometry.Cells.CellNodeIds,
@@ -19999,6 +20097,7 @@ namespace PrePoMax
             }
             else if(undeformedModelType == UndeformedModelTypeEnum.SolidBody)
             {
+                data.ActorRepresentation = vtkMaxActorRepresentation.Solid;
                 _allResults.CurrentResult.GetUndeformedNodesAndCells(part, out data.Geometry.Nodes.Coor,
                                                                      out data.Geometry.Cells.CellNodeIds,
                                                                      out data.Geometry.Cells.Types);

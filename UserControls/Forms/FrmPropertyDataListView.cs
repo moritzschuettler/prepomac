@@ -114,7 +114,6 @@ namespace UserControls
             this.dgvData.Size = new System.Drawing.Size(296, 267);
             this.dgvData.StartPlotAtZero = false;
             this.dgvData.TabIndex = 0;
-            this.dgvData.XColIndex = UserControls.XColIndexEnum.First;
             // 
             // FrmPropertyDataListView
             // 

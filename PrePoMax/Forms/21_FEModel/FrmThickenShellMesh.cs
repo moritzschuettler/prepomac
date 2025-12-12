@@ -83,7 +83,8 @@ namespace PrePoMax.Forms
                 if (thickenShellMesh.CreationIds != null && thickenShellMesh.CreationIds.Length > 0)
                 {
                     HighlightSelection();
-                    await _controller.PreviewThickenShellMeshAsync(thickenShellMesh.PartNames, thickenShellMesh.Thickness,
+                    string[] partNames = _controller.DisplayedMesh.GetPartNamesFromGeometryIds(thickenShellMesh.CreationIds);
+                    await _controller.PreviewThickenShellMeshAsync(partNames, thickenShellMesh.Thickness,
                                                                    thickenShellMesh.NumberOfLayers, thickenShellMesh.Offset,
                                                                    thickenShellMesh.KeepModelEdges);
                 }
@@ -111,7 +112,8 @@ namespace PrePoMax.Forms
             string error = _controller.IsMeshSetupItemProperlyDefined(thickenShellMesh);
             if (error != null) throw new CaeException(error);
             // Create
-            _controller.ThickenShellMeshCommand(thickenShellMesh.PartNames, thickenShellMesh.Thickness,
+            string[] partNames = _controller.DisplayedMesh.GetPartNamesFromGeometryIds(thickenShellMesh.CreationIds);
+            _controller.ThickenShellMeshCommand(partNames, thickenShellMesh.Thickness,
                                                 thickenShellMesh.NumberOfLayers, thickenShellMesh.Offset,
                                                 thickenShellMesh.KeepModelEdges);
             //
@@ -185,7 +187,6 @@ namespace PrePoMax.Forms
             if (ThickenShellMesh != null)
             {
                 ThickenShellMesh.CreationIds = ids;
-                ThickenShellMesh.PartNames = _controller.DisplayedMesh.GetPartNamesFromGeometryIds(ids);
                 ThickenShellMesh.CreationData = _controller.Selection.DeepClone();
                 //
                 propertyGrid.Refresh();

@@ -47,14 +47,15 @@ namespace PrePoMax
         //
         private Point _formLocation;
         private List<Form> _allForms;
+        private FrmSelectEntity _frmSelectEntity;
+        private FrmSelectGeometry _frmSelectGeometry;
+        private FrmSelectItemSet _frmSelectItemSet;
         private FrmUserVew _frmUserView;
         private FrmSectionView _frmSectionView;
         private FrmExplodedView _frmExplodedView;
         private FrmFollowerView _frmFollowerView;
-        private FrmSelectEntity _frmSelectEntity;
-        private FrmSelectGeometry _frmSelectGeometry;
-        private FrmSelectItemSet _frmSelectItemSet;
         private FrmNewModel _frmNewModel;
+        private FrmExportFileWithProperties _frmExportFileWithProperties;
         private FrmEditCommands _frmEditCommands;
         private FrmRegenerate _frmRegenerate;
         private FrmAnalyzeGeometry _frmAnalyzeGeometry;
@@ -101,7 +102,6 @@ namespace PrePoMax
         private FrmResultFieldOutput _frmResultFieldOutput;
         private FrmResultHistoryOutput _frmResultHistoryOutput;
         private FrmViewResultHistoryOutput _frmViewResultHistoryOutput;
-        private FrmHistoryResultSetExporter _frmHistoryResultSetExporter;
         private FrmTransformation _frmTransformation;
         //
         #endregion  ################################################################################################################
@@ -357,6 +357,10 @@ namespace PrePoMax
                 _frmNewModel = new FrmNewModel(_controller);
                 AddFormToAllForms(_frmNewModel);
                 //
+                _frmExportFileWithProperties = new FrmExportFileWithProperties(_controller);
+                _frmExportFileWithProperties.ExportUsingFileProperties = ExportUsingFileProperties;
+                AddFormToAllForms(_frmExportFileWithProperties);
+                //
                 _frmEditCommands = new FrmEditCommands(_controller);
                 AddFormToAllForms(_frmEditCommands);
                 //
@@ -501,9 +505,6 @@ namespace PrePoMax
                 //
                 _frmViewResultHistoryOutput = new FrmViewResultHistoryOutput(_controller);
                 AddFormToAllForms(_frmViewResultHistoryOutput);
-                //
-                _frmHistoryResultSetExporter = new FrmHistoryResultSetExporter(_controller);
-                AddFormToAllForms(_frmHistoryResultSetExporter);
                 //
                 _frmTransformation = new FrmTransformation(_controller);
                 AddFormToAllForms(_frmTransformation);
@@ -880,7 +881,7 @@ namespace PrePoMax
         // Keyboard
         private void KeyboardHook_KeyDown(KeyboardHook.VKeys vKey)
         {
-            if (this == ActiveForm)
+            if (this == ActiveForm && !tbOutput.Focused)
             {
                 Keys key = (Keys)vKey;
                 //
@@ -905,7 +906,11 @@ namespace PrePoMax
                     // Check for annotation editor
                     else if (aeAnnotationTextEditor.Visible) { }
                     // Forward to tree
-                    else _modelTree.cltv_KeyDown(this, new KeyEventArgs(key));
+                    else
+                    {
+                        _modelTree.cltv_KeyDown(this, new KeyEventArgs(key));
+                        _vtk.Focus();   // this prevents that the coders lab tree calls _modelTree.cltv_KeyDown again
+                    }
                 }
             }
         }
@@ -1376,6 +1381,7 @@ namespace PrePoMax
                 // Main menu
                 foreach (ToolStripMenuItem item in menuStripMain.Items) item.Enabled = false;
                 tsmiFile.Enabled = true;
+                tsmiResults.Enabled = true;
                 tsmiTools.Enabled = true;
                 tsmiHelp.Enabled = true;
                 // File menu
@@ -1387,6 +1393,9 @@ namespace PrePoMax
                 tsmiParameters.Enabled = false;
                 tsmiQuery.Enabled = false;
                 tsmiFind.Enabled = false;
+                // Results menu
+                foreach (ToolStripItem item in tsmiResults.DropDownItems) item.Enabled = false;
+                tsmiConvertOdbToFrd.Enabled = true;
                 // Toolbar File
                 tsbImport.Enabled = false;
                 tsbSave.Enabled = false;
@@ -1473,12 +1482,13 @@ namespace PrePoMax
                 }
                 else if (setResultsView)
                 {
+                    // Main menu
+                    tsmiView.Enabled = true;
                     // View menu
                     tsmiFollowerView.Enabled = true;
                     tsbFollowerView.Enabled = true;
-                    // Main menu
-                    tsmiView.Enabled = true;
-                    tsmiResults.Enabled = true;
+                    // Results menu
+                    foreach (ToolStripItem item in tsmiResults.DropDownItems) item.Enabled = true;
                     // Toolbar View
                     tsViews.DisableMouseButtons = false;
                     // Toolbar Symbols
@@ -1695,6 +1705,19 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
+        private void tsmiExportTo3mf_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                ShowForm(_frmExportFileWithProperties, _frmExportFileWithProperties.Text, null);
+                //
+                _frmExportFileWithProperties.ExportFileProperties = new Export3mfFileProperties();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
         private void tsmiExportToStereolithography_Click(object sender, EventArgs e)
         {
             try
@@ -1864,6 +1887,22 @@ namespace PrePoMax
             catch (Exception ex)
             {
                 ExceptionTools.Show(this, ex);
+            }
+        }
+        private async void ExportUsingFileProperties(ExportFileProperties properties)
+        {
+            try
+            {
+                SetStateWorking(Globals.ExportingText);
+                await Task.Run(() => _controller.ExportUsingFileProperties(properties));
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+            finally
+            {
+                SetStateReady(Globals.ExportingText);
             }
         }
         //
@@ -6899,10 +6938,6 @@ namespace PrePoMax
             }
            
         }
-        private void tsmiParameters_Click(object sender, EventArgs e)
-        {
-            tsmiEditParameters_Click(null, null);
-        }
         private void tsmiEditParameters_Click(object sender, EventArgs e)
         {
             try
@@ -7680,6 +7715,27 @@ namespace PrePoMax
                 tsmiNew_Click(null, null);
             }
         }
+        private async void tsmiConvertOdbToFrd_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                using (OpenFileDialog openFileDialog = new OpenFileDialog())
+                {
+                    openFileDialog.Filter = "Abaqus result files|*.odb";
+                    openFileDialog.Multiselect = false;
+                    //
+                    openFileDialog.FileName = "";
+                    if (openFileDialog.ShowDialog() == DialogResult.OK)
+                    {
+                        await Task.Run(() => _controller.ConvertOdbToFrd(openFileDialog.FileName));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
 
         #endregion  ################################################################################################################
 
@@ -8236,7 +8292,15 @@ namespace PrePoMax
         {
             try
             {
-                ShowForm(_frmHistoryResultSetExporter, "Export History Outputs", null);
+                ExportHistoryResultSetFileProperties properties = new ExportHistoryResultSetFileProperties();
+                properties.HistoryOutputNames = _controller.GetHistoryResultSetNames();
+                if (properties.HistoryOutputNames == null || properties.HistoryOutputNames.Length == 0)
+                    MessageBoxes.ShowWarning("There are no history output items to export!");
+                else
+                {
+                    _frmExportFileWithProperties.ExportFileProperties = properties;
+                    ShowForm(_frmExportFileWithProperties, _frmExportFileWithProperties.Text, null);
+                }
             }
             catch (Exception ex)
             {
@@ -9465,21 +9529,23 @@ namespace PrePoMax
             // Debugger attached
             if (Debugger.IsAttached)
             {
-                filter = "All files|*.pmx;*.pmh;*.frd;*.dat;*.foam" +
+                filter = "All files|*.pmx;*.pmh;*.frd;*.dat;*.odb;*.foam" +
                          "|PrePoMax files|*.pmx" +
                          "|PrePoMax history|*.pmh" +
                          "|Calculix result files|*.frd" +
                          "|Calculix dat files|*.dat" +       // added .dat file
+                         "|Abaqus result files|*.odb" +
                          "|OpenFoam files|*.foam";
 
             }
             // No debugger
             else
             {
-                filter = "All files|*.pmx;*.pmh;*.frd;*.foam" +
+                filter = "All files|*.pmx;*.pmh;*.frd;*.odb;*.foam" +
                          "|PrePoMax files|*.pmx" +
                          "|PrePoMax history|*.pmh" +
                          "|Calculix result files|*.frd" +
+                         "|Abaqus result files|*.odb" +
                          "|OpenFoam files|*.foam";
             }
             return filter;
@@ -9632,14 +9698,7 @@ namespace PrePoMax
         }
         public double[] GetViewPlaneNormal()
         {
-            if (this.InvokeRequired)
-            {
-                return (double[])this.Invoke((MethodInvoker)delegate { _vtk.GetViewPlaneNormal(); });
-            }
-            else
-            {
-                return _vtk.GetViewPlaneNormal();
-            }
+            return InvokeIfRequired(() => _vtk.GetViewPlaneNormal());
         }
         public void AdjustCameraDistanceAndClipping()
         {
@@ -9653,6 +9712,20 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.UpdateScalarsAndCameraAndRedraw);
         }
+        //
+        public vtkMaxActorData[] GetVtkMaxActorData()
+        {
+            return InvokeIfRequired(() => _vtk.GetVtkMaxActorData());
+        }
+        public vtkMaxLookupTable GetLookupTable()
+        {
+            return InvokeIfRequired(() => _vtk.GetLookupTable());
+        }
+        public double[] GetClosestUpView()
+        {
+            return InvokeIfRequired(() => _vtk.GetClosestUpView());
+        }
+
         // Section view
         public void CreateSectionView(double[] point, double[] normal, bool lightenColors, Color sectionColor)
         {
@@ -10369,26 +10442,26 @@ namespace PrePoMax
 
         #region Invoke  ############################################################################################################
         // Invoke
+        public T InvokeIfRequired<T>(Func<T> func)
+        {
+            if (this.InvokeRequired)
+            {
+                return (T)this.Invoke(func);
+            }
+            else
+            {
+                return func();
+            }
+        }
         public void InvokeIfRequired(Action action)
         {
             if (this.InvokeRequired)
             {
-                this.Invoke((MethodInvoker)delegate() { action(); });
+                this.Invoke((MethodInvoker)delegate () { action(); });
             }
             else
             {
                 action();
-            }
-        }
-        public object InvokeIfRequired(Func<object> function)
-        {
-            if (this.InvokeRequired)
-            {
-                return (object)this.Invoke((MethodInvoker)delegate () { function(); });
-            }
-            else
-            {
-                return function();
             }
         }
         public void InvokeIfRequired<T>(Action<T> action, T parameter)
@@ -10561,13 +10634,22 @@ namespace PrePoMax
                 //TestGmshReadMesh();
                 //TestDefeature();
                 //AnimateRotation();
-                TestParameterization();
+                //TestParameterization();
                 //TestImportedStLoad();
+                Test3MF();
             }
             catch
             {
 
             }
+        }
+        private void Test3MF()
+        {
+            string fileName = @"C:\Temp\Test.3mf";
+            vtkMaxActorData[] vtkMaxActorDatas = _vtk.GetVtkMaxActorData();
+            vtkMaxLookupTable lookupTable = _vtk.GetLookupTable();
+            double[] closestUpView = _vtk.GetClosestUpView();
+            ThreeMFFileWriter.Write(fileName, vtkMaxActorDatas, lookupTable, 1, closestUpView);
         }
         private void TestImportedStLoad()
         {

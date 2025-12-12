@@ -816,9 +816,11 @@ namespace CaeResults
             {
                 if (!repairedSetNames.TryGetValue(setName, out newName))
                 {
+                    int count = Globals.InternalSelectionName.Split(_underscoreSplitter, StringSplitOptions.None).Length;
+                    //
                     tmp = setName.Split(_underscoreSplitter, StringSplitOptions.None);
                     newName = "";
-                    for (int i = 2; i < tmp.Length; i++)
+                    for (int i = count; i < tmp.Length; i++)
                     {
                         newName += tmp[i];
                         if (i < tmp.Length - 1) newName += "_";
@@ -836,9 +838,11 @@ namespace CaeResults
             {
                 if (!repairedSetNames.TryGetValue(setName, out newName))
                 {
+                    int count = Globals.InternalName.Split(_underscoreSplitter, StringSplitOptions.None).Length;
+                    //
                     tmp = setName.Split(_underscoreSplitter, StringSplitOptions.None);
                     newName = "";
-                    for (int i = 1; i < tmp.Length; i++)
+                    for (int i = count; i < tmp.Length; i++)
                     {
                         newName += tmp[i];
                         if (i < tmp.Length - 1) newName += "_";

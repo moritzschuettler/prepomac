@@ -113,6 +113,7 @@ namespace PrePoMax
             this.tsmiExport = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiExportToStep = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiExportToBrep = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiExportTo3mf = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiExportToStereolitography = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerExport1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiExportToCalculix = new System.Windows.Forms.ToolStripMenuItem();
@@ -147,6 +148,7 @@ namespace PrePoMax
             this.tsmiVerticalView = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiIsometricView = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiUserViews = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiEditUserViews = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiZoomToFit = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerView1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiShowWireframeEdges = new System.Windows.Forms.ToolStripMenuItem();
@@ -501,6 +503,7 @@ namespace PrePoMax
             this.tsmiTransformation = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerResults3 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiAppendResults = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiConvertOdbToFrd = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiTools = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSettings = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerTools1 = new System.Windows.Forms.ToolStripSeparator();
@@ -539,7 +542,6 @@ namespace PrePoMax
             this.tbOutput = new UserControls.AutoScrollTextBox();
             this.timerTest = new System.Windows.Forms.Timer(this.components);
             this.timerOutput = new System.Windows.Forms.Timer(this.components);
-            this.tsmiEditUserViews = new System.Windows.Forms.ToolStripMenuItem();
             this.tsFile.SuspendLayout();
             this.tsViews.SuspendLayout();
             this.tsSymbols.SuspendLayout();
@@ -1341,6 +1343,7 @@ namespace PrePoMax
             this.tsmiExport.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsmiExportToStep,
             this.tsmiExportToBrep,
+            this.tsmiExportTo3mf,
             this.tsmiExportToStereolitography,
             this.tsmiDividerExport1,
             this.tsmiExportToCalculix,
@@ -1368,6 +1371,13 @@ namespace PrePoMax
             this.tsmiExportToBrep.Size = new System.Drawing.Size(250, 22);
             this.tsmiExportToBrep.Text = "Brep *.brep";
             this.tsmiExportToBrep.Click += new System.EventHandler(this.tsmiExportToBrep_Click);
+            // 
+            // tsmiExportTo3mf
+            // 
+            this.tsmiExportTo3mf.Name = "tsmiExportTo3mf";
+            this.tsmiExportTo3mf.Size = new System.Drawing.Size(250, 22);
+            this.tsmiExportTo3mf.Text = "3D Manufacturing Format *.3mf";
+            this.tsmiExportTo3mf.Click += new System.EventHandler(this.tsmiExportTo3mf_Click);
             // 
             // tsmiExportToStereolitography
             // 
@@ -1648,6 +1658,13 @@ namespace PrePoMax
             this.tsmiUserViews.Name = "tsmiUserViews";
             this.tsmiUserViews.Size = new System.Drawing.Size(243, 22);
             this.tsmiUserViews.Text = "User Views";
+            // 
+            // tsmiEditUserViews
+            // 
+            this.tsmiEditUserViews.Name = "tsmiEditUserViews";
+            this.tsmiEditUserViews.Size = new System.Drawing.Size(94, 22);
+            this.tsmiEditUserViews.Text = "Edit";
+            this.tsmiEditUserViews.Click += new System.EventHandler(this.tsmiEditUserViews_Click);
             // 
             // tsmiZoomToFit
             // 
@@ -3984,7 +4001,8 @@ namespace PrePoMax
             this.tsmiDividerResults2,
             this.tsmiTransformation,
             this.tsmiDividerResults3,
-            this.tsmiAppendResults});
+            this.tsmiAppendResults,
+            this.tsmiConvertOdbToFrd});
             this.tsmiResults.Name = "tsmiResults";
             this.tsmiResults.Size = new System.Drawing.Size(56, 20);
             this.tsmiResults.Text = "Results";
@@ -4009,7 +4027,7 @@ namespace PrePoMax
             this.tsmiDeleteResultParts});
             this.tsmiResultPart.Image = global::PrePoMax.Properties.Resources.Part;
             this.tsmiResultPart.Name = "tsmiResultPart";
-            this.tsmiResultPart.Size = new System.Drawing.Size(156, 22);
+            this.tsmiResultPart.Size = new System.Drawing.Size(180, 22);
             this.tsmiResultPart.Text = "Part";
             // 
             // tsmiEditResultPart
@@ -4121,7 +4139,7 @@ namespace PrePoMax
             this.tsmiResultCoordinateSystems});
             this.tsmiResultFeatures.Image = global::PrePoMax.Properties.Resources.Feature;
             this.tsmiResultFeatures.Name = "tsmiResultFeatures";
-            this.tsmiResultFeatures.Size = new System.Drawing.Size(156, 22);
+            this.tsmiResultFeatures.Size = new System.Drawing.Size(180, 22);
             this.tsmiResultFeatures.Text = "Features";
             // 
             // tsmiResultReferencePoints
@@ -4282,7 +4300,7 @@ namespace PrePoMax
             // tsmiDividerResults1
             // 
             this.tsmiDividerResults1.Name = "tsmiDividerResults1";
-            this.tsmiDividerResults1.Size = new System.Drawing.Size(153, 6);
+            this.tsmiDividerResults1.Size = new System.Drawing.Size(177, 6);
             // 
             // tsmiResultFieldOutput
             // 
@@ -4293,7 +4311,7 @@ namespace PrePoMax
             this.tsmiDeleteResultFieldOutput});
             this.tsmiResultFieldOutput.Image = global::PrePoMax.Properties.Resources.Field_output;
             this.tsmiResultFieldOutput.Name = "tsmiResultFieldOutput";
-            this.tsmiResultFieldOutput.Size = new System.Drawing.Size(156, 22);
+            this.tsmiResultFieldOutput.Size = new System.Drawing.Size(180, 22);
             this.tsmiResultFieldOutput.Text = "Field Output";
             // 
             // tsmiCreateResultFieldOutput
@@ -4333,7 +4351,7 @@ namespace PrePoMax
             this.tsmiDeleteResultHistoryOutput});
             this.tsmiResultHistoryOutput.Image = global::PrePoMax.Properties.Resources.History_output;
             this.tsmiResultHistoryOutput.Name = "tsmiResultHistoryOutput";
-            this.tsmiResultHistoryOutput.Size = new System.Drawing.Size(156, 22);
+            this.tsmiResultHistoryOutput.Size = new System.Drawing.Size(180, 22);
             this.tsmiResultHistoryOutput.Text = "History Output";
             // 
             // tsmiCreateResultHistoryOutput
@@ -4377,27 +4395,34 @@ namespace PrePoMax
             // tsmiDividerResults2
             // 
             this.tsmiDividerResults2.Name = "tsmiDividerResults2";
-            this.tsmiDividerResults2.Size = new System.Drawing.Size(153, 6);
+            this.tsmiDividerResults2.Size = new System.Drawing.Size(177, 6);
             // 
             // tsmiTransformation
             // 
             this.tsmiTransformation.Image = global::PrePoMax.Properties.Resources.Transformations;
             this.tsmiTransformation.Name = "tsmiTransformation";
-            this.tsmiTransformation.Size = new System.Drawing.Size(156, 22);
+            this.tsmiTransformation.Size = new System.Drawing.Size(180, 22);
             this.tsmiTransformation.Text = "Transformation";
             this.tsmiTransformation.Click += new System.EventHandler(this.tsmiTransformation_Click);
             // 
             // tsmiDividerResults3
             // 
             this.tsmiDividerResults3.Name = "tsmiDividerResults3";
-            this.tsmiDividerResults3.Size = new System.Drawing.Size(153, 6);
+            this.tsmiDividerResults3.Size = new System.Drawing.Size(177, 6);
             // 
             // tsmiAppendResults
             // 
             this.tsmiAppendResults.Name = "tsmiAppendResults";
-            this.tsmiAppendResults.Size = new System.Drawing.Size(156, 22);
+            this.tsmiAppendResults.Size = new System.Drawing.Size(180, 22);
             this.tsmiAppendResults.Text = "Append Results";
             this.tsmiAppendResults.Click += new System.EventHandler(this.tsmiAppendResults_Click);
+            // 
+            // tsmiConvertOdbToFrd
+            // 
+            this.tsmiConvertOdbToFrd.Name = "tsmiConvertOdbToFrd";
+            this.tsmiConvertOdbToFrd.Size = new System.Drawing.Size(180, 22);
+            this.tsmiConvertOdbToFrd.Text = "Convert .odb to .frd";
+            this.tsmiConvertOdbToFrd.Click += new System.EventHandler(this.tsmiConvertOdbToFrd_Click);
             // 
             // tsmiTools
             // 
@@ -4434,7 +4459,6 @@ namespace PrePoMax
             this.tsmiParameters.Name = "tsmiParameters";
             this.tsmiParameters.Size = new System.Drawing.Size(133, 22);
             this.tsmiParameters.Text = "Parameters";
-            this.tsmiParameters.Click += new System.EventHandler(this.tsmiParameters_Click);
             // 
             // tsmiEditParameters
             // 
@@ -4746,13 +4770,6 @@ namespace PrePoMax
             // timerOutput
             // 
             this.timerOutput.Tick += new System.EventHandler(this.timerOutput_Tick);
-            // 
-            // tsmiEditUserViews
-            // 
-            this.tsmiEditUserViews.Name = "tsmiEditUserViews";
-            this.tsmiEditUserViews.Size = new System.Drawing.Size(180, 22);
-            this.tsmiEditUserViews.Text = "Edit";
-            this.tsmiEditUserViews.Click += new System.EventHandler(this.tsmiEditUserViews_Click);
             // 
             // FrmMain
             // 
@@ -5321,6 +5338,8 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripButton tsbFollowerView;
         private System.Windows.Forms.ToolStripMenuItem tsmiUserViews;
         private System.Windows.Forms.ToolStripMenuItem tsmiEditUserViews;
+        private System.Windows.Forms.ToolStripMenuItem tsmiExportTo3mf;
+        private System.Windows.Forms.ToolStripMenuItem tsmiConvertOdbToFrd;
     }
 }
 

@@ -609,7 +609,7 @@ namespace vtkControl
                     _lookupTable.SetTableValue(i, color[0], color[1], color[2], 1.0); //R,G,B,A
                 }
             }
-
+            //
             OnSizeChanged();
         }
         public override void SetTextProperty(vtkTextProperty textProperty)
@@ -626,5 +626,9 @@ namespace vtkControl
         {
             return _labelFormat;
         }        
+        public vtkLookupTable GetLookupTable()
+        {
+            return _lookupTable;
+        }
     }
 }

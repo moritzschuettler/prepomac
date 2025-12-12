@@ -32,7 +32,7 @@ namespace FileInOut.Output.Calculix
             //
             StringBuilder sb = new StringBuilder();
             sb.AppendFormat("*Output, Field{0}{1}", frequency, Environment.NewLine);
-            sb.AppendFormat("*Element Output{0}", Environment.NewLine);
+            sb.AppendFormat("*Element Output{0}{1}", ", directions=Yes", Environment.NewLine);
             return sb.ToString();
         }
         public override string GetDataString()
@@ -53,12 +53,12 @@ namespace FileInOut.Output.Calculix
             //
             SDV = 1073741824,
             */
-            string variables = _elementFieldOutput.GetVariablesString();
+            string variables = _elementFieldOutput.GetVariablesString() + ", NFORC";
             //variables = variables.Replace("ME", "");
             //variables = variables.Replace("ERR", "");
             //variables = variables.Replace("HER", "");
             //variables = variables.Replace("ZZS", "");
-            variables = variables.Replace("NOE", "");
+            variables = variables.Replace(", NOE", "");
             //
             return string.Format("{0}{1}", variables, Environment.NewLine);
         }

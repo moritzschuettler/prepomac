@@ -2128,7 +2128,7 @@ namespace FileInOut.Input
                     // Create new internal node set if it does not exist
                     if (!mesh.NodeSets.Keys.Contains(regionName) && int.TryParse(regionName, out nodeId))
                     {
-                        nodeSetName = nodeSets.GetNextNumberedKey(Globals.InternalName + "_" + regionName);
+                        nodeSetName = FeMesh.GetNextFreeInternalName(nodeSets, regionName);
                         FeNodeSet nodeSet = new FeNodeSet(nodeSetName, new int[] { nodeId });
                         nodeSets.Add(nodeSet.Name, nodeSet);
                         //
@@ -2214,87 +2214,6 @@ namespace FileInOut.Input
             catch
             {
                 _errors.Add("Failed to import boundary condition: " + lines.ToRows());
-            }
-        }
-        private static void MergeStepBoundaryConditions(Dictionary<string, BoundaryCondition> boundaryConditions,
-                                                        Dictionary<string, FeNodeSet> nodeSets,
-                                                        Step step, FeMesh mesh)
-        {
-            try
-            {
-                double[] key;
-                CompareDoubleArray coparer = new CompareDoubleArray();
-                List<BoundaryCondition> groupedBoundaryConditions;
-                Dictionary<double[], List<BoundaryCondition>> keyBoundaryConditions = 
-                    new Dictionary<double[], List<BoundaryCondition>>(coparer);
-                //
-                foreach (var bc in boundaryConditions.Values)
-                {
-                    key = new double[2];
-                    if (bc is TemperatureBC tempBC)
-                    {
-                        key[0] = 11;
-                        key[1] = tempBC.Temperature.Value;
-                    }
-                    else if (bc is DisplacementRotation dispRotBC)
-                    {
-                        key[0] = dispRotBC.GetConstraintHash();
-                        if (key[0] > 0) key[1] = dispRotBC.GetConstrainValues()[0]; // at least one direction is prescribed
-                    }
-                    else throw new NotSupportedException();
-                    //
-                    if (keyBoundaryConditions.TryGetValue(key, out groupedBoundaryConditions)) groupedBoundaryConditions.Add(bc);
-                    else keyBoundaryConditions.Add(key, new List<BoundaryCondition>() { bc });
-                }
-                //
-                boundaryConditions.Clear();
-                // Merge
-                BoundaryCondition boundaryCondition;
-                HashSet<int> nodeIds = new HashSet<int>();
-                FeNodeSet nodeSet;
-                FeNodeSet mergedNodeSet;
-                Dictionary<string, FeNodeSet> mergedNodeSets = new Dictionary<string, FeNodeSet>();
-                HashSet<string> allNodeSetNames = new HashSet<string>(mesh.NodeSets.Keys);
-                allNodeSetNames.UnionWith(nodeSets.Keys);
-                HashSet<string> allBCNames = new HashSet<string>(step.BoundaryConditions.Keys);
-                //
-                foreach (var keyBcEntry in keyBoundaryConditions)
-                {
-                    boundaryCondition = keyBcEntry.Value.First();
-                    nodeIds.Clear();
-                    //
-                    if (keyBcEntry.Value.Count > 1)
-                    {
-                        foreach (var bcEntry in keyBcEntry.Value)
-                        {
-                            if (nodeSets.TryGetValue(bcEntry.RegionName, out nodeSet)) nodeIds.UnionWith(nodeSet.Labels);
-                            else if (mesh.NodeSets.TryGetValue(bcEntry.RegionName, out nodeSet)) nodeIds.UnionWith(nodeSet.Labels);
-                            else throw new NotSupportedException();
-                        }
-                        // Node set
-                        mergedNodeSet = new FeNodeSet(boundaryCondition.RegionName, nodeIds.ToArray());
-                        mergedNodeSet.Internal = true;
-                        // Rename
-                        mergedNodeSet.Name = allNodeSetNames.GetNextNumberedKey(Globals.InternalName + "_merged");
-                        // Add
-                        allNodeSetNames.Add(mergedNodeSet.Name);
-                        mergedNodeSets.Add(mergedNodeSet.Name, mergedNodeSet);
-                        // Boundary condition
-                        boundaryCondition.RegionName = mergedNodeSet.Name;
-                        // Rename
-                        boundaryCondition.Name = allBCNames.GetNextNumberedKey("BC_merged");
-                    }
-                    // Add
-                    allBCNames.Add(boundaryCondition.Name);
-                    boundaryConditions.Add(boundaryCondition.Name, boundaryCondition);
-                }
-                //
-                nodeSets.Clear();
-                nodeSets.AddRange(mergedNodeSets);
-            }
-            catch
-            {
-                _errors.Add("Failed to merge boundary conditions.");
             }
         }
         // Loads

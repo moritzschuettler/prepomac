@@ -625,10 +625,7 @@ namespace PrePoMax.Forms
                     {
                         mp.CopyFrom(GetDefaultMeshingParameters(ids));
                     }
-                    else if (MeshSetupItem is ThickenShellMesh tsm)
-                    {
-                        tsm.PartNames = _controller.DisplayedMesh.GetPartNamesFromGeometryIds(ids);
-                    }
+                    //
                     MeshSetupItem.CreationIds = ids;
                     MeshSetupItem.CreationData = _controller.Selection.DeepClone();
                     //

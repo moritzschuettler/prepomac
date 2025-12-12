@@ -36,6 +36,7 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Drawing" />
+    <Reference Include="System.Numerics" />
     <Reference Include="System.ValueTuple, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\packages\System.ValueTuple.4.5.0\lib\netstandard1.0\System.ValueTuple.dll</HintPath>
     </Reference>
@@ -44,6 +45,7 @@
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
+    <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Amplitudes\Amplitude.cs" />
@@ -142,6 +144,7 @@
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\ModelChange\CalModelChange.cs" />
     <Compile Include="FileInOut\Output\Gmsh\GmshMshFileWriter.cs" />
     <Compile Include="FileInOut\Output\Mmg\MmgFileWriter.cs" />
+    <Compile Include="FileInOut\Output\ThreeMF\ThreeMFFileWriter.cs" />
     <Compile Include="InitialConditions\InitialAngularVelocity.cs" />
     <Compile Include="InitialConditions\InitialTranslationalVelocity.cs" />
     <Compile Include="InitialConditions\InitialTemperature.cs" />
@@ -284,6 +287,10 @@
     <Compile Include="Views\UserViewParameters.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\3MF\ThreeMF.csproj">
+      <Project>{31b90db3-03ca-4cd5-92a9-8aea71a21c5a}</Project>
+      <Name>ThreeMF</Name>
+    </ProjectReference>
     <ProjectReference Include="..\CaeGlobals\CaeGlobals.csproj">
       <Project>{104caebc-0761-4850-a97d-3fc59116c5b6}</Project>
       <Name>CaeGlobals</Name>
@@ -299,6 +306,10 @@
     <ProjectReference Include="..\STL\STL.csproj">
       <Project>{f32f3151-1595-4211-a01e-2f7beb34f88d}</Project>
       <Name>STL</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\vtkControl\vtkControl.csproj">
+      <Project>{125eefac-7731-4640-b731-1a32372fa76d}</Project>
+      <Name>vtkControl</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

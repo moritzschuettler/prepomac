@@ -110,6 +110,8 @@
     <Compile Include="Collections\FollowerViewsCollection.cs" />
     <Compile Include="Collections\TransformationsCollection.cs" />
     <Compile Include="CommandLine\CommandLineOptions.cs" />
+    <Compile Include="Commands\0000_File\CExportResultHistoryOutputToCsv.cs" />
+    <Compile Include="Commands\0000_File\CExportTo3mf.cs" />
     <Compile Include="Commands\0000_File\CExportToStl.cs" />
     <Compile Include="Commands\0000_File\CExportCADGeometryPartsAsBrep.cs" />
     <Compile Include="Commands\0000_File\CExportPartsAsMmgMesh.cs" />
@@ -238,7 +240,7 @@
     <Compile Include="Commands\0110_Results\02_FieldOutput\CRemoveResultFieldOutputComponents.cs" />
     <Compile Include="Commands\0110_Results\02_FieldOutput\CRemoveResultFieldOutputs.cs" />
     <Compile Include="Commands\0110_Results\02_FieldOutput\CReplaceResultFieldOutput.cs" />
-    <Compile Include="Commands\0110_Results\03_HistoryOutput\CExportResultHistoryOutput.cs" />
+    <Compile Include="Commands\_Compatibility\v2.2.3\CExportResultHistoryOutput.cs" />
     <Compile Include="Commands\0110_Results\03_HistoryOutput\CAddResultHistoryOutput.cs" />
     <Compile Include="Commands\0110_Results\03_HistoryOutput\CRemoveResultHistoryFields.cs" />
     <Compile Include="Commands\0110_Results\03_HistoryOutput\CRemoveResultHistoryComponents.cs" />
@@ -355,6 +357,13 @@
     <Compile Include="Enums\ViewGeometryModelResults.cs" />
     <Compile Include="Enums\ShowWithColor.cs" />
     <Compile Include="Enums\ViewResultsType.cs" />
+    <Compile Include="Forms\00_Common\FileExporter\ExportHistoryResultSetFileProperties.cs" />
+    <Compile Include="Forms\00_Common\FileExporter\ViewExport3mfFileProperties.cs" />
+    <Compile Include="Forms\00_Common\FileExporter\ViewExportFileProperties.cs" />
+    <Compile Include="Forms\00_Common\FileExporter\FrmExportFileWithProperties.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\00_Common\FileExporter\ExportFileProperties.cs" />
     <Compile Include="Forms\00_Common\FrmRegenerate.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -376,6 +385,7 @@
     <Compile Include="Forms\00_Common\FrmNewModel.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Forms\00_Common\FileExporter\Export3mfFileProperties.cs" />
     <Compile Include="Forms\00_Common\ViewColor.cs" />
     <Compile Include="Forms\00_Common\ViewStringValue.cs" />
     <Compile Include="Forms\00_Common\ViewUnitSystem.cs" />
@@ -646,13 +656,10 @@
     <Compile Include="Forms\82_ResultFieldOutput\ViewResultFieldOutputEnvelope.cs" />
     <Compile Include="Forms\82_ResultFieldOutput\ViewResultFieldOutputLimit.cs" />
     <Compile Include="Forms\82_ResultFieldOutput\ViewResultFieldOutputEquation.cs" />
-    <Compile Include="Forms\83_ResultHistoryOutput\FrmHistoryResultSetExporter.cs">
-      <SubType>Form</SubType>
-    </Compile>
     <Compile Include="Forms\83_ResultHistoryOutput\FrmResultHistoryOutput.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Forms\83_ResultHistoryOutput\ViewHistoryResultSetExporter.cs" />
+    <Compile Include="Forms\00_Common\FileExporter\ViewExportHistoryResultSetFileProperties.cs" />
     <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutputFromEquation.cs" />
     <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutputFromElementSize.cs" />
     <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutputFromField.cs" />
@@ -863,6 +870,9 @@
     <Compile Include="Settings\CalculixSettings.cs" />
     <Compile Include="Enums\UpdateModelType.cs" />
     <Compile Include="Annotations\AnnotationContainer.cs" />
+    <EmbeddedResource Include="Forms\00_Common\FileExporter\FrmExportFileWithProperties.resx">
+      <DependentUpon>FrmExportFileWithProperties.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Forms\00_Common\FrmRegenerate.resx">
       <DependentUpon>FrmRegenerate.cs</DependentUpon>
     </EmbeddedResource>
@@ -1035,9 +1045,6 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\82_ResultFieldOutput\FrmResultFieldOutput.resx">
       <DependentUpon>FrmResultFieldOutput.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Forms\83_ResultHistoryOutput\FrmHistoryResultSetExporter.resx">
-      <DependentUpon>FrmHistoryResultSetExporter.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\83_ResultHistoryOutput\FrmResultHistoryOutput.resx">
       <DependentUpon>FrmResultHistoryOutput.cs</DependentUpon>
@@ -1245,7 +1252,7 @@ rd /s /q "de" "en" "es" "fr" "hu" "it" "ja" "pt" "ru" "sk" "sv" "tr" "zh-cn" "zh
 
 IF NOT EXIST "$(TargetDir)lib\" mkdir "$(TargetDir)lib\"
 
-IF EXIST "$(SolutionDir)GmshCaller\bin\x64\$(ConfigurationName)\GmshCaller.exe" copy "$(SolutionDir)GmshCaller\bin\x64\$(ConfigurationName)\GmshCaller.exe" "$(TargetDir)lib"
+IF EXIST "$(SolutionDir)GmshCaller\bin\x64\$(ConfigurationName)\GmshCaller.exe" copy "$(SolutionDir)GmshCaller\bin\x64\$(ConfigurationName)\GmshCaller.exe" "$(TargetDir)NetGen"
 
 IF EXIST "$(SolutionDir)PrePoMax\bin\x64\Console-Debug\PrePoMax.exe" copy "$(SolutionDir)PrePoMax\bin\x64\Console-Debug\PrePoMax.exe" "$(SolutionDir)PrePoMax\bin\x64\Debug\PrePoMax.com"
 IF EXIST "$(SolutionDir)PrePoMax\bin\x64\Console-Debug\PrePoMax.exe.config" copy "$(SolutionDir)PrePoMax\bin\x64\Console-Debug\PrePoMax.exe.config" "$(SolutionDir)PrePoMax\bin\x64\Debug\PrePoMax.com.config"

@@ -23,7 +23,26 @@ namespace CaeMesh
             get
             {
                 if (_unresolved) return _masterName;
-                else return _masterName +  Globals.MasterSlaveSeparator + _slaveName;
+                else
+                {
+                    string name = _masterName + Globals.MasterSlaveSeparator + _slaveName;
+                    //
+                    if (name.Length > 35)
+                    {
+                        if (_masterName.Length > _slaveName.Length)
+                        {
+                            name = "Item" + Globals.MasterSlaveSeparator + _slaveName;
+                        }
+                        else
+                        {
+                            name = _masterName + Globals.MasterSlaveSeparator + "Item";
+                        }
+                    }
+                    //
+                    if (name.Length > 35) name = "Item" + Globals.MasterSlaveSeparator + "Item";
+                    //
+                    return name;
+                }
             }
         }
         public string MasterName { get { return _masterName; } }

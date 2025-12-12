@@ -36,6 +36,7 @@ The PrePoMax is a solution which consists of 11 projects:
 *  GmshCaller: a stand alone executable used for running the Gmsh routines
 *  PrePoMax: classes for user interface
 *  STL: classes for stl geometry import
+*  ThreeMF: classes for 3MF geometry export
 *  UserControls: classes for more complex user controls, as model tree view...
 *  vtkControl: classes for 3D visualization
 

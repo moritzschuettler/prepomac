@@ -585,7 +585,7 @@ namespace CaeJob
                 {
                     // Timed out.
                     Kill("Time out.");
-                    //Debug.WriteLine(DateTime.Now + "   Timeout proces: " + Name + " in: " + _workDirectory);
+                    //Debug.WriteLine(DateTime.Now + "   Timeout process: " + Name + " in: " + _workDirectory);
                     _jobStatus = JobStatus.TimedOut;
                 }               
                 _exe.Close();

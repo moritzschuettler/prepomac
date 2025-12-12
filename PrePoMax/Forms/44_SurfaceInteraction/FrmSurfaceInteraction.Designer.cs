@@ -62,8 +62,12 @@
             // 
             // tvProperties
             // 
+            this.tvProperties.ChangeHighlightOnFocusLost = true;
+            this.tvProperties.DisableMouse = false;
             this.tvProperties.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
+            this.tvProperties.HighlightForeErrorColor = System.Drawing.Color.Red;
             this.tvProperties.Location = new System.Drawing.Point(5, 38);
+            this.tvProperties.MouseOverColor = System.Drawing.Color.FromArgb(((int)(((byte)(204)))), ((int)(((byte)(228)))), ((int)(((byte)(247)))));
             this.tvProperties.Name = "tvProperties";
             treeNode1.Name = "Surface Behavior";
             treeNode1.Text = "Surface Behavior";
@@ -78,6 +82,8 @@
             treeNode1,
             treeNode2,
             treeNode3});
+            this.tvProperties.SelectionBackColor = System.Drawing.SystemColors.Highlight;
+            this.tvProperties.SelectionMode = UserControls.TreeViewSelectionMode.SingleSelect;
             this.tvProperties.Size = new System.Drawing.Size(135, 101);
             this.tvProperties.TabIndex = 2;
             this.tvProperties.DoubleClick += new System.EventHandler(this.tvProperties_DoubleClick);
@@ -227,6 +233,7 @@
             this.dgvData.Size = new System.Drawing.Size(339, 252);
             this.dgvData.StartPlotAtZero = false;
             this.dgvData.TabIndex = 0;
+            this.dgvData.XColName = "Default";
             // 
             // label2
             // 
@@ -258,6 +265,7 @@
             this.lvAddedProperties.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.None;
             this.lvAddedProperties.HideSelection = false;
             this.lvAddedProperties.Location = new System.Drawing.Point(173, 38);
+            this.lvAddedProperties.MouseOverColor = System.Drawing.Color.FromArgb(((int)(((byte)(204)))), ((int)(((byte)(228)))), ((int)(((byte)(247)))));
             this.lvAddedProperties.MultiSelect = false;
             this.lvAddedProperties.Name = "lvAddedProperties";
             this.lvAddedProperties.ShowGroups = false;
@@ -321,6 +329,7 @@
             this.StartPosition = System.Windows.Forms.FormStartPosition.Manual;
             this.Text = "Edit Interaction";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FrmSurfaceInteraction_FormClosing);
+            this.VisibleChanged += new System.EventHandler(this.FrmSurfaceInteraction_VisibleChanged);
             this.gbData.ResumeLayout(false);
             this.gbData.PerformLayout();
             this.gbProperties.ResumeLayout(false);

@@ -16,6 +16,7 @@ using System.Reflection.Emit;
 using System.Runtime;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using System.Security.Policy;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -1970,12 +1971,15 @@ namespace vtkControl
             actor.Diffuse = 0.6;
         }
         //
-        private void PrepareActorLookupTable(double scalarRangeMin, double scalarRangeMax)
+        private vtkLookupTable PrepareActorLookupTable(double scalarRangeMin, double scalarRangeMax,
+                                                       int overrideNumOfColors = -1)
         {
             double min = scalarRangeMin;
             double max = scalarRangeMax;
             bool addMinColor = false;
             bool addMaxColor = false;
+            int numOfColors = _colorSpectrum.NumberOfColors;
+            if (overrideNumOfColors > 0) numOfColors = overrideNumOfColors;
             //
             vtkColorTransferFunction ctf = GetColorTransferFunction();
             // Determine the need for min/max color
@@ -1998,12 +2002,12 @@ namespace vtkControl
             //
             double[] color;
             double delta;
-            _lookupTable = vtkLookupTable.New(); // this is a fix for a _lookupTable.DeepCopy later on
+            vtkLookupTable lookupTable = vtkLookupTable.New(); // this is a fix for a _lookupTable.DeepCopy later on
             //
             if (addMinColor || addMaxColor)
             {
-                int numOfAllColors = _colorSpectrum.NumberOfColors;
-                delta = (max - min) / _colorSpectrum.NumberOfColors;
+                int numOfAllColors = numOfColors;
+                delta = (max - min) / numOfColors;
                 //
                 if (addMinColor)
                 {
@@ -2016,42 +2020,44 @@ namespace vtkControl
                     max += delta;
                 }
                 //
-                _lookupTable.SetTableRange(min, max);
-                _lookupTable.SetNumberOfColors(numOfAllColors);
+                lookupTable.SetTableRange(min, max);
+                lookupTable.SetNumberOfColors(numOfAllColors);
                 // Below range color
                 int count = 0;
                 if (addMinColor)
                 {
-                    _lookupTable.SetTableValue(count++, _colorSpectrum.MinColor.R / 255.0,
+                    lookupTable.SetTableValue(count++, _colorSpectrum.MinColor.R / 255.0,
                                                         _colorSpectrum.MinColor.G / 255.0,
                                                         _colorSpectrum.MinColor.B / 255.0, 1.0);        //R,G,B,A
                 }
                 // Between range color
-                double rangeDelta = 1.0 / (_colorSpectrum.NumberOfColors - 1);
-                for (int i = 0; i < _colorSpectrum.NumberOfColors; i++)
+                double rangeDelta = 1.0 / (numOfColors - 1);
+                for (int i = 0; i < numOfColors; i++)
                 {
                     color = ctf.GetColor(i * rangeDelta);
-                    _lookupTable.SetTableValue(count++, color[0], color[1], color[2], 1.0);             //R,G,B,A
+                    lookupTable.SetTableValue(count++, color[0], color[1], color[2], 1.0);             //R,G,B,A
                 }
                 // Above range color
                 if (addMaxColor)
                 {
-                    _lookupTable.SetTableValue(count++, _colorSpectrum.MaxColor.R / 255.0,
+                    lookupTable.SetTableValue(count++, _colorSpectrum.MaxColor.R / 255.0,
                                                         _colorSpectrum.MaxColor.G / 255.0,
                                                         _colorSpectrum.MaxColor.B / 255.0, 1.0);        //R,G,B,A
                 }
             }
             else
             {
-                _lookupTable.SetTableRange(min, max);
-                _lookupTable.SetNumberOfColors(_colorSpectrum.NumberOfColors);
-                delta = 1.0 / (_lookupTable.GetNumberOfColors() - 1);
-                for (int i = 0; i < _lookupTable.GetNumberOfColors(); i++)
+                lookupTable.SetTableRange(min, max);
+                lookupTable.SetNumberOfColors(numOfColors);
+                delta = 1.0 / (lookupTable.GetNumberOfColors() - 1);
+                for (int i = 0; i < lookupTable.GetNumberOfColors(); i++)
                 {
                     color = ctf.GetColor(i * delta);
-                    _lookupTable.SetTableValue(i, color[0], color[1], color[2], 1.0);                   //R,G,B,A
+                    lookupTable.SetTableValue(i, color[0], color[1], color[2], 1.0);                   //R,G,B,A
                 }
             }
+            //
+            return lookupTable;
         }
         private vtkColorTransferFunction GetColorTransferFunction()
         {
@@ -2502,18 +2508,8 @@ namespace vtkControl
             vtkCamera cameraStart = vtkCamera.New();
             cameraStart.DeepCopy(camera);
             //
-            double[] up = camera.GetViewUp();
-            double[] upAbs = new double[3];
-            upAbs[0] = Math.Abs(up[0]);
-            upAbs[1] = Math.Abs(up[1]);
-            upAbs[2] = Math.Abs(up[2]);
-            //
-            if (Math.Max(Math.Max(upAbs[0], upAbs[1]), Math.Max(upAbs[1], upAbs[2])) == upAbs[0])
-                camera.SetViewUp(Math.Sign(up[0]), 0, 0);
-            else if (Math.Max(Math.Max(upAbs[0], upAbs[1]), Math.Max(upAbs[1], upAbs[2])) == upAbs[1])
-                camera.SetViewUp(0, Math.Sign(up[1]), 0);
-            else if (Math.Max(Math.Max(upAbs[0], upAbs[1]), Math.Max(upAbs[1], upAbs[2])) == upAbs[2])
-                camera.SetViewUp(0, 0, Math.Sign(up[2]));
+            double[] closestUp = GetClosestUpView();
+            camera.SetViewUp(closestUp[0], closestUp[1], closestUp[2]);
             //
             ResetCamera();
             //
@@ -2522,6 +2518,28 @@ namespace vtkControl
                 if (animate) AnimateCamera(cameraStart, camera, camera);
                 else RenderScene();
             }
+        }
+        public double[] GetClosestUpView()
+        {
+            vtkCamera camera = _renderer.GetActiveCamera();
+            vtkCamera cameraStart = vtkCamera.New();
+            cameraStart.DeepCopy(camera);
+            //
+            double[] up = camera.GetViewUp();
+            double[] upAbs = new double[3];
+            double[] closestUp = null;
+            upAbs[0] = Math.Abs(up[0]);
+            upAbs[1] = Math.Abs(up[1]);
+            upAbs[2] = Math.Abs(up[2]);
+            //
+            if (Math.Max(Math.Max(upAbs[0], upAbs[1]), Math.Max(upAbs[1], upAbs[2])) == upAbs[0])
+                closestUp = new double[] { Math.Sign(up[0]), 0, 0 };
+            else if (Math.Max(Math.Max(upAbs[0], upAbs[1]), Math.Max(upAbs[1], upAbs[2])) == upAbs[1])
+                closestUp = new double[] { 0, Math.Sign(up[1]), 0 };
+            else if (Math.Max(Math.Max(upAbs[0], upAbs[1]), Math.Max(upAbs[1], upAbs[2])) == upAbs[2])
+                closestUp = new double[] { 0, 0, Math.Sign(up[2]) };
+            //
+            return closestUp;
         }
         public void SetIsometricView(bool animate, bool positive)
         {
@@ -3286,15 +3304,19 @@ namespace vtkControl
             sphereSource.SetPhiResolution(13);
             sphereSource.SetThetaResolution(13);
             sphereSource.Update();
+            // Triangulation helps with silhouette edges and 3mf export
+            vtkTriangleFilter triangleFilter = vtkTriangleFilter.New();
+            triangleFilter.SetInput(sphereSource.GetOutput());
+            triangleFilter.Update();
             // Compute normals
             vtkPolyDataNormals normals = vtkPolyDataNormals.New();
-            normals.SetInput(sphereSource.GetOutput());
+            normals.SetInput(triangleFilter.GetOutput());
             normals.Update();
             // Set normals
-            sphereSource.GetOutput().GetPointData().SetNormals(normals.GetOutput().GetPointData().GetNormals());
+            triangleFilter.GetOutput().GetPointData().SetNormals(normals.GetOutput().GetPointData().GetNormals());
             // Glyph
             vtkGlyph3D glyph = vtkGlyph3D.New();
-            glyph.SetSourceConnection(sphereSource.GetOutputPort());
+            glyph.SetSourceConnection(triangleFilter.GetOutputPort());
             glyph.SetInputConnection(distanceToCamera.GetOutputPort());
             glyph.SetVectorModeToUseNormal();
             // Scale
@@ -3351,18 +3373,22 @@ namespace vtkControl
             cone.SetRadius(0.08 * relativeSize);
             cone.SetResolution(31);
             // Append
-            vtkAppendPolyData appendFilter = vtkAppendPolyData.New();
-            appendFilter.AddInput(line.GetOutput());
-            appendFilter.AddInput(cone.GetOutput());
+            vtkAppendPolyData append = vtkAppendPolyData.New();
+            append.AddInput(line.GetOutput());
+            append.AddInput(cone.GetOutput());
+            // Triangulation helps with silhouette edges and 3mf export
+            vtkTriangleFilter triangleFilter = vtkTriangleFilter.New();
+            triangleFilter.SetInput(append.GetOutput());
+            triangleFilter.Update();
             // Compute normals
             vtkPolyDataNormals appendNormals = vtkPolyDataNormals.New();
-            appendNormals.SetInput(appendFilter.GetOutput());
+            appendNormals.SetInput(triangleFilter.GetOutput());
             appendNormals.Update();
             // Transform
             vtkTransform transform = vtkTransform.New();
             // Transform filter
             vtkTransformFilter transformFilter = vtkTransformFilter.New();
-            transformFilter.SetInput(appendFilter.GetOutput());
+            transformFilter.SetInput(triangleFilter.GetOutput());
             transformFilter.SetTransform(transform);
             // Glyph
             vtkGlyph3D glyph = vtkGlyph3D.New();
@@ -3508,15 +3534,19 @@ namespace vtkControl
             vtkConeSource cone = vtkConeSource.New();
             cone.SetCenter(-0.5, 0, 0);
             cone.SetResolution(31);
+            // Triangulation helps with silhouette edges and 3mf export
+            vtkTriangleFilter triangleFilter = vtkTriangleFilter.New();
+            triangleFilter.SetInput(cone.GetOutput());
+            triangleFilter.Update();
             // Compute normals
             vtkPolyDataNormals coneNormals = vtkPolyDataNormals.New();
-            coneNormals.SetInput(cone.GetOutput());
+            coneNormals.SetInput(triangleFilter.GetOutput());
             coneNormals.Update();
             // Set normals
             //cone.GetOutput().GetPointData().SetNormals(coneNormals.GetOutput().GetPointData().GetNormals());
             // Glyph
             vtkGlyph3D glyph = vtkGlyph3D.New();
-            glyph.SetSourceConnection(cone.GetOutputPort());
+            glyph.SetSourceConnection(triangleFilter.GetOutputPort());
             glyph.SetInputConnection(distanceToCamera.GetOutputPort());
             glyph.SetVectorModeToUseNormal();
             // Scale
@@ -3579,12 +3609,16 @@ namespace vtkControl
             line.SetPoint1(0, 0, 0);
             line.SetPoint2(-1.3, 0, 0);
             // Append
-            vtkAppendPolyData appendFilter = vtkAppendPolyData.New();
-            appendFilter.AddInput(cubeSource.GetOutput());
-            appendFilter.AddInput(line.GetOutput());
+            vtkAppendPolyData append = vtkAppendPolyData.New();
+            append.AddInput(cubeSource.GetOutput());
+            append.AddInput(line.GetOutput());
+            // Triangulation helps with silhouette edges and 3mf export
+            vtkTriangleFilter triangleFilter = vtkTriangleFilter.New();
+            triangleFilter.SetInput(append.GetOutput());
+            triangleFilter.Update();
             // Glyph
             vtkGlyph3D glyph = vtkGlyph3D.New();
-            glyph.SetSourceConnection(appendFilter.GetOutputPort());
+            glyph.SetSourceConnection(triangleFilter.GetOutputPort());
             glyph.SetInputConnection(distanceToCamera.GetOutputPort());
             glyph.SetVectorModeToUseNormal();
             // Scale
@@ -3644,12 +3678,16 @@ namespace vtkControl
             arrow.SetTipRadius(0.1 / relativeSize);
             arrow.SetShaftResolution(_arrowShaftResolution);
             arrow.SetShaftRadius(0.03 / relativeSize);
+            // Triangulation helps with silhouette edges and 3mf export
+            vtkTriangleFilter triangleFilter = vtkTriangleFilter.New();
+            triangleFilter.SetInput(arrow.GetOutput());
+            triangleFilter.Update();
             // Compute normals
             vtkPolyDataNormals normals = vtkPolyDataNormals.New();
-            normals.SetInput(arrow.GetOutput());
+            normals.SetInput(triangleFilter.GetOutput());
             normals.Update();
             // Set normals
-            //arrow.GetOutput().GetPointData().SetNormals(normals.GetOutput().GetPointData().GetNormals());
+            //triangleFilter.GetOutput().GetPointData().SetNormals(normals.GetOutput().GetPointData().GetNormals());
             // Transform
             vtkTransform transform = vtkTransform.New();
             transform.Identity();
@@ -3657,7 +3695,7 @@ namespace vtkControl
             else transform.Translate(0.05, 0, 0);
             // Transform filter
             vtkTransformFilter transformFilter = vtkTransformFilter.New();
-            transformFilter.SetInput(arrow.GetOutput());
+            transformFilter.SetInput(triangleFilter.GetOutput());
             transformFilter.SetTransform(transform);
             // Glyph
             vtkGlyph3D glyph = vtkGlyph3D.New();
@@ -3730,12 +3768,16 @@ namespace vtkControl
             cone.SetRadius(0.1);
             cone.SetCenter(0.65, 0, 0);
             // Append
-            vtkAppendPolyData appendFilter = vtkAppendPolyData.New();
-            appendFilter.AddInput(arrow.GetOutput());
-            appendFilter.AddInput(cone.GetOutput());
+            vtkAppendPolyData append = vtkAppendPolyData.New();
+            append.AddInput(arrow.GetOutput());
+            append.AddInput(cone.GetOutput());
+            // Triangulation helps with silhouette edges and 3mf export
+            vtkTriangleFilter triangleFilter = vtkTriangleFilter.New();
+            triangleFilter.SetInput(append.GetOutput());
+            triangleFilter.Update();
             // Compute normals
             vtkPolyDataNormals normals = vtkPolyDataNormals.New();
-            normals.SetInput(appendFilter.GetOutput());
+            normals.SetInput(triangleFilter.GetOutput());
             normals.Update();
             // Set normals
             //appendFilter.GetOutput().GetPointData().SetNormals(normals.GetOutput().GetPointData().GetNormals());
@@ -3745,7 +3787,7 @@ namespace vtkControl
             transform.Translate(0.05, 0, 0);
             // Transform filter
             vtkTransformFilter transformFilter = vtkTransformFilter.New();
-            transformFilter.SetInput(appendFilter.GetOutput());
+            transformFilter.SetInput(triangleFilter.GetOutput());
             transformFilter.SetTransform(transform);
             // Glyph
             vtkGlyph3D glyph = vtkGlyph3D.New();
@@ -3894,7 +3936,7 @@ namespace vtkControl
             tubeFilter.CappingOn();
             tubeFilter.UseDefaultNormalOff();
             tubeFilter.Update();
-            // For vtkPolyDataSilhouette
+            // Triangulation helps with silhouette edges and 3mf export
             vtkTriangleFilter triangleFilter = vtkTriangleFilter.New();
             triangleFilter.SetInput(tubeFilter.GetOutput());
             triangleFilter.Update();
@@ -3932,48 +3974,6 @@ namespace vtkControl
             }
             //
             return smooth;
-        }
-        private vtkTubeFilter CreateConeSource(double sx, double sy, double sz, int resolution)
-        {
-            // Points
-            int numOfPoints = 2;
-            //
-            vtkPoints points = vtkPoints.New();
-            // Start
-            points.InsertNextPoint(sx - 0.5, sy , sz );
-            points.InsertNextPoint(sx + 0.5, sy , sz );
-            // Polyline
-            vtkPolyLine polyLine = vtkPolyLine.New();
-            polyLine.GetPointIds().SetNumberOfIds(numOfPoints);
-            for (int i = 0; i < numOfPoints; i++) polyLine.GetPointIds().SetId(i, i);
-            // Create a cell array to store the lines in and add the lines to it
-            vtkCellArray cells = vtkCellArray.New();
-            cells.InsertNextCell(polyLine);
-            // Diameter
-            vtkFloatArray scalars = vtkFloatArray.New();
-            scalars.InsertNextTuple1(0.5);
-            scalars.InsertNextTuple1(0.01);
-            // Poly data
-            vtkPolyData polyData = vtkPolyData.New();
-            polyData.SetPoints(points);
-            polyData.SetLines(cells);
-            polyData.GetPointData().SetScalars(scalars);
-            // Create tube filter
-            vtkTubeFilter tubeFilter = vtkTubeFilter.New();
-            tubeFilter.SetInput(polyData);
-            tubeFilter.SetNumberOfSides(resolution);
-            tubeFilter.SetVaryRadiusToVaryRadiusByAbsoluteScalar();
-            tubeFilter.CappingOn();
-            tubeFilter.Update();
-            // Compute normals
-            vtkPolyDataNormals normals = vtkPolyDataNormals.New();
-            normals.SetInput(tubeFilter.GetOutput());
-            normals.ComputeCellNormalsOff();
-            normals.Update();
-            // Set normals
-            tubeFilter.GetOutput().GetPointData().SetNormals(normals.GetOutput().GetPointData().GetNormals());
-            //
-            return tubeFilter;
         }
         public void AddOrientedThermoActor(vtkMaxActorData data, double symbolSize, bool invert)
         {
@@ -4028,12 +4028,16 @@ namespace vtkControl
             vtkAppendPolyData append = vtkAppendPolyData.New();
             append.AddInput(sphereSource.GetOutput());
             append.AddInput(transformFilter.GetOutput());
+            // Triangulation helps with silhouette edges and 3mf export
+            vtkTriangleFilter triangleFilter = vtkTriangleFilter.New();
+            triangleFilter.SetInput(append.GetOutput());
+            triangleFilter.Update();
             // Compute normals
             vtkPolyDataNormals normals = vtkPolyDataNormals.New();
-            normals.SetInput(append.GetOutput());
+            normals.SetInput(triangleFilter.GetOutput());
             normals.Update();
             // Set normals
-            append.GetOutput().GetPointData().SetNormals(normals.GetOutput().GetPointData().GetNormals());
+            triangleFilter.GetOutput().GetPointData().SetNormals(normals.GetOutput().GetPointData().GetNormals());
             // Transform
             transform = vtkTransform.New();
             transform.Identity();
@@ -4041,7 +4045,7 @@ namespace vtkControl
             else transform.Translate(0.05, 0, 0);
             // Transform filter
             transformFilter = vtkTransformFilter.New();
-            transformFilter.SetInput(append.GetOutput());
+            transformFilter.SetInput(triangleFilter.GetOutput());
             transformFilter.SetTransform(transform);
             // Glyph
             vtkGlyph3D glyph = vtkGlyph3D.New();
@@ -4103,12 +4107,16 @@ namespace vtkControl
             sphereSource.SetThetaResolution(11);
             if (center) rs = 0;
             sphereSource.SetCenter(rs, 0, 0);
+            // Triangulation helps with silhouette edges and 3mf export
+            vtkTriangleFilter triangleFilter = vtkTriangleFilter.New();
+            triangleFilter.SetInput(sphereSource.GetOutput());
+            triangleFilter.Update();
             // Compute normals
-            //vtkPolyDataNormals normals = vtkPolyDataNormals.New();
-            //normals.SetInput(sphereSource.GetOutput());
-            //normals.Update();
-            //// Set normals
-            //sphereSource.GetOutput().GetPointData().SetNormals(normals.GetOutput().GetPointData().GetNormals());
+            vtkPolyDataNormals normals = vtkPolyDataNormals.New();
+            normals.SetInput(triangleFilter.GetOutput());
+            normals.Update();
+            // Set normals
+            //triangleFilter.GetOutput().GetPointData().SetNormals(normals.GetOutput().GetPointData().GetNormals());
             // Transform
             vtkTransform transform = vtkTransform.New();
             transform.Identity();
@@ -4116,7 +4124,7 @@ namespace vtkControl
             else transform.Translate(0.05, 0, 0);
             // Transform filter
             vtkTransformFilter transformFilter = vtkTransformFilter.New();
-            transformFilter.SetInput(sphereSource.GetOutput());
+            transformFilter.SetInput(triangleFilter.GetOutput());
             transformFilter.SetTransform(transform);
             // Glyph
             vtkGlyph3D glyph = vtkGlyph3D.New();
@@ -5983,19 +5991,19 @@ namespace vtkControl
                 {
                     double[] animationRange = _animationFrameData.AllFramesScalarRange;
                     _scalarBarWidget.CreateLookupTable(GetColorTransferFunction(), animationRange[0], animationRange[1]);
-                    PrepareActorLookupTable(animationRange[0], animationRange[1]);
+                    _lookupTable = PrepareActorLookupTable(animationRange[0], animationRange[1]);
                 }
                 else // min max from current frame
                 {
                     _scalarBarWidget.CreateLookupTable(GetColorTransferFunction(), minNode.Value, maxNode.Value);
-                    PrepareActorLookupTable(minNode.Value, maxNode.Value);
+                    _lookupTable = PrepareActorLookupTable(minNode.Value, maxNode.Value);
                 }
             }
             else  // Manual and min max from current frame
             {
                 _scalarBarWidget.CreateLookupTable(GetColorTransferFunction(), minNode.Value, maxNode.Value, 
                                                    _colorSpectrum.MinUserValue, _colorSpectrum.MaxUserValue);
-                PrepareActorLookupTable(minNode.Value, maxNode.Value);
+                _lookupTable = PrepareActorLookupTable(minNode.Value, maxNode.Value);
             }
             // Edit actors mapper
             double[] actorRange = _lookupTable.GetTableRange();
@@ -6930,9 +6938,176 @@ namespace vtkControl
             vtkMaxActor actor = _actors[partName];
             actor.Smooth(a, fileName);
         }
+        public vtkMaxActorData[] GetVtkMaxActorData()
+        {
+            vtkMaxActorData maxActorData;
+            List<vtkMaxActorData> maxActorDatas = new List<vtkMaxActorData>();
+            //
+            foreach (var entry in _actors)
+            {
+                maxActorData = GetVtkMaxActorData(entry.Value);
+                if (maxActorData != null) maxActorDatas.Add(maxActorData);
+            }
+            foreach (var entry in _overlayActors)
+            {
+                maxActorData = GetVtkMaxActorData(entry.Value);
+                if (maxActorData != null) maxActorDatas.Add(maxActorData);
+            }
+            //
+            return maxActorDatas.ToArray();
+        }
+        private vtkMaxActorData GetVtkMaxActorData(vtkMaxActor actor)
+        {
 
-
-
+            long n;
+            long numPts;
+            long numCells;
+            vtkPolyData polyData;
+            vtkPoints pts;
+            vtkCellArray cellArray;
+            vtkIdList idList;
+            //
+            vtkActor geometryActor = actor.Geometry;
+            vtkActor elementEdgesActor = actor.ElementEdges;
+            vtkActor modelEdgesActor = actor.ModelEdges;
+            //
+            bool actorsSwaped = false;
+            if (actor.ActorRepresentation == vtkMaxActorRepresentation.Wire)    // constraints, undeformed model
+            {
+                modelEdgesActor = geometryActor;
+                geometryActor = null;
+                elementEdgesActor = null;
+                actorsSwaped = true;
+            }
+            //
+            vtkMaxActorData maxActorData = new vtkMaxActorData();
+            maxActorData.Name = actor.Name;
+            if (actorsSwaped) maxActorData.ColorTable = new Color[] { actor.Color, actor.Color, actor.Color };
+            else maxActorData.ColorTable = new Color[] { actor.Color, Color.Black, Color.Black };
+            maxActorData.ColorContours = actor.ColorContours;
+            maxActorData.Geometry = new PartExchangeData();
+            maxActorData.ElementEdges = new PartExchangeData();
+            maxActorData.ModelEdges = new PartExchangeData();
+            // Geometry                                                             
+            if (geometryActor != null && geometryActor.GetVisibility() == 1 && geometryActor.GetMapper() != null)
+            {
+                polyData = (vtkPolyData)geometryActor.GetMapper().GetInput();
+                pts = polyData.GetPoints();
+                cellArray = polyData.GetPolys();
+                numPts = pts.GetNumberOfPoints();
+                numCells = cellArray.GetNumberOfCells();
+                //
+                PartExchangeData geometryData = maxActorData.Geometry;
+                geometryData.Nodes.Coor = new double[numPts][];
+                geometryData.Cells.CellNodeIds = new int[numCells][];
+                // Coordinates
+                for (int i = 0; i < numPts; i++) geometryData.Nodes.Coor[i] = pts.GetPoint(i);
+                // Cells
+                int cellCount = 0;
+                int[] cell;
+                cellArray.InitTraversal();
+                idList = vtkIdList.New();
+                while (cellArray.GetNextCell(idList) != 0)
+                {
+                    n = idList.GetNumberOfIds();
+                    cell = new int[n];
+                    for (int i = 0; i < n; i++) cell[i] = (int)idList.GetId(i);
+                    geometryData.Cells.CellNodeIds[cellCount++] = cell;
+                }
+                // Values
+                if (maxActorData.ColorContours)
+                {
+                    vtkDataArray scalars = polyData.GetPointData().GetScalars(Globals.ScalarArrayName);
+                    geometryData.Nodes.Values = new float[scalars.GetNumberOfTuples()];
+                    for (int i = 0; i < scalars.GetNumberOfTuples(); i++)
+                    {
+                        geometryData.Nodes.Values[i] = (float)scalars.GetTuple1(i);
+                    }
+                }
+            }
+            else maxActorData.Geometry = null;
+            // Element edges
+            if (elementEdgesActor != null && elementEdgesActor.GetVisibility() == 1)
+            {
+                maxActorData.ElementEdges = new PartExchangeData();
+                // Add geometry
+                polyData = (vtkPolyData)elementEdgesActor.GetMapper().GetInput();
+                pts = polyData.GetPoints();
+                numPts = pts.GetNumberOfPoints();
+                numCells = polyData.GetNumberOfCells();
+                //
+                PartExchangeData elementEdgesData = maxActorData.ElementEdges;
+                elementEdgesData.Nodes.Coor = new double[numPts][];
+                elementEdgesData.Cells.CellNodeIds = new int[numCells][];
+                // Coordinates
+                for (int i = 0; i < numPts; i++) elementEdgesData.Nodes.Coor[i] = pts.GetPoint(i);
+                // Cells
+                List<int[]> edgeCellIds = new List<int[]>();
+                for (int i = 0; i < numCells; i++)
+                {
+                    idList = polyData.GetCell(i).GetPointIds();
+                    n = idList.GetNumberOfIds();
+                    if (n == 2)
+                    {
+                        edgeCellIds.Add(new int[] { (int)idList.GetId(0), (int)idList.GetId(1) });
+                    }
+                    else if (n == 3)
+                    {
+                        edgeCellIds.Add(new int[] { (int)idList.GetId(0), (int)idList.GetId(1) });
+                        edgeCellIds.Add(new int[] { (int)idList.GetId(1), (int)idList.GetId(2) });
+                    }
+                }
+                elementEdgesData.Cells.CellNodeIds = edgeCellIds.ToArray();
+            }
+            else maxActorData.ElementEdges = null;
+            // Model edges                                                          
+            if (modelEdgesActor != null && modelEdgesActor.GetVisibility() == 1)
+            {
+                maxActorData.ModelEdges = new PartExchangeData();
+                // Add geometry
+                polyData = (vtkPolyData)modelEdgesActor.GetMapper().GetInput();
+                pts = polyData.GetPoints();
+                numPts = pts.GetNumberOfPoints();
+                numCells = polyData.GetNumberOfCells();
+                //
+                PartExchangeData modelEdgesData = maxActorData.ModelEdges;
+                modelEdgesData.Nodes.Coor = new double[numPts][];
+                modelEdgesData.Cells.CellNodeIds = new int[numCells][];
+                // Coordinates
+                for (int i = 0; i < numPts; i++) modelEdgesData.Nodes.Coor[i] = pts.GetPoint(i);
+                // Cells
+                List<int[]> edgeCellIds = new List<int[]>();
+                for (int i = 0; i < numCells; i++)
+                {
+                    idList = polyData.GetCell(i).GetPointIds();
+                    n = idList.GetNumberOfIds();
+                    if (n == 2)
+                    {
+                        edgeCellIds.Add(new int[] { (int)idList.GetId(0), (int)idList.GetId(1) });
+                    }
+                    else if (n == 3)
+                    {
+                        edgeCellIds.Add(new int[] { (int)idList.GetId(0), (int)idList.GetId(1) });
+                        edgeCellIds.Add(new int[] { (int)idList.GetId(1), (int)idList.GetId(2) });
+                    }
+                }
+                modelEdgesData.Cells.CellNodeIds = edgeCellIds.ToArray();
+            }
+            else maxActorData.ModelEdges = null;
+            //
+            return maxActorData;
+        }
+        public vtkMaxLookupTable GetLookupTable()
+        {
+            vtkMaxLookupTable maxLookupTable = new vtkMaxLookupTable();
+            if (_lookupTable != null)
+            {
+                double min = _lookupTable.GetTableRange()[0];
+                double max = _lookupTable.GetTableRange()[1];
+                maxLookupTable = new vtkMaxLookupTable(PrepareActorLookupTable(min, max));
+            }
+            return maxLookupTable;
+        }
         // Test
         public void Export(string fileName)
         {

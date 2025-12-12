@@ -17,61 +17,15 @@ using CaeMesh;
 
 namespace PrePoMax
 {
-    public class CreateFileNameEditor : UITypeEditor
-    {
-        public static string WorkDirectory;
-        public static string FileName;
-        public override UITypeEditorEditStyle GetEditStyle(ITypeDescriptorContext context)
-        {
-            return UITypeEditorEditStyle.Modal;
-        }
-        public override object EditValue(ITypeDescriptorContext context, IServiceProvider provider, object value)
-        {
-            IWindowsFormsEditorService editorService =
-                (IWindowsFormsEditorService)provider.GetService(typeof(IWindowsFormsEditorService));
-            //
-            if (editorService != null)
-            {
-                using (SaveFileDialog saveFileDialog = new SaveFileDialog())
-                {
-                    saveFileDialog.Filter = "Comma separated values | *.csv";
-                    saveFileDialog.InitialDirectory = WorkDirectory;
-                    if (value == null || (value is string stringValue && stringValue == "")) value = FileName;
-                    //
-                    saveFileDialog.FileName = value as string;
-                    if (saveFileDialog.ShowDialog() == DialogResult.OK)
-                    {
-                        return saveFileDialog.FileName;
-                    }
-                }
-            }
-            //
-            return value;
-        }
-    }
-
     [Serializable]
-    public class ViewHistoryResultSetExporter : ViewMultiRegion
+    public class ViewExportHistoryResultSetFileProperties : ViewExportFileProperties
     {
         // Variables                                                                                                                
-        private HistoryResultSetExporter _historyResultSetExporter;
         private MultiChoiceContainer _historyOutputNamesContainer;
         private string[] _allHistoryOutputNames;
-        private DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Properties                                                                                                               
-        [CategoryAttribute("Data")]
-        [OrderedDisplayName(0, 10, "File name")]
-        [DescriptionAttribute("Select the file name for history output export.")]
-        [EditorAttribute(typeof(CreateFileNameEditor), typeof(UITypeEditor))]
-        [Id(1, 1)]
-        public string FileName
-        {
-            get { return _historyResultSetExporter.FileName; }
-            set { _historyResultSetExporter.FileName = value; }
-        }
-        //
         [CategoryAttribute("Data")]
         [OrderedDisplayName(1, 10, "History outputs")]
         [DescriptionAttribute("Select history outputs to be exported.")]
@@ -86,7 +40,7 @@ namespace PrePoMax
             set
             {
                 _historyOutputNamesContainer.MultiChoice = value;
-                _historyResultSetExporter.HistoryOutputNames = _historyOutputNamesContainer.Names;
+                (_properties as ExportHistoryResultSetFileProperties).HistoryOutputNames = _historyOutputNamesContainer.Names;
             }
         }
         //
@@ -97,27 +51,20 @@ namespace PrePoMax
         [Id(3, 1)]
         public string Delimiter
         {
-            get { return _historyResultSetExporter.Delimiter; }
-            set { _historyResultSetExporter.Delimiter = value; }
+            get { return (_properties as ExportHistoryResultSetFileProperties).Delimiter; }
+            set { (_properties as ExportHistoryResultSetFileProperties).Delimiter = value; }
         }
 
 
         // Constructors                                                                                                             
-        public ViewHistoryResultSetExporter(HistoryResultSetExporter historyResultSetExporter)
+        public ViewExportHistoryResultSetFileProperties(ExportHistoryResultSetFileProperties properties)
+            : base(properties)
         {
-            CreateFileNameEditor.WorkDirectory = historyResultSetExporter.WorkingDirectory;
-            CreateFileNameEditor.FileName = HistoryResultSetExporter.DefaultFileName;
-            _historyResultSetExporter = historyResultSetExporter;
-            //
-            _dctd = ProviderInstaller.Install(this);
+            PopulateDropDownLists(properties.HistoryOutputNames);
         }
 
 
         // Methods
-        public HistoryResultSetExporter GetBase()
-        {
-            return _historyResultSetExporter;
-        }
         public void PopulateDropDownLists(string[] historyOutputNames)
         {
             _allHistoryOutputNames = historyOutputNames;
@@ -133,7 +80,7 @@ namespace PrePoMax
                 _historyOutputNamesContainer = new MultiChoiceContainer(_allHistoryOutputNames, selectedHistoryOutputNames);
                 _dctd.RenameMultiChoiceEnumProperty(nameof(HistoryOutputNames), _historyOutputNamesContainer.EnumData);
                 //
-                _historyResultSetExporter.HistoryOutputNames = _historyOutputNamesContainer.Names;
+                (_properties as ExportHistoryResultSetFileProperties).HistoryOutputNames = _historyOutputNamesContainer.Names;
             }
         }
     }

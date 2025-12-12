@@ -93,11 +93,21 @@ namespace FileInOut.Output
                 if (rpRotNames.Contains(cnp.RegionName)) keyword = new CalTitle("", "");
                 else cnp.OutputFrequency = true;
             }
-            else if (keyword is CalElPrint cep) { cep.OutputFrequency = true; cep.OutputGlobal = false; }
+            else if (keyword is CalElPrint cep)
+            {
+                cep.OutputFrequency = true;
+                cep.OutputGlobal = false;
+            }
             else if (keyword is CalContactPrint ccp) keyword = new AbqContactPrint(ccp);
             // Field output
-            else if (keyword is CalNodeFile cnf) keyword = new AbqFieldNodeOutput(cnf);
-            else if (keyword is CalElFile cef) keyword = new AbqFieldElementOutput(cef);
+            else if (keyword is CalNodeFile cnf)
+            {
+                keyword = new AbqFieldNodeOutput(cnf);
+            }
+            else if (keyword is CalElFile cef)
+            {
+                keyword = new AbqFieldElementOutput(cef);
+            }
             else if (keyword is CalContactFile ccf) keyword = new AbqFieldContactOutput(ccf);
             // Boundary condition
             else if (keyword is CalBC cbc)

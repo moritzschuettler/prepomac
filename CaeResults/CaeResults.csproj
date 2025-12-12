@@ -41,6 +41,7 @@
       <HintPath>..\packages\System.Buffers.4.5.1\lib\net461\System.Buffers.dll</HintPath>
     </Reference>
     <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
     <Reference Include="System.Memory, Version=4.0.1.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\packages\System.Memory.4.5.4\lib\net461\System.Memory.dll</HintPath>
     </Reference>
@@ -70,6 +71,7 @@
     <Compile Include="FieldOutput\ResultFieldOutputEquation.cs" />
     <Compile Include="FileInOut\Input\OpenFoam\OpenFoamFileReader.cs" />
     <Compile Include="FileInOut\Input\CloudPoint\CloudPointReader.cs" />
+    <Compile Include="FileInOut\Output\ResultHistoryOutput\ResultHistoryOutputWriter.cs" />
     <Compile Include="HistoryOutputNames.cs" />
     <Compile Include="HistoryOutputs\HistoryResultFilter.cs" />
     <Compile Include="HistoryOutputs\HistoryResultData.cs" />
@@ -84,7 +86,7 @@
     <Compile Include="FileInOut\Input\CalculiX\FrdFeDescriptorId.cs" />
     <Compile Include="FileInOut\Input\CalculiX\DatFileReader.cs" />
     <Compile Include="FileInOut\Input\CalculiX\FrdFileReader.cs" />
-    <Compile Include="HistoryOutputs\HistoryResultSetExporter.cs" />
+    <Compile Include="_Compatibility\v2.2.3\HistoryResultSetExporter.cs" />
     <Compile Include="HistoryOutputs\ResultHistoryOutput.cs" />
     <Compile Include="HistoryOutputs\ResultHistoryOutputFromElementSize.cs" />
     <Compile Include="HistoryOutputs\ResultHistoryOutputFromEquation.cs" />
@@ -127,6 +129,7 @@
     <None Include="app.config" />
     <None Include="packages.config" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

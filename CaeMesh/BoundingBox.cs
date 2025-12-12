@@ -311,10 +311,10 @@ namespace CaeMesh
             if (coor[2] > MaxZ) MaxZ = coor[2];
             else if (coor[2] < MinZ) MinZ = coor[2];
         }
-        public void IncludeCoors(double[][] coors)
+        public void IncludeCoors(double[][] coor)
         {
-            if (coors.Length > 0) IncludeFirstCoor(coors[0]);
-            for (int i = 0; i < coors.Length; i++) IncludeCoorFast(coors[i]);
+            if (MinX == double.MaxValue && coor.Length > 0) IncludeFirstCoor(coor[0]);
+            for (int i = 0; i < coor.Length; i++) IncludeCoorFast(coor[i]);
         }
         public void IncludeBox(BoundingBox box)
         {

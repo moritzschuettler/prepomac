@@ -357,8 +357,16 @@ namespace CaeResults
                         using (MemoryStream memoryStream = new MemoryStream(compressedData))
                         using (BinaryReader br = new BinaryReader(Tools.Decompress(memoryStream)))
                         {
-                            fieldData = FieldData.ReadFromBinaryReader(br, version);
-                            field = Field.ReadFromBinaryReader(br, version);
+                            try
+                            {
+                                fieldData = FieldData.ReadFromBinaryReader(br, version);
+                                field = Field.ReadFromBinaryReader(br, version);
+                            }
+                            catch
+                            {
+                                fieldData = null;
+                                field = null;
+                            }
                         }
                         //
                         if (field != null)

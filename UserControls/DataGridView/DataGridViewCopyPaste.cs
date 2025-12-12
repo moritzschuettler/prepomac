@@ -13,15 +13,10 @@ using System.Windows.Forms;
 
 namespace UserControls
 {
-    public enum XColIndexEnum
-    {
-        First,
-        Last
-    }
     public class DataGridViewCopyPaste : DataGridView
     {
         // Variables                                                                                                                
-        private XColIndexEnum _xColIndex;
+        private string _xColName;
         private bool _showErrorMsg;
         private Control _editControl;
         private int _autocompleteMenuColumn;
@@ -38,7 +33,7 @@ namespace UserControls
         private object _myLock;
 
         // Properties                                                                                                               
-        public XColIndexEnum XColIndex { get { return _xColIndex; } set { _xColIndex = value; } }
+        public string XColName { get { return _xColName; } set { _xColName = value; } }
         public bool ShowErrorMsg { get { return _showErrorMsg; } set { _showErrorMsg = value; } }
         public bool EnableCutMenu { get { return tsmiCut.Enabled; } set { tsmiCut.Enabled = value; } }
         public bool EnablePasteMenu { get { return tsmiPaste.Enabled; } set { tsmiPaste.Enabled = value; } }
@@ -57,7 +52,7 @@ namespace UserControls
             //
             this.KeyDown += DataGridViewCopyPaste_KeyDown;
             //
-            _xColIndex = XColIndexEnum.First;
+            _xColName = "Default";
             _showErrorMsg = true;
             _autocompleteMenuColumn = -1;
             //
@@ -251,9 +246,20 @@ namespace UserControls
                         colIndices = rowValues.Keys.ToArray();
                         // Sort col indices
                         Array.Sort(colIndices);
-                        // Set x as first or last column
-                        if (_xColIndex == XColIndexEnum.First) xColIndexLoc = 0;
-                        else xColIndexLoc = colIndices[colIndices.Length - 1];
+                        // Determine x column index
+                        if (_xColName == "Default") xColIndexLoc = colIndices[0];
+                        else
+                        {
+                            // Find x column index
+                            for (int j = 0; j < colIndices.Length; j++)
+                            {
+                                if (Columns[colIndices[j]].HeaderText.StartsWith(_xColName))
+                                {
+                                    xColIndexLoc = j;
+                                    break;
+                                }
+                            }
+                        }
                         // For each column
                         for (int j = 0; j < colIndices.Length; j++)
                         {
@@ -402,17 +408,20 @@ namespace UserControls
             double value;
             foreach (DataGridViewCell cell in SelectedCells)
             {
-                if (cell.Value == null) value = double.NaN;
-                else if (cell.Value is EquationString es)
+                if (cell.OwningColumn.Visible)
                 {
-                    if (Columns[cell.ColumnIndex].Tag is TypeConverter tc && tc != null)
-                        value = Convert.ToDouble(tc.ConvertFrom(es.Equation));
-                    else throw new CaeException("The column type converter is missing.");
+                    if (cell.Value == null) value = double.NaN;
+                    else if (cell.Value is EquationString es)
+                    {
+                        if (Columns[cell.ColumnIndex].Tag is TypeConverter tc && tc != null)
+                            value = Convert.ToDouble(tc.ConvertFrom(es.Equation));
+                        else throw new CaeException("The column type converter is missing.");
+                    }
+                    else value = (double)cell.Value;
+                    //
+                    if (values.TryGetValue(cell.RowIndex, out rowValues)) rowValues.Add(cell.ColumnIndex, value);
+                    else values.Add(cell.RowIndex, new Dictionary<int, double>() { { cell.ColumnIndex, value } });
                 }
-                else value = (double)cell.Value;
-                //
-                if (values.TryGetValue(cell.RowIndex, out rowValues)) rowValues.Add(cell.ColumnIndex, value);
-                else values.Add(cell.RowIndex, new Dictionary<int, double>() { { cell.ColumnIndex, value } });
             }
             return values;
         }

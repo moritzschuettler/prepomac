@@ -44,6 +44,7 @@ namespace vtkControl
         //
         public PartExchangeData Geometry;
         public PartExchangeData ModelEdges;
+        public PartExchangeData ElementEdges;
         public PartExchangeData CellLocator;
         
 
@@ -74,6 +75,7 @@ namespace vtkControl
             //
             Geometry = new PartExchangeData();
             ModelEdges = null;
+            ElementEdges = null;
             CellLocator = null;
         }
 

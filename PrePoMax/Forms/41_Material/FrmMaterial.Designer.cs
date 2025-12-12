@@ -324,7 +324,6 @@
             this.dgvData.Size = new System.Drawing.Size(429, 231);
             this.dgvData.StartPlotAtZero = false;
             this.dgvData.TabIndex = 0;
-            this.dgvData.XColIndex = UserControls.XColIndexEnum.First;
             // 
             // btnMoveDown
             // 

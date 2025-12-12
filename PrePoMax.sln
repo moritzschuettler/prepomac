@@ -15,6 +15,9 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CaeModel", "CaeModel\CaeModel.csproj", "{65E5EE18-B889-42AD-A775-BA5674ABE1DD}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CaeResults", "CaeResults\CaeResults.csproj", "{BCA7C65B-CC0B-48CA-B852-49255BD3851D}"
+	ProjectSection(ProjectDependencies) = postProject
+		{31B90DB3-03CA-4CD5-92A9-8AEA71A21C5A} = {31B90DB3-03CA-4CD5-92A9-8AEA71A21C5A}
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UserControls", "UserControls\UserControls.csproj", "{74EA83FB-2743-49EE-85A8-5B42CBCE19B3}"
 	ProjectSection(ProjectDependencies) = postProject
@@ -37,6 +40,8 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GmshCommon", "GmshCommon\GmshCommon.vcxproj", "{2089CD1F-E51F-4FE7-9BC0-20D7F22DDF10}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GmshCaller", "GmshCaller\GmshCaller.csproj", "{BBD81130-CB98-4B1A-AF72-1833BB292761}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ThreeMF", "3MF\ThreeMF.csproj", "{31B90DB3-03CA-4CD5-92A9-8AEA71A21C5A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -134,6 +139,14 @@ Global
 		{BBD81130-CB98-4B1A-AF72-1833BB292761}.Debug|x64.Build.0 = Debug|x64
 		{BBD81130-CB98-4B1A-AF72-1833BB292761}.Release|x64.ActiveCfg = Release|x64
 		{BBD81130-CB98-4B1A-AF72-1833BB292761}.Release|x64.Build.0 = Release|x64
+		{31B90DB3-03CA-4CD5-92A9-8AEA71A21C5A}.Console-Debug|x64.ActiveCfg = Release|x64
+		{31B90DB3-03CA-4CD5-92A9-8AEA71A21C5A}.Console-Debug|x64.Build.0 = Release|x64
+		{31B90DB3-03CA-4CD5-92A9-8AEA71A21C5A}.Console-Release|x64.ActiveCfg = Release|x64
+		{31B90DB3-03CA-4CD5-92A9-8AEA71A21C5A}.Console-Release|x64.Build.0 = Release|x64
+		{31B90DB3-03CA-4CD5-92A9-8AEA71A21C5A}.Debug|x64.ActiveCfg = Debug|x64
+		{31B90DB3-03CA-4CD5-92A9-8AEA71A21C5A}.Debug|x64.Build.0 = Debug|x64
+		{31B90DB3-03CA-4CD5-92A9-8AEA71A21C5A}.Release|x64.ActiveCfg = Release|x64
+		{31B90DB3-03CA-4CD5-92A9-8AEA71A21C5A}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

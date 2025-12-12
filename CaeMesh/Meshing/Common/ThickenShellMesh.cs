@@ -14,7 +14,6 @@ namespace CaeMesh
     public class ThickenShellMesh : MeshSetupItem, ISerializable
     {
         // Variables                                                                                                                
-        private string[] _partNames;        //ISerializable
         private double _thickness;          //ISerializable
         private int _numberOfLayers;        //ISerializable
         private double _offset;             //ISerializable
@@ -22,7 +21,6 @@ namespace CaeMesh
 
 
         // Properties                                                                                                               
-        public string[] PartNames { get { return _partNames; } set { _partNames = value; } }
         public double Thickness
         {
             get { return _thickness; }
@@ -63,8 +61,6 @@ namespace CaeMesh
             {
                 switch (entry.Name)
                 {
-                    case "_partNames":
-                        _partNames = (string[])entry.Value; break;
                     case "_thickness":
                         _thickness = (double)entry.Value; break;
                     case "_numberOfLayers":
@@ -83,7 +79,6 @@ namespace CaeMesh
         // Methods                                                                                                                  
         public override void Reset()
         {
-            _partNames = null;
             _thickness = 1;
             _numberOfLayers = 1;
             _offset = 0;
@@ -93,7 +88,6 @@ namespace CaeMesh
         {
            base.CopyFrom(thickenShellMesh);
             //
-            _partNames = thickenShellMesh.PartNames != null ? thickenShellMesh.PartNames.ToArray() : null;
             _thickness = thickenShellMesh.Thickness;
             _numberOfLayers = thickenShellMesh.NumberOfLayers;
             _offset = thickenShellMesh.Offset;
@@ -104,7 +98,6 @@ namespace CaeMesh
         {
             base.GetObjectData(info, context);
             // Using typeof() works also for null fields
-            info.AddValue("_partNames", _partNames, typeof(string[]));
             info.AddValue("_thickness", _thickness, typeof(double));
             info.AddValue("_numberOfLayers", _numberOfLayers, typeof(int));
             info.AddValue("_offset", _offset, typeof(double));

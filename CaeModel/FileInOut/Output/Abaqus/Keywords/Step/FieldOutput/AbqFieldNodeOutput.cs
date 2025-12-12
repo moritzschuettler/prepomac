@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
@@ -50,6 +51,7 @@ namespace FileInOut.Output.Calculix
             string variables = _nodalFieldOutput.Variables.ToString();
             //variables = variables.Replace("PU", "");
             //variables = variables.Replace("PNT", "");
+            //variables = variables.Replace("RF", "");
             //
             return string.Format("{0}{1}", variables, Environment.NewLine);
         }

@@ -4879,24 +4879,27 @@ namespace CaeMesh
                     double[] cg = new double[3];
                     double elArea;
                     double[] elCg;
-                    foreach (var entry in surface.ElementFaces)
+                    if (surface.ElementFaces != null)
                     {
-                        foreach (var elementId in _elementSets[entry.Value].Labels)
+                        foreach (var entry in surface.ElementFaces)
                         {
-                            if (inactiveElementIds.Count > 0 && inactiveElementIds.Contains(elementId)) continue;
-                            //
-                            elCg = _elements[elementId].GetFaceCG(entry.Key, _nodes, out elArea);
-                            cg[0] += elCg[0] * elArea;
-                            cg[1] += elCg[1] * elArea;
-                            cg[2] += elCg[2] * elArea;
-                            area += elArea;
+                            foreach (var elementId in _elementSets[entry.Value].Labels)
+                            {
+                                if (inactiveElementIds.Count > 0 && inactiveElementIds.Contains(elementId)) continue;
+                                //
+                                elCg = _elements[elementId].GetFaceCG(entry.Key, _nodes, out elArea);
+                                cg[0] += elCg[0] * elArea;
+                                cg[1] += elCg[1] * elArea;
+                                cg[2] += elCg[2] * elArea;
+                                area += elArea;
+                            }
                         }
-                    }
-                    if (area != 0)
-                    {
-                        cg[0] /= area;
-                        cg[1] /= area;
-                        cg[2] /= area;
+                        if (area != 0)
+                        {
+                            cg[0] /= area;
+                            cg[1] /= area;
+                            cg[2] /= area;
+                        }
                     }
                     //
                     return cg;
@@ -6911,9 +6914,13 @@ namespace CaeMesh
             int[] partIds = GetPartIdsFromGeometryIds(geometryIds);
             if (partIds == null) return null;
             //
-            int count = 0;
-            string[] partNames = new string[partIds.Length];
-            foreach (var partId in partIds) partNames[count++] = GetPartFromId(partId).Name;
+            BasePart part;
+            List<string> partNames = new List<string>();
+            foreach (var partId in partIds)
+            {
+                part = GetPartFromId(partId);
+                if (part != null) partNames.Add(part.Name);
+            }
             //
             return partNames.ToArray();
         }
@@ -7530,73 +7537,79 @@ namespace CaeMesh
         }
         public void UpdateReferencePoint(FeReferencePoint referencePoint)
         {
-            if (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.OnPoint &&
-                referencePoint.CreationIds != null &&
-                referencePoint.CreationIds.Length == 1)
+            try
             {
-                Vec3D center = new Vec3D(_nodes[referencePoint.CreationIds[0]].Coor);
-                referencePoint.X.SetEquationFromValue(center.X, true);
-                referencePoint.Y.SetEquationFromValue(center.Y, true);
-                referencePoint.Z.SetEquationFromValue(center.Z, true);
-            }
-            else if (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.BetweenTwoPoints &&
-                     referencePoint.CreationIds != null &&
-                     referencePoint.CreationIds.Length == 2)
-            {
-                Vec3D v1 = new Vec3D(_nodes[referencePoint.CreationIds[0]].Coor);
-                Vec3D v2 = new Vec3D(_nodes[referencePoint.CreationIds[1]].Coor);
-                Vec3D center = (v1 + v2) * 0.5;
-                referencePoint.X.SetEquationFromValue(center.X, true);
-                referencePoint.Y.SetEquationFromValue(center.Y, true);
-                referencePoint.Z.SetEquationFromValue(center.Z, true);
-            }
-            else if (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.CircleCenter &&
-                     referencePoint.CreationIds != null &&
-                     referencePoint.CreationIds.Length == 3)
-            {
-                Vec3D v1 = new Vec3D(_nodes[referencePoint.CreationIds[0]].Coor);
-                Vec3D v2 = new Vec3D(_nodes[referencePoint.CreationIds[1]].Coor);
-                Vec3D v3 = new Vec3D(_nodes[referencePoint.CreationIds[2]].Coor);
-                Vec3D.GetCircle(v1, v2, v3, out double r, out Vec3D center, out Vec3D axis);
-                referencePoint.X.SetEquationFromValue(center.X, true);
-                referencePoint.Y.SetEquationFromValue(center.Y, true);
-                referencePoint.Z.SetEquationFromValue(center.Z, true);
-            }
-            else if (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.BoundingBoxCenter ||
-                     referencePoint.CreatedFrom == FeReferencePointCreatedFrom.CenterOfGravity)
-            {
-                // Update reference point
-                FeNodeSet nodeSet;
-                string regionName = referencePoint.RegionName;
-                if (regionName != null)
+                if (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.OnPoint &&
+                    referencePoint.CreationIds != null &&
+                    referencePoint.CreationIds.Length == 1)
                 {
-                    if (referencePoint.RegionType == RegionTypeEnum.NodeSetName)
+                    Vec3D center = new Vec3D(_nodes[referencePoint.CreationIds[0]].Coor);
+                    referencePoint.X.SetEquationFromValue(center.X, true);
+                    referencePoint.Y.SetEquationFromValue(center.Y, true);
+                    referencePoint.Z.SetEquationFromValue(center.Z, true);
+                }
+                else if (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.BetweenTwoPoints &&
+                         referencePoint.CreationIds != null &&
+                         referencePoint.CreationIds.Length == 2)
+                {
+                    Vec3D v1 = new Vec3D(_nodes[referencePoint.CreationIds[0]].Coor);
+                    Vec3D v2 = new Vec3D(_nodes[referencePoint.CreationIds[1]].Coor);
+                    Vec3D center = (v1 + v2) * 0.5;
+                    referencePoint.X.SetEquationFromValue(center.X, true);
+                    referencePoint.Y.SetEquationFromValue(center.Y, true);
+                    referencePoint.Z.SetEquationFromValue(center.Z, true);
+                }
+                else if (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.CircleCenter &&
+                         referencePoint.CreationIds != null &&
+                         referencePoint.CreationIds.Length == 3)
+                {
+                    Vec3D v1 = new Vec3D(_nodes[referencePoint.CreationIds[0]].Coor);
+                    Vec3D v2 = new Vec3D(_nodes[referencePoint.CreationIds[1]].Coor);
+                    Vec3D v3 = new Vec3D(_nodes[referencePoint.CreationIds[2]].Coor);
+                    Vec3D.GetCircle(v1, v2, v3, out double r, out Vec3D center, out Vec3D axis);
+                    referencePoint.X.SetEquationFromValue(center.X, true);
+                    referencePoint.Y.SetEquationFromValue(center.Y, true);
+                    referencePoint.Z.SetEquationFromValue(center.Z, true);
+                }
+                else if (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.BoundingBoxCenter ||
+                         referencePoint.CreatedFrom == FeReferencePointCreatedFrom.CenterOfGravity)
+                {
+                    // Update reference point
+                    FeNodeSet nodeSet;
+                    string regionName = referencePoint.RegionName;
+                    if (regionName != null)
                     {
-                        if (_nodeSets.TryGetValue(regionName, out nodeSet))
+                        if (referencePoint.RegionType == RegionTypeEnum.NodeSetName)
+                        {
+                            if (_nodeSets.TryGetValue(regionName, out nodeSet))
+                            {
+                                if (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.BoundingBoxCenter)
+                                    referencePoint.UpdateCoordinates(nodeSet.BoundingBox);
+                                else if (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.CenterOfGravity)
+                                    referencePoint.UpdateCoordinates(nodeSet.CenterOfGravity);
+                                else throw new NotSupportedException();
+                            }
+                        }
+                        else if (referencePoint.RegionType == RegionTypeEnum.SurfaceName)
                         {
                             if (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.BoundingBoxCenter)
-                                referencePoint.UpdateCoordinates(nodeSet.BoundingBox);
+                            {
+                                nodeSet = GetSurfaceNodeSet(regionName);
+                                if (nodeSet != null) referencePoint.UpdateCoordinates(nodeSet.BoundingBox);
+                            }
                             else if (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.CenterOfGravity)
-                                referencePoint.UpdateCoordinates(nodeSet.CenterOfGravity);
+                            {
+                                double[] cg = GetSurfaceCG(regionName);
+                                referencePoint.UpdateCoordinates(cg);
+                            }
                             else throw new NotSupportedException();
-                        }
-                    }
-                    else if (referencePoint.RegionType == RegionTypeEnum.SurfaceName)
-                    {
-                        if (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.BoundingBoxCenter)
-                        {
-                            nodeSet = GetSurfaceNodeSet(regionName);
-                            if (nodeSet != null) referencePoint.UpdateCoordinates(nodeSet.BoundingBox);
-                        }
-                        else if (referencePoint.CreatedFrom == FeReferencePointCreatedFrom.CenterOfGravity)
-                        {
-                            double[] cg = GetSurfaceCG(regionName);
-                            referencePoint.UpdateCoordinates(cg);
                         }
                         else throw new NotSupportedException();
                     }
-                    else throw new NotSupportedException();
                 }
+            }
+            catch (Exception ex)
+            {
             }
         }
         public void UpdateCoordinateSystem(CoordinateSystem coordinateSystem)

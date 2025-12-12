@@ -1238,8 +1238,7 @@ namespace CaeMesh
                 if (entry.Value.CellIds.Count == 1)
                 {
                     if (edgeCellEdgeCellId.TryGetValue(entry.Key, out freeEdgeCellId)) freeEdgeCellIds.Add(freeEdgeCellId);
-                    else
-                        freeEdgeCellId = freeEdgeCellId;
+                    else if (Debugger.IsAttached) Debugger.Break();
                 }
             }
             //

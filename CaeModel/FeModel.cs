@@ -1523,14 +1523,17 @@ namespace CaeModel
         }
         private string IsThickenShellMeshProperlyDefined(ThickenShellMesh thickenShellMesh)
         {
-            if (thickenShellMesh.PartNames != null && thickenShellMesh.PartNames.Length > 0)
+            HashSet<string> partNames = new HashSet<string>(_mesh.GetPartNamesFromGeometryIds(thickenShellMesh.CreationIds));
+            partNames.UnionWith(_geometry.GetPartNamesFromGeometryIds(thickenShellMesh.CreationIds));
+            //
+            if (partNames != null && partNames.Count > 0)
             {
                 BasePart part;
-                foreach (var partName in thickenShellMesh.PartNames)
+                foreach (var partName in partNames)
                 {
                     _geometry.Parts.TryGetValue(partName, out part);
                     // Is mesh setup item defined on the mesh part
-                    if (part == null) part = _mesh.Parts[partName];
+                    if (part == null) _mesh.Parts.TryGetValue(partName, out part);
                     if (part == null)
                         return "The part " + partName + " cannot be found neither in geometry parts neither in model parts.";
                     //
@@ -3290,8 +3293,11 @@ namespace CaeModel
         // 3D - 2D                                                                                  
         public void UpdateMeshPartsElementTypes(bool allowMixedModel)
         {
-            Dictionary<Type, HashSet<Enum>> elementTypeEnums = _properties.ModelSpace.GetAvailableElementTypes(allowMixedModel);
-            if (_mesh != null) _mesh.UpdatePartsElementTypes(elementTypeEnums);
+            if (_properties != null)
+            {
+                Dictionary<Type, HashSet<Enum>> elementTypeEnums = _properties.ModelSpace.GetAvailableElementTypes(allowMixedModel);
+                if (_mesh != null) _mesh.UpdatePartsElementTypes(elementTypeEnums);
+            }
         }
         // Boundary displacement method                                                             
         public FeModel PrepareBdmModel(Dictionary<int, double[]> deformations)

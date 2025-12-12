@@ -67,6 +67,7 @@ namespace PrePoMax
         public static string MmgsMesher = @"\NetGen\mmgs.exe";
         public static string Mmg3DMesher = @"\NetGen\mmg3d.exe";
         public static string GmshCaller = @"\lib\GmshCaller.exe";
+        public static string OdbToFrd = @"\Tools\abqodb_to_ccxfrd.py";
         public static string VisFileName = "geometry.vis";
         public static string BrepFileName = "geometry.brep";
         public static string StlFileName = "geometry.stl";        
@@ -86,6 +87,7 @@ namespace PrePoMax
         public static string FromFileOpenMenu = "FromFileOpenMenu";
         public static string FromMonitorForm = "FromMonitorForm";
         public static string OpenRunningJobResults = "OpenRunningJobResults";
+        public static string FromAbaqus = "FromAbaqus";
         // Graphics
         public static int BeamNodeSize = 5;
         // slection

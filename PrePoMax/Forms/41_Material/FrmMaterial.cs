@@ -618,7 +618,7 @@ namespace PrePoMax.Forms
             SetGridViewUnit(nameof(TempDataPoint.TemperatureEq), _controller.Model.UnitSystem.TemperatureUnitAbbreviation,
                             new StringTemperatureFromConverter());
             //
-            dgvData.XColIndex = UserControls.XColIndexEnum.Last;
+            dgvData.XColName = "Plastic strain";
             //
             dgvData.StartPlotAtZero = true;
         }

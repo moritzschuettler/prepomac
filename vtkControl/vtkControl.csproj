@@ -100,6 +100,7 @@
     <Compile Include="vtkMax\Actor\vtkMaxExtreemeNode.cs" />
     <Compile Include="vtkMax\Animation\vtkMaxActorAnimationData.cs" />
     <Compile Include="vtkMax\ColorSpectrum\vtkMaxColorSpectrum.cs" />
+    <Compile Include="vtkMax\LookupTable\vtkMaxLookupTable.cs" />
     <Compile Include="vtkMax\Widget\02_vtkMaxScaleWidget.cs" />
     <Compile Include="vtkMax\Widget\03_vtkMaxColorBarWidget.cs" />
     <Compile Include="vtkMax\Widget\AnimationType.cs" />

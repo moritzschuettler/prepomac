@@ -17,7 +17,7 @@ namespace PrePoMax.Forms
     public partial class FrmSurfaceInteraction : UserControls.PrePoMaxChildForm, IFormBase
     {
         // Variables                                                                                                                
-        private string[] _surfraceInteractionNames;
+        private string[] _surfaceInteractionNames;
         private string _surfaceInteractionToEditName;
         private SurfaceInteraction _surfaceInteraction;
         private Controller _controller;
@@ -57,6 +57,14 @@ namespace PrePoMax.Forms
 
 
         // Event handling
+        private void FrmSurfaceInteraction_VisibleChanged(object sender, EventArgs e)
+        {
+            if (Visible) { }
+            else
+            {
+                dgvData.HidePlot();
+            }
+        }
         private void TabPage_Paint(object sender, PaintEventArgs e)
         {
             SolidBrush fillBrush = new SolidBrush(((TabPage)sender).BackColor);
@@ -227,13 +235,13 @@ namespace PrePoMax.Forms
             this.btnOKAddNew.Visible = surfaceInteractionToEditName == null;
             //
             _propertyItemChanged = false;
-            _surfraceInteractionNames = null;
+            _surfaceInteractionNames = null;
             _surfaceInteractionToEditName = null;
             _surfaceInteraction = null;
             lvAddedProperties.Items.Clear();
             ClearControls();
             //
-            _surfraceInteractionNames = _controller.GetSurfaceInteractionNames();
+            _surfaceInteractionNames = _controller.GetSurfaceInteractionNames();
             _surfaceInteractionToEditName = surfaceInteractionToEditName;
             // Initialize surface interaction properties
             tvProperties.Nodes.Find("Surface Behavior", true)[0].Tag = new SurfaceBehavior();
@@ -290,7 +298,7 @@ namespace PrePoMax.Forms
         public void Add()
         {
             // Check if the name exists
-            UserControls.FrmProperties.CheckName(_surfaceInteractionToEditName, tbName.Text, _surfraceInteractionNames,
+            UserControls.FrmProperties.CheckName(_surfaceInteractionToEditName, tbName.Text, _surfaceInteractionNames,
                                                  "surface interaction");
             //
             Friction friction = null;
@@ -342,7 +350,6 @@ namespace PrePoMax.Forms
             SetGridViewUnit(nameof(GapConductanceDataPoint.TemperatureEq), _controller.Model.UnitSystem.TemperatureUnitAbbreviation,
                             new StringTemperatureFromConverter());
             //
-            dgvData.XColIndex = UserControls.XColIndexEnum.Last;
             dgvData.StartPlotAtZero = true;
         }
         private void SetGridViewUnit(string columnName, string unit, TypeConverter converter)
@@ -360,7 +367,7 @@ namespace PrePoMax.Forms
         }
         private string GetSurfaceInteractionName()
         {
-            return _surfraceInteractionNames.GetNextNumberedKey("Surface_Interaction");
+            return _surfaceInteractionNames.GetNextNumberedKey("Surface_Interaction");
         }
         private void SetDataGridViewBinding(object data)
         {
@@ -370,5 +377,6 @@ namespace PrePoMax.Forms
             binding.ListChanged += Binding_ListChanged;
         }
 
+        
     }
 }
