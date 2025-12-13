@@ -7,6 +7,7 @@ using CaeMesh;
 using CaeGlobals;
 using System.Windows.Forms;
 using System.Drawing;
+using System.Threading;
 
 namespace PrePoMax.Forms
 {
@@ -16,7 +17,8 @@ namespace PrePoMax.Forms
         private TranslateParameters _translateParameters;
         private Controller _controller;
         private string[] _partNames;
-        private double[][] _coorNodesToDraw;
+        private double[] _startPoint;
+        private double[] _endPoint;
         private ContextMenuStrip cmsPropertyGrid;
         private System.ComponentModel.IContainer components;
         private ToolStripMenuItem tsmiResetAll;
@@ -25,16 +27,7 @@ namespace PrePoMax.Forms
 
         // Properties                                                                                                               
         public string[] PartNames { get { return _partNames; } set { _partNames = value; } }
-        public double[] TranslateVector
-        {
-            get
-            {
-                return new double[] { _translateParameters.X2 - _translateParameters.X1,
-                                      _translateParameters.Y2 - _translateParameters.Y1,
-                                      _translateParameters.Z2 - _translateParameters.Z1};
-            }
-        }
-
+        
 
         // Constructors                                                                                                             
         public FrmTranslate(Controller controller) 
@@ -42,10 +35,10 @@ namespace PrePoMax.Forms
         {
             InitializeComponent();
             //
-            _controller = controller;            
+            _controller = controller;
             //
-            _coorNodesToDraw = new double[1][];
-            _coorNodesToDraw[0] = new double[3];
+            _startPoint = new double[3];
+            _endPoint = new double[3];
             //
             _coorLinesToDraw = new double[2][];
             _coorLinesToDraw[0] = new double[3];
@@ -66,9 +59,26 @@ namespace PrePoMax.Forms
             this.cmsPropertyGrid.SuspendLayout();
             this.SuspendLayout();
             // 
+            // gbProperties
+            // 
+            this.gbProperties.Size = new System.Drawing.Size(310, 384);
+            // 
             // propertyGrid
             // 
             this.propertyGrid.ContextMenuStrip = this.cmsPropertyGrid;
+            this.propertyGrid.Size = new System.Drawing.Size(298, 356);
+            // 
+            // btnOK
+            // 
+            this.btnOK.Location = new System.Drawing.Point(160, 396);
+            // 
+            // btnCancel
+            // 
+            this.btnCancel.Location = new System.Drawing.Point(241, 396);
+            // 
+            // btnOkAddNew
+            // 
+            this.btnOkAddNew.Location = new System.Drawing.Point(79, 396);
             // 
             // cmsPropertyGrid
             // 
@@ -86,9 +96,10 @@ namespace PrePoMax.Forms
             // 
             // FrmTranslate
             // 
-            this.ClientSize = new System.Drawing.Size(334, 411);
+            this.ClientSize = new System.Drawing.Size(334, 431);
             this.Name = "FrmTranslate";
             this.Text = "Translate Parameters";
+            this.VisibleChanged += new System.EventHandler(this.FrmTranslate_VisibleChanged);
             this.Controls.SetChildIndex(this.gbProperties, 0);
             this.Controls.SetChildIndex(this.btnCancel, 0);
             this.Controls.SetChildIndex(this.btnOK, 0);
@@ -101,6 +112,14 @@ namespace PrePoMax.Forms
 
 
         // Event handlers                                                                                                           
+        private void FrmTranslate_VisibleChanged(object sender, EventArgs e)
+        {
+            if (Visible) { }
+            else
+            {
+                tsmiResetAll_Click(null, null);
+            }
+        }
         protected override void OnPropertyGridPropertyValueChanged()
         {
             HighlightNodes();
@@ -111,23 +130,23 @@ namespace PrePoMax.Forms
         {
             _translateParameters = (TranslateParameters)propertyGrid.SelectedObject;
             //
-            double[] translateVector = TranslateVector;
-            _controller.TranslateModelPartsCommand(_partNames, translateVector, _translateParameters.Copy);
+            _controller.TranslateModelPartsCommand(_partNames, _translateParameters.TranslateVector,
+                                                   _translateParameters.NumberOfCopies);
             //
             HighlightNodes();
         }
         protected override bool OnPrepareForm(string stepName, string itemToEditName)
         {
             // Clear
-            tsmiResetAll_Click(null, null);
             _controller.ClearSelectionHistoryAndCallSelectionChanged();
-            _translateParameters.Clear();
+            if (_translateParameters == null) tsmiResetAll_Click(null, null);   // first time only
+            _translateParameters.ClearTranslation();    // called on OkAddNew
             // Disable selection
             _controller.SetSelectByToOff();
             // Get start point grid item
             GridItem gi = propertyGrid.EnumerateAllItems().First((item) =>
                           item.PropertyDescriptor != null &&
-                          item.PropertyDescriptor.Name == nameof(_translateParameters.Copy));
+                          item.PropertyDescriptor.Name == nameof(_translateParameters.Translate));
             // Select it
             gi.Select();
             //
@@ -240,20 +259,23 @@ namespace PrePoMax.Forms
         }
         private void HighlightNodes()
         {
+            _startPoint[0] = _translateParameters.X1;
+            _startPoint[1] = _translateParameters.Y1;
+            _startPoint[2] = _translateParameters.Z1;
+            //
+            _endPoint[0] = _translateParameters.X2;
+            _endPoint[1] = _translateParameters.Y2;
+            _endPoint[2] = _translateParameters.Z2;
+            //
+            double[] translateVector = _translateParameters.TranslateVector;
             _controller.ClearAllSelection();
+            _controller.HighlightModelParts(_partNames, false, false);
             //
-            _coorNodesToDraw[0][0] = _translateParameters.X2;
-            _coorNodesToDraw[0][1] = _translateParameters.Y2;
-            _coorNodesToDraw[0][2] = _translateParameters.Z2;
-            //
-            _coorLinesToDraw[0][0] = _translateParameters.X1;
-            _coorLinesToDraw[0][1] = _translateParameters.Y1;
-            _coorLinesToDraw[0][2] = _translateParameters.Z1;
-            _coorLinesToDraw[1] = _coorNodesToDraw[0];
-            //
-            _controller.ClearAllSelection();
-            _controller.HighlightNodes(_coorNodesToDraw);
-            _controller.HighlightConnectedLines(_coorLinesToDraw);
+            if (translateVector[0] != 0 || translateVector[1] != 0 || translateVector[2] != 0)
+            {
+                _controller.HighlightLineWithArrow(_startPoint, _endPoint, false, true, true);
+                _controller.HighlightTranslatedEdges(_partNames, translateVector, _translateParameters.NumberOfCopies, true);
+            }
         }
         //
         private FeMesh GetMesh()
@@ -264,5 +286,7 @@ namespace PrePoMax.Forms
                 return _controller.AllResults.CurrentResult.Mesh;
             else throw new NotSupportedException();
         }
+
+        
     }
 }

@@ -9730,29 +9730,38 @@ namespace CaeMesh
         }
 
         // Transformations
-        public string[] TranslateParts(string[] partNames, double[] translateVector, bool copy,
+        public string[] TranslateParts(string[] partNames, double[] translateVector, int numberOfCopies,
                                        ICollection<string> reservedPartNames, HashSet<int> reservedPartIds)
         {
-            string[] translatedPartNames = partNames.ToArray();
+            string[] translatedPartNames = partNames;
+            List<string> allTranslatedPartNames = new List<string>(partNames);
             //
-            if (copy)
+            int count = 1;
+            do
             {
-                FeMesh mesh = this.DeepCopy();
-                translatedPartNames = AddPartsFromMesh(mesh, translatedPartNames, reservedPartNames, reservedPartIds);
+                if (numberOfCopies > 0)
+                {
+                    FeMesh mesh = this.DeepCopy();
+                    translatedPartNames = AddPartsFromMesh(mesh, partNames, reservedPartNames, reservedPartIds);
+                    allTranslatedPartNames.AddRange(translatedPartNames);
+                }
+                //
+                HashSet<int> nodeLabels = new HashSet<int>();
+                foreach (var partName in translatedPartNames) nodeLabels.UnionWith(_parts[partName].NodeLabels);
+                // Translate nodes
+                FeNode node;
+                foreach (var nodeId in nodeLabels)
+                {
+                    node = _nodes[nodeId];
+                    node.X += translateVector[0] * count;
+                    node.Y += translateVector[1] * count;
+                    node.Z += translateVector[2] * count;
+                    _nodes[nodeId] = node;
+                }
+                //
+                count++;
             }
-            //
-            HashSet<int> nodeLabels = new HashSet<int>();
-            foreach (var partName in translatedPartNames) nodeLabels.UnionWith(_parts[partName].NodeLabels);
-            // Translate nodes
-            FeNode node;
-            foreach (var nodeId in nodeLabels)
-            {
-                node = _nodes[nodeId];
-                node.X += translateVector[0];
-                node.Y += translateVector[1];
-                node.Z += translateVector[2];
-                _nodes[nodeId] = node;
-            }
+            while (count <= numberOfCopies);
             // Update node sets
             foreach (var entry in _nodeSets) UpdateNodeSetCenterOfGravity(entry.Value);
             // Update reference points
@@ -9762,8 +9771,17 @@ namespace CaeMesh
             //
             ComputeVolumeArea();
             //
-            if (copy) return translatedPartNames;
+            if (numberOfCopies > 0) return translatedPartNames;
             else return null;
+        }
+        public static void TranslateNodes(double[][] nodeCoor, double[] translateVector)
+        {
+            for (int i = 0; i < nodeCoor.Length; i++)
+            {
+                nodeCoor[i][0] += translateVector[0];
+                nodeCoor[i][1] += translateVector[1];
+                nodeCoor[i][2] += translateVector[2];
+            }
         }
         public string[] ScaleParts(string[] partNames, double[] scaleCenter, double[] scaleFactors, bool copy,
                                    ICollection<string> reservedPartNames, HashSet<int> reservedPartIds)

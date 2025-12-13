@@ -3570,6 +3570,72 @@ namespace vtkControl
             //
             if (_drawSymbolEdges) AddSymbolEdges(data, glyph.GetOutputPort());
         }
+        public void AddOrientedConeActors(vtkMaxActorData data, double symbolSize)
+        {
+            if (symbolSize > _maxSymbolSize) _maxSymbolSize = symbolSize;
+            //
+            double[][] points = data.Geometry.Nodes.Coor;
+            double[][] normals = data.Geometry.Nodes.Normals;
+            // Points
+            vtkPoints pointData = vtkPoints.New();
+            for (int i = 0; i < points.GetLength(0); i++)
+            {
+                if (points[i] != null && points[i].Length == 3)
+                    pointData.InsertNextPoint(points[i][0], points[i][1], points[i][2]);
+            }
+            // Normals
+            vtkDoubleArray pointNormalsArray = vtkDoubleArray.New();
+            pointNormalsArray.SetNumberOfComponents(3);
+            for (int i = 0; i < normals.GetLength(0); i++)
+            {
+                pointNormalsArray.InsertNextTuple3(normals[i][0], normals[i][1], normals[i][2]);
+            }
+            // Poly data
+            vtkPolyData polyData = vtkPolyData.New();
+            polyData.SetPoints(pointData);
+            polyData.GetPointData().SetNormals(pointNormalsArray);
+            // Calculate the distance to the camera of each point.
+            vtkDistanceToCamera distanceToCamera = vtkDistanceToCamera.New();
+            distanceToCamera.SetInput(polyData);
+            distanceToCamera.SetScreenSize(symbolSize);
+            distanceToCamera.SetRenderer(_renderer);
+            // Cone
+            //vtkTubeFilter cone = CreateConeSource(-0.5, 0, 0, 21);
+            vtkConeSource cone = vtkConeSource.New();
+            cone.SetCenter(-0.5, 0, 0);
+            cone.SetRadius(0.35);
+            cone.CappingOn();
+            cone.SetResolution(11);
+            // Triangulation helps with silhouette edges and 3mf export
+            vtkTriangleFilter triangleFilter = vtkTriangleFilter.New();
+            triangleFilter.SetInput(cone.GetOutput());
+            triangleFilter.Update();
+            // Glyph
+            vtkGlyph3D glyph = vtkGlyph3D.New();
+            glyph.SetSourceConnection(triangleFilter.GetOutputPort());
+            glyph.SetInputConnection(distanceToCamera.GetOutputPort());
+            glyph.SetVectorModeToUseNormal();
+            // Scale
+            glyph.ScalingOn();
+            glyph.SetScaleModeToScaleByScalar();
+            glyph.SetInputArrayToProcess(0, 0, 0, "vtkDataObject::FIELD_ASSOCIATION_POINTS", "DistanceToCamera");
+            glyph.SetScaleFactor(0.3);
+            glyph.OrientOn();
+            glyph.Update();
+            // Mapper
+            vtkPolyDataMapper mapper = vtkPolyDataMapper.New();
+            mapper.SetInputConnection(glyph.GetOutputPort());
+            mapper.ScalarVisibilityOff();
+            // Actor
+            data.Name += Globals.NameSeparator + "cones";
+            vtkMaxActor actor = new vtkMaxActor(data, mapper);
+            actor.GeometryProperty.SetRepresentationToSurface();
+            // Add
+            ApplySymbolFormattingToActor(actor);
+            AddActorGeometry(actor, data.Layer);
+            //
+            if (_drawSymbolEdges) AddSymbolEdges(data, glyph.GetOutputPort());
+        }
         public void AddOrientedRotationalConstraintActor(vtkMaxActorData data, double symbolSize)
         {
             if (symbolSize > _maxSymbolSize) _maxSymbolSize = symbolSize;

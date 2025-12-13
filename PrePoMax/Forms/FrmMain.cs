@@ -9868,6 +9868,10 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.AddOrientedDisplacementConstraintActor, actorData, symbolSize);
         }
+        public void AddOrientedConeActors(vtkMaxActorData data, double symbolSize)
+        {
+            InvokeIfRequired(_vtk.AddOrientedConeActors, data, symbolSize);
+        }
         public void AddOrientedRotationalConstraintActor(vtkMaxActorData actorData, double symbolSize)
         {
             InvokeIfRequired(_vtk.AddOrientedRotationalConstraintActor, actorData, symbolSize);

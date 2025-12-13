@@ -6519,9 +6519,9 @@ namespace PrePoMax
             _commands.AddAndExecute(comm);
         }
         // Transform
-        public void TranslateModelPartsCommand(string[] partNames, double[] translateVector, bool copy)
+        public void TranslateModelPartsCommand(string[] partNames, double[] translateVector, int numberOfCopies)
         {
-            CTranslateModelParts comm = new CTranslateModelParts(partNames, translateVector, copy);
+            CTranslateModelParts comm = new CTranslateModelParts(partNames, translateVector, numberOfCopies);
             _commands.AddAndExecute(comm);
         }
         public void ScaleModelPartsCommand(string[] partNames, double[] scaleCenter, double[] scaleFactors, bool copy)
@@ -6751,17 +6751,17 @@ namespace PrePoMax
             FeModelUpdate(UpdateType.Check);
         }
         // Transform
-        public void TranslateModelParts(string[] partNames, double[] translateVector, bool copy)
+        public void TranslateModelParts(string[] partNames, double[] translateVector, int numberOfCopies)
         {
             SuppressExplodedView();
             //
-            if (!copy) TranslateSelectionsContainingParts(partNames, translateVector);
+            if (numberOfCopies == -1) TranslateSelectionsContainingParts(partNames, translateVector);
             //
-            string[] translatedPartNames = _model.Mesh.TranslateParts(partNames, translateVector, copy,
+            string[] translatedPartNames = _model.Mesh.TranslateParts(partNames, translateVector, numberOfCopies,
                                                                       _model.GetReservedPartNames(),
                                                                       _model.GetReservedPartIds());
             //
-            if (copy)
+            if (translatedPartNames != null)
             {
                 foreach (var partName in translatedPartNames)
                 {
@@ -19312,7 +19312,7 @@ namespace PrePoMax
                 }
             }
         }
-        public void HighlightConnectedLines(double[][] lineNodeCoor)
+        public void HighlightConnectedLines(double[][] lineNodeCoor, bool useSecondaryHighlightColor = false)
         {
             // Create wire elements
             Color color = Color.Red;
@@ -19336,6 +19336,7 @@ namespace PrePoMax
             data.Geometry.Nodes.Coor = lineNodeCoor.ToArray();
             data.Geometry.Cells.CellNodeIds = cells;
             data.Geometry.Cells.Types = cellsTypes;
+            data.UseSecondaryHighlightColor = useSecondaryHighlightColor;
             //
             ApplyLighting(data);
             _form.Add3DCells(data);
@@ -19345,6 +19346,99 @@ namespace PrePoMax
             nodeCoor[1] = lineNodeCoor[lineNodeCoor.Length - 1];
             //
             //DrawNodes("short_edges", nodeCoor, color, layer, nodeSize);
+        }
+        public void HighlightLineWithArrow(double[] start, double[] end, bool startArrow, bool endArrow,
+                                           bool useSecondaryHighlightColor = false)
+        {
+            // Create wire elements
+            Color color = Color.Red;
+            vtkRendererLayer layer = vtkRendererLayer.Selection;
+            //
+            LinearBeamElement element = new LinearBeamElement(0, new int[] { 0, 1 });
+            //
+            int[][] cells = new int[][] { new int[] { 0, 1 } };
+            int[] cellsTypes = new int[] { element.GetVtkCellType() };
+            //
+            vtkMaxActorData data = new vtkMaxActorData();
+            data.Name = "LineWithArrow";
+            data.Color = color;
+            data.Layer = layer;
+            data.Pickable = false;
+            data.Geometry.Nodes.Ids = null;
+            data.Geometry.Nodes.Coor = new double[][] { start, end };
+            data.Geometry.Cells.CellNodeIds = cells;
+            data.Geometry.Cells.Types = cellsTypes;
+            data.UseSecondaryHighlightColor = useSecondaryHighlightColor;
+            //
+            ApplyLighting(data);
+            _form.Add3DCells(data);
+            //
+            List<double[]> points = new List<double[]>();
+            List<double[]> normals = new List<double[]>();
+            Vec3D normal = new Vec3D(end) - new Vec3D(start);
+            normal.Normalize();
+            //
+            if (startArrow)
+            {
+                points.Add(start);
+                normals.Add((normal * -1).Coor);
+            }
+            if (endArrow)
+            {
+                points.Add(end);
+                normals.Add(normal.Coor);
+            }
+            if (points.Count > 0)
+            {
+                int symbolSize = _settings.Pre.SymbolSize;
+                data = new vtkMaxActorData();
+                data.Name = "LineWithArrowCones";
+                data.Color = color;
+                data.Layer = layer;
+                data.Pickable = false;
+                data.Geometry.Nodes.Ids = null;
+                data.Geometry.Nodes.Coor = points.ToArray();
+                data.Geometry.Nodes.Normals = normals.ToArray();
+                data.UseSecondaryHighlightColor = useSecondaryHighlightColor;
+                //
+                ApplyLighting(data);
+                _form.AddOrientedConeActors(data, symbolSize);
+            }
+        }
+        // Transformations
+        public void HighlightTranslatedEdges(string[] _partNames, double[] translateVector, int numCopies,
+                                             bool useSecondaryHighlightColor = false)
+        {
+            Color color = Color.Red;
+            vtkRendererLayer layer = vtkRendererLayer.Selection;
+            //
+            FeMesh mesh = DisplayedMesh;
+            foreach (var partName in _partNames)
+            {
+                BasePart part = mesh.Parts[partName];
+                if (part.PartType.HasEdges() && part.Visualization.EdgeCells != null)
+                {
+                    vtkMaxActorData data = new vtkMaxActorData();
+                    data.Color = color;
+                    data.Layer = layer;
+                    data.Pickable = false;
+                    data.UseSecondaryHighlightColor = useSecondaryHighlightColor;
+                    //
+                    mesh.GetNodesAndCellsForModelEdges(part, out data.Geometry.Nodes.Ids, out data.Geometry.Nodes.Coor,
+                                                       out data.Geometry.Cells.CellNodeIds, out data.Geometry.Cells.Types);
+                    //
+                    if (numCopies == -1) numCopies = 1;
+                    for (int i = 0; i < numCopies; i++)
+                    {
+                        FeMesh.TranslateNodes(data.Geometry.Nodes.Coor, translateVector);
+                        //
+                        data.Name = "TranslatedEdges" + Globals.NameSeparator + i;
+                        //
+                        ApplyLighting(data);
+                        _form.Add3DCells(data);
+                    }
+                }
+            }
         }
         public void HighlightConnectedEdges(double[][][] lineNodeCoor, bool drawNodes = true)
         {

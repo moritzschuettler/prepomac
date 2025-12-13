@@ -62,12 +62,10 @@ namespace PrePoMax.Commands
             receiver.SetCalculixUserKeywords(_userKeywords.DeepClone());
             return true;
         }
-
         public override string GetCommandString()
         {
             return base.GetCommandString() + _userKeywords.Count;
         }
-
         // ISerialization
         public void GetObjectData(SerializationInfo info, StreamingContext context)
         {
