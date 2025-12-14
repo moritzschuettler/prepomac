@@ -6529,9 +6529,10 @@ namespace PrePoMax
             CScaleModelParts comm = new CScaleModelParts(partNames, scaleCenter, scaleFactors, copy);
             _commands.AddAndExecute(comm);
         }
-        public void RotateModelPartsCommand(string[] partNames, double[] rotateCenter, double[] rotateAxis, double rotateAngle, bool copy)
+        public void RotateModelPartsCommand(string[] partNames, double[] rotateCenter, double[] rotateAxis, double rotateAngle,
+                                            int numberOfCopies)
         {
-            CRotateModelParts comm = new CRotateModelParts(partNames, rotateCenter, rotateAxis, rotateAngle, copy);
+            CRotateModelParts comm = new CRotateModelParts(partNames, rotateCenter, rotateAxis, rotateAngle, numberOfCopies);
             _commands.AddAndExecute(comm);
         }
         //
@@ -6799,15 +6800,16 @@ namespace PrePoMax
             //
             FeModelUpdate(UpdateType.DrawModel | UpdateType.RedrawSymbols);
         }
-        public void RotateModelParts(string[] partNames, double[] rotateCenter, double[] rotateAxis, double rotateAngle, bool copy)
+        public void RotateModelParts(string[] partNames, double[] rotateCenter, double[] rotateAxis, double rotateAngle,
+                                     int numberOfCopies)
         {
             SuppressExplodedView();
             //
-            if (!copy) RotateSelectionsContainingParts(partNames, rotateCenter, rotateAxis, rotateAngle);
+            if (numberOfCopies == -1) RotateSelectionsContainingParts(partNames, rotateCenter, rotateAxis, rotateAngle);
             //
-            string[] rotatedPartNames = _model.Mesh.RotateParts(partNames, rotateCenter, rotateAxis, rotateAngle, copy,
+            string[] rotatedPartNames = _model.Mesh.RotateParts(partNames, rotateCenter, rotateAxis, rotateAngle, numberOfCopies,
                                                                 _model.GetReservedPartNames(), _model.GetReservedPartIds());
-            if (copy)
+            if (rotatedPartNames != null)
             {
                 foreach (var partName in rotatedPartNames)
                 {
@@ -7084,7 +7086,7 @@ namespace PrePoMax
                     {
                         if (snm.PickedPoint != null)
                         {
-                            snm.PickedPoint = FeMesh.RotatePoint(snm.PickedPoint, rotateCenter, rotateAxis, rotateAngle);
+                            FeMesh.RotatePoint(snm.PickedPoint, rotateCenter, rotateAxis, rotateAngle);
                         }
                         else if (snm.PlaneParameters != null)
                         {
@@ -7093,8 +7095,8 @@ namespace PrePoMax
                                 Array.Copy(snm.PlaneParameters[i], 0, point, 0, 3);
                                 Array.Copy(snm.PlaneParameters[i], 3, normal, 0, 3);
                                 //
-                                point = FeMesh.RotatePoint(point, rotateCenter, rotateAxis, rotateAngle);
-                                normal = FeMesh.RotatePoint(normal, rotateCenter, rotateAxis, rotateAngle);
+                                FeMesh.RotatePoint(point, rotateCenter, rotateAxis, rotateAngle);
+                                FeMesh.RotatePoint(normal, rotateCenter, rotateAxis, rotateAngle);
                                 //
                                 Array.Copy(point, 0, snm.PlaneParameters[i], 0, 3);
                                 Array.Copy(normal, 0, snm.PlaneParameters[i], 3, 3);
@@ -19430,13 +19432,78 @@ namespace PrePoMax
                     if (numCopies == -1) numCopies = 1;
                     for (int i = 0; i < numCopies; i++)
                     {
-                        FeMesh.TranslateNodes(data.Geometry.Nodes.Coor, translateVector);
+                        FeMesh.TranslatePoints(data.Geometry.Nodes.Coor, translateVector);
                         //
                         data.Name = "TranslatedEdges" + Globals.NameSeparator + i;
                         //
                         ApplyLighting(data);
                         _form.Add3DCells(data);
                     }
+                }
+            }
+        }
+        public void HighlightRotatedEdges(string[] _partNames, double[] rotateCenter, double[] rotateAxis, double rotateAngle,
+                                          int numCopies, bool useSecondaryHighlightColor = false)
+        {
+            Color color = Color.Red;
+            vtkRendererLayer layer = vtkRendererLayer.Selection;
+            //
+            FeMesh mesh = DisplayedMesh;
+            foreach (var partName in _partNames)
+            {
+                BasePart part = mesh.Parts[partName];
+                if (part.PartType.HasEdges() && part.Visualization.EdgeCells != null)
+                {
+                    vtkMaxActorData data = new vtkMaxActorData();
+                    data.Color = color;
+                    data.Layer = layer;
+                    data.Pickable = false;
+                    data.UseSecondaryHighlightColor = useSecondaryHighlightColor;
+                    //
+                    mesh.GetNodesAndCellsForModelEdges(part, out data.Geometry.Nodes.Ids, out data.Geometry.Nodes.Coor,
+                                                       out data.Geometry.Cells.CellNodeIds, out data.Geometry.Cells.Types);
+                    //
+                    if (numCopies == -1) numCopies = 1;
+                    for (int i = 0; i < numCopies; i++)
+                    {
+                        FeMesh.RotatePoints(data.Geometry.Nodes.Coor, rotateCenter, rotateAxis, rotateAngle);
+                        //
+                        data.Name = "RotatedEdges" + Globals.NameSeparator + i;
+                        //
+                        ApplyLighting(data);
+                        _form.Add3DCells(data);
+                    }
+                }
+            }
+        }
+        public void HighlightScaledEdges(string[] _partNames, double[] scaleCenter, double[] scaleFactors,
+                                         bool useSecondaryHighlightColor = false)
+        {
+            Color color = Color.Red;
+            vtkRendererLayer layer = vtkRendererLayer.Selection;
+            //
+            FeMesh mesh = DisplayedMesh;
+            foreach (var partName in _partNames)
+            {
+                BasePart part = mesh.Parts[partName];
+                if (part.PartType.HasEdges() && part.Visualization.EdgeCells != null)
+                {
+                    vtkMaxActorData data = new vtkMaxActorData();
+                    data.Color = color;
+                    data.Layer = layer;
+                    data.Pickable = false;
+                    data.UseSecondaryHighlightColor = useSecondaryHighlightColor;
+                    //
+                    mesh.GetNodesAndCellsForModelEdges(part, out data.Geometry.Nodes.Ids, out data.Geometry.Nodes.Coor,
+                                                       out data.Geometry.Cells.CellNodeIds, out data.Geometry.Cells.Types);
+                    //
+                    FeMesh.ScalePoints(data.Geometry.Nodes.Coor, scaleCenter, scaleFactors);
+                    //
+                    data.Name = "ScaledEdges" + Globals.NameSeparator;
+                    //
+                    ApplyLighting(data);
+                    _form.Add3DCells(data);
+                    
                 }
             }
         }

@@ -22,7 +22,6 @@ namespace PrePoMax.Forms
         private ContextMenuStrip cmsPropertyGrid;
         private System.ComponentModel.IContainer components;
         private ToolStripMenuItem tsmiResetAll;
-        private double[][] _coorLinesToDraw;
 
 
         // Properties                                                                                                               
@@ -39,10 +38,6 @@ namespace PrePoMax.Forms
             //
             _startPoint = new double[3];
             _endPoint = new double[3];
-            //
-            _coorLinesToDraw = new double[2][];
-            _coorLinesToDraw[0] = new double[3];
-            _coorLinesToDraw[1] = new double[3];
             //
             btnOK.Visible = false;
             btnOkAddNew.Width = btnOK.Width;
@@ -267,10 +262,10 @@ namespace PrePoMax.Forms
             _endPoint[1] = _translateParameters.Y2;
             _endPoint[2] = _translateParameters.Z2;
             //
-            double[] translateVector = _translateParameters.TranslateVector;
             _controller.ClearAllSelection();
             _controller.HighlightModelParts(_partNames, false, false);
             //
+            double[] translateVector = _translateParameters.TranslateVector;
             if (translateVector[0] != 0 || translateVector[1] != 0 || translateVector[2] != 0)
             {
                 _controller.HighlightLineWithArrow(_startPoint, _endPoint, false, true, true);

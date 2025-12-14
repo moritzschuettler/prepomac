@@ -186,7 +186,15 @@ namespace PrePoMax.Forms
         }
         //
         [Browsable(false)]
-        public double[] TranslateVector { get { return new double[] { X2 - X1, Y2 - Y1, Z2 - Z1 }; } }
+        public double[] TranslateVector
+        {
+            get
+            {
+                return new double[] { _endPoint[0] - _startPoint[0],
+                                      _endPoint[1] - _startPoint[1],
+                                      _endPoint[2] - _startPoint[2]};
+            }
+        }
 
 
         // Constructors                                                                                                             

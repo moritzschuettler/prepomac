@@ -16,10 +16,10 @@ namespace PrePoMax.Forms
         private ScaleParameters _scaleParameters;
         private Controller _controller;
         private string[] _partNames;
+        private double[] _scaleCenter;
         private ContextMenuStrip cmsPropertyGrid;
         private System.ComponentModel.IContainer components;
         private ToolStripMenuItem tsmiResetAll;
-        private double[][] _coorNodesToDraw;
         
         
         // Callbacks                                                                                                                
@@ -28,20 +28,7 @@ namespace PrePoMax.Forms
 
         // Properties                                                                                                               
         public string[] PartNames { get { return _partNames; } set { _partNames = value; } }
-        public double[] ScaleCenter
-        {
-            get
-            {
-                return new double[] { _scaleParameters.CenterX, _scaleParameters.CenterY, _scaleParameters.CenterZ };
-            }
-        }
-        public double[] ScaleFactors
-        {
-            get
-            {
-                return new double[] { _scaleParameters.FactorX, _scaleParameters.FactorY, _scaleParameters.FactorZ };
-            }
-        }
+        
 
 
         // Constructors                                                                                                             
@@ -52,8 +39,7 @@ namespace PrePoMax.Forms
             //
             _controller = controller;
             //
-            _coorNodesToDraw = new double[1][];
-            _coorNodesToDraw[0] = new double[3];
+            _scaleCenter = new double[3];
             //
             btnOK.Visible = false;
             btnOkAddNew.Width = btnOK.Width;
@@ -116,7 +102,8 @@ namespace PrePoMax.Forms
             if (_controller.CurrentView == ViewGeometryModelResults.Geometry)
                 ScaleGeometryParts();
             else if (_controller.CurrentView == ViewGeometryModelResults.Model)
-                _controller.ScaleModelPartsCommand(_partNames, ScaleCenter, ScaleFactors, _scaleParameters.Copy);
+                _controller.ScaleModelPartsCommand(_partNames, _scaleParameters.ScaleCenter, _scaleParameters.ScaleFactors,
+                                                   _scaleParameters.Copy);
             else throw new NotSupportedException();
             //
             HighlightNodes();
@@ -126,7 +113,9 @@ namespace PrePoMax.Forms
             try
             {
                 Enabled = false;
-                await ScaleGeometryPartsAsync?.Invoke(_partNames, ScaleCenter, ScaleFactors, _scaleParameters.Copy);
+                await ScaleGeometryPartsAsync?.Invoke(_partNames, _scaleParameters.ScaleCenter, _scaleParameters.ScaleFactors,
+                                                      _scaleParameters.Copy);
+                HighlightNodes(); // must be here to start after await
             }
             catch (Exception ex)
             {
@@ -149,7 +138,7 @@ namespace PrePoMax.Forms
             // Get center point grid item
             GridItem gi = propertyGrid.EnumerateAllItems().First((item) =>
                           item.PropertyDescriptor != null &&
-                          item.PropertyDescriptor.Name == nameof(_scaleParameters.Copy));
+                          item.PropertyDescriptor.Name == nameof(_scaleParameters.ScaleOnly));
             // Select it
             gi.Select();
             //
@@ -173,7 +162,7 @@ namespace PrePoMax.Forms
         public void PickedIds(int[] ids)
         {
             Vec3D point = null;
-            FeMesh mesh = GetMesh();
+            FeMesh mesh = _controller.DisplayedMesh;
             //
             bool finished = false;
             string propertyName = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
@@ -229,22 +218,21 @@ namespace PrePoMax.Forms
         }
         private void HighlightNodes()
         {
-            _coorNodesToDraw[0][0] = _scaleParameters.CenterX;
-            _coorNodesToDraw[0][1] = _scaleParameters.CenterY;
-            _coorNodesToDraw[0][2] = _scaleParameters.CenterZ;
+            _scaleCenter[0] = _scaleParameters.CenterX;
+            _scaleCenter[1] = _scaleParameters.CenterY;
+            _scaleCenter[2] = _scaleParameters.CenterZ;
             //
             _controller.ClearAllSelection();
-            _controller.HighlightNodes(_coorNodesToDraw);
+            if (_controller.CurrentView == ViewGeometryModelResults.Geometry)
+                _controller.HighlightGeometryParts(_partNames);
+            else if (_controller.CurrentView == ViewGeometryModelResults.Model)
+                _controller.HighlightModelParts(_partNames, false, false);
+            //
+            if (_scaleParameters.FactorX != 0 && _scaleParameters.FactorY != 0 && _scaleParameters.FactorZ != 0)
+            {
+                _controller.HighlightNodes(new double[][] { _scaleCenter });
+                _controller.HighlightScaledEdges(_partNames, _scaleCenter, _scaleParameters.ScaleFactors, true);
+            }
         }
-        //
-        private FeMesh GetMesh()
-        {
-            if (_controller.CurrentView == ViewGeometryModelResults.Model)
-                return _controller.Model.Mesh;
-            else if (_controller.CurrentView == ViewGeometryModelResults.Results)
-                return _controller.AllResults.CurrentResult.Mesh;
-            else throw new NotSupportedException();
-        }
-
     }
 }

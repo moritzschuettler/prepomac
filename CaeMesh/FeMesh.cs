@@ -9714,7 +9714,7 @@ namespace CaeMesh
             StringBuilder sb = new StringBuilder();
             sb.AppendLine("int		number of additional edges");
             sb.AppendLine(part.Visualization.EdgeCells.Length.ToString());
-
+            //
             FeNode node1;
             FeNode node2;
             foreach (int[] cell in part.Visualization.EdgeCells)
@@ -9725,8 +9725,8 @@ namespace CaeMesh
                 sb.AppendLine(String.Format("{0} {1} {2}", (float)node1.X, (float)node1.Y, (float)node1.Z));
                 sb.AppendLine(String.Format("{0} {1} {2}", (float)node2.X, (float)node2.Y, (float)node2.Z));
             }
-
-            System.IO.File.WriteAllText(fileName, sb.ToString());
+            //
+            File.WriteAllText(fileName, sb.ToString());
         }
 
         // Transformations
@@ -9734,7 +9734,7 @@ namespace CaeMesh
                                        ICollection<string> reservedPartNames, HashSet<int> reservedPartIds)
         {
             string[] translatedPartNames = partNames;
-            List<string> allTranslatedPartNames = new List<string>(partNames);
+            List<string> allTranslatedPartNames = new List<string>();
             //
             int count = 1;
             do
@@ -9771,10 +9771,10 @@ namespace CaeMesh
             //
             ComputeVolumeArea();
             //
-            if (numberOfCopies > 0) return translatedPartNames;
+            if (numberOfCopies > 0) return allTranslatedPartNames.ToArray();
             else return null;
         }
-        public static void TranslateNodes(double[][] nodeCoor, double[] translateVector)
+        public static void TranslatePoints(double[][] nodeCoor, double[] translateVector)
         {
             for (int i = 0; i < nodeCoor.Length; i++)
             {
@@ -9782,6 +9782,14 @@ namespace CaeMesh
                 nodeCoor[i][1] += translateVector[1];
                 nodeCoor[i][2] += translateVector[2];
             }
+        }
+        public void ScaleAllParts(double scale)
+        {
+            string[] partNames = _parts.Keys.ToArray();
+            double[] scaleCenter = new double[] { 0, 0, 0 };
+            double[] scaleFactors = new double[] { scale, scale, scale };
+            //
+            ScaleParts(partNames, scaleCenter, scaleFactors, false, null, null);
         }
         public string[] ScaleParts(string[] partNames, double[] scaleCenter, double[] scaleFactors, bool copy,
                                    ICollection<string> reservedPartNames, HashSet<int> reservedPartIds)
@@ -9827,51 +9835,61 @@ namespace CaeMesh
             if (copy) return scaledPartNames;
             else return null;
         }
-        public void ScaleAllParts(double scale)
+        public static void ScalePoints(double[][] points, double[] scaleCenter, double[] scaleFactors)
         {
-            string[] partNames = _parts.Keys.ToArray();
-            double[] scaleCenter = new double[] { 0, 0, 0 };
-            double[] scaleFactors = new double[] { scale, scale, scale };
-            //
-            ScaleParts(partNames, scaleCenter, scaleFactors, false, null, null);
+            for (int i = 0; i < points.Length; i++)
+            {
+                points[i][0] = scaleCenter[0] + (points[i][0] - scaleCenter[0]) * scaleFactors[0];
+                points[i][1] = scaleCenter[1] + (points[i][1] - scaleCenter[1]) * scaleFactors[1];
+                points[i][2] = scaleCenter[2] + (points[i][2] - scaleCenter[2]) * scaleFactors[2];
+            }
         }
-        public string[] RotateParts(string[] partNames, double[] rotateCenter, double[] rotateAxis, double rotateAngle, bool copy,
-                                    ICollection<string> reservedPartNames, HashSet<int> reservedPartIds)
+        public string[] RotateParts(string[] partNames, double[] rotateCenter, double[] rotateAxis, double rotateAngle,
+                                    int numberOfCopies, ICollection<string> reservedPartNames, HashSet<int> reservedPartIds)
         {
-            string[] rotatedPartNames = partNames.ToArray();
+            string[] rotatedPartNames = partNames;
+            List<string> allTranslatedPartNames = new List<string>();
             //
-            if (copy)
+            int count = 1;
+            do
             {
-                FeMesh mesh = this.DeepCopy();
-                rotatedPartNames = AddPartsFromMesh(mesh, rotatedPartNames, reservedPartNames, reservedPartIds);
+                if (numberOfCopies > 0)
+                {
+                    FeMesh mesh = this.DeepCopy();
+                    rotatedPartNames = AddPartsFromMesh(mesh, partNames, reservedPartNames, reservedPartIds);
+                    allTranslatedPartNames.AddRange(rotatedPartNames);
+                }
+                //
+                HashSet<int> nodeLabels = new HashSet<int>();
+                foreach (var partName in rotatedPartNames) nodeLabels.UnionWith(_parts[partName].NodeLabels);
+                // Rotate nodes
+                FeNode node;
+                double[] x;
+                double[][] m = RotationMatrix(rotateAxis, rotateAngle * count);
+                foreach (var nodeId in nodeLabels)
+                {
+                    node = _nodes[nodeId];
+                    // Translate to origin
+                    node.X -= rotateCenter[0];
+                    node.Y -= rotateCenter[1];
+                    node.Z -= rotateCenter[2];
+                    // Copy
+                    x = node.Coor;
+                    // Rotate
+                    node.X = m[0][0] * x[0] + m[0][1] * x[1] + m[0][2] * x[2];
+                    node.Y = m[1][0] * x[0] + m[1][1] * x[1] + m[1][2] * x[2];
+                    node.Z = m[2][0] * x[0] + m[2][1] * x[1] + m[2][2] * x[2];
+                    // Translate to rotation center
+                    node.X += rotateCenter[0];
+                    node.Y += rotateCenter[1];
+                    node.Z += rotateCenter[2];
+                    // Copy data
+                    _nodes[nodeId] = node;
+                }
+                //
+                count++;
             }
-            //
-            HashSet<int> nodeLabels = new HashSet<int>();
-            foreach (var partName in rotatedPartNames) nodeLabels.UnionWith(_parts[partName].NodeLabels);
-            // Rotate nodes
-            FeNode node;
-            double[] x;
-            double[][] m = RotationMatrix(rotateAxis, rotateAngle);
-            foreach (var nodeId in nodeLabels)
-            {
-                node = _nodes[nodeId];
-                // Translate to origin
-                node.X -= rotateCenter[0];
-                node.Y -= rotateCenter[1];
-                node.Z -= rotateCenter[2];
-                // Copy
-                x = node.Coor;
-                // Rotate
-                node.X = m[0][0] * x[0] + m[0][1] * x[1] + m[0][2] * x[2];
-                node.Y = m[1][0] * x[0] + m[1][1] * x[1] + m[1][2] * x[2];
-                node.Z = m[2][0] * x[0] + m[2][1] * x[1] + m[2][2] * x[2];
-                // Translate to rotation center
-                node.X += rotateCenter[0];
-                node.Y += rotateCenter[1];
-                node.Z += rotateCenter[2];
-                // Copy data
-                _nodes[nodeId] = node;
-            }
+            while (count <= numberOfCopies);
             // Update node sets
             foreach (var entry in _nodeSets) UpdateNodeSetCenterOfGravity(entry.Value);
             // Update reference points
@@ -9881,31 +9899,38 @@ namespace CaeMesh
             //
             ComputeVolumeArea();
             //
-            if (copy) return rotatedPartNames;
+            if (numberOfCopies > 0) return allTranslatedPartNames.ToArray();
             else return null;
         }
-        public static double[] RotatePoint(double[] point, double[] rotateCenter, double[] rotateAxis, double rotateAngle)
+        public static void RotatePoint(double[] point, double[] rotateCenter, double[] rotateAxis, double rotateAngle)
         {
-            double[] rotated = point.ToArray();
-            // Matrix
-            double[][] m = RotationMatrix(rotateAxis, rotateAngle);
-            // Translate to origin
-            rotated[0] -= rotateCenter[0];
-            rotated[1] -= rotateCenter[1];
-            rotated[2] -= rotateCenter[2];
-            // Copy
-            double[] x = rotated.ToArray();
-            // Rotate
-            rotated[0] = m[0][0] * x[0] + m[0][1] * x[1] + m[0][2] * x[2];
-            rotated[1] = m[1][0] * x[0] + m[1][1] * x[1] + m[1][2] * x[2];
-            rotated[2] = m[2][0] * x[0] + m[2][1] * x[1] + m[2][2] * x[2];
-            // Translate to rotation center
-            rotated[0] += rotateCenter[0];
-            rotated[1] += rotateCenter[1];
-            rotated[2] += rotateCenter[2];
-            // Return
-            return rotated;
+            double[][] rotated = new double[][] { point };
+            RotatePoints(rotated, rotateCenter, rotateAxis, rotateAngle);
         }
+        public static void RotatePoints(double[][] points, double[] rotateCenter, double[] rotateAxis, double rotateAngle)
+        {
+            // Matrix
+            double[] x;
+            double[][] m = RotationMatrix(rotateAxis, rotateAngle);
+            for (int i = 0; i < points.Length; i++)
+            {
+                // Translate to origin
+                points[i][0] -= rotateCenter[0];
+                points[i][1] -= rotateCenter[1];
+                points[i][2] -= rotateCenter[2];
+                // Copy
+                 x = points[i].ToArray();
+                // Rotate
+                points[i][0] = m[0][0] * x[0] + m[0][1] * x[1] + m[0][2] * x[2];
+                points[i][1] = m[1][0] * x[0] + m[1][1] * x[1] + m[1][2] * x[2];
+                points[i][2] = m[2][0] * x[0] + m[2][1] * x[1] + m[2][2] * x[2];
+                // Translate to rotation center
+                points[i][0] += rotateCenter[0];
+                points[i][1] += rotateCenter[1];
+                points[i][2] += rotateCenter[2];
+            }
+        }
+       
         private static double[][] RotationMatrix(double[] rotateAxis, double rotateAngle)
         {
             //https://stackoverflow.com/questions/6721544/circular-rotation-around-an-arbitrary-axis
@@ -9936,7 +9961,6 @@ namespace CaeMesh
 
             return m;
         }
-        
         // Tools
         public string[] CreatePrismaticBoundaryLayer(int[] geometrySurfaceIds, double thickness, bool preview,
                                                      out FeNode[] inPressedNodes)
