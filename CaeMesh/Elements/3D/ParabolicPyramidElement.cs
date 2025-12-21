@@ -248,6 +248,15 @@ namespace CaeMesh
                                            nodes[NodeIds[8]], nodes[NodeIds[9]], nodes[NodeIds[10]], nodes[NodeIds[11]],
                                            nodes[NodeIds[12]], out volume);
         }
+        //
+        public override void Mirror()
+        {
+            // 0-1-2-3-4-5-6-7-8-9-10-11-12 -> 0-3-2-1-4-8-7-6-5-9-12-11-10
+            NodeIds = new int[] { NodeIds[0], NodeIds[3], NodeIds[2], NodeIds[1], NodeIds[4],
+                                  NodeIds[8], NodeIds[7], NodeIds[6], NodeIds[5],
+                                  NodeIds[9], NodeIds[12],NodeIds[11],NodeIds[10]};
+        }
+        //
         public override FeElement DeepCopy()
         {
             return new ParabolicPyramidElement(Id, PartId, NodeIds.ToArray());

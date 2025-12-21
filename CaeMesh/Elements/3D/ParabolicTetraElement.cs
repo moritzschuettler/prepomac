@@ -200,6 +200,15 @@ namespace CaeMesh
                                                nodes[NodeIds[6]], nodes[NodeIds[7]],
                                                nodes[NodeIds[8]], nodes[NodeIds[9]], out volume);
         }
+        //
+        public override void Mirror()
+        {
+            // 0-1-2-3-4-5-6-7-8-9 -> 0-2-1-3-6-5-4-7-9-8
+            NodeIds = new int[] { NodeIds[0], NodeIds[2], NodeIds[1], NodeIds[3],
+                                  NodeIds[6], NodeIds[5], NodeIds[4],
+                                  NodeIds[7], NodeIds[9], NodeIds[8] };
+        }
+        //
         public override FeElement DeepCopy()
         {
             return new ParabolicTetraElement(Id, PartId, NodeIds.ToArray());

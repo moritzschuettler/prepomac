@@ -11,7 +11,7 @@ using System.Threading;
 
 namespace PrePoMax.Forms
 {
-    class FrmTranslate : UserControls.FrmProperties, IFormBase
+    class FrmTranslate : UserControls.FrmProperties, IFormBase, IFormHighlight
     {
         // Variables                                                                                                                
         private TranslateParameters _translateParameters;
@@ -117,7 +117,7 @@ namespace PrePoMax.Forms
         }
         protected override void OnPropertyGridPropertyValueChanged()
         {
-            HighlightNodes();
+            Highlight();
             //
             base.OnPropertyGridPropertyValueChanged();
         }
@@ -128,14 +128,14 @@ namespace PrePoMax.Forms
             _controller.TranslateModelPartsCommand(_partNames, _translateParameters.TranslateVector,
                                                    _translateParameters.NumberOfCopies);
             //
-            HighlightNodes();
+            Highlight();
         }
         protected override bool OnPrepareForm(string stepName, string itemToEditName)
         {
             // Clear
             _controller.ClearSelectionHistoryAndCallSelectionChanged();
             if (_translateParameters == null) tsmiResetAll_Click(null, null);   // first time only
-            _translateParameters.ClearTranslation();    // called on OkAddNew
+            _translateParameters.ClearTranslate();    // called on OkAddNew
             // Disable selection
             _controller.SetSelectByToOff();
             // Get start point grid item
@@ -147,7 +147,7 @@ namespace PrePoMax.Forms
             //
             propertyGrid.Refresh();
             //
-            HighlightNodes();
+            Highlight();
             //
             propertyGrid.BuildAutocompleteMenu(_controller.GetAllParameterNames());
             //
@@ -249,10 +249,10 @@ namespace PrePoMax.Forms
                 //
                 _controller.ClearSelectionHistory();
                 //
-                HighlightNodes();
+                Highlight();
             }
         }
-        private void HighlightNodes()
+        public void Highlight()
         {
             _startPoint[0] = _translateParameters.X1;
             _startPoint[1] = _translateParameters.Y1;

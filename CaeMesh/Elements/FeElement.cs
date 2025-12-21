@@ -187,6 +187,9 @@ namespace CaeMesh
             elementSize = double.NaN;
             return cg;
         }
+        //
+        abstract public void Mirror();
+        //
         abstract public FeElement DeepCopy();
     }
 }

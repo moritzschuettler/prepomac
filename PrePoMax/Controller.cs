@@ -5662,10 +5662,7 @@ namespace PrePoMax
             foreach (var partName in partNames)
             {
                 meshPart = (MeshPart)_model.Mesh.Parts[partName];
-                if (meshPart.PartType == PartType.Solid)
-                    _model.Mesh.ExtractSolidPartVisualization(meshPart, edgeAngle);
-                else if (meshPart.PartType == PartType.Shell)
-                    _model.Mesh.ExtractShellPartVisualization(meshPart, false, edgeAngle);
+                _model.Mesh.ExtractPartVisualization(meshPart, false, edgeAngle);
                 // Update
                 _form.UpdateTreeNode(ViewGeometryModelResults.Model, meshPart.Name, meshPart, null);
             }
@@ -6524,15 +6521,20 @@ namespace PrePoMax
             CTranslateModelParts comm = new CTranslateModelParts(partNames, translateVector, numberOfCopies);
             _commands.AddAndExecute(comm);
         }
-        public void ScaleModelPartsCommand(string[] partNames, double[] scaleCenter, double[] scaleFactors, bool copy)
-        {
-            CScaleModelParts comm = new CScaleModelParts(partNames, scaleCenter, scaleFactors, copy);
-            _commands.AddAndExecute(comm);
-        }
         public void RotateModelPartsCommand(string[] partNames, double[] rotateCenter, double[] rotateAxis, double rotateAngle,
                                             int numberOfCopies)
         {
             CRotateModelParts comm = new CRotateModelParts(partNames, rotateCenter, rotateAxis, rotateAngle, numberOfCopies);
+            _commands.AddAndExecute(comm);
+        }
+        public void MirrorModelPartsCommand(string[] partNames, double[] mirrorPoint, double[] mirrorDirection, bool copy)
+        {
+            CMirrorModelParts comm = new CMirrorModelParts(partNames, mirrorPoint, mirrorDirection, copy);
+            _commands.AddAndExecute(comm);
+        }
+        public void ScaleModelPartsCommand(string[] partNames, double[] scaleCenter, double[] scaleFactors, bool copy)
+        {
+            CScaleModelParts comm = new CScaleModelParts(partNames, scaleCenter, scaleFactors, copy);
             _commands.AddAndExecute(comm);
         }
         //
@@ -6776,6 +6778,55 @@ namespace PrePoMax
             //
             FeModelUpdate(UpdateType.DrawModel | UpdateType.RedrawSymbols);
         }
+        
+        public void RotateModelParts(string[] partNames, double[] rotateCenter, double[] rotateAxis, double rotateAngle,
+                                     int numberOfCopies)
+        {
+            SuppressExplodedView();
+            //
+            if (numberOfCopies == -1) RotateSelectionsContainingParts(partNames, rotateCenter, rotateAxis, rotateAngle);
+            //
+            string[] rotatedPartNames = _model.Mesh.RotateParts(partNames, rotateCenter, rotateAxis, rotateAngle, numberOfCopies,
+                                                                _model.GetReservedPartNames(), _model.GetReservedPartIds());
+            if (rotatedPartNames != null)
+            {
+                foreach (var partName in rotatedPartNames)
+                {
+                    _form.AddTreeNode(ViewGeometryModelResults.Model, _model.Mesh.Parts[partName], null);
+                }
+            }
+            //
+            UpdateAfterPartsChanged(); // must be here before any drawing
+            //
+            if (IsExplodedViewActive()) UpdateExplodedView(false);
+            //
+            FeModelUpdate(UpdateType.DrawModel | UpdateType.RedrawSymbols);
+        }
+        public void MirrorModelParts(string[] partNames, double[] mirrorPoint, double[] mirrorDirection, bool copy)
+        {
+            SuppressExplodedView();
+            //
+            if (!copy) MirrorSelectionsContainingParts(partNames, mirrorPoint, mirrorDirection);
+            //
+            string[] mirroredPartNames = _model.Mesh.MirrorParts(partNames, mirrorPoint, mirrorDirection, copy,
+                                                                 _model.GetReservedPartNames(),
+                                                                 _model.GetReservedPartIds());
+            if (copy)
+            {
+                foreach (var partName in mirroredPartNames)
+                {
+                    _form.AddTreeNode(ViewGeometryModelResults.Model, _model.Mesh.Parts[partName], null);
+                }
+            }
+            //
+            UpdateAfterPartsChanged(); // must be here before any drawing
+            //
+            if (IsExplodedViewActive()) UpdateExplodedView(false);
+            //
+            UpdateGeometryBasedItems(false, false);
+            //
+            FeModelUpdate(UpdateType.DrawModel | UpdateType.RedrawSymbols);
+        }
         public void ScaleModelParts(string[] partNames, double[] scaleCenter, double[] scaleFactors, bool copy)
         {
             bool explodedViewActive = IsExplodedViewActive();
@@ -6797,29 +6848,6 @@ namespace PrePoMax
             UpdateAfterPartsChanged(); // must be here before any drawing
             //
             if (explodedViewActive) TurnExplodedViewOnOff(false);
-            //
-            FeModelUpdate(UpdateType.DrawModel | UpdateType.RedrawSymbols);
-        }
-        public void RotateModelParts(string[] partNames, double[] rotateCenter, double[] rotateAxis, double rotateAngle,
-                                     int numberOfCopies)
-        {
-            SuppressExplodedView();
-            //
-            if (numberOfCopies == -1) RotateSelectionsContainingParts(partNames, rotateCenter, rotateAxis, rotateAngle);
-            //
-            string[] rotatedPartNames = _model.Mesh.RotateParts(partNames, rotateCenter, rotateAxis, rotateAngle, numberOfCopies,
-                                                                _model.GetReservedPartNames(), _model.GetReservedPartIds());
-            if (rotatedPartNames != null)
-            {
-                foreach (var partName in rotatedPartNames)
-                {
-                    _form.AddTreeNode(ViewGeometryModelResults.Model, _model.Mesh.Parts[partName], null);
-                }
-            }
-            //
-            UpdateAfterPartsChanged(); // must be here before any drawing
-            //
-            if (IsExplodedViewActive()) UpdateExplodedView(false);
             //
             FeModelUpdate(UpdateType.DrawModel | UpdateType.RedrawSymbols);
         }
@@ -6918,103 +6946,102 @@ namespace PrePoMax
         private void TranslateSelectionsContainingParts(string[] partNames, double[] translateVector)
         {
             BasePart part;
-            FeNodeSet nodeSet;
-            FeElementSet elementSet;
-            FeSurface surface;
             for (int i = 0; i < partNames.Length; i++)
             {
                 part = _model.Mesh.Parts[partNames[i]];
                 //
                 foreach (var entry in _model.Mesh.NodeSets)
                 {
-                    nodeSet = entry.Value;
-                    //
-                    TranslateSelection(nodeSet.CreationData, part.PartId, translateVector);
+                    TranslateSelection(entry.Value.CreationData, part.PartId, translateVector);
                 }
                 //
                 foreach (var entry in _model.Mesh.ElementSets)
                 {
-                    elementSet = entry.Value;
-                    //
-                    TranslateSelection(elementSet.CreationData, part.PartId, translateVector);
+                    TranslateSelection(entry.Value.CreationData, part.PartId, translateVector);
                 }
                 //
                 foreach (var entry in _model.Mesh.Surfaces)
                 {
-                    surface = entry.Value;
-                    //
-                    TranslateSelection(surface.CreationData, part.PartId, translateVector);
+                    TranslateSelection(entry.Value.CreationData, part.PartId, translateVector);
+                }
+            }
+        }
+        
+        private void RotateSelectionsContainingParts(string[] partNames, double[] rotateCenter, double[] rotateAxis,
+                                                     double rotateAngle)
+        {
+            BasePart part;
+            for (int i = 0; i < partNames.Length; i++)
+            {
+                part = _model.Mesh.Parts[partNames[i]];
+                //
+                foreach (var entry in _model.Mesh.NodeSets)
+                {
+                    RotateSelection(entry.Value.CreationData, part.PartId, rotateCenter, rotateAxis, rotateAngle);
+                }
+                //
+                foreach (var entry in _model.Mesh.ElementSets)
+                {
+                    RotateSelection(entry.Value.CreationData, part.PartId, rotateCenter, rotateAxis, rotateAngle);
+                }
+                //
+                foreach (var entry in _model.Mesh.Surfaces)
+                {
+                    RotateSelection(entry.Value.CreationData, part.PartId, rotateCenter, rotateAxis, rotateAngle);
+                }
+            }
+        }
+        private void MirrorSelectionsContainingParts(string[] partNames, double[] mirrorPoint, double[] mirrorDirection)
+        {
+            BasePart part;
+            for (int i = 0; i < partNames.Length; i++)
+            {
+                part = _model.Mesh.Parts[partNames[i]];
+                //
+                foreach (var entry in _model.Mesh.NodeSets)
+                {
+                    MirrorSelection(entry.Value.CreationData, part.PartId, mirrorPoint, mirrorDirection);
+                }
+                //
+                foreach (var entry in _model.Mesh.ElementSets)
+                {
+                    MirrorSelection(entry.Value.CreationData, part.PartId, mirrorPoint, mirrorDirection);
+                }
+                //
+                foreach (var entry in _model.Mesh.Surfaces)
+                {
+                    MirrorSelection(entry.Value.CreationData, part.PartId, mirrorPoint, mirrorDirection);
                 }
             }
         }
         private void ScaleSelectionsContainingParts(string[] partNames, double[] scaleCenter, double[] scaleFactors)
         {
             BasePart part;
-            FeNodeSet nodeSet;
-            FeElementSet elementSet;
-            FeSurface surface;
             for (int i = 0; i < partNames.Length; i++)
             {
                 part = _model.Mesh.Parts[partNames[i]];
                 //
                 foreach (var entry in _model.Mesh.NodeSets)
                 {
-                    nodeSet = entry.Value;
-                    //
-                    ScaleSelection(nodeSet.CreationData, part.PartId, scaleCenter, scaleFactors);
+                    ScaleSelection(entry.Value.CreationData, part.PartId, scaleCenter, scaleFactors);
                 }
                 //
                 foreach (var entry in _model.Mesh.ElementSets)
                 {
-                    elementSet = entry.Value;
-                    //
-                    ScaleSelection(elementSet.CreationData, part.PartId, scaleCenter, scaleFactors);
+                    ScaleSelection(entry.Value.CreationData, part.PartId, scaleCenter, scaleFactors);
                 }
                 //
                 foreach (var entry in _model.Mesh.Surfaces)
                 {
-                    surface = entry.Value;
-                    //
-                    ScaleSelection(surface.CreationData, part.PartId, scaleCenter, scaleFactors);
-                }
-            }
-        }
-        private void RotateSelectionsContainingParts(string[] partNames, double[] rotateCenter, double[] rotateAxis,
-                                                     double rotateAngle)
-        {
-            BasePart part;
-            FeNodeSet nodeSet;
-            FeElementSet elementSet;
-            FeSurface surface;
-            for (int i = 0; i < partNames.Length; i++)
-            {
-                part = _model.Mesh.Parts[partNames[i]];
-                //
-                foreach (var entry in _model.Mesh.NodeSets)
-                {
-                    nodeSet = entry.Value;
-                    //
-                    RotateSelection(nodeSet.CreationData, part.PartId, rotateCenter, rotateAxis, rotateAngle);
-                }
-                //
-                foreach (var entry in _model.Mesh.ElementSets)
-                {
-                    elementSet = entry.Value;
-                    //
-                    RotateSelection(elementSet.CreationData, part.PartId, rotateCenter, rotateAxis, rotateAngle);
-                }
-                //
-                foreach (var entry in _model.Mesh.Surfaces)
-                {
-                    surface = entry.Value;
-                    //
-                    RotateSelection(surface.CreationData, part.PartId, rotateCenter, rotateAxis, rotateAngle);
+                    ScaleSelection(entry.Value.CreationData, part.PartId, scaleCenter, scaleFactors);
                 }
             }
         }
         //
         private void TranslateSelection(Selection selection, int partId, double[] translateVector)
         {
+            double[] point = new double[3];
+            //
             if (selection != null)
             {
                 foreach (var node in selection.Nodes)
@@ -7023,48 +7050,17 @@ namespace PrePoMax
                     {
                         if (snm.PickedPoint != null)
                         {
-                            snm.PickedPoint[0] += translateVector[0];
-                            snm.PickedPoint[1] += translateVector[1];
-                            snm.PickedPoint[2] += translateVector[2];
+                            FeMesh.TranslatePoint(snm.PickedPoint, translateVector);
                         }
                         else if (snm.PlaneParameters != null)
                         {
                             for (int i = 0; i < snm.PlaneParameters.Length; i++)
                             {
-                                snm.PlaneParameters[i][0] += translateVector[0];
-                                snm.PlaneParameters[i][1] += translateVector[1];
-                                snm.PlaneParameters[i][2] += translateVector[2];
-                            }
-                        }
-                        else throw new NotSupportedException();
-                    }
-                }
-            }
-        }
-        private void ScaleSelection(Selection selection, int partId, double[] scaleCenter, double[] scaleFactors)
-        {
-            if (selection != null)
-            {
-                foreach (var node in selection.Nodes)
-                {
-                    if (node is SelectionNodeMouse snm && snm.PartIds.Contains(partId))
-                    {
-                        if (snm.PickedPoint != null)
-                        {
-                            snm.PickedPoint[0] = scaleCenter[0] + (snm.PickedPoint[0] - scaleCenter[0]) * scaleFactors[0];
-                            snm.PickedPoint[1] = scaleCenter[1] + (snm.PickedPoint[1] - scaleCenter[1]) * scaleFactors[1];
-                            snm.PickedPoint[2] = scaleCenter[2] + (snm.PickedPoint[2] - scaleCenter[2]) * scaleFactors[2];
-                        }
-                        else if (snm.PlaneParameters != null)
-                        {
-                            for (int i = 0; i < snm.PlaneParameters.Length; i++)
-                            {
-                                snm.PlaneParameters[i][0] =
-                                    scaleCenter[0] + (snm.PlaneParameters[i][0] - scaleCenter[0]) * scaleFactors[0];
-                                snm.PlaneParameters[i][1] =
-                                    scaleCenter[1] + (snm.PlaneParameters[i][1] - scaleCenter[1]) * scaleFactors[1];
-                                snm.PlaneParameters[i][2] =
-                                    scaleCenter[2] + (snm.PlaneParameters[i][2] - scaleCenter[2]) * scaleFactors[2];
+                                Array.Copy(snm.PlaneParameters[i], 0, point, 0, 3);
+                                //
+                                FeMesh.TranslatePoint(point, translateVector);
+                                //
+                                Array.Copy(point, 0, snm.PlaneParameters[i], 0, 3);
                             }
                         }
                         else throw new NotSupportedException();
@@ -7100,6 +7096,70 @@ namespace PrePoMax
                                 //
                                 Array.Copy(point, 0, snm.PlaneParameters[i], 0, 3);
                                 Array.Copy(normal, 0, snm.PlaneParameters[i], 3, 3);
+                            }
+                        }
+                        else throw new NotSupportedException();
+                    }
+                }
+            }
+        }
+        private void MirrorSelection(Selection selection, int partId, double[] mirrorPoint, double[] mirrorDirection)
+        {
+            double[] point = new double[3];
+            double[] normal = new double[3];
+            //
+            if (selection != null)
+            {
+                foreach (var node in selection.Nodes)
+                {
+                    if (node is SelectionNodeMouse snm && snm.PartIds.Contains(partId))
+                    {
+                        if (snm.PickedPoint != null)
+                        {
+                            FeMesh.MirrorPoint(snm.PickedPoint, mirrorPoint, mirrorDirection);
+                        }
+                        else if (snm.PlaneParameters != null)
+                        {
+                            for (int i = 0; i < snm.PlaneParameters.Length; i++)
+                            {
+                                Array.Copy(snm.PlaneParameters[i], 0, point, 0, 3);
+                                Array.Copy(snm.PlaneParameters[i], 3, normal, 0, 3);
+                                //
+                                FeMesh.MirrorPoint(point, mirrorPoint, mirrorDirection);
+                                FeMesh.MirrorPoint(normal, mirrorPoint, mirrorDirection);
+                                //
+                                Array.Copy(point, 0, snm.PlaneParameters[i], 0, 3);
+                                Array.Copy(normal, 0, snm.PlaneParameters[i], 3, 3);
+                            }
+                        }
+                        else throw new NotSupportedException();
+                    }
+                }
+            }
+        }
+        private void ScaleSelection(Selection selection, int partId, double[] scaleCenter, double[] scaleFactors)
+        {
+            double[] point = new double[3];
+            //
+            if (selection != null)
+            {
+                foreach (var node in selection.Nodes)
+                {
+                    if (node is SelectionNodeMouse snm && snm.PartIds.Contains(partId))
+                    {
+                        if (snm.PickedPoint != null)
+                        {
+                            FeMesh.ScalePoint(snm.PickedPoint, scaleCenter, scaleFactors);
+                        }
+                        else if (snm.PlaneParameters != null)
+                        {
+                            for (int i = 0; i < snm.PlaneParameters.Length; i++)
+                            {
+                                Array.Copy(snm.PlaneParameters[i], 0, point, 0, 3);
+                                //
+                                FeMesh.ScalePoint(point, scaleCenter, scaleFactors);
+                                //
+                                Array.Copy(point, 0, snm.PlaneParameters[i], 0, 3);
                             }
                         }
                         else throw new NotSupportedException();
@@ -19473,6 +19533,37 @@ namespace PrePoMax
                         ApplyLighting(data);
                         _form.Add3DCells(data);
                     }
+                }
+            }
+        }
+        public void HighlightMirroredEdges(string[] _partNames, double[] mirrorPoint, double[] mirrorDirection, 
+                                           bool mirror, bool useSecondaryHighlightColor = false)
+        {
+            Color color = Color.Red;
+            vtkRendererLayer layer = vtkRendererLayer.Selection;
+            //
+            FeMesh mesh = DisplayedMesh;
+            foreach (var partName in _partNames)
+            {
+                BasePart part = mesh.Parts[partName];
+                if (part.PartType.HasEdges() && part.Visualization.EdgeCells != null)
+                {
+                    vtkMaxActorData data = new vtkMaxActorData();
+                    data.Color = color;
+                    data.Layer = layer;
+                    data.Pickable = false;
+                    data.UseSecondaryHighlightColor = useSecondaryHighlightColor;
+                    //
+                    mesh.GetNodesAndCellsForModelEdges(part, out data.Geometry.Nodes.Ids, out data.Geometry.Nodes.Coor,
+                                                       out data.Geometry.Cells.CellNodeIds, out data.Geometry.Cells.Types);
+                    //
+                    FeMesh.MirrorPoints(data.Geometry.Nodes.Coor, mirrorPoint, mirrorDirection);
+                    //
+                    data.Name = "MirroredEdges" + Globals.NameSeparator;
+                    //
+                    ApplyLighting(data);
+                    _form.Add3DCells(data);
+
                 }
             }
         }

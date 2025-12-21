@@ -361,7 +361,7 @@ namespace PrePoMax.Forms
                 }
                 else throw new NotSupportedException();
                 //
-                _controller.HighlightNodes(_coorNodesToDraw);
+                _controller.HighlightNodes(_coorNodesToDraw, true);
             }
             catch { }
         }

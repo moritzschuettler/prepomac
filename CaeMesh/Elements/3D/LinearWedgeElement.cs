@@ -214,6 +214,13 @@ namespace CaeMesh
             return GeometryTools.WedgeCG(nodes[NodeIds[0]], nodes[NodeIds[1]], nodes[NodeIds[2]],
                                          nodes[NodeIds[3]], nodes[NodeIds[4]], nodes[NodeIds[5]], out volume);
         }
+        //
+        public override void Mirror()
+        {
+            // 0-1-2-3-4-5 -> 0-2-1-3-5-4
+            NodeIds = new int[] { NodeIds[0], NodeIds[2], NodeIds[1], NodeIds[3], NodeIds[5], NodeIds[4] };
+        }
+        //
         public override FeElement DeepCopy()
         {
             return new LinearWedgeElement(Id, PartId, NodeIds.ToArray());

@@ -119,9 +119,9 @@ namespace PrePoMax.Forms
                 if (_twoD) _startPoint[2] = 0;
             }
         }
-        //
+        //                                                          
         [Category("End point coordinates")]
-        [OrderedDisplayName(0, 10, "Selection method")]
+        [OrderedDisplayName(0, 10, "Selection method ")]    // must be a different name than for the first point !!!
         [DescriptionAttribute("Choose the selection method.")]
         [Id(1, 3)]
         public PointSelectionMethodEnum EndPointSelectionMethod
@@ -222,9 +222,6 @@ namespace PrePoMax.Forms
             }
             else throw new NotSupportedException();
             //
-            _dctd.GetProperty(nameof(Z1)).SetIsBrowsable(!_twoD);
-            _dctd.GetProperty(nameof(Z2)).SetIsBrowsable(!_twoD);
-            //
             UpdateVisibility();
         }
 
@@ -234,12 +231,12 @@ namespace PrePoMax.Forms
         {
             _translate = true;
             _numberOfCopies = -1;
-            ClearTranslation();
+            ClearTranslate();
         }
-        public void ClearTranslation()
+        public void ClearTranslate()
         {
             _startPoint = new double[3];
-            _endPoint = new double[] { 0, 0, 0 };
+            _endPoint = new double[3];
             if (_twoD)
             {
                 Z1 = 0;
@@ -248,6 +245,9 @@ namespace PrePoMax.Forms
         }
         public void UpdateVisibility()
         {
+            _dctd.GetProperty(nameof(Z1)).SetIsBrowsable(!_twoD);
+            _dctd.GetProperty(nameof(Z2)).SetIsBrowsable(!_twoD);
+            //
             bool visible = !_translate;
             _dctd.GetProperty(nameof(NumberOfCopies)).SetIsBrowsable(visible);
         }

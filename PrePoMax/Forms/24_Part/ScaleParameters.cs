@@ -173,8 +173,7 @@ namespace PrePoMax.Forms
             }
             else throw new NotSupportedException();
             //
-            _dctd.GetProperty(nameof(CenterZ)).SetIsBrowsable(!_twoD);
-            _dctd.GetProperty(nameof(FactorZ)).SetIsBrowsable(!_twoD);
+            UpdateVisibility();
         }
 
 
@@ -191,6 +190,11 @@ namespace PrePoMax.Forms
                 CenterZ = 0;
                 FactorZ = 1;
             }
+        }
+        public void UpdateVisibility()
+        {
+            _dctd.GetProperty(nameof(CenterZ)).SetIsBrowsable(!_twoD);
+            _dctd.GetProperty(nameof(FactorZ)).SetIsBrowsable(!_twoD);
         }
     }
 }

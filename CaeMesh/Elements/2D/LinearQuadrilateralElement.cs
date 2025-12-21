@@ -198,6 +198,13 @@ namespace CaeMesh
             return GeometryTools.QuadrilateralCG(nodes[NodeIds[0]], nodes[NodeIds[1]], nodes[NodeIds[2]],
                                                  nodes[NodeIds[3]], out area);
         }
+        //
+        public override void Mirror()
+        {
+            // 0-1-2-3 -> 0-3-2-1
+            NodeIds = new int[] { NodeIds[0], NodeIds[3], NodeIds[2], NodeIds[1] };
+        }
+        //
         public override FeElement DeepCopy()
         {
             return new LinearQuadrilateralElement(Id, PartId, NodeIds.ToArray());

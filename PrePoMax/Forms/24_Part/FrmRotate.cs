@@ -10,7 +10,7 @@ using System.Drawing;
 
 namespace PrePoMax.Forms
 {
-    class FrmRotate : UserControls.FrmProperties, IFormBase
+    class FrmRotate : UserControls.FrmProperties, IFormBase, IFormHighlight
     {
         // Variables                                                                                                                
         private RotateParameters _rotateParameters;
@@ -25,7 +25,6 @@ namespace PrePoMax.Forms
 
         // Properties                                                                                                               
         public string[] PartNames { get { return _partNames; } set { _partNames = value; } }
-        
 
 
         // Constructors                                                                                                             
@@ -108,7 +107,7 @@ namespace PrePoMax.Forms
         // Event handlers                                                                                                           
         protected override void OnPropertyGridPropertyValueChanged()
         {
-            HighlightNodes();
+            Highlight();
             //
             base.OnPropertyGridPropertyValueChanged();
         }
@@ -118,7 +117,7 @@ namespace PrePoMax.Forms
             _controller.RotateModelPartsCommand(_partNames, _rotateParameters.RotateCenter, _rotateParameters.RotateAxis,
                                                 angle, _rotateParameters.NumberOfCopies);
             //
-            HighlightNodes();
+            Highlight();
         }
         protected override bool OnPrepareForm(string stepName, string itemToEditName)
         {
@@ -137,7 +136,7 @@ namespace PrePoMax.Forms
             //
             propertyGrid.Refresh();
             //
-            HighlightNodes();
+            Highlight();
             //
             propertyGrid.BuildAutocompleteMenu(_controller.GetAllParameterNames());
             //
@@ -238,10 +237,10 @@ namespace PrePoMax.Forms
                 //
                 _controller.ClearSelectionHistory();
                 //
-                HighlightNodes();
+                Highlight();
             }
         }
-        private void HighlightNodes()
+        public void Highlight()
         {
             _startPoint[0] = _rotateParameters.X1;
             _startPoint[1] = _rotateParameters.Y1;

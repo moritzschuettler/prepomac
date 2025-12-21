@@ -70,8 +70,9 @@ namespace PrePoMax
         private FrmElementQuality _frmElementQuality;
         private FrmPartProperties _frmPartProperties;
         private FrmTranslate _frmTranslate;
-        private FrmScale _frmScale;
         private FrmRotate _frmRotate;
+        private FrmMirror _frmMirror;
+        private FrmScale _frmScale;
         private FrmNodeSet _frmNodeSet;
         private FrmElementSet _frmElementSet;
         private FrmSurface _frmSurface;
@@ -402,12 +403,15 @@ namespace PrePoMax
                 _frmTranslate = new FrmTranslate(_controller);
                 AddFormToAllForms(_frmTranslate);
                 //
+                _frmRotate = new FrmRotate(_controller);
+                AddFormToAllForms(_frmRotate);
+                //
+                _frmMirror = new FrmMirror(_controller);
+                AddFormToAllForms(_frmMirror);
+                //
                 _frmScale = new FrmScale(_controller);
                 _frmScale.ScaleGeometryPartsAsync = ScaleGeometryPartsAsync;
                 AddFormToAllForms(_frmScale);
-                //
-                _frmRotate = new FrmRotate(_controller);
-                AddFormToAllForms(_frmRotate);
                 //
                 _frmNodeSet = new FrmNodeSet(_controller);
                 AddFormToAllForms(_frmNodeSet);
@@ -4374,22 +4378,33 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiScaleModelParts_Click(object sender, EventArgs e)
+        private void tsmiRotateModelParts_Click(object sender, EventArgs e)
         {
             try
             {
-                SelectMultipleEntities("Parts", _controller.GetModelParts(), ScaleModelParts);
+                SelectMultipleEntities("Parts", _controller.GetModelParts(), RotateModelParts);
             }
             catch (Exception ex)
             {
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiRotateModelParts_Click(object sender, EventArgs e)
+        private void tsmiMirrorModelParts_Click(object sender, EventArgs e)
         {
             try
             {
-                SelectMultipleEntities("Parts", _controller.GetModelParts(), RotateModelParts);
+                SelectMultipleEntities("Parts", _controller.GetModelParts(), MirrorModelParts);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiScaleModelParts_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Parts", _controller.GetModelParts(), ScaleModelParts);
             }
             catch (Exception ex)
             {
@@ -4502,23 +4517,32 @@ namespace PrePoMax
             //
             ShowForm(_frmTranslate, "Translate Parts: " + partNames.ToShortString(), null);
         }
-        private void ScaleModelParts(string[] partNames)
-        {
-            SinglePointDataEditor.ParentForm = _frmScale;
-            SinglePointDataEditor.Controller = _controller;
-            // Set all part names for scaling
-            _frmScale.PartNames = partNames;    
-            //
-            ShowForm(_frmScale, "Scale Parts: " + partNames.ToShortString(), null);
-        }
         private void RotateModelParts(string[] partNames)
         {
             SinglePointDataEditor.ParentForm = _frmRotate;
             SinglePointDataEditor.Controller = _controller;
             // Set all part names for rotation
-            _frmRotate.PartNames = partNames;    
+            _frmRotate.PartNames = partNames;
             //
             ShowForm(_frmRotate, "Rotate Parts: " + partNames.ToShortString(), null);
+        }
+        private void MirrorModelParts(string[] partNames)
+        {
+            SinglePointDataEditor.ParentForm = _frmMirror;
+            SinglePointDataEditor.Controller = _controller;
+            // Set all part names for mirror
+            _frmMirror.PartNames = partNames;    
+            //
+            ShowForm(_frmMirror, "Mirror Parts: " + partNames.ToShortString(), null);
+        }
+        private void ScaleModelParts(string[] partNames)
+        {
+            SinglePointDataEditor.ParentForm = _frmScale;
+            SinglePointDataEditor.Controller = _controller;
+            // Set all part names for scaling
+            _frmScale.PartNames = partNames;
+            //
+            ShowForm(_frmScale, "Scale Parts: " + partNames.ToShortString(), null);
         }
         //
         private void MergeModelParts(string[] partNames)
@@ -8518,8 +8542,9 @@ namespace PrePoMax
             if (_frmSectionView != null && _frmSectionView.Visible) _frmSectionView.PickedIds(ids);
             if (_frmFollowerView != null && _frmFollowerView.Visible) _frmFollowerView.PickedIds(ids);
             if (_frmTranslate != null && _frmTranslate.Visible) _frmTranslate.PickedIds(ids);
-            if (_frmScale != null && _frmScale.Visible) _frmScale.PickedIds(ids);
             if (_frmRotate != null && _frmRotate.Visible) _frmRotate.PickedIds(ids);
+            if (_frmMirror != null && _frmMirror.Visible) _frmMirror.PickedIds(ids);
+            if (_frmScale != null && _frmScale.Visible) _frmScale.PickedIds(ids);
             if (_frmQuery != null && _frmQuery.Visible) _frmQuery.PickedIds(ids);
             if (_frmTransformation != null && _frmTransformation.Visible) _frmTransformation.PickedIds(ids);
             //
@@ -11132,7 +11157,7 @@ namespace PrePoMax
             }
         }
 
-        
+       
     }
 }
 

@@ -206,7 +206,7 @@ namespace PrePoMax.Forms
             //
             if (_controller.DisplayedMesh.Nodes.TryGetValue(_viewFollowerViewParameters.CenterNodeId, out node))
                 _coorNodesToDraw.Add(node.Coor);
-            if (_coorNodesToDraw.Count > 0) _controller.HighlightNodes(_coorNodesToDraw.ToArray());
+            if (_coorNodesToDraw.Count > 0) _controller.HighlightNodes(_coorNodesToDraw.ToArray(), true);
             //
             _coorNodesToDraw.Clear();
             if (_viewFollowerViewParameters.Type == FollowerViewTypeEnum.Plane)

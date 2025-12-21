@@ -217,6 +217,13 @@ namespace CaeMesh
             return GeometryTools.PyramidCG(nodes[NodeIds[0]], nodes[NodeIds[1]], nodes[NodeIds[2]],
                                            nodes[NodeIds[3]], nodes[NodeIds[4]], out volume);
         }
+        //
+        public override void Mirror()
+        {
+            // 0-1-2-3-4 -> 0-3-2-1-4
+            NodeIds = new int[] { NodeIds[0], NodeIds[3], NodeIds[2], NodeIds[1], NodeIds[4] };
+        }
+        //
         public override FeElement DeepCopy()
         {
             return new LinearPyramidElement(Id, PartId, NodeIds.ToArray());

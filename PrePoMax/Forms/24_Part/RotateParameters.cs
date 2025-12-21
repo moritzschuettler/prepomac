@@ -140,9 +140,9 @@ namespace PrePoMax.Forms
                 if (_twoD) _startPoint[2] = 0;
             }
         }
-        //
+        //                                                          
         [Category("End axis point coordinates")]
-        [OrderedDisplayName(0, 10, "Selection method")]
+        [OrderedDisplayName(0, 10, "Selection method ")]    // must be a different name than for the first point !!!
         [DescriptionAttribute("Choose the selection method.")]
         [Id(1, 3)]
         public PointSelectionMethodEnum EndPointSelectionMethod
@@ -253,13 +253,6 @@ namespace PrePoMax.Forms
             }
             else throw new NotSupportedException();
             //
-            _dctd.GetProperty(nameof(Z1)).SetIsBrowsable(!_twoD);
-            // End point
-            _dctd.GetProperty(nameof(EndPointItemSet)).SetIsBrowsable(!_twoD);
-            _dctd.GetProperty(nameof(X2)).SetIsBrowsable(!_twoD);
-            _dctd.GetProperty(nameof(Y2)).SetIsBrowsable(!_twoD);
-            _dctd.GetProperty(nameof(Z2)).SetIsBrowsable(!_twoD);
-            //
             UpdateVisibility();
         }
 
@@ -274,7 +267,7 @@ namespace PrePoMax.Forms
         public void ClearRotation()
         {
             _startPoint = new double[3];
-            _endPoint = new double[] { 0, 0, 0 };
+            _endPoint = new double[3];
             _angleDeg = 90;
             //
             if (_twoD)
@@ -285,6 +278,13 @@ namespace PrePoMax.Forms
         }
         public void UpdateVisibility()
         {
+            _dctd.GetProperty(nameof(Z1)).SetIsBrowsable(!_twoD);
+            // End point
+            _dctd.GetProperty(nameof(EndPointItemSet)).SetIsBrowsable(!_twoD);
+            _dctd.GetProperty(nameof(X2)).SetIsBrowsable(!_twoD);
+            _dctd.GetProperty(nameof(Y2)).SetIsBrowsable(!_twoD);
+            _dctd.GetProperty(nameof(Z2)).SetIsBrowsable(!_twoD);
+            //
             bool visible = !_rotate;
             _dctd.GetProperty(nameof(NumberOfCopies)).SetIsBrowsable(visible);
         }

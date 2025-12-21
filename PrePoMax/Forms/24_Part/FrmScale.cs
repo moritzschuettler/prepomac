@@ -10,7 +10,7 @@ using System.Drawing;
 
 namespace PrePoMax.Forms
 {
-    class FrmScale : UserControls.FrmProperties, IFormBase
+    class FrmScale : UserControls.FrmProperties, IFormBase, IFormHighlight
     {
         // Variables                                                                                                                
         private ScaleParameters _scaleParameters;
@@ -29,7 +29,6 @@ namespace PrePoMax.Forms
         // Properties                                                                                                               
         public string[] PartNames { get { return _partNames; } set { _partNames = value; } }
         
-
 
         // Constructors                                                                                                             
         public FrmScale(Controller controller) 
@@ -93,7 +92,7 @@ namespace PrePoMax.Forms
         // Event handlers                                                                                                           
         protected override void OnPropertyGridPropertyValueChanged()
         {
-            HighlightNodes();
+            Highlight();
             //
             base.OnPropertyGridPropertyValueChanged();
         }
@@ -106,7 +105,7 @@ namespace PrePoMax.Forms
                                                    _scaleParameters.Copy);
             else throw new NotSupportedException();
             //
-            HighlightNodes();
+            Highlight();
         }
         async private void ScaleGeometryParts()
         {
@@ -115,7 +114,7 @@ namespace PrePoMax.Forms
                 Enabled = false;
                 await ScaleGeometryPartsAsync?.Invoke(_partNames, _scaleParameters.ScaleCenter, _scaleParameters.ScaleFactors,
                                                       _scaleParameters.Copy);
-                HighlightNodes(); // must be here to start after await
+                Highlight(); // must be here to start after await
             }
             catch (Exception ex)
             {
@@ -144,7 +143,7 @@ namespace PrePoMax.Forms
             //
             propertyGrid.Refresh();
             //
-            HighlightNodes();
+            Highlight();
             //
             propertyGrid.BuildAutocompleteMenu(_controller.GetAllParameterNames());
             //
@@ -213,10 +212,10 @@ namespace PrePoMax.Forms
                 //
                 _controller.ClearSelectionHistory();
                 //
-                HighlightNodes();
+                Highlight();
             }
         }
-        private void HighlightNodes()
+        public void Highlight()
         {
             _scaleCenter[0] = _scaleParameters.CenterX;
             _scaleCenter[1] = _scaleParameters.CenterY;
@@ -230,7 +229,7 @@ namespace PrePoMax.Forms
             //
             if (_scaleParameters.FactorX != 0 && _scaleParameters.FactorY != 0 && _scaleParameters.FactorZ != 0)
             {
-                _controller.HighlightNodes(new double[][] { _scaleCenter });
+                _controller.HighlightNodes(new double[][] { _scaleCenter }, true);
                 _controller.HighlightScaledEdges(_partNames, _scaleCenter, _scaleParameters.ScaleFactors, true);
             }
         }
