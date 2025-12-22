@@ -320,48 +320,29 @@ namespace PrePoMax.Forms
             {
                 _controller.ClearAllSelection();
                 //
-                _coorNodesToDraw = new double[1][];
-                _coorNodesToDraw[0] = new double[3];
-                //
-                _coorLinesToDraw = new double[2][];
-                _coorLinesToDraw[0] = new double[3];
-                //
                 if (propertyGrid.SelectedObject == null) { }
                 else if (propertyGrid.SelectedObject is ViewSymmetry vs)
                 {
-                    _coorNodesToDraw[0][0] = vs.SymmetryPointX;
-                    _coorNodesToDraw[0][1] = vs.SymmetryPointY;
-                    _coorNodesToDraw[0][2] = vs.SymmetryPointZ;
+                    double[] symmetryPoint = new double[] { vs.SymmetryPointX, vs.SymmetryPointY, vs.SymmetryPointZ };
+                    _controller.HighlightNodes(new double[][] { symmetryPoint }, true);
                 }
                 else if (propertyGrid.SelectedObject is ViewLinearPattern vlp)
                 {
-                    _coorNodesToDraw[0][0] = vlp.EndPointX;
-                    _coorNodesToDraw[0][1] = vlp.EndPointY;
-                    _coorNodesToDraw[0][2] = vlp.EndPointZ;
+                    double[] start = new double[] { vlp.StartPointX, vlp.StartPointY, vlp.StartPointZ };
+                    double[] end = new double[] { vlp.EndPointX, vlp.EndPointY, vlp.EndPointZ };
                     //
-                    _coorLinesToDraw[0][0] = vlp.StartPointX;
-                    _coorLinesToDraw[0][1] = vlp.StartPointY;
-                    _coorLinesToDraw[0][2] = vlp.StartPointZ;
-                    _coorLinesToDraw[1] = _coorNodesToDraw[0];
-                    //
-                    _controller.HighlightConnectedLines(_coorLinesToDraw);
+                    _controller.HighlightNodes(new double[][] { start, end }, true);
+                    _controller.HighlightLineWithArrow(start, end, false, true, true);
                 }
                 else if (propertyGrid.SelectedObject is ViewCircularPattern vcp)
                 {
-                    _coorNodesToDraw[0][0] = vcp.SecondPointX;
-                    _coorNodesToDraw[0][1] = vcp.SecondPointY;
-                    _coorNodesToDraw[0][2] = vcp.SecondPointZ;
+                    double[] firstPoint = new double[] { vcp.FirstPointX, vcp.FirstPointY, vcp.FirstPointZ };
+                    double[] secondPoint = new double[] { vcp.SecondPointX, vcp.SecondPointY, vcp.SecondPointZ };
                     //
-                    _coorLinesToDraw[0][0] = vcp.FirstPointX;
-                    _coorLinesToDraw[0][1] = vcp.FirstPointY;
-                    _coorLinesToDraw[0][2] = vcp.FirstPointZ;
-                    _coorLinesToDraw[1] = _coorNodesToDraw[0];
-                    //
-                    _controller.HighlightConnectedLines(_coorLinesToDraw);
+                    _controller.HighlightNodes(new double[][] { firstPoint, secondPoint }, true);
+                    _controller.HighlightLineWithArrow(firstPoint, secondPoint, false, true, true);
                 }
                 else throw new NotSupportedException();
-                //
-                _controller.HighlightNodes(_coorNodesToDraw, true);
             }
             catch { }
         }

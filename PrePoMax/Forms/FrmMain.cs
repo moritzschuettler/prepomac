@@ -9827,29 +9827,11 @@ namespace PrePoMax
         //
         public vtkMaxActor Add3DNodes(vtkMaxActorData nodeData)
         {
-            vtkMaxActor actor = null;
-            if (this.InvokeRequired)
-            {
-                this.Invoke((MethodInvoker)delegate () { actor = _vtk.AddPoints(nodeData); });
-            }
-            else
-            {
-                actor = _vtk.AddPoints(nodeData);
-            }
-            return actor;
+            return InvokeIfRequired(() => _vtk.AddPoints(nodeData));
         }
         public vtkMaxActor Add3DCells(vtkMaxActorData cellData)
         {
-            vtkMaxActor actor = null;
-            if (this.InvokeRequired)
-            {
-                this.Invoke((MethodInvoker)delegate () { actor = _vtk.AddCells(cellData); });
-            }
-            else
-            {
-                actor = _vtk.AddCells(cellData);
-            }
-            return actor;
+            return InvokeIfRequired(() => _vtk.AddCells(cellData));
         }
         public void Add3DCells(vtkMaxActorData[] cellData)
         {

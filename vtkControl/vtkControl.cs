@@ -1944,7 +1944,8 @@ namespace vtkControl
                                             highlightColor.B / 255d * k);
             actor.GeometryProperty.SetAmbient(ambient);    // color background - even away from light
             actor.GeometryProperty.SetDiffuse(diffuse);    // color from the lights
-            actor.GeometryProperty.SetLineWidth(2.2f);
+            if (actor.GeometryProperty.GetLineWidth() == 1)
+                actor.GeometryProperty.SetLineWidth(2.2f);
             actor.GeometryProperty.SetOpacity(1);
             //property.BackfaceCullingOn();
             actor.Geometry.PickableOff();

@@ -19410,7 +19410,7 @@ namespace PrePoMax
             //DrawNodes("short_edges", nodeCoor, color, layer, nodeSize);
         }
         public void HighlightLineWithArrow(double[] start, double[] end, bool startArrow, bool endArrow,
-                                           bool useSecondaryHighlightColor = false)
+                                           bool useSecondaryHighlightColor = false, float width = 4)
         {
             // Create wire elements
             Color color = Color.Red;
@@ -19425,6 +19425,7 @@ namespace PrePoMax
             data.Name = "LineWithArrow";
             data.Color = color;
             data.Layer = layer;
+            data.LineWidth = width;
             data.Pickable = false;
             data.Geometry.Nodes.Ids = null;
             data.Geometry.Nodes.Coor = new double[][] { start, end };
