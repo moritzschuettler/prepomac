@@ -18852,6 +18852,8 @@ namespace PrePoMax
             {
                 if (allPartNames.Contains(part.Name) && _form.ContainsActor(part.Name))
                 {
+                    _form.HighlightActor(part.Name);
+                    //
                     solidError = (part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell) && part.HasFreeEdges;
                     shellError = part.PartType == PartType.Shell && part.HasErrors;
                     //
@@ -18883,7 +18885,7 @@ namespace PrePoMax
                         data.Layer = layer;
                         data.CanHaveElementEdges = true;
                         data.BackfaceCulling = true;
-                        data.UseSecondaryHighlightColor = false;
+                        data.UseSecondaryHighlightColor = true;
                         //
                         ApplyLighting(data);
                         _form.Add3DCells(data);
@@ -18898,7 +18900,7 @@ namespace PrePoMax
                         {
                             if (part.ErrorNodeIds != null) nodeIds.UnionWith(part.ErrorNodeIds);
                         }
-                        DrawNodes(part.Name, nodeIds.ToArray(), color, layer, out _);
+                        DrawNodes(part.Name, nodeIds.ToArray(), color, layer, out _, -1, false, true);
                         // Free                                             
                         if (shellError)
                         {
@@ -18931,9 +18933,9 @@ namespace PrePoMax
                             DrawNodes(part.Name, nodeIds.ToArray(), color, layer, out _, -1, false, true);
                         }
                     }
-                    else
+                    //else
                     {
-                        _form.HighlightActor(part.Name);
+                        
                     }
                 }
             }
