@@ -705,6 +705,7 @@
             this.cltvGeometry.HighlightForeErrorColor = System.Drawing.Color.Red;
             this.cltvGeometry.ImageIndex = 0;
             this.cltvGeometry.ImageList = this.ilIcons;
+            this.cltvGeometry.LabelEdit = true;
             this.cltvGeometry.Location = new System.Drawing.Point(0, 21);
             this.cltvGeometry.MouseOverColor = System.Drawing.Color.FromArgb(((int)(((byte)(204)))), ((int)(((byte)(228)))), ((int)(((byte)(247)))));
             this.cltvGeometry.Name = "cltvGeometry";
@@ -765,6 +766,7 @@
             this.cltvGeometry.TabIndex = 0;
             this.cltvGeometry.MouseOverNodeChangedEvent += new System.Action<object>(this.cltv_MouseOverNodeChangedEvent);
             this.cltvGeometry.SelectionsChanged += new System.EventHandler(this.cltv_SelectionsChanged);
+            this.cltvGeometry.AfterLabelEdit += new System.Windows.Forms.NodeLabelEditEventHandler(this.cltv_AfterLabelEdit);
             this.cltvGeometry.BeforeCollapse += new System.Windows.Forms.TreeViewCancelEventHandler(this.cltv_BeforeCollapse);
             this.cltvGeometry.AfterCollapse += new System.Windows.Forms.TreeViewEventHandler(this.cltv_AfterCollapse);
             this.cltvGeometry.BeforeExpand += new System.Windows.Forms.TreeViewCancelEventHandler(this.cltv_BeforeExpand);
@@ -811,6 +813,7 @@
             this.cltvModel.HighlightForeErrorColor = System.Drawing.Color.Red;
             this.cltvModel.ImageIndex = 0;
             this.cltvModel.ImageList = this.ilIcons;
+            this.cltvModel.LabelEdit = true;
             this.cltvModel.Location = new System.Drawing.Point(0, 21);
             this.cltvModel.Margin = new System.Windows.Forms.Padding(0);
             this.cltvModel.MouseOverColor = System.Drawing.Color.FromArgb(((int)(((byte)(204)))), ((int)(((byte)(228)))), ((int)(((byte)(247)))));
@@ -923,6 +926,7 @@
             this.cltvModel.TabIndex = 0;
             this.cltvModel.MouseOverNodeChangedEvent += new System.Action<object>(this.cltv_MouseOverNodeChangedEvent);
             this.cltvModel.SelectionsChanged += new System.EventHandler(this.cltv_SelectionsChanged);
+            this.cltvModel.AfterLabelEdit += new System.Windows.Forms.NodeLabelEditEventHandler(this.cltv_AfterLabelEdit);
             this.cltvModel.BeforeCollapse += new System.Windows.Forms.TreeViewCancelEventHandler(this.cltv_BeforeCollapse);
             this.cltvModel.AfterCollapse += new System.Windows.Forms.TreeViewEventHandler(this.cltv_AfterCollapse);
             this.cltvModel.BeforeExpand += new System.Windows.Forms.TreeViewCancelEventHandler(this.cltv_BeforeExpand);
@@ -969,6 +973,7 @@
             this.cltvResults.HighlightForeErrorColor = System.Drawing.Color.Red;
             this.cltvResults.ImageIndex = 0;
             this.cltvResults.ImageList = this.ilIcons;
+            this.cltvResults.LabelEdit = true;
             this.cltvResults.Location = new System.Drawing.Point(0, 21);
             this.cltvResults.Margin = new System.Windows.Forms.Padding(0);
             this.cltvResults.MouseOverColor = System.Drawing.Color.FromArgb(((int)(((byte)(204)))), ((int)(((byte)(228)))), ((int)(((byte)(247)))));
@@ -1043,6 +1048,7 @@
             this.cltvResults.TabIndex = 0;
             this.cltvResults.MouseOverNodeChangedEvent += new System.Action<object>(this.cltv_MouseOverNodeChangedEvent);
             this.cltvResults.SelectionsChanged += new System.EventHandler(this.cltv_SelectionsChanged);
+            this.cltvResults.AfterLabelEdit += new System.Windows.Forms.NodeLabelEditEventHandler(this.cltv_AfterLabelEdit);
             this.cltvResults.BeforeCollapse += new System.Windows.Forms.TreeViewCancelEventHandler(this.cltv_BeforeCollapse);
             this.cltvResults.AfterCollapse += new System.Windows.Forms.TreeViewEventHandler(this.cltv_AfterCollapse);
             this.cltvResults.BeforeExpand += new System.Windows.Forms.TreeViewCancelEventHandler(this.cltv_BeforeExpand);

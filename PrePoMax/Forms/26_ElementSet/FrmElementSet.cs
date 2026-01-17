@@ -130,7 +130,6 @@ namespace PrePoMax.Forms
             }
             //
             propertyGrid.SelectedObject = _viewElementSet;
-            propertyGrid.Select();
             // Show ItemSetDataForm
             ItemSetDataEditor.SelectionForm.ItemSetData = new ItemSetData(ElementSet.Labels);
             ItemSetDataEditor.SelectionForm.ShowIfHidden(this.Owner);

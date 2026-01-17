@@ -1901,7 +1901,9 @@ namespace PrePoMax
             string argument = "BREP_VISUALIZATION " +
                               "\"" + brepFileName.ToUTF8() + "\" " +
                               "\"" + visFileName + "\" " +
-                              _settings.Graphics.GeometryDeflection.ToString();
+                              _settings.Graphics.LinearDeflection.ToString() + " " +
+                              Convert.ToInt32(_settings.Graphics.LinearDeflectionRelative) + " " +
+                              _settings.Graphics.AngularDeflectionRad.ToString();
             //
             _executableJob = new ExecutableJob("Brep", executable, argument, workDirectory);
             _executableJob.AppendOutput += executableJob_AppendOutput;
@@ -3266,6 +3268,12 @@ namespace PrePoMax
             }
             //
             UpdateAfterPartsChanged();
+        }
+        public void RenameGeometryPart(string oldPartName, string newPartName)
+        {
+            PartProperties newPartProperties = GetGeometryPart(oldPartName).GetProperties();
+            newPartProperties.Name = newPartName;
+            ReplaceGeometryPartProperties(oldPartName, newPartProperties);
         }
         // Transform
         public void ScaleGeometryParts(string[] partNames, double[] scaleCenter, double[] scaleFactors, bool copy)
@@ -5528,6 +5536,12 @@ namespace PrePoMax
             //
             FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
         }
+        public void RenameMeshSetupItem(string oldMeshSetupItemName, string newMeshSetupItemName)
+        {
+            MeshSetupItem meshSetupItem = _model.Geometry.MeshSetupItems[oldMeshSetupItemName];
+            meshSetupItem.Name = newMeshSetupItemName;
+            ReplaceMeshSetupItem(oldMeshSetupItemName, meshSetupItem);
+        }
         public void DuplicateMeshSetupItems(string[] meshSetupItemNames)
         {
             MeshSetupItem newMeshSetupItem;
@@ -5613,12 +5627,13 @@ namespace PrePoMax
         }
         public string[] GetAllMeshEntityNames()
         {
-            List<string> names = new List<string>();
+            HashSet<string> existingNames = new HashSet<string>();
             if (_model != null)
             {
-                names.AddRange(_model.GetAllMeshEntityNames());
+                existingNames.UnionWith(GetGeometryPartNames());
+                existingNames.UnionWith(_model.GetAllMeshEntityNames());
             }
-            return names.ToArray();
+            return existingNames.ToArray();
         }
         #endregion #################################################################################################################
 
@@ -6753,6 +6768,12 @@ namespace PrePoMax
             //
             FeModelUpdate(UpdateType.Check);
         }
+        public void RenameModelPart(string oldPartName, string newPartName)
+        {
+            PartProperties newPartProperties = GetModelPart(oldPartName).GetProperties();
+            newPartProperties.Name = newPartName;
+            ReplaceModelPartProperties(oldPartName, newPartProperties);
+        }
         // Transform
         public void TranslateModelParts(string[] partNames, double[] translateVector, int numberOfCopies)
         {
@@ -7267,6 +7288,12 @@ namespace PrePoMax
             //
             if (feModelUpdate) FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
         }
+        public void RenameNodeSet(string oldNodeSetName, string newNodeSetName)
+        { 
+            FeNodeSet nodeSet = _model.Mesh.NodeSets[oldNodeSetName];
+            nodeSet.Name = newNodeSetName;
+            ReplaceNodeSet(oldNodeSetName, nodeSet, true);
+        }
         public void DuplicateNodeSets(string[] nodeSetNames)
         {
             FeNodeSet newNodeSet;
@@ -7444,6 +7471,12 @@ namespace PrePoMax
             _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldElementSetName, elementSet, null, feModelUpdate);
             //
             if (feModelUpdate) FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+        }
+        public void RenameElementSet(string oldElementSetName, string newElementSetName)
+        {
+            FeElementSet elementSet = _model.Mesh.ElementSets[oldElementSetName];
+            elementSet.Name = newElementSetName;
+            ReplaceElementSet(oldElementSetName, elementSet, true);
         }
         public void DuplicateElementSets(string[] elementSetNames)
         {
@@ -7676,6 +7709,12 @@ namespace PrePoMax
             //
             if (feModelUpdate) FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
         }
+        public void RenameSurface(string oldSurfaceName, string newSurfaceName)
+        {
+            FeSurface surface = _model.Mesh.Surfaces[oldSurfaceName];
+            surface.Name = newSurfaceName;
+            ReplaceSurface(oldSurfaceName, surface, true);
+        }
         public void DuplicateSurfaces(string[] surfaceNames)
         {
             FeSurface newSurface;
@@ -7875,6 +7914,12 @@ namespace PrePoMax
             //
             if (feModelUpdate) FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
         }
+        public void RenameModelReferencePoint(string oldReferencePointName, string newReferencePointName)
+        {
+            FeReferencePoint referencePoint = _model.Mesh.ReferencePoints[oldReferencePointName];
+            referencePoint.Name = newReferencePointName;
+            ReplaceModelReferencePoint(oldReferencePointName, referencePoint, true);
+        }
         public void DuplicateModelReferencePoints(string[] referencePointNames)
         {
             FeReferencePoint newReferencePoint;
@@ -8049,6 +8094,12 @@ namespace PrePoMax
             //
             if (feModelUpdate) FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
         }
+        public void RenameModelCoordinateSystem(string oldCoordinateSystemName, string newCoordinateSystemName)
+        {
+            CoordinateSystem coordinateSystem = _model.Mesh.CoordinateSystems[oldCoordinateSystemName];
+            coordinateSystem.Name = newCoordinateSystemName;
+            ReplaceModelCoordinateSystem(oldCoordinateSystemName, coordinateSystem, true);
+        }
         public void DuplicateModelCoordinateSystems(string[] coordinateSystemNames)
         {
             CoordinateSystem newCoordinateSystem;
@@ -8186,6 +8237,12 @@ namespace PrePoMax
             //
             CheckAndUpdateModelValidity();
         }
+        public void RenameMaterial(string oldMaterialName, string newMaterialName)
+        {
+            Material material = _model.Materials[oldMaterialName];
+            material.Name = newMaterialName;
+            ReplaceMaterial(oldMaterialName, material);
+        }
         public void DuplicateMaterials(string[] materialNames)
         {
             Material newMaterial;
@@ -8306,6 +8363,23 @@ namespace PrePoMax
         {
             DeleteSelectionBasedSectionSets(oldSectionName);
             ConvertSelectionBasedSection(section);
+            //
+            if (_model.Sections.Replace(oldSectionName, section.Name, section))
+            {
+                _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldSectionName, section, null);
+                //
+                AnnotateWithColorEnum state = AnnotateWithColorEnum.Materials | AnnotateWithColorEnum.Sections |
+                                              AnnotateWithColorEnum.SectionThicknesses;
+                if (state.HasFlag(_annotateWithColor)) FeModelUpdate(UpdateType.DrawModel);
+                else AnnotateWithColorLegend();
+                //
+                CheckAndUpdateModelValidity();
+            }
+        }
+        public void RenameSection(string oldSectionName, string newSectionName)
+        {
+            Section section = _model.Sections[oldSectionName];
+            section.Name = newSectionName;
             //
             if (_model.Sections.Replace(oldSectionName, section.Name, section))
             {
@@ -8489,6 +8563,17 @@ namespace PrePoMax
         {
             DeleteSelectionBasedConstraintSets(oldConstraintName);
             ConvertSelectionBasedConstraint(constraint);
+            //
+            _model.Constraints.Replace(oldConstraintName, constraint.Name, constraint);
+            //
+            _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldConstraintName, constraint, null);
+            //
+            FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+        }
+        public void RenameConstraint(string oldConstraintName, string newConstraintName)
+        {
+            Constraint constraint = _model.Constraints[oldConstraintName];
+            constraint.Name = newConstraintName;
             //
             _model.Constraints.Replace(oldConstraintName, constraint.Name, constraint);
             //
@@ -8961,6 +9046,12 @@ namespace PrePoMax
             //
             CheckAndUpdateModelValidity();
         }
+        public void RenameSurfaceInteraction(string oldSurfaceInteractionName, string newSurfaceInteractionName)
+        {
+            SurfaceInteraction surfaceInteraction = _model.SurfaceInteractions[oldSurfaceInteractionName];
+            surfaceInteraction.Name = newSurfaceInteractionName;
+            ReplaceSurfaceInteraction(oldSurfaceInteractionName, surfaceInteraction);
+        }
         public void DuplicateSurfaceInteractions(string[] surfaceInteractionNames)
         {
             SurfaceInteraction newSurfaceInteraction;
@@ -9054,6 +9145,17 @@ namespace PrePoMax
         {
             DeleteSelectionBasedContactPairSets(oldContactPairName);
             ConvertSelectionBasedContactPair(contactPair);
+            //
+            _model.ContactPairs.Replace(oldContactPairName, contactPair.Name, contactPair);
+            //
+            _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldContactPairName, contactPair, null);
+            //
+            FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+        }
+        public void RenameContactPair(string oldContactPairName, string newContactPairName)
+        {
+            ContactPair contactPair = _model.ContactPairs[oldContactPairName];
+            contactPair.Name = newContactPairName;
             //
             _model.ContactPairs.Replace(oldContactPairName, contactPair.Name, contactPair);
             //
@@ -9417,6 +9519,12 @@ namespace PrePoMax
             //
             FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
         }
+        public void RenameDistribution(string oldDistributionName, string newDistributionName)
+        {
+            Distribution distribution = _model.Distributions[oldDistributionName];
+            distribution.Name = newDistributionName;
+            ReplaceDistribution(oldDistributionName, distribution);
+        }
         public void DuplicateDistributions(string[] distributionNames)
         {
             Distribution newDistribution;
@@ -9438,8 +9546,6 @@ namespace PrePoMax
             //
             FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
         }
-        //
-        
 
         #endregion #################################################################################################################
 
@@ -9493,6 +9599,12 @@ namespace PrePoMax
             _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldAmplitudeName, amplitude, null);
             //
             FeModelUpdate(UpdateType.Check);
+        }
+        public void RenameAmplitude(string oldAmplitudeName, string newAmplitudeName)
+        {
+            Amplitude amplitude = _model.Amplitudes[oldAmplitudeName];
+            amplitude.Name = newAmplitudeName;
+            ReplaceAmplitude(oldAmplitudeName, amplitude);
         }
         public void DuplicateAmplitudes(string[] amplitudeNames)
         {
@@ -9601,12 +9713,22 @@ namespace PrePoMax
             DeleteSelectionBasedInitialConditionSets(oldInitialConditionName);
             ConvertSelectionBasedInitialCondition(initialCondition);
             //
-            if (_model.InitialConditions.Replace(oldInitialConditionName, initialCondition.Name, initialCondition))
-            {
-                _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldInitialConditionName, initialCondition, null);
-                //
-                FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
-            }
+            _model.InitialConditions.Replace(oldInitialConditionName, initialCondition.Name, initialCondition);
+            //
+            _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldInitialConditionName, initialCondition, null);
+            //
+            FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+        }
+        public void RenameInitialCondition(string oldInitialConditionName, string newInitialConditionName)
+        {
+            InitialCondition initialCondition = _model.InitialConditions[oldInitialConditionName];
+            initialCondition.Name = newInitialConditionName;
+            //
+            _model.InitialConditions.Replace(oldInitialConditionName, initialCondition.Name, initialCondition);
+            //
+            _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldInitialConditionName, initialCondition, null);
+            //
+            FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
         }
         public void DuplicateInitialConditions(string[] initialConditionNames)
         {
@@ -9775,9 +9897,16 @@ namespace PrePoMax
         public void ReplaceStep(string oldStepName, Step newStep)
         {
             _model.StepCollection.ReplaceStep(oldStepName, newStep);
+            //
             _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldStepName, newStep, null);
             //
             FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+        }
+        public void RenameStep(string oldStepName, string newStepName)
+        {
+            Step step = _model.StepCollection.GetStep(oldStepName);
+            step.Name = newStepName;
+            ReplaceStep(oldStepName, step);
         }
         public void DuplicateSteps(string[] stepNames)
         {
@@ -9888,8 +10017,20 @@ namespace PrePoMax
                 if (!propagated) ConvertSelectionBasedHistoryOutput(historyOutput);
             }
             //
-            _model.StepCollection.GetStep(stepName).HistoryOutputs.Replace(oldHistoryOutputName, historyOutput.Name,
-                                                                           historyOutput);
+            Step step = _model.StepCollection.GetStep(stepName);
+            step.HistoryOutputs.Replace(oldHistoryOutputName, historyOutput.Name, historyOutput);
+            //
+            _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldHistoryOutputName, historyOutput, stepName);
+            //
+            CheckAndUpdateModelValidity();
+        }
+        public void RenameHistoryOutput(string stepName, string oldHistoryOutputName, string newHistoryOutputName)
+        {
+            HistoryOutput historyOutput = GetHistoryOutput(stepName, oldHistoryOutputName);
+            historyOutput.Name = newHistoryOutputName;
+            //
+            Step step = _model.StepCollection.GetStep(stepName);
+            step.HistoryOutputs.Replace(oldHistoryOutputName, historyOutput.Name, historyOutput);
             //
             _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldHistoryOutputName, historyOutput, stepName);
             //
@@ -10075,6 +10216,12 @@ namespace PrePoMax
             //
             CheckAndUpdateModelValidity();
         }
+        public void RenameFieldOutput(string stepName, string oldFieldOutputName, string newFieldOutputName)
+        {
+            FieldOutput fieldOutput = GetFieldOutput(stepName, oldFieldOutputName);
+            fieldOutput.Name = newFieldOutputName;
+            ReplaceFieldOutput(stepName, oldFieldOutputName, fieldOutput);
+        }
         public void DuplicateFieldOutputs(string stepName, string[] fieldOutputNames)
         {
             FieldOutput newFieldOutput;
@@ -10163,9 +10310,9 @@ namespace PrePoMax
             _commands.AddAndExecute(comm);
         }
         //******************************************************************************************
-        public string[] GetAllBoundaryConditionNames()
+        public string[] GetBoundaryConditionNamesForStep(string stepName)
         {
-            return _model.StepCollection.GetAllBoundaryConditionNames();
+            return _model.StepCollection.GetStep(stepName).BoundaryConditions.Keys.ToArray();
         }
         public BoundaryCondition GetBoundaryCondition(string stepName, string boundaryConditionName)
         {
@@ -10199,6 +10346,18 @@ namespace PrePoMax
                 // If propagated it was already converted
                 if (!propagated) ConvertSelectionBasedBoundaryCondition(boundaryCondition);
             }
+            //
+            if (_model.StepCollection.GetStep(stepName).ReplaceBoundaryCondition(oldBoundaryConditionName, boundaryCondition))
+            {
+                _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldBoundaryConditionName, boundaryCondition, stepName);
+                //
+                FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            }
+        }
+        public void RenameBoundaryCondition(string stepName, string oldBoundaryConditionName, string newBoundaryConditionName)
+        {
+            BoundaryCondition boundaryCondition = GetBoundaryCondition(stepName, oldBoundaryConditionName);
+            boundaryCondition.Name = newBoundaryConditionName;
             //
             if (_model.StepCollection.GetStep(stepName).ReplaceBoundaryCondition(oldBoundaryConditionName, boundaryCondition))
             {
@@ -10381,11 +10540,7 @@ namespace PrePoMax
             _commands.AddAndExecute(comm);
         }
         //******************************************************************************************
-        public string[] GetAllLoadNames()
-        {
-            return _model.StepCollection.GetAllLoadNames();
-        }
-        public string[] GetStepLoadNames(string stepName)
+        public string[] GetLoadNamesForStep(string stepName)
         {
             return _model.StepCollection.GetStep(stepName).Loads.Keys.ToArray();
         }
@@ -10420,6 +10575,18 @@ namespace PrePoMax
                 // If propagated it was already converted
                 if (!propagated) ConvertSelectionBasedLoad(load);
             }
+            //
+            if (_model.StepCollection.GetStep(stepName).ReplaceLoad(oldLoadName, load))
+            {
+                _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldLoadName, load, stepName);
+                //
+                FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            }
+        }
+        public void RenameLoad(string stepName, string oldLoadName, string newLoadName)
+        {
+            Load load = GetLoad(stepName, oldLoadName);
+            load.Name = newLoadName;
             //
             if (_model.StepCollection.GetStep(stepName).ReplaceLoad(oldLoadName, load))
             {
@@ -10683,7 +10850,21 @@ namespace PrePoMax
                 if (!propagated) ConvertSelectionBasedDefinedField(definedField);
             }
             //
-            if (_model.StepCollection.GetStep(stepName).DefinedFields.Replace(oldDefinedFieldName, definedField.Name, definedField))
+            Step step = _model.StepCollection.GetStep(stepName);
+            if (step.DefinedFields.Replace(oldDefinedFieldName, definedField.Name, definedField))
+            {
+                _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldDefinedFieldName, definedField, stepName);
+                //
+                FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            }
+        }
+        public void RenameDefinedField(string stepName, string oldDefinedFieldName, string newDefinedFieldName)
+        {
+            DefinedField definedField = GetDefinedField(stepName, oldDefinedFieldName);
+            definedField.Name = newDefinedFieldName;
+            //
+            Step step = _model.StepCollection.GetStep(stepName);
+            if (step.DefinedFields.Replace(oldDefinedFieldName, newDefinedFieldName, definedField))
             {
                 _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldDefinedFieldName, definedField, stepName);
                 //
@@ -11213,6 +11394,12 @@ namespace PrePoMax
             _jobs.Add(job.Name, job);
             ApplySettings();
             _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldJobName, job, null);
+        }
+        public void RenameJob(string oldJobName, string newJobName)
+        {
+            AnalysisJob job = _jobs[oldJobName];
+            job.Name = newJobName;
+            ReplaceJob(oldJobName, job);
         }
         public void DuplicateJobs(string[] jobNames)
         {
@@ -11888,6 +12075,12 @@ namespace PrePoMax
             //
             FeResultsUpdate(UpdateType.Check);
         }
+        public void RenameResultPart(string oldPartName, string newPartName)
+        {
+            PartProperties newPartProperties = GetResultPart(oldPartName).GetProperties();
+            newPartProperties.Name = newPartName;
+            ReplaceResultPartProperties(oldPartName, newPartProperties);
+        }
         public void RemoveResultParts(string[] partNames)
         {
             FeResults result = _allResults.CurrentResult;
@@ -12097,6 +12290,12 @@ namespace PrePoMax
             //
             FeResultsUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
         }
+        public void RenameResultReferencePoint(string oldReferencePointName, string newReferencePointName)
+        {
+            FeReferencePoint referencePoint = GetResultReferencePoint(oldReferencePointName);
+            referencePoint.Name = newReferencePointName;
+            ReplaceResultReferencePoint(oldReferencePointName, referencePoint);
+        }
         public void DuplicateResultReferencePoints(string[] referencePointNames)
         {
             FeReferencePoint newReferencePoint;
@@ -12258,6 +12457,12 @@ namespace PrePoMax
             //
             FeResultsUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
         }
+        public void RenameResultCoordinateSystem(string oldCoordinateSystemName, string newCoordinateSystemName)
+        {
+            CoordinateSystem coordinateSystem = GetResultCoordinateSystem(oldCoordinateSystemName);
+            coordinateSystem.Name = newCoordinateSystemName;
+            ReplaceResultCoordinateSystem(oldCoordinateSystemName, coordinateSystem);
+        }
         public void DuplicateResultCoordinateSystems(string[] coordinateSystemNames)
         {
             CoordinateSystem newCoordinateSystem;
@@ -12401,6 +12606,12 @@ namespace PrePoMax
             //
             FeResultsUpdate(UpdateType.Check);
         }
+        public void RenameResultFieldOutput(string oldResultFieldOutputName, string newResultFieldOutputName)
+        {
+            ResultFieldOutput resultFieldOutput = GetResultFieldOutput(oldResultFieldOutputName);
+            resultFieldOutput.Name = newResultFieldOutputName;
+            ReplaceResultFieldOutput(oldResultFieldOutputName, resultFieldOutput);
+        }
         private void SetFieldAndComponent(ResultFieldOutput resultFieldOutput)
         {
             string[] components = _allResults.CurrentResult.GetFieldComponentNames(resultFieldOutput.Name);
@@ -12530,7 +12741,16 @@ namespace PrePoMax
             //
             _allResults.CurrentResult.ReplaceResultHistoryOutput(oldResultHistoryOutputName, resultHistoryOutput);
             //
-            //SetFieldAndComponent(resultHistoryOutput);
+            _form.UpdateTreeNode(ViewGeometryModelResults.Results, oldResultHistoryOutputName, resultHistoryOutput, null);
+            //
+            FeResultsUpdate(UpdateType.Check);
+        }
+        public void RenameResultHistoryOutput(string oldResultHistoryOutputName, string newResultHistoryOutputName)
+        {
+            ResultHistoryOutput resultHistoryOutput = GetResultHistoryOutput(oldResultHistoryOutputName);
+            resultHistoryOutput.Name = newResultHistoryOutputName;
+            //
+            _allResults.CurrentResult.ReplaceResultHistoryOutput(oldResultHistoryOutputName, resultHistoryOutput);
             //
             _form.UpdateTreeNode(ViewGeometryModelResults.Results, oldResultHistoryOutputName, resultHistoryOutput, null);
             //
@@ -12593,11 +12813,6 @@ namespace PrePoMax
 
         #region Activate Deactivate  ###############################################################################################
         // COMMANDS ********************************************************************************
-        public void ActivateDeactivateCommand(NamedClass item, bool activate, string stepName)
-        {
-            Commands.CActivateDeactivate comm = new Commands.CActivateDeactivate(item, activate, stepName);
-            _commands.AddAndExecute(comm);
-        }
         public void ActivateDeactivateMultipleCommand(NamedClass[] items, bool activate, string[] stepNames)
         {
             CActivateDeactivateMultiple comm = new CActivateDeactivateMultiple(items, activate, stepNames);
@@ -12634,12 +12849,158 @@ namespace PrePoMax
 
         #endregion #################################################################################################################
 
+        #region Rename  ############################################################################################################
+        // COMMANDS ********************************************************************************
+        public void RenameCommand(NamedClass item, string newName, string stepName)
+        {
+            Command comm;
+            if (_currentView == ViewGeometryModelResults.Geometry || _currentView == ViewGeometryModelResults.Model)
+                comm = new CRenamePre(item.GetType(), item.Name, newName, stepName, _currentView);
+            else if (_currentView == ViewGeometryModelResults.Results)
+                comm = new CRenamePost(item.GetType(), item.Name, newName, stepName, _currentView);
+            else throw new NotSupportedException();
+            _commands.AddAndExecute(comm);
+        }
+        //******************************************************************************************
+        public bool CheckItemName(NamedClass item, string newName, string stepName)
+        {
+            if (_currentView == ViewGeometryModelResults.Geometry)
+            {
+                if (item is GeometryPart || item is CompoundGeometryPart)
+                    return CheckName(item.Name, newName, GetAllMeshEntityNames(), "part");
+                else if (item is MeshSetupItem)
+                    return CheckName(item.Name, newName, GetMeshSetupItemNames(), "mesh setup item");
+                else throw new NotImplementedException();
+            }
+            else if (_currentView == ViewGeometryModelResults.Model)
+            {
+                if (item is MeshPart)
+                    return CheckName(item.Name, newName, GetAllMeshEntityNames(), "part");
+                else if (item is FeNodeSet)
+                    return CheckName(item.Name, newName, GetAllMeshEntityNames(), "node set");
+                else if (item is FeElementSet)
+                    return CheckName(item.Name, newName, GetAllMeshEntityNames(), "element set");
+                else if (item is FeSurface)
+                    return CheckName(item.Name, newName, GetAllMeshEntityNames(), "surface");
+                else if (item is FeReferencePoint)
+                    return CheckName(item.Name, newName, GetModelReferencePointNames(), "reference point");
+                else if (item is CoordinateSystem)
+                    return CheckName(item.Name, newName, GetModelCoordinateSystemNames(), "coordinate system");
+                else if (item is Material)
+                    return CheckName(item.Name, newName, GetMaterialNames(), "material");
+                else if (item is Section)
+                    return CheckName(item.Name, newName, GetSectionNames(), "section");
+                else if (item is Constraint)
+                    return CheckName(item.Name, newName, GetConstraintNames(), "constraint");
+                else if (item is SurfaceInteraction)
+                    return CheckName(item.Name, newName, GetSurfaceInteractionNames(), "surface interaction");
+                else if (item is ContactPair)
+                    return CheckName(item.Name, newName, GetContactPairNames(), "contact pair");
+                else if (item is InitialCondition)
+                    return CheckName(item.Name, newName, GetInitialConditionNames(), "initial condition");
+                else if (item is Distribution)
+                    return CheckName(item.Name, newName, GetDistributionNames(), "distribution");
+                else if (item is Amplitude)
+                    return CheckName(item.Name, newName, GetAmplitudeNames(), "amplitude");
+                else if (item is Step)
+                    return CheckName(item.Name, newName, GetStepNames(), "step");
+                else if (item is HistoryOutput)
+                    return CheckName(item.Name, newName, GetHistoryOutputNamesForStep(stepName), "history output");
+                else if (item is FieldOutput)
+                    return CheckName(item.Name, newName, GetFieldOutputNamesForStep(stepName), "field output");
+                else if (item is BoundaryCondition)
+                    return CheckName(item.Name, newName, GetBoundaryConditionNamesForStep(stepName), "boundary condition");
+                else if (item is Load)
+                    return CheckName(item.Name, newName, GetLoadNamesForStep(stepName), "load");
+                else if (item is DefinedField)
+                    return CheckName(item.Name, newName, GetDefinedFieldNamesForStep(stepName), "defined field");
+                //
+                else if (item is AnalysisJob)
+                    return CheckName(item.Name, newName, GetJobNames(), "analysis");
+                //
+                else throw new NotImplementedException();
+            }
+            else if (_currentView == ViewGeometryModelResults.Results)
+            {
+                if (item is ResultPart)
+                    return CheckName(item.Name, newName, GetResultPartNames(), "part");
+                else if (item is FeReferencePoint)
+                    return CheckName(item.Name, newName, GetResultReferencePointNames(), "reference point");
+                else if (item is CoordinateSystem)
+                    return CheckName(item.Name, newName, GetResultCoordinateSystemNames(), "coordinate system");
+                else if (item is ResultFieldOutput)
+                    return CheckName(item.Name, newName, GetResultFieldOutputNames(), "field output");
+                else if (item is ResultHistoryOutput)
+                    return CheckName(item.Name, newName, GetHistoryResultSetNames(), "history output");
+                else throw new NotSupportedException();
+            }
+            else throw new NotSupportedException();
+        }
+        public static bool CheckName(string nameToEdit, string newName, ICollection<string> existingNames, string messageName)
+        {
+            NamedClass.CheckNameForErrors(ref newName, null);
+            // Named to existing name
+            if ((nameToEdit == null && existingNames.Contains(newName, StringComparer.OrdinalIgnoreCase)) ||
+            // Renamed to existing name
+            ((nameToEdit != null && newName.ToLower() != nameToEdit.ToLower()) &&
+             newName != nameToEdit && existingNames.Contains(newName, StringComparer.OrdinalIgnoreCase)))
+                // Exception
+                throw new CaeException("The selected " + messageName + " name already exists. " +
+                    "Uppercase and lowercase letters are regarded as equal.");
+            return true;
+        }
+        public void Rename(Type itemType, string itemName, string newName, string stepName, ViewGeometryModelResults view)
+        {
+            if (view == ViewGeometryModelResults.Geometry)
+            {
+                if (typeof(GeometryPart).IsAssignableFrom(itemType)) RenameGeometryPart(itemName, newName);
+                else if (typeof(MeshSetupItem).IsAssignableFrom(itemType)) RenameMeshSetupItem(itemName, newName);
+                else throw new NotImplementedException();
+            }
+            else if (view == ViewGeometryModelResults.Model)
+            {
+                if (itemType == typeof(MeshPart)) RenameModelPart(itemName, newName);
+                else if (itemType == typeof(FeNodeSet)) RenameNodeSet(itemName, newName);
+                else if (itemType == typeof(FeElementSet)) RenameElementSet(itemName, newName);
+                else if (itemType == typeof(FeSurface)) RenameSurface(itemName, newName);
+                else if (itemType == typeof(FeReferencePoint)) RenameModelReferencePoint(itemName, newName);
+                else if (itemType == typeof(CoordinateSystem)) RenameModelCoordinateSystem(itemName, newName);
+                else if (itemType == typeof(Material)) RenameMaterial(itemName, newName);
+                else if (typeof(Section).IsAssignableFrom(itemType)) RenameSection(itemName, newName);
+                else if (typeof(Constraint).IsAssignableFrom(itemType)) RenameConstraint(itemName, newName);
+                else if (itemType == typeof(SurfaceInteraction)) RenameSurfaceInteraction(itemName, newName);
+                else if (itemType == typeof(ContactPair)) RenameContactPair(itemName, newName);
+                else if (typeof(Distribution).IsAssignableFrom(itemType)) RenameDistribution(itemName, newName);
+                else if (typeof(Amplitude).IsAssignableFrom(itemType)) RenameAmplitude(itemName, newName);
+                else if (typeof(InitialCondition).IsAssignableFrom(itemType)) RenameInitialCondition(itemName, newName);
+                else if (typeof(Step).IsAssignableFrom(itemType)) RenameStep(itemName, newName);
+                else if (typeof(HistoryOutput).IsAssignableFrom(itemType)) RenameHistoryOutput(stepName, itemName, newName);
+                else if (typeof(FieldOutput).IsAssignableFrom(itemType)) RenameFieldOutput(stepName, itemName, newName);
+                else if (typeof(BoundaryCondition).IsAssignableFrom(itemType)) RenameBoundaryCondition(stepName, itemName, newName);
+                else if (typeof(Load).IsAssignableFrom(itemType)) RenameLoad(stepName, itemName, newName);
+                else if (typeof(DefinedField).IsAssignableFrom(itemType)) RenameDefinedField(stepName, itemName, newName);
+                else if (typeof(AnalysisJob).IsAssignableFrom(itemType)) RenameJob(itemName, newName);
+                else throw new NotImplementedException();
+            }
+            else if (view == ViewGeometryModelResults.Results)
+            {
+                if (itemType == typeof(ResultPart)) RenameResultPart(itemName, newName);
+                else if (itemType == typeof(FeReferencePoint)) RenameResultReferencePoint(itemName, newName);
+                else if (itemType == typeof(CoordinateSystem)) RenameResultCoordinateSystem(itemName, newName);
+                else if (typeof(ResultFieldOutput).IsAssignableFrom(itemType)) RenameResultFieldOutput(itemName, newName);
+                else if (typeof(ResultHistoryOutput).IsAssignableFrom(itemType)) RenameResultHistoryOutput(itemName, newName);
+                else throw new NotImplementedException();
+            }
+            else throw new NotSupportedException();
+        }
+
+        #endregion #################################################################################################################
+
         #region Hide Show  #########################################################################################################
         private void BeforeHideShow()
         {
             ClearSelectionBuffer();
         }
-
 
         #endregion #################################################################################################################
 
@@ -18762,6 +19123,10 @@ namespace PrePoMax
                     {
                         HighlightHistoryOutput(ho, mouseOver);
                     }
+                    else if (obj is FieldOutput fo)
+                    {
+                        HighlightFieldOutput(fo, mouseOver);
+                    }
                     else if (obj is BoundaryCondition bc)
                     {
                         HighlightBoundaryCondition(bc, mouseOver);
@@ -19283,11 +19648,15 @@ namespace PrePoMax
             }
             else throw new NotSupportedException();
         }
+        public void HighlightFieldOutput(FieldOutput fieldOutput, bool mouseOver = false)
+        {
+            Step step = _model.StepCollection.GetFiledOutputStep(fieldOutput);
+            if (!mouseOver && step != null) _form.SelectOneStepInSymbolsForStepList(step.Name);
+        }
         public void HighlightHistoryOutput(HistoryOutput historyOutput, bool mouseOver = false)
         {
             Step step = _model.StepCollection.GetHistoryOutputStep(historyOutput);
-            if (!mouseOver && step != null)
-                _form.SelectOneStepInSymbolsForStepList(step.Name);
+            if (!mouseOver && step != null) _form.SelectOneStepInSymbolsForStepList(step.Name);
             //
             if (historyOutput.RegionType == RegionTypeEnum.NodeSetName)
                 HighlightNodeSet(historyOutput.RegionName);

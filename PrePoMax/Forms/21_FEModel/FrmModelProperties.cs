@@ -92,7 +92,6 @@ namespace PrePoMax.Forms
             _viewModelProperties.Name = _controller.Model.Name;
             //
             propertyGrid.SelectedObject = _viewModelProperties;
-            propertyGrid.Select();
             //
             propertyGrid.BuildAutocompleteMenu(_controller.GetAllParameterNames());
             //

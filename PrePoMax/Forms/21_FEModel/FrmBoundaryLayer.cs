@@ -121,7 +121,6 @@ namespace PrePoMax.Forms
             _controller.Selection.Clear();
             //
             propertyGrid.SelectedObject = _viewBoundaryLayer;
-            propertyGrid.Select();
             //
             SetSelectItem();
             //

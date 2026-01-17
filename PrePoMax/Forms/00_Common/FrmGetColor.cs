@@ -69,7 +69,6 @@ namespace PrePoMax.Forms
             _viewColor.Color = color;
             //
             propertyGrid.SelectedObject = _viewColor;
-            propertyGrid.Select();
         }
     }
 }

@@ -13,10 +13,11 @@ using System.IO;
 using CaeGlobals;
 using PrePoMax.Settings;
 using System.Runtime.InteropServices;
+using UserControls;
 
 namespace PrePoMax.Forms
 {
-    public partial class FrmSettings : UserControls.PrePoMaxChildForm
+    public partial class FrmSettings : PrePoMaxChildForm
     {
         // Variables                                                                                                                
         private string _previousSettings;
@@ -82,6 +83,7 @@ namespace PrePoMax.Forms
             _viewSettings = null;
             //
             propertyGrid.SetLabelColumnWidth(_labelRatio);
+            propertyGrid.SetSelectFirstCategory();
         }
 
 
@@ -91,8 +93,10 @@ namespace PrePoMax.Forms
             if (lvSettings.SelectedItems.Count > 0)
             {
                 propertyGrid.SelectedObject = lvSettings.SelectedItems[0].Tag;
-                propertyGrid.Select();
+                //
                 _previousSettings = lvSettings.SelectedItems[0].Text;
+                //
+                lvSettings.Focus();
             }
         }
         private void propertyGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)
@@ -148,6 +152,7 @@ namespace PrePoMax.Forms
                 Hide();
             }
         }
+
 
         // Methods                                                                                                                  
         public void PrepareForm(Controller controller)

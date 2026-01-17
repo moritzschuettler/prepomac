@@ -37,7 +37,9 @@ namespace PrePoMax
         private double _diffuseComponent;
         private bool _pointSmoothing;
         private bool _lineSmoothing;
-        private double _geometryDeflection;
+        private bool _linearDeflectionRelative;
+        private double _linearDeflection;
+        private double _angularDeflectionDeg;
 
 
         // Properties                                                                                                               
@@ -88,14 +90,27 @@ namespace PrePoMax
         }
         public bool PointSmoothing { get { return _pointSmoothing; } set { _pointSmoothing = value; } }
         public bool LineSmoothing { get { return _lineSmoothing; } set { _lineSmoothing = value; } }
-        public double GeometryDeflection
+        public bool LinearDeflectionRelative { get { return _linearDeflectionRelative; } set { _linearDeflectionRelative = value; } }
+        public double LinearDeflection
         {
-            get { return _geometryDeflection; }
+            get { return _linearDeflection; }
             set
             {
-                _geometryDeflection = value;
-                if (_geometryDeflection < 0) _geometryDeflection = 0;
-                else if (_geometryDeflection > 0.1) _geometryDeflection = 0.1;
+                _linearDeflection = value;
+                if (_linearDeflection < 0) _linearDeflection = 0;
+            }
+        }
+        public double AngularDeflectionRad
+        {
+            get { return Math.Round(_angularDeflectionDeg * Math.PI / 180, 2); }
+        }
+        public double AngularDeflectionDeg
+        {
+            get { return _angularDeflectionDeg; }
+            set
+            {
+                _angularDeflectionDeg = value;
+                if (_angularDeflectionDeg < 0) _angularDeflectionDeg = 0;
             }
         }
 
@@ -122,7 +137,9 @@ namespace PrePoMax
             _diffuseComponent = 0.6;
             _pointSmoothing = true;
             _lineSmoothing = true;
-            _geometryDeflection = 0.01;
+            _linearDeflectionRelative = true;
+            _linearDeflection = 0.01;
+            _angularDeflectionDeg = 15;
         }
     }
 }

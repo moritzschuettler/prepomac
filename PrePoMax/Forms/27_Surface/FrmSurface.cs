@@ -181,7 +181,6 @@ namespace PrePoMax.Forms
             _viewSurface.PopulateDropDownList(nodeSetNames);
             //
             propertyGrid.SelectedObject = _viewSurface;
-            propertyGrid.Select();
             // Show ItemSetDataForm
             if (Surface.CreatedFrom == FeSurfaceCreatedFrom.Selection)
             {

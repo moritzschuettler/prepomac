@@ -67,9 +67,6 @@ namespace PrePoMax.Forms
         {
             if (Visible) ShowHideSelectionForm();   // accounts for minimizing/maximizing the main form
             //
-
-            
-
             base.OnVisibleChanged(e);
         }
         protected override void OnListViewTypeSelectedIndexChanged()

@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.Remoting.Metadata.W3cXsd2001;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
@@ -236,6 +237,7 @@ namespace UserControls
 
             return selected.ToArray();
         }
+        public bool EditModeActive { get { return GetActiveTree().EditModeActive; } }
         //
         public string MeshSetupItemsName { get { return _meshSetupItemsName; } }
         public string NodeSetsName { get { return _modelNodeSetsName; } }
@@ -272,7 +274,8 @@ namespace UserControls
         //
         public event Action<string, string> CreateEvent;
         public event Action<NamedClass, string> EditEvent;
-        
+        public event Action<NamedClass, string, string> RenameEvent;
+        //
         public event Action<string> EditStepControlsEvent;
         public event Action QueryEvent;
         public event Action<NamedClass[], string[]> DuplicateEvent;
@@ -311,12 +314,21 @@ namespace UserControls
 
         // Callbacks                                                                                                                
         public Action RegenerateTreeCallBack;
+        public Func<NamedClass, string, string, bool> CheckItemName;
 
 
         // Constructors                                                                                                             
         public ModelTree()
         {
             InitializeComponent();
+            //
+            cltvGeometry.IsNodeRenameable = CanRename;
+            cltvModel.IsNodeRenameable = CanRename;
+            cltvResults.IsNodeRenameable = CanRename;
+            //
+            cltvGeometry.CheckNodeName = CheckNodeName;
+            cltvModel.CheckNodeName = CheckNodeName;
+            cltvResults.CheckNodeName = CheckNodeName;
             // Geometry
             _geomParts = cltvGeometry.Nodes.Find(_geomPartsName, true)[0];
             _meshSetupItems = cltvGeometry.Nodes.Find(_meshSetupItemsName, true)[0];
@@ -746,11 +758,11 @@ namespace UserControls
             {
                 CodersLabTreeView tree = (CodersLabTreeView)sender;
                 //
-                if (ModifierKeys != Keys.Shift && ModifierKeys != Keys.Control && e.Clicks > 1) _doubleClick = true;
-                else _doubleClick = false;
+                _doubleClick = ModifierKeys != Keys.Shift && ModifierKeys != Keys.Control &&
+                               e.Button == MouseButtons.Left && e.Clicks > 1;
                 //
-                TreeNode node = tree.GetNodeAt(e.Location);
-                if (node == null)
+                TreeViewHitTestInfo hit = tree.HitTest(e.Location);
+                if (hit.Location != TreeViewHitTestLocations.Label)
                 {
                     tree.SelectedNodes.Clear();
                     ClearSelectionEvent();
@@ -767,8 +779,10 @@ namespace UserControls
                 //
                 if (e.Button == MouseButtons.Right)
                 {
-                    if (tree.SelectedNodes.Count > 0)
+                    TreeViewHitTestInfo hit = tree.HitTest(e.Location);
+                    if (hit.Location == TreeViewHitTestLocations.Label)
                     {
+                        //if (tree.SelectedNodes.Count == 0 && hit.Node != null) tree.SelectedNodes.Add(hit.Node);
                         PrepareToolStripItem(tree);
                         cmsTree.Show(tree, e.Location);
                     }
@@ -790,7 +804,7 @@ namespace UserControls
                 // Select field data
                 if (tree.SelectedNodes.Count == 1)
                 {
-                    node = tree.SelectedNodes[0];
+                    node = tree.SelectedNode;
                     // Results
                     if (node.Tag is FieldData)
                     {
@@ -829,26 +843,30 @@ namespace UserControls
             CodersLabTreeView tree = GetActiveTree();
             if (tree.SelectedNodes.Count != 1) return;
             //
-            TreeNode selectedNode = tree.SelectedNodes[0];
-            //
-            if (selectedNode == null || ModifierKeys == Keys.Shift || ModifierKeys == Keys.Control) return;
-            //
-            if (selectedNode == tree.HitTest(e.Location).Node)
+            TreeViewHitTestInfo hit = tree.HitTest(e.Location);
+            if (e.Button == MouseButtons.Left && hit.Location == TreeViewHitTestLocations.Label)
             {
-                if (selectedNode.Tag == null)
+                TreeNode selectedNode = tree.SelectedNode;
+                //
+                if (selectedNode == null || ModifierKeys == Keys.Shift || ModifierKeys == Keys.Control) return;
+                //
+                if (selectedNode == tree.HitTest(e.Location).Node)
                 {
-                    if (CanCreate(selectedNode)) tsmiCreate_Click(null, null);
-                    else
+                    if (selectedNode.Tag == null)
                     {
-                        _doubleClick = false;   // must be here to allow expand/collapse
-                        //
-                        if (selectedNode.IsExpanded) selectedNode.Collapse();
-                        else selectedNode.Expand();
+                        if (CanCreate(selectedNode)) tsmiCreate_Click(null, null);
+                        else
+                        {
+                            _doubleClick = false;   // must be here to allow expand/collapse
+                            //
+                            if (selectedNode.IsExpanded) selectedNode.Collapse();
+                            else selectedNode.Expand();
+                        }
                     }
+                    else tsmiEdit_Click(null, null);
                 }
-                else tsmiEdit_Click(null, null);
+                _doubleClick = false;
             }
-            _doubleClick = false;
         }
         private void cltv_BeforeExpand(object sender, TreeViewCancelEventArgs e)
         {
@@ -877,7 +895,6 @@ namespace UserControls
         public void cltv_KeyDown(object sender, KeyEventArgs e)
         {
             CodersLabTreeView tree = GetActiveTree();
-            //
             //if (tree.Focused) // Disable since called from FrmMain.KeyboardHook_KeyDown
             {
                 if (e.KeyCode == Keys.Delete)
@@ -890,11 +907,25 @@ namespace UserControls
                 }
                 else if (e.KeyCode == Keys.Enter)
                 {
-                    if (tree.SelectedNodes.Count == 1 && tree.SelectedNodes[0].Tag == null) tsmiCreate_Click(null, null);
+                    if (tree.SelectedNodes.Count == 1 && tree.SelectedNode.Tag == null) tsmiCreate_Click(null, null);
                     else tsmiEdit_Click(null, null);
                 }
                 // No beep
                 e.SuppressKeyPress = true;
+            }
+        }
+        private void cltv_AfterLabelEdit(object sender, NodeLabelEditEventArgs e)
+        {
+            CodersLabTreeView tree = GetActiveTree();
+            //
+            if (tree.SelectedNodes.Count == 1)
+            {
+                TreeNode selectedNode = tree.SelectedNode;
+                //
+                string stepName = GetStepNameFromNode(selectedNode);
+                // Accept rename
+                string newName = e.Label.Trim();
+                RenameEvent?.Invoke((NamedClass)e.Node.Tag, newName, stepName);
             }
         }
         private void timerMouseMove_Tick(object sender, EventArgs e)
@@ -920,6 +951,13 @@ namespace UserControls
             //
             timerMouseMove.Stop();
         }
+        private string GetStepNameFromNode(TreeNode node)
+        {
+            if (node.Parent != null && node.Parent.Parent != null && node.Parent.Parent.Tag is Step)
+                return node.Parent.Parent.Name;
+            else
+                return null;
+        }
         #endregion
 
         #region Tree context menu
@@ -930,7 +968,7 @@ namespace UserControls
                 CodersLabTreeView tree = GetActiveTree();
                 if (tree.SelectedNodes.Count != 1) return;
                 //
-                TreeNode selectedNode = tree.SelectedNodes[0];
+                TreeNode selectedNode = tree.SelectedNode;
                 //
                 if (selectedNode.Tag == null)
                 {
@@ -957,7 +995,7 @@ namespace UserControls
                 // Edit Part Color
                 if (tree.SelectedNodes.Count != 1) return;
                 //
-                TreeNode selectedNode = tree.SelectedNodes[0];
+                TreeNode selectedNode = tree.SelectedNode;
                 //
                 if (selectedNode.Tag == null) return;
                 //
@@ -980,7 +1018,7 @@ namespace UserControls
                 CodersLabTreeView tree = GetActiveTree();
                 if (tree.SelectedNodes.Count != 1) return;
                 //
-                TreeNode selectedNode = tree.SelectedNodes[0];
+                TreeNode selectedNode = tree.SelectedNode;
                 //
                 if (selectedNode.Tag == null) return;
                 //
@@ -1367,7 +1405,7 @@ namespace UserControls
                 CodersLabTreeView tree = GetActiveTree();
                 if (tree.SelectedNodes.Count != 1) return;
                 //
-                TreeNode selectedNode = tree.SelectedNodes[0];
+                TreeNode selectedNode = tree.SelectedNode;
                 if (selectedNode != _model) return;
                 //
                 EditCalculixKeywords?.Invoke();
@@ -1423,7 +1461,7 @@ namespace UserControls
                 CodersLabTreeView tree = GetActiveTree();
                 if (tree.SelectedNodes.Count != 1) return;
                 //
-                TreeNode selectedNode = tree.SelectedNodes[0];
+                TreeNode selectedNode = tree.SelectedNode;
                 if (selectedNode.Tag != null) return;
                 //
                 MaterialLibrary?.Invoke();
@@ -1441,7 +1479,7 @@ namespace UserControls
                 CodersLabTreeView tree = GetActiveTree();
                 if (tree.SelectedNodes.Count != 1) return;
                 //
-                TreeNode selectedNode = tree.SelectedNodes[0];
+                TreeNode selectedNode = tree.SelectedNode;
                 if (selectedNode.Tag != null) return;
                 //
                 SearchContactPairs?.Invoke();
@@ -1497,7 +1535,7 @@ namespace UserControls
                 CodersLabTreeView tree = GetActiveTree();
                 if (tree.SelectedNodes.Count != 1) return;
                 //
-                TreeNode selectedNode = tree.SelectedNodes[0];
+                TreeNode selectedNode = tree.SelectedNode;
                 //
                 if (selectedNode.Tag == null) return;
                 //
@@ -1515,7 +1553,7 @@ namespace UserControls
                 CodersLabTreeView tree = GetActiveTree();
                 if (tree.SelectedNodes.Count != 1) return;
                 //
-                TreeNode selectedNode = tree.SelectedNodes[0];
+                TreeNode selectedNode = tree.SelectedNode;
                 //
                 if (selectedNode.Tag == null) return;
                 //
@@ -1533,7 +1571,7 @@ namespace UserControls
                 CodersLabTreeView tree = GetActiveTree();
                 if (tree.SelectedNodes.Count != 1) return;
 
-                TreeNode selectedNode = tree.SelectedNodes[0];
+                TreeNode selectedNode = tree.SelectedNode;
 
                 if (selectedNode.Tag == null) return;
 
@@ -1551,7 +1589,7 @@ namespace UserControls
                 CodersLabTreeView tree = GetActiveTree();
                 if (tree.SelectedNodes.Count != 1) return;
 
-                TreeNode selectedNode = tree.SelectedNodes[0];
+                TreeNode selectedNode = tree.SelectedNode;
 
                 if (selectedNode.Tag == null) return;
 
@@ -1569,7 +1607,7 @@ namespace UserControls
                 CodersLabTreeView tree = GetActiveTree();
                 if (tree.SelectedNodes.Count != 1) return;
 
-                TreeNode selectedNode = tree.SelectedNodes[0];
+                TreeNode selectedNode = tree.SelectedNode;
 
                 if (selectedNode.Tag == null) return;
 
@@ -2900,7 +2938,13 @@ namespace UserControls
                 node.SelectedImageKey = imageName;
             }
         }
-
+        private bool CheckNodeName(TreeNode node, string newName)
+        {
+            NamedClass item = (NamedClass)node.Tag;
+            string stepName = GetStepNameFromNode(node);
+            if (CheckItemName?.Invoke(item, newName, stepName) == false) return false;
+            else return true;
+        }
         // Results                                                                                                                  
         private void CreateOverwriteFieldOutputNodes(string[] fieldNames, string[][] components,
                                                      ResultFieldOutput[] resultFieldOutputs, int[] indices = null)
@@ -3149,6 +3193,38 @@ namespace UserControls
             //
             else return false;
         }
+        private bool CanRename(TreeNode node)
+        {
+            if (node.Tag is BasePart) return true;
+            else if (node.Tag is MeshSetupItem) return true;
+            //
+            else if (node.Tag is FeNodeSet) return true;
+            else if (node.Tag is FeElementSet) return true;
+            else if (node.Tag is FeSurface) return true;
+            else if (node.Tag is FeReferencePoint) return true;
+            else if (node.Tag is CoordinateSystem) return true;
+            else if (node.Tag is Material) return true;
+            else if (node.Tag is Section) return true;
+            else if (node.Tag is Constraint) return true;
+            else if (node.Tag is SurfaceInteraction) return true;
+            else if (node.Tag is ContactPair) return true;
+            else if (node.Tag is Distribution) return true;
+            else if (node.Tag is Amplitude) return true;
+            else if (node.Tag is InitialCondition) return true;
+            else if (node.Tag is Step) return true;
+            else if (node.Tag is HistoryOutput) return true;
+            else if (node.Tag is FieldOutput) return true;
+            else if (node.Tag is BoundaryCondition) return true;
+            else if (node.Tag is Load) return true;
+            else if (node.Tag is DefinedField) return true;
+            //
+            else if (node.Tag is AnalysisJob) return true;
+            //
+            else if (node.Tag is ResultFieldOutput) return true;
+            else if (node.Tag is ResultHistoryOutput) return true;
+            //
+            else return false;
+        }
         private bool CanDuplicate(TreeNode node)
         {
             if (node.TreeView == cltvGeometry && node.Tag is MeshSetupItem) return true;
@@ -3266,6 +3342,6 @@ namespace UserControls
             }
         }
 
-       
+
     }
 }

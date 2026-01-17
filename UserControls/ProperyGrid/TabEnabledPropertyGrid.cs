@@ -22,10 +22,14 @@ namespace UserControls
         private TextBox _editControl;
         private bool _tabInitialized;
         private bool _readOnly;
+        private bool _selectFirstProperty;
+        private bool _selectFirstCategory;
+        private bool _focusOnObjectChanged;
 
 
         // Variables                                                                                                                
         public bool ReadOnly { get { return _readOnly; } set { _readOnly = value; } }
+        public bool FocusOnObjectChanged { get { return _focusOnObjectChanged; } set { _focusOnObjectChanged = value; } }
 
 
         // Constructors                                                                                                             
@@ -33,11 +37,14 @@ namespace UserControls
         {
             InitializeComponent();
             //
-            this.LineColor = System.Drawing.SystemColors.Control;
-            this.DisabledItemForeColor = System.Drawing.Color.FromArgb(80, 80, 80);
+            this.LineColor = SystemColors.Control;
+            this.DisabledItemForeColor = Color.FromArgb(80, 80, 80);
             //
             _tabInitialized = false;
             _readOnly = false;
+            //
+            SetSelectFirstProperty();
+            _focusOnObjectChanged = true;
             //
             BuildAutocompleteMenu(new string[0]);
         }
@@ -189,11 +196,12 @@ namespace UserControls
             }
         }
 
-        
+
 
         // Overrides                                                                                                                
         protected override void OnSelectedObjectsChanged(EventArgs e)
         {
+            base.OnSelectedObjectsChanged(e);
             // Site
             if (Site == null) Site = new MySite(this);
             // For the Tab key to work set the key event handlers
@@ -213,7 +221,19 @@ namespace UserControls
                 parent = parent.Parent;
             }
             //
-            base.OnSelectedObjectsChanged(e);
+            if (!IsDisposed && IsHandleCreated)
+            {
+                BeginInvoke(new Action(() => { SelectFirstItem(); }));
+            }
+        }
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            //
+            if (SelectedObject != null && !IsDisposed)
+            {
+                BeginInvoke(new Action(() => { SelectFirstItem(); }));
+            }
         }
         protected override void OnGotFocus(EventArgs e)
         {
@@ -295,6 +315,55 @@ namespace UserControls
             // refresh
             view.Invalidate();
         }
+        public void SetSelectFirstByDefault()
+        {
+            _selectFirstProperty = false;
+            _selectFirstCategory = false;
+        }
+        public void SetSelectFirstProperty()
+        {
+            _selectFirstProperty = true;
+            _selectFirstCategory = false;
+        }
+        public void SetSelectFirstCategory()
+        {
+            _selectFirstProperty = false;
+            _selectFirstCategory = true;
+        }
+        private void SelectFirstItem()
+        {
+            if (_selectFirstProperty) SelectFirstVisibleProperty();
+            else if (_selectFirstCategory) SelectFirstVisibleCategory();
+            //
+            if (_focusOnObjectChanged) this.Select();
+        }
+        public void SelectFirstVisibleProperty()
+        {
+            GridItem root = SelectedGridItem?.Parent?.Parent;
+            if (root == null) return;
+            //
+            foreach (GridItem category in root.GridItems)
+            {
+                if (!category.Expanded) category.Expanded = true;
+                //
+                foreach (GridItem item in category.GridItems)
+                {
+                    SelectedGridItem = item;
+                    return;
+                }
+            }
+        }
+        public void SelectFirstVisibleCategory()
+        {
+            GridItem root = SelectedGridItem?.Parent?.Parent;
+            if (root == null) return;
+            //
+            foreach (GridItem category in root.GridItems)
+            {
+                SelectedGridItem = category;
+                return;
+            }
+        }
         // Autocomplete menu
         public void BuildAutocompleteMenu(IEnumerable<string> items)
         {
@@ -311,9 +380,5 @@ namespace UserControls
             // Set as autocomplete source
             autocompleteMenu.SetAutocompleteItems(acItems);
         }
-
-
-        
     }
-       
 }

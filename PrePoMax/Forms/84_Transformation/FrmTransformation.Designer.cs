@@ -63,8 +63,12 @@
             // 
             // tvTransformations
             // 
+            this.tvTransformations.ChangeHighlightOnFocusLost = true;
+            this.tvTransformations.DisableMouse = false;
             this.tvTransformations.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
+            this.tvTransformations.HighlightForeErrorColor = System.Drawing.Color.Red;
             this.tvTransformations.Location = new System.Drawing.Point(5, 38);
+            this.tvTransformations.MouseOverColor = System.Drawing.Color.FromArgb(((int)(((byte)(204)))), ((int)(((byte)(228)))), ((int)(((byte)(246)))));
             this.tvTransformations.Name = "tvTransformations";
             treeNode1.Name = "X";
             treeNode1.Text = "X";
@@ -83,6 +87,8 @@
             this.tvTransformations.Nodes.AddRange(new System.Windows.Forms.TreeNode[] {
             treeNode4,
             treeNode7});
+            this.tvTransformations.SelectionBackColor = System.Drawing.SystemColors.Highlight;
+            this.tvTransformations.SelectionMode = UserControls.TreeViewSelectionMode.SingleSelect;
             this.tvTransformations.Size = new System.Drawing.Size(137, 133);
             this.tvTransformations.TabIndex = 2;
             this.tvTransformations.DoubleClick += new System.EventHandler(this.tvTransformations_DoubleClick);
@@ -91,6 +97,7 @@
             // 
             this.propertyGrid.DisabledItemForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(80)))), ((int)(((byte)(80)))));
             this.propertyGrid.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.propertyGrid.FocusOnObjectChanged = false;
             this.propertyGrid.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
             this.propertyGrid.LineColor = System.Drawing.SystemColors.Control;
             this.propertyGrid.Location = new System.Drawing.Point(3, 19);
@@ -175,6 +182,7 @@
             listViewItem2,
             listViewItem3});
             this.lvActiveTransformations.Location = new System.Drawing.Point(176, 38);
+            this.lvActiveTransformations.MouseOverColor = System.Drawing.Color.FromArgb(((int)(((byte)(204)))), ((int)(((byte)(228)))), ((int)(((byte)(246)))));
             this.lvActiveTransformations.MultiSelect = false;
             this.lvActiveTransformations.Name = "lvActiveTransformations";
             this.lvActiveTransformations.ShowGroups = false;

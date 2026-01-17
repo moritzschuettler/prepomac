@@ -204,7 +204,6 @@ namespace PrePoMax.Forms
             }
             //
             propertyGrid.SelectedObject = _viewCoordinateSystem;
-            propertyGrid.Select();
             //
             SetSelectItem();
             //

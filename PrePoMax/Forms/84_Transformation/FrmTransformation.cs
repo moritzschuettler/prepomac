@@ -36,6 +36,7 @@ namespace PrePoMax.Forms
             _controller = controller;
             //
             propertyGrid.SetLabelColumnWidth(1.85);
+            propertyGrid.SetSelectFirstCategory();
         }
 
 

@@ -27,6 +27,7 @@ namespace UserControls
             : base(labelRatio)
         {
             InitializeComponent();
+            UpdateControls();
             //
             _preselectIndex = -1;
         }

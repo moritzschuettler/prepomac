@@ -60,7 +60,7 @@ namespace PrePoMax.Settings
                 }
             }
         }
-
+        //
         [CategoryAttribute("Background")]
         [OrderedDisplayName(1, 10, "Color")]
         [DescriptionAttribute("Select the background color.")]
@@ -69,7 +69,7 @@ namespace PrePoMax.Settings
             get { return _graphicsSettings.BottomColor; }
             set { _graphicsSettings.BottomColor = value; }
         }
-
+        //
         [CategoryAttribute("Background")]
         [OrderedDisplayName(2, 10, "Top color")]
         [DescriptionAttribute("Select the top background color.")]
@@ -78,7 +78,7 @@ namespace PrePoMax.Settings
             get { return _graphicsSettings.TopColor; }
             set { _graphicsSettings.TopColor = value; }
         }
-
+        //
         [CategoryAttribute("Background")]
         [OrderedDisplayName(3, 10, "Bottom color")]
         [DescriptionAttribute("Select the top bottom color.")]
@@ -87,10 +87,11 @@ namespace PrePoMax.Settings
             get { return _graphicsSettings.BottomColor; }
             set { _graphicsSettings.BottomColor = value; }
         }
-
+        // Widgets                                                                                  
         [CategoryAttribute("Widgets")]
         [OrderedDisplayName(0, 10, "Coordinate system visibility")]
         [DescriptionAttribute("Turn coordinate system on or off.")]
+        //
         public bool CoorSysVisibility
         {
             get { return _graphicsSettings.CoorSysVisibility; }
@@ -104,7 +105,7 @@ namespace PrePoMax.Settings
             get { return _graphicsSettings.ScaleWidgetVisibility; }
             set { _graphicsSettings.ScaleWidgetVisibility = value; }
         }
-
+        // Lighting                                                                                 
         [CategoryAttribute("Lighting")]
         [OrderedDisplayName(0, 10, "Ambient component")]
         [DescriptionAttribute("Select the ambient light component (0 ... 1).")]
@@ -114,7 +115,7 @@ namespace PrePoMax.Settings
             get { return _graphicsSettings.AmbientComponent; }
             set { _graphicsSettings.AmbientComponent = value; }
         }
-
+        //
         [CategoryAttribute("Lighting")]
         [OrderedDisplayName(1, 10, "Diffuse component")]
         [DescriptionAttribute("Select the diffuse light component (0 ... 1).")]
@@ -124,7 +125,7 @@ namespace PrePoMax.Settings
             get { return _graphicsSettings.DiffuseComponent; }
             set { _graphicsSettings.DiffuseComponent = value; }
         }
-
+        // Smoothing                                                                                
         [CategoryAttribute("Smoothing")]
         [OrderedDisplayName(0, 10, "Point smoothing")]
         [DescriptionAttribute("Enable/disable point smoothing.")]
@@ -133,7 +134,7 @@ namespace PrePoMax.Settings
             get { return _graphicsSettings.PointSmoothing; }
             set { _graphicsSettings.PointSmoothing = value; }
         }
-
+        //
         [CategoryAttribute("Smoothing")]
         [OrderedDisplayName(1, 10, "Line smoothing")]
         [DescriptionAttribute("Enable/disable line smoothing.")]
@@ -142,15 +143,44 @@ namespace PrePoMax.Settings
             get { return _graphicsSettings.LineSmoothing; }
             set { _graphicsSettings.LineSmoothing = value; }
         }
-
+        // Geometry                                                                                 
         [CategoryAttribute("Geometry")]
-        [OrderedDisplayName(0, 10, "CAD deflection")]
-        [DescriptionAttribute("This parameter controls the deflection of the geometry visualization, i.e. how accurate it is at approximating the actual curved surfaces")]
-        [TypeConverter(typeof(StringDoubleConverter))]
-        public double GeometryDeflection
+        [OrderedDisplayName(0, 10, "Linear CAD deflection type")]
+        [DescriptionAttribute("This parameter determines if the linear CAD deflection is relative or absolute.")]
+        public bool LinearDeflectionRelative
         {
-            get { return _graphicsSettings.GeometryDeflection; }
-            set { _graphicsSettings.GeometryDeflection = value; }
+            get { return _graphicsSettings.LinearDeflectionRelative; }
+            set { _graphicsSettings.LinearDeflectionRelative = value; UprateVisibilities(); }
+        }
+        //
+        [CategoryAttribute("Geometry")]
+        [OrderedDisplayName(1, 10, "Linear CAD deflection")]
+        [DescriptionAttribute("This parameter limits the distance between a curve and its tessellation.")]
+        [TypeConverter(typeof(StringDoubleConverter))]
+        public double LinearDeflection
+        {
+            get { return _graphicsSettings.LinearDeflection; }
+            set { _graphicsSettings.LinearDeflection = value; }
+        }
+        //
+        [CategoryAttribute("Geometry")]
+        [OrderedDisplayName(2, 10, "Linear CAD deflection")]
+        [DescriptionAttribute("This parameter limits the distance between a curve and its tessellation.")]
+        [TypeConverter(typeof(StringLengthConverter))]
+        public double LinearDeflectionInUnits
+        {
+            get { return _graphicsSettings.LinearDeflection; }
+            set { _graphicsSettings.LinearDeflection = value; }
+        }
+        //
+        [CategoryAttribute("Geometry")]
+        [OrderedDisplayName(3, 10, "Angular CAD deflection")]
+        [DescriptionAttribute("This parameter limits the angle between subsequent segments in a polyline.")]
+        [TypeConverter(typeof(StringAngleDegConverter))]
+        public double AngularDeflectionDeg
+        {
+            get { return _graphicsSettings.AngularDeflectionDeg; }
+            set { _graphicsSettings.AngularDeflectionDeg = value; }
         }
 
 
@@ -159,16 +189,16 @@ namespace PrePoMax.Settings
         {
             _graphicsSettings = graphicsSettings;
             _dctd = ProviderInstaller.Install(this);
-
+            //
             BackgroundType = _graphicsSettings.BackgroundType;  // add this also to Reset()
-
-            CustomPropertyDescriptor cpd;
-
-            // now lets display On/Off instead of True/False
+            // Now lets display On/Off instead of True/False
             _dctd.RenameBooleanPropertyToOnOff(nameof(CoorSysVisibility));
             _dctd.RenameBooleanPropertyToOnOff(nameof(ScaleWidgetVisibility));
             _dctd.RenameBooleanPropertyToOnOff(nameof(PointSmoothing));
             _dctd.RenameBooleanPropertyToOnOff(nameof(LineSmoothing));
+            _dctd.RenameBooleanProperty(nameof(LinearDeflectionRelative), "Relative", "Absolute");
+            //
+            UprateVisibilities();
         }
 
 
@@ -183,6 +213,12 @@ namespace PrePoMax.Settings
             _graphicsSettings.Reset();
             //
             BackgroundType = _graphicsSettings.BackgroundType;
+        }
+        public void UprateVisibilities()
+        {
+            bool visible = _graphicsSettings.LinearDeflectionRelative;
+            _dctd.GetProperty(nameof(LinearDeflection)).SetIsBrowsable(visible);
+            _dctd.GetProperty(nameof(LinearDeflectionInUnits)).SetIsBrowsable(!visible);
         }
     }
 

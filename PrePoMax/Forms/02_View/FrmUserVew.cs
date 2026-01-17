@@ -31,6 +31,7 @@ namespace PrePoMax.Forms
             _controller = controller;
             //
             pgProperties.SetLabelColumnWidth(2.25);
+            pgProperties.SetSelectFirstCategory();
             //
             lvViews.Items.Clear();
         }

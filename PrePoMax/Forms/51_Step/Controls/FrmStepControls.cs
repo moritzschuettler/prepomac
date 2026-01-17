@@ -52,6 +52,8 @@ namespace PrePoMax.Forms
             _showWarning = true;
             //
             ClearControls();
+            //
+            propertyGrid.SetSelectFirstCategory();
         }
 
 

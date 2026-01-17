@@ -136,9 +136,8 @@ namespace FileInOut.Input
             bool reverse = orientation == 1;
             //
             if (!faceTypes.ContainsKey(surfaceId)) faceTypes.Add(surfaceId, faceType);
-            // Some triangles might be missing due to geometry problems - use only trinagle nodes for surface definition
+            // Some triangles might be missing - use only trinagle nodes for surface definition - fix geometry problems
             HashSet<int> triangleNodeIds = new HashSet<int>();
-            
             //
             Dictionary<int, FeNode> surfaceNodes = new Dictionary<int, FeNode>();
             CompareIntArray comparer = new CompareIntArray();
@@ -165,7 +164,7 @@ namespace FileInOut.Input
             }
             //
             offsetNodeId += numOfNodes;
-            // Remove missing nodes from edge node ids 
+            // Remove missing nodes from edge node ids - fix geometry problems
             HashSet<int> missingNodes = new HashSet<int>(surfaceNodes.Keys.Except(triangleNodeIds));
             if (missingNodes.Count > 0)
             {

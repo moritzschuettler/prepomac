@@ -1513,32 +1513,34 @@ namespace CaeMesh
             bool closed = false;
             int newVertexId;
             int[] vertexIds;
-            List<int> edgeIds = vertexIdEdgeIds[vertexId];
-            //
-            foreach (var edgeId in edgeIds)
+            List<int> edgeIds;
+            if (vertexIdEdgeIds.TryGetValue(vertexId, out edgeIds))
             {
-                if (loopEdgeIds.Count > 1 && loopEdgeIds[0] == edgeId &&
-                    loopVertexIds.Count > 1 && loopVertexIds[0] == vertexId) return true;
-                else
+                foreach (var edgeId in edgeIds)
                 {
-                    if (loopEdgeIds.Count == 0 || !loopEdgeIds.Contains(edgeId))
+                    if (loopEdgeIds.Count > 1 && loopEdgeIds[0] == edgeId &&
+                        loopVertexIds.Count > 1 && loopVertexIds[0] == vertexId) return true;
+                    else
                     {
-                        // Add
-                        loopEdgeIds.Add(edgeId);
-                        //
-                        vertexIds = edgeIdVertexIds[edgeId];
-                        if (vertexId == vertexIds[0]) newVertexId = vertexIds[1];
-                        else newVertexId = vertexIds[0];
-                        //
-
-                        closed = AddNextEdgeToLoop(newVertexId, vertexIdEdgeIds, edgeIdVertexIds, loopVertexIds, loopEdgeIds);
-                        // Finish
-                        if (closed) return true;
-                        // Remove
-                        else loopEdgeIds.Remove(edgeId);
+                        if (loopEdgeIds.Count == 0 || !loopEdgeIds.Contains(edgeId))
+                        {
+                            // Add
+                            loopEdgeIds.Add(edgeId);
+                            //
+                            vertexIds = edgeIdVertexIds[edgeId];
+                            if (vertexId == vertexIds[0]) newVertexId = vertexIds[1];
+                            else newVertexId = vertexIds[0];
+                            //
+                            closed = AddNextEdgeToLoop(newVertexId, vertexIdEdgeIds, edgeIdVertexIds, loopVertexIds, loopEdgeIds);
+                            // Finish
+                            if (closed) return true;
+                            // Remove
+                            else loopEdgeIds.Remove(edgeId);
+                        }
                     }
                 }
             }
+            else return false;
             //
             loopVertexIds.Remove(vertexId);
             return false;

@@ -123,7 +123,6 @@ namespace PrePoMax.Forms
                                                            _controller.Settings.GetAbaqusWorkDirectory()});
             //
             propertyGrid.SelectedObject = _viewJob;
-            propertyGrid.Select();            
             //
             return true;
         }

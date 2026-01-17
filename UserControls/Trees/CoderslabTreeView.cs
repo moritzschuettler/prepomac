@@ -60,15 +60,16 @@
 // 
 // *****************************************************************************
 
+using CaeGlobals;
 using System;
 using System.Collections;
-using System.ComponentModel;
-using System.Drawing;
-using System.Data;
-using System.Windows.Forms;
-using System.Runtime.InteropServices;
-using CaeGlobals;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Diagnostics;
+using System.Drawing;
+using System.Runtime.InteropServices;
+using System.Windows.Forms;
 
 namespace UserControls
 {
@@ -216,6 +217,7 @@ namespace UserControls
                                                        (int)(SystemColors.Highlight.B + (255 - SystemColors.Highlight.B) * 0.8));
         private TreeNode _prevMouseOverNode;
         private Color[] _prevMouseOverNodeColors;
+        private Timer _editTmer;
 
 
         // Properties                                                                                                               
@@ -236,11 +238,25 @@ namespace UserControls
 			set { _changeHighlightOnFocusLost = value; }
 		}
         public TreeNode MouseOverNode { get { return _prevMouseOverNode; } }
+        public bool EditModeActive { get { return this.SelectedNode != null && this.SelectedNode.IsEditing; } }
+
+
+        // CallBacks                                                                                                                
+        public Func<TreeNode, bool> IsNodeRenameable;
+        public Func<TreeNode, string, bool> CheckNodeName;
 
 
         // Events                                                                                                                   
         public event Action<object> MouseOverNodeChangedEvent;
 
+
+        public CodersLabTreeView()
+        {
+            _editTmer = new Timer();
+            _editTmer.Interval = SystemInformation.DoubleClickTime + 5;
+            _editTmer.Tick += EditTimer_Tick;
+        }
+        
 
         // Methods                                                                                                                  
         public void SetNodeForeColor(TreeNode node, Color color)
@@ -295,8 +311,14 @@ namespace UserControls
             _prevMouseOverNode = null;
             _prevMouseOverNodeColors = null;
         }
+        private void EditTimer_Tick(object sender, EventArgs e)
+        {
+            _editTmer.Stop();
+            BeginInvoke((MethodInvoker)StartEdit);
+        }
 
         #endregion
+
         public event TreeViewEventHandler AfterDeselect;
 		public event TreeViewEventHandler BeforeDeselect;
 		public event EventHandler SelectionsChanged;
@@ -1103,7 +1125,12 @@ namespace UserControls
 		/// </summary>
 		private void InitializeComponent()
 		{
-			components = new System.ComponentModel.Container();
+            this.SuspendLayout();
+            // 
+            // CodersLabTreeView
+            // 
+            this.ResumeLayout(false);
+
 		}
 
 		#endregion
@@ -1116,38 +1143,30 @@ namespace UserControls
 		/// <param name="e"></param>
 		protected override void OnMouseUp(MouseEventArgs e)
 		{
-#if DEBUG
 			try
 			{
-#endif          
-				if (!this.blnNodeProcessedOnMouseDown)
+                _editTmer.Stop();
+                if (!blnNodeProcessedOnMouseDown)
 				{
-					TreeNode tn = this.GetNodeAt(e.X, e.Y);
-
+					TreeNode tn = GetNodeAt(e.X, e.Y);
 					// Mouse click has not been handled by the mouse down event, so do it here. This is the case when
 					// a selected node was clicked again; in that case we handle that click here because in case the
 					// user is dragging the node, we should not put it in edit mode.					
-
 					if (IsClickOnNode(tn, e))
 					{
-						this.ProcessNodeRange(this.tnMostRecentSelectedNode, tn, e, Control.ModifierKeys, TreeViewAction.ByMouse, true);
+						ProcessNodeRange(tnMostRecentSelectedNode, tn, e, ModifierKeys, TreeViewAction.ByMouse, true);
 					}
 				}
-
-				this.blnNodeProcessedOnMouseDown = false;
-
+				blnNodeProcessedOnMouseDown = false;
 				base.OnMouseUp(e);
-#if DEBUG
 			}
 			catch (Exception ex)
 			{
 				// GKM - Untrapped exceptions were killing me for debugging purposes.
 				// It probably shouldn't be here permanently, but it was causing real trouble for me.
-				MessageBoxes.ShowError("CodersLabTreeView: " + ex.ToString());
+                if (Debugger.IsAttached) MessageBoxes.ShowError("CodersLabTreeView: " + ex.ToString());
 			}
-#endif
 		}
-
 		private bool IsPlusMinusClicked(TreeNode tn, MouseEventArgs e)
 		{
             Point offset = ScrollPosition();
@@ -1167,26 +1186,25 @@ namespace UserControls
 		/// <param name="e"></param>
 		protected override void OnMouseDown(MouseEventArgs e)
 		{
-			Focus();
-
+            _editTmer.Stop();
+            //
+            Focus();
+            //
             tnKeysStartNode = null;
-
 			// Store number of mouse clicks in OnMouseDown event, because here we also get e.Clicks = 2 when an item was doubleclicked
 			// in OnMouseUp we seem to get always e.Clicks = 1, also when item is doubleclicked
 			intMouseClicks = e.Clicks;
-
+            //
 			TreeNode tn = this.GetNodeAt(e.X, e.Y);
-
+            //
             if (tn == null)
             {
                 base.OnMouseDown(e);
                 return;
             }
-
 			// Preserve colors here, because if you do it later then it will already have selected colors 
 			// Don't know why...!
 			PreserveNodeColors(tn);
-
 			// If +/- was clicked, we should not process the node.
 			if (!IsPlusMinusClicked(tn, e))
 			{
@@ -1198,22 +1216,13 @@ namespace UserControls
 					// Flash node. In case the node selection is cancelled by the user, this gives the effect that it
 					// was selected and unselected again.
 					tnToFlash = tn;
-
-                    // Changed 14. 11. 2018 to prevent creation of threads - Flash not working
-                    //System.Threading.Thread t = new System.Threading.Thread(new System.Threading.ThreadStart(FlashNode));
-					//t.Start();
-
 					blnNodeProcessedOnMouseDown = true;
-
 					//System.Diagnostics.Debug.WriteLine("*** " + tn.BackColor);
 					ProcessNodeRange(tnMostRecentSelectedNode, tn, e, Control.ModifierKeys, TreeViewAction.ByMouse, true);
                 }
 			}
-
 			base.OnMouseDown(e);
 		}
-
-        
         protected override void OnMouseLeave(EventArgs e)
         {
             ClearMouseOverSelection();
@@ -1264,8 +1273,9 @@ namespace UserControls
 		/// </summary>
 		private void StartEdit()
 		{
-			System.Threading.Thread.Sleep(200);
-			if (!blnWasDoubleClick)
+            if (IsDisposed || !IsHandleCreated) return;
+            //
+            if (!blnWasDoubleClick)
 			{
 				blnInternalCall = true;
 				SelectedNode = tnNodeToStartEditOn;
@@ -1330,9 +1340,11 @@ namespace UserControls
 						{
 							// Node should be put in edit mode					
 							tnNodeToStartEditOn = endNode;
-							System.Threading.Thread t = new System.Threading.Thread(new System.Threading.ThreadStart(StartEdit));
-							t.Start();
-						}
+
+                            _editTmer.Stop();
+                            _editTmer.Start();
+
+                        }
 					}
 				}
 				else if (((keys & Keys.Control) != 0) && ((keys & Keys.Shift) == 0))
@@ -1633,27 +1645,74 @@ namespace UserControls
 		/// <param name="e"></param>
 		protected override void OnBeforeLabelEdit(NodeLabelEditEventArgs e)
 		{
+            if (IsNodeRenameable?.Invoke(e.Node) == false)
+            {
+                e.CancelEdit = true;
+                return;
+            }
+            //
 			blnSelectionChanged = false; // prepare for OnSelectionsChanged
-
 			// Make sure that it's the only selected node
 			SelectNode(e.Node, true, TreeViewAction.ByMouse);
 			UnselectAllNodesExceptNode(e.Node, TreeViewAction.ByMouse);
-
+            //
 			OnSelectionsChanged();
-
-			base.OnBeforeLabelEdit(e);
+            //
+            if (SelectedNodes.Count == 1) HideNodeBackground(SelectedNode);
+            //
+            base.OnBeforeLabelEdit(e);
 		}
 
-		#endregion
+        #endregion
 
-		#region OnKeyDown
+        #region OnAfeterLabelEdit
 
-		/// <summary>
-		/// occurs when a key is down.
-		/// </summary>
-		/// <param name="e"></param>
-		protected override void OnKeyDown(KeyEventArgs e)
+        /// <summary>
+        /// Occurs after node goes into edit mode.
+        /// </summary>
+        /// <param name="e"></param>
+        protected override void OnAfterLabelEdit(NodeLabelEditEventArgs e)
+        {
+            if (SelectedNodes.Count == 1) HighlightNode(SelectedNode);
+            // ESC pressed
+            if (e.Label == null) return;
+            //
+            string newName = e.Label.Trim();
+            //
+            if (newName.Length == 0)
+            {
+                e.CancelEdit = true;
+                throw new CaeException("Name cannot be an empty string.");
+            }
+            //
+            if (e.Node.Tag is NamedClass nc && CheckNodeName?.Invoke(SelectedNode, newName) == false)
+            {
+                e.CancelEdit = true;
+                return;
+            }
+            // Accept rename
+            e.Node.Text = newName;
+            //
+            base.OnAfterLabelEdit(e);
+        }
+
+        #endregion
+
+        #region OnKeyDown
+
+        /// <summary>
+        /// occurs when a key is down.
+        /// </summary>
+        /// <param name="e"></param>
+        protected override void OnKeyDown(KeyEventArgs e)
 		{
+            // IMPORTANT: do nothing while editing a label
+            if (EditModeActive)
+            {
+                base.OnKeyDown(e);
+                return;
+            }
+            //
             if (tnMostRecentSelectedNode == null)
             {
                 base.OnKeyDown(e);
@@ -1723,7 +1782,16 @@ namespace UserControls
 					tnNewlySelectedNodeWithKeys = GetNextTreeNode(tnMostRecentSelectedNode, false, intNumber);
 					break;
 
-				default:
+                case Keys.F2:
+                    if (SelectedNodes.Count == 1 && IsNodeRenameable?.Invoke(SelectedNode) == true)
+                    {
+                        HideNodeBackground(SelectedNode);
+                        SelectedNode.BeginEdit();
+                        e.Handled = true;
+                    }
+                    break;
+
+                default:
 					base.OnKeyDown(e); // GKM
 					return;
 			}
@@ -1840,7 +1908,8 @@ namespace UserControls
         /// <param name="e"></param>
         protected override void OnItemDrag(ItemDragEventArgs e)
 		{
-			e = new ItemDragEventArgs(MouseButtons.Left, this.SelectedNodes);
+            _editTmer.Stop();
+            e = new ItemDragEventArgs(MouseButtons.Left, this.SelectedNodes);
 			base.OnItemDrag(e);
 		}
 
@@ -1884,31 +1953,35 @@ namespace UserControls
 			// Unfocused
 			else
             {
-				Color[] originalColors = (Color[])htblSelectedNodesOrigColors[node.GetHashCode()];
-				if (originalColors != null)
-				{
-					if (node.ForeColor == _highlightForeErrorColor)
-					{
-						node.BackColor = _unfocusedSelectionBackColor;
-						node.ForeColor = _highlightForeErrorColor;
-					}
-					else
-					{
-						node.BackColor = _unfocusedSelectionBackColor;
-						node.ForeColor = originalColors[1];
-					}
-				}
-			}
+                Color[] originalColors = (Color[])htblSelectedNodesOrigColors[node.GetHashCode()];
+                if (originalColors != null)
+                {
+                    if (node.ForeColor == _highlightForeErrorColor)
+                    {
+                        node.BackColor = _unfocusedSelectionBackColor;
+                        node.ForeColor = _highlightForeErrorColor;
+                    }
+                    else
+                    {
+                        node.BackColor = _unfocusedSelectionBackColor;
+                        node.ForeColor = originalColors[1];
+                    }
+                }
+            }
 		}
-		#endregion
-	}
+        private void HideNodeBackground(TreeNode node)
+        {
+            node.BackColor = this.BackColor;
+        }
+        #endregion
+    }
 
-	#region SelectedNodesCollection
+    #region SelectedNodesCollection
 
-	/// <summary>
-	/// Collection of selected nodes.
-	/// </summary>
-	public class NodesCollection : CollectionBase
+    /// <summary>
+    /// Collection of selected nodes.
+    /// </summary>
+    public class NodesCollection : CollectionBase
 	{
 		#region Events
 
