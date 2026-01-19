@@ -54,6 +54,8 @@ namespace vtkControl
         protected bool _canHaveElementEdges;
         protected vtkRendererLayer _layer;
         //
+        protected uint _memorySize;
+        //
         private static object myLock = new object();
 
 
@@ -208,6 +210,7 @@ namespace vtkControl
         }
         public bool CanHaveElementEdges { get { return _canHaveElementEdges; } set { _canHaveElementEdges = value; } }
         public vtkRendererLayer Layer { get { return _layer; } set { _layer = value; } }
+        public uint MemorySize { get { return _memorySize; } set { _memorySize = value; } }
 
 
         // Constructors                                                                                                             
@@ -249,6 +252,7 @@ namespace vtkControl
             _canHaveElementEdges = false;
             _layer = vtkRendererLayer.Base;
             //
+            _memorySize = 0;
             UpdateColor();
         }
         public vtkMaxActor(vtkUnstructuredGrid source)
@@ -275,6 +279,8 @@ namespace vtkControl
             // Edges
             _elementEdges = GetActorEdgesFromGridByVisualizationSurfaceExtraction(uGridEdges);
             if (_elementEdges != null) _elementEdgesProperty = _elementEdges.GetProperty();
+            //
+            _memorySize = 0;
         }
         public vtkMaxActor(vtkMaxActorData data)
             : this(data, false, false)
@@ -305,6 +311,8 @@ namespace vtkControl
             //
             _canHaveElementEdges = data.CanHaveElementEdges;
             _layer = data.Layer;
+            //
+            _memorySize = 0;
             //
             UpdateColor();
         }
@@ -359,6 +367,8 @@ namespace vtkControl
             //
             _canHaveElementEdges = data.CanHaveElementEdges;
             _layer = data.Layer;
+            //
+            _memorySize = 0;
             //
             UpdateColor();
         }
@@ -460,6 +470,7 @@ namespace vtkControl
             _canHaveElementEdges = sourceActor.CanHaveElementEdges;
             _layer = sourceActor.Layer;
             //
+            _memorySize = sourceActor.MemorySize;
             UpdateColor();
         }
 
@@ -1776,6 +1787,21 @@ namespace vtkControl
             _geometryMapper.RemoveAllClippingPlanes();
             if (ElementEdges != null) ElementEdges.GetMapper().RemoveAllClippingPlanes();
             if (ModelEdges != null) ModelEdges.GetMapper().RemoveAllClippingPlanes();
+        }
+        // Memory
+        public void RecomputeMemorySize()
+        {
+            if (_geometryMapper != null && _geometryMapper.GetInput() != null)
+                _memorySize += _geometryMapper.GetInput().GetActualMemorySize();
+            //
+            if (_elementEdges != null && _elementEdges.GetMapper() != null && _elementEdges.GetMapper().GetInput() != null)
+                _memorySize += _elementEdges.GetMapper().GetInput().GetActualMemorySize();
+            //
+            if (_modelEdges != null && _modelEdges.GetMapper() != null && _modelEdges.GetMapper().GetInput() != null)
+                _memorySize += _modelEdges.GetMapper().GetInput().GetActualMemorySize();
+            //
+            if (_nodes != null && _nodes.GetMapper() != null && _nodes.GetMapper().GetInput() != null)
+                _memorySize += _nodes.GetMapper().GetInput().GetActualMemorySize();
         }
         // Exports
         public double[][][] GetStlTriangles()

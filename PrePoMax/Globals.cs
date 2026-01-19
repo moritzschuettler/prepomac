@@ -91,6 +91,6 @@ namespace PrePoMax
         // Graphics
         public static int BeamNodeSize = 5;
         // slection
-        public static int SelectionBufferSize = 20;
+        public static uint MaxSelectionBufferSizeMB = 200;
     }
 }

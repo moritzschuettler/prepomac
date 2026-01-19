@@ -831,7 +831,7 @@
     <Compile Include="Forms\ViewMultiRegion.cs" />
     <Compile Include="Forms\ViewError.cs" />
     <Compile Include="Globals.cs" />
-    <Compile Include="GmshBase.cs" />
+    <Compile Include="Tools\GmshBase.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Collections\SectionViewsCollection.cs" />
@@ -840,6 +840,7 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <Compile Include="Tools\SelectionCache.cs" />
     <Compile Include="Selection\ItemSet\ItemSetData.cs">
       <SubType>Code</SubType>
     </Compile>

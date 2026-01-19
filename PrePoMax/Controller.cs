@@ -60,7 +60,7 @@ namespace PrePoMax
         [NonSerialized] protected GeometrySelectModeEnum _geometrySelectMode;
         [NonSerialized] protected double _selectAngle;
         [NonSerialized] protected Selection _selection;
-        [NonSerialized] protected OrderedDictionary<string, vtkMaxActor[]> _selectionBuffer;
+        [NonSerialized] protected SelectionCache _selectionCache;
         // Annotations
         protected AnnotationContainer _annotations;
         // Results
@@ -408,7 +408,7 @@ namespace PrePoMax
             _annotations = new AnnotationContainer(this);
             // Selection
             _selection = new Selection();
-            _selectionBuffer = new OrderedDictionary<string, vtkMaxActor[]>("SelectionBuffer");
+            _selectionCache = new SelectionCache(Globals.MaxSelectionBufferSizeMB);
             // Results
             _allResults = new ResultsCollection();  // must be first
             ViewResultsType = ViewResultsTypeEnum.ColorContours;
@@ -13847,14 +13847,11 @@ namespace PrePoMax
         // Selection buffer
         public void ClearSelectionBuffer()
         {
-            if (_selectionBuffer.Count > 0) _selectionBuffer.Clear();
+            if (_selectionCache.Count > 0) _selectionCache.Clear();
         }
         private void AddActorsToSelectionBuffer(string key, vtkMaxActor[] actors)
         {
-            _selectionBuffer.Add(key, actors);
-            //
-            int count = _selectionBuffer.Count - Globals.SelectionBufferSize;
-            for (int i = 0; i < count; i++) _selectionBuffer.Remove(_selectionBuffer.Keys.First());
+            _selectionCache.Add(key, actors);
         }
         private string GetSelectionBufferKey(string prefixName, int hash, vtkRendererLayer layer, bool backfaceCulling)
         {
@@ -13868,7 +13865,7 @@ namespace PrePoMax
         }
         private bool GetActorsFromSelectionBuffer(string key, out vtkMaxActor[] actors)
         {
-            if (_selectionBuffer.TryGetValue(key, out actors)) return true;
+            if (_selectionCache.TryGet(key, out actors)) return true;
             else return false;
         }
 

@@ -6918,6 +6918,11 @@ namespace vtkControl
             if (_renderingOn)
             {
                 this.Invalidate();
+                //
+                foreach (var entry in _actors)
+                {
+                    if (entry.Value.MemorySize == 0) entry.Value.RecomputeMemorySize();
+                }
                 //Application.DoEvents();
             }
         }
