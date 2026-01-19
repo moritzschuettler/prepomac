@@ -45,7 +45,7 @@ namespace UserControls
             _numItems = -1;
             //
             propertyGrid.SetSelectFirstCategory();
-            propertyGrid.FocusOnObjectChanged = false;
+            propertyGrid.FocusOnSelectedObjectChanged = false;
         }
 
 
@@ -138,12 +138,12 @@ namespace UserControls
                 lvTypes.Enabled = false;
                 _preselectIndex = -1;
                 propertyGrid.SetSelectFirstProperty();
-                propertyGrid.FocusOnObjectChanged = true;
+                propertyGrid.FocusOnSelectedObjectChanged = true;
             }
             else
             {
                 propertyGrid.SetSelectFirstCategory();
-                propertyGrid.FocusOnObjectChanged = false;
+                propertyGrid.FocusOnSelectedObjectChanged = false;
             }
         }
     }

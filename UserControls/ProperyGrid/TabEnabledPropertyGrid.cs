@@ -24,12 +24,16 @@ namespace UserControls
         private bool _readOnly;
         private bool _selectFirstProperty;
         private bool _selectFirstCategory;
-        private bool _focusOnObjectChanged;
+        private bool _focusOnSelectedObjectChanged;
 
 
         // Variables                                                                                                                
         public bool ReadOnly { get { return _readOnly; } set { _readOnly = value; } }
-        public bool FocusOnObjectChanged { get { return _focusOnObjectChanged; } set { _focusOnObjectChanged = value; } }
+        public bool FocusOnSelectedObjectChanged
+        {
+            get { return _focusOnSelectedObjectChanged; }
+            set { _focusOnSelectedObjectChanged = value; }
+        }
 
 
         // Constructors                                                                                                             
@@ -44,7 +48,7 @@ namespace UserControls
             _readOnly = false;
             //
             SetSelectFirstProperty();
-            _focusOnObjectChanged = true;
+            _focusOnSelectedObjectChanged = true;
             //
             BuildAutocompleteMenu(new string[0]);
         }
@@ -335,7 +339,7 @@ namespace UserControls
             if (_selectFirstProperty) SelectFirstVisibleProperty();
             else if (_selectFirstCategory) SelectFirstVisibleCategory();
             //
-            if (_focusOnObjectChanged) this.Select();
+            if (_focusOnSelectedObjectChanged) this.Focus();
         }
         public void SelectFirstVisibleProperty()
         {

@@ -10462,6 +10462,9 @@ namespace CaeMesh
                     errors.Add("The part '" + part.Name + "' is not a solid part.");
                 }
             }
+            //
+            if (!preview) UpdateNodeIdElementIds();
+            //
             return errors.ToArray();
         }
         private void RepositionMidNodes(FeElement element, HashSet<int> modifiedElNodeIds)
