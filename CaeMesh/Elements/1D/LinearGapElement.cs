@@ -76,6 +76,10 @@ namespace CaeMesh
         {
             throw new NotImplementedException();
         }
+        //
+        public override void Mirror()
+        { }
+        //
         public override FeElement DeepCopy()
         {
             return new LinearBeamElement(Id, PartId, NodeIds.ToArray());

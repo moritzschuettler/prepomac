@@ -1,8 +1,10 @@
-﻿using System;
+﻿using CaeGlobals;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace CaeMesh
 {
@@ -53,6 +55,55 @@ namespace CaeMesh
                 Y = value[1];
                 Z = value[2];
             }
+        }
+        //
+        public void Translate(Vec3D translateVector)
+        {
+            X += translateVector.X;
+            Y += translateVector.Y;
+            Z += translateVector.Z;
+        }
+        public void Rotate(Vec3D center, double[][] matrix)
+        {
+            // Translate to origin
+            Translate(-1 * center);
+            // Copy
+            double x = X;
+            double y = Y;
+            double z = Z;
+            // Rotate
+            X = matrix[0][0] * x + matrix[0][1] * y + matrix[0][2] * z;
+            Y = matrix[1][0] * x + matrix[1][1] * y + matrix[1][2] * z;
+            Z = matrix[2][0] * x + matrix[2][1] * y + matrix[2][2] * z;
+            // Translate to rotation center
+            Translate(center);
+        }
+        public void Mirror(Vec3D pointOnPlane, Vec3D planeNormal)
+        {
+            // Translate to origin
+            Translate(-1 * pointOnPlane);
+            // Copy
+            double x = X;
+            double y = Y;
+            double z = Z;
+            // Mirror
+            double d = planeNormal.X * x + planeNormal.Y * y + planeNormal.Z * z;
+            X = x - 2 * d * planeNormal.X;
+            Y = y - 2 * d * planeNormal.Y;
+            Z = z - 2 * d * planeNormal.Z;
+            // Translate to mirror plane
+            Translate(pointOnPlane);
+        }
+        public void Scale(Vec3D center, double[] scaleFactors)
+        {
+            // Translate to origin
+            Translate(-1 * center);
+            // Scale
+            X *= scaleFactors[0];
+            Y *= scaleFactors[1];
+            Z *= scaleFactors[2];
+            // Translate to scale center
+            Translate(center);
         }
         public bool IsEqual(FeNode node, double epsilon = 1E-6)
         {

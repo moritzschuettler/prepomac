@@ -14,7 +14,7 @@ using CaeMesh;
 
 namespace PrePoMax.Forms
 {
-    public partial class FrmQuery : UserControls.PrePoMaxChildForm
+    public partial class FrmQuery : UserControls.PrePoMaxChildForm, IFormHighlight 
     {
         // Variables                                                                                                                
         private int _numOfNodesToSelect;
@@ -197,7 +197,7 @@ namespace PrePoMax.Forms
                     //
                     _controller.ClearSelectionHistoryAndCallSelectionChanged();
                     //
-                    HighlightNodes();
+                    Highlight();
                 }
             }
             catch
@@ -758,7 +758,7 @@ namespace PrePoMax.Forms
         {
             _controller.Annotations.RemoveCurrentMeasureAnnotation();
         }
-        private void HighlightNodes()
+        public void Highlight()
         {
             if (_coorNodesToDraw != null)
             {
@@ -766,7 +766,12 @@ namespace PrePoMax.Forms
                 {
                     _controller.HighlightNodes(_coorNodesToDraw);
                 }
-                else if (_coorNodesToDraw.GetLength(0) >= 2)
+                else if (_coorNodesToDraw.GetLength(0) == 2)
+                {
+                    _controller.HighlightNodes(_coorNodesToDraw);
+                    _controller.HighlightLineWithArrow(_coorNodesToDraw[0], _coorNodesToDraw[1], true, true, false, 1);
+                }
+                else if (_coorNodesToDraw.GetLength(0) > 2)
                 {
                     _controller.HighlightNodes(_coorNodesToDraw);
                     _controller.HighlightConnectedLines(_coorLinesToDraw);

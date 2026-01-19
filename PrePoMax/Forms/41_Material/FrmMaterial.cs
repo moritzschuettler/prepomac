@@ -74,6 +74,8 @@ namespace PrePoMax.Forms
             ttText.SetToolTip(btnMoveUp, "Move up");
             ttText.SetToolTip(btnMoveDown, "Move down");
             ttText.SetToolTip(btnRemove, "Remove model");
+            //
+            propertyGrid.SetSelectFirstCategory();
         }
 
 

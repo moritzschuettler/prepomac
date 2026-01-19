@@ -29,13 +29,15 @@
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
-            System.Windows.Forms.TreeNode treeNode5 = new System.Windows.Forms.TreeNode("Reset");
-            System.Windows.Forms.TreeNode treeNode6 = new System.Windows.Forms.TreeNode("Time Incrementation");
-            System.Windows.Forms.TreeNode treeNode7 = new System.Windows.Forms.TreeNode("Field");
-            System.Windows.Forms.TreeNode treeNode8 = new System.Windows.Forms.TreeNode("Contact");
-            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle2 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.TreeNode treeNode1 = new System.Windows.Forms.TreeNode("Reset");
+            System.Windows.Forms.TreeNode treeNode2 = new System.Windows.Forms.TreeNode("Time Incrementation");
+            System.Windows.Forms.TreeNode treeNode3 = new System.Windows.Forms.TreeNode("Field");
+            System.Windows.Forms.TreeNode treeNode4 = new System.Windows.Forms.TreeNode("Contact");
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle1 = new System.Windows.Forms.DataGridViewCellStyle();
             this.tvProperties = new System.Windows.Forms.TreeView();
             this.propertyGrid = new UserControls.TabEnabledPropertyGrid();
+            this.cmsPropertyGrid = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.tsmiResetAll = new System.Windows.Forms.ToolStripMenuItem();
             this.btnOK = new System.Windows.Forms.Button();
             this.btnCancel = new System.Windows.Forms.Button();
             this.gbProperties = new System.Windows.Forms.GroupBox();
@@ -51,14 +53,12 @@
             this.colName = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.btnAdd = new System.Windows.Forms.Button();
             this.btnRemove = new System.Windows.Forms.Button();
-            this.cmsPropertyGrid = new System.Windows.Forms.ContextMenuStrip(this.components);
-            this.tsmiResetAll = new System.Windows.Forms.ToolStripMenuItem();
+            this.cmsPropertyGrid.SuspendLayout();
             this.gbProperties.SuspendLayout();
             this.tcProperties.SuspendLayout();
             this.tpProperties.SuspendLayout();
             this.tpDataPoints.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvData)).BeginInit();
-            this.cmsPropertyGrid.SuspendLayout();
             this.SuspendLayout();
             // 
             // tvProperties
@@ -66,23 +66,23 @@
             this.tvProperties.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
             this.tvProperties.Location = new System.Drawing.Point(5, 38);
             this.tvProperties.Name = "tvProperties";
-            treeNode5.Name = "Reset";
-            treeNode5.Text = "Reset";
-            treeNode5.ToolTipText = "Reset";
-            treeNode6.Name = "Time Incrementation";
-            treeNode6.Text = "Time Incrementation";
-            treeNode6.ToolTipText = "Time Incrementation";
-            treeNode7.Name = "Field";
-            treeNode7.Text = "Field";
-            treeNode7.ToolTipText = "Field";
-            treeNode8.Name = "Contact";
-            treeNode8.Text = "Contact";
-            treeNode8.ToolTipText = "Contact";
+            treeNode1.Name = "Reset";
+            treeNode1.Text = "Reset";
+            treeNode1.ToolTipText = "Reset";
+            treeNode2.Name = "Time Incrementation";
+            treeNode2.Text = "Time Incrementation";
+            treeNode2.ToolTipText = "Time Incrementation";
+            treeNode3.Name = "Field";
+            treeNode3.Text = "Field";
+            treeNode3.ToolTipText = "Field";
+            treeNode4.Name = "Contact";
+            treeNode4.Text = "Contact";
+            treeNode4.ToolTipText = "Contact";
             this.tvProperties.Nodes.AddRange(new System.Windows.Forms.TreeNode[] {
-            treeNode5,
-            treeNode6,
-            treeNode7,
-            treeNode8});
+            treeNode1,
+            treeNode2,
+            treeNode3,
+            treeNode4});
             this.tvProperties.Size = new System.Drawing.Size(144, 101);
             this.tvProperties.TabIndex = 2;
             this.tvProperties.DoubleClick += new System.EventHandler(this.tvProperties_DoubleClick);
@@ -92,6 +92,7 @@
             this.propertyGrid.ContextMenuStrip = this.cmsPropertyGrid;
             this.propertyGrid.DisabledItemForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(80)))), ((int)(((byte)(80)))));
             this.propertyGrid.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.propertyGrid.FocusOnSelectedObjectChanged = false;
             this.propertyGrid.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
             this.propertyGrid.LineColor = System.Drawing.SystemColors.Control;
             this.propertyGrid.Location = new System.Drawing.Point(3, 3);
@@ -101,6 +102,20 @@
             this.propertyGrid.TabIndex = 6;
             this.propertyGrid.ToolbarVisible = false;
             this.propertyGrid.PropertyValueChanged += new System.Windows.Forms.PropertyValueChangedEventHandler(this.propertyGrid_PropertyValueChanged);
+            // 
+            // cmsPropertyGrid
+            // 
+            this.cmsPropertyGrid.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmiResetAll});
+            this.cmsPropertyGrid.Name = "cmsPropertyGrid";
+            this.cmsPropertyGrid.Size = new System.Drawing.Size(118, 26);
+            // 
+            // tsmiResetAll
+            // 
+            this.tsmiResetAll.Name = "tsmiResetAll";
+            this.tsmiResetAll.Size = new System.Drawing.Size(117, 22);
+            this.tsmiResetAll.Text = "Reset all";
+            this.tsmiResetAll.Click += new System.EventHandler(this.tsmiResetAll_Click);
             // 
             // btnOK
             // 
@@ -207,14 +222,14 @@
             // dgvData
             // 
             this.dgvData.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            dataGridViewCellStyle2.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
-            dataGridViewCellStyle2.BackColor = System.Drawing.SystemColors.Window;
-            dataGridViewCellStyle2.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
-            dataGridViewCellStyle2.ForeColor = System.Drawing.SystemColors.ControlText;
-            dataGridViewCellStyle2.SelectionBackColor = System.Drawing.SystemColors.Highlight;
-            dataGridViewCellStyle2.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
-            dataGridViewCellStyle2.WrapMode = System.Windows.Forms.DataGridViewTriState.False;
-            this.dgvData.DefaultCellStyle = dataGridViewCellStyle2;
+            dataGridViewCellStyle1.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            dataGridViewCellStyle1.BackColor = System.Drawing.SystemColors.Window;
+            dataGridViewCellStyle1.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
+            dataGridViewCellStyle1.ForeColor = System.Drawing.SystemColors.ControlText;
+            dataGridViewCellStyle1.SelectionBackColor = System.Drawing.SystemColors.Highlight;
+            dataGridViewCellStyle1.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
+            dataGridViewCellStyle1.WrapMode = System.Windows.Forms.DataGridViewTriState.False;
+            this.dgvData.DefaultCellStyle = dataGridViewCellStyle1;
             this.dgvData.Dock = System.Windows.Forms.DockStyle.Fill;
             this.dgvData.EnableCutMenu = true;
             this.dgvData.EnablePasteMenu = true;
@@ -225,6 +240,7 @@
             this.dgvData.Size = new System.Drawing.Size(339, 315);
             this.dgvData.StartPlotAtZero = false;
             this.dgvData.TabIndex = 0;
+            this.dgvData.XColName = "Default";
             // 
             // label2
             // 
@@ -256,6 +272,7 @@
             this.lvAddedProperties.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.None;
             this.lvAddedProperties.HideSelection = false;
             this.lvAddedProperties.Location = new System.Drawing.Point(181, 38);
+            this.lvAddedProperties.MouseOverColor = System.Drawing.Color.FromArgb(((int)(((byte)(204)))), ((int)(((byte)(228)))), ((int)(((byte)(246)))));
             this.lvAddedProperties.MultiSelect = false;
             this.lvAddedProperties.Name = "lvAddedProperties";
             this.lvAddedProperties.ShowGroups = false;
@@ -290,20 +307,6 @@
             this.btnRemove.UseVisualStyleBackColor = true;
             this.btnRemove.Click += new System.EventHandler(this.btnRemove_Click);
             // 
-            // cmsPropertyGrid
-            // 
-            this.cmsPropertyGrid.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.tsmiResetAll});
-            this.cmsPropertyGrid.Name = "cmsPropertyGrid";
-            this.cmsPropertyGrid.Size = new System.Drawing.Size(181, 48);
-            // 
-            // tsmiResetAll
-            // 
-            this.tsmiResetAll.Name = "tsmiResetAll";
-            this.tsmiResetAll.Size = new System.Drawing.Size(180, 22);
-            this.tsmiResetAll.Text = "Reset all";
-            this.tsmiResetAll.Click += new System.EventHandler(this.tsmiResetAll_Click);
-            // 
             // FrmStepControls
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
@@ -321,13 +324,13 @@
             this.StartPosition = System.Windows.Forms.FormStartPosition.Manual;
             this.Text = "Edit Step Controls";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FrmSurfaceInteraction_FormClosing);
+            this.cmsPropertyGrid.ResumeLayout(false);
             this.gbProperties.ResumeLayout(false);
             this.gbProperties.PerformLayout();
             this.tcProperties.ResumeLayout(false);
             this.tpProperties.ResumeLayout(false);
             this.tpDataPoints.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.dgvData)).EndInit();
-            this.cmsPropertyGrid.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }

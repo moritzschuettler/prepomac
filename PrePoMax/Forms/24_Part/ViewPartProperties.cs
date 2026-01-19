@@ -45,10 +45,22 @@ namespace PrePoMax.Forms
         public int NumberOfElements { get { return _partProperties.NumberOfElements; } }
         //
         [Category("Mesh")]
+        [OrderedDisplayName(0, 10, "Number of facets")]
+        [Description("Number of facets.")]
+        [Id(1, 2)]
+        public int NumberOfFacets { get { return _partProperties.NumberOfElements; } }
+        //
+        [Category("Mesh")]
         [OrderedDisplayName(1, 10, "Number of nodes")]
         [Description("Number of nodes.")]
         [Id(2, 2)]
         public int NumberOfNodes { get { return _partProperties.NumberOfNodes; } }
+        //
+        [Category("Mesh")]
+        [OrderedDisplayName(1, 10, "Number of vertices")]
+        [Description("Number of vertices.")]
+        [Id(2, 2)]
+        public int NumberOfVertices { get { return _partProperties.NumberOfNodes; } }
         //
         [Category("Element type")]
         [OrderedDisplayName(0, 20, "Linear triangle")]
@@ -327,8 +339,10 @@ namespace PrePoMax.Forms
                 _dctd.GetProperty(nameof(UndeformedArea)).SetIsBrowsable(false);
                 //
                 visible = _partProperties.PartType != PartType.Compound;
-                _dctd.GetProperty(nameof(NumberOfElements)).SetIsBrowsable(visible);
-                _dctd.GetProperty(nameof(NumberOfNodes)).SetIsBrowsable(visible);
+                _dctd.GetProperty(nameof(NumberOfElements)).SetIsBrowsable(false);
+                _dctd.GetProperty(nameof(NumberOfFacets)).SetIsBrowsable(visible);
+                _dctd.GetProperty(nameof(NumberOfNodes)).SetIsBrowsable(false);
+                _dctd.GetProperty(nameof(NumberOfVertices)).SetIsBrowsable(visible);
                 _dctd.GetProperty(nameof(Color)).SetIsBrowsable(visible);
                 //
                 _dctd.GetProperty(nameof(LinearTriaType)).SetIsBrowsable(false);
@@ -355,7 +369,9 @@ namespace PrePoMax.Forms
                 _dctd.GetProperty(nameof(UndeformedArea)).SetIsBrowsable(false);
                 //
                 _dctd.GetProperty(nameof(NumberOfElements)).SetIsBrowsable(true);
+                _dctd.GetProperty(nameof(NumberOfFacets)).SetIsBrowsable(false);
                 _dctd.GetProperty(nameof(NumberOfNodes)).SetIsBrowsable(true);
+                _dctd.GetProperty(nameof(NumberOfVertices)).SetIsBrowsable(false);
                 //
                 Dictionary<Type, HashSet<string>> er = elementTypeNamesToRemove;
                 PartProperties pp = _partProperties;
@@ -384,7 +400,9 @@ namespace PrePoMax.Forms
                 _dctd.GetProperty(nameof(UndeformedArea)).SetIsBrowsable(!solid && !double.IsNaN(UndeformedArea));
                 //
                 _dctd.GetProperty(nameof(NumberOfElements)).SetIsBrowsable(true);
+                _dctd.GetProperty(nameof(NumberOfFacets)).SetIsBrowsable(false);
                 _dctd.GetProperty(nameof(NumberOfNodes)).SetIsBrowsable(true);
+                _dctd.GetProperty(nameof(NumberOfVertices)).SetIsBrowsable(false);
                 //
                 _dctd.GetProperty(nameof(LinearTriaType)).SetIsBrowsable(false);
                 _dctd.GetProperty(nameof(ParabolicTriaType)).SetIsBrowsable(false);

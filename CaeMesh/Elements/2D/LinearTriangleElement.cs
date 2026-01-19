@@ -187,6 +187,13 @@ namespace CaeMesh
         {
             return GeometryTools.TriangleCG(nodes[NodeIds[0]], nodes[NodeIds[1]], nodes[NodeIds[2]], out area);
         }
+        //
+        public override void Mirror()
+        {
+            // 0-1-2 -> 0-2-1
+            NodeIds = new int[] { NodeIds[0], NodeIds[2], NodeIds[1] };
+        }
+        //
         public override FeElement DeepCopy()
         {
             return new LinearTriangleElement(Id, PartId, NodeIds.ToArray());

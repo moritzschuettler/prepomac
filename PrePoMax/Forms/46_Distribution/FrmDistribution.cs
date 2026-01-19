@@ -53,7 +53,6 @@ namespace PrePoMax.Forms
                 tabPage.Paint += TabPage_Paint;
                 _pages[i++] = tabPage;
             }
-            
         }
 
         private void InitializeComponent()
@@ -139,15 +138,6 @@ namespace PrePoMax.Forms
                     vdff.UpdateFileBrowserDialog();
                     _viewDistribution = vdff;
                 }
-                //if (itemTag is ViewAmplitudeTabular vat)
-                //{
-                //    tcProperties.TabPages.Add(_pages[0]);   // properties
-                //    tcProperties.TabPages.Add(_pages[1]);   // data points
-                //    //
-                //    SetDataGridViewBinding(vat.DataPoints);
-                //    //
-                //    _viewAmplitude = vat;
-                //}
                 else throw new NotImplementedException();
                 //
                 propertyGrid.SelectedObject = lvTypes.SelectedItems[0].Tag;

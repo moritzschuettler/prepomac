@@ -16,7 +16,7 @@ namespace CaeMesh
         private double[][] _nodes;
         private BoundingBox[][] _cellBoundingBoxes;
         private BoundingBox[][] _cellEdgeBoundingBoxes;
-        private int[][] _edgeCellBaseCellIds;
+        private Dictionary<int, int[]> _edgeCellBaseCellIds;
         private bool _includeSelfContact;
         private GroupContactPairsByEnum _groupContactPairsBy;
 
@@ -127,13 +127,12 @@ namespace CaeMesh
         private void GetAllEdgeCellBaseCellIds()
         {
             int[] baseCellIds;
-            List<int[]> edgeCellBaseCellIds = new List<int[]>();
+            _edgeCellBaseCellIds = new Dictionary<int, int[]>();
             foreach (var partEntry in _mesh.Parts)
             {
                 baseCellIds = partEntry.Value.Visualization.GetAllEdgeCellBaseCellIds();
-                edgeCellBaseCellIds.Add(baseCellIds);
+                _edgeCellBaseCellIds.Add(partEntry.Value.PartId, baseCellIds);
             }
-            _edgeCellBaseCellIds = edgeCellBaseCellIds.ToArray();
         }
         private ContactSurface[] GetAllContactSurfaces(double distance, GeometryFilterEnum filter)
         {

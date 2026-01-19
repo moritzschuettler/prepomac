@@ -60,6 +60,8 @@ namespace PrePoMax.Forms
             //
             _selectedContactPairs = new List<SearchContactPair>(); 
             _firstTime = true;
+            //
+            propertyGrid.SetSelectFirstCategory();
         }
 
 

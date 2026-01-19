@@ -53,6 +53,8 @@ namespace PrePoMax.Forms
             lvAddedProperties.ListViewItemSorter = new ListViewItemComparer(0, namePosition);
             //
             ClearControls();
+            //
+            propertyGrid.SetSelectFirstCategory();
         }
 
 

@@ -24,16 +24,41 @@ namespace PrePoMax.Forms
         private double[] _startPoint;
         private double[] _endPoint;
         private double _angleDeg;
-        private bool _copy;
+        private bool _rotate;
+        private int _numberOfCopies;
         private bool _twoD;
 
 
         // Properties                                                                                                               
         [Category("Data")]
         [OrderedDisplayName(0, 10, "Operation")]
-        [DescriptionAttribute("Select the move/copy operation.")]
+        [DescriptionAttribute("Select the rotate operation.")]
         [Id(1, 1)]
-        public bool Copy { get { return _copy; } set { _copy = value; } }
+        public bool Rotate
+        {
+            get { return _rotate; }
+            set
+            {
+                _rotate = value;
+                if (_rotate) _numberOfCopies = -1;
+                else _numberOfCopies = 1;
+                UpdateVisibility();
+            }
+        }
+        //
+        [Category("Data")]
+        [OrderedDisplayName(1, 10, "Number of copies")]
+        [DescriptionAttribute("Enter the number of copies.")]
+        [Id(2, 1)]
+        public int NumberOfCopies
+        {
+            get { return _numberOfCopies; }
+            set
+            {
+                _numberOfCopies = value;
+                if (_numberOfCopies <= 0) _numberOfCopies = 1;
+            }
+        }
         //
         [Category("Start axis point coordinates")]
         [OrderedDisplayName(0, 10, "Selection method")]
@@ -115,9 +140,9 @@ namespace PrePoMax.Forms
                 if (_twoD) _startPoint[2] = 0;
             }
         }
-        //
+        //                                                          
         [Category("End axis point coordinates")]
-        [OrderedDisplayName(0, 10, "Selection method")]
+        [OrderedDisplayName(0, 10, "Selection method ")]    // must be a different name than for the first point !!!
         [DescriptionAttribute("Choose the selection method.")]
         [Id(1, 3)]
         public PointSelectionMethodEnum EndPointSelectionMethod
@@ -186,6 +211,21 @@ namespace PrePoMax.Forms
         [TypeConverter(typeof(StringAngleDegConverter))]
         [Id(1, 4)]
         public double AngleDeg { get { return _angleDeg; } set { _angleDeg = value; } }
+        //
+        [Browsable(false)]
+        public double[] RotateCenter { get { return _startPoint.ToArray(); } }
+        [Browsable(false)]
+        public double[] RotateAxis
+        {
+            get
+            {
+                return new double[] { _endPoint[0] - _startPoint[0],
+                                      _endPoint[1] - _startPoint[1],
+                                      _endPoint[2] - _startPoint[2]};
+            }
+        }
+        [Browsable(false)]
+        public double AngleRad { get { return _angleDeg * Math.PI / 180; } }
 
 
         // Constructors                                                                                                             
@@ -202,7 +242,7 @@ namespace PrePoMax.Forms
             _endPointItemSetData = new ItemSetData();   // needed to display ItemSetData.ToString()
             _endPointItemSetData.ToStringType = ItemSetDataToStringType.SelectSinglePoint;
             //
-            _dctd.RenameBooleanProperty(nameof(Copy), "Copy and rotate", "Rotate");
+            _dctd.RenameBooleanProperty(nameof(Rotate), "Rotate", "Pattern");
             //
             if (modelSpace == ModelSpaceEnum.ThreeD) { _twoD = false; }
             else if (modelSpace.IsTwoD())
@@ -213,21 +253,21 @@ namespace PrePoMax.Forms
             }
             else throw new NotSupportedException();
             //
-            _dctd.GetProperty(nameof(Z1)).SetIsBrowsable(!_twoD);
-            // End point
-            _dctd.GetProperty(nameof(EndPointItemSet)).SetIsBrowsable(!_twoD);
-            _dctd.GetProperty(nameof(X2)).SetIsBrowsable(!_twoD);
-            _dctd.GetProperty(nameof(Y2)).SetIsBrowsable(!_twoD);
-            _dctd.GetProperty(nameof(Z2)).SetIsBrowsable(!_twoD);
+            UpdateVisibility();
         }
 
 
         // Methods                                                                                                                  
         public void Clear()
         {
-            _copy = false;
+            _rotate = true;
+            _numberOfCopies = -1;
+            ClearRotation();
+        }
+        public void ClearRotation()
+        {
             _startPoint = new double[3];
-            _endPoint = new double[] { 0, 0, 0};
+            _endPoint = new double[3];
             _angleDeg = 90;
             //
             if (_twoD)
@@ -235,6 +275,18 @@ namespace PrePoMax.Forms
                 Z1 = 0;
                 Z2 = 1;
             }
+        }
+        public void UpdateVisibility()
+        {
+            _dctd.GetProperty(nameof(Z1)).SetIsBrowsable(!_twoD);
+            // End point
+            _dctd.GetProperty(nameof(EndPointItemSet)).SetIsBrowsable(!_twoD);
+            _dctd.GetProperty(nameof(X2)).SetIsBrowsable(!_twoD);
+            _dctd.GetProperty(nameof(Y2)).SetIsBrowsable(!_twoD);
+            _dctd.GetProperty(nameof(Z2)).SetIsBrowsable(!_twoD);
+            //
+            bool visible = !_rotate;
+            _dctd.GetProperty(nameof(NumberOfCopies)).SetIsBrowsable(visible);
         }
     }
 }

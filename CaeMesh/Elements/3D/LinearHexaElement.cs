@@ -204,6 +204,14 @@ namespace CaeMesh
                                               nodes[NodeIds[4]], nodes[NodeIds[5]], nodes[NodeIds[6]], nodes[NodeIds[7]],
                                               out volume);
         }
+        //
+        public override void Mirror()
+        {
+            // 0-1-2-3-4-5-6-7 -> 0-3-2-1-4-7-6-5
+            NodeIds = new int[] { NodeIds[0], NodeIds[3], NodeIds[2], NodeIds[1],
+                                  NodeIds[4], NodeIds[7], NodeIds[6], NodeIds[5] };
+        }
+        //
         public override FeElement DeepCopy()
         {
             return new LinearHexaElement(Id, PartId, NodeIds.ToArray());

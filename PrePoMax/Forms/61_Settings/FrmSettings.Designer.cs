@@ -75,6 +75,7 @@
             listViewItem2,
             listViewItem3});
             this.lvSettings.Location = new System.Drawing.Point(6, 22);
+            this.lvSettings.MouseOverColor = System.Drawing.Color.FromArgb(((int)(((byte)(204)))), ((int)(((byte)(228)))), ((int)(((byte)(247)))));
             this.lvSettings.MultiSelect = false;
             this.lvSettings.Name = "lvSettings";
             this.lvSettings.ShowGroups = false;

@@ -221,7 +221,7 @@ namespace PrePoMax.Forms
                 _coorNodesToDraw[0][1] = _viewExplodedViewParameters.CenterY;
                 _coorNodesToDraw[0][2] = _viewExplodedViewParameters.CenterZ;
                 //
-                _controller.HighlightNodes(_coorNodesToDraw);
+                _controller.HighlightNodes(_coorNodesToDraw, true);
             }
         }
     }

@@ -136,6 +136,8 @@ namespace FileInOut.Input
             bool reverse = orientation == 1;
             //
             if (!faceTypes.ContainsKey(surfaceId)) faceTypes.Add(surfaceId, faceType);
+            // Some triangles might be missing - use only trinagle nodes for surface definition - fix geometry problems
+            HashSet<int> triangleNodeIds = new HashSet<int>();
             //
             Dictionary<int, FeNode> surfaceNodes = new Dictionary<int, FeNode>();
             CompareIntArray comparer = new CompareIntArray();
@@ -149,7 +151,8 @@ namespace FileInOut.Input
                 }
                 else if (data[i].StartsWith("triangles"))
                 {
-                    numOfElements = ReadTriangles(data[i], reverse, offsetNodeId, offsetElementId, elements, freeEdgeKeys);
+                    numOfElements = ReadTriangles(data[i], reverse, offsetNodeId, offsetElementId, elements, triangleNodeIds,
+                                                  freeEdgeKeys);
                     offsetElementId += numOfElements;
                 }
                 else if (data[i].StartsWith("edges"))
@@ -159,13 +162,20 @@ namespace FileInOut.Input
                     offsetElementId += numOfElements;
                 }
             }
+            //
             offsetNodeId += numOfNodes;
-            // Add surface if it contains more than 1 node
-            if (surfaceNodes.Count > 0)
+            // Remove missing nodes from edge node ids - fix geometry problems
+            HashSet<int> missingNodes = new HashSet<int>(surfaceNodes.Keys.Except(triangleNodeIds));
+            if (missingNodes.Count > 0)
+            {
+                foreach (var entry in edgeIdNodeIds) entry.Value.ExceptWith(missingNodes);
+            }
+            // Add surface node ids if it contains more than 1 node
+            if (triangleNodeIds.Count > 0)
             {
                 HashSet<int> surface;
-                if (surfaceIdNodeIds.TryGetValue(surfaceId, out surface)) surface.UnionWith(surfaceNodes.Keys);
-                else surfaceIdNodeIds.Add(surfaceId, new HashSet<int>(surfaceNodes.Keys)); // create a copy!!!
+                if (surfaceIdNodeIds.TryGetValue(surfaceId, out surface)) surface.UnionWith(triangleNodeIds);
+                else surfaceIdNodeIds.Add(surfaceId, new HashSet<int>(triangleNodeIds)); // create a copy!!!
             }
         }
 
@@ -192,7 +202,7 @@ namespace FileInOut.Input
             return data.Length - 1; // return number of read nodes
         }
         private static int ReadTriangles(string elementData, bool reverse, int offsetNodeId, int offsetElementId,
-                                         Dictionary<int, FeElement> elements, HashSet<int[]> freeEdgeKeys)
+                                         Dictionary<int, FeElement> elements, HashSet<int> triangleNodeIds, HashSet<int[]> freeEdgeKeys)
         {
             int id;
             int[] key;
@@ -220,6 +230,8 @@ namespace FileInOut.Input
                     nodeIds[1] = int.Parse(tmp[2]) + offsetNodeId;
                     nodeIds[2] = int.Parse(tmp[3]) + offsetNodeId;
                 }
+                triangleNodeIds.UnionWith(nodeIds);
+                //
                 element = new LinearTriangleElement(id, nodeIds);
                 //
                 elements.Add(element.Id, element);
@@ -277,11 +289,6 @@ namespace FileInOut.Input
                     //
                     edgeNodeIds.Add(nodeIds[0]);
                     edgeNodeIds.Add(nodeIds[1]);
-                    //
-                    //id = internalId + offsetElementId;
-                    //element = new LinearBeamElement(id, nodeIds);
-                    //elements.Add(element.Id, element);
-                    //internalId++;
                 }
                 edgeNodeIdsArr = edgeNodeIds.ToArray();
                 for (int j = 0; j < edgeNodeIdsArr.Length; j++)

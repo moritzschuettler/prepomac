@@ -154,7 +154,6 @@ namespace PrePoMax.Forms
                     _viewContactPair.PopulateDropDownLists(surfaceInteractionNames, surfaceNames);
                     //
                     propertyGrid.SelectedObject = _viewContactPair;
-                    propertyGrid.Select();
                 }
                 else propertyGrid.SelectedObject =
                         new ViewError("There is no surface interaction defined for the contact pair definition.");
@@ -208,7 +207,6 @@ namespace PrePoMax.Forms
                 _viewContactPair.PopulateDropDownLists(surfaceInteractionNames, surfaceNames);
                 //
                 propertyGrid.SelectedObject = _viewContactPair;
-                propertyGrid.Select();
             }
             ShowHideSelectionForm();
             //

@@ -23,16 +23,41 @@ namespace PrePoMax.Forms
         private ItemSetData _endPointItemSetData;
         private double[] _startPoint;
         private double[] _endPoint;
-        private bool _copy;
+        private bool _translate;
+        private int _numberOfCopies;
         private bool _twoD;
 
 
         // Properties                                                                                                               
         [Category("Data")]
         [OrderedDisplayName(0, 10, "Operation")]
-        [DescriptionAttribute("Select the move/copy operation.")]
+        [DescriptionAttribute("Select the translate operation.")]
         [Id(1, 1)]
-        public bool Copy { get { return _copy; } set { _copy = value; } }
+        public bool Translate
+        {
+            get { return _translate; }
+            set
+            {
+                _translate = value;
+                if (_translate) _numberOfCopies = -1;
+                else _numberOfCopies = 1;
+                UpdateVisibility();
+            }
+        }
+        //
+        [Category("Data")]
+        [OrderedDisplayName(1, 10, "Number of copies")]
+        [DescriptionAttribute("Enter the number of copies.")]
+        [Id(2, 1)]
+        public int NumberOfCopies
+        {
+            get { return _numberOfCopies; }
+            set
+            {
+                _numberOfCopies = value;
+                if (_numberOfCopies <= 0) _numberOfCopies = 1;
+            }
+        }
         //
         [Category("Start point coordinates")]
         [OrderedDisplayName(0, 10, "Selection method")]
@@ -86,17 +111,17 @@ namespace PrePoMax.Forms
         [TypeConverter(typeof(StringLengthConverter))]
         [Id(5, 2)]
         public double Z1
-        { 
-            get { return _startPoint[2]; } 
-            set 
+        {
+            get { return _startPoint[2]; }
+            set
             {
                 _startPoint[2] = value;
                 if (_twoD) _startPoint[2] = 0;
             }
         }
-        //
+        //                                                          
         [Category("End point coordinates")]
-        [OrderedDisplayName(0, 10, "Selection method")]
+        [OrderedDisplayName(0, 10, "Selection method ")]    // must be a different name than for the first point !!!
         [DescriptionAttribute("Choose the selection method.")]
         [Id(1, 3)]
         public PointSelectionMethodEnum EndPointSelectionMethod
@@ -159,6 +184,17 @@ namespace PrePoMax.Forms
                 if (_twoD) _endPoint[2] = 0;
             }
         }
+        //
+        [Browsable(false)]
+        public double[] TranslateVector
+        {
+            get
+            {
+                return new double[] { _endPoint[0] - _startPoint[0],
+                                      _endPoint[1] - _startPoint[1],
+                                      _endPoint[2] - _startPoint[2]};
+            }
+        }
 
 
         // Constructors                                                                                                             
@@ -175,7 +211,7 @@ namespace PrePoMax.Forms
             _endPointItemSetData = new ItemSetData();   // needed to display ItemSetData.ToString()
             _endPointItemSetData.ToStringType = ItemSetDataToStringType.SelectSinglePoint;
             //
-            _dctd.RenameBooleanProperty(nameof(Copy), "Copy and translate", "Translate");
+            _dctd.RenameBooleanProperty(nameof(Translate), "Translate", "Pattern");
             //
             if (modelSpace == ModelSpaceEnum.ThreeD) { _twoD = false; }
             else if (modelSpace.IsTwoD())
@@ -186,23 +222,34 @@ namespace PrePoMax.Forms
             }
             else throw new NotSupportedException();
             //
-            _dctd.GetProperty(nameof(Z1)).SetIsBrowsable(!_twoD);
-            _dctd.GetProperty(nameof(Z2)).SetIsBrowsable(!_twoD);
+            UpdateVisibility();
         }
 
 
         // Methods                                                                                                                  
         public void Clear()
         {
-            _copy = false;
+            _translate = true;
+            _numberOfCopies = -1;
+            ClearTranslate();
+        }
+        public void ClearTranslate()
+        {
             _startPoint = new double[3];
-            _endPoint = new double[] { 0, 0, 0};
+            _endPoint = new double[3];
             if (_twoD)
             {
                 Z1 = 0;
                 Z2 = 0;
             }
         }
-
+        public void UpdateVisibility()
+        {
+            _dctd.GetProperty(nameof(Z1)).SetIsBrowsable(!_twoD);
+            _dctd.GetProperty(nameof(Z2)).SetIsBrowsable(!_twoD);
+            //
+            bool visible = !_translate;
+            _dctd.GetProperty(nameof(NumberOfCopies)).SetIsBrowsable(visible);
+        }
     }
 }

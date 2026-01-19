@@ -224,7 +224,6 @@ namespace PrePoMax.Forms
             _viewReferencePoint.PopulateDropDownLists(_nodeSetNames, _surfaceNames);
             //
             propertyGrid.SelectedObject = _viewReferencePoint;
-            propertyGrid.Select();
             //
             SetSelectItem();
             //

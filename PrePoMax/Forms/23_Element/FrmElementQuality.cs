@@ -109,8 +109,6 @@ namespace PrePoMax.Forms
             //
             GetElementQuality();
             //
-            propertyGrid.Select();
-            //
             propertyGrid.BuildAutocompleteMenu(_controller.GetAllParameterNames());
             //
             return true;

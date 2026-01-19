@@ -80,6 +80,10 @@ namespace CaeMesh
         {
             return GeometryTools.BeamCG(nodes[NodeIds[0]], nodes[NodeIds[1]], nodes[NodeIds[2]], out length);
         }
+        //
+        public override void Mirror()
+        { }
+        //
         public override FeElement DeepCopy()
         {
             return new ParabolicBeamElement(Id, PartId, NodeIds.ToArray());

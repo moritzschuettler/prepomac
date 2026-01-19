@@ -1271,28 +1271,15 @@ namespace CaeMesh
             //
             GeometryPart geometryPart;
             List<string> partsToRename = new List<string>();
-            //
+            // Extract visualization for all parts
+            foreach (var entry in _parts) ExtractPartVisualization(entry.Value, isCADPart, edgeAngle);
+            // Collect shell parts to be converted to solidAsShell
             foreach (var entry in _parts)
             {
-                part = entry.Value;
-                if (part.PartType == PartType.Solid)
+                if (entry.Value.PartType == PartType.Shell && entry.Value is GeometryPart gp)
                 {
-                    ExtractSolidPartVisualization(part, edgeAngle);
-                }
-                else if (part.PartType == PartType.Shell)
-                {
-                    ExtractShellPartVisualization(part, isCADPart, edgeAngle);
-                    //
-                    if (part is GeometryPart gp)
-                    {
-                        // Collect shell parts to be converted to solidAsShell
-                        if (importOptions == ImportOptions.ImportOneCADSolidPart || 
-                            (importOptions == ImportOptions.ImportStlParts && !gp.HasFreeEdges)) partsToRename.Add(gp.Name);
-                    }
-                }
-                else if (part.PartType == PartType.Wire)
-                {
-                    ExtractWirePartVisualization(part, edgeAngle);
+                    if (importOptions == ImportOptions.ImportOneCADSolidPart ||
+                        (importOptions == ImportOptions.ImportStlParts && !gp.HasFreeEdges)) partsToRename.Add(gp.Name);
                 }
             }
             // Rename shell geometry parts to solidAsShell parts
@@ -1348,6 +1335,17 @@ namespace CaeMesh
             }
         }
         // Visualization
+        public void ExtractPartVisualization(BasePart part, bool isCADPart, double edgeAngle)
+        {
+            if (part.PartType == PartType.Solid)
+                ExtractSolidPartVisualization(part, edgeAngle);
+            else if (part.PartType == PartType.Shell || part.PartType == PartType.SolidAsShell)
+                ExtractShellPartVisualization(part, isCADPart, edgeAngle);
+            else if (part.PartType == PartType.Wire)
+                ExtractWirePartVisualization(part, edgeAngle);
+            else if (part.PartType == PartType.Unknown)
+                throw new NotSupportedException();
+        }
         public void ExtractSolidPartVisualization(BasePart part, double edgeAngle)
         {
             part.Visualization.ExtractVisualizationCellsFromElements3D(_elements, part.Labels);
@@ -3192,14 +3190,7 @@ namespace CaeMesh
             BasePart part = new BasePart(newPartName, -1, partNodeIds.ToArray(),
                                          partElementIds.ToArray(), partElementTypes.ToArray());
             //
-            if (part.PartType == PartType.Solid)
-                ExtractSolidPartVisualization(part, Globals.EdgeAngle);
-            else if (part.PartType == PartType.Shell || part.PartType == PartType.SolidAsShell)
-                ExtractShellPartVisualization(part, isCADPart: false, Globals.EdgeAngle);
-            else if (part.PartType == PartType.Wire)
-                ExtractWirePartVisualization(part, Globals.EdgeAngle);
-            else if (part.PartType == PartType.Unknown)
-                throw new NotSupportedException();
+            ExtractPartVisualization(part, isCADPart: false, Globals.EdgeAngle);
             //
             ComputeVolumeArea(part);
             //
@@ -3262,17 +3253,7 @@ namespace CaeMesh
                 parts.Add(part);
             }
             //
-            foreach (var newPart in parts)
-            {
-                if (newPart.PartType == PartType.Solid)
-                    ExtractSolidPartVisualization(newPart, Globals.EdgeAngle);
-                else if (newPart.PartType == PartType.Shell || newPart.PartType == PartType.SolidAsShell)
-                    ExtractShellPartVisualization(newPart, isCADPart: false, Globals.EdgeAngle);
-                else if (newPart.PartType == PartType.Wire)
-                    ExtractWirePartVisualization(newPart, Globals.EdgeAngle);
-                else if (newPart.PartType == PartType.Unknown)
-                    throw new NotSupportedException();
-            }
+            foreach (var newPart in parts) ExtractPartVisualization(newPart, isCADPart: false, Globals.EdgeAngle);
             //
             return parts.ToArray();
         }
@@ -3292,10 +3273,7 @@ namespace CaeMesh
             GeometryPart part = new GeometryPart("Part-from-element-Ids", -1, partNodeIds.ToArray(),
                                                  partElementIds.ToArray(), partElementTypes.ToArray());
             //
-            if (part.PartType == PartType.Solid)
-                ExtractSolidPartVisualization(part, Globals.EdgeAngle);
-            else if (part.PartType == PartType.Shell || part.PartType == PartType.SolidAsShell)
-                ExtractShellPartVisualization(part, isCADPart: false, Globals.EdgeAngle);
+            ExtractPartVisualization(part, isCADPart: false, Globals.EdgeAngle);
             //
             return part;
         }
@@ -8519,14 +8497,7 @@ namespace CaeMesh
                 List<FeElement1D> edgeElements = new List<FeElement1D>();
                 edgeElements.AddRange(GetLineElementsFromEdges(part));
                 //
-                if (part.PartType == PartType.Solid)
-                    ExtractSolidPartVisualization(part, Globals.EdgeAngle);
-                else if (part.PartType == PartType.Shell || part.PartType == PartType.SolidAsShell)
-                    ExtractShellPartVisualization(part, isCADPart: false, Globals.EdgeAngle);
-                else if (part.PartType == PartType.Wire)
-                    ExtractWirePartVisualization(part, Globals.EdgeAngle);
-                else if (part.PartType == PartType.Unknown)
-                    throw new NotSupportedException();
+                ExtractPartVisualization(part, isCADPart: false, Globals.EdgeAngle);
                 //
                 ConvertLineFeElementsToEdges(edgeElements, new string[] { part.Name }, vertices);
                 //
@@ -9714,7 +9685,7 @@ namespace CaeMesh
             StringBuilder sb = new StringBuilder();
             sb.AppendLine("int		number of additional edges");
             sb.AppendLine(part.Visualization.EdgeCells.Length.ToString());
-
+            //
             FeNode node1;
             FeNode node2;
             foreach (int[] cell in part.Visualization.EdgeCells)
@@ -9725,34 +9696,42 @@ namespace CaeMesh
                 sb.AppendLine(String.Format("{0} {1} {2}", (float)node1.X, (float)node1.Y, (float)node1.Z));
                 sb.AppendLine(String.Format("{0} {1} {2}", (float)node2.X, (float)node2.Y, (float)node2.Z));
             }
-
-            System.IO.File.WriteAllText(fileName, sb.ToString());
+            //
+            File.WriteAllText(fileName, sb.ToString());
         }
 
         // Transformations
-        public string[] TranslateParts(string[] partNames, double[] translateVector, bool copy,
+        public string[] TranslateParts(string[] partNames, double[] translateVector, int numberOfCopies,
                                        ICollection<string> reservedPartNames, HashSet<int> reservedPartIds)
         {
-            string[] translatedPartNames = partNames.ToArray();
+            string[] translatedPartNames = partNames;
+            List<string> allTranslatedPartNames = new List<string>();
             //
-            if (copy)
-            {
-                FeMesh mesh = this.DeepCopy();
-                translatedPartNames = AddPartsFromMesh(mesh, translatedPartNames, reservedPartNames, reservedPartIds);
-            }
-            //
-            HashSet<int> nodeLabels = new HashSet<int>();
-            foreach (var partName in translatedPartNames) nodeLabels.UnionWith(_parts[partName].NodeLabels);
-            // Translate nodes
+            int count = 1;
             FeNode node;
-            foreach (var nodeId in nodeLabels)
+            Vec3D tv = new Vec3D(translateVector);
+            do
             {
-                node = _nodes[nodeId];
-                node.X += translateVector[0];
-                node.Y += translateVector[1];
-                node.Z += translateVector[2];
-                _nodes[nodeId] = node;
+                if (numberOfCopies > 0)
+                {
+                    FeMesh mesh = this.DeepCopy();
+                    translatedPartNames = AddPartsFromMesh(mesh, partNames, reservedPartNames, reservedPartIds);
+                    allTranslatedPartNames.AddRange(translatedPartNames);
+                }
+                //
+                HashSet<int> nodeLabels = new HashSet<int>();
+                foreach (var partName in translatedPartNames) nodeLabels.UnionWith(_parts[partName].NodeLabels);
+                // Translate nodes
+                foreach (var nodeId in nodeLabels)
+                {
+                    node = _nodes[nodeId];
+                    node.Translate(tv * count);
+                    _nodes[nodeId] = node;
+                }
+                //
+                count++;
             }
+            while (count <= numberOfCopies);
             // Update node sets
             foreach (var entry in _nodeSets) UpdateNodeSetCenterOfGravity(entry.Value);
             // Update reference points
@@ -9762,8 +9741,214 @@ namespace CaeMesh
             //
             ComputeVolumeArea();
             //
-            if (copy) return translatedPartNames;
+            if (numberOfCopies > 0) return allTranslatedPartNames.ToArray();
             else return null;
+        }
+        public static void TranslatePoint(double[] pointCoor, double[] translateVector)
+        {
+            double[][] translated = new double[][] { pointCoor };
+            TranslatePoints(translated, translateVector);
+        }
+        public static void TranslatePoints(double[][] pointCoor, double[] translateVector)
+        {
+            for (int i = 0; i < pointCoor.Length; i++)
+            {
+                pointCoor[i][0] += translateVector[0];
+                pointCoor[i][1] += translateVector[1];
+                pointCoor[i][2] += translateVector[2];
+            }
+        }
+        //
+        public string[] RotateParts(string[] partNames, double[] rotateCenter, double[] rotateAxis, double rotateAngle,
+                                    int numberOfCopies, ICollection<string> reservedPartNames, HashSet<int> reservedPartIds)
+        {
+            string[] rotatedPartNames = partNames;
+            List<string> allTranslatedPartNames = new List<string>();
+            //
+            int count = 1;
+            FeNode node;
+            Vec3D rc = new Vec3D(rotateCenter);
+            do
+            {
+                if (numberOfCopies > 0)
+                {
+                    FeMesh mesh = this.DeepCopy();
+                    rotatedPartNames = AddPartsFromMesh(mesh, partNames, reservedPartNames, reservedPartIds);
+                    allTranslatedPartNames.AddRange(rotatedPartNames);
+                }
+                //
+                HashSet<int> nodeLabels = new HashSet<int>();
+                foreach (var partName in rotatedPartNames) nodeLabels.UnionWith(_parts[partName].NodeLabels);
+                // Rotate nodes
+                double[][] m = RotationMatrix(rotateAxis, rotateAngle * count);
+                foreach (var nodeId in nodeLabels)
+                {
+                    node = _nodes[nodeId];
+                    node.Rotate(rc, m);
+                    _nodes[nodeId] = node;
+                }
+                //
+                count++;
+            }
+            while (count <= numberOfCopies);
+            // Update node sets
+            foreach (var entry in _nodeSets) UpdateNodeSetCenterOfGravity(entry.Value);
+            // Update reference points
+            foreach (var entry in _referencePoints) UpdateReferencePoint(entry.Value);
+            // Update bounding box
+            ComputeBoundingBox();
+            //
+            ComputeVolumeArea();
+            //
+            if (numberOfCopies > 0) return allTranslatedPartNames.ToArray();
+            else return null;
+        }
+        public static void RotatePoint(double[] point, double[] rotateCenter, double[] rotateAxis, double rotateAngle)
+        {
+            double[][] rotated = new double[][] { point };
+            RotatePoints(rotated, rotateCenter, rotateAxis, rotateAngle);
+        }
+        public static void RotatePoints(double[][] points, double[] rotateCenter, double[] rotateAxis, double rotateAngle)
+        {
+            // Matrix
+            double[] x;
+            double[][] m = RotationMatrix(rotateAxis, rotateAngle);
+            for (int i = 0; i < points.Length; i++)
+            {
+                // Translate to origin
+                points[i][0] -= rotateCenter[0];
+                points[i][1] -= rotateCenter[1];
+                points[i][2] -= rotateCenter[2];
+                // Copy
+                 x = points[i].ToArray();
+                // Rotate
+                points[i][0] = m[0][0] * x[0] + m[0][1] * x[1] + m[0][2] * x[2];
+                points[i][1] = m[1][0] * x[0] + m[1][1] * x[1] + m[1][2] * x[2];
+                points[i][2] = m[2][0] * x[0] + m[2][1] * x[1] + m[2][2] * x[2];
+                // Translate to rotation center
+                points[i][0] += rotateCenter[0];
+                points[i][1] += rotateCenter[1];
+                points[i][2] += rotateCenter[2];
+            }
+        }
+        private static double[][] RotationMatrix(double[] rotateAxis, double rotateAngle)
+        {
+            //https://stackoverflow.com/questions/6721544/circular-rotation-around-an-arbitrary-axis
+            //https://en.wikipedia.org/wiki/Rotation_matrix#Rotation_matrix_from_axis_and_angle
+            double[][] m = new double[3][];
+            m[0] = new double[3];
+            m[1] = new double[3];
+            m[2] = new double[3];
+            //
+            Vec3D u = new Vec3D(rotateAxis);
+            u.Normalize();
+            //
+            double cosPhi = Math.Cos(rotateAngle);
+            double sinPhi = Math.Sin(rotateAngle);
+            //
+            m[0][0] = cosPhi + (Math.Pow(u.X, 2) * (1 - cosPhi));
+            m[0][1] = u.X * u.Y * (1 - cosPhi) - u.Z * sinPhi;
+            m[0][2] = u.X * u.Z * (1 - cosPhi) + u.Y * sinPhi;
+            //
+            m[1][0] = u.Y * u.X * (1 - cosPhi) + u.Z * sinPhi;
+            m[1][1] = cosPhi + (Math.Pow(u.Y, 2) * (1 - cosPhi));
+            m[1][2] = u.Y * u.Z * (1 - cosPhi) - u.X * sinPhi;
+            //
+            m[2][0] = u.Z * u.X * (1 - cosPhi) - u.Y * sinPhi;
+            m[2][1] = u.Z * u.Y * (1 - cosPhi) + u.X * sinPhi;
+            m[2][2] = cosPhi + (Math.Pow(u.Z, 2) * (1 - cosPhi));
+            //
+            return m;
+        }
+        //
+        public string[] MirrorParts(string[] partNames, double[] mirrorPoint, double[] mirrorDirection, bool copy,
+                                    ICollection<string> reservedPartNames, HashSet<int> reservedPartIds)
+        {
+            string[] mirroredPartNames = partNames.ToArray();
+            //
+            if (copy)
+            {
+                FeMesh mesh = this.DeepCopy();
+                mirroredPartNames = AddPartsFromMesh(mesh, mirroredPartNames, reservedPartNames, reservedPartIds);
+            }
+            //
+            HashSet<int> nodeLabels = new HashSet<int>();
+            HashSet<int> elementLabels = new HashSet<int>();
+            foreach (var partName in mirroredPartNames)
+            {
+                nodeLabels.UnionWith(_parts[partName].NodeLabels);
+                elementLabels.UnionWith(_parts[partName].Labels);
+            }
+            // Mirror nodes
+            FeNode node;
+            Vec3D mp = new Vec3D(mirrorPoint);
+            Vec3D normal = new Vec3D(mirrorDirection);
+            normal.Normalize();
+            foreach (var nodeId in nodeLabels)
+            {
+                node = _nodes[nodeId];
+                node.Mirror(mp, normal);
+                _nodes[nodeId] = node;
+            }
+            // Mirror elements
+            foreach (var elementId in elementLabels) _elements[elementId].Mirror();
+            // Update edge lengths and face areas
+            BasePart part;
+            List<FeElement1D> edgeElements;
+            HashSet<int> vertexNodeIds;
+            foreach (var partName in mirroredPartNames)
+            {
+                part = _parts[partName];
+                edgeElements = new List<FeElement1D>(GetLineElementsFromEdges(part));
+                vertexNodeIds = new HashSet<int>(part.Visualization.VertexNodeIds);
+                // Extract visualization
+                ExtractPartVisualization(part, part is GeometryPart gp && gp.IsCADPart, Globals.EdgeAngle);
+                // Keep existing edges
+                ConvertLineFeElementsToEdges(edgeElements, new string[] { part.Name }, vertexNodeIds);
+                // Recompute the areas and lengths
+                ComputeEdgeLengths(part);
+                ComputeFaceAreas(part);
+            }
+            // Update node sets
+            foreach (var entry in _nodeSets) UpdateNodeSetCenterOfGravity(entry.Value);
+            // Update reference points
+            foreach (var entry in _referencePoints) UpdateReferencePoint(entry.Value);
+            // Update bounding box
+            ComputeBoundingBox();
+            //
+            ComputeVolumeArea();
+            // Update visibility
+            if (copy) return mirroredPartNames;
+            else return null;
+        }
+        public static void MirrorPoint(double[] point, double[] mirrorPoint, double[] mirrorDirection)
+        {
+            double[][] mirror = new double[][] { point };
+            MirrorPoints(mirror, mirrorPoint, mirrorDirection);
+        }
+        public static void MirrorPoints(double[][] points, double[] mirrorPoint, double[] mirrorDirection)
+        {
+            double d;
+            Vec3D x;
+            Vec3D p = new Vec3D(mirrorPoint);
+            Vec3D n = new Vec3D(mirrorDirection);
+            n.Normalize();
+            //
+            for (int i = 0; i < points.Length; i++)
+            {
+                x = new Vec3D(points[i]);
+                d = Vec3D.DotProduct(x - p, n);
+                points[i] = new Vec3D(x - 2 * d * n).Coor;
+            }
+        }
+        //
+        public void ScaleAllParts(double scale)
+        {
+            string[] partNames = _parts.Keys.ToArray();
+            double[] scaleCenter = new double[] { 0, 0, 0 };
+            double[] scaleFactors = new double[] { scale, scale, scale };
+            //
+            ScaleParts(partNames, scaleCenter, scaleFactors, false, null, null);
         }
         public string[] ScaleParts(string[] partNames, double[] scaleCenter, double[] scaleFactors, bool copy,
                                    ICollection<string> reservedPartNames, HashSet<int> reservedPartIds)
@@ -9780,12 +9965,11 @@ namespace CaeMesh
             foreach (var partName in scaledPartNames) nodeLabels.UnionWith(_parts[partName].NodeLabels);
             // Scale nodes
             FeNode node;
+            Vec3D sc = new Vec3D(scaleCenter);
             foreach (var nodeId in nodeLabels)
             {
                 node = _nodes[nodeId];
-                node.X = scaleCenter[0] + (node.X - scaleCenter[0]) * scaleFactors[0];
-                node.Y = scaleCenter[1] + (node.Y - scaleCenter[1]) * scaleFactors[1];
-                node.Z = scaleCenter[2] + (node.Z - scaleCenter[2]) * scaleFactors[2];
+                node.Scale(sc, scaleFactors);
                 _nodes[nodeId] = node;
             }
             // Update edge lengths and face areas
@@ -9809,116 +9993,20 @@ namespace CaeMesh
             if (copy) return scaledPartNames;
             else return null;
         }
-        public void ScaleAllParts(double scale)
+        public static void ScalePoint(double[] point, double[] scaleCenter, double[] scaleFactors)
         {
-            string[] partNames = _parts.Keys.ToArray();
-            double[] scaleCenter = new double[] { 0, 0, 0 };
-            double[] scaleFactors = new double[] { scale, scale, scale };
-            //
-            ScaleParts(partNames, scaleCenter, scaleFactors, false, null, null);
+            double[][] scaled = new double[][] { point };
+            ScalePoints(scaled, scaleCenter, scaleFactors);
         }
-        public string[] RotateParts(string[] partNames, double[] rotateCenter, double[] rotateAxis, double rotateAngle, bool copy,
-                                    ICollection<string> reservedPartNames, HashSet<int> reservedPartIds)
+        public static void ScalePoints(double[][] points, double[] scaleCenter, double[] scaleFactors)
         {
-            string[] rotatedPartNames = partNames.ToArray();
-            //
-            if (copy)
+            for (int i = 0; i < points.Length; i++)
             {
-                FeMesh mesh = this.DeepCopy();
-                rotatedPartNames = AddPartsFromMesh(mesh, rotatedPartNames, reservedPartNames, reservedPartIds);
+                points[i][0] = scaleCenter[0] + (points[i][0] - scaleCenter[0]) * scaleFactors[0];
+                points[i][1] = scaleCenter[1] + (points[i][1] - scaleCenter[1]) * scaleFactors[1];
+                points[i][2] = scaleCenter[2] + (points[i][2] - scaleCenter[2]) * scaleFactors[2];
             }
-            //
-            HashSet<int> nodeLabels = new HashSet<int>();
-            foreach (var partName in rotatedPartNames) nodeLabels.UnionWith(_parts[partName].NodeLabels);
-            // Rotate nodes
-            FeNode node;
-            double[] x;
-            double[][] m = RotationMatrix(rotateAxis, rotateAngle);
-            foreach (var nodeId in nodeLabels)
-            {
-                node = _nodes[nodeId];
-                // Translate to origin
-                node.X -= rotateCenter[0];
-                node.Y -= rotateCenter[1];
-                node.Z -= rotateCenter[2];
-                // Copy
-                x = node.Coor;
-                // Rotate
-                node.X = m[0][0] * x[0] + m[0][1] * x[1] + m[0][2] * x[2];
-                node.Y = m[1][0] * x[0] + m[1][1] * x[1] + m[1][2] * x[2];
-                node.Z = m[2][0] * x[0] + m[2][1] * x[1] + m[2][2] * x[2];
-                // Translate to rotation center
-                node.X += rotateCenter[0];
-                node.Y += rotateCenter[1];
-                node.Z += rotateCenter[2];
-                // Copy data
-                _nodes[nodeId] = node;
-            }
-            // Update node sets
-            foreach (var entry in _nodeSets) UpdateNodeSetCenterOfGravity(entry.Value);
-            // Update reference points
-            foreach (var entry in _referencePoints) UpdateReferencePoint(entry.Value);
-            // Update bounding box
-            ComputeBoundingBox();
-            //
-            ComputeVolumeArea();
-            //
-            if (copy) return rotatedPartNames;
-            else return null;
         }
-        public static double[] RotatePoint(double[] point, double[] rotateCenter, double[] rotateAxis, double rotateAngle)
-        {
-            double[] rotated = point.ToArray();
-            // Matrix
-            double[][] m = RotationMatrix(rotateAxis, rotateAngle);
-            // Translate to origin
-            rotated[0] -= rotateCenter[0];
-            rotated[1] -= rotateCenter[1];
-            rotated[2] -= rotateCenter[2];
-            // Copy
-            double[] x = rotated.ToArray();
-            // Rotate
-            rotated[0] = m[0][0] * x[0] + m[0][1] * x[1] + m[0][2] * x[2];
-            rotated[1] = m[1][0] * x[0] + m[1][1] * x[1] + m[1][2] * x[2];
-            rotated[2] = m[2][0] * x[0] + m[2][1] * x[1] + m[2][2] * x[2];
-            // Translate to rotation center
-            rotated[0] += rotateCenter[0];
-            rotated[1] += rotateCenter[1];
-            rotated[2] += rotateCenter[2];
-            // Return
-            return rotated;
-        }
-        private static double[][] RotationMatrix(double[] rotateAxis, double rotateAngle)
-        {
-            //https://stackoverflow.com/questions/6721544/circular-rotation-around-an-arbitrary-axis
-            //https://en.wikipedia.org/wiki/Rotation_matrix#Rotation_matrix_from_axis_and_angle
-
-            double[][] m = new double[3][];
-            m[0] = new double[3];
-            m[1] = new double[3];
-            m[2] = new double[3];
-
-            Vec3D u = new Vec3D(rotateAxis);
-            u.Normalize();
-
-            double cosPhi = Math.Cos(rotateAngle);
-            double sinPhi = Math.Sin(rotateAngle);
-
-            m[0][0] = cosPhi + (Math.Pow(u.X, 2) * (1 - cosPhi));
-            m[0][1] = u.X * u.Y * (1 - cosPhi) - u.Z * sinPhi;
-            m[0][2] = u.X * u.Z * (1 - cosPhi) + u.Y * sinPhi;
-
-            m[1][0] = u.Y * u.X * (1 - cosPhi) + u.Z * sinPhi;
-            m[1][1] = cosPhi + (Math.Pow(u.Y, 2) * (1 - cosPhi));
-            m[1][2] = u.Y * u.Z * (1 - cosPhi) - u.X * sinPhi;
-
-            m[2][0] = u.Z * u.X * (1 - cosPhi) - u.Y * sinPhi;
-            m[2][1] = u.Z * u.Y * (1 - cosPhi) + u.X * sinPhi;
-            m[2][2] = cosPhi + (Math.Pow(u.Z, 2) * (1 - cosPhi));
-
-            return m;
-        }
-        
         // Tools
         public string[] CreatePrismaticBoundaryLayer(int[] geometrySurfaceIds, double thickness, bool preview,
                                                      out FeNode[] inPressedNodes)
@@ -10374,6 +10462,9 @@ namespace CaeMesh
                     errors.Add("The part '" + part.Name + "' is not a solid part.");
                 }
             }
+            //
+            if (!preview) UpdateNodeIdElementIds();
+            //
             return errors.ToArray();
         }
         private void RepositionMidNodes(FeElement element, HashSet<int> modifiedElNodeIds)

@@ -82,9 +82,6 @@ namespace PrePoMax.Forms
             else _viewValue.SetTypeConverter(new StringDoubleConverter());
             //
             propertyGrid.SelectedObject = _viewValue;
-            propertyGrid.Select();
         }
-
-       
     }
 }

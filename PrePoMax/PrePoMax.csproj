@@ -37,6 +37,7 @@
     <ErrorReport>prompt</ErrorReport>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
     <Prefer32Bit>true</Prefer32Bit>
+    <UseVSHostingProcess>false</UseVSHostingProcess>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Console-Debug|x64'">
     <!-- Edited by Maxx -->
@@ -123,6 +124,8 @@
     <Compile Include="Commands\0000_File\COpenFile.cs" />
     <Compile Include="Commands\0000_File\CSaveToPmx.cs" />
     <Compile Include="Commands\0000_File\CImportFile.cs" />
+    <Compile Include="Commands\000_General\CRenamePost.cs" />
+    <Compile Include="Commands\000_General\CRenamePre.cs" />
     <Compile Include="Commands\0010_Edit\CSetCalculixUserKeywords.cs" />
     <Compile Include="Commands\0030_Geometry\01_Part\CResetColorForGeometryParts.cs" />
     <Compile Include="Commands\0030_Geometry\01_Part\CSetColorForGeometryParts.cs" />
@@ -162,6 +165,7 @@
     <Compile Include="Commands\0050_Model\03_Mesh\03_Part\CRemoveModelParts.cs" />
     <Compile Include="Commands\0050_Model\03_Mesh\03_Part\CReplaceModelPartProperties.cs" />
     <Compile Include="Commands\0050_Model\03_Mesh\03_Part\CResetColorForModelParts.cs" />
+    <Compile Include="Commands\0050_Model\03_Mesh\03_Part\CMirrorModelParts.cs" />
     <Compile Include="Commands\0050_Model\03_Mesh\03_Part\CRotateModelParts.cs" />
     <Compile Include="Commands\0050_Model\03_Mesh\03_Part\CScaleModelParts.cs" />
     <Compile Include="Commands\0050_Model\03_Mesh\03_Part\CSetColorForModelParts.cs" />
@@ -340,7 +344,7 @@
     <Compile Include="Commands\000_General\CActivateDeactivateMultiple.cs" />
     <Compile Include="Commands\00_Base\ICommandWithDialog.cs" />
     <Compile Include="Commands\000_General\CClear.cs" />
-    <Compile Include="Commands\000_General\CActivateDeactivate.cs" />
+    <Compile Include="Commands\_Compatibility\v2.2.3\CActivateDeactivate.cs" />
     <Compile Include="Commands\CommandsCollection.cs" />
     <Compile Include="Commands\00_Base\Command.cs" />
     <Compile Include="Commands\_Compatibility\v2.1.0\CActivateDeactivateMultilpe.cs" />
@@ -450,6 +454,9 @@
     <Compile Include="Forms\24_Part\FrmPartProperties.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Forms\24_Part\FrmMirror.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Forms\24_Part\FrmRotate.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -459,6 +466,7 @@
     <Compile Include="Forms\24_Part\FrmTranslate.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Forms\24_Part\MirrorParameters.cs" />
     <Compile Include="Forms\24_Part\RotateParameters.cs" />
     <Compile Include="Forms\24_Part\ScaleParameters.cs" />
     <Compile Include="Forms\24_Part\TranslateParameters.cs" />
@@ -915,6 +923,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\24_Part\FrmPartProperties.resx">
       <DependentUpon>FrmPartProperties.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\24_Part\FrmMirror.resx">
+      <DependentUpon>FrmMirror.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\24_Part\FrmRotate.resx">
       <DependentUpon>FrmRotate.cs</DependentUpon>

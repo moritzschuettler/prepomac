@@ -141,7 +141,6 @@ namespace PrePoMax.Forms
             _controller.Selection.Clear();
             //
             propertyGrid.SelectedObject = _viewThickenShellMesh;
-            propertyGrid.Select();
             //
             SetSelectItem();
             //

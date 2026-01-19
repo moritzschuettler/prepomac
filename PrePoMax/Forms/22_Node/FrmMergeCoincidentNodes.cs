@@ -143,7 +143,6 @@ namespace PrePoMax.Forms
             _controller.Selection.Clear();
             //
             propertyGrid.SelectedObject = _viewMergeCoincidentNodes;
-            propertyGrid.Select();
             //
             SetSelectItem();
             //

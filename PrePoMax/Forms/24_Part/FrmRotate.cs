@@ -10,37 +10,21 @@ using System.Drawing;
 
 namespace PrePoMax.Forms
 {
-    class FrmRotate : UserControls.FrmProperties, IFormBase
+    class FrmRotate : UserControls.FrmProperties, IFormBase, IFormHighlight
     {
         // Variables                                                                                                                
         private RotateParameters _rotateParameters;
         private Controller _controller;
         private string[] _partNames;
-        private double[][] _coorNodesToDraw;
-        private ContextMenuStrip cmsProperyGrid;
+        private double[] _startPoint;
+        private double[] _endPoint;
+        private ContextMenuStrip cmsPropertyGrid;
         private System.ComponentModel.IContainer components;
         private ToolStripMenuItem tsmiResetAll;
-        private double[][] _coorLinesToDraw;
 
 
         // Properties                                                                                                               
         public string[] PartNames { get { return _partNames; } set { _partNames = value; } }
-        public double[] RotateCenter
-        {
-            get
-            {
-                return new double[] { _rotateParameters.X1, _rotateParameters.Y1, _rotateParameters.Z1 };
-            }
-        }
-        public double[] RotateAxis
-        {
-            get
-            {
-                return new double[] { _rotateParameters.X2 - _rotateParameters.X1,
-                                      _rotateParameters.Y2 - _rotateParameters.Y1,
-                                      _rotateParameters.Z2 - _rotateParameters.Z1};
-            }
-        }
 
 
         // Constructors                                                                                                             
@@ -51,12 +35,8 @@ namespace PrePoMax.Forms
             //
             _controller = controller;
             //
-            _coorNodesToDraw = new double[1][];
-            _coorNodesToDraw[0] = new double[3];
-            //
-            _coorLinesToDraw = new double[2][];
-            _coorLinesToDraw[0] = new double[3];
-            _coorLinesToDraw[1] = new double[3];
+            _startPoint = new double[3];
+            _endPoint = new double[3];
             //
             btnOK.Visible = false;
             btnOkAddNew.Width = btnOK.Width;
@@ -67,10 +47,10 @@ namespace PrePoMax.Forms
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
-            this.cmsProperyGrid = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.cmsPropertyGrid = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.tsmiResetAll = new System.Windows.Forms.ToolStripMenuItem();
             this.gbProperties.SuspendLayout();
-            this.cmsProperyGrid.SuspendLayout();
+            this.cmsPropertyGrid.SuspendLayout();
             this.SuspendLayout();
             // 
             // gbProperties
@@ -79,7 +59,7 @@ namespace PrePoMax.Forms
             // 
             // propertyGrid
             // 
-            this.propertyGrid.ContextMenuStrip = this.cmsProperyGrid;
+            this.propertyGrid.ContextMenuStrip = this.cmsPropertyGrid;
             this.propertyGrid.Size = new System.Drawing.Size(298, 371);
             // 
             // btnOK
@@ -96,10 +76,10 @@ namespace PrePoMax.Forms
             // 
             // cmsProperyGrid
             // 
-            this.cmsProperyGrid.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.cmsPropertyGrid.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsmiResetAll});
-            this.cmsProperyGrid.Name = "cmsProperyGrid";
-            this.cmsProperyGrid.Size = new System.Drawing.Size(118, 26);
+            this.cmsPropertyGrid.Name = "cmsProperyGrid";
+            this.cmsPropertyGrid.Size = new System.Drawing.Size(118, 26);
             // 
             // tsmiResetAll
             // 
@@ -118,7 +98,7 @@ namespace PrePoMax.Forms
             this.Controls.SetChildIndex(this.btnOK, 0);
             this.Controls.SetChildIndex(this.btnOkAddNew, 0);
             this.gbProperties.ResumeLayout(false);
-            this.cmsProperyGrid.ResumeLayout(false);
+            this.cmsPropertyGrid.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }
@@ -127,16 +107,17 @@ namespace PrePoMax.Forms
         // Event handlers                                                                                                           
         protected override void OnPropertyGridPropertyValueChanged()
         {
-            HighlightNodes();
+            Highlight();
             //
             base.OnPropertyGridPropertyValueChanged();
         }
         protected override void OnApply(bool onOkAddNew)
         {
             double angle = _rotateParameters.AngleDeg * Math.PI / 180;
-            _controller.RotateModelPartsCommand(_partNames, RotateCenter, RotateAxis, angle, _rotateParameters.Copy);
+            _controller.RotateModelPartsCommand(_partNames, _rotateParameters.RotateCenter, _rotateParameters.RotateAxis,
+                                                angle, _rotateParameters.NumberOfCopies);
             //
-            HighlightNodes();
+            Highlight();
         }
         protected override bool OnPrepareForm(string stepName, string itemToEditName)
         {
@@ -149,13 +130,13 @@ namespace PrePoMax.Forms
             // Get start point grid item
             GridItem gi = propertyGrid.EnumerateAllItems().First((item) =>
                           item.PropertyDescriptor != null &&
-                          item.PropertyDescriptor.Name == nameof(_rotateParameters.Copy));
+                          item.PropertyDescriptor.Name == nameof(_rotateParameters.Rotate));
             // Select it
             gi.Select();
             //
             propertyGrid.Refresh();
             //
-            HighlightNodes();
+            Highlight();
             //
             propertyGrid.BuildAutocompleteMenu(_controller.GetAllParameterNames());
             //
@@ -256,23 +237,29 @@ namespace PrePoMax.Forms
                 //
                 _controller.ClearSelectionHistory();
                 //
-                HighlightNodes();
+                Highlight();
             }
         }
-        private void HighlightNodes()
+        public void Highlight()
         {
-            _coorNodesToDraw[0][0] = _rotateParameters.X2;
-            _coorNodesToDraw[0][1] = _rotateParameters.Y2;
-            _coorNodesToDraw[0][2] = _rotateParameters.Z2;
+            _startPoint[0] = _rotateParameters.X1;
+            _startPoint[1] = _rotateParameters.Y1;
+            _startPoint[2] = _rotateParameters.Z1;
             //
-            _coorLinesToDraw[0][0] = _rotateParameters.X1;
-            _coorLinesToDraw[0][1] = _rotateParameters.Y1;
-            _coorLinesToDraw[0][2] = _rotateParameters.Z1;
-            _coorLinesToDraw[1] = _coorNodesToDraw[0];
+            _endPoint[0] = _rotateParameters.X2;
+            _endPoint[1] = _rotateParameters.Y2;
+            _endPoint[2] = _rotateParameters.Z2;
             //
             _controller.ClearAllSelection();
-            _controller.HighlightNodes(_coorNodesToDraw);
-            _controller.HighlightConnectedLines(_coorLinesToDraw);
+            _controller.HighlightModelParts(_partNames, false, false);
+            //
+            double[] rotateAxis = _rotateParameters.RotateAxis;
+            if (rotateAxis[0] != 0 || rotateAxis[1] != 0 || rotateAxis[2] != 0)
+            {
+                _controller.HighlightLineWithArrow(_startPoint, _endPoint, false, true, true);
+                _controller.HighlightRotatedEdges(_partNames, _rotateParameters.RotateCenter, _rotateParameters.RotateAxis,
+                                                  _rotateParameters.AngleRad, _rotateParameters.NumberOfCopies, true);
+            }
         }
         //
         private FeMesh GetMesh()

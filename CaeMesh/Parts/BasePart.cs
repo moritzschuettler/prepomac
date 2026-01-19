@@ -8,7 +8,7 @@ using CaeGlobals;
 namespace CaeMesh
 {
     [Serializable]
-    public class BasePart : FeGroup, IComparable<BasePart>
+    public class BasePart : FeGroup, IComparable<BasePart>, IStoreAsNameInCommands
     {
         // Variables                                                                                                                
         protected int _partId;

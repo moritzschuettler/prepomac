@@ -268,6 +268,16 @@ namespace CaeModel
             }
             return null;
         }
+        public Step GetFiledOutputStep(FieldOutput fieldOutput)
+        {
+            FieldOutput existing;
+            foreach (var step in _steps)
+            {
+                if (step.FieldOutputs.TryGetValue(fieldOutput.Name, out existing) && existing == fieldOutput)
+                    return step;
+            }
+            return null;
+        }
         // Boundary condition
         public string[] GetAllBoundaryConditionNames()
         {

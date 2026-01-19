@@ -20,19 +20,17 @@ namespace PrePoMax.Forms
         private PointSelectionMethodEnum _scaleCenterSelectionMethod;
         private ItemSetData _scaleCenterItemSetData;
         private double[] _scaleCenter;
-        private double _scaleFactorX;
-        private double _scaleFactorY;
-        private double _scaleFactorZ;
-        private bool _copy;
+        private double[] _scaleFactors;
+        private bool _scaleOnly;
         private bool _twoD;
 
 
         // Properties                                                                                                               
         [Category("Data")]
         [OrderedDisplayName(0, 10, "Operation")]
-        [DescriptionAttribute("Select the move/copy operation.")]
+        [DescriptionAttribute("Select the scale operation.")]
         [Id(1, 1)]
-        public bool Copy { get { return _copy; } set { _copy = value; } }
+        public bool ScaleOnly { get { return _scaleOnly; } set { _scaleOnly = value; } }
         //
         [Category("Center point coordinates")]
         [OrderedDisplayName(0, 10, "Selection method")]
@@ -106,11 +104,11 @@ namespace PrePoMax.Forms
         [Id(1, 3)]
         public double FactorX
         {
-            get { return _scaleFactorX; }
+            get { return _scaleFactors[0]; }
             set
             {
-                _scaleFactorX = value;
-                if (_scaleFactorX <= 0) _scaleFactorX = 1;
+                _scaleFactors[0] = value;
+                if (_scaleFactors[0] <= 0) _scaleFactors[0] = 1;
             }
         }
         //
@@ -121,11 +119,11 @@ namespace PrePoMax.Forms
         [Id(2, 3)]
         public double FactorY
         {
-            get { return _scaleFactorY; }
+            get { return _scaleFactors[1]; }
             set 
             {
-                _scaleFactorY = value;
-                if (_scaleFactorY <= 0) _scaleFactorY = 1;
+                _scaleFactors[1] = value;
+                if (_scaleFactors[1] <= 0) _scaleFactors[1] = 1;
             }
         }
         //
@@ -136,13 +134,20 @@ namespace PrePoMax.Forms
         [Id(3, 3)]
         public double FactorZ
         {
-            get { return _scaleFactorZ; }
+            get { return _scaleFactors[2]; }
             set
             {
-                _scaleFactorZ = value;
-                if (_scaleFactorZ <= 0 || _twoD) _scaleFactorZ = 1;
+                _scaleFactors[2] = value;
+                if (_scaleFactors[2] <= 0 || _twoD) _scaleFactors[2] = 1;
             }
         }
+        //
+        [Browsable(false)]
+        public bool Copy { get { return !_scaleOnly; } }
+        [Browsable(false)]
+        public double[] ScaleCenter { get { return _scaleCenter.ToArray(); } }
+        [Browsable(false)]
+        public double[] ScaleFactors { get { return _scaleFactors.ToArray(); } }
 
 
         // Constructors                                                                                                             
@@ -157,7 +162,7 @@ namespace PrePoMax.Forms
             _scaleCenterItemSetData = new ItemSetData(); // needed to display ItemSetData.ToString()
             _scaleCenterItemSetData.ToStringType = ItemSetDataToStringType.SelectSinglePoint;
             //
-            _dctd.RenameBooleanProperty(nameof(Copy), "Copy and scale", "Scale");
+            _dctd.RenameBooleanProperty(nameof(ScaleOnly), "Scale", "Copy and scale");
             //
             if (modelSpace == ModelSpaceEnum.ThreeD) { _twoD = false; }
             else if (modelSpace.IsTwoD())
@@ -168,27 +173,28 @@ namespace PrePoMax.Forms
             }
             else throw new NotSupportedException();
             //
-            _dctd.GetProperty(nameof(CenterZ)).SetIsBrowsable(!_twoD);
-            _dctd.GetProperty(nameof(FactorZ)).SetIsBrowsable(!_twoD);
+            UpdateVisibility();
         }
 
 
         // Methods                                                                                                                  
         public void Clear()
         {
-            _copy = false;
+            _scaleOnly = true;
             //
             _scaleCenter = new double[3];
-            //
-            _scaleFactorX = 1;
-            _scaleFactorY = 1;
-            _scaleFactorZ = 1;
+            _scaleFactors = new double[] { 1, 1, 1 };
             //
             if (_twoD)
             {
                 CenterZ = 0;
                 FactorZ = 1;
             }
+        }
+        public void UpdateVisibility()
+        {
+            _dctd.GetProperty(nameof(CenterZ)).SetIsBrowsable(!_twoD);
+            _dctd.GetProperty(nameof(FactorZ)).SetIsBrowsable(!_twoD);
         }
     }
 }

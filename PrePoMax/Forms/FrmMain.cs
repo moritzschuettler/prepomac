@@ -44,6 +44,7 @@ namespace PrePoMax
         private Stack<bool[]> _prevMenuStates;
         private bool _closeAfterRegeneration;
         private float _prevScaleFactor;
+        private bool _suppressSymbolChanged;
         //
         private Point _formLocation;
         private List<Form> _allForms;
@@ -70,8 +71,9 @@ namespace PrePoMax
         private FrmElementQuality _frmElementQuality;
         private FrmPartProperties _frmPartProperties;
         private FrmTranslate _frmTranslate;
-        private FrmScale _frmScale;
         private FrmRotate _frmRotate;
+        private FrmMirror _frmMirror;
+        private FrmScale _frmScale;
         private FrmNodeSet _frmNodeSet;
         private FrmElementSet _frmElementSet;
         private FrmSurface _frmSurface;
@@ -252,25 +254,26 @@ namespace PrePoMax
                 tsmiColorAnnotations.DropDown.Closing += DropDown_Closing;
                 // Tree
                 _modelTree = new ModelTree();
+                // Controller
+                _controller = new Controller(this);
+                //
                 _modelTree.Name = "modelTree";
-                //_modelTree.Location = new Point(0, 0);
                 splitContainer1.Panel1.Controls.Add(this._modelTree);
                 _modelTree.Dock = DockStyle.Fill;
-                //_modelTree.Size = splitContainer1.Panel1.ClientSize;
-                //_modelTree.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom;
-                //_modelTree.Dock = DockStyle.None;
                 _modelTree.TabIndex = 0;
                 _modelTree.RegenerateTreeCallBack = RegenerateTreeCallback;
+                _modelTree.CheckItemName = _controller.CheckItemName;
                 //
                 _modelTree.GeometryMeshResultsEvent += ModelTree_ViewEvent;
-                _modelTree.SelectEvent += ModelTree_Select;
+                _modelTree.SelectEvent += ModelTree_SelectEvent;
                 _modelTree.ClearSelectionEvent += Clear3DSelection;
                 _modelTree.CreateEvent += ModelTree_CreateEvent;
-                _modelTree.EditEvent += ModelTree_Edit;
+                _modelTree.EditEvent += ModelTree_EditEvent;
+                _modelTree.RenameEvent += ModelTree_RenameEvent;
                 _modelTree.SetPartColorEvent += ModelTree_SetPartColorEvent;
                 _modelTree.ResetPartColorEvent += ModelTree_ResetPartColorEvent;
                 _modelTree.EditStepControlsEvent += EditStepControls;
-                _modelTree.QueryEvent += ModelTree_Query;
+                _modelTree.QueryEvent += ModelTree_QueryEvent;
                 _modelTree.DuplicateEvent += ModelTree_DuplicateEvent;
                 _modelTree.PropagateEvent += ModelTree_PropagateEvent;
                 _modelTree.PreviewEvent += ModelTree_PreviewEvent;
@@ -296,7 +299,7 @@ namespace PrePoMax
                 _modelTree.ResultsEvent += ResultsAnalysis;
                 _modelTree.KillEvent += KillAnalysis;
                 _modelTree.ActivateDeactivateEvent += ModelTree_ActivateDeactivateEvent;
-                _modelTree.DeleteEvent += ModelTree_Delete;
+                _modelTree.DeleteEvent += ModelTree_DeleteEvent;
                 _modelTree.FieldDataSelectEvent += ModelTree_FieldDataSelectEvent;
                 _modelTree.RenderingOff += () => _vtk.RenderingOn = false;
                 _modelTree.RenderingOn += () => _vtk.RenderingOn = true;
@@ -307,8 +310,6 @@ namespace PrePoMax
                 tsResultDeformation.Location = new Point(0, tsFile.Height);
                 tsResults.Location = new Point(tsResultDeformation.Left + tsResultDeformation.Width, tsFile.Height);
                 tscbSymbols.SelectedIndexChanged += tscbSymbols_SelectedIndexChanged;
-                // Controller
-                _controller = new Controller(this);
                 // Vtk
                 _vtk.OnMouseLeftButtonUpSelection += SelectPointOrArea;
                 _vtk.Controller_GetAnnotationText += _controller.GetAnnotationText;
@@ -402,12 +403,15 @@ namespace PrePoMax
                 _frmTranslate = new FrmTranslate(_controller);
                 AddFormToAllForms(_frmTranslate);
                 //
+                _frmRotate = new FrmRotate(_controller);
+                AddFormToAllForms(_frmRotate);
+                //
+                _frmMirror = new FrmMirror(_controller);
+                AddFormToAllForms(_frmMirror);
+                //
                 _frmScale = new FrmScale(_controller);
                 _frmScale.ScaleGeometryPartsAsync = ScaleGeometryPartsAsync;
                 AddFormToAllForms(_frmScale);
-                //
-                _frmRotate = new FrmRotate(_controller);
-                AddFormToAllForms(_frmRotate);
                 //
                 _frmNodeSet = new FrmNodeSet(_controller);
                 AddFormToAllForms(_frmNodeSet);
@@ -881,21 +885,13 @@ namespace PrePoMax
         // Keyboard
         private void KeyboardHook_KeyDown(KeyboardHook.VKeys vKey)
         {
-            if (this == ActiveForm && !tbOutput.Focused)
+            if (this == ActiveForm && !tbOutput.Focused && !_modelTree.Focused)
             {
                 Keys key = (Keys)vKey;
                 //
                 if (key == Keys.Escape)
                 {
                     if (!_vtk.IsRubberBandActive) CloseAllForms();
-                }
-                else if (Control.ModifierKeys == Keys.Control)
-                {
-                    //if (key == Keys.I) tsmiImportFile_Click(null, null);
-                    //else if (key == Keys.N) tsmiNew_Click(null, null);
-                    //else if (key == Keys.O) tsmiOpen_Click(null, null);
-                    //else if (key == Keys.S) tsmiSave_Click(null, null);
-                    //else if (key == Keys.X) tsmiExit_Click(null, null);
                 }
                 // Model tree
                 else if (_modelTree.ActiveControl == null || !_modelTree.ActiveControl.Focused)
@@ -908,8 +904,12 @@ namespace PrePoMax
                     // Forward to tree
                     else
                     {
-                        _modelTree.cltv_KeyDown(this, new KeyEventArgs(key));
-                        _vtk.Focus();   // this prevents that the coders lab tree calls _modelTree.cltv_KeyDown again
+                        if (_modelTree.EditModeActive) { }
+                        else
+                        {
+                            _modelTree.cltv_KeyDown(this, new KeyEventArgs(key));
+                            _vtk.Focus();   // this prevents that the coders lab tree calls _modelTree.cltv_KeyDown again
+                        }
                     }
                 }
             }
@@ -958,7 +958,7 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void ModelTree_Select(NamedClass[] items, bool mouseOver)
+        private void ModelTree_SelectEvent(NamedClass[] items, bool mouseOver)
         {
             try
             {
@@ -1006,7 +1006,7 @@ namespace PrePoMax
                 else if (nodeName == _modelTree.ResultHistoryOutputsName) tsmiCreateResultHistoryOutput_Click(null, null);
             }
         }
-        private void ModelTree_Edit(NamedClass namedClass, string stepName)
+        private void ModelTree_EditEvent(NamedClass namedClass, string stepName)
         {
             // Geometry
             if (_controller.CurrentView == ViewGeometryModelResults.Geometry)
@@ -1055,7 +1055,11 @@ namespace PrePoMax
                 else if (namedClass is FieldData) ShowLegendSettings();
             }
         }
-        private void ModelTree_Query()
+        private void ModelTree_RenameEvent(NamedClass item, string newName, string stepName)
+        {
+            _controller.RenameCommand(item, newName, stepName);
+        }
+        private void ModelTree_QueryEvent()
         {
             tsmiQuery_Click(null, null);
         }
@@ -1222,7 +1226,7 @@ namespace PrePoMax
             }
         }
         //
-        private void ModelTree_Delete(NamedClass[] items, string[] parentNames)
+        private void ModelTree_DeleteEvent(NamedClass[] items, string[] parentNames)
         {
             if (_controller.CurrentView == ViewGeometryModelResults.Geometry)
             {
@@ -4374,22 +4378,33 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiScaleModelParts_Click(object sender, EventArgs e)
+        private void tsmiRotateModelParts_Click(object sender, EventArgs e)
         {
             try
             {
-                SelectMultipleEntities("Parts", _controller.GetModelParts(), ScaleModelParts);
+                SelectMultipleEntities("Parts", _controller.GetModelParts(), RotateModelParts);
             }
             catch (Exception ex)
             {
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiRotateModelParts_Click(object sender, EventArgs e)
+        private void tsmiMirrorModelParts_Click(object sender, EventArgs e)
         {
             try
             {
-                SelectMultipleEntities("Parts", _controller.GetModelParts(), RotateModelParts);
+                SelectMultipleEntities("Parts", _controller.GetModelParts(), MirrorModelParts);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiScaleModelParts_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Parts", _controller.GetModelParts(), ScaleModelParts);
             }
             catch (Exception ex)
             {
@@ -4502,23 +4517,32 @@ namespace PrePoMax
             //
             ShowForm(_frmTranslate, "Translate Parts: " + partNames.ToShortString(), null);
         }
-        private void ScaleModelParts(string[] partNames)
-        {
-            SinglePointDataEditor.ParentForm = _frmScale;
-            SinglePointDataEditor.Controller = _controller;
-            // Set all part names for scaling
-            _frmScale.PartNames = partNames;    
-            //
-            ShowForm(_frmScale, "Scale Parts: " + partNames.ToShortString(), null);
-        }
         private void RotateModelParts(string[] partNames)
         {
             SinglePointDataEditor.ParentForm = _frmRotate;
             SinglePointDataEditor.Controller = _controller;
             // Set all part names for rotation
-            _frmRotate.PartNames = partNames;    
+            _frmRotate.PartNames = partNames;
             //
             ShowForm(_frmRotate, "Rotate Parts: " + partNames.ToShortString(), null);
+        }
+        private void MirrorModelParts(string[] partNames)
+        {
+            SinglePointDataEditor.ParentForm = _frmMirror;
+            SinglePointDataEditor.Controller = _controller;
+            // Set all part names for mirror
+            _frmMirror.PartNames = partNames;    
+            //
+            ShowForm(_frmMirror, "Mirror Parts: " + partNames.ToShortString(), null);
+        }
+        private void ScaleModelParts(string[] partNames)
+        {
+            SinglePointDataEditor.ParentForm = _frmScale;
+            SinglePointDataEditor.Controller = _controller;
+            // Set all part names for scaling
+            _frmScale.PartNames = partNames;
+            //
+            ShowForm(_frmScale, "Scale Parts: " + partNames.ToShortString(), null);
         }
         //
         private void MergeModelParts(string[] partNames)
@@ -8518,8 +8542,9 @@ namespace PrePoMax
             if (_frmSectionView != null && _frmSectionView.Visible) _frmSectionView.PickedIds(ids);
             if (_frmFollowerView != null && _frmFollowerView.Visible) _frmFollowerView.PickedIds(ids);
             if (_frmTranslate != null && _frmTranslate.Visible) _frmTranslate.PickedIds(ids);
-            if (_frmScale != null && _frmScale.Visible) _frmScale.PickedIds(ids);
             if (_frmRotate != null && _frmRotate.Visible) _frmRotate.PickedIds(ids);
+            if (_frmMirror != null && _frmMirror.Visible) _frmMirror.PickedIds(ids);
+            if (_frmScale != null && _frmScale.Visible) _frmScale.PickedIds(ids);
             if (_frmQuery != null && _frmQuery.Visible) _frmQuery.PickedIds(ids);
             if (_frmTransformation != null && _frmTransformation.Visible) _frmTransformation.PickedIds(ids);
             //
@@ -8833,6 +8858,7 @@ namespace PrePoMax
         #region Symbol toolbar  ####################################################################################################
         private void tscbSymbols_SelectedIndexChanged(object sender, EventArgs e)
         {
+            if (_suppressSymbolChanged) return;
             // If BC or load from one step-1 is selected its selection requires the step-1 to be selected.
             // Changing the step symbols is not possible -> Clear selection
             _controller.ClearAllSelection();
@@ -8845,13 +8871,20 @@ namespace PrePoMax
         }
         public void SelectLastSymbolName()
         {
+            _suppressSymbolChanged = true;
             tscbSymbols.SelectedIndex = tscbSymbols.Items.Count - 1;
+            _suppressSymbolChanged = false;
         }
         public void UpdateSymbolsList()
         {
             InvokeIfRequired(() =>
             {
-                ClearSymbolsDropDown();
+                _suppressSymbolChanged = true;
+                // Clear symbols dropdown
+                tscbSymbols.Items.Clear();
+                tscbSymbols.Items.Add("None");
+                tscbSymbols.SelectedIndex = 0;
+                //
                 if (_controller.CurrentView == ViewGeometryModelResults.Geometry) { }
                 else if (_controller.CurrentView == ViewGeometryModelResults.Model)
                 {
@@ -8870,15 +8903,9 @@ namespace PrePoMax
                 index = Math.Min(index, tscbSymbols.Items.Count - 1);
                 // Set the index
                 tscbSymbols.SelectedIndex = index;
+                //
+                _suppressSymbolChanged = false;
             });
-        }
-        private void ClearSymbolsDropDown()
-        {
-            tscbSymbols.Items.Clear();
-            tscbSymbols.Items.Add("None");
-            tscbSymbols.SelectedIndexChanged -= tscbSymbols_SelectedIndexChanged;
-            tscbSymbols.SelectedIndex = 0;
-            tscbSymbols.SelectedIndexChanged += tscbSymbols_SelectedIndexChanged;
         }
         public void SelectOneStepInSymbolsForStepList(string stepName)
         {
@@ -8893,12 +8920,12 @@ namespace PrePoMax
                         break;
                     }
                 }
-                if (index != -1)
+                if (index != -1 && index != tscbSymbols.SelectedIndex)
                 {
-                    tscbSymbols.SelectedIndexChanged -= tscbSymbols_SelectedIndexChanged;
+                    _suppressSymbolChanged = true;
                     tscbSymbols.SelectedIndex = index;
                     _selectedSymbolIndex[_controller.CurrentView] = index;
-                    tscbSymbols.SelectedIndexChanged += tscbSymbols_SelectedIndexChanged;
+                    _suppressSymbolChanged = false;
                     //
                     _controller.DrawSymbols(tscbSymbols.SelectedItem.ToString(), false); // do not highlight!
                 }
@@ -9802,29 +9829,11 @@ namespace PrePoMax
         //
         public vtkMaxActor Add3DNodes(vtkMaxActorData nodeData)
         {
-            vtkMaxActor actor = null;
-            if (this.InvokeRequired)
-            {
-                this.Invoke((MethodInvoker)delegate () { actor = _vtk.AddPoints(nodeData); });
-            }
-            else
-            {
-                actor = _vtk.AddPoints(nodeData);
-            }
-            return actor;
+            return InvokeIfRequired(() => _vtk.AddPoints(nodeData));
         }
         public vtkMaxActor Add3DCells(vtkMaxActorData cellData)
         {
-            vtkMaxActor actor = null;
-            if (this.InvokeRequired)
-            {
-                this.Invoke((MethodInvoker)delegate () { actor = _vtk.AddCells(cellData); });
-            }
-            else
-            {
-                actor = _vtk.AddCells(cellData);
-            }
-            return actor;
+            return InvokeIfRequired(() => _vtk.AddCells(cellData));
         }
         public void Add3DCells(vtkMaxActorData[] cellData)
         {
@@ -9867,6 +9876,10 @@ namespace PrePoMax
         public void AddOrientedDisplacementConstraintActor(vtkMaxActorData actorData, double symbolSize)
         {
             InvokeIfRequired(_vtk.AddOrientedDisplacementConstraintActor, actorData, symbolSize);
+        }
+        public void AddOrientedConeActors(vtkMaxActorData data, double symbolSize)
+        {
+            InvokeIfRequired(_vtk.AddOrientedConeActors, data, symbolSize);
         }
         public void AddOrientedRotationalConstraintActor(vtkMaxActorData actorData, double symbolSize)
         {
@@ -11128,7 +11141,7 @@ namespace PrePoMax
             }
         }
 
-        
+       
     }
 }
 

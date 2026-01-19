@@ -346,7 +346,7 @@ namespace PrePoMax.Forms
             //
             if (_viewLoad == null) throw new CaeException("No load selected.");
             // Check if the name exists
-            string[] loadNames = _controller.GetStepLoadNames(_stepName);
+            string[] loadNames = _controller.GetLoadNamesForStep(_stepName);
             CheckName(_loadToEditName, FELoad.Name, loadNames, "load");
             // Check equations
             _viewLoad.GetBase().CheckEquations();
@@ -502,7 +502,7 @@ namespace PrePoMax.Forms
             propertyGrid.SelectedObject = null;
             //
             _stepName = stepName;
-            _loadNames = _controller.GetAllLoadNames();
+            _loadNames = _controller.GetLoadNamesForStep(_stepName);
             _loadToEditName = loadToEditName;
             //
             string[] partNames = _controller.GetModelPartNames();
