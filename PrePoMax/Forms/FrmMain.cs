@@ -8858,6 +8858,9 @@ namespace PrePoMax
         #region Symbol toolbar  ####################################################################################################
         private void tscbSymbols_SelectedIndexChanged(object sender, EventArgs e)
         {
+            // the first time the model is opened the symbol name is null - set it here
+            _controller.SetSymbolsName(tscbSymbols.SelectedItem.ToString());
+            //
             if (_suppressSymbolChanged) return;
             // If BC or load from one step-1 is selected its selection requires the step-1 to be selected.
             // Changing the step symbols is not possible -> Clear selection

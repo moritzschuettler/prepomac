@@ -202,6 +202,10 @@ namespace PrePoMax
         // Annotations
         public AnnotationContainer Annotations { get { return _annotations; } }
         // Symbols
+        public void SetSymbolsName(string symbolName)
+        {
+            _drawSymbolName = symbolName;
+        }
         public void DrawSymbols(string symbolName, bool updateHighlight)
         {
             if (symbolName != _drawSymbolName)
@@ -436,7 +440,7 @@ namespace PrePoMax
             {
                 if (controller.Model != null) FeMesh.PrepareForSaving(controller.Model.Geometry);
                 if (controller.Model != null) FeMesh.PrepareForSaving(controller.Model.Mesh);
-                if (controller.CurrentResult != null) ResultsCollection.PrepareForSaving(controller._allResults);
+                if (controller._allResults != null) ResultsCollection.PrepareForSaving(controller._allResults);
             }
         }
         public static void ResetAfterSaving(Controller controller)
@@ -445,7 +449,7 @@ namespace PrePoMax
             {
                 if (controller.Model != null) FeMesh.ResetAfterSaving(controller.Model.Geometry);
                 if (controller.Model != null) FeMesh.ResetAfterSaving(controller.Model.Mesh);
-                if (controller.CurrentResult != null) ResultsCollection.ResetAfterSaving(controller._allResults);
+                if (controller._allResults != null) ResultsCollection.ResetAfterSaving(controller._allResults);
             }
         }
 
@@ -1022,8 +1026,6 @@ namespace PrePoMax
             }
             else return false;
         }
-
-
         private void OpenFoam(string fileName)
         {
             FeResults results = OpenFoamFileReader.Read(fileName, _model.UnitSystem);
@@ -1242,12 +1244,41 @@ namespace PrePoMax
             return historyResults;
         }
         // Read pmx
+        private void GetPmxFileVersion(string fileName, out string programmNameVersion, out string suffix)
+        {
+            programmNameVersion = null;
+            suffix = null;
+            //
+            int major = 0;
+            int minor = 0;
+            int build = 0;
+            try
+            {
+                byte[] versionBuffer = new byte[32];
+                using (FileStream fs = new FileStream(fileName, FileMode.Open))
+                {
+                    fs.Read(versionBuffer, 0, 32);
+                    programmNameVersion = Encoding.ASCII.GetString(versionBuffer).TrimEnd(new char[] { '\0' });
+                    //
+                    string[] versions = programmNameVersion.Split(new string[] { " ", ".", "v" },
+                                                                  StringSplitOptions.RemoveEmptyEntries);
+                    int.TryParse(versions[1], out major);
+                    int.TryParse(versions[2], out minor);
+                    int.TryParse(versions[3], out build);
+                    //
+                    suffix = $"_{major}.{minor}.{build}";
+                }
+            }
+            catch (Exception ex)
+            {
+            }
+        }
         private object[] TryReadCompressedPmx(string fileName, out FeModel model, out ResultsCollection allResults,
-                                              out string fileVersion)
+                                              out string programmNameVersion)
         {
             model = null;
             allResults = null;
-            fileVersion = null;
+            programmNameVersion = null;
             //
             int major = 0;
             int minor = 0;
@@ -1260,16 +1291,16 @@ namespace PrePoMax
                 using (FileStream fs = new FileStream(fileName, FileMode.Open))
                 {
                     fs.Read(versionBuffer, 0, 32);
-                    fileVersion = Encoding.ASCII.GetString(versionBuffer).TrimEnd(new char[] { '\0' });
+                    programmNameVersion = Encoding.ASCII.GetString(versionBuffer).TrimEnd(new char[] { '\0' });
                     //
-                    if (fileVersion != Globals.ProgramName)
+                    if (programmNameVersion != Globals.ProgramName)
                     {
-                        _form.WriteDataToOutput("Warning: The opened file is from an incompatible version: " + fileVersion);
+                        _form.WriteDataToOutput("Warning: The opened file is from an incompatible version: " + programmNameVersion);
                         _form.WriteDataToOutput("Some items might not be loaded correctly. Check the model.");
                     }
                     //
-                    string[] versions = fileVersion.Split(new string[] { " ", ".", "v" },
-                                                          StringSplitOptions.RemoveEmptyEntries);
+                    string[] versions = programmNameVersion.Split(new string[] { " ", ".", "v" },
+                                                                  StringSplitOptions.RemoveEmptyEntries);
 
                     int.TryParse(versions[1], out major);
                     int.TryParse(versions[2], out minor);
@@ -2131,6 +2162,9 @@ namespace PrePoMax
             try
             {
                 _savingFile = true;
+                // Create backup if file exists and is from an older version
+                CreateBackupIfNeeded(fileName);
+                //
                 CompressionLevel compressionLevel = _settings.General.CompressionLevel;
                 //
                 PrepareForSaving(this);
@@ -2203,6 +2237,41 @@ namespace PrePoMax
             {
                 ResetAfterSaving(this);
                 _savingFile = false;
+            }
+        }
+        public void CreateBackupIfNeeded(string fileName)
+        {
+            if (File.Exists(fileName))
+            {
+                string programmNameVersion;
+                string suffix;
+                GetPmxFileVersion(fileName, out programmNameVersion, out suffix);
+                //
+                if (programmNameVersion != null && suffix != null)
+                {
+                    if (programmNameVersion != Globals.ProgramName)
+                    {
+                        string extension = Path.GetExtension(fileName);
+                        string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
+                        string path = Path.GetDirectoryName(fileName);
+                        //
+                        string backupFileName = Path.Combine(path, fileNameWithoutExtension + suffix + extension);
+                        HashSet<string> allFiles = new HashSet<string>(Directory.GetFiles(path));
+                        //
+                        int count = 1;
+                        while (File.Exists(backupFileName))
+                        {
+                            backupFileName = Path.Combine(path, fileNameWithoutExtension + suffix + $" ({count++}" + extension);
+                        }
+                        File.Copy(fileName, backupFileName, true);
+                        //
+                        if (!BatchRegenerationMode)
+                            MessageBoxes.Show("The file " + fileName + " was created with an older program version: " + 
+                                              programmNameVersion + "." + Environment.NewLine + Environment.NewLine +
+                                              "The original file has been backuped to " + backupFileName + ".",
+                                              "Backup");
+                    }
+                }
             }
         }
         // Export

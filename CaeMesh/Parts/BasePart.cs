@@ -15,7 +15,9 @@ namespace CaeMesh
         protected PartType _partType;
         protected System.Drawing.Color _color;
         protected Type[] _elementTypes;
+
         protected VisualizationData _visualization;
+
         protected int[] _nodeLabels;
         protected bool _smoothShaded;
         protected BoundingBox _boundingBox;

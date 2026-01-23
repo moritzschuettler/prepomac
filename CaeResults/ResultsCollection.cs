@@ -1,11 +1,12 @@
-﻿using System;
+﻿using CaeGlobals;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using CaeGlobals;
 
 namespace CaeResults
 {
@@ -34,17 +35,25 @@ namespace CaeResults
         // Methods
         public static void PrepareForSaving(ResultsCollection resultsCollection)
         {
-            foreach (var entry in resultsCollection._results)
+            if (resultsCollection != null && resultsCollection._results != null)
             {
-                if (entry.Value != null) CaeMesh.FeMesh.PrepareForSaving(entry.Value.Mesh);
+                foreach (var entry in resultsCollection._results)
+                {
+                    if (entry.Value != null) CaeMesh.FeMesh.PrepareForSaving(entry.Value.Mesh);
+                }
             }
+            else if (Debugger.IsAttached) Debugger.Break();
         }
         public static void ResetAfterSaving(ResultsCollection resultsCollection)
         {
-            foreach (var entry in resultsCollection._results)
+            if (resultsCollection != null && resultsCollection._results != null)
             {
-                if (entry.Value != null) CaeMesh.FeMesh.ResetAfterSaving(entry.Value.Mesh);
+                foreach (var entry in resultsCollection._results)
+                {
+                    if (entry.Value != null) CaeMesh.FeMesh.ResetAfterSaving(entry.Value.Mesh);
+                }
             }
+            else if (Debugger.IsAttached) Debugger.Break();
         }
         public static void WriteToFileStream(ResultsCollection allResults, FileStream fileStream,
                                              CompressionLevel compressionLevel)

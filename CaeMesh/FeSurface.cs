@@ -129,10 +129,10 @@ namespace CaeMesh
             _createdFrom = surface._createdFrom;
             _nodeSetName = surface._nodeSetName;
             _createdFromNodeSetName = surface._createdFromNodeSetName;
-            _faceIds = surface._faceIds != null ? surface._faceIds.ToArray() : null;
+            _faceIds = surface._faceIds?.ToArray();
             _area = surface._area;
             _elementFaces = surface._elementFaces != null ? new Dictionary<FeFaceName, string>(surface._elementFaces) : null;
-            _creationData = surface._creationData != null ? surface._creationData.DeepClone() : null;
+            _creationData = surface._creationData?.DeepClone();
             _surfaceFaceTypes = surface._surfaceFaceTypes;
             _temporarySurface = surface._temporarySurface;
         }

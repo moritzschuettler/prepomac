@@ -1,32 +1,33 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using CaeGlobals;
 using CaeMesh;
-using CaeGlobals;
-using System.ComponentModel;
-using System.Runtime.Serialization;
-using System.Security.AccessControl;
-using System.Runtime.Remoting.Metadata.W3cXsd2001;
-using System.Collections.Concurrent;
-using System.Data;
-using System.Runtime.CompilerServices;
-using System.Xml.Linq;
+using Octree;
+using System;
 using System.Collections;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
-using static CaeGlobals.Geometry2;
-using System.Numerics;
+using System.Linq;
 using System.Linq.Expressions;
+using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices.WindowsRuntime;
-using System.Diagnostics;
+using System.Runtime.Remoting.Metadata.W3cXsd2001;
+using System.Runtime.Serialization;
+using System.Security.AccessControl;
+using System.Text;
+using System.Threading.Tasks;
+using System.Xml.Linq;
 using vtkControl;
+using static CaeGlobals.Geometry2;
 
 namespace CaeResults
 {
     [Serializable]
-    public class FeResults //: ISerializable
+    public class FeResults : ISerializable
     {
         // Variables                                                                                                                
         [NonSerialized]
@@ -187,25 +188,53 @@ namespace CaeResults
             _deformationFieldOutputName = FOFieldNames.Disp;
             _complexResultChanged = false;
         }
-        //public FeResults(SerializationInfo info, StreamingContext context)
-        //{
-
-        //}
-        //// ISerialization
-        //public void GetObjectData(SerializationInfo info, StreamingContext context)
-        //{
-        //    // Using typeof() works also for null fields
-        //    //info.AddValue("_meshRepresentation", _meshRepresentation, typeof(MeshRepresentation));
-        //    //info.AddValue("_meshRefinements", _meshRefinements, typeof(OrderedDictionary<string, FeMeshRefinement>));
-        //    //info.AddValue("_parts", _parts, typeof(OrderedDictionary<string, BasePart>));
-        //    //info.AddValue("_nodeSets", _nodeSets, typeof(OrderedDictionary<string, FeNodeSet>));
-        //    //info.AddValue("_elementSets", _elementSets, typeof(OrderedDictionary<string, FeElementSet>));
-        //    //info.AddValue("_surfaces", _surfaces, typeof(OrderedDictionary<string, FeSurface>));
-        //    //info.AddValue("_referencePoints", _referencePoints, typeof(OrderedDictionary<string, FeReferencePoint>));
-        //    //info.AddValue("_maxNodeId", _maxNodeId, typeof(int));
-        //    //info.AddValue("_maxElementId", _maxElementId, typeof(int));
-        //    //info.AddValue("_boundingBox", _boundingBox, typeof(BoundingBox));
-        //}
+        public FeResults(SerializationInfo info, StreamingContext context)
+        {
+            foreach (SerializationEntry entry in info)
+            {
+                switch (entry.Name)
+                {
+                    case "_hashName":
+                        _hashName = (string)entry.Value; break;
+                    case "_fileName":
+                        _fileName = (string)entry.Value; break;
+                    case "_mesh":
+                        _mesh = (FeMesh)entry.Value; break;
+                    case "_resultFieldOutputs":
+                        _resultFieldOutputs = (OrderedDictionary<string, ResultFieldOutput>)entry.Value; break;
+                    case "_resultHistoryOutputs":
+                        _resultHistoryOutputs = (OrderedDictionary<string, ResultHistoryOutput>)entry.Value; break;
+                    case "_history":
+                        _history = (HistoryResults)entry.Value; break;  // Compatibility for version v2.3.5
+                    case "_dateTime":
+                        _dateTime = (DateTime)entry.Value; break;
+                    case "_unitSystem":
+                        _unitSystem = (UnitSystem)entry.Value; break;
+                    case "_deformationFieldOutputName":
+                        _deformationFieldOutputName = (string)entry.Value; break;
+                    case "_complexResultType":
+                        _complexResultType = (ComplexResultTypeEnum)entry.Value; break;
+                    case "_complexAngleDeg":
+                        _complexAngleDeg = (float)entry.Value; break;
+                }
+            }
+        }
+        // ISerialization
+        public void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            // Using typeof() works also for null fields
+            info.AddValue("_hashName", _hashName, typeof(string));
+            info.AddValue("_fileName", _fileName, typeof(string));
+            info.AddValue("_mesh", _mesh, typeof(FeMesh));
+            info.AddValue("_resultFieldOutputs", _resultFieldOutputs, typeof(OrderedDictionary<string, ResultFieldOutput>));
+            info.AddValue("_resultHistoryOutputs", _resultHistoryOutputs, typeof(OrderedDictionary<string, ResultHistoryOutput>));
+            //info.AddValue("_history", _history, typeof(HistoryResults)); - not needed - Compatibility for version v2.3.5
+            info.AddValue("_dateTime", _dateTime, typeof(DateTime));
+            info.AddValue("_unitSystem", _unitSystem, typeof(UnitSystem));
+            info.AddValue("_deformationFieldOutputName", _deformationFieldOutputName, typeof(string));
+            info.AddValue("_complexResultType", _complexResultType, typeof(ComplexResultTypeEnum));
+            info.AddValue("_complexAngleDeg", _complexAngleDeg, typeof(float));
+        }
 
         // Static methods                                                                                                           
         public static void WriteToFileStream(FeResults results, FileStream fileStream, CompressionLevel compressionLevel)

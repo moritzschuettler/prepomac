@@ -316,10 +316,15 @@ namespace CaeMesh
             {
                 foreach (var entry in mesh._parts)
                 {
-                    entry.Value.VisualizationCopy = entry.Value.Visualization;
-                    entry.Value.Visualization = null;
+                    if (entry.Value != null && entry.Value.Visualization != null && entry.Value.VisualizationCopy == null)
+                    {
+                        entry.Value.VisualizationCopy = entry.Value.Visualization;
+                        entry.Value.Visualization = null;
+                    }
+                    else if (Debugger.IsAttached) Debugger.Break();
                 }
             }
+            else if (Debugger.IsAttached) Debugger.Break();
         }
         public static void ResetAfterSaving(FeMesh mesh)
         {
@@ -327,13 +332,15 @@ namespace CaeMesh
             {
                 foreach (var entry in mesh._parts)
                 {
-                    if (entry.Value.VisualizationCopy != null)
+                    if (entry.Value != null && entry.Value.VisualizationCopy != null && entry.Value.Visualization == null)
                     {
                         entry.Value.Visualization = entry.Value.VisualizationCopy;
                         entry.Value.VisualizationCopy = null;
                     }
+                    else if (Debugger.IsAttached) Debugger.Break();
                 }
             }
+            else if (Debugger.IsAttached) Debugger.Break();
         }
         public static void WriteToBinaryWriter(FeMesh mesh, BinaryWriter bw)
         {
@@ -481,9 +488,6 @@ namespace CaeMesh
             // Parts
             if (version >= 1_003_001 || version == -1)
             {
-                //if (mesh.Parts == null) mesh.Parts = new OrderedDictionary<string, BasePart>();
-                //else mesh.Parts.Clear();
-                //
                 int numOfParts = br.ReadInt32();
                 VisualizationData visualization;
                 foreach (var entry in mesh._parts)
@@ -11199,30 +11203,6 @@ namespace CaeMesh
             return elementIdSize;
         }
         // Clone
-        public FeMesh DeepCopyOld()
-        {
-            FeMesh copy = this.DeepClone();
-            //
-            copy.Nodes = new Dictionary<int, FeNode>();
-            foreach (var entry in _nodes)
-            {
-                copy.Nodes.Add(entry.Key, entry.Value.DeepCopy());
-            }
-            //
-            copy.Elements = new Dictionary<int, FeElement>();
-            foreach (var entry in _elements)
-            {
-                copy.Elements.Add(entry.Key, entry.Value.DeepCopy());
-            }
-            //
-            if (_octree != null) copy._octree = _octree.DeepClone();
-            else copy._octree = null;
-            //
-            if (_partOffsets != null) copy._partOffsets = _partOffsets.DeepClone();
-            else copy._partOffsets = null;
-            //
-            return copy;
-        }
         public FeMesh DeepCopy()
         {
             try

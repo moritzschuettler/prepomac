@@ -36,8 +36,9 @@ namespace CaeMesh
         public GeometrySelection(GeometrySelection geometrySelection)
            : this(geometrySelection.Name)
         {
-            _geometryIds = geometrySelection.GeometryIds != null ? geometrySelection.GeometryIds.ToArray() : null;
-            _creationData = geometrySelection.CreationData != null ? geometrySelection.CreationData.DeepClone() : null;
+            _geometryIds = geometrySelection.GeometryIds?.ToArray();
+            _creationData = geometrySelection.CreationData?.DeepClone();
+            _creationData = geometrySelection.CreationData?.DeepClone();
         }
 
 
