@@ -3401,9 +3401,6 @@ namespace CaeModel
         {
             try
             {
-                if (_geometry != null) FeMesh.PrepareForSaving(_geometry);
-                if (_mesh != null) FeMesh.PrepareForSaving(_mesh);
-                //
                 FeModel model = this.DeepClone();
                 //
                 using (MemoryStream ms = new MemoryStream())
@@ -3426,11 +3423,6 @@ namespace CaeModel
             catch
             {
                 return null;
-            }
-            finally
-            {
-                if (_geometry != null) FeMesh.ResetAfterSaving(_geometry);
-                if (_mesh != null) FeMesh.ResetAfterSaving(_mesh);
             }
         }
         // ISerialization

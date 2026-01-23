@@ -310,38 +310,6 @@ namespace CaeMesh
 
 
         // Static methods                                                                                                           
-        public static void PrepareForSaving(FeMesh mesh)
-        {
-            if (mesh != null && mesh._parts != null)
-            {
-                foreach (var entry in mesh._parts)
-                {
-                    if (entry.Value != null && entry.Value.Visualization != null && entry.Value.VisualizationCopy == null)
-                    {
-                        entry.Value.VisualizationCopy = entry.Value.Visualization;
-                        entry.Value.Visualization = null;
-                    }
-                    else if (Debugger.IsAttached) Debugger.Break();
-                }
-            }
-            else if (Debugger.IsAttached) Debugger.Break();
-        }
-        public static void ResetAfterSaving(FeMesh mesh)
-        {
-            if (mesh != null && mesh._parts != null)
-            {
-                foreach (var entry in mesh._parts)
-                {
-                    if (entry.Value != null && entry.Value.VisualizationCopy != null && entry.Value.Visualization == null)
-                    {
-                        entry.Value.Visualization = entry.Value.VisualizationCopy;
-                        entry.Value.VisualizationCopy = null;
-                    }
-                    else if (Debugger.IsAttached) Debugger.Break();
-                }
-            }
-            else if (Debugger.IsAttached) Debugger.Break();
-        }
         public static void WriteToBinaryWriter(FeMesh mesh, BinaryWriter bw)
         {
             if (mesh == null)
@@ -393,7 +361,8 @@ namespace CaeMesh
                     bw.Write(parts.Count);
                     foreach (var entry in parts)
                     {
-                        VisualizationData.WriteToBinaryStream(entry.Value.VisualizationCopy, bw);
+                        bw.Write(entry.Key);
+                        VisualizationData.WriteToBinaryStream(entry.Value.Visualization, bw);
                     }
                 }
             }
@@ -486,14 +455,28 @@ namespace CaeMesh
                 }
             }
             // Parts
+            string partName;
             if (version >= 1_003_001 || version == -1)
             {
-                int numOfParts = br.ReadInt32();
                 VisualizationData visualization;
-                foreach (var entry in mesh._parts)
+                int numOfParts = br.ReadInt32();
+                //
+                if (version >= 2_004_004 || version == -1)
                 {
-                    VisualizationData.ReadFromBinaryStream(out visualization, br, version);
-                    entry.Value.Visualization = visualization;
+                    for (int i = 0; i < numOfParts; i++)
+                    {
+                        partName = br.ReadString();
+                        VisualizationData.ReadFromBinaryStream(out visualization, br, version);
+                        mesh._parts[partName].Visualization = visualization;
+                    }
+                }
+                else
+                {
+                    foreach (var entry in mesh._parts)
+                    {
+                        VisualizationData.ReadFromBinaryStream(out visualization, br, version);
+                        entry.Value.Visualization = visualization;
+                    }
                 }
             }
             //
@@ -3774,63 +3757,7 @@ namespace CaeMesh
                 if (entry.Value is MeshPart mp) mp.UpdateElementTypeEnums(elementTypeEnums);
             }
         }
-        // Section view - OLD
-        public void ApplySectionView(Octree.Plane sectionPlane)
-        {
-            // Create octree if this is the first time the section cut was made
-            if (_octree == null)
-            {
-                double size = _boundingBox.GetDiagonal();
-                Octree.Point min = new Octree.Point(_boundingBox.MinX, _boundingBox.MinY, _boundingBox.MinZ);
-                Octree.Point max = new Octree.Point(_boundingBox.MaxX, _boundingBox.MaxY, _boundingBox.MaxZ);
-                _octree = new Octree.PointOctree<int>(size, (min + max) * 0.5, size / 100);
-
-                foreach (var entry in _nodes)
-                {
-                    _octree.Add(entry.Key, new Octree.Point(entry.Value.Coor));
-                }
-
-                foreach (var entry in _parts)
-                {
-                    entry.Value.VisualizationCopy = entry.Value.Visualization.DeepCopy();
-                }
-            }
-
-            // Split nodes in octree by plane
-            List<int> front = new List<int>();
-            List<int> onPlane = new List<int>();
-            List<int> back = new List<int>();
-            _octree.GetObjectsSplitByPlane(ref sectionPlane, front, onPlane, back);
-
-            HashSet<int> frontNodes = new HashSet<int>(front);
-            HashSet<int> backNodes = new HashSet<int>(back);
-            frontNodes.UnionWith(onPlane);
-
-            // Section cut
-            BasePart part;
-            VisualizationData visCut;
-            foreach (var entry in _parts)
-            {
-                part = entry.Value;
-                visCut = part.VisualizationCopy.DeepCopy();
-                //visCut = part.Visualization;
-                visCut.ApplySectionView(_elements, part.Labels, frontNodes, backNodes);
-                part.Visualization = visCut;
-
-                // Recompute the areas and lengths
-                ComputeFaceAreas(part);
-                ComputeEdgeLengths(part);
-            }
-        }
-        public void RemoveSectionView()
-        {
-            _octree = null;
-            foreach (var entry in _parts)
-            {
-                entry.Value.Visualization = entry.Value.VisualizationCopy;
-                entry.Value.VisualizationCopy = null;
-            }
-        }
+        
         // Exploded view
         public Dictionary<string, double[]> GetExplodedViewOffsets_(int explodedType, double scaleFactor, string[] partNames = null)
         {
@@ -11207,7 +11134,6 @@ namespace CaeMesh
         {
             try
             {
-                PrepareForSaving(this);
                 FeMesh mesh = this.DeepClone();
                 //
                 using (MemoryStream ms = new MemoryStream())
@@ -11230,10 +11156,6 @@ namespace CaeMesh
             catch
             {
                 return null;
-            }
-            finally
-            { 
-                ResetAfterSaving(this);
             }
         }
 

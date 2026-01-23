@@ -33,28 +33,6 @@ namespace CaeResults
 
 
         // Methods
-        public static void PrepareForSaving(ResultsCollection resultsCollection)
-        {
-            if (resultsCollection != null && resultsCollection._results != null)
-            {
-                foreach (var entry in resultsCollection._results)
-                {
-                    if (entry.Value != null) CaeMesh.FeMesh.PrepareForSaving(entry.Value.Mesh);
-                }
-            }
-            else if (Debugger.IsAttached) Debugger.Break();
-        }
-        public static void ResetAfterSaving(ResultsCollection resultsCollection)
-        {
-            if (resultsCollection != null && resultsCollection._results != null)
-            {
-                foreach (var entry in resultsCollection._results)
-                {
-                    if (entry.Value != null) CaeMesh.FeMesh.ResetAfterSaving(entry.Value.Mesh);
-                }
-            }
-            else if (Debugger.IsAttached) Debugger.Break();
-        }
         public static void WriteToFileStream(ResultsCollection allResults, FileStream fileStream,
                                              CompressionLevel compressionLevel)
         {

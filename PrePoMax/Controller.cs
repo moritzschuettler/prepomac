@@ -432,27 +432,6 @@ namespace PrePoMax
             ApplySettings();
         }
 
-
-        // Static methods                                                                                                           
-        public static void PrepareForSaving(Controller controller)
-        {
-            if (controller != null)
-            {
-                if (controller.Model != null) FeMesh.PrepareForSaving(controller.Model.Geometry);
-                if (controller.Model != null) FeMesh.PrepareForSaving(controller.Model.Mesh);
-                if (controller._allResults != null) ResultsCollection.PrepareForSaving(controller._allResults);
-            }
-        }
-        public static void ResetAfterSaving(Controller controller)
-        {
-            if (controller != null)
-            {
-                if (controller.Model != null) FeMesh.ResetAfterSaving(controller.Model.Geometry);
-                if (controller.Model != null) FeMesh.ResetAfterSaving(controller.Model.Mesh);
-                if (controller._allResults != null) ResultsCollection.ResetAfterSaving(controller._allResults);
-            }
-        }
-
         //public Controller(SerializationInfo info, StreamingContext context)
         //{
 
@@ -2167,7 +2146,6 @@ namespace PrePoMax
                 //
                 CompressionLevel compressionLevel = _settings.General.CompressionLevel;
                 //
-                PrepareForSaving(this);
                 bool[][] states = _form.GetTreeExpandCollapseState();
                 OpenedFileName = fileName;
                 //
@@ -2235,7 +2213,6 @@ namespace PrePoMax
             }
             finally
             {
-                ResetAfterSaving(this);
                 _savingFile = false;
             }
         }

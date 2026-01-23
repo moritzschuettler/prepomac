@@ -15,17 +15,14 @@ namespace CaeMesh
         protected PartType _partType;
         protected System.Drawing.Color _color;
         protected Type[] _elementTypes;
-
-        protected VisualizationData _visualization;
-
         protected int[] _nodeLabels;
         protected bool _smoothShaded;
         protected BoundingBox _boundingBox;
         protected double[] _offset;
         protected PartMassProperties _massProperties;
-
+        //
         [NonSerialized]
-        protected VisualizationData _visualizationCopy; // temp copy while saving
+        protected VisualizationData _visualization;
 
 
         // Properties                                                                                                               
@@ -37,13 +34,13 @@ namespace CaeMesh
             set { _color = value; }
         }
         public Type[] ElementTypes { get { return _elementTypes; } }
-        public VisualizationData Visualization  { get { return _visualization; } set { _visualization = value; } }
-        public VisualizationData VisualizationCopy { get { return _visualizationCopy; } set { _visualizationCopy = value; } }
         public int[] NodeLabels { get { return _nodeLabels; } set { _nodeLabels = value; } }
         public bool SmoothShaded { get { return _smoothShaded; } set { _smoothShaded = value; } }
         public BoundingBox BoundingBox { get { return _boundingBox; } set { _boundingBox = value; } }
         public double[] Offset { get { return _offset; } set { _offset = value; } }
         public PartMassProperties MassProperties { get { return _massProperties; } set { _massProperties = value; } }
+        //
+        public VisualizationData Visualization { get { return _visualization; } set { _visualization = value; } }
 
 
         // Constructors                                                                                                             
@@ -55,7 +52,6 @@ namespace CaeMesh
             _color = System.Drawing.Color.Gray;
             _elementTypes = elementTypes;
             _visualization = new VisualizationData();
-            _visualizationCopy = null;
             _smoothShaded = false;
             _boundingBox = new BoundingBox();
             _offset = new double[3];
@@ -78,9 +74,6 @@ namespace CaeMesh
             _elementTypes = part.ElementTypes != null ? part.ElementTypes.ToArray() : null;
             //
             _visualization = part.Visualization.DeepCopy();
-            //
-            if (part.VisualizationCopy != null)
-                _visualizationCopy = part.VisualizationCopy.DeepCopy();
             //
             _nodeLabels = part.NodeLabels != null ? part.NodeLabels.ToArray() : null;
             //
