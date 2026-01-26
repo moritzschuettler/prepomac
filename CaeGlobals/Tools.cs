@@ -745,6 +745,11 @@ namespace CaeGlobals
             if (id1 < id2) return new int[] { id1, id2 };
             else return new int[] { id2, id1 };
         }
+        public static (int, int) GetSortedValueKey(int id1, int id2)
+        {
+            if (id1 < id2) return (id1, id2);
+            else return (id2, id1);
+        }
         public static int GetHashCode(int[] array)
         {
             int hash = 23;

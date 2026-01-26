@@ -214,11 +214,11 @@ namespace PrePoMax.Forms
                 (RemeshingParameters.CreationIds == null || RemeshingParameters.CreationIds.Length == 0))
                 throw new CaeException("The element set for remeshing selection must contain at least one item.");
         }
-        private void HighlightElementSet()
+        private void HighlightElementSet(bool clear = true)
         {
             try
             {
-                _controller.ClearSelectionHistory();
+                if (clear) _controller.ClearSelectionHistory();
                 //
                 if (_viewRemeshingParameters == null) { }
                 else 
@@ -234,7 +234,7 @@ namespace PrePoMax.Forms
                         if (RemeshingParameters.CreationData != null)
                         {
                             _controller.Selection = RemeshingParameters.CreationData.DeepClone();
-                            _controller.HighlightSelection();
+                            _controller.HighlightSelection(clear);
                         }
                     }
                     else throw new NotSupportedException();
@@ -274,7 +274,7 @@ namespace PrePoMax.Forms
         // IFormHighlight
         public void Highlight()
         {
-            if(_highlightEnabled && !_closing) HighlightElementSet();
+            if(_highlightEnabled && !_closing) HighlightElementSet(false);
         }
         // IFormItemSetDataParent
         public bool IsSelectionGeometryBased()

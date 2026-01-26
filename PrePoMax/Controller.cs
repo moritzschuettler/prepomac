@@ -1245,7 +1245,7 @@ namespace PrePoMax
                     int.TryParse(versions[2], out minor);
                     int.TryParse(versions[3], out build);
                     //
-                    suffix = $"_{major}.{minor}.{build}";
+                    suffix = $"_v{major}.{minor}.{build}";
                 }
             }
             catch (Exception ex)
@@ -2032,7 +2032,7 @@ namespace PrePoMax
             _form.RegenerateTree(true);
         }
         public void ImportGeneratedRemesh(string fileName, int[] elementIds, BasePart part,
-                                          bool convertToSecondOrder, Dictionary<int[], FeNode> midNodes,
+                                          bool convertToSecondOrder, Dictionary<(int, int), FeNode> midNodes,
                                           bool preview)
         {
             if (!File.Exists(fileName))
@@ -2042,10 +2042,9 @@ namespace PrePoMax
             if (preview)
             {
                 int id2;
-                int[] key;
+                (int, int) key;
                 FeElement element;
-                CompareIntArray comparer = new CompareIntArray();
-                HashSet<int[]> edgeKeys = new HashSet<int[]>(comparer);
+                HashSet<(int, int)> edgeKeys = new HashSet<(int, int)>();
                 List<double[][]> lines = new List<double[][]>();
                 double[][] line;
                 //
@@ -2060,7 +2059,7 @@ namespace PrePoMax
                         for (int i = 0; i < 3; i++)
                         {
                             id2 = (i + 1) % 3;
-                            key = Tools.GetSortedKey(element.NodeIds[i], element.NodeIds[id2]);
+                            key = Tools.GetSortedValueKey(element.NodeIds[i], element.NodeIds[id2]);
                             if (!edgeKeys.Contains(key))
                             {
                                 line = new double[2][];
@@ -5815,38 +5814,51 @@ namespace PrePoMax
             //
             result = RemeshShellElements(elementSet, remeshingParameters, preview);
             //
-            RemoveElementSets(new string[] { elementSet.Name });
+            RemoveElementSets(new string[] { elementSet.Name }, !preview);
             //
-            UpdateAfterPartsChanged(); // must be here before any drawing
+            if (!preview) UpdateAfterPartsChanged(); // must be here before any drawing
             //
             return result;
         }
         private bool RemeshShellElements(FeElementSet elementSet, RemeshingParameters remeshingParameters, bool preview)
         {
-            bool result = true;
-            FeElement element;
-            List<int> elementIds;
-            Dictionary<int, List<int>> partIdElementIds = new Dictionary<int, List<int>>();
-            // Collect elements by part id
-            foreach (var elementId in elementSet.Labels)
+            try
             {
-                element = _model.Mesh.Elements[elementId];
-                if (element is FeElement2D)
+                _form.SetStateWorking(Globals.PreviewText);
+                //
+                bool result = true;
+                FeElement element;
+                List<int> elementIds;
+                Dictionary<int, List<int>> partIdElementIds = new Dictionary<int, List<int>>();
+                // Collect elements by part id
+                foreach (var elementId in elementSet.Labels)
                 {
-                    if (partIdElementIds.TryGetValue(element.PartId, out elementIds)) elementIds.Add(elementId);
-                    else partIdElementIds.Add(element.PartId, new List<int>() { elementId });
+                    element = _model.Mesh.Elements[elementId];
+                    if (element is FeElement2D)
+                    {
+                        if (partIdElementIds.TryGetValue(element.PartId, out elementIds)) elementIds.Add(elementId);
+                        else partIdElementIds.Add(element.PartId, new List<int>() { elementId });
+                    }
                 }
+                //
+                if (partIdElementIds.Count == 0) return false;
+                // Remesh
+                MeshPart part;
+                foreach (var entry in partIdElementIds)
+                {
+                    part = (MeshPart)_model.Mesh.GetPartFromId(entry.Key);
+                    result &= RemeshShellElementsByPart(part, entry.Value.ToArray(), remeshingParameters, preview);
+                }
+                return result;
             }
-            //
-            if (partIdElementIds.Count == 0) return false;
-            // Remesh
-            MeshPart part;
-            foreach (var entry in partIdElementIds)
+            catch
             {
-                part = (MeshPart)_model.Mesh.GetPartFromId(entry.Key);
-                result &= RemeshShellElementsByPart(part, entry.Value.ToArray(), remeshingParameters, preview);
+                return false;
             }
-            return result;
+            finally
+            {
+                _form.SetStateReady(Globals.PreviewText);
+            }
         }
         private bool RemeshShellElementsByPart(MeshPart part, int[] elementIds, RemeshingParameters remeshingParameters,
                                                bool preview)
@@ -5871,7 +5883,7 @@ namespace PrePoMax
             if (File.Exists(mmgOutFileName)) File.Delete(mmgOutFileName);
             if (File.Exists(mmgSolFileName)) File.Delete(mmgSolFileName);
             //
-            Dictionary<int[], FeNode> midNodes;
+            Dictionary<(int, int), FeNode> midNodes;
             MmgFileWriter.WriteShellElements(mmgInFileName, elementIds, part, _model.Mesh,
                                              remeshingParameters.KeepModelEdges, out midNodes);
             //
@@ -17949,9 +17961,20 @@ namespace PrePoMax
         {
             // Arrows
             List<double[]> allLoadNormals = new List<double[]>();
+            double[] surfaceNormal = _model.Mesh.GetSurfaceNormal(ptLoad.SurfaceName);
+            double[] direction = new double[] { ptLoad.X.Value, ptLoad.Y.Value, ptLoad.Z.Value };
             double[] normal;
-            if (ptLoad.AutoComputeDirection) normal = _model.Mesh.GetSurfaceNormal(ptLoad.SurfaceName);
-            else normal = new double[] { ptLoad.X.Value, ptLoad.Y.Value, ptLoad.Z.Value };
+            if (ptLoad.AutoComputeDirection) normal = surfaceNormal;
+            else normal = direction;
+            //
+            bool invert = false;
+            // Invert doue to direction
+            invert ^= !ptLoad.AutoComputeDirection &&
+                      direction[0] * surfaceNormal[0] + direction[1] * surfaceNormal[1] + direction[2] * surfaceNormal[2] > 0;
+            // Invert due to magnitude
+            if (ptLoad.Type == PreTensionLoadType.Force) invert ^= ptLoad.ForceMagnitude.Value > 0;
+            else if (ptLoad.Type == PreTensionLoadType.Displacement) invert ^= ptLoad.DisplacementMagnitude.Value > 0;
+            else throw new NotSupportedException();
             //
             allLoadNormals.Add(normal);
             allLoadNormals.Add(new double[] { -normal[0], -normal[1], -normal[2] });
@@ -17965,7 +17988,16 @@ namespace PrePoMax
                 data.Geometry.Nodes.Coor = symbolCoor.ToArray();
                 data.Geometry.Nodes.Normals = allLoadNormals.ToArray();
                 ApplyLighting(data);
-                _form.AddOrientedArrowsActor(data, symbolSize);
+                // Is displacement fixed
+                if (ptLoad.Type == PreTensionLoadType.Displacement &&
+                    (ptLoad.DisplacementMagnitude.Value == 0 || double.IsInfinity(ptLoad.DisplacementMagnitude.Value)))
+                {
+                    _form.AddOrientedDisplacementConstraintActor(data, symbolSize);
+                }
+                else
+                {
+                    _form.AddOrientedArrowsActor(data, symbolSize, invert);
+                }
             }
         }
         public void DrawCFluxSymbols(string prefixName, CFlux cFlux, Color color, int symbolSize,

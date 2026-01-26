@@ -22,7 +22,7 @@ namespace FileInOut.Input
                                   int firstNodeId = 1,
                                   int firstElementId = 1,
                                   Dictionary<int, FeNode> existingNodes = null,
-                                  Dictionary<int[], FeNode> existingMidNodes = null,
+                                  Dictionary<(int, int), FeNode> existingMidNodes = null,
                                   double epsilon = 1E-6,
                                   Dictionary<string, Dictionary<int, int>> partNameNewSurfIdOldSurfId = null,
                                   Dictionary<string, Dictionary<int, int>> partNameNewEdgeIdOldEdgeId = null)

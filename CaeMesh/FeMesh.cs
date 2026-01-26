@@ -953,10 +953,9 @@ namespace CaeMesh
 
         // Convert to parabolic
         public static void LinearToParabolic(ref Dictionary<int, FeNode> nodes, ref Dictionary<int, FeElement> elements,
-                                             int firstNodeId = -1, Dictionary<int[], FeNode> midNodes = null)
+                                             int firstNodeId = -1, Dictionary<(int, int), FeNode> midNodes = null)
         {
-            CompareIntArray comparer = new CompareIntArray();
-            if (midNodes == null) midNodes = new Dictionary<int[], FeNode>(comparer);
+            if (midNodes == null) midNodes = new Dictionary<(int, int), FeNode>();
             //
             Dictionary<int, FeElement> elementsOut = new Dictionary<int, FeElement>();
             //
@@ -1042,11 +1041,11 @@ namespace CaeMesh
             nodes = nodesOut;
             elements = elementsOut;
         }
-        private static FeNode GetOrCreateMidNode(FeNode n1, FeNode n2, ref Dictionary<int[], FeNode> midNodes, ref int maxNodeId)
+        private static FeNode GetOrCreateMidNode(FeNode n1, FeNode n2, ref Dictionary<(int, int), FeNode> midNodes, ref int maxNodeId)
         {
-            int[] key;
-            if (n1.Id < n2.Id) key = new int[] { n1.Id, n2.Id };
-            else key = new int[] { n2.Id, n1.Id };
+            (int, int) key;
+            if (n1.Id < n2.Id) key = (n1.Id, n2.Id);
+            else key = (n2.Id, n1.Id);
             //
             FeNode newNode;
             if (!midNodes.TryGetValue(key, out newNode))
@@ -2618,7 +2617,7 @@ namespace CaeMesh
                 if (oneEdgeCount == 0)
                 {
                     //"RenumberPartVisualizationEdges: the edge to renumber was not found."
-                    if (Debugger.IsAttached) Debugger.Break();
+                    //if (Debugger.IsAttached) Debugger.Break();
                 }
             }
             //
@@ -10111,8 +10110,7 @@ namespace CaeMesh
                     int[] elNodeIds;
                     HashSet<Type> newElementTypes = new HashSet<Type>();
                     FeNode midNode;
-                    CompareIntArray comparer = new CompareIntArray();
-                    Dictionary<int[], FeNode> midNodes = new Dictionary<int[], FeNode>(comparer);
+                    Dictionary<(int, int), FeNode> midNodes = new Dictionary<(int, int), FeNode>();
                     foreach (var modifiedCell in modifiedCells)
                     {
                         _maxElementId++;
@@ -10272,6 +10270,7 @@ namespace CaeMesh
                     HashSet<int> allVertexNodes = new HashSet<int>(vis.VertexNodeIds);
                     int[] sortedNodeIds;
                     HashSet<int> newNodeIds = new HashSet<int>();
+                    CompareIntArray comparer = new CompareIntArray();
                     HashSet<int[]> newEdgeNodeIds = new HashSet<int[]>(comparer);
                     Dictionary<int, HashSet<int>> neighEdgeNodeIds = new Dictionary<int, HashSet<int>>();
                     foreach (var nodeId in outsideNodeIds)
@@ -10302,7 +10301,7 @@ namespace CaeMesh
                                     // Add node
                                     entry.Value.Add(newNodeId);
                                     // Add midside node
-                                    if (midNodes.Count > 0) entry.Value.Add(midNodes[new int[] { nodeId, newNodeId }].Id);
+                                    if (midNodes.Count > 0) entry.Value.Add(midNodes[(nodeId, newNodeId)].Id);
                                 }
                                 // More than only one not selected edge is connected to the vertex
                                 // -> create new vertex and new edge
@@ -10316,7 +10315,7 @@ namespace CaeMesh
                                     newNodeIds.Clear();
                                     newNodeIds.Add(nodeId);
                                     newNodeIds.Add(newNodeId);
-                                    if (midNodes.Count > 0) newNodeIds.Add(midNodes[new int[] { nodeId, newNodeId }].Id);
+                                    if (midNodes.Count > 0) newNodeIds.Add(midNodes[(nodeId, newNodeId)].Id);
                                     sortedNodeIds = newNodeIds.ToArray();
                                     Array.Sort(sortedNodeIds);
                                     newEdgeNodeIds.Add(sortedNodeIds);
@@ -10332,7 +10331,7 @@ namespace CaeMesh
                                     // Add node
                                     surfaceIdNodeIds[neighSurfIdCount.Item1].Add(newNodeId);
                                     // Add midside node - it exists only on element edges
-                                    if (midNodes.TryGetValue(new int[] { nodeId, newNodeId }, out node))
+                                    if (midNodes.TryGetValue((nodeId, newNodeId), out node))
                                         surfaceIdNodeIds[neighSurfIdCount.Item1].Add(node.Id);
                                 }
                                 // Selection shares only a node
@@ -10355,7 +10354,7 @@ namespace CaeMesh
                                     // Add node
                                     surfaceIdNodeIds[neighSurfIdCount.Item1].Add(newNodeId);
                                     // Add midside node - it exists only on element edges
-                                    if (midNodes.TryGetValue(new int[] { nodeId, newNodeId }, out node))
+                                    if (midNodes.TryGetValue((nodeId, newNodeId), out node))
                                         surfaceIdNodeIds[neighSurfIdCount.Item1].Add(node.Id);
                                 }
                                 // Selection shares only a node

@@ -1217,7 +1217,7 @@ namespace CaeModel
             return result;
         }
         public void ImportGeneratedRemeshFromMeshFile(string fileName, int[] elementIds, BasePart part,
-                                                      bool convertToSecondOrder, Dictionary<int[], FeNode> midNodes)
+                                                      bool convertToSecondOrder, Dictionary<(int, int), FeNode> midNodes)
         {
             // Remove elements from the mesh
             HashSet<int> possiblyUnrefNodeIds = new HashSet<int>();

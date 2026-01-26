@@ -9732,7 +9732,7 @@ namespace PrePoMax
         }
         public void AdjustCameraDistanceAndClipping()
         {
-            InvokeIfRequired(_vtk.AdjustCameraDistanceAndClipping);
+            InvokeIfRequired(_vtk.AdjustCameraDistanceAndClippingRedraw);
         }
         public void UpdateScalarsAndRedraw()
         {
