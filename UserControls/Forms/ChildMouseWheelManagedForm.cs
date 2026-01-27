@@ -11,29 +11,7 @@ namespace UserControls
 {
     public class ChildMouseWheelManagedForm : Form, IMessageFilter
     {
-        private bool managed;
-        public ChildMouseWheelManagedForm()
-            : this(true)
-        {
-        }
-
-        public ChildMouseWheelManagedForm(bool start)
-        {
-            managed = false;
-            if (start)
-                ManagedMouseWheelStart();
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
-                ManagedMouseWheelStop();
-            base.Dispose(disposing);
-        }
-
-        /************************************
-         * IMessageFilter implementation
-         * *********************************/
+        // IMessageFilter implementation                                                                                            
         private const int WM_MOUSEWHEEL = 0x20a;
         // P/Invoke declarations
         [DllImport("user32.dll")]
@@ -41,6 +19,54 @@ namespace UserControls
         [DllImport("user32.dll")]
         private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wp, IntPtr lp);
 
+
+        // Variables                                                                                                                
+        private bool managed;
+        //private bool _firstShow = true;
+
+
+        // Constructors                                                                                                             
+        public ChildMouseWheelManagedForm()
+            : this(true)
+        {
+        }
+        public ChildMouseWheelManagedForm(bool start)
+        {
+            managed = false;
+            //
+            StartPosition = FormStartPosition.Manual;
+            Opacity = 0;
+            //
+            if (start) ManagedMouseWheelStart();
+        }
+        // Overrides                                                                                                                
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+                ManagedMouseWheelStop();
+            base.Dispose(disposing);
+        }
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            // This fires before Windows paints the form
+            //if (Visible && _firstShow) Opacity = 0;
+            //
+            base.OnVisibleChanged(e);
+        }
+        protected override void OnShown(EventArgs e)
+        {
+            base.OnShown(e);
+            //
+            if (Opacity == 0)
+            {
+                // Now everything is positioned, layouted, parented
+                Opacity = 1;
+                //_firstShow = false;
+            }
+        }
+
+
+        // Methods                                                                                                                  
         private bool IsChild(Control ctrl)
         {
             Control loopCtrl = ctrl;
@@ -50,7 +76,6 @@ namespace UserControls
 
             return (loopCtrl == this);
         }
-
         public bool PreFilterMessage(ref Message m)
         {
             if (m.Msg == WM_MOUSEWHEEL)
@@ -78,10 +103,6 @@ namespace UserControls
             }
             return false;
         }
-
-        /****************************************
-         * MouseWheelManagedForm specific methods
-         * **************************************/
         public void ManagedMouseWheelStart()
         {
             if (!managed)
@@ -90,7 +111,6 @@ namespace UserControls
                 Application.AddMessageFilter(this);
             }
         }
-
         public void ManagedMouseWheelStop()
         {
             if (managed)

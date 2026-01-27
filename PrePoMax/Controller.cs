@@ -17959,7 +17959,7 @@ namespace PrePoMax
         public void DrawPreTensionLoadSymbols(string prefixName, PreTensionLoad ptLoad, double[][] symbolCoor, Color color,
                                               int symbolSize, vtkRendererLayer layer)
         {
-            // Arrows
+            // Directions
             List<double[]> allLoadNormals = new List<double[]>();
             double[] surfaceNormal = _model.Mesh.GetSurfaceNormal(ptLoad.SurfaceName);
             double[] direction = new double[] { ptLoad.X.Value, ptLoad.Y.Value, ptLoad.Z.Value };
@@ -17988,12 +17988,13 @@ namespace PrePoMax
                 data.Geometry.Nodes.Coor = symbolCoor.ToArray();
                 data.Geometry.Nodes.Normals = allLoadNormals.ToArray();
                 ApplyLighting(data);
-                // Is displacement fixed
+                // Is displacement fixed - draw constraint symbol
                 if (ptLoad.Type == PreTensionLoadType.Displacement &&
                     (ptLoad.DisplacementMagnitude.Value == 0 || double.IsInfinity(ptLoad.DisplacementMagnitude.Value)))
                 {
                     _form.AddOrientedDisplacementConstraintActor(data, symbolSize);
                 }
+                // Else draw arrows
                 else
                 {
                     _form.AddOrientedArrowsActor(data, symbolSize, invert);
