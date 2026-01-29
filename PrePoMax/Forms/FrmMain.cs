@@ -15,6 +15,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -869,7 +870,7 @@ namespace PrePoMax
                 //
                 _controller.SetSelectByToDefault();
                 //
-                this.Focus();
+                Focus();
             }
         }
         private void itemForm_Move(object sender, EventArgs e)
@@ -1604,7 +1605,7 @@ namespace PrePoMax
                 {
                     openFileDialog.Filter = GetFileOpenFilter();
                     openFileDialog.FileName = "";
-                    if (openFileDialog.ShowDialog() == DialogResult.OK)
+                    if (openFileDialog.ShowDialog(this) == DialogResult.OK)
                     {
                         TryOpen(openFileDialog.FileName);
                     }
@@ -1624,7 +1625,7 @@ namespace PrePoMax
                 {
                     openFileDialog.Filter = "PrePoMax history|*.pmh";
                     openFileDialog.FileName = "";
-                    if (openFileDialog.ShowDialog() == DialogResult.OK) RunHistoryFile(openFileDialog.FileName);
+                    if (openFileDialog.ShowDialog(this) == DialogResult.OK) RunHistoryFile(openFileDialog.FileName);
                 }
             }
             catch (Exception ex)
@@ -1763,7 +1764,7 @@ namespace PrePoMax
                         saveFileDialog.Filter = "Calculix files | *.inp";
                         if (_controller.OpenedFileName != null)
                             saveFileDialog.FileName = Path.GetFileNameWithoutExtension(_controller.OpenedFileName) + ".inp";
-                        if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                        if (saveFileDialog.ShowDialog(this) == DialogResult.OK)
                         {
                             // the filter adds the extension to the file name
                             SetStateWorking(Globals.ExportingText);
@@ -1794,7 +1795,7 @@ namespace PrePoMax
                         saveFileDialog.Filter = "Abaqus files | *.inp";
                         if (_controller.OpenedFileName != null)
                             saveFileDialog.FileName = Path.GetFileNameWithoutExtension(_controller.OpenedFileName) + ".inp";
-                        if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                        if (saveFileDialog.ShowDialog(this) == DialogResult.OK)
                         {
                             // the filter adds the extension to the file name
                             SetStateWorking(Globals.ExportingText);
@@ -2136,7 +2137,7 @@ namespace PrePoMax
                     if (_controller.OpenedFileName != null)
                         saveFileDialog.FileName = Path.GetFileNameWithoutExtension(_controller.OpenedFileName) + ".stp";
                     //
-                    if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                    if (saveFileDialog.ShowDialog(this) == DialogResult.OK)
                     {
                         // The filter adds the extension to the file name
                         SetStateWorking(Globals.ExportingText);
@@ -2164,7 +2165,7 @@ namespace PrePoMax
                     if (_controller.OpenedFileName != null)
                         saveFileDialog.FileName = Path.GetFileNameWithoutExtension(_controller.OpenedFileName) + ".brep";
                     //
-                    if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                    if (saveFileDialog.ShowDialog(this) == DialogResult.OK)
                     {
                         // The filter adds the extension to the file name
                         SetStateWorking(Globals.ExportingText);
@@ -2192,7 +2193,7 @@ namespace PrePoMax
                     if (_controller.OpenedFileName != null)
                         saveFileDialog.FileName = Path.GetFileNameWithoutExtension(_controller.OpenedFileName) + ".stl";
                     //
-                    if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                    if (saveFileDialog.ShowDialog(this) == DialogResult.OK)
                     {
                         // The filter adds the extension to the file name
                         SetStateWorking(Globals.ExportingText);
@@ -2220,7 +2221,7 @@ namespace PrePoMax
                     if (_controller.OpenedFileName != null)
                         saveFileDialog.FileName = Path.GetFileNameWithoutExtension(_controller.OpenedFileName) + ".msh";
                     //
-                    if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                    if (saveFileDialog.ShowDialog(this) == DialogResult.OK)
                     {
                         // The filter adds the extension to the file name
                         SetStateWorking(Globals.ExportingText);
@@ -2248,7 +2249,7 @@ namespace PrePoMax
                     if (_controller.OpenedFileName != null)
                         saveFileDialog.FileName = Path.GetFileNameWithoutExtension(_controller.OpenedFileName) + ".mesh";
                     //
-                    if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                    if (saveFileDialog.ShowDialog(this) == DialogResult.OK)
                     {
                         // The filter adds the extension to the file name
                         SetStateWorking(Globals.ExportingText);
@@ -2276,7 +2277,7 @@ namespace PrePoMax
                     if (_controller.OpenedFileName != null)
                         saveFileDialog.FileName = Path.GetFileNameWithoutExtension(_controller.OpenedFileName) + ".inp";
                     //
-                    if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                    if (saveFileDialog.ShowDialog(this) == DialogResult.OK)
                     {
                         // The filter adds the extension to the file name
                         SetStateWorking(Globals.ExportingText);
@@ -2407,7 +2408,7 @@ namespace PrePoMax
             try
             {
                 SetFormLocation(_frmRegenerate);
-                if (_frmRegenerate.ShowDialog() == DialogResult.OK)
+                if (_frmRegenerate.ShowDialog(this) == DialogResult.OK)
                 {
                     SetStateWorking(Globals.UndoingText);
                     _modelTree.ScreenUpdating = false;
@@ -2454,7 +2455,7 @@ namespace PrePoMax
                 _frmEditCommands.PrepareForm();
                 //
                 SetFormLocation(_frmEditCommands);
-                if (_frmEditCommands.ShowDialog() ==  DialogResult.OK)
+                if (_frmEditCommands.ShowDialog(this) ==  DialogResult.OK)
                 {
                     _controller.SetCommands(_frmEditCommands.Commands);
                 }
@@ -2468,7 +2469,7 @@ namespace PrePoMax
         private void tsmiRegenerateHistory_Click(object sender, EventArgs e)
         {
             SetFormLocation(_frmRegenerate);
-            if (_frmRegenerate.ShowDialog() == DialogResult.OK)
+            if (_frmRegenerate.ShowDialog(this) == DialogResult.OK)
             {
                 RegenerateHistory(false, false, _frmRegenerate.RegenerateType);
             }
@@ -2476,7 +2477,7 @@ namespace PrePoMax
         private void tsmiRegenerateHistoryUsingOtherFiles_Click(object sender, EventArgs e)
         {
             SetFormLocation(_frmRegenerate);
-            if (_frmRegenerate.ShowDialog() == DialogResult.OK)
+            if (_frmRegenerate.ShowDialog(this) == DialogResult.OK)
             {
                 RegenerateHistory(true, false, _frmRegenerate.RegenerateType);
             }
@@ -2484,7 +2485,7 @@ namespace PrePoMax
         private void tsmiRegenerateHistoryWithRemeshing_Click(object sender, EventArgs e)
         {
             SetFormLocation(_frmRegenerate);
-            if (_frmRegenerate.ShowDialog() == DialogResult.OK)
+            if (_frmRegenerate.ShowDialog(this) == DialogResult.OK)
             {
                 RegenerateHistory(false, true, _frmRegenerate.RegenerateType);
             }
@@ -3317,7 +3318,7 @@ namespace PrePoMax
                 Color color = _controller.Model.Geometry.Parts[partNames[0]].GetProperties().Color;
                 SetFormLocation(frmGetColor);
                 frmGetColor.PrepareForm("Set Part Color: " + partNames.ToShortString(), color);
-                if (frmGetColor.ShowDialog() == DialogResult.OK)
+                if (frmGetColor.ShowDialog(this) == DialogResult.OK)
                 {
                     _controller.SetColorForGeometryPartsCommand(partNames, frmGetColor.Color);
                 }
@@ -3344,7 +3345,7 @@ namespace PrePoMax
                 presetValues.Add("Opaque", 255);
                 string desc = "Enter the transparency between 0 and 255.\n" + "(0 - transparent; 255 - opaque)";
                 frmGetValue.PrepareForm("Set Transparency: " + partNames.ToShortString(), "Transparency", desc, 128, presetValues);
-                if (frmGetValue.ShowDialog() == DialogResult.OK)
+                if (frmGetValue.ShowDialog(this) == DialogResult.OK)
                 {
                     _controller.SetTransparencyForGeometryPartsCommand(partNames, (byte)frmGetValue.Value);
                 }
@@ -3743,7 +3744,7 @@ namespace PrePoMax
             {
                 SetUpFrmGetValueForEdgeAngle(frmGetValue, partNames);
                 //
-                if (frmGetValue.ShowDialog() == DialogResult.OK)
+                if (frmGetValue.ShowDialog(this) == DialogResult.OK)
                 {
                     _controller.FindEdgesByAngleForGeometryPartsCommand(partNames, frmGetValue.Value);
                 }
@@ -3880,7 +3881,7 @@ namespace PrePoMax
                 //
                 _frmMeshSetupItem.PrepareForm(null, null);
                 _frmMeshSetupItem.SetMeshSetupItem(meshSetupItem.DeepClone());
-                _frmMeshSetupItem.ShowDialog();
+                _frmMeshSetupItem.ShowDialog(this);
                 //
                 if (_frmMeshSetupItem.DialogResult == DialogResult.OK) meshSetupItem = _frmMeshSetupItem.MeshSetupItem;
             });
@@ -4173,7 +4174,7 @@ namespace PrePoMax
                         if (_frmCalculixKeywordEditor.Keywords != null)
                         {
                             _frmCalculixKeywordEditor.PrepareForm(); // must be here to check for errors
-                            if (_frmCalculixKeywordEditor.ShowDialog() == DialogResult.OK)
+                            if (_frmCalculixKeywordEditor.ShowDialog(this) == DialogResult.OK)
                             {
                                 _controller.SetCalculixUserKeywordsCommand(_frmCalculixKeywordEditor.UserKeywords);
                             }
@@ -4193,7 +4194,7 @@ namespace PrePoMax
             {
                 SetUpFrmGetValueForEdgeAngle(frmGetValue, partNames);
                 //
-                if (frmGetValue.ShowDialog() == DialogResult.OK)
+                if (frmGetValue.ShowDialog(this) == DialogResult.OK)
                 {
                     _controller.FindEdgesByAngleForModelPartsCommand(partNames, frmGetValue.Value);
                 }
@@ -4275,7 +4276,7 @@ namespace PrePoMax
                     SetFormLocation(frmGetValue);
                     string desc = "Enter the starting node id for the node renumbering.";
                     frmGetValue.PrepareForm("Renumber Nodes", "Start node id", desc, 1, null);
-                    if (frmGetValue.ShowDialog() == DialogResult.OK)
+                    if (frmGetValue.ShowDialog(this) == DialogResult.OK)
                     {
                         _controller.RenumberNodesCommand((int)frmGetValue.Value);
                     }
@@ -4321,7 +4322,7 @@ namespace PrePoMax
                     SetFormLocation(frmGetValue);
                     string desc = "Enter the starting element id for the element renumbering.";
                     frmGetValue.PrepareForm("Renumber Elements", "Start element id", desc, 1, null);
-                    if (frmGetValue.ShowDialog() == DialogResult.OK)
+                    if (frmGetValue.ShowDialog(this) == DialogResult.OK)
                     {
                         _controller.RenumberElementsCommand((int)frmGetValue.Value);
                     }
@@ -4580,7 +4581,7 @@ namespace PrePoMax
                 Color color = _controller.Model.Mesh.Parts[partNames[0]].GetProperties().Color;
                 SetFormLocation(frmGetColor);
                 frmGetColor.PrepareForm("Set Part Color: " + partNames.ToShortString(), color);
-                if (frmGetColor.ShowDialog() == DialogResult.OK)
+                if (frmGetColor.ShowDialog(this) == DialogResult.OK)
                 {
                     _controller.SetColorForModelPartsCommand(partNames, frmGetColor.Color);
                 }
@@ -4607,7 +4608,7 @@ namespace PrePoMax
                 presetValues.Add("Opaque", 255);
                 string desc = "Enter the transparency between 0 and 255.\n" + "(0 - transparent; 255 - opaque)";
                 frmGetValue.PrepareForm("Set Transparency: " + partNames.ToShortString(), "Transparency", desc, 128, presetValues);
-                if (frmGetValue.ShowDialog() == DialogResult.OK)
+                if (frmGetValue.ShowDialog(this) == DialogResult.OK)
                 {
                     _controller.SetTransparencyForModelPartsCommand(partNames, (byte)frmGetValue.Value);
                 }
@@ -5179,7 +5180,7 @@ namespace PrePoMax
                 {
                     saveFileDialog.Filter = "Calculix files | *.inp";
                     //
-                    if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                    if (saveFileDialog.ShowDialog(this) == DialogResult.OK)
                     {
                         // The filter adds the extension to the file name
                         SetStateWorking(Globals.ExportingText);
@@ -5225,7 +5226,7 @@ namespace PrePoMax
                 {
                     CloseAllForms();
                     SetFormLocation(fml);
-                    fml.ShowDialog();
+                    fml.ShowDialog(this);
                 }
             }
         }
@@ -6974,7 +6975,7 @@ namespace PrePoMax
                         fpe.Owner = this;
                         CloseAllForms();
                         SetFormLocation(fpe);
-                        fpe.ShowDialog();
+                        fpe.ShowDialog(this);
                     }
                 }
             }
@@ -6992,7 +6993,7 @@ namespace PrePoMax
                     saveFileDialog.Filter = "PrePoMax parameters|*.pmp";
                     saveFileDialog.FileName = "Parameters";
                     //
-                    if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                    if (saveFileDialog.ShowDialog(this) == DialogResult.OK)
                     {
                         _controller.ExportParametersCommand(saveFileDialog.FileName);
                     }
@@ -7012,7 +7013,7 @@ namespace PrePoMax
                     openFileDialog.Filter = "PrePoMax parameters|*.pmp";
                     openFileDialog.FileName = "";
                     //
-                    if (openFileDialog.ShowDialog() == DialogResult.OK)
+                    if (openFileDialog.ShowDialog(this) == DialogResult.OK)
                     {
                         _controller.ImportParametersCommand(openFileDialog.FileName);
                         //
@@ -7722,7 +7723,7 @@ namespace PrePoMax
                     openFileDialog.Multiselect = false;
                     //
                     openFileDialog.FileName = "";
-                    if (openFileDialog.ShowDialog() == DialogResult.OK)
+                    if (openFileDialog.ShowDialog(this) == DialogResult.OK)
                     {
                         foreach (var fileName in openFileDialog.FileNames)
                         {
@@ -7749,7 +7750,7 @@ namespace PrePoMax
                     openFileDialog.Multiselect = false;
                     //
                     openFileDialog.FileName = "";
-                    if (openFileDialog.ShowDialog() == DialogResult.OK)
+                    if (openFileDialog.ShowDialog(this) == DialogResult.OK)
                     {
                         await Task.Run(() => _controller.ConvertOdbToFrd(openFileDialog.FileName));
                     }
@@ -7927,7 +7928,7 @@ namespace PrePoMax
                 Color color = _controller.AllResults.CurrentResult.Mesh.Parts[partNames[0]].GetProperties().Color;
                 SetFormLocation(frmGetColor);
                 frmGetColor.PrepareForm("Set Part Color: " + partNames.ToShortString(), color);
-                if (frmGetColor.ShowDialog() == DialogResult.OK)
+                if (frmGetColor.ShowDialog(this) == DialogResult.OK)
                 {
                     _controller.SetColorForResultPartsCommand(partNames, frmGetColor.Color);
                 }
@@ -7954,7 +7955,7 @@ namespace PrePoMax
                 presetValues.Add("Opaque", 255);
                 string desc = "Enter the transparency between 0 and 255.\n" + "(0 - transparent; 255 - opaque)";
                 frmGetValue.PrepareForm("Set Transparency: " + partNames.ToShortString(), "Transparency", desc, 128, presetValues);
-                if (frmGetValue.ShowDialog() == DialogResult.OK)
+                if (frmGetValue.ShowDialog(this) == DialogResult.OK)
                 {
                     _controller.SetTransparencyForResultPartsCommand(partNames, (byte)frmGetValue.Value);
                 }
@@ -8424,7 +8425,7 @@ namespace PrePoMax
             using (FrmSplash frmSplash = new FrmSplash())
             {
                 frmSplash.ShowHelp = true;
-                frmSplash.ShowDialog();
+                frmSplash.ShowDialog(this);
             }
         }
         #endregion  ################################################################################################################
@@ -8655,7 +8656,10 @@ namespace PrePoMax
                 SetFormLocation((Form)form);
                 form.Text = text;
                 if (itemToEditName != null) form.Text += ": " + itemToEditName;
-                if (form.PrepareForm(stepName, itemToEditName)) form.Show();
+                if (form.PrepareForm(stepName, itemToEditName))
+                {
+                    ((Form)form).Show(this);
+                }
                 else
                 {
                     if (stepName != null)
@@ -9485,7 +9489,7 @@ namespace PrePoMax
                 {
                     openFileDialog.Filter = filter;
                     openFileDialog.FileName = "";
-                    if (openFileDialog.ShowDialog() == DialogResult.OK)
+                    if (openFileDialog.ShowDialog(this) == DialogResult.OK)
                     {
                         fileName = openFileDialog.FileName;
                     }
@@ -9506,7 +9510,7 @@ namespace PrePoMax
                 {
                     openFileDialog.Filter = filter;
                     openFileDialog.FileName = "";
-                    if (openFileDialog.ShowDialog() == DialogResult.OK)
+                    if (openFileDialog.ShowDialog(this) == DialogResult.OK)
                     {
                         fileName = openFileDialog.FileName;
                     }
@@ -9528,7 +9532,7 @@ namespace PrePoMax
                     //
                     saveFileDialog.OverwritePrompt = true;
                     //
-                    if (saveFileDialog.ShowDialog() == DialogResult.OK) fileName = saveFileDialog.FileName;
+                    if (saveFileDialog.ShowDialog(this) == DialogResult.OK) fileName = saveFileDialog.FileName;
                     else fileName = null;
                 }
             });
@@ -9545,7 +9549,7 @@ namespace PrePoMax
                     openFileDialog.Multiselect = true;
                     openFileDialog.Filter = filter;
                     openFileDialog.FileName = "";
-                    if (openFileDialog.ShowDialog() == DialogResult.OK)
+                    if (openFileDialog.ShowDialog(this) == DialogResult.OK)
                     {
                         fileNames = openFileDialog.FileNames;
                     }

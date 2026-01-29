@@ -2,6 +2,7 @@
 using System.Windows.Forms;
 using System.Runtime.InteropServices;
 using System.Drawing;
+using System.Diagnostics;
 
 
 // http://stackoverflow.com/questions/479284/mouse-wheel-event-c
@@ -22,7 +23,6 @@ namespace UserControls
 
         // Variables                                                                                                                
         private bool managed;
-        //private bool _firstShow = true;
 
 
         // Constructors                                                                                                             
@@ -35,34 +35,15 @@ namespace UserControls
             managed = false;
             //
             StartPosition = FormStartPosition.Manual;
-            Opacity = 0;
             //
             if (start) ManagedMouseWheelStart();
         }
         // Overrides                                                                                                                
         protected override void Dispose(bool disposing)
         {
-            if (disposing)
-                ManagedMouseWheelStop();
+            if (disposing) ManagedMouseWheelStop();
+            //
             base.Dispose(disposing);
-        }
-        protected override void OnVisibleChanged(EventArgs e)
-        {
-            // This fires before Windows paints the form
-            //if (Visible && _firstShow) Opacity = 0;
-            //
-            base.OnVisibleChanged(e);
-        }
-        protected override void OnShown(EventArgs e)
-        {
-            base.OnShown(e);
-            //
-            if (Opacity == 0)
-            {
-                // Now everything is positioned, layouted, parented
-                Opacity = 1;
-                //_firstShow = false;
-            }
         }
 
 

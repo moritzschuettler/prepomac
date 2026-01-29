@@ -150,7 +150,7 @@ namespace PrePoMax.Settings
         public bool LinearDeflectionRelative
         {
             get { return _graphicsSettings.LinearDeflectionRelative; }
-            set { _graphicsSettings.LinearDeflectionRelative = value; UprateVisibilities(); }
+            set { _graphicsSettings.LinearDeflectionRelative = value; UpdateVisibilities(); }
         }
         //
         [CategoryAttribute("Geometry")]
@@ -198,7 +198,7 @@ namespace PrePoMax.Settings
             _dctd.RenameBooleanPropertyToOnOff(nameof(LineSmoothing));
             _dctd.RenameBooleanProperty(nameof(LinearDeflectionRelative), "Relative", "Absolute");
             //
-            UprateVisibilities();
+            UpdateVisibilities();
         }
 
 
@@ -213,8 +213,10 @@ namespace PrePoMax.Settings
             _graphicsSettings.Reset();
             //
             BackgroundType = _graphicsSettings.BackgroundType;
+            //
+            UpdateVisibilities();
         }
-        public void UprateVisibilities()
+        public void UpdateVisibilities()
         {
             bool visible = _graphicsSettings.LinearDeflectionRelative;
             _dctd.GetProperty(nameof(LinearDeflection)).SetIsBrowsable(visible);
