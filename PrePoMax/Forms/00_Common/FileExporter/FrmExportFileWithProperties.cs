@@ -24,6 +24,8 @@ namespace PrePoMax.Forms
             get { return _viewExportFileProperties == null ? null : _viewExportFileProperties.GetBase(); }
             set
             {
+                if (_prevDirectory == null) _prevDirectory = _controller.Settings.GetWorkDirectory();
+                //
                 CreateFileNameEditor.FileName = value.FileName;
                 value.FileName = Path.Combine(_prevDirectory, Path.GetFileName(value.FileName));
                 CreateFileNameEditor.Filter = value.Filter;
@@ -115,14 +117,7 @@ namespace PrePoMax.Forms
                 if (ExportUsingFileProperties != null) ExportUsingFileProperties(exportFileProperties);
             }
         }
-        protected override bool OnPrepareForm(string stepName, string itemName)
-        {
-            _propertyItemChanged = false;
-            if (_prevDirectory == null) _prevDirectory = _controller.Settings.GetWorkDirectory();
-            //
-            return true;
-        }
-        
+       
 
         // Methods                                                                                                                  
         
