@@ -15,12 +15,14 @@ namespace FileInOut.Output.Calculix
         private string _firstLine;
         private string _data;
         private object _parent;
+        private bool _suppressed;
 
 
         // Properties                                                                                                               
         public string FirstLine { get { return _firstLine; } set { _firstLine = value; } }
         public string Data { get { return _data; } set { _data = value; } }
         public object Parent { get { return _parent; } set { _parent = value; } }
+        public bool Suppressed { get { return _suppressed; } set { _suppressed = value; } }
 
 
         // Constructor                                                                                                              

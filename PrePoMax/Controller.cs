@@ -3,7 +3,6 @@ using CaeJob;
 using CaeMesh;
 using CaeModel;
 using CaeResults;
-using CommandLine;
 using FileInOut.Output;
 using PrePoMax.Commands;
 using PrePoMax.Forms;
@@ -17,20 +16,13 @@ using System.Drawing;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Management;
-using System.Reflection.Emit;
-using System.Runtime.Remoting.Metadata.W3cXsd2001;
-using System.Runtime.Serialization;
-using System.Security.Policy;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Xml.Linq;
 using UserControls;
 using vtkControl;
-using static CaeGlobals.Geometry2;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolTip;
+
 
 namespace PrePoMax
 {
@@ -354,10 +346,6 @@ namespace PrePoMax
         public void SetSelectByToDefault()
         {
             SelectBy = vtkSelectBy.Default;
-        }
-        public void SetSelectBy(vtkSelectBy selectBy)
-        {
-            SelectBy = selectBy;
         }
         public void SetSelectAngle(double angle)
         {

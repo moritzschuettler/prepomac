@@ -27,6 +27,7 @@ namespace PrePoMax.Forms
         public Action<string> Form_WriteDataToOutput;
         public Action<object, EventArgs> Form_RemoveAnnotations;
 
+
         // Constructors                                                                                                             
         public FrmQuery()
         {

@@ -160,7 +160,7 @@ namespace vtkControl
                     {
                         // General
                         case vtkSelectBy.Off:
-                            _style.RubberBandEnabled = false;
+                            _style.SelectionBoxEnabled = false;
                             break;
                         case vtkSelectBy.Default:
                         // Mesh based
@@ -170,7 +170,7 @@ namespace vtkControl
                         // Geometry
                         case vtkSelectBy.Geometry:
                         case vtkSelectBy.GeometryPart:
-                            _style.RubberBandEnabled = true;
+                            _style.SelectionBoxEnabled = true;
                             break;
                         // Mesh based
                         case vtkSelectBy.Id:
@@ -190,11 +190,11 @@ namespace vtkControl
                         case vtkSelectBy.QueryEdge:
                         case vtkSelectBy.QuerySurface:
                         case vtkSelectBy.QueryPart:
-                            _style.RubberBandEnabled = false;
+                            _style.SelectionBoxEnabled = false;
                             break;
                         // Widget
                         case vtkSelectBy.Widget:
-                            _style.RubberBandEnabled = false;
+                            _style.SelectionBoxEnabled = false;
                             break;
                         default:
                             throw new NotSupportedException();
@@ -220,15 +220,19 @@ namespace vtkControl
             if (selectableActors != null) _selectableActorsFilter = new HashSet<string>(selectableActors);
             else _selectableActorsFilter = null;
         }
+        public void StartBoxZoom()
+        {
+            _style.BoxZoomEnabled = true;
+        }
 
 
         // Getters
-        public bool IsRubberBandActive
+        public bool IsBoxSelectionActive
         {
             get
             {
                 vtkInteractorStyleControl style = (vtkInteractorStyleControl)(_renderWindowInteractor.GetInteractorStyle());
-                return style.IsRubberBandActive;
+                return style.IsBoxSelectionActive;
             }
         }
 
@@ -251,6 +255,8 @@ namespace vtkControl
         public Action Form_ShowLegendSettings;
         public Action Form_ShowStatusBlockSettings;
         public Action Form_EndEditArrowWidget;
+        //
+        public Action Form_BoxZoomEnded;
 
 
         // Events                                                                                                                   
@@ -385,13 +391,13 @@ namespace vtkControl
         }
 
         // Mouse Events - Style                                                                                                     
-        public void Pick(int x1, int y1, bool rubberBandSelection, int x2, int y2)
+        public void Pick(int x1, int y1, bool boxSelection, int x2, int y2)
         {
             // Test only method
             MouseEventArgs e = new MouseEventArgs(MouseButtons.Left, 1, x1, y1, 0);
-            style_PointPickedOnLeftUpEvt(e, rubberBandSelection, x2, y2);
+            style_PointPickedOnLeftUpEvt(e, boxSelection, x2, y2);
         }
-        private void style_PointPickedOnMouseMoveEvt(int x1, int y1, bool rubberBandSelection, int x2, int y2)
+        private void Style_PointPickedOnMouseMoveEvt(int x1, int y1, bool boxSelection, int x2, int y2)
         {
             try
             {
@@ -402,7 +408,7 @@ namespace vtkControl
                 else if (_selectBy == vtkSelectBy.Default)
                 {
                     // Area selection
-                    if (rubberBandSelection)
+                    if (boxSelection)
                     {
                         string[] pickedActorNames = null;
                         PickByArea(x1, y1, x2, y2, false, out pickedActorNames);
@@ -413,7 +419,7 @@ namespace vtkControl
                     }
                 }
                 //
-                else if (rubberBandSelection)
+                else if (boxSelection)
                 {
                     ClearCurrentMouseSelection();
                     PickByArea(x1, y1, x2, y2, true, out string[] pickedActorNAmes);
@@ -495,7 +501,7 @@ namespace vtkControl
             }
             catch { }
         }
-        private void style_PointPickedOnLeftUpEvt(MouseEventArgs mea, bool rubberBandSelection, int x2, int y2)
+        private void style_PointPickedOnLeftUpEvt(MouseEventArgs mea, bool boxSelection, int x2, int y2)
         {
             string[] pickedActorNames = null;
             // Off
@@ -508,7 +514,7 @@ namespace vtkControl
             else if (_selectBy == vtkSelectBy.Default)
             {
                 // Point selection
-                if (!rubberBandSelection)
+                if (!boxSelection)
                 {
                     vtkActor pickedActor;
                     GetPickPoint(out pickedActor, mea.Location.X, mea.Location.Y);
@@ -533,7 +539,7 @@ namespace vtkControl
                 vtkActor pickedActor = null;
                 bool completelyInside = mea.Location.X > x2;
                 // Point selection
-                if (!rubberBandSelection)
+                if (!boxSelection)
                 {
                     double[] pickedPoint = GetPickPoint(out pickedActor, mea.Location.X, mea.Location.Y);
                     double[] direction = _renderer.GetActiveCamera().GetDirectionOfProjection();
@@ -1748,7 +1754,7 @@ namespace vtkControl
             _style.SetSelectionRenderer(_selectionRenderer);
             _style.GetPickPoint = this.GetPickPoint;
             //
-            _style.PointPickedOnMouseMoveEvt += style_PointPickedOnMouseMoveEvt;
+            _style.PointPickedOnMouseMoveEvt += Style_PointPickedOnMouseMoveEvt;
             _style.PointPickedOnLeftUpEvt += style_PointPickedOnLeftUpEvt;
             _style.ClearCurrentMouseSelection += ClearCurrentMouseSelection;
             _style.RightButtonPressEvent += style_RightButtonPressEvent;
@@ -1756,6 +1762,7 @@ namespace vtkControl
             _style.KeyPressEvt += style_KeyPressEvt;
             _style.LeaveEvt += style_LeaveEvt;
             _style.EnterEvt += style_EnterEvt;
+            _style.BoxZoomEnded = BoxZoomEnded;
             _renderWindowInteractor.SetInteractorStyle(_style);
             _style.Reset();
             _renderWindowInteractor.ModifiedEvt += _renderWindowInteractor_ModifiedEvt;
@@ -2629,15 +2636,9 @@ namespace vtkControl
             if (animate) AnimateCamera(cameraStart, camera, camera);
             else RenderScene();
         }
-        double[] MultiplyPointSimple(vtkMatrix4x4 M, double[] v)
+        public void BoxZoomEnded()
         {
-            return new double[]
-            {
-                M.GetElement(0,0)*v[0] + M.GetElement(0,1)*v[1] + M.GetElement(0,2)*v[2] + M.GetElement(0,3)*v[3],
-                M.GetElement(1,0)*v[0] + M.GetElement(1,1)*v[1] + M.GetElement(1,2)*v[2] + M.GetElement(1,3)*v[3],
-                M.GetElement(2,0)*v[0] + M.GetElement(2,1)*v[1] + M.GetElement(2,2)*v[2] + M.GetElement(2,3)*v[3],
-                M.GetElement(3,0)*v[0] + M.GetElement(3,1)*v[1] + M.GetElement(3,2)*v[2] + M.GetElement(3,3)*v[3]
-            };
+            Form_BoxZoomEnded?.Invoke();
         }
         //
         private void ResetCamera()

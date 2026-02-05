@@ -330,6 +330,7 @@ namespace PrePoMax
                 _vtk.Form_ShowStatusBlockSettings = ShowStatusBlockSettings;
                 _vtk.Form_EndEditArrowWidget = EndEditArrowAnnotation;
                 _vtk.Form_WidgetPicked = AnnotationPicked;
+                _vtk.Form_BoxZoomEnded = BoxZoomEnded;
                 // Forms
                 _formLocation = new Point(100, 100);
                 _allForms = new List<Form>();
@@ -892,7 +893,7 @@ namespace PrePoMax
                 //
                 if (key == Keys.Escape)
                 {
-                    if (!_vtk.IsRubberBandActive) CloseAllForms();
+                    if (!_vtk.IsBoxSelectionActive) CloseAllForms();
                 }
                 // Model tree
                 else if (_modelTree.ActiveControl == null || !_modelTree.ActiveControl.Focused)
@@ -2595,6 +2596,10 @@ namespace PrePoMax
         private void tsmiZoomToFit_Click(object sender, EventArgs e)
         {
             SetZoomToFit(true);
+        }
+        private void tsmiBoxZoom_Click(object sender, EventArgs e)
+        {
+            StartBoxZoom();
         }
         // User views
         private void tsmiEditUserViews_Click(object sender, EventArgs e)
@@ -8789,6 +8794,10 @@ namespace PrePoMax
         {
             tsmiZoomToFit_Click(null, null);
         }
+        private void tsbBoxZoom_Click(object sender, EventArgs e)
+        {
+            tsmiBoxZoom_Click(null, null);
+        }
         //
         private void tsbShowWireframeEdges_Click(object sender, EventArgs e)
         {
@@ -9729,6 +9738,15 @@ namespace PrePoMax
         public void SetZoomToFit(bool animate)
         {
             InvokeIfRequired(_vtk.SetZoomToFit, animate);
+        }
+        public void StartBoxZoom()
+        {
+            tsbBoxZoom.Checked = true;
+            InvokeIfRequired(_vtk.StartBoxZoom);
+        }
+        public void BoxZoomEnded()
+        {
+            tsbBoxZoom.Checked = false;
         }
         public double[] GetViewPlaneNormal()
         {
@@ -11148,7 +11166,7 @@ namespace PrePoMax
             }
         }
 
-       
+        
     }
 }
 

@@ -1008,7 +1008,8 @@ namespace FileInOut.Output
             {
                 foreach (var entry in model.CalculixUserKeywords)
                 {
-                    if (!AddUserKeywordByIndices(keywords, entry.Key, entry.Value.DeepClone())) keywordKeysToRemove.Add(entry.Key);
+                    if (!AddUserKeywordByIndices(keywords, entry.Key, entry.Value.DeepClone()))
+                        keywordKeysToRemove.Add(entry.Key);
                 }
             }
             // Remove lost user keywords
