@@ -19,10 +19,10 @@ namespace FileInOut.Output.Calculix
 
 
         // Properties                                                                                                               
-        public string FirstLine { get { return _firstLine; } set { _firstLine = value; } }
-        public string Data { get { return _data; } set { _data = value; } }
+        public string FirstLine { get { return _firstLine; } }
+        public string Data { get { return _data; } set { _data = value; UpdateFirstLine(); } }
         public object Parent { get { return _parent; } set { _parent = value; } }
-        public bool Suppressed { get { return _suppressed; } set { _suppressed = value; } }
+        public bool IsSuppressed { get { return _suppressed; } }
 
 
         // Constructor                                                                                                              
@@ -30,10 +30,20 @@ namespace FileInOut.Output.Calculix
         {
             _data = data;
             _parent = null;
+            UpdateFirstLine();
         }
 
 
         // Methods                                                                                                                  
+        public void Suppress()
+        {
+            _suppressed = true;
+        }
+        public void Unsuppress()
+        {
+            _suppressed = false;
+        }
+        
         public override string GetKeywordString()
         {
             if (_data != null && _data.Length > 0) return string.Format("{0}{1}", _data, Environment.NewLine);
@@ -42,6 +52,11 @@ namespace FileInOut.Output.Calculix
         public override string GetDataString()
         {
             return "";
+        }
+        private void UpdateFirstLine()
+        {
+            string[] tmp = _data.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+            if (tmp.Length > 0) _firstLine = tmp[0];
         }
     }
 }

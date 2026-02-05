@@ -235,7 +235,6 @@ namespace FileInOut.Input
                     {
                         // User keyword
                         CalculixUserKeyword userKeyword = new CalculixUserKeyword(dataSet.ToRows(dataSet.Length));
-                        userKeyword.FirstLine = dataSet[0];
                         userKeyword.Parent = "Model";
                         userKeywords.Add(userKeyword);
                     }
@@ -1250,7 +1249,6 @@ namespace FileInOut.Input
                         {
                             // User keyword
                             CalculixUserKeyword userKeyword = new CalculixUserKeyword(dataSet.ToRows(dataSet.Length));
-                            userKeyword.FirstLine = dataSet[0];
                             userKeyword.Parent = material;
                             userKeywords.Add(userKeyword);
                         }
@@ -1646,7 +1644,6 @@ namespace FileInOut.Input
                         {
                             // User keyword
                             CalculixUserKeyword userKeyword = new CalculixUserKeyword(dataSet.ToRows(dataSet.Length));
-                            userKeyword.FirstLine = dataSet[0];
                             userKeyword.Parent = surfaceInteraction;
                             userKeywords.Add(userKeyword);
                         }
@@ -1825,7 +1822,6 @@ namespace FileInOut.Input
                     {
                         // User keyword
                         CalculixUserKeyword userKeyword = new CalculixUserKeyword(dataSet.ToRows(dataSet.Length));
-                        userKeyword.FirstLine = dataSet[0];
                         userKeyword.Parent = step;
                         userKeywords.Add(userKeyword);
                     }

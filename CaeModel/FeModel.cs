@@ -1045,14 +1045,9 @@ namespace CaeModel
             else return -1;
         }
         //
-        public void RemoveLostUserKeywords(Action<int> SetNumberOfUserKeywords)
+        public void UpdateUserKeywordStates(bool remove, out int suppresedCount, out int unsuppresedCount)
         {
-            try
-            {
-                FileInOut.Output.CalculixFileWriter.RemoveLostUserKeywords(this);
-                SetNumberOfUserKeywords?.Invoke(_calculixUserKeywords.Count);
-            }
-            catch { }
+            FileInOut.Output.CalculixFileWriter.UpdateUserKeywordStates(this, remove, out suppresedCount, out unsuppresedCount);
         }        
         // Import                                                                                   
         public string[] ImportGeometryFromStlFile(string fileName)
@@ -1492,6 +1487,12 @@ namespace CaeModel
             if (_geometry != null && _geometry.Parts != null) reservedPartIds.UnionWith(_geometry.GetAllPartIds());
             if (_mesh != null && _mesh.Parts != null) reservedPartIds.UnionWith(_mesh.GetAllPartIds());
             return reservedPartIds;
+        }
+        public int GetNumberOfUnsuppresedUserKeywords()
+        {
+            int count = 0;
+            foreach (var entry in _calculixUserKeywords) if (!entry.Value.IsSuppressed) count++;
+            return count;
         }
         // Mesh setup items
         public string IsMeshSetupItemProperlyDefined(MeshSetupItem meshSetupItem)

@@ -15,6 +15,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.IO.Compression;
+using System.IO.Ports;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -446,15 +447,28 @@ namespace PrePoMax
         //}
 
         #region Validity   #########################################################################################################
-        public string[] CheckAndUpdateModelValidity()
+        public string[] CheckAndUpdateModelValidity(bool afterRemove = false)
         {
             // Update user keywords
             if (_model != null && _model.CalculixUserKeywords != null)
             {
-                int num = _model.CalculixUserKeywords.Count;
-                _model.RemoveLostUserKeywords(_form.SetNumberOfModelUserKeywords);
-                int delta = num - _model.CalculixUserKeywords.Count;
-                if (delta > 0) MessageBoxes.ShowWarning("Number of removed CalculiX user keywords: " + delta + ".");
+                int suppresedCount;
+                int unsuppresedCount;
+                _model.UpdateUserKeywordStates(afterRemove, out suppresedCount, out unsuppresedCount);
+                //
+                _form.SetNumberOfModelUserKeywords(_model.GetNumberOfUnsuppresedUserKeywords());
+                //
+                if (suppresedCount > 0 || unsuppresedCount > 0)
+                {
+                    var parts = new List<string>();
+                    if (suppresedCount > 0)
+                    {
+                        if (afterRemove) parts.Add($"Number of deleted CalculiX user keywords: {suppresedCount}.");
+                        else parts.Add($"Number of suppressed CalculiX user keywords: {suppresedCount}.");
+                    }
+                    if (unsuppresedCount > 0) parts.Add($"Number of unsuppressed CalculiX user keywords: {unsuppresedCount}.");
+                    MessageBoxes.ShowWarning(string.Join(Environment.NewLine, parts));
+                }
             }
             // Tuple<NamedClass, string>   ...   Tuple<invalidItem, stepName>
             List<Tuple<NamedClass, string>> items = new List<Tuple<NamedClass, string>>();
@@ -3647,7 +3661,7 @@ namespace PrePoMax
             //
             foreach (var name in removedParts) _form.RemoveTreeNode<GeometryPart>(view, name, null);
             //
-            if (checkValidity) CheckAndUpdateModelValidity();
+            if (checkValidity) CheckAndUpdateModelValidity(true);
             //
             DrawGeometry(false);
         }
@@ -4484,7 +4498,7 @@ namespace PrePoMax
             //
             UpdateAfterPartsChanged();
             //
-            CheckAndUpdateModelValidity();
+            CheckAndUpdateModelValidity(true);
             //
             DrawGeometry(false);
         }
@@ -8325,7 +8339,7 @@ namespace PrePoMax
             //
             AnnotateWithColorLegend();
             //
-            CheckAndUpdateModelValidity();
+            CheckAndUpdateModelValidity(true);
         }
         //
         public string[] GetMaterialLibraryFiles()
@@ -8465,7 +8479,7 @@ namespace PrePoMax
             if (state.HasFlag(_annotateWithColor)) FeModelUpdate(UpdateType.DrawModel);
             else AnnotateWithColorLegend();
             //
-            CheckAndUpdateModelValidity();
+            CheckAndUpdateModelValidity(true);
         }
         //
         private void ConvertSelectionBasedSection(Section section)
@@ -9117,7 +9131,7 @@ namespace PrePoMax
                 _form.RemoveTreeNode<SurfaceInteraction>(ViewGeometryModelResults.Model, name, null);
             }
             //
-            CheckAndUpdateModelValidity();
+            CheckAndUpdateModelValidity(true);
         }
 
         #endregion #################################################################################################################
@@ -9987,6 +10001,7 @@ namespace PrePoMax
                 _model.StepCollection.RemoveStep(name);
                 _form.RemoveTreeNode<Step>(ViewGeometryModelResults.Model, name, null);
             }
+            CheckAndUpdateModelValidity(true); // must be here to delete the user keywords
             //
             FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
         }
@@ -10129,7 +10144,7 @@ namespace PrePoMax
                 _form.RemoveTreeNode<HistoryOutput>(ViewGeometryModelResults.Model, name, stepName);
             }
             //
-            CheckAndUpdateModelValidity();
+            CheckAndUpdateModelValidity(true);
         }
         //
         private void ConvertSelectionBasedHistoryOutput(HistoryOutput historyOutput)
@@ -10312,7 +10327,7 @@ namespace PrePoMax
                 _form.RemoveTreeNode<FieldOutput>(ViewGeometryModelResults.Model, name, stepName);
             }
 
-            CheckAndUpdateModelValidity();
+            CheckAndUpdateModelValidity(true);
         }
 
         #endregion #################################################################################################################

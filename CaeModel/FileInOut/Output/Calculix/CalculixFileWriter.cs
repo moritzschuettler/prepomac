@@ -968,7 +968,7 @@ namespace FileInOut.Output
             maxNodeId = newNodeId;
             maxElementId = newElementId;
         }
-        static public bool AddUserKeywordByIndices(List<CalculixKeyword> keywords, int[] indices, CalculixKeyword userKeyword)
+        static public bool AddUserKeywordByIndices(List<CalculixKeyword> keywords, int[] indices, CalculixUserKeyword userKeyword)
         {
             if (indices.Length == 1)
             {
@@ -989,33 +989,48 @@ namespace FileInOut.Output
                     }
                     else return false;
                 }
-
+                // Check keyword
+                if (deactivated || keywordParent.Keywords.Count < indices[indices.Length - 1]) return false;
                 // Add the keyword
-                if (keywordParent.Keywords.Count < indices[indices.Length - 1]) return false;
-
-                if (!deactivated) keywordParent.Keywords.Insert(indices[indices.Length - 1], userKeyword);
-                else keywordParent.Keywords.Insert(indices[indices.Length - 1], new CalDeactivated("User keyword"));
+                keywordParent.Keywords.Insert(indices[indices.Length - 1], userKeyword);
             }
             return true;
         }
         //
-        static public void RemoveLostUserKeywords(FeModel model)
+        static public void UpdateUserKeywordStates(FeModel model, bool remove, out int suppresedCount, out int unsuppresedCount)
         {
+            suppresedCount = 0;
+            unsuppresedCount = 0;
             List<CalculixKeyword> keywords = GetModelKeywords(model, ConvertPyramidsToEnum.Wedges, null, true);
+            List<int[]> keywordsToRemove = new List<int[]>();
             // Add user keywords
-            List<int[]> keywordKeysToRemove = new List<int[]>();
             if (model.CalculixUserKeywords != null)
             {
                 foreach (var entry in model.CalculixUserKeywords)
                 {
-                    if (!AddUserKeywordByIndices(keywords, entry.Key, entry.Value.DeepClone()))
-                        keywordKeysToRemove.Add(entry.Key);
+                    if (AddUserKeywordByIndices(keywords, entry.Key, entry.Value.DeepClone()))
+                    {
+                        if (entry.Value.IsSuppressed) unsuppresedCount++;
+                        entry.Value.Unsuppress();
+                    }
+                    else
+                    {
+                        if (!entry.Value.IsSuppressed) suppresedCount++;
+                        entry.Value.Suppress();
+                        //
+                        if (remove) keywordsToRemove.Add(entry.Key);
+                    }
                 }
             }
-            // Remove lost user keywords
-            foreach (var indices in keywordKeysToRemove)
+            //
+            if (remove && keywordsToRemove.Count > 0)
             {
-                model.CalculixUserKeywords.Remove(indices);
+                foreach (var indices in keywordsToRemove)
+                {
+                    model.CalculixUserKeywords.Remove(indices);
+                }
+                //
+                suppresedCount = keywordsToRemove.Count;
             }
         }
         //

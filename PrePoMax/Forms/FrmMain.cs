@@ -4182,6 +4182,7 @@ namespace PrePoMax
                             if (_frmCalculixKeywordEditor.ShowDialog(this) == DialogResult.OK)
                             {
                                 _controller.SetCalculixUserKeywordsCommand(_frmCalculixKeywordEditor.UserKeywords);
+                                _controller.CheckAndUpdateModelValidity(); // update keyword states
                             }
                         }
                     }

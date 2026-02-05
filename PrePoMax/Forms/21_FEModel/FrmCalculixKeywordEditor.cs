@@ -139,19 +139,26 @@ namespace PrePoMax.Forms
         {
             if (cltvKeywordsTree.SelectedNode != null)
             {
-                _adding = true;
-                LockWindowUpdate(cltvKeywordsTree.Handle);
-                //
-                CalculixUserKeyword keyword = new CalculixUserKeyword("User keyword");
-                TreeNode node = cltvKeywordsTree.SelectedNode.Nodes.Add("User keyword");
-                //
-                cltvKeywordsTree.Focus();   // must be first
-                AddUserKeywordToTreeNode(keyword, node);
-                cltvKeywordsTree.SelectedNode.Expand();
-                cltvKeywordsTree.SelectedNode = node;
-                //
-                LockWindowUpdate(IntPtr.Zero);
-                _adding = false;
+                if (cltvKeywordsTree.SelectedNode.Tag is KeywordAtNode kn && kn.Keyword is CalDeactivated)
+                {
+                    MessageBoxes.ShowWarning("Cannot add user keyword to a deactivated keyword.");
+                }
+                else
+                {
+                    _adding = true;
+                    LockWindowUpdate(cltvKeywordsTree.Handle);
+                    //
+                    CalculixUserKeyword keyword = new CalculixUserKeyword("User keyword");
+                    TreeNode node = cltvKeywordsTree.SelectedNode.Nodes.Add("User keyword");
+                    //
+                    cltvKeywordsTree.Focus();   // must be first
+                    AddUserKeywordToTreeNode(keyword, node);
+                    cltvKeywordsTree.SelectedNode.Expand();
+                    cltvKeywordsTree.SelectedNode = node;
+                    //
+                    LockWindowUpdate(IntPtr.Zero);
+                    _adding = false;
+                }
             }
         }
         private void btnMoveUp_Click(object sender, EventArgs e)
@@ -258,13 +265,23 @@ namespace PrePoMax.Forms
         //
         private void btnOK_Click(object sender, EventArgs e)
         {
-            _userKeywords = new OrderedDictionary<int[], CalculixUserKeyword>("User CalculiX keywords");
+            var newUserKeywords = new OrderedDictionary<int[], CalculixUserKeyword>("User CalculiX keywords");
+            // First add suppressed keywords
+            if (_userKeywords != null && _userKeywords.Count > 0)
+            {
+                foreach (var entry in _userKeywords)
+                {
+                    if (entry.Value.IsSuppressed) newUserKeywords.Add(entry.Key, entry.Value);
+                }
+            }
+            // Add keywords from the tree - except suppressed keywords which are not visible
+            FindUserKeywords(cltvKeywordsTree.Nodes[0], ref newUserKeywords);
             //
-            FindUserKeywords(cltvKeywordsTree.Nodes[0], _userKeywords);
+            _userKeywords = newUserKeywords;
             //
             this.DialogResult = DialogResult.OK;
         }
-        private void FindUserKeywords(TreeNode node, OrderedDictionary<int[], CalculixUserKeyword> userKeywords)
+        private void FindUserKeywords(TreeNode node, ref OrderedDictionary<int[], CalculixUserKeyword> userKeywords)
         {
             if (node.Tag != null && node.Tag is KeywordAtNode kn && kn.Keyword is CalculixUserKeyword userKeyword)
             {
@@ -275,7 +292,7 @@ namespace PrePoMax.Forms
             //
             foreach (TreeNode childNode in node.Nodes)
             {
-                FindUserKeywords(childNode, userKeywords);
+                FindUserKeywords(childNode, ref userKeywords);
             }
         }
         private void GetNodeIndices(TreeNode node, List<int> indices)
@@ -365,20 +382,18 @@ namespace PrePoMax.Forms
                 count++;
             }
         }
-        private void AddUserKeywordToTreeByIndex(TreeNode node, int[] indices, CalculixKeyword keyword)
+        private void AddUserKeywordToTreeByIndex(TreeNode node, int[] indices, CalculixUserKeyword keyword)
         {
+            if (keyword.IsSuppressed) return;
+            //
             for (int i = 0; i < indices.Length - 1; i++)
             {
                 node.Expand();
-                if (indices[i] < node.Nodes.Count)
-                {
-                    node = node.Nodes[indices[i]];
-                }
+                if (indices[i] < node.Nodes.Count) node = node.Nodes[indices[i]];
                 else return;
             }
             //
             TreeNode child = node.Nodes.Insert(indices[indices.Length - 1], "");
-            // User keyword should not be deactivated in the user editor to enable editing
             AddUserKeywordToTreeNode(keyword, child);
             //
             node.Expand();
