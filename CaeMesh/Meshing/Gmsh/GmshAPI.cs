@@ -848,11 +848,11 @@ namespace CaeMesh
                 //
                 foreach (var edgeNodeFromGroup in edgeGroup.Nodes)
                 {
-                    if (avgNumOfNodes % 2 == 0)
-                    {
-                        if (avgNumOfNodes > 1) avgNumOfNodes -= 1;
-                        else avgNumOfNodes += 1;
-                    }
+                    //if (avgNumOfNodes % 2 == 0)
+                    //{
+                    //    if (avgNumOfNodes >= 3) avgNumOfNodes -= 1;
+                    //    else avgNumOfNodes += 1;
+                    //}
                     // Change number of elements to an even number
                     if (recombine && (recombineAlgorithm == GmshAlgorithmRecombineEnum.SimpleFullQuad ||
                                       recombineAlgorithm == GmshAlgorithmRecombineEnum.BlossomFullQuad))

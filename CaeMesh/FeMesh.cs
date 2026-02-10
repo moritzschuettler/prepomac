@@ -6545,6 +6545,7 @@ namespace CaeMesh
                         accLen = 0;
                         edgeLen = vis.EdgeLengths[edgeId];
                         numElements = (int)Math.Round(edgeLen / meshSize, 0, MidpointRounding.AwayFromZero);
+                        if (numElements == 0) numElements = 1;
                         elemLen = edgeLen / numElements;
                         //
                         for (int i = 0; i < vis.EdgeCellIdsByEdge[edgeId].Length; i++)
@@ -9799,6 +9800,7 @@ namespace CaeMesh
             if (copy)
             {
                 FeMesh mesh = this.DeepCopy();
+                // Copy parts and get their names
                 mirroredPartNames = AddPartsFromMesh(mesh, mirroredPartNames, reservedPartNames, reservedPartIds);
             }
             //
@@ -9831,6 +9833,7 @@ namespace CaeMesh
                 part = _parts[partName];
                 edgeElements = new List<FeElement1D>(GetLineElementsFromEdges(part));
                 vertexNodeIds = new HashSet<int>(part.Visualization.VertexNodeIds);
+                part.Visualization = new VisualizationData();   // must be here
                 // Extract visualization
                 ExtractPartVisualization(part, part is GeometryPart gp && gp.IsCADPart, Globals.EdgeAngle);
                 // Keep existing edges
@@ -11157,7 +11160,6 @@ namespace CaeMesh
                 return null;
             }
         }
-
         // ISerialization
         public void GetObjectData(SerializationInfo info, StreamingContext context)
         {

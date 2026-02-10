@@ -539,7 +539,6 @@ namespace PrePoMax.Forms
             propertyGrid.ContextMenuStrip = null;
             //
             if (propertyGrid.SelectedGridItem == null || propertyGrid.SelectedGridItem.PropertyDescriptor == null) return;
-            //
             string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
             //
             if (Constraint != null)
@@ -577,10 +576,6 @@ namespace PrePoMax.Forms
             //
             try
             {
-                if (propertyGrid.SelectedGridItem == null || propertyGrid.SelectedGridItem.PropertyDescriptor == null) return;
-                //
-                string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
-                //
                 _controller.ClearSelectionHistory();
                 //
                 if (_viewConstraint == null) { }
@@ -608,6 +603,10 @@ namespace PrePoMax.Forms
                 }
                 else if (Constraint is Tie tie)
                 {
+                    // Property grid item - must be here
+                    if (propertyGrid.SelectedGridItem == null || propertyGrid.SelectedGridItem.PropertyDescriptor == null) return;
+                    string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
+                    //
                     if (property == nameof(ViewTie.MasterRegionType))
                     {
                         // Master
@@ -653,7 +652,6 @@ namespace PrePoMax.Forms
         private void ShowHideSelectionForm()
         {
             if (propertyGrid.SelectedGridItem == null || propertyGrid.SelectedGridItem.PropertyDescriptor == null) return;
-            //
             string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
             //
             if (property != _prevSelectionFormProperty) ItemSetDataEditor.SelectionForm.ResetSelection(false);
@@ -691,7 +689,6 @@ namespace PrePoMax.Forms
         private void SetSelectItem()
         {
             if (propertyGrid.SelectedGridItem == null || propertyGrid.SelectedGridItem.PropertyDescriptor == null) return;
-            //
             string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
             //
             if (Constraint == null) { }
@@ -737,11 +734,8 @@ namespace PrePoMax.Forms
         //
         public void SelectionChanged(int[] ids)
         {
-            if (propertyGrid.SelectedGridItem == null || propertyGrid.SelectedGridItem.PropertyDescriptor == null) return;
-            //
-            string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
-            //
             bool changed = false;
+            //
             if (Constraint != null)
             {
                 if (Constraint is PointSpring ps)
@@ -782,6 +776,10 @@ namespace PrePoMax.Forms
                 }
                 else if (Constraint is Tie tie)
                 {
+                    // Property grid item - must be here
+                    if (propertyGrid.SelectedGridItem == null || propertyGrid.SelectedGridItem.PropertyDescriptor == null) return;
+                    string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
+                    //
                     if (property == nameof(ViewTie.MasterRegionType) && tie.MasterRegionType == RegionTypeEnum.Selection)
                     {
                         tie.MasterCreationIds = ids;

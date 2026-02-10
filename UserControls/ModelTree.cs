@@ -947,7 +947,8 @@ namespace UserControls
                 items.Add((NamedClass)node.Tag);
             }
             //
-            SelectEvent?.Invoke(items.ToArray(), true);
+            //if (items.Count > 0)
+                SelectEvent?.Invoke(items.ToArray(), true);
             //
             timerMouseMove.Stop();
         }

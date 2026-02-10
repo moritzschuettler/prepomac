@@ -12,14 +12,12 @@ namespace vtkControl
     {
         // Actors
         private vtkActor2D _captionActor;
-        private vtkActor _tmpActor; // solves a bug in vtk when no text is shown if there are no other actors in the renderer
         private double[] _position;
         private double[] _offsetVector;
 
 
         // Properties                                                                                                               
         public vtkActor2D CaptionActor { get { return _captionActor; } set { _captionActor = value; } }
-        public vtkActor TmpActor { get { return _tmpActor; } set { _tmpActor = value; } }
         public double[] Position { get { return _position; } set { _position = value; } }
         public double[] OffsetVector { get { return _offsetVector; } set { _offsetVector = value; } }
         public override bool VtkMaxActorVisible
@@ -34,12 +32,11 @@ namespace vtkControl
 
 
         // Constructors                                                                                                             
-        public vtkMaxCaptionActor(string name, Color color, vtkActor2D captionActor, vtkActor tmpActor)
+        public vtkMaxCaptionActor(string name, Color color, vtkActor2D captionActor)
             : base()
         {
             _name = name;
             _captionActor = captionActor;
-            _tmpActor = tmpActor;
             //
             _actorRepresentation = vtkMaxActorRepresentation.Unknown;
             _backfaceCulling = true;

@@ -763,7 +763,6 @@ namespace CaeMesh
             //
             return surfaceIdNodeIds;
         }
-
         public Dictionary<int, HashSet<int>> GetSurfaceIdElementIds()
         {
             HashSet<int> surfaceElementIds;
@@ -1571,6 +1570,45 @@ namespace CaeMesh
                     cell[1] = cell[2];
                     cell[2] = tmp;
                 }
+            }
+        }
+        // Mirrir cells
+        public void MirrorCells()
+        {
+            int[] cell;
+            LinearTriangleElement linearTriangle;
+            ParabolicTriangleElement parabolicTriangle;
+            LinearQuadrilateralElement linearQuad;
+            ParabolicQuadrilateralElement parabolicQuad;
+            //
+            for (int i = 0; i < _cells.Length; i++)
+            {
+                cell = _cells[i];
+                if (cell.Length == 3)
+                {
+                    linearTriangle = new LinearTriangleElement(0, cell);
+                    linearTriangle.Mirror();
+                    _cells[i] = linearTriangle.NodeIds;
+                }
+                else if (cell.Length == 4)
+                {
+                    linearQuad = new LinearQuadrilateralElement(0, cell);
+                    linearQuad.Mirror();
+                    _cells[i] = linearQuad.NodeIds;
+                }
+                else if (cell.Length == 6)
+                {
+                    parabolicTriangle = new ParabolicTriangleElement(0, cell);
+                    parabolicTriangle.Mirror();
+                    _cells[i] = parabolicTriangle.NodeIds;
+                }
+                else if (cell.Length == 8)
+                {
+                    parabolicQuad = new ParabolicQuadrilateralElement(0, cell);
+                    parabolicQuad.Mirror();
+                    _cells[i] = parabolicQuad.NodeIds;
+                }
+                else throw new NotSupportedException();
             }
         }
         // Compute nodal average

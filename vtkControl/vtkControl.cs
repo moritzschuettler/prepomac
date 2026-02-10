@@ -109,13 +109,19 @@ namespace vtkControl
         //
         private HashSet<string> _selectableActorsFilter;
         // Follower view
-        private string[] _followerViewPartNames = null;
-        private int[] _followerViewPointIds = null;
-        private double[][] _followerViewPointCoor = null;
+        private string[] _followerViewPartNames;
+        private int[] _followerViewPointIds;
+        private double[][] _followerViewPointCoor;
         // Camera path
-        private bool _drawCameraPath = false;
+        private bool _drawCameraPath;
         private List<double[]> _positions;
         private List<double[]> _focalPoints;
+        // Caption actors
+        private vtkActor _captionTmpActor;
+        private bool _captionActorAddedToBase;
+        private bool _captionActorAddedToSelection;
+        private bool _captionActorAddedToOverlay;
+
 
         // Properties                                                                                                               
         public bool RenderingOn
@@ -313,6 +319,17 @@ namespace vtkControl
             _mouseSelectionAllIds = new HashSet<int>();
             //
             _selectableActorsFilter = null;
+            //
+            _followerViewPartNames = null;
+            _followerViewPointIds = null;
+            _followerViewPointCoor = null;
+            //
+            _drawCameraPath = false;
+            //
+            _captionActorAddedToBase = false;
+            _captionActorAddedToSelection= false;
+            _captionActorAddedToOverlay = false;
+            _captionTmpActor = GetActorTmp(0, 0, 0);
         }
 
 
@@ -3441,10 +3458,8 @@ namespace vtkControl
             captionActor.LeaderOff();
             captionActor.BorderOff();
             //captionActor.SetWidth(0.01);
-            //
-            vtkActor tmpActor = GetActorTmp(position);
             // Actor
-            vtkMaxCaptionActor actor = new vtkMaxCaptionActor(name, color, captionActor, tmpActor);
+            vtkMaxCaptionActor actor = new vtkMaxCaptionActor(name, color, captionActor);
             actor.Position = position;
             if (offsetVector != null && offsetVector.Length == 3) actor.OffsetVector = offsetVector;
             // Add
@@ -3452,20 +3467,20 @@ namespace vtkControl
             //
             SetAllCaptionPositions();
         }
-        private vtkActor GetActorTmp(double[] position)
+        private vtkActor GetActorTmp(double x, double y, double z)
         {
             vtkPoints points = vtkPoints.New();
-            points.InsertNextPoint(position[0], position[1], position[2]);
-            vtkCellArray lineIndices = vtkCellArray.New();
-            lineIndices.InsertNextCell(2);
-            lineIndices.InsertCellPoint(0);
-            lineIndices.InsertCellPoint(0);
+            points.InsertNextPoint(x, y, z);
+            //vtkCellArray lineIndices = vtkCellArray.New();
+            //lineIndices.InsertNextCell(1);
+            //lineIndices.InsertCellPoint(0);
+            //lineIndices.InsertCellPoint(0);
             vtkPolyData pointsPolyData = vtkPolyData.New();
             pointsPolyData.SetPoints(points);
-            pointsPolyData.SetLines(lineIndices);
+            //pointsPolyData.SetLines(lineIndices);
             vtkPolyDataMapper mapper = vtkPolyDataMapper.New();
             mapper.SetInput(pointsPolyData);
-            mapper.Update();
+            //mapper.Update();
             vtkActor actorTmp = vtkActor.New();
             actorTmp.SetMapper(mapper);
             return actorTmp;
@@ -4305,6 +4320,8 @@ namespace vtkControl
             }
             //
             ApplyEdgeVisibilityAndBackfaceCullingToActor(actor.Geometry, actor.GeometryProperty, layer);            
+            //
+            UpdateTmpActor(layer);
         }
         private void AddActorCaption(vtkMaxCaptionActor actor, vtkRendererLayer layer)
         {
@@ -4314,14 +4331,12 @@ namespace vtkControl
                 if (actor.Name == null) actor.Name = (_actors.Count + 1).ToString();
                 _actors.Add(actor.Name, actor);
                 _renderer.AddActor2D(actor.CaptionActor);
-                _renderer.AddActor(actor.TmpActor);
             }
             else if (layer == vtkRendererLayer.Overlay)
             {
                 if (actor.Name == null) actor.Name = (_overlayActors.Count + 1).ToString();
                 _overlayActors.Add(actor.Name, actor);
                 _overlayRenderer.AddActor2D(actor.CaptionActor);
-                _overlayRenderer.AddActor(actor.TmpActor);
             }
             else if (layer == vtkRendererLayer.Selection)
             {
@@ -4329,9 +4344,10 @@ namespace vtkControl
                 _selectedActors.Add(actor);
                 // Caption 2d actors are added to overlay renderer since no text is rendered in selectionRenderer !!!
                 _selectionRenderer.AddActor2D(actor.CaptionActor);
-                _selectionRenderer.AddActor(actor.TmpActor);
                 ApplySelectionFormattingToCaptionActor(actor);
             }
+            //
+            UpdateTmpActor(layer);
         }
         private void AddActorEdges(vtkMaxActor actor, bool isModelEdge, vtkRendererLayer layer)
         {
@@ -4377,6 +4393,8 @@ namespace vtkControl
             //else ApplyEdgesFormattingToActor(actor.ElementEdges);
             if (isModelEdge) ApplyEdgeVisibilityAndBackfaceCullingToModelEdges(actor, actor.Name);
             else ApplyEdgeVisibilityAndBackfaceCullingToActorEdges(actor, actor.Name);
+            //
+            UpdateTmpActor(layer);
         }
         private void AddActorNodes(vtkMaxActor actor, vtkRendererLayer layer)
         {
@@ -4395,6 +4413,9 @@ namespace vtkControl
                 //
                 _renderer.AddActor(actor.Nodes);
             }
+            //
+            UpdateTmpActor(layer);
+
             //else if (layer == vtkRendererLayer.Overlay)
             //{
             //    _overlayActors.Add(actor.Name, actor.Geometry);
@@ -4418,6 +4439,27 @@ namespace vtkControl
             ////else ApplyEdgesFormattingToActor(actor.ElementEdges);
             //if (isModelEdge) ApplyEdgeVisibilityAndBackfaceCullingToModelEdges(actor, actor.Name);
             //else ApplyEdgeVisibilityAndBackfaceCullingToActorEdges(actor, actor.Name);
+        }
+        private void UpdateTmpActor(vtkRendererLayer layer)
+        {
+            if (layer == vtkRendererLayer.Base)
+            {
+                if (_captionActorAddedToBase) _renderer.RemoveActor(_captionTmpActor);
+                _renderer.AddActor(_captionTmpActor);   // move tmpActor to last place
+                _captionActorAddedToBase = true;
+            }
+            else if (layer == vtkRendererLayer.Overlay)
+            {
+                if (_captionActorAddedToOverlay) _overlayRenderer.RemoveActor(_captionTmpActor);
+                _overlayRenderer.AddActor(_captionTmpActor);    // move tmpActor to last place
+                _captionActorAddedToOverlay = true;
+            }
+            else if (layer == vtkRendererLayer.Selection)
+            {
+                if (_captionActorAddedToSelection) _selectionRenderer.RemoveActor(_captionTmpActor);
+                _selectionRenderer.AddActor(_captionTmpActor);  // move tmpActor to last place
+                _captionActorAddedToSelection = true;
+            }
         }
 
         #endregion  ################################################################################################################
@@ -6595,15 +6637,17 @@ namespace vtkControl
             //
             foreach (var entry in _actors)
             {
-                if (entry.Value is vtkMaxCaptionActor ca)
+                if (entry.Value is vtkMaxCaptionActor ca) _renderer.RemoveActor2D(ca.CaptionActor);
+                else
                 {
-                    _renderer.RemoveActor2D(ca.CaptionActor);
-                    _renderer.RemoveActor(ca.TmpActor);
+                    _renderer.RemoveActor(entry.Value.Geometry);
+                    _renderer.RemoveActor(entry.Value.ElementEdges);
+                    _renderer.RemoveActor(entry.Value.ModelEdges);
+                    _renderer.RemoveActor(entry.Value.Nodes);
+                    //
+                    _renderer.RemoveActor(_captionTmpActor);
+                    _captionActorAddedToBase = false;
                 }
-                _renderer.RemoveActor(entry.Value.Geometry);
-                _renderer.RemoveActor(entry.Value.ElementEdges);
-                _renderer.RemoveActor(entry.Value.ModelEdges);
-                _renderer.RemoveActor(entry.Value.Nodes);
             }
             //_renderer.RemoveAllViewProps();  this removes all other actors for min/max values ...
             _actors.Clear();            
@@ -6670,11 +6714,7 @@ namespace vtkControl
             // Actors and edges - leave mouse
             foreach (vtkMaxActor actor in _selectedActors)
             {
-                if (actor is vtkMaxCaptionActor ca)
-                {
-                    _selectionRenderer.RemoveActor2D(ca.CaptionActor);
-                    _selectionRenderer.RemoveActor(ca.TmpActor);
-                }
+                if (actor is vtkMaxCaptionActor ca) _selectionRenderer.RemoveActor2D(ca.CaptionActor);
                 else
                 {
                     _renderer.RemoveActor(actor.Geometry);  // some selections are drawn on the base layer
@@ -6682,6 +6722,9 @@ namespace vtkControl
                     //
                     _selectionRenderer.RemoveActor(actor.Geometry);
                     _selectionRenderer.RemoveActor(actor.ElementEdges);
+                    //
+                    _selectionRenderer.RemoveActor(_captionTmpActor);
+                    _captionActorAddedToSelection = false;
                 }
             }
             _selectedActors.Clear();
@@ -6712,12 +6755,14 @@ namespace vtkControl
             _maxSymbolSize = 0;
             foreach (var entry in _overlayActors)
             {
-                if (entry.Value is vtkMaxCaptionActor ca)
+                if (entry.Value is vtkMaxCaptionActor ca) _overlayRenderer.RemoveActor2D(ca.CaptionActor);
+                else
                 {
-                    _overlayRenderer.RemoveActor2D(ca.CaptionActor);
-                    _overlayRenderer.RemoveActor(ca.TmpActor);
+                    _overlayRenderer.RemoveActor(entry.Value.Geometry);
+                    //
+                    _overlayRenderer.RemoveActor(_captionTmpActor);
+                    _captionActorAddedToOverlay = false;
                 }
-                else _overlayRenderer.RemoveActor(entry.Value.Geometry);
             }
             _overlayActors.Clear();
             RenderScene();
@@ -6985,15 +7030,49 @@ namespace vtkControl
         {
             if (_renderingOn)
             {
+                Fix2DTextRendering();
+                //
                 this.Invalidate();
+                int i = 0;
                 //
                 foreach (var entry in _actors)
                 {
                     if (entry.Value.MemorySize == 0) entry.Value.RecomputeMemorySize();
                 }
-                //Application.DoEvents();
             }
         }
+        private void Fix2DTextRendering()
+        {
+            if (_selectedActors.Count > 0)
+            {
+                int count = 0;
+                vtkMaxCaptionActor captionActor = null;
+                bool captionActorIsLast = false;
+                foreach (var actor in _selectedActors)
+                {
+                    if (actor is vtkMaxCaptionActor vmca)
+                        captionActor = vmca;
+                    //
+                    count++;
+                    //
+                    if (count == _selectedActors.Count)
+                        captionActorIsLast = actor is vtkMaxCaptionActor;
+                }
+                //
+                if (captionActor != null)// && !captionActorIsLast)
+                {
+                    //AddCaptionActor("a", "", Color.Red, new double[] { 0, 0, 0 },
+                    //    new double[] { 0, 0, 0 }, 1, vtkRendererLayer.Selection);
+                    //vtkActor tmpActor = GetActorTmp(new double[] { 0, 0, 0 });
+                    //_selectionRenderer.AddActor(tmpActor);
+                    //_selectionRenderer.RemoveActor(captionActor.Geometry);
+                    //_selectedActors.Remove(captionActor);
+                    //
+                    //AddActor(lastActor, vtkRendererLayer.Selection);
+                }
+            }
+        }
+
 
         // Tools
         public void CropPartWithCylinder(string partName, double r, string fileName)

@@ -608,6 +608,10 @@ namespace PrePoMax
         {
             _selection.Clear();
             //_selection.ClearNodeIds();
+            Clear3DSelection();
+        }
+        public void Clear3DSelection()
+        {
             _form.Clear3DSelection();
         }
 
@@ -1280,12 +1284,12 @@ namespace PrePoMax
                         _form.WriteDataToOutput("Some items might not be loaded correctly. Check the model.");
                     }
                     //
-                    string[] versions = programmNameVersion.Split(new string[] { " ", ".", "v" },
+                    string[] versionNumbers = programmNameVersion.Split(new string[] { " ", ".", "v" },
                                                                   StringSplitOptions.RemoveEmptyEntries);
 
-                    int.TryParse(versions[1], out major);
-                    int.TryParse(versions[2], out minor);
-                    int.TryParse(versions[3], out build);
+                    int.TryParse(versionNumbers[1], out major);
+                    int.TryParse(versionNumbers[2], out minor);
+                    int.TryParse(versionNumbers[3], out build);
                     //
                     int version = major * 1_000_000 + minor * 1000 + build;
                     //
@@ -2861,7 +2865,7 @@ namespace PrePoMax
             {
                 ExplodedViewParameters parameters = _explodedViews.GetCurrentExplodedViewParameters().DeepClone();
                 Dictionary<string, double[]> partOffsets = RemoveExplodedView(true);   // redraws scene // Highlight
-                _form.Clear3DSelection();
+                Clear3DSelection();
                 PreviewExplodedView(parameters, false, partOffsets, timeMs);
                 parameters.ScaleFactor = 0;
                 PreviewExplodedView(parameters, animate, null, timeMs);
@@ -2874,7 +2878,7 @@ namespace PrePoMax
                 FeMesh mesh = DisplayedMesh;
                 if (mesh != null && mesh.Parts.Count > 1)
                 {
-                    _form.Clear3DSelection();
+                    Clear3DSelection();
                     ExplodedViewParameters parameters = _explodedViews.GetCurrentExplodedViewParameters().DeepClone();
                     parameters.ScaleFactor = 0.5;
                     PreviewExplodedView(parameters, animate, null, timeMs);
@@ -15430,9 +15434,9 @@ namespace PrePoMax
         {
             try
             {
-                if (_currentView != ViewGeometryModelResults.Model || _model == null ||
-                    _model.Mesh == null || _model.Mesh.Parts.Count == 0) return;
-                // Clear
+                // Clear all but parts
+                if (_currentView != ViewGeometryModelResults.Model || _model == null || _model.Mesh == null) return;
+                //
                 _form.ClearButKeepParts();
                 //
                 try
@@ -19106,7 +19110,7 @@ namespace PrePoMax
         }
         public void Highlight3DObjects(ViewGeometryModelResults view, object[] obj, bool mouseOver = false, bool clear = false)
         {
-            if (clear) _form.Clear3DSelection();       // must be here: clears the highlight in the results
+            if (clear) Clear3DSelection();       // must be here: clears the highlight in the results
             //
             if (obj != null)
             {
@@ -20105,7 +20109,7 @@ namespace PrePoMax
         //
         public void HighlightSelection(bool clear = true, bool backFaceCulling = true, bool useSecondaryHighlightColor = false)
         {
-            if (clear) _form.Clear3DSelection();
+            if (clear) Clear3DSelection();
             //
             int[] ids = GetSelectionIds(false);
             if (ids.Length > 0)
