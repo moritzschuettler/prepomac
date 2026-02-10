@@ -95,6 +95,7 @@
     <Compile Include="Geometry\GeomVertex.cs" />
     <Compile Include="Geometry\GeomSurface.cs" />
     <Compile Include="Geometry\GeometryItem.cs" />
+    <Compile Include="Meshing\Common\LocalMeshSize.cs" />
     <Compile Include="Meshing\Common\SplitPartMeshData.cs" />
     <Compile Include="Meshing\Common\ThickenShellMesh.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshCommandEnum.cs" />
@@ -122,7 +123,7 @@
     <Compile Include="Nodes\MergeCoincidentNodes.cs" />
     <Compile Include="Parts\IStoreAsNameInCommands.cs" />
     <Compile Include="Parts\NodalDataStructures.cs" />
-    <Compile Include="Meshing\Common\FeMeshRefinement.cs" />
+    <Compile Include="_Compatibility\FeMeshRefinement.cs" />
     <Compile Include="Parts\CellNeighbour.cs" />
     <Compile Include="InpElementSet.cs" />
     <Compile Include="Nodes\CompareFeNodeByX.cs" />

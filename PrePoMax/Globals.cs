@@ -73,7 +73,7 @@ namespace PrePoMax
         public static string BrepFileName = "geometry.brep";
         public static string StlFileName = "geometry.stl";        
         public static string MeshParametersFileName = "meshParameters";
-        public static string MeshRefinementFileName = "meshRefinement";
+        public static string LocalMeshSizesFileName = "localMeshSizes";
         public static string GmshMeshFileName = "gmsh.msh";
         public static string GmshDataFileName = "gmshData";
         public static string VolFileName = "geometry.vol";

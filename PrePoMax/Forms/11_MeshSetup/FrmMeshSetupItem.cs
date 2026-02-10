@@ -47,7 +47,7 @@ namespace PrePoMax.Forms
                     //
                     _viewMeshSetupItem = new ViewMeshingParameters(mp.DeepClone(), defaultSizeIsRelative, advancedView);
                 }
-                else if (value is FeMeshRefinement mr) _viewMeshSetupItem = new ViewFeMeshRefinement(mr.DeepClone());
+                else if (value is LocalMeshSize lms) _viewMeshSetupItem = new ViewLocalMeshSize(lms.DeepClone());
                 else if (value is ShellGmsh sg) _viewMeshSetupItem = new ViewShellGmsh(sg.DeepClone());
                 else if (value is ThickenShellMesh tsm) _viewMeshSetupItem = new ViewThickenShellMesh(tsm.DeepClone());
                 else if (value is TetrahedralGmsh tg) _viewMeshSetupItem = new ViewTetrahedralGmsh(tg.DeepClone());
@@ -174,7 +174,7 @@ namespace PrePoMax.Forms
                ((ViewMeshingParameters)_viewMeshSetupItem).AdvancedView = mp.AdvancedView;  // update advanced view
                 _meshingParametersChanged = false;
             }
-            else if (MeshSetupItem is FeMeshRefinement mr) mr.Reset();
+            else if (MeshSetupItem is LocalMeshSize lms) lms.Reset();
             else if (MeshSetupItem is ShellGmsh sg) sg.Reset();
             else if (MeshSetupItem is ThickenShellMesh tsm) tsm.Reset();
             else if (MeshSetupItem is TetrahedralGmsh tg) tg.Reset();
@@ -200,7 +200,7 @@ namespace PrePoMax.Forms
                 {
                     partNames = _controller.DisplayedMesh.GetPartNamesFromPartIds(MeshSetupItem.CreationIds);
                 }
-                else if (MeshSetupItem is ShellGmsh || MeshSetupItem is ThickenShellMesh || MeshSetupItem is FeMeshRefinement ||
+                else if (MeshSetupItem is ShellGmsh || MeshSetupItem is ThickenShellMesh || MeshSetupItem is LocalMeshSize ||
                          MeshSetupItem is ExtrudeMesh || MeshSetupItem is SweepMesh || MeshSetupItem is RevolveMesh)
                 {
                     partNames = _controller.DisplayedMesh.GetPartNamesFromGeometryIds(MeshSetupItem.CreationIds);
@@ -233,7 +233,7 @@ namespace PrePoMax.Forms
             {
                 object itemTag = lvTypes.SelectedItems[0].Tag;
                 if (itemTag is ViewMeshingParameters vmp) _viewMeshSetupItem = vmp;
-                else if (itemTag is ViewFeMeshRefinement vmr) _viewMeshSetupItem = vmr;
+                else if (itemTag is ViewLocalMeshSize vlms) _viewMeshSetupItem = vlms;
                 else if (itemTag is ViewShellGmsh vsg) _viewMeshSetupItem = vsg;
                 else if (itemTag is ViewThickenShellMesh vtsm) _viewMeshSetupItem = vtsm;
                 else if (itemTag is ViewTetrahedralGmsh vtg) _viewMeshSetupItem = vtg;
@@ -259,6 +259,11 @@ namespace PrePoMax.Forms
             {
                 _meshingParametersChanged = true;
             }
+            else if (_viewMeshSetupItem is ViewLocalMeshSize vlms && property == nameof(vlms.Type))
+            {
+                SetSelectItem();
+            }
+            //
             HighlightMeshSetupItem();
             //
             base.OnPropertyGridPropertyValueChanged();
@@ -360,7 +365,7 @@ namespace PrePoMax.Forms
                 }
                 int selectedId;
                 if (_viewMeshSetupItem is ViewMeshingParameters) selectedId = 0;
-                else if (_viewMeshSetupItem is ViewFeMeshRefinement) selectedId = 1;
+                else if (_viewMeshSetupItem is ViewLocalMeshSize) selectedId = 1;
                 else if (_viewMeshSetupItem is ViewShellGmsh) selectedId = 2;
                 else if (_viewMeshSetupItem is ViewThickenShellMesh) selectedId = 3;
                 else if (_viewMeshSetupItem is ViewTetrahedralGmsh) selectedId = 4;
@@ -421,10 +426,10 @@ namespace PrePoMax.Forms
                 bool defaultSizeIsRelative = _controller.Settings.Meshing.MeshingParameters.RelativeSize;
                 _viewMeshSetupItem = new ViewMeshingParameters(mp.DeepClone(), defaultSizeIsRelative);
             }
-            else if (meshSetupItem is FeMeshRefinement mr)
+            else if (meshSetupItem is LocalMeshSize lms)
             {
                 selectedId = 1;
-                _viewMeshSetupItem = new ViewFeMeshRefinement(mr.DeepClone());
+                _viewMeshSetupItem = new ViewLocalMeshSize(lms.DeepClone());
             }
             else if (meshSetupItem is ShellGmsh sg)
             {
@@ -487,9 +492,9 @@ namespace PrePoMax.Forms
             item.Tag = vmp;
             lvTypes.Items.Add(item);
             // Mesh refinement
-            item = new ListViewItem("Mesh Refinement");
-            FeMeshRefinement mr = new FeMeshRefinement(GetMeshSetupItemName("Mesh_Refinement"));
-            ViewFeMeshRefinement vmr = new ViewFeMeshRefinement(mr);
+            item = new ListViewItem("Local Mesh Size");
+            LocalMeshSize lms = new LocalMeshSize(GetMeshSetupItemName("Local_Mesh_Size"));
+            ViewLocalMeshSize vmr = new ViewLocalMeshSize(lms);
             item.Tag = vmr;
             lvTypes.Items.Add(item);
             // Shell gmsh
@@ -599,7 +604,12 @@ namespace PrePoMax.Forms
             if (MeshSetupItem != null)
             {
                 if (MeshSetupItem is MeshingParameters) _controller.SetSelectItemToPart();
-                else if (MeshSetupItem is FeMeshRefinement) _controller.SetSelectItemToGeometry();
+                else if (MeshSetupItem is LocalMeshSize lms)
+                {
+                    if (lms.Type == LocalMeshSizeTypeEnum.ElementSize) _controller.SetSelectItemToGeometry();
+                    else if (lms.Type == LocalMeshSizeTypeEnum.NumberOfElements) _controller.SetSelectItemToGeometryEdge();
+                    else throw new NotSupportedException();
+                }
                 else if (MeshSetupItem is ShellGmsh) _controller.SetSelectItemToPart();
                 else if (MeshSetupItem is ThickenShellMesh) _controller.SetSelectItemToPart();
                 else if (MeshSetupItem is TetrahedralGmsh) _controller.SetSelectItemToPart();
@@ -616,7 +626,7 @@ namespace PrePoMax.Forms
         {
             if (MeshSetupItem != null)
             {
-                if (MeshSetupItem is MeshingParameters || MeshSetupItem is FeMeshRefinement ||
+                if (MeshSetupItem is MeshingParameters || MeshSetupItem is LocalMeshSize ||
                     MeshSetupItem is ShellGmsh  || MeshSetupItem is ThickenShellMesh || MeshSetupItem is TetrahedralGmsh ||
                     MeshSetupItem is TransfiniteMesh || MeshSetupItem is ExtrudeMesh || MeshSetupItem is SweepMesh ||
                     MeshSetupItem is RevolveMesh)

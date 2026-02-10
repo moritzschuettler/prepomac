@@ -128,7 +128,7 @@ namespace PrePoMax.Forms
             //
             base.OnHideOrClose();
         }
-        protected override bool OnPrepareForm(string stepName, string meshRefinementToEditName)
+        protected override bool OnPrepareForm(string stepName, string unusedName)
         {
             if (_controller.Model.Properties.ModelSpace != CaeModel.ModelSpaceEnum.ThreeD)
                 throw new CaeException("Solid mesh creation is possible only in 3D model space.");

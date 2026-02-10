@@ -108,7 +108,7 @@ namespace PrePoMax.Forms
             //
             base.OnHideOrClose();
         }
-        protected override bool OnPrepareForm(string stepName, string meshRefinementToEditName)
+        protected override bool OnPrepareForm(string stepName, string unusedName)
         {
             if (_controller.Model.Properties.ModelSpace != CaeModel.ModelSpaceEnum.ThreeD)
                 throw new CaeException("Boundary layer creation is possible only for 3D solid meshes.");

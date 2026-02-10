@@ -365,7 +365,7 @@ namespace PrePoMax.Forms
                 if (HistoryOutput is null) { }
                 else if (HistoryOutput is NodalHistoryOutput) _controller.SetSelectItemToNode();
                 else if (HistoryOutput is ElementHistoryOutput) _controller.SetSelectItemToElement();
-                else if (HistoryOutput is ContactHistoryOutput) _controller.SelectItem = vtkSelectItem.None;
+                else if (HistoryOutput is ContactHistoryOutput) _controller.SetSelectByToOff();
                 else if (HistoryOutput is SectionHistoryOutput) _controller.SetSelectItemToSurface();
             }
             else _controller.SetSelectByToOff();

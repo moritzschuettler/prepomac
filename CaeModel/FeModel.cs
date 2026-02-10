@@ -1498,7 +1498,7 @@ namespace CaeModel
         public string IsMeshSetupItemProperlyDefined(MeshSetupItem meshSetupItem)
         {
             if (meshSetupItem is MeshingParameters) return null;
-            else if (meshSetupItem is FeMeshRefinement) return null;
+            else if (meshSetupItem is LocalMeshSize) return null;
             else if (meshSetupItem is ShellGmsh sg) return IsShellGmshProperlyDefined(sg);
             else if (meshSetupItem is ThickenShellMesh tsm) return IsThickenShellMeshProperlyDefined(tsm);
             else if (meshSetupItem is TetrahedralGmsh tg) return IsTetrahedralGmshProperlyDefined(tg);

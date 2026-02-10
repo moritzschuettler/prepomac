@@ -372,6 +372,10 @@ namespace PrePoMax
         {
             SelectItem = vtkSelectItem.Geometry;
         }
+        public void SetSelectItemToGeometryEdge()
+        {
+            SelectItem = vtkSelectItem.GeometryEdge;
+        }
         public void SetSelectItemToGeometrySurface()
         {
             SelectItem = vtkSelectItem.GeometrySurface;
@@ -780,6 +784,15 @@ namespace PrePoMax
         }
         private void InitializeNewCommands(CommandsCollection commandsCollection)
         {
+            // Compatibility v2.4.4
+            foreach (var command in commandsCollection.Commands)
+            {
+                if (command is CAddMeshSetupItem amsi && amsi.MeshSetupItem is FeMeshRefinement mr1)
+                    amsi.MeshSetupItem = new LocalMeshSize(mr1);
+                else if (command is CReplaceMeshSetupItem rmsi && rmsi.MeshSetupItem is FeMeshRefinement mr2)
+                    rmsi.MeshSetupItem = new LocalMeshSize(mr2);
+            }
+            //
             _commands.EnableDisableUndoRedo -= _commands_CommandExecuted;
             _commands = new CommandsCollection(this, commandsCollection); // to recreate the history file
             _commands.WriteOutput = _form.WriteDataToOutput;
@@ -4647,19 +4660,19 @@ namespace PrePoMax
             HashSet<int> selectedPartIds;
             string[] meshAblePartNames = GetMeshablePartNames(new string[] { partName });
             int[] meshAblePartIds = _model.Geometry.GetPartIdsFomPartNames(meshAblePartNames);
-            List<FeMeshRefinement> meshRefinements = new List<FeMeshRefinement>();
+            List<LocalMeshSize> localMeshSizes = new List<LocalMeshSize>();
             //
             if (meshSetupItems == null) meshSetupItems = _model.Geometry.MeshSetupItems;
             //
             foreach (var entry in meshSetupItems)
             {
-                if (entry.Value is FeMeshRefinement mr && mr.Active && mr.Valid)
+                if (entry.Value is LocalMeshSize lms && lms.Active && lms.Valid)
                 {
-                    if (mr.CreationIds != null && mr.CreationIds.Length > 0)
+                    if (lms.CreationIds != null && lms.CreationIds.Length > 0)
                     {
-                        selectedPartIds = new HashSet<int>(FeMesh.GetPartIdsFromGeometryIds(mr.CreationIds));
+                        selectedPartIds = new HashSet<int>(FeMesh.GetPartIdsFromGeometryIds(lms.CreationIds));
                         //
-                        if (selectedPartIds.Intersect(meshAblePartIds).Count() > 0) meshRefinements.Add(mr.DeepCopy());
+                        if (selectedPartIds.Intersect(meshAblePartIds).Count() > 0) localMeshSizes.Add(lms.DeepCopy());
                     }
                 }
             }
@@ -4675,11 +4688,11 @@ namespace PrePoMax
             HashSet<int> nodeIds = new HashSet<int>();
             gmshData.VertexNodeIdMeshSize = new Dictionary<int, double>();
             gmshData.EdgeIdNumElements = new Dictionary<int, int>();
-            foreach (var meshRefinement in meshRefinements)
+            foreach (var localMeshSize in localMeshSizes)
             {
                 nodeIds.Clear();
                 //
-                foreach (int geometryId in meshRefinement.CreationIds)
+                foreach (int geometryId in localMeshSize.CreationIds)
                 {
                     itemTypePartId = FeMesh.GetItemTypePartIdsFromGeometryId(geometryId);
                     itemId = itemTypePartId[0];
@@ -4694,7 +4707,7 @@ namespace PrePoMax
                     else if (geometryType.IsEdge())
                     {
                         length = part.Visualization.EdgeLengths[itemId];
-                        numElements = (int)Math.Round(length / meshRefinement.MeshSize, 0, MidpointRounding.AwayFromZero);
+                        numElements = (int)Math.Round(length / localMeshSize.MeshSize, 0, MidpointRounding.AwayFromZero);
                         if (numElements < 1) numElements = 1;
                         //
                         gmshData.EdgeIdNumElements[FeMesh.GmshTopologyId(itemId, partId)] = numElements;
@@ -4705,7 +4718,7 @@ namespace PrePoMax
                         {
                             edgeId = part.Visualization.FaceEdgeIds[itemId][i];
                             length = part.Visualization.EdgeLengths[edgeId];
-                            numElements = (int)Math.Round(length / meshRefinement.MeshSize, 0, MidpointRounding.AwayFromZero);
+                            numElements = (int)Math.Round(length / localMeshSize.MeshSize, 0, MidpointRounding.AwayFromZero);
                             if (numElements < 1) numElements = 1;
                             //
                             gmshData.EdgeIdNumElements[FeMesh.GmshTopologyId(edgeId, partId)] = numElements;
@@ -4719,7 +4732,7 @@ namespace PrePoMax
                             {
                                 edgeId = part.Visualization.FaceEdgeIds[i][j];
                                 length = part.Visualization.EdgeLengths[edgeId];
-                                numElements = (int)Math.Round(length / meshRefinement.MeshSize, 0, MidpointRounding.AwayFromZero);
+                                numElements = (int)Math.Round(length / localMeshSize.MeshSize, 0, MidpointRounding.AwayFromZero);
                                 if (numElements < 1) numElements = 1;
                                 //
                                 gmshData.EdgeIdNumElements[FeMesh.GmshTopologyId(edgeId, partId)] = numElements;
@@ -4729,7 +4742,7 @@ namespace PrePoMax
                     else throw new NotSupportedException();
                 }
                 // Add sizes
-                foreach (var nodeId in nodeIds) gmshData.VertexNodeIdMeshSize[nodeId] = meshRefinement.MeshSize;
+                foreach (var nodeId in nodeIds) gmshData.VertexNodeIdMeshSize[nodeId] = localMeshSize.MeshSize;
             }
         }
         //
@@ -4780,18 +4793,18 @@ namespace PrePoMax
             string stlFileName = Path.Combine(workDirectory, Globals.StlFileName);
             string volFileName = Path.Combine(workDirectory, Globals.VolFileName);
             string meshParametersFileName = Path.Combine(workDirectory, Globals.MeshParametersFileName);
-            string meshRefinementFileName = Path.Combine(workDirectory, Globals.MeshRefinementFileName);
+            string localMeshSizesFileName = Path.Combine(workDirectory, Globals.LocalMeshSizesFileName);
             string edgeNodesFileName = Path.Combine(workDirectory, Globals.EdgeNodesFileName);
             //
             if (File.Exists(stlFileName)) File.Delete(stlFileName);
             if (File.Exists(volFileName)) File.Delete(volFileName);
             if (File.Exists(meshParametersFileName)) File.Delete(meshParametersFileName);
-            if (File.Exists(meshRefinementFileName)) File.Delete(meshRefinementFileName);
+            if (File.Exists(localMeshSizesFileName)) File.Delete(localMeshSizesFileName);
             if (File.Exists(edgeNodesFileName)) File.Delete(edgeNodesFileName);
             //
             SuppressExplodedView(new string[] { part.Name });
             FileInOut.Output.StlFileWriter.Write(stlFileName, _model.Geometry, new string[] { part.Name });
-            CreateMeshRefinementFile(part, meshRefinementFileName, meshSetupItems);
+            CreateLocalMeshSizeFile(part, localMeshSizesFileName, meshSetupItems);
             MeshingParameters meshingParameters = GetPartMeshingParameters(part.Name, meshSetupItems);
             meshingParameters.WriteToFile(meshParametersFileName, part.BoundingBox.GetDiagonal());
             _model.Geometry.WriteEdgeNodesToFile(part, edgeNodesFileName);
@@ -4801,7 +4814,7 @@ namespace PrePoMax
                               "\"" + stlFileName + "\" " +
                               "\"" + volFileName + "\" " +
                               "\"" + meshParametersFileName + "\" " +
-                              "\"" + meshRefinementFileName + "\" " +
+                              "\"" + localMeshSizesFileName + "\" " +
                               "\"" + edgeNodesFileName + "\"";
 
             _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
@@ -4836,16 +4849,16 @@ namespace PrePoMax
             string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
             string volFileName = Path.Combine(workDirectory, Globals.VolFileName);
             string meshParametersFileName = Path.Combine(workDirectory, Globals.MeshParametersFileName);
-            string meshRefinementFileName = Path.Combine(workDirectory, Globals.MeshRefinementFileName);
+            string localMeshSizesFileName = Path.Combine(workDirectory, Globals.LocalMeshSizesFileName);
             //
             if (File.Exists(brepFileName)) File.Delete(brepFileName);
             if (File.Exists(volFileName)) File.Delete(volFileName);
             if (File.Exists(meshParametersFileName)) File.Delete(meshParametersFileName);
-            if (File.Exists(meshRefinementFileName)) File.Delete(meshRefinementFileName);
+            if (File.Exists(localMeshSizesFileName)) File.Delete(localMeshSizesFileName);
             //
             SuppressExplodedView(new string[] { part.Name });
             File.WriteAllText(brepFileName, part.CADFileData);
-            CreateMeshRefinementFile(part, meshRefinementFileName, meshSetupItems);
+            CreateLocalMeshSizeFile(part, localMeshSizesFileName, meshSetupItems);
             MeshingParameters meshingParameters = GetPartMeshingParameters(part.Name, meshSetupItems);
             meshingParameters.WriteToFile(meshParametersFileName, part.BoundingBox.GetDiagonal());
             ResumeExplodedViews(false);
@@ -4854,7 +4867,7 @@ namespace PrePoMax
                               "\"" + brepFileName.ToUTF8() + "\" " +
                               "\"" + volFileName + "\" " +
                               "\"" + meshParametersFileName + "\" " +
-                              "\"" + meshRefinementFileName + "\"";
+                              "\"" + localMeshSizesFileName + "\"";
             //
             _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
             _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
@@ -5120,19 +5133,19 @@ namespace PrePoMax
             string stlFileName = Path.Combine(workDirectory, Globals.StlFileName);
             string volFileName = Path.Combine(workDirectory, Globals.VolFileName);
             string meshParametersFileName = Path.Combine(workDirectory, Globals.MeshParametersFileName);
-            string meshRefinementFileName = Path.Combine(workDirectory, Globals.MeshRefinementFileName);
+            string localMeshSizesFileName = Path.Combine(workDirectory, Globals.LocalMeshSizesFileName);
             string edgeNodesFileName = Path.Combine(workDirectory, Globals.EdgeNodesFileName);
             //
             if (File.Exists(stlFileName)) File.Delete(stlFileName);
             if (File.Exists(volFileName)) File.Delete(volFileName);
             if (File.Exists(meshParametersFileName)) File.Delete(meshParametersFileName);
-            if (File.Exists(meshRefinementFileName)) File.Delete(meshRefinementFileName);
+            if (File.Exists(localMeshSizesFileName)) File.Delete(localMeshSizesFileName);
             if (File.Exists(edgeNodesFileName)) File.Delete(edgeNodesFileName);
             //
             string[] partNames = new string[] { part.Name };
             SuppressExplodedView(partNames);
             FileInOut.Output.StlFileWriter.Write(stlFileName, _model.Geometry, partNames);
-            CreateMeshRefinementFile(part, meshRefinementFileName, null);
+            CreateLocalMeshSizeFile(part, localMeshSizesFileName, null);
             GetPartMeshingParameters(part.Name).WriteToFile(meshParametersFileName, part.BoundingBox.GetDiagonal());
             _model.Geometry.WriteEdgeNodesToFile(part, edgeNodesFileName);
             ResumeExplodedViews(false);
@@ -5141,7 +5154,7 @@ namespace PrePoMax
                               "\"" + stlFileName + "\" " +
                               "\"" + volFileName + "\" " +
                               "\"" + meshParametersFileName + "\" " +
-                              "\"" + meshRefinementFileName + "\" " +
+                              "\"" + localMeshSizesFileName + "\" " +
                               "\"" + edgeNodesFileName + "\"";
             //
             _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
@@ -5259,25 +5272,25 @@ namespace PrePoMax
             string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
             string volFileName = Path.Combine(workDirectory, Globals.VolFileName);
             string meshParametersFileName = Path.Combine(workDirectory, Globals.MeshParametersFileName);
-            string meshRefinementFileName = Path.Combine(workDirectory, Globals.MeshRefinementFileName);
+            string localMeshSizesFileName = Path.Combine(workDirectory, Globals.LocalMeshSizesFileName);
             //
             if (File.Exists(brepFileName)) File.Delete(brepFileName);
             if (File.Exists(volFileName)) File.Delete(volFileName);
             if (File.Exists(meshParametersFileName)) File.Delete(meshParametersFileName);
-            if (File.Exists(meshRefinementFileName)) File.Delete(meshRefinementFileName);
+            if (File.Exists(localMeshSizesFileName)) File.Delete(localMeshSizesFileName);
             //
             SuppressExplodedView(new string[] { part.Name });
             File.WriteAllText(brepFileName, part.CADFileData);
             MeshingParameters meshingParameters = GetPartMeshingParameters(part.Name);
             meshingParameters.WriteToFile(meshParametersFileName, part.BoundingBox.GetDiagonal());
-            CreateMeshRefinementFile(part, meshRefinementFileName, null);
+            CreateLocalMeshSizeFile(part, localMeshSizesFileName, null);
             ResumeExplodedViews(false);
             //
             string argument = "BREP_MESH " +
                               "\"" + brepFileName.ToUTF8() + "\" " +
                               "\"" + volFileName + "\" " +
                               "\"" + meshParametersFileName + "\" " +
-                              "\"" + meshRefinementFileName + "\"";
+                              "\"" + localMeshSizesFileName + "\"";
             //
             _executableJob = new ExecutableJob(part.Name, executable, argument, workDirectory);
             _executableJob.AppendOutput += executableJobMeshing_AppendOutput;
@@ -5357,14 +5370,14 @@ namespace PrePoMax
                 throw new CaeException(message);
             }
         }
-        private void CreateMeshRefinementFile(GeometryPart part, string fileName,
-                                              OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
+        private void CreateLocalMeshSizeFile(GeometryPart part, string fileName,
+                                             OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
         {
             double h;
             int geometryPartId;
             int[] geometryIds;
             List<int> filteredGeometryIds = new List<int>();
-            FeMeshRefinement meshRefinement;
+            LocalMeshSize localMeshSize;
             int numPoints = 0;
             int numLines = 0;
             List<double[]> pointsList;
@@ -5372,11 +5385,11 @@ namespace PrePoMax
             Dictionary<double, List<double[]>> allPoints = new Dictionary<double, List<double[]>>();
             Dictionary<double, List<double[][]>> allLines = new Dictionary<double, List<double[][]>>();
             //
-            Dictionary<string, FeMeshRefinement> meshRefinements = new Dictionary<string, FeMeshRefinement>();
+            Dictionary<string, LocalMeshSize> localMeshSizes = new Dictionary<string, LocalMeshSize>();
             if (meshSetupItems == null) meshSetupItems = _model.Geometry.MeshSetupItems;
             foreach (var entry in meshSetupItems)
             {
-                if (entry.Value is FeMeshRefinement mr) meshRefinements.Add(mr.Name, mr);
+                if (entry.Value is LocalMeshSize lms) localMeshSizes.Add(lms.Name, lms);
             }
             // Get part ids of the geometry to mesh
             HashSet<int> meshPartIds = new HashSet<int>();
@@ -5387,15 +5400,15 @@ namespace PrePoMax
             else meshPartIds.Add(part.PartId);
             // For each mesh refinement
             MeshingParameters meshingParameters;
-            foreach (var entry in meshRefinements)
+            foreach (var entry in localMeshSizes)
             {
-                meshRefinement = entry.Value;
+                localMeshSize = entry.Value;
                 filteredGeometryIds.Clear();
                 // Export mesh refinement only if it is active
-                if (meshRefinement.Active && meshRefinement.Valid)
+                if (localMeshSize.Active && localMeshSize.Valid)
                 {
                     // Get part ids of the mesh refinement
-                    geometryIds = meshRefinement.CreationIds;
+                    geometryIds = localMeshSize.CreationIds;
                     if (geometryIds == null || geometryIds.Length == 0) break;
                     // Filter geometry ids to the part being meshed
                     foreach (var geometryId in geometryIds)
@@ -5409,13 +5422,13 @@ namespace PrePoMax
                     {
                         meshingParameters = GetPartMeshingParameters(part.Name, meshSetupItems);
                         //
-                        if (meshRefinement.MeshSize > meshingParameters.MaxH) h = meshingParameters.MaxH;
-                        else if (meshRefinement.MeshSize < meshingParameters.MinH) h = meshingParameters.MinH;
-                        else h = meshRefinement.MeshSize;
+                        if (localMeshSize.MeshSize > meshingParameters.MaxH) h = meshingParameters.MaxH;
+                        else if (localMeshSize.MeshSize < meshingParameters.MinH) h = meshingParameters.MinH;
+                        else h = localMeshSize.MeshSize;
                         //
                         double[][] points;
                         double[][][] lines;
-                        _model.Geometry.GetVertexAndEdgeCoorFromGeometryIds(geometryIds, h, false, out points, out lines);
+                        _model.Geometry.GetVertexAndEdgeCoorFromGeometryIds(geometryIds, h, 1, false, out points, out lines);
                         numPoints += points.Length;
                         numLines += lines.Length;
                         //
@@ -19433,7 +19446,7 @@ namespace PrePoMax
             if (meshSetupItem is MeshingParameters || meshSetupItem is ShellGmsh || meshSetupItem is ThickenShellMesh ||
                 meshSetupItem is TetrahedralGmsh || meshSetupItem is TransfiniteMesh)
                 HighlightMeshSetupItemParts(meshSetupItem, useSecondaryHighlightColor);
-            else if (meshSetupItem is FeMeshRefinement mr) HighlightMeshRefinement(mr, highlightNodes, useSecondaryHighlightColor);
+            else if (meshSetupItem is LocalMeshSize lms) HighlightLocalMeshSize(lms, highlightNodes, useSecondaryHighlightColor);
             else if (meshSetupItem is ExtrudeMesh em) HighlightExtrudeMesh(em, useSecondaryHighlightColor);
             else if (meshSetupItem is SweepMesh sm) HighlightSweepMesh(sm, useSecondaryHighlightColor);
             else if (meshSetupItem is RevolveMesh rm) HighlightRevolveMesh(rm, useSecondaryHighlightColor);
@@ -19448,19 +19461,20 @@ namespace PrePoMax
                 HighlightGeometryParts(partNames);
             }
         }
-        public void HighlightMeshRefinement(FeMeshRefinement meshRefinement, bool highlightNodes = true, 
-                                            bool useSecondaryHighlightColor = false)
+        public void HighlightLocalMeshSize(LocalMeshSize localMeshSize, bool highlightNodes = true, 
+                                           bool useSecondaryHighlightColor = false)
         {
             int[] ids;
             int[] itemTypePartIds;
             double[][] coor;
-            double meshSize;
+            double meshSize = -1;
+            int numOfElements = -1;
             bool backfaceCulling;
             GeometryPart part;
             FeMesh mesh = DisplayedMesh;
             MeshingParameters meshingParameters;
             //
-            ids = meshRefinement.CreationIds;
+            ids = localMeshSize.CreationIds;
             if (ids.Length == 0) return;
             // The selection is limited to one part
             itemTypePartIds = FeMesh.GetItemTypePartIdsFromGeometryId(ids[0]);
@@ -19469,11 +19483,10 @@ namespace PrePoMax
             //
             meshingParameters = GetPartMeshingParameters(part.Name);
             //
-            meshSize = meshRefinement.MeshSize;
-            //if (meshRefinement.MeshSize > meshingParameters.MaxH) meshSize = meshingParameters.MaxH;
-            //else if (meshRefinement.MeshSize < meshingParameters.MinH) meshSize = meshingParameters.MinH;
+            if (localMeshSize.Type == LocalMeshSizeTypeEnum.ElementSize) meshSize = localMeshSize.MeshSize;
+            else if (localMeshSize.Type == LocalMeshSizeTypeEnum.NumberOfElements) numOfElements = localMeshSize.NumOfElements;
             //
-            mesh.GetMeshRefinementCoor(ids, meshSize, out coor);
+            mesh.GetLocalMeshSizeCoor(ids, meshSize, numOfElements, out coor);
             if (highlightNodes) HighlightNodes(coor, useSecondaryHighlightColor);
             //
             backfaceCulling = part.PartType != PartType.Shell;

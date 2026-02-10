@@ -18,6 +18,10 @@ namespace PrePoMax.Commands
         private MeshSetupItem _meshSetupItem;
 
 
+        // Properties                                                                                                               
+        public MeshSetupItem MeshSetupItem { get { return _meshSetupItem; } set { _meshSetupItem = value; } }
+
+
         // Constructor                                                                                                              
         public CAddMeshSetupItem(MeshSetupItem meshSetupItem)
             : base("Add mesh setup item")

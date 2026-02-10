@@ -149,7 +149,7 @@
     <Compile Include="Commands\0040_Meshing\CAddMeshSetupItem.cs" />
     <Compile Include="Commands\0040_Meshing\CDuplicateMeshSetupItems.cs" />
     <Compile Include="Commands\0040_Meshing\CRemoveMeshSetupItems.cs" />
-    <Compile Include="Commands\0040_Meshing\CReplaceMeshingParameters.cs" />
+    <Compile Include="Commands\0040_Meshing\CReplaceMeshSetupItem.cs" />
     <Compile Include="Commands\0050_Model\02_Tools\CCreateBoundaryLayer.cs" />
     <Compile Include="Commands\0050_Model\02_Tools\CFindEdgesByAngleForModelPartsCommand.cs" />
     <Compile Include="Commands\0050_Model\02_Tools\CRemeshElements.cs" />
@@ -518,7 +518,7 @@
     <Compile Include="Forms\03_AnalyzeGeometry\FrmAnalyzeGeometry.Designer.cs">
       <DependentUpon>FrmAnalyzeGeometry.cs</DependentUpon>
     </Compile>
-    <Compile Include="Forms\11_MeshSetup\ViewFeMeshRefinement.cs" />
+    <Compile Include="Forms\11_MeshSetup\ViewLocalMeshSize.cs" />
     <Compile Include="Forms\21_FEModel\FrmBoundaryLayer.cs">
       <SubType>Form</SubType>
     </Compile>

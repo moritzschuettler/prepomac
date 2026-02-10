@@ -133,7 +133,7 @@ namespace PrePoMax.Forms
             //
             base.OnHideOrClose();
         }
-        protected override bool OnPrepareForm(string stepName, string meshRefinementToEditName)
+        protected override bool OnPrepareForm(string stepName, string unusedName)
         {
             _propertyItemChanged = false;
             _viewMergeCoincidentNodes = null;

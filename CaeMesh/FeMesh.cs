@@ -4,8 +4,10 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Data.OleDb;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.IO.Ports;
 using System.Linq;
@@ -305,7 +307,16 @@ namespace CaeMesh
             foreach (var entry in meshRefinements) _meshSetupItems.Add(entry.Key, entry.Value);
             // Compatibility for version v.2.1.0
             if (_coordinateSystems == null)
-                _coordinateSystems = new OrderedDictionary<string, CoordinateSystem>("Coordinate Systems", sc);   
+                _coordinateSystems = new OrderedDictionary<string, CoordinateSystem>("Coordinate Systems", sc);
+            // Compatibility for version v.2.4.4
+            _meshSetupItems.OnDeserialization(null);
+            foreach (var entry in _meshSetupItems.ToArray())
+            {
+                if (entry.Value is FeMeshRefinement mr)
+                {
+                    _meshSetupItems[entry.Key] = new LocalMeshSize(mr);
+                }
+            }
         }
 
 
@@ -517,20 +528,20 @@ namespace CaeMesh
                     SetItemValidity(mp, valid, items);
                     if (!valid && mp.Active) invalidItems.Add("Meshing parameters: " + mp.Name);
                 }
-                else if (entry.Value is FeMeshRefinement mr)
+                else if (entry.Value is LocalMeshSize lms)
                 {
-                    valid = mr.Valid;              // this is set to invalid after deleting a part
-                    if (!valid) mr.Valid = true;   // set this to true to detect a change in validity
-                    if (mr.CreationIds.Length == 0) valid &= false;
+                    valid = lms.Valid;              // this is set to invalid after deleting a part
+                    if (!valid) lms.Valid = true;   // set this to true to detect a change in validity
+                    if (lms.CreationIds.Length == 0) valid &= false;
                     else
                     {
                         // The selection is limited to one part
-                        partId = GetPartIdFromGeometryId(mr.CreationIds[0]);
+                        partId = GetPartIdFromGeometryId(lms.CreationIds[0]);
                         if (GetPartFromId(partId) == null) valid &= false;
                     }
                     //
-                    SetItemValidity(mr, valid, items);
-                    if (!valid && mr.Active) invalidItems.Add("Mesh refinement: " + mr.Name);
+                    SetItemValidity(lms, valid, items);
+                    if (!valid && lms.Active) invalidItems.Add("Local mesh size: " + lms.Name);
                 }
                 else if (entry.Value is ShellGmsh sg)
                 {
@@ -6375,7 +6386,11 @@ namespace CaeMesh
             {
                 return GetElementIdsFromGeometryId(itemTypePartIds, geometryId);
             }
-            else if (selectItem == vtkSelectItem.GeometryEdge || selectItem == vtkSelectItem.Geometry)
+            else if (selectItem == vtkSelectItem.Geometry)
+            {
+                return new int[] { geometryId };
+            }
+            else if (selectItem == vtkSelectItem.GeometryEdge)
             {
                 return new int[] { geometryId };
             }
@@ -6462,8 +6477,8 @@ namespace CaeMesh
             return GetElementIdsFromNodeIds(nodeIds, containsEdge, containsFace, false, itemTypePartIds[2]);
         }
         // Get node, edge or triangle coordinates for mesh refinement for Netgen
-        public void GetVertexAndEdgeCoorFromGeometryIds(int[] ids, double meshSize, bool edgeRepresentation,
-                                                             out double[][] points, out double[][][] lines)
+        public void GetVertexAndEdgeCoorFromGeometryIds(int[] ids, double meshSize, int numOfElements, bool edgeRepresentation,
+                                                        out double[][] points, out double[][][] lines)
         {
             int[][] cells = GetCellsFromGeometryIds(ids, edgeRepresentation);
             List<double[]> pointList = new List<double[]>();
@@ -6491,7 +6506,7 @@ namespace CaeMesh
             lines = lineList.ToArray();
         }
         // Get node, edge or triangle coordinates for mesh refinement for Highlight
-        public void GetMeshRefinementCoor(int[] geometryIds, double meshSize, out double[][] coor)
+        public void GetLocalMeshSizeCoor(int[] geometryIds, double meshSize, int numOfElements, out double[][] coor)
         {
             coor = null;
             //
@@ -6502,7 +6517,7 @@ namespace CaeMesh
             //
             int[] edgeIds;
             int edgeCellId;
-            int numElements;
+            int numOfElementsPerEdge;
             double edgeLen;
             double edgeCellLen;
             double elemLen;
@@ -6544,9 +6559,15 @@ namespace CaeMesh
                     {
                         accLen = 0;
                         edgeLen = vis.EdgeLengths[edgeId];
-                        numElements = (int)Math.Round(edgeLen / meshSize, 0, MidpointRounding.AwayFromZero);
-                        if (numElements == 0) numElements = 1;
-                        elemLen = edgeLen / numElements;
+                        //
+                        if (meshSize != -1)
+                            numOfElementsPerEdge = (int)Math.Round(edgeLen / meshSize, 0, MidpointRounding.AwayFromZero);
+                        else if (numOfElements != -1)
+                            numOfElementsPerEdge = numOfElements;
+                        else throw new NotSupportedException();
+                        //
+                        if (numOfElementsPerEdge == 0) numOfElementsPerEdge = 1;
+                        elemLen = edgeLen / numOfElementsPerEdge;
                         //
                         for (int i = 0; i < vis.EdgeCellIdsByEdge[edgeId].Length; i++)
                         {
@@ -7614,7 +7635,7 @@ namespace CaeMesh
                         }
                     }
                 }
-                else if (entry.Value is FeMeshRefinement || entry.Value is ExtrudeMesh || entry.Value is SweepMesh ||
+                else if (entry.Value is LocalMeshSize || entry.Value is ExtrudeMesh || entry.Value is SweepMesh ||
                          entry.Value is RevolveMesh)
                 {
                     if (!(keepGeometrySelections && entry.Value.CreationData.IsGeometryBased()))

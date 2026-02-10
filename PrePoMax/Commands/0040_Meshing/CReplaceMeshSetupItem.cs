@@ -19,6 +19,10 @@ namespace PrePoMax.Commands
         private MeshSetupItem _meshSetupItem;
 
 
+        // Properties                                                                                                               
+        public MeshSetupItem MeshSetupItem { get { return _meshSetupItem; } set { _meshSetupItem = value; } }
+
+
         // Constructor                                                                                                              
         public CReplaceMeshSetupItem(string oldMeshSetupItemName, MeshSetupItem newMeshSetupItem)
             : base("Edit mesh setup item")
