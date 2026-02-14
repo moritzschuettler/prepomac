@@ -404,6 +404,12 @@ namespace PrePoMax
             this.tsmiDuplicateSection = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerSection1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiDelete = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiCompositeLayup = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiCreateCompositeLayup = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiEditCompositeLayup = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiDuplicateCompositeLayup = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiDividerCompositeLayup1 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiDeleteCompositeLayup = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiConstraint = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiCreateConstraint = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiEditConstraint = new System.Windows.Forms.ToolStripMenuItem();
@@ -1657,7 +1663,8 @@ namespace PrePoMax
             this.tsmiProperty.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsmiMaterial,
             this.tsmiMaterialLibrary,
-            this.tsmiSection});
+            this.tsmiSection,
+            this.tsmiCompositeLayup});
             this.tsmiProperty.Name = "tsmiProperty";
             this.tsmiProperty.Size = new System.Drawing.Size(64, 20);
             this.tsmiProperty.Text = "Property";
@@ -3690,12 +3697,57 @@ namespace PrePoMax
             this.tsmiDividerSection1.Size = new System.Drawing.Size(121, 6);
             // 
             // tsmiDelete
-            // 
+            //
             this.tsmiDelete.Name = "tsmiDelete";
             this.tsmiDelete.Size = new System.Drawing.Size(124, 22);
             this.tsmiDelete.Text = "Delete";
             this.tsmiDelete.Click += new System.EventHandler(this.tsmiDelete_Click);
-            // 
+            //
+            // tsmiCompositeLayup
+            //
+            this.tsmiCompositeLayup.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmiCreateCompositeLayup,
+            this.tsmiEditCompositeLayup,
+            this.tsmiDuplicateCompositeLayup,
+            this.tsmiDividerCompositeLayup1,
+            this.tsmiDeleteCompositeLayup});
+            this.tsmiCompositeLayup.Name = "tsmiCompositeLayup";
+            this.tsmiCompositeLayup.Size = new System.Drawing.Size(156, 22);
+            this.tsmiCompositeLayup.Text = "Composite Layup";
+            //
+            // tsmiCreateCompositeLayup
+            //
+            this.tsmiCreateCompositeLayup.Name = "tsmiCreateCompositeLayup";
+            this.tsmiCreateCompositeLayup.Size = new System.Drawing.Size(124, 22);
+            this.tsmiCreateCompositeLayup.Text = "Create";
+            this.tsmiCreateCompositeLayup.Click += new System.EventHandler(this.tsmiCreateCompositeLayup_Click);
+            //
+            // tsmiEditCompositeLayup
+            //
+            this.tsmiEditCompositeLayup.Name = "tsmiEditCompositeLayup";
+            this.tsmiEditCompositeLayup.Size = new System.Drawing.Size(124, 22);
+            this.tsmiEditCompositeLayup.Text = "Edit";
+            this.tsmiEditCompositeLayup.Click += new System.EventHandler(this.tsmiEditCompositeLayup_Click);
+            //
+            // tsmiDuplicateCompositeLayup
+            //
+            this.tsmiDuplicateCompositeLayup.Name = "tsmiDuplicateCompositeLayup";
+            this.tsmiDuplicateCompositeLayup.Size = new System.Drawing.Size(124, 22);
+            this.tsmiDuplicateCompositeLayup.Text = "Duplicate";
+            this.tsmiDuplicateCompositeLayup.Click += new System.EventHandler(this.tsmiDuplicateCompositeLayup_Click);
+            //
+            // tsmiDividerCompositeLayup1
+            //
+            this.tsmiDividerCompositeLayup1.Name = "tsmiDividerCompositeLayup1";
+            this.tsmiDividerCompositeLayup1.Size = new System.Drawing.Size(121, 6);
+            //
+            // tsmiDeleteCompositeLayup
+            //
+            this.tsmiDeleteCompositeLayup.Name = "tsmiDeleteCompositeLayup";
+            this.tsmiDeleteCompositeLayup.Size = new System.Drawing.Size(124, 22);
+            this.tsmiDeleteCompositeLayup.Text = "Delete";
+            this.tsmiDeleteCompositeLayup.Click += new System.EventHandler(this.tsmiDeleteCompositeLayup_Click);
+            //
             // tsmiConstraint
             // 
             this.tsmiConstraint.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -4929,6 +4981,12 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiEditSection;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerSection1;
         private System.Windows.Forms.ToolStripMenuItem tsmiDelete;
+        private System.Windows.Forms.ToolStripMenuItem tsmiCompositeLayup;
+        private System.Windows.Forms.ToolStripMenuItem tsmiCreateCompositeLayup;
+        private System.Windows.Forms.ToolStripMenuItem tsmiEditCompositeLayup;
+        private System.Windows.Forms.ToolStripMenuItem tsmiDuplicateCompositeLayup;
+        private System.Windows.Forms.ToolStripSeparator tsmiDividerCompositeLayup1;
+        private System.Windows.Forms.ToolStripMenuItem tsmiDeleteCompositeLayup;
         private System.Windows.Forms.ToolStripMenuItem tsmiLoad;
         private System.Windows.Forms.ToolStripMenuItem tsmiBC;
         private System.Windows.Forms.ToolStripMenuItem tsmiStepMenu;

@@ -34,6 +34,7 @@ namespace CaeModel
         private EquationParameterCollection _parameters;                                        //ISerializable
         private OrderedDictionary<string, Material> _materials;                                 //ISerializable
         private OrderedDictionary<string, Section> _sections;                                   //ISerializable
+        private OrderedDictionary<string, CompositeLayup> _compositeLayups;                     //ISerializable
         private OrderedDictionary<string, Constraint> _constraints;                             //ISerializable
         private OrderedDictionary<string, SurfaceInteraction> _surfaceInteractions;             //ISerializable
         private OrderedDictionary<string, ContactPair> _contactPairs;                           //ISerializable
@@ -55,6 +56,7 @@ namespace CaeModel
         public EquationParameterCollection Parameters { get { return _parameters; } }
         public OrderedDictionary<string, Material> Materials { get { return _materials; } }
         public OrderedDictionary<string, Section> Sections { get { return _sections; } }
+        public OrderedDictionary<string, CompositeLayup> CompositeLayups { get { return _compositeLayups; } }
         public OrderedDictionary<string, Constraint> Constraints { get { return _constraints; } }
         public OrderedDictionary<string, SurfaceInteraction> SurfaceInteractions { get { return _surfaceInteractions; } }
         public OrderedDictionary<string, ContactPair> ContactPairs { get { return _contactPairs; } }
@@ -92,6 +94,7 @@ namespace CaeModel
             _parameters = new EquationParameterCollection();
             _materials = new OrderedDictionary<string, Material>("Materials", sc);
             _sections = new OrderedDictionary<string, Section>("Sections", sc);
+            _compositeLayups = new OrderedDictionary<string, CompositeLayup>("Composite Layups", sc);
             _constraints = new OrderedDictionary<string, Constraint>("Constraints", sc);
             _surfaceInteractions = new OrderedDictionary<string, SurfaceInteraction>("Surface Tractions", sc);
             _contactPairs = new OrderedDictionary<string, ContactPair>("Contact Pairs", sc);
@@ -121,6 +124,7 @@ namespace CaeModel
             _parameters = copy._parameters;
             _materials = copy._materials;
             _sections = copy._sections;
+            _compositeLayups = copy._compositeLayups;
             _constraints = copy._constraints;
             _surfaceInteractions = copy._surfaceInteractions;
             _contactPairs = copy._contactPairs;
@@ -152,6 +156,8 @@ namespace CaeModel
             _parameters = new EquationParameterCollection();
             // Compatibility for version v.2.3.9
             _userViews = new OrderedDictionary<string, UserViewParameters>("User Views", sc);
+            // Compatibility for composite layups
+            _compositeLayups = new OrderedDictionary<string, CompositeLayup>("Composite Layups", sc);
             //
             foreach (SerializationEntry entry in info)
             {
@@ -197,6 +203,8 @@ namespace CaeModel
                         else if (entry.Value == null) _sections = null;
                         else throw new NotSupportedException();
                         break;
+                    case "_compositeLayups":
+                        _compositeLayups = (OrderedDictionary<string, CompositeLayup>)entry.Value; break;
                     case "_constraints":
                         if (entry.Value is Dictionary<string, Constraint> cd)   
                         {
@@ -3437,6 +3445,7 @@ namespace CaeModel
             info.AddValue("_parameters", _parameters, typeof(EquationParameterCollection));
             info.AddValue("_materials", _materials, typeof(OrderedDictionary<string, Material>));
             info.AddValue("_sections", _sections, typeof(OrderedDictionary<string, Section>));
+            info.AddValue("_compositeLayups", _compositeLayups, typeof(OrderedDictionary<string, CompositeLayup>));
             info.AddValue("_constraints", _constraints, typeof(OrderedDictionary<string, Constraint>));
             info.AddValue("_surfaceInteractions", _surfaceInteractions, typeof(OrderedDictionary<string, SurfaceInteraction>));
             info.AddValue("_contactPairs", _contactPairs, typeof(OrderedDictionary<string, ContactPair>));

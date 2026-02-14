@@ -297,6 +297,10 @@
     <Compile Include="Commands\0076_InitialCondition\CAddInitialCondition.cs" />
     <Compile Include="Commands\0076_InitialCondition\CRemoveInitialConditions.cs" />
     <Compile Include="Commands\0062_Section\CReplaceSection.cs" />
+    <Compile Include="Commands\0063_Composite\CAddCompositeLayup.cs" />
+    <Compile Include="Commands\0063_Composite\CReplaceCompositeLayup.cs" />
+    <Compile Include="Commands\0063_Composite\CDuplicateCompositeLayups.cs" />
+    <Compile Include="Commands\0063_Composite\CRemoveCompositeLayups.cs" />
     <Compile Include="Commands\0075_Amplitude\CAddAmplitude.cs" />
     <Compile Include="Commands\0075_Amplitude\CRemoveAmplitudes.cs" />
     <Compile Include="Commands\0075_Amplitude\CReplaceAmplitude.cs" />
@@ -491,6 +495,10 @@
     <Compile Include="Forms\42_Section\ViewPointMassSection.cs" />
     <Compile Include="Forms\42_Section\ViewMembraneSection.cs" />
     <Compile Include="Forms\42_Section\ViewDistributedMassSection.cs" />
+    <Compile Include="Forms\43_Composite\FrmCompositeLayup.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\43_Composite\ViewCompositeLayup.cs" />
     <Compile Include="Forms\43_Constraint\ViewCompressionOnly.cs" />
     <Compile Include="Forms\43_Constraint\ViewSpring.cs" />
     <Compile Include="Forms\43_Constraint\ViewSurfaceSpring.cs" />

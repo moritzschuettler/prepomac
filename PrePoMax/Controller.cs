@@ -8558,6 +8558,82 @@ namespace PrePoMax
 
         #endregion #################################################################################################################
 
+        #region Composite Layup menu   #############################################################################################
+        // COMMANDS ********************************************************************************
+        public void AddCompositeLayupCommand(CompositeLayup compositeLayup)
+        {
+            CAddCompositeLayup comm = new CAddCompositeLayup(compositeLayup);
+            _commands.AddAndExecute(comm);
+        }
+        public void ReplaceCompositeLayupCommand(string oldCompositeLayupName, CompositeLayup newCompositeLayup)
+        {
+            CReplaceCompositeLayup comm = new CReplaceCompositeLayup(oldCompositeLayupName, newCompositeLayup);
+            _commands.AddAndExecute(comm);
+        }
+        public void DuplicateCompositeLayupsCommand(string[] compositeLayupNames)
+        {
+            CDuplicateCompositeLayups comm = new CDuplicateCompositeLayups(compositeLayupNames);
+            _commands.AddAndExecute(comm);
+        }
+        public void RemoveCompositeLayupsCommand(string[] compositeLayupNames)
+        {
+            CRemoveCompositeLayups comm = new CRemoveCompositeLayups(compositeLayupNames);
+            _commands.AddAndExecute(comm);
+        }
+        //******************************************************************************************
+        public string[] GetCompositeLayupNames()
+        {
+            if (_model.CompositeLayups == null) return new string[0];
+            return _model.CompositeLayups.Keys.ToArray();
+        }
+        public CompositeLayup GetCompositeLayup(string compositeLayupName)
+        {
+            return _model.CompositeLayups[compositeLayupName];
+        }
+        public CompositeLayup[] GetAllCompositeLayups()
+        {
+            return _model.CompositeLayups.Values.ToArray();
+        }
+        public void AddCompositeLayup(CompositeLayup compositeLayup)
+        {
+            _model.CompositeLayups.Add(compositeLayup.Name, compositeLayup);
+            _form.AddTreeNode(ViewGeometryModelResults.Model, compositeLayup, null);
+            //
+            CheckAndUpdateModelValidity();
+        }
+        public void ReplaceCompositeLayup(string oldCompositeLayupName, CompositeLayup compositeLayup)
+        {
+            if (_model.CompositeLayups.Replace(oldCompositeLayupName, compositeLayup.Name, compositeLayup))
+            {
+                _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldCompositeLayupName, compositeLayup, null);
+                //
+                CheckAndUpdateModelValidity();
+            }
+        }
+        public void DuplicateCompositeLayups(string[] compositeLayupNames)
+        {
+            CompositeLayup newCompositeLayup;
+            foreach (var name in compositeLayupNames)
+            {
+                newCompositeLayup = _model.CompositeLayups[name].DeepClone();
+                newCompositeLayup.Name = NamedClass.GetNameWithoutLastValue(newCompositeLayup.Name);
+                newCompositeLayup.Name = _model.CompositeLayups.GetNextNumberedKey(newCompositeLayup.Name);
+                AddCompositeLayup(newCompositeLayup);
+            }
+        }
+        public void RemoveCompositeLayups(string[] compositeLayupNames)
+        {
+            foreach (var name in compositeLayupNames)
+            {
+                _model.CompositeLayups.Remove(name);
+                _form.RemoveTreeNode<CompositeLayup>(ViewGeometryModelResults.Model, name, null);
+            }
+            //
+            CheckAndUpdateModelValidity();
+        }
+
+        #endregion #################################################################################################################
+
         #region Constraint menu   ##################################################################################################
         // COMMANDS ********************************************************************************
         public void AddConstraintCommand(Constraint constraint, bool update = true)

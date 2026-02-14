@@ -82,6 +82,7 @@ namespace PrePoMax
         private FrmCoordinateSystem _frmCoordinateSystem;
         private FrmMaterial _frmMaterial;
         private FrmSection _frmSection;
+        private FrmCompositeLayup _frmCompositeLayup;
         private FrmConstraint _frmConstraint;
         private FrmSurfaceInteraction _frmSurfaceInteraction;
         private FrmContactPair _frmContactPair;
@@ -435,6 +436,9 @@ namespace PrePoMax
                 //
                 _frmSection = new FrmSection(_controller);
                 AddFormToAllForms(_frmSection);
+                //
+                _frmCompositeLayup = new FrmCompositeLayup(_controller);
+                AddFormToAllForms(_frmCompositeLayup);
                 //
                 _frmConstraint = new FrmConstraint(_controller);
                 AddFormToAllForms(_frmConstraint);
@@ -5308,6 +5312,75 @@ namespace PrePoMax
                                                  + sectionNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveSectionsCommand(sectionNames);
+            }
+        }
+
+        #endregion  ################################################################################################################
+
+        #region Composite Layup menu  ##############################################################################################
+        private void tsmiCreateCompositeLayup_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                CreateCompositeLayup();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiEditCompositeLayup_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectOneEntity("Composite Layups", _controller.GetAllCompositeLayups(), EditCompositeLayup);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiDuplicateCompositeLayup_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Composite Layups", _controller.GetAllCompositeLayups(), DuplicateCompositeLayups);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiDeleteCompositeLayup_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Composite Layups", _controller.GetAllCompositeLayups(), DeleteCompositeLayups);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        //
+        private void CreateCompositeLayup()
+        {
+            ShowForm(_frmCompositeLayup, "Create Composite Layup", null);
+        }
+        private void EditCompositeLayup(string compositeLayupName)
+        {
+            ShowForm(_frmCompositeLayup, "Edit Composite Layup", compositeLayupName);
+        }
+        private void DuplicateCompositeLayups(string[] compositeLayupNames)
+        {
+            _controller.DuplicateCompositeLayupsCommand(compositeLayupNames);
+        }
+        private void DeleteCompositeLayups(string[] compositeLayupNames)
+        {
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected composite layups?" + Environment.NewLine
+                                                 + compositeLayupNames.ToRows()) == DialogResult.OK)
+            {
+                _controller.RemoveCompositeLayupsCommand(compositeLayupNames);
             }
         }
 
