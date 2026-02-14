@@ -234,36 +234,96 @@ namespace PrePoMax
         public string GetWorkDirectory()
         {
             string lastFileName = _general.LastFileName;
+            string workDirectory = null;
+
             if (_regenerationWorkDirectory != null)
             {
-                return _regenerationWorkDirectory;
+                workDirectory = _regenerationWorkDirectory;
             }
             else if (_calculix.UsePmxFolderAsWorkDirectory && lastFileName != null && File.Exists(lastFileName) &&
                      Path.GetExtension(lastFileName) == ".pmx")
             {
-                return Path.GetDirectoryName(lastFileName);
+                workDirectory = Path.GetDirectoryName(lastFileName);
             }
             else
             {
-                return _calculix.WorkDirectoryForSettingsOnly;
+                workDirectory = _calculix.WorkDirectoryForSettingsOnly;
             }
+
+            // If no work directory is configured, use C:\temp as fallback
+            if (string.IsNullOrEmpty(workDirectory))
+            {
+                workDirectory = @"C:\temp";
+
+                // Create the directory if it doesn't exist
+                try
+                {
+                    if (!Directory.Exists(workDirectory))
+                    {
+                        Directory.CreateDirectory(workDirectory);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    throw new CaeException("Unable to create or access the fallback work directory: " + workDirectory +
+                                            Environment.NewLine + "Error: " + ex.Message);
+                }
+            }
+            // Verify that the work directory exists
+            else if (!Directory.Exists(workDirectory))
+            {
+                throw new CaeException("The work directory does not exist: " + workDirectory +
+                                        Environment.NewLine + "Please configure the work directory in Settings -> Calculix.");
+            }
+
+            return workDirectory;
         }
         public string GetAbaqusWorkDirectory()
         {
             string lastFileName = _general.LastFileName;
+            string workDirectory = null;
+
             if (_regenerationWorkDirectory != null)
             {
-                return _regenerationWorkDirectory;
+                workDirectory = _regenerationWorkDirectory;
             }
             else if (_abaqus.UsePmxFolderAsWorkDirectory && lastFileName != null && File.Exists(lastFileName) &&
                      Path.GetExtension(lastFileName) == ".pmx")
             {
-                return Path.GetDirectoryName(lastFileName);
+                workDirectory = Path.GetDirectoryName(lastFileName);
             }
             else
             {
-                return _abaqus.WorkDirectoryForSettingsOnly;
+                workDirectory = _abaqus.WorkDirectoryForSettingsOnly;
             }
+
+            // If no work directory is configured, use C:\temp as fallback
+            if (string.IsNullOrEmpty(workDirectory))
+            {
+                workDirectory = @"C:\temp";
+
+                // Create the directory if it doesn't exist
+                try
+                {
+                    if (!Directory.Exists(workDirectory))
+                    {
+                        Directory.CreateDirectory(workDirectory);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    throw new CaeException("Unable to create or access the fallback work directory: " + workDirectory +
+              Environment.NewLine + "Error: " + ex.Message);
+                }
+            }
+            // Verify that the work directory exists
+            else if (!Directory.Exists(workDirectory))
+            {
+                throw new CaeException("The work directory does not exist: " + workDirectory +
+  Environment.NewLine + "Please configure the work directory in Settings -> Calculix.");
+            }
+
+            return workDirectory;
         }
         public void CheckWorkingDirectory()
         {
