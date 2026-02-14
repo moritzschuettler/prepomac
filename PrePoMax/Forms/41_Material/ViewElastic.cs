@@ -20,7 +20,7 @@ namespace PrePoMax
         // Properties                                                                                                               
         public override string Name
         {
-            get { return "Elastic"; }
+            get { return "Elastic - Isotropic"; }
         }
         //
         [Browsable(false)]

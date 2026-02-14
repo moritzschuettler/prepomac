@@ -483,6 +483,10 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Forms\32_CoordinateSystems\ViewCoordinateSystem.cs" />
+    <Compile Include="Forms\41_Material\DataPoints\EngineeringConstantsDataPoint.cs" />
+    <Compile Include="Forms\41_Material\DataPoints\LaminaDataPoint.cs" />
+    <Compile Include="Forms\41_Material\ViewEngineeringConstants.cs" />
+    <Compile Include="Forms\41_Material\ViewLamina.cs" />
     <Compile Include="Forms\41_Material\ViewSlipWear.cs" />
     <Compile Include="Forms\42_Section\ViewPointMassSection.cs" />
     <Compile Include="Forms\42_Section\ViewMembraneSection.cs" />

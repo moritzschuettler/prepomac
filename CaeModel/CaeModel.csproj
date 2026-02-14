@@ -87,6 +87,8 @@
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Constraints\CalEquation.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\InitialConditions\CalInitialAngularVelocity.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\InitialConditions\CalInitialTranslationalVelocity.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalEngineeringConstants.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalLamina.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalSlipWear.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Section\CalGapSection.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Section\CalMassSection.cs" />
@@ -150,6 +152,8 @@
     <Compile Include="InitialConditions\InitialTranslationalVelocity.cs" />
     <Compile Include="InitialConditions\InitialTemperature.cs" />
     <Compile Include="InitialConditions\InitialCondition.cs" />
+    <Compile Include="Materials\EngineeringConstants.cs" />
+    <Compile Include="Materials\Lamina.cs" />
     <Compile Include="Materials\SlipWear.cs" />
     <Compile Include="Materials\SpecificHeat.cs" />
     <Compile Include="Materials\ThermalConductivity.cs" />

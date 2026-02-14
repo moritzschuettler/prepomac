@@ -81,6 +81,28 @@ namespace CaeModel
                     if (ewd.PoissonsRatio.IsEquation()) return true;
                     if (ewd.Density.IsEquation()) return true;
                 }
+                else if (property is EngineeringConstants ec)
+                {
+                    for (int i = 0; i < ec.EngineeringConstantsTemp.Length; i++)
+                    {
+                        // Check all 9 parameters
+                        for (int j = 0; j < 9; j++)
+                        {
+                            if (ec.EngineeringConstantsTemp[i][j].IsEquation()) return true;
+                        }
+                    }
+                }
+                else if (property is Lamina lam)
+                {
+                    for (int i = 0; i < lam.LaminaTemp.Length; i++)
+                    {
+                        // Check all 7 parameters
+                        for (int j = 0; j < 7; j++)
+                        {
+                            if (lam.LaminaTemp[i][j].IsEquation()) return true;
+                        }
+                    }
+                }
                 else if (property is Plastic pl)
                 {
                     for (int i = 0; i < pl.StressStrainTemp.Length; i++)

@@ -1366,6 +1366,14 @@ namespace FileInOut.Output
                         {
                             calMaterial.AddKeyword(new CalElastic(el, material.TemperatureDependent));
                         }
+                        else if (property is EngineeringConstants ec)
+                        {
+                            calMaterial.AddKeyword(new CalEngineeringConstants(ec, material.TemperatureDependent));
+                        }
+                        else if (property is Lamina lam)
+                        {
+                            calMaterial.AddKeyword(new CalLamina(lam, material.TemperatureDependent));
+                        }
                         else if (property is ElasticWithDensity ewd)
                         {
                             Density density = new Density(new double[][] { new double[] { ewd.Density.Value, 0 } });
@@ -2138,13 +2146,6 @@ namespace FileInOut.Output
                 parent.AddKeyword(conFile);
             }
             else throw new NotImplementedException();
-        }
-        //
-        static void AppendTitle(StringBuilder sb, string title)
-        {
-            sb.AppendLine("************************************************************");
-            sb.AppendLine("** " + title);
-            sb.AppendLine("************************************************************");
         }
     }
 }

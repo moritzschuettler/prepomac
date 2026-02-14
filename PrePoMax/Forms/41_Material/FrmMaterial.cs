@@ -125,52 +125,100 @@ namespace PrePoMax.Forms
         }
         private void btnAdd_Click(object sender, EventArgs e)
         {
-            if (!_preview && tvProperties.SelectedNodes != null)
+         if (!_preview && tvProperties.SelectedNodes != null)
+  {
+       foreach (TreeNode treeNode in tvProperties.SelectedNodes)
+    {
+   if (treeNode.Tag != null)
+  {
+    string propertyText = treeNode.Text;
+      //
+   ListViewItem existingItem = null;
+        if (lvAddedProperties.Items.Count > 0)
+  existingItem = lvAddedProperties.FindItemWithText(propertyText, true, 0, false);
+   //
+       if (existingItem == null)
+         {
+   // Check for mutual exclusion between ALL elastic types
+    if (treeNode.Tag is MaterialProperty mp)
+ {
+ if (mp is Elastic || mp is EngineeringConstants || mp is Lamina)
+  {
+     // Check if any other elastic type is already added
+    bool hasElastic = lvAddedProperties.Items.Cast<ListViewItem>().Any(lvItem => lvItem.Tag is ViewElastic);
+        bool hasEngineeringConstants = lvAddedProperties.Items.Cast<ListViewItem>().Any(lvItem => lvItem.Tag is ViewEngineeringConstants);
+      bool hasLamina = lvAddedProperties.Items.Cast<ListViewItem>().Any(lvItem => lvItem.Tag is ViewLamina);
+ //
+        string conflictingType = "";
+ if (mp is Elastic && (hasEngineeringConstants || hasLamina))
+        {
+     if (hasEngineeringConstants) conflictingType = "Elastic - Engineering Constants";
+       else if (hasLamina) conflictingType = "Elastic - Lamina";
+        //
+       MessageBox.Show($"Cannot add Elastic - Isotropic when {conflictingType} is already defined.\n\n" +
+  $"Please remove {conflictingType} first. Only ONE elastic material type can be selected.",
+ "Material Property Conflict", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        continue;
+  }
+      else if (mp is EngineeringConstants && (hasElastic || hasLamina))
             {
-                foreach (TreeNode treeNode in tvProperties.SelectedNodes)
-                {
-                    if (treeNode.Tag != null)
-                    {
-                        string propertyText = treeNode.Text;
-                        //
-                        ListViewItem existingItem = null;
-                        if (lvAddedProperties.Items.Count > 0)
-                            existingItem = lvAddedProperties.FindItemWithText(propertyText, true, 0, false);
-                        //
-                        if (existingItem == null)
-                        {
-                            ListViewItem item = new ListViewItem(propertyText);
-                            if (treeNode.Tag is MaterialProperty mp)
-                            {
-                                if (mp is Density de)
-                                    item.Tag = new ViewDensity(de.DeepClone());
-                                else if (mp is SlipWear sw)
-                                    item.Tag = new ViewSlipWear(sw.DeepClone());
-                                else if (mp is Elastic el)
-                                    item.Tag = new ViewElastic(el.DeepClone());
-                                else if (mp is Plastic pl)
-                                    item.Tag = new ViewPlastic(pl.DeepClone());
-                                else if (mp is ThermalExpansion te)
-                                    item.Tag = new ViewThermalExpansion(te.DeepClone(), cbTemperatureDependent.Checked);
-                                else if (mp is ThermalConductivity tc)
-                                    item.Tag = new ViewThermalConductivity(tc.DeepClone());
-                                else if (mp is SpecificHeat sh)
-                                    item.Tag = new ViewSpecificHeat(sh.DeepClone());
-                                else throw new NotSupportedException();
-                            }
-                            else throw new NotSupportedException();
-                            //
-                            lvAddedProperties.Items.Add(item);
-                            int id = lvAddedProperties.Items.IndexOf(item);
-                            lvAddedProperties.Items[id].Selected = true;
-                            lvAddedProperties.Select();
-                        }
-                    }
-                }
-                tvProperties.SelectedNodes.Clear();
-            }
-            _propertyItemChanged = true;
+     if (hasElastic) conflictingType = "Elastic - Isotropic";
+      else if (hasLamina) conflictingType = "Elastic - Lamina";
+        //
+          MessageBox.Show($"Cannot add Elastic - Engineering Constants when {conflictingType} is already defined.\n\n" +
+   $"Please remove {conflictingType} first. Only ONE elastic material type can be selected.",
+   "Material Property Conflict", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+ continue;
+  }
+else if (mp is Lamina && (hasElastic || hasEngineeringConstants))
+    {
+      if (hasElastic) conflictingType = "Elastic - Isotropic";
+    else if (hasEngineeringConstants) conflictingType = "Elastic - Engineering Constants";
+ //
+     MessageBox.Show($"Cannot add Elastic - Lamina when {conflictingType} is already defined.\n\n" +
+       $"Please remove {conflictingType} first. Only ONE elastic material type can be selected.",
+   "Material Property Conflict", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+    continue;
+      }
+ }
         }
+  //
+ListViewItem item = new ListViewItem(propertyText);
+   if (treeNode.Tag is MaterialProperty mp2)
+    {
+  if (mp2 is Density de)
+       item.Tag = new ViewDensity(de.DeepClone());
+   else if (mp2 is SlipWear sw)
+       item.Tag = new ViewSlipWear(sw.DeepClone());
+  else if (mp2 is Elastic el)
+       item.Tag = new ViewElastic(el.DeepClone());
+ else if (mp2 is EngineeringConstants ec)
+        item.Tag = new ViewEngineeringConstants(ec.DeepClone());
+else if (mp2 is Lamina lam)
+   item.Tag = new ViewLamina(lam.DeepClone());
+      else if (mp2 is Plastic pl)
+ item.Tag = new ViewPlastic(pl.DeepClone());
+    else if (mp2 is ThermalExpansion te)
+     item.Tag = new ViewThermalExpansion(te.DeepClone(), cbTemperatureDependent.Checked);
+     else if (mp2 is ThermalConductivity tc)
+   item.Tag = new ViewThermalConductivity(tc.DeepClone());
+      else if (mp2 is SpecificHeat sh)
+ item.Tag = new ViewSpecificHeat(sh.DeepClone());
+     else throw new NotSupportedException();
+ }
+    else throw new NotSupportedException();
+       //
+    lvAddedProperties.Items.Add(item);
+            int id = lvAddedProperties.Items.IndexOf(item);
+  lvAddedProperties.Items[id].Selected = true;
+ lvAddedProperties.Select();
+       }
+     }
+ }
+  tvProperties.SelectedNodes.Clear();
+ }
+       _propertyItemChanged = true;
+ }
         private void btnMoveUp_Click(object sender, EventArgs e)
         {
             try
@@ -241,6 +289,20 @@ namespace PrePoMax.Forms
                     tcProperties.TabPages.Add(_pages[1]);   // data points
                     //
                     SetDataGridViewBinding(ve.DataPoints);
+                }
+                else if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewEngineeringConstants vec)
+                {
+                    // Engineering Constants only uses Data points tab, not Properties tab
+                   tcProperties.TabPages.Add(_pages[1]);   // data points
+                    //
+                   SetDataGridViewBinding(vec.DataPoints);
+                }
+                else if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewLamina vlam)
+                {
+                   // Lamina only uses Data points tab, not Properties tab
+                     tcProperties.TabPages.Add(_pages[1]);   // data points
+                  //
+                SetDataGridViewBinding(vlam.DataPoints);
                 }
                 else if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewElasticWithDensity)
                 {
@@ -352,26 +414,25 @@ namespace PrePoMax.Forms
             lvAddedProperties.Items.Clear();
             ClearControls();
             SetControlStates();
-            //
-            _materialNames = _controller.GetMaterialNames();
-            _materialToEditName = materialToEditName;
-            this.btnOKAddNew.Visible = _materialToEditName == null; // must be here
-            // Initialize material properties
-            TreeNode node;
-            node = tvProperties.Nodes.Find("Density", true)[0];
-            node.Tag = new Density(new double[][] { new double[] { 0, 0 } });
-            node = tvProperties.Nodes.Find("Slip Wear", true)[0];
-            node.Tag = new SlipWear(0, 0);
-            node = tvProperties.Nodes.Find("Elastic", true)[0];
-            node.Tag = new Elastic(new double[][] { new double[] { 0, 0, 0 } });
-            node = tvProperties.Nodes.Find("Plastic", true)[0];
-            node.Tag = new Plastic(new double[][] { new double[] { 0, 0, 0 } });
-            node = tvProperties.Nodes.Find("Thermal Expansion", true)[0];
-            node.Tag = new ThermalExpansion(new double[][] { new double[] { 0, 0 } });
-            node = tvProperties.Nodes.Find("Thermal Conductivity", true)[0];
-            node.Tag = new ThermalConductivity(new double[][] { new double[] { 0, 0 } });
-            node = tvProperties.Nodes.Find("Specific Heat", true)[0];
-            node.Tag = new SpecificHeat(new double[][] { new double[] { 0, 0 } });
+ //
+    _materialNames = _controller.GetMaterialNames();
+      _materialToEditName = materialToEditName;
+      this.btnOKAddNew.Visible = _materialToEditName == null; // must be here
+  // Initialize material properties
+    TreeNode node;
+      node = tvProperties.Nodes.Find("Density", true)[0];
+   node.Tag = new Density(new double[][] { new double[] { 0, 0 } });
+   node = tvProperties.Nodes.Find("Slip Wear", true)[0];
+ node.Tag = new SlipWear(0, 0);
+    node = tvProperties.Nodes.Find("Elastic - Isotropic", true)[0];
+       node.Tag = new Elastic(new double[][] { new double[] { 0, 0, 0 } });
+     node = tvProperties.Nodes.Find("Elastic - Engineering Constants", true)[0];
+  node.Tag = new EngineeringConstants(new double[][] { new double[] { 0, 0, 0, 0, 0, 0, 0, 0, 0 } });
+    node = tvProperties.Nodes.Find("Elastic - Lamina", true)[0];
+ node.Tag = new Lamina(new double[][] { new double[] { 0, 0, 0, 0, 0, 0, 0 } });
+  node = tvProperties.Nodes.Find("Plastic", true)[0];
+  node.Tag = new Plastic(new double[][] { new double[] { 0, 0, 0 } });
+
             //
             tvProperties.ExpandAll();
             //
@@ -424,25 +485,27 @@ namespace PrePoMax.Forms
         public void ShowMaterial()
         {
             lvAddedProperties.Items.Clear();
-            //
-            tbName.Text = _material.Name;
-            tbDescription.Text = _material.Description;
-            cbTemperatureDependent.Checked = _material.TemperatureDependent;
-            //
-            if (_material.Properties.Count > 0)
-            {
-                ListViewItem item;
-                ViewMaterialProperty view = null;
-                foreach (var property in _material.Properties)
-                {
-                    if (property is Density den) view = new ViewDensity(den);
-                    else if (property is SlipWear sw) view = new ViewSlipWear(sw);
-                    else if (property is Elastic el) view = new ViewElastic(el);
-                    else if (property is ElasticWithDensity ewd)
-                    {
-                        view = new ViewElasticWithDensity(ewd);
-                        _useSimpleEditor = true;
-                    }
+  //
+   tbName.Text = _material.Name;
+  tbDescription.Text = _material.Description;
+ cbTemperatureDependent.Checked = _material.TemperatureDependent;
+ //
+        if (_material.Properties.Count > 0)
+        {
+     ListViewItem item;
+      ViewMaterialProperty view = null;
+  foreach (var property in _material.Properties)
+    {
+    if (property is Density den) view = new ViewDensity(den);
+     else if (property is SlipWear sw) view = new ViewSlipWear(sw);
+    else if (property is Elastic el) view = new ViewElastic(el);
+   else if (property is EngineeringConstants ec) view = new ViewEngineeringConstants(ec);
+      else if (property is Lamina lam) view = new ViewLamina(lam);
+    else if (property is ElasticWithDensity ewd)
+        {
+     view = new ViewElasticWithDensity(ewd);
+  _useSimpleEditor = true;
+ }
                     else if (property is Plastic pl) view = new ViewPlastic(pl);
                     else if (property is ThermalExpansion te)
                         view = new ViewThermalExpansion(te, cbTemperatureDependent.Checked);
@@ -518,27 +581,35 @@ namespace PrePoMax.Forms
             _material.TemperatureDependent = cbTemperatureDependent.Checked;
             //
             ViewMaterialProperty property;
-            MaterialProperty materialProperty;
-            foreach (ListViewItem item in lvAddedProperties.Items)
-            {
-                property = (ViewMaterialProperty)item.Tag;
-                materialProperty = property.GetBase();
-                // Check equations
-                materialProperty.CheckEquations();
-                //
-                if (property is ViewDensity vd)
-                {
-                    for (int i = 0; i < vd.DataPoints.Count; i++)
-                    {
-                        if (vd.DataPoints[i].Density.Value <= 0) throw new CaeException("The density must be larger than 0.");
-                    }
-                }
-                else if (property is ViewElastic ve && ve.GetYoungsModulusValue() <= 0)
-                {
-                    throw new CaeException("The Young's modulus must be larger than 0.");
-                }
-                else if (property is ViewElasticWithDensity ewd)
-                {
+  MaterialProperty materialProperty;
+    foreach (ListViewItem item in lvAddedProperties.Items)
+  {
+     property = (ViewMaterialProperty)item.Tag;
+   materialProperty = property.GetBase();
+     // Check equations
+    materialProperty.CheckEquations();
+//
+     if (property is ViewDensity vd)
+{
+     for (int i = 0; i < vd.DataPoints.Count; i++)
+        {
+    if (vd.DataPoints[i].Density.Value <= 0) throw new CaeException("The density must be larger than 0.");
+   }
+  }
+    else if (property is ViewElastic ve && ve.GetYoungsModulusValue() <= 0)
+ {
+       throw new CaeException("The Young's modulus must be larger than 0.");
+   }
+   else if (property is ViewEngineeringConstants vec && vec.GetE1Value() <= 0)
+     {
+        throw new CaeException("The E1 modulus must be larger than 0.");
+   }
+      else if (property is ViewLamina vlam && vlam.GetE1Value() <= 0)
+  {
+        throw new CaeException("The E1 modulus must be larger than 0.");
+     }
+     else if (property is ViewElasticWithDensity ewd)
+   {
                     if (ewd.GetYoungsModulusValue() <= 0) throw new CaeException("The Young's modulus must be larger than 0.");
                     if (ewd.GetDensityValue() <= 0) throw new CaeException("The density must be larger than 0.");
                 }
@@ -600,6 +671,36 @@ namespace PrePoMax.Forms
                             new StringPressureFromConverter());
             SetGridViewUnit(nameof(ElasticDataPoint.PoissonsRatioEq), noUnit,
                             new StringDoubleConverter());
+            // Engineering Constants
+            SetGridViewUnit(nameof(EngineeringConstantsDataPoint.E1Eq), _controller.Model.UnitSystem.PressureUnitAbbreviation,
+                            new StringPressureFromConverter());
+            SetGridViewUnit(nameof(EngineeringConstantsDataPoint.E2Eq), _controller.Model.UnitSystem.PressureUnitAbbreviation,
+                            new StringPressureFromConverter());
+            SetGridViewUnit(nameof(EngineeringConstantsDataPoint.E3Eq), _controller.Model.UnitSystem.PressureUnitAbbreviation,
+                            new StringPressureFromConverter());
+            SetGridViewUnit(nameof(EngineeringConstantsDataPoint.Nu12Eq), noUnit,
+                            new StringDoubleConverter());
+            SetGridViewUnit(nameof(EngineeringConstantsDataPoint.Nu13Eq), noUnit,
+                            new StringDoubleConverter());
+            SetGridViewUnit(nameof(EngineeringConstantsDataPoint.G12Eq), _controller.Model.UnitSystem.PressureUnitAbbreviation,
+                            new StringPressureFromConverter());
+            SetGridViewUnit(nameof(EngineeringConstantsDataPoint.G13Eq), _controller.Model.UnitSystem.PressureUnitAbbreviation,
+                            new StringPressureFromConverter());
+            SetGridViewUnit(nameof(EngineeringConstantsDataPoint.G23Eq), _controller.Model.UnitSystem.PressureUnitAbbreviation,
+                            new StringPressureFromConverter());
+            // Lamina
+            SetGridViewUnit(nameof(LaminaDataPoint.E1Eq), _controller.Model.UnitSystem.PressureUnitAbbreviation,
+                            new StringPressureFromConverter());
+            SetGridViewUnit(nameof(LaminaDataPoint.E2Eq), _controller.Model.UnitSystem.PressureUnitAbbreviation,
+                            new StringPressureFromConverter());
+            SetGridViewUnit(nameof(LaminaDataPoint.Nu12Eq), noUnit,
+                            new StringDoubleConverter());
+            SetGridViewUnit(nameof(LaminaDataPoint.G12Eq), _controller.Model.UnitSystem.PressureUnitAbbreviation,
+                            new StringPressureFromConverter());
+            SetGridViewUnit(nameof(LaminaDataPoint.G13Eq), _controller.Model.UnitSystem.PressureUnitAbbreviation,
+                            new StringPressureFromConverter());
+            SetGridViewUnit(nameof(LaminaDataPoint.G23Eq), _controller.Model.UnitSystem.PressureUnitAbbreviation,
+                            new StringPressureFromConverter());
             // Plastic
             SetGridViewUnit(nameof(PlasticDataPoint.StressEq), _controller.Model.UnitSystem.PressureUnitAbbreviation,
                             new StringPressureFromConverter());
@@ -651,41 +752,47 @@ namespace PrePoMax.Forms
         private void HideShowTemperature()
         {
             if (lvAddedProperties.PossiblySelectedItems.Count > 0)
-            {
-                if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewDensity ||
-                    lvAddedProperties.PossiblySelectedItems[0].Tag is ViewElastic ||
-                    lvAddedProperties.PossiblySelectedItems[0].Tag is ViewThermalConductivity ||
-                    lvAddedProperties.PossiblySelectedItems[0].Tag is ViewSpecificHeat)
-                {
-                    tcProperties.TabPages.Clear();
-                    // Properites
-                    if (!cbTemperatureDependent.Checked) tcProperties.TabPages.Add(_pages[0]);
-                    // Data points
-                    if (cbTemperatureDependent.Checked) tcProperties.TabPages.Add(_pages[1]);
-                }
-                else if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewThermalExpansion vte)
-                {
-                    tcProperties.TabPages.Clear();
-                    // Properites
-                    tcProperties.TabPages.Add(_pages[0]);
-                    // Data points
-                    if (cbTemperatureDependent.Checked) tcProperties.TabPages.Add(_pages[1]);
+        {
+       if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewDensity ||
+            lvAddedProperties.PossiblySelectedItems[0].Tag is ViewElastic ||
+ lvAddedProperties.PossiblySelectedItems[0].Tag is ViewThermalConductivity ||
+         lvAddedProperties.PossiblySelectedItems[0].Tag is ViewSpecificHeat)
+    {
+             tcProperties.TabPages.Clear();
+     // Properties
+              if (!cbTemperatureDependent.Checked) tcProperties.TabPages.Add(_pages[0]);
+             // Data points
+           if (cbTemperatureDependent.Checked) tcProperties.TabPages.Add(_pages[1]);
+       }
+         else if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewEngineeringConstants ||
+       lvAddedProperties.PossiblySelectedItems[0].Tag is ViewLamina)
+    {
+        tcProperties.TabPages.Clear();
+  // For Engineering Constants and Lamina, always show Data points tab
+   // They don't have simple properties, only tabular data
+     tcProperties.TabPages.Add(_pages[1]);   // data points
+         }
+     else if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewThermalExpansion vte)
+  {
+      tcProperties.TabPages.Clear();
+     // Properties
+tcProperties.TabPages.Add(_pages[0]);
+          // Data points
+              if (cbTemperatureDependent.Checked) tcProperties.TabPages.Add(_pages[1]);
                     //
-                    vte.SetTemperatureDependence(cbTemperatureDependent.Checked);
-                    propertyGrid.Refresh();
-                }
-                else if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewSlipWear)
-                {
-                    tcProperties.TabPages.Clear();
-                    tcProperties.TabPages.Add(_pages[0]);
-                }
+       vte.SetTemperatureDependence(cbTemperatureDependent.Checked);
+  propertyGrid.Refresh();
+    }
+       else if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewSlipWear)
+ {
+       tcProperties.TabPages.Clear();
+        tcProperties.TabPages.Add(_pages[0]);
+       }
             }
-            //
-            string temperatureName = nameof(TempDataPoint.TemperatureEq);
-            DataGridViewColumn col = dgvData.Columns[temperatureName];
-            if (col != null) col.Visible = cbTemperatureDependent.Checked;
+       //
+string temperatureName = nameof(TempDataPoint.TemperatureEq);
+      DataGridViewColumn col = dgvData.Columns[temperatureName];
+          if (col != null) col.Visible = cbTemperatureDependent.Checked;
         }
-
-        
     }
 }
