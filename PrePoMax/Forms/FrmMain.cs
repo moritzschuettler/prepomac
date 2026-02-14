@@ -83,6 +83,7 @@ namespace PrePoMax
         private FrmMaterial _frmMaterial;
         private FrmSection _frmSection;
         private FrmCompositeLayup _frmCompositeLayup;
+        private FrmCreateCompositeLayup _frmCreateCompositeLayup;
         private FrmConstraint _frmConstraint;
         private FrmSurfaceInteraction _frmSurfaceInteraction;
         private FrmContactPair _frmContactPair;
@@ -439,6 +440,9 @@ namespace PrePoMax
                 //
                 _frmCompositeLayup = new FrmCompositeLayup(_controller);
                 AddFormToAllForms(_frmCompositeLayup);
+                //
+                _frmCreateCompositeLayup = new FrmCreateCompositeLayup(_controller);
+                AddFormToAllForms(_frmCreateCompositeLayup);
                 //
                 _frmConstraint = new FrmConstraint(_controller);
                 AddFormToAllForms(_frmConstraint);
@@ -5369,7 +5373,15 @@ namespace PrePoMax
         //
         private void CreateCompositeLayup()
         {
-            ShowForm(_frmCompositeLayup, "Create Composite Layup", null);
+            // Set up the callback to open edit form after creation
+            _frmCreateCompositeLayup.SetOnContinueAction((compositeLayup) =>
+            {
+                // Prepare the edit form with the new composite layup
+                _frmCompositeLayup.PrepareFormForNewLayup(compositeLayup);
+                SetFormLocation(_frmCompositeLayup);
+                _frmCompositeLayup.Show();
+            });
+            ShowForm(_frmCreateCompositeLayup, "Create Composite Layup", null);
         }
         private void EditCompositeLayup(string compositeLayupName)
         {

@@ -52,6 +52,7 @@
     <Compile Include="Amplitudes\Amplitude.cs" />
     <Compile Include="Amplitudes\AmplitudeTabular.cs" />
     <Compile Include="Composite\CompositeLayup.cs" />
+    <Compile Include="Composite\Ply.cs" />
     <Compile Include="Constraints\PointSpringData.cs" />
     <Compile Include="Constraints\SpringConstraint.cs" />
     <Compile Include="Constraints\SurfaceSpring.cs" />
