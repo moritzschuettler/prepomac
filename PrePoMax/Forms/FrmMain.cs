@@ -989,6 +989,7 @@ namespace PrePoMax
                 else if (nodeName == _modelTree.ModelCoordinateSystemsName) tsmiCreateModelCoordinateSystem_Click(null, null);
                 else if (nodeName == _modelTree.MaterialsName) tsmiCreateMaterial_Click(null, null);
                 else if (nodeName == _modelTree.SectionsName) tsmiCreateSection_Click(null, null);
+                else if (nodeName == _modelTree.CompositeLayupsName) tsmiCreateCompositeLayup_Click(null, null);
                 else if (nodeName == _modelTree.ConstraintsName) tsmiCreateConstraint_Click(null, null);
                 else if (nodeName == _modelTree.SurfaceInteractionsName) tsmiCreateSurfaceInteraction_Click(null, null);
                 else if (nodeName == _modelTree.ContactPairsName) tsmiCreateContactPair_Click(null, null);
@@ -1035,6 +1036,7 @@ namespace PrePoMax
                 else if (namedClass is CoordinateSystem) EditModelCoordinateSystem(namedClass.Name);
                 else if (namedClass is Material) EditMaterial(namedClass.Name);
                 else if (namedClass is Section) EditSection(namedClass.Name);
+                else if (namedClass is CompositeLayup) EditCompositeLayup(namedClass.Name);
                 else if (namedClass is CaeModel.Constraint) EditConstraint(namedClass.Name);
                 else if (namedClass is SurfaceInteraction) EditSurfaceInteraction(namedClass.Name);
                 else if (namedClass is ContactPair) EditContactPair(namedClass.Name);
@@ -1085,6 +1087,7 @@ namespace PrePoMax
                 //
                 ApplyActionOnItems<Material>(items, DuplicateMaterials);
                 ApplyActionOnItems<Section>(items, DuplicateSections);
+                ApplyActionOnItems<CompositeLayup>(items, DuplicateCompositeLayups);
                 ApplyActionOnItems<CaeModel.Constraint>(items, DuplicateConstraints);
                 ApplyActionOnItems<SurfaceInteraction>(items, DuplicateSurfaceInteractions);
                 ApplyActionOnItems<ContactPair>(items, DuplicateContactPairs);
@@ -1249,6 +1252,7 @@ namespace PrePoMax
                 ApplyActionOnItems<CoordinateSystem>(items, DeleteModelCoordinateSystems);
                 ApplyActionOnItems<Material>(items, DeleteMaterials);
                 ApplyActionOnItems<Section>(items, DeleteSections);
+                ApplyActionOnItems<CompositeLayup>(items, DeleteCompositeLayups);
                 ApplyActionOnItems<CaeModel.Constraint>(items, DeleteConstraints);
                 ApplyActionOnItems<SurfaceInteraction>(items, DeleteSurfaceInteractions);
                 ApplyActionOnItems<ContactPair>(items, DeleteContactPairs);

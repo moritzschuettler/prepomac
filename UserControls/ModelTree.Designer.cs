@@ -66,6 +66,7 @@
             treeNode18});
             System.Windows.Forms.TreeNode treeNode20 = new System.Windows.Forms.TreeNode("Materials");
             System.Windows.Forms.TreeNode treeNode21 = new System.Windows.Forms.TreeNode("Sections");
+            System.Windows.Forms.TreeNode treeNode21b = new System.Windows.Forms.TreeNode("Composite Layups");
             System.Windows.Forms.TreeNode treeNode22 = new System.Windows.Forms.TreeNode("Constraints");
             System.Windows.Forms.TreeNode treeNode23 = new System.Windows.Forms.TreeNode("Surface Interactions");
             System.Windows.Forms.TreeNode treeNode24 = new System.Windows.Forms.TreeNode("Contact Pairs");
@@ -81,6 +82,7 @@
             treeNode19,
             treeNode20,
             treeNode21,
+            treeNode21b,
             treeNode22,
             treeNode25,
             treeNode26,
@@ -868,6 +870,11 @@
             treeNode21.SelectedImageKey = "Section.ico";
             treeNode21.Text = "Sections";
             treeNode21.ToolTipText = "Sections";
+            treeNode21b.ImageKey = "Section.ico";
+            treeNode21b.Name = "Composite Layups";
+            treeNode21b.SelectedImageKey = "Section.ico";
+            treeNode21b.Text = "Composite Layups";
+            treeNode21b.ToolTipText = "Composite Layups";
             treeNode22.ImageKey = "Constraints.ico";
             treeNode22.Name = "Constraints";
             treeNode22.SelectedImageKey = "Constraints.ico";
