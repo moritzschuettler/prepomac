@@ -134,12 +134,6 @@ namespace PrePoMax.Forms
             _scaleParameters.Clear();
             // Disable selection
             _controller.SetSelectByToOff();
-            // Get center point grid item
-            GridItem gi = propertyGrid.EnumerateAllItems().First((item) =>
-                          item.PropertyDescriptor != null &&
-                          item.PropertyDescriptor.Name == nameof(_scaleParameters.ScaleOnly));
-            // Select it
-            gi.Select();
             //
             propertyGrid.Refresh();
             //

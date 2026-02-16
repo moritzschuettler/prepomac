@@ -35,7 +35,7 @@ namespace PrePoMax.Commands
         }
         public override string GetCommandString()
         {
-            string nodeIds = "empty selection";
+            string nodeIds = "all nodes";
             if (_mergeCoincidentNodes.GeometryIds != null) nodeIds = _mergeCoincidentNodes.GeometryIds.ToShortString(10);
             //
             return base.GetCommandString() + nodeIds;

@@ -52,55 +52,55 @@ namespace PrePoMax.Forms
                 {
                     switch (lvQueries.SelectedItem.Text)
                     {
-                        case ("Vertex/Node"):
-                            _controller.SelectBy = vtkSelectBy.QueryNode;
+                        case "Vertex/Node":
+                            _controller.SelectBy = vtkSelectBy.Node;
                             _controller.Selection.SelectItem = vtkSelectItem.Node;
                             _numOfNodesToSelect = 1;
                             break;
-                        case ("Facet/Element"):
-                            _controller.SelectBy = vtkSelectBy.QueryElement;
+                        case "Facet/Element":
+                            _controller.SelectBy = vtkSelectBy.Element;
                             _controller.Selection.SelectItem = vtkSelectItem.Element;
                             _numOfNodesToSelect = -1;
                             break;
-                        case ("Edge"):
-                            _controller.SelectBy = vtkSelectBy.QueryEdge;
+                        case "Edge":
+                            _controller.SelectBy = vtkSelectBy.GeometryEdge;
                             _controller.Selection.SelectItem = vtkSelectItem.GeometryEdge;
                             _numOfNodesToSelect = -1;
                             break;
-                        case ("Surface"):
-                            _controller.SelectBy = vtkSelectBy.QuerySurface;
-                            _controller.Selection.SelectItem = vtkSelectItem.Surface;
+                        case "Surface":
+                            _controller.SelectBy = vtkSelectBy.GeometrySurface;
+                            _controller.Selection.SelectItem = vtkSelectItem.GeometrySurface;
                             _numOfNodesToSelect = -1;
                             break;
-                        case ("Part"):
-                            _controller.SelectBy = vtkSelectBy.QueryPart;
+                        case "Part":
+                            _controller.SelectBy = vtkSelectBy.Part;
                             _controller.Selection.SelectItem = vtkSelectItem.Part;
                             _numOfNodesToSelect = -1;
                             break;
-                        case ("Assembly"):
+                        case "Assembly":
                             _controller.SelectBy = vtkSelectBy.Default;
                             _controller.Selection.SelectItem = vtkSelectItem.None;
                             OutputAssemblyData();
                             _numOfNodesToSelect = -1;
                             break;
-                        case ("Bounding box size"):
+                        case "Bounding box size":
                             _controller.SelectBy = vtkSelectBy.Default;
                             _controller.Selection.SelectItem = vtkSelectItem.None;
                             OutputBoundingBox();
                             _numOfNodesToSelect = -1;
                             break;
-                        case ("Distance"):
-                            _controller.SelectBy = vtkSelectBy.QueryNode;
+                        case "Distance":
+                            _controller.SelectBy = vtkSelectBy.Node;
                             _controller.Selection.SelectItem = vtkSelectItem.Node;
                             _numOfNodesToSelect = 2;
                             break;
-                        case ("Angle"):
-                            _controller.SelectBy = vtkSelectBy.QueryNode;
+                        case "Angle":
+                            _controller.SelectBy = vtkSelectBy.Node;
                             _controller.Selection.SelectItem = vtkSelectItem.Node;
                             _numOfNodesToSelect = 3;
                             break;
-                        case ("Circle"):
-                            _controller.SelectBy = vtkSelectBy.QueryNode;
+                        case "Circle":
+                            _controller.SelectBy = vtkSelectBy.Node;
                             _controller.Selection.SelectItem = vtkSelectItem.Node;
                             _numOfNodesToSelect = 3;
                             break;
@@ -142,6 +142,8 @@ namespace PrePoMax.Forms
                 if (lvQueries.SelectedItem == null) lvQueries.Items[0].Selected = true;
                 if (lvQueries.SelectedItem != null) lvQueries.SelectedItem.Selected = true;
                 lvQueries.Focus();
+                //
+                _controller.SetQuerySelection(true);
             }
             // The form was hidden 
             else
@@ -150,6 +152,8 @@ namespace PrePoMax.Forms
                 // Clear
                 RemoveMeasureAnnotation();
                 _controller.ClearSelectionHistoryAndCallSelectionChanged();
+                //
+                _controller.SetQuerySelection(false);
             }                
         }
 
@@ -173,20 +177,20 @@ namespace PrePoMax.Forms
                 //
                 if (ids == null || ids.Length == 0) return;
                 //
-                if (_controller.SelectBy == vtkSelectBy.QueryElement && ids.Length == 1) OneElementPicked(ids[0]);
-                else if (_controller.SelectBy == vtkSelectBy.QueryEdge && ids.Length == 1) OneEdgePicked(ids[0]);
-                else if (_controller.SelectBy == vtkSelectBy.QuerySurface)
+                if (_controller.SelectItem == vtkSelectItem.Element && ids.Length == 1) OneElementPicked(ids[0]);
+                else if (_controller.SelectItem == vtkSelectItem.GeometryEdge && ids.Length == 1) OneEdgePicked(ids[0]);
+                else if (_controller.SelectItem == vtkSelectItem.GeometrySurface)
                 {
                     SelectionNodeMouse selectionNodeMouse = _controller.Selection.Nodes[0] as SelectionNodeMouse;
                     if (selectionNodeMouse != null)
                     {
                         // Clear - to remove this mouseSelectionNode from the history which is used for speed optimization
                         _controller.Selection.Clear();  
-                        ids = _controller.GetIdsFromSelectionNodeMouse(selectionNodeMouse, true);
+                        ids = _controller.GetIdsFromSelectionNodeMouse(selectionNodeMouse);
                         OneSurfacePicked(ids[0]);
                     }
                 }
-                else if (_controller.SelectBy == vtkSelectBy.QueryPart && ids.Length == 1) OnePartPicked(ids[0]);
+                else if (_controller.SelectBy == vtkSelectBy.Part && ids.Length == 1) OnePartPicked(ids[0]);
                 else if (ids.Length == _numOfNodesToSelect)
                 {
                     // One node

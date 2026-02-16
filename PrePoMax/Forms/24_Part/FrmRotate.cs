@@ -127,12 +127,6 @@ namespace PrePoMax.Forms
             _rotateParameters.Clear();
             // Disable selection
             _controller.SetSelectByToOff();
-            // Get start point grid item
-            GridItem gi = propertyGrid.EnumerateAllItems().First((item) =>
-                          item.PropertyDescriptor != null &&
-                          item.PropertyDescriptor.Name == nameof(_rotateParameters.Rotate));
-            // Select it
-            gi.Select();
             //
             propertyGrid.Refresh();
             //

@@ -191,12 +191,6 @@ namespace PrePoMax.Forms
             _controller.SetSelectByToOff();
             //
             _sectionViewParameters.Clear();
-            // Get start point grid item
-            GridItem gi = propertyGrid.EnumerateAllItems().First((item) =>
-                          item.PropertyDescriptor != null &&
-                          item.PropertyDescriptor.Name == nameof(_sectionViewParameters.PointItemSet));
-            // Select it
-            gi.Select();
             //
             propertyGrid.Refresh();
             //

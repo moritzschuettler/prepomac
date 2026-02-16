@@ -20,7 +20,7 @@ namespace CaeGlobals
         EdgeAngle,
         SurfaceAngle,
         Part,
-        // Geometry
+        // Geometry based
         Geometry,
         GeometryVertex,
         GeometryEdge,
@@ -28,13 +28,8 @@ namespace CaeGlobals
         GeometryEdgeAngle,
         GeometrySurfaceAngle,
         GeometryPart,
-        // Query
-        QueryNode,
-        QueryElement,
-        QueryEdge,
-        QuerySurface,
-        QueryPart,
         //
         Widget
     }
+    // Has extension: IsGeometryBased
 }

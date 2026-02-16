@@ -18,6 +18,7 @@ namespace CaeGlobals
         Geometry = 5,           // geometryIds
         Part = 6,               // partIds
         //
+        GeometryVertex = 9,     // geometryVertexIds
         GeometrySurface = 10,   // geometrySurfaceIds
     }
 }

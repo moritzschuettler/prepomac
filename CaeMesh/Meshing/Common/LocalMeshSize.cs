@@ -54,8 +54,8 @@ namespace CaeMesh
             CopyFrom(localMeshSize);
             //
             _type = localMeshSize.Type;
-            _meshSize = localMeshSize.MeshSize;
-            _numOfElements = localMeshSize.NumOfElements;
+            _meshSize = localMeshSize._meshSize;
+            _numOfElements = localMeshSize._numOfElements;
         }
         public LocalMeshSize(FeMeshRefinement meshRefinement)
             : this("tmpName")
@@ -96,6 +96,47 @@ namespace CaeMesh
             _meshSize = 1;
             _numOfElements = 2;
         }
+        public int GetNumberOfElements(double edgeLength, double minH, double maxH)
+        {
+            if (_type == LocalMeshSizeTypeEnum.ElementSize)
+            {
+                double size = _meshSize;
+                if (size < minH) size = minH;
+                else if (size > maxH) size = maxH;
+                //
+                int numElements = (int)Math.Round(edgeLength / size, 0, MidpointRounding.AwayFromZero);
+                if (numElements < 1) numElements = 1;
+                return numElements;
+            }
+            else if (_type == LocalMeshSizeTypeEnum.NumberOfElements)
+            {
+                int minNumElements = (int)Math.Round(edgeLength / maxH, 0, MidpointRounding.AwayFromZero);
+                int maxNumElements = (int)Math.Round(edgeLength / minH, 0, MidpointRounding.AwayFromZero);
+                if (minNumElements < 1) minNumElements = 1;
+                //
+                if (_numOfElements < minNumElements) return minNumElements;
+                else if (_numOfElements > maxNumElements) return maxNumElements;
+                else return _numOfElements;
+            }
+            else throw new NotSupportedException();
+        }
+        public double GetMeshSize(double edgeLength, double minH, double maxH)
+        {
+            if (_type == LocalMeshSizeTypeEnum.ElementSize)
+            {
+                if (_meshSize < minH) return minH;
+                else if (_meshSize > maxH) return maxH;
+                else return _meshSize;
+            }
+            else if (_type == LocalMeshSizeTypeEnum.NumberOfElements)
+            {
+                double size = edgeLength / _numOfElements;
+                if (size < minH) return minH;
+                else if (size > maxH) return maxH;
+                else return size;
+            }
+            else throw new NotSupportedException();
+        }
         public LocalMeshSize DeepCopy()
         {
             return new LocalMeshSize(this);
@@ -107,7 +148,7 @@ namespace CaeMesh
             // Using typeof() works also for null fields
             info.AddValue("_type", _type, typeof(LocalMeshSizeTypeEnum));
             info.AddValue("_meshSize", _meshSize, typeof(double));
-            info.AddValue("_elementsPerEdge", _numOfElements, typeof(int));
+            info.AddValue("_numOfElements", _numOfElements, typeof(int));
         }
     }
 }

@@ -194,11 +194,6 @@ namespace PrePoMax.Forms
             //
             propertyGrid.SelectedObject = _viewSplitPartMeshData;
             propertyGrid.Focus();
-            // Get start point grid item and select it
-            GridItem gi = propertyGrid.EnumerateAllItems().First((item) =>
-                          item.PropertyDescriptor != null &&
-                          item.PropertyDescriptor.Name == nameof(_viewSplitPartMeshData.MasterRegionType));
-            gi.Select();
             //
             ShowHideSelectionForm();
             //

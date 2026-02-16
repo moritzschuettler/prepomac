@@ -1,12 +1,13 @@
-﻿using System;
+﻿using CaeGlobals;
+using CaeMesh;
+using CaeModel;
+using CaeResults;
+using PrePoMax;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using PrePoMax;
-using CaeModel;
-using CaeGlobals;
-using CaeResults;
 
 namespace PrePoMax.Commands
 {
@@ -15,6 +16,14 @@ namespace PrePoMax.Commands
     {
         // Variables                                                                                                                
         private ResultHistoryOutput _resultHistoryOutput;
+        
+        
+        // Properties                                                                                                               
+        public ResultHistoryOutput ResultHistoryOutput
+        {
+            get { return _resultHistoryOutput; }
+            set { _resultHistoryOutput = value; }
+        }
 
 
         // Constructor                                                                                                              

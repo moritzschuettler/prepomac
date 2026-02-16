@@ -117,8 +117,8 @@ namespace PrePoMax.Forms
             }
             //
             Dictionary<int, int> oldIdNewId = _controller.GetCoincidentNodeMap(vmcn);
-            if (oldIdNewId.Count == 0)
-                throw new CaeException("There are no coincident nodes in the current selection.");
+            //if (oldIdNewId.Count == 0)
+            //    throw new CaeException("There are no coincident nodes in the current selection.");
             // Create
             _controller.MergeCoincidentNodesCommand(vmcn);
             //

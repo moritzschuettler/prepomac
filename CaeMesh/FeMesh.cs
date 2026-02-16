@@ -1357,29 +1357,6 @@ namespace CaeMesh
         {
             part.Visualization.ExtractVisualizationCellsFromElements2D(_elements, part.Labels);
             //
-            //ExtractEdgesFromShellByAngle(part, 0.01);  // extracts free and error elements
-            //HashSet<int> vertexNodeIds = ExtractVerticesFromEdgesByAngle(part, edgeAngle);
-            //SplitVisualizationEdgesAndFaces(part, vertexNodeIds);
-            ////
-            //int edgeId;
-            //int edgeCellId;
-            //List<int[]> flatFaceEdgeNodes = new List<int[]>();
-            //for (int i = 0; i < part.Visualization.FaceCount; i++)
-            //{
-            //    if (part.Visualization.CellIdsByFace[i].Length > 2)
-            //    {
-            //        for (int j = 0; j < part.Visualization.FaceEdgeIds[i].Length; j++)
-            //        {
-            //            edgeId = part.Visualization.FaceEdgeIds[i][j];
-            //            for (int k = 0; k < part.Visualization.EdgeCellIdsByEdge[edgeId].Length; k++)
-            //            {
-            //                edgeCellId = part.Visualization.EdgeCellIdsByEdge[edgeId][k];
-            //                flatFaceEdgeNodes.Add(part.Visualization.EdgeCells[edgeCellId]);
-            //            }
-            //        }
-            //    }
-            //}
-            //
             ExtractEdgesFromShellByAngle(part, edgeAngle);  // extracts free and error elements
             //
             HashSet<int> vertexNodeIds = ExtractVerticesFromEdgesByAngle(part, edgeAngle);            
@@ -1418,19 +1395,12 @@ namespace CaeMesh
                 count++;
             }
             //
-            part.Visualization.CellIds = visualizationCellsIds;
-            part.Visualization.Cells = visualizationCells;
+            part.Visualization.SetCellsAndCellIds(visualizationCells, visualizationCellsIds);
             // Model edges
             part.Visualization.EdgeCells = edgeCells;
             HashSet<int> vertexNodeIds = ExtractVerticesFromEdgesByAngle(part, edgeAngle, true);
             //
             SplitVisualizationEdgesAndFaces(part, vertexNodeIds);
-            //
-            //int[] nodeIds = vertexNodeIds.ToArray();
-            //int[][] modelPoints = new int[nodeIds.Length][];
-            //for (int i = 0; i < nodeIds.Length; i++) modelPoints[i] = new int[] { nodeIds[i] };
-            // Overwrite edges
-            //part.Visualization.EdgeCells = modelPoints;
         }
         private void ExtractEdgesFromShellByAngle(BasePart part, double angle, List<int[]> flatFaceEdgeNodes = null)
         {
@@ -3564,6 +3534,13 @@ namespace CaeMesh
             HashSet<int> partIds = new HashSet<int>();
             foreach (var elementId in elementIds) partIds.Add(_elements[elementId].PartId);
             return partIds.ToArray();
+        }
+        public int[] GetPartGeometryIdsFromPartIds(IEnumerable<int> partIds)
+        {
+            HashSet<int> partGeometryIds = new HashSet<int>();
+            foreach (var partId in partIds)
+                partGeometryIds.Add(GetGeometryId(0, (int)GeometryType.Part, partId));
+            return partGeometryIds.ToArray();
         }
         public string[] GetPartNamesFromElementIds(int[] elementIds)
         {
@@ -5849,9 +5826,11 @@ namespace CaeMesh
                 }
                 else if (edgeDistance < faceDelta)
                 {
-                    // Shell edge can be a shell edge surface
-                    if (_elements[elementId] is FeElement2D) typeId = (int)GeometryType.ShellEdgeSurface;
-                    else typeId = (int)GeometryType.Edge;
+                    if (part.PartType == PartType.Shell)
+                        typeId = (int)GeometryType.ShellEdgeSurface;
+                    else if (part.PartType == PartType.SolidAsShell || part.PartType == PartType.Solid)
+                        typeId = (int)GeometryType.Edge;
+                    else throw new NotSupportedException();
                     //
                     itemId = edgeId;
                 }
@@ -6477,7 +6456,7 @@ namespace CaeMesh
             return GetElementIdsFromNodeIds(nodeIds, containsEdge, containsFace, false, itemTypePartIds[2]);
         }
         // Get node, edge or triangle coordinates for mesh refinement for Netgen
-        public void GetVertexAndEdgeCoorFromGeometryIds(int[] ids, double meshSize, int numOfElements, bool edgeRepresentation,
+        public void GetVertexAndEdgeCoorFromGeometryIds(int[] ids, double meshSize, bool edgeRepresentation,
                                                         out double[][] points, out double[][][] lines)
         {
             int[][] cells = GetCellsFromGeometryIds(ids, edgeRepresentation);
@@ -6921,10 +6900,18 @@ namespace CaeMesh
             int itemId = geometryId / _typeDigits;
             return new int[] { itemId, typeId, partId };
         }
+        public static int GetTypeIdFromGeometryId(int geometryId)
+        {
+            // geometryId = itemId * 100000 + typeId * 10000 + partId;
+            //int partId = geometryId % _partDigits;
+            int typeId = (geometryId / 10000) % 10;     // GeometryType
+            //int itemId = geometryId / _typeDigits;
+            return typeId;
+        }
         public static int GetItemIdFromGeometryId(int geometryId)
         {
             // geometryId = itemId * 100000 + typeId * 10000 + partId;
-            int partId = geometryId % _partDigits;
+            //int partId = geometryId % _partDigits;
             //int typeId = (geometryId / 10000) % 10;     // GeometryType
             int itemId = geometryId / _typeDigits;
             return itemId;
@@ -6932,7 +6919,7 @@ namespace CaeMesh
         public static int GetGeometryPartIdFromGeometryId(int geometryId)
         {
             int[] itemTypePartIds = GetItemTypePartIdsFromGeometryId(geometryId);
-            return GetGeometryId(itemTypePartIds[0], (int)GeometryType.Part, itemTypePartIds[2]);
+            return GetGeometryId(0, (int)GeometryType.Part, itemTypePartIds[2]);
         }
         public static int GetGeometryId(int itemId, int typeId, int partId)
         {
@@ -9854,7 +9841,6 @@ namespace CaeMesh
                 part = _parts[partName];
                 edgeElements = new List<FeElement1D>(GetLineElementsFromEdges(part));
                 vertexNodeIds = new HashSet<int>(part.Visualization.VertexNodeIds);
-                part.Visualization = new VisualizationData();   // must be here
                 // Extract visualization
                 ExtractPartVisualization(part, part is GeometryPart gp && gp.IsCADPart, Globals.EdgeAngle);
                 // Keep existing edges
@@ -10397,7 +10383,6 @@ namespace CaeMesh
                     Array.Sort(part.Labels);
                     //
                     part.AddElementTypes(newElementTypes.ToArray());
-                    part.Visualization = new VisualizationData();
                     part.Visualization.ExtractVisualizationCellsFromElements3D(_elements, part.Labels);
                     // This creates part.Visualization.CellNeighboursOverCellEdge;
                     ExtractEdgesFromShellByAngle(part, -1);

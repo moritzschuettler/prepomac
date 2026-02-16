@@ -187,11 +187,6 @@ namespace PrePoMax.Forms
             //
             propertyGrid.SelectedObject = _viewRemeshingParameters;
             propertyGrid.Focus();
-            // Get start point grid item and select it
-            GridItem gi = propertyGrid.EnumerateAllItems().First((item) =>
-                          item.PropertyDescriptor != null &&
-                          item.PropertyDescriptor.Name == nameof(_viewRemeshingParameters.RegionType));
-            gi.Select();
             //
             ShowHideSelectionForm();
             //

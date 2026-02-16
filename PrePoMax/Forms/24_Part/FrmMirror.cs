@@ -127,12 +127,6 @@ namespace PrePoMax.Forms
             _mirrorParameters.Clear();
             // Disable selection
             _controller.SetSelectByToOff();
-            // Get start point grid item
-            GridItem gi = propertyGrid.EnumerateAllItems().First((item) =>
-                          item.PropertyDescriptor != null &&
-                          item.PropertyDescriptor.Name == nameof(_mirrorParameters.MirrorOnly));
-            // Select it
-            gi.Select();
             //
             propertyGrid.Refresh();
             //

@@ -96,8 +96,9 @@ namespace vtkControl
         private SectionViewData _sectionViewData;
         private object myLock = new object();
         // Selection
-        private vtkSelectItem _selectItem;
+        private bool _querySelectionInProgress;
         private vtkSelectBy _selectBy;
+        private vtkSelectItem _selectItem;
         private vtkPropPicker _propPicker;
         private vtkPointPicker _pointPicker;
         private vtkCellPicker _cellPicker;
@@ -153,6 +154,15 @@ namespace vtkControl
                 }
             }
         }
+        public bool QuerySelectionInProgress
+        {
+            get { return _querySelectionInProgress; }
+            set
+            {
+                _querySelectionInProgress = value;
+                _style.SelectionBoxEnabled = !value;
+            }
+        }
         public vtkSelectBy SelectBy
         {
             get { return _selectBy; }
@@ -177,6 +187,7 @@ namespace vtkControl
                         case vtkSelectBy.Geometry:
                         case vtkSelectBy.GeometryPart:
                             _style.SelectionBoxEnabled = true;
+                            if (_querySelectionInProgress) _style.SelectionBoxEnabled = false;
                             break;
                         // Mesh based
                         case vtkSelectBy.Id:
@@ -190,12 +201,6 @@ namespace vtkControl
                         case vtkSelectBy.GeometrySurface:
                         case vtkSelectBy.GeometryEdgeAngle:
                         case vtkSelectBy.GeometrySurfaceAngle:
-                        // Query
-                        case vtkSelectBy.QueryNode:
-                        case vtkSelectBy.QueryElement:
-                        case vtkSelectBy.QueryEdge:
-                        case vtkSelectBy.QuerySurface:
-                        case vtkSelectBy.QueryPart:
                             _style.SelectionBoxEnabled = false;
                             break;
                         // Widget
@@ -416,8 +421,10 @@ namespace vtkControl
         }
         private void Style_PointPickedOnMouseMoveEvt(int x1, int y1, bool boxSelection, int x2, int y2)
         {
+            bool userPick = _userPick;
             try
             {
+                _userPick = true;
                 // Off
                 if (_probeWidget == null || _selectBy == vtkSelectBy.Off) return;
                 else if (_selectBy == vtkSelectBy.Widget) return;
@@ -453,10 +460,10 @@ namespace vtkControl
                         case vtkSelectBy.Id:
                             break;
                         case vtkSelectBy.Node:
-                            PickByNode(out pickedActor, x1, y1, false);
+                            PickByNode(out pickedActor, x1, y1, _querySelectionInProgress);
                             break;
                         case vtkSelectBy.Element:
-                            PickByCell(out pickedActor, x1, y1, false);
+                            PickByCell(out pickedActor, x1, y1, _querySelectionInProgress);
                             break;
                         case vtkSelectBy.Edge:
                             PickByEdge(out pickedActor, x1, y1, false);
@@ -471,7 +478,7 @@ namespace vtkControl
                             PickBySurfaceAngle(out pickedActor, x1, y1);
                             break;
                         case vtkSelectBy.Part:
-                            PickByActor(out pickedActor, x1, y1, false);
+                            PickByActor(out pickedActor, x1, y1, _querySelectionInProgress);
                             break;
                         case vtkSelectBy.Geometry:
                             PickByGeometry(out pickedActor, x1, y1);
@@ -480,10 +487,10 @@ namespace vtkControl
                             PickByGeometryVertex(out pickedActor, x1, y1);
                             break;
                         case vtkSelectBy.GeometryEdge:
-                            PickByEdge(out pickedActor, x1, y1, false);
+                            PickByEdge(out pickedActor, x1, y1, _querySelectionInProgress);
                             break;
                         case vtkSelectBy.GeometrySurface:
-                            PickBySurface(out pickedActor, x1, y1, false);
+                            PickBySurface(out pickedActor, x1, y1, _querySelectionInProgress);
                             break;
                         case vtkSelectBy.GeometryEdgeAngle:
                             PickByGeometryEdgeAngle(out pickedActor, x1, y1);
@@ -494,21 +501,6 @@ namespace vtkControl
                         case vtkSelectBy.GeometryPart:
                             PickByActor(out pickedActor, x1, y1, false);
                             break;
-                        case vtkSelectBy.QueryNode:
-                            PickByNode(out pickedActor, x1, y1, true);
-                            break;
-                        case vtkSelectBy.QueryElement:
-                            PickByCell(out pickedActor, x1, y1, true);
-                            break;
-                        case vtkSelectBy.QueryEdge:
-                            PickByEdge(out pickedActor, x1, y1, true);
-                            break;
-                        case vtkSelectBy.QuerySurface:
-                            PickBySurface(out pickedActor, x1, y1, true);
-                            break;
-                        case vtkSelectBy.QueryPart:
-                            PickByActor(out pickedActor, x1, y1, true);
-                            break;
                         default:
                             throw new NotSupportedException();
                     }
@@ -517,6 +509,10 @@ namespace vtkControl
                 }
             }
             catch { }
+            finally
+            {
+                _userPick = UserPick;
+            }
         }
         private void style_PointPickedOnLeftUpEvt(MouseEventArgs mea, bool boxSelection, int x2, int y2)
         {
@@ -4347,7 +4343,7 @@ namespace vtkControl
                 ApplySelectionFormattingToCaptionActor(actor);
             }
             //
-            UpdateTmpActor(layer);
+            AddTmpActor(layer);
         }
         private void AddActorEdges(vtkMaxActor actor, bool isModelEdge, vtkRendererLayer layer)
         {
@@ -4440,25 +4436,40 @@ namespace vtkControl
             //if (isModelEdge) ApplyEdgeVisibilityAndBackfaceCullingToModelEdges(actor, actor.Name);
             //else ApplyEdgeVisibilityAndBackfaceCullingToActorEdges(actor, actor.Name);
         }
+        private void AddTmpActor(vtkRendererLayer layer)
+        {
+            if (layer == vtkRendererLayer.Base) _captionActorAddedToBase = true;
+            else if (layer == vtkRendererLayer.Overlay) _captionActorAddedToOverlay = true;
+            else if (layer == vtkRendererLayer.Selection) _captionActorAddedToSelection = true;
+            //
+            UpdateTmpActor(layer);
+        }
         private void UpdateTmpActor(vtkRendererLayer layer)
         {
-            if (layer == vtkRendererLayer.Base)
+            if (_captionActorAddedToBase || _captionActorAddedToOverlay || _captionActorAddedToSelection)
             {
-                if (_captionActorAddedToBase) _renderer.RemoveActor(_captionTmpActor);
-                _renderer.AddActor(_captionTmpActor);   // move tmpActor to last place
-                _captionActorAddedToBase = true;
-            }
-            else if (layer == vtkRendererLayer.Overlay)
-            {
-                if (_captionActorAddedToOverlay) _overlayRenderer.RemoveActor(_captionTmpActor);
-                _overlayRenderer.AddActor(_captionTmpActor);    // move tmpActor to last place
-                _captionActorAddedToOverlay = true;
-            }
-            else if (layer == vtkRendererLayer.Selection)
-            {
-                if (_captionActorAddedToSelection) _selectionRenderer.RemoveActor(_captionTmpActor);
-                _selectionRenderer.AddActor(_captionTmpActor);  // move tmpActor to last place
-                _captionActorAddedToSelection = true;
+                double[] center = new double[3];
+                double[] bounds = _renderer.ComputeVisiblePropBounds();
+                center[0] = (bounds[0] + bounds[1]) / 2;
+                center[1] = (bounds[2] + bounds[3]) / 2;
+                center[2] = (bounds[4] + bounds[5]) / 2;
+                ((vtkPolyData)_captionTmpActor.GetMapper().GetInput()).GetPoints().SetPoint(0, center[0], center[1], center[2]);
+                //
+                if (layer == vtkRendererLayer.Base)
+                {
+                    if (_captionActorAddedToBase) _renderer.RemoveActor(_captionTmpActor);
+                    _renderer.AddActor(_captionTmpActor);   // move tmpActor to last place
+                }
+                else if (layer == vtkRendererLayer.Overlay)
+                {
+                    if (_captionActorAddedToOverlay) _overlayRenderer.RemoveActor(_captionTmpActor);
+                    _overlayRenderer.AddActor(_captionTmpActor);    // move tmpActor to last place
+                }
+                else if (layer == vtkRendererLayer.Selection)
+                {
+                    if (_captionActorAddedToSelection) _selectionRenderer.RemoveActor(_captionTmpActor);
+                    _selectionRenderer.AddActor(_captionTmpActor);  // move tmpActor to last place
+                }
             }
         }
 

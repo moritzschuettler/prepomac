@@ -901,6 +901,8 @@ namespace PrePoMax
                     Control focusedControl = FindFocusedControl(this);
                     // Check for toolstrip
                     if (focusedControl != null && focusedControl.Parent is ToolStripFocus) { }
+                    // Check for search box
+                    else if (_modelTree.ActiveControl != null && _modelTree.ActiveControl is SearchTextBox) { }
                     // Check for annotation editor
                     else if (aeAnnotationTextEditor.Visible) { }
                     // Forward to tree
@@ -8591,6 +8593,14 @@ namespace PrePoMax
             if (_frmDefinedField != null && _frmDefinedField.Visible) _frmDefinedField.SelectionChanged(ids);
             //
             if (_frmResultHistoryOutput != null && _frmResultHistoryOutput.Visible) _frmResultHistoryOutput.SelectionChanged(ids);
+        }
+        public void SetQuerySelection(bool querySelection)
+        {
+            InvokeIfRequired(() => _vtk.QuerySelectionInProgress = querySelection);
+        }
+        public bool GetQuerySelection()
+        {
+            return InvokeIfRequired(() => _vtk.QuerySelectionInProgress);
         }
         public void SetSelectBy(vtkSelectBy selectBy)
         {

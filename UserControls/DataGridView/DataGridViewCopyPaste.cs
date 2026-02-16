@@ -540,7 +540,7 @@ namespace UserControls
             //
             clipboardValue = clipboardValue.Replace("\r\n", "\n");
             string[] lines = clipboardValue.Split(new string[] { "\n" }, StringSplitOptions.RemoveEmptyEntries);
-            string[] splitter = new string[] { "/t", " ", ",", ";" };
+            string[] splitter = new string[] { "\t", " ", ",", ";" };
             //
             for (int i = 0; i <= lines.Length - 1; i++)
             {
@@ -550,7 +550,8 @@ namespace UserControls
                 if (lineContent.Length == 0) copyValues[i][0] = string.Empty;
                 else
                 {
-                    for (int j = 0; j <= lineContent.Length - 1; j++) copyValues[i][j] = lineContent[j];
+                    for (int j = 0; j <= lineContent.Length - 1; j++)
+                        copyValues[i][j] = lineContent[j];
                 }
             }
             //

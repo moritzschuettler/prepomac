@@ -51,7 +51,7 @@ namespace PrePoMax
                 _itemSetData = value as ItemSetData;
                 _parentForm.Enabled = false;
                 //
-                _controller.SelectBy = CaeGlobals.vtkSelectBy.QueryNode;
+                _controller.SelectBy = CaeGlobals.vtkSelectBy.Node;
                 _controller.Selection.SelectItem = CaeGlobals.vtkSelectItem.Node;
                 _controller.ClearSelectionHistoryAndCallSelectionChanged();
             }

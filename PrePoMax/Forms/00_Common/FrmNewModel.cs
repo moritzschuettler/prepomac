@@ -225,16 +225,6 @@ namespace PrePoMax.Forms
                 else throw new NotImplementedException();
                 //
                 propertyGrid.SelectedObject = itemTag;
-                try
-                {
-                    // Get start point grid item
-                    GridItem gi = propertyGrid.EnumerateAllItems().First((item) =>
-                                  item.PropertyDescriptor != null &&
-                                  item.PropertyDescriptor.DisplayName.TrimStart(new char[] { '\t' }) == "Length unit");
-                    // Select it
-                    gi.Select();
-                }
-                catch { }
                 //
                 propertyGrid.Refresh();
                 //

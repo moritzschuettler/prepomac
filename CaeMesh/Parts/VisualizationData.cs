@@ -42,13 +42,13 @@ namespace CaeMesh
         /// Cells
         /// [0...num. of cells][0...num. of nodes] -> global node id
         /// </summary>
-        public int[][] Cells { get { return _cells; } set { _cells = value; } }
+        public int[][] Cells { get { return _cells; } }
 
         /// <summary>
         /// CellIds
         /// [0...num. of cells] -> global element id
         /// </summary>
-        public int[] CellIds { get { return _cellIds; } set { _cellIds = value; } }
+        public int[] CellIds { get { return _cellIds; } }
 
         /// <summary>
         /// FaceCount
@@ -180,7 +180,7 @@ namespace CaeMesh
             _edgeLengths = null;
             _edgeTypes = null;
             _vertexNodeIds = null;
-            ResetCellNeighboursOverCell();
+            _cellNeighboursOverCell = null;
         }
         public VisualizationData(VisualizationData visualization)
             : this()
@@ -353,12 +353,12 @@ namespace CaeMesh
         // Methods                                                                                                                  
         public void ResetCellNeighboursOverCell()
         {
-            _cellNeighboursOverCell = null;
+           
         }
         //
         public void ExtractVisualizationCellsFromElements3D(Dictionary<int, FeElement> elements, int[] elementIds)
         {
-            if (_cellNeighboursOverCell == null) ExtractCellNeighboursOverCell(elements, elementIds);
+            ExtractCellNeighboursOverCell(elements, elementIds);
             //
             List<int[]> visualizationCells = new List<int[]>();
             List<int> visualizationCellsIds = new List<int>();
@@ -377,6 +377,8 @@ namespace CaeMesh
         }
         public void ExtractVisualizationCellsFromElements2D(Dictionary<int, FeElement> elements, int[] elementIds)
         {
+            _cellNeighboursOverCell = null;
+            //
             int count;
             int[][] visualizationCells = new int[elementIds.Length][];
             int[] visualizationCellsIds = new int[elementIds.Length];
@@ -390,6 +392,13 @@ namespace CaeMesh
             // Save
             _cells = visualizationCells.ToArray();
             _cellIds = visualizationCellsIds.ToArray();
+        }
+        public void SetCellsAndCellIds(int[][] cells, int[] cellIds)
+        {
+            _cellNeighboursOverCell = null;
+            //
+            _cells = cells;
+            _cellIds = cellIds;
         }
         private void ExtractCellNeighboursOverCell(Dictionary<int, FeElement> elements, int[] elementIds)
         {

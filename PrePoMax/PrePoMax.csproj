@@ -1271,7 +1271,10 @@ IF EXIST "$(SolutionDir)PrePoMax\bin\x64\Console-Debug\PrePoMax.exe" copy "$(Sol
 IF EXIST "$(SolutionDir)PrePoMax\bin\x64\Console-Debug\PrePoMax.exe.config" copy "$(SolutionDir)PrePoMax\bin\x64\Console-Debug\PrePoMax.exe.config" "$(SolutionDir)PrePoMax\bin\x64\Debug\PrePoMax.com.config"
 
 IF EXIST "$(SolutionDir)PrePoMax\bin\x64\Console-Release\PrePoMax.exe" copy "$(SolutionDir)PrePoMax\bin\x64\Console-Release\PrePoMax.exe" "$(SolutionDir)PrePoMax\bin\x64\Release\PrePoMax.com"
-IF EXIST "$(SolutionDir)PrePoMax\bin\x64\Console-Release\PrePoMax.exe.config" copy "$(SolutionDir)PrePoMax\bin\x64\Console-Release\PrePoMax.exe.config" "$(SolutionDir)PrePoMax\bin\x64\Release\PrePoMax.com.config"</PostBuildEvent>
+IF EXIST "$(SolutionDir)PrePoMax\bin\x64\Console-Release\PrePoMax.exe.config" copy "$(SolutionDir)PrePoMax\bin\x64\Console-Release\PrePoMax.exe.config" "$(SolutionDir)PrePoMax\bin\x64\Release\PrePoMax.com.config"
+
+IF EXIST "$(SolutionDir)PrePoMax\bin\x64\Debug\NetGen\GmshCaller.exe" move "$(SolutionDir)PrePoMax\bin\x64\Debug\NetGen\GmshCaller.exe" "$(SolutionDir)PrePoMax\bin\x64\Debug\lib\GmshCaller.exe"
+IF EXIST "$(SolutionDir)PrePoMax\bin\x64\Release\NetGen\GmshCaller.exe" move "$(SolutionDir)PrePoMax\bin\x64\Release\NetGen\GmshCaller.exe" "$(SolutionDir)PrePoMax\bin\x64\Release\lib\GmshCaller.exe"</PostBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
     <PreBuildEvent>del *Cmd.exe

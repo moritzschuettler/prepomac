@@ -124,7 +124,11 @@ namespace PrePoMax.Forms
             // Set selection
             _controller.SetSelectItemToGeometry();
             //
-            if (_selectionFilter == SelectGeometryEnum.Vertex) _controller.SelectBy = vtkSelectBy.GeometryVertex;
+            if (_selectionFilter == SelectGeometryEnum.Vertex)
+            {
+                _controller.SelectBy = vtkSelectBy.GeometryVertex;
+                _controller.SelectItem = vtkSelectItem.GeometryVertex;
+            }
             else if (_selectionFilter == SelectGeometryEnum.Edge) _controller.SelectBy = vtkSelectBy.GeometryEdge;
             else if (_selectionFilter == SelectGeometryEnum.Surface) _controller.SelectBy = vtkSelectBy.GeometrySurface;
             else throw new NotSupportedException();

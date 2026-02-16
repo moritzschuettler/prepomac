@@ -157,23 +157,23 @@ namespace PrePoMax
             //
             int.TryParse(data, out itemId);
             //
-            if (AnnotationBase.Controller.SelectBy == vtkSelectBy.QueryNode)
+            if (AnnotationBase.Controller.SelectItem == vtkSelectItem.Node)
             {
                 annotation = new NodeAnnotation("tmp", itemId);
             }
-            else if (AnnotationBase.Controller.SelectBy == vtkSelectBy.QueryElement)
+            else if (AnnotationBase.Controller.SelectItem == vtkSelectItem.Element)
             {
                 annotation = new ElementAnnotation("tmp", itemId);
             }
-            else if (AnnotationBase.Controller.SelectBy == vtkSelectBy.QueryEdge)
+            else if (AnnotationBase.Controller.SelectItem == vtkSelectItem.GeometryEdge)
             {
                 annotation = new EdgeAnnotation("tmp", itemId);
             }
-            else if (AnnotationBase.Controller.SelectBy == vtkSelectBy.QuerySurface)
+            else if (AnnotationBase.Controller.SelectItem == vtkSelectItem.GeometrySurface)
             {
                 annotation = new SurfaceAnnotation("tmp", itemId);
             }
-            else if (AnnotationBase.Controller.SelectBy == vtkSelectBy.QueryPart)
+            else if (AnnotationBase.Controller.SelectItem == vtkSelectItem.Part)
             {
                 annotation = new PartAnnotation("tmp", data);
             }

@@ -188,17 +188,6 @@ namespace PrePoMax.Forms
                 else throw new NotSupportedException();
                 //
                 propertyGrid.SelectedObject = lvAddedProperties.SelectedItems[0].Tag;
-                // Select grid item
-                try
-                {
-                    // Get start point grid item
-                    GridItem gi = propertyGrid.EnumerateAllItems().First((item) =>
-                                  item.PropertyDescriptor != null &&
-                                  item.PropertyDescriptor.DisplayName.TrimStart(new char[] { '\t' }) == gridItemTextToSelect);
-                    // Select it
-                    gi.Select();
-                }
-                catch { }
                 //
                 SetAllGridViewUnits();
             }

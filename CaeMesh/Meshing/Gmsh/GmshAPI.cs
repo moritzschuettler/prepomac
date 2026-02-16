@@ -288,8 +288,8 @@ namespace CaeMesh
             // Recombine all
             if (recombine) Gmsh.Option.SetNumber("Mesh.RecombineAll", 1);
             //
-            if (preview) Gmsh.Model.Mesh.Generate(2);
-            else Gmsh.Model.Mesh.Generate(2);
+            if (preview) GenerateMesh(2);
+            else GenerateMesh(2);
             // Optimize first order
             if (gmshSetupItem.OptimizeFirstOrderShell != GmshOptimizeFirstOrderShellEnum.None)
             {
@@ -303,8 +303,8 @@ namespace CaeMesh
             // Recombine all
             if (recombine) Gmsh.Option.SetNumber("Mesh.RecombineAll", 1);
             //
-            if (preview) Gmsh.Model.Mesh.Generate(1);
-            else Gmsh.Model.Mesh.Generate(3);
+            if (preview) GenerateMesh(1);
+            else GenerateMesh(3);
             // Optimize first order
             if (gmshSetupItem.OptimizeFirstOrderSolid != GmshOptimizeFirstOrderSolidEnum.None)
             {
@@ -314,8 +314,8 @@ namespace CaeMesh
         }
         private void TransfiniteMesh(bool preview)
         {
-            if (preview) Gmsh.Model.Mesh.Generate(1);
-            else Gmsh.Model.Mesh.Generate(3);
+            if (preview) GenerateMesh(1);
+            else GenerateMesh(3);
         }
         private void ExtrudeRevolveMesh(GmshSetupItem gmshSetupItem, MeshingParameters meshingParameters, bool preview)
         {
@@ -412,7 +412,7 @@ namespace CaeMesh
                 //
                 Gmsh.Model.OCC.Synchronize(); // must be here
                 //
-                Gmsh.Model.Mesh.Generate(2);
+                GenerateMesh(2);
             }
             else
             {
@@ -447,7 +447,7 @@ namespace CaeMesh
                     //
                     Gmsh.Model.OCC.Synchronize(); // must be here
                     //
-                    Gmsh.Model.Mesh.Generate(3);
+                    GenerateMesh(3);
                 }
                 else
                 {
@@ -496,7 +496,7 @@ namespace CaeMesh
                 //Gmsh.Model.Mesh.SetSmoothing(2, sideSurfaceId, 100); // smoothing
             }
             //
-            Gmsh.Model.Mesh.Generate(2);
+            GenerateMesh(2);
             // Remove the volume and the target surface mesh
             List<Tuple<int, int>> toRemoveDimTags = new List<Tuple<int, int>>() { new Tuple<int, int>(3, 1) };  // volume
             foreach (var targetSurfaceId in targetSurfaceIds) toRemoveDimTags.Add(new Tuple<int, int>(2, targetSurfaceId));
@@ -806,7 +806,7 @@ namespace CaeMesh
             IntPtr[] nodeTagsIntPtr;
             double[] coor;
             // Create edge mesh to get the number of nodes for each edge
-            Gmsh.Model.Mesh.Generate(1);
+            GenerateMesh(1);
             //
             Dictionary<int, int> edgeIdNumOfNodes = new Dictionary<int, int>();
             foreach (var edgeGroup in edgeGroups)
@@ -915,6 +915,14 @@ namespace CaeMesh
                 if (entry.Value.Transfinite) Gmsh.Model.Mesh.SetTransfiniteVolume(entry.Key);
                 //Gmsh.Mesh.SetOutwardOrientation(volumeDimTag.Item2);
             }
+        }
+        private void GenerateMesh(int dim)
+        {
+            Gmsh.Model.Mesh.Generate(0);
+            if (dim == 1) Gmsh.Model.Mesh.Generate(1);
+            if (dim == 2) Gmsh.Model.Mesh.Generate(2);
+            if (dim == 3) Gmsh.Model.Mesh.Generate(3);
+            return;
         }
         // Background methods
         private void GetOccNormalsBackground()

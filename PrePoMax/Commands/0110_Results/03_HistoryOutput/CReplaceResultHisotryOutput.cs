@@ -18,6 +18,14 @@ namespace PrePoMax.Commands
         private ResultHistoryOutput _newResultHistoryOutput;
 
 
+        // Properties                                                                                                               
+        public ResultHistoryOutput NewResultHistoryOutput
+        {
+            get { return _newResultHistoryOutput; }
+            set { _newResultHistoryOutput = value; }
+        }
+
+
         // Constructor                                                                                                              
         public CReplaceResultHistoryOutput(string oldHistoryOutputName, ResultHistoryOutput newResultHistoryOutput)
             : base("Edit result history output")

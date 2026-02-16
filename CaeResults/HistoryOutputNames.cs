@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -86,6 +87,29 @@ namespace CaeResults
 
 
         // Methods
+        public static string FixHOFieldNames(string equation)
+        {
+            string name;
+            string result = equation;
+            List<string> allNames =
+                typeof(HOFieldNames)
+                .GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly)
+                .Where(f => f.IsLiteral && !f.IsInitOnly && f.FieldType == typeof(string))
+                .Select(f => (string)f.GetRawConstantValue())
+                .ToList();
+            //
+            foreach (var constantName in allNames)
+            {
+                if (!constantName.StartsWith("_") && constantName.Contains("_"))    // skipp the suffixes
+                {
+                    name = constantName.Replace("_", " ");
+                    result = result.Replace(name, constantName);
+                }
+            }
+            //
+            return result;
+        }
+
         public static string GetNoSuffixName(string name)
         {
             if (name.EndsWith(ComplexRealSuffix))
