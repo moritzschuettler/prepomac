@@ -19,6 +19,7 @@ namespace PrePoMax.Forms
         private CompositeLayup _compositeLayup;
         private Controller _controller;
         private System.ComponentModel.IContainer components;
+        private int _editingRegionRowIndex = -1;
 
         // Controls
         private GroupBox gbData;
@@ -259,6 +260,7 @@ namespace PrePoMax.Forms
             this.dgvPlies.AllowUserToAddRows = false;
             this.dgvPlies.AllowUserToDeleteRows = false;
             this.dgvPlies.CellValueChanged += new System.Windows.Forms.DataGridViewCellEventHandler(this.dgvPlies_CellValueChanged);
+            this.dgvPlies.CellClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.dgvPlies_CellClick);
 
             //
             // btnAddPly
@@ -406,6 +408,40 @@ namespace PrePoMax.Forms
                 UpdatePlyFromGrid(e.RowIndex);
                 _propertyItemChanged = true;
             }
+        }
+
+        private void dgvPlies_CellClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex >= 0 && e.ColumnIndex >= 0 && _compositeLayup != null)
+            {
+                string columnName = dgvPlies.Columns[e.ColumnIndex].Name;
+                if (columnName == "colRegion")
+                {
+                    // Check if element sets exist
+                    string[] elementSetNames = _controller.GetUserElementSetNames();
+                    if (elementSetNames == null || elementSetNames.Length == 0)
+                    {
+                        MessageBox.Show("No element sets are defined in the model. Please create an element set first.",
+                                        "No Element Sets", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+
+                    _editingRegionRowIndex = e.RowIndex;
+                    string currentRegion = _compositeLayup.Plies[e.RowIndex].Region;
+                    _controller.Form.ShowSelectElementSet(currentRegion, OnElementSetSelected);
+                }
+            }
+        }
+
+        private void OnElementSetSelected(string elementSetName)
+        {
+            if (_editingRegionRowIndex >= 0 && _editingRegionRowIndex < _compositeLayup.Plies.Count)
+            {
+                _compositeLayup.Plies[_editingRegionRowIndex].Region = elementSetName;
+                dgvPlies.Rows[_editingRegionRowIndex].Cells["colRegion"].Value = elementSetName;
+                _propertyItemChanged = true;
+            }
+            _editingRegionRowIndex = -1;
         }
 
         private void btnAddPly_Click(object sender, EventArgs e)
@@ -643,11 +679,12 @@ namespace PrePoMax.Forms
             colName.Width = 80;
             dgvPlies.Columns.Add(colName);
 
-            // Region column
+            // Region column (read-only, click to select from element sets)
             DataGridViewTextBoxColumn colRegion = new DataGridViewTextBoxColumn();
             colRegion.Name = "colRegion";
             colRegion.HeaderText = "Region";
             colRegion.Width = 80;
+            colRegion.ReadOnly = true;
             dgvPlies.Columns.Add(colRegion);
 
             // Material column

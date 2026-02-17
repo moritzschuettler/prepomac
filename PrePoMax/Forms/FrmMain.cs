@@ -8607,6 +8607,19 @@ namespace PrePoMax
                 _frmSelectEntity.Show();
             }
         }
+        // Public method for child forms to select an element set
+        public void ShowSelectElementSet(string preSelectedElementSetName, Action<string> onElementSetSelected)
+        {
+            FeElementSet[] elementSets = _controller.GetUserElementSets();
+            if (elementSets == null || elementSets.Length == 0) return;
+            //
+            string[] preSelected = string.IsNullOrEmpty(preSelectedElementSetName) ? null : new string[] { preSelectedElementSetName };
+            //
+            SetFormLocation(_frmSelectEntity);
+            _frmSelectEntity.PrepareForm("Element sets", false, elementSets, preSelected, null);
+            _frmSelectEntity.OneEntitySelected = onElementSetSelected;
+            _frmSelectEntity.Show();
+        }
 
         #endregion  ################################################################################################################
 
