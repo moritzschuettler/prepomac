@@ -18,7 +18,9 @@ namespace CaeModel
     [Serializable]
     public enum OrientationDefinitionType
     {
+        PartGlobal,
         CoordinateSystem
+
     }
 
     [Serializable]
@@ -82,7 +84,7 @@ namespace CaeModel
         {
             _initialPlyCount = initialPlyCount;
             _elementType = elementType;
-            _orientationDefinition = OrientationDefinitionType.CoordinateSystem;
+            _orientationDefinition = OrientationDefinitionType.PartGlobal;
             _normalDirection = NormalDirectionType.Axis3;
             _plies = new List<Ply>();
 

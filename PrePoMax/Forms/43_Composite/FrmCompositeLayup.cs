@@ -586,6 +586,7 @@ namespace PrePoMax.Forms
             foreach (var value in Enum.GetValues(typeof(OrientationDefinitionType)))
             {
                 string displayName = value.ToString();
+                if (displayName == "PartGlobal") displayName = "Part global";
                 if (displayName == "CoordinateSystem") displayName = "Coordinate system";
                 cbDefinition.Items.Add(displayName);
             }
