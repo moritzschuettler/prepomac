@@ -259,3 +259,8 @@ paket-files/
 # Python Tools for Visual Studio (PTVS)
 __pycache__/
 *.pyc
+/.claude/settings.local.json
+/assets_composites/cooperclimax_model1.inp
+/assets_composites/cooperhood.pmx
+/assets_composites/cooperhood.zip
+/nul
