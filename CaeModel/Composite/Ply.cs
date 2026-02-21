@@ -61,7 +61,7 @@ namespace CaeModel
             _region = "";
             _material = "";
             _thickness = 1.0;
-            _csys = "";
+            _csys = "<layup>";
             _rotationAngle = 0.0;
         }
 

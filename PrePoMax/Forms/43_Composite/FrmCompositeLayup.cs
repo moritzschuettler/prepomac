@@ -33,6 +33,7 @@ namespace PrePoMax.Forms
         private ComboBox cbDefinition;
         private Label lNormalDirection;
         private ComboBox cbNormalDirection;
+        private CheckBox cbSymmetric;
         private TabControl tcPlies;
         private TabPage tpPlies;
         private DataGridView dgvPlies;
@@ -77,6 +78,7 @@ namespace PrePoMax.Forms
             this.cbDefinition = new System.Windows.Forms.ComboBox();
             this.lNormalDirection = new System.Windows.Forms.Label();
             this.cbNormalDirection = new System.Windows.Forms.ComboBox();
+            this.cbSymmetric = new System.Windows.Forms.CheckBox();
             this.tcPlies = new System.Windows.Forms.TabControl();
             this.tpPlies = new System.Windows.Forms.TabPage();
             this.dgvPlies = new System.Windows.Forms.DataGridView();
@@ -209,17 +211,29 @@ namespace PrePoMax.Forms
             this.cbNormalDirection.SelectedIndexChanged += new System.EventHandler(this.cbNormalDirection_SelectedIndexChanged);
 
             //
+            // cbSymmetric
+            //
+            this.cbSymmetric.AutoSize = true;
+            this.cbSymmetric.Location = new System.Drawing.Point(12, 176);
+            this.cbSymmetric.Name = "cbSymmetric";
+            this.cbSymmetric.Size = new System.Drawing.Size(80, 19);
+            this.cbSymmetric.TabIndex = 2;
+            this.cbSymmetric.Text = "Symmetric";
+            this.cbSymmetric.UseVisualStyleBackColor = true;
+            this.cbSymmetric.CheckedChanged += new System.EventHandler(this.cbSymmetric_CheckedChanged);
+
+            //
             // tcPlies
             //
             this.tcPlies.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
             | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
             this.tcPlies.Controls.Add(this.tpPlies);
-            this.tcPlies.Location = new System.Drawing.Point(12, 174);
+            this.tcPlies.Location = new System.Drawing.Point(12, 198);
             this.tcPlies.Name = "tcPlies";
             this.tcPlies.SelectedIndex = 0;
-            this.tcPlies.Size = new System.Drawing.Size(560, 280);
-            this.tcPlies.TabIndex = 2;
+            this.tcPlies.Size = new System.Drawing.Size(560, 256);
+            this.tcPlies.TabIndex = 3;
 
             //
             // tpPlies
@@ -357,6 +371,7 @@ namespace PrePoMax.Forms
             this.ClientSize = new System.Drawing.Size(584, 497);
             this.Controls.Add(this.gbData);
             this.Controls.Add(this.gbLayupOrientation);
+            this.Controls.Add(this.cbSymmetric);
             this.Controls.Add(this.tcPlies);
             this.Controls.Add(this.btnOkAddNew);
             this.Controls.Add(this.btnOK);
@@ -397,6 +412,15 @@ namespace PrePoMax.Forms
             if (_compositeLayup != null && cbNormalDirection.SelectedIndex >= 0)
             {
                 _compositeLayup.NormalDirection = (NormalDirectionType)cbNormalDirection.SelectedIndex;
+                _propertyItemChanged = true;
+            }
+        }
+
+        private void cbSymmetric_CheckedChanged(object sender, EventArgs e)
+        {
+            if (_compositeLayup != null)
+            {
+                _compositeLayup.Symmetric = cbSymmetric.Checked;
                 _propertyItemChanged = true;
             }
         }
@@ -692,6 +716,7 @@ namespace PrePoMax.Forms
 
                 cbDefinition.SelectedIndex = (int)_compositeLayup.OrientationDefinition;
                 cbNormalDirection.SelectedIndex = (int)_compositeLayup.NormalDirection;
+                cbSymmetric.Checked = _compositeLayup.Symmetric;
             }
         }
 

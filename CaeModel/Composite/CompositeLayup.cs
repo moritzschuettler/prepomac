@@ -40,6 +40,7 @@ namespace CaeModel
         private OrientationDefinitionType _orientationDefinition;
         private NormalDirectionType _normalDirection;
         private List<Ply> _plies;
+        private bool _symmetric;
 
 
         // Properties
@@ -77,6 +78,12 @@ namespace CaeModel
             set { _plies = value; }
         }
 
+        public bool Symmetric
+        {
+            get { return _symmetric; }
+            set { _symmetric = value; }
+        }
+
 
         // Constructors
         public CompositeLayup(string name, int initialPlyCount, CompositeElementType elementType)
@@ -87,6 +94,7 @@ namespace CaeModel
             _orientationDefinition = OrientationDefinitionType.PartGlobal;
             _normalDirection = NormalDirectionType.Axis3;
             _plies = new List<Ply>();
+            _symmetric = false;
 
             // Initialize plies based on initial ply count
             for (int i = 0; i < initialPlyCount; i++)
