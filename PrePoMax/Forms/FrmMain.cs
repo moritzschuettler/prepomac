@@ -10036,6 +10036,14 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.AddCoordinateAxis, data, symbolSize);
         }
+        public void AddOrientationArrows(vtkMaxActorData data, double symbolSize)
+        {
+            InvokeIfRequired(_vtk.AddOrientationArrows, data, symbolSize);
+        }
+        public void ClearOverlayByPrefix(string prefix)
+        {
+            InvokeIfRequired(_vtk.ClearOverlayByPrefix, prefix);
+        }
         public void AddCaptionActor(string name, string caption, Color color, double[] position,
                                     double[] offsetVector, double fontScaleFactor, vtkRendererLayer layer)
         {

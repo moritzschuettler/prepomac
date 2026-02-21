@@ -3438,6 +3438,92 @@ namespace vtkControl
             //
             if (_drawSymbolEdges) AddSymbolEdges(data, glyph.GetOutputPort());
         }
+        public void AddOrientationArrows(vtkMaxActorData data, double symbolSize)
+        {
+            double relativeSize = 1;
+            //
+            if (symbolSize > _maxSymbolSize) _maxSymbolSize = symbolSize;
+            // Points
+            vtkPoints pointData = vtkPoints.New();
+            for (int i = 0; i < data.Geometry.Nodes.Coor.Length; i++)
+            {
+                pointData.InsertNextPoint(data.Geometry.Nodes.Coor[i][0], data.Geometry.Nodes.Coor[i][1],
+                                          data.Geometry.Nodes.Coor[i][2]);
+            }
+            // Normals
+            vtkDoubleArray pointNormalsArray = vtkDoubleArray.New();
+            pointNormalsArray.SetNumberOfComponents(3);
+            for (int i = 0; i < data.Geometry.Nodes.Normals.Length; i++)
+            {
+                pointNormalsArray.InsertNextTuple3(data.Geometry.Nodes.Normals[i][0], data.Geometry.Nodes.Normals[i][1],
+                                                   data.Geometry.Nodes.Normals[i][2]);
+            }
+            // Poly data
+            vtkPolyData polyData = vtkPolyData.New();
+            polyData.SetPoints(pointData);
+            polyData.GetPointData().SetNormals(pointNormalsArray);
+            // Calculate the distance to the camera of each point.
+            vtkDistanceToCamera distanceToCamera = vtkDistanceToCamera.New();
+            distanceToCamera.SetInput(polyData);
+            distanceToCamera.SetScreenSize(symbolSize * relativeSize);
+            distanceToCamera.SetRenderer(_renderer);
+            // Line
+            vtkLineSource line = vtkLineSource.New();
+            line.SetPoint1(0, 0, 0);
+            line.SetPoint2(1 * relativeSize, 0, 0);
+            // Cone
+            vtkConeSource cone = vtkConeSource.New();
+            cone.SetCenter(0.9 * relativeSize, 0, 0);
+            cone.SetHeight(0.2 * relativeSize);
+            cone.SetRadius(0.08 * relativeSize);
+            cone.SetResolution(31);
+            // Append
+            vtkAppendPolyData append = vtkAppendPolyData.New();
+            append.AddInput(line.GetOutput());
+            append.AddInput(cone.GetOutput());
+            // Triangulation helps with silhouette edges and 3mf export
+            vtkTriangleFilter triangleFilter = vtkTriangleFilter.New();
+            triangleFilter.SetInput(append.GetOutput());
+            triangleFilter.Update();
+            // Compute normals
+            vtkPolyDataNormals appendNormals = vtkPolyDataNormals.New();
+            appendNormals.SetInput(triangleFilter.GetOutput());
+            appendNormals.Update();
+            // Transform
+            vtkTransform transform = vtkTransform.New();
+            // Transform filter
+            vtkTransformFilter transformFilter = vtkTransformFilter.New();
+            transformFilter.SetInput(triangleFilter.GetOutput());
+            transformFilter.SetTransform(transform);
+            // Glyph
+            vtkGlyph3D glyph = vtkGlyph3D.New();
+            glyph.SetSourceConnection(transformFilter.GetOutputPort());
+            glyph.SetInputConnection(distanceToCamera.GetOutputPort());
+            glyph.SetVectorModeToUseNormal();
+            // Scale
+            glyph.ScalingOn();
+            glyph.SetScaleModeToScaleByScalar();
+            glyph.SetInputArrayToProcess(0, 0, 0, "vtkDataObject::FIELD_ASSOCIATION_POINTS", "DistanceToCamera");
+            glyph.SetScaleFactor(1.0);
+            glyph.OrientOn();
+            glyph.Update();
+            // Mapper
+            vtkPolyDataMapper mapper = vtkPolyDataMapper.New();
+            mapper.SetInputConnection(0, glyph.GetOutputPort());
+            mapper.ScalarVisibilityOff();
+            // Actor
+            data.Name += Globals.NameSeparator + "arrows";
+            //
+            data.LineWidth = 2;
+            vtkMaxActor actor = new vtkMaxActor(data, mapper);
+            actor.Color = data.Color;
+            actor.GeometryProperty.SetRepresentationToSurface();
+            // Add
+            ApplySymbolFormattingToActor(actor);
+            AddActorGeometry(actor, data.Layer);
+            //
+            if (_drawSymbolEdges) AddSymbolEdges(data, glyph.GetOutputPort());
+        }
         public void AddCaptionActor(string name, string caption, Color color, double[] position,
                                     double[] offsetVector, double fontScaleFactor, vtkRendererLayer layer)
         {
@@ -6766,6 +6852,20 @@ namespace vtkControl
             }
             _overlayActors.Clear();
             RenderScene();
+        }
+        public void ClearOverlayByPrefix(string prefix)
+        {
+            List<string> keysToRemove = new List<string>();
+            foreach (var entry in _overlayActors)
+            {
+                if (entry.Key.StartsWith(prefix))
+                {
+                    _overlayRenderer.RemoveActor(entry.Value.Geometry);
+                    keysToRemove.Add(entry.Key);
+                }
+            }
+            foreach (var key in keysToRemove) _overlayActors.Remove(key);
+            if (keysToRemove.Count > 0) RenderScene();
         }
         #endregion #################################################################################################################
 

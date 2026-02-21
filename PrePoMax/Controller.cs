@@ -8701,6 +8701,92 @@ namespace PrePoMax
                 name = baseName + "-" + counter++;
             return name;
         }
+        // Ply orientation arrows
+        private const string PlyArrowPrefix = "PlyOrientationArrow";
+        private const int PlyArrowDensityStep = 5;
+        private static readonly Color[] _plyColors = new Color[]
+        {
+            Color.FromArgb(180, 4, 38),
+            Color.FromArgb(33, 225, 38),
+            Color.FromArgb(58, 76, 192),
+            Color.FromArgb(255, 165, 0),
+            Color.FromArgb(0, 200, 200),
+            Color.FromArgb(200, 0, 200),
+            Color.FromArgb(255, 255, 0),
+            Color.FromArgb(128, 128, 128)
+        };
+        public void DrawPlyOrientationArrows(CompositeLayup layup, int plyIndex)
+        {
+            try
+            {
+                _form.ClearOverlayByPrefix(PlyArrowPrefix);
+                //
+                if (plyIndex < 0 || plyIndex >= layup.Plies.Count) return;
+                Ply ply = layup.Plies[plyIndex];
+                if (string.IsNullOrEmpty(ply.Region)) return;
+                //
+                FeElementSet elSet;
+                if (!_model.Mesh.ElementSets.TryGetValue(ply.Region, out elSet)) return;
+                if (elSet.Labels.Length == 0) return;
+                // Compute direction vector
+                double[] direction = new double[] { 1, 0, 0 };
+                if (ply.Csys != "<layup>")
+                {
+                    CoordinateSystem csys;
+                    if (_model.Mesh.CoordinateSystems.TryGetValue(ply.Csys, out csys))
+                        direction = csys.DirectionX().Coor;
+                }
+                else if (layup.OrientationDefinition == OrientationDefinitionType.CoordinateSystem)
+                {
+                    // If layup-level CSYS is set, it would be handled here in the future
+                }
+                // Apply ply rotation angle (rotate direction in XY plane)
+                double angleDeg = ply.RotationAngle;
+                if (angleDeg != 0)
+                {
+                    double angleRad = angleDeg * Math.PI / 180.0;
+                    double cos = Math.Cos(angleRad);
+                    double sin = Math.Sin(angleRad);
+                    double dx = direction[0] * cos - direction[1] * sin;
+                    double dy = direction[0] * sin + direction[1] * cos;
+                    direction = new double[] { dx, dy, direction[2] };
+                }
+                // Sample elements
+                int[] labels = elSet.Labels;
+                List<double[]> centroids = new List<double[]>();
+                for (int i = 0; i < labels.Length; i += PlyArrowDensityStep)
+                {
+                    FeElement element;
+                    if (_model.Mesh.Elements.TryGetValue(labels[i], out element))
+                    {
+                        double elementSize;
+                        double[] cg = element.GetCG(_model.Mesh.Nodes, out elementSize);
+                        centroids.Add(cg);
+                    }
+                }
+                if (centroids.Count == 0) return;
+                // Build actor data
+                double[][] coorArray = centroids.ToArray();
+                double[][] normalsArray = new double[centroids.Count][];
+                for (int i = 0; i < centroids.Count; i++) normalsArray[i] = direction;
+                //
+                int symbolSize = _settings.Pre.SymbolSize;
+                vtkMaxActorData data = new vtkMaxActorData();
+                data.Name = PlyArrowPrefix + Globals.NameSeparator + layup.Name + Globals.NameSeparator + ply.Name;
+                data.Color = _plyColors[plyIndex % _plyColors.Length];
+                data.Layer = vtkRendererLayer.Overlay;
+                data.Geometry.Nodes.Coor = coorArray;
+                data.Geometry.Nodes.Normals = normalsArray;
+                ApplyLighting(data);
+                _form.AddOrientationArrows(data, symbolSize);
+                _form.AdjustCameraDistanceAndClipping();
+            }
+            catch { }
+        }
+        public void ClearPlyOrientationArrows()
+        {
+            _form.ClearOverlayByPrefix(PlyArrowPrefix);
+        }
 
         #endregion #################################################################################################################
 

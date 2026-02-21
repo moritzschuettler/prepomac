@@ -275,6 +275,7 @@ namespace PrePoMax.Forms
             this.dgvPlies.AllowUserToDeleteRows = false;
             this.dgvPlies.CellValueChanged += new System.Windows.Forms.DataGridViewCellEventHandler(this.dgvPlies_CellValueChanged);
             this.dgvPlies.CellClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.dgvPlies_CellClick);
+            this.dgvPlies.SelectionChanged += new System.EventHandler(this.dgvPlies_SelectionChanged);
 
             //
             // btnAddPly
@@ -560,10 +561,25 @@ namespace PrePoMax.Forms
             }
         }
 
+        private void dgvPlies_SelectionChanged(object sender, EventArgs e)
+        {
+            if (_compositeLayup == null) return;
+            if (dgvPlies.SelectedRows.Count > 0)
+            {
+                int plyIndex = dgvPlies.SelectedRows[0].Index;
+                _controller.DrawPlyOrientationArrows(_compositeLayup, plyIndex);
+            }
+            else
+            {
+                _controller.ClearPlyOrientationArrows();
+            }
+        }
+
         private void btnOK_Click(object sender, EventArgs e)
         {
             try
             {
+                _controller.ClearPlyOrientationArrows();
                 Add();
                 Hide();
             }
@@ -588,6 +604,7 @@ namespace PrePoMax.Forms
 
         private void btnCancel_Click(object sender, EventArgs e)
         {
+            _controller.ClearPlyOrientationArrows();
             Hide();
         }
 
@@ -596,6 +613,7 @@ namespace PrePoMax.Forms
             if (e.CloseReason == CloseReason.UserClosing)
             {
                 e.Cancel = true;
+                _controller.ClearPlyOrientationArrows();
                 Hide();
             }
         }
@@ -786,6 +804,7 @@ namespace PrePoMax.Forms
                 for (int i = 0; i < _compositeLayup.Plies.Count; i++)
                 {
                     Ply ply = _compositeLayup.Plies[i];
+                    if (string.IsNullOrEmpty(ply.Csys)) ply.Csys = "<layup>";
                     dgvPlies.Rows.Add(
                         (i + 1).ToString(),
                         ply.Name,

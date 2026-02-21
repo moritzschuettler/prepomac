@@ -266,3 +266,4 @@ __pycache__/
 /nul
 /claude.md
 /test_layups.csv
+*.md
