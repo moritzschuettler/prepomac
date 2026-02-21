@@ -83,6 +83,7 @@
     <Compile Include="FileInOut\Output\Abaqus\Keywords\Step\Load\Imported\AbqImportedPressureLoad.cs" />
     <Compile Include="FileInOut\Output\Calculix\Enums\ConvertPyramidsToEnum.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalTransform.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalOrientation.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalAmplitude.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalPhysicalConstants.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalAdditional.cs" />
@@ -120,6 +121,7 @@
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalDeactivated.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalContactPair.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Section\CalShellSection.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Section\CalCompositeShellSection.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalSpecificHeat.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalThermalConductivity.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalThermalExpansion.cs" />
@@ -225,6 +227,7 @@
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalSTLoad.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalMomentLoad.cs" />
     <Compile Include="FileInOut\Output\Calculix\CalculixFileWriter.cs" />
+    <Compile Include="FileInOut\Output\Calculix\CompositeLayupWriter.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalDensity.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalCLoad.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalElementSet.cs" />

@@ -290,6 +290,7 @@ namespace PrePoMax
                 _modelTree.MergeResultParts += MergeResultParts;
                 _modelTree.ConvertElementSetsToMeshParts += ConvertElementSetsToMeshParts;
                 _modelTree.MaterialLibrary += ShowMaterialLibrary;
+                _modelTree.ImportCompositeLayupsFromCsv += ImportCompositeLayupsFromCsv;
                 _modelTree.SearchContactPairs += SearchContactPairs;
                 _modelTree.SwapMasterSlave += ModelTree_SwapMasterSlave;
                 _modelTree.MergeByMasterSlave += ModelTree_MergeByMasterSlave;
@@ -5251,6 +5252,32 @@ namespace PrePoMax
 
         #endregion  ################################################################################################################
 
+        #region Composite Layup menu  ##################################################################################################
+        private void ImportCompositeLayupsFromCsv()
+        {
+            try
+            {
+                if (_controller.Model.Mesh != null)
+                {
+                    using (OpenFileDialog ofd = new OpenFileDialog())
+                    {
+                        ofd.Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*";
+                        ofd.Title = "Import Composite Layups from CSV";
+                        if (ofd.ShowDialog() == DialogResult.OK)
+                        {
+                            _controller.ImportCompositeLayupsFromCsvCommand(ofd.FileName);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+
+        #endregion  ################################################################################################################
+
         #region Section menu  ######################################################################################################
         internal void tsmiCreateSection_Click(object sender, EventArgs e)
         {
@@ -8618,6 +8645,19 @@ namespace PrePoMax
             SetFormLocation(_frmSelectEntity);
             _frmSelectEntity.PrepareForm("Element sets", false, elementSets, preSelected, null);
             _frmSelectEntity.OneEntitySelected = onElementSetSelected;
+            _frmSelectEntity.Show();
+        }
+        // Public method for child forms to select a material
+        public void ShowSelectMaterial(string preSelectedMaterialName, Action<string> onMaterialSelected)
+        {
+            Material[] materials = _controller.GetAllMaterials();
+            if (materials == null || materials.Length == 0) return;
+            //
+            string[] preSelected = string.IsNullOrEmpty(preSelectedMaterialName) ? null : new string[] { preSelectedMaterialName };
+            //
+            SetFormLocation(_frmSelectEntity);
+            _frmSelectEntity.PrepareForm("Materials", false, materials, preSelected, null);
+            _frmSelectEntity.OneEntitySelected = onMaterialSelected;
             _frmSelectEntity.Show();
         }
 

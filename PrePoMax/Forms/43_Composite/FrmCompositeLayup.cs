@@ -20,11 +20,12 @@ namespace PrePoMax.Forms
         private Controller _controller;
         private System.ComponentModel.IContainer components;
         private int _editingRegionRowIndex = -1;
+        private int _editingMaterialRowIndex = -1;
 
         // Controls
         private GroupBox gbData;
         private Label lName;
-        private Label lNameValue;
+        private TextBox tbName;
         private Label lElementType;
         private Label lElementTypeValue;
         private GroupBox gbLayupOrientation;
@@ -68,7 +69,7 @@ namespace PrePoMax.Forms
 
             this.gbData = new System.Windows.Forms.GroupBox();
             this.lName = new System.Windows.Forms.Label();
-            this.lNameValue = new System.Windows.Forms.Label();
+            this.tbName = new System.Windows.Forms.TextBox();
             this.lElementType = new System.Windows.Forms.Label();
             this.lElementTypeValue = new System.Windows.Forms.Label();
             this.gbLayupOrientation = new System.Windows.Forms.GroupBox();
@@ -100,7 +101,7 @@ namespace PrePoMax.Forms
             this.gbData.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
             this.gbData.Controls.Add(this.lName);
-            this.gbData.Controls.Add(this.lNameValue);
+            this.gbData.Controls.Add(this.tbName);
             this.gbData.Controls.Add(this.lElementType);
             this.gbData.Controls.Add(this.lElementTypeValue);
             this.gbData.Location = new System.Drawing.Point(12, 12);
@@ -121,14 +122,13 @@ namespace PrePoMax.Forms
             this.lName.Text = "Name:";
 
             //
-            // lNameValue
+            // tbName
             //
-            this.lNameValue.AutoSize = true;
-            this.lNameValue.Location = new System.Drawing.Point(100, 25);
-            this.lNameValue.Name = "lNameValue";
-            this.lNameValue.Size = new System.Drawing.Size(100, 15);
-            this.lNameValue.TabIndex = 1;
-            this.lNameValue.Text = "<compositeLayupName>";
+            this.tbName.Location = new System.Drawing.Point(100, 22);
+            this.tbName.Name = "tbName";
+            this.tbName.Size = new System.Drawing.Size(200, 23);
+            this.tbName.TabIndex = 1;
+            this.tbName.TextChanged += new System.EventHandler(this.tbName_TextChanged);
 
             //
             // lElementType
@@ -401,6 +401,15 @@ namespace PrePoMax.Forms
             }
         }
 
+        private void tbName_TextChanged(object sender, EventArgs e)
+        {
+            if (_compositeLayup != null)
+            {
+                _compositeLayup.Name = tbName.Text;
+                _propertyItemChanged = true;
+            }
+        }
+
         private void dgvPlies_CellValueChanged(object sender, DataGridViewCellEventArgs e)
         {
             if (e.RowIndex >= 0 && _compositeLayup != null)
@@ -430,6 +439,21 @@ namespace PrePoMax.Forms
                     string currentRegion = _compositeLayup.Plies[e.RowIndex].Region;
                     _controller.Form.ShowSelectElementSet(currentRegion, OnElementSetSelected);
                 }
+                else if (columnName == "colMaterial")
+                {
+                    // Check if materials exist
+                    Material[] materials = _controller.GetAllMaterials();
+                    if (materials == null || materials.Length == 0)
+                    {
+                        MessageBox.Show("No materials are defined in the model. Please create a material first.",
+                                        "No Materials", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+
+                    _editingMaterialRowIndex = e.RowIndex;
+                    string currentMaterial = _compositeLayup.Plies[e.RowIndex].Material;
+                    _controller.Form.ShowSelectMaterial(currentMaterial, OnMaterialSelected);
+                }
             }
         }
 
@@ -442,6 +466,17 @@ namespace PrePoMax.Forms
                 _propertyItemChanged = true;
             }
             _editingRegionRowIndex = -1;
+        }
+
+        private void OnMaterialSelected(string materialName)
+        {
+            if (_editingMaterialRowIndex >= 0 && _editingMaterialRowIndex < _compositeLayup.Plies.Count)
+            {
+                _compositeLayup.Plies[_editingMaterialRowIndex].Material = materialName;
+                dgvPlies.Rows[_editingMaterialRowIndex].Cells["colMaterial"].Value = materialName;
+                _propertyItemChanged = true;
+            }
+            _editingMaterialRowIndex = -1;
         }
 
         private void btnAddPly_Click(object sender, EventArgs e)
@@ -639,7 +674,7 @@ namespace PrePoMax.Forms
         {
             if (_compositeLayup != null)
             {
-                lNameValue.Text = _compositeLayup.Name;
+                tbName.Text = _compositeLayup.Name;
 
                 // Element type display
                 switch (_compositeLayup.ElementType)
@@ -687,11 +722,12 @@ namespace PrePoMax.Forms
             colRegion.ReadOnly = true;
             dgvPlies.Columns.Add(colRegion);
 
-            // Material column
+            // Material column (read-only, click to select from materials)
             DataGridViewTextBoxColumn colMaterial = new DataGridViewTextBoxColumn();
             colMaterial.Name = "colMaterial";
             colMaterial.HeaderText = "Material";
             colMaterial.Width = 80;
+            colMaterial.ReadOnly = true;
             dgvPlies.Columns.Add(colMaterial);
 
             // Thickness column

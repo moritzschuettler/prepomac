@@ -144,6 +144,9 @@ namespace FileInOut.Output
                 // Prepare point springs
                 GetPointSprings(model, referencePointsNodeIds, ref maxElementId, ref additionalElementKeywords,
                                 ref additionalElementSetNames, ref additionalSectionData);
+                // Process composite layups and collect generated keywords
+                List<CompositeLayupWriter> compositeLayupWriters = new List<CompositeLayupWriter>();
+                ProcessCompositeLayups(model, ref compositeLayupWriters);
                 // Collect compression only constraints
                 GetCompressionOnlyConstraintData(model, ref maxNodeId, ref maxElementId, ref additionalNodes,
                                                  ref additionalNodeSets, ref additionalElementKeywords,
@@ -193,6 +196,10 @@ namespace FileInOut.Output
                 title = new CalTitle("Coordinate systems", "");
                 keywords.Add(title);
                 AppendCoordinateSystems(coordinateSystemNodeSets, title);
+                // Orientations (for composite layups)
+                title = new CalTitle("Orientations", "");
+                keywords.Add(title);
+                AppendCompositeLayupOrientations(compositeLayupWriters, title);
                 // Materials
                 title = new CalTitle("Materials", "");
                 keywords.Add(title);
@@ -201,6 +208,8 @@ namespace FileInOut.Output
                 title = new CalTitle("Sections", "");
                 keywords.Add(title);
                 AppendSections(model, additionalSectionData, title);
+                // Composite shell sections
+                AppendCompositeLayupSections(compositeLayupWriters, title);
                 // Pre-tension sections
                 title = new CalTitle("Pre-tension sections", "");
                 keywords.Add(title);
@@ -1449,6 +1458,54 @@ namespace FileInOut.Output
             //
             CalAdditional calAdditionalSections = new CalAdditional("Additional sections", keywords);
             if (calAdditionalSections.GetDataString().Length > 0) parent.AddKeyword(calAdditionalSections);
+        }
+        //
+        // Composite layup methods
+        //
+        static private void ProcessCompositeLayups(FeModel model, ref List<CompositeLayupWriter> compositeLayupWriters)
+        {
+            if (model.CompositeLayups == null || model.Mesh == null) return;
+            //
+            List<string> allWarnings = new List<string>();
+            //
+            foreach (var entry in model.CompositeLayups)
+            {
+                CompositeLayup layup = entry.Value;
+                CompositeLayupWriter writer = new CompositeLayupWriter(layup, model.Mesh);
+                writer.Process();
+                compositeLayupWriters.Add(writer);
+                //
+                allWarnings.AddRange(writer.Warnings);
+            }
+            //
+            // Show warnings if any
+            if (allWarnings.Count > 0)
+            {
+                string warningMessage = string.Join("\n\n", allWarnings);
+                CaeGlobals.MessageBoxes.ShowWarning(warningMessage);
+            }
+        }
+        static private void AppendCompositeLayupOrientations(List<CompositeLayupWriter> compositeLayupWriters,
+                                                              CalculixKeyword parent)
+        {
+            foreach (var writer in compositeLayupWriters)
+            {
+                foreach (var orientationKeyword in writer.OrientationKeywords)
+                {
+                    parent.AddKeyword(orientationKeyword);
+                }
+            }
+        }
+        static private void AppendCompositeLayupSections(List<CompositeLayupWriter> compositeLayupWriters,
+                                                          CalculixKeyword parent)
+        {
+            foreach (var writer in compositeLayupWriters)
+            {
+                foreach (var sectionKeyword in writer.SectionKeywords)
+                {
+                    parent.AddKeyword(sectionKeyword);
+                }
+            }
         }
         static private HashSet<string> MaterialNamesUsedInActiveSections(FeModel model)
         {

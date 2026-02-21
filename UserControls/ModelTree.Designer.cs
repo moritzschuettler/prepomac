@@ -136,6 +136,8 @@
             this.tsmiConvertToPart = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSpaceMaterialLibrary = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiMaterialLibrary = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiSpaceImportCompositeLayupsFromCsv = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiImportCompositeLayupsFromCsv = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSpaceSearchContactPairs = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiSearchContactPairs = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSpaceSwapMergeMasterSlave = new System.Windows.Forms.ToolStripSeparator();
@@ -212,6 +214,8 @@
             this.tsmiConvertToPart,
             this.tsmiSpaceMaterialLibrary,
             this.tsmiMaterialLibrary,
+            this.tsmiSpaceImportCompositeLayupsFromCsv,
+            this.tsmiImportCompositeLayupsFromCsv,
             this.tsmiSpaceSearchContactPairs,
             this.tsmiSearchContactPairs,
             this.tsmiSpaceSwapMergeMasterSlave,
@@ -397,9 +401,21 @@
             this.tsmiMaterialLibrary.Size = new System.Drawing.Size(211, 22);
             this.tsmiMaterialLibrary.Text = "Material Library";
             this.tsmiMaterialLibrary.Click += new System.EventHandler(this.tsmiMaterialLibrary_Click);
-            // 
+            //
+            // tsmiSpaceImportCompositeLayupsFromCsv
+            //
+            this.tsmiSpaceImportCompositeLayupsFromCsv.Name = "tsmiSpaceImportCompositeLayupsFromCsv";
+            this.tsmiSpaceImportCompositeLayupsFromCsv.Size = new System.Drawing.Size(208, 6);
+            //
+            // tsmiImportCompositeLayupsFromCsv
+            //
+            this.tsmiImportCompositeLayupsFromCsv.Name = "tsmiImportCompositeLayupsFromCsv";
+            this.tsmiImportCompositeLayupsFromCsv.Size = new System.Drawing.Size(211, 22);
+            this.tsmiImportCompositeLayupsFromCsv.Text = "Import from CSV...";
+            this.tsmiImportCompositeLayupsFromCsv.Click += new System.EventHandler(this.tsmiImportCompositeLayupsFromCsv_Click);
+            //
             // tsmiSpaceSearchContactPairs
-            // 
+            //
             this.tsmiSpaceSearchContactPairs.Name = "tsmiSpaceSearchContactPairs";
             this.tsmiSpaceSearchContactPairs.Size = new System.Drawing.Size(208, 6);
             // 
@@ -1132,6 +1148,8 @@
         private System.Windows.Forms.ToolStripMenuItem tsmiColorContoursOn;
         private System.Windows.Forms.ToolStripSeparator tsmiSpaceMaterialLibrary;
         private System.Windows.Forms.ToolStripMenuItem tsmiMaterialLibrary;
+        private System.Windows.Forms.ToolStripSeparator tsmiSpaceImportCompositeLayupsFromCsv;
+        private System.Windows.Forms.ToolStripMenuItem tsmiImportCompositeLayupsFromCsv;
         private System.Windows.Forms.ToolStripSeparator tsmiSpaceMergeParts;
         private System.Windows.Forms.ToolStripMenuItem tsmiMergeParts;
         private System.Windows.Forms.ToolStripSeparator tsmiSpaceConvertToPart;

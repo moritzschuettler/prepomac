@@ -57,6 +57,8 @@ namespace UserControls
         //
         public int MaterialLibrary;
         //
+        public int ImportCompositeLayupsFromCsv;
+        //
         public int SearchContactPairs;
         public int SwapMergeMasterSlave;
         //
@@ -294,6 +296,7 @@ namespace UserControls
         public event Action<string[]> MergeResultParts;
         public event Action<string[]> ConvertElementSetsToMeshParts;
         public event Action MaterialLibrary;
+        public event Action ImportCompositeLayupsFromCsv;
         public event Action SearchContactPairs;
         public event Action<NamedClass[]> SwapMasterSlave;
         public event Action<NamedClass[]> MergeByMasterSlave;
@@ -551,10 +554,15 @@ namespace UserControls
             tsmiSpaceConvertToPart.Visible = visible && oneAboveVisible;
             tsmiConvertToPart.Visible = visible;
             oneAboveVisible |= visible;
-            // Material library                                     
+            // Material library
             visible = menuFields.MaterialLibrary == n && n > 0;
             tsmiSpaceMaterialLibrary.Visible = visible && oneAboveVisible;
             tsmiMaterialLibrary.Visible = visible;
+            oneAboveVisible |= visible;
+            // Import composite layups from CSV
+            visible = menuFields.ImportCompositeLayupsFromCsv == n && n > 0;
+            tsmiSpaceImportCompositeLayupsFromCsv.Visible = visible && oneAboveVisible;
+            tsmiImportCompositeLayupsFromCsv.Visible = visible;
             oneAboveVisible |= visible;
             // Search contact pairs                                 
             visible = menuFields.SearchContactPairs == n && n > 0;
@@ -712,6 +720,8 @@ namespace UserControls
             if (item != null && item is FeElementSet && GetActiveTree() == cltvModel) menuFields.ConvertToPart++;
             // Material library
             if (node == _materials) menuFields.MaterialLibrary++;
+            // Import composite layups from CSV
+            if (node == _compositeLayups) menuFields.ImportCompositeLayupsFromCsv++;
             // Swap Merge Master/Slave
             if (CanSearchContactPairs(node)) menuFields.SearchContactPairs++;
             if (item != null && CanSwapMergeMasterSlave(node)) menuFields.SwapMergeMasterSlave++;
@@ -1471,6 +1481,24 @@ namespace UserControls
                 if (selectedNode.Tag != null) return;
                 //
                 MaterialLibrary?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        // Composite Layup
+        private void tsmiImportCompositeLayupsFromCsv_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                CodersLabTreeView tree = GetActiveTree();
+                if (tree.SelectedNodes.Count != 1) return;
+                //
+                TreeNode selectedNode = tree.SelectedNode;
+                if (selectedNode.Tag != null) return;
+                //
+                ImportCompositeLayupsFromCsv?.Invoke();
             }
             catch (Exception ex)
             {

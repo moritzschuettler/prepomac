@@ -8631,6 +8631,76 @@ namespace PrePoMax
             //
             CheckAndUpdateModelValidity();
         }
+        // Import from CSV
+        public void ImportCompositeLayupsFromCsvCommand(string fileName)
+        {
+            CImportCompositeLayupsFromCsv comm = new CImportCompositeLayupsFromCsv(fileName);
+            _commands.AddAndExecute(comm);
+        }
+        public void ImportCompositeLayupsFromCsv(string fileName)
+        {
+            string[] lines = System.IO.File.ReadAllLines(fileName);
+            if (lines.Length < 2) return; // Need header + at least one data line
+            //
+            var layupGroups = new Dictionary<int, List<string[]>>();
+            //
+            for (int i = 1; i < lines.Length; i++)
+            {
+                string line = lines[i].Trim();
+                if (string.IsNullOrEmpty(line)) continue;
+                //
+                string[] parts = line.Split(',');
+                if (parts.Length < 5) continue; // Need at least LayupIndex, PlyName, Region, Material, Thickness
+                //
+                int layupIndex;
+                if (!int.TryParse(parts[0].Trim(), out layupIndex)) continue;
+                //
+                if (!layupGroups.ContainsKey(layupIndex))
+                    layupGroups[layupIndex] = new List<string[]>();
+                layupGroups[layupIndex].Add(parts);
+            }
+            //
+            foreach (var kvp in layupGroups.OrderBy(x => x.Key))
+            {
+                string baseName = "Layup-" + kvp.Key;
+                string layupName = GetUniqueCompositeLayupName(baseName);
+                var layup = new CompositeLayup(layupName, kvp.Value.Count, CompositeElementType.ConventionalShell);
+                //
+                for (int i = 0; i < kvp.Value.Count; i++)
+                {
+                    string[] parts = kvp.Value[i];
+                    layup.Plies[i].Name = parts[1].Trim();
+                    layup.Plies[i].Region = parts[2].Trim();
+                    layup.Plies[i].Material = parts[3].Trim();
+                    //
+                    double thickness;
+                    if (double.TryParse(parts[4].Trim(), System.Globalization.NumberStyles.Any,
+                        System.Globalization.CultureInfo.InvariantCulture, out thickness))
+                        layup.Plies[i].Thickness = thickness;
+                    //
+                    if (parts.Length > 5)
+                        layup.Plies[i].Csys = parts[5].Trim();
+                    //
+                    if (parts.Length > 6)
+                    {
+                        double rotationAngle;
+                        if (double.TryParse(parts[6].Trim(), System.Globalization.NumberStyles.Any,
+                            System.Globalization.CultureInfo.InvariantCulture, out rotationAngle))
+                            layup.Plies[i].RotationAngle = rotationAngle;
+                    }
+                }
+                //
+                AddCompositeLayup(layup);
+            }
+        }
+        private string GetUniqueCompositeLayupName(string baseName)
+        {
+            string name = baseName;
+            int counter = 1;
+            while (_model.CompositeLayups.ContainsKey(name))
+                name = baseName + "-" + counter++;
+            return name;
+        }
 
         #endregion #################################################################################################################
 
