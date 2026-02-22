@@ -26,8 +26,10 @@ namespace CaeMesh
         public int Id;
         public int PartId;
         public int[] NodeIds;
-        
+        public abstract int Dimension { get; }
 
+
+        // Constructors                                                                                                             
         public FeElement(int id, int[] nodeIds)
             : this(id, -1, nodeIds)
         {
@@ -71,17 +73,18 @@ namespace CaeMesh
 
 
         // Abstract methods                                                                                                         
-        abstract public int[] GetVtkNodeIds();
-        abstract public int[] GetGmshNodeIds();
-        abstract public int GetVtkCellType();
-        abstract public FeFaceName GetFaceNameFromSortedNodeIds(int[] nodeIds);
-        abstract public int[] GetNodeIdsFromFaceName(FeFaceName faceName);
-        abstract public int[] GetVtkCellFromFaceName(FeFaceName faceName);
-        abstract public Dictionary<FeFaceName, double> GetFaceNamesAndAreasFromNodeSet(HashSet<int> nodeSet,
+        
+        public abstract int[] GetVtkNodeIds();
+        public abstract int[] GetGmshNodeIds();
+        public abstract int GetVtkCellType();
+        public abstract FeFaceName GetFaceNameFromSortedNodeIds(int[] nodeIds);
+        public abstract int[] GetNodeIdsFromFaceName(FeFaceName faceName);
+        public abstract int[] GetVtkCellFromFaceName(FeFaceName faceName);
+        public abstract Dictionary<FeFaceName, double> GetFaceNamesAndAreasFromNodeSet(HashSet<int> nodeSet,
                                                                                        Dictionary<int, FeNode> nodes,
                                                                                        bool edgeFaces);
-        abstract public double[] GetEquivalentForcesFromFaceName(FeFaceName faceName);
-        abstract public double[] GetEquivalentForcesFromFaceName(FeFaceName faceName, double[] nodalValues);
+        public abstract double[] GetEquivalentForcesFromFaceName(FeFaceName faceName);
+        public abstract double[] GetEquivalentForcesFromFaceName(FeFaceName faceName, double[] nodalValues);
         protected double[] GetEquivalentForces(Type elementType, double[] nodalValues)
         {
             double[] n = nodalValues;
@@ -165,8 +168,8 @@ namespace CaeMesh
             }
             else throw new NotSupportedException();
         }
-        abstract public double GetArea(FeFaceName faceName, Dictionary<int, FeNode> nodes);
-        abstract public double[] GetFaceCG(FeFaceName faceName, Dictionary<int, FeNode> nodes, out double area);
+        public abstract double GetArea(FeFaceName faceName, Dictionary<int, FeNode> nodes);
+        public abstract double[] GetFaceCG(FeFaceName faceName, Dictionary<int, FeNode> nodes, out double area);
         virtual public double[] GetCG(Dictionary<int, FeNode> nodes, out double elementSize)
         {
             FeNode node;
@@ -188,8 +191,8 @@ namespace CaeMesh
             return cg;
         }
         //
-        abstract public void Mirror();
+        public abstract void Mirror();
         //
-        abstract public FeElement DeepCopy();
+        public abstract FeElement DeepCopy();
     }
 }

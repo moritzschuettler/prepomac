@@ -46,6 +46,10 @@ namespace PrePoMax
         public static string DeletingFacesText = "Deleting faces...";
         public static string ExplodePartsText = "Explode parts...";
         public static string SelectionText = "Selection...";
+        // Symbol names
+        public static string SymbolNone = "None";
+        public static string SymbolModel = "Model";
+        public static string SymbolResult = "Result";
         // File names
         public static string SettingsFileName = "settings.bin";
         public static string MaterialLibraryFileName = "materials.lib";

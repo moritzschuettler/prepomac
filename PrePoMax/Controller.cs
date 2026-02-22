@@ -194,28 +194,6 @@ namespace PrePoMax
         }
         // Annotations
         public AnnotationContainer Annotations { get { return _annotations; } }
-        // Symbols
-        public void SetSymbolsName(string symbolName)
-        {
-            _drawSymbolName = symbolName;
-        }
-        public void DrawSymbols(string symbolName, bool updateHighlight)
-        {
-            if (symbolName != _drawSymbolName)
-            {
-                _drawSymbolName = symbolName;
-                // Prevent the symbols from showing up first at: File open -> Regenerate tree
-                if (!_form.IsStateOpening())
-                {
-                    if (_currentView == ViewGeometryModelResults.Model) RedrawModelSymbols(updateHighlight);
-                    else if (_currentView == ViewGeometryModelResults.Results) RedrawResultSymbols(updateHighlight);
-                }
-            }
-        }
-        public string GetDrawSymbolsForStep()
-        {
-            return _drawSymbolName;
-        }
         // Selection
         public vtkSelectBy SelectBy
         {
@@ -1164,6 +1142,9 @@ namespace PrePoMax
             // Set the view but do not draw
             _currentView = ViewGeometryModelResults.Results;
             _form.SetCurrentView(_currentView);
+            // Select result symbols
+            _drawSymbolName = Globals.SymbolResult;
+            _form.SelectOneNameInSymbolsNames(_drawSymbolName);
             // Regenerate tree
             _form.RegenerateTree();
         }
@@ -2877,7 +2858,7 @@ namespace PrePoMax
             if (sectionViewPlane != null) RemoveSectionView();
             // Suppress symbols
             string drawSymbolsForStep = GetDrawSymbolsForStep();
-            DrawSymbols("None", false);
+            DrawSymbols(Globals.SymbolNone, false);
             // Suppress annotations
             _annotations.SuppressCurrentAnnotations();
             // Suppress undeformed results view
@@ -13517,6 +13498,8 @@ namespace PrePoMax
             else if (selectionNode is SelectionNodeMouse selectionNodeMouse)
             {
                 ids = GetIdsFromSelectionNodeMouse(selectionNodeMouse);
+                //if (ids == null)
+                //    ids = GetIdsFromSelectionNodeMouse(selectionNodeMouse);
                 // Change geometry ids to node, element, ... ids
                 if (selectionNodeMouse.IsGeometryBased) ids = DisplayedMesh.GetIdsFromGeometryIds(ids, _selection.SelectItem);
             }
@@ -14970,13 +14953,13 @@ namespace PrePoMax
                             {
                                 DrawAllModelParts();
                                 AnnotateWithColorLegend();
-                                DrawModelSymbols();
                                 _annotations.DrawAnnotations();
                                 //
                                 ApplySectionView();
                             }
                             catch { }
                         }
+                        DrawModelSymbols();
                         UpdateTreeSelection();
                     }
                     //
@@ -15229,7 +15212,7 @@ namespace PrePoMax
             }
             if (_annotateWithColor.HasFlag(AnnotateWithColorEnum.ReferencePoints))
             {
-                if (_currentView == ViewGeometryModelResults.Model && _drawSymbolName != null && _drawSymbolName != "None")
+                if (_currentView == ViewGeometryModelResults.Model && _drawSymbolName != null && _drawSymbolName != Globals.SymbolNone)
                 { List<Color> itemColors = new List<Color>();
                     List<string> itemNames = new List<string>();
                     // Reference points
@@ -15246,7 +15229,7 @@ namespace PrePoMax
             }
             if (_annotateWithColor.HasFlag(AnnotateWithColorEnum.Constraints))
             {
-                if (_currentView == ViewGeometryModelResults.Model && _drawSymbolName != null && _drawSymbolName != "None")
+                if (_currentView == ViewGeometryModelResults.Model && _drawSymbolName != null && _drawSymbolName != Globals.SymbolNone)
                 {
                     List<Color> itemColors = new List<Color>();
                     List<string> itemNames = new List<string>();
@@ -15298,7 +15281,7 @@ namespace PrePoMax
             }
             if (_annotateWithColor.HasFlag(AnnotateWithColorEnum.ContactPairs))
             {
-                if (_currentView == ViewGeometryModelResults.Model && _drawSymbolName != null && _drawSymbolName != "None")
+                if (_currentView == ViewGeometryModelResults.Model && _drawSymbolName != null && _drawSymbolName != Globals.SymbolNone)
                 {
                     List<Color> itemColors = new List<Color>();
                     List<string> itemNames = new List<string>();
@@ -15327,7 +15310,7 @@ namespace PrePoMax
             if (_annotateWithColor.HasFlag(AnnotateWithColorEnum.InitialConditions))
             {
                 if (_currentView == ViewGeometryModelResults.Model && _drawSymbolName != null &&
-                    _drawSymbolName != "None" && _drawSymbolName != "Model")
+                    _drawSymbolName != Globals.SymbolNone && _drawSymbolName != Globals.SymbolModel)
                 {
                     List<Color> itemColors = new List<Color>();
                     List<string> itemNames = new List<string>();
@@ -15346,7 +15329,7 @@ namespace PrePoMax
             if (_annotateWithColor.HasFlag(AnnotateWithColorEnum.BoundaryConditions))
             {
                 if (_currentView == ViewGeometryModelResults.Model && _drawSymbolName != null &&
-                    _drawSymbolName != "None" && _drawSymbolName != "Model")
+                    _drawSymbolName != Globals.SymbolNone && _drawSymbolName != Globals.SymbolModel)
                 {
                     List<Color> itemColors = new List<Color>();
                     List<string> itemNames = new List<string>();
@@ -15365,7 +15348,7 @@ namespace PrePoMax
             if (_annotateWithColor.HasFlag(AnnotateWithColorEnum.Loads))
             {
                 if (_currentView == ViewGeometryModelResults.Model && _drawSymbolName != null &&
-                    _drawSymbolName != "None" && _drawSymbolName != "Model")
+                    _drawSymbolName != Globals.SymbolNone && _drawSymbolName != Globals.SymbolModel)
                 {
                     List<Color> itemColors = new List<Color>();
                     List<string> itemNames = new List<string>();
@@ -15384,7 +15367,7 @@ namespace PrePoMax
             if (_annotateWithColor.HasFlag(AnnotateWithColorEnum.DefinedFields))
             {
                 if (_currentView == ViewGeometryModelResults.Model && _drawSymbolName != null &&
-                    _drawSymbolName != "None" && _drawSymbolName != "Model")
+                    _drawSymbolName != Globals.SymbolNone && _drawSymbolName != Globals.SymbolModel)
                 {
                     List<Color> itemColors = new List<Color>();
                     List<string> itemNames = new List<string>();
@@ -15407,11 +15390,32 @@ namespace PrePoMax
             //
         }
         // Symbols
+        public void SetSymbolsName(string symbolName)
+        {
+            _drawSymbolName = symbolName;
+        }
+        public void DrawSymbols(string symbolName, bool updateHighlight)
+        {
+            if (symbolName != _drawSymbolName)
+            {
+                _drawSymbolName = symbolName;
+                // Prevent the symbols from showing up first at: File open -> Regenerate tree
+                if (!_form.IsStateOpening())
+                {
+                    if (_currentView == ViewGeometryModelResults.Model) RedrawModelSymbols(updateHighlight);
+                    else if (_currentView == ViewGeometryModelResults.Results) RedrawResultSymbols(updateHighlight);
+                }
+            }
+        }
+        public string GetDrawSymbolsForStep()
+        {
+            return _drawSymbolName;
+        }
         public void DrawModelSymbols()
         {
             if (_currentView != ViewGeometryModelResults.Model || _disableDrawSymbols) return;
             //
-            if (_drawSymbolName != null && _drawSymbolName != "None")
+            if (_drawSymbolName != null && _drawSymbolName != Globals.SymbolNone)
             {
                 DrawAllReferencePoints();
                 DrawAllCoordinateSystems();
@@ -15419,7 +15423,7 @@ namespace PrePoMax
                 DrawAllContactPairs();
                 DrawAllInitialConditions();
                 //
-                if (_drawSymbolName != "Model")
+                if (_drawSymbolName != Globals.SymbolModel)
                 {
                     DrawAllBoundaryConditions(_drawSymbolName);
                     DrawAllLoads(_drawSymbolName);
@@ -15435,7 +15439,7 @@ namespace PrePoMax
         {
             if (_currentView != ViewGeometryModelResults.Results || _disableDrawSymbols) return;
             //
-            if (_drawSymbolName != null && _drawSymbolName != "None")
+            if (_drawSymbolName != null && _drawSymbolName != Globals.SymbolNone)
             {
                 DrawAllReferencePoints();
                 DrawAllCoordinateSystems();
@@ -19747,12 +19751,12 @@ namespace PrePoMax
         public void HighlightFieldOutput(FieldOutput fieldOutput, bool mouseOver = false)
         {
             Step step = _model.StepCollection.GetFiledOutputStep(fieldOutput);
-            if (!mouseOver && step != null) _form.SelectOneStepInSymbolsForStepList(step.Name);
+            if (!mouseOver && step != null) _form.SelectOneNameInSymbolsNames(step.Name);
         }
         public void HighlightHistoryOutput(HistoryOutput historyOutput, bool mouseOver = false)
         {
             Step step = _model.StepCollection.GetHistoryOutputStep(historyOutput);
-            if (!mouseOver && step != null) _form.SelectOneStepInSymbolsForStepList(step.Name);
+            if (!mouseOver && step != null) _form.SelectOneNameInSymbolsNames(step.Name);
             //
             if (historyOutput.RegionType == RegionTypeEnum.NodeSetName)
                 HighlightNodeSet(historyOutput.RegionName);
@@ -19770,7 +19774,7 @@ namespace PrePoMax
         public void HighlightBoundaryCondition(BoundaryCondition boundaryCondition, bool mouseOver = false)
         {
             Step step = _model.StepCollection.GetBoundaryConditionStep(boundaryCondition);
-            if (!mouseOver && step != null) _form.SelectOneStepInSymbolsForStepList(step.Name);
+            if (!mouseOver && step != null) _form.SelectOneNameInSymbolsNames(step.Name);
             //
             int symbolSize = _settings.Pre.SymbolSize;
             int nodeSize = _settings.Pre.HighlightNodeSymbolSize;
@@ -19780,7 +19784,7 @@ namespace PrePoMax
         public void HighlightLoad(Load load, bool mouseOver = false)
         {
             Step step = _model.StepCollection.GetLoadStep(load);
-            if (!mouseOver && step != null) _form.SelectOneStepInSymbolsForStepList(step.Name);
+            if (!mouseOver && step != null) _form.SelectOneNameInSymbolsNames(step.Name);
             //
             int symbolSize = _settings.Pre.SymbolSize;
             int nodeSize = _settings.Pre.HighlightNodeSymbolSize;
@@ -19789,7 +19793,7 @@ namespace PrePoMax
         public void HighlightDefinedField(DefinedField definedField, bool mouseOver = false)
         {
             Step step = _model.StepCollection.GetDefinedFieldStep(definedField);
-            if (!mouseOver && step != null) _form.SelectOneStepInSymbolsForStepList(step.Name);
+            if (!mouseOver && step != null) _form.SelectOneNameInSymbolsNames(step.Name);
             //
             int symbolSize = _settings.Pre.SymbolSize;
             int nodeSize = _settings.Pre.HighlightNodeSymbolSize;

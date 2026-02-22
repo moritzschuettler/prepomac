@@ -1099,7 +1099,7 @@ namespace CaeMesh
                 //
                 foreach (var nodeId in element.NodeIds)
                 {
-                    if (nodeElements.ContainsKey(nodeId)) nodeElements[nodeId].Add(element);
+                    if (nodeElements.TryGetValue(nodeId, out var list)) list.Add(element);
                     else nodeElements.Add(nodeId, new List<FeElement>() { element });
                 }
                 // Get existing part data
@@ -1166,22 +1166,8 @@ namespace CaeMesh
                         }
                     }
                     // Find connected elements of the same type
-                    if (element is FeElement1D)
-                    {
-                        FloodFill<FeElement1D>(element, partId, nodeElements, ref partNodeIds, ref partElementIds,
-                                                   ref partElementTypes, inpElementTypeSetLabels);
-                    }
-                    else if (element is FeElement2D)
-                    {
-                        FloodFill<FeElement2D>(element, partId, nodeElements, ref partNodeIds, ref partElementIds,
-                                                   ref partElementTypes, inpElementTypeSetLabels);
-                    }
-                    else if (element is FeElement3D)
-                    {
-                        FloodFill<FeElement3D>(element, partId, nodeElements, ref partNodeIds, ref partElementIds,
-                                                   ref partElementTypes, inpElementTypeSetLabels);
-                    }
-                    else throw new NotSupportedException();
+                    FloodFill(element, partId, nodeElements, ref partNodeIds, ref partElementIds,
+                              ref partElementTypes, inpElementTypeSetLabels);
                 }
                 else if (existingPartIds.Contains(element.PartId) && !addedPartIds.Contains(element.PartId))
                 {
@@ -1243,8 +1229,7 @@ namespace CaeMesh
                 foreach (int elementIdToRemove in elementIdsToRemove)
                     _elements.Remove(elementIdToRemove);
             }
-            
-
+            //
             watch.Stop();
             // Merge geometry parts   ???
             if (importOptions == ImportOptions.ImportOneCADSolidPart &&
@@ -1300,14 +1285,13 @@ namespace CaeMesh
             }
             Array.Sort(partIds, partNames);
             _parts.SortKeysAs(partNames);
-            //
-            //ResetPartsColor();
         }
-        private void FloodFill<T>(FeElement element, int partId, Dictionary<int, List<FeElement>> nodeElements,
-                                  ref HashSet<int> partNodeIds, ref List<int> partElementIds,
-                                  ref HashSet<Type> partElementTypes, HashSet<int> elementTypeSet)
+        private void FloodFill(FeElement element, int partId, Dictionary<int, List<FeElement>> nodeElements,
+                               ref HashSet<int> partNodeIds, ref List<int> partElementIds,
+                               ref HashSet<Type> partElementTypes, HashSet<int> elementTypeSet)
         {
-            UniqueQueue<FeElement> neighbors = new UniqueQueue<FeElement>();
+            List<int> nodeIds = new List<int>();
+            Queue<FeElement> neighbors = new Queue<FeElement>();
             neighbors.Enqueue(element);
             //
             FeElement el;
@@ -1319,17 +1303,19 @@ namespace CaeMesh
                 {
                     foreach (var currEl in nodeElements[nodeId])
                     {
-                        if (currEl.PartId == -1 && currEl is T && !(elementTypeSet != null && !elementTypeSet.Contains(currEl.Id)))
+                        if (currEl.PartId == -1 && currEl.Dimension == element.Dimension && !(elementTypeSet != null &&
+                            !elementTypeSet.Contains(currEl.Id)))
                         {
                             currEl.PartId = partId;
                             neighbors.Enqueue(currEl);
-                            partNodeIds.UnionWith(currEl.NodeIds);
+                            nodeIds.AddRange(currEl.NodeIds);
                             partElementIds.Add(currEl.Id);
                             partElementTypes.Add(currEl.GetType());
                         }
                     }
                 }
             }
+            partNodeIds.UnionWith(nodeIds);
         }
         // Visualization
         public void ExtractPartVisualization(BasePart part, bool isCADPart, double edgeAngle)

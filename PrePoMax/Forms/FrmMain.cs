@@ -1977,6 +1977,8 @@ namespace PrePoMax
                 {
                     if (MessageBoxes.ShowWarningQuestionOKCancel("OK to reopen the existing results?") != DialogResult.OK)
                         return false;
+                    //
+                    _selectedSymbolIndex.Remove(ViewGeometryModelResults.Results);
                 }
             }
             return true;
@@ -8882,25 +8884,32 @@ namespace PrePoMax
         #region Symbol toolbar  ####################################################################################################
         private void tscbSymbols_SelectedIndexChanged(object sender, EventArgs e)
         {
-            // the first time the model is opened the symbol name is null - set it here
-            _controller.SetSymbolsName(tscbSymbols.SelectedItem.ToString());
-            //
-            if (_suppressSymbolChanged) return;
-            // If BC or load from one step-1 is selected its selection requires the step-1 to be selected.
-            // Changing the step symbols is not possible -> Clear selection
-            _controller.ClearAllSelection();
-            //
-            _controller.DrawSymbols(tscbSymbols.SelectedItem.ToString(), false);
-            // Save the selected index
-            _selectedSymbolIndex[_controller.CurrentView] = tscbSymbols.SelectedIndex;
-            //
-            this.ActiveControl = null;
+            if (_suppressSymbolChanged)
+            {
+                // Only set the name here
+                _controller.SetSymbolsName(tscbSymbols.SelectedItem.ToString());
+            }
+            else
+            {
+                // If BC or load from one step-1 is selected its selection requires the step-1 to be selected.
+                // Changing the step symbols is not possible -> Clear selection
+                _controller.ClearAllSelection();
+                //
+                _controller.DrawSymbols(tscbSymbols.SelectedItem.ToString(), false);
+                // Save the selected index
+                _selectedSymbolIndex[_controller.CurrentView] = tscbSymbols.SelectedIndex;
+                //
+                this.ActiveControl = null;
+            }
         }
         public void SelectLastSymbolName()
         {
-            _suppressSymbolChanged = true;
-            tscbSymbols.SelectedIndex = tscbSymbols.Items.Count - 1;
-            _suppressSymbolChanged = false;
+            InvokeIfRequired(() =>
+            {
+                _suppressSymbolChanged = true;
+                tscbSymbols.SelectedIndex = tscbSymbols.Items.Count - 1;
+                _suppressSymbolChanged = false;
+            });
         }
         public void UpdateSymbolsList()
         {
@@ -8909,17 +8918,17 @@ namespace PrePoMax
                 _suppressSymbolChanged = true;
                 // Clear symbols dropdown
                 tscbSymbols.Items.Clear();
-                tscbSymbols.Items.Add("None");
+                tscbSymbols.Items.Add(Globals.SymbolNone);
                 tscbSymbols.SelectedIndex = 0;
                 //
                 if (_controller.CurrentView == ViewGeometryModelResults.Geometry) { }
                 else if (_controller.CurrentView == ViewGeometryModelResults.Model)
                 {
-                    tscbSymbols.Items.Add("Model");
+                    tscbSymbols.Items.Add(Globals.SymbolModel);
                     tscbSymbols.Items.AddRange(_controller.GetStepNames());
                 }
                 else if (_controller.CurrentView == ViewGeometryModelResults.Results)
-                    tscbSymbols.Items.Add("Results");
+                    tscbSymbols.Items.Add(Globals.SymbolResult);
                 // Retrieve the selected index
                 int index = int.MaxValue;
                 if (_selectedSymbolIndex != null && !_selectedSymbolIndex.TryGetValue(_controller.CurrentView, out index))
@@ -8934,14 +8943,14 @@ namespace PrePoMax
                 _suppressSymbolChanged = false;
             });
         }
-        public void SelectOneStepInSymbolsForStepList(string stepName)
+        public void SelectOneNameInSymbolsNames(string name)
         {
             InvokeIfRequired(() =>
             {
                 int index = -1;
                 for (int i = 0; i < tscbSymbols.Items.Count; i++)
                 {
-                    if (tscbSymbols.Items[i].ToString() == stepName)
+                    if (tscbSymbols.Items[i].ToString() == name)
                     {
                         index = i;
                         break;

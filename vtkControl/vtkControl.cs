@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -2656,88 +2657,55 @@ namespace vtkControl
         //
         private void ResetCamera()
         {
-            double delta1;
-            double delta2 = double.MaxValue;
-            double[] b1 = _renderer.ComputeVisiblePropBounds();
-            double[] b2;
+            vtkCamera cam = _renderer.GetActiveCamera();
             //
-            //if (_overlayActors.Count > 0)
-            {
-                while (true)
-                {
-                    ////double[] b2 = _overlayRenderer.ComputeVisiblePropBounds();
-                    ////double[] b3 = new double[] { Math.Min(b1[0], b2[0]), Math.Max(b1[1], b2[1]),
-                    ////                             Math.Min(b1[2], b2[2]), Math.Max(b1[3], b2[3]),
-                    ////                             Math.Min(b1[4], b2[4]), Math.Max(b1[5], b2[5])};
-                    ////
-                    ////_renderer.ResetCamera(b3[0], b3[1], b3[2], b3[3], b3[4], b3[5]);
-                    ////
-                    ////bool left, right, bottom, top;
-                    ////left = b2[0] < b1[0];
-                    ////right = b2[1] > b1[1];
-                    ////bottom = b2[2] < b1[2];
-                    ////top = b2[4] > b1[4];
-                    ////
-                    //int wFactor = 0;
-                    //int hFactor = 0;
-                    ////
-                    ////if (left) wFactor++;
-                    ////if (right) wFactor++;
-                    ////if (bottom) hFactor++;
-                    ////if (top) hFactor++;
-                    ////
-                    //// Simple solution
-                    //wFactor = 2;
-                    //hFactor = 2;
-                    ////
-                    //double w = Width - wFactor * _maxSymbolSize;
-                    //double h = Height - hFactor * _maxSymbolSize;
-                    //double zoomW = Width / w;
-                    //double zoomH = Height / h;
-                    ////
-                    //double mid;
-                    //double l;
-                    //// Width
-                    //mid = (b1[0] + b1[1]) / 2;
-                    //l = b1[1] - b1[0];
-                    ////if (wFactor == 1)
-                    ////{
-                    ////    if (left) mid += l * (1 - zoomW) / 2;
-                    ////    if (right) mid -= l * (1 - zoomW) / 2;
-                    ////}
-                    //l *= zoomW;
-                    //b1[0] = mid - l / 2;
-                    //b1[1] = mid + l / 2;
-                    //// Height
-                    //mid = (b1[2] + b1[3]) / 2;
-                    //l = b1[3] - b1[2];
-                    ////if (hFactor == 1)
-                    ////{
-                    ////    if (bottom) mid += l * (1 - zoomH) / 2;
-                    ////    if (top) mid -= l * (1 - zoomH) / 2;
-                    ////}
-                    //l *= zoomH;
-                    //b1[2] = mid - l / 2;
-                    //b1[3] = mid + l / 2;
-                    ////
-                    //_renderer.ResetCamera(b1[0], b1[1], b1[2], b1[3], b1[4], b1[5]);
-                    //
-                    _renderer.ResetCamera();
-                    b2 = _renderer.ComputeVisiblePropBounds();
-                    delta1 = Math.Abs(b1[0] - b2[0]);
-                    if (Math.Abs(delta1 - delta2) < 1E-6) break;
-                    else
-                    {
-                        b1 = b2.ToArray();
-                        delta2 = delta1;
-                    }
-                }
-            }
-            //else _renderer.ResetCamera();
+            _renderer.ResetCamera();
+            double[] position1 = cam.GetPosition();
+            double[] focalPoint1 = cam.GetFocalPoint();
+            double scale1 = cam.GetParallelScale();
+            //
+            _overlayRenderer.ResetCamera();
+            //double[] position2 = cam.GetPosition();
+            double[] focalPoint2 = cam.GetFocalPoint();
+            double scale2 = cam.GetParallelScale();
+            // Aspect
+            double aspect = _renderWindow.GetSize()[0] / (double)_renderWindow.GetSize()[1];
+            // Y bounds
+            double yMax = Math.Max(focalPoint1[1] + scale1, focalPoint2[1] + scale2);
+            double yMin = Math.Min(focalPoint1[1] - scale1, focalPoint2[1] - scale2);
+            // X bounds
+            double xMax = Math.Max(focalPoint1[0] + scale1 * aspect, focalPoint2[0] + scale2 * aspect);
+            double xMin = Math.Min(focalPoint1[0] - scale1 * aspect, focalPoint2[0] - scale2 * aspect);
+            // New center from bounds
+            double centerX = (xMin + xMax) / 2.0;
+            double centerY = (yMin + yMax) / 2.0;
+            // Compute new parallel scale
+            double scaleY = (yMax - yMin) / 2.0;
+            double scaleX = (xMax - xMin) / (2.0 * aspect);
+            double newScale = Math.Max(scaleY, scaleX);
+            // Preserve view direction
+            double[] direction = new double[3];
+            direction[0] = position1[0] - focalPoint1[0];
+            direction[1] = position1[1] - focalPoint1[1];
+            direction[2] = position1[2] - focalPoint1[2];
+            // Set new focal point
+            cam.SetFocalPoint(centerX, centerY, focalPoint1[2]);
+            // Set new position (keep same view direction)
+            cam.SetPosition(centerX + direction[0], centerY + direction[1], focalPoint1[2] + direction[2]);
+            cam.SetParallelScale(newScale);
             //
             _style.ResetClippingRange();
             //
             SetAllCaptionPositions();
+        }
+        private double[] ComputeVisiblePropBounds()
+        {
+            double[] b1 = _renderer.ComputeVisiblePropBounds();
+            double[] b2 = _overlayRenderer.ComputeVisiblePropBounds();
+            //
+            return new double[] { Math.Min(b1[0], b2[0]), Math.Max(b1[1], b2[1]),
+                                  Math.Min(b1[2], b2[2]), Math.Max(b1[3], b2[3]),
+                                  Math.Min(b1[4], b2[4]), Math.Max(b1[5], b2[5])};
         }
         //
         private int GetClosestIsoDirectionQuadrant(double[] camera)
@@ -3453,6 +3421,8 @@ namespace vtkControl
             //
             captionActor.LeaderOff();
             captionActor.BorderOff();
+            //
+            captionActor.UseBoundsOff();
             //captionActor.SetWidth(0.01);
             // Actor
             vtkMaxCaptionActor actor = new vtkMaxCaptionActor(name, color, captionActor);
@@ -4322,6 +4292,8 @@ namespace vtkControl
         private void AddActorCaption(vtkMaxCaptionActor actor, vtkRendererLayer layer)
         {
             // Add actor
+            actor.CaptionActor.UseBoundsOff();
+            //
             if (layer == vtkRendererLayer.Base)
             {
                 if (actor.Name == null) actor.Name = (_actors.Count + 1).ToString();
@@ -4343,7 +4315,7 @@ namespace vtkControl
                 ApplySelectionFormattingToCaptionActor(actor);
             }
             //
-            AddTmpActor(layer);
+            AddTmpActor(layer, actor.Position);
         }
         private void AddActorEdges(vtkMaxActor actor, bool isModelEdge, vtkRendererLayer layer)
         {
@@ -4411,64 +4383,52 @@ namespace vtkControl
             }
             //
             UpdateTmpActor(layer);
-
-            //else if (layer == vtkRendererLayer.Overlay)
-            //{
-            //    _overlayActors.Add(actor.Name, actor.Geometry);
-            //    //
-            //    if (isModelEdge) _overlayRenderer.AddActor(actor.ModelEdges);
-            //    else _overlayRenderer.AddActor(actor.ElementEdges);
-            //}
-            //else if (layer == vtkRendererLayer.Selection)
-            //{
-            //    // Wireframe selection
-            //    if (!_selectedActors.Contains(actor)) _selectedActors.Add(actor);
-            //    //
-            //    vtkActor edgeActor;
-            //    if (isModelEdge) edgeActor = actor.ModelEdges;
-            //    else edgeActor = actor.ElementEdges;
-            //    //
-            //    if (actor.DrawOnGeometry) _renderer.AddActor(edgeActor);
-            //    else _selectionRenderer.AddActor(edgeActor);
-            //}
-            ////if (isModelEdge) ApplyEdgesFormattingToActor(actor.ModelEdges);
-            ////else ApplyEdgesFormattingToActor(actor.ElementEdges);
-            //if (isModelEdge) ApplyEdgeVisibilityAndBackfaceCullingToModelEdges(actor, actor.Name);
-            //else ApplyEdgeVisibilityAndBackfaceCullingToActorEdges(actor, actor.Name);
         }
-        private void AddTmpActor(vtkRendererLayer layer)
+        private void AddTmpActor(vtkRendererLayer layer, double[] position)
         {
             if (layer == vtkRendererLayer.Base) _captionActorAddedToBase = true;
             else if (layer == vtkRendererLayer.Overlay) _captionActorAddedToOverlay = true;
             else if (layer == vtkRendererLayer.Selection) _captionActorAddedToSelection = true;
             //
+            ((vtkPolyData)_captionTmpActor.GetMapper().GetInput()).GetPoints().SetPoint(0, position[0], position[1], position[2]);
+            _captionTmpActor.GetMapper().Modified();
+            //
             UpdateTmpActor(layer);
         }
         private void UpdateTmpActor(vtkRendererLayer layer)
         {
+            double[] p = ((vtkPolyData)_captionTmpActor.GetMapper().GetInput()).GetPoints().GetPoint(0);
+            
+
             if (_captionActorAddedToBase || _captionActorAddedToOverlay || _captionActorAddedToSelection)
             {
-                double[] center = new double[3];
-                double[] bounds = _renderer.ComputeVisiblePropBounds();
-                center[0] = (bounds[0] + bounds[1]) / 2;
-                center[1] = (bounds[2] + bounds[3]) / 2;
-                center[2] = (bounds[4] + bounds[5]) / 2;
-                ((vtkPolyData)_captionTmpActor.GetMapper().GetInput()).GetPoints().SetPoint(0, center[0], center[1], center[2]);
-                //
                 if (layer == vtkRendererLayer.Base)
                 {
-                    if (_captionActorAddedToBase) _renderer.RemoveActor(_captionTmpActor);
-                    _renderer.AddActor(_captionTmpActor);   // move tmpActor to last place
+                    if (_captionActorAddedToBase)
+                    {
+                        _renderer.RemoveActor(_captionTmpActor);
+                        _renderer.AddActor(_captionTmpActor);   // move tmpActor to last place
+                    }
+
+                    
                 }
                 else if (layer == vtkRendererLayer.Overlay)
                 {
-                    if (_captionActorAddedToOverlay) _overlayRenderer.RemoveActor(_captionTmpActor);
-                    _overlayRenderer.AddActor(_captionTmpActor);    // move tmpActor to last place
+                    if (_captionActorAddedToOverlay)
+                    {
+                        _overlayRenderer.RemoveActor(_captionTmpActor);
+                        _overlayRenderer.AddActor(_captionTmpActor);    // move tmpActor to last place
+                    }
+
+                    
                 }
                 else if (layer == vtkRendererLayer.Selection)
                 {
-                    if (_captionActorAddedToSelection) _selectionRenderer.RemoveActor(_captionTmpActor);
-                    _selectionRenderer.AddActor(_captionTmpActor);  // move tmpActor to last place
+                    if (_captionActorAddedToSelection)
+                    {
+                        _selectionRenderer.RemoveActor(_captionTmpActor);
+                        _selectionRenderer.AddActor(_captionTmpActor);  // move tmpActor to last place
+                    }
                 }
             }
         }
@@ -6362,7 +6322,7 @@ namespace vtkControl
                 RenderScene();
 
                 countError++;
-                if (countError % 1000 == 0) System.Diagnostics.Debug.WriteLine("Count: " + countError);
+                if (countError % 1000 == 0) Debug.WriteLine("Count: " + countError);
             }
         }
         public void UpdateActorsColorContoursVisibility(string[] actorNames, bool colorContours)
@@ -6655,11 +6615,11 @@ namespace vtkControl
                     _renderer.RemoveActor(entry.Value.ElementEdges);
                     _renderer.RemoveActor(entry.Value.ModelEdges);
                     _renderer.RemoveActor(entry.Value.Nodes);
-                    //
-                    _renderer.RemoveActor(_captionTmpActor);
-                    _captionActorAddedToBase = false;
                 }
             }
+            //
+            _renderer.RemoveActor(_captionTmpActor);
+            _captionActorAddedToBase = false;
             //_renderer.RemoveAllViewProps();  this removes all other actors for min/max values ...
             _actors.Clear();            
             _cellPicker.RemoveAllLocators();
@@ -6733,11 +6693,12 @@ namespace vtkControl
                     //
                     _selectionRenderer.RemoveActor(actor.Geometry);
                     _selectionRenderer.RemoveActor(actor.ElementEdges);
-                    //
-                    _selectionRenderer.RemoveActor(_captionTmpActor);
-                    _captionActorAddedToSelection = false;
                 }
             }
+            //
+            _selectionRenderer.RemoveActor(_captionTmpActor);
+            _captionActorAddedToSelection = false;
+            //
             _selectedActors.Clear();
             //
             RenderScene();
@@ -6767,15 +6728,14 @@ namespace vtkControl
             foreach (var entry in _overlayActors)
             {
                 if (entry.Value is vtkMaxCaptionActor ca) _overlayRenderer.RemoveActor2D(ca.CaptionActor);
-                else
-                {
-                    _overlayRenderer.RemoveActor(entry.Value.Geometry);
-                    //
-                    _overlayRenderer.RemoveActor(_captionTmpActor);
-                    _captionActorAddedToOverlay = false;
-                }
+                else _overlayRenderer.RemoveActor(entry.Value.Geometry);
             }
+            //
+            _overlayRenderer.RemoveActor(_captionTmpActor);
+            _captionActorAddedToOverlay = false;
+            //
             _overlayActors.Clear();
+            //
             RenderScene();
         }
         #endregion #################################################################################################################
@@ -7022,12 +6982,12 @@ namespace vtkControl
         public double[] GetBoundingBox()
         {
             // xMin, xMax, yMin, yMax, zMin, zMax
-            return _renderer.ComputeVisiblePropBounds();
+            return ComputeVisiblePropBounds();
         }
         public double[] GetBoundingBoxSize()
         {
             // xMin, xMax, yMin, yMax, zMin, zMax
-            double[] b = _renderer.ComputeVisiblePropBounds();
+            double[] b = ComputeVisiblePropBounds();
             return new double[] { b[1] - b[0], b[3] - b[2], b[5] - b[4] };
         }
         public double GetBoundingBoxDiagonal()
@@ -7041,10 +7001,7 @@ namespace vtkControl
         {
             if (_renderingOn)
             {
-                Fix2DTextRendering();
-                //
                 this.Invalidate();
-                int i = 0;
                 //
                 foreach (var entry in _actors)
                 {
@@ -7052,38 +7009,6 @@ namespace vtkControl
                 }
             }
         }
-        private void Fix2DTextRendering()
-        {
-            if (_selectedActors.Count > 0)
-            {
-                int count = 0;
-                vtkMaxCaptionActor captionActor = null;
-                bool captionActorIsLast = false;
-                foreach (var actor in _selectedActors)
-                {
-                    if (actor is vtkMaxCaptionActor vmca)
-                        captionActor = vmca;
-                    //
-                    count++;
-                    //
-                    if (count == _selectedActors.Count)
-                        captionActorIsLast = actor is vtkMaxCaptionActor;
-                }
-                //
-                if (captionActor != null)// && !captionActorIsLast)
-                {
-                    //AddCaptionActor("a", "", Color.Red, new double[] { 0, 0, 0 },
-                    //    new double[] { 0, 0, 0 }, 1, vtkRendererLayer.Selection);
-                    //vtkActor tmpActor = GetActorTmp(new double[] { 0, 0, 0 });
-                    //_selectionRenderer.AddActor(tmpActor);
-                    //_selectionRenderer.RemoveActor(captionActor.Geometry);
-                    //_selectedActors.Remove(captionActor);
-                    //
-                    //AddActor(lastActor, vtkRendererLayer.Selection);
-                }
-            }
-        }
-
 
         // Tools
         public void CropPartWithCylinder(string partName, double r, string fileName)
@@ -7528,7 +7453,7 @@ namespace vtkControl
             // fit all in
 
 
-            //double[] bounds = m_Renderer.ComputeVisiblePropBounds();
+            //double[] bounds = ComputeVisiblePropBounds();
             IntPtr test = System.Runtime.InteropServices.Marshal.AllocHGlobal(6 * 8);
             _renderer.ComputeVisiblePropBounds(test);
             _renderer.ResetCamera(test);

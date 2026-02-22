@@ -15,6 +15,7 @@ namespace CaeMesh
 
 
         // Properties                                                                                                               
+        public override int Dimension { get { return 3; } }
 
 
         // Constructors                                                                                                             
@@ -29,7 +30,7 @@ namespace CaeMesh
 
 
         // Methods                                                                                                                  
-        abstract public int[][] GetAllVtkCells();
+        public abstract int[][] GetAllVtkCells();
         virtual public int GetVtkCellIdFromCell(int[] cell)
         {
             int vtkCellId = -1;
@@ -44,6 +45,6 @@ namespace CaeMesh
             }
             return vtkCellId;
         }
-        abstract public double GetVolume(Dictionary<int, FeNode> nodes);
+        public abstract double GetVolume(Dictionary<int, FeNode> nodes);
     }
 }

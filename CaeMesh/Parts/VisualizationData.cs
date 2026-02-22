@@ -34,7 +34,7 @@ namespace CaeMesh
         protected int[] _vertexNodeIds;
         //
         [NonSerialized]
-        private Dictionary<int[], CellNeighbour> _cellNeighboursOverCell; // this are solid cell neighbours to extract surface
+        private Dictionary<SortedIntKey, CellNeighbour> _cellNeighboursOverCell; // this are solid cell neighbours to extract surface
 
 
         // Properties                                                                                                               
@@ -402,22 +402,19 @@ namespace CaeMesh
         }
         private void ExtractCellNeighboursOverCell(Dictionary<int, FeElement> elements, int[] elementIds)
         {
-            int[] key;
-            CompareIntArray comparer = new CompareIntArray();
-            CellNeighbour cellNeighbour;
-            _cellNeighboursOverCell = new Dictionary<int[], CellNeighbour>(elementIds.Length, comparer);
-            // Parallelizing this loop does not bring any speedup
+            _cellNeighboursOverCell = new Dictionary<SortedIntKey, CellNeighbour>(elementIds.Length * 6);
+            //
             foreach (var id in elementIds)
             {
                 foreach (int[] cell in ((FeElement3D)elements[id]).GetAllVtkCells())
                 {
-                    key = cell.ToArray();
-                    Array.Sort(key);
+                    var key = new SortedIntKey(cell);
                     //
-                    if (_cellNeighboursOverCell.TryGetValue(key, out cellNeighbour)) cellNeighbour.Id2 = id;
+                    if (_cellNeighboursOverCell.TryGetValue(key, out var neighbour)) neighbour.Id2 = id;
                     else _cellNeighboursOverCell.Add(key, new CellNeighbour(id, -1, cell));
                 }
             }
+
         }
         //
         public void RenumberNodes(Dictionary<int, int> newIds)
@@ -458,13 +455,11 @@ namespace CaeMesh
             int[] cellIds = new int[4];
             if (_cellNeighboursOverCell != null)
             {
-                int[] renumberedKey;
                 int[] renumberedCell;
                 CellNeighbour cellNeighbour;
                 CellNeighbour existingCellNeighbour;
-                CompareIntArray comparer = new CompareIntArray();
-                Dictionary<int[], CellNeighbour> renumberedNeighbours =
-                    new Dictionary<int[], CellNeighbour>(_cellNeighboursOverCell.Count, comparer);
+                Dictionary<SortedIntKey, CellNeighbour> renumberedNeighbours =
+                    new Dictionary<SortedIntKey, CellNeighbour>(_cellNeighboursOverCell.Count);
                 //
                 foreach (var entry in _cellNeighboursOverCell)
                 {
@@ -475,8 +470,7 @@ namespace CaeMesh
                         if (newIds.TryGetValue(entry.Value.Cell1[i], out id)) renumberedCell[i] = id;
                     }
                     //
-                    renumberedKey = renumberedCell.ToArray();
-                    Array.Sort(renumberedKey);
+                    var renumberedKey = new SortedIntKey(renumberedCell);
                     //
                     cellNeighbour = entry.Value;
                     cellNeighbour.Cell1 = renumberedCell;
@@ -504,8 +498,7 @@ namespace CaeMesh
                 _cellNeighboursOverCell = renumberedNeighbours;
             }
             //
-            if (System.Diagnostics.Debugger.IsAttached && error)
-                Debugger.Break();   //VisualizationData:RenumberNodes: This should not happen!
+            if (Debugger.IsAttached && error) Debugger.Break();   //VisualizationData:RenumberNodes: This should not happen!
         }
         public void RenumberElements(Dictionary<int, int> newIds)
         {
@@ -1990,8 +1983,6 @@ namespace CaeMesh
             bool insert;
             int id;
             int[] cell;
-            int[] sorted;
-            int[] sorted2;
             int[][] vtkCells;
             int[][] vtkCells2;
             CellNeighbour cellNeighbour;
@@ -2026,8 +2017,7 @@ namespace CaeMesh
                                 if (insert)
                                 {
                                     cell = null;
-                                    sorted = vtkCells[k].ToArray();
-                                    Array.Sort(sorted);
+                                    var sorted = new SortedIntKey(vtkCells[k]);
                                     cellNeighbour =_cellNeighboursOverCell[sorted];
                                     // Add only cells with elements on the other side
                                     if (cellNeighbour.Id2 != -1)
@@ -2041,10 +2031,9 @@ namespace CaeMesh
                                             vtkCells2 = element.GetAllVtkCells();
                                             for (int m = 0; m < vtkCells2.Length; m++)
                                             {
-                                                sorted2 = vtkCells2[m].ToArray();
-                                                Array.Sort(sorted2);
+                                                var sorted2 = new SortedIntKey(vtkCells2[m]);
 
-                                                if (comparer.Equals(sorted, sorted2))
+                                                if (sorted.Equals(sorted2))
                                                 {
                                                     cell = vtkCells2[m];
                                                     break;

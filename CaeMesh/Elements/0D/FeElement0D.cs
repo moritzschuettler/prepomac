@@ -10,6 +10,7 @@ namespace CaeMesh
     public abstract class FeElement0D : FeElement
     {
         // Properties                                                                                                               
+        public override int Dimension { get { return 0; } }
 
 
         // Constructors                                                                                                             

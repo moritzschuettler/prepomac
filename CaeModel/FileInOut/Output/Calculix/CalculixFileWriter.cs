@@ -14,6 +14,7 @@ using System.Runtime.InteropServices;
 using System.Xml.Linq;
 using System.Diagnostics.Eventing.Reader;
 using System.Security;
+using System.Diagnostics;
 
 namespace FileInOut.Output
 {
@@ -496,60 +497,67 @@ namespace FileInOut.Output
                     // Determine if the surface contain pyramid elements
                     needFixing = false;
                     surface = surfaceEntry.Value;
-                    foreach (var entry in surface.ElementFaces)
+                    if (surface.ElementFaces == null)
                     {
-                        elementSet = model.Mesh.ElementSets[entry.Value];
-                        if (allPyramidElementIds.Intersect(elementSet.Labels).Count() > 0)
-                        {
-                            needFixing = true;
-                            break;
-                        }
+                        if (Debugger.IsAttached) Debugger.Break();
                     }
-                    // If the surface contains pyramid elements
-                    if (needFixing)
+                    else
                     {
-                        // Collect pyramid and normal element ids separately
-                        faceNameElementIds = new Dictionary<FeFaceName, HashSet<int>>();
                         foreach (var entry in surface.ElementFaces)
                         {
                             elementSet = model.Mesh.ElementSets[entry.Value];
-                            pyramidElementsIds = new HashSet<int>(allPyramidElementIds.Intersect(elementSet.Labels));
-                            normalElementsIds = new HashSet<int>(elementSet.Labels.Except(pyramidElementsIds));
-                            //
-                            if (normalElementsIds.Count > 0)
+                            if (allPyramidElementIds.Intersect(elementSet.Labels).Count() > 0)
                             {
-                                faceName = entry.Key;
-                                if (faceNameElementIds.TryGetValue(faceName, out elementIds)) elementIds.UnionWith(normalElementsIds);
-                                else faceNameElementIds.Add(faceName, normalElementsIds);
-                            }
-                            //
-                            if (pyramidElementsIds.Count > 0)
-                            {
-                                faceName = pyramidToNormalFaceName[entry.Key];
-                                if (faceNameElementIds.TryGetValue(faceName, out elementIds)) elementIds.UnionWith(pyramidElementsIds);
-                                else faceNameElementIds.Add(faceName, pyramidElementsIds);
+                                needFixing = true;
+                                break;
                             }
                         }
-                        // Create new surface with the same name
-                        fixedSurface = new FeSurface(surface.Name);
-                        //
-                        foreach (var entry in faceNameElementIds)
+                        // If the surface contains pyramid elements
+                        if (needFixing)
                         {
-                            // Get element set name
-                            name = surface.Name + "_Pyramid_" + entry.Key;
-                            if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
-                            reservedElementSetNames.Add(name);
-                            // Create new element set
-                            elementSet = new FeElementSet(name, entry.Value.ToArray());
-                            model.Mesh.ElementSets.Add(elementSet.Name, elementSet);
-                            additionalElementSetNames.Add(elementSet.Name);
+                            // Collect pyramid and normal element ids separately
+                            faceNameElementIds = new Dictionary<FeFaceName, HashSet<int>>();
+                            foreach (var entry in surface.ElementFaces)
+                            {
+                                elementSet = model.Mesh.ElementSets[entry.Value];
+                                pyramidElementsIds = new HashSet<int>(allPyramidElementIds.Intersect(elementSet.Labels));
+                                normalElementsIds = new HashSet<int>(elementSet.Labels.Except(pyramidElementsIds));
+                                //
+                                if (normalElementsIds.Count > 0)
+                                {
+                                    faceName = entry.Key;
+                                    if (faceNameElementIds.TryGetValue(faceName, out elementIds)) elementIds.UnionWith(normalElementsIds);
+                                    else faceNameElementIds.Add(faceName, normalElementsIds);
+                                }
+                                //
+                                if (pyramidElementsIds.Count > 0)
+                                {
+                                    faceName = pyramidToNormalFaceName[entry.Key];
+                                    if (faceNameElementIds.TryGetValue(faceName, out elementIds)) elementIds.UnionWith(pyramidElementsIds);
+                                    else faceNameElementIds.Add(faceName, pyramidElementsIds);
+                                }
+                            }
+                            // Create new surface with the same name
+                            fixedSurface = new FeSurface(surface.Name);
                             //
-                            fixedSurface.AddElementFace(entry.Key, elementSet.Name);
-                            //
-                            fixedSurface.NodeSetName = surface.NodeSetName;
+                            foreach (var entry in faceNameElementIds)
+                            {
+                                // Get element set name
+                                name = surface.Name + "_Pyramid_" + entry.Key;
+                                if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
+                                reservedElementSetNames.Add(name);
+                                // Create new element set
+                                elementSet = new FeElementSet(name, entry.Value.ToArray());
+                                model.Mesh.ElementSets.Add(elementSet.Name, elementSet);
+                                additionalElementSetNames.Add(elementSet.Name);
+                                //
+                                fixedSurface.AddElementFace(entry.Key, elementSet.Name);
+                                //
+                                fixedSurface.NodeSetName = surface.NodeSetName;
+                            }
+                            // Add fixed surface
+                            model.Mesh.Surfaces[fixedSurface.Name] = fixedSurface;
                         }
-                        // Add fixed surface
-                        model.Mesh.Surfaces[fixedSurface.Name] = fixedSurface;
                     }
                 }
             }

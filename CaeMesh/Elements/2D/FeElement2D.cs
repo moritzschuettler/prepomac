@@ -15,6 +15,7 @@ namespace CaeMesh
 
 
         // Properties                                                                                                               
+        public override int Dimension { get { return 2; } }
 
 
         // Constructors                                                                                                             
@@ -29,7 +30,7 @@ namespace CaeMesh
 
 
         // Methods                                                                                                                  
-        abstract public int[][] GetAllVtkCells();
+        public abstract int[][] GetAllVtkCells();
         public int[] GetAllVtkCellIdsFromNodeIds(HashSet<int> nodeIds)
         {
             List<int> vtkCellIds = new List<int>();

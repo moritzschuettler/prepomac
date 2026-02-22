@@ -288,7 +288,7 @@ namespace PrePoMax.Forms
         // Methods                                                                                                                  
         public void Clear()
         {
-            _mirrorOnly = true;
+            _mirrorOnly = false;
             ClearMirror();
         }
         public void ClearMirror()

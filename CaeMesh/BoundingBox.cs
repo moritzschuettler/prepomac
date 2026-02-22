@@ -318,6 +318,8 @@ namespace CaeMesh
         }
         public void IncludeBox(BoundingBox box)
         {
+            if (box == null) return;
+            //
             if (box.MaxX > MaxX) MaxX = box.MaxX;
             if (box.MinX < MinX) MinX = box.MinX;
             //

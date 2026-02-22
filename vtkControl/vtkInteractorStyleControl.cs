@@ -355,10 +355,14 @@ namespace vtkControl
                     {
                         // The click was not a hit
                         // Use the center of the bounding box
-                        double[] bounds = renderer.ComputeVisiblePropBounds();
-                        _rotationCenterWorld[0] = (bounds[1] + bounds[0]) / 2;
-                        _rotationCenterWorld[1] = (bounds[3] + bounds[2]) / 2;
-                        _rotationCenterWorld[2] = (bounds[5] + bounds[4]) / 2;
+                        double[] bounds1 = renderer.ComputeVisiblePropBounds();
+                        double[] bounds2 = _overlayRenderer.ComputeVisiblePropBounds();
+                        double[] max = new double[] { Math.Min(bounds1[0], bounds2[0]), Math.Max(bounds1[1], bounds2[1]),
+                                                      Math.Min(bounds1[2], bounds2[2]), Math.Max(bounds1[3], bounds2[3]),
+                                                      Math.Min(bounds1[4], bounds2[4]), Math.Max(bounds1[5], bounds2[5])};
+                        _rotationCenterWorld[0] = (max[1] + max[0]) / 2;
+                        _rotationCenterWorld[1] = (max[3] + max[2]) / 2;
+                        _rotationCenterWorld[2] = (max[5] + max[4]) / 2;
                     }
                     else
                     {
@@ -664,10 +668,10 @@ namespace vtkControl
 
         public static double[] WorldToDisplay(vtkRenderer renderer, double[] worldPos)
         {
-            IntPtr posOutPtr = System.Runtime.InteropServices.Marshal.AllocHGlobal(2 * 8);
+            IntPtr posOutPtr = Marshal.AllocHGlobal(2 * 8);
             ComputeWorldToDisplay(renderer, worldPos[0], worldPos[1], worldPos[2], posOutPtr);
             double[] displayPos = new double[2];
-            System.Runtime.InteropServices.Marshal.Copy(posOutPtr, displayPos, 0, 2);
+            Marshal.Copy(posOutPtr, displayPos, 0, 2);
             return displayPos;
         }
         public static double[] DisplayToWorld(vtkRenderer renderer, double[] displayPos)
@@ -1173,7 +1177,6 @@ namespace vtkControl
             _selectionBackgroundActor.VisibilityOff();
             _selectionBackgroundActor.GetProperty().SetColor(0.2, 0.5, 1);
             _selectionRenderer.AddActor(_selectionBackgroundActor);
-
 
             vtkCellArray borderPolygon = vtkCellArray.New();
             borderPolygon.InsertNextCell(5);
