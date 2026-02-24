@@ -2665,6 +2665,7 @@ namespace vtkControl
             double scale1 = cam.GetParallelScale();
             //
             _overlayRenderer.ResetCamera();
+            //int n = _overlayRenderer.GetNumberOfPropsRendered();
             //double[] position2 = cam.GetPosition();
             double[] focalPoint2 = cam.GetFocalPoint();
             double scale2 = cam.GetParallelScale();

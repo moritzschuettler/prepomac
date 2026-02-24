@@ -782,6 +782,8 @@ namespace vtkControl
             double[] windowCenter3D = DisplayToWorld(renderer, new double[] { windowCenter[0], windowCenter[1] });
             // Zoom
             int[] selectionSize = new int[] { Math.Abs(mousePos[0] - clickPos[0]), Math.Abs(mousePos[1] - clickPos[1]) };
+            if (selectionSize[0] == 0 || selectionSize[1] == 1) return;
+            //
             double widthZoomFactor = (double)windowSize[0] / (double)selectionSize[0];
             double heightZoomFactor = (double)windowSize[1] / (double)selectionSize[1];
             double zoomFactor = Math.Min(widthZoomFactor, heightZoomFactor);
