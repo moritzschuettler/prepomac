@@ -286,6 +286,7 @@
     </Compile>
     <Compile Include="Steps\StepCollection.cs" />
     <Compile Include="Views\UserViewParameters.cs" />
+    <Compile Include="_Compatibility\InitialVelocity.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\3MF\ThreeMF.csproj">
@@ -330,7 +331,6 @@
     <Folder Include="FileInOut\Output\Abaqus\Keywords\Step\Controls\" />
     <Folder Include="FileInOut\Output\Abaqus\Keywords\Step\Damping\" />
     <Folder Include="FileInOut\Output\Abaqus\Keywords\Step\DefinedField\" />
-    <Folder Include="_Compatibility\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
