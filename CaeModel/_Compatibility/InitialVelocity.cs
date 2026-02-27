@@ -1,17 +1,19 @@
-﻿using System;
+﻿using CaeGlobals;
+using CaeMesh;
+using CaeResults;
+using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Drawing;
 using System.Linq;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
-using CaeMesh;
-using System.ComponentModel;
-using CaeGlobals;
-using CaeResults;
 
 namespace CaeModel
 {
     [Serializable]
-    public class InitialVelocity : InitialCondition, IPreviewable
+    public class InitialVelocity : InitialCondition, IPreviewable, ISerializable
     {
         // Variables                                                                                                                
         private double _v1;
@@ -40,7 +42,37 @@ namespace CaeModel
             _v2 = v2;
             V3 = v3;    // account for 2D
         }
-
+        public InitialVelocity(SerializationInfo info, StreamingContext context)
+            : base(info, context)
+        {
+            foreach (SerializationEntry entry in info)
+            {
+                switch (entry.Name)
+                {
+                    case "InitialCondition+_regionName":
+                        RegionName = (string)entry.Value; break;
+                    case "InitialCondition+_regionType":
+                        RegionType = (RegionTypeEnum)entry.Value; break;
+                    case "InitialCondition+_creationIds":
+                        CreationIds = (int[])entry.Value; break;
+                    case "InitialCondition+_creationData":
+                        CreationData = (Selection)entry.Value; break;
+                    case "_twoD":
+                        _twoD = (bool)entry.Value; break;
+                    case "_color":
+                        _color = (Color)entry.Value; break;
+                    //
+                    case "_v1":
+                        _v1 = (double)entry.Value; break;
+                    case "_v2":
+                        _v2 = (double)entry.Value; break;
+                    case "_v3":
+                        _v3 = (double)entry.Value; break;
+                    default:
+                        break;
+                }
+            }
+        }
 
         // Methods                                                                                                                  
         public FeResults GetPreview(FeMesh targetMesh, string resultName, UnitSystem unitSystem)
@@ -106,10 +138,20 @@ namespace CaeModel
             //
             return results;
         }
+        // IPreviewable
         public FeResults GetPreview(FeModel model, string resultName, UnitSystem unitSystem)
         {
             return GetPreview(model.Mesh, resultName, unitSystem);
         }
+        // ISerialization
+        public new void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            // Using typeof() works also for null fields
+            base.GetObjectData(info, context);
+            //
+            info.AddValue("_v1", _v1, typeof(double));
+            info.AddValue("_v2", _v2, typeof(double));
+            info.AddValue("_v3", _v3, typeof(double));
+        }
     }
-}
 }

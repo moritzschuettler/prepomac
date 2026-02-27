@@ -101,7 +101,6 @@
     <Compile Include="CommonClasses\OrderedDictionary.cs" />
     <Compile Include="CommonClasses\SortedIntKey.cs" />
     <Compile Include="Comparers\CompareDoubleArray.cs" />
-    <Compile Include="Comparers\CompareVec3D.cs" />
     <Compile Include="Comparers\CompareIntArray.cs" />
     <Compile Include="DynamicTypeDescriptor\MultiChoiceContainer.cs" />
     <Compile Include="DynamicTypeDescriptor\MultiChoiceEnum.cs" />

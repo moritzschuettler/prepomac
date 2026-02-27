@@ -6355,6 +6355,10 @@ namespace CaeMesh
             {
                 return new int[] { geometryId };
             }
+            else if (selectItem == vtkSelectItem.GeometryVertex)
+            {
+                return new int[] { geometryId };
+            }
             else if (selectItem == vtkSelectItem.GeometryEdge)
             {
                 return new int[] { geometryId };
@@ -10787,6 +10791,9 @@ namespace CaeMesh
                     // Collect all node normals
                     for (int k = 0; k < element.NodeIds.Length; k++)
                     {
+                        if (Math.Abs(faceNormal[1]) > 0.1)
+                            Debugger.Break();
+
                         if (faceNodeIdNormals.TryGetValue(element.NodeIds[k], out nodeNormals))
                             nodeNormals.Add(new Vec3D(faceNormal));
                         else
@@ -10871,36 +10878,20 @@ namespace CaeMesh
                 }
             }
             // Merge normals with the same direction
-            CompareVec3D comparer = new CompareVec3D(0.5);
-            HashSet<Vec3D> mergedNormals = new HashSet<Vec3D>(comparer);
+            double angleDeg = 5;
             Dictionary<int, List<Vec3D>> nodeIdMergedNormals = new Dictionary<int, List<Vec3D>>();
             foreach (var entry in nodeIdNormals)
             {
-                if (entry.Key == 32)
-                    mergedNormals.Clear();
-                //
-                mergedNormals.Clear();
-                mergedNormals.UnionWith(entry.Value);
-                nodeIdMergedNormals.Add(entry.Key, mergedNormals.ToList());
+                nodeIdMergedNormals.Add(entry.Key, Vec3D.MergeNormals(entry.Value, angleDeg));
             }
             nodeIdNormals = nodeIdMergedNormals;
-
-            //comparer.Equals(nodeIdNormals[32][1], nodeIdNormals[32][2]);
             //
-            int count;
             double dot;
-            double d1;
-            double d2;
-            double d3;
             Vec3D normalAvg;
-            Vec3D normalAvg1 = null;
-            Vec3D normalAvg2 = null;
             List<double> normalLengthsList = new List<double>();
-            double[] normalLengths;
             Vec3D p1;
-            Vec3D p2;
-            Vec3D p2Sum;
             Vec3D[] normals;
+            double[] offsets;
             Dictionary<int, Vec3D> nodeIdNormal = new Dictionary<int, Vec3D>();
             // Average normals
             foreach (var entry in nodeIdNormals)
@@ -10908,6 +10899,9 @@ namespace CaeMesh
                 if (entry.Value.Count == 1) nodeIdNormal.Add(entry.Key, entry.Value[0]);
                 else
                 {
+                    // Changed in version 2.4.7
+                    normals = null;
+                    offsets = null;
                     normalAvg = null;
                     normalLengthsList.Clear();
                     // Is it a free vertex node: offset both element face planes and intersect them first with the          
@@ -10915,115 +10909,39 @@ namespace CaeMesh
                     if (vertexNodeIdFreeEdgeTangentCellNormal.TryGetValue(entry.Key, out edgeTangentCellNormalList))
                     {
                         p1 = new Vec3D(mesh.Nodes[entry.Key].Coor);
-                        //
-                        normals = new Vec3D[3];
+                        normals = new Vec3D[4];
+                        offsets = new double[4];
                         normals[0] = edgeTangentCellNormalList[0][1];   // 0 ... first entry; 1 ... cell normal
-                        normals[1] = edgeTangentCellNormalList[1][1];   // 1 ... second entry; 1 ... cell normal
+                        normals[1] = edgeTangentCellNormalList[1][1];   // 1 ... second entry; 1 ... cell norma
                         // A normal of the plane through edge 1 and both element normals
                         normals[2] = Vec3D.CrossProduct(edgeTangentCellNormalList[0][0], edgeTangentCellNormalList[0][1]);
-                        // Compute distance from offset plane to 0 - add normal to the p1 point to offset it
-                        d1 = Vec3D.DotProduct(normals[0], p1 + normals[0]);
-                        d2 = Vec3D.DotProduct(normals[1], p1 + normals[1]);
-                        d3 = Vec3D.DotProduct(normals[2], p1);
-                        //
-                        p2 = Geometry.IntersectPlanes(normals[0], normals[1], normals[2], d1, d2, d3);
-                        if (p2 != null)
-                        {
-                            normalAvg1 = p2 - p1;
-                            normalLengthsList.Add(normalAvg1.Len);
-                        }
                         // A plane through edge 2 and both element normals
-                        normals[2] = Vec3D.CrossProduct(edgeTangentCellNormalList[1][0], edgeTangentCellNormalList[1][1]);
+                        normals[3] = Vec3D.CrossProduct(edgeTangentCellNormalList[1][0], edgeTangentCellNormalList[1][1]);
                         //
-                        d3 = Vec3D.DotProduct(normals[2], p1);
+                        offsets[0] = Vec3D.DotProduct(normals[0], p1 + normals[0]);
+                        offsets[1] = Vec3D.DotProduct(normals[1], p1 + normals[1]);
+                        offsets[2] = Vec3D.DotProduct(normals[2], p1);
+                        offsets[3] = Vec3D.DotProduct(normals[3], p1);
                         //
-                        p2 = Geometry.IntersectPlanes(normals[0], normals[1], normals[2], d1, d2, d3);
-                        if (p2 != null)
-                        {
-                            normalAvg2 = p2 - p1;
-                            normalLengthsList.Add(normalAvg2.Len);
-                        }
-                        //// A plane through element 1 and both edges
-                        //normals[1] = Vec3D.CrossProduct(edgeTangentCellNormalList[0][0], edgeTangentCellNormalList[0][1]);
-                        ////
-                        //d2 = Vec3D.DotProduct(normals[1], p1 + normals[1]);
-                        ////
-                        //p2 = Geometry.IntersectPlanes(normals[0], normals[1], normals[2], d1, d2, d3);
-                        //if (p2 != null)
-                        //{
-                        //    normalAvg3 = p2 - p1;
-                        //    normalLengthsList.Add(normalAvg3.Len);
-                        //}
-                        //// A plane through element 2 and both edges
-                        //normals[0] = edgeTangentCellNormalList[1][1];
-                        ////
-                        //d1 = Vec3D.DotProduct(normals[0], p1 + normals[0]);
-                        ////
-                        //p2 = Geometry.IntersectPlanes(normals[0], normals[1], normals[2], d1, d2, d3);
-                        //if (p2 != null)
-                        //{
-                        //    normalAvg4 = p2 - p1;
-                        //    normalLengthsList.Add(normalAvg4.Len);
-                        //}
-                        //
-                        normalLengths = normalLengthsList.ToArray();
-                        Array.Sort(normalLengths); 
-                        if (normalLengths[0] == 0)
-                            normalAvg = null;
-                        else if (normalLengths[1] / normalLengths[0] > 1.2)
-                            normalAvg = null;
-                        else
-                        {
-                            if (normalAvg1 != null)
-                                if (normalAvg == null) normalAvg = normalAvg1; else normalAvg += normalAvg1;
-                            if (normalAvg2 != null)
-                                if (normalAvg == null) normalAvg = normalAvg2; else normalAvg += normalAvg2;
-                            //
-                            normalAvg *= 1.0 / normalLengths.Length;
-                        }
+                        Vec3D.TryIntersectPlanesLeastSquares(p1, normals, offsets, out normalAvg);
                     }
                     // Find intersection point of of all offset planes - check all combinations of 3 offset planes and  
                     // at the end average the resulting points                                                          
                     else if (entry.Value.Count > 2)
                     {
-                        count = 0;
-                        normals = entry.Value.ToArray();
                         p1 = new Vec3D(mesh.Nodes[entry.Key].Coor);
-                        p2Sum = new Vec3D();
-                        // Find three planes that intersect
-                        for (int i = 0; i < normals.Length - 2; i++)
-                        {
-                            for (int j = i + 1; j < normals.Length - 1; j++)
-                            {
-                                for (int k = j + 1; k < normals.Length; k++)
-                                {
-                                    // Compute distance from offset plane to 0 - add normal to the p1 point to offset it
-                                    d1 = Vec3D.DotProduct(normals[i], p1 + normals[i]);
-                                    d2 = Vec3D.DotProduct(normals[j], p1 + normals[j]);
-                                    d3 = Vec3D.DotProduct(normals[k], p1 + normals[k]);
-                                    //
-                                    p2 = Geometry.IntersectionPointOfThreePlanes(normals[i], normals[j], normals[k], d1, d2, d3);
-                                    if (p2 != null)
-                                    {
-                                        p2Sum += p2;
-                                        count++;
-                                    }
-                                }
-                            }
-                        }
-                        if (count > 0)
-                        {
-                            p2Sum *= 1.0 / count;
-                            normalAvg = p2Sum - p1;
-                        }
+                        normals = entry.Value.ToArray();
+                        offsets = new double[normals.Length];
+                        for (int i = 0; i < normals.Length; i++) offsets[i] = Vec3D.DotProduct(normals[i], p1 + normals[i]);
+                        Vec3D.TryIntersectPlanesLeastSquares(p1, normals, offsets, out normalAvg);
                     }
                     // If none of the above cases is true compute the average of the normals
                     if (normalAvg == null)
                     {
                         normalAvg = new Vec3D();
                         foreach (var vector in entry.Value) normalAvg += vector;
+                        normalAvg *= 1.0 / entry.Value.Count;
                     }
-                    normalAvg.Normalize();
                     //
                     if (keepEdges)
                     {

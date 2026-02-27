@@ -56,6 +56,12 @@ namespace CaeModel
             V3 = new EquationContainer(typeof(StringVelocityConverter), v3, null, constant);
             Magnitude = new EquationContainer(typeof(StringVelocityConverter), mag, null, constant);
         }
+        public InitialTranslationalVelocity(InitialVelocity initialVelocity)
+            : this(initialVelocity.Name, initialVelocity.RegionName, initialVelocity.RegionType, 
+                   initialVelocity.V1, initialVelocity.V2, initialVelocity.V3,
+                   initialVelocity.TwoD)
+        {
+        }
         public InitialTranslationalVelocity(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {

@@ -17,6 +17,7 @@ using System.IO;
 using System.IO.Compression;
 using System.IO.Ports;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -737,8 +738,8 @@ namespace PrePoMax
                 New();
                 throw new CaeException("The file cannot be read. It is either corrupt or was created by a previous version.");
             }
-            // Compatibility v2.3.4
-            UpdateGeometryPartMassProperties(false);
+            // Compatibility
+            ApplyCompatibility();
             // Get controller
             tmp = (Controller)data[0];
             // Regeneration
@@ -765,7 +766,47 @@ namespace PrePoMax
             // Set user views
             _form.UpdateUserViewsThreadSafe(_model.UserViews.Keys.ToArray());
         }
+        private void ApplyCompatibility()
+        {
+            // Compatibility v2.2.2
+            List<InitialVelocity> initialVelocities = new List<InitialVelocity>();
+            if (_model != null && _model.InitialConditions != null)
+            {
+                foreach (var entry in _model.InitialConditions)
+                {
+                    if (entry.Value is InitialVelocity iv) initialVelocities.Add(iv);
+                }
+            }
+            foreach (var initialVelocity in initialVelocities)
+            {
+                _model.InitialConditions.Remove(initialVelocity.Name);
+                //
+                InitialTranslationalVelocity itv = new InitialTranslationalVelocity(initialVelocity);
+                itv.RegionType = RegionTypeEnum.Selection;
+                itv.CreationData = initialVelocity.CreationData;
+                foreach (var node in itv.CreationData.Nodes)
+                {
+                    if (node is SelectionNodeMouse snm) snm.SelectBy = vtkSelectBy.GeometryPart;
+                }
+                itv.CreationData.SelectItem = vtkSelectItem.Geometry;
+                itv.CreationIds = initialVelocity.CreationIds;
+                //
+                AddInitialCondition(itv);
+            }
+            // Compatibility v2.3.4
+            UpdateGeometryPartMassProperties(false);
+        }
         private void InitializeNewCommands(CommandsCollection commandsCollection)
+        {
+            ApplyCompatibilityToCommands(commandsCollection);
+            //
+            _commands.EnableDisableUndoRedo -= _commands_CommandExecuted;
+            _commands = new CommandsCollection(this, commandsCollection); // to recreate the history file
+            _commands.WriteOutput = _form.WriteDataToOutput;
+            _commands.EnableDisableUndoRedo += _commands_CommandExecuted;
+            _commands.OnEnableDisableUndoRedo();
+        }
+        private void ApplyCompatibilityToCommands(CommandsCollection commandsCollection)
         {
             // Compatibility v2.4.4
             if (commandsCollection != null)
@@ -792,12 +833,6 @@ namespace PrePoMax
                     }
                 }
             }
-            //
-            _commands.EnableDisableUndoRedo -= _commands_CommandExecuted;
-            _commands = new CommandsCollection(this, commandsCollection); // to recreate the history file
-            _commands.WriteOutput = _form.WriteDataToOutput;
-            _commands.EnableDisableUndoRedo += _commands_CommandExecuted;
-            _commands.OnEnableDisableUndoRedo();
         }
         private void OpenPmh(string fileName, string parameters)
         {
@@ -20137,6 +20172,8 @@ namespace PrePoMax
                 HighlightItemsByNodeIds(ids, useSecondaryHighlightColor);
             else if (_selection.SelectItem == vtkSelectItem.Element)
                 HighlightItemsByElementIds(ids);
+            else if (_selection.SelectItem == vtkSelectItem.GeometryVertex)
+                HighlightItemsByGeometryVertexIds(ids, useSecondaryHighlightColor);
             else if (_selection.SelectItem == vtkSelectItem.GeometryEdge)   // QueryEdge
                 HighlightItemsByGeometryEdgeIds(ids, useSecondaryHighlightColor);
             else if (_selection.SelectItem == vtkSelectItem.Surface)
@@ -20168,6 +20205,15 @@ namespace PrePoMax
         private void HighlightItemsByElementIds(int[] ids)
         {
             DrawElements("Highlight", ids, Color.Red, vtkRendererLayer.Selection);
+        }
+        public void HighlightItemsByGeometryVertexIds(int[] ids, bool useSecondaryHighlightColor)
+        {
+            List<int> nodeIds = new List<int>();
+            for (int i = 0; i < ids.Length; i++)
+            {
+                nodeIds.AddRange(DisplayedMesh.GetNodeIdsFromGeometryId(ids[i]));
+            }
+            HighlightItemsByNodeIds(nodeIds.ToArray(), useSecondaryHighlightColor);
         }
         public void HighlightItemsByGeometryEdgeIds(int[] ids, bool useSecondaryHighlightColor)   
         {
@@ -20958,7 +21004,7 @@ namespace PrePoMax
         #region Scale factor  ######################################################################################################
         public float GetScale()
         {
-            if (_allResults != null && _allResults.CurrentResult != null)
+            if (_allResults != null && _allResults.CurrentResult != null && _currentFieldData != null)
             {
                 float maxDisplacement = _allResults.CurrentResult.GetMaxDeformation(_currentFieldData.StepId,
                                                                                     _currentFieldData.StepIncrementId);

@@ -140,6 +140,8 @@ namespace PrePoMax.Forms
         {
             // Clear items - calls SelectionChanged which clears the GeometrySelection
             _controller.ClearAllSelection();
+            //
+            DialogResult = DialogResult.Cancel;
         }
         private void OnHide()
         {

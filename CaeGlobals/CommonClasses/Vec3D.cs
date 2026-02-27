@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace CaeGlobals
 {
@@ -265,10 +266,137 @@ namespace CaeGlobals
             //
             r = (n12.Len * n23.Len * n31.Len) / (2 * n12xn23.Len);
         }
+        // List
+        public static List<Vec3D> MergeNormals(List<Vec3D> normals, double angleDeg)
+        {
+            double cosTol = Math.Cos(angleDeg * Math.PI / 180.0);
+            var clusters = new List<List<Vec3D>>();
+            //
+            foreach (var normal in normals)
+            {
+                Vec3D n = new Vec3D(normal);
+                normal.Normalize();
+                //
+                List<Vec3D> matchingCluster = null;
+                foreach (var cluster in clusters)
+                {
+                    foreach (var existing in cluster)
+                    {
+                        if (Vec3D.DotProduct(n, existing) >= cosTol)
+                        {
+                            matchingCluster = cluster;
+                            break;
+                        }
+                    }
+                    if (matchingCluster != null) break;
+                }
+                if (matchingCluster != null) matchingCluster.Add(n);
+                else clusters.Add(new List<Vec3D> { n });
+            }
+            // Merge clusters by averaging
+            var result = new List<Vec3D>();
+            foreach (var cluster in clusters)
+            {
+                Vec3D sum = new Vec3D(0, 0, 0);
+                foreach (var v in cluster) sum += v;
+                //
+                sum.Normalize();
+                result.Add(sum);
+            }
+            return result;
+        }
 
-
-
+        public static bool TryIntersectPlanesLeastSquares(Vec3D basePoint, Vec3D[] normals, double[] offsets, 
+                                                          out Vec3D avgNormal, double conditioningTolerance = 1e-10)
+        {
+            if (normals == null || offsets == null)
+                throw new ArgumentNullException();
+            //
+            if (normals.Length != offsets.Length || normals.Length < 2)
+                throw new ArgumentException("Need at least two planes.");
+            //
+            int n = normals.Length;
+            // Build normal equation components
+            double a11 = 0, a12 = 0, a13 = 0;
+            double a22 = 0, a23 = 0;
+            double a33 = 0;
+            double b1 = 0, b2 = 0, b3 = 0;
+            //
+            for (int i = 0; i < n; i++)
+            {
+                Vec3D ni = new Vec3D(normals[i]);
+                ni.Normalize();
+                double di = offsets[i];
+                //
+                a11 += ni.X * ni.X;
+                a12 += ni.X * ni.Y;
+                a13 += ni.X * ni.Z;
+                a22 += ni.Y * ni.Y;
+                a23 += ni.Y * ni.Z;
+                a33 += ni.Z * ni.Z;
+                //
+                b1 += ni.X * di;
+                b2 += ni.Y * di;
+                b3 += ni.Z * di;
+            }
+            // Symmetric matrix
+            double[,] M = new double[3, 3] {{ a11, a12, a13 },
+                                            { a12, a22, a23 },
+                                            { a13, a23, a33 }};
+            //
+            Vec3D intersection;
+            Vec3D rhs = new Vec3D(b1, b2, b3);
+            //
+            if (!TrySolve3x3(M, rhs, out intersection, conditioningTolerance))
+            {
+                // Fallback: averaged normal extrusion
+                Vec3D avg = new Vec3D(0, 0, 0);
+                foreach (var nrm in normals)
+                {
+                    Vec3D nn = new Vec3D(nrm);
+                    nn.Normalize();
+                    avg += nn;
+                }
+                //
+                avgNormal = avg;
+                avgNormal *= 1.0 / normals.Length;
+                //
+                return false;
+            }
+            avgNormal = intersection - basePoint;
+            return true;
+        }
+        private static bool TrySolve3x3(double[,] M, Vec3D b, out Vec3D x, double tol)
+        {
+            x = new Vec3D();
+            //
+            double det = M[0, 0] * (M[1, 1] * M[2, 2] - M[1, 2] * M[2, 1]) - 
+                         M[0, 1] * (M[1, 0] * M[2, 2] - M[1, 2] * M[2, 0]) +
+                         M[0, 2] * (M[1, 0] * M[2, 1] - M[1, 1] * M[2, 0]);
+            //
+            if (Math.Abs(det) < tol)
+                return false; // ill-conditioned
+            //
+            double invDet = 1.0 / det;
+            //
+            double i00 = (M[1, 1] * M[2, 2] - M[1, 2] * M[2, 1]) * invDet;
+            double i01 = -(M[0, 1] * M[2, 2] - M[0, 2] * M[2, 1]) * invDet;
+            double i02 = (M[0, 1] * M[1, 2] - M[0, 2] * M[1, 1]) * invDet;
+            //
+            double i10 = -(M[1, 0] * M[2, 2] - M[1, 2] * M[2, 0]) * invDet;
+            double i11 = (M[0, 0] * M[2, 2] - M[0, 2] * M[2, 0]) * invDet;
+            double i12 = -(M[0, 0] * M[1, 2] - M[0, 2] * M[1, 0]) * invDet;
+            //
+            double i20 = (M[1, 0] * M[2, 1] - M[1, 1] * M[2, 0]) * invDet;
+            double i21 = -(M[0, 0] * M[2, 1] - M[0, 1] * M[2, 0]) * invDet;
+            double i22 = (M[0, 0] * M[1, 1] - M[0, 1] * M[1, 0]) * invDet;
+            //
+            x = new Vec3D(i00 * b.X + i01 * b.Y + i02 * b.Z,
+                          i10 * b.X + i11 * b.Y + i12 * b.Z,
+                          i20 * b.X + i21 * b.Y + i22 * b.Z);
+            //
+            return true;
+        }
         #endregion
-
     }
 }
