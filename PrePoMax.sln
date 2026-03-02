@@ -45,6 +45,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ThreeMF", "3MF\ThreeMF.cspr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestOrthoMaterial", "tests\test_ortho_material\TestOrthoMaterial.csproj", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestCompositeLayup", "tests\test_composite_layup\TestCompositeLayup.csproj", "{D2E3F4A5-B6C7-8901-DEFA-234567890ABC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Console-Debug|x64 = Console-Debug|x64
@@ -157,6 +159,14 @@ Global
 		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|x64.Build.0 = Debug|x64
 		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|x64.ActiveCfg = Release|x64
 		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|x64.Build.0 = Release|x64
+		{D2E3F4A5-B6C7-8901-DEFA-234567890ABC}.Console-Debug|x64.ActiveCfg = Debug|x64
+		{D2E3F4A5-B6C7-8901-DEFA-234567890ABC}.Console-Debug|x64.Build.0 = Debug|x64
+		{D2E3F4A5-B6C7-8901-DEFA-234567890ABC}.Console-Release|x64.ActiveCfg = Release|x64
+		{D2E3F4A5-B6C7-8901-DEFA-234567890ABC}.Console-Release|x64.Build.0 = Release|x64
+		{D2E3F4A5-B6C7-8901-DEFA-234567890ABC}.Debug|x64.ActiveCfg = Debug|x64
+		{D2E3F4A5-B6C7-8901-DEFA-234567890ABC}.Debug|x64.Build.0 = Debug|x64
+		{D2E3F4A5-B6C7-8901-DEFA-234567890ABC}.Release|x64.ActiveCfg = Release|x64
+		{D2E3F4A5-B6C7-8901-DEFA-234567890ABC}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

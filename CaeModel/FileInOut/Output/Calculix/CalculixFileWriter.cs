@@ -184,6 +184,7 @@ namespace FileInOut.Output
                 title = new CalTitle("Element sets", "");
                 keywords.Add(title);
                 AppendElementSets(model, additionalElementSetNames, title);
+                AppendCompositeLayupElementSets(compositeLayupWriters, title);
                 // Surfaces
                 title = new CalTitle("Surfaces", "");
                 keywords.Add(title);
@@ -1484,6 +1485,13 @@ namespace FileInOut.Output
                 string warningMessage = string.Join("\n\n", allWarnings);
                 CaeGlobals.MessageBoxes.ShowWarning(warningMessage);
             }
+        }
+        static private void AppendCompositeLayupElementSets(List<CompositeLayupWriter> compositeLayupWriters,
+                                                             CalculixKeyword parent)
+        {
+            foreach (var writer in compositeLayupWriters)
+                foreach (var es in writer.ItaElementSets)
+                    parent.AddKeyword(new CalElementSet(es));
         }
         static private void AppendCompositeLayupOrientations(List<CompositeLayupWriter> compositeLayupWriters,
                                                               CalculixKeyword parent)

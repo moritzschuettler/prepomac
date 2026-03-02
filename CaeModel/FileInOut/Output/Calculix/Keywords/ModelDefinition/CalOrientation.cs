@@ -40,6 +40,19 @@ namespace FileInOut.Output.Calculix
         }
 
         /// <summary>
+        /// Creates an orientation from explicit axis vectors with ply rotation angle.
+        /// </summary>
+        public CalOrientation(string name, double[] pointA, double[] pointB, double rotationAngle)
+        {
+            _name = name;
+            _systemType = CoordinateSystemTypeEnum.Rectangular;
+            _pointA = pointA;
+            _pointB = pointB;
+            _rotationAxis = 1;
+            _rotationAngle = rotationAngle;
+        }
+
+        /// <summary>
         /// Creates an orientation from a coordinate system with ply rotation angle.
         /// </summary>
         public CalOrientation(string name, CoordinateSystem coordinateSystem, double rotationAngle)
