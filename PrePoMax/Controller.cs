@@ -21,10 +21,10 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Windows.Forms.VisualStyles;
 using System.Xml.Linq;
 using UserControls;
 using vtkControl;
-
 
 namespace PrePoMax
 {
@@ -2587,7 +2587,12 @@ namespace PrePoMax
             //
             ViewGeometryModelResults newView;
             if (command is null || command is SaveCommand) newView = prevView;
-            else if (command is PreprocessCommand) newView = ViewGeometryModelResults.Model;
+            else if (command is PreprocessCommand)
+            {
+                if (_model != null && _model.Mesh != null && _model.Mesh.Parts != null && _model.Mesh.Parts.Count > 0)
+                    newView = ViewGeometryModelResults.Model;
+                else newView = ViewGeometryModelResults.Geometry;
+            }
             else if (command is AnalysisCommand) newView = ViewGeometryModelResults.Model;
             else if (command is PostprocessCommand) newView = ViewGeometryModelResults.Results;
             else throw new NotSupportedException();
@@ -2597,7 +2602,7 @@ namespace PrePoMax
                 if (newView == ViewGeometryModelResults.Geometry) _currentView = ViewGeometryModelResults.Model;
                 else _currentView = ViewGeometryModelResults.Geometry;
             }
-            // Set view
+            // Set view and update
             CurrentView = newView;
         }
         //
@@ -4742,10 +4747,13 @@ namespace PrePoMax
                     minH = meshingParameters.MinH;
                     maxH = meshingParameters.MaxH;
                     //
-                    if (geometryType == GeometryType.Vertex && localMeshSize.Type == LocalMeshSizeTypeEnum.ElementSize)
+                    if (geometryType == GeometryType.Vertex)
                     {
-                        vertexNodeId = part.Visualization.VertexNodeIds[itemId];
-                        gmshData.VertexNodeIdMeshSize[vertexNodeId] = localMeshSize.GetMeshSize(-1, minH, maxH);
+                        if (localMeshSize.Type == LocalMeshSizeTypeEnum.ElementSize)
+                        {
+                            vertexNodeId = part.Visualization.VertexNodeIds[itemId];
+                            gmshData.VertexNodeIdMeshSize[vertexNodeId] = localMeshSize.GetMeshSize(-1, minH, maxH);
+                        }
                     }
                     else if (geometryType.IsEdge())
                     {
@@ -5034,7 +5042,7 @@ namespace PrePoMax
                 else
                 {
                     double[][] nodeCoor = mesh.GetAllNodeCoor();
-                    DrawNodes("nodeMesh", nodeCoor, Color.Black, vtkRendererLayer.Selection, -1, true);
+                    HighlightNodes(nodeCoor);
                 }
                 return true;
             }
@@ -5060,7 +5068,7 @@ namespace PrePoMax
             }
             //
             double[][] nodeCoor = mesh.GetAllNodeCoor();
-            DrawNodes("nodeMesh", nodeCoor, Color.Black, vtkRendererLayer.Selection, -1, true);
+            HighlightNodes(nodeCoor);
         }
         //
         public bool CreateMesh(string partName)
@@ -5436,16 +5444,19 @@ namespace PrePoMax
             }
             else meshPartIds.Add(part.PartId);
             // For each mesh refinement
+            int itemId;
+            int[] edgeIds;
+            int[] itemTypePartIds;
+            int[] edgeGeomIds = new int[1];
             double h;
             double minH;
             double maxH;
-            MeshingParameters meshingParameters;
-            int[] itemTypePartId;
-            int itemId;
-            GeometryType geometryType;
             double length;
             double[][] points;
             double[][][] lines;
+            GeometryType geometryType;
+            MeshingParameters meshingParameters;
+            VisualizationData vis = part.Visualization;
             //
             foreach (var entry in localMeshSizes)
             {
@@ -5473,7 +5484,7 @@ namespace PrePoMax
                         //
                         if (localMeshSize.Type == LocalMeshSizeTypeEnum.ElementSize)
                         {
-                            h = localMeshSize.GetNumberOfElements(-1, minH, maxH);
+                            h = localMeshSize.GetMeshSize(-1, minH, maxH);
                             _model.Geometry.GetVertexAndEdgeCoorFromGeometryIds(geometryIds, h, false, out points, out lines);
                             //
                             numPoints += points.Length;
@@ -5489,16 +5500,28 @@ namespace PrePoMax
                         {
                             foreach (var geometryId in geometryIds)
                             {
-                                itemTypePartId = FeMesh.GetItemTypePartIdsFromGeometryId(geometryId);
-                                itemId = itemTypePartId[0];
-                                geometryType = (GeometryType)itemTypePartId[1];
+                                itemTypePartIds = FeMesh.GetItemTypePartIdsFromGeometryId(geometryId);
+                                itemId = itemTypePartIds[0];
+                                geometryType = (GeometryType)itemTypePartIds[1];
                                 //
-                                if (geometryType.IsEdge())
+                                if (geometryType == GeometryType.Vertex) edgeIds = new int[0];
+                                if (geometryType.IsEdge()) edgeIds = new int[] { itemId };
+                                else if (geometryType.IsSurface()) edgeIds = vis.FaceEdgeIds[itemId];
+                                else if (geometryType == GeometryType.Part)
                                 {
-                                    length = part.Visualization.EdgeLengths[itemId];
+                                    edgeIds = new int[vis.EdgeCount];
+                                    for (int i = 0; i < vis.EdgeCount; i++) edgeIds[i] = i;
+                                }
+                                else throw new NotSupportedException();
+                                //
+                                foreach (var edgeId in edgeIds)
+                                {
+                                    edgeGeomIds[0] = FeMesh.GetGeometryId(edgeId, (int)GeometryType.Edge, part.PartId);
+                                    length = part.Visualization.EdgeLengths[edgeId];
                                     h = localMeshSize.GetMeshSize(length, minH, maxH);
                                     //
-                                    _model.Geometry.GetVertexAndEdgeCoorFromGeometryIds(geometryIds, h, false, out points, out lines);
+                                    _model.Geometry.GetVertexAndEdgeCoorFromGeometryIds(edgeGeomIds, h, false,
+                                                                                        out points, out lines);
                                     //
                                     numPoints += points.Length;
                                     numLines += lines.Length;

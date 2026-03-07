@@ -10882,7 +10882,7 @@ namespace CaeMesh
             Dictionary<int, List<Vec3D>> nodeIdMergedNormals = new Dictionary<int, List<Vec3D>>();
             foreach (var entry in nodeIdNormals)
             {
-                nodeIdMergedNormals.Add(entry.Key, Vec3D.MergeNormals(entry.Value, angleDeg));
+                nodeIdMergedNormals.Add(entry.Key, Vec3D.MergeCloseVectors(entry.Value, angleDeg));
             }
             nodeIdNormals = nodeIdMergedNormals;
             //

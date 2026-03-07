@@ -267,15 +267,15 @@ namespace CaeGlobals
             r = (n12.Len * n23.Len * n31.Len) / (2 * n12xn23.Len);
         }
         // List
-        public static List<Vec3D> MergeNormals(List<Vec3D> normals, double angleDeg)
+        public static List<Vec3D> MergeCloseVectors(List<Vec3D> vectors, double angleDeg)
         {
             double cosTol = Math.Cos(angleDeg * Math.PI / 180.0);
             var clusters = new List<List<Vec3D>>();
             //
-            foreach (var normal in normals)
+            foreach (var vector in vectors)
             {
-                Vec3D n = new Vec3D(normal);
-                normal.Normalize();
+                Vec3D n = new Vec3D(vector);
+                n.Normalize();
                 //
                 List<Vec3D> matchingCluster = null;
                 foreach (var cluster in clusters)
@@ -290,17 +290,17 @@ namespace CaeGlobals
                     }
                     if (matchingCluster != null) break;
                 }
-                if (matchingCluster != null) matchingCluster.Add(n);
-                else clusters.Add(new List<Vec3D> { n });
+                if (matchingCluster != null) matchingCluster.Add(vector);
+                else clusters.Add(new List<Vec3D> { vector });
             }
             // Merge clusters by averaging
             var result = new List<Vec3D>();
             foreach (var cluster in clusters)
             {
-                Vec3D sum = new Vec3D(0, 0, 0);
-                foreach (var v in cluster) sum += v;
+                Vec3D sum = new Vec3D();
+                foreach (var vector in cluster) sum += vector;
                 //
-                sum.Normalize();
+                sum *= 1.0 / cluster.Count;
                 result.Add(sum);
             }
             return result;

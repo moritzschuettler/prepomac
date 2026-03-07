@@ -25,10 +25,10 @@ namespace PrePoMax
         static extern bool AttachConsole(int dwProcessId);
         private const int ATTACH_PARENT_PROCESS = -1;
         //
-        [DllImport("kernel32.dll")]
-        static extern bool FreeConsole();
-        [DllImport("user32.dll")]
-        private static extern bool SetProcessDPIAware();
+        //[DllImport("kernel32.dll")]
+        //static extern bool FreeConsole();
+        //[DllImport("user32.dll")]
+        //private static extern bool SetProcessDPIAware();
         //
         /// <summary>
         /// The main entry point for the application.

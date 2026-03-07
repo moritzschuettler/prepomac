@@ -255,15 +255,18 @@ namespace FileInOut.Output
                 new OrderedDictionary<string, List<PreTensionLoad>>("Pretension Loads", StringComparer.OrdinalIgnoreCase);
             foreach (var step in model.StepCollection.StepsList)
             {
-                foreach (var entry in step.Loads)
+                if (step.Active)
                 {
-                    if (entry.Value is PreTensionLoad ptl)
+                    foreach (var entry in step.Loads)
                     {
-                        name = ptl.SurfaceName;
-                        if (!ptl.AutoComputeDirection) name += "_" + ptl.X.ToString() + ptl.Y.ToString() + ptl.Z.ToString();
-                        //
-                        if (preTensionLoads.TryGetValue(name, out preTensionLoadsList)) preTensionLoadsList.Add(ptl);
-                        else preTensionLoads.Add(name, new List<PreTensionLoad>() { ptl });
+                        if (entry.Value is PreTensionLoad ptl)
+                        {
+                            name = ptl.SurfaceName;
+                            if (!ptl.AutoComputeDirection) name += "_" + ptl.X.ToString() + ptl.Y.ToString() + ptl.Z.ToString();
+                            //
+                            if (preTensionLoads.TryGetValue(name, out preTensionLoadsList)) preTensionLoadsList.Add(ptl);
+                            else preTensionLoads.Add(name, new List<PreTensionLoad>() { ptl });
+                        }
                     }
                 }
             }

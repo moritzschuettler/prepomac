@@ -1115,7 +1115,7 @@ namespace CaeMesh
                     else if (Debugger.IsAttached)
                     {
                         // Other part
-                        Debugger.Break();
+                        //Debugger.Break();
                     }
                 }
                 _gmshData.EdgeIdNumElements = edgeIdNumElements;

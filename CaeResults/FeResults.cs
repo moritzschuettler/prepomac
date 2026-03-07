@@ -5349,111 +5349,127 @@ namespace CaeResults
         }
         private void MapScalarFromSourceToDestination(ref float[] values)
         {
-            if (_mesh.NodeSets.TryGetValue("SourceToothWear", out _) && _mesh.NodeSets.TryGetValue("DestinationToothWear", out _))
+            FeNodeSet sourceNodeSet;
+            List<FeNodeSet> destinationNodeSets = new List<FeNodeSet>();
+            //
+            _mesh.NodeSets.TryGetValue("SourceToothWear", out sourceNodeSet);
+            foreach (var entry in _mesh.NodeSets)
             {
-                double angle1 = 10.0 * Math.PI / 180.0;
-                double angle2 = -10.0 * Math.PI / 180.0;
+                if (entry.Key.StartsWith("DestinationToothWear")) destinationNodeSets.Add(entry.Value);
+            }
+            //
+            if (sourceNodeSet != null && destinationNodeSets.Count > 0)
+            {
+                double angle;
                 double value;
                 double[] coor;
                 double[] rotatedCoor;
-                int[] sourceNodeIds = _mesh.NodeSets["SourceToothWear"].Labels;
-                List<CloudPoint> cloudPoints = new List<CloudPoint>();
-                //
-                foreach (var nodeId in sourceNodeIds)
-                {
-                    // Source point
-                    coor = _undeformedNodes[nodeId].Coor;
-                    value = values[_nodeIdsLookUp[nodeId]];
-                    //
-                    //cloudPoints.Add(new CloudPoint() { Values = new double[] { value }, Coor = coor });
-                    // Transform - rotate for alpha1
-                    rotatedCoor = new double[3];
-                    rotatedCoor[0] = coor[0] * Math.Cos(angle1) - coor[1] * Math.Sin(angle1);
-                    rotatedCoor[1] = coor[0] * Math.Sin(angle1) + coor[1] * Math.Cos(angle1);
-                    rotatedCoor[2] = coor[2];
-                    cloudPoints.Add(new CloudPoint() { Values = new double[] { value }, Coor = rotatedCoor });
-                    // Transform - rotate for alpha2
-                    rotatedCoor = new double[3];
-                    rotatedCoor[0] = coor[0] * Math.Cos(angle2) - coor[1] * Math.Sin(angle2);
-                    rotatedCoor[1] = coor[0] * Math.Sin(angle2) + coor[1] * Math.Cos(angle2);
-                    rotatedCoor[2] = coor[2];
-                    cloudPoints.Add(new CloudPoint() { Values = new double[] { value }, Coor = rotatedCoor });
-                }
-                // Interpolator
-                CloudInterpolator cloudInterpolator = new CloudInterpolator(cloudPoints.ToArray());
-                //
                 double[] result;
                 double[] distance;
-                int[] destinationNodeIds = _mesh.NodeSets["DestinationToothWear"].Labels;
-                foreach (var nodeId in destinationNodeIds)
+                string[] splitter = new string[] { "_" };
+                int[] sourceNodeIds = sourceNodeSet.Labels;
+                int[] destinationNodeIds;
+                List <CloudPoint> cloudPoints = new List<CloudPoint>();
+                CloudInterpolator cloudInterpolator;
+                //
+                foreach (var destinationNodeSet in destinationNodeSets)
                 {
-                    cloudInterpolator.InterpolateAt(_undeformedNodes[nodeId].Coor,
-                                                    CloudInterpolatorEnum.ClosestPoint, 0, out distance, out result);
-                    //Vec3D dist = new Vec3D(distance);
-                    //if (dist.Len2 > 1)
-                    //    result = result;
-                    //if (result[0] != 0)
-                    //    result = result;
-                    values[_nodeIdsLookUp[nodeId]] = (float)result[0];
+                    cloudPoints.Clear();
+                    // Get angle from the name
+                    string[] tmp = destinationNodeSet.Name.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
+                    if (tmp.Length > 1 && double.TryParse(tmp[1], out angle)) angle = angle * Math.PI / 180.0;
+                    else continue;
+                    //
+                    foreach (var nodeId in sourceNodeIds)
+                    {
+                        // Source point
+                        coor = _undeformedNodes[nodeId].Coor;
+                        value = values[_nodeIdsLookUp[nodeId]];
+                        //
+                        // Transform - rotate for alpha
+                        rotatedCoor = new double[3];
+                        rotatedCoor[0] = coor[0] * Math.Cos(angle) - coor[1] * Math.Sin(angle);
+                        rotatedCoor[1] = coor[0] * Math.Sin(angle) + coor[1] * Math.Cos(angle);
+                        rotatedCoor[2] = coor[2];
+                        cloudPoints.Add(new CloudPoint() { Values = new double[] { value }, Coor = rotatedCoor });
+                    }
+                    // Interpolator
+                    cloudInterpolator = new CloudInterpolator(cloudPoints.ToArray());
+                    //
+                    destinationNodeIds = destinationNodeSet.Labels;
+                    foreach (var nodeId in destinationNodeIds)
+                    {
+                        cloudInterpolator.InterpolateAt(_undeformedNodes[nodeId].Coor,
+                                                        CloudInterpolatorEnum.ClosestPoint, 0, out distance, out result);
+                        values[_nodeIdsLookUp[nodeId]] = (float)result[0];
+                    }
                 }
             }
         }
         private void MapVectorFromSourceToDestination(ref float[] comp1, ref float[] comp2, ref float[] comp3)
         {
-            if (_mesh.NodeSets.TryGetValue("SourceToothWear", out _) && _mesh.NodeSets.TryGetValue("DestinationToothWear", out _))
+            FeNodeSet sourceNodeSet;
+            List<FeNodeSet> destinationNodeSets = new List<FeNodeSet>();
+            //
+            _mesh.NodeSets.TryGetValue("SourceToothWear", out sourceNodeSet);
+            foreach (var entry in _mesh.NodeSets)
             {
-                double angle1 = 10.0 * Math.PI / 180.0;
-                double angle2 = -10.0 * Math.PI / 180.0;
+                if (entry.Key.StartsWith("DestinationToothWear")) destinationNodeSets.Add(entry.Value);
+            }
+            //
+            if (sourceNodeSet != null && destinationNodeSets.Count > 0)
+            {
+                double angle;
                 double[] vector;
                 double[] coor;
                 double[] rotatedCoor;
                 double[] rotatedVector;
-                int[] sourceNodeIds = _mesh.NodeSets["SourceToothWear"].Labels;
-                List<CloudPoint> cloudPoints = new List<CloudPoint>();
-                //
-                foreach (var nodeId in sourceNodeIds)
-                {
-                    // Source point
-                    coor = _undeformedNodes[nodeId].Coor;
-                    vector = new double[] { comp1[_nodeIdsLookUp[nodeId]],
-                                            comp2[_nodeIdsLookUp[nodeId]],
-                                            comp3[_nodeIdsLookUp[nodeId]]};
-                        
-                    //
-                    // Transform - rotate for alpha1
-                    rotatedCoor = new double[3];
-                    rotatedCoor[0] = coor[0] * Math.Cos(angle1) - coor[1] * Math.Sin(angle1);
-                    rotatedCoor[1] = coor[0] * Math.Sin(angle1) + coor[1] * Math.Cos(angle1);
-                    rotatedCoor[2] = coor[2];
-                    rotatedVector = new double[3];
-                    rotatedVector[0] = vector[0] * Math.Cos(angle1) - vector[1] * Math.Sin(angle1);
-                    rotatedVector[1] = vector[0] * Math.Sin(angle1) + vector[1] * Math.Cos(angle1);
-                    rotatedVector[2] = vector[2];
-                    cloudPoints.Add(new CloudPoint() { Values = rotatedVector, Coor = rotatedCoor });
-                    // Transform - rotate for alpha2
-                    rotatedCoor = new double[3];
-                    rotatedCoor[0] = coor[0] * Math.Cos(angle2) - coor[1] * Math.Sin(angle2);
-                    rotatedCoor[1] = coor[0] * Math.Sin(angle2) + coor[1] * Math.Cos(angle2);
-                    rotatedCoor[2] = coor[2];
-                    rotatedVector = new double[3];
-                    rotatedVector[0] = vector[0] * Math.Cos(angle2) - vector[1] * Math.Sin(angle2);
-                    rotatedVector[1] = vector[0] * Math.Sin(angle2) + vector[1] * Math.Cos(angle2);
-                    rotatedVector[2] = vector[2];
-                    cloudPoints.Add(new CloudPoint() { Values = rotatedVector, Coor = rotatedCoor });
-                }
-                // Interpolator
-                CloudInterpolator cloudInterpolator = new CloudInterpolator(cloudPoints.ToArray());
-                //
                 double[] result;
                 double[] distance;
-                int[] destinationNodeIds = _mesh.NodeSets["DestinationToothWear"].Labels;
-                foreach (var nodeId in destinationNodeIds)
+                string[] splitter = new string[] { "_" };
+                int[] sourceNodeIds = sourceNodeSet.Labels;
+                int[] destinationNodeIds;
+                CloudInterpolator cloudInterpolator;
+               List <CloudPoint> cloudPoints = new List<CloudPoint>();
+                //
+                foreach (var destinationNodeSet in destinationNodeSets)
                 {
-                    cloudInterpolator.InterpolateAt(_undeformedNodes[nodeId].Coor,
-                                                    CloudInterpolatorEnum.ClosestPoint, 0, out distance, out result);
-                    comp1[_nodeIdsLookUp[nodeId]] = (float)result[0];
-                    comp2[_nodeIdsLookUp[nodeId]] = (float)result[1];
-                    comp3[_nodeIdsLookUp[nodeId]] = (float)result[2];
+                    cloudPoints.Clear();
+                    // Get angle from the name
+                    string[] tmp = destinationNodeSet.Name.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
+                    if (tmp.Length > 1 && double.TryParse(tmp[1], out angle)) angle = angle * Math.PI / 180.0;
+                    else continue;
+                    //
+                    foreach (var nodeId in sourceNodeIds)
+                    {
+                        // Source point
+                        coor = _undeformedNodes[nodeId].Coor;
+                        vector = new double[] { comp1[_nodeIdsLookUp[nodeId]],
+                                                comp2[_nodeIdsLookUp[nodeId]],
+                                                comp3[_nodeIdsLookUp[nodeId]]};
+                        // Transform - rotate for alpha
+                        rotatedCoor = new double[3];
+                        rotatedCoor[0] = coor[0] * Math.Cos(angle) - coor[1] * Math.Sin(angle);
+                        rotatedCoor[1] = coor[0] * Math.Sin(angle) + coor[1] * Math.Cos(angle);
+                        rotatedCoor[2] = coor[2];
+                        rotatedVector = new double[3];
+                        rotatedVector[0] = vector[0] * Math.Cos(angle) - vector[1] * Math.Sin(angle);
+                        rotatedVector[1] = vector[0] * Math.Sin(angle) + vector[1] * Math.Cos(angle);
+                        rotatedVector[2] = vector[2];
+                        cloudPoints.Add(new CloudPoint() { Values = rotatedVector, Coor = rotatedCoor });
+                    }
+                    // Interpolator
+                    cloudInterpolator = new CloudInterpolator(cloudPoints.ToArray());
+                    //
+                    destinationNodeIds = destinationNodeSet.Labels;
+                    foreach (var nodeId in destinationNodeIds)
+                    {
+                        cloudInterpolator.InterpolateAt(_undeformedNodes[nodeId].Coor,
+                                                        CloudInterpolatorEnum.ClosestPoint, 0, out distance, out result);
+                        comp1[_nodeIdsLookUp[nodeId]] = (float)result[0];
+                        comp2[_nodeIdsLookUp[nodeId]] = (float)result[1];
+                        comp3[_nodeIdsLookUp[nodeId]] = (float)result[2];
+                    }
                 }
             }
         }
