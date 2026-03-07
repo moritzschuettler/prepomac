@@ -2094,10 +2094,11 @@ namespace vtkControl
                 //http://aplotnikov.com/2016/simple-visualization-of-unstructured-grid-quality/
                 //http://www.kennethmoreland.com/color-maps/
                 ctf.SetColorSpaceToDiverging();
-                //rgbPoints.Add(new double[] { 0, 0.230, 0.299, 0.754 });
-                //rgbPoints.Add(new double[] { 1, 0.706, 0.016, 0.150 });
-                rgbPoints.Add(new double[] { 0, 0.038, 0.124, 0.693 });
-                rgbPoints.Add(new double[] { 1, 0.632, 0.0, 0.0 });
+                rgbPoints.Add(new double[] { 0, 0.230, 0.299, 0.754 });
+                rgbPoints.Add(new double[] { 1, 0.706, 0.016, 0.150 });
+                // For brightness = 0.2
+                //rgbPoints.Add(new double[] { 0, 0.038, 0.124, 0.693 });
+                //rgbPoints.Add(new double[] { 1, 0.632, 0.0, 0.0 });
             }
             else if (_colorSpectrum.Type == vtkColorSpectrumType.Rainbow)
             {
@@ -2120,6 +2121,37 @@ namespace vtkControl
                 rgbPoints.Add(new double[] { 0.714, 1, 0.329, 0 });
                 rgbPoints.Add(new double[] { 0.857, 0.451, 0.02, 0.02 });
                 rgbPoints.Add(new double[] { 1, 0.878, 0.302, 0.302 });
+            }
+            else if (_colorSpectrum.Type == vtkColorSpectrumType.Jet)
+            {
+                ctf.SetColorSpaceToRGB();
+                rgbPoints.Add(new double[] { 0.000, 0.000, 0.000, 0.500 });
+                rgbPoints.Add(new double[] { 0.125, 0.000, 0.000, 1.000 });
+                rgbPoints.Add(new double[] { 0.375, 0.000, 1.000, 1.000 });
+                rgbPoints.Add(new double[] { 0.500, 0.000, 1.000, 0.000 });
+                rgbPoints.Add(new double[] { 0.625, 1.000, 1.000, 0.000 });
+                rgbPoints.Add(new double[] { 0.875, 1.000, 0.000, 0.000 });
+                rgbPoints.Add(new double[] { 1.000, 0.500, 0.000, 0.000 });
+            }
+            else if (_colorSpectrum.Type == vtkColorSpectrumType.Turbo)
+            {
+                ctf.SetColorSpaceToRGB();
+                rgbPoints.Add(new double[] { 0.000, 0.18995, 0.07176, 0.23217 });
+                rgbPoints.Add(new double[] { 0.067, 0.25107, 0.25237, 0.63374 });
+                rgbPoints.Add(new double[] { 0.133, 0.27698, 0.46153, 0.93309 });
+                rgbPoints.Add(new double[] { 0.200, 0.24427, 0.60937, 0.99697 });
+                rgbPoints.Add(new double[] { 0.267, 0.17223, 0.71680, 0.93981 });
+                rgbPoints.Add(new double[] { 0.333, 0.10342, 0.89600, 0.71500 });
+                rgbPoints.Add(new double[] { 0.400, 0.26180, 0.96765, 0.52981 });
+                rgbPoints.Add(new double[] { 0.467, 0.47375, 0.99755, 0.34963 });
+                rgbPoints.Add(new double[] { 0.533, 0.69525, 0.97610, 0.21294 });
+                rgbPoints.Add(new double[] { 0.600, 0.88331, 0.86553, 0.21719 });
+                rgbPoints.Add(new double[] { 0.667, 0.98000, 0.73000, 0.22161 });
+                rgbPoints.Add(new double[] { 0.733, 0.99297, 0.55214, 0.15417 });
+                rgbPoints.Add(new double[] { 0.800, 0.94084, 0.35566, 0.07031 });
+                rgbPoints.Add(new double[] { 0.867, 0.84662, 0.21407, 0.02487 });
+                rgbPoints.Add(new double[] { 0.933, 0.68602, 0.09536, 0.00481 });
+                rgbPoints.Add(new double[] { 1.000, 0.47960, 0.01583, 0.01055 });
             }
             else if (_colorSpectrum.Type == vtkColorSpectrumType.Warm)
             {

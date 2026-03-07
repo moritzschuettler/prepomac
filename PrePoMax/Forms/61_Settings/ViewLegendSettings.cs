@@ -22,6 +22,12 @@ namespace PrePoMax.Settings
         [StandardValue("RainbowDesaturated", DisplayName = "Rainbow desaturated", Description = "Rainbow desaturated")]
         RainbowDesaturated,
         //
+        [StandardValue("Turbo", DisplayName = "Turbo", Description = "Turbo")]
+        Turbo,
+        //
+        [StandardValue("Jet", DisplayName = "Jet", Description = "Jet")]
+        Jet,
+        //
         [StandardValue("Warm", DisplayName = "Warm", Description = "Warm")]
         Warm,
         //
@@ -72,6 +78,10 @@ namespace PrePoMax.Settings
                     return ColorSpectrum.Rainbow;
                 else if (_legendSettings.ColorSpectrum.Type == vtkControl.vtkColorSpectrumType.RainbowDesaturated)
                     return ColorSpectrum.RainbowDesaturated;
+                else if (_legendSettings.ColorSpectrum.Type == vtkControl.vtkColorSpectrumType.Turbo)
+                    return ColorSpectrum.Turbo;
+                else if (_legendSettings.ColorSpectrum.Type == vtkControl.vtkColorSpectrumType.Jet)
+                    return ColorSpectrum.Jet;
                 else if (_legendSettings.ColorSpectrum.Type == vtkControl.vtkColorSpectrumType.Warm)
                     return ColorSpectrum.Warm;
                 else if (_legendSettings.ColorSpectrum.Type == vtkControl.vtkColorSpectrumType.Cool)
@@ -100,6 +110,10 @@ namespace PrePoMax.Settings
                     _legendSettings.ColorSpectrum.Type = vtkControl.vtkColorSpectrumType.Rainbow;
                 else if (value == ColorSpectrum.RainbowDesaturated)
                     _legendSettings.ColorSpectrum.Type = vtkControl.vtkColorSpectrumType.RainbowDesaturated;
+                else if (value == ColorSpectrum.Turbo)
+                    _legendSettings.ColorSpectrum.Type = vtkControl.vtkColorSpectrumType.Turbo;
+                else if (value == ColorSpectrum.Jet)
+                    _legendSettings.ColorSpectrum.Type = vtkControl.vtkColorSpectrumType.Jet;
                 else if (value == ColorSpectrum.Warm)
                     _legendSettings.ColorSpectrum.Type = vtkControl.vtkColorSpectrumType.Warm;
                 else if (value == ColorSpectrum.Cool)

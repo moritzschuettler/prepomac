@@ -13,6 +13,8 @@ namespace vtkControl
         CoolWarm,
         Rainbow,
         RainbowDesaturated,
+        Turbo,
+        Jet,
         Warm,
         Cool,
         Cividis,
