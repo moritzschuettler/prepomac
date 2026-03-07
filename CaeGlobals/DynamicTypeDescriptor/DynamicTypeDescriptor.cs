@@ -1974,7 +1974,8 @@ namespace DynamicTypeDescriptor
                     sResult = this.ResourceManager.GetString(sKey, CultureInfo.CurrentUICulture);
                     if (!String.IsNullOrEmpty(sResult))
                     {
-                        return sResult.PadLeft(sResult.Length + m_TabAppendCount, '\t');
+                        //return sResult.PadLeft(sResult.Length + m_TabAppendCount, '\t'); '\u200B'
+                        return sResult.PadLeft(sResult.Length + m_TabAppendCount, '\u200B'); 
                     }
 
                 }
@@ -1987,7 +1988,8 @@ namespace DynamicTypeDescriptor
                 {
                     sResult = base.Category;
                 }
-                return sResult.PadLeft(base.Category.Length + m_TabAppendCount, '\t');
+                //return sResult.PadLeft(base.Category.Length + m_TabAppendCount, '\t');
+                return sResult.PadLeft(base.Category.Length + m_TabAppendCount, '\u200B');
             }
         }
         public void SetCategory(string category)

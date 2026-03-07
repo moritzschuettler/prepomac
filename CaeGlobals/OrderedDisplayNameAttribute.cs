@@ -11,7 +11,7 @@ namespace CaeGlobals
 
             for (int index = position; index < total; index++)
             {
-                sb.Insert(0, '\t');
+                sb.Insert(0, '\u200B');
             }
 
             base.DisplayNameValue = sb.ToString();
