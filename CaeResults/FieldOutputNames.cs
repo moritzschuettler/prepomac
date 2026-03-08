@@ -45,25 +45,25 @@ namespace CaeResults
         public const string ZZStrMaxAng = "ZZSTRMAXANG";                // tensor
         public const string ZZStrMin = "ZZSTRMIN";                      // tensor
         public const string ZZStrMinAng = "ZZSTRMINANG";                // tensor
-        // Strain
-        public const string ToStrain = "TOSTRAIN";                      // tensor
-        public const string ToStraiR = "TOSTRAIR";                      // tensor
-        public const string ToStraiI = "TOSTRAII";                      // tensor
-        public const string ToStraiMag = "TOSTRAIMAG";                  // tensor
-        public const string ToStraiPha = "TOSTRAIPHA";                  // tensor
-        public const string ToStraiMax = "TOSTRAIMAX";                  // tensor
-        public const string ToStraiMaxAng = "TOSTRAIMAXANG";            // tensor
-        public const string ToStraiMin = "TOSTRAIMIN";                  // tensor
-        public const string ToStraiMinAng = "TOSTRAIMINANG";            // tensor
-        public const string MeStrain = "MESTRAIN";                      // tensor
-        public const string MeStraiR = "MESTRAIR";                      // tensor
-        public const string MeStraiI = "MESTRAII";                      // tensor
-        public const string MeStraiMag = "MESTRAIMAG";                  // tensor
-        public const string MeStraiPha = "MESTRAIPHA";                  // tensor
-        public const string MeStraiMax = "MESTRAIMAX";                  // tensor
-        public const string MeStraiMaxAng = "MESTRAIMAXANG";            // tensor
-        public const string MeStraiMin = "MESTRAIMIN";                  // tensor
-        public const string MeStraiMinAng = "MESTRAIMINANG";            // tensor
+        // Strain 
+        public const string ToStrain = "TOSTRAIN";                      // tensor - add to IsStrain method
+        public const string ToStraiR = "TOSTRAIR";                      // tensor - add to IsStrain method
+        public const string ToStraiI = "TOSTRAII";                      // tensor - add to IsStrain method
+        public const string ToStraiMag = "TOSTRAIMAG";                  // tensor - add to IsStrain method
+        public const string ToStraiPha = "TOSTRAIPHA";                  // tensor - add to IsStrain method
+        public const string ToStraiMax = "TOSTRAIMAX";                  // tensor - add to IsStrain method
+        public const string ToStraiMaxAng = "TOSTRAIMAXANG";            // tensor - add to IsStrain method
+        public const string ToStraiMin = "TOSTRAIMIN";                  // tensor - add to IsStrain method
+        public const string ToStraiMinAng = "TOSTRAIMINANG";            // tensor - add to IsStrain method
+        public const string MeStrain = "MESTRAIN";                      // tensor - add to IsStrain method
+        public const string MeStraiR = "MESTRAIR";                      // tensor - add to IsStrain method
+        public const string MeStraiI = "MESTRAII";                      // tensor - add to IsStrain method
+        public const string MeStraiMag = "MESTRAIMAG";                  // tensor - add to IsStrain method
+        public const string MeStraiPha = "MESTRAIPHA";                  // tensor - add to IsStrain method
+        public const string MeStraiMax = "MESTRAIMAX";                  // tensor - add to IsStrain method
+        public const string MeStraiMaxAng = "MESTRAIMAXANG";            // tensor - add to IsStrain method
+        public const string MeStraiMin = "MESTRAIMIN";                  // tensor - add to IsStrain method
+        public const string MeStraiMinAng = "MESTRAIMINANG";            // tensor - add to IsStrain method
         public const string Pe = "PE";                                  // scalar
         //
         public const string Forc = "FORC";                              // vector
@@ -193,6 +193,33 @@ namespace CaeResults
                     return true;
             }
         }
+        public static bool IsStrain(string fieldName)
+        {
+            switch (fieldName)
+            {
+                case ToStrain:
+                case ToStraiR:
+                case ToStraiI:
+                case ToStraiMag:
+                case ToStraiPha:
+                case ToStraiMax:
+                case ToStraiMaxAng:
+                case ToStraiMin:
+                case ToStraiMinAng:
+                case MeStrain:
+                case MeStraiR:
+                case MeStraiI:
+                case MeStraiMag:
+                case MeStraiPha:
+                case MeStraiMax:
+                case MeStraiMaxAng:
+                case MeStraiMin:
+                case MeStraiMinAng:
+                    return true;
+                default:
+                    return false;
+            }
+        }
         public static DataTypeEnum GetDataType(string fieldName)
         {
             switch (fieldName)
@@ -300,22 +327,6 @@ namespace CaeResults
                     return DataTypeEnum.None;
             }
         }
-        public static Dictionary<string, string[]> GetSafetyFactorFieldComponentNames()
-        {
-            Dictionary<string, string[]> fieldNameComponentName = new Dictionary<string, string[]>
-            {
-                //{Disp, new string[] { FOComponentNames.All, FOComponentNames.U1, FOComponentNames.U2, FOComponentNames.U3 } },
-                { Stress, new string[] { FOComponentNames.Mises, FOComponentNames.Tresca,
-                                         FOComponentNames.S11, FOComponentNames.S22, FOComponentNames.S33,
-                                         FOComponentNames.S12, FOComponentNames.S23, FOComponentNames.S13,
-                                         FOComponentNames.SgnMaxAbsPri,
-                                         FOComponentNames.PrincipalMax,
-                                         FOComponentNames.PrincipalMid,
-                                         FOComponentNames.PrincipalMin} },
-                //{ Pe, new string[] { FOComponentNames.PE } }
-            };
-            return fieldNameComponentName;
-        }
     }
 
     public class FOComponentNames
@@ -369,6 +380,7 @@ namespace CaeResults
         public const string PHAYZ = "PHAYZ";
         public const string PHAZX = "PHAZX";
         // Strain
+        public const string Equivalent = "EQUIVALENT";
         public const string ME11 = "ME11";
         public const string ME22 = "ME22";
         public const string ME33 = "ME33";

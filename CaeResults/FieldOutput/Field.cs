@@ -224,6 +224,7 @@ namespace CaeResults
             {
                 count += _components.ContainsKey(FOComponentNames.Mises) ? 1 : 0;
                 count += _components.ContainsKey(FOComponentNames.Tresca) ? 1 : 0;
+                count += _components.ContainsKey(FOComponentNames.Equivalent) ? 1 : 0;
                 count += _components.ContainsKey(FOComponentNames.SgnMaxAbsPri) ? 1 : 0;
                 count += _components.ContainsKey(FOComponentNames.PrincipalMax) ? 1 : 0;
                 count += _components.ContainsKey(FOComponentNames.PrincipalMid) ? 1 : 0;
@@ -233,6 +234,7 @@ namespace CaeResults
                 {
                     _components.Remove(FOComponentNames.Mises);
                     _components.Remove(FOComponentNames.Tresca);
+                    _components.Remove(FOComponentNames.Equivalent);
                     _components.Remove(FOComponentNames.SgnMaxAbsPri);
                     _components.Remove(FOComponentNames.PrincipalMax);
                     _components.Remove(FOComponentNames.PrincipalMid);
@@ -274,6 +276,54 @@ namespace CaeResults
         }
         private void ComputeTensorFieldInvariant()
         {
+            if (FOFieldNames.IsStrain(_name)) ComputeStrainTensorFieldInvariant();
+            else ComputeStressTensorFieldInvariant();
+        }
+        private void ComputeStrainTensorFieldInvariant()
+        {
+            int count = 0;
+            count += _components.ContainsKey(FOComponentNames.Equivalent) ? 1 : 0;
+            count += _components.ContainsKey(FOComponentNames.SgnMaxAbsPri) ? 1 : 0;
+            count += _components.ContainsKey(FOComponentNames.PrincipalMax) ? 1 : 0;
+            count += _components.ContainsKey(FOComponentNames.PrincipalMid) ? 1 : 0;
+            count += _components.ContainsKey(FOComponentNames.PrincipalMin) ? 1 : 0;
+            //
+            if (_components.Count - count == 6)
+            {
+                _components.Remove(FOComponentNames.Equivalent);
+                _components.Remove(FOComponentNames.SgnMaxAbsPri);
+                _components.Remove(FOComponentNames.PrincipalMax);
+                _components.Remove(FOComponentNames.PrincipalMid);
+                _components.Remove(FOComponentNames.PrincipalMin);
+                //
+                count = 0;
+                float[][] values = new float[6][];
+                foreach (var entry in _components)
+                {
+                    values[count++] = entry.Value.Values;
+                }
+                //
+                float[] equivalent = new float[values[0].Length];
+                float a, b, c;
+                for (int i = 0; i < equivalent.Length; i++)
+                {
+                    a = values[0][i] - values[1][i];
+                    b = values[1][i] - values[2][i];
+                    c = values[2][i] - values[0][i];
+                    // Equivalent strain = 2/3 * von Mises equation strain
+                    equivalent[i] = 2f / 3f * (float)Math.Sqrt(0.5f * (a * a + b * b + c * c +
+                                    6 * (values[3][i] * values[3][i] + values[4][i] * values[4][i] + values[5][i] * values[5][i])));
+                }
+                // Equivalent
+                _components.Insert(0, FOComponentNames.Equivalent, new FieldComponent(FOComponentNames.Equivalent, equivalent, true));
+                // Principal
+                ComputeAndAddPrincipalInvariants(values);
+            }
+        }
+        private void ComputeStressTensorFieldInvariant()
+        {
+            bool isStrain = FOFieldNames.IsStrain(_name);
+            //
             int count = 0;
             count += _components.ContainsKey(FOComponentNames.Mises) ? 1 : 0;
             count += _components.ContainsKey(FOComponentNames.Tresca) ? 1 : 0;
@@ -321,6 +371,7 @@ namespace CaeResults
                 _components.Insert(1, FOComponentNames.Tresca, new FieldComponent(FOComponentNames.Tresca, tresca, true));
             }
         }
+        
         private void ComputeAndAddPrincipalInvariants(float[][] values)
         {
             // https://en.wikipedia.org/wiki/Cubic_function#General_solution_to_the_cubic_equation_with_arbitrary_coefficients
@@ -382,6 +433,7 @@ namespace CaeResults
             {
                 componentNames.Remove(FOComponentNames.Mises);
                 componentNames.Remove(FOComponentNames.Tresca);
+                componentNames.Remove(FOComponentNames.Equivalent);
                 componentNames.Remove(FOComponentNames.SgnMaxAbsPri);
                 componentNames.Remove(FOComponentNames.PrincipalMax);
                 componentNames.Remove(FOComponentNames.PrincipalMid);
@@ -415,6 +467,7 @@ namespace CaeResults
                 HashSet<string> componentNames = new HashSet<string>(_components.Keys);
                 componentNames.Remove(FOComponentNames.Mises);
                 componentNames.Remove(FOComponentNames.Tresca);
+                componentNames.Remove(FOComponentNames.Equivalent);
                 componentNames.Remove(FOComponentNames.SgnMaxAbsPri);
                 componentNames.Remove(FOComponentNames.PrincipalMax);
                 componentNames.Remove(FOComponentNames.PrincipalMid);

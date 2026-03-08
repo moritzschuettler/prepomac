@@ -111,7 +111,7 @@ namespace GmshCommon {
 
                 gmsh::model::getEntities(nDimTags, dim);
 
-                dimTags = gcnew array<System::Tuple<int, int>^>(nDimTags.size());
+                dimTags = gcnew array<System::Tuple<int, int>^>((int)nDimTags.size());
                 for (int i = 0; i < dimTags->Length; ++i)
                     dimTags[i] = gcnew System::Tuple<int, int>(nDimTags[i].first, nDimTags[i].second);
             }
@@ -131,8 +131,8 @@ namespace GmshCommon {
                 gmsh::vectorpair nDimTags;
                 gmsh::model::getPhysicalGroups(nDimTags, dim);
 
-                array<System::Tuple<int, int>^>^ dimTags = gcnew array<System::Tuple<int, int>^>(nDimTags.size());
-                for (int i = 0; i < nDimTags.size(); ++i)
+                array<System::Tuple<int, int>^>^ dimTags = gcnew array<System::Tuple<int, int>^>((int)nDimTags.size());
+                for (int i = 0; i < (int)nDimTags.size(); ++i)
                     dimTags[i] = gcnew System::Tuple<int, int>(nDimTags[i].first, nDimTags[i].second);
 
                 return dimTags;
@@ -143,7 +143,7 @@ namespace GmshCommon {
                 //
                 gmsh::model::getEntitiesForPhysicalGroup(dim, tag, tags);
                 //
-                array<int>^ entities = gcnew array<int>(tags.size());
+                array<int>^ entities = gcnew array<int>((int)tags.size());
                 Marshal::Copy(IntPtr(tags.data()), entities, 0, entities->Length);
                 //
                 return entities;
@@ -191,8 +191,8 @@ namespace GmshCommon {
                 }
                 gmsh::model::getBoundary(dimTags, nOutDimTags, combined, oriented, recursive);
 
-                outDimTags = gcnew array<System::Tuple<int, int>^>(nOutDimTags.size());
-                for (int i = 0; i < nOutDimTags.size(); ++i)
+                outDimTags = gcnew array<System::Tuple<int, int>^>((int)nOutDimTags.size());
+                for (int i = 0; i < (int)nOutDimTags.size(); ++i)
                     outDimTags[i] = gcnew System::Tuple<int, int>(nOutDimTags[i].first, nOutDimTags[i].second);
             }
             static void GetAdjacencies(int dim, int tag, [System::Runtime::InteropServices::Out] array<int>^% upward,
@@ -203,11 +203,11 @@ namespace GmshCommon {
                 //
                 gmsh::model::getAdjacencies(dim, tag, upward_native, downward_native);
                 //
-                upward = gcnew array<int>(upward_native.size());
-                if (upward_native.size() > 0)
+                upward = gcnew array<int>((int)upward_native.size());
+                if ((int)upward_native.size() > 0)
                     Marshal::Copy(IntPtr(upward_native.data()), upward, 0, upward->Length);
                 //
-                downward = gcnew array<int>(downward_native.size());
+                downward = gcnew array<int>((int)downward_native.size());
                 if (downward_native.size() > 0)
                     Marshal::Copy(IntPtr(downward_native.data()), downward, 0, downward->Length);
             }
@@ -266,8 +266,8 @@ namespace GmshCommon {
                 //
                 gmsh::model::getValue(dim, tag, parametricCoord_native, coord_native);
                 //
-                coord = gcnew array<double>(coord_native.size());
-                Marshal::Copy(IntPtr(coord_native.data()), coord, 0, coord_native.size());
+                coord = gcnew array<double>((int)coord_native.size());
+                Marshal::Copy(IntPtr(coord_native.data()), coord, 0, (int)coord_native.size());
             }
             static void GetNormal(int tag, array<double>^ parametricCoord,
                 [System::Runtime::InteropServices::Out] array<double>^% normals)
@@ -279,8 +279,8 @@ namespace GmshCommon {
                 //
                 gmsh::model::getNormal(tag, parametricCoord_native, normals_native);
                 //
-                normals = gcnew array<double>(normals_native.size());
-                Marshal::Copy(IntPtr(normals_native.data()), normals, 0, normals_native.size());
+                normals = gcnew array<double>((int)normals_native.size());
+                Marshal::Copy(IntPtr(normals_native.data()), normals, 0, (int)normals_native.size());
             }
             static void GetParametrization(int dim, int tag, array<double>^ coord,
                 [System::Runtime::InteropServices::Out] array<double>^% parametricCoord)
@@ -292,8 +292,8 @@ namespace GmshCommon {
                 //
                 gmsh::model::getParametrization(dim, tag, coord_native, parametricCoord_native);
                 //
-                parametricCoord = gcnew array<double>(parametricCoord_native.size());
-                Marshal::Copy(IntPtr(parametricCoord_native.data()), parametricCoord, 0, parametricCoord_native.size());
+                parametricCoord = gcnew array<double>((int)parametricCoord_native.size());
+                Marshal::Copy(IntPtr(parametricCoord_native.data()), parametricCoord, 0, (int)parametricCoord_native.size());
             }
             static void GetParametrizationBounds(int dim, int tag,
                 [System::Runtime::InteropServices::Out] array<double>^% min,
@@ -304,11 +304,11 @@ namespace GmshCommon {
                 //
                 gmsh::model::getParametrizationBounds(dim, tag, min_native, max_native);
                 //
-                min = gcnew array<double>(min_native.size());
-                Marshal::Copy(IntPtr(min_native.data()), min, 0, min_native.size());
+                min = gcnew array<double>((int)min_native.size());
+                Marshal::Copy(IntPtr(min_native.data()), min, 0, (int)min_native.size());
                 //
-                max = gcnew array<double>(max_native.size());
-                Marshal::Copy(IntPtr(max_native.data()), max, 0, max_native.size());
+                max = gcnew array<double>((int)max_native.size());
+                Marshal::Copy(IntPtr(max_native.data()), max, 0, (int)max_native.size());
             }
             //                                                                                                                      
             ref class Geo
@@ -463,11 +463,11 @@ namespace GmshCommon {
                         nLocalCoord, nWeights);
 
 
-                    localCoord = gcnew array<double>(nLocalCoord.size());
-                    Marshal::Copy(IntPtr(nLocalCoord.data()), localCoord, 0, nLocalCoord.size());
+                    localCoord = gcnew array<double>((int)nLocalCoord.size());
+                    Marshal::Copy(IntPtr(nLocalCoord.data()), localCoord, 0, (int)nLocalCoord.size());
 
-                    weights = gcnew array<double>(nWeights.size());
-                    Marshal::Copy(IntPtr(nWeights.data()), weights, 0, nWeights.size());
+                    weights = gcnew array<double>((int)nWeights.size());
+                    Marshal::Copy(IntPtr(nWeights.data()), weights, 0, (int)nWeights.size());
                 }
                 static void GetElementTypes([System::Runtime::InteropServices::Out] array<int>^% types, int dim)
                 {
@@ -482,8 +482,8 @@ namespace GmshCommon {
                     std::vector<int> nTypes;
                     gmsh::model::mesh::getElementTypes(nTypes, dim, tag);
 
-                    types = gcnew array<int>(nTypes.size());
-                    Marshal::Copy(IntPtr(nTypes.data()), types, 0, nTypes.size());
+                    types = gcnew array<int>((int)nTypes.size());
+                    Marshal::Copy(IntPtr(nTypes.data()), types, 0, (int)nTypes.size());
                 }
                 static void GetNodes([System::Runtime::InteropServices::Out] array<IntPtr>^% nodeTags,
                     [System::Runtime::InteropServices::Out] array<double>^% coord,
@@ -493,17 +493,17 @@ namespace GmshCommon {
                     std::vector<double> coord_native, parametricCoord_native;
                     gmsh::model::mesh::getNodes(nodeTags_native, coord_native, parametricCoord_native, dim, tag, includeBoundary, returnParametricCoord);
 
-                    coord = gcnew array<double>(coord_native.size());
-                    if (coord_native.size() > 0)
-                        Marshal::Copy(IntPtr(coord_native.data()), coord, 0, coord_native.size());
+                    coord = gcnew array<double>((int)coord_native.size());
+                    if ((int)coord_native.size() > 0)
+                        Marshal::Copy(IntPtr(coord_native.data()), coord, 0, (int)coord_native.size());
 
                     //parametricCoord = gcnew array<double>(parametricCoord_native.size());
                     //if (parametricCoord_native.size() > 0)
                     //	Marshal::Copy(IntPtr(parametricCoord_native.data()), parametricCoord, 0, parametricCoord_native.size());
 
-                    nodeTags = gcnew array<IntPtr>(nodeTags_native.size());
-                    if (nodeTags_native.size() > 0)
-                        Marshal::Copy(IntPtr(nodeTags_native.data()), nodeTags, 0, nodeTags_native.size());
+                    nodeTags = gcnew array<IntPtr>((int)nodeTags_native.size());
+                    if ((int)nodeTags_native.size() > 0)
+                        Marshal::Copy(IntPtr(nodeTags_native.data()), nodeTags, 0, (int)nodeTags_native.size());
                 }
                 static void GetElement(IntPtr elementTag, int elementType,
                     [System::Runtime::InteropServices::Out] array<IntPtr>^% nodeTags,
@@ -518,9 +518,9 @@ namespace GmshCommon {
                     dim = ndim;
                     tag = ntag;
 
-                    nodeTags = gcnew array<IntPtr>(nodeTags_native.size());
-                    if (nodeTags_native.size() > 0)
-                        Marshal::Copy(IntPtr(nodeTags_native.data()), nodeTags, 0, nodeTags_native.size());
+                    nodeTags = gcnew array<IntPtr>((int)nodeTags_native.size());
+                    if ((int)nodeTags_native.size() > 0)
+                        Marshal::Copy(IntPtr(nodeTags_native.data()), nodeTags, 0, (int)nodeTags_native.size());
                 }
                 static System::String^ GetElementProperties(
                     int elementType,
@@ -536,9 +536,9 @@ namespace GmshCommon {
 
                     gmsh::model::mesh::getElementProperties(elementType, elementNameTemp, dimTemp, orderTemp, numNodesTemp, localNodeCoordTemp, numPrimaryNodesTemp);
 
-                    localNodeCoords = gcnew array<double>(localNodeCoordTemp.size());
-                    if (localNodeCoordTemp.size() > 0)
-                        Marshal::Copy(IntPtr(localNodeCoordTemp.data()), localNodeCoords, 0, localNodeCoordTemp.size());
+                    localNodeCoords = gcnew array<double>((int)localNodeCoordTemp.size());
+                    if ((int)localNodeCoordTemp.size() > 0)
+                        Marshal::Copy(IntPtr(localNodeCoordTemp.data()), localNodeCoords, 0, (int)localNodeCoordTemp.size());
 
                     dim = dimTemp;
                     order = orderTemp;
@@ -566,8 +566,8 @@ namespace GmshCommon {
                     //
                     gmsh::model::mesh::getElementQualities(elementTags_native, elementsQuality_native, qualityName_native);
                     //
-                    elementsQuality = gcnew array<double>(elementsQuality_native.size());
-                    Marshal::Copy(IntPtr(elementsQuality_native.data()), elementsQuality, 0, elementsQuality_native.size());
+                    elementsQuality = gcnew array<double>((int)elementsQuality_native.size());
+                    Marshal::Copy(IntPtr(elementsQuality_native.data()), elementsQuality, 0, (int)elementsQuality_native.size());
                 }
                 static void GetElements(
                     [System::Runtime::InteropServices::Out] array<int>^% elementTypes,
@@ -580,9 +580,9 @@ namespace GmshCommon {
 
                     gmsh::model::mesh::getElements(elementTypesN, elementTagsN, nodeTagsN, dim, tag);
 
-                    for (int i = 0; i < nodeTagsN.size(); ++i)
+                    for (int i = 0; i < (int)nodeTagsN.size(); ++i)
                     {
-                        for (int j = 0; j < nodeTagsN[i].size(); ++j)
+                        for (int j = 0; j < (int)nodeTagsN[i].size(); ++j)
                         {
                             if (nodeTagsN[i][j] == 0)
                             {
@@ -592,33 +592,33 @@ namespace GmshCommon {
                         }
                     }
 
-                    elementTypes = gcnew array<int>(elementTypesN.size());
-                    if (elementTypesN.size() > 0)
-                        Marshal::Copy(IntPtr(elementTypesN.data()), elementTypes, 0, elementTypesN.size());
+                    elementTypes = gcnew array<int>((int)elementTypesN.size());
+                    if ((int)elementTypesN.size() > 0)
+                        Marshal::Copy(IntPtr(elementTypesN.data()), elementTypes, 0, (int)elementTypesN.size());
 
-                    if (elementTagsN.size() < 1)
+                    if ((int)elementTagsN.size() < 1)
                         elementTags = gcnew array <array<IntPtr>^>(1);
                     else
-                        elementTags = gcnew array< array<IntPtr>^>(elementTagsN.size());
+                        elementTags = gcnew array< array<IntPtr>^>((int)elementTagsN.size());
 
-                    for (int i = 0; i < elementTagsN.size(); ++i)
+                    for (int i = 0; i < (int)elementTagsN.size(); ++i)
                     {
-                        elementTags[i] = gcnew array<IntPtr>(elementTagsN[i].size());
-                        Marshal::Copy(IntPtr(elementTagsN[i].data()), elementTags[i], 0, elementTagsN[i].size());
+                        elementTags[i] = gcnew array<IntPtr>((int)elementTagsN[i].size());
+                        Marshal::Copy(IntPtr(elementTagsN[i].data()), elementTags[i], 0, (int)elementTagsN[i].size());
 
                         //for (int j = 0; j < elementTagsN[i].size(); ++j)
                         //	elementTags[i][j] = static_cast<long>(elementTagsN[i][j]);
                     }
 
-                    if (nodeTagsN.size() < 1)
+                    if ((int)nodeTagsN.size() < 1)
                         nodeTags = gcnew array< array<IntPtr>^>(1);
                     else
-                        nodeTags = gcnew array< array<IntPtr>^>(nodeTagsN.size());
+                        nodeTags = gcnew array< array<IntPtr>^>((int)nodeTagsN.size());
 
-                    for (int i = 0; i < nodeTagsN.size(); ++i)
+                    for (int i = 0; i < (int)nodeTagsN.size(); ++i)
                     {
-                        nodeTags[i] = gcnew array<IntPtr>(nodeTagsN[i].size());
-                        Marshal::Copy(IntPtr(nodeTagsN[i].data()), nodeTags[i], 0, nodeTagsN[i].size());
+                        nodeTags[i] = gcnew array<IntPtr>((int)nodeTagsN[i].size());
+                        Marshal::Copy(IntPtr(nodeTagsN[i].data()), nodeTags[i], 0, (int)nodeTagsN[i].size());
 
                         //for (int j = 0; j < nodeTagsN[i].size(); ++j)
                         //{
@@ -653,14 +653,14 @@ namespace GmshCommon {
                     std::vector<size_t> face_tags, face_nodes;
                     gmsh::model::mesh::getAllFaces(dim, face_tags, face_nodes);
 
-                    faceTags = gcnew array<IntPtr>(face_tags.size());
-                    Marshal::Copy(IntPtr(face_tags.data()), faceTags, 0, face_tags.size());
+                    faceTags = gcnew array<IntPtr>((int)face_tags.size());
+                    Marshal::Copy(IntPtr(face_tags.data()), faceTags, 0, (int)face_tags.size());
 
                     //for (int i = 0; i < face_tags.size(); ++i)
                     //	faceTags[i] = static_cast<long>(face_tags[i]);
 
-                    faceNodes = gcnew array<IntPtr>(face_nodes.size());
-                    Marshal::Copy(IntPtr(face_nodes.data()), faceNodes, 0, face_nodes.size());
+                    faceNodes = gcnew array<IntPtr>((int)face_nodes.size());
+                    Marshal::Copy(IntPtr(face_nodes.data()), faceNodes, 0, (int)face_nodes.size());
 
                     //for (int i = 0; i < face_nodes.size(); ++i)
                     //	faceNodes[i] = static_cast<long>(face_nodes[i]);
@@ -675,13 +675,13 @@ namespace GmshCommon {
 
                     gmsh::model::mesh::getJacobians(elementType, nLocalCoord, nJacobians, nDeterminants, nCoord, tag);
 
-                    jacobians = gcnew array<double>(nJacobians.size());
-                    determinants = gcnew array<double>(nDeterminants.size());
-                    coord = gcnew array<double>(nCoord.size());
+                    jacobians = gcnew array<double>((int)nJacobians.size());
+                    determinants = gcnew array<double>((int)nDeterminants.size());
+                    coord = gcnew array<double>((int)nCoord.size());
 
-                    Marshal::Copy(IntPtr(nJacobians.data()), jacobians, 0, nJacobians.size());
-                    Marshal::Copy(IntPtr(nDeterminants.data()), determinants, 0, nDeterminants.size());
-                    Marshal::Copy(IntPtr(nCoord.data()), coord, 0, nCoord.size());
+                    Marshal::Copy(IntPtr(nJacobians.data()), jacobians, 0, (int)nJacobians.size());
+                    Marshal::Copy(IntPtr(nDeterminants.data()), determinants, 0, (int)nDeterminants.size());
+                    Marshal::Copy(IntPtr(nCoord.data()), coord, 0, (int)nCoord.size());
                 }
                 static void Recombine()
                 {
@@ -805,8 +805,8 @@ namespace GmshCommon {
                     //
                     gmsh::model::mesh::getSizes(dimTags_native, sizes_native);
                     //
-                    sizes = gcnew array<double>(sizes_native.size());
-                    Marshal::Copy(IntPtr(sizes_native.data()), sizes, 0, sizes_native.size());
+                    sizes = gcnew array<double>((int)sizes_native.size());
+                    Marshal::Copy(IntPtr(sizes_native.data()), sizes, 0, (int)sizes_native.size());
                 }
                 //
                 ref class Field
@@ -837,8 +837,8 @@ namespace GmshCommon {
                     //
                     gmsh::model::occ::extrude(dimTags_native, dx, dy, dz, outDimTags_native, numElements_native, heights_native, recombine);
                     //
-                    outDimTags = gcnew array<System::Tuple<int, int>^>(outDimTags_native.size());
-                    for (int i = 0; i < outDimTags_native.size(); ++i)
+                    outDimTags = gcnew array<System::Tuple<int, int>^>((int)outDimTags_native.size());
+                    for (int i = 0; i < (int)outDimTags_native.size(); ++i)
                         outDimTags[i] = gcnew System::Tuple<int, int>(outDimTags_native[i].first, outDimTags_native[i].second);
                 }
                 static void Revolve(array<System::Tuple<int, int>^>^ dimTags,
@@ -861,8 +861,8 @@ namespace GmshCommon {
                     gmsh::model::occ::revolve(dimTags_native, x, y, z, ax, ay, az, angle, outDimTags_native,
                         numElements_native, heights_native, recombine);
                     //
-                    outDimTags = gcnew array<System::Tuple<int, int>^>(outDimTags_native.size());
-                    for (int i = 0; i < outDimTags_native.size(); ++i)
+                    outDimTags = gcnew array<System::Tuple<int, int>^>((int)outDimTags_native.size());
+                    for (int i = 0; i < (int)outDimTags_native.size(); ++i)
                         outDimTags[i] = gcnew System::Tuple<int, int>(outDimTags_native[i].first, outDimTags_native[i].second);
                 }
                 static void Synchronize()
@@ -876,8 +876,8 @@ namespace GmshCommon {
                     gmsh::vectorpair outDimTags;
                     gmsh::model::occ::importShapes(msclr::interop::marshal_as<std::string>(fileName), outDimTags, highestDimOnly, msclr::interop::marshal_as<std::string>(format));
 
-                    dimTags = gcnew array<System::Tuple<int, int>^>(outDimTags.size());
-                    for (int i = 0; i < outDimTags.size(); ++i)
+                    dimTags = gcnew array<System::Tuple<int, int>^>((int)outDimTags.size());
+                    for (int i = 0; i < (int)outDimTags.size(); ++i)
                         dimTags[i] = gcnew System::Tuple<int, int>(outDimTags[i].first, outDimTags[i].second);
                 }
                 static array<System::Tuple<int, int>^>^ GetEntities(int dim)
@@ -885,8 +885,8 @@ namespace GmshCommon {
                     gmsh::vectorpair outDimTags;
                     gmsh::model::occ::getEntities(outDimTags, dim);
 
-                    array<System::Tuple<int, int>^>^ dimTags = gcnew array<System::Tuple<int, int>^>(outDimTags.size());
-                    for (int i = 0; i < outDimTags.size(); ++i)
+                    array<System::Tuple<int, int>^>^ dimTags = gcnew array<System::Tuple<int, int>^>((int)outDimTags.size());
+                    for (int i = 0; i < (int)outDimTags.size(); ++i)
                         dimTags[i] = gcnew System::Tuple<int, int>(outDimTags[i].first, outDimTags[i].second);
 
                     return dimTags;
@@ -921,8 +921,8 @@ namespace GmshCommon {
                     //
                     gmsh::model::occ::defeature(volumeTags_native, surfaceTags_native, outDimTags_native, removeVolume);
                     //
-                    outDimTags = gcnew array<System::Tuple<int, int>^>(outDimTags_native.size());
-                    for (int i = 0; i < outDimTags_native.size(); ++i)
+                    outDimTags = gcnew array<System::Tuple<int, int>^>((int)outDimTags_native.size());
+                    for (int i = 0; i < (int)outDimTags_native.size(); ++i)
                         outDimTags[i] = gcnew System::Tuple<int, int>(outDimTags_native[i].first, outDimTags_native[i].second);
                 }
                 static void GetDistance(int dim1, int tag1, int dim2, int tag2,
@@ -978,15 +978,15 @@ namespace GmshCommon {
 
                     gmsh::model::occ::fragment(nobjectDimTags, ntoolDimTags, noutDimTags, noutDimTagsMap, tag, removeObject, removeTool);
 
-                    outDimTags = gcnew array < System::Tuple<int, int>^>(noutDimTags.size());
-                    for (int i = 0; i < noutDimTags.size(); ++i)
+                    outDimTags = gcnew array < System::Tuple<int, int>^>((int)noutDimTags.size());
+                    for (int i = 0; i < (int)noutDimTags.size(); ++i)
                         outDimTags[i] = gcnew System::Tuple<int, int>(noutDimTags[i].first, noutDimTags[i].second);
 
-                    outDimTagsMap = gcnew array< array < System::Tuple<int, int>^>^>(noutDimTagsMap.size());
-                    for (int i = 0; i < noutDimTagsMap.size(); ++i)
+                    outDimTagsMap = gcnew array< array < System::Tuple<int, int>^>^>((int)noutDimTagsMap.size());
+                    for (int i = 0; i < (int)noutDimTagsMap.size(); ++i)
                     {
-                        outDimTagsMap[i] = gcnew array<System::Tuple<int, int>^>(noutDimTagsMap[i].size());
-                        for (int j = 0; j < noutDimTagsMap[i].size(); ++j)
+                        outDimTagsMap[i] = gcnew array<System::Tuple<int, int>^>((int)noutDimTagsMap[i].size());
+                        for (int j = 0; j < (int)noutDimTagsMap[i].size(); ++j)
                             outDimTagsMap[i][j] = gcnew System::Tuple<int, int>(noutDimTagsMap[i][j].first, noutDimTagsMap[i][j].second);
                     }
 
@@ -1003,8 +1003,8 @@ namespace GmshCommon {
                     gmsh::model::occ::healShapes(noutDimTags, nDimTags, tolerance, fixDegenerate, fixSmallEdges, fixSmallFaces, sewFaces, makeSolids);
 
 
-                    outDimTags = gcnew array < System::Tuple<int, int>^>(noutDimTags.size());
-                    for (int i = 0; i < noutDimTags.size(); ++i)
+                    outDimTags = gcnew array < System::Tuple<int, int>^>((int)noutDimTags.size());
+                    for (int i = 0; i < (int)noutDimTags.size(); ++i)
                         outDimTags[i] = gcnew System::Tuple<int, int>(noutDimTags[i].first, noutDimTags[i].second);
                 }
                 static void Intersect(array<System::Tuple<int, int>^>^ objectDimTags, array<System::Tuple<int, int>^>^ toolDimTags,
@@ -1023,15 +1023,15 @@ namespace GmshCommon {
 
                     gmsh::model::occ::intersect(nobjectDimTags, ntoolDimTags, noutDimTags, noutDimTagsMap, tag, removeObject, removeTool);
 
-                    outDimTags = gcnew array < System::Tuple<int, int>^>(noutDimTags.size());
-                    for (int i = 0; i < noutDimTags.size(); ++i)
+                    outDimTags = gcnew array < System::Tuple<int, int>^>((int)noutDimTags.size());
+                    for (int i = 0; i < (int)noutDimTags.size(); ++i)
                         outDimTags[i] = gcnew System::Tuple<int, int>(noutDimTags[i].first, noutDimTags[i].second);
 
-                    outDimTagsMap = gcnew array< array < System::Tuple<int, int>^>^>(noutDimTagsMap.size());
-                    for (int i = 0; i < noutDimTagsMap.size(); ++i)
+                    outDimTagsMap = gcnew array< array < System::Tuple<int, int>^>^>((int)noutDimTagsMap.size());
+                    for (int i = 0; i < (int)noutDimTagsMap.size(); ++i)
                     {
-                        outDimTagsMap[i] = gcnew array<System::Tuple<int, int>^>(noutDimTagsMap[i].size());
-                        for (int j = 0; j < noutDimTagsMap[i].size(); ++j)
+                        outDimTagsMap[i] = gcnew array<System::Tuple<int, int>^>((int)noutDimTagsMap[i].size());
+                        for (int j = 0; j < (int)noutDimTagsMap[i].size(); ++j)
                             outDimTagsMap[i][j] = gcnew System::Tuple<int, int>(noutDimTagsMap[i][j].first, noutDimTagsMap[i][j].second);
                     }
 
@@ -1060,8 +1060,8 @@ namespace GmshCommon {
                     //
                     gmsh::model::occ::getEntitiesInBoundingBox(xMin, yMin, zMin, xMax, yMax, zMax, outDimTags_native, dim);
                     //
-                    outDimTags = gcnew array<System::Tuple<int, int>^>(outDimTags_native.size());
-                    for (int i = 0; i < outDimTags_native.size(); ++i)
+                    outDimTags = gcnew array<System::Tuple<int, int>^>((int)outDimTags_native.size());
+                    for (int i = 0; i < (int)outDimTags_native.size(); ++i)
                         outDimTags[i] = gcnew System::Tuple<int, int>(outDimTags_native[i].first, outDimTags_native[i].second);
                 }
                 static int AddPoint(double x, double y, double z, int tag)
@@ -1252,7 +1252,7 @@ namespace GmshCommon {
             {
                 std::vector<std::string> messages;
                 gmsh::logger::get(messages);
-                array<System::String^>^ log = gcnew array<System::String^>(messages.size());
+                array<System::String^>^ log = gcnew array<System::String^>((int)messages.size());
                 for (int i = 0; i < log->Length; ++i)
                 {
                     log[i] = gcnew System::String(messages[i].c_str());
