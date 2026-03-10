@@ -8787,6 +8787,122 @@ namespace PrePoMax
         {
             _form.ClearOverlayByPrefix(PlyArrowPrefix);
         }
+        // Draping simulation
+        private const string DrapingPrefix = "DrapingGrid";
+        public double DrawDrapingSimulation(CompositeLayup layup, int plyIndex, double limitShear, double cellSize)
+        {
+            try
+            {
+                _form.ClearOverlayByPrefix(DrapingPrefix);
+                //
+                if (plyIndex < 0 || plyIndex >= layup.Plies.Count) return -1.0;
+                Ply ply = layup.Plies[plyIndex];
+                if (string.IsNullOrEmpty(ply.Region)) return -1.0;
+                //
+                FeElementSet elSet;
+                if (!_model.Mesh.ElementSets.TryGetValue(ply.Region, out elSet)) return -1.0;
+                if (elSet.Labels.Length == 0) return -1.0;
+                //
+                // Collect unique node IDs from the element set
+                var nodeIdSet = new System.Collections.Generic.HashSet<int>();
+                foreach (int eid in elSet.Labels)
+                {
+                    FeElement element;
+                    if (_model.Mesh.Elements.TryGetValue(eid, out element))
+                        foreach (int nid in element.NodeIds) nodeIdSet.Add(nid);
+                }
+                //
+                // Build flat node coordinate array and node-index remapping
+                var nodeIds = new System.Collections.Generic.List<int>(nodeIdSet);
+                var nodeIdToIdx = new System.Collections.Generic.Dictionary<int, int>(nodeIds.Count);
+                double[] coords = new double[nodeIds.Count * 3];
+                for (int i = 0; i < nodeIds.Count; i++)
+                {
+                    nodeIdToIdx[nodeIds[i]] = i;
+                    FeNode nd = _model.Mesh.Nodes[nodeIds[i]];
+                    coords[i * 3]     = nd.X;
+                    coords[i * 3 + 1] = nd.Y;
+                    coords[i * 3 + 2] = nd.Z;
+                }
+                //
+                // Build element connectivity arrays
+                var elemNodeCountsList = new System.Collections.Generic.List<int>();
+                var elemNodeIdsList = new System.Collections.Generic.List<int>();
+                foreach (int eid in elSet.Labels)
+                {
+                    FeElement element;
+                    if (!_model.Mesh.Elements.TryGetValue(eid, out element)) continue;
+                    // Use only the surface nodes (first face for shell elements)
+                    int[] surfNodeIds = GetSurfaceNodeIds(element);
+                    if (surfNodeIds == null || surfNodeIds.Length < 3) continue;
+                    elemNodeCountsList.Add(surfNodeIds.Length);
+                    foreach (int nid in surfNodeIds)
+                        elemNodeIdsList.Add(nodeIdToIdx.ContainsKey(nid) ? nodeIdToIdx[nid] : 0);
+                }
+                if (elemNodeCountsList.Count == 0) return -1.0;
+                //
+                double plyAngle = ply.RotationAngle;
+                DrapingResult result = KinDrape.Run(
+                    coords,
+                    elemNodeCountsList.ToArray(),
+                    elemNodeIdsList.ToArray(),
+                    plyAngle,
+                    cellSize);
+                if (result == null) return -1.0;
+                //
+                // Build cell vertex arrays for display
+                int nCells = (result.GridRows - 1) * (result.GridCols - 1);
+                double[][][] cellVertices = new double[nCells][][];
+                //
+                for (int r = 0; r < result.GridRows - 1; r++)
+                {
+                    for (int c = 0; c < result.GridCols - 1; c++)
+                    {
+                        int cellNo = r + c * (result.GridRows - 1);
+                        double x0 = result.NodePositions[r,     c,     0];
+                        double x1 = result.NodePositions[r,     c + 1, 0];
+                        double x2 = result.NodePositions[r + 1, c + 1, 0];
+                        double x3 = result.NodePositions[r + 1, c,     0];
+                        if (double.IsNaN(x0) || double.IsNaN(x1) || double.IsNaN(x2) || double.IsNaN(x3)) continue;
+                        cellVertices[cellNo] = new double[4][]
+                        {
+                            new double[] { x0, result.NodePositions[r,     c,     1], result.NodePositions[r,     c,     2] },
+                            new double[] { x1, result.NodePositions[r,     c + 1, 1], result.NodePositions[r,     c + 1, 2] },
+                            new double[] { x2, result.NodePositions[r + 1, c + 1, 1], result.NodePositions[r + 1, c + 1, 2] },
+                            new double[] { x3, result.NodePositions[r + 1, c,     1], result.NodePositions[r + 1, c,     2] }
+                        };
+                    }
+                }
+                //
+                string gridName = DrapingPrefix + Globals.NameSeparator + layup.Name + Globals.NameSeparator + ply.Name;
+                _form.AddDrapingGrid(gridName, cellVertices, result.CellShear, limitShear);
+                _form.AdjustCameraDistanceAndClipping();
+                //
+                double maxShear = 0.0;
+                foreach (double s in result.CellShear)
+                    if (!double.IsNaN(s) && s > maxShear) maxShear = s;
+                Console.WriteLine($"[KinDrape] Max shear: {maxShear:F1}°");
+                return maxShear;
+            }
+            catch { }
+            return -1.0;
+        }
+        public void ClearDrapingSimulation()
+        {
+            _form.ClearOverlayByPrefix(DrapingPrefix);
+        }
+        // Extract surface node IDs from an element (shell or solid)
+        private static int[] GetSurfaceNodeIds(FeElement element)
+        {
+            int n = element.NodeIds.Length;
+            // For shell elements: use all nodes (already surface)
+            // For solid elements with 8 nodes: use first face (4 nodes)
+            if (n <= 8) return element.NodeIds;
+            // Higher-order elements: use corner nodes only
+            if (n == 20) return new int[] { element.NodeIds[0], element.NodeIds[1], element.NodeIds[2], element.NodeIds[3] };
+            if (n == 10) return new int[] { element.NodeIds[0], element.NodeIds[1], element.NodeIds[2] };
+            return element.NodeIds;
+        }
 
         #endregion #################################################################################################################
 

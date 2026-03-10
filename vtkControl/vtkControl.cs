@@ -3524,6 +3524,108 @@ namespace vtkControl
             //
             if (_drawSymbolEdges) AddSymbolEdges(data, glyph.GetOutputPort());
         }
+        // Display a kinematic draping grid with cells colored by shear angle
+        // cellVertices: [nCells][4][3] — 4 vertices per cell, each [x,y,z]
+        // cellShear:    shear angle (degrees) per cell
+        // limitShear:   shear threshold — blue=0, yellow=limit, red=2*limit
+        public void AddDrapingGrid(string name, double[][][] cellVertices, double[] cellShear, double limitShear)
+        {
+            if (cellVertices == null || cellVertices.Length == 0) return;
+            int nCells = cellVertices.Length;
+            //
+            var validCells = new System.Collections.Generic.List<int>();
+            for (int i = 0; i < nCells; i++)
+            {
+                if (cellVertices[i] == null) continue;
+                bool ok = true;
+                for (int v = 0; v < 4; v++)
+                    if (cellVertices[i][v] == null || double.IsNaN(cellVertices[i][v][0])) { ok = false; break; }
+                if (ok && !double.IsNaN(cellShear[i])) validCells.Add(i);
+            }
+            if (validCells.Count == 0) return;
+            //
+            // Build VTK poly data — unshared points (4 per cell) for per-cell coloring
+            vtkPoints points = vtkPoints.New();
+            vtkCellArray quads = vtkCellArray.New();
+            vtkFloatArray scalars = vtkFloatArray.New();
+            scalars.SetName("ShearAngle");
+            scalars.SetNumberOfComponents(1);
+            int ptIdx = 0;
+            foreach (int ci in validCells)
+            {
+                for (int v = 0; v < 4; v++)
+                    points.InsertNextPoint(cellVertices[ci][v][0], cellVertices[ci][v][1], cellVertices[ci][v][2]);
+                vtkQuad quad = vtkQuad.New();
+                quad.GetPointIds().SetId(0, ptIdx);
+                quad.GetPointIds().SetId(1, ptIdx + 1);
+                quad.GetPointIds().SetId(2, ptIdx + 2);
+                quad.GetPointIds().SetId(3, ptIdx + 3);
+                quads.InsertNextCell(quad);
+                scalars.InsertNextValue((float)cellShear[ci]);
+                ptIdx += 4;
+            }
+            vtkPolyData polyData = vtkPolyData.New();
+            polyData.SetPoints(points);
+            polyData.SetPolys(quads);
+            polyData.GetCellData().SetScalars(scalars);
+            polyData.Update();
+            //
+            // Color lookup table: blue → yellow → red over [0 .. 2*limitShear]
+            double maxShear = Math.Max(limitShear * 2.0, 1.0);
+            vtkLookupTable lut = vtkLookupTable.New();
+            lut.SetNumberOfTableValues(256);
+            lut.SetRange(0.0, maxShear);
+            for (int i = 0; i < 256; i++)
+            {
+                double t = i / 255.0;
+                double r, g, b;
+                if (t <= 0.5)
+                {
+                    double s = t * 2.0;
+                    r = s; g = s; b = 1.0 - s;     // blue → yellow
+                }
+                else
+                {
+                    double s = (t - 0.5) * 2.0;
+                    r = 1.0; g = 1.0 - s; b = 0.0; // yellow → red
+                }
+                lut.SetTableValue(i, r, g, b, 0.85);
+            }
+            lut.Build();
+            //
+            // Filled cells mapper
+            vtkPolyDataMapper fillMapper = vtkPolyDataMapper.New();
+            fillMapper.SetInput(polyData);
+            fillMapper.SetScalarModeToUseCellData();
+            fillMapper.SetLookupTable(lut);
+            fillMapper.SetScalarRange(0.0, maxShear);
+            fillMapper.ScalarVisibilityOn();
+            vtkMaxActorData fillData = new vtkMaxActorData();
+            fillData.Name = name + Globals.NameSeparator + "fill";
+            fillData.Layer = vtkRendererLayer.Overlay;
+            fillData.BackfaceCulling = false;
+            vtkMaxActor fillActor = new vtkMaxActor(fillData, fillMapper);
+            fillActor.GeometryProperty.SetRepresentationToSurface();
+            fillActor.GeometryProperty.SetOpacity(0.85);
+            fillActor.GeometryProperty.LightingOff();
+            AddActorGeometry(fillActor, vtkRendererLayer.Overlay);
+            //
+            // Wireframe edges mapper (dark)
+            vtkPolyDataMapper edgeMapper = vtkPolyDataMapper.New();
+            edgeMapper.SetInput(polyData);
+            edgeMapper.ScalarVisibilityOff();
+            vtkMaxActorData edgeData = new vtkMaxActorData();
+            edgeData.Name = name + Globals.NameSeparator + "edges";
+            edgeData.Layer = vtkRendererLayer.Overlay;
+            edgeData.BackfaceCulling = false;
+            edgeData.Color = Color.FromArgb(30, 30, 30);
+            vtkMaxActor edgeActor = new vtkMaxActor(edgeData, edgeMapper);
+            edgeActor.GeometryProperty.SetRepresentationToWireframe();
+            edgeActor.GeometryProperty.SetLineWidth(1.0f);
+            AddActorGeometry(edgeActor, vtkRendererLayer.Overlay);
+            //
+            RenderScene();
+        }
         public void AddCaptionActor(string name, string caption, Color color, double[] position,
                                     double[] offsetVector, double fontScaleFactor, vtkRendererLayer layer)
         {

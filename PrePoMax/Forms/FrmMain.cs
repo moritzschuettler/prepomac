@@ -10044,6 +10044,10 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.ClearOverlayByPrefix, prefix);
         }
+        public void AddDrapingGrid(string name, double[][][] cellVertices, double[] cellShear, double limitShear)
+        {
+            InvokeIfRequired(_vtk.AddDrapingGrid, name, cellVertices, cellShear, limitShear);
+        }
         public void AddCaptionActor(string name, string caption, Color color, double[] position,
                                     double[] offsetVector, double fontScaleFactor, vtkRendererLayer layer)
         {

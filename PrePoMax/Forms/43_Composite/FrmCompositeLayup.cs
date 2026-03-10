@@ -34,6 +34,13 @@ namespace PrePoMax.Forms
         private Label lNormalDirection;
         private ComboBox cbNormalDirection;
         private CheckBox cbSymmetric;
+        private GroupBox gbDraping;
+        private CheckBox cbDrapingSimulation;
+        private Label lLimitShear;
+        private NumericUpDown nudLimitShear;
+        private Label lCellSize;
+        private NumericUpDown nudCellSize;
+        private Label lMaxShear;
         private TabControl tcPlies;
         private TabPage tpPlies;
         private DataGridView dgvPlies;
@@ -79,6 +86,13 @@ namespace PrePoMax.Forms
             this.lNormalDirection = new System.Windows.Forms.Label();
             this.cbNormalDirection = new System.Windows.Forms.ComboBox();
             this.cbSymmetric = new System.Windows.Forms.CheckBox();
+            this.gbDraping = new System.Windows.Forms.GroupBox();
+            this.cbDrapingSimulation = new System.Windows.Forms.CheckBox();
+            this.lLimitShear = new System.Windows.Forms.Label();
+            this.nudLimitShear = new System.Windows.Forms.NumericUpDown();
+            this.lCellSize = new System.Windows.Forms.Label();
+            this.nudCellSize = new System.Windows.Forms.NumericUpDown();
+            this.lMaxShear = new System.Windows.Forms.Label();
             this.tcPlies = new System.Windows.Forms.TabControl();
             this.tpPlies = new System.Windows.Forms.TabPage();
             this.dgvPlies = new System.Windows.Forms.DataGridView();
@@ -92,6 +106,9 @@ namespace PrePoMax.Forms
 
             this.gbData.SuspendLayout();
             this.gbLayupOrientation.SuspendLayout();
+            this.gbDraping.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.nudLimitShear)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.nudCellSize)).BeginInit();
             this.tcPlies.SuspendLayout();
             this.tpPlies.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvPlies)).BeginInit();
@@ -223,17 +240,105 @@ namespace PrePoMax.Forms
             this.cbSymmetric.CheckedChanged += new System.EventHandler(this.cbSymmetric_CheckedChanged);
 
             //
+            // gbDraping
+            //
+            this.gbDraping.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.gbDraping.Controls.Add(this.cbDrapingSimulation);
+            this.gbDraping.Controls.Add(this.lMaxShear);
+            this.gbDraping.Controls.Add(this.lLimitShear);
+            this.gbDraping.Controls.Add(this.nudLimitShear);
+            this.gbDraping.Controls.Add(this.lCellSize);
+            this.gbDraping.Controls.Add(this.nudCellSize);
+            this.gbDraping.Location = new System.Drawing.Point(12, 200);
+            this.gbDraping.Name = "gbDraping";
+            this.gbDraping.Size = new System.Drawing.Size(560, 82);
+            this.gbDraping.TabIndex = 3;
+            this.gbDraping.TabStop = false;
+            this.gbDraping.Text = "Manufacturing";
+
+            //
+            // cbDrapingSimulation
+            //
+            this.cbDrapingSimulation.AutoSize = true;
+            this.cbDrapingSimulation.Location = new System.Drawing.Point(10, 22);
+            this.cbDrapingSimulation.Name = "cbDrapingSimulation";
+            this.cbDrapingSimulation.Size = new System.Drawing.Size(120, 19);
+            this.cbDrapingSimulation.TabIndex = 0;
+            this.cbDrapingSimulation.Text = "Draping simulation";
+            this.cbDrapingSimulation.UseVisualStyleBackColor = true;
+            this.cbDrapingSimulation.CheckedChanged += new System.EventHandler(this.cbDrapingSimulation_CheckedChanged);
+
+            //
+            // lLimitShear
+            //
+            this.lLimitShear.AutoSize = true;
+            this.lLimitShear.Location = new System.Drawing.Point(10, 50);
+            this.lLimitShear.Name = "lLimitShear";
+            this.lLimitShear.Size = new System.Drawing.Size(90, 15);
+            this.lLimitShear.Text = "Limit shear (°):";
+            this.lLimitShear.Visible = false;
+
+            //
+            // nudLimitShear
+            //
+            this.nudLimitShear.DecimalPlaces = 1;
+            this.nudLimitShear.Increment = new decimal(new int[] { 1, 0, 0, 0 });
+            this.nudLimitShear.Location = new System.Drawing.Point(110, 47);
+            this.nudLimitShear.Maximum = new decimal(new int[] { 90, 0, 0, 0 });
+            this.nudLimitShear.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+            this.nudLimitShear.Name = "nudLimitShear";
+            this.nudLimitShear.Size = new System.Drawing.Size(70, 23);
+            this.nudLimitShear.TabIndex = 1;
+            this.nudLimitShear.Value = new decimal(new int[] { 45, 0, 0, 0 });
+            this.nudLimitShear.Visible = false;
+
+            //
+            // lCellSize
+            //
+            this.lCellSize.AutoSize = true;
+            this.lCellSize.Location = new System.Drawing.Point(200, 50);
+            this.lCellSize.Name = "lCellSize";
+            this.lCellSize.Size = new System.Drawing.Size(55, 15);
+            this.lCellSize.Text = "Cell size:";
+            this.lCellSize.Visible = false;
+
+            //
+            // nudCellSize
+            //
+            this.nudCellSize.DecimalPlaces = 4;
+            this.nudCellSize.Increment = new decimal(new int[] { 1, 0, 0, 131072 });
+            this.nudCellSize.Location = new System.Drawing.Point(265, 47);
+            this.nudCellSize.Maximum = new decimal(new int[] { 1000, 0, 0, 0 });
+            this.nudCellSize.Minimum = new decimal(new int[] { 1, 0, 0, 262144 });
+            this.nudCellSize.Name = "nudCellSize";
+            this.nudCellSize.Size = new System.Drawing.Size(90, 23);
+            this.nudCellSize.TabIndex = 2;
+            this.nudCellSize.Value = new decimal(new int[] { 5, 0, 0, 131072 });
+            this.nudCellSize.Visible = false;
+
+            //
+            // lMaxShear
+            //
+            this.lMaxShear.AutoSize = true;
+            this.lMaxShear.Location = new System.Drawing.Point(380, 22);
+            this.lMaxShear.Name = "lMaxShear";
+            this.lMaxShear.Size = new System.Drawing.Size(120, 15);
+            this.lMaxShear.Text = "Max shear: --";
+            this.lMaxShear.Visible = false;
+
+            //
             // tcPlies
             //
             this.tcPlies.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
             | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
             this.tcPlies.Controls.Add(this.tpPlies);
-            this.tcPlies.Location = new System.Drawing.Point(12, 198);
+            this.tcPlies.Location = new System.Drawing.Point(12, 290);
             this.tcPlies.Name = "tcPlies";
             this.tcPlies.SelectedIndex = 0;
             this.tcPlies.Size = new System.Drawing.Size(560, 256);
-            this.tcPlies.TabIndex = 3;
+            this.tcPlies.TabIndex = 4;
 
             //
             // tpPlies
@@ -331,7 +436,7 @@ namespace PrePoMax.Forms
             // btnOkAddNew
             //
             this.btnOkAddNew.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnOkAddNew.Location = new System.Drawing.Point(335, 462);
+            this.btnOkAddNew.Location = new System.Drawing.Point(335, 554);
             this.btnOkAddNew.Name = "btnOkAddNew";
             this.btnOkAddNew.Size = new System.Drawing.Size(75, 23);
             this.btnOkAddNew.TabIndex = 3;
@@ -343,7 +448,7 @@ namespace PrePoMax.Forms
             // btnOK
             //
             this.btnOK.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnOK.Location = new System.Drawing.Point(416, 462);
+            this.btnOK.Location = new System.Drawing.Point(416, 554);
             this.btnOK.Name = "btnOK";
             this.btnOK.Size = new System.Drawing.Size(75, 23);
             this.btnOK.TabIndex = 4;
@@ -356,7 +461,7 @@ namespace PrePoMax.Forms
             //
             this.btnCancel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.btnCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.btnCancel.Location = new System.Drawing.Point(497, 462);
+            this.btnCancel.Location = new System.Drawing.Point(497, 554);
             this.btnCancel.Name = "btnCancel";
             this.btnCancel.Size = new System.Drawing.Size(75, 23);
             this.btnCancel.TabIndex = 5;
@@ -369,10 +474,11 @@ namespace PrePoMax.Forms
             //
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.CancelButton = this.btnCancel;
-            this.ClientSize = new System.Drawing.Size(584, 497);
+            this.ClientSize = new System.Drawing.Size(584, 589);
             this.Controls.Add(this.gbData);
             this.Controls.Add(this.gbLayupOrientation);
             this.Controls.Add(this.cbSymmetric);
+            this.Controls.Add(this.gbDraping);
             this.Controls.Add(this.tcPlies);
             this.Controls.Add(this.btnOkAddNew);
             this.Controls.Add(this.btnOK);
@@ -380,7 +486,7 @@ namespace PrePoMax.Forms
             this.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.MaximizeBox = false;
             this.MinimizeBox = false;
-            this.MinimumSize = new System.Drawing.Size(500, 450);
+            this.MinimumSize = new System.Drawing.Size(500, 540);
             this.Name = "FrmCompositeLayup";
             this.ShowInTaskbar = false;
             this.StartPosition = System.Windows.Forms.FormStartPosition.Manual;
@@ -391,6 +497,10 @@ namespace PrePoMax.Forms
             this.gbData.PerformLayout();
             this.gbLayupOrientation.ResumeLayout(false);
             this.gbLayupOrientation.PerformLayout();
+            this.gbDraping.ResumeLayout(false);
+            this.gbDraping.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.nudLimitShear)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.nudCellSize)).EndInit();
             this.tcPlies.ResumeLayout(false);
             this.tpPlies.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.dgvPlies)).EndInit();
@@ -426,13 +536,36 @@ namespace PrePoMax.Forms
             }
         }
 
+        private void cbDrapingSimulation_CheckedChanged(object sender, EventArgs e)
+        {
+            bool enabled = cbDrapingSimulation.Checked;
+            lLimitShear.Visible = enabled;
+            nudLimitShear.Visible = enabled;
+            lCellSize.Visible = enabled;
+            nudCellSize.Visible = enabled;
+            if (!enabled)
+            {
+                _controller.ClearDrapingSimulation();
+                lMaxShear.Visible = false;
+            }
+            else
+            {
+                // Trigger simulation for currently selected ply
+                if (dgvPlies.SelectedRows.Count > 0 && _compositeLayup != null)
+                {
+                    int plyIndex = dgvPlies.SelectedRows[0].Index;
+                    double maxShear = _controller.DrawDrapingSimulation(_compositeLayup, plyIndex,
+                        (double)nudLimitShear.Value, (double)nudCellSize.Value);
+                    UpdateMaxShearLabel(maxShear);
+                }
+            }
+        }
+
         private void tbName_TextChanged(object sender, EventArgs e)
         {
-            if (_compositeLayup != null)
-            {
-                _compositeLayup.Name = tbName.Text;
-                _propertyItemChanged = true;
-            }
+            // Don't assign the name immediately - validation will happen in Add() method
+            // This allows users to type characters that will be validated later
+            _propertyItemChanged = true;
         }
 
         private void dgvPlies_CellValueChanged(object sender, DataGridViewCellEventArgs e)
@@ -568,10 +701,23 @@ namespace PrePoMax.Forms
             {
                 int plyIndex = dgvPlies.SelectedRows[0].Index;
                 _controller.DrawPlyOrientationArrows(_compositeLayup, plyIndex);
+                if (cbDrapingSimulation.Checked)
+                {
+                    double maxShear = _controller.DrawDrapingSimulation(_compositeLayup, plyIndex,
+                        (double)nudLimitShear.Value, (double)nudCellSize.Value);
+                    UpdateMaxShearLabel(maxShear);
+                }
+                else
+                {
+                    _controller.ClearDrapingSimulation();
+                    lMaxShear.Visible = false;
+                }
             }
             else
             {
                 _controller.ClearPlyOrientationArrows();
+                _controller.ClearDrapingSimulation();
+                lMaxShear.Visible = false;
             }
         }
 
@@ -580,6 +726,7 @@ namespace PrePoMax.Forms
             try
             {
                 _controller.ClearPlyOrientationArrows();
+                _controller.ClearDrapingSimulation();
                 Add();
                 Hide();
             }
@@ -605,6 +752,7 @@ namespace PrePoMax.Forms
         private void btnCancel_Click(object sender, EventArgs e)
         {
             _controller.ClearPlyOrientationArrows();
+            _controller.ClearDrapingSimulation();
             Hide();
         }
 
@@ -614,6 +762,7 @@ namespace PrePoMax.Forms
             {
                 e.Cancel = true;
                 _controller.ClearPlyOrientationArrows();
+                _controller.ClearDrapingSimulation();
                 Hide();
             }
         }
@@ -736,6 +885,13 @@ namespace PrePoMax.Forms
                 cbNormalDirection.SelectedIndex = (int)_compositeLayup.NormalDirection;
                 cbSymmetric.Checked = _compositeLayup.Symmetric;
             }
+            // Reset draping controls
+            cbDrapingSimulation.Checked = false;
+            lLimitShear.Visible = false;
+            nudLimitShear.Visible = false;
+            lCellSize.Visible = false;
+            nudCellSize.Visible = false;
+            lMaxShear.Visible = false;
         }
 
         private void SetupPliesGrid()
@@ -847,6 +1003,9 @@ namespace PrePoMax.Forms
                 UpdatePlyFromGrid(i);
             }
 
+            // Assign the name from the TextBox (validation happens in the Name setter)
+            _compositeLayup.Name = tbName.Text.Trim();
+
             // Check if the name exists
             UserControls.FrmProperties.CheckName(_compositeLayupToEditName, _compositeLayup.Name, _compositeLayupNames, "composite layup");
 
@@ -859,6 +1018,19 @@ namespace PrePoMax.Forms
             else if (_propertyItemChanged)
             {
                 _controller.ReplaceCompositeLayupCommand(_compositeLayupToEditName, _compositeLayup);
+            }
+        }
+
+        private void UpdateMaxShearLabel(double maxShear)
+        {
+            if (maxShear >= 0)
+            {
+                lMaxShear.Text = $"Max shear: {maxShear:F1}°";
+                lMaxShear.Visible = true;
+            }
+            else
+            {
+                lMaxShear.Visible = false;
             }
         }
 
