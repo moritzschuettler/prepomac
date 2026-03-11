@@ -22,21 +22,21 @@ At last change the active solution platform using the main menu: **Build** -> **
 
 Start the compilation and execution of the project by pressing the Start button...
 
-Compiling PrePoMax only creates some of its subfolders and default settings are prepared. To fully use a compiled version of PrePoMax, first look at the latest released version of the PrePoMax’s base folder. Then copy all folders that are missing in the compiled version from the released version (Models, NetGen, Solver…). Then you have to set the working folder and solvers (CalculiX) executables file name in the Settings->Calculix. In order to use the Gmsh mesher a file gmsh-4.12.dll must be copied from the release version lib subfolder to the compiled lib subfolder.
+Compiling PrePoMax only creates some of its subfolders and default settings are prepared. To fully use a compiled version of PrePoMax, first look at the latest released version of the PrePoMaxï¿½s base folder. Then copy all folders that are missing in the compiled version from the released version (Models, NetGen, Solverï¿½). Then you have to set the working folder and solvers (CalculiX) executables file name in the Settings->Calculix. In order to use the Gmsh mesher a file gmsh-4.12.dll must be copied from the release version lib subfolder to the compiled lib subfolder.
 
 # Structure
 
 The PrePoMax is a solution which consists of 11 projects:
+*  3MF: classes for 3MF geometry export
 *  CaeGlobals: global classes for all other projects to use
 *  CaeJob: classes for running the analysis
 *  CaeMesh: classes for FE mesh: nodes, elements, sets, ...
 *  CaeModel: classes for FE model. Model contains FE mesh + materials, sections, ...
 *  CaeResults: classes for FE results. Results contain FE mesh + field outputs, ...
-*  GmshCommon: wrapper for the Gmsh mesher from https://github.com/tsvilans/gmsh_common 
 *  GmshCaller: a stand alone executable used for running the Gmsh routines
+*  GmshCommon: wrapper for the Gmsh mesher from https://github.com/tsvilans/gmsh_common 
 *  PrePoMax: classes for user interface
 *  STL: classes for stl geometry import
-*  ThreeMF: classes for 3MF geometry export
 *  UserControls: classes for more complex user controls, as model tree view...
 *  vtkControl: classes for 3D visualization
 
