@@ -21,6 +21,7 @@ namespace PrePoMax.Forms
         private System.ComponentModel.IContainer components;
         private int _editingRegionRowIndex = -1;
         private int _editingMaterialRowIndex = -1;
+        private int _drapingGeneration = 0;
 
         // Controls
         private GroupBox gbData;
@@ -545,18 +546,22 @@ namespace PrePoMax.Forms
             nudCellSize.Visible = enabled;
             if (!enabled)
             {
-                _controller.ClearDrapingSimulation();
-                lMaxShear.Visible = false;
+                CancelDraping();
             }
             else
             {
-                // Trigger simulation for currently selected ply
                 if (dgvPlies.SelectedRows.Count > 0 && _compositeLayup != null)
                 {
                     int plyIndex = dgvPlies.SelectedRows[0].Index;
-                    double maxShear = _controller.DrawDrapingSimulation(_compositeLayup, plyIndex,
-                        (double)nudLimitShear.Value, (double)nudCellSize.Value);
-                    UpdateMaxShearLabel(maxShear);
+                    // Auto-detect cellSize from ply region bounding box
+                    double suggested = _controller.SuggestDrapingCellSize(_compositeLayup, plyIndex);
+                    if (suggested > 0)
+                    {
+                        decimal clamped = Math.Max(nudCellSize.Minimum,
+                            Math.Min(nudCellSize.Maximum, Math.Round((decimal)suggested, 4)));
+                        nudCellSize.Value = clamped;
+                    }
+                    TriggerDrapingAsync(plyIndex);
                 }
             }
         }
@@ -702,22 +707,14 @@ namespace PrePoMax.Forms
                 int plyIndex = dgvPlies.SelectedRows[0].Index;
                 _controller.DrawPlyOrientationArrows(_compositeLayup, plyIndex);
                 if (cbDrapingSimulation.Checked)
-                {
-                    double maxShear = _controller.DrawDrapingSimulation(_compositeLayup, plyIndex,
-                        (double)nudLimitShear.Value, (double)nudCellSize.Value);
-                    UpdateMaxShearLabel(maxShear);
-                }
+                    TriggerDrapingAsync(plyIndex);
                 else
-                {
-                    _controller.ClearDrapingSimulation();
-                    lMaxShear.Visible = false;
-                }
+                    CancelDraping();
             }
             else
             {
                 _controller.ClearPlyOrientationArrows();
-                _controller.ClearDrapingSimulation();
-                lMaxShear.Visible = false;
+                CancelDraping();
             }
         }
 
@@ -726,7 +723,7 @@ namespace PrePoMax.Forms
             try
             {
                 _controller.ClearPlyOrientationArrows();
-                _controller.ClearDrapingSimulation();
+                CancelDraping();
                 Add();
                 Hide();
             }
@@ -752,7 +749,7 @@ namespace PrePoMax.Forms
         private void btnCancel_Click(object sender, EventArgs e)
         {
             _controller.ClearPlyOrientationArrows();
-            _controller.ClearDrapingSimulation();
+            CancelDraping();
             Hide();
         }
 
@@ -762,7 +759,7 @@ namespace PrePoMax.Forms
             {
                 e.Cancel = true;
                 _controller.ClearPlyOrientationArrows();
-                _controller.ClearDrapingSimulation();
+                CancelDraping();
                 Hide();
             }
         }
@@ -1032,6 +1029,36 @@ namespace PrePoMax.Forms
             {
                 lMaxShear.Visible = false;
             }
+        }
+        private void TriggerDrapingAsync(int plyIndex)
+        {
+            int gen = ++_drapingGeneration;
+            lMaxShear.Text = "Computing...";
+            lMaxShear.Visible = true;
+            //
+            CompositeLayup layup = _compositeLayup;
+            double limitShear = (double)nudLimitShear.Value;
+            double cellSize = (double)nudCellSize.Value;
+            //
+            Task.Run(() => _controller.DrawDrapingSimulation(layup, plyIndex, limitShear, cellSize))
+                .ContinueWith(t =>
+                {
+                    if (IsDisposed || !IsHandleCreated) return;
+                    BeginInvoke((Action)(() =>
+                    {
+                        if (gen != _drapingGeneration) return;
+                        if (!t.IsFaulted && t.Result >= 0)
+                            UpdateMaxShearLabel(t.Result);
+                        else
+                            lMaxShear.Visible = false;
+                    }));
+                });
+        }
+        private void CancelDraping()
+        {
+            ++_drapingGeneration;
+            _controller.ClearDrapingSimulation();
+            lMaxShear.Visible = false;
         }
 
         private string GetCompositeLayupName(string name)

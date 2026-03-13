@@ -8891,6 +8891,39 @@ namespace PrePoMax
         {
             _form.ClearOverlayByPrefix(DrapingPrefix);
         }
+        public double SuggestDrapingCellSize(CompositeLayup layup, int plyIndex)
+        {
+            try
+            {
+                if (plyIndex < 0 || plyIndex >= layup.Plies.Count) return 0.0;
+                Ply ply = layup.Plies[plyIndex];
+                if (string.IsNullOrEmpty(ply.Region)) return 0.0;
+                FeElementSet elSet;
+                if (!_model.Mesh.ElementSets.TryGetValue(ply.Region, out elSet)) return 0.0;
+                //
+                double xMin = double.MaxValue, xMax = double.MinValue;
+                double yMin = double.MaxValue, yMax = double.MinValue;
+                double zMin = double.MaxValue, zMax = double.MinValue;
+                foreach (int eid in elSet.Labels)
+                {
+                    FeElement element;
+                    if (!_model.Mesh.Elements.TryGetValue(eid, out element)) continue;
+                    foreach (int nid in element.NodeIds)
+                    {
+                        FeNode nd = _model.Mesh.Nodes[nid];
+                        if (nd.X < xMin) xMin = nd.X; if (nd.X > xMax) xMax = nd.X;
+                        if (nd.Y < yMin) yMin = nd.Y; if (nd.Y > yMax) yMax = nd.Y;
+                        if (nd.Z < zMin) zMin = nd.Z; if (nd.Z > zMax) zMax = nd.Z;
+                    }
+                }
+                double[] sides = { xMax - xMin, yMax - yMin, zMax - zMin };
+                Array.Sort(sides);
+                // Use the median side (2nd largest) as the short surface dimension
+                double shortSide = sides[1] > 0 ? sides[1] : sides[2];
+                return Math.Max(shortSide / 25.0, 1e-6);
+            }
+            catch { return 0.0; }
+        }
         // Extract surface node IDs from an element (shell or solid)
         private static int[] GetSurfaceNodeIds(FeElement element)
         {

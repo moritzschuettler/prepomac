@@ -98,8 +98,13 @@ namespace CaeModel
 
             // Auto-compute grid parameters
             double margin = 1.5 * d;
-            int gridRows = Math.Max((int)Math.Ceiling((uMax - uMin + 2 * margin) / d) + 1, 5);
-            int gridCols = Math.Max((int)Math.Ceiling((vMax - vMin + 2 * margin) / d) + 1, 5);
+            double plyRad = plyAngleDeg * Math.PI / 180.0;
+            double cosA = Math.Abs(Math.Cos(plyRad));
+            double sinA = Math.Abs(Math.Sin(plyRad));
+            double uSpan = uMax - uMin + 2 * margin;
+            double vSpan = vMax - vMin + 2 * margin;
+            int gridRows = Math.Max((int)Math.Ceiling((cosA * uSpan + sinA * vSpan) / d) + 1, 5);
+            int gridCols = Math.Max((int)Math.Ceiling((sinA * uSpan + cosA * vSpan) / d) + 1, 5);
             int orgRow = gridRows / 2;
             int orgCol = gridCols / 2;
             double uCenter = (uMin + uMax) / 2.0;
@@ -370,7 +375,7 @@ namespace CaeModel
             int[] rows4 = { 0, 1, 2, 3 };
             int[] cols4 = { 0, 1, 2, 3 };
             PlaceVertFromAngle(ref vert, 3, d, cellAng);
-            PlaceVertFromIntersection(ref vert, 2);
+            PlaceVertFromIntersection(ref vert, 2, d);
             double[] shear = ShearFun(vert, arm);
             double sum = 0;
             foreach (double s in shear) sum += s;
@@ -389,7 +394,7 @@ namespace CaeModel
             if (unknownVertIdx == 1 || unknownVertIdx == 3)
                 PlaceVertFromAngle(ref vert, unknownVertIdx, d, angDeg);
             else
-                PlaceVertFromIntersection(ref vert, unknownVertIdx);
+                PlaceVertFromIntersection(ref vert, unknownVertIdx, d);
             WriteVert(node, rows, cols, vert);
         }
 
@@ -406,7 +411,7 @@ namespace CaeModel
         }
 
         // Place vertex 2 as intersection of two spheres (from vert[1] and vert[3]) with surface
-        private static void PlaceVertFromIntersection(ref double[][] vert, int targetIdx)
+        private static void PlaceVertFromIntersection(ref double[][] vert, int targetIdx, double d)
         {
             if (vert[1] == null || vert[3] == null) return;
             double[] mid = new double[]
@@ -415,22 +420,12 @@ namespace CaeModel
                 (vert[1][1] + vert[3][1]) / 2.0,
                 (vert[1][2] + vert[3][2]) / 2.0
             };
-            double d2 = _surfaceGrid != null ? 0.0 : 0.0; // placeholder, computed below
             double distMidV1 = Math.Sqrt(
                 (mid[0] - vert[1][0]) * (mid[0] - vert[1][0]) +
                 (mid[1] - vert[1][1]) * (mid[1] - vert[1][1]) +
                 (mid[2] - vert[1][2]) * (mid[2] - vert[1][2]));
 
-            // d = distance between adjacent nodes (stored implicitly; compute from vert[0]-vert[1] or vert[0]-vert[3])
-            double d_est = 0;
-            if (vert[0] != null)
-            {
-                double dx01 = vert[1][0] - vert[0][0];
-                double dy01 = vert[1][1] - vert[0][1];
-                double dz01 = vert[1][2] - vert[0][2];
-                d_est = Math.Sqrt(dx01 * dx01 + dy01 * dy01 + dz01 * dz01);
-            }
-            double r2 = d_est * d_est - distMidV1 * distMidV1;
+            double r2 = d * d - distMidV1 * distMidV1;
             if (r2 <= 0) return;
             double R = Math.Sqrt(r2);
 
@@ -465,12 +460,16 @@ namespace CaeModel
             {
                 int nScan = 36;
                 bool found = false;
+                double bestAbs = Math.Min(Math.Abs(f0), Math.Abs(f1));
+                double bestTheta = Math.Abs(f0) <= Math.Abs(f1) ? theta[0] : theta[1];
                 for (int s = 0; s < nScan; s++)
                 {
                     double ta = s * 2.0 * Math.PI / nScan;
                     double tb = (s + 1) * 2.0 * Math.PI / nScan;
                     double fa = CircFunVal(C, R, vec1, vec2, ta);
                     double fb = CircFunVal(C, R, vec1, vec2, tb);
+                    if (Math.Abs(fa) < bestAbs) { bestAbs = Math.Abs(fa); bestTheta = ta; }
+                    if (Math.Abs(fb) < bestAbs) { bestAbs = Math.Abs(fb); bestTheta = tb; }
                     if (fa * fb <= 0)
                     {
                         theta[0] = ta; theta[1] = tb;
@@ -479,7 +478,11 @@ namespace CaeModel
                         break;
                     }
                 }
-                if (!found) return null;
+                if (!found)
+                {
+                    // No sign-change bracket found; discard — node stays NaN, cell won't be displayed
+                    return null;
+                }
             }
 
             // Ensure theta[0] gives positive FunVal (above surface) and theta[1] negative
@@ -509,10 +512,11 @@ namespace CaeModel
                 C[2] + R * Math.Cos(result_theta) * vec1[2] + R * Math.Sin(result_theta) * vec2[2]
             };
 
-            // Project the found (u, v) coordinates back onto the surface (snap to h = F(u, v))
+            // Snap to surface; if off-mesh, discard the node so the cell won't be displayed
             double h;
-            if (SurfaceF(pt3D[0], pt3D[1], out h))
-                pt3D[2] = h;
+            if (!SurfaceF(pt3D[0], pt3D[1], out h))
+                return null;
+            pt3D[2] = h;
 
             return pt3D;
         }
