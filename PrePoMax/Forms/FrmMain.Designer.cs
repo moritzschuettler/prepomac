@@ -42,6 +42,9 @@ namespace PrePoMax
             this.tsSymbols = new UserControls.ToolStripFocus();
             this.tslSymbols = new System.Windows.Forms.ToolStripLabel();
             this.tscbSymbols = new System.Windows.Forms.ToolStripComboBox();
+            this.tsVisualization = new UserControls.ToolStripFocus();
+            this.tslVisualization = new System.Windows.Forms.ToolStripLabel();
+            this.tscbVisualization = new System.Windows.Forms.ToolStripComboBox();
             this.tsResultDeformation = new UserControls.ToolStripFocus();
             this.tslResultName = new System.Windows.Forms.ToolStripLabel();
             this.tscbResultNames = new System.Windows.Forms.ToolStripComboBox();
@@ -554,6 +557,7 @@ namespace PrePoMax
             this.tsFile.SuspendLayout();
             this.tsViews.SuspendLayout();
             this.tsSymbols.SuspendLayout();
+            this.tsVisualization.SuspendLayout();
             this.tsResultDeformation.SuspendLayout();
             this.tsResults.SuspendLayout();
             this.menuStripMain.SuspendLayout();
@@ -681,7 +685,37 @@ namespace PrePoMax
             this.tscbSymbols.Name = "tscbSymbols";
             this.tscbSymbols.Size = new System.Drawing.Size(121, 25);
             this.tscbSymbols.ToolTipText = "Select how symbols are displayed.";
-            // 
+            //
+            // tsVisualization
+            //
+            this.tsVisualization.BackColor = System.Drawing.SystemColors.Control;
+            this.tsVisualization.DisableMouseButtons = false;
+            this.tsVisualization.Dock = System.Windows.Forms.DockStyle.None;
+            this.tsVisualization.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tslVisualization,
+            this.tscbVisualization});
+            this.tsVisualization.Location = new System.Drawing.Point(3, 0);
+            this.tsVisualization.Name = "tsVisualization";
+            this.tsVisualization.Size = new System.Drawing.Size(207, 25);
+            this.tsVisualization.TabIndex = 10;
+            //
+            // tslVisualization
+            //
+            this.tslVisualization.Name = "tslVisualization";
+            this.tslVisualization.Size = new System.Drawing.Size(72, 22);
+            this.tslVisualization.Text = "Visualization";
+            //
+            // tscbVisualization
+            //
+            this.tscbVisualization.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.tscbVisualization.FlatStyle = System.Windows.Forms.FlatStyle.Standard;
+            this.tscbVisualization.Items.AddRange(new object[] {
+            "None",
+            "Sections"});
+            this.tscbVisualization.Name = "tscbVisualization";
+            this.tscbVisualization.Size = new System.Drawing.Size(121, 25);
+            this.tscbVisualization.ToolTipText = "Select visualization mode.";
+            //
             // tsResultDeformation
             // 
             this.tsResultDeformation.BackColor = System.Drawing.SystemColors.Control;
@@ -2259,6 +2293,7 @@ namespace PrePoMax
             // toolStripContainer1.TopToolStripPanel
             // 
             this.toolStripContainer1.TopToolStripPanel.Controls.Add(this.tsSymbols);
+            this.toolStripContainer1.TopToolStripPanel.Controls.Add(this.tsVisualization);
             this.toolStripContainer1.TopToolStripPanel.Controls.Add(this.tsResultDeformation);
             this.toolStripContainer1.TopToolStripPanel.Controls.Add(this.tsFile);
             this.toolStripContainer1.TopToolStripPanel.Controls.Add(this.tsViews);
@@ -4879,6 +4914,8 @@ namespace PrePoMax
             this.tsViews.PerformLayout();
             this.tsSymbols.ResumeLayout(false);
             this.tsSymbols.PerformLayout();
+            this.tsVisualization.ResumeLayout(false);
+            this.tsVisualization.PerformLayout();
             this.tsResultDeformation.ResumeLayout(false);
             this.tsResultDeformation.PerformLayout();
             this.tsResults.ResumeLayout(false);
@@ -4916,6 +4953,7 @@ namespace PrePoMax
         private UserControls.ToolStripFocus tsFile;
         private UserControls.ToolStripFocus tsViews;
         private UserControls.ToolStripFocus tsSymbols;
+        private UserControls.ToolStripFocus tsVisualization;
         private UserControls.ToolStripFocus tsResultDeformation;
         private UserControls.ToolStripFocus tsResults;
         private UserControls.MenuStripFocus menuStripMain;
@@ -5138,6 +5176,8 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripSeparator toolStripViewSeparator4;
         private System.Windows.Forms.ToolStripLabel tslSymbols;
         private System.Windows.Forms.ToolStripComboBox tscbSymbols;
+        private System.Windows.Forms.ToolStripLabel tslVisualization;
+        private System.Windows.Forms.ToolStripComboBox tscbVisualization;
         private System.Windows.Forms.ToolStripMenuItem tsmiGeometryAnalyze;
         private System.Windows.Forms.ToolStripMenuItem tsmiHistoryOutput;
         private System.Windows.Forms.ToolStripMenuItem tsmiCreateHistoryOutput;

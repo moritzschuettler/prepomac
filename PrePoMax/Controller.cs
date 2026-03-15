@@ -47,6 +47,7 @@ namespace PrePoMax
         [NonSerialized] protected ExplodedViewsCollection _explodedViews;
         [NonSerialized] protected FollowerViewsCollection _followerViews;
         [NonSerialized] protected AnnotateWithColorEnum _annotateWithColor;
+        [NonSerialized] protected bool _showCompositeSectionsLegend = true;
         [NonSerialized] protected string _drawSymbolName;
         // Selection
         [NonSerialized] protected vtkSelectBy _selectBy;
@@ -15375,6 +15376,8 @@ namespace PrePoMax
                 _model.GetMaterialAssignments(out elementIdColorId);
             else if (_annotateWithColor == AnnotateWithColorEnum.SectionThicknesses)
                 _model.GetSectionThicknessAssignments(out elementIdColorId);
+            else if (_annotateWithColor == AnnotateWithColorEnum.CompositeSections)
+                _model.GetCompositeLayupITAAssignments(out elementIdColorId, out _);
             //
             ConcurrentBag<string> hiddenActors = new ConcurrentBag<string>();
             ConcurrentBag<vtkMaxActorData> allData = new ConcurrentBag<vtkMaxActorData>();
@@ -15593,6 +15596,17 @@ namespace PrePoMax
                         sectionThicknessNames[i] = sectionThicknessArray[i] + " " + _model.UnitSystem.LengthUnitAbbreviation;
                     //
                     _form.SetColorBarColorsAndLabels(sectionThicknessColors.ToArray(), sectionThicknessNames);
+                }
+            }
+            if (_annotateWithColor == AnnotateWithColorEnum.CompositeSections)
+            {
+                if (_currentView == ViewGeometryModelResults.Model && _showCompositeSectionsLegend)
+                {
+                    _model.GetCompositeLayupITAAssignments(out _, out string[] itaNames);
+                    List<Color> itaColors = new List<Color>();
+                    for (int i = 0; i < itaNames.Length; i++)
+                        itaColors.Add(colorSettings.ColorTable[i % colorSettings.ColorTable.Length]);
+                    _form.SetColorBarColorsAndLabels(itaColors.ToArray(), itaNames);
                 }
             }
             if (_annotateWithColor.HasFlag(AnnotateWithColorEnum.ReferencePoints))

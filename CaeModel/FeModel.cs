@@ -906,6 +906,45 @@ namespace CaeModel
             //
             return unAssignedElementIdsArray;
         }
+        public void GetCompositeLayupITAAssignments(out Dictionary<int, int> elementIdItaId, out string[] itaNames)
+        {
+            elementIdItaId = new Dictionary<int, int>();
+            List<string> names = new List<string>();
+            Dictionary<string, int> regionColorId = new Dictionary<string, int>();
+            //
+            foreach (var layupEntry in _compositeLayups)
+            {
+                CompositeLayup layup = layupEntry.Value;
+                if (layup.Plies == null || layup.Plies.Count == 0) continue;
+                //
+                foreach (Ply ply in layup.Plies)
+                {
+                    if (string.IsNullOrEmpty(ply.Region) || !_mesh.ElementSets.ContainsKey(ply.Region)) continue;
+                    //
+                    int colorId;
+                    if (!regionColorId.TryGetValue(ply.Region, out colorId))
+                    {
+                        colorId = names.Count;
+                        regionColorId[ply.Region] = colorId;
+                        names.Add("Plies zone " + ply.Region);
+                    }
+                    //
+                    foreach (int elemId in _mesh.ElementSets[ply.Region].Labels)
+                    {
+                        if (elementIdItaId.ContainsKey(elemId)) elementIdItaId[elemId] = colorId;
+                        else elementIdItaId.Add(elemId, colorId);
+                    }
+                }
+            }
+            //
+            foreach (int elemId in _mesh.Elements.Keys)
+            {
+                if (!elementIdItaId.ContainsKey(elemId))
+                    elementIdItaId.Add(elemId, -1);
+            }
+            //
+            itaNames = names.ToArray();
+        }
         public void GetMaterialAssignments(out Dictionary<int, int> elementIdMaterialId)
         {
             // Get element section ids

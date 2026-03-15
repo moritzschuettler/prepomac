@@ -311,9 +311,12 @@ namespace PrePoMax
                 tsFile.Location = new Point(0, 0);
                 tsViews.Location = new Point(tsFile.Left + tsFile.Width, 0);
                 tsSymbols.Location = new Point(tsViews.Left + tsViews.Width, 0);
+                tsVisualization.Location = new Point(tsSymbols.Left + tsSymbols.Width, 0);
                 tsResultDeformation.Location = new Point(0, tsFile.Height);
                 tsResults.Location = new Point(tsResultDeformation.Left + tsResultDeformation.Width, tsFile.Height);
                 tscbSymbols.SelectedIndexChanged += tscbSymbols_SelectedIndexChanged;
+                tscbVisualization.SelectedIndex = 0;
+                tscbVisualization.SelectedIndexChanged += tscbVisualization_SelectedIndexChanged;
                 // Vtk
                 _vtk.OnMouseLeftButtonUpSelection += SelectPointOrArea;
                 _vtk.Controller_GetAnnotationText += _controller.GetAnnotationText;
@@ -1424,6 +1427,9 @@ namespace PrePoMax
                 tslSymbols.Enabled = false;
                 tscbSymbols.Enabled = false;
                 UpdateSymbolsList();
+                // Toolbar Visualization
+                tslVisualization.Enabled = false;
+                tscbVisualization.Enabled = false;
                 // Toolbar Results
                 tsResultDeformation.Enabled = false;
                 tsResults.Enabled = false;
@@ -1496,6 +1502,9 @@ namespace PrePoMax
                     // Toolbar Symbols
                     tslSymbols.Enabled = true;
                     tscbSymbols.Enabled = true;
+                    // Toolbar Visualization
+                    tslVisualization.Enabled = true;
+                    tscbVisualization.Enabled = true;
                     // Vtk
                     vtkVisible = true;
                 }
@@ -1513,6 +1522,9 @@ namespace PrePoMax
                     // Toolbar Symbols
                     tslSymbols.Enabled = true;
                     tscbSymbols.Enabled = true;
+                    // Toolbar Visualization
+                    tslVisualization.Enabled = true;
+                    tscbVisualization.Enabled = true;
                     // Toolbar Results
                     tsResultDeformation.Enabled = true;
                     tsResults.Enabled = true;
@@ -1540,6 +1552,7 @@ namespace PrePoMax
             menuStripMain.DisableMouseButtons = !menusActive;
             tsFile.DisableMouseButtons = !menusActive;
             tsSymbols.Enabled = menusActive; // changing the symbols clears the selection - unwanted during selection
+            tsVisualization.Enabled = menusActive;
         }
         private void SetMenuAndToolStripVisibilityBySetState(bool menusActive)
         {
@@ -1558,6 +1571,7 @@ namespace PrePoMax
             // DisableMouseButtons does not work for combo boxes so use .Enabled
             tsFile.Enabled = menusActive;
             tsSymbols.Enabled = menusActive;
+            tsVisualization.Enabled = menusActive;
             tsResultDeformation.Enabled = menusActive;
             //
             tsbAnimate.Enabled = menusActive;   // first - removes the selection
@@ -1585,6 +1599,7 @@ namespace PrePoMax
             states.Add(tsResultDeformation.DisableMouseButtons);    // SetMenuAndToolStripVisibilityBySetState
             states.Add(tsResults.DisableMouseButtons);              // SetMenuAndToolStripVisibilityBySetState
             states.Add(tsSymbols.Enabled);                          // SetMenuAndToolStripVisibilityByItemForm
+            states.Add(tsVisualization.Enabled);                    // SetMenuAndToolStripVisibilityByItemForm
             //
             _prevMenuStates.Push(states.ToArray());
         }
@@ -1602,6 +1617,7 @@ namespace PrePoMax
                 tsResultDeformation.DisableMouseButtons = states[n++];
                 tsResults.DisableMouseButtons = states[n++];
                 tsSymbols.Enabled = states[n++];
+                tsVisualization.Enabled = states[n++];
             }
             //else throw new NotSupportedException();
         }
@@ -7193,7 +7209,8 @@ namespace PrePoMax
                 _controller.AnnotateWithColor == AnnotateWithColorEnum.Parts ||
                 _controller.AnnotateWithColor == AnnotateWithColorEnum.Materials ||
                 _controller.AnnotateWithColor == AnnotateWithColorEnum.Sections ||
-                _controller.AnnotateWithColor == AnnotateWithColorEnum.SectionThicknesses)
+                _controller.AnnotateWithColor == AnnotateWithColorEnum.SectionThicknesses ||
+                _controller.AnnotateWithColor == AnnotateWithColorEnum.CompositeSections)
             {
                 _frmSettings.SetSettingsToShow(Globals.ColorSettingsName);
             }
@@ -9089,6 +9106,20 @@ namespace PrePoMax
                     _controller.DrawSymbols(tscbSymbols.SelectedItem.ToString(), false); // do not highlight!
                 }
             });
+        }
+
+        #endregion  ################################################################################################################
+
+        #region Visualization toolbar  #############################################################################################
+        private void tscbVisualization_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            string selected = tscbVisualization.SelectedItem.ToString();
+            if (selected == "Sections")
+                _controller.AnnotateWithColor = AnnotateWithColorEnum.CompositeSections;
+            else
+                _controller.AnnotateWithColor = AnnotateWithColorEnum.None;
+            //
+            this.ActiveControl = null;
         }
 
         #endregion  ################################################################################################################
