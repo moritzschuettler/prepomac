@@ -134,13 +134,20 @@ namespace FileInOut.Output
                     ComputeLocalRosette(groupNormals[g], out localX, out localY);
 
                     List<CompositeShellPlyData> pliesData = new List<CompositeShellPlyData>();
+                    List<CompositeShellPlyData> forwardPlies = new List<CompositeShellPlyData>();
                     foreach (int plyIdx in itaPlyIndices)
                     {
                         Ply ply = _layup.Plies[plyIdx];
                         string oriName = string.Format("Ori_{0}_P{1}", setName, plyIdx);
                         _orientationKeywords.Add(
                             new CalOrientation(oriName, localX.Coor, localY.Coor, ply.RotationAngle));
-                        pliesData.Add(new CompositeShellPlyData(ply.Thickness, ply.Material, oriName));
+                        forwardPlies.Add(new CompositeShellPlyData(ply.Thickness, ply.Material, oriName));
+                    }
+                    pliesData.AddRange(forwardPlies);
+                    if (_layup.Symmetric)
+                    {
+                        for (int k = forwardPlies.Count - 1; k >= 0; k--)
+                            pliesData.Add(forwardPlies[k]);
                     }
                     _sectionKeywords.Add(new CalCompositeShellSection(setName, null, pliesData,
                         ComputeOffset(pliesData)));
