@@ -44,6 +44,13 @@ namespace PrePoMax.Forms
         private Label lMaxShear;
         private TabControl tcPlies;
         private TabPage tpPlies;
+        private TabPage tpDisplay;
+        private GroupBox gbHighlightPlyRegions;
+        private RadioButton rbHighlightOn;
+        private RadioButton rbHighlightOff;
+        private GroupBox gbOrientationDisplay;
+        private RadioButton rbOrientationLayup;
+        private RadioButton rbOrientationNone;
         private DataGridView dgvPlies;
         private Button btnOK;
         private Button btnCancel;
@@ -96,6 +103,13 @@ namespace PrePoMax.Forms
             this.lMaxShear = new System.Windows.Forms.Label();
             this.tcPlies = new System.Windows.Forms.TabControl();
             this.tpPlies = new System.Windows.Forms.TabPage();
+            this.tpDisplay = new System.Windows.Forms.TabPage();
+            this.gbHighlightPlyRegions = new System.Windows.Forms.GroupBox();
+            this.rbHighlightOn = new System.Windows.Forms.RadioButton();
+            this.rbHighlightOff = new System.Windows.Forms.RadioButton();
+            this.gbOrientationDisplay = new System.Windows.Forms.GroupBox();
+            this.rbOrientationLayup = new System.Windows.Forms.RadioButton();
+            this.rbOrientationNone = new System.Windows.Forms.RadioButton();
             this.dgvPlies = new System.Windows.Forms.DataGridView();
             this.btnOK = new System.Windows.Forms.Button();
             this.btnCancel = new System.Windows.Forms.Button();
@@ -112,6 +126,9 @@ namespace PrePoMax.Forms
             ((System.ComponentModel.ISupportInitialize)(this.nudCellSize)).BeginInit();
             this.tcPlies.SuspendLayout();
             this.tpPlies.SuspendLayout();
+            this.tpDisplay.SuspendLayout();
+            this.gbHighlightPlyRegions.SuspendLayout();
+            this.gbOrientationDisplay.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvPlies)).BeginInit();
             this.SuspendLayout();
 
@@ -335,6 +352,7 @@ namespace PrePoMax.Forms
             | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
             this.tcPlies.Controls.Add(this.tpPlies);
+            this.tcPlies.Controls.Add(this.tpDisplay);
             this.tcPlies.Location = new System.Drawing.Point(12, 290);
             this.tcPlies.Name = "tcPlies";
             this.tcPlies.SelectedIndex = 0;
@@ -434,6 +452,93 @@ namespace PrePoMax.Forms
             this.btnMoveDown.Click += new System.EventHandler(this.btnMoveDown_Click);
 
             //
+            // tpDisplay
+            //
+            this.tpDisplay.BackColor = System.Drawing.SystemColors.Control;
+            this.tpDisplay.Controls.Add(this.gbHighlightPlyRegions);
+            this.tpDisplay.Controls.Add(this.gbOrientationDisplay);
+            this.tpDisplay.Location = new System.Drawing.Point(4, 24);
+            this.tpDisplay.Name = "tpDisplay";
+            this.tpDisplay.Padding = new System.Windows.Forms.Padding(3);
+            this.tpDisplay.Size = new System.Drawing.Size(552, 252);
+            this.tpDisplay.TabIndex = 1;
+            this.tpDisplay.Text = "Display";
+
+            //
+            // gbHighlightPlyRegions
+            //
+            this.gbHighlightPlyRegions.Controls.Add(this.rbHighlightOn);
+            this.gbHighlightPlyRegions.Controls.Add(this.rbHighlightOff);
+            this.gbHighlightPlyRegions.Location = new System.Drawing.Point(8, 8);
+            this.gbHighlightPlyRegions.Name = "gbHighlightPlyRegions";
+            this.gbHighlightPlyRegions.Size = new System.Drawing.Size(200, 70);
+            this.gbHighlightPlyRegions.TabIndex = 0;
+            this.gbHighlightPlyRegions.TabStop = false;
+            this.gbHighlightPlyRegions.Text = "Highlight ply regions";
+
+            //
+            // rbHighlightOn
+            //
+            this.rbHighlightOn.AutoSize = true;
+            this.rbHighlightOn.Checked = true;
+            this.rbHighlightOn.Location = new System.Drawing.Point(10, 22);
+            this.rbHighlightOn.Name = "rbHighlightOn";
+            this.rbHighlightOn.Size = new System.Drawing.Size(40, 19);
+            this.rbHighlightOn.TabIndex = 0;
+            this.rbHighlightOn.TabStop = true;
+            this.rbHighlightOn.Text = "On";
+            this.rbHighlightOn.UseVisualStyleBackColor = true;
+            this.rbHighlightOn.CheckedChanged += new System.EventHandler(this.rbHighlightOn_CheckedChanged);
+
+            //
+            // rbHighlightOff
+            //
+            this.rbHighlightOff.AutoSize = true;
+            this.rbHighlightOff.Location = new System.Drawing.Point(10, 44);
+            this.rbHighlightOff.Name = "rbHighlightOff";
+            this.rbHighlightOff.Size = new System.Drawing.Size(41, 19);
+            this.rbHighlightOff.TabIndex = 1;
+            this.rbHighlightOff.Text = "Off";
+            this.rbHighlightOff.UseVisualStyleBackColor = true;
+
+            //
+            // gbOrientationDisplay
+            //
+            this.gbOrientationDisplay.Controls.Add(this.rbOrientationLayup);
+            this.gbOrientationDisplay.Controls.Add(this.rbOrientationNone);
+            this.gbOrientationDisplay.Location = new System.Drawing.Point(220, 8);
+            this.gbOrientationDisplay.Name = "gbOrientationDisplay";
+            this.gbOrientationDisplay.Size = new System.Drawing.Size(200, 70);
+            this.gbOrientationDisplay.TabIndex = 1;
+            this.gbOrientationDisplay.TabStop = false;
+            this.gbOrientationDisplay.Text = "Orientation display";
+
+            //
+            // rbOrientationLayup
+            //
+            this.rbOrientationLayup.AutoSize = true;
+            this.rbOrientationLayup.Checked = true;
+            this.rbOrientationLayup.Location = new System.Drawing.Point(10, 22);
+            this.rbOrientationLayup.Name = "rbOrientationLayup";
+            this.rbOrientationLayup.Size = new System.Drawing.Size(60, 19);
+            this.rbOrientationLayup.TabIndex = 0;
+            this.rbOrientationLayup.TabStop = true;
+            this.rbOrientationLayup.Text = "Layup";
+            this.rbOrientationLayup.UseVisualStyleBackColor = true;
+            this.rbOrientationLayup.CheckedChanged += new System.EventHandler(this.rbOrientationLayup_CheckedChanged);
+
+            //
+            // rbOrientationNone
+            //
+            this.rbOrientationNone.AutoSize = true;
+            this.rbOrientationNone.Location = new System.Drawing.Point(10, 44);
+            this.rbOrientationNone.Name = "rbOrientationNone";
+            this.rbOrientationNone.Size = new System.Drawing.Size(50, 19);
+            this.rbOrientationNone.TabIndex = 1;
+            this.rbOrientationNone.Text = "None";
+            this.rbOrientationNone.UseVisualStyleBackColor = true;
+
+            //
             // btnOkAddNew
             //
             this.btnOkAddNew.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
@@ -504,6 +609,11 @@ namespace PrePoMax.Forms
             ((System.ComponentModel.ISupportInitialize)(this.nudCellSize)).EndInit();
             this.tcPlies.ResumeLayout(false);
             this.tpPlies.ResumeLayout(false);
+            this.gbHighlightPlyRegions.ResumeLayout(false);
+            this.gbHighlightPlyRegions.PerformLayout();
+            this.gbOrientationDisplay.ResumeLayout(false);
+            this.gbOrientationDisplay.PerformLayout();
+            this.tpDisplay.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.dgvPlies)).EndInit();
             this.ResumeLayout(false);
         }
@@ -705,7 +815,14 @@ namespace PrePoMax.Forms
             if (dgvPlies.SelectedRows.Count > 0)
             {
                 int plyIndex = dgvPlies.SelectedRows[0].Index;
-                _controller.DrawPlyOrientationArrows(_compositeLayup, plyIndex);
+                if (rbOrientationLayup.Checked)
+                    _controller.DrawPlyOrientationArrows(_compositeLayup, plyIndex);
+                else
+                    _controller.ClearPlyOrientationArrows();
+                if (rbHighlightOn.Checked)
+                    HighlightSelectedPlyRegion(plyIndex);
+                else
+                    _controller.Form.Clear3DSelection();
                 if (cbDrapingSimulation.Checked)
                     TriggerDrapingAsync(plyIndex);
                 else
@@ -714,7 +831,45 @@ namespace PrePoMax.Forms
             else
             {
                 _controller.ClearPlyOrientationArrows();
+                _controller.Form.Clear3DSelection();
                 CancelDraping();
+            }
+        }
+
+        private void HighlightSelectedPlyRegion(int plyIndex)
+        {
+            if (_compositeLayup == null || plyIndex < 0 || plyIndex >= _compositeLayup.Plies.Count) return;
+            string region = _compositeLayup.Plies[plyIndex].Region;
+            _controller.Form.Clear3DSelection();
+            if (string.IsNullOrEmpty(region)) return;
+            _controller.HighlightElementSet(region);
+        }
+
+        private void rbHighlightOn_CheckedChanged(object sender, EventArgs e)
+        {
+            if (rbHighlightOn.Checked)
+            {
+                if (dgvPlies.SelectedRows.Count > 0)
+                    HighlightSelectedPlyRegion(dgvPlies.SelectedRows[0].Index);
+            }
+            else
+            {
+                _controller.Form.Clear3DSelection();
+            }
+        }
+
+        private void rbOrientationLayup_CheckedChanged(object sender, EventArgs e)
+        {
+            if (dgvPlies.SelectedRows.Count > 0 && _compositeLayup != null)
+            {
+                if (rbOrientationLayup.Checked)
+                    _controller.DrawPlyOrientationArrows(_compositeLayup, dgvPlies.SelectedRows[0].Index);
+                else
+                    _controller.ClearPlyOrientationArrows();
+            }
+            else if (!rbOrientationLayup.Checked)
+            {
+                _controller.ClearPlyOrientationArrows();
             }
         }
 
@@ -723,6 +878,7 @@ namespace PrePoMax.Forms
             try
             {
                 _controller.ClearPlyOrientationArrows();
+                _controller.Form.Clear3DSelection();
                 CancelDraping();
                 Add();
                 Hide();
@@ -749,6 +905,7 @@ namespace PrePoMax.Forms
         private void btnCancel_Click(object sender, EventArgs e)
         {
             _controller.ClearPlyOrientationArrows();
+            _controller.Form.Clear3DSelection();
             CancelDraping();
             Hide();
         }
@@ -759,6 +916,7 @@ namespace PrePoMax.Forms
             {
                 e.Cancel = true;
                 _controller.ClearPlyOrientationArrows();
+                _controller.Form.Clear3DSelection();
                 CancelDraping();
                 Hide();
             }
