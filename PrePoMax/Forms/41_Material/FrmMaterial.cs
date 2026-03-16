@@ -682,6 +682,8 @@ else if (mp2 is Lamina lam)
                             new StringDoubleConverter());
             SetGridViewUnit(nameof(EngineeringConstantsDataPoint.Nu13Eq), noUnit,
                             new StringDoubleConverter());
+            SetGridViewUnit(nameof(EngineeringConstantsDataPoint.Nu23Eq), noUnit,
+                            new StringDoubleConverter());
             SetGridViewUnit(nameof(EngineeringConstantsDataPoint.G12Eq), _controller.Model.UnitSystem.PressureUnitAbbreviation,
                             new StringPressureFromConverter());
             SetGridViewUnit(nameof(EngineeringConstantsDataPoint.G13Eq), _controller.Model.UnitSystem.PressureUnitAbbreviation,

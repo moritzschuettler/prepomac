@@ -18,6 +18,7 @@ namespace PrePoMax
         private EquationContainer _e3;
         private EquationContainer _nu12;
         private EquationContainer _nu13;
+        private EquationContainer _nu23;
         private EquationContainer _g12;
         private EquationContainer _g13;
         private EquationContainer _g23;
@@ -59,6 +60,13 @@ namespace PrePoMax
         [Browsable(false)]
         public EquationContainer Nu13 { get { return _nu13; } set { _nu13 = value; } }
         //
+        [DisplayName("Nu23\n[?]")]
+        [TypeConverter(typeof(EquationDoubleConverter))]
+        public EquationString Nu23Eq { get { return _nu23.Equation; } set { _nu23.Equation = value; } }
+        //
+        [Browsable(false)]
+        public EquationContainer Nu23 { get { return _nu23; } set { _nu23 = value; } }
+        //
         [DisplayName("G12\n[?]")]
         [TypeConverter(typeof(EquationPressureFromConverter))]
         public EquationString G12Eq { get { return _g12.Equation; } set { _g12.Equation = value; } }
@@ -90,21 +98,23 @@ namespace PrePoMax
             _e3 = new EquationContainer(typeof(StringPressureConverter), 0);
             _nu12 = new EquationContainer(typeof(StringDoubleConverter), 0);
             _nu13 = new EquationContainer(typeof(StringDoubleConverter), 0);
+            _nu23 = new EquationContainer(typeof(StringDoubleConverter), 0);
             _g12 = new EquationContainer(typeof(StringPressureConverter), 0);
             _g13 = new EquationContainer(typeof(StringPressureConverter), 0);
             _g23 = new EquationContainer(typeof(StringPressureConverter), 0);
         }
         public EngineeringConstantsDataPoint(EquationContainer e1, EquationContainer e2, EquationContainer e3,
- EquationContainer nu12, EquationContainer nu13,
-               EquationContainer g12, EquationContainer g13, EquationContainer g23,
-          EquationContainer temperature)
-  : base(temperature)
+            EquationContainer nu12, EquationContainer nu13, EquationContainer nu23,
+            EquationContainer g12, EquationContainer g13, EquationContainer g23,
+            EquationContainer temperature)
+            : base(temperature)
         {
             _e1 = e1;
             _e2 = e2;
             _e3 = e3;
             _nu12 = nu12;
             _nu13 = nu13;
+            _nu23 = nu23;
             _g12 = g12;
             _g13 = g13;
             _g23 = g23;
