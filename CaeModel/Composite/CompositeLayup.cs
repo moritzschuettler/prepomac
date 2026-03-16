@@ -32,6 +32,15 @@ namespace CaeModel
     }
 
     [Serializable]
+    public enum ShellOffsetType
+    {
+        MiddleSurface,
+        TopSurface,
+        BottomSurface,
+        SpecifyRatio
+    }
+
+    [Serializable]
     public class CompositeLayup : NamedClass
     {
         // Variables
@@ -41,6 +50,8 @@ namespace CaeModel
         private NormalDirectionType _normalDirection;
         private List<Ply> _plies;
         private bool _symmetric;
+        private ShellOffsetType _shellOffset;
+        private double _offsetRatio;
 
 
         // Properties
@@ -84,6 +95,18 @@ namespace CaeModel
             set { _symmetric = value; }
         }
 
+        public ShellOffsetType ShellOffset
+        {
+            get { return _shellOffset; }
+            set { _shellOffset = value; }
+        }
+
+        public double OffsetRatio
+        {
+            get { return _offsetRatio; }
+            set { _offsetRatio = value; }
+        }
+
 
         // Constructors
         public CompositeLayup(string name, int initialPlyCount, CompositeElementType elementType)
@@ -95,6 +118,8 @@ namespace CaeModel
             _normalDirection = NormalDirectionType.Axis3;
             _plies = new List<Ply>();
             _symmetric = false;
+            _shellOffset = ShellOffsetType.MiddleSurface;
+            _offsetRatio = 0.0;
 
             // Initialize plies based on initial ply count
             for (int i = 0; i < initialPlyCount; i++)

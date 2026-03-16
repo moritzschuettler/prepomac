@@ -16,6 +16,7 @@ namespace FileInOut.Output.Calculix
         private string _elementSetName;
         private string _globalOrientationName;  // Optional global orientation for the section
         private List<CompositeShellPlyData> _pliesData;
+        private double? _offset;
 
 
         // Properties
@@ -29,11 +30,12 @@ namespace FileInOut.Output.Calculix
         /// <param name="globalOrientationName">Optional global orientation name (can be null or empty).</param>
         /// <param name="pliesData">List of ply data (thickness, material, orientation name).</param>
         public CalCompositeShellSection(string elementSetName, string globalOrientationName,
-                                        List<CompositeShellPlyData> pliesData)
+                                        List<CompositeShellPlyData> pliesData, double? offset = null)
         {
             _elementSetName = elementSetName;
             _globalOrientationName = globalOrientationName;
             _pliesData = pliesData;
+            _offset = offset;
         }
 
 
@@ -46,6 +48,10 @@ namespace FileInOut.Output.Calculix
             if (!string.IsNullOrEmpty(_globalOrientationName))
             {
                 sb.AppendFormat(", Orientation={0}", _globalOrientationName);
+            }
+            if (_offset.HasValue)
+            {
+                sb.AppendFormat(", Offset={0}", _offset.Value.ToCalculiX16String());
             }
             sb.AppendLine();
             //

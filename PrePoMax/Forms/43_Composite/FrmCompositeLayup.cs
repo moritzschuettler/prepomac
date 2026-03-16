@@ -44,6 +44,13 @@ namespace PrePoMax.Forms
         private Label lMaxShear;
         private TabControl tcPlies;
         private TabPage tpPlies;
+        private TabPage tpOffset;
+        private GroupBox gbShellOffset;
+        private RadioButton rbMiddleSurface;
+        private RadioButton rbTopSurface;
+        private RadioButton rbBottomSurface;
+        private RadioButton rbSpecifyRatio;
+        private NumericUpDown nudOffsetRatio;
         private TabPage tpDisplay;
         private GroupBox gbHighlightPlyRegions;
         private RadioButton rbHighlightOn;
@@ -103,6 +110,13 @@ namespace PrePoMax.Forms
             this.lMaxShear = new System.Windows.Forms.Label();
             this.tcPlies = new System.Windows.Forms.TabControl();
             this.tpPlies = new System.Windows.Forms.TabPage();
+            this.tpOffset = new System.Windows.Forms.TabPage();
+            this.gbShellOffset = new System.Windows.Forms.GroupBox();
+            this.rbMiddleSurface = new System.Windows.Forms.RadioButton();
+            this.rbTopSurface = new System.Windows.Forms.RadioButton();
+            this.rbBottomSurface = new System.Windows.Forms.RadioButton();
+            this.rbSpecifyRatio = new System.Windows.Forms.RadioButton();
+            this.nudOffsetRatio = new System.Windows.Forms.NumericUpDown();
             this.tpDisplay = new System.Windows.Forms.TabPage();
             this.gbHighlightPlyRegions = new System.Windows.Forms.GroupBox();
             this.rbHighlightOn = new System.Windows.Forms.RadioButton();
@@ -126,6 +140,9 @@ namespace PrePoMax.Forms
             ((System.ComponentModel.ISupportInitialize)(this.nudCellSize)).BeginInit();
             this.tcPlies.SuspendLayout();
             this.tpPlies.SuspendLayout();
+            this.tpOffset.SuspendLayout();
+            this.gbShellOffset.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.nudOffsetRatio)).BeginInit();
             this.tpDisplay.SuspendLayout();
             this.gbHighlightPlyRegions.SuspendLayout();
             this.gbOrientationDisplay.SuspendLayout();
@@ -352,6 +369,7 @@ namespace PrePoMax.Forms
             | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
             this.tcPlies.Controls.Add(this.tpPlies);
+            this.tcPlies.Controls.Add(this.tpOffset);
             this.tcPlies.Controls.Add(this.tpDisplay);
             this.tcPlies.Location = new System.Drawing.Point(12, 290);
             this.tcPlies.Name = "tcPlies";
@@ -452,6 +470,98 @@ namespace PrePoMax.Forms
             this.btnMoveDown.Click += new System.EventHandler(this.btnMoveDown_Click);
 
             //
+            // tpOffset
+            //
+            this.tpOffset.BackColor = System.Drawing.SystemColors.Control;
+            this.tpOffset.Controls.Add(this.gbShellOffset);
+            this.tpOffset.Location = new System.Drawing.Point(4, 24);
+            this.tpOffset.Name = "tpOffset";
+            this.tpOffset.Padding = new System.Windows.Forms.Padding(3);
+            this.tpOffset.Size = new System.Drawing.Size(552, 252);
+            this.tpOffset.TabIndex = 1;
+            this.tpOffset.Text = "Offset";
+
+            //
+            // gbShellOffset
+            //
+            this.gbShellOffset.Controls.Add(this.rbMiddleSurface);
+            this.gbShellOffset.Controls.Add(this.rbTopSurface);
+            this.gbShellOffset.Controls.Add(this.rbBottomSurface);
+            this.gbShellOffset.Controls.Add(this.rbSpecifyRatio);
+            this.gbShellOffset.Controls.Add(this.nudOffsetRatio);
+            this.gbShellOffset.Location = new System.Drawing.Point(8, 8);
+            this.gbShellOffset.Name = "gbShellOffset";
+            this.gbShellOffset.Size = new System.Drawing.Size(400, 130);
+            this.gbShellOffset.TabIndex = 0;
+            this.gbShellOffset.TabStop = false;
+            this.gbShellOffset.Text = "Shell reference surface and offsets";
+
+            //
+            // rbMiddleSurface
+            //
+            this.rbMiddleSurface.AutoSize = true;
+            this.rbMiddleSurface.Checked = true;
+            this.rbMiddleSurface.Location = new System.Drawing.Point(10, 22);
+            this.rbMiddleSurface.Name = "rbMiddleSurface";
+            this.rbMiddleSurface.Size = new System.Drawing.Size(110, 19);
+            this.rbMiddleSurface.TabIndex = 0;
+            this.rbMiddleSurface.TabStop = true;
+            this.rbMiddleSurface.Text = "Middle surface";
+            this.rbMiddleSurface.UseVisualStyleBackColor = true;
+            this.rbMiddleSurface.CheckedChanged += new System.EventHandler(this.rbShellOffset_CheckedChanged);
+
+            //
+            // rbTopSurface
+            //
+            this.rbTopSurface.AutoSize = true;
+            this.rbTopSurface.Location = new System.Drawing.Point(10, 44);
+            this.rbTopSurface.Name = "rbTopSurface";
+            this.rbTopSurface.Size = new System.Drawing.Size(90, 19);
+            this.rbTopSurface.TabIndex = 1;
+            this.rbTopSurface.Text = "Top surface";
+            this.rbTopSurface.UseVisualStyleBackColor = true;
+            this.rbTopSurface.CheckedChanged += new System.EventHandler(this.rbShellOffset_CheckedChanged);
+
+            //
+            // rbBottomSurface
+            //
+            this.rbBottomSurface.AutoSize = true;
+            this.rbBottomSurface.Location = new System.Drawing.Point(10, 66);
+            this.rbBottomSurface.Name = "rbBottomSurface";
+            this.rbBottomSurface.Size = new System.Drawing.Size(103, 19);
+            this.rbBottomSurface.TabIndex = 2;
+            this.rbBottomSurface.Text = "Bottom surface";
+            this.rbBottomSurface.UseVisualStyleBackColor = true;
+            this.rbBottomSurface.CheckedChanged += new System.EventHandler(this.rbShellOffset_CheckedChanged);
+
+            //
+            // rbSpecifyRatio
+            //
+            this.rbSpecifyRatio.AutoSize = true;
+            this.rbSpecifyRatio.Location = new System.Drawing.Point(10, 88);
+            this.rbSpecifyRatio.Name = "rbSpecifyRatio";
+            this.rbSpecifyRatio.Size = new System.Drawing.Size(105, 19);
+            this.rbSpecifyRatio.TabIndex = 3;
+            this.rbSpecifyRatio.Text = "Specify offset ratio";
+            this.rbSpecifyRatio.UseVisualStyleBackColor = true;
+            this.rbSpecifyRatio.CheckedChanged += new System.EventHandler(this.rbShellOffset_CheckedChanged);
+
+            //
+            // nudOffsetRatio
+            //
+            this.nudOffsetRatio.DecimalPlaces = 4;
+            this.nudOffsetRatio.Increment = new decimal(new int[] { 1, 0, 0, 65536 });
+            this.nudOffsetRatio.Location = new System.Drawing.Point(130, 86);
+            this.nudOffsetRatio.Minimum = new decimal(new int[] { 10, 0, 0, -2147418112 });
+            this.nudOffsetRatio.Maximum = new decimal(new int[] { 10, 0, 0, 65536 });
+            this.nudOffsetRatio.Name = "nudOffsetRatio";
+            this.nudOffsetRatio.Size = new System.Drawing.Size(90, 23);
+            this.nudOffsetRatio.TabIndex = 4;
+            this.nudOffsetRatio.Value = new decimal(new int[] { 0, 0, 0, 0 });
+            this.nudOffsetRatio.Enabled = false;
+            this.nudOffsetRatio.ValueChanged += new System.EventHandler(this.nudOffsetRatio_ValueChanged);
+
+            //
             // tpDisplay
             //
             this.tpDisplay.BackColor = System.Drawing.SystemColors.Control;
@@ -461,7 +571,7 @@ namespace PrePoMax.Forms
             this.tpDisplay.Name = "tpDisplay";
             this.tpDisplay.Padding = new System.Windows.Forms.Padding(3);
             this.tpDisplay.Size = new System.Drawing.Size(552, 252);
-            this.tpDisplay.TabIndex = 1;
+            this.tpDisplay.TabIndex = 2;
             this.tpDisplay.Text = "Display";
 
             //
@@ -609,6 +719,10 @@ namespace PrePoMax.Forms
             ((System.ComponentModel.ISupportInitialize)(this.nudCellSize)).EndInit();
             this.tcPlies.ResumeLayout(false);
             this.tpPlies.ResumeLayout(false);
+            this.gbShellOffset.ResumeLayout(false);
+            this.gbShellOffset.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.nudOffsetRatio)).EndInit();
+            this.tpOffset.ResumeLayout(false);
             this.gbHighlightPlyRegions.ResumeLayout(false);
             this.gbHighlightPlyRegions.PerformLayout();
             this.gbOrientationDisplay.ResumeLayout(false);
@@ -873,6 +987,26 @@ namespace PrePoMax.Forms
             }
         }
 
+        private void rbShellOffset_CheckedChanged(object sender, EventArgs e)
+        {
+            nudOffsetRatio.Enabled = rbSpecifyRatio.Checked;
+            if (_compositeLayup == null) return;
+            if (rbMiddleSurface.Checked) _compositeLayup.ShellOffset = ShellOffsetType.MiddleSurface;
+            else if (rbTopSurface.Checked) _compositeLayup.ShellOffset = ShellOffsetType.TopSurface;
+            else if (rbBottomSurface.Checked) _compositeLayup.ShellOffset = ShellOffsetType.BottomSurface;
+            else if (rbSpecifyRatio.Checked) _compositeLayup.ShellOffset = ShellOffsetType.SpecifyRatio;
+            _propertyItemChanged = true;
+        }
+
+        private void nudOffsetRatio_ValueChanged(object sender, EventArgs e)
+        {
+            if (_compositeLayup != null)
+            {
+                _compositeLayup.OffsetRatio = (double)nudOffsetRatio.Value;
+                _propertyItemChanged = true;
+            }
+        }
+
         private void btnOK_Click(object sender, EventArgs e)
         {
             try
@@ -1039,6 +1173,14 @@ namespace PrePoMax.Forms
                 cbDefinition.SelectedIndex = (int)_compositeLayup.OrientationDefinition;
                 cbNormalDirection.SelectedIndex = (int)_compositeLayup.NormalDirection;
                 cbSymmetric.Checked = _compositeLayup.Symmetric;
+
+                rbMiddleSurface.Checked = _compositeLayup.ShellOffset == ShellOffsetType.MiddleSurface;
+                rbTopSurface.Checked = _compositeLayup.ShellOffset == ShellOffsetType.TopSurface;
+                rbBottomSurface.Checked = _compositeLayup.ShellOffset == ShellOffsetType.BottomSurface;
+                rbSpecifyRatio.Checked = _compositeLayup.ShellOffset == ShellOffsetType.SpecifyRatio;
+                nudOffsetRatio.Value = (decimal)Math.Max((double)nudOffsetRatio.Minimum,
+                    Math.Min((double)nudOffsetRatio.Maximum, _compositeLayup.OffsetRatio));
+                nudOffsetRatio.Enabled = rbSpecifyRatio.Checked;
             }
             // Reset draping controls
             cbDrapingSimulation.Checked = false;

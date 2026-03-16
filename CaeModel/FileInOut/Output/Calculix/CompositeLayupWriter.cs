@@ -142,8 +142,22 @@ namespace FileInOut.Output
                             new CalOrientation(oriName, localX.Coor, localY.Coor, ply.RotationAngle));
                         pliesData.Add(new CompositeShellPlyData(ply.Thickness, ply.Material, oriName));
                     }
-                    _sectionKeywords.Add(new CalCompositeShellSection(setName, null, pliesData));
+                    _sectionKeywords.Add(new CalCompositeShellSection(setName, null, pliesData,
+                        ComputeOffset(pliesData)));
                 }
+            }
+        }
+
+        private double? ComputeOffset(List<CompositeShellPlyData> pliesData)
+        {
+            if (_layup.ShellOffset == ShellOffsetType.MiddleSurface) return null;
+            double totalThickness = pliesData.Sum(p => p.Thickness);
+            switch (_layup.ShellOffset)
+            {
+                case ShellOffsetType.TopSurface:    return +totalThickness;
+                case ShellOffsetType.BottomSurface: return -totalThickness;
+                case ShellOffsetType.SpecifyRatio:  return _layup.OffsetRatio * totalThickness;
+                default: return null;
             }
         }
 
