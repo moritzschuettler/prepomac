@@ -14,11 +14,14 @@ namespace PrePoMax
     public class ViewResultFieldOutputEquation : ViewResultFieldOutput
     {
         // Variables                                                                                                                
-        private ResultFieldOutputEquation _fieldOutput;
 
 
         // Properties                                                                                                               
-        public override string Name { get { return _fieldOutput.Name; } set { _fieldOutput.Name = value; } }
+        private ResultFieldOutputEquation ResultFieldOutput
+        {
+            get { return (ResultFieldOutputEquation)_resultFieldOutput; }
+        }
+        public override string Name { get { return ResultFieldOutput.Name; } set { ResultFieldOutput.Name = value; } }
         //
         [CategoryAttribute("Data")]
         [OrderedDisplayName(1, 10, "Equation")]
@@ -29,11 +32,11 @@ namespace PrePoMax
         [Id(2, 1)]
         public string Equation
         {
-            get { return _fieldOutput.Equation; }
+            get { return ResultFieldOutput.Equation; }
             set
             {
                 if (!value.Trim().StartsWith("=")) value = "=" + value;
-                _fieldOutput.Equation = value;
+                ResultFieldOutput.Equation = value;
             }
         }
         //
@@ -41,23 +44,20 @@ namespace PrePoMax
         [OrderedDisplayName(2, 10, "User defined unit")]
         [DescriptionAttribute("User defined unit for the history output equation value.")]
         [Id(3, 1)]
-        public string Unit { get { return _fieldOutput.Unit; } set { _fieldOutput.Unit = value; } }
+        public string Unit { get { return ResultFieldOutput.Unit; } set { ResultFieldOutput.Unit = value; } }
 
 
         // Constructors                                                                                                             
-        public ViewResultFieldOutputEquation(ResultFieldOutputEquation fieldOutput)
+        public ViewResultFieldOutputEquation(ResultFieldOutputEquation resultFieldOutput)
+            : base(resultFieldOutput)
         {
-            // The order is important
-            _fieldOutput = fieldOutput;
-            //
-            _dctd = ProviderInstaller.Install(this);
         }
 
 
         // Methods                                                                                                                  
         public override ResultFieldOutput GetBase()
         {
-            return _fieldOutput;
+            return _resultFieldOutput;
         }
         private void UpdateVisibility()
         {

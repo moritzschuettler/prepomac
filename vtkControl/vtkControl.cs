@@ -3482,6 +3482,7 @@ namespace vtkControl
             //mapper.Update();
             vtkActor actorTmp = vtkActor.New();
             actorTmp.SetMapper(mapper);
+            actorTmp.UseBoundsOff();
             return actorTmp;
         }
         private void SetAllCaptionPositions()
@@ -4431,8 +4432,7 @@ namespace vtkControl
         private void UpdateTmpActor(vtkRendererLayer layer)
         {
             double[] p = ((vtkPolyData)_captionTmpActor.GetMapper().GetInput()).GetPoints().GetPoint(0);
-            
-
+            //
             if (_captionActorAddedToBase || _captionActorAddedToOverlay || _captionActorAddedToSelection)
             {
                 if (layer == vtkRendererLayer.Base)
@@ -4442,8 +4442,6 @@ namespace vtkControl
                         _renderer.RemoveActor(_captionTmpActor);
                         _renderer.AddActor(_captionTmpActor);   // move tmpActor to last place
                     }
-
-                    
                 }
                 else if (layer == vtkRendererLayer.Overlay)
                 {
@@ -4452,8 +4450,6 @@ namespace vtkControl
                         _overlayRenderer.RemoveActor(_captionTmpActor);
                         _overlayRenderer.AddActor(_captionTmpActor);    // move tmpActor to last place
                     }
-
-                    
                 }
                 else if (layer == vtkRendererLayer.Selection)
                 {

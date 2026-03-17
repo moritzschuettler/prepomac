@@ -50,11 +50,10 @@ namespace PrePoMax
             set
             {
                 _resultHistoryOutput.Filter1.Type = value;
+                //
                 if (_resultHistoryOutput.Filter1.Type == HistoryResultFilterTypeEnum.None)
-                {
                     _resultHistoryOutput.Filter2.Type = HistoryResultFilterTypeEnum.None;
-                    //_resultHistoryOutput.Filter3.Type = HistoryResultFilterTypeEnum.None;
-                }
+                //
                 SetFilterOption(_resultHistoryOutput.Filter1);
                 UpdateFilterVisibility();
             }
@@ -98,31 +97,6 @@ namespace PrePoMax
             get { return _resultHistoryOutput.Filter2.Option; }
             set { _resultHistoryOutput.Filter2.Option = value; }
         }
-        //
-        //[CategoryAttribute("Filter 3")]
-        //[OrderedDisplayName(4, 10, "Type")]
-        //[DescriptionAttribute("Select the filter 3 type.")]
-        //[Id(5, 10)]
-        //public HistoryResultFilterTypeEnum Type3
-        //{
-        //    get { return _resultHistoryOutput.Filter3.Type; }
-        //    set
-        //    {
-        //        _resultHistoryOutput.Filter3.Type = value;
-        //        SetFilterOption(_resultHistoryOutput.Filter3);
-        //        UpdateFilterVisibility();
-        //    }
-        //}
-        ////
-        //[CategoryAttribute("Filter 3")]
-        //[OrderedDisplayName(5, 10, "Option")]
-        //[DescriptionAttribute("Option.")]
-        //[Id(6, 10)]
-        //public string Option3
-        //{
-        //    get { return _resultHistoryOutput.Filter3.Option; }
-        //    set { _resultHistoryOutput.Filter3.Option = value; }
-        //}
 
 
         // Constructors                                                                                                             
@@ -149,11 +123,9 @@ namespace PrePoMax
             DynamicCustomTypeDescriptor.GetProperty(nameof(Type2)).SetIsBrowsable(visible);
             visible = _resultHistoryOutput.Filter1.Type != HistoryResultFilterTypeEnum.None &&
                       _resultHistoryOutput.Filter2.Type != HistoryResultFilterTypeEnum.None;
-            //DynamicCustomTypeDescriptor.GetProperty(nameof(Type3)).SetIsBrowsable(visible);
             //
             SetFilterVisibility(_resultHistoryOutput.Filter1, nameof(Option1), "");
             SetFilterVisibility(_resultHistoryOutput.Filter2, nameof(Option2), " ");
-            //SetFilterVisibility(_resultHistoryOutput.Filter3, nameof(Option3), "  ");
         }
         private void SetFilterVisibility(HistoryResultFilter filter, string optionPropertyName, string nameSuffix)
         {

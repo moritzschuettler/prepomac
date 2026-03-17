@@ -15,34 +15,36 @@ namespace PrePoMax
     public class ViewResultFieldOutputCoordinateSystemTransform : ViewResultFieldOutput
     {
         // Variables                                                                                                                
-        private ResultFieldOutputCoordinateSystemTransform _resultFieldOutput;
 
 
         // Properties                                                                                                               
-        public override string Name { get { return _resultFieldOutput.Name; } set { _resultFieldOutput.Name = value; } }
+        private ResultFieldOutputCoordinateSystemTransform ResultFieldOutput
+        {
+            get { return (ResultFieldOutputCoordinateSystemTransform)_resultFieldOutput; }
+        }
+        public override string Name { get { return ResultFieldOutput.Name; } set { ResultFieldOutput.Name = value; } }
         //
         [CategoryAttribute("Data")]
         [OrderedDisplayName(1, 10, "Field name")]
         [DescriptionAttribute("Filed name for the field output.")]
-        public string FieldName { get { return _resultFieldOutput.FieldName; } set { _resultFieldOutput.FieldName = value; } }
+        [Id(2, 1)]
+        public string FieldName { get { return ResultFieldOutput.FieldName; } set { ResultFieldOutput.FieldName = value; } }
         //
         [CategoryAttribute("Data")]
         [OrderedDisplayName(2, 10, "Coordinate system")]
         [DescriptionAttribute("Coordinate system name for the field output.")]
+        [Id(3, 1)]
         public string CoordinateSystemName
         {
-            get { return _resultFieldOutput.CoordinateSystemName; }
-            set { _resultFieldOutput.CoordinateSystemName = value; }
+            get { return ResultFieldOutput.CoordinateSystemName; }
+            set { ResultFieldOutput.CoordinateSystemName = value; }
         }
 
 
         // Constructors                                                                                                             
         public ViewResultFieldOutputCoordinateSystemTransform(ResultFieldOutputCoordinateSystemTransform resultFieldOutput)
+            : base(resultFieldOutput)
         {
-            // The order is important
-            _resultFieldOutput = resultFieldOutput;
-            //
-            _dctd = ProviderInstaller.Install(this);
         }
 
 

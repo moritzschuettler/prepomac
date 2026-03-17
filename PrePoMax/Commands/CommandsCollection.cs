@@ -371,15 +371,16 @@ namespace PrePoMax.Commands
         // Post-process
         public int GetNumberOfPostprocessCommands()
         {
-            int count = 0;
-            foreach (var command in _commands)
-            {
-                if (command is PostprocessCommand && !(command is COpenResults || command is CSetCurrentResults))
-                    count++;
-            }
-            return count;
+            List<Command> reducedCommands = GetReducedPostprocessingCommands();
+            return reducedCommands.Count();
         }
         public bool RunHistoryPostprocessing()
+        {
+            List<Command> reducedCommands = GetReducedPostprocessingCommands(true);
+            // Run commands
+            return AddAndExecute(reducedCommands);
+        }
+        public List<Command> GetReducedPostprocessingCommands(bool removeUnnecessaryCommands = false)
         {
             string currentAnalysisName = null;
             string lastAnalysisName = null;
@@ -419,16 +420,17 @@ namespace PrePoMax.Commands
             // Run postprocessing commands for the last opened analysis
             List<Command> runCommandsList;
             List<Command> postprocessCommandsList;
+            List<Command> reducedCommands = new List<Command>();
+            //
             if (lastAnalysisName != null && postprocessCommands.TryGetValue(lastAnalysisName, out postprocessCommandsList) &&
                 runCommands.TryGetValue(lastAnalysisName, out runCommandsList))
             {
                 int count = 0;
                 COpenResults lastOpenResultsCommand = null;
-                List<Command> reducedCommands = new List<Command>();
                 // Remove unnecessary run commands                                          
                 foreach (var command in runCommandsList)
                 {
-                    if (count++ < runCommandsList.Count - 1) _commands.Remove(command);
+                    if (removeUnnecessaryCommands && count++ < runCommandsList.Count - 1) _commands.Remove(command);
                 }
                 // Find last open results command
                 foreach (var command in postprocessCommandsList)
@@ -438,7 +440,7 @@ namespace PrePoMax.Commands
                 // Remove commands
                 foreach (var command in postprocessCommandsList)
                 {
-                    if (command != lastOpenResultsCommand) _commands.Remove(command);
+                    if (removeUnnecessaryCommands && command != lastOpenResultsCommand) _commands.Remove(command);
                 }
                 // Remove unnecessary commands                                              
                 foreach (var command in postprocessCommandsList)
@@ -447,11 +449,9 @@ namespace PrePoMax.Commands
                     else if (command is CSetCurrentResults) { }
                     else reducedCommands.Add(command);
                 }
-                // Run commands
-                return AddAndExecute(reducedCommands);
             }
-            //
-            return true;
+            // Return commands
+            return reducedCommands;
         }
 
         // Clear

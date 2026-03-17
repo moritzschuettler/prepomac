@@ -15,24 +15,28 @@ namespace PrePoMax
     public class ViewResultFieldOutputEnvelope : ViewResultFieldOutput
     {
         // Variables                                                                                                                
-        private ResultFieldOutputEnvelope _resultFieldOutput;
         private Dictionary<string, string[]> _filedNameComponentNames;
 
 
         // Properties                                                                                                               
-        public override string Name { get { return _resultFieldOutput.Name; } set { _resultFieldOutput.Name = value; } }
+        private ResultFieldOutputEnvelope ResultFieldOutput
+        {
+            get { return (ResultFieldOutputEnvelope)_resultFieldOutput; }
+        }
+        public override string Name { get { return ResultFieldOutput.Name; } set { ResultFieldOutput.Name = value; } }
         //
         [CategoryAttribute("Data")]
         [OrderedDisplayName(1, 10, "Field name")]
         [DescriptionAttribute("Filed name for the field output.")]
+        [Id(2, 1)]
         public string FieldName
         {
-            get { return _resultFieldOutput.FieldName; }
+            get { return ResultFieldOutput.FieldName; }
             set
             {
-                if (_resultFieldOutput.FieldName != value)
+                if (ResultFieldOutput.FieldName != value)
                 {
-                    _resultFieldOutput.FieldName = value;
+                    ResultFieldOutput.FieldName = value;
                     UpdateComponents();
                 }
             }
@@ -41,20 +45,18 @@ namespace PrePoMax
         [CategoryAttribute("Data")]
         [OrderedDisplayName(2, 10, "Component name")]
         [DescriptionAttribute("Component name for the field output.")]
+        [Id(3, 1)]
         public string ComponentName
         {
-            get { return _resultFieldOutput.ComponentName; }
-            set { _resultFieldOutput.ComponentName = value; }
+            get { return ResultFieldOutput.ComponentName; }
+            set { ResultFieldOutput.ComponentName = value; }
         }
 
 
         // Constructors                                                                                                             
         public ViewResultFieldOutputEnvelope(ResultFieldOutputEnvelope resultFieldOutput)
+            : base(resultFieldOutput)
         {
-            // The order is important
-            _resultFieldOutput = resultFieldOutput;
-            //
-            _dctd = ProviderInstaller.Install(this);
         }
 
 

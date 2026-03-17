@@ -25,8 +25,8 @@ namespace CaeResults
         public static string Rows = "Rows";
         public static string Columns = "Columns";
         //
-        public HistoryResultFilterTypeEnum _type;
-        public string _option;
+        protected HistoryResultFilterTypeEnum _type;
+        protected string _option;
 
 
         // Properties                                                                                                               

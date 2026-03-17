@@ -768,5 +768,31 @@ namespace CaeGlobals
             }
             return hash;
         }
+        // Statistics
+        public static float Median(List<float> data)
+        {
+            if (data == null || data.Count == 0)
+                throw new ArgumentException("Median: empty data.");
+            //
+            float[] sorted = data.ToArray();
+            Array.Sort(sorted);
+            //
+            int n = sorted.Length;
+            int mid = n / 2;
+            //
+            if (n % 2 == 0) return (float)(0.5 * (sorted[mid - 1] + sorted[mid]));
+            else return sorted[mid];
+        }
+        public static float Average(List<float> data)
+        {
+            if (data == null || data.Count == 0)
+                throw new ArgumentException("Average: empty data.");
+            //
+            float sum = 0;
+            foreach (var item in data) sum += item;
+            sum /= data.Count;
+            //
+            return sum;
+        }
     }
 }

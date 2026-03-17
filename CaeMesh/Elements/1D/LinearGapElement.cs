@@ -54,6 +54,10 @@ namespace CaeMesh
         {
             throw new NotImplementedException();
         }
+        public override int[][] GetAllVtkCells()
+        {
+            return new int[][] { NodeIds.ToArray() };
+        }
         public override Dictionary<FeFaceName, double> GetFaceNamesAndAreasFromNodeSet(HashSet<int> nodeSet,
                                                                                        Dictionary<int, FeNode> nodes,
                                                                                        bool edgeFaces)

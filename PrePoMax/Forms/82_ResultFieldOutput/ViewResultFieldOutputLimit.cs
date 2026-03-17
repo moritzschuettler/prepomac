@@ -15,26 +15,30 @@ namespace PrePoMax
     public class ViewResultFieldOutputLimit : ViewResultFieldOutput
     {
         // Variables                                                                                                                
-        private ResultFieldOutputLimit _resultFieldOutput;
         private List<LimitPartDataPoint> _partPoints;
         private List<LimitElementSetDataPoint> _elementSetPoints;
         private Dictionary<string, string[]> _filedNameComponentNames;
 
 
         // Properties                                                                                                               
-        public override string Name { get { return _resultFieldOutput.Name; } set { _resultFieldOutput.Name = value; } }
+        private ResultFieldOutputLimit ResultFieldOutput
+        {
+            get { return (ResultFieldOutputLimit)_resultFieldOutput; }
+        }
+        public override string Name { get { return ResultFieldOutput.Name; } set { ResultFieldOutput.Name = value; } }
         //
         [CategoryAttribute("Data")]
         [OrderedDisplayName(1, 10, "Field name")]
         [DescriptionAttribute("Filed name for the field output.")]
+        [Id(2, 1)]
         public string FieldName
         {
-            get { return _resultFieldOutput.FieldName; }
+            get { return ResultFieldOutput.FieldName; }
             set
             {
-                if (_resultFieldOutput.FieldName != value)
+                if (ResultFieldOutput.FieldName != value)
                 {
-                    _resultFieldOutput.FieldName = value;
+                    ResultFieldOutput.FieldName = value;
                     UpdateComponents();
                 }
             }
@@ -43,19 +47,21 @@ namespace PrePoMax
         [CategoryAttribute("Data")]
         [OrderedDisplayName(2, 10, "Component name")]
         [DescriptionAttribute("Component name for the field output.")]
+        [Id(3, 1)]
         public string ComponentName
         {
-            get { return _resultFieldOutput.ComponentName; }
-            set { _resultFieldOutput.ComponentName = value; }
+            get { return ResultFieldOutput.ComponentName; }
+            set { ResultFieldOutput.ComponentName = value; }
         }
         //
         [CategoryAttribute("Data")]
         [OrderedDisplayName(2, 10, "Limit based on")]
         [DescriptionAttribute("Select how the limit values will be defined for the field output.")]
+        [Id(4, 1)]
         public LimitPlotBasedOnEnum LimitPlotBasedOn
         {
-            get { return _resultFieldOutput.LimitPlotBasedOn; }
-            set { _resultFieldOutput.LimitPlotBasedOn = value; }
+            get { return ResultFieldOutput.LimitPlotBasedOn; }
+            set { ResultFieldOutput.LimitPlotBasedOn = value; }
         }
         //
         [Browsable(false)]
@@ -85,10 +91,9 @@ namespace PrePoMax
 
         // Constructors                                                                                                             
         public ViewResultFieldOutputLimit(ResultFieldOutputLimit resultFieldOutput, string[] partNames,
-                                                 string[] elementSetNames, ref bool propertyChanged)
+                                          string[] elementSetNames, ref bool propertyChanged)
+            : base(resultFieldOutput)
         {
-            // The order is important
-            _resultFieldOutput = resultFieldOutput;
             // Parts
             bool valid = true;
             double limit;
@@ -96,7 +101,7 @@ namespace PrePoMax
             foreach (var partName in partNames)
             {
                 limit = 0;
-                valid &= _resultFieldOutput.ItemNameLimit.TryGetValue(partName, out limit);
+                valid &= ResultFieldOutput.ItemNameLimit.TryGetValue(partName, out limit);
                 _partPoints.Add(new LimitPartDataPoint(partName, limit));
             }
             // Element sets
@@ -106,33 +111,31 @@ namespace PrePoMax
             foreach (var elementSetName in elementSetNames)
             {
                 limit = 0;
-                valid &= _resultFieldOutput.ItemNameLimit.TryGetValue(elementSetName, out limit);
+                valid &= ResultFieldOutput.ItemNameLimit.TryGetValue(elementSetName, out limit);
                 _elementSetPoints.Add(new LimitElementSetDataPoint(elementSetName, limit));
             }
             //
             if (!valid) propertyChanged = true;
-            //
-            _dctd = ProviderInstaller.Install(this);
         }
 
 
         // Methods                                                                                                                  
         public override ResultFieldOutput GetBase()
         {
-            _resultFieldOutput.ItemNameLimit.Clear();
+            ResultFieldOutput.ItemNameLimit.Clear();
             //
             if (LimitPlotBasedOn == LimitPlotBasedOnEnum.Parts)
             {
                 foreach (var point in _partPoints)
                 {
-                    _resultFieldOutput.ItemNameLimit.Add(point.PartName, point.Limit);
+                    ResultFieldOutput.ItemNameLimit.Add(point.PartName, point.Limit);
                 }
             }
             else if (LimitPlotBasedOn == LimitPlotBasedOnEnum.ElementSets)
             {
                 foreach (var point in _elementSetPoints)
                 {
-                    _resultFieldOutput.ItemNameLimit.Add(point.ElementSetName, point.Limit);
+                    ResultFieldOutput.ItemNameLimit.Add(point.ElementSetName, point.Limit);
                 }
             }
             else throw new NotSupportedException();

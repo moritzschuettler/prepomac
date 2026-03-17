@@ -65,6 +65,7 @@
     <Compile Include="Enums\SlipWearResultsEnum.cs" />
     <Compile Include="FeResults.cs" />
     <Compile Include="FieldOutputNames.cs" />
+    <Compile Include="FieldOutput\FieldResultFilter.cs" />
     <Compile Include="FieldOutput\ResultFieldOutput.cs" />
     <Compile Include="FieldOutput\ResultFieldOutputCoordinateSystemTransform.cs" />
     <Compile Include="FieldOutput\ResultFieldOutputEnvelope.cs" />

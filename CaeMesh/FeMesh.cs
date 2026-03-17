@@ -10791,9 +10791,6 @@ namespace CaeMesh
                     // Collect all node normals
                     for (int k = 0; k < element.NodeIds.Length; k++)
                     {
-                        if (Math.Abs(faceNormal[1]) > 0.1)
-                            Debugger.Break();
-
                         if (faceNodeIdNormals.TryGetValue(element.NodeIds[k], out nodeNormals))
                             nodeNormals.Add(new Vec3D(faceNormal));
                         else

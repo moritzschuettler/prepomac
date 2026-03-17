@@ -325,9 +325,9 @@ namespace CaeGlobals
         {
             if (name.ToLower() == "ln")
             {
-                var param1 = functionArgs.Parameters[0].Evaluate();
+                double param1 = Convert.ToDouble(functionArgs.Parameters[0].Evaluate());
                 //
-                functionArgs.Result = Math.Log((double)param1, Math.E);
+                functionArgs.Result = (double)Math.Log(param1, Math.E);
             }
             else if (name.ToLower() == "dist")
             {

@@ -80,6 +80,7 @@ namespace CaeMesh
         public abstract FeFaceName GetFaceNameFromSortedNodeIds(int[] nodeIds);
         public abstract int[] GetNodeIdsFromFaceName(FeFaceName faceName);
         public abstract int[] GetVtkCellFromFaceName(FeFaceName faceName);
+        public abstract int[][] GetAllVtkCells();
         public abstract Dictionary<FeFaceName, double> GetFaceNamesAndAreasFromNodeSet(HashSet<int> nodeSet,
                                                                                        Dictionary<int, FeNode> nodes,
                                                                                        bool edgeFaces);

@@ -13,6 +13,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Numerics;
+using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Runtime.Remoting.Metadata.W3cXsd2001;
@@ -2962,6 +2963,12 @@ namespace CaeResults
             {
                 componentNames = rfoeq.GetComponentNames();
                 values = ComputeFieldFromResultFieldOutputEquation(rfoeq, stepId, stepIncrementId);
+
+                if (rfoeq.Unit.ToLower().StartsWith("median"))
+                {
+                    
+                    
+                }
             }
             else if (resultFieldOutput is ResultFieldOutputCoordinateSystemTransform rfocst)
             {
@@ -2971,6 +2978,11 @@ namespace CaeResults
                 values = ComputeFieldFromResultFieldOutputCoordinateSystemTransform(rfocst, sourceField);
             }
             else throw new NotSupportedException();
+            // Filter
+            if (resultFieldOutput.Filter1.Type != FieldResultFilterTypeEnum.None)
+                values = FilterFieldValues(values, resultFieldOutput.Filter1);
+            if (resultFieldOutput.Filter2.Type != FieldResultFilterTypeEnum.None)
+                values = FilterFieldValues(values, resultFieldOutput.Filter1);
             //
             int count = 0;
             FieldData newFieldData;
@@ -2986,6 +2998,215 @@ namespace CaeResults
                 newField.DataState = DataStateEnum.OK;
                 ReplaceOrAddField(newFieldData, newField);
             }
+        }
+        private float[][] FilterFieldValues(float[][] values, FieldResultFilter filter)
+        {
+            // Build a map of node neighbours
+            var nodePairs = new List<(int, int)>();
+            HashSet<int> neighbours;
+            Dictionary<int, HashSet<int>> nodeNeighbours = new Dictionary<int, HashSet<int>>();
+            //
+            if (filter.SourceType == FieldResultFilterSourceTypeEnum.AllNodes)
+            {
+                foreach (var entry in _mesh.Elements)
+                {
+                    foreach (var nodeId in entry.Value.NodeIds)
+                    {
+                        if (nodeNeighbours.TryGetValue(nodeId, out neighbours)) neighbours.UnionWith(entry.Value.NodeIds);
+                        else nodeNeighbours.Add(nodeId, new HashSet<int>(entry.Value.NodeIds));
+                    }
+                }
+            }
+            else if (filter.SourceType == FieldResultFilterSourceTypeEnum.SurfaceNodes)
+            {
+                foreach (var entry in _mesh.Parts)
+                {
+                    foreach (var cell in entry.Value.Visualization.Cells)
+                    {
+                        for (int i = 0; i < cell.Length; i++)
+                        {
+                            if (nodeNeighbours.TryGetValue(cell[i], out neighbours)) neighbours.UnionWith(cell);
+                            else nodeNeighbours.Add(cell[i], new HashSet<int>(cell));
+                        }
+                    }
+                }
+            }
+            // Expand neighbours to the specified number of layers
+            var nodeNeighboursConcu = new ConcurrentDictionary<int, HashSet<int>>();
+            Parallel.ForEach(nodeNeighbours, entry =>
+            {
+                var neighboursEx = ExpandCandidates(nodeNeighbours, entry.Value, filter.NumberOfNeighbouringLayers - 1);
+                neighboursEx.Remove(entry.Key);
+                nodeNeighboursConcu[entry.Key] = neighboursEx;
+            });
+            nodeNeighbours = new Dictionary<int, HashSet<int>>(nodeNeighboursConcu);
+            // Renumber node neighbours to local ids
+            nodeNeighboursConcu = new ConcurrentDictionary<int, HashSet<int>>();
+            Parallel.ForEach(nodeNeighbours, entry =>
+            {
+                var localNeighbours = new HashSet<int>();
+                foreach (var neighbourId in entry.Value) localNeighbours.Add(_nodeIdsLookUp[neighbourId]);
+                nodeNeighboursConcu[_nodeIdsLookUp[entry.Key]] = localNeighbours;
+            });
+            Dictionary<int, HashSet<int>> nodeNeighboursLocal = new Dictionary<int, HashSet<int>>(nodeNeighboursConcu);
+            // Create inverse node id look up
+            int[] inverseNodeIdsLookUp = new int[_nodeIdsLookUp.Count];
+            foreach (var item in _nodeIdsLookUp) inverseNodeIdsLookUp[item.Value] = item.Key;
+            // Iterate
+            for (int iterations = 0; iterations < filter.NumberOfIterations; iterations++)
+            {
+                float median;
+                float average;
+                //
+                float weightedSum;
+                float weightSum;
+                float alpha = 0.25f;
+                float power = 2.0f;
+                float eps = 1e-12f;
+                Vec3D n1;
+                Vec3D n2;
+                //
+                float nodeValue;
+                float[][] filteredValues = new float[values.Length][];
+                List<float> neighbourValues = new List<float>();
+                //
+                for (int i = 0; i < values.Length; i++)
+                {
+                    filteredValues[i] = new float[values[i].Length];
+                    for (int j = 0; j < values[i].Length; j++)
+                    {
+                        if (nodeNeighboursLocal.TryGetValue(j, out neighbours))
+                        {
+                            // Median
+                            if (filter.Type == FieldResultFilterTypeEnum.Median)
+                            {
+                                nodeValue = values[i][j];
+                                neighbourValues.Clear();
+                                foreach (var nodeId in neighbours) neighbourValues.Add(values[i][nodeId]);
+                                //
+                                median = Tools.Median(neighbourValues);
+                                //
+                                filteredValues[i][j] = median;
+                            }
+                            // Average
+                            else if (filter.Type == FieldResultFilterTypeEnum.Average)
+                            {
+                                nodeValue = values[i][j];
+                                neighbourValues.Clear();
+                                foreach (var nodeId in neighbours) neighbourValues.Add(values[i][nodeId]);
+                                //
+                                average = Tools.Average(neighbourValues);
+                                //
+                                filteredValues[i][j] = average;
+                            }
+                            // Distance weighted smooth
+                            else if (filter.Type == FieldResultFilterTypeEnum.Smooth)
+                            {
+                                int nodeId = inverseNodeIdsLookUp[j];
+                                neighbours = nodeNeighbours[nodeId];
+                                //
+                                weightedSum = 0;
+                                weightSum = 0;
+                                //
+                                n1 = new Vec3D(_undeformedNodes[nodeId].Coor);
+                                foreach (int nb in neighbours)
+                                {
+                                    if (nb == nodeId) continue;
+                                    //
+                                    n2 = new Vec3D(_undeformedNodes[nb].Coor);
+                                    //
+                                    float d = (float)(n1 - n2).Len2;
+                                    float w = (float)(1.0 / (Math.Pow(d, power) + eps));
+                                    //
+                                    weightedSum += w * values[i][_nodeIdsLookUp[nb]];
+                                    weightSum += w;
+                                }
+                                //
+                                if (weightSum > 0)
+                                {
+                                    float neighbourAverage = weightedSum / weightSum;
+                                    nodeId = _nodeIdsLookUp[nodeId];
+                                    filteredValues[i][nodeId] = (float)((1.0 - alpha) * values[i][nodeId] + alpha * neighbourAverage);
+                                }
+                                else filteredValues[i][j] = values[i][j];
+                            }
+                            else throw new NotSupportedException();
+                        }
+                        else filteredValues[i][j] = values[i][j];
+                    }
+                }
+                values = filteredValues;
+            }
+            // Average midside nodal values - very fast
+            for (int i = 0; i < values.Length; i++)
+            {
+                foreach (var entry in _mesh.Elements)
+                {
+                    int[][] cells = entry.Value.GetAllVtkCells();
+                    foreach (var cell in cells)
+                    {
+                        if (cell.Length == 6)
+                        {
+                            int n0 = _nodeIdsLookUp[cell[0]];
+                            int n1 = _nodeIdsLookUp[cell[1]];
+                            int n2 = _nodeIdsLookUp[cell[2]];
+                            int n3 = _nodeIdsLookUp[cell[3]];
+                            int n4 = _nodeIdsLookUp[cell[4]];
+                            int n5 = _nodeIdsLookUp[cell[5]];
+                            //
+                            values[i][n3] = (values[i][n0] + values[i][n1]) / 2;
+                            values[i][n4] = (values[i][n1] + values[i][n2]) / 2;
+                            values[i][n5] = (values[i][n2] + values[i][n0]) / 2;
+                        }
+                        else if (cell.Length == 8)
+                        {
+                            int n0 = _nodeIdsLookUp[cell[0]];
+                            int n1 = _nodeIdsLookUp[cell[1]];
+                            int n2 = _nodeIdsLookUp[cell[2]];
+                            int n3 = _nodeIdsLookUp[cell[3]];
+                            int n4 = _nodeIdsLookUp[cell[4]];
+                            int n5 = _nodeIdsLookUp[cell[5]];
+                            int n6 = _nodeIdsLookUp[cell[6]];
+                            int n7 = _nodeIdsLookUp[cell[7]];
+                            //
+                            values[i][n4] = (values[i][n0] + values[i][n1]) / 2;
+                            values[i][n5] = (values[i][n1] + values[i][n2]) / 2;
+                            values[i][n6] = (values[i][n2] + values[i][n3]) / 2;
+                            values[i][n7] = (values[i][n3] + values[i][n0]) / 2;
+                        }
+                    }
+                }
+            }
+            //
+            return values;
+        }
+        public static HashSet<int> ExpandCandidates(Dictionary<int, HashSet<int>> nodeNeighbours, IEnumerable<int> nodeIds,
+                                                    int levels = 1)
+        {
+            var expanded = new HashSet<int>(nodeIds);
+            var frontier = new List<int>(expanded);
+            //
+            for (int level = 0; level < levels; level++)
+            {
+                var nextFrontier = new List<int>();
+                //
+                for (int i = 0; i < frontier.Count; i++)
+                {
+                    int nodeId = frontier[i];
+                    if (!nodeNeighbours.TryGetValue(nodeId, out var neighbours)) continue;
+                    //
+                    foreach (int n in neighbours)
+                    {
+                        if (expanded.Add(n)) nextFrontier.Add(n);
+                    }
+                }
+                //
+                if (nextFrontier.Count == 0) break;
+                //
+                frontier = nextFrontier;
+            }
+            //
+            return expanded;
         }
         private float[][] ComputeFieldFromResultFieldOutputLimit(ResultFieldOutputLimit resultFieldOutput, Field sourceField)
         {

@@ -30,7 +30,6 @@ namespace CaeMesh
 
 
         // Methods                                                                                                                  
-        public abstract int[][] GetAllVtkCells();
         public int[] GetAllVtkCellIdsFromNodeIds(HashSet<int> nodeIds)
         {
             List<int> vtkCellIds = new List<int>();
