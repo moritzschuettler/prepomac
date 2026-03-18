@@ -1,47 +1,66 @@
-# Prerequisites
-*  Visual Studio 2022 Community (development environment) - https://www.visualstudio.com/downloads/
-*  ActiViz OpenSource Edition 5.8.0 (64-bit Windows XP or later) (3D library used for graphics - must be installed only on the development PC; users do not need it) - https://prepomax.fs.um.si/downloads/
+# PrePoMax Composites Fiber Modeler
 
-# PrePoMax Visual Studio setup
-*  Download a Master branch of the PrePoMax package and extract it to a PrePoMax folder
-*  Open the solution: "PrePoMax\PrePoMax.sln"
+![alt text](prepomax_composites_1.png)
 
-# Recreate the references to the VTK library
-First delete the two existing references to the VTK library:
-*  Open Solution Explorer: View->Solution Explorer
-*  In Solution Explorer find the vtkControl project and then find the References branch
-*  Delete the references starting with Kitware. (right click and Delete).
- 
-Secondly add the two references again using the following procedure:
-*  Right click on References from vtkControl project in the Solution Explorer Window and selected Add Reference
-*  A Reference manager window opens where you select Browse on the left side and then press the Browse button on the bottom right
-*  Browse for the file Kitware.VTK.dll which should be in the ActiViz installation folder: "C:\Program Files\ActiViz.NET 5.8.0 OpenSource Edition\bin\Kitware.VTK.dll"
-*  Repeat the procedure for the file Kitware.mummy.Runtime.dll: "C:\Program Files\ActiViz.NET 5.8.0 OpenSource Edition\bin\Kitware.mummy.Runtime.dll"
+## Introduction
 
-At last change the active solution platform using the main menu: **Build** -> **Configuration Manager** and select **x64** as the **Active solution platform**.
+The PrePoMax Composites Fiber Modeler is an extension to the PrePoMax finite element pre-processor that enables advanced modeling of fiber-reinforced composite materials and laminated structures. This module provides comprehensive tools for defining orthotropic material properties, creating composite layups, and managing fiber orientations for shell-based composite structures in CalculiX finite element analysis.
 
-Start the compilation and execution of the project by pressing the Start button...
+## Main Functionalities
 
-Compiling PrePoMax only creates some of its subfolders and default settings are prepared. To fully use a compiled version of PrePoMax, first look at the latest released version of the PrePoMax’s base folder. Then copy all folders that are missing in the compiled version from the released version (Models, NetGen, Solver…). Then you have to set the working folder and solvers (CalculiX) executables file name in the Settings->Calculix. In order to use the Gmsh mesher a file gmsh-4.12.dll must be copied from the release version lib subfolder to the compiled lib subfolder.
+### Material Definition
+- **Engineering Constants**: Define orthotropic materials using engineering constants (E1, E2, E3, Nu12, Nu13, Nu23, G12, G13, G23) with temperature-dependent properties
+- **Lamina Properties**: Specify lamina-specific material behavior for fiber-reinforced composites
+- **Equation Support**: Material properties can be defined as constants or temperature-dependent equations
 
-# Structure
+### Composite Layup Management
+- **Layer Stacking**: Define composite layups with multiple plies, each with specific material, thickness, and fiber orientation
+- **Fiber Orientation Control**: Specify fiber directions for each ply relative to the element coordinate system
+- **CSV Import/Export**: Bulk import/export of composite layup definitions from/to CSV files
+- **KinDrape Integration**: Advanced draping simulation capabilities for mapping 2D fiber patterns onto 3D surfaces
 
-The PrePoMax is a solution which consists of 11 projects:
-*  CaeGlobals: global classes for all other projects to use
-*  CaeJob: classes for running the analysis
-*  CaeMesh: classes for FE mesh: nodes, elements, sets, ...
-*  CaeModel: classes for FE model. Model contains FE mesh + materials, sections, ...
-*  CaeResults: classes for FE results. Results contain FE mesh + field outputs, ...
-*  GmshCommon: wrapper for the Gmsh mesher from https://github.com/tsvilans/gmsh_common 
-*  GmshCaller: a stand alone executable used for running the Gmsh routines
-*  PrePoMax: classes for user interface
-*  STL: classes for stl geometry import
-*  ThreeMF: classes for 3MF geometry export
-*  UserControls: classes for more complex user controls, as model tree view...
-*  vtkControl: classes for 3D visualization
+### Analysis Output
+- **CalculiX Integration**: Automatic generation of `*ORIENTATION`, `*SHELL SECTION`, and `*SOLID SECTION` keywords for composite structures
+- **Material Property Export**: Conversion of engineering constants to CalculiX-compatible `*ELASTIC` definitions with `TYPE=ENGINEERING CONSTANTS`
 
-PrePoMax is compiled in an exe file all the other projects are compiled in dll files.
+## Key Source Files
 
-The internal structure of the program is quite complex and there are almost no comments in the code (no time to write them) but I am using very descriptive names. Each class has its own file with .cs extension. You can browse the files in the Solution Explorer.
+### Model Classes (CaeModel)
+- `CaeModel/Materials/EngineeringConstants.cs` - Orthotropic material property definition with temperature dependence
+- `CaeModel/Materials/Lamina.cs` - Lamina-specific material properties for composites
+- `CaeModel/Materials/Material.cs` - Base material class hierarchy
+- `CaeModel/Composite/CompositeLayup.cs` - Composite layup definition and management
+- `CaeModel/Composite/KinDrape.cs` - Draping simulation for fiber orientation mapping
 
-The PrePoMax project has a Forms folder and inside it is a FrmMain.sc file/class. This is the main form. The form communicates exclusively with the Controller.sc file/class which holds all data about the model. The program records all user actions in order to be able to repeat them later (while running PrePoMax select Edit -> Regenerate) so all needed user functions/subroutines are not called directly but via Commands. There is a special Command class for each user action...
+### File I/O (CaeModel)
+- `CaeModel/FileInOut/Output/Calculix/Keywords/ModelDefinition/CalOrientation.cs` - Fiber orientation export
+- `CaeModel/FileInOut/Output/Calculix/Keywords/ModelDefinition/Material/CalEngineeringConstants.cs` - Material property export
+- `CaeModel/FileInOut/Output/Calculix/Keywords/ModelDefinition/Material/CalLamina.cs` - Lamina property export
+- `CaeModel/FileInOut/Output/Calculix/Keywords/ModelDefinition/Section/CalCompositeShellSection.cs` - Shell section export
+- `CaeModel/FileInOut/Output/Calculix/CompositeLayupWriter.cs` - Composite layup writing utilities
+- `CaeModel/FileInOut/Output/Calculix/CalculixFileWriter.cs` - Main CalculiX file writer
+
+### User Interface (PrePoMax)
+- `PrePoMax/Forms/41_Material/FrmMaterial.cs` - Material property dialog
+- `PrePoMax/Forms/41_Material/ViewEngineeringConstants.cs` - Engineering constants input view
+- `PrePoMax/Forms/41_Material/ViewLamina.cs` - Lamina properties input view
+- `PrePoMax/Forms/41_Material/DataPoints/EngineeringConstantsDataPoint.cs` - Temperature-dependent data entry
+- `PrePoMax/Forms/41_Material/DataPoints/LaminaDataPoint.cs` - Lamina data entry
+- `PrePoMax/Forms/43_Composite/FrmCompositeLayup.cs` - Composite layup definition dialog
+- `PrePoMax/Forms/43_Composite/ViewCompositeLayup.cs` - Layup visualization and editing
+- `PrePoMax/Commands/0063_Composite/CImportCompositeLayupsFromCsv.cs` - CSV import command
+
+### Core Model (CaeModel)
+- `CaeModel/FeModel.cs` - Main finite element model class managing materials and composite definitions
+
+### Test Projects
+- `tests/test_ortho_material/` - Validation tests for orthotropic materials
+- `tests/test_composite_layup/` - Composite layup functionality tests
+- `tests/test_draping_stl/` - STL-based draping simulation tests
+
+## Technical Notes
+
+- Built on .NET Framework 4.8 with C# 7.3
+- Includes backward compatibility for legacy file formats (automatic migration of 9-element to 10-element engineering constants)
+- Supports equation-based material properties with runtime evaluation
+- Integrates with CalculiX FEA solver for composite analysis
