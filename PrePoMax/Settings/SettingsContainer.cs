@@ -267,7 +267,9 @@ namespace PrePoMax
         }
         public void CheckWorkingDirectory()
         {
-            if (GetWorkDirectory().ContainsNonEnglishCharacters())
+            string workDirectory = GetWorkDirectory();
+            if (workDirectory == null) { }
+            else if (GetWorkDirectory().ContainsNonEnglishCharacters())
                 MessageBoxes.ShowWarning(CalculixSettings.NonEnglishDirectoryWarning);
         }
     }
