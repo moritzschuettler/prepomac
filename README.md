@@ -9,7 +9,7 @@ The PrePoMax Composites Fiber Modeler is an extension to the PrePoMax finite ele
 ## Main Functionalities
 
 ### Material Definition
-- **Engineering Constants**: Define orthotropic materials using engineering constants (E1, E2, E3, Nu12, Nu13, Nu23, G12, G13, G23) with temperature-dependent properties
+- **Engineering Constants**: Define orthotropic materials using engineering constants (E1, E2, E3, Nu12, Nu13, Nu23, G12, G13, G23)
 - **Lamina Properties**: Specify lamina-specific material behavior for fiber-reinforced composites
 - **Equation Support**: Material properties can be defined as constants or temperature-dependent equations
 
@@ -17,7 +17,7 @@ The PrePoMax Composites Fiber Modeler is an extension to the PrePoMax finite ele
 - **Layer Stacking**: Define composite layups with multiple plies, each with specific material, thickness, and fiber orientation
 - **Fiber Orientation Control**: Specify fiber directions for each ply relative to the element coordinate system
 - **CSV Import/Export**: Bulk import/export of composite layup definitions from/to CSV files
-- **KinDrape Integration**: Advanced draping simulation capabilities for mapping 2D fiber patterns onto 3D surfaces
+- **KinDrape Integration**: Advanced kinematics draping simulation capabilities for mapping 2D fiber patterns onto 3D surfaces
 
 ### Analysis Output
 - **CalculiX Integration**: Automatic generation of `*ORIENTATION`, `*SHELL SECTION`, and `*SOLID SECTION` keywords for composite structures
@@ -59,8 +59,8 @@ The PrePoMax Composites Fiber Modeler is an extension to the PrePoMax finite ele
 - `tests/test_draping_stl/` - STL-based draping simulation tests
 
 ## Technical Notes
-
 - Built on .NET Framework 4.8 with C# 7.3
-- Includes backward compatibility for legacy file formats (automatic migration of 9-element to 10-element engineering constants)
-- Supports equation-based material properties with runtime evaluation
 - Integrates with CalculiX FEA solver for composite analysis
+
+## References:
+Krogh, C., Bak, B.L.V., Lindgaard, E. et al. A simple MATLAB draping code for fiber-reinforced composites with application to optimization of manufacturing process parameters. Struct Multidisc Optim 64, 457–471 (2021). https://doi.org/10.1007/s00158-021-02925-z
