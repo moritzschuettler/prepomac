@@ -1215,8 +1215,8 @@ namespace FileInOut.Input
                         }
                         else if (keyword == "*ELASTIC")
                         {
-                            Elastic elastic = GetMaterialElasticity(dataSet, out temperatureDependent);
-                            if (elastic != null) material.AddProperty(elastic);
+                            MaterialProperty elasticProp = GetMaterialElasticity(dataSet, out temperatureDependent);
+                            if (elasticProp != null) material.AddProperty(elasticProp);
                             if (temperatureDependent) material.TemperatureDependent = true;
                         }
                         else if (keyword == "*PLASTIC")
@@ -1329,38 +1329,93 @@ namespace FileInOut.Input
                 return null;
             }
         }
-        private static Elastic GetMaterialElasticity(string[] lines, out bool temperatureDependent)
+        private static MaterialProperty GetMaterialElasticity(string[] lines, out bool temperatureDependent)
         {
-            // *Elastic        
-            // 210000, 0.3, 0  
+            // *Elastic
+            // 210000, 0.3, 0
             // 180000, 0.3, 100
+            //
+            // *Elastic, type=ENGINEERING CONSTANTS
+            // E1, E2, E3, Nu12, Nu13, Nu23, G12, G13
+            // G23, T
             string[] record1;
             temperatureDependent = false;
             try
             {
-                double E;
-                double v;
-                double T;
-                double[][] youngsPoissonsTemp = new double[lines.Length - 1][];
-                //
-                for (int i = 1; i < lines.Length; i++)
+                // Check for TYPE parameter in keyword line
+                bool isEngineeringConstants = false;
+                record1 = lines[0].Split(_splitterComma, StringSplitOptions.RemoveEmptyEntries);
+                for (int k = 1; k < record1.Length; k++)
                 {
-                    record1 = lines[i].Split(_splitterComma, StringSplitOptions.RemoveEmptyEntries);
-                    //
-                    E = double.Parse(record1[0]);
-                    v = double.Parse(record1[1]);
-                    T = 0;
-                    if (record1.Length == 3)
+                    string[] kv = record1[k].Split(_splitterEqual, StringSplitOptions.RemoveEmptyEntries);
+                    if (kv.Length == 2 && kv[0].Trim().ToUpper() == "TYPE")
                     {
-                        T = double.Parse(record1[2]);
-                        temperatureDependent = true;
+                        string typeVal = kv[1].Trim().ToUpper();
+                        if (typeVal.Contains("ENGINEERING") || typeVal == "ORTHO")
+                            isEngineeringConstants = true;
                     }
-                    //
-                    youngsPoissonsTemp[i - 1] = new double[] { E, v, T };
                 }
                 //
-                Elastic elastic = new Elastic(youngsPoissonsTemp);
-                return elastic;
+                if (isEngineeringConstants)
+                {
+                    // Flatten all values from data lines (Abaqus wraps at 8 per line)
+                    // Each temperature row: E1, E2, E3, Nu12, Nu13, Nu23, G12, G13, G23, T  (10 values)
+                    List<double> allValues = new List<double>();
+                    for (int i = 1; i < lines.Length; i++)
+                    {
+                        record1 = lines[i].Split(_splitterComma, StringSplitOptions.RemoveEmptyEntries);
+                        foreach (string val in record1)
+                            allValues.Add(double.Parse(val));
+                    }
+                    //
+                    int rowCount = allValues.Count / 10;
+                    double[][] engConstTemp = new double[rowCount][];
+                    for (int i = 0; i < rowCount; i++)
+                    {
+                        int offset = i * 10;
+                        engConstTemp[i] = new double[]
+                        {
+                            allValues[offset + 0], // E1
+                            allValues[offset + 1], // E2
+                            allValues[offset + 2], // E3
+                            allValues[offset + 3], // Nu12
+                            allValues[offset + 4], // Nu13
+                            allValues[offset + 5], // Nu23
+                            allValues[offset + 6], // G12
+                            allValues[offset + 7], // G13
+                            allValues[offset + 8], // G23
+                            allValues[offset + 9]  // T
+                        };
+                        if (engConstTemp[i][9] != 0) temperatureDependent = true;
+                    }
+                    //
+                    return new EngineeringConstants(engConstTemp);
+                }
+                else
+                {
+                    double E;
+                    double v;
+                    double T;
+                    double[][] youngsPoissonsTemp = new double[lines.Length - 1][];
+                    //
+                    for (int i = 1; i < lines.Length; i++)
+                    {
+                        record1 = lines[i].Split(_splitterComma, StringSplitOptions.RemoveEmptyEntries);
+                        //
+                        E = double.Parse(record1[0]);
+                        v = double.Parse(record1[1]);
+                        T = 0;
+                        if (record1.Length == 3)
+                        {
+                            T = double.Parse(record1[2]);
+                            temperatureDependent = true;
+                        }
+                        //
+                        youngsPoissonsTemp[i - 1] = new double[] { E, v, T };
+                    }
+                    //
+                    return new Elastic(youngsPoissonsTemp);
+                }
             }
             catch
             {
