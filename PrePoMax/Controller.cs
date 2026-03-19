@@ -8716,6 +8716,24 @@ namespace PrePoMax
             Color.FromArgb(255, 255, 0),
             Color.FromArgb(128, 128, 128)
         };
+        public bool IsElementSetValidForComposite(string elementSetName)
+        {
+            if (!_model.Mesh.ElementSets.TryGetValue(elementSetName, out FeElementSet elSet)) return false;
+            foreach (int eid in elSet.Labels)
+            {
+                FeElement element = _model.Mesh.Elements[eid];
+                BasePart part = _model.Mesh.GetPartFromId(element.PartId);
+                MeshPart meshPart = part as MeshPart;
+                if (meshPart == null) return false;
+                if (element is ParabolicQuadrilateralElement &&
+                    meshPart.ParabolicQuadType == FeElementTypeParabolicQuad.S8R) continue;
+                if (element is ParabolicTriangleElement &&
+                    meshPart.ParabolicTriaType == FeElementTypeParabolicTria.S6) continue;
+                return false;
+            }
+            return true;
+        }
+
         public void DrawPlyOrientationArrows(CompositeLayup layup, int plyIndex)
         {
             try

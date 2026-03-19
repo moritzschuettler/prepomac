@@ -77,6 +77,11 @@ namespace FileInOut.Output.Calculix
 
 
         // Methods
+        private static double CleanCoord(double value)
+        {
+            return Math.Abs(value) < 1e-10 ? 0.0 : value;
+        }
+
         public override string GetKeywordString()
         {
             string systemType;
@@ -91,8 +96,8 @@ namespace FileInOut.Output.Calculix
             StringBuilder sb = new StringBuilder();
             // First data line: coordinates of points a and b
             sb.AppendFormat("{0}, {1}, {2}, {3}, {4}, {5}{6}",
-                _pointA[0].ToCalculiX16String(), _pointA[1].ToCalculiX16String(), _pointA[2].ToCalculiX16String(),
-                _pointB[0].ToCalculiX16String(), _pointB[1].ToCalculiX16String(), _pointB[2].ToCalculiX16String(),
+                CleanCoord(_pointA[0]).ToCalculiX16String(), CleanCoord(_pointA[1]).ToCalculiX16String(), CleanCoord(_pointA[2]).ToCalculiX16String(),
+                CleanCoord(_pointB[0]).ToCalculiX16String(), CleanCoord(_pointB[1]).ToCalculiX16String(), CleanCoord(_pointB[2]).ToCalculiX16String(),
                 Environment.NewLine);
             // Second data line: rotation axis and angle (optional for rectangular, but we always include it for plies)
             sb.AppendFormat("{0}, {1}{2}", _rotationAxis, _rotationAngle.ToCalculiX16String(), Environment.NewLine);

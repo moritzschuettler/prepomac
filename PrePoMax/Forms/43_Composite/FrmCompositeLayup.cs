@@ -848,6 +848,18 @@ namespace PrePoMax.Forms
         {
             if (_editingRegionRowIndex >= 0 && _editingRegionRowIndex < _compositeLayup.Plies.Count)
             {
+                if (!_controller.IsElementSetValidForComposite(elementSetName))
+                {
+                    MessageBox.Show(
+                        "The selected element set contains unsupported element types.\n" +
+                        "Only S8R (parabolic quadrilateral, reduced integration) and\n" +
+                        "S6 (parabolic triangle, full integration) elements are supported.",
+                        "Unsupported Element Type",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                    _editingRegionRowIndex = -1;
+                    return;
+                }
                 _compositeLayup.Plies[_editingRegionRowIndex].Region = elementSetName;
                 dgvPlies.Rows[_editingRegionRowIndex].Cells["colRegion"].Value = elementSetName;
                 _propertyItemChanged = true;
