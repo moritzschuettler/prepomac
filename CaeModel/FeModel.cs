@@ -884,6 +884,24 @@ namespace CaeModel
                 //
                 sectionId++;
             }
+            // Composite layups also provide section assignments
+            foreach (var layupEntry in _compositeLayups)
+            {
+                CompositeLayup layup = layupEntry.Value;
+                if (layup.Plies == null || layup.Plies.Count == 0) continue;
+                //
+                foreach (Ply ply in layup.Plies)
+                {
+                    if (string.IsNullOrEmpty(ply.Region) || !_mesh.ElementSets.ContainsKey(ply.Region)) continue;
+                    //
+                    foreach (int elemId in _mesh.ElementSets[ply.Region].Labels)
+                    {
+                        if (!elementIdSectionId.ContainsKey(elemId))
+                            elementIdSectionId.Add(elemId, sectionId);
+                    }
+                }
+                sectionId++;
+            }
             // Not assigned
             HashSet<int> unAssignedElementIds = _mesh.Elements.Keys.Except(elementIdSectionId.Keys).ToHashSet();
             // Not active

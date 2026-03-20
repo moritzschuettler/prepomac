@@ -63,7 +63,7 @@ namespace FileInOut.Output
                     continue;
                 }
                 validPlyIdx.Add(i);
-                plyElements.Add(new HashSet<int>(_mesh.ElementSets[ply.Region].Labels));
+                plyElements.Add(GetElementIds(ply.Region));
             }
             if (validPlyIdx.Count == 0)
                 return;
@@ -124,11 +124,65 @@ namespace FileInOut.Output
                     }
                 }
 
+                // If all plies share the same region and there is only one normal group,
+                // reuse the existing region element set instead of creating a redundant ITA set.
+                string commonRegion = null;
+                if (groupNormals.Count == 1)
+                {
+                    string first = _layup.Plies[itaPlyIndices[0]].Region;
+                    bool allSame = true;
+                    for (int j = 1; j < itaPlyIndices.Count; j++)
+                    {
+                        if (_layup.Plies[itaPlyIndices[j]].Region != first) { allSame = false; break; }
+                    }
+                    if (allSame) commonRegion = first;
+                }
+
                 // Create element set + orientations + section for each normal group
                 for (int g = 0; g < groupNormals.Count; g++)
                 {
-                    string setName = groupNormals.Count == 1 ? itaName : itaName + "_G" + (g + 1);
-                    _itaElementSets.Add(new FeElementSet(setName, groupElements[g].ToArray()));
+                    string setName;
+                    if (commonRegion != null)
+                    {
+                        // All plies share the same region and there is one normal group.
+                        // Prefer the part name over the user element set name: the part name is
+                        // auto-created as an element set by the *Element keyword and covers every
+                        // element of the part, avoiding gaps caused by incomplete user-defined sets
+                        // and conflicts with reserved names (e.g. "ALL").
+                        string[] partNames = _mesh.GetPartNamesFromElementIds(groupElements[g].ToArray());
+                        if (partNames != null && partNames.Length == 1)
+                        {
+                            setName = partNames[0];
+                            // No new element set needed.
+                        }
+                        else
+                        {
+                            // Elements span multiple parts — fall back to the region element set.
+                            FeElementSet commonElSet = _mesh.ElementSets[commonRegion];
+                            if (commonElSet.CreatedFromParts)
+                            {
+                                string[] regionPartNames = _mesh.GetPartNamesFromPartIds(commonElSet.Labels);
+                                if (regionPartNames != null && regionPartNames.Length == 1)
+                                {
+                                    setName = regionPartNames[0];
+                                }
+                                else
+                                {
+                                    setName = groupNormals.Count == 1 ? itaName : itaName + "_G" + (g + 1);
+                                    _itaElementSets.Add(new FeElementSet(setName, groupElements[g].ToArray()));
+                                }
+                            }
+                            else
+                            {
+                                setName = commonRegion;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        setName = groupNormals.Count == 1 ? itaName : itaName + "_G" + (g + 1);
+                        _itaElementSets.Add(new FeElementSet(setName, groupElements[g].ToArray()));
+                    }
 
                     Vec3D localX, localY;
                     ComputeLocalRosette(groupNormals[g], out localX, out localY);
@@ -180,6 +234,19 @@ namespace FileInOut.Output
             Vec3D normal = Vec3D.CrossProduct(v1, v2);
             normal.Normalize();
             return normal;
+        }
+
+        private HashSet<int> GetElementIds(string regionName)
+        {
+            FeElementSet elSet = _mesh.ElementSets[regionName];
+            if (elSet.CreatedFromParts)
+            {
+                HashSet<int> elementIds = new HashSet<int>();
+                foreach (int partId in elSet.Labels)
+                    elementIds.UnionWith(_mesh.GetPartFromId(partId).Labels);
+                return elementIds;
+            }
+            return new HashSet<int>(elSet.Labels);
         }
 
         private static void ComputeLocalRosette(Vec3D normal, out Vec3D localX, out Vec3D localY)

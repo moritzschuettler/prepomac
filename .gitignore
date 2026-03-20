@@ -267,3 +267,6 @@ __pycache__/
 /claude.md
 /test_layups.csv
 *.md
+/PrePoMax/.claude/settings.local.json
+/assets_composites/abq_tensile_coupon/tensile_coupon_composite.pmx
+/assets_composites/CBeam.stp

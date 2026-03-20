@@ -49,6 +49,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestCompositeLayup", "tests
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestDrapingStl", "tests\test_draping_stl\TestDrapingStl.csproj", "{B3C4D5E6-F7A8-9012-CDEF-012345678901}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestCompositeTensileCouponExport", "tests\test_composite_pmx_export\TestCompositeTensileCouponExport.csproj", "{F6A7B8C9-D0E1-2345-FABC-567890ABCDEF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Console-Debug|x64 = Console-Debug|x64
@@ -177,6 +179,14 @@ Global
 		{B3C4D5E6-F7A8-9012-CDEF-012345678901}.Debug|x64.Build.0 = Debug|x64
 		{B3C4D5E6-F7A8-9012-CDEF-012345678901}.Release|x64.ActiveCfg = Release|x64
 		{B3C4D5E6-F7A8-9012-CDEF-012345678901}.Release|x64.Build.0 = Release|x64
+		{F6A7B8C9-D0E1-2345-FABC-567890ABCDEF}.Console-Debug|x64.ActiveCfg = Debug|x64
+		{F6A7B8C9-D0E1-2345-FABC-567890ABCDEF}.Console-Debug|x64.Build.0 = Debug|x64
+		{F6A7B8C9-D0E1-2345-FABC-567890ABCDEF}.Console-Release|x64.ActiveCfg = Release|x64
+		{F6A7B8C9-D0E1-2345-FABC-567890ABCDEF}.Console-Release|x64.Build.0 = Release|x64
+		{F6A7B8C9-D0E1-2345-FABC-567890ABCDEF}.Debug|x64.ActiveCfg = Debug|x64
+		{F6A7B8C9-D0E1-2345-FABC-567890ABCDEF}.Debug|x64.Build.0 = Debug|x64
+		{F6A7B8C9-D0E1-2345-FABC-567890ABCDEF}.Release|x64.ActiveCfg = Release|x64
+		{F6A7B8C9-D0E1-2345-FABC-567890ABCDEF}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
