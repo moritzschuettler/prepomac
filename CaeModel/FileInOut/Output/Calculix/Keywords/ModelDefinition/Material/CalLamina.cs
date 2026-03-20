@@ -60,18 +60,22 @@ namespace FileInOut.Output.Calculix
  // Nu23 for transverse isotropy
           double nu23 = nu12;
 //
-        sb.AppendFormat("{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}{10}",
-          e1.ToCalculiX16String(),     // E1
-     e2.ToCalculiX16String(),     // E2
-     e3.ToCalculiX16String(),     // E3 = E2
-         nu12.ToCalculiX16String(),   // Nu12
-  nu13.ToCalculiX16String(),   // Nu13 = Nu12
-     nu23.ToCalculiX16String(),   // Nu23 = Nu12
-      g12.ToCalculiX16String(),    // G12
-   g13.ToCalculiX16String(),    // G13
-  g23.ToCalculiX16String(),    // G23
-     temp.ToCalculiX16String(),   // Temperature
-     Environment.NewLine);
+        // CalculiX limit: 8 values per line
+                    // Line 1: E1, E2, E3, Nu12, Nu13, Nu23, G12, G13
+                    // Line 2: G23, Temperature
+                    sb.AppendFormat("{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7},{8}{9}, {10}{11}",
+                        e1.ToCalculiX16String(),   // E1
+                        e2.ToCalculiX16String(),   // E2
+                        e3.ToCalculiX16String(),   // E3 = E2
+                        nu12.ToCalculiX16String(), // Nu12
+                        nu13.ToCalculiX16String(), // Nu13 = Nu12
+                        nu23.ToCalculiX16String(), // Nu23 = Nu12
+                        g12.ToCalculiX16String(),  // G12
+                        g13.ToCalculiX16String(),  // G13
+                        Environment.NewLine,
+                        g23.ToCalculiX16String(),  // G23
+                        temp.ToCalculiX16String(), // Temperature
+                        Environment.NewLine);
    }
      else
   {
@@ -92,17 +96,21 @@ namespace FileInOut.Output.Calculix
    // Nu23 for transverse isotropy
        double nu23 = nu12;
    //
-  sb.AppendFormat("{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}{9}",
-          e1.ToCalculiX16String(),   // E1
-      e2.ToCalculiX16String(),     // E2
-    e3.ToCalculiX16String(),     // E3 = E2
-   nu12.ToCalculiX16String(),   // Nu12
-     nu13.ToCalculiX16String(),   // Nu13 = Nu12
-   nu23.ToCalculiX16String(),   // Nu23 = Nu12
-    g12.ToCalculiX16String(),    // G12
-        g13.ToCalculiX16String(),    // G13
-      g23.ToCalculiX16String(),    // G23
-       Environment.NewLine);
+        // CalculiX limit: 8 values per line
+                    // Line 1: E1, E2, E3, Nu12, Nu13, Nu23, G12, G13
+                    // Line 2: G23
+                    sb.AppendFormat("{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7},{8}{9}{10}",
+                        e1.ToCalculiX16String(),   // E1
+                        e2.ToCalculiX16String(),   // E2
+                        e3.ToCalculiX16String(),   // E3 = E2
+                        nu12.ToCalculiX16String(), // Nu12
+                        nu13.ToCalculiX16String(), // Nu13 = Nu12
+                        nu23.ToCalculiX16String(), // Nu23 = Nu12
+                        g12.ToCalculiX16String(),  // G12
+                        g13.ToCalculiX16String(),  // G13
+                        Environment.NewLine,
+                        g23.ToCalculiX16String(),  // G23
+                        Environment.NewLine);
             break;
            }
  }
