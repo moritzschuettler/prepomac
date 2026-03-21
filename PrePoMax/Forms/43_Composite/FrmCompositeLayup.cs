@@ -1105,6 +1105,8 @@ namespace PrePoMax.Forms
             // Refresh plies grid
             RefreshPliesGrid();
 
+            CheckPlyRegionsElementTypes();
+
             _controller.SetSelectByToOff();
 
             return true;
@@ -1137,9 +1139,30 @@ namespace PrePoMax.Forms
             // Refresh plies grid
             RefreshPliesGrid();
 
+            CheckPlyRegionsElementTypes();
+
             _controller.SetSelectByToOff();
 
             return true;
+        }
+
+        private void CheckPlyRegionsElementTypes()
+        {
+            if (_compositeLayup == null) return;
+            foreach (Ply ply in _compositeLayup.Plies)
+            {
+                if (string.IsNullOrEmpty(ply.Region)) continue;
+                if (!_controller.IsElementSetValidForComposite(ply.Region))
+                {
+                    MessageBox.Show(
+                        "Ply region '" + ply.Region + "' contains unsupported element types.\n" +
+                        "Only S8R (parabolic quadrilateral, reduced integration) and\n" +
+                        "S6 (parabolic triangle, full integration) elements are supported.",
+                        "Unsupported Element Type",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                }
+            }
         }
 
         private void InitializeComboBoxes()

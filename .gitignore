@@ -270,3 +270,4 @@ __pycache__/
 /PrePoMax/.claude/settings.local.json
 /assets_composites/abq_tensile_coupon/tensile_coupon_composite.pmx
 /assets_composites/CBeam.stp
+/assets_composites/abq_tensile_coupon/tensile_coupon_fromPPM.inp
