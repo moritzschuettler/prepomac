@@ -416,7 +416,7 @@ namespace PrePoMax.Forms
                                                                   stressField,
                                                                   xt: 1500, xc: 1200,
                                                                   yt: 50, yc: 200,
-                                                                  s12: 70);
+                                                                  s12: 70, sl: 70);
                         ViewResultFieldOutputCompositeFailure vrfocf = new ViewResultFieldOutputCompositeFailure(rfocf);
                         vrfocf.PopulateDropDownLists(filedNameComponentNames);
                         item.Tag = vrfocf;

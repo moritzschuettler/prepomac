@@ -72,15 +72,24 @@ namespace PrePoMax
         //
         [CategoryAttribute("Strength")]
         [OrderedDisplayName(6, 10, "S12 - In-plane shear")]
-        [DescriptionAttribute("In-plane shear strength.")]
+        [DescriptionAttribute("In-plane shear strength (used in Tsai-Hill and Tsai-Wu).")]
         public double S12
         {
             get { return _resultFieldOutput.S12; }
             set { _resultFieldOutput.S12 = value; }
         }
         //
+        [CategoryAttribute("Strength")]
+        [OrderedDisplayName(7, 10, "Sl - Longitudinal shear")]
+        [DescriptionAttribute("Longitudinal shear strength (used in Hashin criteria). Defaults to S12 if left at zero.")]
+        public double Sl
+        {
+            get { return _resultFieldOutput.Sl; }
+            set { _resultFieldOutput.Sl = value; }
+        }
+        //
         [CategoryAttribute("Data")]
-        [OrderedDisplayName(7, 10, "Fiber angle [deg]")]
+        [OrderedDisplayName(8, 10, "Fiber angle [deg]")]
         [DescriptionAttribute("Rotation angle (degrees) from the stress output coordinate system to the ply fiber direction. " +
                               "Apply the ply angle here so that S11/S22/S12 are correctly interpreted as fiber/transverse/shear stresses.")]
         public double FiberAngleDeg

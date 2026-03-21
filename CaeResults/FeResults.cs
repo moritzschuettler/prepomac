@@ -3109,23 +3109,28 @@ namespace CaeResults
         private float[][] ComputeFieldFromResultFieldOutputCompositeFailure(
             ResultFieldOutputCompositeFailure resultFieldOutput, Field sourceField)
         {
-            if (sourceField == null) return new float[][] { null, null };
+            if (sourceField == null) return new float[][] { null, null, null, null, null, null };
             //
             float[] s11 = sourceField.GetComponentValues(FOComponentNames.S11);
             float[] s22 = sourceField.GetComponentValues(FOComponentNames.S22);
             float[] s12 = sourceField.GetComponentValues(FOComponentNames.S12);
             //
-            if (s11 == null || s22 == null || s12 == null) return new float[][] { null, null };
+            if (s11 == null || s22 == null || s12 == null) return new float[][] { null, null, null, null, null, null };
             //
             int n = s11.Length;
             float[] tsaiHill = new float[n];
             float[] tsaiWu = new float[n];
+            float[] hashinFT = new float[n];
+            float[] hashinFC = new float[n];
+            float[] hashinMT = new float[n];
+            float[] hashinMC = new float[n];
             //
             float xt = (float)resultFieldOutput.Xt;
             float xc = (float)resultFieldOutput.Xc;
             float yt = (float)resultFieldOutput.Yt;
             float yc = (float)resultFieldOutput.Yc;
             float s12Str = (float)resultFieldOutput.S12;
+            float slStr = (float)resultFieldOutput.Sl;
             //
             // Tsai-Wu coefficients
             float f1 = 1f / xt - 1f / xc;
@@ -3138,7 +3143,7 @@ namespace CaeResults
             // Precompute rotation from stress output CS to ply fiber CS
             double angleRad = resultFieldOutput.FiberAngleDeg * Math.PI / 180.0;
             float c = (float)Math.Cos(angleRad);
-            float s = (float)Math.Sin(angleRad);
+            float sv = (float)Math.Sin(angleRad);
             bool rotate = Math.Abs(angleRad) > 1e-10;
             //
             for (int i = 0; i < n; i++)
@@ -3150,9 +3155,9 @@ namespace CaeResults
                 // Rotate stresses to ply fiber coordinate system if angle != 0
                 if (rotate)
                 {
-                    float r11 = c * c * v11 + s * s * v22 + 2f * s * c * v12;
-                    float r22 = s * s * v11 + c * c * v22 - 2f * s * c * v12;
-                    float r12 = -s * c * v11 + s * c * v22 + (c * c - s * s) * v12;
+                    float r11 = c * c * v11 + sv * sv * v22 + 2f * sv * c * v12;
+                    float r22 = sv * sv * v11 + c * c * v22 - 2f * sv * c * v12;
+                    float r12 = -sv * c * v11 + sv * c * v22 + (c * c - sv * sv) * v12;
                     v11 = r11;
                     v22 = r22;
                     v12 = r12;
@@ -3167,9 +3172,21 @@ namespace CaeResults
                 // Tsai-Wu (plane stress)
                 tsaiWu[i] = f1 * v11 + f2 * v22 + f11 * v11 * v11 +
                              f22 * v22 * v22 + f66 * v12 * v12 + 2f * f12 * v11 * v22;
+                //
+                // Hashin fiber tensile: Fft = (σ1/Xt)² + (τ12/Sl)²
+                hashinFT[i] = (v11 / xt) * (v11 / xt) + (v12 / slStr) * (v12 / slStr);
+                //
+                // Hashin fiber compressive: Ffc = (σ1/Xc)²
+                hashinFC[i] = (v11 / xc) * (v11 / xc);
+                //
+                // Hashin matrix tensile: Fmt = (σ2/Yt)² + (τ12/Sl)²
+                hashinMT[i] = (v22 / yt) * (v22 / yt) + (v12 / slStr) * (v12 / slStr);
+                //
+                // Hashin matrix compressive: Fmc = (σ2/Yc)² + (τ12/Sl)²
+                hashinMC[i] = (v22 / yc) * (v22 / yc) + (v12 / slStr) * (v12 / slStr);
             }
             //
-            return new float[][] { tsaiHill, tsaiWu };
+            return new float[][] { tsaiHill, tsaiWu, hashinFT, hashinFC, hashinMT, hashinMC };
         }
         private float[][] ComputeFieldFromResultFieldOutputEnvelope(ResultFieldOutputEnvelope resultFieldOutput)
         {

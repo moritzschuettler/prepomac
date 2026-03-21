@@ -19,6 +19,8 @@ namespace CaeResults
         private double _yc;
         private double _s12;
         [OptionalField]
+        private double _sl;
+        [OptionalField]
         private double _fiberAngleDeg;
 
 
@@ -29,13 +31,14 @@ namespace CaeResults
         public double Yt { get { return _yt; } set { _yt = CheckPositive(value); } }
         public double Yc { get { return _yc; } set { _yc = CheckPositive(value); } }
         public double S12 { get { return _s12; } set { _s12 = CheckPositive(value); } }
+        public double Sl { get { return _sl <= 0 ? _s12 : _sl; } set { _sl = CheckPositive(value); } }
         public double FiberAngleDeg { get { return _fiberAngleDeg; } set { _fiberAngleDeg = value; } }
 
 
         // Constructors
         public ResultFieldOutputCompositeFailure(string name, string fieldName,
                                                  double xt, double xc, double yt, double yc, double s12,
-                                                 double fiberAngleDeg = 0.0)
+                                                 double sl = 0.0, double fiberAngleDeg = 0.0)
             : base(name)
         {
             _fieldName = fieldName;
@@ -44,6 +47,7 @@ namespace CaeResults
             _yt = yt;
             _yc = yc;
             _s12 = s12;
+            _sl = sl;
             _fiberAngleDeg = fiberAngleDeg;
         }
 
@@ -60,7 +64,12 @@ namespace CaeResults
         }
         public override string[] GetComponentNames()
         {
-            return new string[] { FOComponentNames.TsaiHill, FOComponentNames.TsaiWu };
+            return new string[]
+            {
+                FOComponentNames.TsaiHill, FOComponentNames.TsaiWu,
+                FOComponentNames.HashinFT, FOComponentNames.HashinFC,
+                FOComponentNames.HashinMT, FOComponentNames.HashinMC
+            };
         }
     }
 }

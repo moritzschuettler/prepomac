@@ -416,6 +416,10 @@ namespace CaeResults
         // Composite failure criteria
         public const string TsaiHill = "TSAI_HILL";
         public const string TsaiWu = "TSAI_WU";
+        public const string HashinFT = "HASHIN_FT";
+        public const string HashinFC = "HASHIN_FC";
+        public const string HashinMT = "HASHIN_MT";
+        public const string HashinMC = "HASHIN_MC";
         //
         //public const string UH1 = "UH1";
         //public const string UH2 = "UH2";
