@@ -2245,8 +2245,8 @@ namespace PrePoMax
             // tsslCancel
             // 
             this.tsslCancel.AutoSize = false;
-            this.tsslCancel.BorderSides = ((System.Windows.Forms.ToolStripStatusLabelBorderSides)((((System.Windows.Forms.ToolStripStatusLabelBorderSides.Left | System.Windows.Forms.ToolStripStatusLabelBorderSides.Top) 
-            | System.Windows.Forms.ToolStripStatusLabelBorderSides.Right) 
+            this.tsslCancel.BorderSides = ((System.Windows.Forms.ToolStripStatusLabelBorderSides)((((System.Windows.Forms.ToolStripStatusLabelBorderSides.Left | System.Windows.Forms.ToolStripStatusLabelBorderSides.Top)
+            | System.Windows.Forms.ToolStripStatusLabelBorderSides.Right)
             | System.Windows.Forms.ToolStripStatusLabelBorderSides.Bottom)));
             this.tsslCancel.Margin = new System.Windows.Forms.Padding(1, 4, 1, 4);
             this.tsslCancel.Name = "tsslCancel";
@@ -2336,8 +2336,8 @@ namespace PrePoMax
             // 
             // tbOutput
             // 
-            this.tbOutput.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
+            this.tbOutput.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
+            | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
             this.tbOutput.BackColor = System.Drawing.Color.White;
             this.tbOutput.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));

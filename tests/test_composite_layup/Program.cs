@@ -54,7 +54,7 @@ namespace TestCompositeLayup
         //
         static FeMesh BuildMesh()
         {
-            var nodes    = new Dictionary<int, FeNode>();
+            var nodes = new Dictionary<int, FeNode>();
             var elements = new Dictionary<int, FeElement>();
 
             // Flat plate nodes (ids 1..20)
@@ -68,10 +68,10 @@ namespace TestCompositeLayup
                 for (int ix = 0; ix <= 3; ix++)
                 {
                     int eid = iy * 4 + ix + 1;
-                    int n0  = iy * 5 + ix + 1;
-                    int n1  = iy * 5 + ix + 2;
-                    int n2  = (iy + 1) * 5 + ix + 2;
-                    int n3  = (iy + 1) * 5 + ix + 1;
+                    int n0 = iy * 5 + ix + 1;
+                    int n1 = iy * 5 + ix + 2;
+                    int n2 = (iy + 1) * 5 + ix + 2;
+                    int n3 = (iy + 1) * 5 + ix + 1;
                     elements.Add(eid, new LinearQuadrilateralElement(eid, new int[] { n0, n1, n2, n3 }));
                 }
             }
@@ -83,7 +83,7 @@ namespace TestCompositeLayup
                 for (int it = 0; it <= 4; it++)
                 {
                     double rad = thetas[it] * Math.PI / 180.0;
-                    int nodeId  = 20 + iy * 5 + it + 1;
+                    int nodeId = 20 + iy * 5 + it + 1;
                     nodes.Add(nodeId, new FeNode(nodeId, Math.Cos(rad), iy, Math.Sin(rad)));
                 }
             }
@@ -94,10 +94,10 @@ namespace TestCompositeLayup
                 for (int it = 0; it <= 3; it++)
                 {
                     int eid = 12 + iy * 4 + it + 1;
-                    int n0  = 20 + iy * 5 + it + 1;
-                    int n1  = 20 + iy * 5 + it + 2;
-                    int n2  = 20 + (iy + 1) * 5 + it + 2;
-                    int n3  = 20 + (iy + 1) * 5 + it + 1;
+                    int n0 = 20 + iy * 5 + it + 1;
+                    int n1 = 20 + iy * 5 + it + 2;
+                    int n2 = 20 + (iy + 1) * 5 + it + 2;
+                    int n3 = 20 + (iy + 1) * 5 + it + 1;
                     elements.Add(eid, new LinearQuadrilateralElement(eid, new int[] { n0, n1, n2, n3 }));
                 }
             }
@@ -124,7 +124,7 @@ namespace TestCompositeLayup
 
             mesh.ElementSets.Add("Region_Full", new FeElementSet("Region_Full", fullIds.ToArray()));
             mesh.ElementSets.Add("Region_Flat", new FeElementSet("Region_Flat", flatIds.ToArray()));
-            mesh.ElementSets.Add("Region_Cyl",  new FeElementSet("Region_Cyl",  cylIds.ToArray()));
+            mesh.ElementSets.Add("Region_Cyl", new FeElementSet("Region_Cyl", cylIds.ToArray()));
 
             return mesh;
         }
@@ -160,10 +160,10 @@ namespace TestCompositeLayup
             //   ITA_2 — flat elements (covered by Ply-0, 1, 2, 3)
             //           → 1 normal group (normal = +Z)
             CompositeLayup layup = new CompositeLayup("Layup_QI", 4, CompositeElementType.ConventionalShell);
-            layup.Plies[0] = new Ply("Ply-0", "Region_Full", mat.Name, 0.25, "<layup>",   0.0);
-            layup.Plies[1] = new Ply("Ply-1", "Region_Flat", mat.Name, 0.25, "<layup>",  45.0);
+            layup.Plies[0] = new Ply("Ply-0", "Region_Full", mat.Name, 0.25, "<layup>", 0.0);
+            layup.Plies[1] = new Ply("Ply-1", "Region_Flat", mat.Name, 0.25, "<layup>", 45.0);
             layup.Plies[2] = new Ply("Ply-2", "Region_Flat", mat.Name, 0.25, "<layup>", -45.0);
-            layup.Plies[3] = new Ply("Ply-3", "Region_Full", mat.Name, 0.25, "<layup>",  90.0);
+            layup.Plies[3] = new Ply("Ply-3", "Region_Full", mat.Name, 0.25, "<layup>", 90.0);
             model.CompositeLayups.Add(layup.Name, layup);
 
             return model;

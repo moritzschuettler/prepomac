@@ -677,6 +677,7 @@
     </Compile>
     <Compile Include="Forms\82_ResultFieldOutput\ViewResultFieldOutput.cs" />
     <Compile Include="Forms\82_ResultFieldOutput\ViewResultFieldOutputCoordinateSystemTransform.cs" />
+    <Compile Include="Forms\82_ResultFieldOutput\ViewResultFieldOutputCompositeFailure.cs" />
     <Compile Include="Forms\82_ResultFieldOutput\ViewResultFieldOutputEnvelope.cs" />
     <Compile Include="Forms\82_ResultFieldOutput\ViewResultFieldOutputLimit.cs" />
     <Compile Include="Forms\82_ResultFieldOutput\ViewResultFieldOutputEquation.cs" />

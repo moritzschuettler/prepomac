@@ -218,9 +218,9 @@ namespace FileInOut.Output
             double totalThickness = pliesData.Sum(p => p.Thickness);
             switch (_layup.ShellOffset)
             {
-                case ShellOffsetType.TopSurface:    return +totalThickness;
+                case ShellOffsetType.TopSurface: return +totalThickness;
                 case ShellOffsetType.BottomSurface: return -totalThickness;
-                case ShellOffsetType.SpecifyRatio:  return _layup.OffsetRatio * totalThickness;
+                case ShellOffsetType.SpecifyRatio: return _layup.OffsetRatio * totalThickness;
                 default: return null;
             }
         }

@@ -557,6 +557,18 @@ namespace CaeResults
                             valid &= dataType == DataTypeEnum.Vector || dataType == DataTypeEnum.Tensor;
                             valid &= DoesFieldContainsAllNecessaryComponents(rfocst.FieldName);
                         }
+                        else if (resultFieldOutput is ResultFieldOutputCompositeFailure rfocf)
+                        {
+                            // Check that S11, S22, S12 components exist in the source stress field
+                            if (filedNameComponentNames.TryGetValue(rfocf.FieldName, out string[] stressComponents))
+                            {
+                                HashSet<string> sc = new HashSet<string>(stressComponents);
+                                valid &= sc.Contains(FOComponentNames.S11) &&
+                                         sc.Contains(FOComponentNames.S22) &&
+                                         sc.Contains(FOComponentNames.S12);
+                            }
+                            else valid = false;
+                        }
                         else throw new NotSupportedException();
                     }
                 }
@@ -2826,6 +2838,15 @@ namespace CaeResults
                         fieldData = GetFieldData(sourceFieldName, sourceComponentName, entry.Key, incrementId, true);
                         unit = GetFieldUnitAbbreviation(fieldData);
                     }
+                    else if (resultFieldOutput is ResultFieldOutputCompositeFailure rfocf)
+                    {
+                        sourceFieldName = rfocf.FieldName;
+                        sourceComponentName = FOComponentNames.S11;
+                        newFieldName = rfocf.Name;
+                        newComponentNames = rfocf.GetComponentNames();
+                        fieldData = GetFieldData(sourceFieldName, sourceComponentName, entry.Key, incrementId, true);
+                        unit = "/";
+                    }
                     else throw new NotSupportedException();
                     // Get parent field
                     fieldData = GetFieldData(sourceFieldName, sourceComponentName, entry.Key, incrementId, true);
@@ -2917,6 +2938,15 @@ namespace CaeResults
                             sfField = GetField(sfFieldData, false);
                             if (sfField != null) sfField.DataState = DataStateEnum.UpdateResultFieldOutput;
                         }
+                        else if (resultFieldOutput is ResultFieldOutputCompositeFailure rfocf)
+                        {
+                            foreach (var componentName in rfocf.GetComponentNames())
+                            {
+                                sfFieldData = GetFieldData(rfocf.Name, componentName, stepEntry.Key, incrementId, true);
+                                sfField = GetField(sfFieldData, false);
+                                if (sfField != null) sfField.DataState = DataStateEnum.UpdateResultFieldOutput;
+                            }
+                        }
                         else throw new NotSupportedException();
                     }
                 }
@@ -2969,6 +2999,13 @@ namespace CaeResults
                 sourceField = GetField(sourceFieldData);
                 componentNames = rfocst.GetComponentNames();
                 values = ComputeFieldFromResultFieldOutputCoordinateSystemTransform(rfocst, sourceField);
+            }
+            else if (resultFieldOutput is ResultFieldOutputCompositeFailure rfocf)
+            {
+                sourceFieldData = GetFieldData(rfocf.FieldName, FOComponentNames.S11, stepId, stepIncrementId, true);
+                sourceField = GetField(sourceFieldData);
+                componentNames = rfocf.GetComponentNames();
+                values = ComputeFieldFromResultFieldOutputCompositeFailure(rfocf, sourceField);
             }
             else throw new NotSupportedException();
             //
@@ -3068,6 +3105,54 @@ namespace CaeResults
             }
             //
             return new float[][] { valuesRatio, valuesSafety };
+        }
+        private float[][] ComputeFieldFromResultFieldOutputCompositeFailure(
+            ResultFieldOutputCompositeFailure resultFieldOutput, Field sourceField)
+        {
+            if (sourceField == null) return new float[][] { null, null };
+            //
+            float[] s11 = sourceField.GetComponentValues(FOComponentNames.S11);
+            float[] s22 = sourceField.GetComponentValues(FOComponentNames.S22);
+            float[] s12 = sourceField.GetComponentValues(FOComponentNames.S12);
+            //
+            if (s11 == null || s22 == null || s12 == null) return new float[][] { null, null };
+            //
+            int n = s11.Length;
+            float[] tsaiHill = new float[n];
+            float[] tsaiWu = new float[n];
+            //
+            float xt = (float)resultFieldOutput.Xt;
+            float xc = (float)resultFieldOutput.Xc;
+            float yt = (float)resultFieldOutput.Yt;
+            float yc = (float)resultFieldOutput.Yc;
+            float s12Str = (float)resultFieldOutput.S12;
+            //
+            // Tsai-Wu coefficients
+            float f1 = 1f / xt - 1f / xc;
+            float f2 = 1f / yt - 1f / yc;
+            float f11 = 1f / (xt * xc);
+            float f22 = 1f / (yt * yc);
+            float f66 = 1f / (s12Str * s12Str);
+            float f12 = -0.5f * (float)Math.Sqrt(1.0 / ((double)xt * xc * yt * yc));
+            //
+            for (int i = 0; i < n; i++)
+            {
+                float v11 = s11[i];
+                float v22 = s22[i];
+                float v12 = s12[i];
+                //
+                // Tsai-Hill (plane stress)
+                float x = v11 >= 0 ? xt : xc;
+                float y = v22 >= 0 ? yt : yc;
+                tsaiHill[i] = (v11 / x) * (v11 / x) - (v11 * v22) / (x * x) +
+                              (v22 / y) * (v22 / y) + (v12 / s12Str) * (v12 / s12Str);
+                //
+                // Tsai-Wu (plane stress)
+                tsaiWu[i] = f1 * v11 + f2 * v22 + f11 * v11 * v11 +
+                             f22 * v22 * v22 + f66 * v12 * v12 + 2f * f12 * v11 * v22;
+            }
+            //
+            return new float[][] { tsaiHill, tsaiWu };
         }
         private float[][] ComputeFieldFromResultFieldOutputEnvelope(ResultFieldOutputEnvelope resultFieldOutput)
         {

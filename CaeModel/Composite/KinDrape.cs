@@ -58,7 +58,7 @@ namespace CaeModel
             _projNodes = new double[nodeCount][];
             for (int i = 0; i < nodeCount; i++)
             {
-                double dx = surfaceNodeCoords[i * 3]     - _origin[0];
+                double dx = surfaceNodeCoords[i * 3] - _origin[0];
                 double dy = surfaceNodeCoords[i * 3 + 1] - _origin[1];
                 double dz = surfaceNodeCoords[i * 3 + 2] - _origin[2];
                 _projNodes[i] = new double[]
@@ -255,7 +255,7 @@ namespace CaeModel
             int[] nGenSub = { 1, 0, 0, 0, 0, 0, 1, 0 };
             for (int q = 0; q < 4; q++)
             {
-                nConArr[q, 0] = nGen[nGenIdx[q * 2]]     - nGenSub[q * 2];
+                nConArr[q, 0] = nGen[nGenIdx[q * 2]] - nGenSub[q * 2];
                 nConArr[q, 1] = nGen[nGenIdx[q * 2 + 1]] - nGenSub[q * 2 + 1];
             }
 
@@ -745,7 +745,7 @@ namespace CaeModel
 
                             double v0u = cu - au, v0v = cv - av;
                             double v1u = bu - au, v1v = bv - av;
-                            double v2u = u - au,  v2v = v - av;
+                            double v2u = u - au, v2v = v - av;
 
                             double dot00 = v0u * v0u + v0v * v0v;
                             double dot01 = v0u * v1u + v0v * v1v;

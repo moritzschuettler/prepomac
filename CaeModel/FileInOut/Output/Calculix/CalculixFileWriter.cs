@@ -41,7 +41,7 @@ namespace FileInOut.Output
             int upper;
             using (StreamWriter sw = new StreamWriter(fileName, false))
             {
-                for (int i = 0; i < sb.Length; i+=step)
+                for (int i = 0; i < sb.Length; i += step)
                 {
                     upper = Math.Min(sb.Length - i, step);
                     sw.Write(sb.ToString(i, upper));
@@ -342,7 +342,7 @@ namespace FileInOut.Output
             // Boundary conditions
             foreach (var boundaryCondition in model.StepCollection.GetAllBoundaryConditions())
             {
-                if (boundaryCondition.Active && 
+                if (boundaryCondition.Active &&
                     model.Mesh.CoordinateSystems.TryGetValue(boundaryCondition.CoordinateSystemName, out coordinateSystem) &&
                     coordinateSystem != null && boundaryCondition is DisplacementRotation displacementRotation)
                 {
@@ -1064,10 +1064,10 @@ namespace FileInOut.Output
             }
             else
             {
-            //    //int n = 10;
-            //    //string[] lines = keyword.GetDataString().Split(new string[] { Environment.NewLine }, StringSplitOptions.None);
-            //    //for (int i = 0; i < Math.Min(n,  lines.Length); i++) sb.AppendLine(lines[i]);
-            //    //if (lines.Length > n) sb.AppendLine("... hidden data ...");
+                //    //int n = 10;
+                //    //string[] lines = keyword.GetDataString().Split(new string[] { Environment.NewLine }, StringSplitOptions.None);
+                //    //for (int i = 0; i < Math.Min(n,  lines.Length); i++) sb.AppendLine(lines[i]);
+                //    //if (lines.Length > n) sb.AppendLine("... hidden data ...");
                 if (useHiding) sb.AppendLine("... hidden data ...");
                 else sb.Append(keyword.GetDataString());
             }
@@ -1096,11 +1096,11 @@ namespace FileInOut.Output
                 {
                     if (entry.Value is SubmodelBC sm && sm.Active)
                     {
-                        if (sm.RegionType == RegionTypeEnum.SurfaceName) 
+                        if (sm.RegionType == RegionTypeEnum.SurfaceName)
                             nodeSetNames.Add(model.Mesh.Surfaces[sm.RegionName].NodeSetName);
                         else nodeSetNames.Add(sm.RegionName);
                     }
-                } 
+                }
             }
             return nodeSetNames.ToArray();
         }
@@ -1338,9 +1338,9 @@ namespace FileInOut.Output
                 {
                     parent.AddKeyword(new CalTransform(entry.Key, nodeSetName));
                 }
-            }    
+            }
         }
-        static private void AppendMaterials(FeModel model, CalculixKeyword parent, 
+        static private void AppendMaterials(FeModel model, CalculixKeyword parent,
                                             List<Material> additionalMaterials,
                                             string[] materialNames = null)
         {
@@ -1415,7 +1415,7 @@ namespace FileInOut.Output
                 }
                 else if (materialNames == null) parent.AddKeyword(new CalDeactivated(material.Name));
             }
-            
+
         }
         static private void AppendSections(FeModel model, List<SectionData> additionalSectionData, CalculixKeyword parent)
         {
@@ -1721,7 +1721,7 @@ namespace FileInOut.Output
                     {
                         StaticStep staticStep = step as StaticStep;
                         CalStaticStep calStaticStep = new CalStaticStep(staticStep);
-                        calStepHeader.AddKeyword(calStaticStep);                        
+                        calStepHeader.AddKeyword(calStaticStep);
                     }
                     else if (step is FrequencyStep frequencyStep)
                     {
@@ -1898,7 +1898,7 @@ namespace FileInOut.Output
                 //
                 foreach (var historyOutputEntry in step.HistoryOutputs)
                 {
-                    if (step.Active && historyOutputEntry.Value.Active) AppendHistoryOutput(model, step, 
+                    if (step.Active && historyOutputEntry.Value.Active) AppendHistoryOutput(model, step,
                                                                                             historyOutputEntry.Value,
                                                                                             title);
                     else title.AddKeyword(new CalDeactivated(historyOutputEntry.Value.Name));
@@ -1978,7 +1978,7 @@ namespace FileInOut.Output
                 else throw new NotImplementedException();
             }
         }
-        static private void AppendAdditionalBoundaryConditions(FeModel model, Step step, 
+        static private void AppendAdditionalBoundaryConditions(FeModel model, Step step,
                                                                List<BoundaryCondition> additionalBoundaryConditions,
                                                                Dictionary<string, int[]> referencePointsNodeIds,
                                                                CalculixKeyword parent)
@@ -2062,7 +2062,7 @@ namespace FileInOut.Output
                 }
                 else if (load is GravityLoad gl)
                 {
-                    MassSection massSection; 
+                    MassSection massSection;
                     GravityLoad glClone = gl.DeepClone();
                     if (gl.RegionType == RegionTypeEnum.MassSection)
                     {

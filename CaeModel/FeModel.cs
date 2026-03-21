@@ -64,13 +64,13 @@ namespace CaeModel
         public OrderedDictionary<string, Amplitude> Amplitudes { get { return _amplitudes; } }
         public OrderedDictionary<string, InitialCondition> InitialConditions { get { return _initialConditions; } }
         public StepCollection StepCollection { get { return _stepCollection; } }
-        public OrderedDictionary<int[], Calculix.CalculixUserKeyword> CalculixUserKeywords 
-        { 
-            get { return _calculixUserKeywords; } 
-            set 
+        public OrderedDictionary<int[], Calculix.CalculixUserKeyword> CalculixUserKeywords
+        {
+            get { return _calculixUserKeywords; }
+            set
             {
                 _calculixUserKeywords = value;
-            } 
+            }
         }
         public ModelProperties Properties { get { return _properties; } set { _properties = value; } }
         public UnitSystem UnitSystem
@@ -206,7 +206,7 @@ namespace CaeModel
                     case "_compositeLayups":
                         _compositeLayups = (OrderedDictionary<string, CompositeLayup>)entry.Value; break;
                     case "_constraints":
-                        if (entry.Value is Dictionary<string, Constraint> cd)   
+                        if (entry.Value is Dictionary<string, Constraint> cd)
                         {
                             // Compatibility for version v.0.5.1
                             cd.OnDeserialization(null);
@@ -469,7 +469,7 @@ namespace CaeModel
                             !_distributions.ContainsValidKey(lwd.DistributionName)) valid = false;
                     }
                     // Amplitude
-                    if (load.AmplitudeName != Amplitude.DefaultAmplitudeName && 
+                    if (load.AmplitudeName != Amplitude.DefaultAmplitudeName &&
                         !_amplitudes.ContainsValidKey(load.AmplitudeName)) valid = false;
                     if (load is FilmHeatTransfer fht && fht.CoefficientAmplitudeName != Amplitude.DefaultAmplitudeName &&
                         !_amplitudes.ContainsValidKey(fht.CoefficientAmplitudeName)) valid = false;
@@ -915,7 +915,7 @@ namespace CaeModel
             //
             int[] unAssignedElementIdsArray = new int[unAssignedElementIds.Count()];
             int count = 0;
-            
+
             foreach (var elementId in unAssignedElementIds)
             {
                 elementIdSectionId.Add(elementId, -1);
@@ -1113,7 +1113,7 @@ namespace CaeModel
         public void UpdateUserKeywordStates(bool remove, out int suppresedCount, out int unsuppresedCount)
         {
             FileInOut.Output.CalculixFileWriter.UpdateUserKeywordStates(this, remove, out suppresedCount, out unsuppresedCount);
-        }        
+        }
         // Import                                                                                   
         public string[] ImportGeometryFromStlFile(string fileName)
         {
@@ -1124,7 +1124,7 @@ namespace CaeModel
             string[] addedPartNames = ImportGeometry(mesh, GetReservedPartNames());
             //
             return addedPartNames;
-        }        
+        }
         public string[] ImportGeometryFromBrepFile(string visFileName, string brepFileName)
         {
             FeMesh mesh = VisFileReader.Read(visFileName);
@@ -1165,7 +1165,7 @@ namespace CaeModel
             //
             return noErrors;
         }
-        
+
         public void ImportGeneratedMeshFromMeshFile(string fileName, BasePart part, bool convertToSecondOrder,
                                                     bool splitCompoundMesh, bool mergeCompoundParts)
         {
@@ -1427,7 +1427,7 @@ namespace CaeModel
         {
             OrderedDictionary<int[], Calculix.CalculixUserKeyword> indexedUserKeywords;
             InpFileReader.Read(fileName,
-                               ElementsToImport.Solid | ElementsToImport.Shell, 
+                               ElementsToImport.Solid | ElementsToImport.Shell,
                                this,
                                WriteDataToOutput,
                                out indexedUserKeywords);
@@ -1453,7 +1453,7 @@ namespace CaeModel
                                ElementsToImport.Solid | ElementsToImport.Shell,
                                model,
                                WriteDataToOutput,
-                               out OrderedDictionary<int[], Calculix.CalculixUserKeyword>  indexedUserKeywords);
+                               out OrderedDictionary<int[], Calculix.CalculixUserKeyword> indexedUserKeywords);
             //
             CalculixUserKeywords = indexedUserKeywords;
             // Remove existing model materials
@@ -1495,7 +1495,7 @@ namespace CaeModel
             Check2D(mesh);
             //
             if (_geometry == null)
-            {                
+            {
                 _geometry = new FeMesh(MeshRepresentation.Geometry);
                 mesh.ResetPartsColor();
             }
@@ -1665,7 +1665,7 @@ namespace CaeModel
                             return part.Name + ": the transfinite gmsh setup item can only be defined on solid parts " +
                                    "with 3-sided and 4-sided faces.";
                         if (num4sided == 3 && num3sided == 2 && triSurfaceEdgeIds.Count != 6)
-                            return part.Name + ": the transfinite gmsh setup item can only be defined on solid parts "+
+                            return part.Name + ": the transfinite gmsh setup item can only be defined on solid parts " +
                                    "with non touching 3-sided faces.";
                     }
                     else return part.Name + ": the transfinite gmsh setup item can only be defined on solid parts " +
@@ -2046,7 +2046,7 @@ namespace CaeModel
                         else error = "There are more than 1 target surfaces.";
 
                         // Get target surfaces
-                        
+
                     }
                     else error = "The selected surface/s contain free edge loop/s with a single edge (a hole or an extrusion).";
                 }
@@ -2292,9 +2292,9 @@ namespace CaeModel
                     if (entry.Value != 0)
                     {
                         springs.Add(new PointSpringData(spring.Name + "_" + entry.Key.ToString(), entry.Key,
-                                    k1ByArea  * entry.Value,
-                                    k2ByArea  * entry.Value,
-                                    k3ByArea  * entry.Value));
+                                    k1ByArea * entry.Value,
+                                    k2ByArea * entry.Value,
+                                    k3ByArea * entry.Value));
                     }
                 }
             }
@@ -2758,7 +2758,7 @@ namespace CaeModel
                         nodalForce[1] += force[1];
                         nodalForce[2] += force[2];
                     }
-                    
+
                 }
             }
             // Concentrated loads
@@ -3229,7 +3229,7 @@ namespace CaeModel
                 MessageBoxes.ShowError("The parameters could not be evaluated. Check the parameter equations.");
             }
         }
-        
+
         public Dictionary<string, object> GetPropertyParameters()
         {
             double volume;

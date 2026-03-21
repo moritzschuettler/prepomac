@@ -90,8 +90,8 @@ namespace TestCompositeTensileCouponExport
                 // 3-ply quasi-isotropic [0/45/-45], all plies on the same element set
                 CompositeLayup layup = new CompositeLayup("CompositeLayup-1", 3,
                     CompositeElementType.ConventionalShell);
-                layup.Plies[0] = new Ply("Ply-1", elsetName, matName, 0.3, "<layup>",   0.0);
-                layup.Plies[1] = new Ply("Ply-2", elsetName, matName, 0.3, "<layup>",  45.0);
+                layup.Plies[0] = new Ply("Ply-1", elsetName, matName, 0.3, "<layup>", 0.0);
+                layup.Plies[1] = new Ply("Ply-2", elsetName, matName, 0.3, "<layup>", 45.0);
                 layup.Plies[2] = new Ply("Ply-3", elsetName, matName, 0.3, "<layup>", -45.0);
                 model.CompositeLayups.Add(layup.Name, layup);
 
