@@ -34,6 +34,9 @@ namespace PrePoMax.Forms
         private ComboBox cbDefinition;
         private Label lNormalDirection;
         private ComboBox cbNormalDirection;
+        private Label lAdditionalRotation;
+        private ComboBox cbAdditionalRotation;
+        private NumericUpDown nudAdditionalRotationAngle;
         private CheckBox cbSymmetric;
         private GroupBox gbDraping;
         private CheckBox cbDrapingSimulation;
@@ -57,6 +60,7 @@ namespace PrePoMax.Forms
         private RadioButton rbHighlightOff;
         private GroupBox gbOrientationDisplay;
         private RadioButton rbOrientationLayup;
+        private RadioButton rbOrientationXY;
         private RadioButton rbOrientationNone;
         private DataGridView dgvPlies;
         private Button btnOK;
@@ -100,6 +104,9 @@ namespace PrePoMax.Forms
             this.cbDefinition = new System.Windows.Forms.ComboBox();
             this.lNormalDirection = new System.Windows.Forms.Label();
             this.cbNormalDirection = new System.Windows.Forms.ComboBox();
+            this.lAdditionalRotation = new System.Windows.Forms.Label();
+            this.cbAdditionalRotation = new System.Windows.Forms.ComboBox();
+            this.nudAdditionalRotationAngle = new System.Windows.Forms.NumericUpDown();
             this.cbSymmetric = new System.Windows.Forms.CheckBox();
             this.gbDraping = new System.Windows.Forms.GroupBox();
             this.cbDrapingSimulation = new System.Windows.Forms.CheckBox();
@@ -123,6 +130,7 @@ namespace PrePoMax.Forms
             this.rbHighlightOff = new System.Windows.Forms.RadioButton();
             this.gbOrientationDisplay = new System.Windows.Forms.GroupBox();
             this.rbOrientationLayup = new System.Windows.Forms.RadioButton();
+            this.rbOrientationXY = new System.Windows.Forms.RadioButton();
             this.rbOrientationNone = new System.Windows.Forms.RadioButton();
             this.dgvPlies = new System.Windows.Forms.DataGridView();
             this.btnOK = new System.Windows.Forms.Button();
@@ -136,6 +144,7 @@ namespace PrePoMax.Forms
             this.gbData.SuspendLayout();
             this.gbLayupOrientation.SuspendLayout();
             this.gbDraping.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.nudAdditionalRotationAngle)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.nudLimitShear)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.nudCellSize)).BeginInit();
             this.tcPlies.SuspendLayout();
@@ -213,9 +222,12 @@ namespace PrePoMax.Forms
             this.gbLayupOrientation.Controls.Add(this.cbDefinition);
             this.gbLayupOrientation.Controls.Add(this.lNormalDirection);
             this.gbLayupOrientation.Controls.Add(this.cbNormalDirection);
+            this.gbLayupOrientation.Controls.Add(this.lAdditionalRotation);
+            this.gbLayupOrientation.Controls.Add(this.cbAdditionalRotation);
+            this.gbLayupOrientation.Controls.Add(this.nudAdditionalRotationAngle);
             this.gbLayupOrientation.Location = new System.Drawing.Point(12, 88);
             this.gbLayupOrientation.Name = "gbLayupOrientation";
-            this.gbLayupOrientation.Size = new System.Drawing.Size(560, 80);
+            this.gbLayupOrientation.Size = new System.Drawing.Size(560, 110);
             this.gbLayupOrientation.TabIndex = 1;
             this.gbLayupOrientation.TabStop = false;
             this.gbLayupOrientation.Text = "Layup orientation";
@@ -263,10 +275,48 @@ namespace PrePoMax.Forms
             this.cbNormalDirection.SelectedIndexChanged += new System.EventHandler(this.cbNormalDirection_SelectedIndexChanged);
 
             //
+            // lAdditionalRotation
+            //
+            this.lAdditionalRotation.AutoSize = true;
+            this.lAdditionalRotation.Location = new System.Drawing.Point(10, 79);
+            this.lAdditionalRotation.Name = "lAdditionalRotation";
+            this.lAdditionalRotation.Size = new System.Drawing.Size(105, 15);
+            this.lAdditionalRotation.TabIndex = 4;
+            this.lAdditionalRotation.Text = "Additional rotation:";
+            this.lAdditionalRotation.Visible = false;
+
+            //
+            // cbAdditionalRotation
+            //
+            this.cbAdditionalRotation.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cbAdditionalRotation.FormattingEnabled = true;
+            this.cbAdditionalRotation.Location = new System.Drawing.Point(120, 76);
+            this.cbAdditionalRotation.Name = "cbAdditionalRotation";
+            this.cbAdditionalRotation.Size = new System.Drawing.Size(120, 23);
+            this.cbAdditionalRotation.TabIndex = 5;
+            this.cbAdditionalRotation.Visible = false;
+            this.cbAdditionalRotation.SelectedIndexChanged += new System.EventHandler(this.cbAdditionalRotation_SelectedIndexChanged);
+
+            //
+            // nudAdditionalRotationAngle
+            //
+            this.nudAdditionalRotationAngle.DecimalPlaces = 2;
+            this.nudAdditionalRotationAngle.Minimum = new decimal(new int[] { 36000, 0, 0, -2147483648 });
+            this.nudAdditionalRotationAngle.Maximum = new decimal(new int[] { 36000, 0, 0, 0 });
+            this.nudAdditionalRotationAngle.Increment = new decimal(new int[] { 1, 0, 0, 0 });
+            this.nudAdditionalRotationAngle.Location = new System.Drawing.Point(248, 76);
+            this.nudAdditionalRotationAngle.Name = "nudAdditionalRotationAngle";
+            this.nudAdditionalRotationAngle.Size = new System.Drawing.Size(80, 23);
+            this.nudAdditionalRotationAngle.TabIndex = 6;
+            this.nudAdditionalRotationAngle.Visible = false;
+            this.nudAdditionalRotationAngle.Enabled = false;
+            this.nudAdditionalRotationAngle.ValueChanged += new System.EventHandler(this.nudAdditionalRotationAngle_ValueChanged);
+
+            //
             // cbSymmetric
             //
             this.cbSymmetric.AutoSize = true;
-            this.cbSymmetric.Location = new System.Drawing.Point(12, 176);
+            this.cbSymmetric.Location = new System.Drawing.Point(12, 206);
             this.cbSymmetric.Name = "cbSymmetric";
             this.cbSymmetric.Size = new System.Drawing.Size(80, 19);
             this.cbSymmetric.TabIndex = 2;
@@ -285,7 +335,7 @@ namespace PrePoMax.Forms
             this.gbDraping.Controls.Add(this.nudLimitShear);
             this.gbDraping.Controls.Add(this.lCellSize);
             this.gbDraping.Controls.Add(this.nudCellSize);
-            this.gbDraping.Location = new System.Drawing.Point(12, 200);
+            this.gbDraping.Location = new System.Drawing.Point(12, 230);
             this.gbDraping.Name = "gbDraping";
             this.gbDraping.Size = new System.Drawing.Size(560, 82);
             this.gbDraping.TabIndex = 3;
@@ -371,7 +421,7 @@ namespace PrePoMax.Forms
             this.tcPlies.Controls.Add(this.tpPlies);
             this.tcPlies.Controls.Add(this.tpOffset);
             this.tcPlies.Controls.Add(this.tpDisplay);
-            this.tcPlies.Location = new System.Drawing.Point(12, 290);
+            this.tcPlies.Location = new System.Drawing.Point(12, 320);
             this.tcPlies.Name = "tcPlies";
             this.tcPlies.SelectedIndex = 0;
             this.tcPlies.Size = new System.Drawing.Size(560, 256);
@@ -615,10 +665,11 @@ namespace PrePoMax.Forms
             // gbOrientationDisplay
             //
             this.gbOrientationDisplay.Controls.Add(this.rbOrientationLayup);
+            this.gbOrientationDisplay.Controls.Add(this.rbOrientationXY);
             this.gbOrientationDisplay.Controls.Add(this.rbOrientationNone);
             this.gbOrientationDisplay.Location = new System.Drawing.Point(220, 8);
             this.gbOrientationDisplay.Name = "gbOrientationDisplay";
-            this.gbOrientationDisplay.Size = new System.Drawing.Size(200, 70);
+            this.gbOrientationDisplay.Size = new System.Drawing.Size(200, 95);
             this.gbOrientationDisplay.TabIndex = 1;
             this.gbOrientationDisplay.TabStop = false;
             this.gbOrientationDisplay.Text = "Orientation display";
@@ -630,21 +681,33 @@ namespace PrePoMax.Forms
             this.rbOrientationLayup.Checked = true;
             this.rbOrientationLayup.Location = new System.Drawing.Point(10, 22);
             this.rbOrientationLayup.Name = "rbOrientationLayup";
-            this.rbOrientationLayup.Size = new System.Drawing.Size(60, 19);
+            this.rbOrientationLayup.Size = new System.Drawing.Size(130, 19);
             this.rbOrientationLayup.TabIndex = 0;
             this.rbOrientationLayup.TabStop = true;
-            this.rbOrientationLayup.Text = "Layup";
+            this.rbOrientationLayup.Text = "Ply fiber direction";
             this.rbOrientationLayup.UseVisualStyleBackColor = true;
             this.rbOrientationLayup.CheckedChanged += new System.EventHandler(this.rbOrientationLayup_CheckedChanged);
+
+            //
+            // rbOrientationXY
+            //
+            this.rbOrientationXY.AutoSize = true;
+            this.rbOrientationXY.Location = new System.Drawing.Point(10, 44);
+            this.rbOrientationXY.Name = "rbOrientationXY";
+            this.rbOrientationXY.Size = new System.Drawing.Size(130, 19);
+            this.rbOrientationXY.TabIndex = 1;
+            this.rbOrientationXY.Text = "Coordinate system";
+            this.rbOrientationXY.UseVisualStyleBackColor = true;
+            this.rbOrientationXY.CheckedChanged += new System.EventHandler(this.rbOrientationXY_CheckedChanged);
 
             //
             // rbOrientationNone
             //
             this.rbOrientationNone.AutoSize = true;
-            this.rbOrientationNone.Location = new System.Drawing.Point(10, 44);
+            this.rbOrientationNone.Location = new System.Drawing.Point(10, 66);
             this.rbOrientationNone.Name = "rbOrientationNone";
             this.rbOrientationNone.Size = new System.Drawing.Size(50, 19);
-            this.rbOrientationNone.TabIndex = 1;
+            this.rbOrientationNone.TabIndex = 2;
             this.rbOrientationNone.Text = "None";
             this.rbOrientationNone.UseVisualStyleBackColor = true;
 
@@ -652,7 +715,7 @@ namespace PrePoMax.Forms
             // btnOkAddNew
             //
             this.btnOkAddNew.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnOkAddNew.Location = new System.Drawing.Point(335, 554);
+            this.btnOkAddNew.Location = new System.Drawing.Point(335, 584);
             this.btnOkAddNew.Name = "btnOkAddNew";
             this.btnOkAddNew.Size = new System.Drawing.Size(75, 23);
             this.btnOkAddNew.TabIndex = 3;
@@ -664,7 +727,7 @@ namespace PrePoMax.Forms
             // btnOK
             //
             this.btnOK.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnOK.Location = new System.Drawing.Point(416, 554);
+            this.btnOK.Location = new System.Drawing.Point(416, 584);
             this.btnOK.Name = "btnOK";
             this.btnOK.Size = new System.Drawing.Size(75, 23);
             this.btnOK.TabIndex = 4;
@@ -677,7 +740,7 @@ namespace PrePoMax.Forms
             //
             this.btnCancel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.btnCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.btnCancel.Location = new System.Drawing.Point(497, 554);
+            this.btnCancel.Location = new System.Drawing.Point(497, 584);
             this.btnCancel.Name = "btnCancel";
             this.btnCancel.Size = new System.Drawing.Size(75, 23);
             this.btnCancel.TabIndex = 5;
@@ -690,7 +753,7 @@ namespace PrePoMax.Forms
             //
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.CancelButton = this.btnCancel;
-            this.ClientSize = new System.Drawing.Size(584, 589);
+            this.ClientSize = new System.Drawing.Size(584, 619);
             this.Controls.Add(this.gbData);
             this.Controls.Add(this.gbLayupOrientation);
             this.Controls.Add(this.cbSymmetric);
@@ -713,6 +776,7 @@ namespace PrePoMax.Forms
             this.gbData.PerformLayout();
             this.gbLayupOrientation.ResumeLayout(false);
             this.gbLayupOrientation.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.nudAdditionalRotationAngle)).EndInit();
             this.gbDraping.ResumeLayout(false);
             this.gbDraping.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.nudLimitShear)).EndInit();
@@ -741,6 +805,7 @@ namespace PrePoMax.Forms
                 _compositeLayup.OrientationDefinition = (OrientationDefinitionType)cbDefinition.SelectedIndex;
                 _propertyItemChanged = true;
             }
+            UpdateOrientationControlsVisibility();
         }
 
         private void cbNormalDirection_SelectedIndexChanged(object sender, EventArgs e)
@@ -749,6 +814,49 @@ namespace PrePoMax.Forms
             {
                 _compositeLayup.NormalDirection = (NormalDirectionType)cbNormalDirection.SelectedIndex;
                 _propertyItemChanged = true;
+            }
+        }
+
+        private void cbAdditionalRotation_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (_compositeLayup != null && cbAdditionalRotation.SelectedIndex >= 0)
+            {
+                _compositeLayup.AdditionalRotationType = (AdditionalRotationType)cbAdditionalRotation.SelectedIndex;
+                nudAdditionalRotationAngle.Enabled = _compositeLayup.AdditionalRotationType == AdditionalRotationType.Angle;
+                _propertyItemChanged = true;
+                RefreshOrientationArrows();
+            }
+        }
+
+        private void nudAdditionalRotationAngle_ValueChanged(object sender, EventArgs e)
+        {
+            if (_compositeLayup != null)
+            {
+                _compositeLayup.AdditionalRotationAngle = (double)nudAdditionalRotationAngle.Value;
+                _propertyItemChanged = true;
+                RefreshOrientationArrows();
+            }
+        }
+
+        private void UpdateOrientationControlsVisibility()
+        {
+            bool isCsys = cbDefinition.SelectedIndex == (int)OrientationDefinitionType.CoordinateSystem;
+            lNormalDirection.Visible = isCsys;
+            cbNormalDirection.Visible = isCsys;
+            lAdditionalRotation.Visible = isCsys;
+            cbAdditionalRotation.Visible = isCsys;
+            nudAdditionalRotationAngle.Visible = isCsys;
+        }
+
+        private void RefreshOrientationArrows()
+        {
+            if (dgvPlies.SelectedRows.Count > 0 && _compositeLayup != null)
+            {
+                int plyIndex = dgvPlies.SelectedRows[0].Index;
+                if (rbOrientationLayup.Checked)
+                    _controller.DrawPlyOrientationArrows(_compositeLayup, plyIndex);
+                else if (rbOrientationXY.Checked)
+                    _controller.DrawLayupCoordinateArrows(_compositeLayup, plyIndex);
             }
         }
 
@@ -943,6 +1051,8 @@ namespace PrePoMax.Forms
                 int plyIndex = dgvPlies.SelectedRows[0].Index;
                 if (rbOrientationLayup.Checked)
                     _controller.DrawPlyOrientationArrows(_compositeLayup, plyIndex);
+                else if (rbOrientationXY.Checked)
+                    _controller.DrawLayupCoordinateArrows(_compositeLayup, plyIndex);
                 else
                     _controller.ClearPlyOrientationArrows();
                 if (rbHighlightOn.Checked)
@@ -994,6 +1104,21 @@ namespace PrePoMax.Forms
                     _controller.ClearPlyOrientationArrows();
             }
             else if (!rbOrientationLayup.Checked)
+            {
+                _controller.ClearPlyOrientationArrows();
+            }
+        }
+
+        private void rbOrientationXY_CheckedChanged(object sender, EventArgs e)
+        {
+            if (dgvPlies.SelectedRows.Count > 0 && _compositeLayup != null)
+            {
+                if (rbOrientationXY.Checked)
+                    _controller.DrawLayupCoordinateArrows(_compositeLayup, dgvPlies.SelectedRows[0].Index);
+                else
+                    _controller.ClearPlyOrientationArrows();
+            }
+            else if (!rbOrientationXY.Checked)
             {
                 _controller.ClearPlyOrientationArrows();
             }
@@ -1183,6 +1308,11 @@ namespace PrePoMax.Forms
             {
                 cbNormalDirection.Items.Add(value.ToString());
             }
+
+            // Additional rotation combo box
+            cbAdditionalRotation.Items.Clear();
+            cbAdditionalRotation.Items.Add("None");
+            cbAdditionalRotation.Items.Add("Angle");
         }
 
         private void UpdateFormFromLayup()
@@ -1207,6 +1337,11 @@ namespace PrePoMax.Forms
 
                 cbDefinition.SelectedIndex = (int)_compositeLayup.OrientationDefinition;
                 cbNormalDirection.SelectedIndex = (int)_compositeLayup.NormalDirection;
+                cbAdditionalRotation.SelectedIndex = (int)_compositeLayup.AdditionalRotationType;
+                nudAdditionalRotationAngle.Value = (decimal)Math.Max((double)nudAdditionalRotationAngle.Minimum,
+                    Math.Min((double)nudAdditionalRotationAngle.Maximum, _compositeLayup.AdditionalRotationAngle));
+                nudAdditionalRotationAngle.Enabled = _compositeLayup.AdditionalRotationType == AdditionalRotationType.Angle;
+                UpdateOrientationControlsVisibility();
                 cbSymmetric.Checked = _compositeLayup.Symmetric;
 
                 rbMiddleSurface.Checked = _compositeLayup.ShellOffset == ShellOffsetType.MiddleSurface;

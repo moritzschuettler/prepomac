@@ -32,6 +32,13 @@ namespace CaeModel
     }
 
     [Serializable]
+    public enum AdditionalRotationType
+    {
+        None,
+        Angle
+    }
+
+    [Serializable]
     public enum ShellOffsetType
     {
         MiddleSurface,
@@ -48,6 +55,8 @@ namespace CaeModel
         private CompositeElementType _elementType;
         private OrientationDefinitionType _orientationDefinition;
         private NormalDirectionType _normalDirection;
+        private AdditionalRotationType _additionalRotationType;
+        private double _additionalRotationAngle;
         private List<Ply> _plies;
         private bool _symmetric;
         private ShellOffsetType _shellOffset;
@@ -83,6 +92,18 @@ namespace CaeModel
             set { _normalDirection = value; }
         }
 
+        public AdditionalRotationType AdditionalRotationType
+        {
+            get { return _additionalRotationType; }
+            set { _additionalRotationType = value; }
+        }
+
+        public double AdditionalRotationAngle
+        {
+            get { return _additionalRotationAngle; }
+            set { _additionalRotationAngle = value; }
+        }
+
         public List<Ply> Plies
         {
             get { return _plies; }
@@ -116,6 +137,8 @@ namespace CaeModel
             _elementType = elementType;
             _orientationDefinition = OrientationDefinitionType.PartGlobal;
             _normalDirection = NormalDirectionType.Axis3;
+            _additionalRotationType = AdditionalRotationType.None;
+            _additionalRotationAngle = 0.0;
             _plies = new List<Ply>();
             _symmetric = false;
             _shellOffset = ShellOffsetType.MiddleSurface;

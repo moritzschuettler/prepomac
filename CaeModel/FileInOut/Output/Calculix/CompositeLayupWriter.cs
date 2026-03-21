@@ -187,6 +187,8 @@ namespace FileInOut.Output
                     Vec3D localX, localY;
                     ComputeLocalRosette(groupNormals[g], out localX, out localY);
                     int normalAxis = (int)_layup.NormalDirection + 1;   // Axis1=1, Axis2=2, Axis3=3
+                    double additionalAngle = _layup.AdditionalRotationType == AdditionalRotationType.Angle
+                        ? _layup.AdditionalRotationAngle : 0.0;
 
                     List<CompositeShellPlyData> pliesData = new List<CompositeShellPlyData>();
                     List<CompositeShellPlyData> forwardPlies = new List<CompositeShellPlyData>();
@@ -195,7 +197,7 @@ namespace FileInOut.Output
                         Ply ply = _layup.Plies[plyIdx];
                         string oriName = string.Format("Ori_{0}_P{1}", setName, plyIdx);
                         _orientationKeywords.Add(
-                            new CalOrientation(oriName, localX.Coor, localY.Coor, ply.RotationAngle, normalAxis));
+                            new CalOrientation(oriName, localX.Coor, localY.Coor, ply.RotationAngle + additionalAngle, normalAxis));
                         forwardPlies.Add(new CompositeShellPlyData(ply.Thickness, ply.Material, oriName));
                     }
                     pliesData.AddRange(forwardPlies);
