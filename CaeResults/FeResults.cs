@@ -3135,11 +3135,28 @@ namespace CaeResults
             float f66 = 1f / (s12Str * s12Str);
             float f12 = -0.5f * (float)Math.Sqrt(1.0 / ((double)xt * xc * yt * yc));
             //
+            // Precompute rotation from stress output CS to ply fiber CS
+            double angleRad = resultFieldOutput.FiberAngleDeg * Math.PI / 180.0;
+            float c = (float)Math.Cos(angleRad);
+            float s = (float)Math.Sin(angleRad);
+            bool rotate = Math.Abs(angleRad) > 1e-10;
+            //
             for (int i = 0; i < n; i++)
             {
                 float v11 = s11[i];
                 float v22 = s22[i];
                 float v12 = s12[i];
+                //
+                // Rotate stresses to ply fiber coordinate system if angle != 0
+                if (rotate)
+                {
+                    float r11 = c * c * v11 + s * s * v22 + 2f * s * c * v12;
+                    float r22 = s * s * v11 + c * c * v22 - 2f * s * c * v12;
+                    float r12 = -s * c * v11 + s * c * v22 + (c * c - s * s) * v12;
+                    v11 = r11;
+                    v22 = r22;
+                    v12 = r12;
+                }
                 //
                 // Tsai-Hill (plane stress)
                 float x = v11 >= 0 ? xt : xc;

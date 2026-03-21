@@ -42,6 +42,8 @@ namespace PrePoMax.Forms
                     _viewResultFieldOutput = new ViewResultFieldOutputEquation(rfoeq);
                 else if (clone is ResultFieldOutputCoordinateSystemTransform rfocst)
                     _viewResultFieldOutput = new ViewResultFieldOutputCoordinateSystemTransform(rfocst);
+                else if (clone is ResultFieldOutputCompositeFailure rfocf)
+                    _viewResultFieldOutput = new ViewResultFieldOutputCompositeFailure(rfocf);
                 else throw new NotImplementedException();
             }
         }
@@ -137,6 +139,9 @@ namespace PrePoMax.Forms
             {
             }
             else if (_viewResultFieldOutput is ViewResultFieldOutputCoordinateSystemTransform vrfosct)
+            {
+            }
+            else if (_viewResultFieldOutput is ViewResultFieldOutputCompositeFailure vrfocf)
             {
             }
             //
@@ -282,10 +287,24 @@ namespace PrePoMax.Forms
                     string[] fieldNames = filedNameComponentNames.Keys.ToArray();
                     CheckMissingValueRef(ref fieldNames, vrfcst.FieldName, s => { vrfcst.FieldName = s; });
                     //
-                    CheckMissingValueRef(ref coordinateSystemNames, vrfcst.CoordinateSystemName, 
+                    CheckMissingValueRef(ref coordinateSystemNames, vrfcst.CoordinateSystemName,
                                          s => { vrfcst.CoordinateSystemName = s; });
                     //
                     vrfcst.PopulateDropDownLists(filedNameComponentNames, coordinateSystemNames);
+                }
+                else if (_viewResultFieldOutput is ViewResultFieldOutputCompositeFailure vrfocf)
+                {
+                    selectedId = -1;
+                    for (int i = 0; i < lvTypes.Items.Count; i++)
+                    {
+                        if (lvTypes.Items[i].Text == "Composite Failure") { selectedId = i; break; }
+                    }
+                    if (selectedId < 0) throw new CaeException("Composite Failure field output requires composite layups in the model.");
+                    // Check
+                    string[] fieldNames = filedNameComponentNames.Keys.ToArray();
+                    CheckMissingValueRef(ref fieldNames, vrfocf.FieldName, s => { vrfocf.FieldName = s; });
+                    //
+                    vrfocf.PopulateDropDownLists(filedNameComponentNames);
                 }
                 else throw new NotSupportedException();
                 //
@@ -379,6 +398,34 @@ namespace PrePoMax.Forms
             }
             else item.Tag = new ViewError("There are not field outputs or components for the creation of the field output.");
             lvTypes.Items.Add(item);
+            // Composite Failure — only available when composite layups exist in the model
+            if (_controller.GetCompositeLayupNames().Length > 0)
+            {
+                item = new ListViewItem("Composite Failure");
+                if (firstFieldName != null && firstComponentName != null)
+                {
+                    string stressField = filedNameComponentNames.Keys
+                        .FirstOrDefault(k => filedNameComponentNames[k] != null &&
+                                             filedNameComponentNames[k].Contains(FOComponentNames.S11) &&
+                                             filedNameComponentNames[k].Contains(FOComponentNames.S22) &&
+                                             filedNameComponentNames[k].Contains(FOComponentNames.S12));
+                    if (stressField != null)
+                    {
+                        ResultFieldOutputCompositeFailure rfocf =
+                            new ResultFieldOutputCompositeFailure(GetResultFieldOutputName("CompositeFailure"),
+                                                                  stressField,
+                                                                  xt: 1500, xc: 1200,
+                                                                  yt: 50, yc: 200,
+                                                                  s12: 70);
+                        ViewResultFieldOutputCompositeFailure vrfocf = new ViewResultFieldOutputCompositeFailure(rfocf);
+                        vrfocf.PopulateDropDownLists(filedNameComponentNames);
+                        item.Tag = vrfocf;
+                    }
+                    else item.Tag = new ViewError("There is no stress field with S11, S22, S12 components available.");
+                }
+                else item.Tag = new ViewError("There are not field outputs or components for the creation of the field output.");
+                lvTypes.Items.Add(item);
+            }
         }
         private string GetResultFieldOutputName(string name)
         {
@@ -456,6 +503,17 @@ namespace PrePoMax.Forms
                 tcProperties.TabPages.Add(_pages[0]);   // properites
                 //
                 _viewResultFieldOutput = vrfocst;
+            }
+            else if (item is ViewResultFieldOutputCompositeFailure vrfocf)
+            {
+                // Clear
+                dgvData.DataSource = null;
+                dgvData.Columns.Clear();
+                tcProperties.TabPages.Clear();
+                //
+                tcProperties.TabPages.Add(_pages[0]);   // properites
+                //
+                _viewResultFieldOutput = vrfocf;
             }
             else throw new NotImplementedException();
         }

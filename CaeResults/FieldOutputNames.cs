@@ -413,6 +413,9 @@ namespace CaeResults
         public const string Min = "MIN";
         public const string Max = "MAX";
         public const string Average = "AVERAGE";
+        // Composite failure criteria
+        public const string TsaiHill = "TSAI_HILL";
+        public const string TsaiWu = "TSAI_WU";
         //
         //public const string UH1 = "UH1";
         //public const string UH2 = "UH2";
