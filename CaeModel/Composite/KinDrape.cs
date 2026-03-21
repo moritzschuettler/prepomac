@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace CaeModel
@@ -10,6 +12,7 @@ namespace CaeModel
     {
         public double[,,] NodePositions;    // [row, col, 0..2] -> global x, y, z
         public double[] CellShear;          // shear angle per cell (degrees)
+        public bool[,] NodeOnMesh;          // [row, col] -> true if node is on the FE mesh surface
         public int GridRows;
         public int GridCols;
     }
@@ -37,13 +40,15 @@ namespace CaeModel
         // plyAngleDeg:       initial draping angle (degrees, relative to local U axis)
         // cellSize:          fabric weave pitch (same units as mesh)
         // preShear:          pre-shear angle (degrees), usually 0
+        // logPath:           optional file path for detailed computation log (null = no file log)
         public static DrapingResult Run(
             double[] surfaceNodeCoords,
             int[] elementNodeCounts,
             int[] elementNodeIds,
             double plyAngleDeg,
             double cellSize,
-            double preShear = 0.0)
+            double preShear = 0.0,
+            string logPath = null)
         {
             int nodeCount = surfaceNodeCoords.Length / 3;
             if (nodeCount < 3 || elementNodeCounts.Length == 0)
@@ -111,6 +116,21 @@ namespace CaeModel
             double vCenter = (vMin + vMax) / 2.0;
             double[] org = new double[] { uCenter - d / 2.0, vCenter - d / 2.0 };
 
+            var log = new StringBuilder();
+            log.AppendLine($"=== KinDrape Log  {DateTime.Now:yyyy-MM-dd HH:mm:ss} ===");
+            log.AppendLine($"Ply angle:   {plyAngleDeg:G6} deg");
+            log.AppendLine($"Cell size:   {d:G6}");
+            log.AppendLine($"Pre-shear:   {preShear:G6} deg");
+            log.AppendLine($"Surface:     {nodeCount} nodes,  {elementNodeCounts.Length} elements,  {_triangles.Length} triangles");
+            log.AppendLine($"Local origin: ({_origin[0]:G6}, {_origin[1]:G6}, {_origin[2]:G6})");
+            log.AppendLine($"Axis U:       ({_axisU[0]:G6}, {_axisU[1]:G6}, {_axisU[2]:G6})");
+            log.AppendLine($"Axis V:       ({_axisV[0]:G6}, {_axisV[1]:G6}, {_axisV[2]:G6})");
+            log.AppendLine($"Axis N:       ({_axisN[0]:G6}, {_axisN[1]:G6}, {_axisN[2]:G6})");
+            log.AppendLine($"UV bbox:      U=[{uMin:G6}, {uMax:G6}]  V=[{vMin:G6}, {vMax:G6}]");
+            log.AppendLine($"Grid:         {gridRows} rows x {gridCols} cols = {(gridRows - 1) * (gridCols - 1)} cells");
+            log.AppendLine($"Origin cell:  row={orgRow}  col={orgCol}");
+            log.AppendLine($"Org UV:       ({org[0]:G6}, {org[1]:G6})");
+            //
             Console.WriteLine($"[KinDrape] Surface: {nodeCount} nodes, {elementNodeCounts.Length} elements, {_triangles.Length} triangles");
             Console.WriteLine($"[KinDrape] Grid: {gridRows} x {gridCols} = {(gridRows - 1) * (gridCols - 1)} cells, cellSize={d:G4}");
             var swTotal = Stopwatch.StartNew();
@@ -118,7 +138,25 @@ namespace CaeModel
             double[,,] localNode = RunDraping(d, gridRows, gridCols, org, plyAngleDeg, orgRow, orgCol, preShear);
             swTotal.Stop();
             Console.WriteLine($"[KinDrape] Total draping: {swTotal.ElapsedMilliseconds} ms");
-
+            //
+            // Post-pass: determine which nodes are on the FE mesh surface
+            bool[,] nodeOnMesh = new bool[gridRows, gridCols];
+            int totalPlaced = 0, totalOnMesh = 0;
+            for (int r = 0; r < gridRows; r++)
+            {
+                for (int c = 0; c < gridCols; c++)
+                {
+                    if (double.IsNaN(localNode[r, c, 0])) continue;
+                    totalPlaced++;
+                    double hCheck;
+                    nodeOnMesh[r, c] = _surfaceGrid.Evaluate(localNode[r, c, 0], localNode[r, c, 1], out hCheck);
+                    if (nodeOnMesh[r, c]) totalOnMesh++;
+                }
+            }
+            log.AppendLine($"--- Draping results ---");
+            log.AppendLine($"Total draping:  {swTotal.ElapsedMilliseconds} ms");
+            log.AppendLine($"Nodes placed:   {totalPlaced} / {gridRows * gridCols}  (on-mesh: {totalOnMesh},  scaffolding: {totalPlaced - totalOnMesh})");
+            //
             // Convert local (u, v, h) to global (x, y, z)
             double[,,] globalNode = new double[gridRows, gridCols, 3];
             for (int r = 0; r < gridRows; r++)
@@ -134,32 +172,44 @@ namespace CaeModel
                     globalNode[r, c, 2] = _origin[2] + u * _axisU[2] + v * _axisV[2] + h * _axisN[2];
                 }
             }
-
-            // Compute CellShear
+            //
+            // Compute CellShear — only for cells whose 4 corners are all on-mesh
             int nCells = (gridRows - 1) * (gridCols - 1);
             double[] cellShear = new double[nCells];
             for (int i = 0; i < nCells; i++) cellShear[i] = double.NaN;
-
+            int validCells = 0;
             for (int r = 0; r < gridRows - 1; r++)
             {
                 for (int c = 0; c < gridCols - 1; c++)
                 {
-                    // Cell number: same as Python column-major: row + col*(gridRows-1)
                     int cellNo = r + c * (gridRows - 1);
+                    if (!(nodeOnMesh[r, c] && nodeOnMesh[r, c + 1] && nodeOnMesh[r + 1, c + 1] && nodeOnMesh[r + 1, c])) continue;
                     double[][] vert = GetVert(localNode, r, c, r, c + 1, r + 1, c + 1, r + 1, c);
                     if (vert == null) continue;
-                    // Use arm 0 for shear computation (quadrant doesn't matter much for magnitude)
                     double[] shears = ShearFun(vert, 0);
                     double sum = 0; int cnt = 0;
                     foreach (double s in shears) { if (!double.IsNaN(s)) { sum += s; cnt++; } }
-                    if (cnt > 0) cellShear[cellNo] = Math.Abs(sum / cnt);
+                    if (cnt > 0) { cellShear[cellNo] = Math.Abs(sum / cnt); validCells++; }
                 }
             }
-
+            //
+            double maxShear = 0.0;
+            foreach (double s in cellShear) if (!double.IsNaN(s) && s > maxShear) maxShear = s;
+            log.AppendLine($"Valid cells:    {validCells} / {nCells}");
+            log.AppendLine($"Max shear:      {maxShear:F2} deg");
+            Console.WriteLine($"[KinDrape] Max shear: {maxShear:F1}°");
+            //
+            if (logPath != null)
+            {
+                try { File.WriteAllText(logPath, log.ToString()); }
+                catch { /* non-critical */ }
+            }
+            //
             return new DrapingResult
             {
                 NodePositions = globalNode,
                 CellShear = cellShear,
+                NodeOnMesh = nodeOnMesh,
                 GridRows = gridRows,
                 GridCols = gridCols
             };
@@ -512,10 +562,12 @@ namespace CaeModel
                 C[2] + R * Math.Cos(result_theta) * vec1[2] + R * Math.Sin(result_theta) * vec2[2]
             };
 
-            // Snap to surface; if off-mesh, discard the node so the cell won't be displayed
+            // Snap to surface height.
+            // If off-mesh: use nearest-triangle fallback (from SurfaceGrid) so propagation continues past boundary.
+            // If beyond SurfaceGrid reach (h=NaN): inherit parent-node height C[2] as flat-surface extrapolation.
             double h;
-            if (!SurfaceF(pt3D[0], pt3D[1], out h))
-                return null;
+            SurfaceF(pt3D[0], pt3D[1], out h);
+            if (double.IsNaN(h)) h = C[2];
             pt3D[2] = h;
 
             return pt3D;

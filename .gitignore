@@ -271,3 +271,5 @@ __pycache__/
 /assets_composites/abq_tensile_coupon/tensile_coupon_composite.pmx
 /assets_composites/CBeam.stp
 /assets_composites/abq_tensile_coupon/tensile_coupon_fromPPM.inp
+/assets_composites/abq_tensile_coupon/kindrape_log.txt
+/assets_composites/abq_tensile_coupon/tensile_coupon_remesh.stl
