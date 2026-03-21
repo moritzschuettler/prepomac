@@ -148,7 +148,7 @@ namespace TestOrthoMaterial
 
         /// <summary>
         /// Verifies that the material card in the INP file matches expected values.
-        /// For lamina materials, PrePoMax exports as *Elastic, TYPE=ORTHO with 9 values:
+        /// For lamina materials, PrePoMax exports as *Elastic, TYPE=ENGINEERING CONSTANTS with 9 values:
         /// E1, E2, E3(=E2), Nu12, Nu13(=Nu12), Nu23(=Nu12), G12, G13, G23
         /// </summary>
         static bool VerifyMaterialCard(string inpFile, double e1, double e2, double nu12,
@@ -183,7 +183,7 @@ namespace TestOrthoMaterial
 
                 // Find elastic ortho definition after material
                 if (foundMaterial && line.StartsWith("*Elastic", StringComparison.OrdinalIgnoreCase) &&
-                    line.IndexOf("TYPE=ORTHO", StringComparison.OrdinalIgnoreCase) >= 0)
+                    line.IndexOf("TYPE=ENGINEERING CONSTANTS", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     foundElasticOrtho = true;
                     Console.WriteLine($"  Found: {line}");
@@ -249,7 +249,7 @@ namespace TestOrthoMaterial
 
             if (!foundElasticOrtho)
             {
-                Console.WriteLine("  ERROR: *Elastic, TYPE=ORTHO not found for the material");
+                Console.WriteLine("  ERROR: *Elastic, TYPE=ENGINEERING CONSTANTS not found for the material");
                 return false;
             }
 

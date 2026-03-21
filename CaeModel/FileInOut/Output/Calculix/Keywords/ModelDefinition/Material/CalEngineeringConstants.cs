@@ -31,7 +31,7 @@ namespace FileInOut.Output.Calculix
         // Methods      
         public override string GetKeywordString()
         {
-            return string.Format("*Elastic, TYPE=ORTHO{0}", Environment.NewLine);
+            return string.Format("*Elastic, TYPE=ENGINEERING CONSTANTS{0}", Environment.NewLine);
         }
         public override string GetDataString()
         {

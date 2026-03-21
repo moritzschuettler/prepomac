@@ -91,7 +91,7 @@ namespace CaeModel
                     EquationContainer[] row = new EquationContainer[10];
                     row[0] = value[i][0]; row[1] = value[i][1]; row[2] = value[i][2];
                     row[3] = value[i][3]; row[4] = value[i][4];
-                    
+
                     // Calculate Nu23 = Nu13 * E2 / E3
                     double nu23 = 0.0;
                     try
@@ -105,7 +105,7 @@ namespace CaeModel
                     {
                         nu23 = 0.0;
                     }
-     
+
                     row[5] = new EquationContainer(typeof(StringDoubleConverter), nu23);
                     row[6] = value[i][5]; row[7] = value[i][6]; row[8] = value[i][7]; row[9] = value[i][8];
                     value[i] = row;
