@@ -8704,7 +8704,6 @@ namespace PrePoMax
         }
         // Ply orientation arrows
         private const string PlyArrowPrefix = "PlyOrientationArrow";
-        private const int PlyArrowDensityStep = 5;
         private static readonly Color[] _plyColors = new Color[]
         {
             Color.FromArgb(180, 4, 38),
@@ -8734,7 +8733,7 @@ namespace PrePoMax
             return true;
         }
 
-        public void DrawPlyOrientationArrows(CompositeLayup layup, int plyIndex)
+        public void DrawPlyOrientationArrows(CompositeLayup layup, int plyIndex, double density = 1.0)
         {
             try
             {
@@ -8774,8 +8773,9 @@ namespace PrePoMax
                 }
                 // Sample elements
                 int[] labels = elSet.Labels;
+                int step = density <= 0.0 ? int.MaxValue : Math.Max(1, (int)Math.Round(1.0 / density));
                 List<double[]> centroids = new List<double[]>();
-                for (int i = 0; i < labels.Length; i += PlyArrowDensityStep)
+                for (int i = 0; i < labels.Length; i += step)
                 {
                     FeElement element;
                     if (_model.Mesh.Elements.TryGetValue(labels[i], out element))
@@ -8808,7 +8808,7 @@ namespace PrePoMax
         {
             _form.ClearOverlayByPrefix(PlyArrowPrefix);
         }
-        public void DrawLayupCoordinateArrows(CompositeLayup layup, int plyIndex)
+        public void DrawLayupCoordinateArrows(CompositeLayup layup, int plyIndex, double density = 1.0)
         {
             try
             {
@@ -8831,8 +8831,9 @@ namespace PrePoMax
                 double[] dirY = new double[] { -sinX, cosX, 0.0 };
                 // Sample element centroids
                 int[] labels = elSet.Labels;
+                int step = density <= 0.0 ? int.MaxValue : Math.Max(1, (int)Math.Round(1.0 / density));
                 List<double[]> centroids = new List<double[]>();
-                for (int i = 0; i < labels.Length; i += PlyArrowDensityStep)
+                for (int i = 0; i < labels.Length; i += step)
                 {
                     FeElement element;
                     if (_model.Mesh.Elements.TryGetValue(labels[i], out element))
