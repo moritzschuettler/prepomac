@@ -158,6 +158,7 @@ namespace FileInOut.Input
                     new OrderedDictionary<string, ContactPair>("Contact Pairs", sc);
                 OrderedDictionary<string, Amplitude> amplitudes = new OrderedDictionary<string, Amplitude>("Amplitudes", sc);
                 OrderedDictionary<string, Step> steps = new OrderedDictionary<string, Step>("Steps", sc);
+                OrderedDictionary<string, CompositeLayup> compositeLayups = new OrderedDictionary<string, CompositeLayup>("Composite Layups", sc);
                 List<CalculixUserKeyword> userKeywords = new List<CalculixUserKeyword>();
                 //
                 for (int i = 0; i < dataSets.Length; i++)
@@ -213,8 +214,18 @@ namespace FileInOut.Input
                     }
                     else if (keyword == "*SHELL SECTION")
                     {
-                        ShellSection section = GetShellSection(dataSet, sections);
-                        if (section != null) sections.Add(section.Name, section);
+                        bool isComposite = dataSet[0].Split(_splitterComma, StringSplitOptions.RemoveEmptyEntries)
+                            .Any(p => p.Trim().ToUpper() == "COMPOSITE");
+                        if (isComposite)
+                        {
+                            CompositeLayup layup = GetCompositeLayup(dataSet, compositeLayups);
+                            if (layup != null) compositeLayups.Add(layup.Name, layup);
+                        }
+                        else
+                        {
+                            ShellSection section = GetShellSection(dataSet, sections);
+                            if (section != null) sections.Add(section.Name, section);
+                        }
                     }
                     else if (keyword == "*AMPLITUDE")
                     {
@@ -252,6 +263,7 @@ namespace FileInOut.Input
                 foreach (var entry in referencePoints) model.Mesh.ReferencePoints.Add(entry.Key, entry.Value);
                 foreach (var entry in materials) model.Materials.Add(entry.Key, entry.Value);
                 foreach (var entry in sections) model.Sections.Add(entry.Key, entry.Value);
+                foreach (var entry in compositeLayups) model.CompositeLayups.Add(entry.Key, entry.Value);
                 foreach (var entry in constraints) model.Constraints.Add(entry.Key, entry.Value);
                 foreach (var entry in surfaceInteractions) model.SurfaceInteractions.Add(entry.Key, entry.Value);
                 foreach (var entry in contactPairs) model.ContactPairs.Add(entry.Key, entry.Value);
@@ -1358,8 +1370,9 @@ namespace FileInOut.Input
                 //
                 if (isEngineeringConstants)
                 {
-                    // Flatten all values from data lines (Abaqus wraps at 8 per line)
-                    // Each temperature row: E1, E2, E3, Nu12, Nu13, Nu23, G12, G13, G23, T  (10 values)
+                    // Flatten all values from data lines (CalculiX wraps at 8 per line)
+                    // Each temperature row: E1, E2, E3, Nu12, Nu13, Nu23, G12, G13, G23[, T]
+                    // Temperature is optional — 9 values when not temperature-dependent, 10 with T
                     List<double> allValues = new List<double>();
                     for (int i = 1; i < lines.Length; i++)
                     {
@@ -1368,11 +1381,13 @@ namespace FileInOut.Input
                             allValues.Add(double.Parse(val));
                     }
                     //
-                    int rowCount = allValues.Count / 10;
+                    int valuesPerRow = (allValues.Count % 10 == 0) ? 10 : 9;
+                    int rowCount = allValues.Count / valuesPerRow;
                     double[][] engConstTemp = new double[rowCount][];
                     for (int i = 0; i < rowCount; i++)
                     {
-                        int offset = i * 10;
+                        int offset = i * valuesPerRow;
+                        double T = (valuesPerRow == 10) ? allValues[offset + 9] : 0;
                         engConstTemp[i] = new double[]
                         {
                             allValues[offset + 0], // E1
@@ -1384,7 +1399,7 @@ namespace FileInOut.Input
                             allValues[offset + 6], // G12
                             allValues[offset + 7], // G13
                             allValues[offset + 8], // G23
-                            allValues[offset + 9]  // T
+                            T                      // T
                         };
                         if (engConstTemp[i][9] != 0) temperatureDependent = true;
                     }
@@ -1651,6 +1666,53 @@ namespace FileInOut.Input
             catch
             {
                 _errors.Add("Failed to import section: " + dataSet.ToRows());
+                return null;
+            }
+        }
+        private static CompositeLayup GetCompositeLayup(string[] dataSet,
+            OrderedDictionary<string, CompositeLayup> compositeLayups)
+        {
+            // *Shell Section, elset=CompositeLayup-1-1, composite, orientation=Ori-1, layup=CompositeLayup-1
+            // 0.1, 3, AS4/9310, 0., Ply-1
+            // 0.1, 3, AS4/9310, 90., Ply-2
+            // Ply data line: thickness, integration_points, material, angle[, ply_name]
+            string elset = null;
+            string layupName = null;
+            try
+            {
+                string[] record1 = dataSet[0].Split(_splitterComma, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var rec in record1)
+                {
+                    string[] kv = rec.Split(_splitterEqual, StringSplitOptions.RemoveEmptyEntries);
+                    if (kv.Length != 2) continue;
+                    string key = kv[0].Trim().ToUpper();
+                    if (key == "ELSET") elset = kv[1].Trim();
+                    else if (key == "LAYUP") layupName = kv[1].Trim();
+                }
+                if (layupName == null) layupName = elset ?? compositeLayups.GetNextNumberedKey("CompositeLayup");
+                //
+                CompositeLayup layup = new CompositeLayup(layupName, 1, CompositeElementType.ConventionalShell);
+                layup.Plies.Clear();
+                //
+                for (int i = 1; i < dataSet.Length; i++)
+                {
+                    // Split without removing empty entries so field indices are stable
+                    record1 = dataSet[i].Split(_splitterComma, StringSplitOptions.None);
+                    double thickness = double.Parse(record1[0].Trim());
+                    // record1[1] = integration points or empty (ignored)
+                    string material = record1[2].Trim();
+                    double angle = double.Parse(record1[3].Trim());
+                    string plyName = (record1.Length >= 5 && record1[4].Trim().Length > 0)
+                        ? record1[4].Trim() : ("Ply-" + i);
+                    //
+                    Ply ply = new Ply(plyName, elset ?? "", material, thickness, "<layup>", angle);
+                    layup.Plies.Add(ply);
+                }
+                return layup;
+            }
+            catch
+            {
+                _errors.Add("Failed to import composite shell section: " + dataSet.ToRows());
                 return null;
             }
         }
