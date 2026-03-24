@@ -8296,6 +8296,19 @@ namespace PrePoMax
         {
             _model.Materials.Replace(oldMaterialName, newMaterial.Name, newMaterial);
             //
+            if (oldMaterialName != newMaterial.Name)
+            {
+                foreach (var layupEntry in _model.CompositeLayups)
+                {
+                    if (layupEntry.Value.Plies == null) continue;
+                    foreach (Ply ply in layupEntry.Value.Plies)
+                    {
+                        if (ply.Material == oldMaterialName)
+                            ply.Material = newMaterial.Name;
+                    }
+                }
+            }
+            //
             _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldMaterialName, newMaterial, null);
             //
             AnnotateWithColorLegend();

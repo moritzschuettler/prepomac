@@ -473,6 +473,7 @@ namespace PrePoMax.Forms
             this.dgvPlies.CellValueChanged += new System.Windows.Forms.DataGridViewCellEventHandler(this.dgvPlies_CellValueChanged);
             this.dgvPlies.CellClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.dgvPlies_CellClick);
             this.dgvPlies.SelectionChanged += new System.EventHandler(this.dgvPlies_SelectionChanged);
+            this.dgvPlies.ColumnHeaderMouseDoubleClick += new System.Windows.Forms.DataGridViewCellMouseEventHandler(this.dgvPlies_ColumnHeaderMouseDoubleClick);
 
             //
             // btnAddPly
@@ -1021,6 +1022,68 @@ namespace PrePoMax.Forms
                 _propertyItemChanged = true;
             }
             _editingMaterialRowIndex = -1;
+        }
+
+        private void dgvPlies_ColumnHeaderMouseDoubleClick(object sender, DataGridViewCellMouseEventArgs e)
+        {
+            if (_compositeLayup == null || _compositeLayup.Plies.Count == 0) return;
+            if (e.ColumnIndex < 0) return;
+            string columnName = dgvPlies.Columns[e.ColumnIndex].Name;
+            if (columnName == "colRegion")
+            {
+                string[] elementSetNames = _controller.GetUserElementSetNames();
+                if (elementSetNames == null || elementSetNames.Length == 0)
+                {
+                    MessageBox.Show("No element sets are defined in the model. Please create an element set first.",
+                                    "No Element Sets", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                string currentRegion = _compositeLayup.Plies[0].Region;
+                _controller.Form.ShowSelectElementSet(currentRegion, OnElementSetSelectedForAll);
+            }
+            else if (columnName == "colMaterial")
+            {
+                Material[] materials = _controller.GetAllMaterials();
+                if (materials == null || materials.Length == 0)
+                {
+                    MessageBox.Show("No materials are defined in the model. Please create a material first.",
+                                    "No Materials", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                string currentMaterial = _compositeLayup.Plies[0].Material;
+                _controller.Form.ShowSelectMaterial(currentMaterial, OnMaterialSelectedForAll);
+            }
+        }
+
+        private void OnElementSetSelectedForAll(string elementSetName)
+        {
+            if (!_controller.IsElementSetValidForComposite(elementSetName))
+            {
+                MessageBox.Show(
+                    "The selected element set contains unsupported element types.\n" +
+                    "Only S8R (parabolic quadrilateral, reduced integration) and\n" +
+                    "S6 (parabolic triangle, full integration) elements are supported.",
+                    "Unsupported Element Type",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                return;
+            }
+            for (int i = 0; i < _compositeLayup.Plies.Count; i++)
+            {
+                _compositeLayup.Plies[i].Region = elementSetName;
+                dgvPlies.Rows[i].Cells["colRegion"].Value = elementSetName;
+            }
+            _propertyItemChanged = true;
+        }
+
+        private void OnMaterialSelectedForAll(string materialName)
+        {
+            for (int i = 0; i < _compositeLayup.Plies.Count; i++)
+            {
+                _compositeLayup.Plies[i].Material = materialName;
+                dgvPlies.Rows[i].Cells["colMaterial"].Value = materialName;
+            }
+            _propertyItemChanged = true;
         }
 
         private void btnAddPly_Click(object sender, EventArgs e)
