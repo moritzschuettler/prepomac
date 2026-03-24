@@ -11309,6 +11309,7 @@ namespace PrePoMax
             // Add wizard panel
             if (tsmiAdvisor.Checked == true)
             {
+                tsmiAdvisorComposites.Checked = false;
                 Control parent = panelControl.Parent;
                 if (parent == splitContainer2.Panel1)
                 {
@@ -11330,6 +11331,64 @@ namespace PrePoMax
                     UpdateVtkControlSize();
                     // Panel 2 - RIGHT
                     _advisorControl = AdvisorCreator.CreateControl(this);
+                    //
+                    splitContainer.Panel2.Controls.Add(_advisorControl);
+                    _advisorControl.Dock = DockStyle.Fill;
+                    _advisorControl.UpdateDesign();
+                    _advisorControl.AutoScroll = true;
+                }
+            }
+            // Remove wizard panel
+            else
+            {
+                Control parent = panelControl.Parent;
+                if (parent is SplitterPanel && parent != splitContainer2.Panel1)
+                {
+                    // First remove the vtk control and panel border
+                    parent.Controls.Remove(_vtk);
+                    parent.Controls.Remove(panelControl);
+                    // Remove added split container
+                    splitContainer2.Panel1.Controls.Clear();
+                    _advisorControl = null;
+                    // Add controls back
+                    splitContainer2.Panel1.Controls.Add(panelControl);
+                    splitContainer2.Panel1.Controls.Add(_vtk);
+                    panelControl.SendToBack();
+                    // Update vtk control size
+                    UpdateVtkControlSize();
+                }
+            }
+        }
+        internal void tsmiAdvisorComposites_Click(object sender, EventArgs e)
+        {
+            if (!_controller.ModelInitialized) return;
+            // Change the wizard check state
+            tsmiAdvisorComposites.Checked = !tsmiAdvisorComposites.Checked;
+            // Add wizard panel
+            if (tsmiAdvisorComposites.Checked == true)
+            {
+                tsmiAdvisor.Checked = false;
+                Control parent = panelControl.Parent;
+                if (parent == splitContainer2.Panel1)
+                {
+                    // First remove the vtk control and panel border
+                    parent.Controls.Remove(_vtk);
+                    parent.Controls.Remove(panelControl);
+                    // Split container
+                    SplitContainer splitContainer = new SplitContainer();
+                    splitContainer.FixedPanel = FixedPanel.Panel2;
+                    splitContainer.Dock = DockStyle.Fill;
+                    parent.Controls.Add(splitContainer);
+                    // Set the Panel 2 size - min 100 max 300
+                    splitContainer.SplitterDistance = Math.Max(100, Math.Max(parent.Width - 300, (int)(parent.Width * 0.8)));
+                    // Panel 1 - LEFT
+                    splitContainer.Panel1.Controls.Add(_vtk);
+                    splitContainer.Panel1.Controls.Add(panelControl);
+                    panelControl.SendToBack();
+                    // Update vtk control size
+                    UpdateVtkControlSize();
+                    // Panel 2 - RIGHT
+                    _advisorControl = AdvisorCreatorComposites.CreateControl(this);
                     //
                     splitContainer.Panel2.Controls.Add(_advisorControl);
                     _advisorControl.Dock = DockStyle.Fill;

@@ -399,6 +399,7 @@
     <Compile Include="Forms\00_Common\ViewStringValue.cs" />
     <Compile Include="Forms\00_Common\ViewUnitSystem.cs" />
     <Compile Include="Forms\00_Advisor\AdvisorCreator.cs" />
+    <Compile Include="Forms\00_Advisor\AdvisorCreatorComposites.cs" />
     <Compile Include="Forms\00_Parameters\FrmEquationParameters.cs">
       <SubType>Form</SubType>
     </Compile>

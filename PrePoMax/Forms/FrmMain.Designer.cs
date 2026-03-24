@@ -217,6 +217,7 @@ namespace PrePoMax
             this.tsmiDividerTools2 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiHelp = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiAdvisor = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiAdvisorComposites = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiHomePage = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiAdvisorHelp1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiAbout = new System.Windows.Forms.ToolStripMenuItem();
@@ -2098,6 +2099,7 @@ namespace PrePoMax
             // 
             this.tsmiHelp.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsmiAdvisor,
+            this.tsmiAdvisorComposites,
             this.tsmiHomePage,
             this.tsmiAdvisorHelp1,
             this.tsmiAbout,
@@ -2113,7 +2115,14 @@ namespace PrePoMax
             this.tsmiAdvisor.Size = new System.Drawing.Size(136, 22);
             this.tsmiAdvisor.Text = "Advisor";
             this.tsmiAdvisor.Click += new System.EventHandler(this.tsmiAdvisor_Click);
-            // 
+            //
+            // tsmiAdvisorComposites
+            //
+            this.tsmiAdvisorComposites.Name = "tsmiAdvisorComposites";
+            this.tsmiAdvisorComposites.Size = new System.Drawing.Size(136, 22);
+            this.tsmiAdvisorComposites.Text = "Advisor - Composites";
+            this.tsmiAdvisorComposites.Click += new System.EventHandler(this.tsmiAdvisorComposites_Click);
+            //
             // tsmiHomePage
             // 
             this.tsmiHomePage.Name = "tsmiHomePage";
@@ -5240,6 +5249,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripStatusLabel tsslEmpty;
         private System.Windows.Forms.ToolStripStatusLabel tsslUnitSystem;
         private System.Windows.Forms.ToolStripMenuItem tsmiAdvisor;
+        private System.Windows.Forms.ToolStripMenuItem tsmiAdvisorComposites;
         private System.Windows.Forms.ToolStripSeparator tsmiAdvisorHelp1;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerResults1;
         private System.Windows.Forms.ToolStripMenuItem tsmiTransformation;
