@@ -275,3 +275,7 @@ __pycache__/
 /assets_composites/abq_tensile_coupon/tensile_coupon_remesh.stl
 /assets_composites/abq_tensile_coupon/tensile_coupon-ABQ.zip
 /assets_composites/abq_tensile_coupon/tensile_coupon_ABQ2.inp.txt
+/assets_composites/cooperhood/cooperclimax_model1.inp
+/assets_composites/cooperhood/cooperhood_mesh_coarse.stl
+/assets_composites/cooperhood/cooperhood_remesh.stl
+/assets_composites/sphere/kindrape_log.txt
