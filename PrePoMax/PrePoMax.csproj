@@ -500,6 +500,9 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Forms\43_Composite\ViewCompositeLayup.cs" />
+    <Compile Include="Forms\43_Composite\FrmAboutComposites.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Forms\43_Composite\FrmCreateCompositeLayup.cs">
       <SubType>Form</SubType>
     </Compile>

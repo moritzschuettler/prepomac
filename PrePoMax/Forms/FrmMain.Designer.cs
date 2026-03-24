@@ -220,6 +220,7 @@ namespace PrePoMax
             this.tsmiHomePage = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiAdvisorHelp1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiAbout = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiAboutComposites = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiTest = new System.Windows.Forms.ToolStripMenuItem();
             this.panelControl = new System.Windows.Forms.Panel();
             this.aeAnnotationTextEditor = new UserControls.AnnotationEditor();
@@ -2100,6 +2101,7 @@ namespace PrePoMax
             this.tsmiHomePage,
             this.tsmiAdvisorHelp1,
             this.tsmiAbout,
+            this.tsmiAboutComposites,
             this.tsmiTest});
             this.tsmiHelp.Name = "tsmiHelp";
             this.tsmiHelp.Size = new System.Drawing.Size(44, 20);
@@ -2131,8 +2133,15 @@ namespace PrePoMax
             this.tsmiAbout.Text = "About";
             this.tsmiAbout.Click += new System.EventHandler(this.tsmiAbout_Click);
             // 
+            // tsmiAboutComposites
+            //
+            this.tsmiAboutComposites.Name = "tsmiAboutComposites";
+            this.tsmiAboutComposites.Size = new System.Drawing.Size(136, 22);
+            this.tsmiAboutComposites.Text = "About Composites Modeler";
+            this.tsmiAboutComposites.Click += new System.EventHandler(this.tsmiAboutComposites_Click);
+            //
             // tsmiTest
-            // 
+            //
             this.tsmiTest.Name = "tsmiTest";
             this.tsmiTest.Size = new System.Drawing.Size(136, 22);
             this.tsmiTest.Text = "Test";
@@ -5165,6 +5174,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiResultsColorContours;
         private System.Windows.Forms.ToolStripMenuItem tsmiHelp;
         private System.Windows.Forms.ToolStripMenuItem tsmiAbout;
+        private System.Windows.Forms.ToolStripMenuItem tsmiAboutComposites;
         private System.Windows.Forms.ToolStripMenuItem tsmiHomePage;
         private System.Windows.Forms.ToolStripMenuItem tsmiColorContoursOff;
         private System.Windows.Forms.ToolStripMenuItem tsmiColorContoursOn;

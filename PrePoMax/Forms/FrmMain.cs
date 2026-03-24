@@ -8567,6 +8567,13 @@ namespace PrePoMax
                 frmSplash.ShowDialog(this);
             }
         }
+        private void tsmiAboutComposites_Click(object sender, EventArgs e)
+        {
+            using (FrmAboutComposites frm = new FrmAboutComposites())
+            {
+                frm.ShowDialog(this);
+            }
+        }
         #endregion  ################################################################################################################
 
         #region Selection methods  #################################################################################################
