@@ -8746,11 +8746,12 @@ namespace PrePoMax
             return true;
         }
 
-        public void DrawPlyOrientationArrows(CompositeLayup layup, int plyIndex, double density = 1.0)
+        public void DrawPlyOrientationArrows(CompositeLayup layup, int plyIndex, double density = 1.0,
+                                                bool clearFirst = true)
         {
             try
             {
-                _form.ClearOverlayByPrefix(PlyArrowPrefix);
+                if (clearFirst) _form.ClearOverlayByPrefix(PlyArrowPrefix);
                 //
                 if (plyIndex < 0 || plyIndex >= layup.Plies.Count) return;
                 Ply ply = layup.Plies[plyIndex];
@@ -8759,60 +8760,60 @@ namespace PrePoMax
                 FeElementSet elSet;
                 if (!_model.Mesh.ElementSets.TryGetValue(ply.Region, out elSet)) return;
                 if (elSet.Labels.Length == 0) return;
-                // Compute direction vector
-                double[] direction = new double[] { 1, 0, 0 };
+                // Reference X direction (from ply CSYS or global X)
+                Vec3D refX = new Vec3D(1.0, 0.0, 0.0);
                 if (ply.Csys != "<layup>")
                 {
                     CoordinateSystem csys;
                     if (_model.Mesh.CoordinateSystems.TryGetValue(ply.Csys, out csys))
-                        direction = csys.DirectionX().Coor;
+                        refX = new Vec3D(csys.DirectionX().Coor);
                 }
-                else if (layup.OrientationDefinition == OrientationDefinitionType.CoordinateSystem)
-                {
-                    // If layup-level CSYS is set, it would be handled here in the future
-                }
-                // Apply ply rotation angle + layup additional rotation (rotate direction in XY plane)
+                // Total rotation angle: ply angle + layup additional rotation
                 double angleDeg = ply.RotationAngle;
                 if (layup.AdditionalRotationType == AdditionalRotationType.Angle)
                     angleDeg += layup.AdditionalRotationAngle;
-                if (angleDeg != 0)
-                {
-                    double angleRad = angleDeg * Math.PI / 180.0;
-                    double cos = Math.Cos(angleRad);
-                    double sin = Math.Sin(angleRad);
-                    double dx = direction[0] * cos - direction[1] * sin;
-                    double dy = direction[0] * sin + direction[1] * cos;
-                    direction = new double[] { dx, dy, direction[2] };
-                }
-                // Sample elements
+                double angleRad = angleDeg * Math.PI / 180.0;
+                double cosA = Math.Cos(angleRad);
+                double sinA = Math.Sin(angleRad);
+                // Sample elements and compute per-element fiber direction in the element tangent plane
                 int[] labels = elSet.Labels;
                 int step = density <= 0.0 ? int.MaxValue : Math.Max(1, (int)Math.Round(1.0 / density));
                 List<double[]> centroids = new List<double[]>();
+                List<double[]> fiberDirs = new List<double[]>();
                 for (int i = 0; i < labels.Length; i += step)
                 {
                     FeElement element;
-                    if (_model.Mesh.Elements.TryGetValue(labels[i], out element))
-                    {
-                        double elementSize;
-                        double[] cg = element.GetCG(_model.Mesh.Nodes, out elementSize);
-                        centroids.Add(cg);
-                    }
+                    if (!_model.Mesh.Elements.TryGetValue(labels[i], out element)) continue;
+                    double elementSize;
+                    double[] cg = element.GetCG(_model.Mesh.Nodes, out elementSize);
+                    // Get element normal (local rosette Z axis)
+                    double[] normalArr;
+                    try { _model.Mesh.GetElementFaceNormal(labels[i], FeFaceName.S2, out normalArr); }
+                    catch { continue; }
+                    Vec3D nZ = new Vec3D(normalArr);
+                    if (nZ.Normalize() < 1e-10) continue;
+                    // Build local rosette frame: nY = refX × nZ, nX = nZ × nY
+                    Vec3D nY = Vec3D.CrossProduct(refX, nZ);
+                    if (nY.Normalize() < 1e-10) continue;
+                    Vec3D nX = Vec3D.CrossProduct(nZ, nY);
+                    nX.Normalize();
+                    // Rotate local rosette X about nZ by angleDeg: fiberDir = nX*cos - nY*sin
+                    Vec3D fiberDir = nX * cosA + nY * (-sinA);
+                    fiberDir.Normalize();
+                    centroids.Add(cg);
+                    fiberDirs.Add(fiberDir.Coor);
                 }
                 if (centroids.Count == 0) return;
-                // Build actor data
-                double[][] coorArray = centroids.ToArray();
-                double[][] normalsArray = new double[centroids.Count][];
-                for (int i = 0; i < centroids.Count; i++) normalsArray[i] = direction;
                 //
                 int symbolSize = _settings.Pre.SymbolSize;
                 vtkMaxActorData data = new vtkMaxActorData();
                 data.Name = PlyArrowPrefix + Globals.NameSeparator + layup.Name + Globals.NameSeparator + ply.Name;
-                data.Color = _plyColors[plyIndex % _plyColors.Length];
+                data.Color = Color.FromArgb(255, 210, 0);
                 data.Layer = vtkRendererLayer.Overlay;
-                data.Geometry.Nodes.Coor = coorArray;
-                data.Geometry.Nodes.Normals = normalsArray;
+                data.Geometry.Nodes.Coor = centroids.ToArray();
+                data.Geometry.Nodes.Normals = fiberDirs.ToArray();
                 ApplyLighting(data);
-                _form.AddOrientationArrows(data, symbolSize);
+                _form.AddOrientationArrows(data, symbolSize * 1.1);
                 _form.AdjustCameraDistanceAndClipping();
             }
             catch { }
@@ -8821,11 +8822,17 @@ namespace PrePoMax
         {
             _form.ClearOverlayByPrefix(PlyArrowPrefix);
         }
-        public void DrawLayupCoordinateArrows(CompositeLayup layup, int plyIndex, double density = 1.0)
+        public void DrawAllOrientationArrows(CompositeLayup layup, int plyIndex, double density = 1.0)
+        {
+            DrawPlyOrientationArrows(layup, plyIndex, density, clearFirst: true);
+            DrawLayupCoordinateArrows(layup, plyIndex, density, clearFirst: false);
+        }
+        public void DrawLayupCoordinateArrows(CompositeLayup layup, int plyIndex, double density = 1.0,
+                                                  bool clearFirst = true)
         {
             try
             {
-                _form.ClearOverlayByPrefix(PlyArrowPrefix);
+                if (clearFirst) _form.ClearOverlayByPrefix(PlyArrowPrefix);
                 //
                 if (plyIndex < 0 || plyIndex >= layup.Plies.Count) return;
                 Ply ply = layup.Plies[plyIndex];
@@ -8834,64 +8841,71 @@ namespace PrePoMax
                 FeElementSet elSet;
                 if (!_model.Mesh.ElementSets.TryGetValue(ply.Region, out elSet)) return;
                 if (elSet.Labels.Length == 0) return;
-                // Compute layup reference frame directions (additional rotation applied, ply angle not included)
+                // Reference X direction: global X rotated by additional rotation angle in XY plane
                 double additionalAngle = layup.AdditionalRotationType == AdditionalRotationType.Angle
                     ? layup.AdditionalRotationAngle : 0.0;
-                double angleRadX = additionalAngle * Math.PI / 180.0;
-                double cosX = Math.Cos(angleRadX);
-                double sinX = Math.Sin(angleRadX);
-                double[] dirX = new double[] { cosX, sinX, 0.0 };
-                double[] dirY = new double[] { -sinX, cosX, 0.0 };
-                // Sample element centroids
+                double angleRad = additionalAngle * Math.PI / 180.0;
+                Vec3D refX = new Vec3D(Math.Cos(angleRad), Math.Sin(angleRad), 0.0);
+                // Sample elements and compute per-element local rosette frame
                 int[] labels = elSet.Labels;
                 int step = density <= 0.0 ? int.MaxValue : Math.Max(1, (int)Math.Round(1.0 / density));
                 List<double[]> centroids = new List<double[]>();
+                List<double[]> normalsX = new List<double[]>();
+                List<double[]> normalsY = new List<double[]>();
+                List<double[]> normalsZ = new List<double[]>();
                 for (int i = 0; i < labels.Length; i += step)
                 {
                     FeElement element;
-                    if (_model.Mesh.Elements.TryGetValue(labels[i], out element))
-                    {
-                        double elementSize;
-                        double[] cg = element.GetCG(_model.Mesh.Nodes, out elementSize);
-                        centroids.Add(cg);
-                    }
+                    if (!_model.Mesh.Elements.TryGetValue(labels[i], out element)) continue;
+                    double elementSize;
+                    double[] cg = element.GetCG(_model.Mesh.Nodes, out elementSize);
+                    // Get element normal (local rosette Z axis)
+                    double[] normalArr;
+                    try { _model.Mesh.GetElementFaceNormal(labels[i], FeFaceName.S2, out normalArr); }
+                    catch { continue; }
+                    Vec3D nZ = new Vec3D(normalArr);
+                    if (nZ.Normalize() < 1e-10) continue;
+                    // Binormal: nY = normalize(refX × nZ)
+                    Vec3D nY = Vec3D.CrossProduct(refX, nZ);
+                    if (nY.Normalize() < 1e-10) continue; // refX parallel to nZ — degenerate
+                    // Local rosette X: nX = normalize(nZ × nY)
+                    Vec3D nX = Vec3D.CrossProduct(nZ, nY);
+                    nX.Normalize();
+                    //
+                    centroids.Add(cg);
+                    normalsX.Add(nX.Coor);
+                    normalsY.Add(nY.Coor);
+                    normalsZ.Add(nZ.Coor);
                 }
                 if (centroids.Count == 0) return;
                 //
                 int symbolSize = _settings.Pre.SymbolSize;
                 double[][] coorArray = centroids.ToArray();
                 // X direction — red
-                double[][] normalsX = new double[centroids.Count][];
-                for (int i = 0; i < centroids.Count; i++) normalsX[i] = dirX;
                 vtkMaxActorData dataX = new vtkMaxActorData();
                 dataX.Name = PlyArrowPrefix + Globals.NameSeparator + layup.Name + Globals.NameSeparator + "X";
                 dataX.Color = Color.FromArgb(220, 30, 30);
                 dataX.Layer = vtkRendererLayer.Overlay;
                 dataX.Geometry.Nodes.Coor = coorArray;
-                dataX.Geometry.Nodes.Normals = normalsX;
+                dataX.Geometry.Nodes.Normals = normalsX.ToArray();
                 ApplyLighting(dataX);
                 _form.AddOrientationArrows(dataX, symbolSize);
                 // Y direction — green
-                double[][] normalsY = new double[centroids.Count][];
-                for (int i = 0; i < centroids.Count; i++) normalsY[i] = dirY;
                 vtkMaxActorData dataY = new vtkMaxActorData();
                 dataY.Name = PlyArrowPrefix + Globals.NameSeparator + layup.Name + Globals.NameSeparator + "Y";
                 dataY.Color = Color.FromArgb(30, 180, 60);
                 dataY.Layer = vtkRendererLayer.Overlay;
                 dataY.Geometry.Nodes.Coor = coorArray;
-                dataY.Geometry.Nodes.Normals = normalsY;
+                dataY.Geometry.Nodes.Normals = normalsY.ToArray();
                 ApplyLighting(dataY);
                 _form.AddOrientationArrows(dataY, symbolSize);
-                // Z direction — blue (normal to layup plane)
-                double[] dirZ = new double[] { 0.0, 0.0, 1.0 };
-                double[][] normalsZ = new double[centroids.Count][];
-                for (int i = 0; i < centroids.Count; i++) normalsZ[i] = dirZ;
+                // Z direction — blue (element normal)
                 vtkMaxActorData dataZ = new vtkMaxActorData();
                 dataZ.Name = PlyArrowPrefix + Globals.NameSeparator + layup.Name + Globals.NameSeparator + "Z";
                 dataZ.Color = Color.FromArgb(30, 100, 220);
                 dataZ.Layer = vtkRendererLayer.Overlay;
                 dataZ.Geometry.Nodes.Coor = coorArray;
-                dataZ.Geometry.Nodes.Normals = normalsZ;
+                dataZ.Geometry.Nodes.Normals = normalsZ.ToArray();
                 ApplyLighting(dataZ);
                 _form.AddOrientationArrows(dataZ, symbolSize);
                 _form.AdjustCameraDistanceAndClipping();

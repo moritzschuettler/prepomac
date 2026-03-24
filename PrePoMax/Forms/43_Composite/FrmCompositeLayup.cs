@@ -59,6 +59,7 @@ namespace PrePoMax.Forms
         private RadioButton rbHighlightOn;
         private RadioButton rbHighlightOff;
         private GroupBox gbOrientationDisplay;
+        private RadioButton rbOrientationAll;
         private RadioButton rbOrientationLayup;
         private RadioButton rbOrientationXY;
         private RadioButton rbOrientationNone;
@@ -131,6 +132,7 @@ namespace PrePoMax.Forms
             this.rbHighlightOn = new System.Windows.Forms.RadioButton();
             this.rbHighlightOff = new System.Windows.Forms.RadioButton();
             this.gbOrientationDisplay = new System.Windows.Forms.GroupBox();
+            this.rbOrientationAll = new System.Windows.Forms.RadioButton();
             this.rbOrientationLayup = new System.Windows.Forms.RadioButton();
             this.rbOrientationXY = new System.Windows.Forms.RadioButton();
             this.rbOrientationNone = new System.Windows.Forms.RadioButton();
@@ -670,6 +672,7 @@ namespace PrePoMax.Forms
             //
             // gbOrientationDisplay
             //
+            this.gbOrientationDisplay.Controls.Add(this.rbOrientationAll);
             this.gbOrientationDisplay.Controls.Add(this.rbOrientationLayup);
             this.gbOrientationDisplay.Controls.Add(this.rbOrientationXY);
             this.gbOrientationDisplay.Controls.Add(this.rbOrientationNone);
@@ -677,20 +680,32 @@ namespace PrePoMax.Forms
             this.gbOrientationDisplay.Controls.Add(this.nudArrowDensity);
             this.gbOrientationDisplay.Location = new System.Drawing.Point(220, 8);
             this.gbOrientationDisplay.Name = "gbOrientationDisplay";
-            this.gbOrientationDisplay.Size = new System.Drawing.Size(200, 120);
+            this.gbOrientationDisplay.Size = new System.Drawing.Size(200, 142);
             this.gbOrientationDisplay.TabIndex = 1;
             this.gbOrientationDisplay.TabStop = false;
             this.gbOrientationDisplay.Text = "Orientation display";
+
+            //
+            // rbOrientationAll
+            //
+            this.rbOrientationAll.AutoSize = true;
+            this.rbOrientationAll.Location = new System.Drawing.Point(10, 22);
+            this.rbOrientationAll.Name = "rbOrientationAll";
+            this.rbOrientationAll.Size = new System.Drawing.Size(33, 19);
+            this.rbOrientationAll.TabIndex = 0;
+            this.rbOrientationAll.Text = "All";
+            this.rbOrientationAll.UseVisualStyleBackColor = true;
+            this.rbOrientationAll.CheckedChanged += new System.EventHandler(this.rbOrientationAll_CheckedChanged);
 
             //
             // rbOrientationLayup
             //
             this.rbOrientationLayup.AutoSize = true;
             this.rbOrientationLayup.Checked = true;
-            this.rbOrientationLayup.Location = new System.Drawing.Point(10, 22);
+            this.rbOrientationLayup.Location = new System.Drawing.Point(10, 44);
             this.rbOrientationLayup.Name = "rbOrientationLayup";
             this.rbOrientationLayup.Size = new System.Drawing.Size(130, 19);
-            this.rbOrientationLayup.TabIndex = 0;
+            this.rbOrientationLayup.TabIndex = 1;
             this.rbOrientationLayup.TabStop = true;
             this.rbOrientationLayup.Text = "Ply fiber direction";
             this.rbOrientationLayup.UseVisualStyleBackColor = true;
@@ -700,10 +715,10 @@ namespace PrePoMax.Forms
             // rbOrientationXY
             //
             this.rbOrientationXY.AutoSize = true;
-            this.rbOrientationXY.Location = new System.Drawing.Point(10, 44);
+            this.rbOrientationXY.Location = new System.Drawing.Point(10, 66);
             this.rbOrientationXY.Name = "rbOrientationXY";
             this.rbOrientationXY.Size = new System.Drawing.Size(130, 19);
-            this.rbOrientationXY.TabIndex = 1;
+            this.rbOrientationXY.TabIndex = 2;
             this.rbOrientationXY.Text = "Coordinate system";
             this.rbOrientationXY.UseVisualStyleBackColor = true;
             this.rbOrientationXY.CheckedChanged += new System.EventHandler(this.rbOrientationXY_CheckedChanged);
@@ -712,10 +727,10 @@ namespace PrePoMax.Forms
             // rbOrientationNone
             //
             this.rbOrientationNone.AutoSize = true;
-            this.rbOrientationNone.Location = new System.Drawing.Point(10, 66);
+            this.rbOrientationNone.Location = new System.Drawing.Point(10, 88);
             this.rbOrientationNone.Name = "rbOrientationNone";
             this.rbOrientationNone.Size = new System.Drawing.Size(50, 19);
-            this.rbOrientationNone.TabIndex = 2;
+            this.rbOrientationNone.TabIndex = 3;
             this.rbOrientationNone.Text = "None";
             this.rbOrientationNone.UseVisualStyleBackColor = true;
 
@@ -723,9 +738,9 @@ namespace PrePoMax.Forms
             // lArrowDensity
             //
             this.lArrowDensity.AutoSize = true;
-            this.lArrowDensity.Location = new System.Drawing.Point(10, 94);
+            this.lArrowDensity.Location = new System.Drawing.Point(10, 116);
             this.lArrowDensity.Name = "lArrowDensity";
-            this.lArrowDensity.TabIndex = 3;
+            this.lArrowDensity.TabIndex = 4;
             this.lArrowDensity.Text = "Arrows density";
 
             //
@@ -733,7 +748,7 @@ namespace PrePoMax.Forms
             //
             this.nudArrowDensity.DecimalPlaces = 2;
             this.nudArrowDensity.Increment = new decimal(new int[] { 5, 0, 0, 131072 }); // 0.05
-            this.nudArrowDensity.Location = new System.Drawing.Point(120, 91);
+            this.nudArrowDensity.Location = new System.Drawing.Point(120, 113);
             this.nudArrowDensity.Maximum = new decimal(new int[] { 1, 0, 0, 0 });
             this.nudArrowDensity.Minimum = new decimal(new int[] { 0, 0, 0, 0 });
             this.nudArrowDensity.Name = "nudArrowDensity";
@@ -891,7 +906,9 @@ namespace PrePoMax.Forms
             {
                 int plyIndex = dgvPlies.SelectedRows[0].Index;
                 double density = (double)nudArrowDensity.Value;
-                if (rbOrientationLayup.Checked)
+                if (rbOrientationAll.Checked)
+                    _controller.DrawAllOrientationArrows(_compositeLayup, plyIndex, density);
+                else if (rbOrientationLayup.Checked)
                     _controller.DrawPlyOrientationArrows(_compositeLayup, plyIndex, density);
                 else if (rbOrientationXY.Checked)
                     _controller.DrawLayupCoordinateArrows(_compositeLayup, plyIndex, density);
@@ -1150,7 +1167,9 @@ namespace PrePoMax.Forms
             {
                 int plyIndex = dgvPlies.SelectedRows[0].Index;
                 double density = (double)nudArrowDensity.Value;
-                if (rbOrientationLayup.Checked)
+                if (rbOrientationAll.Checked)
+                    _controller.DrawAllOrientationArrows(_compositeLayup, plyIndex, density);
+                else if (rbOrientationLayup.Checked)
                     _controller.DrawPlyOrientationArrows(_compositeLayup, plyIndex, density);
                 else if (rbOrientationXY.Checked)
                     _controller.DrawLayupCoordinateArrows(_compositeLayup, plyIndex, density);
@@ -1192,6 +1211,21 @@ namespace PrePoMax.Forms
             else
             {
                 _controller.Form.Clear3DSelection();
+            }
+        }
+
+        private void rbOrientationAll_CheckedChanged(object sender, EventArgs e)
+        {
+            if (dgvPlies.SelectedRows.Count > 0 && _compositeLayup != null)
+            {
+                if (rbOrientationAll.Checked)
+                    _controller.DrawAllOrientationArrows(_compositeLayup, dgvPlies.SelectedRows[0].Index, (double)nudArrowDensity.Value);
+                else
+                    _controller.ClearPlyOrientationArrows();
+            }
+            else if (!rbOrientationAll.Checked)
+            {
+                _controller.ClearPlyOrientationArrows();
             }
         }
 
