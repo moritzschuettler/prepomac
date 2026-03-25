@@ -8707,6 +8707,27 @@ namespace PrePoMax
                 AddCompositeLayup(layup);
             }
         }
+        // Discrete orientations
+        public void ImportDiscreteOrientationsXmlCommand(string layupName, string fileName)
+        {
+            CImportDiscreteOrientationsXml comm = new CImportDiscreteOrientationsXml(layupName, fileName);
+            _commands.AddAndExecute(comm);
+        }
+        public void ImportDiscreteOrientationsXml(string layupName, string fileName)
+        {
+            DiscreteOrientationsData data = DiscreteOrientationsXmlReader.Read(fileName);
+            CompositeLayup layup = _model.CompositeLayups[layupName].DeepClone();
+            layup.DiscreteOrientationsEnabled = true;
+            layup.DiscreteOrientationsData = data;
+            ReplaceCompositeLayup(layupName, layup);
+        }
+        public void ClearDiscreteOrientations(string layupName)
+        {
+            CompositeLayup layup = _model.CompositeLayups[layupName].DeepClone();
+            layup.DiscreteOrientationsEnabled = false;
+            layup.DiscreteOrientationsData = null;
+            ReplaceCompositeLayup(layupName, layup);
+        }
         private string GetUniqueCompositeLayupName(string baseName)
         {
             string name = baseName;

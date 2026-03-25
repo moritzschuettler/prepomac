@@ -299,6 +299,7 @@
     <Compile Include="Commands\0062_Section\CReplaceSection.cs" />
     <Compile Include="Commands\0063_Composite\CAddCompositeLayup.cs" />
     <Compile Include="Commands\0063_Composite\CImportCompositeLayupsFromCsv.cs" />
+    <Compile Include="Commands\0063_Composite\CImportDiscreteOrientationsXml.cs" />
     <Compile Include="Commands\0063_Composite\CReplaceCompositeLayup.cs" />
     <Compile Include="Commands\0063_Composite\CDuplicateCompositeLayups.cs" />
     <Compile Include="Commands\0063_Composite\CRemoveCompositeLayups.cs" />

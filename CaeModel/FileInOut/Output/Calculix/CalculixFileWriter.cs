@@ -146,7 +146,8 @@ namespace FileInOut.Output
                                 ref additionalElementSetNames, ref additionalSectionData);
                 // Process composite layups and collect generated keywords
                 List<CompositeLayupWriter> compositeLayupWriters = new List<CompositeLayupWriter>();
-                ProcessCompositeLayups(model, ref compositeLayupWriters);
+                List<DiscreteOrientationsWriter> doWriters = new List<DiscreteOrientationsWriter>();
+                ProcessCompositeLayups(model, ref compositeLayupWriters, ref doWriters);
                 // Collect compression only constraints
                 GetCompressionOnlyConstraintData(model, ref maxNodeId, ref maxElementId, ref additionalNodes,
                                                  ref additionalNodeSets, ref additionalElementKeywords,
@@ -185,6 +186,7 @@ namespace FileInOut.Output
                 keywords.Add(title);
                 AppendElementSets(model, additionalElementSetNames, title);
                 AppendCompositeLayupElementSets(compositeLayupWriters, title);
+                AppendDiscreteOrientationsElementSets(doWriters, title);
                 // Surfaces
                 title = new CalTitle("Surfaces", "");
                 keywords.Add(title);
@@ -201,6 +203,7 @@ namespace FileInOut.Output
                 title = new CalTitle("Orientations", "");
                 keywords.Add(title);
                 AppendCompositeLayupOrientations(compositeLayupWriters, title);
+                AppendDiscreteOrientationsOrientations(doWriters, title);
                 // Materials
                 title = new CalTitle("Materials", "");
                 keywords.Add(title);
@@ -211,6 +214,7 @@ namespace FileInOut.Output
                 AppendSections(model, additionalSectionData, title);
                 // Composite shell sections
                 AppendCompositeLayupSections(compositeLayupWriters, title);
+                AppendDiscreteOrientationsSections(doWriters, title);
                 // Pre-tension sections
                 title = new CalTitle("Pre-tension sections", "");
                 keywords.Add(title);
@@ -1463,7 +1467,9 @@ namespace FileInOut.Output
         //
         // Composite layup methods
         //
-        static private void ProcessCompositeLayups(FeModel model, ref List<CompositeLayupWriter> compositeLayupWriters)
+        static private void ProcessCompositeLayups(FeModel model,
+            ref List<CompositeLayupWriter> compositeLayupWriters,
+            ref List<DiscreteOrientationsWriter> doWriters)
         {
             if (model.CompositeLayups == null || model.Mesh == null) return;
             //
@@ -1472,11 +1478,47 @@ namespace FileInOut.Output
             foreach (var entry in model.CompositeLayups)
             {
                 CompositeLayup layup = entry.Value;
-                CompositeLayupWriter writer = new CompositeLayupWriter(layup, model.Mesh);
-                writer.Process();
-                compositeLayupWriters.Add(writer);
-                //
-                allWarnings.AddRange(writer.Warnings);
+                if (layup.UseDrapingForFiberDirection)
+                {
+                    DiscreteOrientationsData drapingData = BuildDrapingOrientationsData(layup, model.Mesh);
+                    if (drapingData != null && drapingData.Points != null && drapingData.Points.Count > 0)
+                    {
+                        CompositeLayup layupCopy = layup.DeepClone();
+                        layupCopy.DiscreteOrientationsEnabled = true;
+                        layupCopy.DiscreteOrientationsData = drapingData;
+                        var doWriter = new DiscreteOrientationsWriter(layupCopy, model.Mesh);
+                        doWriter.Process();
+                        doWriters.Add(doWriter);
+                        allWarnings.AddRange(doWriter.Warnings);
+                    }
+                }
+                else if (layup.DiscreteOrientationsEnabled)
+                {
+                    var doWriter = new DiscreteOrientationsWriter(layup, model.Mesh);
+                    doWriter.Process();
+                    doWriters.Add(doWriter);
+                    allWarnings.AddRange(doWriter.Warnings);
+                    // Write log next to XML file
+                    if (!string.IsNullOrEmpty(doWriter.LogText) &&
+                        layup.DiscreteOrientationsData?.XmlFilePath != null)
+                    {
+                        try
+                        {
+                            string logPath = System.IO.Path.ChangeExtension(
+                                layup.DiscreteOrientationsData.XmlFilePath,
+                                null) + "_mapping.log";
+                            System.IO.File.WriteAllText(logPath, doWriter.LogText);
+                        }
+                        catch { }
+                    }
+                }
+                else
+                {
+                    CompositeLayupWriter writer = new CompositeLayupWriter(layup, model.Mesh);
+                    writer.Process();
+                    compositeLayupWriters.Add(writer);
+                    allWarnings.AddRange(writer.Warnings);
+                }
             }
             //
             // Show warnings if any
@@ -1485,6 +1527,123 @@ namespace FileInOut.Output
                 string warningMessage = string.Join("\n\n", allWarnings);
                 CaeGlobals.MessageBoxes.ShowWarning(warningMessage);
             }
+        }
+        static private void AppendDiscreteOrientationsElementSets(List<DiscreteOrientationsWriter> doWriters,
+                                                                   CalculixKeyword parent)
+        {
+            foreach (var w in doWriters)
+                foreach (var es in w.ItaElementSets)
+                    parent.AddKeyword(new CalElementSet(es));
+        }
+        static private void AppendDiscreteOrientationsOrientations(List<DiscreteOrientationsWriter> doWriters,
+                                                                    CalculixKeyword parent)
+        {
+            foreach (var w in doWriters)
+                foreach (var ori in w.OrientationKeywords)
+                    parent.AddKeyword(ori);
+        }
+        static private void AppendDiscreteOrientationsSections(List<DiscreteOrientationsWriter> doWriters,
+                                                                CalculixKeyword parent)
+        {
+            foreach (var w in doWriters)
+                foreach (var sec in w.SectionKeywords)
+                    parent.AddKeyword(sec);
+        }
+        static private DiscreteOrientationsData BuildDrapingOrientationsData(CompositeLayup layup, FeMesh mesh)
+        {
+            if (layup.Plies == null || layup.Plies.Count == 0) return null;
+            int plyIndex = Math.Max(0, Math.Min(layup.DrapingPlyIndex, layup.Plies.Count - 1));
+            Ply ply = layup.Plies[plyIndex];
+            if (string.IsNullOrEmpty(ply.Region)) return null;
+            FeElementSet elSet;
+            if (!mesh.ElementSets.TryGetValue(ply.Region, out elSet) || elSet.Labels.Length == 0) return null;
+            //
+            // Build flat node array
+            var nodeIdSet = new HashSet<int>();
+            foreach (int eid in elSet.Labels)
+            {
+                FeElement element;
+                if (mesh.Elements.TryGetValue(eid, out element))
+                    foreach (int nid in element.NodeIds) nodeIdSet.Add(nid);
+            }
+            var nodeIdList = new List<int>(nodeIdSet);
+            var nodeIdToIdx = new Dictionary<int, int>(nodeIdList.Count);
+            double[] coords = new double[nodeIdList.Count * 3];
+            for (int i = 0; i < nodeIdList.Count; i++)
+            {
+                nodeIdToIdx[nodeIdList[i]] = i;
+                FeNode nd = mesh.Nodes[nodeIdList[i]];
+                coords[i * 3] = nd.X; coords[i * 3 + 1] = nd.Y; coords[i * 3 + 2] = nd.Z;
+            }
+            var elemCounts = new List<int>();
+            var elemNodes = new List<int>();
+            foreach (int eid in elSet.Labels)
+            {
+                FeElement element;
+                if (!mesh.Elements.TryGetValue(eid, out element)) continue;
+                int[] surf = GetSurfNodeIds(element);
+                if (surf == null || surf.Length < 3) continue;
+                elemCounts.Add(surf.Length);
+                foreach (int nid in surf)
+                    elemNodes.Add(nodeIdToIdx.ContainsKey(nid) ? nodeIdToIdx[nid] : 0);
+            }
+            if (elemCounts.Count == 0) return null;
+            //
+            double cellSize = layup.DrapingCellSize > 0 ? layup.DrapingCellSize : 0.01;
+            DrapingResult result = KinDrape.Run(coords, elemCounts.ToArray(), elemNodes.ToArray(),
+                                                ply.RotationAngle, cellSize);
+            if (result == null) return null;
+            //
+            // Convert draping grid to stacking points (one per valid cell)
+            var data = new DiscreteOrientationsData();
+            data.XmlFilePath = null;
+            data.Points = new List<StackingPoint>();
+            int rows = result.GridRows;
+            int cols = result.GridCols;
+            for (int r = 0; r < rows - 1; r++)
+            {
+                for (int c = 0; c < cols - 1; c++)
+                {
+                    if (!result.NodeOnMesh[r, c] || !result.NodeOnMesh[r, c + 1] ||
+                        !result.NodeOnMesh[r + 1, c] || !result.NodeOnMesh[r + 1, c + 1]) continue;
+                    double x00 = result.NodePositions[r, c, 0];
+                    if (double.IsNaN(x00)) continue;
+                    double x10 = result.NodePositions[r + 1, c, 0];
+                    if (double.IsNaN(x10)) continue;
+                    // Warp direction = row increment
+                    double wx = x10 - x00;
+                    double wy = result.NodePositions[r + 1, c, 1] - result.NodePositions[r, c, 1];
+                    double wz = result.NodePositions[r + 1, c, 2] - result.NodePositions[r, c, 2];
+                    double wlen = Math.Sqrt(wx * wx + wy * wy + wz * wz);
+                    if (wlen < 1e-12) continue;
+                    var sp = new StackingPoint();
+                    sp.Position = new double[]
+                    {
+                        (result.NodePositions[r, c, 0] + result.NodePositions[r + 1, c, 0] +
+                         result.NodePositions[r, c + 1, 0] + result.NodePositions[r + 1, c + 1, 0]) * 0.25,
+                        (result.NodePositions[r, c, 1] + result.NodePositions[r + 1, c, 1] +
+                         result.NodePositions[r, c + 1, 1] + result.NodePositions[r + 1, c + 1, 1]) * 0.25,
+                        (result.NodePositions[r, c, 2] + result.NodePositions[r + 1, c, 2] +
+                         result.NodePositions[r, c + 1, 2] + result.NodePositions[r + 1, c + 1, 2]) * 0.25
+                    };
+                    sp.MaterialRefDir = new double[] { wx / wlen, wy / wlen, wz / wlen };
+                    sp.Layers = new List<StackingLayer>();
+                    foreach (Ply p in layup.Plies)
+                        sp.Layers.Add(new StackingLayer { Angle = p.RotationAngle, Thickness = p.Thickness });
+                    data.Points.Add(sp);
+                }
+            }
+            return data;
+        }
+        static private int[] GetSurfNodeIds(FeElement element)
+        {
+            int n = element.NodeIds.Length;
+            if (n <= 4) return element.NodeIds;
+            if (n == 6) return new int[] { element.NodeIds[0], element.NodeIds[1], element.NodeIds[2] };
+            if (n == 8) return new int[] { element.NodeIds[0], element.NodeIds[1], element.NodeIds[2], element.NodeIds[3] };
+            if (n == 10) return new int[] { element.NodeIds[0], element.NodeIds[1], element.NodeIds[2] };
+            if (n == 20) return new int[] { element.NodeIds[0], element.NodeIds[1], element.NodeIds[2], element.NodeIds[3] };
+            return element.NodeIds;
         }
         static private void AppendCompositeLayupElementSets(List<CompositeLayupWriter> compositeLayupWriters,
                                                              CalculixKeyword parent)

@@ -45,6 +45,11 @@ namespace PrePoMax.Forms
         private Label lCellSize;
         private NumericUpDown nudCellSize;
         private Label lMaxShear;
+        private CheckBox cbMapFiberFromDraping;
+        private Label lDiscreteOrientationsFile;
+        private TextBox tbDiscreteOrientationsFile;
+        private Button btnBrowseDiscreteOrientations;
+        private Button btnClearDiscreteOrientations;
         private TabControl tcPlies;
         private TabPage tpPlies;
         private TabPage tpOffset;
@@ -118,6 +123,11 @@ namespace PrePoMax.Forms
             this.lCellSize = new System.Windows.Forms.Label();
             this.nudCellSize = new System.Windows.Forms.NumericUpDown();
             this.lMaxShear = new System.Windows.Forms.Label();
+            this.cbMapFiberFromDraping = new System.Windows.Forms.CheckBox();
+            this.lDiscreteOrientationsFile = new System.Windows.Forms.Label();
+            this.tbDiscreteOrientationsFile = new System.Windows.Forms.TextBox();
+            this.btnBrowseDiscreteOrientations = new System.Windows.Forms.Button();
+            this.btnClearDiscreteOrientations = new System.Windows.Forms.Button();
             this.tcPlies = new System.Windows.Forms.TabControl();
             this.tpPlies = new System.Windows.Forms.TabPage();
             this.tpOffset = new System.Windows.Forms.TabPage();
@@ -232,6 +242,10 @@ namespace PrePoMax.Forms
             this.gbLayupOrientation.Controls.Add(this.lAdditionalRotation);
             this.gbLayupOrientation.Controls.Add(this.cbAdditionalRotation);
             this.gbLayupOrientation.Controls.Add(this.nudAdditionalRotationAngle);
+            this.gbLayupOrientation.Controls.Add(this.lDiscreteOrientationsFile);
+            this.gbLayupOrientation.Controls.Add(this.tbDiscreteOrientationsFile);
+            this.gbLayupOrientation.Controls.Add(this.btnBrowseDiscreteOrientations);
+            this.gbLayupOrientation.Controls.Add(this.btnClearDiscreteOrientations);
             this.gbLayupOrientation.Location = new System.Drawing.Point(12, 88);
             this.gbLayupOrientation.Name = "gbLayupOrientation";
             this.gbLayupOrientation.Size = new System.Drawing.Size(560, 110);
@@ -338,13 +352,14 @@ namespace PrePoMax.Forms
             | System.Windows.Forms.AnchorStyles.Right)));
             this.gbDraping.Controls.Add(this.cbDrapingSimulation);
             this.gbDraping.Controls.Add(this.lMaxShear);
+            this.gbDraping.Controls.Add(this.cbMapFiberFromDraping);
             this.gbDraping.Controls.Add(this.lLimitShear);
             this.gbDraping.Controls.Add(this.nudLimitShear);
             this.gbDraping.Controls.Add(this.lCellSize);
             this.gbDraping.Controls.Add(this.nudCellSize);
             this.gbDraping.Location = new System.Drawing.Point(12, 230);
             this.gbDraping.Name = "gbDraping";
-            this.gbDraping.Size = new System.Drawing.Size(560, 82);
+            this.gbDraping.Size = new System.Drawing.Size(560, 97);
             this.gbDraping.TabIndex = 3;
             this.gbDraping.TabStop = false;
             this.gbDraping.Text = "Manufacturing";
@@ -365,7 +380,7 @@ namespace PrePoMax.Forms
             // lLimitShear
             //
             this.lLimitShear.AutoSize = true;
-            this.lLimitShear.Location = new System.Drawing.Point(10, 50);
+            this.lLimitShear.Location = new System.Drawing.Point(10, 72);
             this.lLimitShear.Name = "lLimitShear";
             this.lLimitShear.Size = new System.Drawing.Size(90, 15);
             this.lLimitShear.Text = "Limit shear (°):";
@@ -376,7 +391,7 @@ namespace PrePoMax.Forms
             //
             this.nudLimitShear.DecimalPlaces = 1;
             this.nudLimitShear.Increment = new decimal(new int[] { 1, 0, 0, 0 });
-            this.nudLimitShear.Location = new System.Drawing.Point(110, 47);
+            this.nudLimitShear.Location = new System.Drawing.Point(110, 70);
             this.nudLimitShear.Maximum = new decimal(new int[] { 90, 0, 0, 0 });
             this.nudLimitShear.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             this.nudLimitShear.Name = "nudLimitShear";
@@ -389,7 +404,7 @@ namespace PrePoMax.Forms
             // lCellSize
             //
             this.lCellSize.AutoSize = true;
-            this.lCellSize.Location = new System.Drawing.Point(200, 50);
+            this.lCellSize.Location = new System.Drawing.Point(200, 72);
             this.lCellSize.Name = "lCellSize";
             this.lCellSize.Size = new System.Drawing.Size(55, 15);
             this.lCellSize.Text = "Cell size:";
@@ -400,7 +415,7 @@ namespace PrePoMax.Forms
             //
             this.nudCellSize.DecimalPlaces = 4;
             this.nudCellSize.Increment = new decimal(new int[] { 1, 0, 0, 131072 });
-            this.nudCellSize.Location = new System.Drawing.Point(265, 47);
+            this.nudCellSize.Location = new System.Drawing.Point(265, 70);
             this.nudCellSize.Maximum = new decimal(new int[] { 1000, 0, 0, 0 });
             this.nudCellSize.Minimum = new decimal(new int[] { 1, 0, 0, 262144 });
             this.nudCellSize.Name = "nudCellSize";
@@ -420,6 +435,62 @@ namespace PrePoMax.Forms
             this.lMaxShear.Visible = false;
 
             //
+            // cbMapFiberFromDraping
+            //
+            this.cbMapFiberFromDraping.AutoSize = true;
+            this.cbMapFiberFromDraping.Location = new System.Drawing.Point(10, 47);
+            this.cbMapFiberFromDraping.Name = "cbMapFiberFromDraping";
+            this.cbMapFiberFromDraping.Size = new System.Drawing.Size(130, 19);
+            this.cbMapFiberFromDraping.TabIndex = 4;
+            this.cbMapFiberFromDraping.Text = "Map fiber direction (discrete orientations)";
+            this.cbMapFiberFromDraping.UseVisualStyleBackColor = true;
+            this.cbMapFiberFromDraping.Visible = false;
+            this.cbMapFiberFromDraping.CheckedChanged += new System.EventHandler(this.cbMapFiberFromDraping_CheckedChanged);
+
+            //
+            // lDiscreteOrientationsFile
+            //
+            this.lDiscreteOrientationsFile.AutoSize = true;
+            this.lDiscreteOrientationsFile.Location = new System.Drawing.Point(10, 52);
+            this.lDiscreteOrientationsFile.Name = "lDiscreteOrientationsFile";
+            this.lDiscreteOrientationsFile.Text = "XML file:";
+            this.lDiscreteOrientationsFile.Visible = false;
+
+            //
+            // tbDiscreteOrientationsFile
+            //
+            this.tbDiscreteOrientationsFile.Location = new System.Drawing.Point(75, 49);
+            this.tbDiscreteOrientationsFile.Name = "tbDiscreteOrientationsFile";
+            this.tbDiscreteOrientationsFile.ReadOnly = true;
+            this.tbDiscreteOrientationsFile.Size = new System.Drawing.Size(350, 23);
+            this.tbDiscreteOrientationsFile.TabIndex = 7;
+            this.tbDiscreteOrientationsFile.Visible = false;
+
+            //
+            // btnBrowseDiscreteOrientations
+            //
+            this.btnBrowseDiscreteOrientations.Location = new System.Drawing.Point(432, 49);
+            this.btnBrowseDiscreteOrientations.Name = "btnBrowseDiscreteOrientations";
+            this.btnBrowseDiscreteOrientations.Size = new System.Drawing.Size(60, 23);
+            this.btnBrowseDiscreteOrientations.TabIndex = 8;
+            this.btnBrowseDiscreteOrientations.Text = "Browse...";
+            this.btnBrowseDiscreteOrientations.UseVisualStyleBackColor = true;
+            this.btnBrowseDiscreteOrientations.Visible = false;
+            this.btnBrowseDiscreteOrientations.Click += new System.EventHandler(this.btnBrowseDiscreteOrientations_Click);
+
+            //
+            // btnClearDiscreteOrientations
+            //
+            this.btnClearDiscreteOrientations.Location = new System.Drawing.Point(498, 49);
+            this.btnClearDiscreteOrientations.Name = "btnClearDiscreteOrientations";
+            this.btnClearDiscreteOrientations.Size = new System.Drawing.Size(50, 23);
+            this.btnClearDiscreteOrientations.TabIndex = 9;
+            this.btnClearDiscreteOrientations.Text = "Clear";
+            this.btnClearDiscreteOrientations.UseVisualStyleBackColor = true;
+            this.btnClearDiscreteOrientations.Visible = false;
+            this.btnClearDiscreteOrientations.Click += new System.EventHandler(this.btnClearDiscreteOrientations_Click);
+
+            //
             // tcPlies
             //
             this.tcPlies.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
@@ -428,7 +499,7 @@ namespace PrePoMax.Forms
             this.tcPlies.Controls.Add(this.tpPlies);
             this.tcPlies.Controls.Add(this.tpOffset);
             this.tcPlies.Controls.Add(this.tpDisplay);
-            this.tcPlies.Location = new System.Drawing.Point(12, 320);
+            this.tcPlies.Location = new System.Drawing.Point(12, 333);
             this.tcPlies.Name = "tcPlies";
             this.tcPlies.SelectedIndex = 0;
             this.tcPlies.Size = new System.Drawing.Size(560, 256);
@@ -761,7 +832,7 @@ namespace PrePoMax.Forms
             // btnOkAddNew
             //
             this.btnOkAddNew.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnOkAddNew.Location = new System.Drawing.Point(335, 584);
+            this.btnOkAddNew.Location = new System.Drawing.Point(335, 597);
             this.btnOkAddNew.Name = "btnOkAddNew";
             this.btnOkAddNew.Size = new System.Drawing.Size(75, 23);
             this.btnOkAddNew.TabIndex = 3;
@@ -773,7 +844,7 @@ namespace PrePoMax.Forms
             // btnOK
             //
             this.btnOK.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnOK.Location = new System.Drawing.Point(416, 584);
+            this.btnOK.Location = new System.Drawing.Point(416, 597);
             this.btnOK.Name = "btnOK";
             this.btnOK.Size = new System.Drawing.Size(75, 23);
             this.btnOK.TabIndex = 4;
@@ -786,7 +857,7 @@ namespace PrePoMax.Forms
             //
             this.btnCancel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.btnCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.btnCancel.Location = new System.Drawing.Point(497, 584);
+            this.btnCancel.Location = new System.Drawing.Point(497, 597);
             this.btnCancel.Name = "btnCancel";
             this.btnCancel.Size = new System.Drawing.Size(75, 23);
             this.btnCancel.TabIndex = 5;
@@ -799,7 +870,7 @@ namespace PrePoMax.Forms
             //
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.CancelButton = this.btnCancel;
-            this.ClientSize = new System.Drawing.Size(584, 619);
+            this.ClientSize = new System.Drawing.Size(584, 632);
             this.Controls.Add(this.gbData);
             this.Controls.Add(this.gbLayupOrientation);
             this.Controls.Add(this.cbSymmetric);
@@ -811,7 +882,7 @@ namespace PrePoMax.Forms
             this.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.MaximizeBox = false;
             this.MinimizeBox = false;
-            this.MinimumSize = new System.Drawing.Size(500, 540);
+            this.MinimumSize = new System.Drawing.Size(500, 553);
             this.Name = "FrmCompositeLayup";
             this.ShowInTaskbar = false;
             this.StartPosition = System.Windows.Forms.FormStartPosition.Manual;
@@ -888,11 +959,18 @@ namespace PrePoMax.Forms
         private void UpdateOrientationControlsVisibility()
         {
             bool isCsys = cbDefinition.SelectedIndex == (int)OrientationDefinitionType.CoordinateSystem;
+            bool isDiscrete = cbDefinition.SelectedIndex == (int)OrientationDefinitionType.DiscreteOrientations;
             lNormalDirection.Visible = isCsys;
             cbNormalDirection.Visible = isCsys;
             lAdditionalRotation.Visible = isCsys;
             cbAdditionalRotation.Visible = isCsys;
             nudAdditionalRotationAngle.Visible = isCsys;
+            lDiscreteOrientationsFile.Visible = isDiscrete;
+            tbDiscreteOrientationsFile.Visible = isDiscrete;
+            btnBrowseDiscreteOrientations.Visible = isDiscrete;
+            btnClearDiscreteOrientations.Visible = isDiscrete;
+            if (isDiscrete)
+                tbDiscreteOrientationsFile.Text = _compositeLayup?.DiscreteOrientationsData?.XmlFilePath ?? "";
         }
 
         private void nudArrowDensity_ValueChanged(object sender, EventArgs e)
@@ -931,8 +1009,10 @@ namespace PrePoMax.Forms
             nudLimitShear.Visible = enabled;
             lCellSize.Visible = enabled;
             nudCellSize.Visible = enabled;
+            cbMapFiberFromDraping.Visible = enabled;
             if (!enabled)
             {
+                cbMapFiberFromDraping.Checked = false;
                 CancelDraping();
             }
             else
@@ -951,6 +1031,51 @@ namespace PrePoMax.Forms
                     TriggerDrapingAsync(plyIndex);
                 }
             }
+        }
+
+        private void cbMapFiberFromDraping_CheckedChanged(object sender, EventArgs e)
+        {
+            if (_compositeLayup == null) return;
+            _compositeLayup.UseDrapingForFiberDirection = cbMapFiberFromDraping.Checked;
+            if (cbMapFiberFromDraping.Checked)
+            {
+                _compositeLayup.DrapingCellSize = (double)nudCellSize.Value;
+                _compositeLayup.DrapingPlyIndex = dgvPlies.SelectedRows.Count > 0 ? dgvPlies.SelectedRows[0].Index : 0;
+            }
+            _propertyItemChanged = true;
+        }
+
+        private void btnBrowseDiscreteOrientations_Click(object sender, EventArgs e)
+        {
+            if (_compositeLayup == null) return;
+            using (System.Windows.Forms.OpenFileDialog dlg = new System.Windows.Forms.OpenFileDialog())
+            {
+                dlg.Title = "Select Discrete Orientations XML File";
+                dlg.Filter = "XML files (*.xml)|*.xml|All files (*.*)|*.*";
+                if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                {
+                    try
+                    {
+                        DiscreteOrientationsData data = DiscreteOrientationsXmlReader.Read(dlg.FileName);
+                        _compositeLayup.DiscreteOrientationsData = data;
+                        tbDiscreteOrientationsFile.Text = dlg.FileName;
+                        _propertyItemChanged = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Windows.Forms.MessageBox.Show(ex.Message, "Error", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
+                    }
+                }
+            }
+        }
+
+        private void btnClearDiscreteOrientations_Click(object sender, EventArgs e)
+        {
+            if (_compositeLayup == null) return;
+            _compositeLayup.DiscreteOrientationsData = null;
+            tbDiscreteOrientationsFile.Text = "";
+            cbDefinition.SelectedIndex = (int)OrientationDefinitionType.PartGlobal;
+            _propertyItemChanged = true;
         }
 
         private void tbName_TextChanged(object sender, EventArgs e)
@@ -1434,6 +1559,7 @@ namespace PrePoMax.Forms
                 string displayName = value.ToString();
                 if (displayName == "PartGlobal") displayName = "Part global";
                 if (displayName == "CoordinateSystem") displayName = "Coordinate system";
+                if (displayName == "DiscreteOrientations") displayName = "Discrete orientations";
                 cbDefinition.Items.Add(displayName);
             }
 
@@ -1494,6 +1620,13 @@ namespace PrePoMax.Forms
             lCellSize.Visible = false;
             nudCellSize.Visible = false;
             lMaxShear.Visible = false;
+            cbMapFiberFromDraping.Visible = false;
+            cbMapFiberFromDraping.Checked = false;
+            if (_compositeLayup?.UseDrapingForFiberDirection == true)
+            {
+                cbDrapingSimulation.Checked = true;  // shows sub-controls + triggers draping
+                cbMapFiberFromDraping.Checked = true;
+            }
         }
 
         private void SetupPliesGrid()

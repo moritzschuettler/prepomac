@@ -19,8 +19,8 @@ namespace CaeModel
     public enum OrientationDefinitionType
     {
         PartGlobal,
-        CoordinateSystem
-
+        CoordinateSystem,
+        DiscreteOrientations
     }
 
     [Serializable]
@@ -61,6 +61,10 @@ namespace CaeModel
         private bool _symmetric;
         private ShellOffsetType _shellOffset;
         private double _offsetRatio;
+        private DiscreteOrientationsData _discreteOrientationsData;
+        private bool _useDrapingForFiberDirection;
+        private double _drapingCellSize;
+        private int _drapingPlyIndex;
 
 
         // Properties
@@ -126,6 +130,41 @@ namespace CaeModel
         {
             get { return _offsetRatio; }
             set { _offsetRatio = value; }
+        }
+
+        public bool DiscreteOrientationsEnabled
+        {
+            get { return _orientationDefinition == OrientationDefinitionType.DiscreteOrientations; }
+            set
+            {
+                if (value) _orientationDefinition = OrientationDefinitionType.DiscreteOrientations;
+                else if (_orientationDefinition == OrientationDefinitionType.DiscreteOrientations)
+                    _orientationDefinition = OrientationDefinitionType.PartGlobal;
+            }
+        }
+
+        public DiscreteOrientationsData DiscreteOrientationsData
+        {
+            get { return _discreteOrientationsData; }
+            set { _discreteOrientationsData = value; }
+        }
+
+        public bool UseDrapingForFiberDirection
+        {
+            get { return _useDrapingForFiberDirection; }
+            set { _useDrapingForFiberDirection = value; }
+        }
+
+        public double DrapingCellSize
+        {
+            get { return _drapingCellSize; }
+            set { _drapingCellSize = value; }
+        }
+
+        public int DrapingPlyIndex
+        {
+            get { return _drapingPlyIndex; }
+            set { _drapingPlyIndex = value; }
         }
 
 

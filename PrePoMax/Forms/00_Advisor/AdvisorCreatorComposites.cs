@@ -124,7 +124,11 @@ namespace PrePoMax
             advisorLabel1.Text = "The composite layup defines the stacking sequence of plies that make up the laminate. Each ply is characterized by its material, thickness, and fiber orientation angle.";
             advisorLabel1.Text = "Only conventionnal shell element types are supported for composites today.";
             advisorLabel1.Text += "\n\n";
-            advisorLabel1.Text += "First of all, the Layup orientation must be defined. CHoose between Part global and Coordinate system (if you need to define a rotation from part global frame).";
+            advisorLabel1.Text += "First of all, the Layup orientation must be defined. Choose between modes:";
+            advisorLabel1.Text += " - Part global: use global part axis system as reference";
+            advisorLabel1.Text += " - Coordinate system: if you need to define a rotation from part global frame";
+            advisorLabel1.Text += " - Local element: if you want to define a local orientation for each element (e.g. based on the geometry curvature). In this case, the fiber direction is defined by the local element axis 1.";
+
             advisorLabel1.Text += "\n\n";
             advisorLabel1.Text += "Create a composite layup and add plies in the desired stacking order. A typical symmetric laminate uses ply angle pairs such as [0/45/-45/90]s.";
             advisorLabel1.Text += "\n\n";
@@ -146,6 +150,7 @@ namespace PrePoMax
             advisorLabel1.Text += "The kinematic draping algorithm computes the shear deformation that occurs as the fabric is draped over the geometry. High shear angles indicate areas where the fabric may wrinkle or require cutting darts.";
             advisorLabel1.Text += "\n\n";
             advisorLabel1.Text += "Set the limit shear angle and cell size in the layup form, then enable the draping simulation to visualize the shear distribution.";
+            advisorLabel1.Text += "Optionally, user can map the draping simulation results (shearing angles / fiber directions) to the structural mesh, for more accurate analysis results.";
             advisorPage.Items.Add(advisorLabel1);
             //
             return advisorPage;
