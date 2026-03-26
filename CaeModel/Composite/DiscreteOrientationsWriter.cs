@@ -18,7 +18,6 @@ namespace CaeModel
         private List<CalCompositeShellSection> _sectionKeywords;
         private List<string> _warnings;
         private string _logText;
-        private const double NormalAngleTolDeg = 5.0;
 
 
         // Properties
@@ -77,87 +76,59 @@ namespace CaeModel
                 mapped++;
             }
 
-            // Generate keywords: group elements by (stacking point, normal direction)
+            // Generate keywords: one element set + one shell section per stacking point group.
+            // All layers of a stacking share the same base orientation (stacking MaterialRefDir
+            // projected onto the group average normal, or GlobalRosette when not specified).
             int groupN = 1;
             foreach (var entry in pointToElements)
             {
                 StackingPoint sp = data.Points[entry.Key];
 
-                // Sub-group by normal direction
-                List<Vec3D> groupNormals = new List<Vec3D>();
-                List<List<int>> groupElements = new List<List<int>>();
-                foreach (int elemId in entry.Value)
+                string setName = string.Format("{0}_DO_{1}", _layup.Name, groupN++);
+                _itaElementSets.Add(new FeElementSet(setName, entry.Value.ToArray()));
+
+                // Average normal over all elements in the group
+                Vec3D normal = ComputeAverageNormal(entry.Value);
+                Vec3D localX, localY;
+                ComputeLocalRosette(normal, out localX, out localY);
+
+                // Use stacking MaterialRefDir when defined, otherwise fall back to GlobalRosette
+                double[] mrd = sp.MaterialRefDir != null ? sp.MaterialRefDir : data.GlobalRosette;
+                double dotN = mrd[0] * normal.X + mrd[1] * normal.Y + mrd[2] * normal.Z;
+                Vec3D projRef = new Vec3D(mrd[0] - dotN * normal.X,
+                                         mrd[1] - dotN * normal.Y,
+                                         mrd[2] - dotN * normal.Z);
+                double projLen = projRef.Normalize();
+
+                Vec3D oriX, oriY;
+                if (projLen > 1e-6)
                 {
-                    Vec3D normal = ComputeElementNormal(_mesh.Elements[elemId], _mesh.Nodes);
-                    bool assigned = false;
-                    for (int g = 0; g < groupNormals.Count; g++)
-                    {
-                        double dot = Math.Abs(normal.X * groupNormals[g].X +
-                                              normal.Y * groupNormals[g].Y +
-                                              normal.Z * groupNormals[g].Z);
-                        double angleDeg = Math.Acos(Math.Min(1.0, dot)) * (180.0 / Math.PI);
-                        if (angleDeg <= NormalAngleTolDeg)
-                        {
-                            groupElements[g].Add(elemId);
-                            assigned = true;
-                            break;
-                        }
-                    }
-                    if (!assigned)
-                    {
-                        groupNormals.Add(normal);
-                        groupElements.Add(new List<int> { elemId });
-                    }
+                    oriX = projRef;
+                    oriY = Vec3D.CrossProduct(normal, oriX);
+                }
+                else
+                {
+                    // Ref dir is parallel to normal — fall back to local rosette
+                    oriX = localX;
+                    oriY = localY;
                 }
 
-                for (int g = 0; g < groupNormals.Count; g++)
+                int normalAxis = (int)_layup.NormalDirection + 1;
+
+                // One orientation per layer — same base frame, different rotation angle per layer
+                List<CompositeShellPlyData> pliesData = new List<CompositeShellPlyData>();
+                foreach (StackingLayer layer in sp.Layers)
                 {
-                    string setName = string.Format("{0}_DO_{1}", _layup.Name, groupN++);
-                    _itaElementSets.Add(new FeElementSet(setName, groupElements[g].ToArray()));
-
-                    Vec3D normal = groupNormals[g];
-                    Vec3D localX, localY;
-                    ComputeLocalRosette(normal, out localX, out localY);
-
-                    // Project MaterialRefDir onto tangent plane to get orientation a-vector
-                    double[] mrd = sp.MaterialRefDir;
-                    double dotN = mrd[0] * normal.X + mrd[1] * normal.Y + mrd[2] * normal.Z;
-                    Vec3D projRef = new Vec3D(mrd[0] - dotN * normal.X,
-                                             mrd[1] - dotN * normal.Y,
-                                             mrd[2] - dotN * normal.Z);
-                    double projLen = projRef.Normalize();
-
-                    Vec3D oriX, oriY;
-                    if (projLen > 1e-6)
-                    {
-                        oriX = projRef;
-                        oriY = Vec3D.CrossProduct(normal, oriX);
-                    }
-                    else
-                    {
-                        // MatRefDir is parallel to normal — fall back to rosette
-                        oriX = localX;
-                        oriY = localY;
-                    }
-
-                    int normalAxis = (int)_layup.NormalDirection + 1;
-
-                    // One orientation per layer (each layer has its own rotation angle)
-                    List<CompositeShellPlyData> pliesData = new List<CompositeShellPlyData>();
-                    foreach (StackingLayer layer in sp.Layers)
-                    {
-                        string oriName = string.Format("Ori_{0}_A{1:F1}", setName,
-                            layer.Angle).Replace("-", "m").Replace(".", "p");
-                        _orientationKeywords.Add(
-                            new CalOrientation(oriName, oriX.Coor, oriY.Coor, layer.Angle, normalAxis));
-                        // Material from first ply of layup (or empty if none)
-                        string material = (_layup.Plies != null && _layup.Plies.Count > 0)
-                            ? _layup.Plies[0].Material : "";
-                        pliesData.Add(new CompositeShellPlyData(layer.Thickness, material, oriName));
-                    }
-
-                    _sectionKeywords.Add(new CalCompositeShellSection(setName, null, pliesData, null));
+                    string oriName = string.Format("Ori_{0}_A{1:F1}", setName,
+                        layer.Angle).Replace("-", "m").Replace(".", "p");
+                    _orientationKeywords.Add(
+                        new CalOrientation(oriName, oriX.Coor, oriY.Coor, layer.Angle, normalAxis));
+                    string material = (_layup.Plies != null && _layup.Plies.Count > 0)
+                        ? _layup.Plies[0].Material : "";
+                    pliesData.Add(new CompositeShellPlyData(layer.Thickness, material, oriName));
                 }
+
+                _sectionKeywords.Add(new CalCompositeShellSection(setName, null, pliesData, null));
             }
 
             _logText = BuildLog(data, allElements.Count, mapped, skipped, pointToElements);
@@ -217,6 +188,20 @@ namespace CaeModel
                     kv.Key + 1, pos[0], pos[1], pos[2], kv.Value.Count));
             }
             return sb.ToString();
+        }
+
+        private Vec3D ComputeAverageNormal(List<int> elementIds)
+        {
+            double nx = 0, ny = 0, nz = 0;
+            foreach (int eid in elementIds)
+            {
+                Vec3D n = ComputeElementNormal(_mesh.Elements[eid], _mesh.Nodes);
+                nx += n.X; ny += n.Y; nz += n.Z;
+            }
+            Vec3D avg = new Vec3D(nx, ny, nz);
+            double len = avg.Normalize();
+            if (len < 1e-12) avg = new Vec3D(0, 0, 1);
+            return avg;
         }
 
         private static Vec3D ComputeElementNormal(FeElement element, Dictionary<int, FeNode> nodes)
