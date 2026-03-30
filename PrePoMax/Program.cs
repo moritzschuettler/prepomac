@@ -1,4 +1,13 @@
-﻿using CaeGlobals;
+// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+//
+// Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
+//
+// Source code: https://gitlab.com/MatejB/PrePoMax
+//
+// Author: Matej Borovinšek
+// Contributors:
+
+using CaeGlobals;
 using CommandLine;
 using CommandLine.Text;
 using System;
@@ -11,8 +20,6 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using static CaeGlobals.Geometry2;
-using static System.Windows.Forms.Design.AxImporter;
 
 namespace PrePoMax
 {

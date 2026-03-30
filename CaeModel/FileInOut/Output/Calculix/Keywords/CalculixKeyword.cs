@@ -1,18 +1,29 @@
-﻿using System;
+// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+//
+// Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
+//
+// Source code: https://gitlab.com/MatejB/PrePoMax
+//
+// Author: Matej Borovinšek
+// Contributors:
+
+using CaeModel;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
-using CaeModel;
+using System.Xml.Linq;
 
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
-    public abstract class CalculixKeyword
+    public abstract class CalculixKeyword //: ISerializable - this would mean that all derived classes must be Serializable !!!
     {
         // Variables                                                                                                                
-        protected List<CalculixKeyword> _keywords;
-        private bool _active;
+        protected List<CalculixKeyword> _keywords;          //ISerializable
+        private bool _active;                               //ISerializable
 
 
         // Properties                                                                                                               
@@ -27,6 +38,21 @@ namespace FileInOut.Output.Calculix
             _active = true;
         }
 
+        public CalculixKeyword(SerializationInfo info, StreamingContext context)
+        {
+            _active = true; // Compatibility v 2.4.0
+            //
+            foreach (SerializationEntry entry in info)
+            {
+                switch (entry.Name)
+                {
+                    case "_keywords":
+                        _keywords = (List<CalculixKeyword>)entry.Value; break;
+                    case "_active":
+                        _active = (bool)entry.Value; break;
+                }
+            }
+        }
 
         // Methods                                                                                                                  
         public void AddKeyword(CalculixKeyword keyword)
@@ -77,7 +103,12 @@ namespace FileInOut.Output.Calculix
             //
             return ratio;
         }
-
-
+        // ISerialization
+        public void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            // Using typeof() works also for null fields
+            info.AddValue("_keywords", _keywords, typeof(List<CalculixKeyword>));
+            info.AddValue("_active", _active, typeof(bool));
+        }
     }
 }
