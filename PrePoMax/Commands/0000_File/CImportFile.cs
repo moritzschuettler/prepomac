@@ -51,7 +51,7 @@ namespace PrePoMax.Commands
         // ICommandWithDialog
         public bool ExecuteWithDialog(Controller receiver)
         {
-            string fileName = receiver.GetFileNameToImport(_onlyMaterials);
+            string fileName = receiver.GetFileNameToImport("Replace file: " + _fileName, _onlyMaterials);
             if (fileName != null) _fileName = Tools.GetLocalPath(fileName);
             return Execute(receiver);
         }

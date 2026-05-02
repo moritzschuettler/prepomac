@@ -52,7 +52,7 @@ namespace PrePoMax.Commands
         // ICommandWithDialog
         public bool ExecuteWithDialog(Controller receiver)
         {
-            string fileName = receiver.GetFileNameToOpen();
+            string fileName = receiver.GetFileNameToOpen("Replace file: " + _fileName);
             if (fileName != null) _fileName = Tools.GetLocalPath(fileName);
             return Execute(receiver);
         }

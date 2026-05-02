@@ -255,6 +255,12 @@ namespace PrePoMax.Commands
                                                               Path.GetFileName(cOpenFile.FileName));
                             if (File.Exists(newFileName)) cOpenFile.FileName = newFileName;
                         }
+                        else if (command is CSaveToPmx cSaveToPmx)
+                        {
+                            string newFileName = Path.Combine(_controller.Settings.GetWorkDirectory(),
+                                                              Path.GetFileName(cSaveToPmx.FileName));
+                            cSaveToPmx.FileName = newFileName;
+                        }
                         else if (command is IImportFileCommand importFileCommand)
                         {
                             string newFileName = Path.Combine(_controller.Settings.GetWorkDirectory(),
@@ -294,7 +300,8 @@ namespace PrePoMax.Commands
                                                 (showFileDialog && cwd is COpenFile ||
                                                  showFileDialog && cwd is CImportFile ||
                                                  showMeshDialog && cwd is CAddMeshSetupItem ||
-                                                 showMeshDialog && cwd is CReplaceMeshSetupItem);
+                                                 showMeshDialog && cwd is CReplaceMeshSetupItem ||
+                                                 showFileDialog && cwd is CImportParameters);
                             //
                             ExecuteCommandWithTimer(command, executeWithDialog, true);
                         }

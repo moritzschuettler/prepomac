@@ -619,6 +619,7 @@ namespace PrePoMax
                         if (_cmdOptions.Overwrite == "Yes")
                         {
                             WriteDataToOutput("Overwrite: " + fileName);
+                            _controller.Model.Parameters.ClearOverriddenParameters();
                             _controller.SaveToPmx(fileName);
                         }
                     }
@@ -4156,7 +4157,7 @@ namespace PrePoMax
             {
                 if (!_controller.ModelInitialized || _controller.Model.Mesh == null) return;
                 //
-                string fileName = GetFileNameToImport("Abaqus/Calculix inp files|*.inp");
+                string fileName = GetFileNameToImport("", "Abaqus/Calculix inp files|*.inp");
                 //
                 SetStateWorking(Globals.ImportingText);
                 await Task.Run(() => _controller.UpdateNodalCoordinatesFromFileCommand(fileName));
@@ -9514,17 +9515,18 @@ namespace PrePoMax
         {
             return _vtk.GetBoundingBoxSize();
         }
-        public string GetFileNameToOpen()
+        public string GetFileNameToOpen(string title)
         {
-            return GetFileNameToOpen(GetFileOpenFilter());
+            return GetFileNameToOpen(title, GetFileOpenFilter());
         }
-        public string GetFileNameToOpen(string filter)
+        public string GetFileNameToOpen(string title, string filter)
         {
             string fileName = null;
             InvokeIfRequired(() =>
             {
                 using (OpenFileDialog openFileDialog = new OpenFileDialog())
                 {
+                    if (title != null) openFileDialog.Title = title;
                     openFileDialog.Filter = filter;
                     openFileDialog.FileName = "";
                     if (openFileDialog.ShowDialog(this) == DialogResult.OK)
@@ -9535,17 +9537,18 @@ namespace PrePoMax
             });
             return fileName;
         }
-        public string GetFileNameToImport(bool onlyMaterials)
+        public string GetFileNameToImport(string title, bool onlyMaterials)
         {
-            return GetFileNameToImport(GetFileImportFilter(onlyMaterials));
+            return GetFileNameToImport(title, GetFileImportFilter(onlyMaterials));
         }
-        public string GetFileNameToImport(string filter)
+        public string GetFileNameToImport(string title, string filter)
         {
             string fileName = null;
             InvokeIfRequired(() =>
             {
                 using (OpenFileDialog openFileDialog = new OpenFileDialog())
                 {
+                    if (title != null) openFileDialog.Title = title;
                     openFileDialog.Filter = filter;
                     openFileDialog.FileName = "";
                     if (openFileDialog.ShowDialog(this) == DialogResult.OK)
@@ -9629,7 +9632,7 @@ namespace PrePoMax
             string filter;
             if (Debugger.IsAttached)
             {
-                filter = "All supported files|*.stp;*.step;*.igs;*.iges;*.brep;*.stl;*.unv;*.vol;*.inp;*.mesh;*.obj" + 
+                filter = "All supported files|*.stp;*.step;*.igs;*.iges;*.brep;*.stl;*.unv;*.vol;*.inp;*.mesh;*.obj;*.pmp" +
                          "|Step files|*.stp;*.step" +
                          "|Iges files|*.igs;*.iges" +
                          "|Brep files|*.brep" +
@@ -9638,13 +9641,14 @@ namespace PrePoMax
                          "|Netgen files|*.vol" +
                          "|Abaqus/Calculix inp files|*.inp" +
                          "|Mmg mesh files|*.mesh" +
-                         "|Wavefront obj files|*.obj";              // obj mesh reader added
+                         "|Wavefront obj files|*.obj" +              // obj mesh reader added
+                         "|Parameters files|*.pmp";
 
             }
             // No debugger
             else
             {
-                filter = "All supported files|*.stp;*.step;*.igs;*.iges;*.brep;*.stl;*.unv;*.vol;*.inp;*.mesh" +
+                filter = "All supported files|*.stp;*.step;*.igs;*.iges;*.brep;*.stl;*.unv;*.vol;*.inp;*.mesh;*.pmp" +
                          "|Step files|*.stp;*.step" +
                          "|Iges files|*.igs;*.iges" +
                          "|Brep files|*.brep" +
@@ -9652,7 +9656,8 @@ namespace PrePoMax
                          "|Universal files|*.unv" +
                          "|Netgen files|*.vol" +
                          "|Abaqus/Calculix inp files|*.inp" +
-                         "|Mmg mesh files|*.mesh";
+                         "|Mmg mesh files|*.mesh" +
+                         "|Parameters files|*.pmp";
             }
             return filter;
         }

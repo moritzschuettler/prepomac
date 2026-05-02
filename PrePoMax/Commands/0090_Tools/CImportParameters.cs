@@ -21,7 +21,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CImportParameters : PreprocessCommand, IImportFileCommand
+    class CImportParameters : PreprocessCommand, IImportFileCommand, ICommandWithDialog
     {
         // Variables                                                                                                                
         private string _fileName;
@@ -45,7 +45,13 @@ namespace PrePoMax.Commands
             receiver.ImportParametersFromFile(Tools.GetGlobalPath(_fileName));
             return true;
         }
-
+        // ICommandWithDialog
+        public bool ExecuteWithDialog(Controller receiver)
+        {
+            string fileName = receiver.GetFileNameToImport("Replace file: " + _fileName, false);
+            if (fileName != null) _fileName = Tools.GetLocalPath(fileName);
+            return Execute(receiver);
+        }
         public override string GetCommandString()
         {
             return base.GetCommandString() + _fileName;
