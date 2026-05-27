@@ -29,7 +29,7 @@ namespace PrePoMax.Commands
 
 
         // Properties                                                                                                               
-        public string FileName { get { return _fileName; } }
+        public string FileName { get { return _fileName; } set { _fileName = value; } }
         public byte[] Hash { get { return _hash; } set { _hash = value; } }
 
 
@@ -75,7 +75,8 @@ namespace PrePoMax.Commands
         }
         public override string GetCommandString()
         {
-            return _dateCreated.ToString("MM/dd/yy HH:mm:ss") + "   " + "Model saved to file: " + _fileName;
+            return base.GetCommandString() + _fileName;
+            //return _dateCreated.ToString("MM/dd/yy HH:mm:ss") + "   " + "Model saved to file: " + _fileName;
         }
     }
 }

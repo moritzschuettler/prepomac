@@ -60,7 +60,7 @@ namespace CaeModel
             : this()
         {
             // Use for each to keep the string comparer OrdinalIgnoreCase
-            foreach (var entry in parameters) _parameters.Add(entry.Key, entry.Value);
+            foreach (var entry in parameters) Add(entry.Key, entry.Value);
         }
         public EquationParameterCollection(EquationParameterCollection collection)
             : this()
@@ -132,6 +132,10 @@ namespace CaeModel
         {
             _parameters.Clear();
         }
+        public void ClearOverriddenParameters()
+        {
+            _overriddenParameters.Clear();
+        }
         //
         public string GetNextNumberedKey(string key, string postFix = "", string separator = "-")
         {
@@ -197,7 +201,7 @@ namespace CaeModel
             else
             {
                 _parameters.Clear();
-                foreach (var parameter in parameters) _parameters.Add(parameter.Name, parameter);
+                foreach (var parameter in parameters) Add(parameter.Name, parameter);
             }
         }
         public void OnDeserialization(object sender)

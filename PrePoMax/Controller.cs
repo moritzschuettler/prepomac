@@ -693,9 +693,9 @@ namespace PrePoMax
             //
             _form.UpdateRecentFilesThreadSafe();
         }
-        public string GetFileNameToOpen()
+        public string GetFileNameToOpen(string title)
         {
-            return _form.GetFileNameToOpen();
+            return _form.GetFileNameToOpen(title);
         }
         public void Open(string fileName, string parameters = null)
         {
@@ -1581,9 +1581,9 @@ namespace PrePoMax
             CurrentView = newView;
         }
         // Import
-        public string GetFileNameToImport(bool onlyMaterials)
+        public string GetFileNameToImport(string title, bool onlyMaterials)
         {
-            return _form.GetFileNameToImport(onlyMaterials);
+            return _form.GetFileNameToImport(title, onlyMaterials);
         }
         public async Task ImportFileAsync(string fileName, bool onlyMaterials)
         {
@@ -1634,6 +1634,8 @@ namespace PrePoMax
                 _model.ImportMeshFromUnvFile(fileName);
             else if (extension == ".obj")
                 _model.ImportMeshFromObjFile(fileName);
+            else if (extension == ".pmp")
+                ImportParametersFromFile(fileName);
             else throw new NotSupportedException();
             //
             UpdateAfterImport(extension);
