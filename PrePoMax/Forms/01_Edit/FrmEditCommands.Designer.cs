@@ -48,10 +48,10 @@ namespace PrePoMax.Forms
             this.tsmiSaveAs = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerFile1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiClose = new System.Windows.Forms.ToolStripMenuItem();
-            this.btnReset = new System.Windows.Forms.Button();
             this.tsmiView = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiColorByType = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiColorByTime = new System.Windows.Forms.ToolStripMenuItem();
+            this.btnReset = new System.Windows.Forms.Button();
             this.btnReorganize = new System.Windows.Forms.Button();
             this.gbProperties.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvCommands)).BeginInit();
@@ -85,6 +85,7 @@ namespace PrePoMax.Forms
             this.dgvCommands.ReadOnly = true;
             this.dgvCommands.Size = new System.Drawing.Size(751, 268);
             this.dgvCommands.TabIndex = 0;
+            this.dgvCommands.CellMouseDoubleClick += new System.Windows.Forms.DataGridViewCellMouseEventHandler(this.dgvCommands_CellMouseDoubleClick);
             this.dgvCommands.RowPrePaint += new System.Windows.Forms.DataGridViewRowPrePaintEventHandler(this.dgvCommands_RowPrePaint);
             this.dgvCommands.UserDeletingRow += new System.Windows.Forms.DataGridViewRowCancelEventHandler(this.dgvCommands_UserDeletingRow);
             this.dgvCommands.DragDrop += new System.Windows.Forms.DragEventHandler(this.dgvCommands_DragDrop);
@@ -148,7 +149,7 @@ namespace PrePoMax.Forms
             // 
             this.tsmiOpen.Image = global::PrePoMax.Properties.Resources.Open;
             this.tsmiOpen.Name = "tsmiOpen";
-            this.tsmiOpen.Size = new System.Drawing.Size(180, 22);
+            this.tsmiOpen.Size = new System.Drawing.Size(114, 22);
             this.tsmiOpen.Text = "Open";
             this.tsmiOpen.Click += new System.EventHandler(this.tsmiOpen_Click);
             // 
@@ -156,32 +157,21 @@ namespace PrePoMax.Forms
             // 
             this.tsmiSaveAs.Image = global::PrePoMax.Properties.Resources.Save;
             this.tsmiSaveAs.Name = "tsmiSaveAs";
-            this.tsmiSaveAs.Size = new System.Drawing.Size(180, 22);
+            this.tsmiSaveAs.Size = new System.Drawing.Size(114, 22);
             this.tsmiSaveAs.Text = "Save As";
             this.tsmiSaveAs.Click += new System.EventHandler(this.tsmiSaveAs_Click);
             // 
             // tsmiDividerFile1
             // 
             this.tsmiDividerFile1.Name = "tsmiDividerFile1";
-            this.tsmiDividerFile1.Size = new System.Drawing.Size(177, 6);
+            this.tsmiDividerFile1.Size = new System.Drawing.Size(111, 6);
             // 
             // tsmiClose
             // 
             this.tsmiClose.Name = "tsmiClose";
-            this.tsmiClose.Size = new System.Drawing.Size(180, 22);
+            this.tsmiClose.Size = new System.Drawing.Size(114, 22);
             this.tsmiClose.Text = "Close";
             this.tsmiClose.Click += new System.EventHandler(this.tsmiClose_Click);
-            // 
-            // btnReset
-            // 
-            this.btnReset.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.btnReset.Location = new System.Drawing.Point(15, 326);
-            this.btnReset.Name = "btnReset";
-            this.btnReset.Size = new System.Drawing.Size(75, 23);
-            this.btnReset.TabIndex = 16;
-            this.btnReset.Text = "Reset";
-            this.btnReset.UseVisualStyleBackColor = true;
-            this.btnReset.Click += new System.EventHandler(this.btnReset_Click);
             // 
             // tsmiView
             // 
@@ -197,16 +187,27 @@ namespace PrePoMax.Forms
             this.tsmiColorByType.Checked = true;
             this.tsmiColorByType.CheckState = System.Windows.Forms.CheckState.Checked;
             this.tsmiColorByType.Name = "tsmiColorByType";
-            this.tsmiColorByType.Size = new System.Drawing.Size(180, 22);
+            this.tsmiColorByType.Size = new System.Drawing.Size(146, 22);
             this.tsmiColorByType.Text = "Color by type";
             this.tsmiColorByType.Click += new System.EventHandler(this.tsmiColorByType_Click);
             // 
             // tsmiColorByTime
             // 
             this.tsmiColorByTime.Name = "tsmiColorByTime";
-            this.tsmiColorByTime.Size = new System.Drawing.Size(180, 22);
+            this.tsmiColorByTime.Size = new System.Drawing.Size(146, 22);
             this.tsmiColorByTime.Text = "Color by time";
             this.tsmiColorByTime.Click += new System.EventHandler(this.tsmiColorByTime_Click);
+            // 
+            // btnReset
+            // 
+            this.btnReset.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.btnReset.Location = new System.Drawing.Point(15, 326);
+            this.btnReset.Name = "btnReset";
+            this.btnReset.Size = new System.Drawing.Size(75, 23);
+            this.btnReset.TabIndex = 16;
+            this.btnReset.Text = "Reset";
+            this.btnReset.UseVisualStyleBackColor = true;
+            this.btnReset.Click += new System.EventHandler(this.btnReset_Click);
             // 
             // btnReorganize
             // 

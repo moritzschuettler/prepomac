@@ -365,13 +365,24 @@ namespace vtkControl
                         // The click was not a hit
                         // Use the center of the bounding box
                         double[] bounds1 = renderer.ComputeVisiblePropBounds();
-                        double[] bounds2 = _overlayRenderer.ComputeVisiblePropBounds();
-                        double[] max = new double[] { Math.Min(bounds1[0], bounds2[0]), Math.Max(bounds1[1], bounds2[1]),
-                                                      Math.Min(bounds1[2], bounds2[2]), Math.Max(bounds1[3], bounds2[3]),
-                                                      Math.Min(bounds1[4], bounds2[4]), Math.Max(bounds1[5], bounds2[5])};
-                        _rotationCenterWorld[0] = (max[1] + max[0]) / 2;
-                        _rotationCenterWorld[1] = (max[3] + max[2]) / 2;
-                        _rotationCenterWorld[2] = (max[5] + max[4]) / 2;
+                        int numActors = _overlayRenderer.GetNumberOfPropsRendered();
+                        if (numActors > 0)
+                        {
+                            double[] bounds2 = _overlayRenderer.ComputeVisiblePropBounds();
+                            double[] max = new double[] { Math.Min(bounds1[0], bounds2[0]), Math.Max(bounds1[1], bounds2[1]),
+                                                          Math.Min(bounds1[2], bounds2[2]), Math.Max(bounds1[3], bounds2[3]),
+                                                          Math.Min(bounds1[4], bounds2[4]), Math.Max(bounds1[5], bounds2[5])};
+                            _rotationCenterWorld[0] = (max[1] + max[0]) / 2;
+                            _rotationCenterWorld[1] = (max[3] + max[2]) / 2;
+                            _rotationCenterWorld[2] = (max[5] + max[4]) / 2;
+                        }
+                        else
+                        {
+                            _rotationCenterWorld[0] = (bounds1[1] + bounds1[0]) / 2;
+                            _rotationCenterWorld[1] = (bounds1[3] + bounds1[2]) / 2;
+                            _rotationCenterWorld[2] = (bounds1[5] + bounds1[4]) / 2;
+                        }
+                        
                     }
                     else
                     {

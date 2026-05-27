@@ -2530,7 +2530,11 @@ namespace PrePoMax
             }
         }
         //
-        // Export
+        public void ExportResultFieldOutput(string fileName, string resultName, FieldData fieldData)
+        {
+            FeResults result = _allResults.GetResult(resultName);
+            result.ExportResultFieldOutput(fileName, fieldData);
+        }
         public void ExportResultHistoryOutput(string fileName, string[] historyOutputNames, string delimiter)
         {
             ResultHistoryOutputWriter.Write(fileName, historyOutputNames, delimiter, CurrentResult);
@@ -4594,7 +4598,11 @@ namespace PrePoMax
                 //
                 string fileName = Path.Combine(workDirectory, Globals.StlFileName);
                 //
-                _form.CropPartWithCube(partName, 300, fileName);
+                double x = 0;
+                double y = 0;
+                double z = 20;
+                double a = 3;
+                _form.CropPartWithCube(partName, x, y, z, a, fileName);
                 //
                 ReplacePartGeometryFromFile(part, fileName, true);
             }
@@ -6247,11 +6255,13 @@ namespace PrePoMax
             //
             string argument = "-ls " + //splitPartMeshData.Offset + " " +  // offset is applied in the signed distance field
                               "-rmc " +
-                              "-optim " +
+                              //"-optim " + // tends to create elements of the same size
                               "-m " + ramCounter.NextValue() * 0.9 + " " +
                               "-hmax " + splitPartMeshData.MaxH + " " +
                               "-hmin " + splitPartMeshData.MinH + " " +
                               "-hausd " + splitPartMeshData.Hausdorff + " " +
+                              "-hgrad " + "1.5" + " " +
+                              "-nr " +
                               "-in \"" + mmgInFileName + "\" " +
                               "-sol \"" + mmgSolFileName + "\" " +
                               "-out \"" + mmgOutFileName + "\" " +
@@ -12728,6 +12738,11 @@ namespace PrePoMax
             CReplaceResultFieldOutput comm = new CReplaceResultFieldOutput(oldResultFieldOutputName, resultFieldOutput);
             _commands.AddAndExecute(comm);
         }
+        public void ExportResultFieldOutputCommand(string fileName, string resultName, FieldData fieldData)
+        {
+            CExportResultFieldOutputToCsv comm = new CExportResultFieldOutputToCsv(fileName, resultName, fieldData);
+            _commands.AddAndExecute(comm);
+        }
         public void RemoveResultFieldOutputsCommand(string[] resultFieldOutputNames)
         {
             CRemoveResultFieldOutputs comm = new CRemoveResultFieldOutputs(resultFieldOutputNames);
@@ -12852,6 +12867,11 @@ namespace PrePoMax
             CReplaceResultHistoryOutput comm = new CReplaceResultHistoryOutput(oldResultHistoryOutputName, resultHistoryOutput);
             _commands.AddAndExecute(comm);
         }
+        public void ExportResultHistoryOutputCommand(ExportHistoryResultSetFileProperties properties)
+        {
+            CExportResultHistoryOutputToCsv comm = new CExportResultHistoryOutputToCsv(properties);
+            _commands.AddAndExecute(comm);
+        }
         public void RemoveResultHistoryOutputsCommand(string[] resultHistoryOutputNames)
         {
             CRemoveResultHistoryOutputs comm = new CRemoveResultHistoryOutputs(resultHistoryOutputNames);
@@ -12860,11 +12880,6 @@ namespace PrePoMax
         public void RemoveResultHistoryFieldsCommand(string historyResultSetName, string[] historyResultFieldNames)
         {
             CRemoveResultHistoryFields comm = new CRemoveResultHistoryFields(historyResultSetName, historyResultFieldNames);
-            _commands.AddAndExecute(comm);
-        }
-        public void ExportResultHistoryOutputCommand(ExportHistoryResultSetFileProperties properties)
-        {
-            CExportResultHistoryOutputToCsv comm = new CExportResultHistoryOutputToCsv(properties);
             _commands.AddAndExecute(comm);
         }
         public void RemoveResultHistoryFieldsCommand(string historyResultSetName, string historyResultFieldName,
@@ -14000,7 +14015,10 @@ namespace PrePoMax
             int[] ids = null;
             if ((elementIds == null || elementIds.Length == 0) && (nodeIds == null || nodeIds.Length == 0)) return ids;
             // Get geometry ids
-            ids = mesh.GetGeometryIds(nodeIds, elementIds, completelyInside);
+            if (selectionPartNames.Length == 1)
+                ids = mesh.GetGeometryIds(nodeIds, elementIds, completelyInside, selectionPartNames[0]);
+            else
+                ids = mesh.GetGeometryIds(nodeIds, elementIds, completelyInside);
             // Appply select by filter to geomety ids
             if (selectBy == vtkSelectBy.GeometryPart)
             {

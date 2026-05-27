@@ -5878,7 +5878,7 @@ namespace CaeMesh
             geometryId = GetGeometryId(itemId, typeId, partId);
             return geometryId;
         }
-        public int[] GetGeometryIds(int[] nodeIds, int[] elementIds, bool completelyInside = true)
+        public int[] GetGeometryIds(int[] nodeIds, int[] elementIds, bool completelyInside = true, string singlePartNamefilter = null)
         {
             // geometryId = itemId * 100000 + typeId * 10000 + partId       
             int itemId;// = -1;
@@ -5892,7 +5892,10 @@ namespace CaeMesh
             // Surfaces
             foreach (var entry in _parts)
             {
+                if (singlePartNamefilter != null && entry.Key != singlePartNamefilter) continue;
                 if (entry.Value is CompoundGeometryPart) continue;
+                if (!(entry.Value.Active && entry.Value.Visible)) continue;
+                if (!selectedNodes.Overlaps(entry.Value.NodeLabels)) continue;   // speed
                 //
                 partId = entry.Value.PartId;
                 visualization = entry.Value.Visualization;
@@ -5934,8 +5937,10 @@ namespace CaeMesh
             // Edges
             foreach (var entry in _parts)
             {
+                if (singlePartNamefilter != null && entry.Key != singlePartNamefilter) continue;
                 if (entry.Value is CompoundGeometryPart) continue;
                 if (!(entry.Value.Active && entry.Value.Visible)) continue;
+                if (!selectedNodes.Overlaps(entry.Value.NodeLabels)) continue;   // speed
                 //
                 partId = entry.Value.PartId;
                 visualization = entry.Value.Visualization;
@@ -5962,8 +5967,10 @@ namespace CaeMesh
             // Vertices 
             foreach (var entry in _parts)
             {
+                if (singlePartNamefilter != null && entry.Key != singlePartNamefilter) continue;
                 if (entry.Value is CompoundGeometryPart) continue;
                 if (!(entry.Value.Active && entry.Value.Visible)) continue;
+                if (!selectedNodes.Overlaps(entry.Value.NodeLabels)) continue;   // speed
                 //
                 partId = entry.Value.PartId;
                 visualization = entry.Value.Visualization;
@@ -5980,53 +5987,6 @@ namespace CaeMesh
                 }
             }
             //
-            return geometryIds.ToArray();
-        }
-        public int[] GetGeometryIds2(int[] elementIds)
-        {
-            // geometryId = itemId * 100000 + typeId * 10000 + partId       
-            int itemId = -1;
-            int typeId = (int)GeometryType.Unknown;
-            int partId = -1;
-            int prevCount;
-            HashSet<int> geometryIds = new HashSet<int>();
-            VisualizationData visualization;
-            HashSet<int> selectedElements = new HashSet<int>(elementIds);
-            Dictionary<int, HashSet<int>> elementIdsBySurfaces;
-            //
-            foreach (var entry in _parts)
-            {
-                if (entry.Value is CompoundGeometryPart) continue;
-                //
-                partId = entry.Value.PartId;
-                visualization = entry.Value.Visualization;
-                // Surfaces
-                if (entry.Value.PartType == PartType.Shell)
-                    typeId = (int)GeometryType.ShellFrontSurface;
-                else if (entry.Value.PartType == PartType.SolidAsShell)
-                    typeId = (int)GeometryType.ShellFrontSurface;
-                else if (entry.Value.PartType == PartType.Solid)
-                    typeId = (int)GeometryType.SolidSurface;
-                else throw new NotSupportedException();
-                //
-                elementIdsBySurfaces = visualization.GetSurfaceIdElementIds();
-                //
-                foreach (var elementIdsEntry in elementIdsBySurfaces)
-                {
-                    prevCount = selectedElements.Count;
-                    selectedElements.ExceptWith(elementIdsEntry.Value);
-                    if (prevCount != selectedElements.Count())
-                    {
-                        itemId = elementIdsEntry.Key;
-                        geometryIds.Add(GetGeometryId(itemId, typeId, partId));
-                        // Add faces of the shell back face
-                        if (entry.Value.PartType == PartType.Shell && typeId == (int)GeometryType.ShellFrontSurface)
-                        {
-                            geometryIds.Add(GetGeometryId(itemId, (int)GeometryType.ShellBackSurface, partId));
-                        }
-                    }
-                }
-            }
             return geometryIds.ToArray();
         }
         private double PointToClosestFaceEdgeDistance(double[] point, VisualizationData visualization, int faceId, out int closestEdgeId)

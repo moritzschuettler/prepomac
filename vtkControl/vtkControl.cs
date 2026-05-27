@@ -1379,8 +1379,6 @@ namespace vtkControl
             //
             double[] p = null;
             int cellId = -1;
-            vtkCell cell;
-            vtkCellLocator locator;
             // Make all actors visible
             foreach (var entry in _actors)
             {
@@ -1461,7 +1459,7 @@ namespace vtkControl
                 //if (entry.Value.Pickable)
                 {
                     entry.Value.UpdateColor();
-                    ApplyEdgeVisibilityAndBackfaceCullingToActor(entry.Value.Geometry, entry.Value.GeometryProperty,
+                    ApplyEdgeVisibilityAndBackfaceCullingToActor(entry.Key, entry.Value.Geometry, entry.Value.GeometryProperty,
                                                                  vtkRendererLayer.Base);
                 }
             }
@@ -1523,7 +1521,7 @@ namespace vtkControl
                     }
                 }
                 // Reset visibility
-                ApplyEdgeVisibilityAndBackfaceCullingToActor(entry.Value.Geometry, entry.Value.GeometryProperty,
+                ApplyEdgeVisibilityAndBackfaceCullingToActor(entry.Key, entry.Value.Geometry, entry.Value.GeometryProperty,
                                                              vtkRendererLayer.Base);
                 if (minDistance == 0) break;
             }
@@ -1642,6 +1640,8 @@ namespace vtkControl
             pointIds = new int[0];
             cellIds = new int[0];
             //
+            bool visible;
+            CaeMesh.BoundingBox bb;
             vtkExtractSelectedFrustum extractor;
             vtkUnstructuredGrid grid;
             vtkUnsignedLongArray globalPointIdsDataArray;
@@ -1652,18 +1652,25 @@ namespace vtkControl
             //
             foreach (var entry in _actors)
             {
-                // Set filtered actors
-                if (_selectableActorsFilter != null)
-                {
-                    if (_selectableActorsFilter.Contains(entry.Value.Name)) entry.Value.Geometry.VisibilityOn();
-                    else entry.Value.Geometry.VisibilityOff();
-                }
+                visible = entry.Value.Geometry.GetVisibility() != 0;
+                if (_selectableActorsFilter != null && !_selectableActorsFilter.Contains(entry.Value.Name)) visible = false;
                 // Skip invisible actors
-                if (entry.Value.Geometry.GetVisibility() != 0)
+                if (visible)
                 {
                     locator = entry.Value.FrustumCellLocator;
                     if (locator != null)
                     {
+                        bb = new CaeMesh.BoundingBox(locator.GetDataSet().GetBounds());
+                        switch (bb.TestBoundsAgainstFrustum(planeParameters))
+                        {
+                            case FrustumBoxResultEnum.Outside: continue;
+                            case FrustumBoxResultEnum.Inside:
+                                AddAllGlobalPointIds(locator.GetDataSet(), globalPointIds);
+                                AddAllGlobalCellIds(locator.GetDataSet(), globalCellIds);
+                                continue;
+                            case FrustumBoxResultEnum.Intersecting:
+                                break;
+                        }
                         // Inside points                
                         extractor = vtkExtractSelectedFrustum.New(); // must be inside the loop
                         extractor.SetFieldType((int)vtkSelectionField.POINT);
@@ -1696,15 +1703,27 @@ namespace vtkControl
                         }
                     }
                 }
-                // Reset visibility
-                ApplyEdgeVisibilityAndBackfaceCullingToActor(entry.Value.Geometry, entry.Value.GeometryProperty,
-                                                             vtkRendererLayer.Base);
             }
             //
             pointIds = globalPointIds.ToArray();
             cellIds = globalCellIds.ToArray();
         }
+        static void AddAllGlobalPointIds(vtkDataSet dataSet, HashSet<int> ids)
+        {
+            var arr = (vtkUnsignedLongArray)dataSet.GetPointData().GetGlobalIds();
+            if (arr == null) return;
 
+            for (int i = 0; i < arr.GetNumberOfTuples(); i++)
+                ids.Add((int)arr.GetValue(i));
+        }
+        static void AddAllGlobalCellIds(vtkDataSet dataSet, HashSet<int> ids)
+        {
+            var arr = (vtkUnsignedLongArray)dataSet.GetCellData().GetGlobalIds();
+            if (arr == null) return;
+
+            for (int i = 0; i < arr.GetNumberOfTuples(); i++)
+                ids.Add((int)arr.GetValue(i));
+        }
         #endregion #################################################################################################################
 
         // Private methods                                                                                                          
@@ -2291,7 +2310,7 @@ namespace vtkControl
             // Base layer
             foreach (var entry in _actors)
             {
-                ApplyEdgeVisibilityAndBackfaceCullingToActor(entry.Value.Geometry, entry.Value.GeometryProperty,
+                ApplyEdgeVisibilityAndBackfaceCullingToActor(entry.Key, entry.Value.Geometry, entry.Value.GeometryProperty,
                                                              vtkRendererLayer.Base);
                 if (entry.Value.ElementEdges != null) ApplyEdgeVisibilityAndBackfaceCullingToActorEdges(entry.Value, entry.Key);
                 if (entry.Value.ModelEdges != null) ApplyEdgeVisibilityAndBackfaceCullingToModelEdges(entry.Value, entry.Key);
@@ -2299,7 +2318,7 @@ namespace vtkControl
             // Selection
             foreach (var selectedActor in _selectedActors)
             {
-                ApplyEdgeVisibilityAndBackfaceCullingToActor(selectedActor.Geometry, selectedActor.GeometryProperty,
+                ApplyEdgeVisibilityAndBackfaceCullingToActor(null, selectedActor.Geometry, selectedActor.GeometryProperty,
                                                              vtkRendererLayer.Selection);
                 if (selectedActor.ElementEdges != null) ApplyEdgeVisibilityAndBackfaceCullingToActorEdges(selectedActor, null);
             }
@@ -2307,13 +2326,14 @@ namespace vtkControl
             foreach (var entry in _overlayActors)
             {
                 if (entry.Value.Geometry != null)   // null is for Caption actor
-                    ApplyEdgeVisibilityAndBackfaceCullingToActor(entry.Value.Geometry, entry.Value.Geometry.GetProperty(),
+                    ApplyEdgeVisibilityAndBackfaceCullingToActor(null, entry.Value.Geometry, entry.Value.Geometry.GetProperty(),
                                                                  vtkRendererLayer.Overlay);
             }
             //
             RenderScene();
         }
-        private void ApplyEdgeVisibilityAndBackfaceCullingToActor(vtkActor actor, vtkProperty actorProperty, vtkRendererLayer layer)
+        private void ApplyEdgeVisibilityAndBackfaceCullingToActor(string actorName, vtkActor actor, vtkProperty actorProperty,
+                                                                  vtkRendererLayer layer)
         {
             // Visibility functions must use vtkMaxActor.Visible property to determine visibility
             //
@@ -2334,7 +2354,7 @@ namespace vtkControl
                 vtkMaxActor maxActor = null;
                 if (layer == vtkRendererLayer.Base)
                 {
-                    string actorName = GetActorName(actor);
+                    if (actorName == null) actorName = GetActorName(actor);
                     maxActor = _actors[actorName];
                 }
                 else if (layer == vtkRendererLayer.Selection)
@@ -4328,7 +4348,7 @@ namespace vtkControl
                 ApplySelectionFormattingToActor(actor);
             }
             //
-            ApplyEdgeVisibilityAndBackfaceCullingToActor(actor.Geometry, actor.GeometryProperty, layer);            
+            ApplyEdgeVisibilityAndBackfaceCullingToActor(actor.Name, actor.Geometry, actor.GeometryProperty, layer);            
             //
             UpdateTmpActor(layer);
         }
@@ -7054,10 +7074,10 @@ namespace vtkControl
             vtkMaxActor actor = _actors[partName];
             actor.CropWithCylinder(r, fileName);
         }
-        public void CropPartWithCube(string partName, double a, string fileName)
+        public void CropPartWithCube(string partName, double x, double y, double z, double a,string fileName)
         {
             vtkMaxActor actor = _actors[partName];
-            actor.CropWithCube(a, fileName);
+            actor.CropWithCube(x, y, z, a, fileName);
         }
         public void SmoothPart(string partName, double a, string fileName)
         {

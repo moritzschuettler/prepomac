@@ -16,6 +16,12 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
+    public enum FrustumBoxResultEnum
+    {
+        Outside,
+        Intersecting,
+        Inside
+    }
     public class BoundingBoxVolumeComparer : IComparer<BoundingBox>
     {
         public int Compare(BoundingBox bb1, BoundingBox bb2)
@@ -73,6 +79,15 @@ namespace CaeMesh
         public BoundingBox()
         {
             Reset();
+        }
+        public BoundingBox(double[] bounds)
+        {
+            MinX = bounds[0];
+            MaxX = bounds[1];
+            MinY = bounds[2];
+            MaxY = bounds[3];
+            MinZ = bounds[4];
+            MaxZ = bounds[5];
         }
         public BoundingBox(BoundingBox box)
         {
@@ -390,6 +405,29 @@ namespace CaeMesh
             intersection.MaxZ = Math.Min(MaxZ, box.MaxZ);
             //
             return intersection;
+        }
+        public FrustumBoxResultEnum TestBoundsAgainstFrustum(double[][] planes)
+        {
+            bool intersecting = false;
+            foreach (var p in planes)
+            {
+                double px = p[0], py = p[1], pz = p[2];
+                double nx = p[3], ny = p[4], nz = p[5];
+                // Vertex most in direction of normal
+                double maxX = nx >= 0 ? MaxX : MinX;
+                double maxY = ny >= 0 ? MaxY : MinY;
+                double maxZ = nz >= 0 ? MaxZ : MinZ;
+                // Vertex opposite normal
+                double minX = nx >= 0 ? MinX : MaxX;
+                double minY = ny >= 0 ? MinY : MaxY;
+                double minZ = nz >= 0 ? MinZ : MaxZ;
+                double maxDist = nx * (maxX - px) + ny * (maxY - py) + nz * (maxZ - pz);
+                double minDist = nx * (minX - px) + ny * (minY - py) + nz * (minZ - pz);
+                // For VTK, inside may be distance <= 0
+                if (minDist > 0) return FrustumBoxResultEnum.Outside;
+                if (maxDist > 0) intersecting = true;
+            }
+            return intersecting ? FrustumBoxResultEnum.Intersecting : FrustumBoxResultEnum.Inside;
         }
         //
         public double MaxOutsideAxialDistance(double[] coor)

@@ -516,10 +516,10 @@ namespace vtkControl
             stlWriter.SetInput(decimate.GetOutput());
             stlWriter.Write();
         }
-        public void CropWithCube(double a, string fileName)
+        public void CropWithCube(double x, double y, double z, double a, string fileName)
         {
             vtkBox box = vtkBox.New();
-            box.SetBounds(0, a, 0, a, -100 * a, 200 * a);
+            box.SetBounds(x - a / 2, x + a / 2, y - a / 2, y + a / 2, z - a / 2, z + a / 2);
             //
             vtkClipPolyData clipper = vtkClipPolyData.New();
             clipper.SetInput(_geometryMapper.GetInput());

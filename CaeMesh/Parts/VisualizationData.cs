@@ -774,6 +774,32 @@ namespace CaeMesh
             //
             return surfaceIdNodeIds;
         }
+        public Dictionary<int, HashSet<int>> GetSurfaceIdNodeIds2()
+        {
+            Dictionary<int, HashSet<int>> surfaceIdNodeIds = new Dictionary<int, HashSet<int>>(_cellIdsByFace.Length);
+            //
+            int count;
+            int[] cell;
+            int[] allIds;
+            for (int i = 0; i < _cellIdsByFace.Length; i++)
+            {
+                count = 0;
+                for (int j = 0; j < _cellIdsByFace[i].Length; j++) count += _cells[_cellIdsByFace[i][j]].Length;
+                allIds = new int[count];
+                //
+                count = 0;
+                for (int j = 0; j < _cellIdsByFace[i].Length; j++)
+                {
+                    cell = _cells[_cellIdsByFace[i][j]];
+                    Array.Copy(cell, 0, allIds, count, cell.Length);
+                    count+= cell.Length;
+                }
+                //
+                surfaceIdNodeIds.Add(i, new HashSet<int>(allIds));
+            }
+            //
+            return surfaceIdNodeIds;
+        }
         public Dictionary<int, HashSet<int>> GetSurfaceIdElementIds()
         {
             HashSet<int> surfaceElementIds;

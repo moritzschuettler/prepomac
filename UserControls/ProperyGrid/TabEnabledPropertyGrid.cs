@@ -286,7 +286,7 @@ namespace UserControls
             List<GridItem> gridItems = new List<GridItem>();
             this.FindItems(root, gridItems);
             //
-            if (gridItems[0].Expanded) this.SelectedGridItem = gridItems[0];
+            if (gridItems.Count > 0 && gridItems[0].Expanded) this.SelectedGridItem = gridItems[0];
             //
             base.OnEnter(e);
         }
@@ -294,17 +294,33 @@ namespace UserControls
         {
             if (_readOnly)
             {
-                if (e.NewSelection.GridItemType == GridItemType.Property)
+                if (e.NewSelection?.GridItemType == GridItemType.Property)
                 {
-                    if (e.NewSelection.Parent != null && e.NewSelection.Parent.GridItemType == GridItemType.Category)
+                    GridItem item = e.NewSelection;
+
+                    while (item.Parent != null)
                     {
-                        this.SelectedGridItem = e.NewSelection.Parent;
-                        return;
+                        if (item.Parent.GridItemType == GridItemType.Category)
+                        {
+                            this.SelectedGridItem = item.Parent;
+                            return;
+                        }
+
+                        item = item.Parent;
                     }
                 }
             }
-            else base.OnSelectedGridItemChanged(e);
-            //
+            else
+            {
+                base.OnSelectedGridItemChanged(e);
+            }
+
+            if (IsDisposed || Disposing)
+                return;
+
+            if (!IsHandleCreated)
+                return;
+
             this.BeginInvoke(new Action(DetachAutocompleteFromInternalTextBox));
             this.BeginInvoke(new Action(AttachAutocompleteToInternalTextBox));
         }

@@ -36,6 +36,7 @@ namespace PrePoMax.Forms
         private List<ViewCommand> _viewCommands;
         private Dictionary<double, int> _timeColorId;
         private bool _modified;
+        private FrmViewObjectProperties _frmViewCommandProperties;
 
 
         // Properties                                                                                                               
@@ -59,6 +60,8 @@ namespace PrePoMax.Forms
             _controller = controller;
             _viewCommands = null;
             _modified = false;
+            _frmViewCommandProperties = new FrmViewObjectProperties();
+            _frmViewCommandProperties.StartPosition = FormStartPosition.CenterParent;
         }
 
 
@@ -374,6 +377,17 @@ namespace PrePoMax.Forms
             dgvCommands.Invalidate();
         }
 
-        
+        private void dgvCommands_CellMouseDoubleClick(object sender, DataGridViewCellMouseEventArgs e)
+        {
+            if (!_frmViewCommandProperties.Visible && e.RowIndex >= 0 && e.ColumnIndex >= 0)
+            {
+                List<Command> commands = _controller.GetCommands();
+                Command command = commands[e.RowIndex];
+                ViewObjectTypeDescriptor viewObject = new ViewObjectTypeDescriptor(command);
+                //
+                _frmViewCommandProperties.PrepareForm("Command Properties", viewObject);
+                _frmViewCommandProperties.ShowDialog(this);
+            }
+        }
     }
 }

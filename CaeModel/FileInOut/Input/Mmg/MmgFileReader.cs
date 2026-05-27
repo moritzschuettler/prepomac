@@ -226,6 +226,8 @@ namespace FileInOut.Input
                 //
                 mesh.ConvertLineFeElementsToEdges(vertexNodeIds);
                 //
+                //elementsToImport = ElementsToImport.Solid;
+                //
                 if (elementsToImport != ElementsToImport.All)
                 {
                     if (!elementsToImport.HasFlag(ElementsToImport.Beam)) mesh.RemoveElementsByType<FeElement1D>();

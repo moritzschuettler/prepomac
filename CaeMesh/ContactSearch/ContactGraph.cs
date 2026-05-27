@@ -273,7 +273,7 @@ namespace CaeMesh
             //
             foreach (var node in reducedGraph.Nodes)
             {
-                foreach (var neighbour in node.Neighbours)
+                foreach (var neighbour in node.Neighbours.ToList())
                 {
                     masterSlaveItems.Add(new MasterSlaveItem(prefix + node.Value.Name, neighbour.Value.Name,
                                                              node.Value.ItemIds, neighbour.Value.ItemIds));

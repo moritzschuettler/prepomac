@@ -2877,6 +2877,33 @@ namespace CaeResults
             _resultFieldOutputs.Replace(oldResultFieldOutputName, resultFieldOutput.Name, resultFieldOutput);
             PrepareFieldsFromResultFieldOutput(resultFieldOutput);
         }
+        public void ExportResultFieldOutput(string fileName, FieldData fieldData)
+        {
+            Field field = GetField(fieldData);
+            string[] componentNames = field.GetComponentNames();
+            float[][] values = new float[componentNames.Length][];
+            for (int i = 0; i < componentNames.Length; i++) values[i] = field.GetComponentValues(componentNames[i]);
+            //
+            FeNode node;
+            int resultNodeId;
+            StringBuilder sb = new StringBuilder();
+            sb.Append("#X, Y, Z");
+            for (int i = 0; i < componentNames.Length; i++)
+                sb.AppendFormat(", {0}", componentNames[i]);
+            //
+            foreach (var entry in _undeformedNodes)
+            {
+                node = entry.Value;
+                resultNodeId = _nodeIdsLookUp[node.Id];
+                //
+                sb.AppendLine();
+                sb.AppendFormat("{0}, {1}, {2}", node.X, node.Y, node.Z);
+                for (int i = 0; i < values.Length; i++)
+                    sb.AppendFormat(", {0}", values[i][resultNodeId]);
+            }
+            //
+            File.WriteAllText(fileName, sb.ToString());
+        }
         public void RemoveResultFieldOutputs(string[] fieldOutputNames)
         {
             RemoveFields(fieldOutputNames);

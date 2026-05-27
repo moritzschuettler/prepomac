@@ -8266,6 +8266,24 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
+        private void tsmiExportResultFieldOutput_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SaveFileDialog saveFileDialog = new SaveFileDialog();
+                saveFileDialog.FileName = "FieldOutput.csv";
+                saveFileDialog.Filter = "Comma separated values (*.csv)|*.csv";
+                if (saveFileDialog.ShowDialog(this) == DialogResult.OK)
+                {
+                    _controller.ExportResultFieldOutputCommand(saveFileDialog.FileName, _controller.AllResults.GetCurrentResultName(),
+                                                               _controller.CurrentFieldData);
+                }
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
         private void tsmiDeleteResultFieldOutput_Click(object sender, EventArgs e)
         {
             try
@@ -8336,6 +8354,7 @@ namespace PrePoMax
         {
             try
             {
+
                 ExportHistoryResultSetFileProperties properties = new ExportHistoryResultSetFileProperties();
                 properties.HistoryOutputNames = _controller.GetHistoryResultSetNames();
                 if (properties.HistoryOutputNames == null || properties.HistoryOutputNames.Length == 0)
@@ -10102,9 +10121,9 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.CropPartWithCylinder, partName, r, fileName);
         }
-        public void CropPartWithCube(string partName, double a, string fileName)
+        public void CropPartWithCube(string partName, double x, double y, double z, double a, string fileName)
         {
-            InvokeIfRequired(_vtk.CropPartWithCube, partName, a, fileName);
+            InvokeIfRequired(_vtk.CropPartWithCube, partName, x, y, z, a, fileName);
         }
         public void SmoothPart(string partName, double a, string fileName)
         {
@@ -11195,7 +11214,7 @@ namespace PrePoMax
             }
         }
 
-        
+
     }
 }
 
