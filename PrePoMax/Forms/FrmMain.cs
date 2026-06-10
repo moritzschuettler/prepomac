@@ -794,9 +794,9 @@ namespace PrePoMax
                     //
                     if (response == DialogResult.Yes)
                     {
-                        e.Cancel = true;                                // stop the form from closing before saving
-                        await Task.Run(() => _controller.Save());       // save
-                        Close();                                        // close the control
+                        e.Cancel = true;            // stop the form from closing before saving
+                        await SaveAsync();          // save
+                        Close();                    // close the control
                     }
                     else if (response == DialogResult.Cancel) e.Cancel = true;
                 }
@@ -1654,19 +1654,11 @@ namespace PrePoMax
         {
             try
             {
-                if (!_controller.ModelInitialized && !_controller.ResultsInitialized)
-                    throw new CaeException("There is no model or results to save.");
-                //
-                SetStateWorking(Globals.SavingText);
-                await Task.Run(() => _controller.Save());
+                await SaveAsync();
             }
             catch (Exception ex)
             {
                 ExceptionTools.Show(this, ex);
-            }
-            finally
-            {
-                SetStateReady(Globals.SavingText);
             }
         }
         private async void tsmiSaveAs_Click(object sender, EventArgs e)
@@ -2140,6 +2132,21 @@ namespace PrePoMax
             finally
             {
                 SetStateReady(Globals.ImportingText);
+            }
+        }
+        private async Task SaveAsync()
+        {
+            if (!_controller.ModelInitialized && !_controller.ResultsInitialized)
+                throw new CaeException("There is no model or results to save.");
+            //
+            try
+            {
+                SetStateWorking(Globals.SavingText);
+                await Task.Run(() => _controller.Save());
+            }
+            finally
+            {
+                SetStateReady(Globals.SavingText);
             }
         }
         private async void SaveCADPartsAsStep(string[] partNames)
