@@ -9,13 +9,14 @@
 
 using CaeGlobals;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO.Ports;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Collections.Concurrent;
 using System.Windows.Forms.VisualStyles;
-using System.Diagnostics;
 
 namespace CaeMesh
 {
@@ -1609,7 +1610,7 @@ namespace CaeMesh
                 }
             }
         }
-        // Mirrir cells
+        // Mirror cells
         public void MirrorCells()
         {
             int[] cell;
@@ -1882,7 +1883,116 @@ namespace CaeMesh
             }
         }
         // Sweep mesh
-
+        public bool IsBodySweepable(HashSet<int> sourceSurfaceIds, out int[] sideSurfaceIds, out int[] targetSurfaceIds,
+                                    out List<int[]> layerSideSurfaceIds)
+        {
+            sideSurfaceIds = null;
+            targetSurfaceIds = null;
+            layerSideSurfaceIds = new List<int[]>();
+            Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds = GetSurfaceIdSurfaceNeighbourIds();
+            // If source faces are not connected return false
+            if (!AreSurfacesConnected(sourceSurfaceIds.ToArray(), surfaceIdSurfaceNeighbourIds)) return false;
+            // Are there any free edge loops with a single edge - cylinder with a single seam line
+            int singleEdgeLoops = 0;
+            HashSet<int>[] freeEdgeLoops = GetFreeEdgeLoops(sourceSurfaceIds.ToArray());
+            for (int i = 0; i < freeEdgeLoops.Length; i++)
+            {
+                if (freeEdgeLoops[i].Count == 1) singleEdgeLoops++;
+            }
+            // If there are free edge loops with a single edge return false
+            if (singleEdgeLoops != 0) return false;
+            //
+            bool loop = true;
+            HashSet<int> neighbours;
+            HashSet<int> neighbourSurfaceIds;
+            HashSet<int> visitedSurfaceIds = new HashSet<int>(sourceSurfaceIds);
+            //
+            Node<int> node;
+            Graph<int> connections;
+            Dictionary<int, Node<int>> surfaceIdNode;
+            List<Graph<int>> surfaceLoops;
+            //
+            while (true)
+            {
+                // New neighbours
+                neighbourSurfaceIds = new HashSet<int>();
+                // Find next neighbours
+                foreach (var visitedSurfaceId in visitedSurfaceIds)
+                {
+                    neighbourSurfaceIds.UnionWith(surfaceIdSurfaceNeighbourIds[visitedSurfaceId]);
+                }
+                neighbourSurfaceIds.ExceptWith(visitedSurfaceIds);
+                // Are the neighbouring faces the last faces of the part
+                if (surfaceIdSurfaceNeighbourIds.Keys.Count == visitedSurfaceIds.Union(neighbourSurfaceIds).Count())
+                    loop = false;
+                // Check that neighbours form a loop
+                else
+                {
+                    // Split surfaces into connected groups - outside loop and holes
+                    connections = new Graph<int>();
+                    surfaceIdNode = new Dictionary<int, Node<int>>();
+                    //
+                    foreach (var neighbourSurfaceId in neighbourSurfaceIds)
+                    {
+                        node = new Node<int>(neighbourSurfaceId);
+                        connections.AddNode(node);
+                        surfaceIdNode.Add(neighbourSurfaceId, node);
+                    }
+                    foreach (var neighbour1Id in neighbourSurfaceIds)
+                    {
+                        foreach (var neighbour2Id in surfaceIdSurfaceNeighbourIds[neighbour1Id])
+                        {
+                            if (neighbourSurfaceIds.Contains(neighbour2Id))
+                                connections.AddUndirectedEdge(surfaceIdNode[neighbour1Id],
+                                                                surfaceIdNode[neighbour2Id]);
+                        }
+                    }
+                    surfaceLoops = connections.GetConnectedSubgraphs();
+                    //
+                    if (surfaceLoops.Count() != freeEdgeLoops.Count()) loop = false;
+                    else
+                    {
+                        // Each face in a surface loop should have exactly 2 neighbours in the loop
+                        // with exceptions for a cylindrical faces
+                        foreach (var surfaceLoop in surfaceLoops)
+                        {
+                            // One cylindrical face
+                            if (surfaceLoop.Count == 1) loop = false;
+                            // Two cylindrical faces
+                            else if (surfaceLoop.Count == 2)
+                            {
+                                foreach (var id in surfaceLoop.GetValues())
+                                {
+                                    neighbours =
+                                        surfaceIdSurfaceNeighbourIds[id].Intersect(neighbourSurfaceIds).ToHashSet();
+                                    if (neighbours.Count() != 1) { loop = false; break; }
+                                }
+                            }
+                            else
+                            {
+                                foreach (var id in surfaceLoop.GetValues())
+                                {
+                                    neighbours =
+                                        surfaceIdSurfaceNeighbourIds[id].Intersect(neighbourSurfaceIds).ToHashSet();
+                                    //
+                                    if (neighbours.Count() != 2) { loop = false; break; }
+                                }
+                            }
+                        }
+                    }
+                }
+                //
+                if (!loop) break;
+                //
+                layerSideSurfaceIds.Add(neighbourSurfaceIds.ToArray());
+                visitedSurfaceIds.UnionWith(neighbourSurfaceIds);
+            }
+            //
+            targetSurfaceIds = surfaceIdSurfaceNeighbourIds.Keys.Except(visitedSurfaceIds).ToArray();
+            sideSurfaceIds = visitedSurfaceIds.Except(sourceSurfaceIds).ToArray();
+            //
+            return true;
+        }
         // Section cut
         public void ApplySectionView(Dictionary<int, FeElement> elements, int[] elementIds, HashSet<int> frontNodes,
                                      HashSet<int> backNodes)
