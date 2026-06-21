@@ -19,9 +19,12 @@ namespace CaeMesh
     public class LinearQuadrilateralElement : FeElement2D
     {
         // Variables                                                                                                                
-        private static int vtkCellTypeInt = (int)vtkCellType.VTK_QUAD;
-        private static double a = 1.0 / 4.0;
-        private static double b = 1.0 / 2.0;
+        private static int _vtkCellTypeInt = (int)vtkCellType.VTK_QUAD;
+        private static double _a = 1.0 / 4.0;
+        private static double _b = 1.0 / 2.0;
+        private static double[] _xi = { -0.577350269189626, 0.577350269189626, 0.577350269189626, -0.577350269189626 };
+        private static double[] _eta = { -0.577350269189626, -0.577350269189626, 0.577350269189626, 0.577350269189626 };
+        private static double[] _w = { 1.0, 1.0, 1.0, 1.0 };
 
 
         // Properties                                                                                                               
@@ -51,7 +54,7 @@ namespace CaeMesh
         }
         public override int GetVtkCellType()
         {
-            return vtkCellTypeInt;
+            return _vtkCellTypeInt;
         }
         public override FeFaceName GetFaceNameFromSortedNodeIds(int[] nodeIds)
         {
@@ -169,10 +172,10 @@ namespace CaeMesh
         public override double[] GetEquivalentForcesFromFaceName(FeFaceName faceName)
         {
             if (faceName == FeFaceName.S1 || faceName == FeFaceName.S2)
-                return new double[] { a, a, a, a };
+                return new double[] { _a, _a, _a, _a };
             else if (faceName == FeFaceName.S3 || faceName == FeFaceName.S4 ||
                      faceName == FeFaceName.S5 || faceName == FeFaceName.S6)
-                return new double[] { b, b };
+                return new double[] { _b, _b };
             else throw new NotSupportedException();
         }
         public override double[] GetEquivalentForcesFromFaceName(FeFaceName faceName, double[] nodalValues)
@@ -206,6 +209,63 @@ namespace CaeMesh
         {
             return GeometryTools.QuadrilateralCG(nodes[NodeIds[0]], nodes[NodeIds[1]], nodes[NodeIds[2]],
                                                  nodes[NodeIds[3]], out area);
+        }
+        // Integration
+        public override double Integrate(Dictionary<int, FeNode> nodes, Dictionary<int, double> nodalValues)
+        {
+            return Integrate(nodes[NodeIds[0]], nodes[NodeIds[1]],
+                             nodes[NodeIds[2]], nodes[NodeIds[3]],
+                             nodalValues[NodeIds[0]], nodalValues[NodeIds[1]],
+                             nodalValues[NodeIds[2]], nodalValues[NodeIds[3]]);
+        }
+        private static double Integrate(FeNode n1, FeNode n2, FeNode n3, FeNode n4,
+                                       double u1, double u2, double u3, double u4)
+        {
+            double integral = 0;
+            //
+            for (int gp = 0; gp < 4; gp++)
+            {
+                double xi = _xi[gp];
+                double eta = _eta[gp];
+                //
+                double u = Interpolate(u1, u2, u3, u4, xi, eta);
+                //
+                double jNorm = JNorm(n1, n2, n3, n4, xi, eta);
+                //
+                integral += _w[gp] * u * jNorm;
+            }
+            //
+            return integral;
+        }
+        private static double Interpolate(double u1, double u2, double u3, double u4, double g, double h)
+        {
+            return 0.25 * (1 - g) * (1 - h) * u1 +
+                   0.25 * (1 + g) * (1 - h) * u2 +
+                   0.25 * (1 + g) * (1 + h) * u3 +
+                   0.25 * (1 - g) * (1 + h) * u4;
+        }
+        private static double JNorm(FeNode n1, FeNode n2, FeNode n3, FeNode n4, double g, double h)
+        {
+            // Derivatives by g
+            double xg = -0.25 * (1 - h) * n1.X + 0.25 * (1 - h) * n2.X +
+                         0.25 * (1 + h) * n3.X - 0.25 * (1 + h) * n4.X;
+            double yg = -0.25 * (1 - h) * n1.Y + 0.25 * (1 - h) * n2.Y +
+                         0.25 * (1 + h) * n3.Y - 0.25 * (1 + h) * n4.Y;
+            double zg = -0.25 * (1 - h) * n1.Z + 0.25 * (1 - h) * n2.Z +
+                         0.25 * (1 + h) * n3.Z - 0.25 * (1 + h) * n4.Z;
+            // Derivatives by h
+            double xh = -0.25 * (1 - g) * n1.X - 0.25 * (1 + g) * n2.X +
+                         0.25 * (1 + g) * n3.X + 0.25 * (1 - g) * n4.X;
+            double yh = -0.25 * (1 - g) * n1.Y - 0.25 * (1 + g) * n2.Y +
+                         0.25 * (1 + g) * n3.Y + 0.25 * (1 - g) * n4.Y;
+            double zh = -0.25 * (1 - g) * n1.Z - 0.25 * (1 + g) * n2.Z +
+                         0.25 * (1 + g) * n3.Z + 0.25 * (1 - g) * n4.Z;
+            // |dx/dg x dx/dh|
+            double cx = yg * zh - zg * yh;
+            double cy = zg * xh - xg * zh;
+            double cz = xg * yh - yg * xh;
+            //
+            return Math.Sqrt(cx * cx + cy * cy + cz * cz);
         }
         //
         public override void Mirror()

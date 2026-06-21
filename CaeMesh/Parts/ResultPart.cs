@@ -25,9 +25,11 @@ namespace CaeMesh
         private bool _colorContours;
         private bool _createdFromBasePart;
 
+
         // Properties                                                                                                               
         public bool ColorContours { get { return _colorContours; } set { _colorContours = value; } }
         public bool CreatedFromBasePart { get { return _createdFromBasePart; } }
+
 
         // Constructors                                                                                                             
         public ResultPart(string name, int partId, int[] nodeLabels, int[] elementLabels, Type[] elementTypes)

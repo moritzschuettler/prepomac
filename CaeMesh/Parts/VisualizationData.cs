@@ -1595,7 +1595,6 @@ namespace CaeMesh
             }
             return false;
         }
-
         // Flip normals
         public void FlipTriangleNormals()
         {

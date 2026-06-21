@@ -282,6 +282,7 @@ namespace vtkControl
 
         // Events                                                                                                                   
         public event Action<double[], double[], double[][], bool, vtkSelectOperation, string[]> OnMouseLeftButtonUpSelection;
+        public event Action<double[]> RotationPointChanged;
 
 
         // Constructors                                                                                                             
@@ -1800,13 +1801,14 @@ namespace vtkControl
             _style.PointPickedOnLeftUpEvt += style_PointPickedOnLeftUpEvt;
             _style.ClearCurrentMouseSelection += ClearCurrentMouseSelection;
             _style.RightButtonPressEvent += style_RightButtonPressEvent;
+            _style.RotationPointChanged += _style_RotationPointChanged;
             _style.ZoomChangedEvent += style_ZoomChangedEvent;
             _style.KeyPressEvt += style_KeyPressEvt;
             _style.LeaveEvt += style_LeaveEvt;
             _style.EnterEvt += style_EnterEvt;
             _style.BoxZoomEnded = BoxZoomEnded;
             _renderWindowInteractor.SetInteractorStyle(_style);
-            _style.Reset();
+            _style.ResetRotationCenter();
             _renderWindowInteractor.ModifiedEvt += _renderWindowInteractor_ModifiedEvt;
             // Background
             _renderer.SetBackground(0.4, 0.4, 0.4);     // bottom
@@ -2714,6 +2716,15 @@ namespace vtkControl
         public void BoxZoomEnded()
         {
             Form_BoxZoomEnded?.Invoke();
+        }
+        //
+        private void _style_RotationPointChanged(double[] rotationPoint)
+        {
+            RotationPointChanged?.Invoke(rotationPoint);
+        }
+        public void SetRotationPoint(double[] rotationPoint)
+        {
+            _style.SetRotationPoint(rotationPoint);
         }
         //
         private void ResetCamera()
@@ -5892,7 +5903,7 @@ namespace vtkControl
 
                     _renderWindowInteractor = vtkRenderWindowInteractor.New();
                     _renderWindowInteractor.SetInteractorStyle(_style);
-                    _style.Reset();
+                    _style.ResetRotationCenter();
 
                     _renderWindow.SetInteractor(_renderWindowInteractor);
 
@@ -6688,7 +6699,7 @@ namespace vtkControl
             if (_scalarBarWidget != null) _scalarBarWidget.VisibilityOff();
             if (_colorBarWidget != null) HideColorBar();
             if (_statusBlockWidget != null) _statusBlockWidget.VisibilityOff();
-            if (_style != null) _style.Reset();
+            if (_style != null) _style.ResetRotationCenter();
             // Widgets
             HideAllArrowWidgets();
             //

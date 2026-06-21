@@ -19,9 +19,48 @@ namespace CaeMesh
     public class ParabolicWedgeElement : FeElement3D
     {
         // Variables                                                                                                                
-        private static int vtkCellTypeInt = (int)vtkCellType.VTK_QUADRATIC_WEDGE;
-        private static double a = 1.0 / 3.0;
-        private static double b = -a / 4;
+        private static int _vtkCellTypeInt = (int)vtkCellType.VTK_QUADRATIC_WEDGE;
+        private static double _a = 1.0 / 3.0;
+        private static double _b = -_a / 4;
+        private static double[] _xi = new double[]
+        {
+            0.091576213509771,
+            0.816847572980459,
+            0.091576213509771,
+            0.445948490915965,
+            0.108103018168070,
+            0.445948490915965
+        };
+        private static double[] _eta = new double[]
+        {
+            0.091576213509771,
+            0.091576213509771,
+            0.816847572980459,
+            0.445948490915965,
+            0.445948490915965,
+            0.108103018168070
+        };
+        private static double[] _zeta = new double[]
+        {
+            -Math.Sqrt(3.0 / 5.0),
+             0.0,
+             Math.Sqrt(3.0 / 5.0)
+        };
+        private static double[] _tw = new double[]
+        {
+            0.109951743655322 * 0.5,
+            0.109951743655322 * 0.5,
+            0.109951743655322 * 0.5,
+            0.223381589678011 * 0.5,
+            0.223381589678011 * 0.5,
+            0.223381589678011 * 0.5
+        };
+        private static double[] _lw = new double[]
+        {
+            5.0 / 9.0,
+            8.0 / 9.0,
+            5.0 / 9.0
+        };
 
 
         // Properties                                                                                                               
@@ -67,7 +106,7 @@ namespace CaeMesh
         }
         public override int GetVtkCellType()
         {
-            return vtkCellTypeInt;
+            return _vtkCellTypeInt;
         }
         public override FeFaceName GetFaceNameFromSortedNodeIds(int[] nodeIds)
         {
@@ -212,9 +251,9 @@ namespace CaeMesh
         public override double[] GetEquivalentForcesFromFaceName(FeFaceName faceName)
         {
             if (faceName == FeFaceName.S1 || faceName == FeFaceName.S2)
-                return new double[] { 0, 0, 0, a, a, a };
+                return new double[] { 0, 0, 0, _a, _a, _a };
             else if (faceName == FeFaceName.S3 || faceName == FeFaceName.S4 || faceName == FeFaceName.S5)
-                return new double[] { b, b, b, b, a, a, a, a };
+                return new double[] { _b, _b, _b, _b, _a, _a, _a, _a };
             else throw new NotSupportedException();
         }
         public override double[] GetEquivalentForcesFromFaceName(FeFaceName faceName, double[] nodalValues)
@@ -262,6 +301,172 @@ namespace CaeMesh
                                          nodes[NodeIds[6]], nodes[NodeIds[7]], nodes[NodeIds[8]],
                                          nodes[NodeIds[9]], nodes[NodeIds[10]], nodes[NodeIds[11]],
                                          nodes[NodeIds[12]], nodes[NodeIds[13]], nodes[NodeIds[14]], out volume);
+        }
+        // Integration
+        public override double Integrate(Dictionary<int, FeNode> nodes, Dictionary<int, double> nodalValues)
+        {
+            return Integrate(nodes[NodeIds[0]], nodes[NodeIds[1]], nodes[NodeIds[2]],
+                             nodes[NodeIds[3]], nodes[NodeIds[4]], nodes[NodeIds[5]],
+                             nodes[NodeIds[6]], nodes[NodeIds[7]], nodes[NodeIds[8]],
+                             nodes[NodeIds[9]], nodes[NodeIds[10]], nodes[NodeIds[11]],
+                             nodes[NodeIds[12]], nodes[NodeIds[13]], nodes[NodeIds[14]],
+                             nodalValues[NodeIds[0]], nodalValues[NodeIds[1]], nodalValues[NodeIds[2]],
+                             nodalValues[NodeIds[3]], nodalValues[NodeIds[4]], nodalValues[NodeIds[5]],
+                             nodalValues[NodeIds[6]], nodalValues[NodeIds[7]], nodalValues[NodeIds[8]],
+                             nodalValues[NodeIds[9]], nodalValues[NodeIds[10]], nodalValues[NodeIds[11]],
+                             nodalValues[NodeIds[12]], nodalValues[NodeIds[13]], nodalValues[NodeIds[14]]);
+        }
+        private static double Integrate(FeNode n1, FeNode n2, FeNode n3,
+                                        FeNode n4, FeNode n5, FeNode n6,
+                                        FeNode n7, FeNode n8, FeNode n9,
+                                        FeNode n10, FeNode n11, FeNode n12,
+                                        FeNode n13, FeNode n14, FeNode n15,
+                                        double u1, double u2, double u3,
+                                        double u4, double u5, double u6,
+                                        double u7, double u8, double u9,
+                                        double u10, double u11, double u12,
+                                        double u13, double u14, double u15)
+        {
+            double integral = 0;
+            //
+            for (int i = 0; i < _tw.Length; i++)
+            {
+                for (int j = 0; j < _lw.Length; j++)
+                {
+                    double xi = _xi[i];
+                    double eta = _eta[i];
+                    double zeta = _zeta[j];
+                    //
+                    double u = Interpolate(u1, u2, u3, u4, u5, u6,
+                                           u7, u8, u9, u10, u11, u12,
+                                           u13, u14, u15, xi, eta, zeta);
+                    //
+                    double jNorm = JNorm(n1, n2, n3, n4, n5, n6,
+                                         n7, n8, n9, n10, n11, n12,
+                                         n13, n14, n15, xi, eta, zeta);
+                    //
+                    integral += _tw[i] * _lw[j] * u * jNorm;
+                }
+            }
+            //
+            return integral;
+        }
+        private static double Interpolate(double u1, double u2, double u3,
+                                          double u4, double u5, double u6,
+                                          double u7, double u8, double u9,
+                                          double u10, double u11, double u12,
+                                          double u13, double u14, double u15,
+                                          double g, double h, double r)
+        {
+            double gh1 = 1 - g - h;
+            //
+            return 0.5 * (gh1 * (2 * gh1 - 1) * (1 - r) - gh1 * (1 - r * r)) * u1 +
+                   0.5 * (g * (2 * g - 1) * (1 - r) - g * (1 - r * r)) * u2 +
+                   0.5 * (h * (2 * h - 1) * (1 - r) - h * (1 - r * r)) * u3 +
+                   0.5 * (gh1 * (2 * gh1 - 1) * (1 + r) - gh1 * (1 - r * r)) * u4 +
+                   0.5 * (g * (2 * g - 1) * (1 + r) - g * (1 - r * r)) * u5 +
+                   0.5 * (h * (2 * h - 1) * (1 + r) - h * (1 - r * r)) * u6 +
+                   2 * gh1 * g * (1 - r) * u7 +
+                   2 * g * h * (1 - r) * u8 +
+                   2 * h * gh1 * (1 - r) * u9 +
+                   2 * gh1 * g * (1 + r) * u10 +
+                   2 * g * h * (1 + r) * u11 +
+                   2 * h * gh1 * (1 + r) * u12 +
+                   gh1 * (1 - r * r) * u13 +
+                   g * (1 - r * r) * u14 +
+                   h * (1 - r * r) * u15;
+        }
+        private static double JNorm(FeNode n1, FeNode n2, FeNode n3,
+                                    FeNode n4, FeNode n5, FeNode n6,
+                                    FeNode n7, FeNode n8, FeNode n9,
+                                    FeNode n10, FeNode n11, FeNode n12,
+                                    FeNode n13, FeNode n14, FeNode n15,
+                                    double g, double h, double r)
+        {
+            double gh1 = 1 - g - h;
+            double rr1 = 1 - r * r;
+            // Derivatives by g
+            double n1g = 0.5 * ((-4 * gh1 + 1) * (1 - r) + rr1);
+            double n2g = 0.5 * ((4 * g - 1) * (1 - r) - rr1);
+            double n3g = 0.0;
+            double n4g = 0.5 * ((-4 * gh1 + 1) * (1 + r) + rr1);
+            double n5g = 0.5 * ((4 * g - 1) * (1 + r) - rr1);
+            double n6g = 0.0;
+            double n7g = 2 * (gh1 - g) * (1 - r);
+            double n8g = 2 * h * (1 - r);
+            double n9g = -2 * h * (1 - r);
+            double n10g = 2 * (gh1 - g) * (1 + r);
+            double n11g = 2 * h * (1 + r);
+            double n12g = -2 * h * (1 + r);
+            double n13g = -rr1;
+            double n14g = rr1;
+            double n15g = 0.0;
+            // Derivatives by h
+            double n1h = 0.5 * ((-4 * gh1 + 1) * (1 - r) + rr1);
+            double n2h = 0.0;
+            double n3h = 0.5 * ((4 * h - 1) * (1 - r) - rr1);
+            double n4h = 0.5 * ((-4 * gh1 + 1) * (1 + r) + rr1);
+            double n5h = 0.0;
+            double n6h = 0.5 * ((4 * h - 1) * (1 + r) - rr1);
+            double n7h = -2 * g * (1 - r);
+            double n8h = 2 * g * (1 - r);
+            double n9h = 2 * (gh1 - h) * (1 - r);
+            double n10h = -2 * g * (1 + r);
+            double n11h = 2 * g * (1 + r);
+            double n12h = 2 * (gh1 - h) * (1 + r);
+            double n13h = -rr1;
+            double n14h = 0.0;
+            double n15h = rr1;
+            // Derivatives by r
+            double n1r = 0.5 * (-gh1 * (2 * gh1 - 1) + 2 * r * gh1);
+            double n2r = 0.5 * (-g * (2 * g - 1) + 2 * r * g);
+            double n3r = 0.5 * (-h * (2 * h - 1) + 2 * r * h);
+            double n4r = 0.5 * (gh1 * (2 * gh1 - 1) + 2 * r * gh1);
+            double n5r = 0.5 * (g * (2 * g - 1) + 2 * r * g);
+            double n6r = 0.5 * (h * (2 * h - 1) + 2 * r * h);
+            double n7r = -2 * gh1 * g;
+            double n8r = -2 * g * h;
+            double n9r = -2 * h * gh1;
+            double n10r = 2 * gh1 * g;
+            double n11r = 2 * g * h;
+            double n12r = 2 * h * gh1;
+            double n13r = -2 * r * gh1;
+            double n14r = -2 * r * g;
+            double n15r = -2 * r * h;
+            // dx/dg
+            double xg = n1g * n1.X + n2g * n2.X + n3g * n3.X + n4g * n4.X + n5g * n5.X +
+                        n6g * n6.X + n7g * n7.X + n8g * n8.X + n9g * n9.X + n10g * n10.X +
+                        n11g * n11.X + n12g * n12.X + n13g * n13.X + n14g * n14.X + n15g * n15.X;
+            double yg = n1g * n1.Y + n2g * n2.Y + n3g * n3.Y + n4g * n4.Y + n5g * n5.Y +
+                        n6g * n6.Y + n7g * n7.Y + n8g * n8.Y + n9g * n9.Y + n10g * n10.Y +
+                        n11g * n11.Y + n12g * n12.Y + n13g * n13.Y + n14g * n14.Y + n15g * n15.Y;
+            double zg = n1g * n1.Z + n2g * n2.Z + n3g * n3.Z + n4g * n4.Z + n5g * n5.Z +
+                        n6g * n6.Z + n7g * n7.Z + n8g * n8.Z + n9g * n9.Z + n10g * n10.Z +
+                        n11g * n11.Z + n12g * n12.Z + n13g * n13.Z + n14g * n14.Z + n15g * n15.Z;
+            // dx/dh
+            double xh = n1h * n1.X + n2h * n2.X + n3h * n3.X + n4h * n4.X + n5h * n5.X +
+                        n6h * n6.X + n7h * n7.X + n8h * n8.X + n9h * n9.X + n10h * n10.X +
+                        n11h * n11.X + n12h * n12.X + n13h * n13.X + n14h * n14.X + n15h * n15.X;
+            double yh = n1h * n1.Y + n2h * n2.Y + n3h * n3.Y + n4h * n4.Y + n5h * n5.Y +
+                        n6h * n6.Y + n7h * n7.Y + n8h * n8.Y + n9h * n9.Y + n10h * n10.Y +
+                        n11h * n11.Y + n12h * n12.Y + n13h * n13.Y + n14h * n14.Y + n15h * n15.Y;
+            double zh = n1h * n1.Z + n2h * n2.Z + n3h * n3.Z + n4h * n4.Z + n5h * n5.Z +
+                        n6h * n6.Z + n7h * n7.Z + n8h * n8.Z + n9h * n9.Z + n10h * n10.Z +
+                        n11h * n11.Z + n12h * n12.Z + n13h * n13.Z + n14h * n14.Z + n15h * n15.Z;
+            // dx/dr
+            double xr = n1r * n1.X + n2r * n2.X + n3r * n3.X + n4r * n4.X + n5r * n5.X +
+                        n6r * n6.X + n7r * n7.X + n8r * n8.X + n9r * n9.X + n10r * n10.X +
+                        n11r * n11.X + n12r * n12.X + n13r * n13.X + n14r * n14.X + n15r * n15.X;
+            double yr = n1r * n1.Y + n2r * n2.Y + n3r * n3.Y + n4r * n4.Y + n5r * n5.Y +
+                        n6r * n6.Y + n7r * n7.Y + n8r * n8.Y + n9r * n9.Y + n10r * n10.Y +
+                        n11r * n11.Y + n12r * n12.Y + n13r * n13.Y + n14r * n14.Y + n15r * n15.Y;
+            double zr = n1r * n1.Z + n2r * n2.Z + n3r * n3.Z + n4r * n4.Z + n5r * n5.Z +
+                        n6r * n6.Z + n7r * n7.Z + n8r * n8.Z + n9r * n9.Z + n10r * n10.Z +
+                        n11r * n11.Z + n12r * n12.Z + n13r * n13.Z + n14r * n14.Z + n15r * n15.Z;
+            // det(dx/dg, dx/dh, dx/dr)
+            return Math.Abs(xg * (yh * zr - zh * yr) -
+                            xh * (yg * zr - zg * yr) +
+                            xr * (yg * zh - zg * yh));
         }
         //
         public override void Mirror()

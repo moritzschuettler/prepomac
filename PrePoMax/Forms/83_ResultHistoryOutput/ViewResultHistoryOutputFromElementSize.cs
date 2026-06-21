@@ -24,6 +24,8 @@ namespace PrePoMax
     {
         // Variables                                                                                                                
         private ResultHistoryOutputFromElementSize _historyOutput;
+        private string[] _elementSetNames;
+        private string[] _surfaceNames;
 
 
         // Properties                                                                                                               
@@ -36,7 +38,7 @@ namespace PrePoMax
         public ElementSizeTypeEnum ElementSizeType
         {
             get { return _historyOutput.ElementSizeType; }
-            set { _historyOutput.ElementSizeType = value; }
+            set { _historyOutput.ElementSizeType = value; UpdateVisibility(); }
         }
         //
         [CategoryAttribute("Region")]
@@ -44,6 +46,12 @@ namespace PrePoMax
         [DescriptionAttribute("Select the element set for the creation of the history output.")]
         [Id(3, 2)]
         public string ElementSetName { get { return _historyOutput.RegionName; } set { _historyOutput.RegionName = value; } }
+        //
+        [CategoryAttribute("Region")]
+        [OrderedDisplayName(3, 10, "Surface")]
+        [DescriptionAttribute("Select the surface for the creation of the history output.")]
+        [Id(4, 2)]
+        public string SurfaceName { get { return _historyOutput.RegionName; } set { _historyOutput.RegionName = value; } }
         //
         [CategoryAttribute("Mesh deformation")]
         [OrderedDisplayName(0, 10, "Variable")]
@@ -66,6 +74,7 @@ namespace PrePoMax
             Dictionary<RegionTypeEnum, string> regionTypePropertyNamePairs = new Dictionary<RegionTypeEnum, string>();
             regionTypePropertyNamePairs.Add(RegionTypeEnum.Selection, nameof(SelectionHidden));
             regionTypePropertyNamePairs.Add(RegionTypeEnum.ElementSetName, nameof(ElementSetName));
+            regionTypePropertyNamePairs.Add(RegionTypeEnum.SurfaceName, nameof(SurfaceName));
             //
             SetBase(_historyOutput, regionTypePropertyNamePairs);
             DynamicCustomTypeDescriptor = ProviderInstaller.Install(this);
@@ -77,19 +86,32 @@ namespace PrePoMax
         {
             return _historyOutput;
         }
-        public void PopulateDropDownLists(string[] elementSetNames)
+        public void PopulateDropDownLists(string[] elementSetNames, string[] surfaceNames)
         {
-            Dictionary<RegionTypeEnum, string[]> regionTypeListItemsPairs = new Dictionary<RegionTypeEnum, string[]>();
-            regionTypeListItemsPairs.Add(RegionTypeEnum.Selection, new string[] { "Hidden" });
-            regionTypeListItemsPairs.Add(RegionTypeEnum.ElementSetName, elementSetNames);
-            base.PopulateDropDownLists(regionTypeListItemsPairs);
+            _elementSetNames = elementSetNames;
+            _surfaceNames = surfaceNames;
             //
-            DynamicCustomTypeDescriptor.PopulateProperty(nameof(DeformationVariableName), 
+            UpdateVisibility();
+            //
+            DynamicCustomTypeDescriptor.PopulateProperty(nameof(DeformationVariableName),
                                                          FeResults.GetPossibleDeformationFieldOutputNamesMap().Keys.ToArray());
         }
         private void UpdateVisibility()
         {
-            
+            if (_historyOutput.ElementSizeType == ElementSizeTypeEnum.Area)
+            {
+                Dictionary<RegionTypeEnum, string[]> regionTypeListItemsPairs = new Dictionary<RegionTypeEnum, string[]>();
+                regionTypeListItemsPairs.Add(RegionTypeEnum.Selection, new string[] { "Hidden" });
+                regionTypeListItemsPairs.Add(RegionTypeEnum.SurfaceName, _surfaceNames);
+                base.PopulateDropDownLists(regionTypeListItemsPairs);
+            }
+            else if (_historyOutput.ElementSizeType == ElementSizeTypeEnum.Volume)
+            {
+                Dictionary<RegionTypeEnum, string[]> regionTypeListItemsPairs = new Dictionary<RegionTypeEnum, string[]>();
+                regionTypeListItemsPairs.Add(RegionTypeEnum.Selection, new string[] { "Hidden" });
+                regionTypeListItemsPairs.Add(RegionTypeEnum.ElementSetName, _elementSetNames);
+                base.PopulateDropDownLists(regionTypeListItemsPairs);
+            }
         }
     }
 }

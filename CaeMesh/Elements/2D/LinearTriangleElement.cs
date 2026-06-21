@@ -21,9 +21,12 @@ namespace CaeMesh
     public class LinearTriangleElement : FeElement2D
     {
         // Variables                                                                                                                
-        private static readonly int vtkCellTypeInt = (int)vtkCellType.VTK_TRIANGLE;
-        private static readonly double a = 1.0 / 3.0;
-        private static readonly double b = 1.0 / 2.0;
+        private static readonly int _vtkCellTypeInt = (int)vtkCellType.VTK_TRIANGLE;
+        private static readonly double _a = 1.0 / 3.0;
+        private static readonly double _b = 1.0 / 2.0;
+        private static readonly double[] _xi = new double[] { 1.0 / 3.0 };
+        private static readonly double[] _eta = new double[] { 1.0 / 3.0 };
+        private static readonly double[] _w = new double[] { 0.5 };
 
 
         // Properties                                                                                                               
@@ -53,7 +56,7 @@ namespace CaeMesh
         }
         public override int GetVtkCellType()
         {
-            return vtkCellTypeInt;
+            return _vtkCellTypeInt;
         }
         public override FeFaceName GetFaceNameFromSortedNodeIds(int[] nodeIds)
         {
@@ -161,9 +164,9 @@ namespace CaeMesh
         public override double[] GetEquivalentForcesFromFaceName(FeFaceName faceName)
         {
             if (faceName == FeFaceName.S1 || faceName == FeFaceName.S2)
-                return new double[] { a, a, a };
+                return new double[] { _a, _a, _a };
             else if (faceName == FeFaceName.S3 || faceName == FeFaceName.S4 || faceName == FeFaceName.S5)
-                return new double[] { b, b };
+                return new double[] { _b, _b };
             else throw new NotSupportedException();
         }
         public override double[] GetEquivalentForcesFromFaceName(FeFaceName faceName, double[] nodalValues)
@@ -195,6 +198,54 @@ namespace CaeMesh
         public override double[] GetCG(Dictionary<int, FeNode> nodes, out double area)
         {
             return GeometryTools.TriangleCG(nodes[NodeIds[0]], nodes[NodeIds[1]], nodes[NodeIds[2]], out area);
+        }
+        // Integration
+        public override double Integrate(Dictionary<int, FeNode> nodes, Dictionary<int, double> nodalValues)
+        {
+            return Integrate(nodes[NodeIds[0]], nodes[NodeIds[1]], nodes[NodeIds[2]],
+                             nodalValues[NodeIds[0]], nodalValues[NodeIds[1]], nodalValues[NodeIds[2]]);
+        }
+        private static double Integrate(FeNode n1, FeNode n2, FeNode n3,
+                                       double u1, double u2, double u3)
+        {
+            double integral = 0;
+            //
+            for (int gp = 0; gp < _w.Length; gp++)
+            {
+                double xi = _xi[gp];
+                double eta = _eta[gp];
+                //
+                double u = Interpolate(u1, u2, u3, xi, eta);
+                //
+                double jNorm = JNorm(n1, n2, n3);
+                //
+                integral += _w[gp] * u * jNorm;
+            }
+            //
+            return integral;
+        }
+        private static double Interpolate(double u1, double u2, double u3, double g, double h)
+        {
+            return (1 - g - h) * u1 +
+                    g * u2 +
+                    h * u3;
+        }
+        private static double JNorm(FeNode n1, FeNode n2, FeNode n3)
+        {
+            // Derivatives by g
+            double xg = n2.X - n1.X;
+            double yg = n2.Y - n1.Y;
+            double zg = n2.Z - n1.Z;
+            // Derivatives by h
+            double xh = n3.X - n1.X;
+            double yh = n3.Y - n1.Y;
+            double zh = n3.Z - n1.Z;
+            // |dx/dg x dx/dh|
+            double cx = yg * zh - zg * yh;
+            double cy = zg * xh - xg * zh;
+            double cz = xg * yh - yg * xh;
+            //
+            return Math.Sqrt(cx * cx + cy * cy + cz * cz);
         }
         //
         public override void Mirror()

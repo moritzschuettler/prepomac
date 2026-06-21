@@ -200,6 +200,7 @@ namespace CaeMesh
             elementSize = double.NaN;
             return cg;
         }
+        public abstract double Integrate(Dictionary<int, FeNode> nodes, Dictionary<int, double> nodalValues);
         //
         public abstract void Mirror();
         //

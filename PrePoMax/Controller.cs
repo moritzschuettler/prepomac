@@ -52,6 +52,7 @@ namespace PrePoMax
         [NonSerialized] protected bool _disableDrawSymbols;
         // View
         [NonSerialized] protected ViewGeometryModelResults _currentView;
+        [NonSerialized] protected Dictionary<string, double[]> _viewNameRotationCenter;
         [NonSerialized] protected EdgesVisibilitiesCollection _edgesVisibilities;
         [NonSerialized] protected SectionViewsCollection _sectionViews;
         [NonSerialized] protected ExplodedViewsCollection _explodedViews;
@@ -394,6 +395,8 @@ namespace PrePoMax
             _explodedViews = new ExplodedViewsCollection(this);
             // Follower view
             _followerViews = new FollowerViewsCollection(this);
+            // Rotation center
+            _viewNameRotationCenter = new Dictionary<string, double[]>();
             // Annotations
             _annotations = new AnnotationContainer(this);
             // Selection
@@ -551,6 +554,8 @@ namespace PrePoMax
             _sectionViews.ClearModelSectionViews();
             // Exploded view
             _explodedViews.ClearModelExplodedViews();
+            // Rotation centers
+            _viewNameRotationCenter.Clear();
             // New
             OrderedDictionary<string, EquationParameter> overriddenParameters = null;
             if (_model != null) overriddenParameters = _model.Parameters.OverriddenParameters;
@@ -1139,8 +1144,9 @@ namespace PrePoMax
                     //
                     if (similarity == 1)
                     {
-                        _allResults.CurrentResult.CopyPartsFromMesh(_model.Mesh);
-                        _allResults.CurrentResult.CopyMeshItemsFromMesh(_model.Mesh);
+                        ConvertPyramidsToEnum convertPyramidsTo = Settings.Calculix.ConvertPyramidsTo;
+                        _allResults.CurrentResult.CopyPartsFromMesh(_model.Mesh, convertPyramidsTo);
+                        _allResults.CurrentResult.CopyMeshItemsFromMesh(_model.Mesh, convertPyramidsTo);
                     }
                     // The number of elements is the same and the max element id is the same
                     else if (similarity == 2)
@@ -1215,7 +1221,8 @@ namespace PrePoMax
                         //
                         if (similarity == 1)
                         {
-                            results.CopyPartsFromMesh(_allResults.CurrentResult.Mesh);
+                            ConvertPyramidsToEnum convertPyramidsTo = Settings.Calculix.ConvertPyramidsTo;
+                            results.CopyPartsFromMesh(_allResults.CurrentResult.Mesh, convertPyramidsTo);
                             //_allResults.CurrentResult.CopyMeshItemsFromMesh(_allResults.CurrentResult.Mesh);
                         }
                         else if (similarity == 2)
@@ -3057,6 +3064,25 @@ namespace PrePoMax
                 _followerViews.ClearResultFollowerViews();
                 _form.RemoveFollowerView();
             }
+        }
+        // Rotation center
+        public void RotationPointChanged(double[] rotationPoint)
+        {
+            string viewName = _currentView.ToString();
+            if (_currentView == ViewGeometryModelResults.Results)
+                viewName += Globals.NameSeparator + _allResults.GetCurrentResultName();
+            //
+            _viewNameRotationCenter[viewName] = rotationPoint.ToArray();
+        }
+        private void ApplyRotationPoint()
+        {
+            string viewName = _currentView.ToString();
+            if (_currentView == ViewGeometryModelResults.Results)
+                viewName += Globals.NameSeparator + _allResults.GetCurrentResultName();
+            //
+            double[] rotationPoint = null;
+            _viewNameRotationCenter.TryGetValue(viewName, out rotationPoint);
+            _form.SetRotationPoint(rotationPoint);
         }
         // Parameterization
         public void ViewParameterization()

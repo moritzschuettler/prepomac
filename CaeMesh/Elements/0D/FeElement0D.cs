@@ -27,12 +27,16 @@ namespace CaeMesh
             : base (id, nodeIds)
         {
         }
-
         public FeElement0D(int id, int partId, int[] nodeIds)
             : base(id, partId, nodeIds)
         {
         }
 
 
+        // Methods                                                                                                                  
+        public override double Integrate(Dictionary<int, FeNode> nodes, Dictionary<int, double> nodalValues)
+        {
+            throw new NotSupportedException();
+        }
     }
 }

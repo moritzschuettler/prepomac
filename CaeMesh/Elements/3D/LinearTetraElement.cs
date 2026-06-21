@@ -19,8 +19,12 @@ namespace CaeMesh
     public class LinearTetraElement : FeElement3D
     {
         // Variables                                                                                                                
-        private static int vtkCellTypeInt = (int)vtkCellType.VTK_TETRA;
-        private static double a = 1.0 / 3.0;
+        private static int _vtkCellTypeInt = (int)vtkCellType.VTK_TETRA;
+        private static double _a = 1.0 / 3.0;
+        private static double[] _xi = new double[] { 0.25 };
+        private static double[] _eta = new double[] { 0.25 };
+        private static double[] _zeta = new double[] { 0.25 };
+        private static double[] _w = new double[] { 1.0 / 6.0 };
 
 
         // Properties                                                                                                               
@@ -50,7 +54,7 @@ namespace CaeMesh
         }
         public override int GetVtkCellType()
         {
-            return vtkCellTypeInt;
+            return _vtkCellTypeInt;
         }
         public override FeFaceName GetFaceNameFromSortedNodeIds(int[] nodeIds)
         {
@@ -156,7 +160,7 @@ namespace CaeMesh
         }
         public override double[] GetEquivalentForcesFromFaceName(FeFaceName faceName)
         {
-            return new double[] { a, a, a };
+            return new double[] { _a, _a, _a };
         }
         public override double[] GetEquivalentForcesFromFaceName(FeFaceName faceName, double[] nodalValues)
         {
@@ -182,6 +186,57 @@ namespace CaeMesh
         {
             return GeometryTools.TetrahedronCG(nodes[NodeIds[0]], nodes[NodeIds[1]],
                                                nodes[NodeIds[2]], nodes[NodeIds[3]], out volume);
+        }
+        // Integration
+        public override double Integrate(Dictionary<int, FeNode> nodes, Dictionary<int, double> nodalValues)
+        {
+            return Integrate(nodes[NodeIds[0]], nodes[NodeIds[1]],
+                             nodes[NodeIds[2]], nodes[NodeIds[3]],
+                             nodalValues[NodeIds[0]], nodalValues[NodeIds[1]],
+                             nodalValues[NodeIds[2]], nodalValues[NodeIds[3]]);
+        }
+        private static double Integrate(FeNode n1, FeNode n2, FeNode n3, FeNode n4, double u1, double u2, double u3, double u4)
+        {
+            double integral = 0;
+            //
+            for (int gp = 0; gp < _w.Length; gp++)
+            {
+                double xi = _xi[gp];
+                double eta = _eta[gp];
+                double zeta = _zeta[gp];
+                //
+                double u = Interpolate(u1, u2, u3, u4, xi, eta, zeta);
+                //
+                double jNorm = JNorm(n1, n2, n3, n4);
+                //
+                integral += _w[gp] * u * jNorm;
+            }
+            //
+            return integral;
+        }
+        private static double Interpolate(double u1, double u2, double u3, double u4, double g, double h, double i)
+        {
+            return (1 - g - h - i) * u1 +
+                    g * u2 +
+                    h * u3 +
+                    i * u4;
+        }
+        private static double JNorm(FeNode n1, FeNode n2, FeNode n3, FeNode n4)
+        {
+            // Derivatives by g
+            double xg = n2.X - n1.X;
+            double yg = n2.Y - n1.Y;
+            double zg = n2.Z - n1.Z;
+            // Derivatives by h
+            double xh = n3.X - n1.X;
+            double yh = n3.Y - n1.Y;
+            double zh = n3.Z - n1.Z;
+            // Derivatives by i
+            double xi = n4.X - n1.X;
+            double yi = n4.Y - n1.Y;
+            double zi = n4.Z - n1.Z;
+            // det(dx/dg, dx/dh, dx/di)
+            return Math.Abs(xg * (yh * zi - zh * yi) - xh * (yg * zi - zg * yi) + xi * (yg * zh - zg * yh));
         }
         //
         public override void Mirror()

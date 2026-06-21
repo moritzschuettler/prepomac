@@ -14,7 +14,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace FileInOut.Output.Calculix
+namespace CaeMesh
 {
     [Serializable]
     public enum ConvertPyramidsToEnum

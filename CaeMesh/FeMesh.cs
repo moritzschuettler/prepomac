@@ -4459,7 +4459,7 @@ namespace CaeMesh
             //
             if (surface.CreatedFrom == FeSurfaceCreatedFrom.Selection)
             {
-                CreateSurfaceFacesFromSelection(surface.FaceIds, out nodeIds, out elementSets, out area, out surfaceFaceTypes);
+                GetNodeIdsElementSetsFromFaceIds(surface.FaceIds, out nodeIds, out elementSets, out area, out surfaceFaceTypes);
                 // Node set
                 string nodeSetName = GetNextFreeInternalName(_nodeSets, surface.Name);
                 FeNodeSet nodeSet = new FeNodeSet(nodeSetName, nodeIds);
@@ -4488,7 +4488,7 @@ namespace CaeMesh
             //
             if (surface.CreatedFrom == FeSurfaceCreatedFrom.Selection || surface.CreatedFrom == FeSurfaceCreatedFrom.Faces)
             {
-                CreateSurfaceFacesFromSelection(surface.FaceIds, out nodeIds, out elementSets, out area, out surfaceFaceTypes);
+                GetNodeIdsElementSetsFromFaceIds(surface.FaceIds, out nodeIds, out elementSets, out area, out surfaceFaceTypes);
                 surface.Area = area;
                 surface.SurfaceFaceTypes = surfaceFaceTypes;
             }
@@ -4569,7 +4569,7 @@ namespace CaeMesh
             }
             else throw new CaeException("The surface is not created from node set.");
         }
-        private void CreateSurfaceFacesFromSelection(int[] surfaceFaceIds, out int[] nodeIds,
+        public void GetNodeIdsElementSetsFromFaceIds(int[] surfaceFaceIds, out int[] nodeIds,
                                                      out Dictionary<FeFaceName, List<int>> elementSets,
                                                      out double area, out FeSurfaceFaceTypes surfaceFaceTypes)
         {
@@ -7397,7 +7397,7 @@ namespace CaeMesh
                 //
                 if (surface.CreatedFrom == FeSurfaceCreatedFrom.Selection)
                 {
-                    CreateSurfaceFacesFromSelection(surface.FaceIds, out nodeIds, out elementSets,
+                    GetNodeIdsElementSetsFromFaceIds(surface.FaceIds, out nodeIds, out elementSets,
                                                     out area, out surfaceFaceTypes);
                 }
                 else if (surface.CreatedFrom == FeSurfaceCreatedFrom.NodeSet)
@@ -7816,7 +7816,7 @@ namespace CaeMesh
                 {
                     foreach (var faceId in entry.Value.FaceIds)
                     {
-                        elementId = faceId / 10;
+                        GetElementIdVtkCellIdFromFaceId(faceId, out elementId, out _);
                         if (!removedElementIds.Contains(elementId)) newSurfaceFaceIds.Add(faceId);
                     }
                     if (entry.Value.FaceIds.Length != newSurfaceFaceIds.Count)
@@ -8314,6 +8314,18 @@ namespace CaeMesh
             foreach (var partName in partNames) nodeIds.UnionWith(_parts[partName].NodeLabels);
             return nodeIds.ToArray();
         }
+        public int[] GetNodeIdsFromFaceIds(int[] faceIds)
+        {
+            int elementId;
+            HashSet<int> nodeIds = new HashSet<int>();
+            for (int i = 0; i < faceIds.Length; i++)
+            {
+                GetElementIdVtkCellIdFromFaceId(faceIds[i], out elementId, out _);
+                nodeIds.UnionWith(_elements[elementId].NodeIds);
+            }
+            return nodeIds.ToArray();
+        }
+
         public HashSet<int> GetInactiveNodeIds()
         {
             int inactiveParts = 0;
@@ -8728,6 +8740,31 @@ namespace CaeMesh
             //
             visibleIds.IntersectWith(ids);
             return visibleIds;
+        }
+
+        public Dictionary<FeFaceName, FeFaceName> GetPyramidFaceConversion(ConvertPyramidsToEnum convertPyramidsTo)
+        {
+            // Create a mapping from pyramid faces to wedge or hex faces
+            Dictionary<FeFaceName, FeFaceName> pyramidToConvertedFaceName;
+            if (convertPyramidsTo == ConvertPyramidsToEnum.Wedges)
+            {
+                pyramidToConvertedFaceName = new Dictionary<FeFaceName, FeFaceName>() {{ FeFaceName.S1, FeFaceName.S5 },
+                                                                                       { FeFaceName.S2, FeFaceName.S1 },
+                                                                                       { FeFaceName.S3, FeFaceName.S4 },
+                                                                                       { FeFaceName.S4, FeFaceName.S2 },
+                                                                                       { FeFaceName.S5, FeFaceName.S3 }};
+            }
+            else if (convertPyramidsTo == ConvertPyramidsToEnum.Hexahedrons)
+            {
+                pyramidToConvertedFaceName = new Dictionary<FeFaceName, FeFaceName>() {{ FeFaceName.S1, FeFaceName.S1 },
+                                                                                       { FeFaceName.S2, FeFaceName.S3 },
+                                                                                       { FeFaceName.S3, FeFaceName.S4 },
+                                                                                       { FeFaceName.S4, FeFaceName.S5 },
+                                                                                       { FeFaceName.S5, FeFaceName.S6 }};
+            }
+            else throw new NotSupportedException();
+            //
+            return pyramidToConvertedFaceName;
         }
         // Cells 
         public void GetAllNodesAndCells(out int[] nodeIds, out double[][] nodeCoor, out int[] cellIds,
@@ -9293,7 +9330,6 @@ namespace CaeMesh
             }
         }
 
-        
 
         // Analyze
         public double GetShortestEdgeLen(string[] partNames)
@@ -10988,20 +11024,21 @@ namespace CaeMesh
             //
             return massProperties;
         }
-        public Dictionary<int, double> ComputeVolumeArea(int[] elementIds, Dictionary<int, FeNode> nodes, Type elementFilter)
+        public Dictionary<int, double> ComputeVolumeArea(Dictionary<int, FeElement> elements, Dictionary<int, FeNode> nodes,
+                                                         Type elementFilter)
         {
             double size;
             double[] cg = new double[3];
             FeElement element;
             Dictionary<int, double> elementIdSize = new Dictionary<int, double>();
             //
-            foreach (int elementId in elementIds)
+            foreach (var entry in elements)
             {
-                element = _elements[elementId];
+                element = entry.Value;
                 if (element.GetType().IsSubclassOf(elementFilter))
                 {
                     element.GetCG(nodes, out size);
-                    elementIdSize.Add(elementId, size);
+                    elementIdSize.Add(element.Id, size);
                 }
             }
             //

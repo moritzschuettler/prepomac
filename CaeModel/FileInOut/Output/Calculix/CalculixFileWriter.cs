@@ -437,24 +437,8 @@ namespace FileInOut.Output
             if (pyramidContainingParts.Count > 0)
             {
                 // Create a mapping from pyramid faces to wedge or hex faces
-                Dictionary<FeFaceName, FeFaceName> pyramidToNormalFaceName;
-                if (convertPyramidsTo == ConvertPyramidsToEnum.Wedges)
-                {
-                    pyramidToNormalFaceName = new Dictionary<FeFaceName, FeFaceName>() {{ FeFaceName.S1, FeFaceName.S5 },
-                                                                                        { FeFaceName.S2, FeFaceName.S1 },
-                                                                                        { FeFaceName.S3, FeFaceName.S4 },
-                                                                                        { FeFaceName.S4, FeFaceName.S2 },
-                                                                                        { FeFaceName.S5, FeFaceName.S3 }};
-                }
-                else if (convertPyramidsTo == ConvertPyramidsToEnum.Hexahedrons)
-                {
-                    pyramidToNormalFaceName = new Dictionary<FeFaceName, FeFaceName>() {{ FeFaceName.S1, FeFaceName.S1 },
-                                                                                        { FeFaceName.S2, FeFaceName.S3 },
-                                                                                        { FeFaceName.S3, FeFaceName.S4 },
-                                                                                        { FeFaceName.S4, FeFaceName.S5 },
-                                                                                        { FeFaceName.S5, FeFaceName.S6 }};
-                }
-                else throw new NotSupportedException();
+                Dictionary<FeFaceName, FeFaceName> pyramidToConvertedFaceName =
+                    model.Mesh.GetPyramidFaceConversion(convertPyramidsTo);
                 //
                 Type elementType;
                 FeElement element;
@@ -477,8 +461,7 @@ namespace FileInOut.Output
                                 model.Mesh.Elements[elementId] = lpe.ConvertToWedge();
                             else if (convertPyramidsTo == ConvertPyramidsToEnum.Hexahedrons)
                                 model.Mesh.Elements[elementId] = lpe.ConvertToHex();
-                            else
-                                throw new NotSupportedException();
+                            else throw new NotSupportedException();
                         }
                         else if (element is ParabolicPyramidElement ppe)
                         {
@@ -486,8 +469,7 @@ namespace FileInOut.Output
                                 model.Mesh.Elements[elementId] = ppe.ConvertToWedge();
                             else if (convertPyramidsTo == ConvertPyramidsToEnum.Hexahedrons)
                                 model.Mesh.Elements[elementId] = ppe.ConvertToHex();
-                            else
-                                throw new NotSupportedException();
+                            else throw new NotSupportedException();
                         }
                         else throw new NotSupportedException();
                     }
@@ -544,7 +526,7 @@ namespace FileInOut.Output
                                 //
                                 if (pyramidElementsIds.Count > 0)
                                 {
-                                    faceName = pyramidToNormalFaceName[entry.Key];
+                                    faceName = pyramidToConvertedFaceName[entry.Key];
                                     if (faceNameElementIds.TryGetValue(faceName, out elementIds)) elementIds.UnionWith(pyramidElementsIds);
                                     else faceNameElementIds.Add(faceName, pyramidElementsIds);
                                 }

@@ -22,6 +22,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Numerics;
+using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices.WindowsRuntime;
@@ -1955,7 +1956,7 @@ namespace CaeResults
             }
         }
         //                                          
-        public void CopyPartsFromMesh(FeMesh mesh)
+        public void CopyPartsFromMesh(FeMesh mesh, ConvertPyramidsToEnum convertPyramidsTo)
         {
             _mesh.Parts.Clear();
             //
@@ -1967,8 +1968,94 @@ namespace CaeResults
                 //
                 foreach (var elementId in part.Labels) _mesh.Elements[elementId].PartId = part.PartId;
             }
+            HashSet<Type> elementTypes;
+            foreach (var entry in _mesh.Parts)
+            {
+                elementTypes = new HashSet<Type>(entry.Value.ElementTypes);
+                if (elementTypes.Contains(typeof(LinearPyramidElement)))
+                {
+                    elementTypes.Remove(typeof(LinearPyramidElement));
+                    if (convertPyramidsTo == ConvertPyramidsToEnum.Wedges)
+                        elementTypes.Add(typeof(LinearWedgeElement));
+                    else if (convertPyramidsTo == ConvertPyramidsToEnum.Hexahedrons)
+                        elementTypes.Add(typeof(LinearHexaElement));
+                    else throw new NotSupportedException();
+                }
+                if (elementTypes.Contains(typeof(ParabolicPyramidElement)))
+                {
+                    elementTypes.Remove(typeof(ParabolicPyramidElement));
+                    if (convertPyramidsTo == ConvertPyramidsToEnum.Wedges)
+                        elementTypes.Add(typeof(ParabolicWedgeElement));
+                    else if (convertPyramidsTo == ConvertPyramidsToEnum.Hexahedrons)
+                        elementTypes.Add(typeof(ParabolicHexaElement));
+                    else throw new NotSupportedException();
+                }
+                entry.Value.SetElementTypes(elementTypes.ToArray());
+            }
+            // Determine if there are any pyramids in the mesh
+            List<BasePart> pyramidContainingParts = new List<BasePart>();
+            foreach (var entry in mesh.Parts)
+            {
+                if (entry.Value.ElementTypes.Contains(typeof(LinearPyramidElement)) ||
+                    entry.Value.ElementTypes.Contains(typeof(ParabolicPyramidElement)))
+                {
+                    pyramidContainingParts.Add(entry.Value);
+                }
+            }
+            // Fix pyramid visualization
+            if (pyramidContainingParts.Count > 0)
+            {
+                // Create a mapping from pyramid faces to wedge or hex faces
+                Dictionary<FeFaceName, FeFaceName> pyramidToConvertedFaceName = mesh.GetPyramidFaceConversion(convertPyramidsTo);
+                //
+                int[] cell;
+                FeFaceName faceName;
+                Type elementType;
+                int elementId;
+                List<int> cellIds;
+                //FeElement element;
+                FeElement oldElement;
+                FeElement newElement;
+                FeElement3D pyramidElement;
+                VisualizationData oldVis;
+                VisualizationData newVis;
+                HashSet<int> elementIds = new HashSet<int>();
+                Dictionary<int, List<int>> elementIdCellIds = new Dictionary<int, List<int>>();
+                foreach (var pyramidPart in pyramidContainingParts)
+                {
+                    oldVis = pyramidPart.Visualization;
+                    newVis = _mesh.Parts[pyramidPart.Name].Visualization;
+                    elementIdCellIds.Clear();
+                    for (int i = 0; i < oldVis.CellIds.Length; i++)
+                    {
+                        elementId = oldVis.CellIds[i];
+                        if (elementIdCellIds.TryGetValue(elementId, out cellIds)) cellIds.Add(i);
+                        else elementIdCellIds.Add(elementId, new List<int> { i });
+                    }
+                    // All pyramid element ids
+                    foreach (var pyramidElementId in pyramidPart.Labels)
+                    {
+                        oldElement = mesh.Elements[pyramidElementId];
+                        elementType = oldElement.GetType();
+                        if (elementType == typeof(LinearPyramidElement) || elementType == typeof(ParabolicPyramidElement))
+                        {
+                            pyramidElement = (FeElement3D)oldElement;
+                            newElement = _mesh.Elements[pyramidElementId];
+                            cellIds = elementIdCellIds[pyramidElement.Id];
+                            foreach (var cellId in cellIds)
+                            {
+                                cell = oldVis.Cells[cellId].ToArray();
+                                faceName = (FeFaceName)(pyramidElement.GetVtkCellIdFromCell(cell) + 1);
+                                faceName = pyramidToConvertedFaceName[faceName];
+                                cell = newElement.GetVtkCellFromFaceName(faceName);
+                                newVis.Cells[cellId] = cell;
+                            }
+                        }
+                    }
+                }
+            }
         }
-        public void CopyMeshItemsFromMesh(FeMesh mesh)
+        public void CopyMeshItemsFromMesh(FeMesh mesh, ConvertPyramidsToEnum convertPyramidsTo)
         {
             foreach (var entry in mesh.NodeSets)
             {
@@ -1993,6 +2080,8 @@ namespace CaeResults
             {
                 _mesh.Surfaces.Add(entry.Key, entry.Value.DeepClone());
             }
+            //
+            FixPyramidSurfaces(mesh, convertPyramidsTo);
         }
         public void CopyFeatureItemsFromMesh(FeMesh mesh, int resultViewId)
         {
@@ -2022,6 +2111,139 @@ namespace CaeResults
                 coordinateSystem.PointXYCreatedFrom = CsPointCreatedFromEnum.Coordinates;
                 //
                 _mesh.CoordinateSystems.Add(entry.Key, coordinateSystem);
+            }
+        }
+        private void FixPyramidSurfaces(FeMesh mesh, ConvertPyramidsToEnum convertPyramidsTo)
+        {
+            // Determine if there are any pyramids in the model
+            List<BasePart> pyramidContainingParts = new List<BasePart>();
+            foreach (var entry in mesh.Parts)
+            {
+                if (entry.Value.ElementTypes.Contains(typeof(LinearPyramidElement)) ||
+                    entry.Value.ElementTypes.Contains(typeof(ParabolicPyramidElement)))
+                    pyramidContainingParts.Add(entry.Value);
+            }
+            //
+            if (pyramidContainingParts.Count > 0)
+            {
+                // Create a mapping from pyramid faces to wedge or hex faces
+                Dictionary<FeFaceName, FeFaceName> pyramidToConvertedFaceName =
+                    mesh.GetPyramidFaceConversion(convertPyramidsTo);
+                //
+                Type elementType;
+                FeElement element;
+                HashSet<int> elementIds = new HashSet<int>();
+                HashSet<int> allPyramidElementIds = new HashSet<int>();
+                foreach (var part in pyramidContainingParts) elementIds.UnionWith(part.Labels);
+                // Collect all pyramid element ids
+                foreach (var elementId in elementIds)
+                {
+                    element = mesh.Elements[elementId];
+                    elementType = element.GetType();
+                    if (elementType == typeof(LinearPyramidElement) || elementType == typeof(ParabolicPyramidElement))
+                    {
+                        allPyramidElementIds.Add(elementId);
+                    }
+                }
+                //
+                bool needFixing;
+                string name;
+                FeFaceName faceName;
+                FeSurface surface;
+                FeSurface fixedSurface;
+                FeElementSet elementSet;
+                HashSet<int> normalElementsIds;
+                HashSet<int> pyramidElementsIds;
+                Dictionary<FeFaceName, HashSet<int>> faceNameElementIds;
+                HashSet<string> reservedElementSetNames = mesh.GetReservedElementSetNames();
+                //
+                foreach (var surfaceEntry in mesh.Surfaces)
+                {
+                    // Determine if the surface contain pyramid elements
+                    needFixing = false;
+                    surface = surfaceEntry.Value;
+                    if (surface.ElementFaces == null)
+                    {
+                        if (Debugger.IsAttached) Debugger.Break();
+                    }
+                    else
+                    {
+                        foreach (var entry in surface.ElementFaces)
+                        {
+                            elementSet = mesh.ElementSets[entry.Value];
+                            if (allPyramidElementIds.Intersect(elementSet.Labels).Count() > 0)
+                            {
+                                needFixing = true;
+                                break;
+                            }
+                        }
+                        // If the surface contains pyramid elements
+                        if (needFixing)
+                        {
+                            // Collect pyramid and normal element ids separately
+                            faceNameElementIds = new Dictionary<FeFaceName, HashSet<int>>();
+                            foreach (var entry in surface.ElementFaces)
+                            {
+                                elementSet = mesh.ElementSets[entry.Value];
+                                pyramidElementsIds = new HashSet<int>(allPyramidElementIds.Intersect(elementSet.Labels));
+                                normalElementsIds = new HashSet<int>(elementSet.Labels.Except(pyramidElementsIds));
+                                //
+                                if (normalElementsIds.Count > 0)
+                                {
+                                    faceName = entry.Key;
+                                    if (faceNameElementIds.TryGetValue(faceName, out elementIds)) elementIds.UnionWith(normalElementsIds);
+                                    else faceNameElementIds.Add(faceName, normalElementsIds);
+                                }
+                                //
+                                if (pyramidElementsIds.Count > 0)
+                                {
+                                    faceName = pyramidToConvertedFaceName[entry.Key];
+                                    if (faceNameElementIds.TryGetValue(faceName, out elementIds)) elementIds.UnionWith(pyramidElementsIds);
+                                    else faceNameElementIds.Add(faceName, pyramidElementsIds);
+                                }
+                            }
+                            // Create new surface with the same name
+                            fixedSurface = new FeSurface(surface.Name);
+                            fixedSurface.Internal = surface.Internal;
+                            //
+                            foreach (var entry in faceNameElementIds)
+                            {
+                                // Get element set name
+                                name = surface.Name + "_Pyramid_" + entry.Key;
+                                // Create new element set
+                                elementSet = new FeElementSet(name, entry.Value.ToArray());
+                                elementSet.Internal = true;
+                                _mesh.ElementSets.Add(elementSet.Name, elementSet);
+                                //
+                                fixedSurface.AddElementFace(entry.Key, elementSet.Name);
+                                //
+                                fixedSurface.NodeSetName = surface.NodeSetName;
+                            }
+                            // Create faceIds for the new surface
+                            int[] cell;
+                            int[][] cells;
+                            List<int> faceIds = new List<int>();
+                            CompareIntArray comparer = new CompareIntArray();
+                            foreach (var entry in fixedSurface.ElementFaces)
+                            {
+                                elementSet = _mesh.ElementSets[entry.Value];
+                                for (int i = 0; i < elementSet.Labels.Length; i++)
+                                {
+                                    element = _mesh.Elements[elementSet.Labels[i]];
+                                    cell = element.GetVtkCellFromFaceName(entry.Key);
+                                    cells = element.GetAllVtkCells();
+                                    for (int j = 0; j < cells.Length; j++)
+                                    {
+                                        if (comparer.Equals(cell, cells[j])) faceIds.Add(element.Id * 10 + j);
+                                    }
+                                }
+                            }
+                            fixedSurface.FaceIds = faceIds.ToArray();
+                            // Add fixed surface
+                            _mesh.Surfaces[fixedSurface.Name] = fixedSurface;
+                        }
+                    }
+                }
             }
         }
         //
@@ -3838,6 +4060,10 @@ namespace CaeResults
             {
                 historyResultSet = GetHistorySetFromElementSize(rhofes);
             }
+            else if (resultHistoryOutput is ResultHistoryOutputFromIntegration rhofi)
+            {
+                historyResultSet = GetHistorySetFromIntegration(rhofi);
+            }
             else throw new NotSupportedException();
             //
             resultHistoryOutput.HistoryResultSet = historyResultSet;
@@ -4065,18 +4291,122 @@ namespace CaeResults
         }
         private HistoryResultSet GetHistorySetFromElementSize(ResultHistoryOutputFromElementSize resultHistoryOutput)
         {
-            // Collect node ids
-            int[] elementIds = null;
+            if (resultHistoryOutput.ElementSizeType == ElementSizeTypeEnum.Area)
+                return GetHistorySetFromElementArea(resultHistoryOutput);
+            else if (resultHistoryOutput.ElementSizeType == ElementSizeTypeEnum.Volume)
+                return GetHistorySetFromElementVolume(resultHistoryOutput);
+            else throw new NotSupportedException();
+        }
+        private HistoryResultSet GetHistorySetFromElementArea(ResultHistoryOutputFromElementSize resultHistoryOutput)
+        {
+            if (resultHistoryOutput.ElementSizeType != ElementSizeTypeEnum.Area) throw new NotSupportedException();
+            // Collect face ids
+            int[] faceIds = null;
+            HistoryResultSet historyResultSet = null;
+            //
+            if (resultHistoryOutput.RegionType == RegionTypeEnum.SurfaceName)
+                faceIds = _mesh.Surfaces[resultHistoryOutput.RegionName].FaceIds;
+            else if (resultHistoryOutput.RegionType == RegionTypeEnum.Selection)
+                faceIds = resultHistoryOutput.CreationIds;
+            else throw new NotSupportedException();
+            //
+            if (faceIds != null)
+            {
+                int[] nodeIds;
+                Dictionary<FeFaceName, List<int>> elementSets;
+                _mesh.GetNodeIdsElementSetsFromFaceIds(faceIds, out nodeIds, out elementSets, out _, out _);
+                //
+                double[][] undeformedCoor = new double[nodeIds.Length][];
+                for (int i = 0; i < nodeIds.Length; i++) undeformedCoor[i] = _undeformedNodes[nodeIds[i]].Coor;
+                //
+                HistoryResultField historyResultField = new HistoryResultField(HOFieldNames.SurfaceArea);
+                HistoryResultComponent component = new HistoryResultComponent("EAREA");
+                // Prepare component entries
+                string name;
+                int element2DId = 1;
+                int[] elementNodeIds;
+                FeFaceName faceName;
+                FeElement element;
+                FeElement element2D;
+                Dictionary<string, int> nameElement2DId = new Dictionary<string, int>();
+                Dictionary<int, FeElement> elements = new Dictionary<int, FeElement>();
+                foreach (var entry in elementSets)
+                {
+                    faceName = entry.Key;
+                    foreach (int elementId in entry.Value)
+                    {
+                        element = _mesh.Elements[elementId];
+                        elementNodeIds = element.GetNodeIdsFromFaceName(faceName);
+                        if (elementNodeIds.Length == 3) element2D = new LinearTriangleElement(element2DId, elementNodeIds);
+                        else if (elementNodeIds.Length == 4) element2D = new LinearQuadrilateralElement(element2DId, elementNodeIds);
+                        else if (elementNodeIds.Length == 6) element2D = new ParabolicTriangleElement(element2DId, elementNodeIds);
+                        else if (elementNodeIds.Length == 8) element2D = new ParabolicQuadrilateralElement(element2DId, elementNodeIds);
+                        else throw new NotSupportedException();
+                        elements.Add(element2DId, element2D);
+                        //
+                        name = element.Id.ToString() + "_" + faceName;
+                        component.Entries.Add(name, new HistoryResultEntries(name, false));
+                        //
+                        nameElement2DId.Add(name, element2D.Id);
+                        element2DId++;
+                    }
+                }
+                // Get all existing increments
+                Dictionary<int, int[]> existingStepIncrementIds = GetAllExistingIncrementIds();
+                string fieldName = GetPossibleDeformationFieldOutputNamesMap()[resultHistoryOutput.DeformationVariableName];
+                //
+                double time;
+                double[][] coor;
+                foreach (var existingStepEntry in existingStepIncrementIds)
+                {
+                    foreach (var incrementId in existingStepEntry.Value)
+                    {
+                        coor = new double[undeformedCoor.Length][];
+                        for (int i = 0; i < undeformedCoor.Length; i++) coor[i] = undeformedCoor[i].ToArray();
+                        ScaleNodeCoordinates(fieldName, 1, existingStepEntry.Key, incrementId, nodeIds, ref coor);
+                        Dictionary<int, FeNode> nodes = new Dictionary<int, FeNode>();
+                        for (int i = 0; i < nodeIds.Length; i++) nodes.Add(nodeIds[i], new FeNode(nodeIds[i], coor[i]));
+                        Dictionary<int, double> elementIdSize = _mesh.ComputeVolumeArea(elements, nodes, typeof(FeElement2D));
+                        //
+                        time = GetIncrementTime(existingStepEntry.Key, incrementId);
+                        //
+                        foreach (var entry in elementSets)
+                        {
+                            faceName = entry.Key;
+                            foreach (int elementId in entry.Value)
+                            {
+                                element = _mesh.Elements[elementId];
+                                name = element.Id.ToString() + "_" + faceName;
+                                element2DId = nameElement2DId[name];
+                                component.Entries[name].Add(time, elementIdSize[element2DId]);
+                            }
+                        }
+                    }
+                }
+                // Filter
+                if (resultHistoryOutput.Filter1 != null) component.ApplyFilter(resultHistoryOutput.Filter1);
+                if (resultHistoryOutput.Filter2 != null) component.ApplyFilter(resultHistoryOutput.Filter2);
+                // Add component to field
+                historyResultField.Components.Add(component.Name, component);
+                //
+                historyResultSet = new HistoryResultSet(resultHistoryOutput.Name);
+                historyResultSet.Fields.Add(historyResultField.Name, historyResultField);
+            }
+            //
+            return historyResultSet;
+        }
+        private HistoryResultSet GetHistorySetFromElementVolume(ResultHistoryOutputFromElementSize resultHistoryOutput)
+        {
+            if (resultHistoryOutput.ElementSizeType != ElementSizeTypeEnum.Volume) throw new NotSupportedException();
+            // Collect element ids
+            int[] elementIds;
             HistoryResultSet historyResultSet = null;
             //
             if (resultHistoryOutput.RegionType == RegionTypeEnum.ElementSetName)
-            {
                 elementIds = _mesh.ElementSets[resultHistoryOutput.RegionName].Labels;
-            }
             else if (resultHistoryOutput.RegionType == RegionTypeEnum.Selection)
-            {
                 elementIds = resultHistoryOutput.CreationIds;
-            }
+            else throw new NotSupportedException();
             //
             if (elementIds != null)
             {
@@ -4084,29 +4414,17 @@ namespace CaeResults
                 double[][] undeformedCoor = new double[nodeIds.Length][];
                 for (int i = 0; i < nodeIds.Length; i++) undeformedCoor[i] = _undeformedNodes[nodeIds[i]].Coor;
                 //
-                Type elementFilter;
                 HistoryResultField historyResultField = new HistoryResultField(HOFieldNames.Volume);
                 HistoryResultComponent component = new HistoryResultComponent("EVOL");
-                //
-                if (resultHistoryOutput.ElementSizeType == ElementSizeTypeEnum.Volume)
-                {
-                    elementFilter = typeof(FeElement3D);
-                    historyResultField = new HistoryResultField(HOFieldNames.Volume);
-                    component = new HistoryResultComponent("EVOL");
-                }
-                else if (resultHistoryOutput.ElementSizeType == ElementSizeTypeEnum.Area)
-                {
-                    elementFilter = typeof(FeElement2D);
-                    historyResultField = new HistoryResultField(HOFieldNames.SurfaceArea);
-                    component = new HistoryResultComponent("EAREA");
-                }
-                else throw new NotSupportedException();
                 // Prepare component entries
                 string name;
-                component.Entries.Clear();
+                FeElement element;
+                Dictionary<int, FeElement> elements = new Dictionary<int, FeElement>();
                 for (int i = 0; i < elementIds.Length; i++)
                 {
-                    name = elementIds[i].ToString();
+                    element = _mesh.Elements[elementIds[i]];
+                    elements.Add(element.Id, element);
+                    name = element.Id.ToString();
                     component.Entries.Add(name, new HistoryResultEntries(name, false));
                 }
                 // Get all existing increments
@@ -4115,34 +4433,270 @@ namespace CaeResults
                 //
                 double time;
                 double[][] coor;
-                
                 foreach (var existingStepEntry in existingStepIncrementIds)
                 {
                     foreach (var incrementId in existingStepEntry.Value)
                     {
-                        
                         coor = new double[undeformedCoor.Length][];
                         for (int i = 0; i < undeformedCoor.Length; i++) coor[i] = undeformedCoor[i].ToArray();
                         ScaleNodeCoordinates(fieldName, 1, existingStepEntry.Key, incrementId, nodeIds, ref coor);
                         Dictionary<int, FeNode> nodes = new Dictionary<int, FeNode>();
                         for (int i = 0; i < nodeIds.Length; i++) nodes.Add(nodeIds[i], new FeNode(nodeIds[i], coor[i]));
-                        Dictionary<int, double> elementIdSize = _mesh.ComputeVolumeArea(elementIds, nodes, elementFilter);
+                        Dictionary<int, double> elementIdVolume = _mesh.ComputeVolumeArea(elements, nodes, typeof(FeElement3D));
                         //
                         time = GetIncrementTime(existingStepEntry.Key, incrementId);
-                        foreach (var entry in elementIdSize)
+                        foreach (var entry in elementIdVolume)
                         {
                             name = entry.Key.ToString();
-                            component.Entries[name].Add(time,entry.Value);
+                            component.Entries[name].Add(time, entry.Value);
                         }
                     }
                 }
-                
                 // Filter
                 if (resultHistoryOutput.Filter1 != null) component.ApplyFilter(resultHistoryOutput.Filter1);
+                if (resultHistoryOutput.Filter2 != null) component.ApplyFilter(resultHistoryOutput.Filter2);
+                // Add component to field
+                historyResultField.Components.Add(component.Name, component);
+                //
+                historyResultSet = new HistoryResultSet(resultHistoryOutput.Name);
+                historyResultSet.Fields.Add(historyResultField.Name, historyResultField);
+            }
+            //
+            return historyResultSet;
+        }
+        private HistoryResultSet GetHistorySetFromIntegration(ResultHistoryOutputFromIntegration resultHistoryOutput)
+        {
+            if (resultHistoryOutput.IntegralType == IntegralTypeEnum.Surface)
+                return GetHistorySetFromIntegrationBySurface(resultHistoryOutput);
+            else if (resultHistoryOutput.IntegralType == IntegralTypeEnum.Volume)
+                return GetHistorySetFromIntegrationByVolume(resultHistoryOutput);
+            else throw new NotSupportedException();
+        }
+        private HistoryResultSet GetHistorySetFromIntegrationBySurface(ResultHistoryOutputFromIntegration resultHistoryOutput)
+        {
+            if (resultHistoryOutput.IntegralType != IntegralTypeEnum.Surface) throw new NotSupportedException();
+            // Collect face ids
+            int[] faceIds = null;
+            HistoryResultSet historyResultSet = null;
+            //
+            if (resultHistoryOutput.RegionType == RegionTypeEnum.SurfaceName)
+                faceIds = _mesh.Surfaces[resultHistoryOutput.RegionName].FaceIds;
+            else if (resultHistoryOutput.RegionType == RegionTypeEnum.Selection)
+                faceIds = resultHistoryOutput.CreationIds;
+            else throw new NotSupportedException();
+            //
+            if (faceIds != null)
+            {
+                int[] nodeIds;
+                Dictionary<FeFaceName, List<int>> elementSets;
+                _mesh.GetNodeIdsElementSetsFromFaceIds(faceIds, out nodeIds, out elementSets, out _, out _);
+                //
+                double[][] undeformedCoor = new double[nodeIds.Length][];
+                for (int i = 0; i < nodeIds.Length; i++) undeformedCoor[i] = _undeformedNodes[nodeIds[i]].Coor;
+                //
+                HistoryResultField historyResultField = new HistoryResultField(resultHistoryOutput.FieldName);
+                // Create history result components
+                List<HistoryResultComponent> components = new List<HistoryResultComponent>();
+                foreach (var componentName in resultHistoryOutput.ComponentNames)
+                    components.Add(new HistoryResultComponent(componentName));
+                // Prepare component entries
+                string name;
+                int element2DId = 1;
+                int[] elementNodeIds;
+                FeFaceName faceName;
+                FeElement element;
+                FeElement element2D;
+                Dictionary<string, int> nameElement2DId = new Dictionary<string, int>();
+                Dictionary<int, FeElement> elements = new Dictionary<int, FeElement>();
+                foreach (var entry in elementSets)
+                {
+                    faceName = entry.Key;
+                    foreach (int elementId in entry.Value)
+                    {
+                        element = _mesh.Elements[elementId];
+                        elementNodeIds = element.GetNodeIdsFromFaceName(faceName);
+                        if (elementNodeIds.Length == 3) element2D = new LinearTriangleElement(element2DId, elementNodeIds);
+                        else if (elementNodeIds.Length == 4) element2D = new LinearQuadrilateralElement(element2DId, elementNodeIds);
+                        else if (elementNodeIds.Length == 6) element2D = new ParabolicTriangleElement(element2DId, elementNodeIds);
+                        else if (elementNodeIds.Length == 8) element2D = new ParabolicQuadrilateralElement(element2DId, elementNodeIds);
+                        else throw new NotSupportedException();
+                        elements.Add(element2DId, element2D);
+                        //
+                        name = element.Id.ToString() + "_" + faceName;
+                        foreach (var component in components) component.Entries.Add(name, new HistoryResultEntries(name, false));
+                        //
+                        nameElement2DId.Add(name, element2D.Id);
+                        element2DId++;
+                    }
+                }
+                // Get all existing increments
+                Dictionary<int, int[]> existingStepIncrementIds = GetAllExistingIncrementIds();
+                string fieldName = GetPossibleDeformationFieldOutputNamesMap()[resultHistoryOutput.DeformationVariableName];
+                //
+                float[] values;
+                int resultNodeId;
+                Field field;
+                FieldData fieldData;
+                double integral;
+                double[][] deformedCoor;
+                Dictionary<int, FeNode> nodeIdNode = new Dictionary<int, FeNode>();
+                Dictionary<int, double> nodeIdValue = new Dictionary<int, double>();
+                //
+                foreach (var component in components)
+                {
+                    foreach (var existingStepEntry in existingStepIncrementIds)
+                    {
+                        foreach (var incrementId in existingStepEntry.Value)
+                        {
+                            fieldData = GetFieldData(resultHistoryOutput.FieldName, component.Name,
+                                                     existingStepEntry.Key, incrementId);
+                            field = GetField(fieldData);
+                            //
+                            if (field != null)
+                            {
+                                values = field.GetComponentValues(component.Name);
+                                if (values != null)
+                                {
+                                    deformedCoor = undeformedCoor.ToArray();
+                                    ScaleNodeCoordinates(resultHistoryOutput.DeformationVariableName, 1,
+                                                         existingStepEntry.Key, incrementId, nodeIds, ref deformedCoor);
+                                    // Get deformed node ids and their field values
+                                    nodeIdNode.Clear();
+                                    nodeIdValue.Clear();
+                                    for (int i = 0; i < nodeIds.Length; i++)
+                                    {
+                                        nodeIdNode.Add(nodeIds[i], new FeNode(nodeIds[i], deformedCoor[i]));
+                                        resultNodeId = _nodeIdsLookUp[nodeIds[i]];
+                                        nodeIdValue.Add(nodeIds[i], values[resultNodeId]);
+                                    }
+                                    //
+                                    foreach (var entry in elementSets)
+                                    {
+                                        faceName = entry.Key;
+                                        foreach (int elementId in entry.Value)
+                                        {
+                                            element = _mesh.Elements[elementId];
+                                            name = element.Id.ToString() + "_" + faceName;
+                                            element2DId = nameElement2DId[name];
+                                            element2D = elements[element2DId];
+                                            integral = (float)element2D.Integrate(nodeIdNode, nodeIdValue);
+                                            component.Entries[name].Add(fieldData.Time, integral);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // Unit
+                    component.Unit = resultHistoryOutput.Unit;
+                    // Filter
+                    if (resultHistoryOutput.Filter1 != null) component.ApplyFilter(resultHistoryOutput.Filter1);
                     if (resultHistoryOutput.Filter2 != null) component.ApplyFilter(resultHistoryOutput.Filter2);
                     // Add component to field
                     historyResultField.Components.Add(component.Name, component);
-                
+                }
+                //
+                historyResultSet = new HistoryResultSet(resultHistoryOutput.Name);
+                historyResultSet.Fields.Add(historyResultField.Name, historyResultField);
+            }
+            //
+            return historyResultSet;
+        }
+        private HistoryResultSet GetHistorySetFromIntegrationByVolume(ResultHistoryOutputFromIntegration resultHistoryOutput)
+        {
+            if (resultHistoryOutput.IntegralType != IntegralTypeEnum.Volume) throw new NotSupportedException();
+            // Collect element ids
+            int[] elementIds = null;
+            HistoryResultSet historyResultSet = null;
+            //
+            if (resultHistoryOutput.RegionType == RegionTypeEnum.ElementSetName)
+                elementIds = _mesh.ElementSets[resultHistoryOutput.RegionName].Labels;
+            else if (resultHistoryOutput.RegionType == RegionTypeEnum.Selection)
+                elementIds = resultHistoryOutput.CreationIds;
+            //
+            if (elementIds != null)
+            {
+                int[] nodeIds = _mesh.GetNodeIdsFromElementIds(elementIds);
+                double[][] undeformedCoor = new double[nodeIds.Length][];
+                for (int i = 0; i < nodeIds.Length; i++) undeformedCoor[i] = _undeformedNodes[nodeIds[i]].Coor;
+                //
+                HistoryResultField historyResultField = new HistoryResultField(resultHistoryOutput.FieldName);
+                // Create history result components
+                List<HistoryResultComponent> components = new List<HistoryResultComponent>();
+                foreach (var componentName in resultHistoryOutput.ComponentNames)
+                    components.Add(new HistoryResultComponent(componentName));
+                // Prepare component entries
+                string name;
+                foreach (var component in components)
+                {
+                    for (int i = 0; i < elementIds.Length; i++)
+                    {
+                        name = elementIds[i].ToString();
+                        component.Entries.Add(name, new HistoryResultEntries(name, false));
+                    }
+                }
+                // Get all existing increments
+                Dictionary<int, int[]> existingStepIncrementIds = GetAllExistingIncrementIds();
+                string fieldName = GetPossibleDeformationFieldOutputNamesMap()[resultHistoryOutput.DeformationVariableName];
+                //
+                float[] values;
+                int resultNodeId;
+                Field field;
+                FieldData fieldData;
+                double integral;
+                double[][] deformedCoor;
+                FeElement element;
+                Dictionary<int, FeNode> nodeIdNode = new Dictionary<int, FeNode>();
+                Dictionary<int, double> nodeIdValue = new Dictionary<int, double>();
+                //
+                foreach (var component in components)
+                {
+                    foreach (var existingStepEntry in existingStepIncrementIds)
+                    {
+                        foreach (var incrementId in existingStepEntry.Value)
+                        {
+                            fieldData = GetFieldData(resultHistoryOutput.FieldName, component.Name,
+                                                     existingStepEntry.Key, incrementId);
+                            field = GetField(fieldData);
+                            //
+                            if (field != null)
+                            {
+                                values = field.GetComponentValues(component.Name);
+                                if (values != null)
+                                {
+                                    deformedCoor = undeformedCoor.ToArray();
+                                    ScaleNodeCoordinates(resultHistoryOutput.DeformationVariableName, 1,
+                                                         existingStepEntry.Key, incrementId, nodeIds, ref deformedCoor);
+                                    // Get deformed node ids and their field values
+                                    nodeIdNode.Clear();
+                                    nodeIdValue.Clear();
+                                    for (int i = 0; i < nodeIds.Length; i++)
+                                    {
+                                        nodeIdNode.Add(nodeIds[i], new FeNode(nodeIds[i], deformedCoor[i]));
+                                        resultNodeId = _nodeIdsLookUp[nodeIds[i]];
+                                        nodeIdValue.Add(nodeIds[i], values[resultNodeId]);
+                                    }
+                                    //
+                                    for (int i = 0; i < elementIds.Length; i++)
+                                    {
+                                        element = _mesh.Elements[elementIds[i]];
+                                        integral = (float)element.Integrate(nodeIdNode, nodeIdValue);
+                                        //
+                                        name = elementIds[i].ToString();
+                                        component.Entries[name].Add(fieldData.Time, integral);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // Unit
+                    component.Unit = resultHistoryOutput.Unit;
+                    // Filter
+                    if (resultHistoryOutput.Filter1 != null) component.ApplyFilter(resultHistoryOutput.Filter1);
+                    if (resultHistoryOutput.Filter2 != null) component.ApplyFilter(resultHistoryOutput.Filter2);
+                    // Add component to field
+                    historyResultField.Components.Add(component.Name, component);
+                }
                 //
                 historyResultSet = new HistoryResultSet(resultHistoryOutput.Name);
                 historyResultSet.Fields.Add(historyResultField.Name, historyResultField);

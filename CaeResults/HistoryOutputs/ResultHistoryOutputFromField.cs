@@ -59,8 +59,8 @@ namespace CaeResults
         
 
         // Constructors                                                                                                             
-        public ResultHistoryOutputFromField(string name, string filedName, string[] componentNames,
-                                            string regionName, RegionTypeEnum regionType)
+        public ResultHistoryOutputFromField(string name, string regionName, RegionTypeEnum regionType,
+                                            string filedName, string[] componentNames)
             : base(name, regionName, regionType)
         {
             _fieldName = filedName;

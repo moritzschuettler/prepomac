@@ -21,9 +21,10 @@ namespace CaeResults
     [Serializable]
     public enum ElementSizeTypeEnum
     {
-        Volume,
-        Area
+        Area,
+        Volume
     }
+
 
     [Serializable]
     public class ResultHistoryOutputFromElementSize : ResultHistoryOutput

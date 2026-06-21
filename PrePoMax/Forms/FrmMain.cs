@@ -321,7 +321,8 @@ namespace PrePoMax
                 tsResults.Location = new Point(tsResultDeformation.Left + tsResultDeformation.Width, tsFile.Height);
                 tscbSymbols.SelectedIndexChanged += tscbSymbols_SelectedIndexChanged;
                 // Vtk
-                _vtk.OnMouseLeftButtonUpSelection += SelectPointOrArea;
+                _vtk.OnMouseLeftButtonUpSelection += _vtk_SelectPointOrArea;
+                _vtk.RotationPointChanged += _vtk_RotationPointChanged;
                 _vtk.Controller_GetAnnotationText += _controller.GetAnnotationText;
                 _vtk.Controller_GetNodeActorData = _controller.GetNodeActorData;
                 _vtk.Controller_GetCellActorData = _controller.GetCellActorData;
@@ -2621,6 +2622,15 @@ namespace PrePoMax
         private void tsmiBoxZoom_Click(object sender, EventArgs e)
         {
             StartBoxZoom();
+        }
+        // Rotation center
+        private void _vtk_RotationPointChanged(double[] rotationPoint)
+        {
+            _controller.RotationPointChanged(rotationPoint);
+        }
+        public void SetRotationPoint(double[] rotationPoint)
+        {
+            InvokeIfRequired(_vtk.SetRotationPoint, rotationPoint); 
         }
         // User views
         private void tsmiEditUserViews_Click(object sender, EventArgs e)
@@ -8562,7 +8572,7 @@ namespace PrePoMax
         #endregion  ################################################################################################################
 
         #region Mouse selection methods  ###########################################################################################
-        public void SelectPointOrArea(double[] pickedPoint, double[] selectionDirection,
+        public void _vtk_SelectPointOrArea(double[] pickedPoint, double[] selectionDirection,
                                       double[][] planeParameters, bool completelyInside,
                                       vtkSelectOperation selectOperation, string[] pickedPartNames)
         {

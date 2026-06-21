@@ -40,6 +40,8 @@ namespace PrePoMax.Forms
                         new ViewResultHistoryOutputFromEquation(rhofe.DeepClone());
                 else if (value is ResultHistoryOutputFromElementSize rhofes) _viewResultHistoryOutput =
                         new ViewResultHistoryOutputFromElementSize(rhofes.DeepClone());
+                else if (value is ResultHistoryOutputFromIntegration rhofi) _viewResultHistoryOutput =
+                        new ViewResultHistoryOutputFromIntegration(rhofi.DeepClone());
                 else throw new NotImplementedException();
             }
         }
@@ -118,6 +120,7 @@ namespace PrePoMax.Forms
                 else if (itemTag is ViewResultHistoryOutputFromField vrhoff) _viewResultHistoryOutput = vrhoff;
                 else if (itemTag is ViewResultHistoryOutputFromEquation vrhofe) _viewResultHistoryOutput = vrhofe;
                 else if (itemTag is ViewResultHistoryOutputFromElementSize vrhofes) _viewResultHistoryOutput = vrhofes;
+                else if (itemTag is ViewResultHistoryOutputFromIntegration vrhofi) _viewResultHistoryOutput = vrhofi;
                 else throw new NotImplementedException();
                 //
                 ShowHideSelectionForm();
@@ -145,10 +148,25 @@ namespace PrePoMax.Forms
             }
             else if (_viewResultHistoryOutput is ViewResultHistoryOutputFromEquation vrhofe)
             { }
-            else if (_viewResultHistoryOutput is ViewResultHistoryOutputFromElementSize vrhofes &&
-                     (property == nameof(vrhofes.ElementSetName)))
+            else if (_viewResultHistoryOutput is ViewResultHistoryOutputFromElementSize vrhofes)
             {
-                HighlightHistoryOutput();
+                if (property == nameof(vrhofes.ElementSetName)) HighlightHistoryOutput();
+                else if (property == nameof(vrhofes.ElementSizeType))
+                {
+                    vrhofes.RegionType = RegionTypeEnum.Selection.ToString();
+                    ShowHideSelectionForm();
+                    _controller.ClearAllSelection();
+                }
+            }
+            else if (_viewResultHistoryOutput is ViewResultHistoryOutputFromIntegration vrhofi)
+            {
+                if (property == nameof(vrhofi.ElementSetName)) HighlightHistoryOutput();
+                else if (property == nameof(vrhofi.IntegralType))
+                {
+                    vrhofi.RegionType = RegionTypeEnum.Selection.ToString();
+                    ShowHideSelectionForm();
+                    _controller.ClearAllSelection();
+                }
             }
             //
             base.OnPropertyGridPropertyValueChanged();
@@ -250,17 +268,18 @@ namespace PrePoMax.Forms
                     // Check
                     string[] fieldNames = filedNameComponentNames.Keys.ToArray();
                     CheckMissingValueRef(ref fieldNames, vrhoff.FieldName, s => { vrhoff.FieldName = s; });
+                    //
                     string[] componentNames = filedNameComponentNames[vrhoff.FieldName];
-                    ResultHistoryOutputFromField hroff = (ResultHistoryOutputFromField)vrhoff.GetBase();
-                    string[] selectedComponentNames = hroff.ComponentNames;
+                    ResultHistoryOutputFromField rhoff = (ResultHistoryOutputFromField)vrhoff.GetBase();
+                    string[] selectedComponentNames = rhoff.ComponentNames;
                     string[] intersection = componentNames.Intersect(selectedComponentNames).ToArray();
                     if (intersection.Length != selectedComponentNames.Length)
                     {
-                        if (intersection.Length > 0) hroff.ComponentNames = intersection;
-                        else hroff.ComponentNames = componentNames;
+                        if (intersection.Length > 0) rhoff.ComponentNames = intersection;
+                        else rhoff.ComponentNames = componentNames;
                         //
                         MessageBoxes.ShowWarning("Some selected components no longer exist. The selected components were " +
-                            "changed to existing ones");
+                                                 "changed to existing ones");
                     }
                     // Populate
                     vrhoff.PopulateDropDownLists(nodeSetNames, surfaceNames, filedNameComponentNames, stepIdStepIncrementIds);
@@ -273,13 +292,39 @@ namespace PrePoMax.Forms
                 }
                 else if (_viewResultHistoryOutput is ViewResultHistoryOutputFromElementSize vrhofes)
                 {
-                    selectedId = 0;
+                    selectedId = 2;
                     // Check
                     string[] deformationVariableNames = FeResults.GetPossibleDeformationFieldOutputNamesMap().Keys.ToArray();
                     CheckMissingValueRef(ref deformationVariableNames, vrhofes.DeformationVariableName,
                                          s => { vrhofes.DeformationVariableName = s; });
                     // Populate
-                    vrhofes.PopulateDropDownLists(elementSetNames);
+                    vrhofes.PopulateDropDownLists(elementSetNames, surfaceNames);
+                }
+                else if (_viewResultHistoryOutput is ViewResultHistoryOutputFromIntegration vrhofi)
+                {
+                    selectedId = 3;
+                    // Check
+                    string[] fieldNames = filedNameComponentNames.Keys.ToArray();
+                    CheckMissingValueRef(ref fieldNames, vrhofi.FieldName, s => { vrhofi.FieldName = s; });
+                    //
+                    string[] componentNames = filedNameComponentNames[vrhofi.FieldName];
+                    ResultHistoryOutputFromIntegration rhofi = (ResultHistoryOutputFromIntegration)vrhofi.GetBase();
+                    string[] selectedComponentNames = rhofi.ComponentNames;
+                    string[] intersection = componentNames.Intersect(selectedComponentNames).ToArray();
+                    if (intersection.Length != selectedComponentNames.Length)
+                    {
+                        if (intersection.Length > 0) rhofi.ComponentNames = intersection;
+                        else rhofi.ComponentNames = componentNames;
+                        //
+                        MessageBoxes.ShowWarning("Some selected components no longer exist. The selected components were " +
+                                                 "changed to existing ones");
+                    }
+                    //
+                    string[] deformationVariableNames = FeResults.GetPossibleDeformationFieldOutputNamesMap().Keys.ToArray();
+                    CheckMissingValueRef(ref deformationVariableNames, vrhofi.DeformationVariableName,
+                                         s => { vrhofi.DeformationVariableName = s; });
+                    // Populate
+                    vrhofi.PopulateDropDownLists(elementSetNames, surfaceNames, filedNameComponentNames);
                 }
                 else throw new NotSupportedException();
                 //
@@ -305,7 +350,8 @@ namespace PrePoMax.Forms
             // History output from field output
             item = new ListViewItem("From Field Output");
             ResultHistoryOutputFromField rhoff =
-                new ResultHistoryOutputFromField(GetHistoryOutputName("From_Field"), fieldData.Name, null, "", RegionTypeEnum.Selection);
+                new ResultHistoryOutputFromField(GetHistoryOutputName("From_Field"), "", RegionTypeEnum.Selection,
+                                                 fieldData.Name, null);
             ViewResultHistoryOutputFromField vrhoff =
                 new ViewResultHistoryOutputFromField(rhoff, _controller.CurrentResult.ContainsComplexResults());
             vrhoff.PopulateDropDownLists(nodeSetNames, surfaceNames, filedNameComponentNames, stepIdStepIncrementIds);
@@ -319,15 +365,24 @@ namespace PrePoMax.Forms
             vrhofe.PopulateDropDownLists();
             item.Tag = vrhofe;
             lvTypes.Items.Add(item);
-            // History output from volume
+            // History output from element size
             string defVar = FeResults.GetPossibleDeformationFieldOutputNamesMap().First().Key;
             item = new ListViewItem("From Element Size");
             ResultHistoryOutputFromElementSize rhofes =
                 new ResultHistoryOutputFromElementSize(GetHistoryOutputName("From_Element_Size"),
-                                                       ElementSizeTypeEnum.Volume, "", RegionTypeEnum.Selection, defVar);
+                                                       ElementSizeTypeEnum.Area, "", RegionTypeEnum.Selection, defVar);
             ViewResultHistoryOutputFromElementSize vrhofes = new ViewResultHistoryOutputFromElementSize(rhofes);
-            vrhofes.PopulateDropDownLists(elementSetNames);
+            vrhofes.PopulateDropDownLists(elementSetNames, surfaceNames);
             item.Tag = vrhofes;
+            lvTypes.Items.Add(item);
+            // History output from integration
+            item = new ListViewItem("From Integration");
+            ResultHistoryOutputFromIntegration rhofi =
+                new ResultHistoryOutputFromIntegration(GetHistoryOutputName("From_Integration"), IntegralTypeEnum.Surface,
+                                                       "", RegionTypeEnum.Selection, fieldData.Name, null, defVar);
+            ViewResultHistoryOutputFromIntegration vrhofi = new ViewResultHistoryOutputFromIntegration(rhofi);
+            vrhofi.PopulateDropDownLists(elementSetNames, surfaceNames, filedNameComponentNames);
+            item.Tag = vrhofi;
             lvTypes.Items.Add(item);
         }
         private string GetHistoryOutputName(string prefix)
@@ -362,9 +417,11 @@ namespace PrePoMax.Forms
                 }
                 else if (ResultHistoryOutput is ResultHistoryOutputFromEquation)
                 { }
-                else if (ResultHistoryOutput is ResultHistoryOutputFromElementSize)
+                else if (ResultHistoryOutput is ResultHistoryOutputFromElementSize ||
+                         ResultHistoryOutput is ResultHistoryOutputFromIntegration)
                 {
-                    if (ResultHistoryOutput.RegionType == RegionTypeEnum.ElementSetName)
+                    if (ResultHistoryOutput.RegionType == RegionTypeEnum.ElementSetName ||
+                        ResultHistoryOutput.RegionType == RegionTypeEnum.SurfaceName)
                     {
                         _controller.Highlight3DObjects(new object[] { ResultHistoryOutput.RegionName });
                     }
@@ -399,7 +456,18 @@ namespace PrePoMax.Forms
             {
                 if (ResultHistoryOutput is null) { }
                 else if (ResultHistoryOutput is ResultHistoryOutputFromField) _controller.SetSelectItemToNode();
-                else if (ResultHistoryOutput is ResultHistoryOutputFromElementSize) _controller.SetSelectItemToElement();
+                else if (ResultHistoryOutput is ResultHistoryOutputFromElementSize rhofes)
+                {
+                    if (rhofes.ElementSizeType == ElementSizeTypeEnum.Area) _controller.SetSelectItemToSurface();
+                    else if (rhofes.ElementSizeType == ElementSizeTypeEnum.Volume) _controller.SetSelectItemToElement();
+                    else throw new NotSupportedException();
+                }
+                else if (ResultHistoryOutput is ResultHistoryOutputFromIntegration rhofi)
+                {
+                    if (rhofi.IntegralType == IntegralTypeEnum.Surface) _controller.SetSelectItemToSurface();
+                    else if (rhofi.IntegralType == IntegralTypeEnum.Volume) _controller.SetSelectItemToElement();
+                    else throw new NotSupportedException();
+                }
             }
             else _controller.SetSelectByToOff();
         }
@@ -409,7 +477,8 @@ namespace PrePoMax.Forms
             if (ResultHistoryOutput != null && ResultHistoryOutput.RegionType == RegionTypeEnum.Selection)
             {
                 if (ResultHistoryOutput is ResultHistoryOutputFromField ||
-                    ResultHistoryOutput is ResultHistoryOutputFromElementSize)
+                    ResultHistoryOutput is ResultHistoryOutputFromElementSize ||
+                    ResultHistoryOutput is ResultHistoryOutputFromIntegration)
                 {
                     ResultHistoryOutput.CreationIds = ids;
                     ResultHistoryOutput.CreationData = _controller.Selection.DeepClone();

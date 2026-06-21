@@ -16,10 +16,8 @@ using System.ComponentModel;
 using CaeGlobals;
 using System.IO;
 using CaeJob;
-using FileInOut.Output.Calculix;
-using DynamicTypeDescriptor;
 using CaeModel;
-using System.Windows.Forms;
+using CaeMesh;
 
 namespace PrePoMax
 {

@@ -168,6 +168,7 @@ namespace vtkControl
         // Events                                                                                                                   
         public event Action<int, int, bool, int, int> PointPickedOnMouseMoveEvt;
         public event Action<MouseEventArgs, bool, int, int> PointPickedOnLeftUpEvt;
+        public event Action<double[]> RotationPointChanged;
         public event Action ClearCurrentMouseSelection;
         public event Action<object, MouseEventArgs> RightButtonPressEvent;
         public event Action ZoomChangedEvent;
@@ -352,10 +353,6 @@ namespace vtkControl
                 // Only click happened
                 if (GetPickPoint != null)
                 {
-                    //vtkPropPicker picker = vtkPropPicker.New();
-                    //renderer.Render(); // to redraw the first - BASE - layer of geometry again
-                    //picker.Pick(currClickPos[0], currClickPos[1], 0, renderer);
-                    //_rotationCenterWorld = picker.GetPickPosition();
                     vtkActor actor;
                     double[] pickPoint = GetPickPoint(out actor, currClickPos[0], currClickPos[1]);
                     if (pickPoint != null) _rotationCenterWorld = pickPoint;
@@ -382,7 +379,7 @@ namespace vtkControl
                             _rotationCenterWorld[1] = (bounds1[3] + bounds1[2]) / 2;
                             _rotationCenterWorld[2] = (bounds1[5] + bounds1[4]) / 2;
                         }
-                        
+                        //-   
                     }
                     else
                     {
@@ -392,6 +389,8 @@ namespace vtkControl
                         PanCamera(camera, center, _rotationCenterWorld);
                         AdjustCameraDistance(renderer, camera);
                     }
+                    //
+                    RotationPointChanged?.Invoke(_rotationCenterWorld);
                 }
             }
             // Adjust the clipping range and lights
@@ -633,7 +632,17 @@ namespace vtkControl
         {
             _overlayRenderer = renderer;
         }
-
+        public void SetRotationPoint(double[] rotationPoint)
+        {
+            if (rotationPoint != null)
+            {
+                _rotationCenterWorld = rotationPoint;
+            }
+            else
+            {
+                ResetRotationCenter();
+            }
+        }
 
         // Methods                                                                                                                  
         void _selectionTimer_Tick(object sender, EventArgs e)
@@ -661,31 +670,27 @@ namespace vtkControl
             _widgets.Remove(widget);
             _reversedWidgets.Remove(widget);
         }
-
-        public void Reset()
+        public void ResetRotationCenter()
         {
             _rotationCenterWorld = null;
         }
-
         private void UpdateRotationCenterDisplay()
         {
             vtkRenderer renderer = this.GetCurrentRenderer();
             if (renderer == null) return;
-
+            //
             if (_rotationCenterWorld == null)
             {
-                // for the first time use the center of the bounding box
+                // For the first time use the center of the bounding box
                 double[] bounds = renderer.ComputeVisiblePropBounds();
                 _rotationCenterWorld = new double[3];
                 _rotationCenterWorld[0] = (bounds[1] + bounds[0]) / 2;
                 _rotationCenterWorld[1] = (bounds[3] + bounds[2]) / 2;
                 _rotationCenterWorld[2] = (bounds[5] + bounds[4]) / 2;
             }
-
-            // must update since zoom can also change
+            // Must update since zoom can also change
             _rotationCenterDisplay = WorldToDisplay(renderer, _rotationCenterWorld);
         }
-
         public static double[] WorldToDisplay(vtkRenderer renderer, double[] worldPos)
         {
             IntPtr posOutPtr = Marshal.AllocHGlobal(2 * 8);
@@ -702,7 +707,6 @@ namespace vtkControl
             System.Runtime.InteropServices.Marshal.Copy(posOutPtr, worldPos, 0, 3);
             return worldPos;
         }
-
         public static double DisplayToWorldScale(vtkRenderer renderer, int size = 1)
         {
             int delta = 1 * size;

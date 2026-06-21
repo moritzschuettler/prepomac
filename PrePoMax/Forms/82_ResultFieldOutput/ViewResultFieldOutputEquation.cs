@@ -51,7 +51,7 @@ namespace PrePoMax
         //
         [CategoryAttribute("Data")]
         [OrderedDisplayName(2, 10, "User defined unit")]
-        [DescriptionAttribute("User defined unit for the history output equation value.")]
+        [DescriptionAttribute("User defined unit for the history output.")]
         [Id(3, 1)]
         public string Unit { get { return ResultFieldOutput.Unit; } set { ResultFieldOutput.Unit = value; } }
 

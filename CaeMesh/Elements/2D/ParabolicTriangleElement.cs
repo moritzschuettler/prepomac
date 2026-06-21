@@ -19,10 +19,37 @@ namespace CaeMesh
     public class ParabolicTriangleElement : FeElement2D
     {
         // Variables                                                                                                                
-        private static readonly int vtkCellTypeInt = (int)vtkCellType.VTK_QUADRATIC_TRIANGLE;
-        private static readonly double a = 1.0 / 3.0;
-        private static readonly double b = 1.0 / 6.0;
-        private static readonly double c = 4.0 / 6.0;
+        private static readonly int _vtkCellTypeInt = (int)vtkCellType.VTK_QUADRATIC_TRIANGLE;
+        private static readonly double _a = 1.0 / 3.0;
+        private static readonly double _b = 1.0 / 6.0;
+        private static readonly double _c = 4.0 / 6.0;
+        private static readonly double[] _xi = new double[]
+        {
+            0.091576213509771,
+            0.816847572980459,
+            0.091576213509771,
+            0.445948490915965,
+            0.108103018168070,
+            0.445948490915965
+        };
+        private static readonly double[] _eta = new double[]
+        {
+            0.091576213509771,
+            0.091576213509771,
+            0.816847572980459,
+            0.445948490915965,
+            0.445948490915965,
+            0.108103018168070
+        };
+        private static readonly double[] _w = new double[]
+        {
+            0.109951743655322 * 0.5,
+            0.109951743655322 * 0.5,
+            0.109951743655322 * 0.5,
+            0.223381589678011 * 0.5,
+            0.223381589678011 * 0.5,
+            0.223381589678011 * 0.5
+        };
 
 
         // Properties                                                                                                               
@@ -52,7 +79,7 @@ namespace CaeMesh
         }
         public override int GetVtkCellType()
         {
-            return vtkCellTypeInt;
+            return _vtkCellTypeInt;
         }
         public override FeFaceName GetFaceNameFromSortedNodeIds(int[] nodeIds)
         {
@@ -160,9 +187,9 @@ namespace CaeMesh
         public override double[] GetEquivalentForcesFromFaceName(FeFaceName faceName)
         {
             if (faceName == FeFaceName.S1 || faceName == FeFaceName.S2)
-                return new double[] { 0, 0, 0, a, a, a };
+                return new double[] { 0, 0, 0, _a, _a, _a };
             else if (faceName == FeFaceName.S3 || faceName == FeFaceName.S4 || faceName == FeFaceName.S5)
-                return new double[] { b, b, c };
+                return new double[] { _b, _b, _c };
             else throw new NotSupportedException();
         }
         public override double[] GetEquivalentForcesFromFaceName(FeFaceName faceName, double[] nodalValues)
@@ -197,6 +224,84 @@ namespace CaeMesh
         {
             return GeometryTools.TriangleCG(nodes[NodeIds[0]], nodes[NodeIds[1]], nodes[NodeIds[2]],
                                             nodes[NodeIds[3]], nodes[NodeIds[4]], nodes[NodeIds[5]], out area);
+        }
+        // Integration
+        public override double Integrate(Dictionary<int, FeNode> nodes, Dictionary<int, double> nodalValues)
+        {
+            return Integrate(nodes[NodeIds[0]], nodes[NodeIds[1]],
+                             nodes[NodeIds[2]], nodes[NodeIds[3]],
+                             nodes[NodeIds[4]], nodes[NodeIds[5]],
+                             nodalValues[NodeIds[0]], nodalValues[NodeIds[1]],
+                             nodalValues[NodeIds[2]], nodalValues[NodeIds[3]],
+                             nodalValues[NodeIds[4]], nodalValues[NodeIds[5]]);
+        }
+        private static double Integrate(FeNode n1, FeNode n2, FeNode n3, FeNode n4, FeNode n5, FeNode n6,
+                                       double u1, double u2, double u3, double u4, double u5, double u6)
+        {
+            double integral = 0;
+            //
+            for (int gp = 0; gp < _w.Length; gp++)
+            {
+                double xi = _xi[gp];
+                double eta = _eta[gp];
+                //
+                double u = Interpolate(u1, u2, u3, u4, u5, u6, xi, eta);
+                //
+                double jNorm = JNorm(n1, n2, n3, n4, n5, n6, xi, eta);
+                //
+                integral += _w[gp] * u * jNorm;
+            }
+            //
+            return integral;
+        }
+        private static double Interpolate(double u1, double u2, double u3, double u4, double u5, double u6, double g, double h)
+        {
+            double gh1 = 1 - g - h;
+            //
+            return 2 * gh1 * (gh1 - 0.5) * u1 +
+                   2 * g * (g - 0.5) * u2 +
+                   2 * h * (h - 0.5) * u3 +
+                   4 * g * gh1 * u4 +
+                   4 * g * h * u5 +
+                   4 * h * gh1 * u6;
+        }
+        private static double JNorm(FeNode n1, FeNode n2, FeNode n3, FeNode n4, FeNode n5, FeNode n6, double g, double h)
+        {
+            double gh1 = 1 - g - h;
+            // Derivatives by g
+            double n1g = -4 * gh1 + 1;
+            double n2g = 4 * g - 1;
+            double n3g = 0;
+            double n4g = 4 * (gh1 - g);
+            double n5g = 4 * h;
+            double n6g = -4 * h;
+            // Derivatives by h
+            double n1h = -4 * gh1 + 1;
+            double n2h = 0;
+            double n3h = 4 * h - 1;
+            double n4h = -4 * g;
+            double n5h = 4 * g;
+            double n6h = 4 * (gh1 - h);
+            // dx/dg
+            double xg = n1g * n1.X + n2g * n2.X + n3g * n3.X +
+                        n4g * n4.X + n5g * n5.X + n6g * n6.X;
+            double yg = n1g * n1.Y + n2g * n2.Y + n3g * n3.Y +
+                        n4g * n4.Y + n5g * n5.Y + n6g * n6.Y;
+            double zg = n1g * n1.Z + n2g * n2.Z + n3g * n3.Z +
+                        n4g * n4.Z + n5g * n5.Z + n6g * n6.Z;
+            // dx/dh
+            double xh = n1h * n1.X + n2h * n2.X + n3h * n3.X +
+                        n4h * n4.X + n5h * n5.X + n6h * n6.X;
+            double yh = n1h * n1.Y + n2h * n2.Y + n3h * n3.Y +
+                        n4h * n4.Y + n5h * n5.Y + n6h * n6.Y;
+            double zh = n1h * n1.Z + n2h * n2.Z + n3h * n3.Z +
+                        n4h * n4.Z + n5h * n5.Z + n6h * n6.Z;
+            // |dx/dg x dx/dh|
+            double cx = yg * zh - zg * yh;
+            double cy = zg * xh - xg * zh;
+            double cz = xg * yh - yg * xh;
+            //
+            return Math.Sqrt(cx * cx + cy * cy + cz * cz);
         }
         //
         public override void Mirror()

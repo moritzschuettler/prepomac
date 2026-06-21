@@ -163,7 +163,6 @@ namespace PrePoMax
             bool visibility = _importedSTLoad.InterpolatorType != CaeResults.CloudInterpolatorEnum.ClosestPoint;
             //
             DynamicCustomTypeDescriptor.GetProperty(nameof(InterpolatorRadius)).SetIsBrowsable(visibility);
-            DynamicCustomTypeDescriptor.GetProperty(nameof(InterpolatorRadius)).SetIsBrowsable(visibility);
         }
         public void UpdateFileBrowserDialog()
         {

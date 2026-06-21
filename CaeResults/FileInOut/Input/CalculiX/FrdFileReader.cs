@@ -56,9 +56,11 @@ namespace CaeResults
         private static readonly string _materialName = "MATERIAL_";
         private static readonly string _gapMaterialName = "MATERIAL_GAP";
         private static readonly string _springMaterialName = "MATERIAL_SPRING";
+        private static readonly string _massMaterialName = "MATERIAL_MASS";
         //
         private static readonly int _gapMaterialId = -1;
         private static readonly int _springMaterialId = -2;
+        private static readonly int _massMaterialId = -3;
         //
         private static HashSet<int[]> _bemaNodeIds;
 
@@ -85,6 +87,7 @@ namespace CaeResults
                 Dictionary<int, FeElement> elements = null;
                 HashSet<int> gapMaterialIds = null;
                 HashSet<int> springMaterialIds = null;
+                HashSet<int> massMaterialIds = null;
                 Dictionary<int, string> materialIdMaterialName = null;
                 Dictionary<int, List<int>> materialIdElementIds = null;
                 //
@@ -103,7 +106,8 @@ namespace CaeResults
                         result.HashName = GetHashName(dataSet);
                         result.DateTime = GetDateTime(dataSet);
                         result.UnitSystem = GetUnitSystem(dataSet); // calls SetConverterUnits on the UnitSystem
-                        GetMaterialIdsAndNames(dataSet, out materialIdMaterialName, out gapMaterialIds, out springMaterialIds);
+                        GetMaterialIdsAndNames(dataSet, out materialIdMaterialName, out gapMaterialIds,
+                                               out springMaterialIds, out massMaterialIds);
                     }
                     else if (setID.StartsWith("    2C", StringComparison.Ordinal)) // Nodes
                     {
@@ -112,7 +116,7 @@ namespace CaeResults
                     }
                     else if (setID.StartsWith("    3C", StringComparison.Ordinal)) // Elements
                     {
-                        elements = GetElements(dataSet, gapMaterialIds, springMaterialIds, out materialIdElementIds);
+                        elements = GetElements(dataSet, gapMaterialIds, springMaterialIds, massMaterialIds, out materialIdElementIds);
                         //elements = GetElementsFast(dataSet));
                     }
                     else if (setID.StartsWith("    1PSTEP", StringComparison.Ordinal)) // Fields
@@ -134,8 +138,7 @@ namespace CaeResults
                     result.SetMesh(mesh, nodeIdsLookUp);
                     // Material element sets
                     FeElementSet elementSet;
-                    if (materialIdMaterialName != null && materialIdElementIds != null &&
-                        materialIdMaterialName.Count <= materialIdElementIds.Count)
+                    if (materialIdMaterialName != null && materialIdElementIds != null)
                     {
                         foreach (var entry in materialIdMaterialName)
                         {
@@ -171,10 +174,16 @@ namespace CaeResults
                         // Remove parts
                         if (partNamesToRemove.Count > 0) result.Mesh.RemoveParts(partNamesToRemove.ToArray(), out _, false);
                     }
-                    // Spring element sets - *SPRING elements are not written into the frd file
+                    // Spring element sets - *SPRING elements are not written into the frd file - this is always empty
                     if (springMaterialIds.Count > 0 && materialIdElementIds.ContainsKey(_springMaterialId))
                     {
                         elementSet = new FeElementSet(_springMaterialName, materialIdElementIds[_springMaterialId].ToArray());
+                        result.Mesh.AddElementSet(elementSet);
+                    }
+                    // Mass element sets - *MASS elements are not written into the frd file - this is always empty
+                    if (massMaterialIds.Count > 0 && materialIdElementIds.ContainsKey(_massMaterialId))
+                    {
+                        elementSet = new FeElementSet(_massMaterialName, materialIdElementIds[_massMaterialId].ToArray());
                         result.Mesh.AddElementSet(elementSet);
                     }
                     //
@@ -291,17 +300,21 @@ namespace CaeResults
             return new UnitSystem(unitSystemType);
         }
         static private void GetMaterialIdsAndNames(string[] lines, out Dictionary<int, string> materialIdMaterialName,
-                                                   out HashSet<int> gapMaterialIds, out HashSet<int> springMaterialIds)
+                                                   out HashSet<int> gapMaterialIds, out HashSet<int> springMaterialIds,
+                                                   out HashSet<int> massMaterialIds)
         {
             //    1UMAT    1S235
             //    1UMAT    2SPRING
             //    1UMAT    3GAP
+            int matCount = 1;
+            int idTextLen = 5;
             int materialId;
             string materialName;
             string[] tmp;
             materialIdMaterialName = new Dictionary<int, string>();
             gapMaterialIds = new HashSet<int>();
             springMaterialIds = new HashSet<int>();
+            massMaterialIds = new HashSet<int>();
             //
             for (int i = 0; i < lines.Length; i++)
             {
@@ -310,13 +323,19 @@ namespace CaeResults
                     tmp = lines[i].Split(new string[] { "1UMAT" }, StringSplitOptions.RemoveEmptyEntries);
                     if (tmp.Length == 2)
                     {
-                        materialId = int.Parse(tmp[1].Substring(0, 5));
-                        materialName = _materialName + tmp[1].Substring(5, tmp[1].Length - 5).Trim();
+                        if (matCount == 100000) idTextLen = 6;
+                        else if (matCount == 1000000) idTextLen = 7;
+                        else if (matCount == 10000000) idTextLen = 8;
+                        //
+                        materialId = int.Parse(tmp[1].Substring(0, idTextLen));
+                        materialName = _materialName + tmp[1].Substring(idTextLen, tmp[1].Length - idTextLen).Trim();
                         //
                         if (materialName == _gapMaterialName) gapMaterialIds.Add(materialId);
                         else if (materialName == _springMaterialName) springMaterialIds.Add(materialId);
+                        else if (materialName == _massMaterialName) massMaterialIds.Add(materialId);
                         else materialIdMaterialName.Add(materialId, materialName);
                     }
+                    matCount++;
                 }
             }
         }
@@ -415,6 +434,7 @@ namespace CaeResults
         }
         static private Dictionary<int, FeElement> GetElements(string[] lines, HashSet<int> gapMaterialIds,
                                                               HashSet<int> springMaterialIds,
+                                                              HashSet<int> massMaterialIds,
                                                               out Dictionary<int, List<int>> materialIdElementIds)
         {
             //        el.id   type       ?   mat.id      
@@ -441,8 +461,9 @@ namespace CaeResults
                 if (record1.Length == 5) materialID = int.Parse(record1[4]);    // ResultsForLastIterations has different output 
                 else materialID = -1;
                 //
-                if (gapMaterialIds.Contains(materialID)) materialID = _gapMaterialId;
-                else if (springMaterialIds.Contains(materialID)) materialID = _springMaterialId;
+                if (gapMaterialIds.Count > 0 && gapMaterialIds.Contains(materialID)) materialID = _gapMaterialId;
+                else if (springMaterialIds.Count > 0 && springMaterialIds.Contains(materialID)) materialID = _springMaterialId;
+                else if (massMaterialIds.Count > 0 && massMaterialIds.Contains(materialID)) materialID = _massMaterialId;
                 //
                 if (materialIdElementIds.TryGetValue(materialID, out elementIds)) elementIds.Add(id);
                 else materialIdElementIds.Add(materialID, new List<int> { id });

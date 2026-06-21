@@ -143,7 +143,10 @@ namespace CaeMesh
             }
             else throw new NotSupportedException();
         }
-
+        public void SetElementTypes(Type[] elementTypes)
+        {
+            _elementTypes = elementTypes != null ? elementTypes.ToArray() : null;
+        }
         public virtual BasePart DeepCopy()
         {
             return new BasePart(this);

@@ -19,9 +19,53 @@ namespace CaeMesh
     public class LinearPyramidElement : FeElement3D
     {
         // Variables                                                                                                                
-        private static int vtkCellTypeInt = (int)vtkCellType.VTK_PYRAMID;
-        private static double a = 1.0 / 3.0;
-        private static double b = 0.25;
+        private static int _vtkCellTypeInt = (int)vtkCellType.VTK_PYRAMID;
+        private static double _a = 1.0 / 3.0;
+        private static double _b = 0.25;
+        private static double[] _xi = new double[]
+        {
+            -1.0 / Math.Sqrt(3),
+             1.0 / Math.Sqrt(3),
+             1.0 / Math.Sqrt(3),
+            -1.0 / Math.Sqrt(3),
+            -1.0 / Math.Sqrt(3),
+             1.0 / Math.Sqrt(3),
+             1.0 / Math.Sqrt(3),
+            -1.0 / Math.Sqrt(3)
+        };
+        private static double[] _eta = new double[]
+        {
+            -1.0 / Math.Sqrt(3),
+            -1.0 / Math.Sqrt(3),
+             1.0 / Math.Sqrt(3),
+             1.0 / Math.Sqrt(3),
+            -1.0 / Math.Sqrt(3),
+            -1.0 / Math.Sqrt(3),
+             1.0 / Math.Sqrt(3),
+             1.0 / Math.Sqrt(3)
+        };
+        private static double[] _zeta = new double[]
+        {
+            -1.0 / Math.Sqrt(3),
+            -1.0 / Math.Sqrt(3),
+            -1.0 / Math.Sqrt(3),
+            -1.0 / Math.Sqrt(3),
+             1.0 / Math.Sqrt(3),
+             1.0 / Math.Sqrt(3),
+             1.0 / Math.Sqrt(3),
+             1.0 / Math.Sqrt(3)
+        };
+        private static double[] _w = new double[]
+        {
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+        };
 
 
         // Properties                                                                                                               
@@ -51,7 +95,7 @@ namespace CaeMesh
         }
         public override int GetVtkCellType()
         {
-            return vtkCellTypeInt;
+            return _vtkCellTypeInt;
         }
         public override FeFaceName GetFaceNameFromSortedNodeIds(int[] nodeIds)
         {
@@ -181,7 +225,7 @@ namespace CaeMesh
         public override double[] GetEquivalentForcesFromFaceName(FeFaceName faceName)
         {
             if (faceName == FeFaceName.S1)
-                return new double[] { b, b, b, b };
+                return new double[] { _b, _b, _b, _b };
             else if (faceName == FeFaceName.S2 || faceName == FeFaceName.S3 ||
                      faceName == FeFaceName.S4 || faceName == FeFaceName.S5)
                 //return new double[] { a, a, a };
@@ -225,6 +269,83 @@ namespace CaeMesh
         {
             return GeometryTools.PyramidCG(nodes[NodeIds[0]], nodes[NodeIds[1]], nodes[NodeIds[2]],
                                            nodes[NodeIds[3]], nodes[NodeIds[4]], out volume);
+        }
+        // Integration
+        public override double Integrate(Dictionary<int, FeNode> nodes, Dictionary<int, double> nodalValues)
+        {
+            return Integrate(nodes[NodeIds[0]], nodes[NodeIds[1]],
+                             nodes[NodeIds[2]], nodes[NodeIds[3]],
+                             nodes[NodeIds[4]],
+                             nodalValues[NodeIds[0]], nodalValues[NodeIds[1]],
+                             nodalValues[NodeIds[2]], nodalValues[NodeIds[3]],
+                             nodalValues[NodeIds[4]]);
+        }
+        static public double Integrate(FeNode n1, FeNode n2, FeNode n3, FeNode n4, FeNode n5,
+                                       double u1, double u2, double u3, double u4, double u5)
+        {
+            double integral = 0;
+            //
+            for (int gp = 0; gp < _w.Length; gp++)
+            {
+                double xi = _xi[gp];
+                double eta = _eta[gp];
+                double zeta = _zeta[gp];
+                //
+                double u = Interpolate(u1, u2, u3, u4, u5, xi, eta, zeta);
+                //
+                double jNorm = JNorm(n1, n2, n3, n4, n5, xi, eta, zeta);
+                //
+                integral += _w[gp] * u * jNorm;
+            }
+            //
+            return integral;
+        }
+        private static double Interpolate(double u1, double u2, double u3, double u4, double u5,
+                                          double g, double h, double r)
+        {
+            return 0.125 * (1 - g) * (1 - h) * (1 - r) * u1 +
+                   0.125 * (1 + g) * (1 - h) * (1 - r) * u2 +
+                   0.125 * (1 + g) * (1 + h) * (1 - r) * u3 +
+                   0.125 * (1 - g) * (1 + h) * (1 - r) * u4 +
+                   0.5 * (1 + r) * u5;
+        }
+        private static double JNorm(FeNode n1, FeNode n2, FeNode n3, FeNode n4, FeNode n5,
+                                    double g, double h, double r)
+        {
+            // Derivatives by g
+            double n1g = -0.125 * (1 - h) * (1 - r);
+            double n2g = 0.125 * (1 - h) * (1 - r);
+            double n3g = 0.125 * (1 + h) * (1 - r);
+            double n4g = -0.125 * (1 + h) * (1 - r);
+            double n5g = 0.0;
+            // Derivatives by h
+            double n1h = -0.125 * (1 - g) * (1 - r);
+            double n2h = -0.125 * (1 + g) * (1 - r);
+            double n3h = 0.125 * (1 + g) * (1 - r);
+            double n4h = 0.125 * (1 - g) * (1 - r);
+            double n5h = 0.0;
+            // Derivatives by r
+            double n1r = -0.125 * (1 - g) * (1 - h);
+            double n2r = -0.125 * (1 + g) * (1 - h);
+            double n3r = -0.125 * (1 + g) * (1 + h);
+            double n4r = -0.125 * (1 - g) * (1 + h);
+            double n5r = 0.5;
+            // dx/dg
+            double xg = n1g * n1.X + n2g * n2.X + n3g * n3.X + n4g * n4.X + n5g * n5.X;
+            double yg = n1g * n1.Y + n2g * n2.Y + n3g * n3.Y + n4g * n4.Y + n5g * n5.Y;
+            double zg = n1g * n1.Z + n2g * n2.Z + n3g * n3.Z + n4g * n4.Z + n5g * n5.Z;
+            // dx/dh
+            double xh = n1h * n1.X + n2h * n2.X + n3h * n3.X + n4h * n4.X + n5h * n5.X;
+            double yh = n1h * n1.Y + n2h * n2.Y + n3h * n3.Y + n4h * n4.Y + n5h * n5.Y;
+            double zh = n1h * n1.Z + n2h * n2.Z + n3h * n3.Z + n4h * n4.Z + n5h * n5.Z;
+            // dx/dr
+            double xr = n1r * n1.X + n2r * n2.X + n3r * n3.X + n4r * n4.X + n5r * n5.X;
+            double yr = n1r * n1.Y + n2r * n2.Y + n3r * n3.Y + n4r * n4.Y + n5r * n5.Y;
+            double zr = n1r * n1.Z + n2r * n2.Z + n3r * n3.Z + n4r * n4.Z + n5r * n5.Z;
+            // det(dx/dg, dx/dh, dx/dr)
+            return Math.Abs(xg * (yh * zr - zh * yr) -
+                            xh * (yg * zr - zg * yr) +
+                            xr * (yg * zh - zg * yh));
         }
         //
         public override void Mirror()
