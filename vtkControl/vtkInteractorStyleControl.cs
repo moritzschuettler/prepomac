@@ -634,15 +634,10 @@ namespace vtkControl
         }
         public void SetRotationPoint(double[] rotationPoint)
         {
-            if (rotationPoint != null)
-            {
-                _rotationCenterWorld = rotationPoint;
-            }
-            else
-            {
-                ResetRotationCenter();
-            }
+            if (rotationPoint != null) _rotationCenterWorld = rotationPoint;
+            else ResetRotationCenter();
         }
+
 
         // Methods                                                                                                                  
         void _selectionTimer_Tick(object sender, EventArgs e)

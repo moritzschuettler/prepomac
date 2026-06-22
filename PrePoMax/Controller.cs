@@ -3068,17 +3068,26 @@ namespace PrePoMax
         // Rotation center
         public void RotationPointChanged(double[] rotationPoint)
         {
-            string viewName = _currentView.ToString();
-            if (_currentView == ViewGeometryModelResults.Results)
-                viewName += Globals.NameSeparator + _allResults.GetCurrentResultName();
+            string viewName;
+            if (_currentView == ViewGeometryModelResults.Results && _allResults.CurrentResult.HashName != _model.HashName)
+            {
+                viewName = _currentView.ToString() + Globals.NameSeparator + _allResults.CurrentResult.HashName;
+                _viewNameRotationCenter[viewName] = rotationPoint.ToArray();
+                return;
+            }
             //
+            viewName = ViewGeometryModelResults.Geometry.ToString();
+            _viewNameRotationCenter[viewName] = rotationPoint.ToArray();
+            viewName = ViewGeometryModelResults.Model.ToString();
+            _viewNameRotationCenter[viewName] = rotationPoint.ToArray();
+            viewName = ViewGeometryModelResults.Results.ToString() + Globals.NameSeparator + _model.HashName;
             _viewNameRotationCenter[viewName] = rotationPoint.ToArray();
         }
         private void ApplyRotationPoint()
         {
             string viewName = _currentView.ToString();
             if (_currentView == ViewGeometryModelResults.Results)
-                viewName += Globals.NameSeparator + _allResults.GetCurrentResultName();
+                viewName += Globals.NameSeparator + _allResults.CurrentResult.HashName;
             //
             double[] rotationPoint = null;
             _viewNameRotationCenter.TryGetValue(viewName, out rotationPoint);
@@ -14960,6 +14969,7 @@ namespace PrePoMax
                         UpdateTreeSelection();
                     }
                     //
+                    ApplyRotationPoint();
                     if (resetCamera) _form.SetFrontBackView(false, true);
                     _form.AdjustCameraDistanceAndClipping();
                 }
@@ -15076,6 +15086,7 @@ namespace PrePoMax
                         UpdateTreeSelection();
                     }
                     //
+                    ApplyRotationPoint();
                     if (resetCamera) _form.SetFrontBackView(false, true);
                     //_form.AdjustCameraDistanceAndClipping();
                 }
@@ -20369,6 +20380,7 @@ namespace PrePoMax
                     // Selection
                     UpdateTreeSelection();
                     //
+                    ApplyRotationPoint();
                     if (resetCamera) _form.SetFrontBackView(true, true); // animation:true is here to correctly draw max/min widgets 
                     //
                     _form.UpdateScalarsAndCameraAndRedraw();
