@@ -2326,9 +2326,8 @@ namespace PrePoMax
                 if (_controller.AllResults.Count <= 1) tsmiCloseAllResults_Click(null, null);
                 else
                 {
-                    _controller.RemoveCurrentResult();
-                    SetResultNames();
-                    if (tscbResultNames.SelectedItem != null) SetCurrentResults(tscbResultNames.SelectedItem.ToString());
+                    _controller.RemoveCurrentResultsCommand();  // do not set the current result
+                    if (tscbResultNames.Items.Count > 0) tscbResultNames.SelectedIndex = 0;
                 }
             }
             catch (Exception ex)
@@ -2340,9 +2339,7 @@ namespace PrePoMax
         {
             try
             {
-                _controller.ClearResults(); // calls this.ClearResults();
-                //
-                if (_controller.CurrentView == ViewGeometryModelResults.Results) Clear3D();
+                _controller.ClearResultsCommand(); // calls this.ClearResults();
             }
             catch (Exception ex)
             {
@@ -9192,6 +9189,8 @@ namespace PrePoMax
         }
         private void ResizeResultNamesComboBox()
         {
+            if (tscbResultNames.SelectedItem == null) return;
+            //
             string[] allResultNames = new string[] { tscbResultNames.SelectedItem.ToString() };
             int currentWidth = GetMaxStringWidth(allResultNames, tscbResultNames.Font);
             // Control width

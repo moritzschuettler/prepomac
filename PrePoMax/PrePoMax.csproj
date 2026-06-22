@@ -125,6 +125,7 @@
     <Compile Include="Commands\0000_File\COpenFile.cs" />
     <Compile Include="Commands\0000_File\CSaveToPmx.cs" />
     <Compile Include="Commands\0000_File\CImportFile.cs" />
+    <Compile Include="Commands\000_General\CRemoveResults.cs" />
     <Compile Include="Commands\000_General\CRenamePost.cs" />
     <Compile Include="Commands\000_General\CRenamePre.cs" />
     <Compile Include="Commands\0010_Edit\CSetCalculixUserKeywords.cs" />
@@ -215,6 +216,7 @@
     <Compile Include="Commands\00_Base\SaveCommand.cs" />
     <Compile Include="Commands\0100_Analysis\CAddDeafaultJob.cs" />
     <Compile Include="Commands\0100_Analysis\CPrepareAndRunJob.cs" />
+    <Compile Include="Commands\0110_Results\00_Base\CRemoveCurrentResults.cs" />
     <Compile Include="Commands\0110_Results\00_Base\CSetCurrentResults.cs" />
     <Compile Include="Commands\0110_Results\00_Base\COpenResults.cs" />
     <Compile Include="Commands\0110_Results\01_Mesh\01_Part\CResetColorForResultParts.cs" />

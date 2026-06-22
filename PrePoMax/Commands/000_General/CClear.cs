@@ -42,7 +42,7 @@ namespace PrePoMax.Commands
 
         public override string GetCommandString()
         {
-            return base.GetCommandString();
+            return base.GetCommandString() + "All";
         }
     }
 }

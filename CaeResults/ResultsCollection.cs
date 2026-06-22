@@ -189,7 +189,8 @@ namespace CaeResults
                 //
                 string[] remainingNames = _results.Keys.ToArray();
                 if (count >= remainingNames.Length) count = remainingNames.Length - 1;
-                SetCurrentResults(remainingNames[count]);
+                _currentResult = null;
+                //SetCurrentResults(remainingNames[count]);
             }
         }
 

@@ -518,6 +518,12 @@ namespace PrePoMax
             CClear comm = new CClear();
             _commands.AddAndExecute(comm);
         }
+        public void ClearResultsCommand()
+        {
+            CRemoveResults comm = new CRemoveResults();
+            _commands.AddAndExecute(comm);
+        }
+
         //******************************************************************************************
         public void DeInitialize()
         {
@@ -592,6 +598,8 @@ namespace PrePoMax
             if (_settings != null) _settings.ClearColorSpectrums();
             //
             _form.ClearResults();
+            //
+            if (_currentView == ViewGeometryModelResults.Results) _form.Clear3D();
             //
             ClearAllSelection();
         }
@@ -12024,7 +12032,12 @@ namespace PrePoMax
             CSetCurrentResults comm = new CSetCurrentResults(resultsName);
             _commands.AddAndExecute(comm);
         }
-        
+        public void RemoveCurrentResultsCommand()
+        {
+            CRemoveCurrentResults comm = new CRemoveCurrentResults();
+            _commands.AddAndExecute(comm);
+        }
+
         //******************************************************************************************
         public void OpenResults(string jobName, bool asynchronous = true)
         {
@@ -12107,6 +12120,7 @@ namespace PrePoMax
             _transformations.RemoveCurrentTransformations();
             // Results
             _allResults.RemoveCurrentResult();
+            _form.SetResultNames();
             //
             _modelChanged = true;
         }
@@ -20062,6 +20076,7 @@ namespace PrePoMax
                 ApplyLighting(data);
                 _form.AddOrientedConeActors(data, symbolSize);
             }
+            _form.AdjustCameraDistanceAndClipping();
         }
         // Transformations
         public void HighlightTranslatedEdges(string[] _partNames, double[] translateVector, int numCopies,
@@ -20096,6 +20111,7 @@ namespace PrePoMax
                         _form.Add3DCells(data);
                     }
                 }
+                _form.AdjustCameraDistanceAndClipping();
             }
         }
         public void HighlightRotatedEdges(string[] _partNames, double[] rotateCenter, double[] rotateAxis, double rotateAngle,
@@ -20131,6 +20147,7 @@ namespace PrePoMax
                     }
                 }
             }
+            _form.AdjustCameraDistanceAndClipping();
         }
         public void HighlightMirroredEdges(string[] _partNames, double[] mirrorPoint, double[] mirrorDirection, 
                                            bool mirror, bool useSecondaryHighlightColor = false)
@@ -20162,6 +20179,7 @@ namespace PrePoMax
 
                 }
             }
+            _form.AdjustCameraDistanceAndClipping();
         }
         public void HighlightScaledEdges(string[] _partNames, double[] scaleCenter, double[] scaleFactors,
                                          bool useSecondaryHighlightColor = false)
@@ -20193,6 +20211,7 @@ namespace PrePoMax
                     
                 }
             }
+            _form.AdjustCameraDistanceAndClipping();
         }
         public void HighlightConnectedEdges(double[][][] lineNodeCoor, bool drawNodes = true)
         {
