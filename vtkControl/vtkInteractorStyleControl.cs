@@ -162,6 +162,7 @@ namespace vtkControl
 
         // Callbacks
         public GetPickPointDelegate GetPickPoint;
+        public Action<int[], int[], bool> SetBoxZoom;
         public Action BoxZoomEnded;
 
 
@@ -214,6 +215,8 @@ namespace vtkControl
         // Event handlers                                                                                                           
         void vtkInteractorStyleControl_LeftButtonPressEvt(vtkObject sender, vtkObjectEventArgs e)
         {
+            if (_animating) return;
+            //
             vtkRenderWindowInteractor rwi = this.GetInteractor();
             //
             int x = rwi.GetEventPosition()[0];
@@ -262,10 +265,16 @@ namespace vtkControl
         }
         void vtkInteractorStyleControl_LeftButtonReleaseEvt(vtkObject sender, vtkObjectEventArgs e)
         {
+            if (_animating) return;
+            //
             vtkRenderWindowInteractor rwi = this.GetInteractor();
             //
             int x = rwi.GetEventPosition()[0];
             int y = rwi.GetEventPosition()[1];
+            //
+            _selectionBackgroundActor.VisibilityOff();
+            _selectionBorderActor.VisibilityOff();
+            //
             // Widgets
             if (!_boxSelection)
             {
@@ -285,7 +294,7 @@ namespace vtkControl
                     {
                         if (_boxZoomEnabled)
                         {
-                            BoxZoom(_clickPos, mousePos);
+                            SetBoxZoom(_clickPos, mousePos, true);
                         }
                         else
                         {
@@ -302,15 +311,12 @@ namespace vtkControl
             _boxSelection = false;
             BoxZoomEnabled = false;
             //
-            _selectionBackgroundActor.VisibilityOff();
-            _selectionBorderActor.VisibilityOff();
-            //
             rwi.Render();
         }
-        
         //
         void vtkInteractorStyleControl_MiddleButtonPressEvt(vtkObject sender, vtkObjectEventArgs e)
         {
+            if (_animating) return;
             // Cancel box selection
             CancelBoxSelection();
             //
@@ -340,6 +346,7 @@ namespace vtkControl
         }
         void vtkInteractorStyleControl_MiddleButtonReleaseEvt(vtkObject sender, vtkObjectEventArgs e)
         {
+            if (_animating) return;
             vtkRenderer renderer = this.GetCurrentRenderer();
             if (renderer == null) return;
             // Remove first in order not to affect the bounds of the model
@@ -412,6 +419,8 @@ namespace vtkControl
         //
         void vtkInteractorStyleControl_RightButtonPressEvt(vtkObject sender, vtkObjectEventArgs e)
         {
+            if (_animating) return;
+            //
             vtkRenderWindowInteractor rwi = this.GetInteractor();
             int x = rwi.GetEventPosition()[0];
             int y = rwi.GetEventPosition()[1];
@@ -440,10 +449,13 @@ namespace vtkControl
         }
         void vtkInteractorStyleControl_RightButtonReleaseEvt(vtkObject sender, vtkObjectEventArgs e)
         {
+            if (_animating) return;
         }
         //
         void vtkInteractorStyleControl_MouseMoveEvt(vtkObject sender, vtkObjectEventArgs e)
         {
+            if (_animating) return;
+            //
             _x = this.GetInteractor().GetEventPosition()[0];
             _y = this.GetInteractor().GetEventPosition()[1];
             // Widgets - Move
@@ -459,20 +471,17 @@ namespace vtkControl
             switch (this.GetState())
             {
                 case VTKIS_NONE:
-                    //if (_selection)
+                    _selectionTimer.Stop();
+                    _selectionTimer.Start();
+                    //
+                    if (_selectionBoxEnabled || _boxZoomEnabled)
                     {
-                        _selectionTimer.Stop();
-                        _selectionTimer.Start();
-                        //
-                        if (_selectionBoxEnabled || _boxZoomEnabled)
+                        if (!_boxSelection && _leftMouseButtonPressed && _clickPos != null && _numOfClicks != 2 &&
+                            Math.Abs(_x - _clickPos[0]) > 1 && Math.Abs(_y - _clickPos[1]) > 1)
                         {
-                            if (!_boxSelection && _leftMouseButtonPressed && _clickPos != null &&
-                                Math.Abs(_x - _clickPos[0]) > 1 && Math.Abs(_y - _clickPos[1]) > 1)
-                            {
-                                _boxSelection = true;
-                            }
-                            if (_boxSelection) DrawBoxSelection(_x, _y);
+                            _boxSelection = true;
                         }
+                        if (_boxSelection) DrawBoxSelection(_x, _y);
                     }
                     break;
                 case VTKIS_ROTATE:
@@ -495,6 +504,8 @@ namespace vtkControl
         //
         void vtkInteractorStyleControl_MouseWheelForwardEvt(vtkObject sender, vtkObjectEventArgs e)
         {
+            if (_animating) return;
+            //
             if (this.GetState() == VTKIS_NONE)
             {
                 int[] clickPos = this.GetInteractor().GetEventPosition();
@@ -534,6 +545,8 @@ namespace vtkControl
         }
         void vtkInteractorStyleControl_MouseWheelBackwardEvt(vtkObject sender, vtkObjectEventArgs e)
         {
+            if (_animating) return;
+            //
             if (this.GetState() == VTKIS_NONE)
             {
                 int[] clickPos = this.GetInteractor().GetEventPosition();
@@ -574,6 +587,8 @@ namespace vtkControl
         //
         private void VtkInteractorStyleControl_KeyPressEvt(vtkObject sender, vtkObjectEventArgs e)
         {
+            if (_animating) return;
+            //
             vtkRenderer renderer = this.GetCurrentRenderer();
             if (renderer == null) return;
             //
@@ -609,6 +624,8 @@ namespace vtkControl
         }
         private void VtkInteractorStyleControl_KeyReleaseEvt(vtkObject sender, vtkObjectEventArgs e)
         {
+            if (_animating) return;
+            //
             vtkRenderer renderer = this.GetCurrentRenderer();
             if (renderer == null) return;
             //
@@ -781,35 +798,6 @@ namespace vtkControl
             {
                 widget.MouseWheelScrolled();
             }
-            //
-            if (ZoomChangedEvent != null) ZoomChangedEvent();
-            //
-            rwi.Modified();
-            rwi.Render();
-        }
-        private void BoxZoom(int[] clickPos, int[] mousePos)
-        {
-            vtkRenderer renderer = this.GetCurrentRenderer();
-            if (renderer == null) return;
-            //
-            vtkRenderWindowInteractor rwi = this.GetInteractor();
-            int[] windowSize = rwi.GetRenderWindow().GetSize();
-            // Center
-            int[] selectionCenter = new int[] { (mousePos[0] + clickPos[0]) / 2, (mousePos[1] + clickPos[1]) / 2 };
-            int[] windowCenter = new int[] { windowSize[0] / 2, windowSize[1] / 2 };
-            double[] selectionCenter3D = DisplayToWorld(renderer, new double[] { selectionCenter[0], selectionCenter[1] });
-            double[] windowCenter3D = DisplayToWorld(renderer, new double[] { windowCenter[0], windowCenter[1] });
-            // Zoom
-            int[] selectionSize = new int[] { Math.Abs(mousePos[0] - clickPos[0]), Math.Abs(mousePos[1] - clickPos[1]) };
-            if (selectionSize[0] == 0 || selectionSize[1] == 1) return;
-            //
-            double widthZoomFactor = (double)windowSize[0] / (double)selectionSize[0];
-            double heightZoomFactor = (double)windowSize[1] / (double)selectionSize[1];
-            double zoomFactor = Math.Min(widthZoomFactor, heightZoomFactor);
-            // Camera
-            vtkCamera camera = renderer.GetActiveCamera();
-            camera.SetParallelScale(camera.GetParallelScale() / zoomFactor);
-            PanCamera(camera, windowCenter3D, selectionCenter3D);
             //
             if (ZoomChangedEvent != null) ZoomChangedEvent();
             //

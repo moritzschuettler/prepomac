@@ -10445,7 +10445,11 @@ namespace PrePoMax
             if ((partNames != null && partNames.Length == 0) || 
                 (partNames != null && partNames.Length > 0 && partNames[0] == null))
             {
-                if (modifierKeys != Keys.Shift && modifierKeys != Keys.Control) _controller.ClearAllSelection();
+                if (modifierKeys != Keys.Shift && modifierKeys != Keys.Control)
+                {
+                    if (e.Clicks == 2) SetZoomToFit(true);
+                    else _controller.ClearAllSelection();
+                }
             }
             else
             {

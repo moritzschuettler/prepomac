@@ -1796,6 +1796,8 @@ namespace vtkControl
             _style.SetOverlayRenderer(_overlayRenderer);
             _style.SetSelectionRenderer(_selectionRenderer);
             _style.GetPickPoint = this.GetPickPoint;
+            _style.SetBoxZoom = SetBoxZoom;
+            _style.BoxZoomEnded = BoxZoomEnded;
             //
             _style.PointPickedOnMouseMoveEvt += Style_PointPickedOnMouseMoveEvt;
             _style.PointPickedOnLeftUpEvt += style_PointPickedOnLeftUpEvt;
@@ -1806,7 +1808,6 @@ namespace vtkControl
             _style.KeyPressEvt += style_KeyPressEvt;
             _style.LeaveEvt += style_LeaveEvt;
             _style.EnterEvt += style_EnterEvt;
-            _style.BoxZoomEnded = BoxZoomEnded;
             _renderWindowInteractor.SetInteractorStyle(_style);
             _style.ResetRotationCenter();
             _renderWindowInteractor.ModifiedEvt += _renderWindowInteractor_ModifiedEvt;
@@ -2528,22 +2529,22 @@ namespace vtkControl
         {
             if (_animating) return;
             _animating = animate;
-
+            //
             int delta = -1;
             if (!left) delta = 1;
-
+            //
             if (_drawCameraPath) ClearOverlay();
-
+            //
             vtkCamera camera = _renderer.GetActiveCamera();
             vtkCamera cameraStart = vtkCamera.New();
             cameraStart.DeepCopy(camera);
-
+            //
             double[] fPos = camera.GetFocalPoint();
             camera.SetPosition(fPos[0] + delta, fPos[1], fPos[2]);
             camera.SetViewUp(0, 1, 0);
-
+            //
             ResetCamera();
-
+            //
             if (animate) AnimateCamera(cameraStart, camera, camera);
             else RenderScene();
         }
@@ -2710,6 +2711,43 @@ namespace vtkControl
             //
             ResetCamera();
             //_renderWindowInteractor.Modified(); // this updates the vtkMax annotation objects
+            if (animate) AnimateCamera(cameraStart, camera, camera);
+            else RenderScene();
+        }
+        public void SetBoxZoom(int[] point1, int[] point2, bool animate)
+        {
+            vtkCamera camera = _renderer.GetActiveCamera();
+            vtkCamera cameraStart = vtkCamera.New();
+            cameraStart.DeepCopy(camera);
+            //
+            int[] windowSize = _renderWindowInteractor.GetRenderWindow().GetSize();
+            // Center
+            int[] selectionCenter = new int[] { (point2[0] + point1[0]) / 2, (point2[1] + point1[1]) / 2 };
+            int[] windowCenter = new int[] { windowSize[0] / 2, windowSize[1] / 2 };
+            double[] selectionCenter3D = 
+                vtkInteractorStyleControl.DisplayToWorld(_renderer, new double[] { selectionCenter[0], selectionCenter[1] });
+            double[] windowCenter3D =
+                vtkInteractorStyleControl.DisplayToWorld(_renderer, new double[] { windowCenter[0], windowCenter[1] });
+            // Zoom
+            int[] selectionSize = new int[] { Math.Abs(point2[0] - point1[0]), Math.Abs(point2[1] - point1[1]) };
+            if (selectionSize[0] == 0 || selectionSize[1] == 1) return;
+            //
+            double widthZoomFactor = (double)windowSize[0] / (double)selectionSize[0];
+            double heightZoomFactor = (double)windowSize[1] / (double)selectionSize[1];
+            double zoomFactor = Math.Min(widthZoomFactor, heightZoomFactor);
+            // Camera
+            camera.SetParallelScale(camera.GetParallelScale() / zoomFactor);
+            double[] motionVector = new double[3];
+            motionVector[0] = selectionCenter3D[0] - windowCenter3D[0];
+            motionVector[1] = selectionCenter3D[1] - windowCenter3D[1];
+            motionVector[2] = selectionCenter3D[2] - windowCenter3D[2];
+            //
+            double[] cPos = camera.GetPosition();
+            double[] fPos = camera.GetFocalPoint();
+            //
+            camera.SetPosition(cPos[0] + motionVector[0], cPos[1] + motionVector[1], cPos[2] + motionVector[2]);
+            camera.SetFocalPoint(fPos[0] + motionVector[0], fPos[1] + motionVector[1], fPos[2] + motionVector[2]);
+            //
             if (animate) AnimateCamera(cameraStart, camera, camera);
             else RenderScene();
         }
