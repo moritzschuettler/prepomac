@@ -501,17 +501,18 @@ namespace CaeResults
             // Tuple<NamedClass, string>   ...   Tuple<invalidItem, stepName>
             List<string> invalidItems = new List<string>();
             bool valid;
-            // Result field outputs
+            //
+            string[] parentNames;
             HashSet<string> names;
             ResultFieldOutput existingResultFieldOutput;
-            List<ResultFieldOutput> fieldIindependencySequence = GetResultFieldOutputIndependencySequence();
+            List<ResultFieldOutput> fieldIndependencySequence = GetResultFieldOutputIndependencySequence();
             Dictionary<string, string[]> filedNameComponentNames = GetAllVisibleFiledNameComponentNames();
-            //
-            foreach (var resultFieldOutput in fieldIindependencySequence)
+            // Result field outputs
+            foreach (var resultFieldOutput in fieldIndependencySequence)
             {
                 valid = true;
                 names = new HashSet<string>(filedNameComponentNames.Keys);
-                string[] parentNames = resultFieldOutput.GetParentNames();
+                parentNames = resultFieldOutput.GetParentNames();
                 names.IntersectWith(parentNames);
                 valid &= names.Count == parentNames.Length;
                 //
@@ -579,49 +580,78 @@ namespace CaeResults
             ResultHistoryOutput existingResultHistoryOutput;
             List<ResultHistoryOutput> historyIndependencySequence = GetResultHistoryOutputIndependencySequence();
             //
-            foreach (var resultHistoryOutput in historyIndependencySequence)
+            string[] componentNames;
+            foreach (var rho in historyIndependencySequence)
             {
-                // Parent names
-                string[] parentNames = resultHistoryOutput.GetParentNames();
-                valid = true;
+                valid = (rho.RegionType == RegionTypeEnum.Selection) ||
+                        (rho.RegionType == RegionTypeEnum.NodeSetName && _mesh.NodeSets.ContainsValidKey(rho.RegionName)) ||
+                        (rho.RegionType == RegionTypeEnum.ElementSetName && _mesh.ElementSets.ContainsValidKey(rho.RegionName)) ||
+                        (rho.RegionType == RegionTypeEnum.SurfaceName && _mesh.Surfaces.ContainsValidKey(rho.RegionName));
                 //
-                if (resultHistoryOutput is ResultHistoryOutputFromField rhoff)
+                if (valid)
                 {
-                    names = new HashSet<string>(GetVisibleFieldNames());
-                    valid &= names.Contains(rhoff.FieldName);
-                    //
-                    if (valid)
+                    if (rho is ResultHistoryOutputFromField rhoff)
                     {
-                        // Check if USER DEFINED FILED is used and if it is valid
-                        if (_resultFieldOutputs.TryGetValue(rhoff.FieldName, out existingResultFieldOutput))
-                            valid &= existingResultFieldOutput.Valid;
+                        names = new HashSet<string>(GetVisibleFieldNames());
+                        valid &= names.Contains(rhoff.FieldName);
                         //
                         if (valid)
                         {
-                            parentNames = rhoff.ComponentNames;
-                            names = new HashSet<string>(filedNameComponentNames[rhoff.FieldName]);
+                            // Check if USER DEFINED FILED is used and if it is valid
+                            if (_resultFieldOutputs.TryGetValue(rhoff.FieldName, out existingResultFieldOutput))
+                                valid &= existingResultFieldOutput.Valid;
+                            //
+                            if (valid)
+                            {
+                                componentNames = rhoff.ComponentNames;
+                                names = new HashSet<string>(filedNameComponentNames[rhoff.FieldName]);
+                                valid &= names.IsSupersetOf(componentNames);
+                            }
                         }
                     }
-                }
-                else if (resultHistoryOutput is ResultHistoryOutputFromEquation)
-                {
-                    names = new HashSet<string>(_history.Sets.Keys);
-                    names.IntersectWith(parentNames);
-                    valid &= names.Count == parentNames.Length;
-                    //
-                    if (valid)
+                    else if (rho is ResultHistoryOutputFromEquation rhofe)
                     {
-                        // Check parents for validity
-                        foreach (var name in parentNames)
+                        parentNames = rho.GetParentNames();
+                        names = new HashSet<string>(_history.Sets.Keys);
+                        names.IntersectWith(parentNames);
+                        valid &= names.Count == parentNames.Length;
+                        //
+                        if (valid)
                         {
-                            if (_resultHistoryOutputs.TryGetValue(name, out existingResultHistoryOutput))
-                                valid &= existingResultHistoryOutput.Valid;
+                            // Check parents for validity
+                            foreach (var name in parentNames)
+                            {
+                                if (_resultHistoryOutputs.TryGetValue(name, out existingResultHistoryOutput))
+                                    valid &= existingResultHistoryOutput.Valid;
+                            }
+                            valid &= CheckResultHistoryOutputEquation(rhofe.Equation, out _, out _) == null;
                         }
                     }
+                    else if (rho is ResultHistoryOutputFromElementSize rhofes) { }
+                    else if (rho is ResultHistoryOutputFromIntegration rhofi)
+                    {
+                        names = new HashSet<string>(GetVisibleFieldNames());
+                        valid &= names.Contains(rhofi.FieldName);
+                        //
+                        if (valid)
+                        {
+                            // Check if USER DEFINED FILED is used and if it is valid
+                            if (_resultFieldOutputs.TryGetValue(rhofi.FieldName, out existingResultFieldOutput))
+                                valid &= existingResultFieldOutput.Valid;
+                            //
+                            if (valid)
+                            {
+                                componentNames = rhofi.ComponentNames;
+                                names = new HashSet<string>(filedNameComponentNames[rhofi.FieldName]);
+                                valid &= names.IsSupersetOf(componentNames);
+                            }
+                        }
+                    }
+                    else throw new NotSupportedException();
                 }
                 //
-                SetItemValidity(resultHistoryOutput, valid, items);
-                if (!valid && resultHistoryOutput.Active) invalidItems.Add("History output: " + resultHistoryOutput.Name);
+                SetItemValidity(rho, valid, items);
+                if (!valid && rho.Active) invalidItems.Add("History output: " + rho.Name);
             }
             return invalidItems.ToArray();
         }
@@ -2246,7 +2276,7 @@ namespace CaeResults
                 }
             }
         }
-        //
+        //                                          
         public void AddField(FieldData fieldData, Field field)
         {
             fieldData = new FieldData(fieldData);   // copy
@@ -3076,6 +3106,31 @@ namespace CaeResults
                     AddField(newFieldData, newField);
                 }
             }
+            // Update all dependent fields
+            string fieldName;
+            string[] componentNames;
+            Field field;
+            ResultFieldOutput[] resultFieldOutputs = GetAllDependentResultFieldOutputs(resultFieldOutput.Name);
+            foreach (var rfo in resultFieldOutputs)
+            {
+                fieldName = rfo.Name;
+                componentNames = rfo.GetComponentNames();
+                //
+                foreach (var entry in stepIdIncrementIds)
+                {
+                    foreach (var incrementId in entry.Value)
+                    {
+                        if (entry.Key == 1 && incrementId == 0) continue;   // Zero increment - Find all occurrences!!!
+                        //
+                        foreach (var componentName in componentNames)
+                        {
+                            fieldData = new FieldData(fieldName, componentName, entry.Key, incrementId);
+                            field = GetField(fieldData, false);
+                            if (field != null) field.DataState = DataStateEnum.UpdateResultFieldOutput;
+                        }
+                    }
+                }
+            }
         }
         public ResultFieldOutput GetResultFieldOutput(string resultFieldOutputName)
         {
@@ -3187,74 +3242,83 @@ namespace CaeResults
             //
             foreach (var entry in _resultFieldOutputs)
             {
+                // Is this a result field output with correct field and component
                 if (fieldData.Name == entry.Value.Name && entry.Value.GetComponentNames().Contains(fieldData.Component))
                 {
-                    foreach (var indResultFieldOutput in independencyList)
+                    // Go through the independency list
+                    foreach (var resultFieldOutput in independencyList)
                     {
-                        ComputeFieldFromResultFieldOutput(indResultFieldOutput, fieldData.StepId, fieldData.StepIncrementId);
+                        // Recompute all fields for the given step and increment ids
+                        ComputeFieldFromResultFieldOutput(resultFieldOutput, fieldData.StepId, fieldData.StepIncrementId);
+                        
+                        // Do not break here - breaking causes first fields to be recomputed multiple times
+                        //if (entry.Value == resultFieldOutput) break;
                     }
+                    break;
                 }
             }
+            //
+            RecomputeAllResultHistoryOutputs();
         }
         private void ComputeFieldFromResultFieldOutput(ResultFieldOutput resultFieldOutput, int stepId, int stepIncrementId)
         {
-            FieldData sourceFieldData;
-            Field sourceField = null;
-            //
-            int numOfNodes = _undeformedNodes.Count;
-            string[] componentNames;
-            float[][] values;
-            //
-            if (resultFieldOutput is ResultFieldOutputLimit rfol)
+            try
             {
-                sourceFieldData = GetFieldData(rfol.FieldName, rfol.ComponentName, stepId, stepIncrementId, true);
-                sourceField = GetField(sourceFieldData);
-                componentNames = rfol.GetComponentNames();
-                values = ComputeFieldFromResultFieldOutputLimit(rfol, sourceField);
-            }
-            else if (resultFieldOutput is ResultFieldOutputEnvelope rfoen)
-            {
-                componentNames = rfoen.GetComponentNames();
-                values = ComputeFieldFromResultFieldOutputEnvelope(rfoen);
-            }
-            else if (resultFieldOutput is ResultFieldOutputEquation rfoeq)
-            {
-                componentNames = rfoeq.GetComponentNames();
-                values = ComputeFieldFromResultFieldOutputEquation(rfoeq, stepId, stepIncrementId);
-
-                if (rfoeq.Unit.ToLower().StartsWith("median"))
+                FieldData sourceFieldData;
+                Field sourceField = null;
+                //
+                int numOfNodes = _undeformedNodes.Count;
+                string[] componentNames;
+                float[][] values;
+                //
+                if (resultFieldOutput is ResultFieldOutputLimit rfol)
                 {
-                    
-                    
+                    sourceFieldData = GetFieldData(rfol.FieldName, rfol.ComponentName, stepId, stepIncrementId, true);
+                    sourceField = GetField(sourceFieldData);
+                    componentNames = rfol.GetComponentNames();
+                    values = ComputeFieldFromResultFieldOutputLimit(rfol, sourceField);
+                }
+                else if (resultFieldOutput is ResultFieldOutputEnvelope rfoen)
+                {
+                    componentNames = rfoen.GetComponentNames();
+                    values = ComputeFieldFromResultFieldOutputEnvelope(rfoen);
+                }
+                else if (resultFieldOutput is ResultFieldOutputEquation rfoeq)
+                {
+                    componentNames = rfoeq.GetComponentNames();
+                    values = ComputeFieldFromResultFieldOutputEquation(rfoeq, stepId, stepIncrementId);
+                }
+                else if (resultFieldOutput is ResultFieldOutputCoordinateSystemTransform rfocst)
+                {
+                    sourceFieldData = GetFieldData(rfocst.FieldName, rfocst.GetComponentNames()[0], stepId, stepIncrementId, true);
+                    sourceField = GetField(sourceFieldData);
+                    componentNames = rfocst.GetComponentNames();
+                    values = ComputeFieldFromResultFieldOutputCoordinateSystemTransform(rfocst, sourceField);
+                }
+                else throw new NotSupportedException();
+                // Filter
+                if (resultFieldOutput.Filter1.Type != FieldResultFilterTypeEnum.None)
+                    values = FilterFieldValues(values, resultFieldOutput.Filter1);
+                if (resultFieldOutput.Filter2.Type != FieldResultFilterTypeEnum.None)
+                    values = FilterFieldValues(values, resultFieldOutput.Filter1);
+                //
+                int count = 0;
+                FieldData newFieldData;
+                Field newField;
+                FieldComponent newComponent;
+                foreach (var componentName in componentNames)
+                {
+                    newFieldData = GetFieldData(resultFieldOutput.Name, componentName, stepId, stepIncrementId);
+                    newField = GetField(newFieldData, false);
+                    newComponent = new FieldComponent(newFieldData.Component, values[count++]);
+                    newField.ReplaceComponent(newComponent.Name, newComponent);
+                    newField.DataType = sourceField != null ? sourceField.DataType : DataTypeEnum.None;
+                    newField.DataState = DataStateEnum.OK;
+                    ReplaceOrAddField(newFieldData, newField);
                 }
             }
-            else if (resultFieldOutput is ResultFieldOutputCoordinateSystemTransform rfocst)
+            catch
             {
-                sourceFieldData = GetFieldData(rfocst.FieldName, rfocst.GetComponentNames()[0], stepId, stepIncrementId, true);
-                sourceField = GetField(sourceFieldData);
-                componentNames = rfocst.GetComponentNames();
-                values = ComputeFieldFromResultFieldOutputCoordinateSystemTransform(rfocst, sourceField);
-            }
-            else throw new NotSupportedException();
-            // Filter
-            if (resultFieldOutput.Filter1.Type != FieldResultFilterTypeEnum.None)
-                values = FilterFieldValues(values, resultFieldOutput.Filter1);
-            if (resultFieldOutput.Filter2.Type != FieldResultFilterTypeEnum.None)
-                values = FilterFieldValues(values, resultFieldOutput.Filter1);
-            //
-            int count = 0;
-            FieldData newFieldData;
-            Field newField;
-            FieldComponent newComponent;
-            foreach (var componentName in componentNames)
-            {
-                newFieldData = GetFieldData(resultFieldOutput.Name, componentName, stepId, stepIncrementId);
-                newField = GetField(newFieldData, false);
-                newComponent = new FieldComponent(newFieldData.Component, values[count++]);
-                newField.ReplaceComponent(newComponent.Name, newComponent);
-                newField.DataType = sourceField != null ? sourceField.DataType : DataTypeEnum.None;
-                newField.DataState = DataStateEnum.OK;
-                ReplaceOrAddField(newFieldData, newField);
             }
         }
         private float[][] FilterFieldValues(float[][] values, FieldResultFilter filter)
@@ -3877,19 +3941,6 @@ namespace CaeResults
                     dependencyGraph.AddDirectedEdge(nodes[rfo.Name], nodes[parentFieldName]);
                 }
             }
-            // Use only one sub-graph - NOT WORKING FOR DIRECTED GRAPHS
-            //if (resultFieldOutput != null)
-            //{
-            //    List<Graph<string>> subGraphs = dependencyGraph.GetConnectedSubgraphs();
-            //    foreach (var subGraph in subGraphs)
-            //    {
-            //        if (subGraph.Contains(resultFieldOutput.Name))
-            //        {
-            //            dependencyGraph = subGraph;
-            //            break;
-            //        }
-            //    }
-            //}
             //
             List<string> independencySequence = dependencyGraph.GetIndependencyList();
             //
@@ -3900,6 +3951,37 @@ namespace CaeResults
             }
             //
             return resultList;
+        }
+        public ResultFieldOutput[] GetAllDependentResultFieldOutputs(string fieldName)
+        {
+            int countStart;
+            HashSet<string> dependentNames = new HashSet<string> { fieldName };
+            //
+            while (true)
+            {
+                countStart = dependentNames.Count;
+                GetAllDependentResultFieldOutputsRecursively(dependentNames);
+                if (countStart == dependentNames.Count) break;
+            }
+            dependentNames.Remove(fieldName);
+            //
+            List<ResultFieldOutput> resultFieldOutputs = new List<ResultFieldOutput>();
+            foreach (var name in dependentNames) resultFieldOutputs.Add(_resultFieldOutputs[name]);
+            //
+            return resultFieldOutputs.ToArray();
+        }
+        private void GetAllDependentResultFieldOutputsRecursively(HashSet<string> dependentNames)
+        {
+            HashSet<string> parentNames;
+            foreach (var entry in _resultFieldOutputs)
+            {
+                if (dependentNames.Contains(entry.Key)) { }
+                else
+                {
+                    parentNames = new HashSet<string>(entry.Value.GetParentNames());
+                    if (parentNames.Overlaps(dependentNames)) dependentNames.Add(entry.Key);
+                }
+            }
         }
         // Equation
         public string[] GetPossibleFieldEquationParameters()
@@ -4025,7 +4107,6 @@ namespace CaeResults
         {
             _history = historyResults;
         }
-        
         //
         public void AddResultHistoryOutput(ResultHistoryOutput resultHistoryOutput)
         {
@@ -5212,15 +5293,35 @@ namespace CaeResults
         }
         public void ReplaceResultHistoryOutput(string oldResultHistoryOutputName, ResultHistoryOutput resultHistoryOutput)
         {
-            // First try to create the historyResultSet to catch potential errors
-            HistoryResultSet historyResultSet = GetHistorySetFromResultHistoryOutput(resultHistoryOutput);
-            //
-            if (historyResultSet != null)
+            ComputeAndReplaceResultHistoryOutput(oldResultHistoryOutputName, resultHistoryOutput);
+            // Recompute all history result outputs - slow!!!
+            RecomputeAllResultHistoryOutputs();
+        }
+        private void RecomputeAllResultHistoryOutputs()
+        {
+            List<ResultHistoryOutput> independencySequence = GetResultHistoryOutputIndependencySequence();
+            foreach (ResultHistoryOutput rho in independencySequence)
             {
-                // Add result output
-                _resultHistoryOutputs.Replace(oldResultHistoryOutputName, resultHistoryOutput.Name, resultHistoryOutput);
-                // Add set
-                _history.Sets.Replace(oldResultHistoryOutputName, historyResultSet.Name, historyResultSet);
+                ComputeAndReplaceResultHistoryOutput(rho.Name, rho);
+            }
+        }
+        private void ComputeAndReplaceResultHistoryOutput(string oldResultHistoryOutputName, ResultHistoryOutput resultHistoryOutput)
+        {
+            try
+            {
+                // First try to create the historyResultSet to catch potential errors
+                HistoryResultSet historyResultSet = GetHistorySetFromResultHistoryOutput(resultHistoryOutput);  // compute it
+                //
+                if (historyResultSet != null)
+                {
+                    // Add result output
+                    _resultHistoryOutputs.Replace(oldResultHistoryOutputName, resultHistoryOutput.Name, resultHistoryOutput);
+                    // Add set
+                    _history.Sets.Replace(oldResultHistoryOutputName, historyResultSet.Name, historyResultSet);
+                }
+            }
+            catch
+            {
             }
         }
         public void RemoveResultHistoryOutputs(string[] resultHistoryOutputNames)
@@ -5311,19 +5412,6 @@ namespace CaeResults
                     dependencyGraph.AddDirectedEdge(nodes[rho.Name], nodes[parentHistoryName]);
                 }
             }
-            // Use only one sub-graph - NOT WORKING FOR DIRECTED GRAPHS
-            //if (resultHistoryOutput != null)
-            //{
-            //    List<Graph<string>> subGraphs = dependencyGraph.GetConnectedSubgraphs();
-            //    foreach (var subGraph in subGraphs)
-            //    {
-            //        if (subGraph.Contains(resultHistoryOutput.Name))
-            //        {
-            //            dependencyGraph = subGraph;
-            //            break;
-            //        }
-            //    }
-            //}
             //
             List<string> independencySequence = dependencyGraph.GetIndependencyList();
             //
@@ -5373,7 +5461,8 @@ namespace CaeResults
                 }
                 //
                 HashSet<string> parameterNames;
-                bool hasErrors = MyNCalc.HasErrors(equation, out parameterNames);
+                if (MyNCalc.HasErrors(equation, out parameterNames))
+                    throw new CaeException("The equation is not possible to solve due to errors.");
                 //
                 //if (parameterNames == null || parameterNames.Count == 0 ||
                 //    parameterNames.Intersect(possibleEquationParameters).Count() == 0)
@@ -6749,6 +6838,7 @@ namespace CaeResults
                 {
                     stepIncrementIds = GetStepIncrementIds(stepIds[i]);
                     //
+                    count = 0;
                     for (int j = 0; j < stepIncrementIds.Length; j++)
                     {
                         if (i == 0 && j == 0) continue; // Zero increment - Find all occurrences!!!

@@ -428,8 +428,14 @@ namespace PrePoMax.Commands
                 {
                     if (currentAnalysisName != null) // null is for post processing commands done of preview of loads, ...
                     {
-                        if (postprocessCommands.TryGetValue(currentAnalysisName, out commandsList)) commandsList.Add(command);
-                        else postprocessCommands.Add(currentAnalysisName, new List<Command> { command });
+                        if (command is CRemoveCurrentResults) { }
+                        else if (command is CRemoveResults) { }
+                        else if (command is CRemoveAllResults) { }
+                        else
+                        {
+                            if (postprocessCommands.TryGetValue(currentAnalysisName, out commandsList)) commandsList.Add(command);
+                            else postprocessCommands.Add(currentAnalysisName, new List<Command> { command });
+                        }
                     }
                 }
             }
@@ -443,7 +449,7 @@ namespace PrePoMax.Commands
             {
                 int count = 0;
                 COpenResults lastOpenResultsCommand = null;
-                // Remove unnecessary run commands                                          
+                // Remove previous/unnecessary run commands in commands history
                 foreach (var command in runCommandsList)
                 {
                     if (removeUnnecessaryCommands && count++ < runCommandsList.Count - 1) _commands.Remove(command);
@@ -453,12 +459,12 @@ namespace PrePoMax.Commands
                 {
                     if (command is COpenResults or) lastOpenResultsCommand = or;
                 }
-                // Remove commands
+                // Remove all postprocess commands except the last open result command from the commands history
                 foreach (var command in postprocessCommandsList)
                 {
                     if (removeUnnecessaryCommands && command != lastOpenResultsCommand) _commands.Remove(command);
                 }
-                // Remove unnecessary commands                                              
+                // Add necessary commands
                 foreach (var command in postprocessCommandsList)
                 {
                     if (command is COpenResults) { }

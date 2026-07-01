@@ -227,6 +227,7 @@ namespace CaeMesh
         // For unidirected graphs
         public List<T> GetIndependencyList()
         {
+            // Returns a list of all nodes from the deepest to the shallowest
             Graph<T> graphCopy = new Graph<T>(_nodeList);
             List<T> childItems = new List<T>();
             List<T> independencyList = new List<T>();

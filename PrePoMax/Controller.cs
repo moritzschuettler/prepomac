@@ -520,7 +520,7 @@ namespace PrePoMax
         }
         public void ClearResultsCommand()
         {
-            CRemoveResults comm = new CRemoveResults();
+            CRemoveAllResults comm = new CRemoveAllResults();
             _commands.AddAndExecute(comm);
         }
 
@@ -13037,17 +13037,21 @@ namespace PrePoMax
             ViewGeometryModelResults view = ViewGeometryModelResults.Results;
             foreach (var name in historyResultFieldNames)
                 _form.RemoveTreeNode<HistoryResultField>(view, name, historyResultSetName);
+            //
+            FeResultsUpdate(UpdateType.Check);
         }
         public void RemoveResultHistoryComponents(string historyResultSetName, string historyResultFieldName,
                                                   string[] historyResultComponentNames)
         {
             _allResults.CurrentResult.RemoveResultHistoryResultComponents(historyResultSetName, historyResultFieldName,
-                                                         historyResultComponentNames);
+                                                                          historyResultComponentNames);
             _form.ClearActiveTreeSelection();   // prevents errors on _form.RemoveTreeNode
             //
             ViewGeometryModelResults view = ViewGeometryModelResults.Results;
             foreach (var name in historyResultComponentNames)
                 _form.RemoveTreeNode<HistoryResultData>(view, name, historyResultSetName + "@@@" + historyResultFieldName);
+            //
+            FeResultsUpdate(UpdateType.Check);
         }
         // Update
         private void ReselectResultHistoryOutput(ResultHistoryOutput resultHistoryOutput)
@@ -19965,7 +19969,8 @@ namespace PrePoMax
         public void HighlightResultHistoryOutput(ResultHistoryOutput resultHistoryOutput)
         {
             if (resultHistoryOutput is ResultHistoryOutputFromField ||
-                resultHistoryOutput is ResultHistoryOutputFromElementSize)
+                resultHistoryOutput is ResultHistoryOutputFromElementSize ||
+                resultHistoryOutput is ResultHistoryOutputFromIntegration)
             {
                 if (resultHistoryOutput.RegionType == RegionTypeEnum.NodeSetName ||
                     resultHistoryOutput.RegionType == RegionTypeEnum.ElementSetName ||

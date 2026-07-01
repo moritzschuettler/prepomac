@@ -49,6 +49,7 @@ namespace PrePoMax.Forms
 
         // Constructors                                                                                                             
         public FrmResultHistoryOutput(Controller controller)
+            : base(1.95)
         {
             InitializeComponent();
             //

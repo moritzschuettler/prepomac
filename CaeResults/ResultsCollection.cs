@@ -193,7 +193,5 @@ namespace CaeResults
                 //SetCurrentResults(remainingNames[count]);
             }
         }
-
-
     }
 }

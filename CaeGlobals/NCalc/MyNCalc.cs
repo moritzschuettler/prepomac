@@ -171,31 +171,38 @@ namespace CaeGlobals
         }
         static public bool HasErrors(string equation, out HashSet<string> parameterNames)
         {
-            double valueDouble;
             parameterNames = null;
-            //
-            equation = equation.Trim();
-            //
-            if (equation.Length == 0 || equation == "=") return false;
-            if (!double.TryParse(equation, out valueDouble))
+            try
             {
-                if (equation.StartsWith("="))
+                double valueDouble;
+                //
+                equation = equation.Trim();
+                //
+                if (equation.Length == 0 || equation == "=") return false;
+                if (!double.TryParse(equation, out valueDouble))
                 {
-                    equation = equation.Substring(1, equation.Length - 1);
-                    equation = AddBracketsToSpecialParameterNames(equation);
-                    Expression e = GetExpression(equation);
-                    parameterNames = GetParameters(equation);
-                    //
-                    if (!e.HasErrors())
+                    if (equation.StartsWith("="))
                     {
-                        object result = e.Evaluate();
+                        equation = equation.Substring(1, equation.Length - 1);
+                        equation = AddBracketsToSpecialParameterNames(equation);
+                        Expression e = GetExpression(equation);
+                        parameterNames = GetParameters(equation);
+                        //
+                        if (!e.HasErrors())
+                        {
+                            object result = e.Evaluate();
+                        }
+                        return e.HasErrors();
                     }
-                    return e.HasErrors(); 
+                    else return false;
                 }
-                else return false;
+                //
+                return false;
             }
-            //
-            return false;
+            catch
+            {
+                return true;
+            }
         }
         //
         static public Expression GetExpression(string expression)
