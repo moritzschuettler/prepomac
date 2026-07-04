@@ -428,9 +428,8 @@ namespace PrePoMax.Commands
                 {
                     if (currentAnalysisName != null) // null is for post processing commands done of preview of loads, ...
                     {
-                        if (command is CRemoveCurrentResults) { }
-                        else if (command is CRemoveResults) { }
-                        else if (command is CRemoveAllResults) { }
+                        if (command is CRemoveCurrentResults) { }   // skipp
+                        else if (command is CRemoveAllResults) { }  // skipp
                         else
                         {
                             if (postprocessCommands.TryGetValue(currentAnalysisName, out commandsList)) commandsList.Add(command);

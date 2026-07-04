@@ -360,7 +360,6 @@
     <Compile Include="Commands\_Compatibility\v2.1.0\CReplaceReferencePoint.cs" />
     <Compile Include="Commands\_Compatibility\v2.1.0\CShowReferencePoints.cs" />
     <Compile Include="Commands\_Compatibility\v2.2.0\CDeleteStlPartFacesCommand.cs" />
-    <Compile Include="Commands\_Compatibility\v2.5.1\CRemoveResults.cs" />
     <Compile Include="Controller.cs" />
     <Compile Include="Enums\ViewGeometryModelResults.cs" />
     <Compile Include="Enums\ShowWithColor.cs" />
