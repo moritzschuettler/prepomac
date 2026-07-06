@@ -583,7 +583,7 @@ namespace CaeResults
             string[] componentNames;
             foreach (var rho in historyIndependencySequence)
             {
-                valid = (rho.RegionType == RegionTypeEnum.Selection) ||
+                valid = (rho.RegionType == RegionTypeEnum.None || rho.RegionType == RegionTypeEnum.Selection) ||
                         (rho.RegionType == RegionTypeEnum.NodeSetName && _mesh.NodeSets.ContainsValidKey(rho.RegionName)) ||
                         (rho.RegionType == RegionTypeEnum.ElementSetName && _mesh.ElementSets.ContainsValidKey(rho.RegionName)) ||
                         (rho.RegionType == RegionTypeEnum.SurfaceName && _mesh.Surfaces.ContainsValidKey(rho.RegionName));
@@ -5454,7 +5454,7 @@ namespace CaeResults
             try
             {
                 int count = 1;
-                string[] possibleEquationParameters = GetPossibleHistoryEquationParameters();
+                 string[] possibleEquationParameters = GetPossibleHistoryEquationParameters();
                 foreach (var possibleParameter in possibleEquationParameters)
                 {
                     MyNCalc.ExistingParameters[possibleParameter] = count++ * 0.111;
@@ -6838,7 +6838,6 @@ namespace CaeResults
                 {
                     stepIncrementIds = GetStepIncrementIds(stepIds[i]);
                     //
-                    count = 0;
                     for (int j = 0; j < stepIncrementIds.Length; j++)
                     {
                         if (i == 0 && j == 0) continue; // Zero increment - Find all occurrences!!!
