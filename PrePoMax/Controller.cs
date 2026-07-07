@@ -8940,8 +8940,8 @@ namespace PrePoMax
                     List<string> removeNames = new List<string>();
                     foreach (Tie tie in toMerge)
                     {
-                        foreach (SelectionNode node in tie.MasterCreationData.Nodes) newTie.MasterCreationData.Add(node, null);
-                        foreach (SelectionNode node in tie.SlaveCreationData.Nodes) newTie.SlaveCreationData.Add(node, null);
+                        foreach (SelectionNode node in tie.MasterCreationData.Nodes) newTie.MasterCreationData.Add(node);
+                        foreach (SelectionNode node in tie.SlaveCreationData.Nodes) newTie.SlaveCreationData.Add(node);
                         //
                         if (tie != firstTie) removeNames.Add(tie.Name);
                     }
@@ -9534,9 +9534,9 @@ namespace PrePoMax
                     foreach (ContactPair contactPairToMerge in toMerge)
                     {
                         foreach (SelectionNode node in contactPairToMerge.MasterCreationData.Nodes)
-                            newContactPair.MasterCreationData.Add(node, null);
+                            newContactPair.MasterCreationData.Add(node);
                         foreach (SelectionNode node in contactPairToMerge.SlaveCreationData.Nodes)
-                            newContactPair.SlaveCreationData.Add(node, null);
+                            newContactPair.SlaveCreationData.Add(node);
                         //
                         if (contactPairToMerge != firstContactPair) removeNames.Add(contactPairToMerge.Name);
                     }
@@ -13343,7 +13343,7 @@ namespace PrePoMax
                 _form.DeactivateUserPick();
             }
         }
-        public void AddSelectionNodes(SelectionNode[] nodes, bool highlight, bool callSelectionChanged)
+        public void AddSelectionNodesDirectly(SelectionNode[] nodes, bool highlight, bool callSelectionChanged)
         {
             try
             {
@@ -13385,7 +13385,6 @@ namespace PrePoMax
             }
             else AddSelectionNodeInternally(node, highlight, callSelectionChanged);
         }
-        
         private void AddSelectionNodeInternally(SelectionNode node, bool highlight, bool callSelectionChanged)
         {
             // Set the current view for the selection;
@@ -13455,7 +13454,7 @@ namespace PrePoMax
             if (_selection.SelectItem == vtkSelectItem.Surface)
             {
                 // Limit surface selection to first shell face type
-                if (afterIds == null) { _selection.Add(node, ids); afterIds = GetSelectionIds(); _selection.RemoveLast(); }
+                if (afterIds == null) { _selection.Add(node); afterIds = GetSelectionIds(); _selection.RemoveLast(false); }
                 HashSet<FeSurfaceFaceTypes> surfaceFaceTypes = mesh.GetSurfaceFaceTypesFromFaceIds(afterIds);
                 if (surfaceFaceTypes.Count() > 1) add = false;      // 0 : when subtracting the last item
                 // Limit surface selection to shell edge surfaces
@@ -13486,14 +13485,14 @@ namespace PrePoMax
                 // Limit selection to first part
                 if (_selection.LimitSelectionToFirstPart)
                 {
-                    if (afterIds == null) { _selection.Add(node, ids); afterIds = GetSelectionIds(); _selection.RemoveLast(); }
+                    if (afterIds == null) { _selection.Add(node); afterIds = GetSelectionIds(); _selection.RemoveLast(false); }
                     HashSet<BasePart> parts = mesh.GetPartsFromSelectionIds(afterIds, _selection.SelectItem);
                     if (parts.Count == 1) add = true;
                 }
                 // Limit selection to first geometry type
                 else if (_selection.LimitSelectionToFirstGeometryType)
                 {
-                    if (afterIds == null) { _selection.Add(node, ids); afterIds = GetSelectionIds(); _selection.RemoveLast(); }
+                    if (afterIds == null) { _selection.Add(node); afterIds = GetSelectionIds(); _selection.RemoveLast(false); }
                     HashSet<BasePart> parts = mesh.GetPartsFromSelectionIds(afterIds, _selection.SelectItem);
                     HashSet<PartType> partTypes = new HashSet<PartType>();
                     foreach (var part in parts) partTypes.Add(part.PartType);
@@ -13501,7 +13500,7 @@ namespace PrePoMax
                 }
                 else if (_selection.LimitSelectionToFirstMesherType)
                 {
-                    if (afterIds == null) { _selection.Add(node, ids); afterIds = GetSelectionIds(); _selection.RemoveLast(); }
+                    if (afterIds == null) { _selection.Add(node); afterIds = GetSelectionIds(); _selection.RemoveLast(false); }
                     HashSet<BasePart> parts = mesh.GetPartsFromSelectionIds(afterIds, _selection.SelectItem);
                     bool mmg;
                     HashSet<bool> mmgHash = new HashSet<bool>();
@@ -13525,18 +13524,18 @@ namespace PrePoMax
                     _selection.Clear();
                 }
                 // Add
-                _selection.Add(node, ids);
+                _selection.Add(node);
                 // Remove the node if the maximum number of items is exceeded
                 if (_selection.MaxNumberOfItemIds >= 1)
                 {
                     ids = GetSelectionIds();
-                    if (ids.Length > _selection.MaxNumberOfItemIds) _selection.RemoveLast();
+                    if (ids.Length > _selection.MaxNumberOfItemIds) _selection.RemoveLast(false);
                 }
                 // Remove the node if the maximum number of geometry items is exceeded
                 if (_selection.MaxNumberOfGeometryIds > 1)
                 {
                     ids = GetSelectionIds();
-                    if (ids.Length > _selection.MaxNumberOfGeometryIds) _selection.RemoveLast();
+                    if (ids.Length > _selection.MaxNumberOfGeometryIds) _selection.RemoveLast(false);
                 }
             }
             //
@@ -13548,7 +13547,7 @@ namespace PrePoMax
         {
             _form.SetStateWorking("Undo selection...");
             //
-            _selection.RemoveLast();
+            _selection.RemoveLast(true);
             HighlightSelection();       // one color selection
             //
             _form.SelectionChanged();   // if two color selection is needed it is done from the form 
@@ -13582,6 +13581,15 @@ namespace PrePoMax
                 Selection selectionCopy = _selection.DeepClone();
                 // Set the selection view
                 CurrentView = GetSelectionView(selectionCopy);
+
+                if (_selection.SelectionCacheActive)
+                {
+                    for (int i = 0; i < _selection.Nodes.Count; i++)
+                    {
+                        selectionCopy.Nodes[i].Hash = _selection.Nodes[i].Hash;
+                    }
+                }
+
                 // If not only visible - show hidden parts
                 if (partsToShow != null && partsToShow.Length > 0)
                 {
@@ -13603,9 +13611,18 @@ namespace PrePoMax
                     }
                     GetIdsFromSelectionNode(node, ref selectedIds);
                 }
+
+                if (_selection.SelectionCacheActive)
+                {
+                    for (int i = 0; i < _selection.Nodes.Count; i++)
+                    {
+                        _selection.Nodes[i].Hash = selectionCopy.Nodes[i].Hash;
+                    }
+                }
+
                 // Return
                 int[] sorted = selectedIds.ToArray();
-                // Do not sort nodes for angle measurment
+                // Do not sort nodes for angle measurement
                 if (!_form.GetQuerySelection()) Array.Sort(sorted);
                 return sorted;
             }
@@ -14459,7 +14476,7 @@ namespace PrePoMax
                     }
                 }
                 //
-                AddSelectionNodes(selectionNodes.ToArray(), false, false);
+                AddSelectionNodesDirectly(selectionNodes.ToArray(), false, false);
                 // Restore current selection
                 Selection selectionOut = _selection.DeepClone();
                 _selection = currentSelection;
@@ -20277,8 +20294,7 @@ namespace PrePoMax
             if (clear) Clear3DSelection();
             //
             int[] ids = GetSelectionIds(false);
-            if (ids.Length > 0)
-                Debug.WriteLine("Selection ids: " + ids.Length + ": " + ids[0]);
+            //if (ids.Length > 0) Debug.WriteLine("Selection ids: " + ids.Length + ": " + ids[0]);
             if (ids.Length == 0) return;
             //
             if (_selection.SelectItem == vtkSelectItem.Node)

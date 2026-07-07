@@ -6170,7 +6170,7 @@ namespace CaeMesh
                 HashSet<int> surfaceIds = new HashSet<int>();
                 surfaceIds.Add(faceId);
                 //
-                ///if (angle >= 0)
+                if (angle >= 0)
                 {
                     int[][] cells = part.Visualization.Cells;
                     count = 0;

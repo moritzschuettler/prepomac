@@ -40,6 +40,7 @@ namespace CaeGlobals
         // Properties                                                                                                               
         public List<SelectionNode> Nodes { get { return _nodes; } set { _nodes = value; } }
         public vtkSelectItem SelectItem { get { return _selectItem; } set { _selectItem = value; } }
+        public bool SelectionCacheActive { get { return _nodeIds != null; } }
         public int CurrentView
         {
             get { return _currentView; }
@@ -174,11 +175,7 @@ namespace CaeGlobals
                 _nodeIds[node.Hash] = ids;
             }
         }
-        public void Add(SelectionNodeIds node)
-        {
-            Add(node, node.ItemIds);
-        }
-        public void Add(SelectionNode node, int[] ids)
+        public void Add(SelectionNode node)
         {
             _nodes.Add(node);
         }
@@ -202,13 +199,13 @@ namespace CaeGlobals
                 _nodes.Remove(node);
             }
         }
-        public void RemoveLast()
+        public void RemoveLast(bool resetNodeHash)
         {
             if (_nodes.Count > 0)
             {
                 SelectionNode node = _nodes.Last();
                 if (_nodeIds != null) _nodeIds.Remove(node.Hash);
-                node.Hash = -1;
+                if (resetNodeHash) node.Hash = -1;
                 _nodes.Remove(node);
             }
         }

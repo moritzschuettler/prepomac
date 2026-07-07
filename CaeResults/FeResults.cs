@@ -2580,7 +2580,7 @@ namespace CaeResults
             return sortedIds;
         }
         public Dictionary<int, int[]> GetExistingIncrementIds(string fieldName, string component,
-                                                              int limitToStepId = -1, int limitTostepIncrementId = -1)
+                                                              int limitToStepId = -1, int limitToStepIncrementId = -1)
         {
             int[] stepIds;
             if (limitToStepId == -1) stepIds = GetAllStepIds();
@@ -2602,7 +2602,7 @@ namespace CaeResults
                     stepIncrementIds = new List<int>();
                     foreach (int incrementId in GetStepIncrementIds(stepId))
                     {
-                        if (limitTostepIncrementId != -1 && limitTostepIncrementId != incrementId) continue;
+                        if (limitToStepIncrementId != -1 && limitToStepIncrementId != incrementId) continue;
                         //
                         fieldHash = GetFieldHash(fieldName, component, stepId, incrementId);
                         //if (FieldExists(fieldName, component, stepId, incrementId)) stepIncrementIds.Add(incrementId);
