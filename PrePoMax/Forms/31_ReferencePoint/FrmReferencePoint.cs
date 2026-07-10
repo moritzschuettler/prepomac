@@ -260,7 +260,7 @@ namespace PrePoMax.Forms
                 ReferencePoint.CreatedFrom == FeReferencePointCreatedFrom.CircleCenter)
             {
                 ReferencePoint.CreationIds = ids;
-                ReferencePoint.CreationData = _controller.Selection.DeepClone();
+                ReferencePoint.CreationData = _controller.Selection.DeepCopy(true, false);
                 //
                 mesh.UpdateReferencePoint(ReferencePoint);
                 //
@@ -295,7 +295,7 @@ namespace PrePoMax.Forms
                     //
                     if (rp.CreationData != null)
                     {
-                        _controller.Selection = rp.CreationData.DeepClone();
+                        _controller.Selection = rp.CreationData.DeepCopy(true, false);
                         _controller.HighlightSelection(false, true, true);
                     }
                 }

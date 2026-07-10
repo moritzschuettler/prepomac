@@ -229,7 +229,7 @@ namespace PrePoMax.Forms
                     //
                     if (Surface.CreationData != null)
                     {
-                        _controller.Selection = Surface.CreationData.DeepClone(); // deep copy to not clear
+                        _controller.Selection = Surface.CreationData.DeepCopy(true, false); // deep copy to not clear
                         _controller.HighlightSelection();
                     }
                     // Clear possible highlight from part/element set
@@ -275,7 +275,7 @@ namespace PrePoMax.Forms
             if (Surface.CreatedFrom == FeSurfaceCreatedFrom.Selection)
             {
                 Surface.FaceIds = ids;
-                Surface.CreationData = _controller.Selection.DeepClone();
+                Surface.CreationData = _controller.Selection.DeepCopy(true, false);
                 UpdateSurfaceArea();
                 //
                 propertyGrid.Refresh();

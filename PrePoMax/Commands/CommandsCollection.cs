@@ -14,8 +14,6 @@ using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 using CaeGlobals;
-using FastColoredTextBoxNS;
-using CommandLine;
 using System.Diagnostics;
 using System.Windows.Forms;
 

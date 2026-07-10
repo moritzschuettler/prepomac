@@ -10,6 +10,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Runtime.Serialization;
 using System.Security.Policy;
 using System.Text;
@@ -112,6 +113,29 @@ namespace CaeGlobals
             _limitSelectionToFirstMesherType = false;
             _limitSelectionToShellEdges = false;
             _enableShellEdgeFaceSelection = false;
+        }
+        public Selection(Selection selection, bool copyNodes, bool copyNodeHashes)
+        {
+            SelectionNode selectionNode;
+            _nodes = new List<SelectionNode>();
+            if (copyNodes)
+            {
+                foreach (var node in selection._nodes)
+                {
+                    selectionNode = node.DeepClone();
+                    if (copyNodeHashes) selectionNode.Hash = node.Hash;
+                    _nodes.Add(selectionNode);
+                }
+            }
+            _selectItem = selection._selectItem;
+            _currentView = selection._currentView;
+            _maxNumberOfGeometryIds = selection._maxNumberOfGeometryIds;
+            _maxNumberOfItemIds = selection._maxNumberOfItemIds;
+            _limitSelectionToFirstPart = selection._limitSelectionToFirstPart;
+            _limitSelectionToFirstGeometryType = selection._limitSelectionToFirstGeometryType;
+            _limitSelectionToFirstMesherType = selection._limitSelectionToFirstMesherType;
+            _limitSelectionToShellEdges = selection._limitSelectionToShellEdges;
+            _enableShellEdgeFaceSelection = selection._enableShellEdgeFaceSelection;
         }
         public Selection(SerializationInfo info, StreamingContext context)
         {
@@ -234,6 +258,16 @@ namespace CaeGlobals
                 if (!(node is SelectionNodeIds sni && sni.GeometrySelectMode == GeometrySelectModeEnum.SelectId)) return false;
             }
             return true;
+        }
+        // Copy
+        public Selection DeepCopy(bool copyNodes, bool copyNodeHashes)
+        {
+            return new Selection(this, copyNodes, copyNodeHashes);
+        }
+        public void DeepClone()
+        {
+            // This prevents calling DeepClone!
+            throw new NotSupportedException();
         }
         // ISerialization
         public void GetObjectData(SerializationInfo info, StreamingContext context)

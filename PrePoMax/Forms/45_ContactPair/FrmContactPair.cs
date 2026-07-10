@@ -276,7 +276,7 @@ namespace PrePoMax.Forms
                 //
                 if (creationData != null)
                 {
-                    _controller.Selection = creationData.DeepClone();
+                    _controller.Selection = creationData.DeepCopy(true, false);
                     _controller.HighlightSelection(clear, true, useSecondaryHighlightColor);
                 }
             }
@@ -340,13 +340,13 @@ namespace PrePoMax.Forms
                 if (property == nameof(ViewContactPair.MasterRegionType) && cp.MasterRegionType == RegionTypeEnum.Selection)
                 {
                     cp.MasterCreationIds = ids;
-                    cp.MasterCreationData = _controller.Selection.DeepClone();
+                    cp.MasterCreationData = _controller.Selection.DeepCopy(true, false);
                     changed = true;
                 }
                 else if (property == nameof(ViewContactPair.SlaveRegionType) && cp.SlaveRegionType == RegionTypeEnum.Selection)
                 {
                     cp.SlaveCreationIds = ids;
-                    cp.SlaveCreationData = _controller.Selection.DeepClone();
+                    cp.SlaveCreationData = _controller.Selection.DeepCopy(true, false);
                     changed = true;
                 }
                 //

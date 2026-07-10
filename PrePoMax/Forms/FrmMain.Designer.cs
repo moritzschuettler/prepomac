@@ -147,6 +147,9 @@ namespace PrePoMax
             this.tsmiRegenerateHistoryUsingOtherFiles = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiRegenerateHistoryWithRemeshing = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiView = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiViewControls = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiPythonConsole = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripMenuItem6 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiStandardViews = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiFrontView = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiBackView = new System.Windows.Forms.ToolStripMenuItem();
@@ -503,6 +506,8 @@ namespace PrePoMax
             this.tsmiCreateResultFieldOutput = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiEditResultFieldOutput = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerResultFieldOutput1 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiExportResultFieldOutput = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiDividerResultFieldOutput2 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiDeleteResultFieldOutput = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiResultHistoryOutput = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiCreateResultHistoryOutput = new System.Windows.Forms.ToolStripMenuItem();
@@ -554,8 +559,6 @@ namespace PrePoMax
             this.tbOutput = new UserControls.AutoScrollTextBox();
             this.timerTest = new System.Windows.Forms.Timer(this.components);
             this.timerOutput = new System.Windows.Forms.Timer(this.components);
-            this.tsmiDividerResultFieldOutput2 = new System.Windows.Forms.ToolStripSeparator();
-            this.tsmiExportResultFieldOutput = new System.Windows.Forms.ToolStripMenuItem();
             this.tsFile.SuspendLayout();
             this.tsViews.SuspendLayout();
             this.tsSymbols.SuspendLayout();
@@ -1560,6 +1563,8 @@ namespace PrePoMax
             // tsmiView
             // 
             this.tsmiView.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmiViewControls,
+            this.toolStripMenuItem6,
             this.tsmiStandardViews,
             this.tsmiUserViews,
             this.tsmiZoomToFit,
@@ -1588,6 +1593,26 @@ namespace PrePoMax
             this.tsmiView.Name = "tsmiView";
             this.tsmiView.Size = new System.Drawing.Size(44, 20);
             this.tsmiView.Text = "View";
+            // 
+            // tsmiViewControls
+            // 
+            this.tsmiViewControls.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmiPythonConsole});
+            this.tsmiViewControls.Name = "tsmiViewControls";
+            this.tsmiViewControls.Size = new System.Drawing.Size(243, 22);
+            this.tsmiViewControls.Text = "Controls";
+            // 
+            // tsmiPythonConsole
+            // 
+            this.tsmiPythonConsole.Name = "tsmiPythonConsole";
+            this.tsmiPythonConsole.Size = new System.Drawing.Size(180, 22);
+            this.tsmiPythonConsole.Text = "Python Console";
+            this.tsmiPythonConsole.Click += new System.EventHandler(this.tsmiPythonConsole_Click);
+            // 
+            // toolStripMenuItem6
+            // 
+            this.toolStripMenuItem6.Name = "toolStripMenuItem6";
+            this.toolStripMenuItem6.Size = new System.Drawing.Size(240, 6);
             // 
             // tsmiStandardViews
             // 
@@ -4069,7 +4094,7 @@ namespace PrePoMax
             this.tsmiDeleteResultParts});
             this.tsmiResultPart.Image = global::PrePoMax.Properties.Resources.Part;
             this.tsmiResultPart.Name = "tsmiResultPart";
-            this.tsmiResultPart.Size = new System.Drawing.Size(180, 22);
+            this.tsmiResultPart.Size = new System.Drawing.Size(178, 22);
             this.tsmiResultPart.Text = "Part";
             // 
             // tsmiEditResultPart
@@ -4181,7 +4206,7 @@ namespace PrePoMax
             this.tsmiResultCoordinateSystems});
             this.tsmiResultFeatures.Image = global::PrePoMax.Properties.Resources.Feature;
             this.tsmiResultFeatures.Name = "tsmiResultFeatures";
-            this.tsmiResultFeatures.Size = new System.Drawing.Size(180, 22);
+            this.tsmiResultFeatures.Size = new System.Drawing.Size(178, 22);
             this.tsmiResultFeatures.Text = "Features";
             // 
             // tsmiResultReferencePoints
@@ -4342,7 +4367,7 @@ namespace PrePoMax
             // tsmiDividerResults1
             // 
             this.tsmiDividerResults1.Name = "tsmiDividerResults1";
-            this.tsmiDividerResults1.Size = new System.Drawing.Size(177, 6);
+            this.tsmiDividerResults1.Size = new System.Drawing.Size(175, 6);
             // 
             // tsmiResultFieldOutput
             // 
@@ -4355,32 +4380,44 @@ namespace PrePoMax
             this.tsmiDeleteResultFieldOutput});
             this.tsmiResultFieldOutput.Image = global::PrePoMax.Properties.Resources.Field_output;
             this.tsmiResultFieldOutput.Name = "tsmiResultFieldOutput";
-            this.tsmiResultFieldOutput.Size = new System.Drawing.Size(180, 22);
+            this.tsmiResultFieldOutput.Size = new System.Drawing.Size(178, 22);
             this.tsmiResultFieldOutput.Text = "Field Output";
             // 
             // tsmiCreateResultFieldOutput
             // 
             this.tsmiCreateResultFieldOutput.Name = "tsmiCreateResultFieldOutput";
-            this.tsmiCreateResultFieldOutput.Size = new System.Drawing.Size(180, 22);
+            this.tsmiCreateResultFieldOutput.Size = new System.Drawing.Size(108, 22);
             this.tsmiCreateResultFieldOutput.Text = "Create";
             this.tsmiCreateResultFieldOutput.Click += new System.EventHandler(this.tsmiCreateResultFieldOutput_Click);
             // 
             // tsmiEditResultFieldOutput
             // 
             this.tsmiEditResultFieldOutput.Name = "tsmiEditResultFieldOutput";
-            this.tsmiEditResultFieldOutput.Size = new System.Drawing.Size(180, 22);
+            this.tsmiEditResultFieldOutput.Size = new System.Drawing.Size(108, 22);
             this.tsmiEditResultFieldOutput.Text = "Edit";
             this.tsmiEditResultFieldOutput.Click += new System.EventHandler(this.tsmiEditResultFieldOutput_Click);
             // 
             // tsmiDividerResultFieldOutput1
             // 
             this.tsmiDividerResultFieldOutput1.Name = "tsmiDividerResultFieldOutput1";
-            this.tsmiDividerResultFieldOutput1.Size = new System.Drawing.Size(177, 6);
+            this.tsmiDividerResultFieldOutput1.Size = new System.Drawing.Size(105, 6);
+            // 
+            // tsmiExportResultFieldOutput
+            // 
+            this.tsmiExportResultFieldOutput.Name = "tsmiExportResultFieldOutput";
+            this.tsmiExportResultFieldOutput.Size = new System.Drawing.Size(108, 22);
+            this.tsmiExportResultFieldOutput.Text = "Export";
+            this.tsmiExportResultFieldOutput.Click += new System.EventHandler(this.tsmiExportResultFieldOutput_Click);
+            // 
+            // tsmiDividerResultFieldOutput2
+            // 
+            this.tsmiDividerResultFieldOutput2.Name = "tsmiDividerResultFieldOutput2";
+            this.tsmiDividerResultFieldOutput2.Size = new System.Drawing.Size(105, 6);
             // 
             // tsmiDeleteResultFieldOutput
             // 
             this.tsmiDeleteResultFieldOutput.Name = "tsmiDeleteResultFieldOutput";
-            this.tsmiDeleteResultFieldOutput.Size = new System.Drawing.Size(180, 22);
+            this.tsmiDeleteResultFieldOutput.Size = new System.Drawing.Size(108, 22);
             this.tsmiDeleteResultFieldOutput.Text = "Delete";
             this.tsmiDeleteResultFieldOutput.Click += new System.EventHandler(this.tsmiDeleteResultFieldOutput_Click);
             // 
@@ -4395,76 +4432,76 @@ namespace PrePoMax
             this.tsmiDeleteResultHistoryOutput});
             this.tsmiResultHistoryOutput.Image = global::PrePoMax.Properties.Resources.History_output;
             this.tsmiResultHistoryOutput.Name = "tsmiResultHistoryOutput";
-            this.tsmiResultHistoryOutput.Size = new System.Drawing.Size(180, 22);
+            this.tsmiResultHistoryOutput.Size = new System.Drawing.Size(178, 22);
             this.tsmiResultHistoryOutput.Text = "History Output";
             // 
             // tsmiCreateResultHistoryOutput
             // 
             this.tsmiCreateResultHistoryOutput.Name = "tsmiCreateResultHistoryOutput";
-            this.tsmiCreateResultHistoryOutput.Size = new System.Drawing.Size(180, 22);
+            this.tsmiCreateResultHistoryOutput.Size = new System.Drawing.Size(108, 22);
             this.tsmiCreateResultHistoryOutput.Text = "Create";
             this.tsmiCreateResultHistoryOutput.Click += new System.EventHandler(this.tsmiCreateResultHistoryOutput_Click);
             // 
             // tsmiEditResultHistoryOutput
             // 
             this.tsmiEditResultHistoryOutput.Name = "tsmiEditResultHistoryOutput";
-            this.tsmiEditResultHistoryOutput.Size = new System.Drawing.Size(180, 22);
+            this.tsmiEditResultHistoryOutput.Size = new System.Drawing.Size(108, 22);
             this.tsmiEditResultHistoryOutput.Text = "Edit";
             this.tsmiEditResultHistoryOutput.Click += new System.EventHandler(this.tsmiEditResultHistoryOutput_Click);
             // 
             // tsmiDividerResultHistoryOutput1
             // 
             this.tsmiDividerResultHistoryOutput1.Name = "tsmiDividerResultHistoryOutput1";
-            this.tsmiDividerResultHistoryOutput1.Size = new System.Drawing.Size(177, 6);
+            this.tsmiDividerResultHistoryOutput1.Size = new System.Drawing.Size(105, 6);
             // 
             // tsmiExportResultHistoryOutput
             // 
             this.tsmiExportResultHistoryOutput.Name = "tsmiExportResultHistoryOutput";
-            this.tsmiExportResultHistoryOutput.Size = new System.Drawing.Size(180, 22);
+            this.tsmiExportResultHistoryOutput.Size = new System.Drawing.Size(108, 22);
             this.tsmiExportResultHistoryOutput.Text = "Export";
             this.tsmiExportResultHistoryOutput.Click += new System.EventHandler(this.tsmiExportResultHistoryOutput_Click);
             // 
             // tsmiDividerResultHistoryOutput2
             // 
             this.tsmiDividerResultHistoryOutput2.Name = "tsmiDividerResultHistoryOutput2";
-            this.tsmiDividerResultHistoryOutput2.Size = new System.Drawing.Size(177, 6);
+            this.tsmiDividerResultHistoryOutput2.Size = new System.Drawing.Size(105, 6);
             // 
             // tsmiDeleteResultHistoryOutput
             // 
             this.tsmiDeleteResultHistoryOutput.Name = "tsmiDeleteResultHistoryOutput";
-            this.tsmiDeleteResultHistoryOutput.Size = new System.Drawing.Size(180, 22);
+            this.tsmiDeleteResultHistoryOutput.Size = new System.Drawing.Size(108, 22);
             this.tsmiDeleteResultHistoryOutput.Text = "Delete";
             this.tsmiDeleteResultHistoryOutput.Click += new System.EventHandler(this.tsmiDeleteResultHistoryOutput_Click);
             // 
             // tsmiDividerResults2
             // 
             this.tsmiDividerResults2.Name = "tsmiDividerResults2";
-            this.tsmiDividerResults2.Size = new System.Drawing.Size(177, 6);
+            this.tsmiDividerResults2.Size = new System.Drawing.Size(175, 6);
             // 
             // tsmiTransformation
             // 
             this.tsmiTransformation.Image = global::PrePoMax.Properties.Resources.Transformations;
             this.tsmiTransformation.Name = "tsmiTransformation";
-            this.tsmiTransformation.Size = new System.Drawing.Size(180, 22);
+            this.tsmiTransformation.Size = new System.Drawing.Size(178, 22);
             this.tsmiTransformation.Text = "Transformation";
             this.tsmiTransformation.Click += new System.EventHandler(this.tsmiTransformation_Click);
             // 
             // tsmiDividerResults3
             // 
             this.tsmiDividerResults3.Name = "tsmiDividerResults3";
-            this.tsmiDividerResults3.Size = new System.Drawing.Size(177, 6);
+            this.tsmiDividerResults3.Size = new System.Drawing.Size(175, 6);
             // 
             // tsmiAppendResults
             // 
             this.tsmiAppendResults.Name = "tsmiAppendResults";
-            this.tsmiAppendResults.Size = new System.Drawing.Size(180, 22);
+            this.tsmiAppendResults.Size = new System.Drawing.Size(178, 22);
             this.tsmiAppendResults.Text = "Append Results";
             this.tsmiAppendResults.Click += new System.EventHandler(this.tsmiAppendResults_Click);
             // 
             // tsmiConvertOdbToFrd
             // 
             this.tsmiConvertOdbToFrd.Name = "tsmiConvertOdbToFrd";
-            this.tsmiConvertOdbToFrd.Size = new System.Drawing.Size(180, 22);
+            this.tsmiConvertOdbToFrd.Size = new System.Drawing.Size(178, 22);
             this.tsmiConvertOdbToFrd.Text = "Convert .odb to .frd";
             this.tsmiConvertOdbToFrd.Click += new System.EventHandler(this.tsmiConvertOdbToFrd_Click);
             // 
@@ -4603,7 +4640,7 @@ namespace PrePoMax
             this.panelControl.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panelControl.Location = new System.Drawing.Point(0, 0);
             this.panelControl.Name = "panelControl";
-            this.panelControl.Size = new System.Drawing.Size(991, 421);
+            this.panelControl.Size = new System.Drawing.Size(991, 399);
             this.panelControl.TabIndex = 1;
             // 
             // aeAnnotationTextEditor
@@ -4788,22 +4825,20 @@ namespace PrePoMax
             // 
             this.splitContainer2.Panel2.Controls.Add(this.tbOutput);
             this.splitContainer2.Size = new System.Drawing.Size(991, 531);
-            this.splitContainer2.SplitterDistance = 421;
+            this.splitContainer2.SplitterDistance = 399;
             this.splitContainer2.TabIndex = 2;
             // 
             // tbOutput
             // 
-            this.tbOutput.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
             this.tbOutput.BackColor = System.Drawing.Color.White;
+            this.tbOutput.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.tbOutput.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.tbOutput.Location = new System.Drawing.Point(0, 0);
+            this.tbOutput.Location = new System.Drawing.Point(5, 3);
             this.tbOutput.Multiline = true;
             this.tbOutput.Name = "tbOutput";
             this.tbOutput.ReadOnly = true;
             this.tbOutput.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.tbOutput.Size = new System.Drawing.Size(991, 105);
+            this.tbOutput.Size = new System.Drawing.Size(419, 86);
             this.tbOutput.TabIndex = 0;
             this.tbOutput.Text = "Output text box";
             // 
@@ -4814,18 +4849,6 @@ namespace PrePoMax
             // timerOutput
             // 
             this.timerOutput.Tick += new System.EventHandler(this.timerOutput_Tick);
-            // 
-            // tsmiDividerResultFieldOutput2
-            // 
-            this.tsmiDividerResultFieldOutput2.Name = "tsmiDividerResultFieldOutput2";
-            this.tsmiDividerResultFieldOutput2.Size = new System.Drawing.Size(177, 6);
-            // 
-            // tsmiExportResultFieldOutput
-            // 
-            this.tsmiExportResultFieldOutput.Name = "tsmiExportResultFieldOutput";
-            this.tsmiExportResultFieldOutput.Size = new System.Drawing.Size(180, 22);
-            this.tsmiExportResultFieldOutput.Text = "Export";
-            this.tsmiExportResultFieldOutput.Click += new System.EventHandler(this.tsmiExportResultFieldOutput_Click);
             // 
             // FrmMain
             // 
@@ -5401,6 +5424,9 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripButton tsbBoxZoom;
         private System.Windows.Forms.ToolStripMenuItem tsmiExportResultFieldOutput;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerResultFieldOutput2;
+        private System.Windows.Forms.ToolStripMenuItem tsmiViewControls;
+        private System.Windows.Forms.ToolStripMenuItem tsmiPythonConsole;
+        private System.Windows.Forms.ToolStripSeparator toolStripMenuItem6;
     }
 }
 

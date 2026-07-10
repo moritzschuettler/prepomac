@@ -46,8 +46,8 @@ namespace CaeMesh
            : this(geometrySelection.Name)
         {
             _geometryIds = geometrySelection.GeometryIds?.ToArray();
-            _creationData = geometrySelection.CreationData?.DeepClone();
-            _creationData = geometrySelection.CreationData?.DeepClone();
+            _creationData = geometrySelection.CreationData?.DeepCopy(true, false);
+            _creationData = geometrySelection.CreationData?.DeepCopy(true, false);
         }
 
 

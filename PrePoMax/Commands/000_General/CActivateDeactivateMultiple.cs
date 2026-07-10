@@ -10,7 +10,6 @@
 using CaeGlobals;
 using CaeMesh;
 using CaeModel;
-using FastColoredTextBoxNS;
 using PrePoMax;
 using System;
 using System.Collections.Generic;

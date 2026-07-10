@@ -410,7 +410,7 @@ namespace PrePoMax.Forms
                         //
                         if (ResultHistoryOutput.CreationData != null)
                         {
-                            _controller.Selection = ResultHistoryOutput.CreationData.DeepClone();
+                            _controller.Selection = ResultHistoryOutput.CreationData.DeepCopy(true, false);
                             _controller.HighlightSelection();
                         }
                     }
@@ -432,7 +432,7 @@ namespace PrePoMax.Forms
                         //
                         if (ResultHistoryOutput.CreationData != null)
                         {
-                            _controller.Selection = ResultHistoryOutput.CreationData.DeepClone();
+                            _controller.Selection = ResultHistoryOutput.CreationData.DeepCopy(true, false);
                             _controller.HighlightSelection();
                         }
                     }
@@ -482,7 +482,7 @@ namespace PrePoMax.Forms
                     ResultHistoryOutput is ResultHistoryOutputFromIntegration)
                 {
                     ResultHistoryOutput.CreationIds = ids;
-                    ResultHistoryOutput.CreationData = _controller.Selection.DeepClone();
+                    ResultHistoryOutput.CreationData = _controller.Selection.DeepCopy(true, false);
                     //
                     propertyGrid.Refresh();
                     //

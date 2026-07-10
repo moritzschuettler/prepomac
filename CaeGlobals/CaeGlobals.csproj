@@ -88,6 +88,8 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="API\StringListAPI.cs" />
+    <Compile Include="API\BaseAPI.cs" />
     <Compile Include="CenterWinDialog.cs" />
     <Compile Include="CommonClasses\DataExchange\CellsExchangeData.cs" />
     <Compile Include="CommonClasses\DataExchange\NodesExchangeData.cs" />

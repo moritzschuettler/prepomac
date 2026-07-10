@@ -141,7 +141,7 @@ namespace CaeMesh
             _faceIds = surface._faceIds?.ToArray();
             _area = surface._area;
             _elementFaces = surface._elementFaces != null ? new Dictionary<FeFaceName, string>(surface._elementFaces) : null;
-            _creationData = surface._creationData?.DeepClone();
+            _creationData = surface._creationData?.DeepCopy(true, false);
             _surfaceFaceTypes = surface._surfaceFaceTypes;
             _temporarySurface = surface._temporarySurface;
         }

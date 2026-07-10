@@ -12,35 +12,21 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using UserControls;
 
 namespace UserControls
 {
     [Serializable]
-    public class AdvisorItem
+    public class PanelItemLabel : PanelItem
     {
         // Variables                                                                                                                
-        protected string _text;
-        protected int _indentLevel;
-
-
-        // Properties                                                                                                               
-        public string Text { get { return _text; } set { _text = value; } }
-        public int IndentLevel
-        {
-            get { return _indentLevel; }
-            set
-            {
-                _indentLevel = value;
-                if (_indentLevel < 0) _indentLevel = 0;
-            }
-        }
+      
 
 
         // Constructors                                                                                                             
-        public AdvisorItem()
+        public PanelItemLabel()
         {
-            _text = "";
-            _indentLevel = 0;
+           
         }
 
 

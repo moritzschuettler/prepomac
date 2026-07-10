@@ -125,7 +125,7 @@ namespace PrePoMax.Forms
         {
             if (!Enabled)
             {
-                _selectionCopy = _controller.Selection.DeepClone();
+                _selectionCopy = _controller.Selection.DeepCopy(true, false);
             }
             //
             ShowHideSelectionForm();
@@ -1138,7 +1138,7 @@ namespace PrePoMax.Forms
                         //
                         if (load.CreationData != null)
                         {
-                            _controller.Selection = load.CreationData.DeepClone();
+                            _controller.Selection = load.CreationData.DeepCopy(true, false);
                             _controller.HighlightSelection();
                         }
                     }
@@ -1253,7 +1253,7 @@ namespace PrePoMax.Forms
                         FELoad is RadiationHeatTransfer)
                     {
                         FELoad.CreationIds = ids;
-                        FELoad.CreationData = _controller.Selection.DeepClone();
+                        FELoad.CreationData = _controller.Selection.DeepCopy(true, false);
                         //
                         propertyGrid.Refresh();
                         //

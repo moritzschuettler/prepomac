@@ -175,7 +175,7 @@ namespace PrePoMax.Forms
                     // ThickenShellMesh.CreationData is set to null when the CreatedFrom is changed
                     if (thickenShellMesh.CreationData != null)
                     {
-                        _controller.Selection = thickenShellMesh.CreationData.DeepClone(); // Deep copy to not clear
+                        _controller.Selection = thickenShellMesh.CreationData.DeepCopy(true, false); // Deep copy to not clear
                         _controller.HighlightSelection();
                     }
                 }
@@ -195,7 +195,7 @@ namespace PrePoMax.Forms
             if (ThickenShellMesh != null)
             {
                 ThickenShellMesh.CreationIds = ids;
-                ThickenShellMesh.CreationData = _controller.Selection.DeepClone();
+                ThickenShellMesh.CreationData = _controller.Selection.DeepCopy(true, false);
                 //
                 propertyGrid.Refresh();
                 //

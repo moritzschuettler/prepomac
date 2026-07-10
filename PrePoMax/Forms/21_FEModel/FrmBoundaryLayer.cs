@@ -153,7 +153,7 @@ namespace PrePoMax.Forms
                     // Surface.CreationData is set to null when the CreatedFrom is changed
                     if (_viewBoundaryLayer.CreationData != null)
                     {
-                        _controller.Selection = _viewBoundaryLayer.CreationData.DeepClone(); // Deep copy to not clear
+                        _controller.Selection = _viewBoundaryLayer.CreationData.DeepCopy(true, false); // Deep copy to not clear
                         _controller.HighlightSelection();
                     }
                 }
@@ -173,7 +173,7 @@ namespace PrePoMax.Forms
             if (_viewBoundaryLayer != null)
             {
                 _viewBoundaryLayer.GeometryIds = ids;
-                _viewBoundaryLayer.CreationData = _controller.Selection.DeepClone();
+                _viewBoundaryLayer.CreationData = _controller.Selection.DeepCopy(true, false);
                 //
                 propertyGrid.Refresh();
                 //

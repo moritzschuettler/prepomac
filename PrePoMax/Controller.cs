@@ -4129,7 +4129,7 @@ namespace PrePoMax
             if (geometrySelection.CreationData != null)
             {
                 // In order for the Regenerate history to work perform the selection
-                _selection = geometrySelection.CreationData.DeepClone();
+                _selection = geometrySelection.CreationData.DeepCopy(true, false);
                 geometrySelection.GeometryIds = GetSelectionIds();
                 _selection.Clear();
             }
@@ -4270,11 +4270,11 @@ namespace PrePoMax
             if (surfaceSelection.CreationData != null && verticesSelection.CreationData != null)
             {
                 // In order for the Regenerate history to work perform the selection
-                _selection = surfaceSelection.CreationData.DeepClone();
+                _selection = surfaceSelection.CreationData.DeepCopy(true, false);
                 surfaceSelection.GeometryIds = GetSelectionIds();
                 _selection.Clear();
                 //
-                _selection = verticesSelection.CreationData.DeepClone();
+                _selection = verticesSelection.CreationData.DeepCopy(true, false);
                 verticesSelection.GeometryIds = GetSelectionIds();
                 _selection.Clear();
             }
@@ -4369,7 +4369,7 @@ namespace PrePoMax
             if (geometrySelection.CreationData != null)
             {
                 // In order for the Regenerate history to work perform the selection
-                _selection = geometrySelection.CreationData.DeepClone();
+                _selection = geometrySelection.CreationData.DeepCopy(true, false);
                 geometrySelection.GeometryIds = GetSelectionIds();
                 _selection.Clear();
             }
@@ -4562,7 +4562,7 @@ namespace PrePoMax
             if (geometrySelection.CreationData != null)
             {
                 // In order for the Regenerate history to work perform the selection
-                _selection = geometrySelection.CreationData.DeepClone();
+                _selection = geometrySelection.CreationData.DeepCopy(true, false);
                 geometrySelection.GeometryIds = GetSelectionIds();
                 _selection.Clear();
             }
@@ -5676,7 +5676,7 @@ namespace PrePoMax
             if (meshSetupItem.CreationData != null)
             {
                 // In order for the Regenerate history to work perform the selection
-                _selection = meshSetupItem.CreationData.DeepClone();
+                _selection = meshSetupItem.CreationData.DeepCopy(true, false);
                 meshSetupItem.CreationIds = GetSelectionIds();
                 _selection.Clear();
             }
@@ -5745,9 +5745,9 @@ namespace PrePoMax
         {
             if (meshSetupItem.CreationData != null)
             {
-                Selection selection = _selection.DeepClone();
+                Selection selection = _selection.DeepCopy(true, true);
                 // In order for the Regenerate history to work perform the selection
-                _selection = meshSetupItem.CreationData.DeepClone();
+                _selection = meshSetupItem.CreationData.DeepCopy(true, false);
                 meshSetupItem.CreationIds = GetSelectionIds();
                 _selection = selection;
             }
@@ -6531,7 +6531,7 @@ namespace PrePoMax
             FeNodeSet nodeSet = new FeNodeSet(name, null);
             nodeSet.CreationData = mergeCoincidentNodes.CreationData;   // regeneration
             nodeSet.Internal = true;
-            Selection selection = _selection.DeepClone();
+            Selection selection = _selection.DeepCopy(true, false);
             AddNodeSet(nodeSet);    // clears the selection
             _selection = selection;
             //
@@ -6556,7 +6556,7 @@ namespace PrePoMax
             FeNodeSet nodeSet = new FeNodeSet(name, null);
             nodeSet.CreationData = mergeCoincidentNodes.CreationData;   // regeneration
             nodeSet.Internal = true;
-            Selection selection = _selection.DeepClone();
+            Selection selection = _selection.DeepCopy(true, false);
             AddNodeSet(nodeSet);    // clears the selection
             _selection = selection;
             //
@@ -7568,7 +7568,7 @@ namespace PrePoMax
         {
             if (nodeSet.CreationData != null)
             {
-                _selection = nodeSet.CreationData.DeepClone();
+                _selection = nodeSet.CreationData.DeepCopy(true, false);
                 //
                 if (_selection.SelectItem == vtkSelectItem.Node)
                 {
@@ -7782,7 +7782,7 @@ namespace PrePoMax
         {
             if (elementSet.CreationData != null)
             {
-                _selection = elementSet.CreationData.DeepClone();
+                _selection = elementSet.CreationData.DeepCopy(true, false);
                 //
                 if (_selection.SelectItem == vtkSelectItem.Element || _selection.SelectItem == vtkSelectItem.Part)
                 {
@@ -8005,7 +8005,7 @@ namespace PrePoMax
         {
             if (surface.CreatedFrom == FeSurfaceCreatedFrom.Selection && surface.CreationData != null)
             {
-                _selection = surface.CreationData.DeepClone();
+                _selection = surface.CreationData.DeepCopy(true, false);
                 surface.FaceIds = GetSelectionIds();
                 _selection.Clear();
                 // Update parent creation ids to detect changes in function: StepCollection.MultiRegionChanged
@@ -8188,7 +8188,7 @@ namespace PrePoMax
                     referencePoint.CreatedFrom == FeReferencePointCreatedFrom.BetweenTwoPoints ||
                     referencePoint.CreatedFrom == FeReferencePointCreatedFrom.CircleCenter)
                 {
-                    _selection = referencePoint.CreationData.DeepClone();
+                    _selection = referencePoint.CreationData.DeepCopy(true, false);
                     referencePoint.CreationIds = GetSelectionIds();
                     _selection.Clear();
                 }
@@ -8368,7 +8368,7 @@ namespace PrePoMax
                     coordinateSystem.CenterCreatedFrom == CsPointCreatedFromEnum.BetweenTwoPoints ||
                     coordinateSystem.CenterCreatedFrom == CsPointCreatedFromEnum.CircleCenter)
                 {
-                    _selection = coordinateSystem.CenterCreationData.DeepClone();
+                    _selection = coordinateSystem.CenterCreationData.DeepCopy(true, false);
                     coordinateSystem.CenterCreationIds = GetSelectionIds();
                     _selection.Clear();
                 }
@@ -8380,7 +8380,7 @@ namespace PrePoMax
                     coordinateSystem.PointXCreatedFrom == CsPointCreatedFromEnum.BetweenTwoPoints ||
                     coordinateSystem.PointXCreatedFrom == CsPointCreatedFromEnum.CircleCenter)
                 {
-                    _selection = coordinateSystem.PointXCreationData.DeepClone();
+                    _selection = coordinateSystem.PointXCreationData.DeepCopy(true, false);
                     coordinateSystem.PointXCreationIds = GetSelectionIds();
                     _selection.Clear();
                 }
@@ -8392,7 +8392,7 @@ namespace PrePoMax
                     coordinateSystem.PointXYCreatedFrom == CsPointCreatedFromEnum.BetweenTwoPoints ||
                     coordinateSystem.PointXYCreatedFrom == CsPointCreatedFromEnum.CircleCenter)
                 {
-                    _selection = coordinateSystem.PointXYCreationData.DeepClone();
+                    _selection = coordinateSystem.PointXYCreationData.DeepCopy(true, false);
                     coordinateSystem.PointXYCreationIds = GetSelectionIds();
                     _selection.Clear();
                 }
@@ -8672,7 +8672,7 @@ namespace PrePoMax
                 {
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.NodeSets, section.Name);
                     FeNodeSet nodeSet = new FeNodeSet(name, section.CreationIds);
-                    nodeSet.CreationData = section.CreationData.DeepClone();
+                    nodeSet.CreationData = section.CreationData.DeepCopy(true, false);
                     nodeSet.Internal = true;
                     nodeSet.ParentMultiRegion = section;
                     AddNodeSet(nodeSet);
@@ -8686,7 +8686,7 @@ namespace PrePoMax
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.ElementSets, section.Name);
                     bool createdByPart = section.CreationData != null && (section.CreationData.SelectItem == vtkSelectItem.Part);
                     FeElementSet elementSet = new FeElementSet(name, section.CreationIds, createdByPart);
-                    elementSet.CreationData = section.CreationData.DeepClone();
+                    elementSet.CreationData = section.CreationData.DeepCopy(true, false);
                     elementSet.Internal = true;
                     elementSet.ParentMultiRegion = section;
                     AddElementSet(elementSet);
@@ -8698,7 +8698,7 @@ namespace PrePoMax
                 else if (section is DistributedMassSection)
                 {
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces, section.Name);
-                    FeSurface surface = new FeSurface(name, section.CreationIds, section.CreationData.DeepClone());
+                    FeSurface surface = new FeSurface(name, section.CreationIds, section.CreationData.DeepCopy(true, false));
                     surface.Internal = true;
                     surface.ParentMultiRegion = section;
                     AddSurface(surface);
@@ -9009,7 +9009,7 @@ namespace PrePoMax
                 {
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.NodeSets, constraint.Name);
                     FeNodeSet nodeSet = new FeNodeSet(name, ps.CreationIds);
-                    nodeSet.CreationData = ps.CreationData.DeepClone();
+                    nodeSet.CreationData = ps.CreationData.DeepCopy(true, false);
                     nodeSet.Internal = true;
                     nodeSet.ParentMultiRegion = ps;
                     AddNodeSet(nodeSet, update);
@@ -9031,7 +9031,7 @@ namespace PrePoMax
                 {
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces,
                                                            constraint.Name + CaeMesh.Globals.MasterNameSuffix);
-                    FeSurface surface = new FeSurface(name, ss.CreationIds, ss.CreationData.DeepClone());
+                    FeSurface surface = new FeSurface(name, ss.CreationIds, ss.CreationData.DeepCopy(true, false));
                     surface.Internal = true;
                     surface.ParentMultiRegion = ss;
                     AddSurface(surface, update);
@@ -9053,7 +9053,7 @@ namespace PrePoMax
                 {
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces,
                                                            constraint.Name + CaeMesh.Globals.MasterNameSuffix);
-                    FeSurface surface = new FeSurface(name, co.CreationIds, co.CreationData.DeepClone());
+                    FeSurface surface = new FeSurface(name, co.CreationIds, co.CreationData.DeepCopy(true, false));
                     surface.Internal = true;
                     surface.ParentMultiRegion = co;
                     AddSurface(surface, update);
@@ -9075,7 +9075,7 @@ namespace PrePoMax
                 {
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.NodeSets, constraint.Name);
                     FeNodeSet nodeSet = new FeNodeSet(name, rb.CreationIds);
-                    nodeSet.CreationData = rb.CreationData.DeepClone();
+                    nodeSet.CreationData = rb.CreationData.DeepCopy(true, false);
                     nodeSet.Internal = true;
                     nodeSet.ParentMultiRegion = rb;
                     AddNodeSet(nodeSet, update);
@@ -9096,7 +9096,7 @@ namespace PrePoMax
                 if (tie.MasterRegionType == RegionTypeEnum.Selection)
                 {
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces, constraint.Name + CaeMesh.Globals.MasterNameSuffix);
-                    FeSurface surface = new FeSurface(name, tie.MasterCreationIds, tie.MasterCreationData.DeepClone());
+                    FeSurface surface = new FeSurface(name, tie.MasterCreationIds, tie.MasterCreationData.DeepCopy(true, false));
                     surface.Internal = true;
                     surface.ParentMasterMultiRegion = tie;
                     AddSurface(surface, update);
@@ -9114,7 +9114,7 @@ namespace PrePoMax
                 if (tie.SlaveRegionType == RegionTypeEnum.Selection)
                 {
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces, constraint.Name + CaeMesh.Globals.SlaveNameSuffix);
-                    FeSurface surface = new FeSurface(name, tie.SlaveCreationIds, tie.SlaveCreationData.DeepClone());
+                    FeSurface surface = new FeSurface(name, tie.SlaveCreationIds, tie.SlaveCreationData.DeepCopy(true, false));
                     surface.Internal = true;
                     surface.ParentSlaveMultiRegion = tie;
                     AddSurface(surface, update);
@@ -9601,7 +9601,7 @@ namespace PrePoMax
             if (contactPair.MasterRegionType == RegionTypeEnum.Selection)
             {
                 name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces, contactPair.Name + CaeMesh.Globals.MasterNameSuffix);
-                FeSurface surface = new FeSurface(name, contactPair.MasterCreationIds, contactPair.MasterCreationData.DeepClone());
+                FeSurface surface = new FeSurface(name, contactPair.MasterCreationIds, contactPair.MasterCreationData.DeepCopy(true, false));
                 surface.Internal = true;
                 surface.ParentMasterMultiRegion = contactPair;
                 AddSurface(surface, update);
@@ -9619,7 +9619,7 @@ namespace PrePoMax
             if (contactPair.SlaveRegionType == RegionTypeEnum.Selection)
             {
                 name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces, contactPair.Name + CaeMesh.Globals.SlaveNameSuffix);
-                FeSurface surface = new FeSurface(name, contactPair.SlaveCreationIds, contactPair.SlaveCreationData.DeepClone());
+                FeSurface surface = new FeSurface(name, contactPair.SlaveCreationIds, contactPair.SlaveCreationData.DeepCopy(true, false));
                 surface.Internal = true;
                 surface.ParentSlaveMultiRegion = contactPair;
                 AddSurface(surface, update);
@@ -10037,7 +10037,7 @@ namespace PrePoMax
                 {
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.NodeSets, initialCondition.Name);
                     FeNodeSet nodeSet = new FeNodeSet(name, initialCondition.CreationIds);
-                    nodeSet.CreationData = initialCondition.CreationData.DeepClone();
+                    nodeSet.CreationData = initialCondition.CreationData.DeepCopy(true, false);
                     nodeSet.Internal = true;
                     nodeSet.ParentMultiRegion = initialCondition;
                     AddNodeSet(nodeSet);
@@ -10050,7 +10050,7 @@ namespace PrePoMax
                 {
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.NodeSets, initialCondition.Name);
                     FeNodeSet nodeSet = new FeNodeSet(name, initialCondition.CreationIds);
-                    nodeSet.CreationData = initialCondition.CreationData.DeepClone();
+                    nodeSet.CreationData = initialCondition.CreationData.DeepCopy(true, false);
                     nodeSet.Internal = true;
                     nodeSet.ParentMultiRegion = initialCondition;
                     AddNodeSet(nodeSet);
@@ -10338,7 +10338,7 @@ namespace PrePoMax
                     //name = FeMesh.GetNextFreeSelectionName(_model.Mesh.NodeSets, historyOutput.Name);
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.NodeSets, "NODE_SELECTION-1");
                     FeNodeSet nodeSet = new FeNodeSet(name, historyOutput.CreationIds);
-                    nodeSet.CreationData = historyOutput.CreationData.DeepClone();
+                    nodeSet.CreationData = historyOutput.CreationData.DeepCopy(true, false);
                     nodeSet.Internal = true;
                     nodeSet.ParentMultiRegion = historyOutput;
                     AddNodeSet(nodeSet);
@@ -10352,7 +10352,7 @@ namespace PrePoMax
                     //name = FeMesh.GetNextFreeSelectionName(_model.Mesh.ElementSets, historyOutput.Name);
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.ElementSets, "ELEMENT_SELECTION-1");
                     FeElementSet elementSet = new FeElementSet(name, historyOutput.CreationIds);
-                    elementSet.CreationData = historyOutput.CreationData.DeepClone();
+                    elementSet.CreationData = historyOutput.CreationData.DeepCopy(true, false);
                     elementSet.Internal = true;
                     elementSet.ParentMultiRegion = historyOutput;
                     AddElementSet(elementSet);
@@ -10364,7 +10364,7 @@ namespace PrePoMax
                 else if (historyOutput is SectionHistoryOutput)
                 {
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces, historyOutput.Name);
-                    FeSurface surface = new FeSurface(name, historyOutput.CreationIds, historyOutput.CreationData.DeepClone());
+                    FeSurface surface = new FeSurface(name, historyOutput.CreationIds, historyOutput.CreationData.DeepCopy(true, false));
                     surface.Internal = true;
                     surface.ParentMultiRegion = historyOutput;
                     AddSurface(surface);
@@ -10707,7 +10707,7 @@ namespace PrePoMax
                 {
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.NodeSets, boundaryCondition.Name);
                     FeNodeSet nodeSet = new FeNodeSet(name, boundaryCondition.CreationIds);
-                    nodeSet.CreationData = boundaryCondition.CreationData.DeepClone();
+                    nodeSet.CreationData = boundaryCondition.CreationData.DeepCopy(true, false);
                     nodeSet.Internal = true;
                     nodeSet.ParentMultiRegion = boundaryCondition;
                     AddNodeSet(nodeSet);
@@ -10949,7 +10949,7 @@ namespace PrePoMax
                 {
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.NodeSets, load.Name);
                     FeNodeSet nodeSet = new FeNodeSet(name, load.CreationIds);
-                    nodeSet.CreationData = load.CreationData.DeepClone();
+                    nodeSet.CreationData = load.CreationData.DeepCopy(true, false);
                     nodeSet.Internal = true;
                     nodeSet.ParentMultiRegion = load;
                     AddNodeSet(nodeSet);
@@ -10962,7 +10962,7 @@ namespace PrePoMax
                 {
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.ElementSets, load.Name);
                     FeElementSet elementSet = new FeElementSet(name, load.CreationIds, true);
-                    elementSet.CreationData = load.CreationData.DeepClone();
+                    elementSet.CreationData = load.CreationData.DeepCopy(true, false);
                     elementSet.Internal = true;
                     elementSet.ParentMultiRegion = load;
                     AddElementSet(elementSet);
@@ -10976,7 +10976,7 @@ namespace PrePoMax
                          load is DFlux || load is FilmHeatTransfer || load is RadiationHeatTransfer)
                 {
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces, load.Name);
-                    FeSurface surface = new FeSurface(name, load.CreationIds, load.CreationData.DeepClone());
+                    FeSurface surface = new FeSurface(name, load.CreationIds, load.CreationData.DeepCopy(true, false));
                     surface.Internal = true;
                     surface.ParentMultiRegion = load;
                     AddSurface(surface);
@@ -11211,7 +11211,7 @@ namespace PrePoMax
                     {
                         name = FeMesh.GetNextFreeSelectionName(_model.Mesh.NodeSets, definedField.Name);
                         FeNodeSet nodeSet = new FeNodeSet(name, definedField.CreationIds);
-                        nodeSet.CreationData = definedField.CreationData.DeepClone();
+                        nodeSet.CreationData = definedField.CreationData.DeepCopy(true, false);
                         nodeSet.Internal = true;
                         nodeSet.ParentMultiRegion = definedField;
                         AddNodeSet(nodeSet);
@@ -12573,7 +12573,7 @@ namespace PrePoMax
                 referencePoint.CreatedFrom == FeReferencePointCreatedFrom.BetweenTwoPoints ||
                 referencePoint.CreatedFrom == FeReferencePointCreatedFrom.CircleCenter)
                 {
-                    _selection = referencePoint.CreationData.DeepClone();
+                    _selection = referencePoint.CreationData.DeepCopy(true, false);
                     referencePoint.CreationIds = GetSelectionIds();
                     _selection.Clear();
                 }
@@ -12738,7 +12738,7 @@ namespace PrePoMax
                     coordinateSystem.CenterCreatedFrom == CsPointCreatedFromEnum.BetweenTwoPoints ||
                     coordinateSystem.CenterCreatedFrom == CsPointCreatedFromEnum.CircleCenter)
                 {
-                    _selection = coordinateSystem.CenterCreationData.DeepClone();
+                    _selection = coordinateSystem.CenterCreationData.DeepCopy(true, false);
                     coordinateSystem.CenterCreationIds = GetSelectionIds();
                     _selection.Clear();
                 }
@@ -12750,7 +12750,7 @@ namespace PrePoMax
                     coordinateSystem.PointXCreatedFrom == CsPointCreatedFromEnum.BetweenTwoPoints ||
                     coordinateSystem.PointXCreatedFrom == CsPointCreatedFromEnum.CircleCenter)
                 {
-                    _selection = coordinateSystem.PointXCreationData.DeepClone();
+                    _selection = coordinateSystem.PointXCreationData.DeepCopy(true, false);
                     coordinateSystem.PointXCreationIds = GetSelectionIds();
                     _selection.Clear();
                 }
@@ -12762,7 +12762,7 @@ namespace PrePoMax
                     coordinateSystem.PointXYCreatedFrom == CsPointCreatedFromEnum.BetweenTwoPoints ||
                     coordinateSystem.PointXYCreatedFrom == CsPointCreatedFromEnum.CircleCenter)
                 {
-                    _selection = coordinateSystem.PointXYCreationData.DeepClone();
+                    _selection = coordinateSystem.PointXYCreationData.DeepCopy(true, false);
                     coordinateSystem.PointXYCreationIds = GetSelectionIds();
                     _selection.Clear();
                 }
@@ -13058,7 +13058,7 @@ namespace PrePoMax
         {
             if (resultHistoryOutput.RegionType == RegionTypeEnum.Selection && resultHistoryOutput.CreationData != null)
             {
-                _selection = resultHistoryOutput.CreationData.DeepClone();
+                _selection = resultHistoryOutput.CreationData.DeepCopy(true, false);
                 resultHistoryOutput.CreationIds = GetSelectionIds();
                 _selection.Clear();
             }
@@ -13348,7 +13348,11 @@ namespace PrePoMax
             try
             {
                 Selection.EnableSelectionCache(true);
-                foreach (var node in nodes) AddSelectionNode(node, false, false);
+                foreach (var node in nodes)
+                {
+                    _selection.Nodes.Add(node);
+                    //AddSelectionNode(node, false, false); // this is much slower but checks the 
+                }
             }
             catch
             { }
@@ -13578,18 +13582,10 @@ namespace PrePoMax
                 // Compatibility for version v0.5.2
                 if (_selection.CurrentView == -1) SetSelectionView(ViewGeometryModelResults.Model);
                 // Copy selection - change of the current view clears the selection history
-                Selection selectionCopy = _selection.DeepClone();
+                bool copyNodeHashes = _selection.SelectionCacheActive;
+                Selection selectionCopy = _selection.DeepCopy(true, copyNodeHashes);
                 // Set the selection view
                 CurrentView = GetSelectionView(selectionCopy);
-
-                if (_selection.SelectionCacheActive)
-                {
-                    for (int i = 0; i < _selection.Nodes.Count; i++)
-                    {
-                        selectionCopy.Nodes[i].Hash = _selection.Nodes[i].Hash;
-                    }
-                }
-
                 // If not only visible - show hidden parts
                 if (partsToShow != null && partsToShow.Length > 0)
                 {
@@ -13611,15 +13607,8 @@ namespace PrePoMax
                     }
                     GetIdsFromSelectionNode(node, ref selectedIds);
                 }
-
-                if (_selection.SelectionCacheActive)
-                {
-                    for (int i = 0; i < _selection.Nodes.Count; i++)
-                    {
-                        _selection.Nodes[i].Hash = selectionCopy.Nodes[i].Hash;
-                    }
-                }
-
+                // Copy node hashes
+                _selection = selectionCopy.DeepCopy(true, copyNodeHashes);
                 // Return
                 int[] sorted = selectedIds.ToArray();
                 // Do not sort nodes for angle measurement
@@ -14364,10 +14353,6 @@ namespace PrePoMax
                 BasePart part;
                 List<SelectionNode> selectionNodes = new List<SelectionNode>();
                 SelectionNodeMouse mouseNode;
-                // Copy current selection
-                Selection currentSelection = _selection;
-                _selection = selectionIn.DeepClone();
-                _selection.Clear();
                 //
                 foreach (var selectionNode in selectionIn.Nodes)
                 {
@@ -14476,11 +14461,8 @@ namespace PrePoMax
                     }
                 }
                 //
-                AddSelectionNodesDirectly(selectionNodes.ToArray(), false, false);
-                // Restore current selection
-                Selection selectionOut = _selection.DeepClone();
-                _selection = currentSelection;
-                //
+                Selection selectionOut = selectionIn.DeepCopy(false, false);   // copy only properties
+                selectionOut.Nodes.AddRange(selectionNodes);
                 return selectionOut;
             }
             else throw new NotSupportedException();
@@ -19999,7 +19981,7 @@ namespace PrePoMax
                 {
                     if (resultHistoryOutput.CreationData != null)
                     {
-                        Selection = resultHistoryOutput.CreationData.DeepClone();
+                        Selection = resultHistoryOutput.CreationData.DeepCopy(true, false);
                         HighlightSelection();
                     }
                 }

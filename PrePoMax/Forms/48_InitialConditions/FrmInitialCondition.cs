@@ -109,7 +109,7 @@ namespace PrePoMax.Forms
         {
             if (!Enabled)
             {
-                _selectionCopy = _controller.Selection.DeepClone();
+                _selectionCopy = _controller.Selection.DeepCopy(true, false);
             }
             //
             ShowHideSelectionForm();
@@ -418,7 +418,7 @@ namespace PrePoMax.Forms
                         //
                         if (InitialCondition.CreationData != null)
                         {
-                            _controller.Selection = InitialCondition.CreationData.DeepClone();
+                            _controller.Selection = InitialCondition.CreationData.DeepCopy(true, false);
                             _controller.HighlightSelection();
                         }
                     }
@@ -475,7 +475,7 @@ namespace PrePoMax.Forms
                         InitialCondition is InitialAngularVelocity)
                     {
                         InitialCondition.CreationIds = ids;
-                        InitialCondition.CreationData = _controller.Selection.DeepClone();
+                        InitialCondition.CreationData = _controller.Selection.DeepCopy(true, false);
                         //
                         propertyGrid.Refresh();
                         //

@@ -8063,7 +8063,7 @@ namespace CaeMesh
                 }
             }
             //
-            Selection splitSelection = selection.DeepClone();
+            Selection splitSelection = selection.DeepCopy(true, false);
             if (wasSplit) splitSelection.Nodes = singlePartSelections;
             return splitSelection;
         }

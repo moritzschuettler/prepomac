@@ -116,7 +116,7 @@ namespace PrePoMax.Forms
                 if (RemeshingParameters.RegionType == RegionTypeEnum.Selection &&
                     RemeshingParameters.CreationData != null)
                 {
-                    _controller.Selection = RemeshingParameters.CreationData.DeepClone();
+                    _controller.Selection = RemeshingParameters.CreationData.DeepCopy(true, false);
                 }
             }
             catch (Exception ex)
@@ -237,7 +237,7 @@ namespace PrePoMax.Forms
                         //
                         if (RemeshingParameters.CreationData != null)
                         {
-                            _controller.Selection = RemeshingParameters.CreationData.DeepClone();
+                            _controller.Selection = RemeshingParameters.CreationData.DeepCopy(true, false);
                             _controller.HighlightSelection(clear);
                         }
                     }
@@ -268,7 +268,7 @@ namespace PrePoMax.Forms
             if (RemeshingParameters != null && RemeshingParameters.RegionType == RegionTypeEnum.Selection)
             {
                 RemeshingParameters.CreationIds = ids;
-                RemeshingParameters.CreationData = _controller.Selection.DeepClone();
+                RemeshingParameters.CreationData = _controller.Selection.DeepCopy(true, false);
                 //
                 propertyGrid.Refresh();
                 //

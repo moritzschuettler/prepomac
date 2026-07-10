@@ -26,27 +26,27 @@ namespace UserControls
     }
     //
     [Serializable]
-    public class AdvisorPage
+    public class PanelPage
     {
         // Variables                                                                                                                
         protected int _minOffset;
-        protected int _horozontalOffset;
+        protected int _horizontalOffset;
         protected int _verticalOffset;
         //
         protected string _title;
         protected ViewType _associatedView;
         //
-        protected List<AdvisorItem> _items;
+        protected List<PanelItem> _items;
 
 
         // Properties                                                                                                               
-        public int HorozontalOffset
+        public int HorizontalOffset
         {
-            get { return _horozontalOffset; }
+            get { return _horizontalOffset; }
             set
             {
-                _horozontalOffset = value;
-                if (_horozontalOffset < 10) _horozontalOffset = 10;
+                _horizontalOffset = value;
+                if (_horizontalOffset < 10) _horizontalOffset = 10;
             }
         }
         public int VerticalOffset
@@ -62,7 +62,7 @@ namespace UserControls
         public string Title { get { return _title; } set { _title = value; } }
         public ViewType AssociatedView { get { return _associatedView; } set { _associatedView = value; } }
         //
-        public List<AdvisorItem> Items { get { return _items; } }
+        public List<PanelItem> Items { get { return _items; } }
 
 
         // Events                                                                                                                   
@@ -70,23 +70,23 @@ namespace UserControls
 
 
         // Constructors                                                                                                             
-        public AdvisorPage()
+        public PanelPage()
         {
             _minOffset = 10;
-            _horozontalOffset = _minOffset;
+            _horizontalOffset = _minOffset;
             _verticalOffset = _minOffset;
             //
-            _items = new List<AdvisorItem>();
+            _items = new List<PanelItem>();
         }
 
 
         // Event handlers                                                                                                           
         private void LinkLabel_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            if (sender is LinkLabel ll && ll.Tag is AdvisorItemLinkLabel aill && aill != null)
+            if (sender is LinkLabel ll && ll.Tag is PanelItemLinkLabel pill && pill != null)
             {
                 SetViewEvent?.Invoke(_associatedView);
-                aill.Activate();
+                pill.Activate();
             }
         }
 
@@ -98,27 +98,27 @@ namespace UserControls
             //
             foreach (var item in _items)
             {
-                if (item is AdvisorItemLabel ail)
+                if (item is PanelItemLabel pil)
                 {
                     Label label = new Label();
                     label.AutoSize = true;
                     label.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-                    label.Left = ail.IndentLevel * _horozontalOffset;
-                    label.Text = ail.Text;
-                    label.Tag = ail;
+                    label.Left = pil.IndentLevel * _horizontalOffset;
+                    label.Text = pil.Text;
+                    label.Tag = pil;
                     
                     //
                     controls.Add(label);
                 }
-                else if (item is AdvisorItemLinkLabel aill)
+                else if (item is PanelItemLinkLabel pill)
                 {
                     LinkLabel linkLabel = new LinkLabel();
                     linkLabel.AutoSize = true;
                     linkLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
                     linkLabel.LinkBehavior = LinkBehavior.NeverUnderline;
-                    linkLabel.Left = aill.IndentLevel * _horozontalOffset;
-                    linkLabel.Text = aill.Text;
-                    linkLabel.Tag = aill;
+                    linkLabel.Left = pill.IndentLevel * _horizontalOffset;
+                    linkLabel.Text = pill.Text;
+                    linkLabel.Tag = pill;
                     linkLabel.LinkClicked += LinkLabel_LinkClicked;
                     //
                     controls.Add(linkLabel);

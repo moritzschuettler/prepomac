@@ -324,7 +324,7 @@ namespace PrePoMax.Forms
                 //
                 if (creationData != null)
                 {
-                    _controller.Selection = creationData.DeepClone();
+                    _controller.Selection = creationData.DeepCopy(true, false);
                     _controller.HighlightSelection(clear, true, useSecondaryHighlightColor);
                 }
             }
@@ -385,7 +385,7 @@ namespace PrePoMax.Forms
                     sp.BasePartRegionType == RegionTypeEnum.Selection)
                 {
                     sp.BasePartCreationIds = ids;
-                    sp.BasePartCreationData = _controller.Selection.DeepClone();
+                    sp.BasePartCreationData = _controller.Selection.DeepCopy(true, false);
                     //
                     bool sizeSet = false;
                     if (ids != null && ids.Length > 0)
@@ -415,7 +415,7 @@ namespace PrePoMax.Forms
                          sp.SplitterSurfaceRegionType == RegionTypeEnum.Selection)
                 {
                     sp.SplitterSurfaceCreationIds = ids;
-                    sp.SplitterSurfaceCreationData = _controller.Selection.DeepClone();
+                    sp.SplitterSurfaceCreationData = _controller.Selection.DeepCopy(true, false);
                     changed = true;
                 }
                 //

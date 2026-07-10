@@ -9,7 +9,7 @@
 
 namespace UserControls
 {
-    partial class AdvisorControl
+    partial class AdvisorPanel
     {
         /// <summary> 
         /// Required designer variable.
@@ -292,7 +292,7 @@ namespace UserControls
             this.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.Name = "AdvisorControl";
             this.Size = new System.Drawing.Size(233, 462);
-            this.Resize += new System.EventHandler(this.AdvisorControl_Resize);
+            this.Resize += new System.EventHandler(this.AdvisorPanel_Resize);
             this.panBackground.ResumeLayout(false);
             this.panBackground.PerformLayout();
             this.panContents.ResumeLayout(false);

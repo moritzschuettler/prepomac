@@ -172,7 +172,7 @@ namespace PrePoMax.Forms
             if (ids != null && ids.Length > 0)
             {
                 GeometrySelection.GeometryIds = ids;
-                GeometrySelection.CreationData = _controller.Selection.DeepClone();
+                GeometrySelection.CreationData = _controller.Selection.DeepCopy(true, false);
                 //
                 string partName;
                 string itemName;

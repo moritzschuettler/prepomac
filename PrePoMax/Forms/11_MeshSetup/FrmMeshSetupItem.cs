@@ -585,7 +585,7 @@ namespace PrePoMax.Forms
                         }
                         catch { }
                         // Set previous selection to continue it
-                        _controller.Selection = MeshSetupItem.CreationData.DeepClone();
+                        _controller.Selection = MeshSetupItem.CreationData.DeepCopy(true, false);
                     }
                 }
             }
@@ -646,7 +646,7 @@ namespace PrePoMax.Forms
                     }
                     //
                     MeshSetupItem.CreationIds = ids;
-                    MeshSetupItem.CreationData = _controller.Selection.DeepClone();
+                    MeshSetupItem.CreationData = _controller.Selection.DeepCopy(true, false);
                     //
                     propertyGrid.Refresh();
                     //

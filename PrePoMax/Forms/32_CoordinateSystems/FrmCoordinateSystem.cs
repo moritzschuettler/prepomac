@@ -240,7 +240,7 @@ namespace PrePoMax.Forms
             if (IsCenterPropertySelectedForSelection())
             {
                 cs.CenterCreationIds = ids;
-                cs.CenterCreationData = _controller.Selection.DeepClone();
+                cs.CenterCreationData = _controller.Selection.DeepCopy(true, false);
                 //
                 UpdateCoordinateSystem(CoordinateSystem);
                 //
@@ -251,7 +251,7 @@ namespace PrePoMax.Forms
             else if (IsPointXPropertySelectedForSelection())
             {
                 cs.PointXCreationIds = ids;
-                cs.PointXCreationData = _controller.Selection.DeepClone();
+                cs.PointXCreationData = _controller.Selection.DeepCopy(true, false);
                 //
                 UpdateCoordinateSystem(CoordinateSystem);
                 //
@@ -262,7 +262,7 @@ namespace PrePoMax.Forms
             else if (IsPointXYPropertySelectedForSelection())
             {
                 cs.PointXYCreationIds = ids;
-                cs.PointXYCreationData = _controller.Selection.DeepClone();
+                cs.PointXYCreationData = _controller.Selection.DeepCopy(true, false);
                 //
                 UpdateCoordinateSystem(CoordinateSystem);
                 //
@@ -308,7 +308,7 @@ namespace PrePoMax.Forms
                     {
                         if (cs.CenterCreationData != null)
                         {
-                            _controller.Selection = cs.CenterCreationData.DeepClone();
+                            _controller.Selection = cs.CenterCreationData.DeepCopy(true, false);
                             _controller.HighlightSelection(false, true, true);
                         }
                         coor = new double[][] { cs.Center().Coor };
@@ -317,7 +317,7 @@ namespace PrePoMax.Forms
                     {
                         if (cs.PointXCreationData != null)
                         {
-                            _controller.Selection = cs.PointXCreationData.DeepClone();
+                            _controller.Selection = cs.PointXCreationData.DeepCopy(true, false);
                             _controller.HighlightSelection(false, true, true);
                         }
                         coor = new double[][] { cs.PointX() };
@@ -326,7 +326,7 @@ namespace PrePoMax.Forms
                     {
                         if (cs.PointXYCreationData != null)
                         {
-                            _controller.Selection = cs.PointXYCreationData.DeepClone();
+                            _controller.Selection = cs.PointXYCreationData.DeepCopy(true, false);
                             _controller.HighlightSelection(false, true, true);
                         }
                         coor = new double[][] { cs.PointXY() };

@@ -327,7 +327,7 @@ namespace PrePoMax.Forms
                             //
                             if (DefinedField.CreationData != null)
                             {
-                                _controller.Selection = DefinedField.CreationData.DeepClone();
+                                _controller.Selection = DefinedField.CreationData.DeepCopy(true, false);
                                 _controller.HighlightSelection();
                             }
                         }
@@ -373,7 +373,7 @@ namespace PrePoMax.Forms
                 if (DefinedField is DefinedTemperature)
                 {
                     DefinedField.CreationIds = ids;
-                    DefinedField.CreationData = _controller.Selection.DeepClone();
+                    DefinedField.CreationData = _controller.Selection.DeepCopy(true, false);
                     //
                     propertyGrid.Refresh();
                     //

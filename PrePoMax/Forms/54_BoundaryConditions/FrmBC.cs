@@ -468,7 +468,7 @@ namespace PrePoMax.Forms
                         //
                         if (bc.CreationData != null)
                         {
-                            _controller.Selection = bc.CreationData.DeepClone();
+                            _controller.Selection = bc.CreationData.DeepCopy(true, false);
                             _controller.HighlightSelection();
                         }
                     }
@@ -521,7 +521,7 @@ namespace PrePoMax.Forms
                     BoundaryCondition is SubmodelBC || BoundaryCondition is TemperatureBC)
                 {
                     BoundaryCondition.CreationIds = ids;
-                    BoundaryCondition.CreationData = _controller.Selection.DeepClone();
+                    BoundaryCondition.CreationData = _controller.Selection.DeepCopy(true, false);
                     //
                     propertyGrid.Refresh();
                     //

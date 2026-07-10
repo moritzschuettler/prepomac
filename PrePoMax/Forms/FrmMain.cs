@@ -15,6 +15,7 @@ using CaeResults;
 using FileInOut.Output;
 using PrePoMax.Commands;
 using PrePoMax.Forms;
+using Python.Runtime;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -48,7 +49,8 @@ namespace PrePoMax
         private Controller _controller;
         private CommandLineOptions _cmdOptions;
         private string[] outputLines;
-        private AdvisorControl _advisorControl;
+        private SidePanel _visibleSidePanel;
+        private PythonPanel _pythonPanel;
         private KeyboardHook _keyboardHook;
         private Dictionary<ViewGeometryModelResults, int> _selectedSymbolIndex;
         private Stack<bool[]> _prevMenuStates;
@@ -147,11 +149,11 @@ namespace PrePoMax
                 }
                 else throw new NotSupportedException();
                 //
-                if (_advisorControl != null)
+                if (_visibleSidePanel != null)
                 {
                     ViewType viewType = GetViewType(view);
                     //
-                    _advisorControl.PrepareControls(viewType);
+                    _visibleSidePanel.PrepareControls(viewType);
                 }
                 //
                 SetMenuAndToolStripVisibility();
@@ -341,6 +343,8 @@ namespace PrePoMax
                 _vtk.Form_EndEditArrowWidget = EndEditArrowAnnotation;
                 _vtk.Form_WidgetPicked = AnnotationPicked;
                 _vtk.Form_BoxZoomEnded = BoxZoomEnded;
+                // Output
+                tbOutput.Dock = DockStyle.Fill;
                 // Forms
                 _formLocation = new Point(100, 100);
                 _allForms = new List<Form>();
@@ -898,7 +902,7 @@ namespace PrePoMax
         // Keyboard
         private void KeyboardHook_KeyDown(KeyboardHook.VKeys vKey)
         {
-            if (this == ActiveForm && !tbOutput.Focused && !_modelTree.Focused)
+            if (this == ActiveForm && !tbOutput.Focused && !_visibleSidePanel.Focused && !_modelTree.Focused)
             {
                 Keys key = (Keys)vKey;
                 //
@@ -966,7 +970,7 @@ namespace PrePoMax
                 else if (viewType == ViewType.Results) _controller.CurrentView = ViewGeometryModelResults.Results;
                 else throw new NotSupportedException();
                 //
-                _advisorControl?.PrepareControls(viewType);
+                _visibleSidePanel?.PrepareControls(viewType);
             }
             catch (Exception ex)
             {
@@ -1953,6 +1957,7 @@ namespace PrePoMax
                     //
                     _controller.ModelChanged = false; // must be here since adding a unit system changes the model
                 }
+                PythonEngineManager.SetResults(_controller.AllResults);
             }
             catch (Exception ex)
             {
@@ -2040,6 +2045,7 @@ namespace PrePoMax
             ActionOnFile(fileName, parameters);
             //
             UpdateResultMenus();
+            PythonEngineManager.SetResults(_controller.AllResults);
             //
             if (_controller.CurrentView == ViewGeometryModelResults.Geometry) _controller.DrawGeometry(resetCamera);
             else if (_controller.CurrentView == ViewGeometryModelResults.Model) _controller.DrawModel(resetCamera);
@@ -2144,6 +2150,7 @@ namespace PrePoMax
             {
                 SetStateWorking(Globals.SavingText);
                 await Task.Run(() => _controller.Save());
+                PythonEngineManager.SetResults(_controller.AllResults);
             }
             finally
             {
@@ -2573,6 +2580,95 @@ namespace PrePoMax
         #endregion  ################################################################################################################
 
         #region View menu ##########################################################################################################
+        // Controls
+        private void tsmiPythonConsole_Click(object sender, EventArgs e)
+        {
+            if (!_controller.ModelInitialized) return;
+            // Change the panel check state
+            tsmiPythonConsole.Checked = !tsmiPythonConsole.Checked;
+            // Add Python panel
+            if (tsmiPythonConsole.Checked == true)
+            {
+                // Lazy initialization of the Python panel
+                if (_pythonPanel == null)
+                {
+                    _pythonPanel = new PythonPanel();
+                    _pythonPanel.ExecuteCommand += PythonConsole_ExecuteCommand;
+                    _pythonPanel.AutocompleteRequested += PythonConsole_AutocompleteRequested;
+                    _pythonPanel.CloseButtonPressedEvent += tsmiPythonConsole_Click;
+                }
+                ShowSidePanel(_pythonPanel, 0.5, 100, 1000);
+            }
+            else HideSidePanel();
+        }
+        private void ShowSidePanel(SidePanel sidePanel, double relativeSize, int min, int max)
+        {
+            // Reset
+            if (sidePanel != null) HideSidePanel();
+            // Set
+            tsmiAdvisor.Checked = sidePanel is AdvisorPanel;
+            tsmiPythonConsole.Checked = sidePanel is PythonPanel;
+            //
+            Control parent = panelControl.Parent;
+            if (parent == splitContainer2.Panel1)
+            {
+                // First remove the vtk control and panel border
+                parent.Controls.Remove(_vtk);
+                parent.Controls.Remove(panelControl);
+                // Split container
+                SplitContainer splitContainer = new SplitContainer();
+                splitContainer.FixedPanel = FixedPanel.Panel2;
+                splitContainer.Dock = DockStyle.Fill;
+                parent.Controls.Add(splitContainer);
+                // Set the Panel 2 size - min 100 max 300
+                splitContainer.SplitterDistance = Math.Max(min, Math.Max(parent.Width - max, (int)(parent.Width * relativeSize)));
+                // Panel 1 - LEFT
+                splitContainer.Panel1.Controls.Add(_vtk);
+                splitContainer.Panel1.Controls.Add(panelControl);
+                panelControl.SendToBack();
+                // Update vtk control size
+                UpdateVtkControlSize();
+                // Panel 2 - RIGHT
+                _visibleSidePanel = sidePanel;
+                splitContainer.Panel2.Controls.Add(_visibleSidePanel);
+                _visibleSidePanel.Dock = DockStyle.Fill;
+                _visibleSidePanel.UpdateDesign();
+                _visibleSidePanel.AutoScroll = true;
+            }
+        }
+        private void HideSidePanel()
+        {
+            if (_visibleSidePanel == null) return;
+            // Remove side panel
+            Control parent = panelControl.Parent;
+            if (parent is SplitterPanel && parent != splitContainer2.Panel1)
+            {
+                // First remove the vtk control and panel border
+                parent.Controls.Remove(_vtk);
+                parent.Controls.Remove(panelControl);
+                // Remove added split container
+                splitContainer2.Panel1.Controls.Clear();
+                _visibleSidePanel = null;
+                // Add controls back
+                splitContainer2.Panel1.Controls.Add(panelControl);
+                splitContainer2.Panel1.Controls.Add(_vtk);
+                panelControl.SendToBack();
+                // Update vtk control size
+                UpdateVtkControlSize();
+            }
+        }
+        private void PythonConsole_ExecuteCommand(object sender, PythonConsoleCommandEventArgs e)
+        {
+            PythonConsoleResult result = PythonEngineManager.PushLine(e.Command);
+            //
+            e.Output = result.Output;
+            e.Error = result.Error;
+            e.NeedMoreInput = result.NeedMoreInput;
+        }
+        private void PythonConsole_AutocompleteRequested(object sender, PythonConsoleAutocompleteEventArgs e)
+        {
+            e.Completions.AddRange(PythonEngineManager.GetCompletions(e.Expression, e.Prefix));
+        }
         // Standard views
         private void tsmiFrontView_Click(object sender, EventArgs e)
         {
@@ -8469,6 +8565,15 @@ namespace PrePoMax
         #endregion  ################################################################################################################
 
         #region Help menu  #########################################################################################################
+        internal void tsmiAdvisor_Click(object sender, EventArgs e)
+        {
+            if (!_controller.ModelInitialized) return;
+            // Change the wizard check state
+            tsmiAdvisor.Checked = !tsmiAdvisor.Checked;
+            // Add wizard panel
+            if (tsmiAdvisor.Checked == true) ShowSidePanel(AdvisorCreator.CreatePanel(this), 0.2, 100, 300);
+            else HideSidePanel();
+        }
         private void tsmiHomePage_Click(object sender, EventArgs e)
         {
             System.Diagnostics.Process.Start(Globals.HomePage);
@@ -8481,6 +8586,7 @@ namespace PrePoMax
                 frmSplash.ShowDialog(this);
             }
         }
+        
         #endregion  ################################################################################################################
 
         #region Selection methods  #################################################################################################
@@ -10747,12 +10853,26 @@ namespace PrePoMax
                 //AnimateRotation();
                 //TestParameterization();
                 //TestImportedStLoad();
-                Test3MF();
+                //Test3MF();
+                TestPython();
             }
             catch
             {
 
             }
+        }
+        private void TestPython()
+        {
+            PythonEngineManager.SetResults(_controller.AllResults);
+            string result = PythonEngineManager.Execute(
+                "result_names = results.get_result_names()\n" +
+                "for rn in result_names:\n" +
+                "    print(rn)\n" +
+                "    field_names = results.get_field_names(rn)\n" +
+                "    for fn in field_names:\n" +
+                "        print('    ' + fn)\n"
+                );
+            MessageBoxes.ShowInfo(result);
         }
         private void Test3MF()
         {
@@ -11181,63 +11301,7 @@ namespace PrePoMax
             catch
             { }
         }
-        internal void tsmiAdvisor_Click(object sender, EventArgs e)
-        {
-            if (!_controller.ModelInitialized) return;
-            // Change the wizard check state
-            tsmiAdvisor.Checked = !tsmiAdvisor.Checked;
-            // Add wizard panel
-            if (tsmiAdvisor.Checked == true)
-            {
-                Control parent = panelControl.Parent;
-                if (parent == splitContainer2.Panel1)
-                {
-                    // First remove the vtk control and panel border
-                    parent.Controls.Remove(_vtk);
-                    parent.Controls.Remove(panelControl);
-                    // Split container
-                    SplitContainer splitContainer = new SplitContainer();
-                    splitContainer.FixedPanel = FixedPanel.Panel2;
-                    splitContainer.Dock = DockStyle.Fill;
-                    parent.Controls.Add(splitContainer);
-                    // Set the Panel 2 size - min 100 max 300
-                    splitContainer.SplitterDistance = Math.Max(100, Math.Max(parent.Width - 300, (int)(parent.Width * 0.8)));
-                    // Panel 1 - LEFT
-                    splitContainer.Panel1.Controls.Add(_vtk);
-                    splitContainer.Panel1.Controls.Add(panelControl);
-                    panelControl.SendToBack();
-                    // Update vtk control size
-                    UpdateVtkControlSize();
-                    // Panel 2 - RIGHT
-                    _advisorControl = AdvisorCreator.CreateControl(this);
-                    //
-                    splitContainer.Panel2.Controls.Add(_advisorControl);
-                    _advisorControl.Dock = DockStyle.Fill;
-                    _advisorControl.UpdateDesign();
-                    _advisorControl.AutoScroll = true;
-                }
-            }
-            // Remove wizard panel
-            else
-            {
-                Control parent = panelControl.Parent;
-                if (parent is SplitterPanel && parent != splitContainer2.Panel1)
-                {
-                    // First remove the vtk control and panel border
-                    parent.Controls.Remove(_vtk);
-                    parent.Controls.Remove(panelControl);
-                    // Remove added split container
-                    splitContainer2.Panel1.Controls.Clear();
-                    _advisorControl = null;
-                    // Add controls back
-                    splitContainer2.Panel1.Controls.Add(panelControl);
-                    splitContainer2.Panel1.Controls.Add(_vtk);
-                    panelControl.SendToBack();
-                    // Update vtk control size
-                    UpdateVtkControlSize();
-                }
-            }
-        }
+        
 
 
     }

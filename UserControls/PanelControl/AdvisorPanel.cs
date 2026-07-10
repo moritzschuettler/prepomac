@@ -19,11 +19,11 @@ using System.Windows.Forms;
 
 namespace UserControls
 {
-    public partial class AdvisorControl : UserControl
+    public partial class AdvisorPanel : SidePanel
     {
         // Variables                                                                                                                
-        protected LinkedListNode<AdvisorPage> _currentPageNode;
-        protected LinkedList<AdvisorPage> _pages;
+        protected LinkedListNode<PanelPage> _currentPageNode;
+        protected LinkedList<PanelPage> _pages;
 
 
         // Properties                                                                                                               
@@ -35,14 +35,14 @@ namespace UserControls
 
 
         // Constructor                                                                                                              
-        public AdvisorControl(Action<object, EventArgs> CloseButtonPressed, Action<ViewType> SetView)
+        public AdvisorPanel(Action<object, EventArgs> CloseButtonPressed, Action<ViewType> SetView)
         {
             DoubleBuffered = true;
             //
             InitializeComponent();
             //
             _currentPageNode = null;
-            _pages = new LinkedList<AdvisorPage>();
+            _pages = new LinkedList<PanelPage>();
             //
             CloseButtonPressedEvent = CloseButtonPressed;
             SetViewEvent = SetView;
@@ -50,9 +50,9 @@ namespace UserControls
 
 
         // Event handlers                                                                                                           
-        private void AdvisorControl_Resize(object sender, EventArgs e)
+        private void AdvisorPanel_Resize(object sender, EventArgs e)
         {
-            UpdateCurentPageControlPositions();
+            UpdateCurrentPageControlPositions();
         }
         //
         private void btnClose_MouseEnter(object sender, EventArgs e)
@@ -107,14 +107,14 @@ namespace UserControls
         }
         private void lnklabContents_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            _currentPageNode = (LinkedListNode<AdvisorPage>)((LinkLabel)sender).Tag;
+            _currentPageNode = (LinkedListNode<PanelPage>)((LinkLabel)sender).Tag;
             //
             ShowCurrentPage();
         }
        
 
         // Methods                                                                                                                  
-        public void AddPage(AdvisorPage advisorPage)
+        public void AddPage(PanelPage advisorPage)
         {
             advisorPage.SetViewEvent += SetViewEvent;
             //
@@ -122,7 +122,7 @@ namespace UserControls
             //
             if (_currentPageNode == null) _currentPageNode = page;
         }
-        public void PrepareControls(ViewType viewType)
+        override public void PrepareControls(ViewType viewType)
         {            
             int verticalOffset = 2;
             int horozontalOffset = 0;
@@ -130,7 +130,7 @@ namespace UserControls
             int count = 1;
             panContents.Controls.Clear();
             //
-            for (LinkedListNode<AdvisorPage> page = _pages.First; page != null; page = page.Next)
+            for (LinkedListNode<PanelPage> page = _pages.First; page != null; page = page.Next)
             {
                 y += verticalOffset;
                 //
@@ -156,7 +156,7 @@ namespace UserControls
             //
             if (_currentPageNode.Value.AssociatedView != viewType)
             {
-                for (LinkedListNode<AdvisorPage> page = _pages.First; page != null; page = page.Next)
+                for (LinkedListNode<PanelPage> page = _pages.First; page != null; page = page.Next)
                 {
                     if (page.Value.AssociatedView == viewType)
                     {
@@ -168,9 +168,9 @@ namespace UserControls
             //
             ShowCurrentPage();
         }
-        public void UpdateDesign()
+        override public void UpdateDesign()
         {
-            UpdateCurentPageControlPositions();
+            UpdateCurrentPageControlPositions();
         }
         //
         private void ShowCurrentPage()
@@ -204,7 +204,7 @@ namespace UserControls
                 panPage.Controls.Clear();
                 panPage.Controls.AddRange(_currentPageNode.Value.GetControls());
                 // Update positions
-                UpdateCurentPageControlPositions();
+                UpdateCurrentPageControlPositions();
                 // Previous/Next
                 lnklabPrevious.Visible = _currentPageNode.Previous != null;
                 lnklabNext.Visible = _currentPageNode.Next != null;
@@ -216,20 +216,20 @@ namespace UserControls
             if (pageIndex >= _pages.Count) pageIndex = _pages.Count - 1;
             //
             int count = 0;
-            for (LinkedListNode<AdvisorPage> page = _pages.First; page != null && count++ != pageIndex; page = page.Next)
+            for (LinkedListNode<PanelPage> page = _pages.First; page != null && count++ != pageIndex; page = page.Next)
             {
                 _currentPageNode = page;
             }
             //
             ShowCurrentPage();
         }
-        private void UpdateCurentPageControlPositions()
+        private void UpdateCurrentPageControlPositions()
         {
-            UpdateCurentPageControlPositionsOnce();
+            UpdateCurrentPageControlPositionsOnce();
             //
-            UpdateCurentPageControlPositionsOnce();
+            UpdateCurrentPageControlPositionsOnce();
         }
-        private void UpdateCurentPageControlPositionsOnce()
+        private void UpdateCurrentPageControlPositionsOnce()
         {
             if (_currentPageNode != null)
             {

@@ -344,7 +344,7 @@ namespace PrePoMax.Forms
                         //
                         if (HistoryOutput.CreationData != null)
                         {
-                            _controller.Selection = HistoryOutput.CreationData.DeepClone();
+                            _controller.Selection = HistoryOutput.CreationData.DeepCopy(true, false);
                             _controller.HighlightSelection();
                         }
                     }
@@ -388,7 +388,7 @@ namespace PrePoMax.Forms
                     HistoryOutput is SectionHistoryOutput)
                 {
                     HistoryOutput.CreationIds = ids;
-                    HistoryOutput.CreationData = _controller.Selection.DeepClone();
+                    HistoryOutput.CreationData = _controller.Selection.DeepCopy(true, false);
                     //
                     propertyGrid.Refresh();
                     //

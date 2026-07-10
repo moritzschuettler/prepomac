@@ -517,7 +517,7 @@ namespace PrePoMax.Forms
                         if (Section.CreationData != null)
                         {
                             bool backfaceCulling = _viewSection is ViewSolidSection;
-                            _controller.Selection = Section.CreationData.DeepClone();
+                            _controller.Selection = Section.CreationData.DeepCopy(true, false);
                             _controller.HighlightSelection(true, backfaceCulling);
                         }
                     }
@@ -559,7 +559,7 @@ namespace PrePoMax.Forms
                     Section is PointMassSection || Section is DistributedMassSection)
                 {
                     Section.CreationIds = ids;
-                    Section.CreationData = _controller.Selection.DeepClone();
+                    Section.CreationData = _controller.Selection.DeepCopy(true, false);
                     //
                     propertyGrid.Refresh();
                     //

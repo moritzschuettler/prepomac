@@ -75,7 +75,7 @@ namespace CaeMesh
             base.CopyFrom(meshSetupItem);
             //
             _creationIds = meshSetupItem.CreationIds?.ToArray();
-            _creationData = meshSetupItem.CreationData?.DeepClone();
+            _creationData = meshSetupItem.CreationData?.DeepCopy(true, false);
         }
         // ISerialization
         public new void GetObjectData(SerializationInfo info, StreamingContext context)

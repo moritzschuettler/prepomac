@@ -166,7 +166,7 @@ namespace PrePoMax.Forms
             {
                 if (ElementSet.CreationData != null)
                 {
-                    _controller.Selection = ElementSet.CreationData.DeepClone();
+                    _controller.Selection = ElementSet.CreationData.DeepCopy(true, false);
                     _controller.HighlightSelection();
                 }
             }
@@ -180,7 +180,7 @@ namespace PrePoMax.Forms
         public void SelectionChanged(int[] ids)
         {
             ElementSet.Labels = ids;
-            ElementSet.CreationData = _controller.Selection.DeepClone();
+            ElementSet.CreationData = _controller.Selection.DeepCopy(true, false);
             //
             propertyGrid.Refresh();
             //

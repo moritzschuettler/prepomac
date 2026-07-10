@@ -16,7 +16,7 @@ using System.Threading.Tasks;
 namespace UserControls
 {
     [Serializable]
-    public class AdvisorItemLinkLabel : AdvisorItem
+    public class PanelItemLinkLabel : PanelItem
     {
         // Variables                                                                                                                
         protected List<Action<object, EventArgs>> _actions;
@@ -29,7 +29,7 @@ namespace UserControls
 
 
         // Constructors                                                                                                             
-        public AdvisorItemLinkLabel()
+        public PanelItemLinkLabel()
         {
             _actions = new List<Action<object, EventArgs>>();
             _senders = new List<object>();

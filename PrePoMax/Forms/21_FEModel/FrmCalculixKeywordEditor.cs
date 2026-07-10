@@ -19,9 +19,7 @@ using System.Windows.Forms;
 using CaeJob;
 using FileInOut.Output.Calculix;
 using CaeGlobals;
-using FastColoredTextBoxNS;
 using System.IO;
-using System.Text.RegularExpressions;
 using System.Collections.ObjectModel;
 using System.Reflection;
 using UserControls;
@@ -31,7 +29,7 @@ namespace PrePoMax.Forms
     
     public partial class FrmCalculixKeywordEditor : PrePoMaxChildForm
     {
-        // dll routines
+        // dll routines                                                                                                             
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         public static extern bool LockWindowUpdate(IntPtr hWndLock);
 
@@ -42,14 +40,6 @@ namespace PrePoMax.Forms
         private int _selectedKeywordFirstLine;
         private int _selectedKeywordNumOfLines;
         private bool _adding;
-        // Styles
-        private Style[] allStyles;
-        private Style GreenStyle = new TextStyle(Brushes.Green,
-                                                 new SolidBrush(Color.FromArgb(230, 255, 230)),
-                                                 FontStyle.Regular);
-        private Style BlueStyle = new TextStyle(Brushes.Blue, null, FontStyle.Regular);
-        private Style GrayStyle = new TextStyle(Brushes.Gray, null, FontStyle.Regular);
-        
 
         // Properties                                                                                                               
         public List<CalculixKeyword> Keywords { get { return _keywords; } set { _keywords = value; } }
@@ -65,7 +55,7 @@ namespace PrePoMax.Forms
         {
             InitializeComponent();
             //
-            allStyles = new Style[] { GreenStyle, BlueStyle, GrayStyle };
+            citbKeyword.TextChanged += ictbKeyword_TextChanged;
         }
 
 
@@ -79,15 +69,15 @@ namespace PrePoMax.Forms
                 if (cltvKeywordsTree.SelectedNode.Tag is KeywordAtNode kn1 && kn1.Keyword is CalculixUserKeyword)
                     userNode = true;
                 // De-reference text changed event
-                fctbKeyword.TextChanged -= fctbKeyword_TextChanged;
+                citbKeyword.TextChanged -= ictbKeyword_TextChanged;
                 // Clear keyword textbox
-                fctbKeyword.Clear();
+                citbKeyword.Clear();
                 // Add keyword data to keyword textbox
-                fctbKeyword.Tag = cltvKeywordsTree.SelectedNode.Tag;
-                if (fctbKeyword.Tag != null && fctbKeyword.Tag is KeywordAtNode kn2)
+                citbKeyword.Tag = cltvKeywordsTree.SelectedNode.Tag;
+                if (citbKeyword.Tag != null && citbKeyword.Tag is KeywordAtNode kn2)
                 {
-                    fctbKeyword.Text = kn2.Data;
-                    fctbKeyword.ReadOnly = !userNode;
+                    citbKeyword.Text = kn2.Data;
+                    citbKeyword.ReadOnly = !userNode;
                     // Activate/Deactivate
                     cbActive.CheckedChanged -= cbActive_CheckedChanged;
                     if (kn2.Keyword is CalculixUserKeyword ck)
@@ -114,13 +104,13 @@ namespace PrePoMax.Forms
                 _selectedKeywordFirstLine =
                     GetFirstLineOfSelectedNode(cltvKeywordsTree.Nodes[0], cltvKeywordsTree.SelectedNode, ref nodeFound);
                 // Re-reference text changed event
-                fctbKeyword.TextChanged += fctbKeyword_TextChanged;
+                citbKeyword.TextChanged += ictbKeyword_TextChanged;
                 //
                 UpdateKeywordTextBox();
             }
         }
         //
-        private void fctbKeyword_KeyDown(object sender, KeyEventArgs e)
+        private void ictbKeyword_KeyDown(object sender, KeyEventArgs e)
         {
             //if (e.Control && e.KeyCode == Keys.V)
             //{
@@ -128,20 +118,12 @@ namespace PrePoMax.Forms
             //    e.Handled = true;
             //}
         }
-        private void fctbKeyword_TextChanged(object sender, TextChangedEventArgs e)
+        private void ictbKeyword_TextChanged(object sender, EventArgs e)
         {
             //System.Diagnostics.Debug.WriteLine(DateTime.Now.Millisecond.ToString() + " ms");
             tUpdate.Stop();
             tUpdate.Start();
             tUpdate.Interval = 500;
-        }
-        private void fctbInpFile_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            // Set style
-            e.ChangedRange.ClearStyle(allStyles);
-            e.ChangedRange.SetStyle(GreenStyle, @"\*\*.*$", RegexOptions.Multiline);
-            e.ChangedRange.SetStyle(BlueStyle, @"\*.*$", RegexOptions.Multiline);
-            e.ChangedRange.SetStyle(GrayStyle, @"\.\.\..*$", RegexOptions.Multiline);
         }
 
         private void btnAddKeyword_Click(object sender, EventArgs e)
@@ -253,17 +235,17 @@ namespace PrePoMax.Forms
         private void cbActive_CheckedChanged(object sender, EventArgs e)
         {
             // De-reference text changed event
-            fctbKeyword.TextChanged -= fctbKeyword_TextChanged;
+            citbKeyword.TextChanged -= ictbKeyword_TextChanged;
             string data = "";
             if (cbActive.Checked)
-                data = string.Join(Environment.NewLine, fctbKeyword.Lines.Select(line => line.Substring(2, line.Length - 2)));
+                data = citbKeyword.GetActivatedText();
             else
-                data = string.Join(Environment.NewLine, fctbKeyword.Lines.Select(line => "**" + line));
+                data = citbKeyword.GetDeactivatedText();
             
             //
-            fctbKeyword.Text = data;
+            citbKeyword.Text = data;
             // Re-reference text changed event
-            fctbKeyword.TextChanged += fctbKeyword_TextChanged;
+            citbKeyword.TextChanged += ictbKeyword_TextChanged;
             //
             UpdateKeywordTextBox();
         }
@@ -320,8 +302,8 @@ namespace PrePoMax.Forms
         public void PrepareForm()
         {
             cltvKeywordsTree.Nodes.Clear();
-            fctbKeyword.Clear();
-            fctbInpFile.Clear();
+            citbKeyword.Clear();
+            citbInpFile.Clear();
             //
             TreeNode node = new TreeNode();
             node.Text = "CalculiX inp file";
@@ -343,7 +325,7 @@ namespace PrePoMax.Forms
             // At the end add nodes to the tree
             cltvKeywordsTree.Nodes.Add(node);
             // Clear the keyword editor
-            fctbKeyword.Clear();
+            citbKeyword.Clear();
             // Output tree to the inp read-only textbox
             WriteTreeToTextBox();
             // Expand first tree node
@@ -457,7 +439,7 @@ namespace PrePoMax.Forms
                 StringWriter sw = new StringWriter();
                 WriteTreeNodeToStringWriter(sw, cltvKeywordsTree.Nodes[0]);
                 //
-                fctbInpFile.Text = sw.ToString();
+                citbInpFile.Text = sw.ToString();
             }
         }
         private void WriteTreeNodeToStringWriter(StringWriter sw, TreeNode node)
@@ -525,50 +507,47 @@ namespace PrePoMax.Forms
                 cltvKeywordsTree.Focus();
             }
         }
-       
         // Update keyword text box
         private void UpdateKeywordTextBox()
         {
             try
             {
                 // Set style
-                fctbKeyword.Range.ClearStyle(allStyles);
-                fctbKeyword.Range.SetStyle(GreenStyle, @"\*\*.*$", RegexOptions.Multiline);
-                fctbKeyword.Range.SetStyle(BlueStyle, @"\*.*$", RegexOptions.Multiline);
-                fctbKeyword.Range.SetStyle(GrayStyle, @"\.\.\..*$", RegexOptions.Multiline);
+                citbKeyword.ApplyCalculixStyles();
+
                 // De-reference text changed event
-                fctbKeyword.TextChanged -= fctbKeyword_TextChanged;
+                citbKeyword.TextChanged -= ictbKeyword_TextChanged;
                 // rtbKeyword.Tag is set by clicking on the tree node
-                if (fctbKeyword.Tag != null && fctbKeyword.Tag is KeywordAtNode kn &&
+                if (citbKeyword.Tag != null && citbKeyword.Tag is KeywordAtNode kn &&
                     cltvKeywordsTree.SelectedNode != null)
                 {
                     if (kn.Keyword is CalculixUserKeyword ck && ck != null)
                     {
-                        ck.Data = fctbKeyword.Lines.ToArray().ToRows(fctbKeyword.Lines.Count);
-                        kn.Data = fctbKeyword.Text;
-                        kn.NumOfLines = fctbKeyword.Lines.Count;
+                        ck.Data = citbKeyword.GetTextRows();
+                        kn.Data = citbKeyword.Text;
+                        kn.NumOfLines = citbKeyword.LineCount;
                         //
                         ReplaceText(_selectedKeywordFirstLine, _selectedKeywordNumOfLines, ck.Data);
-                        _selectedKeywordNumOfLines = fctbKeyword.Lines.Count;
+                        _selectedKeywordNumOfLines = citbKeyword.LineCount;
                         // Change the name of the Selected tree node
                         LockWindowUpdate(cltvKeywordsTree.Handle);
-                        if (fctbKeyword.Lines.Count > 0 && fctbKeyword.Lines[0].Length > 0)
+                        if (citbKeyword.LineCount > 0 && citbKeyword.GetLine(0).Length > 0)
                         {
-                            if (cltvKeywordsTree.SelectedNode.Text != fctbKeyword.Lines[0])
-                                cltvKeywordsTree.SelectedNode.Text = fctbKeyword.Lines[0];
+                            if (cltvKeywordsTree.SelectedNode.Text != citbKeyword.GetLine(0))
+                                cltvKeywordsTree.SelectedNode.Text = citbKeyword.GetLine(0);
                         }
                         else
                             cltvKeywordsTree.SelectedNode.Text = "User keyword";
                         LockWindowUpdate(IntPtr.Zero);
                         // Enabled/disabled keyword
                         ck.Active = cbActive.Checked;
-                        fctbKeyword.ReadOnly = !ck.Active;
+                        citbKeyword.ReadOnly = !ck.Active;
                     }
                 }
                 //
                 SelectKeywordLinesAndScrollToSelection();
                 // Re-reference text changed event
-                fctbKeyword.TextChanged += fctbKeyword_TextChanged;
+                citbKeyword.TextChanged += ictbKeyword_TextChanged;
                 }
             catch
             { }
@@ -576,37 +555,14 @@ namespace PrePoMax.Forms
         //
         private string ReplaceText(int firstLine, int numOfLines, string newText)
         {
-            StringBuilder sb = new StringBuilder();
-            //
-            if (firstLine >= 0)
-            {
-                if (_adding) numOfLines = 0;
-                //
-                int lastLine = firstLine + numOfLines;
-                fctbInpFile.Selection.Start = new Place(0, firstLine);
-                fctbInpFile.Selection.End = new Place(0, lastLine);
-                //
-                for (int i = firstLine; i < firstLine + numOfLines; i++)
-                {
-                    if (i < firstLine + numOfLines - 1) sb.AppendLine(fctbInpFile.Selection.tb[i].Text);
-                    else sb.Append(fctbInpFile.Selection.tb[i].Text);
-                }
-                //
-                fctbInpFile.ClearSelected();
-                //
-                string text = newText;
-                if (text != null) text += Environment.NewLine;
-                fctbInpFile.InsertText(text);
-            }
-            //
-            return sb.ToString();
+            return citbInpFile.ReplaceLines(firstLine, numOfLines, newText, _adding);
+
         }
         private void SelectKeywordLinesAndScrollToSelection()
         {
             if (_selectedKeywordFirstLine == -1) return;
-            fctbInpFile.Navigate(_selectedKeywordFirstLine);
-            fctbInpFile.Selection = new Range(fctbInpFile, 0, _selectedKeywordFirstLine, 
-                                                           0, _selectedKeywordFirstLine + _selectedKeywordNumOfLines );
+            citbInpFile.SelectLinesAndScrollToSelection(_selectedKeywordFirstLine, _selectedKeywordNumOfLines);
+
         }
         //
         private string GetFirstLineFromMultiline(string multiLineData)
@@ -615,14 +571,11 @@ namespace PrePoMax.Forms
             if (tmp.Length > 0) return tmp[0];
             else return "User keyword";
         }
-
         private void tUpdate_Tick(object sender, EventArgs e)
         {
             tUpdate.Stop();
             UpdateKeywordTextBox();
         }
-
-
     }
 }
 
