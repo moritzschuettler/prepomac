@@ -106,6 +106,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="API\Python\BaseAPI.cs" />
+    <Compile Include="API\Python\ResultsAPI.cs" />
+    <Compile Include="API\Python\StringListAPI.cs" />
     <Compile Include="Collections\ExplodedViewsCollection.cs" />
     <Compile Include="Collections\EdgesVisibilitiesCollection.cs" />
     <Compile Include="Collections\FollowerViewsCollection.cs" />
@@ -847,8 +850,8 @@
     <Compile Include="Forms\ViewMultiRegion.cs" />
     <Compile Include="Forms\ViewError.cs" />
     <Compile Include="Globals.cs" />
-    <Compile Include="Python\PythonConsoleResult.cs" />
-    <Compile Include="Python\PythonEngineManager.cs" />
+    <Compile Include="API\Python\Engine\PythonConsoleResult.cs" />
+    <Compile Include="API\Python\Engine\PythonEngineManager.cs" />
     <Compile Include="Tools\GmshBase.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
