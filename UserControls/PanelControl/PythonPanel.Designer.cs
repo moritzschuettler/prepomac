@@ -41,7 +41,12 @@ namespace UserControls
             this.label3 = new System.Windows.Forms.Label();
             this.panBackground = new System.Windows.Forms.Panel();
             this.pythonConsole = new UserControls.PythonConsoleTextBox();
+            this.splitContainer1 = new System.Windows.Forms.SplitContainer();
             this.panBackground.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
+            this.splitContainer1.Panel1.SuspendLayout();
+            this.splitContainer1.Panel2.SuspendLayout();
+            this.splitContainer1.SuspendLayout();
             this.SuspendLayout();
             // 
             // btnClose
@@ -52,7 +57,7 @@ namespace UserControls
             this.btnClose.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(232)))), ((int)(((byte)(17)))), ((int)(((byte)(35)))));
             this.btnClose.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnClose.Image = global::UserControls.Properties.Resources.Close;
-            this.btnClose.Location = new System.Drawing.Point(204, 5);
+            this.btnClose.Location = new System.Drawing.Point(711, 5);
             this.btnClose.Name = "btnClose";
             this.btnClose.Size = new System.Drawing.Size(25, 25);
             this.btnClose.TabIndex = 6;
@@ -68,23 +73,21 @@ namespace UserControls
             this.label3.BackColor = System.Drawing.SystemColors.Control;
             this.label3.Font = new System.Drawing.Font("Segoe UI Semibold", 9F);
             this.label3.ForeColor = System.Drawing.SystemColors.ControlText;
-            this.label3.Location = new System.Drawing.Point(4, 5);
+            this.label3.Location = new System.Drawing.Point(5, 5);
             this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(225, 25);
+            this.label3.Size = new System.Drawing.Size(731, 25);
             this.label3.TabIndex = 19;
-            this.label3.Text = "Python Console";
+            this.label3.Text = "Python Editor";
             this.label3.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             this.label3.UseCompatibleTextRendering = true;
             // 
             // panBackground
             // 
-            this.panBackground.Controls.Add(this.pythonConsole);
-            this.panBackground.Controls.Add(this.btnClose);
-            this.panBackground.Controls.Add(this.label3);
+            this.panBackground.Controls.Add(this.splitContainer1);
             this.panBackground.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panBackground.Location = new System.Drawing.Point(0, 0);
             this.panBackground.Name = "panBackground";
-            this.panBackground.Size = new System.Drawing.Size(233, 462);
+            this.panBackground.Size = new System.Drawing.Size(741, 462);
             this.panBackground.TabIndex = 20;
             // 
             // pythonConsole
@@ -92,10 +95,30 @@ namespace UserControls
             this.pythonConsole.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.pythonConsole.Location = new System.Drawing.Point(4, 35);
+            this.pythonConsole.Location = new System.Drawing.Point(5, 5);
             this.pythonConsole.Name = "pythonConsole";
-            this.pythonConsole.Size = new System.Drawing.Size(225, 424);
+            this.pythonConsole.Size = new System.Drawing.Size(731, 166);
             this.pythonConsole.TabIndex = 20;
+            // 
+            // splitContainer1
+            // 
+            this.splitContainer1.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.splitContainer1.FixedPanel = System.Windows.Forms.FixedPanel.Panel2;
+            this.splitContainer1.Location = new System.Drawing.Point(0, 0);
+            this.splitContainer1.Name = "splitContainer1";
+            this.splitContainer1.Orientation = System.Windows.Forms.Orientation.Horizontal;
+            // 
+            // splitContainer1.Panel1
+            // 
+            this.splitContainer1.Panel1.Controls.Add(this.btnClose);
+            this.splitContainer1.Panel1.Controls.Add(this.label3);
+            // 
+            // splitContainer1.Panel2
+            // 
+            this.splitContainer1.Panel2.Controls.Add(this.pythonConsole);
+            this.splitContainer1.Size = new System.Drawing.Size(741, 462);
+            this.splitContainer1.SplitterDistance = 284;
+            this.splitContainer1.TabIndex = 21;
             // 
             // PythonPanel
             // 
@@ -106,9 +129,13 @@ namespace UserControls
             this.Controls.Add(this.panBackground);
             this.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.Name = "PythonPanel";
-            this.Size = new System.Drawing.Size(233, 462);
+            this.Size = new System.Drawing.Size(741, 462);
             this.Resize += new System.EventHandler(this.PythonPanel_Resize);
             this.panBackground.ResumeLayout(false);
+            this.splitContainer1.Panel1.ResumeLayout(false);
+            this.splitContainer1.Panel2.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).EndInit();
+            this.splitContainer1.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }
@@ -118,5 +145,6 @@ namespace UserControls
         private System.Windows.Forms.Label label3;
         private System.Windows.Forms.Panel panBackground;
         private PythonConsoleTextBox pythonConsole;
+        private System.Windows.Forms.SplitContainer splitContainer1;
     }
 }

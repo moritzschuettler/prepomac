@@ -66,9 +66,9 @@ namespace UserControls
             this.labTitle.BackColor = System.Drawing.SystemColors.Control;
             this.labTitle.Font = new System.Drawing.Font("Segoe UI Semibold", 9F);
             this.labTitle.ForeColor = System.Drawing.SystemColors.ControlText;
-            this.labTitle.Location = new System.Drawing.Point(4, 124);
+            this.labTitle.Location = new System.Drawing.Point(5, 124);
             this.labTitle.Name = "labTitle";
-            this.labTitle.Size = new System.Drawing.Size(222, 25);
+            this.labTitle.Size = new System.Drawing.Size(223, 25);
             this.labTitle.TabIndex = 5;
             this.labTitle.Text = "Title";
             this.labTitle.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -94,9 +94,9 @@ namespace UserControls
             this.lnklabNext.AutoSize = true;
             this.lnklabNext.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.lnklabNext.LinkBehavior = System.Windows.Forms.LinkBehavior.NeverUnderline;
-            this.lnklabNext.Location = new System.Drawing.Point(187, 379);
+            this.lnklabNext.Location = new System.Drawing.Point(191, 379);
             this.lnklabNext.Name = "lnklabNext";
-            this.lnklabNext.Size = new System.Drawing.Size(32, 15);
+            this.lnklabNext.Size = new System.Drawing.Size(31, 15);
             this.lnklabNext.TabIndex = 16;
             this.lnklabNext.TabStop = true;
             this.lnklabNext.Text = "Next";
@@ -110,7 +110,7 @@ namespace UserControls
             this.btnClose.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(232)))), ((int)(((byte)(17)))), ((int)(((byte)(35)))));
             this.btnClose.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnClose.Image = global::UserControls.Properties.Resources.Close;
-            this.btnClose.Location = new System.Drawing.Point(201, 5);
+            this.btnClose.Location = new System.Drawing.Point(203, 5);
             this.btnClose.Name = "btnClose";
             this.btnClose.Size = new System.Drawing.Size(25, 25);
             this.btnClose.TabIndex = 6;
@@ -126,7 +126,7 @@ namespace UserControls
             this.panLine.BackColor = System.Drawing.SystemColors.Control;
             this.panLine.Location = new System.Drawing.Point(5, 351);
             this.panLine.Name = "panLine";
-            this.panLine.Size = new System.Drawing.Size(220, 25);
+            this.panLine.Size = new System.Drawing.Size(223, 25);
             this.panLine.TabIndex = 18;
             // 
             // label3
@@ -136,9 +136,9 @@ namespace UserControls
             this.label3.BackColor = System.Drawing.SystemColors.Control;
             this.label3.Font = new System.Drawing.Font("Segoe UI Semibold", 9F);
             this.label3.ForeColor = System.Drawing.SystemColors.ControlText;
-            this.label3.Location = new System.Drawing.Point(4, 5);
+            this.label3.Location = new System.Drawing.Point(5, 5);
             this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(222, 25);
+            this.label3.Size = new System.Drawing.Size(223, 25);
             this.label3.TabIndex = 19;
             this.label3.Text = "Contents";
             this.label3.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -170,7 +170,7 @@ namespace UserControls
             this.panContents.Controls.Add(this.linkLabel4);
             this.panContents.Location = new System.Drawing.Point(5, 33);
             this.panContents.Name = "panContents";
-            this.panContents.Size = new System.Drawing.Size(221, 88);
+            this.panContents.Size = new System.Drawing.Size(223, 88);
             this.panContents.TabIndex = 18;
             // 
             // linkLabel6
@@ -216,9 +216,9 @@ namespace UserControls
             this.panPage.Controls.Add(this.linkLabel1);
             this.panPage.Controls.Add(this.linkLabel2);
             this.panPage.Controls.Add(this.linkLabel3);
-            this.panPage.Location = new System.Drawing.Point(6, 152);
+            this.panPage.Location = new System.Drawing.Point(5, 152);
             this.panPage.Name = "panPage";
-            this.panPage.Size = new System.Drawing.Size(220, 193);
+            this.panPage.Size = new System.Drawing.Size(223, 193);
             this.panPage.TabIndex = 17;
             // 
             // label2
@@ -282,7 +282,7 @@ namespace UserControls
             this.linkLabel3.TabStop = true;
             this.linkLabel3.Text = "linkLabel3";
             // 
-            // AdvisorControl
+            // AdvisorPanel
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
@@ -290,7 +290,7 @@ namespace UserControls
             this.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.Controls.Add(this.panBackground);
             this.Font = new System.Drawing.Font("Segoe UI", 9F);
-            this.Name = "AdvisorControl";
+            this.Name = "AdvisorPanel";
             this.Size = new System.Drawing.Size(233, 462);
             this.Resize += new System.EventHandler(this.AdvisorPanel_Resize);
             this.panBackground.ResumeLayout(false);

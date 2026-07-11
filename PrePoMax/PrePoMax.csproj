@@ -107,8 +107,50 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="API\Python\BaseAPI.cs" />
-    <Compile Include="API\Python\ResultsAPI.cs" />
-    <Compile Include="API\Python\StringListAPI.cs" />
+    <Compile Include="API\Python\Common\IntListAPI.cs" />
+    <Compile Include="API\Python\Common\PythonAPIAttribute.cs" />
+    <Compile Include="API\Python\Common\PythonAPIException.cs" />
+    <Compile Include="API\Python\Common\StringListAPI.cs" />
+    <Compile Include="API\Python\Engine\PythonConsoleResult.cs" />
+    <Compile Include="API\Python\Engine\PythonEngineManager.cs" />
+    <Compile Include="API\Python\Mesh\Elements\ElementAPI.cs" />
+    <Compile Include="API\Python\Mesh\Elements\ElementDataAPI.cs" />
+    <Compile Include="API\Python\Mesh\Elements\ElementsAPI.cs" />
+    <Compile Include="API\Python\Mesh\MeshAPI.cs" />
+    <Compile Include="API\Python\Mesh\Nodes\NodeDataAPI.cs" />
+    <Compile Include="API\Python\Mesh\Nodes\NodesAPI.cs" />
+    <Compile Include="API\Python\Mesh\Parts\PartAPI.cs" />
+    <Compile Include="API\Python\Mesh\Parts\PartsAPI.cs" />
+    <Compile Include="API\Python\PrePoMaxAPI.cs" />
+    <Compile Include="API\Python\Results\Fields\FieldAPI.cs" />
+    <Compile Include="API\Python\Results\Fields\FieldComponentAPI.cs" />
+    <Compile Include="API\Python\Results\Fields\FieldComponentsAPI.cs" />
+    <Compile Include="API\Python\Results\Fields\FieldDataAPI.cs" />
+    <Compile Include="API\Python\Results\Fields\FieldMultiComponentDataAPI.cs" />
+    <Compile Include="API\Python\Results\Fields\FieldsAPI.cs" />
+    <Compile Include="API\Python\Results\History\HistoryAPI.cs" />
+    <Compile Include="API\Python\Results\History\HistoryComponentAPI.cs" />
+    <Compile Include="API\Python\Results\History\HistoryComponentDataAPI.cs" />
+    <Compile Include="API\Python\Results\History\HistoryComponentsAPI.cs" />
+    <Compile Include="API\Python\Results\History\HistoryEntriesAPI.cs" />
+    <Compile Include="API\Python\Results\History\HistoryEntryAPI.cs" />
+    <Compile Include="API\Python\Results\History\HistoryFieldAPI.cs" />
+    <Compile Include="API\Python\Results\History\HistoryFieldsAPI.cs" />
+    <Compile Include="API\Python\Results\History\HistorySetAPI.cs" />
+    <Compile Include="API\Python\Results\History\HistorySetsAPI.cs" />
+    <Compile Include="API\Python\Results\ResultAPI.cs" />
+    <Compile Include="API\Python\Results\ResultsAPI.cs" />
+    <Compile Include="API\Python\Results\Steps\IncrementAPI.cs" />
+    <Compile Include="API\Python\Results\Steps\IncrementsAPI.cs" />
+    <Compile Include="API\Python\Results\Steps\StepAPI.cs" />
+    <Compile Include="API\Python\Results\Steps\StepsAPI.cs" />
+    <Compile Include="API\Python\Services\History\HistoryDataService.cs" />
+    <Compile Include="API\Python\Services\Mesh\ElementInfo.cs" />
+    <Compile Include="API\Python\Services\Mesh\MeshDataService.cs" />
+    <Compile Include="API\Python\Services\Mesh\PartData.cs" />
+    <Compile Include="API\Python\Services\NumPyConverter.cs" />
+    <Compile Include="API\Python\Services\Results\ResultDataService.cs" />
+    <Compile Include="API\Python\Services\Results\ResultResolver.cs" />
     <Compile Include="Collections\ExplodedViewsCollection.cs" />
     <Compile Include="Collections\EdgesVisibilitiesCollection.cs" />
     <Compile Include="Collections\FollowerViewsCollection.cs" />
@@ -850,8 +892,6 @@
     <Compile Include="Forms\ViewMultiRegion.cs" />
     <Compile Include="Forms\ViewError.cs" />
     <Compile Include="Globals.cs" />
-    <Compile Include="API\Python\Engine\PythonConsoleResult.cs" />
-    <Compile Include="API\Python\Engine\PythonEngineManager.cs" />
     <Compile Include="Tools\GmshBase.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -1295,3 +1335,4 @@ IF EXIST "$(SolutionDir)PrePoMax\bin\x64\Console-Release\PrePoMax.exe.config" co
 del *Cmd.exe.config</PreBuildEvent>
   </PropertyGroup>
 </Project>
+

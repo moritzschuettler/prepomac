@@ -41,6 +41,12 @@ namespace UserControls
         private readonly TextStyle _commentStyle = new TextStyle(Brushes.Green, null, FontStyle.Italic);
         private readonly TextStyle _numberStyle = new TextStyle(Brushes.DarkCyan, null, FontStyle.Regular);
         private PythonConsoleFastTextBox _textBox;
+        // Context menu
+        private ToolStripMenuItem _cutMenuItem;
+        private ToolStripMenuItem _copyMenuItem;
+        private ToolStripMenuItem _pasteMenuItem;
+        private ToolStripMenuItem _selectAllMenuItem;
+        private ToolStripMenuItem _clearMenuItem;
         // Autocomplete
         private string _lastCompletionKey;
         private string _lastCompletionExpression;
@@ -164,7 +170,7 @@ namespace UserControls
             _textBox.AllowDrop = false;
             _textBox.BorderStyle = BorderStyle.FixedSingle;
             // Empty menu prevents default cut/paste actions on protected history.
-            _textBox.ContextMenuStrip = new ContextMenuStrip();
+            _textBox.ContextMenuStrip = CreateContextMenu();
             //
             _textBox.TextChanging += PythonConsoleTextBox_TextChanging;
             _textBox.TextChangedDelayed += PythonConsoleTextBox_TextChangedDelayed;
@@ -182,10 +188,10 @@ namespace UserControls
             _internalTextChange = true;
             try
             {
-                Clear();
+                _textBox.Clear();
 
-                AppendConsoleText("PrePoMax Python Console" + Environment.NewLine, _introStyle);
-                AppendConsoleText("The current results object is available as 'results'." +
+                AppendConsoleText("#PrePoMax Python Console" + Environment.NewLine, _introStyle);
+                AppendConsoleText("#The PrePoMax object is available as 'pmx'" +
                                   Environment.NewLine + Environment.NewLine, _introStyle);
 
                 _needMoreInput = false;
@@ -195,6 +201,44 @@ namespace UserControls
             {
                 _internalTextChange = false;
             }
+
+            _historyIndex = _commandHistory.Count;
+
+            HideAutocompleteList();
+            ResetAutocomplete();
+        }
+        private ContextMenuStrip CreateContextMenu()
+        {
+            ContextMenuStrip menu = new ContextMenuStrip();
+
+            _cutMenuItem = new ToolStripMenuItem("Cut");
+            _copyMenuItem = new ToolStripMenuItem("Copy");
+            _pasteMenuItem = new ToolStripMenuItem("Paste");
+            _selectAllMenuItem = new ToolStripMenuItem("Select All");
+            _clearMenuItem = new ToolStripMenuItem("Clear Console");
+
+            _cutMenuItem.ShortcutKeys = Keys.Control | Keys.X;
+            _copyMenuItem.ShortcutKeys = Keys.Control | Keys.C;
+            _pasteMenuItem.ShortcutKeys = Keys.Control | Keys.V;
+            _selectAllMenuItem.ShortcutKeys = Keys.Control | Keys.A;
+
+            _cutMenuItem.Click += ContextMenuCut_Click;
+            _copyMenuItem.Click += ContextMenuCopy_Click;
+            _pasteMenuItem.Click += ContextMenuPaste_Click;
+            _selectAllMenuItem.Click += ContextMenuSelectAll_Click;
+            _clearMenuItem.Click += ContextMenuClear_Click;
+
+            menu.Items.Add(_cutMenuItem);
+            menu.Items.Add(_copyMenuItem);
+            menu.Items.Add(_pasteMenuItem);
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add(_selectAllMenuItem);
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add(_clearMenuItem);
+
+            menu.Opening += ContextMenu_Opening;
+
+            return menu;
         }
         public void WriteOutput(string text)
         {
@@ -229,10 +273,6 @@ namespace UserControls
         public void WriteLine(string text)
         {
             WriteOutput(text + Environment.NewLine);
-        }
-        public void Clear()
-        {
-            _textBox.Clear();
         }
         public new bool Focus()
         {
@@ -299,9 +339,9 @@ namespace UserControls
             // Ctrl+X: Cut only if the selection is fully in the current input
             if (e.Control && e.KeyCode == Keys.X)
             {
+                ResetAutocomplete();
                 if (!IsSelectionFullyInInput())
                 {
-                    ResetAutocomplete();
                     e.SuppressKeyPress = true;
                     return true;
                 }
@@ -352,7 +392,7 @@ namespace UserControls
                 }
             }
             // Up and Down keys: Navigate through command history
-            if (e.KeyCode == Keys.Up)
+            if (e.KeyCode == Keys.Up && IsSelectionFullyInInput())
             {
                 ResetAutocomplete();
                 ShowPreviousHistoryItem();
@@ -360,35 +400,54 @@ namespace UserControls
                 return true;
             }
             // Down key: Navigate through command history
-            if (e.KeyCode == Keys.Down)
+            if (e.KeyCode == Keys.Down && IsSelectionFullyInInput())
             {
                 ResetAutocomplete();
                 ShowNextHistoryItem();
                 e.SuppressKeyPress = true;
                 return true;
             }
-            // Left key: Prevent moving the caret into history
-            if (e.KeyCode == Keys.Left)
+            // Home: On the active input line, move only after the prompt. In history, allow the normal Home behavior.
+            if (e.KeyCode == Keys.Home && !e.Control)
             {
-                if (_textBox.SelectionLength == 0 && _textBox.SelectionStart <= _inputStart)
+                if (_textBox.SelectionStart >= _inputStart)
                 {
+                    if (e.Shift)
+                    {
+                        int selectionEnd = _textBox.SelectionStart + _textBox.SelectionLength;
+                        _textBox.SelectionStart = _inputStart;
+                        _textBox.SelectionLength = Math.Max(0, selectionEnd - _inputStart);
+                    }
+                    else
+                    {
+                        MoveCaretToInputStart();
+                    }
                     e.SuppressKeyPress = true;
                     return true;
                 }
             }
-            // Home  key: Move the caret to the start of the current input
-            if (e.KeyCode == Keys.Home || e.Control && e.KeyCode == Keys.Home)
+            //
+            if (!IsSelectionFullyInInput())
             {
-                MoveCaretToInputStart();
-                e.SuppressKeyPress = true;
-                return true;
-            }
-            // PageUp key: Prevent moving the caret into history
-            if (e.KeyCode == Keys.PageUp)
-            {
-                // Prevent moving the editing caret into old history
-                e.SuppressKeyPress = true;
-                return true;
+                bool navigationKey =
+                    e.KeyCode == Keys.Left ||
+                    e.KeyCode == Keys.Right ||
+                    e.KeyCode == Keys.Up ||
+                    e.KeyCode == Keys.Down ||
+                    e.KeyCode == Keys.Home ||
+                    e.KeyCode == Keys.End ||
+                    e.KeyCode == Keys.PageUp ||
+                    e.KeyCode == Keys.PageDown;
+
+                bool copyKey = e.Control && e.KeyCode == Keys.C;
+
+                if (!navigationKey && !copyKey &&
+                    e.KeyCode != Keys.ShiftKey &&
+                    e.KeyCode != Keys.ControlKey)
+                {
+                    e.SuppressKeyPress = true;
+                    return true;
+                }
             }
             //
             HideAutocompleteList();
@@ -398,8 +457,11 @@ namespace UserControls
         }
         internal void ProcessKeyPress(KeyPressEventArgs e)
         {
-            if (!_internalTextChange && IsCaretOrSelectionInHistory())
-                MoveCaretToEnd();
+            if (_internalTextChange) return;
+
+            // Allow the caret to remain in history, but prevent typing there.
+            if (!IsSelectionFullyInInput())
+                e.Handled = true;
         }
         internal void ProcessMouseDown(MouseEventArgs e)
         {
@@ -408,32 +470,69 @@ namespace UserControls
         internal void ProcessMouseUp(MouseEventArgs e)
         {
             _mouseSelecting = false;
-            BeginInvoke(new Action(CorrectSelectionAfterMouse));
         }
         internal void ProcessSelectionChanged()
         {
             if (_internalTextChange || _mouseSelecting) return;
-
-            // Allow selecting old text for copy, but do not leave simple caret in history.
-            if (_textBox.SelectionLength == 0 && _textBox.SelectionStart < _inputStart)
-                MoveCaretToEnd();
         }
         private void PythonConsoleTextBox_TextChanging(object sender, TextChangingEventArgs e)
         {
             if (_internalTextChange) return;
 
-            // Last line of defense: no edit operation may start in history.
+            // No modification may start in the protected console history.
             if (!IsSelectionFullyInInput())
-            {
                 e.Cancel = true;
-                MoveCaretToEnd();
-            }
         }
         private void PythonConsoleTextBox_TextChangedDelayed(object sender, TextChangedEventArgs e)
         {
             if (_internalTextChange) return;
 
             HighlightPythonSyntax(e.ChangedRange);
+        }
+        private void ContextMenu_Opening(object sender, CancelEventArgs e)
+        {
+            bool hasSelection = _textBox.SelectionLength > 0;
+
+            _cutMenuItem.Enabled =
+                hasSelection &&
+                IsSelectionFullyInInput();
+
+            _copyMenuItem.Enabled = hasSelection;
+
+            _pasteMenuItem.Enabled =
+                Clipboard.ContainsText() &&
+                IsSelectionFullyInInput();
+
+            _selectAllMenuItem.Enabled =
+                _textBox.TextLength > 0;
+
+            _clearMenuItem.Enabled =
+                _textBox.TextLength > 0;
+        }
+        private void ContextMenuCut_Click(object sender, EventArgs e)
+        {
+            if (!IsSelectionFullyInInput()) return;
+            if (_textBox.SelectionLength == 0) return;
+
+            _textBox.Cut();
+        }
+        private void ContextMenuCopy_Click(object sender, EventArgs e)
+        {
+            if (_textBox.SelectionLength == 0) return;
+
+            _textBox.Copy();
+        }
+        private void ContextMenuPaste_Click(object sender, EventArgs e)
+        {
+            PasteIntoInputOnly();
+        }
+        private void ContextMenuSelectAll_Click(object sender, EventArgs e)
+        {
+            _textBox.SelectAll();
+        }
+        private void ContextMenuClear_Click(object sender, EventArgs e)
+        {
+            ClearConsole();
         }
         private void HighlightPythonSyntax(Range range)
         {
@@ -469,7 +568,7 @@ namespace UserControls
         private void ExecuteCurrentInput()
         {
             if (!IsSelectionFullyInInput())
-                MoveCaretToEnd();
+                return;
 
             string command = CurrentInput;
             AddCommandToHistory(command);
@@ -543,9 +642,7 @@ namespace UserControls
         private void PasteIntoInputOnly()
         {
             if (!Clipboard.ContainsText()) return;
-
-            if (!IsSelectionFullyInInput())
-                MoveCaretToEnd();
+            if (!IsSelectionFullyInInput()) return;
 
             string text = Clipboard.GetText();
             text = text.Replace("\r\n", "\n").Replace("\r", "\n");
@@ -578,7 +675,7 @@ namespace UserControls
             if (!IsSelectionFullyInInput()) return false;
 
             if (_textBox.SelectionLength > 0)
-                return _textBox.SelectionStart >= _inputStart;
+                return true;
 
             return _textBox.SelectionStart > _inputStart;
         }
@@ -587,9 +684,9 @@ namespace UserControls
             if (!IsSelectionFullyInInput()) return false;
 
             if (_textBox.SelectionLength > 0)
-                return _textBox.SelectionStart >= _inputStart;
+                return true;
 
-            return _textBox.SelectionStart >= _inputStart;
+            return _textBox.SelectionStart >= _inputStart && _textBox.SelectionStart < _textBox.TextLength;
         }
         private bool IsCaretOrSelectionInHistory()
         {
@@ -602,12 +699,11 @@ namespace UserControls
         }
         private bool IsSelectionFullyInInput()
         {
-            return _textBox.SelectionStart >= _inputStart;
-        }
-        private void CorrectSelectionAfterMouse()
-        {
-            if (_textBox.SelectionLength == 0 && _textBox.SelectionStart < _inputStart)
-                MoveCaretToEnd();
+            int selectionStart = _textBox.SelectionStart;
+            int selectionEnd = selectionStart + _textBox.SelectionLength;
+
+            return selectionStart >= _inputStart &&
+                   selectionEnd >= _inputStart;
         }
         private void AddCommandToHistory(string command)
         {
@@ -792,38 +888,106 @@ namespace UserControls
             prefix = "";
             replaceStartLocal = beforeCaret.Length;
 
-            int i = beforeCaret.Length - 1;
+            int index = beforeCaret.Length - 1;
 
-            while (i >= 0 && IsPythonIdentifierCharacter(beforeCaret[i]))
-                i--;
+            // Find the identifier prefix after the last dot.
+            while (index >= 0 && IsPythonIdentifierCharacter(beforeCaret[index]))
+                index--;
 
-            prefix = beforeCaret.Substring(i + 1);
-            replaceStartLocal = i + 1;
+            prefix = beforeCaret.Substring(index + 1);
+            replaceStartLocal = index + 1;
 
-            if (i >= 0 && beforeCaret[i] == '.')
+            // There is no object expression before the prefix.
+            if (index < 0 || beforeCaret[index] != '.')
+                return;
+
+            int dotIndex = index;
+            index--;
+
+            int squareBracketDepth = 0;
+            int roundBracketDepth = 0;
+            char stringDelimiter = '\0';
+
+            while (index >= 0)
             {
-                int dotIndex = i;
-                i--;
+                char c = beforeCaret[index];
 
-                while (i >= 0 && IsPythonExpressionCharacter(beforeCaret[i]))
-                    i--;
+                // Handle quoted strings inside indexers and method arguments.
+                if (stringDelimiter != '\0')
+                {
+                    if (c == stringDelimiter &&
+                        (index == 0 || beforeCaret[index - 1] != '\\'))
+                    {
+                        stringDelimiter = '\0';
+                    }
 
-                expression = beforeCaret.Substring(i + 1, dotIndex - i - 1);
+                    index--;
+                    continue;
+                }
+
+                if (c == '"' || c == '\'')
+                {
+                    stringDelimiter = c;
+                    index--;
+                    continue;
+                }
+
+                if (c == ']')
+                {
+                    squareBracketDepth++;
+                    index--;
+                    continue;
+                }
+
+                if (c == '[')
+                {
+                    if (squareBracketDepth == 0)
+                        break;
+
+                    squareBracketDepth--;
+                    index--;
+                    continue;
+                }
+
+                if (c == ')')
+                {
+                    roundBracketDepth++;
+                    index--;
+                    continue;
+                }
+
+                if (c == '(')
+                {
+                    if (roundBracketDepth == 0)
+                        break;
+
+                    roundBracketDepth--;
+                    index--;
+                    continue;
+                }
+
+                // Inside brackets or parentheses, accept all characters.
+                if (squareBracketDepth > 0 || roundBracketDepth > 0)
+                {
+                    index--;
+                    continue;
+                }
+
+                // Outside brackets, continue through a chained Python expression.
+                if (IsPythonIdentifierCharacter(c) || c == '.')
+                {
+                    index--;
+                    continue;
+                }
+
+                break;
             }
+            //
+            expression = beforeCaret.Substring(index + 1, dotIndex - index - 1);
         }
         private bool IsPythonIdentifierCharacter(char c)
         {
             return char.IsLetterOrDigit(c) || c == '_';
-        }
-        private bool IsPythonExpressionCharacter(char c)
-        {
-            return char.IsLetterOrDigit(c) ||
-                   c == '_' ||
-                   c == '.' ||
-                   c == ')' ||
-                   c == ']' ||
-                   c == '"' ||
-                   c == '\'';
         }
         private List<string> GetCompletions(string expression, string prefix)
         {

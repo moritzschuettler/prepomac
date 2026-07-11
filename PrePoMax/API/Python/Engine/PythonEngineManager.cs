@@ -1,10 +1,10 @@
-﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+// PrePoMax - Copyright (C) 2016-2026 Matej Borovinsek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
 // Source code: https://gitlab.com/MatejB/PrePoMax
 //
-// Author: Matej Borovinšek
+// Author: Matej Borovinsek
 // Contributors:
 
 using CaeResults;
@@ -12,20 +12,20 @@ using Python.Runtime;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 
-namespace PrePoMax
+namespace PrePoMax.API.Python
 {
     public static class PythonEngineManager
     {
-        // Variables                                                                                                                
+        // Variables
         private static bool _initialized;
         private static PyDict _scope;
         private static PyObject _console;
 
 
-        // Methods                                                                                                                  
+        // Methods
         private static void Initialize()
         {
             if (_initialized) return;
@@ -60,11 +60,14 @@ namespace PrePoMax
         {
             Initialize();
             //
-            ResultsAPI resultsAPI = new ResultsAPI(results);
+            PrePoMaxAPI pmx = new PrePoMaxAPI(results);
             //
             using (Py.GIL())
             {
-                _scope.SetItem("results", resultsAPI.ToPython());
+                PyObject pmxObject = pmx.ToPython();
+                _scope.SetItem("pmx", pmxObject);
+
+                pmxObject.Dispose();
             }
         }
         public static PythonConsoleResult PushLine(string line)
@@ -88,6 +91,7 @@ namespace PrePoMax
                     sys.stderr = stderr;
 
                     dynamic console = _console;
+                    line = NormalizeResultPathIndexLiterals(line);
                     bool needMoreInput = console.push(line);
 
                     string output = stdout.getvalue().ToString();
@@ -120,16 +124,62 @@ namespace PrePoMax
                 dynamic sys = Py.Import("sys");
                 dynamic stdout = io.StringIO();
                 dynamic stderr = io.StringIO();
-                sys.stdout = stdout;
-                sys.stderr = stderr;
-                //
-                PythonEngine.Exec(code, null, _scope);
-                //
-                string printedOutput = stdout.getvalue().ToString();
-                string errorOutput = stderr.getvalue().ToString();
-                //
-                return printedOutput + Environment.NewLine + errorOutput;
+                PyObject oldStdout = sys.stdout;
+                PyObject oldStderr = sys.stderr;
+                try
+                {
+                    sys.stdout = stdout;
+                    sys.stderr = stderr;
+                    //
+                    PythonEngine.Exec(code, null, _scope);
+                    //
+                    string printedOutput = stdout.getvalue().ToString();
+                    string errorOutput = stderr.getvalue().ToString();
+                    //
+                    return printedOutput + Environment.NewLine + errorOutput;
+                }
+                finally
+                {
+                    sys.stdout = oldStdout;
+                    sys.stderr = oldStderr;
+                    oldStdout.Dispose();
+                    oldStderr.Dispose();
+                }
             }
+        }
+        private static string NormalizeResultPathIndexLiterals(string line)
+        {
+            if (string.IsNullOrEmpty(line) || line.IndexOf('\\') < 0) return line;
+
+            line = NormalizeResultPathIndexLiterals(line, "(?<prefix>\\bpmx\\.results\\s*\\[\\s*)'(?<value>[^']*\\\\[^']*)'");
+            line = NormalizeResultPathIndexLiterals(line, "(?<prefix>\\bpmx\\.results\\s*\\[\\s*)\"(?<value>[^\"]*\\\\[^\"]*)\"");
+            return line;
+        }
+        private static string NormalizeResultPathIndexLiterals(string line, string pattern)
+        {
+            return Regex.Replace(line, pattern, match =>
+            {
+                string value = match.Groups["value"].Value;
+                if (!ContainsOddBackslashRun(value)) return match.Value;
+
+                string prefix = match.Groups["prefix"].Value;
+                char quote = match.Value[match.Value.Length - 1];
+                return prefix + quote + value.Replace("\\", "\\\\") + quote;
+            });
+        }
+        private static bool ContainsOddBackslashRun(string value)
+        {
+            int count = 0;
+            foreach (char c in value)
+            {
+                if (c == '\\') count++;
+                else
+                {
+                    if (count % 2 == 1) return true;
+                    count = 0;
+                }
+            }
+            return count % 2 == 1;
         }
         // Autocompletion method for the Python console
         public static List<string> GetCompletions(string expression, string prefix)
@@ -206,6 +256,7 @@ namespace PrePoMax
         private static bool IsValidCompletionName(string name, string prefix)
         {
             if (string.IsNullOrEmpty(name)) return false;
+            if (name == "help_text") return false;
             if (name.StartsWith("__", StringComparison.Ordinal)) return false;
 
             // Only expose names starting with lowercase letter or underscore.
@@ -217,3 +268,7 @@ namespace PrePoMax
         }
     }
 }
+
+
+
+

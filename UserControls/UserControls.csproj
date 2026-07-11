@@ -466,6 +466,7 @@
     <None Include="Resources\Cut.png" />
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="TextBoxes\PythonEditorTextBox\" />
     <Folder Include="Views\Materials\" />
   </ItemGroup>
   <ItemGroup>

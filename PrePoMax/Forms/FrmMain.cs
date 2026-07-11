@@ -1,10 +1,10 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+// PrePoMax - Copyright (C) 2016-2026 Matej BorovinĹˇek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
 // Source code: https://gitlab.com/MatejB/PrePoMax
 //
-// Author: Matej Borovinšek
+// Author: Matej BorovinĹˇek
 // Contributors:
 
 using CaeGlobals;
@@ -15,6 +15,7 @@ using CaeResults;
 using FileInOut.Output;
 using PrePoMax.Commands;
 using PrePoMax.Forms;
+using PrePoMax.API.Python;
 using Python.Runtime;
 using System;
 using System.Collections.Generic;
@@ -652,7 +653,7 @@ namespace PrePoMax
                             //
                             bool regenerateAll = MessageBoxes.ShowQuestionYesNo("Regenerate All",
                                 "Select Yes to regenerate all commands or No to regenerate FE model commands only. " +
-                                "All commands can be regenerated later using Edit → Regenerate All.") == DialogResult.Yes;
+                                "All commands can be regenerated later using Edit â†’ Regenerate All.") == DialogResult.Yes;
                             if (regenerateAll) parameters = Globals.RegenerateAll;
                         }
                     }
@@ -1754,7 +1755,7 @@ namespace PrePoMax
                     }
                     else throw new CaeException("No mesh parts to export.");
                 }
-                else MessageBoxes.ShowError("To export the results use the option Export → Deformed visualization.");
+                else MessageBoxes.ShowError("To export the results use the option Export â†’ Deformed visualization.");
             }
             catch (Exception ex)
             {
@@ -10865,10 +10866,10 @@ namespace PrePoMax
         {
             PythonEngineManager.SetResults(_controller.AllResults);
             string result = PythonEngineManager.Execute(
-                "result_names = results.get_result_names()\n" +
+                "result_names = pmx.results.get_result_names()\n" +
                 "for rn in result_names:\n" +
                 "    print(rn)\n" +
-                "    field_names = results.get_field_names(rn)\n" +
+                "    field_names = pmx.results.get_field_names(rn)\n" +
                 "    for fn in field_names:\n" +
                 "        print('    ' + fn)\n"
                 );
@@ -11306,4 +11307,5 @@ namespace PrePoMax
 
     }
 }
+
 

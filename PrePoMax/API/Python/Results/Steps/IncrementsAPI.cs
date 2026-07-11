@@ -1,0 +1,72 @@
+// PrePoMax - Copyright (C) 2016-2026 Matej Borovinsek
+//
+// Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
+//
+// Source code: https://gitlab.com/MatejB/PrePoMax
+//
+// Author: Matej Borovinsek
+// Contributors:
+
+using CaeResults;
+using System.Linq;
+
+namespace PrePoMax.API.Python
+{
+    public class IncrementsAPI : BaseAPI
+    {
+        // Variables
+        private readonly string _resultName;
+        private readonly int _stepId;
+        private readonly ResultDataService _dataService;
+
+
+        // Constructors
+        internal IncrementsAPI(string resultName, int stepId, ResultDataService dataService)
+        {
+            _resultName = resultName;
+            _stepId = stepId;
+            _dataService = dataService;
+        }
+
+
+        // Methods
+        public IncrementAPI __getitem__(int incrementId)
+        {
+            return this[incrementId];
+        }
+        public IncrementAPI this[int incrementId]
+        {
+            get
+            {
+                if (!contains(incrementId))
+                    throw new PythonAPIException("The increment ID " + incrementId + " does not exist in step " + _stepId +
+                                                 " of result '" + _resultName + "'.");
+                return new IncrementAPI(_resultName, _stepId, incrementId, _dataService);
+            }
+        }
+        public int __len__()
+        {
+            return _dataService.GetIncrementIds(_resultName, _stepId).Length;
+        }
+        public bool __contains__(int incrementId)
+        {
+            return contains(incrementId);
+        }
+
+        [PythonAPI("Returns all result increment IDs for this step.", Returns = "IntList")]
+        public IntListAPI get_ids()
+        {
+            return new IntListAPI(_dataService.GetIncrementIds(_resultName, _stepId));
+        }
+
+        [PythonAPI("Returns true if the increment ID exists in this step.", Arguments = "increment_id: int", Returns = "bool")]
+        public bool contains(int incrementId)
+        {
+            return _dataService.GetIncrementIds(_resultName, _stepId).Contains(incrementId);
+        }
+        public override string ToString()
+        {
+            return "Increments(count=" + _dataService.GetIncrementIds(_resultName, _stepId).Length + ")";
+        }
+    }
+}
