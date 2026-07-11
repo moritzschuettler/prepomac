@@ -15,7 +15,7 @@ using System.Threading.Tasks;
 
 namespace PrePoMax.API.Python
 {
-    public class PythonConsoleResult
+    public class PythonEngineResult
     {
         // Variables                                                                                                                
         public string Output { get; set; }
@@ -24,7 +24,7 @@ namespace PrePoMax.API.Python
 
 
         // Constructors                                                                                                             
-        public PythonConsoleResult()
+        public PythonEngineResult()
         {
             Output = "";
             Error = "";

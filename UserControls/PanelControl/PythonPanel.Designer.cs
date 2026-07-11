@@ -78,7 +78,7 @@ namespace UserControls
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(247, 25);
             this.label3.TabIndex = 19;
-            this.label3.Text = "Python Editor";
+            this.label3.Text = "Python Script Editor";
             this.label3.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             this.label3.UseCompatibleTextRendering = true;
             // 

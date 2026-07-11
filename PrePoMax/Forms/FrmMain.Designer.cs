@@ -148,7 +148,7 @@ namespace PrePoMax
             this.tsmiRegenerateHistoryWithRemeshing = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiView = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiViewControls = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiPythonEditor = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiPythonScriptEditor = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItem6 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiStandardViews = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiFrontView = new System.Windows.Forms.ToolStripMenuItem();
@@ -1597,17 +1597,17 @@ namespace PrePoMax
             // tsmiViewControls
             // 
             this.tsmiViewControls.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.tsmiPythonEditor});
+            this.tsmiPythonScriptEditor});
             this.tsmiViewControls.Name = "tsmiViewControls";
             this.tsmiViewControls.Size = new System.Drawing.Size(243, 22);
             this.tsmiViewControls.Text = "Controls";
             // 
-            // tsmiPythonEditor
+            // tsmiPythonScriptEditor
             // 
-            this.tsmiPythonEditor.Name = "tsmiPythonEditor";
-            this.tsmiPythonEditor.Size = new System.Drawing.Size(180, 22);
-            this.tsmiPythonEditor.Text = "Python Editor";
-            this.tsmiPythonEditor.Click += new System.EventHandler(this.tsmiPythonEditor_Click);
+            this.tsmiPythonScriptEditor.Name = "tsmiPythonScriptEditor";
+            this.tsmiPythonScriptEditor.Size = new System.Drawing.Size(180, 22);
+            this.tsmiPythonScriptEditor.Text = "Python Script Editor";
+            this.tsmiPythonScriptEditor.Click += new System.EventHandler(this.tsmiPythonScriptEditor_Click);
             // 
             // toolStripMenuItem6
             // 
@@ -5425,7 +5425,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiExportResultFieldOutput;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerResultFieldOutput2;
         private System.Windows.Forms.ToolStripMenuItem tsmiViewControls;
-        private System.Windows.Forms.ToolStripMenuItem tsmiPythonEditor;
+        private System.Windows.Forms.ToolStripMenuItem tsmiPythonScriptEditor;
         private System.Windows.Forms.ToolStripSeparator toolStripMenuItem6;
     }
 }

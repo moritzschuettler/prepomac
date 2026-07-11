@@ -70,7 +70,7 @@ namespace PrePoMax.API.Python
                 pmxObject.Dispose();
             }
         }
-        public static PythonConsoleResult PushLine(string line)
+        public static PythonEngineResult PushLine(string line)
         {
             Initialize();
 
@@ -97,7 +97,7 @@ namespace PrePoMax.API.Python
                     string output = stdout.getvalue().ToString();
                     string error = stderr.getvalue().ToString();
 
-                    return new PythonConsoleResult()
+                    return new PythonEngineResult()
                     {
                         Output = output,
                         Error = error,
@@ -147,11 +147,11 @@ namespace PrePoMax.API.Python
                 }
             }
         }
-        public static PythonConsoleResult ExecuteScript(string code)
+        public static PythonEngineResult ExecuteScript(string code)
         {
             Initialize();
 
-            PythonConsoleResult result = new PythonConsoleResult();
+            PythonEngineResult result = new PythonEngineResult();
 
             using (Py.GIL())
             {
