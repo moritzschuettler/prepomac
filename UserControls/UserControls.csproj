@@ -130,14 +130,23 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="TextBoxes\CalculixKeywordTextBox\ICalculixInpTextBox.cs" />
-    <Compile Include="TextBoxes\PythonConsoleTextBox\PythonConsoleAutocompleteEventArgs.cs" />
-    <Compile Include="TextBoxes\PythonConsoleTextBox\PythonConsoleCommandEventArgs.cs" />
     <Compile Include="TextBoxes\PythonConsoleTextBox\PythonConsoleFastTextBox.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="TextBoxes\PythonConsoleTextBox\PythonConsoleTextBox.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="TextBoxes\PythonEditorTextBox\PythonEditorFastTextBox.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="TextBoxes\PythonEditorTextBox\PythonEditorTextBox.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="TextBoxes\PythonTextBox\PythonTextBoxCompletionHelper.cs" />
+    <Compile Include="TextBoxes\PythonTextBox\PythonTextBoxAutocompleteEventArgs.cs" />
+    <Compile Include="TextBoxes\PythonTextBox\PythonTextBoxCommandEventArgs.cs" />
+    <Compile Include="TextBoxes\PythonTextBox\PythonTextBoxScriptAnalyzer.cs" />
+    <Compile Include="TextBoxes\PythonTextBox\PythonTextBoxSyntaxHighlighter.cs" />
     <Compile Include="TextBoxes\AutoScrollTextBox.cs">
       <SubType>Component</SubType>
     </Compile>
@@ -466,7 +475,6 @@
     <None Include="Resources\Cut.png" />
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="TextBoxes\PythonEditorTextBox\" />
     <Folder Include="Views\Materials\" />
   </ItemGroup>
   <ItemGroup>

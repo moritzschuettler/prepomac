@@ -40,8 +40,9 @@ namespace UserControls
             this.btnClose = new System.Windows.Forms.Button();
             this.label3 = new System.Windows.Forms.Label();
             this.panBackground = new System.Windows.Forms.Panel();
-            this.pythonConsole = new UserControls.PythonConsoleTextBox();
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
+            this.petbPythonEditor = new UserControls.PythonEditorTextBox();
+            this.pctbPythonConsole = new UserControls.PythonConsoleTextBox();
             this.panBackground.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
@@ -57,7 +58,7 @@ namespace UserControls
             this.btnClose.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(232)))), ((int)(((byte)(17)))), ((int)(((byte)(35)))));
             this.btnClose.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnClose.Image = global::UserControls.Properties.Resources.Close;
-            this.btnClose.Location = new System.Drawing.Point(711, 5);
+            this.btnClose.Location = new System.Drawing.Point(227, 5);
             this.btnClose.Name = "btnClose";
             this.btnClose.Size = new System.Drawing.Size(25, 25);
             this.btnClose.TabIndex = 6;
@@ -75,7 +76,7 @@ namespace UserControls
             this.label3.ForeColor = System.Drawing.SystemColors.ControlText;
             this.label3.Location = new System.Drawing.Point(5, 5);
             this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(731, 25);
+            this.label3.Size = new System.Drawing.Size(247, 25);
             this.label3.TabIndex = 19;
             this.label3.Text = "Python Editor";
             this.label3.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -87,18 +88,8 @@ namespace UserControls
             this.panBackground.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panBackground.Location = new System.Drawing.Point(0, 0);
             this.panBackground.Name = "panBackground";
-            this.panBackground.Size = new System.Drawing.Size(741, 462);
+            this.panBackground.Size = new System.Drawing.Size(257, 462);
             this.panBackground.TabIndex = 20;
-            // 
-            // pythonConsole
-            // 
-            this.pythonConsole.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.pythonConsole.Location = new System.Drawing.Point(5, 5);
-            this.pythonConsole.Name = "pythonConsole";
-            this.pythonConsole.Size = new System.Drawing.Size(731, 166);
-            this.pythonConsole.TabIndex = 20;
             // 
             // splitContainer1
             // 
@@ -110,15 +101,36 @@ namespace UserControls
             // 
             // splitContainer1.Panel1
             // 
+            this.splitContainer1.Panel1.Controls.Add(this.petbPythonEditor);
             this.splitContainer1.Panel1.Controls.Add(this.btnClose);
             this.splitContainer1.Panel1.Controls.Add(this.label3);
             // 
             // splitContainer1.Panel2
             // 
-            this.splitContainer1.Panel2.Controls.Add(this.pythonConsole);
-            this.splitContainer1.Size = new System.Drawing.Size(741, 462);
+            this.splitContainer1.Panel2.Controls.Add(this.pctbPythonConsole);
+            this.splitContainer1.Size = new System.Drawing.Size(257, 462);
             this.splitContainer1.SplitterDistance = 284;
             this.splitContainer1.TabIndex = 21;
+            // 
+            // petbPythonEditor
+            // 
+            this.petbPythonEditor.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.petbPythonEditor.Location = new System.Drawing.Point(5, 33);
+            this.petbPythonEditor.Name = "petbPythonEditor";
+            this.petbPythonEditor.Size = new System.Drawing.Size(247, 251);
+            this.petbPythonEditor.TabIndex = 20;
+            // 
+            // pctbPythonConsole
+            // 
+            this.pctbPythonConsole.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.pctbPythonConsole.Location = new System.Drawing.Point(5, 0);
+            this.pctbPythonConsole.Name = "pctbPythonConsole";
+            this.pctbPythonConsole.Size = new System.Drawing.Size(247, 170);
+            this.pctbPythonConsole.TabIndex = 20;
             // 
             // PythonPanel
             // 
@@ -129,7 +141,7 @@ namespace UserControls
             this.Controls.Add(this.panBackground);
             this.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.Name = "PythonPanel";
-            this.Size = new System.Drawing.Size(741, 462);
+            this.Size = new System.Drawing.Size(257, 462);
             this.Resize += new System.EventHandler(this.PythonPanel_Resize);
             this.panBackground.ResumeLayout(false);
             this.splitContainer1.Panel1.ResumeLayout(false);
@@ -144,7 +156,8 @@ namespace UserControls
         private System.Windows.Forms.Button btnClose;
         private System.Windows.Forms.Label label3;
         private System.Windows.Forms.Panel panBackground;
-        private PythonConsoleTextBox pythonConsole;
+        private PythonConsoleTextBox pctbPythonConsole;
         private System.Windows.Forms.SplitContainer splitContainer1;
+        private PythonEditorTextBox petbPythonEditor;
     }
 }

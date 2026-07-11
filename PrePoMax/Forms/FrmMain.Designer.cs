@@ -148,7 +148,7 @@ namespace PrePoMax
             this.tsmiRegenerateHistoryWithRemeshing = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiView = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiViewControls = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiPythonConsole = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiPythonEditor = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItem6 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiStandardViews = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiFrontView = new System.Windows.Forms.ToolStripMenuItem();
@@ -1597,17 +1597,17 @@ namespace PrePoMax
             // tsmiViewControls
             // 
             this.tsmiViewControls.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.tsmiPythonConsole});
+            this.tsmiPythonEditor});
             this.tsmiViewControls.Name = "tsmiViewControls";
             this.tsmiViewControls.Size = new System.Drawing.Size(243, 22);
             this.tsmiViewControls.Text = "Controls";
             // 
-            // tsmiPythonConsole
+            // tsmiPythonEditor
             // 
-            this.tsmiPythonConsole.Name = "tsmiPythonConsole";
-            this.tsmiPythonConsole.Size = new System.Drawing.Size(180, 22);
-            this.tsmiPythonConsole.Text = "Python Console";
-            this.tsmiPythonConsole.Click += new System.EventHandler(this.tsmiPythonConsole_Click);
+            this.tsmiPythonEditor.Name = "tsmiPythonEditor";
+            this.tsmiPythonEditor.Size = new System.Drawing.Size(180, 22);
+            this.tsmiPythonEditor.Text = "Python Editor";
+            this.tsmiPythonEditor.Click += new System.EventHandler(this.tsmiPythonEditor_Click);
             // 
             // toolStripMenuItem6
             // 
@@ -1634,7 +1634,7 @@ namespace PrePoMax
             // 
             this.tsmiFrontView.Image = global::PrePoMax.Properties.Resources.Front;
             this.tsmiFrontView.Name = "tsmiFrontView";
-            this.tsmiFrontView.Size = new System.Drawing.Size(151, 22);
+            this.tsmiFrontView.Size = new System.Drawing.Size(180, 22);
             this.tsmiFrontView.Text = "Front View";
             this.tsmiFrontView.Click += new System.EventHandler(this.tsmiFrontView_Click);
             // 
@@ -1642,7 +1642,7 @@ namespace PrePoMax
             // 
             this.tsmiBackView.Image = global::PrePoMax.Properties.Resources.Back;
             this.tsmiBackView.Name = "tsmiBackView";
-            this.tsmiBackView.Size = new System.Drawing.Size(151, 22);
+            this.tsmiBackView.Size = new System.Drawing.Size(180, 22);
             this.tsmiBackView.Text = "Back View";
             this.tsmiBackView.Click += new System.EventHandler(this.tsmiBackView_Click);
             // 
@@ -1650,7 +1650,7 @@ namespace PrePoMax
             // 
             this.tsmiTopView.Image = global::PrePoMax.Properties.Resources.Top;
             this.tsmiTopView.Name = "tsmiTopView";
-            this.tsmiTopView.Size = new System.Drawing.Size(151, 22);
+            this.tsmiTopView.Size = new System.Drawing.Size(180, 22);
             this.tsmiTopView.Text = "Top View";
             this.tsmiTopView.Click += new System.EventHandler(this.tsmiTopView_Click);
             // 
@@ -1658,7 +1658,7 @@ namespace PrePoMax
             // 
             this.tsmiBottomView.Image = global::PrePoMax.Properties.Resources.Bottom;
             this.tsmiBottomView.Name = "tsmiBottomView";
-            this.tsmiBottomView.Size = new System.Drawing.Size(151, 22);
+            this.tsmiBottomView.Size = new System.Drawing.Size(180, 22);
             this.tsmiBottomView.Text = "Bottom View";
             this.tsmiBottomView.Click += new System.EventHandler(this.tsmiBottomView_Click);
             // 
@@ -1666,7 +1666,7 @@ namespace PrePoMax
             // 
             this.tsmiLeftView.Image = global::PrePoMax.Properties.Resources.Left;
             this.tsmiLeftView.Name = "tsmiLeftView";
-            this.tsmiLeftView.Size = new System.Drawing.Size(151, 22);
+            this.tsmiLeftView.Size = new System.Drawing.Size(180, 22);
             this.tsmiLeftView.Text = "Left View";
             this.tsmiLeftView.Click += new System.EventHandler(this.tsmiLeftView_Click);
             // 
@@ -1674,7 +1674,7 @@ namespace PrePoMax
             // 
             this.tsmiRightView.Image = global::PrePoMax.Properties.Resources.Right;
             this.tsmiRightView.Name = "tsmiRightView";
-            this.tsmiRightView.Size = new System.Drawing.Size(151, 22);
+            this.tsmiRightView.Size = new System.Drawing.Size(180, 22);
             this.tsmiRightView.Text = "Right View";
             this.tsmiRightView.Click += new System.EventHandler(this.tsmiRightView_Click);
             // 
@@ -1682,7 +1682,7 @@ namespace PrePoMax
             // 
             this.tsmiNormalView.Image = global::PrePoMax.Properties.Resources.Normal;
             this.tsmiNormalView.Name = "tsmiNormalView";
-            this.tsmiNormalView.Size = new System.Drawing.Size(151, 22);
+            this.tsmiNormalView.Size = new System.Drawing.Size(180, 22);
             this.tsmiNormalView.Text = "Normal View";
             this.tsmiNormalView.Click += new System.EventHandler(this.tsmiNormalView_Click);
             // 
@@ -1690,7 +1690,7 @@ namespace PrePoMax
             // 
             this.tsmiVerticalView.Image = global::PrePoMax.Properties.Resources.Vertical;
             this.tsmiVerticalView.Name = "tsmiVerticalView";
-            this.tsmiVerticalView.Size = new System.Drawing.Size(151, 22);
+            this.tsmiVerticalView.Size = new System.Drawing.Size(180, 22);
             this.tsmiVerticalView.Text = "Vertical View";
             this.tsmiVerticalView.Click += new System.EventHandler(this.tsmiVerticalView_Click);
             // 
@@ -1698,7 +1698,7 @@ namespace PrePoMax
             // 
             this.tsmiIsometricView.Image = global::PrePoMax.Properties.Resources.Isometric;
             this.tsmiIsometricView.Name = "tsmiIsometricView";
-            this.tsmiIsometricView.Size = new System.Drawing.Size(151, 22);
+            this.tsmiIsometricView.Size = new System.Drawing.Size(180, 22);
             this.tsmiIsometricView.Text = "Isometric View";
             this.tsmiIsometricView.Click += new System.EventHandler(this.tsmiIsometricView_Click);
             // 
@@ -5425,7 +5425,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiExportResultFieldOutput;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerResultFieldOutput2;
         private System.Windows.Forms.ToolStripMenuItem tsmiViewControls;
-        private System.Windows.Forms.ToolStripMenuItem tsmiPythonConsole;
+        private System.Windows.Forms.ToolStripMenuItem tsmiPythonEditor;
         private System.Windows.Forms.ToolStripSeparator toolStripMenuItem6;
     }
 }

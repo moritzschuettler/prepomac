@@ -224,6 +224,20 @@ namespace PrePoMax
                 AutoClosingMessageBox.WriteDataToOutput = WriteDataToOutput;
             }
         }
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if ((keyData & Keys.Alt) == Keys.Alt && (keyData & Keys.Control) == Keys.Control)
+                return false;
+
+            if ((keyData & Keys.KeyCode) == Keys.F &&
+                (keyData & (Keys.Control | Keys.Alt | Keys.Shift)) == Keys.Control)
+            {
+                tsmiFind_Click(this, EventArgs.Empty);
+                return true;
+            }
+
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
         // Event handling                                                                                                           
         private void FrmMain_Load(object sender, EventArgs e)
         {
@@ -2582,21 +2596,22 @@ namespace PrePoMax
 
         #region View menu ##########################################################################################################
         // Controls
-        private void tsmiPythonConsole_Click(object sender, EventArgs e)
+        private void tsmiPythonEditor_Click(object sender, EventArgs e)
         {
             if (!_controller.ModelInitialized) return;
             // Change the panel check state
-            tsmiPythonConsole.Checked = !tsmiPythonConsole.Checked;
+            tsmiPythonEditor.Checked = !tsmiPythonEditor.Checked;
             // Add Python panel
-            if (tsmiPythonConsole.Checked == true)
+            if (tsmiPythonEditor.Checked == true)
             {
                 // Lazy initialization of the Python panel
                 if (_pythonPanel == null)
                 {
                     _pythonPanel = new PythonPanel();
-                    _pythonPanel.ExecuteCommand += PythonConsole_ExecuteCommand;
-                    _pythonPanel.AutocompleteRequested += PythonConsole_AutocompleteRequested;
-                    _pythonPanel.CloseButtonPressedEvent += tsmiPythonConsole_Click;
+                    _pythonPanel.ExecuteCommand += PythonEditor_ExecuteCommand;
+                    _pythonPanel.ExecuteScript += PythonEditor_ExecuteScript;
+                    _pythonPanel.AutocompleteRequested += PythonEditor_AutocompleteRequested;
+                    _pythonPanel.CloseButtonPressedEvent += tsmiPythonEditor_Click;
                 }
                 ShowSidePanel(_pythonPanel, 0.5, 100, 1000);
             }
@@ -2608,7 +2623,7 @@ namespace PrePoMax
             if (sidePanel != null) HideSidePanel();
             // Set
             tsmiAdvisor.Checked = sidePanel is AdvisorPanel;
-            tsmiPythonConsole.Checked = sidePanel is PythonPanel;
+            tsmiPythonEditor.Checked = sidePanel is PythonPanel;
             //
             Control parent = panelControl.Parent;
             if (parent == splitContainer2.Panel1)
@@ -2658,7 +2673,7 @@ namespace PrePoMax
                 UpdateVtkControlSize();
             }
         }
-        private void PythonConsole_ExecuteCommand(object sender, PythonConsoleCommandEventArgs e)
+        private void PythonEditor_ExecuteCommand(object sender, PythonTextBoxCommandEventArgs e)
         {
             PythonConsoleResult result = PythonEngineManager.PushLine(e.Command);
             //
@@ -2666,7 +2681,15 @@ namespace PrePoMax
             e.Error = result.Error;
             e.NeedMoreInput = result.NeedMoreInput;
         }
-        private void PythonConsole_AutocompleteRequested(object sender, PythonConsoleAutocompleteEventArgs e)
+        private void PythonEditor_ExecuteScript(object sender, PythonTextBoxCommandEventArgs e)
+        {
+            PythonConsoleResult result = PythonEngineManager.ExecuteScript(e.Command);
+            //
+            e.Output = result.Output;
+            e.Error = result.Error;
+            e.NeedMoreInput = result.NeedMoreInput;
+        }
+        private void PythonEditor_AutocompleteRequested(object sender, PythonTextBoxAutocompleteEventArgs e)
         {
             e.Completions.AddRange(PythonEngineManager.GetCompletions(e.Expression, e.Prefix));
         }
@@ -7180,6 +7203,13 @@ namespace PrePoMax
         {
             try
             {
+                PythonPanel pythonPanel = _visibleSidePanel as PythonPanel;
+                if (pythonPanel != null && pythonPanel.Focused)
+                {
+                    pythonPanel.ShowFind();
+                    return;
+                }
+
                 if (!_frmFind.Visible)
                 {
                     ClearSelection();

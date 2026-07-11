@@ -36,10 +36,7 @@ namespace UserControls
         private readonly TextStyle _outputStyle = new TextStyle(Brushes.Black, null, FontStyle.Regular);
         private readonly TextStyle _errorStyle = new TextStyle(Brushes.DarkRed, null, FontStyle.Regular);
         private readonly TextStyle _introStyle = new TextStyle(Brushes.DarkGreen, null, FontStyle.Regular);
-        private readonly TextStyle _keywordStyle = new TextStyle(Brushes.Blue, null, FontStyle.Regular);
-        private readonly TextStyle _stringStyle = new TextStyle(Brushes.Brown, null, FontStyle.Regular);
-        private readonly TextStyle _commentStyle = new TextStyle(Brushes.Green, null, FontStyle.Italic);
-        private readonly TextStyle _numberStyle = new TextStyle(Brushes.DarkCyan, null, FontStyle.Regular);
+        private readonly PythonTextBoxSyntaxHighlighter _syntaxHighlighter = new PythonTextBoxSyntaxHighlighter();
         private PythonConsoleFastTextBox _textBox;
         // Context menu
         private ToolStripMenuItem _cutMenuItem;
@@ -62,8 +59,8 @@ namespace UserControls
 
 
         // Events                                                                                                                   
-        public event EventHandler<PythonConsoleCommandEventArgs> ExecuteCommand;
-        public event EventHandler<PythonConsoleAutocompleteEventArgs> AutocompleteRequested;
+        public event EventHandler<PythonTextBoxCommandEventArgs> ExecuteCommand;
+        public event EventHandler<PythonTextBoxAutocompleteEventArgs> AutocompleteRequested;
 
 
         // Properties                                                                                                               
@@ -274,12 +271,46 @@ namespace UserControls
         {
             WriteOutput(text + Environment.NewLine);
         }
+        public void WriteExecutionResult(string output, string error)
+        {
+            if (string.IsNullOrEmpty(output) && string.IsNullOrEmpty(error)) return;
+
+            _internalTextChange = true;
+            try
+            {
+                AppendConsoleText(Environment.NewLine, _outputStyle);
+
+                if (!string.IsNullOrEmpty(output))
+                    AppendConsoleText(output, _outputStyle);
+
+                if (!string.IsNullOrEmpty(output) && !output.EndsWith(Environment.NewLine) &&
+                    !string.IsNullOrEmpty(error) && !error.StartsWith(Environment.NewLine))
+                {
+                    AppendConsoleText(Environment.NewLine, _outputStyle);
+                }
+
+                if (!string.IsNullOrEmpty(error))
+                    AppendConsoleText(error, _errorStyle);
+
+                _needMoreInput = false;
+                AppendPrompt(MainPrompt);
+            }
+            finally
+            {
+                _internalTextChange = false;
+            }
+
+            HideAutocompleteList();
+            ResetAutocomplete();
+        }
         public new bool Focus()
         {
             return _textBox.Focus();
         }
         internal bool ProcessKeyDown(KeyEventArgs e)
         {
+            if (e.Alt) return false;
+
             // Auto-complete list navigation
             if (_autocompleteListBox.Visible)
             {
@@ -536,28 +567,7 @@ namespace UserControls
         }
         private void HighlightPythonSyntax(Range range)
         {
-            range.ClearStyle(_keywordStyle, _stringStyle, _commentStyle, _numberStyle);
-
-            // Comments
-            range.SetStyle(_commentStyle, @"#.*$", RegexOptions.Multiline);
-
-            // Strings
-            range.SetStyle(_stringStyle, "\"\"\".*?\"\"\"", RegexOptions.Singleline);
-            range.SetStyle(_stringStyle, "'''.*?'''", RegexOptions.Singleline);
-            range.SetStyle(_stringStyle, "\"([^\"\\\\]|\\\\.)*\"");
-            range.SetStyle(_stringStyle, "'([^'\\\\]|\\\\.)*'");
-
-            // Numbers
-            range.SetStyle(_numberStyle, @"\b\d+(\.\d+)?([eE][+-]?\d+)?\b");
-
-            // Python keywords
-            range.SetStyle(_keywordStyle,
-                @"\b(" +
-                "False|None|True|" +
-                "and|as|assert|async|await|break|class|continue|def|del|elif|else|" +
-                "except|finally|for|from|global|if|import|in|is|lambda|nonlocal|" +
-                "not|or|pass|raise|return|try|while|with|yield" +
-                @")\b");
+            _syntaxHighlighter.Highlight(range);
         }
         private void MoveCaretToEndOfInsertedText(int caretPosition)
         {
@@ -583,11 +593,11 @@ namespace UserControls
                 _internalTextChange = false;
             }
 
-            PythonConsoleCommandEventArgs args = new PythonConsoleCommandEventArgs(command);
+            PythonTextBoxCommandEventArgs args = new PythonTextBoxCommandEventArgs(command);
 
             try
             {
-                EventHandler<PythonConsoleCommandEventArgs> handler = ExecuteCommand;
+                EventHandler<PythonTextBoxCommandEventArgs> handler = ExecuteCommand;
                 if (handler != null)
                     handler(this, args);
             }
@@ -789,10 +799,7 @@ namespace UserControls
                 _outputStyle.Dispose();
                 _errorStyle.Dispose();
                 _introStyle.Dispose();
-                _keywordStyle.Dispose();
-                _stringStyle.Dispose();
-                _commentStyle.Dispose();
-                _numberStyle.Dispose();
+                _syntaxHighlighter.Dispose();
 
                 _textBox.Dispose();
             }
@@ -813,7 +820,8 @@ namespace UserControls
             string expression;
             string prefix;
             int replaceStartLocal;
-            GetCompletionExpression(beforeCaret, out expression, out prefix, out replaceStartLocal);
+            PythonTextBoxCompletionHelper.GetCompletionExpression(beforeCaret, out expression, out prefix,
+                                                                  out replaceStartLocal);
 
             if (string.IsNullOrEmpty(prefix) && string.IsNullOrEmpty(expression)) return;
 
@@ -881,120 +889,12 @@ namespace UserControls
 
             return false;
         }
-        private void GetCompletionExpression(string beforeCaret, out string expression, out string prefix,
-                                             out int replaceStartLocal)
-        {
-            expression = "";
-            prefix = "";
-            replaceStartLocal = beforeCaret.Length;
-
-            int index = beforeCaret.Length - 1;
-
-            // Find the identifier prefix after the last dot.
-            while (index >= 0 && IsPythonIdentifierCharacter(beforeCaret[index]))
-                index--;
-
-            prefix = beforeCaret.Substring(index + 1);
-            replaceStartLocal = index + 1;
-
-            // There is no object expression before the prefix.
-            if (index < 0 || beforeCaret[index] != '.')
-                return;
-
-            int dotIndex = index;
-            index--;
-
-            int squareBracketDepth = 0;
-            int roundBracketDepth = 0;
-            char stringDelimiter = '\0';
-
-            while (index >= 0)
-            {
-                char c = beforeCaret[index];
-
-                // Handle quoted strings inside indexers and method arguments.
-                if (stringDelimiter != '\0')
-                {
-                    if (c == stringDelimiter &&
-                        (index == 0 || beforeCaret[index - 1] != '\\'))
-                    {
-                        stringDelimiter = '\0';
-                    }
-
-                    index--;
-                    continue;
-                }
-
-                if (c == '"' || c == '\'')
-                {
-                    stringDelimiter = c;
-                    index--;
-                    continue;
-                }
-
-                if (c == ']')
-                {
-                    squareBracketDepth++;
-                    index--;
-                    continue;
-                }
-
-                if (c == '[')
-                {
-                    if (squareBracketDepth == 0)
-                        break;
-
-                    squareBracketDepth--;
-                    index--;
-                    continue;
-                }
-
-                if (c == ')')
-                {
-                    roundBracketDepth++;
-                    index--;
-                    continue;
-                }
-
-                if (c == '(')
-                {
-                    if (roundBracketDepth == 0)
-                        break;
-
-                    roundBracketDepth--;
-                    index--;
-                    continue;
-                }
-
-                // Inside brackets or parentheses, accept all characters.
-                if (squareBracketDepth > 0 || roundBracketDepth > 0)
-                {
-                    index--;
-                    continue;
-                }
-
-                // Outside brackets, continue through a chained Python expression.
-                if (IsPythonIdentifierCharacter(c) || c == '.')
-                {
-                    index--;
-                    continue;
-                }
-
-                break;
-            }
-            //
-            expression = beforeCaret.Substring(index + 1, dotIndex - index - 1);
-        }
-        private bool IsPythonIdentifierCharacter(char c)
-        {
-            return char.IsLetterOrDigit(c) || c == '_';
-        }
         private List<string> GetCompletions(string expression, string prefix)
         {
-            PythonConsoleAutocompleteEventArgs args =
-                new PythonConsoleAutocompleteEventArgs(expression, prefix);
+            PythonTextBoxAutocompleteEventArgs args =
+                new PythonTextBoxAutocompleteEventArgs(expression, prefix);
 
-            EventHandler<PythonConsoleAutocompleteEventArgs> handler = AutocompleteRequested;
+            EventHandler<PythonTextBoxAutocompleteEventArgs> handler = AutocompleteRequested;
 
             if (handler != null)
                 handler(this, args);
@@ -1042,7 +942,8 @@ namespace UserControls
             string expression;
             string prefix;
             int replaceStartLocal;
-            GetCompletionExpression(beforeCaret, out expression, out prefix, out replaceStartLocal);
+            PythonTextBoxCompletionHelper.GetCompletionExpression(beforeCaret, out expression, out prefix,
+                                                                  out replaceStartLocal);
 
             List<string> completions = GetCompletions(expression, prefix);
             if (completions == null || completions.Count == 0)

@@ -1,4 +1,4 @@
-﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinsek
+// PrePoMax - Copyright (C) 2016-2026 Matej Borovinsek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -12,13 +12,13 @@ using System.Collections.Generic;
 
 namespace UserControls
 {
-    public class PythonConsoleAutocompleteEventArgs : EventArgs
+    public class PythonTextBoxAutocompleteEventArgs : EventArgs
     {
         public string Expression { get; private set; }
         public string Prefix { get; private set; }
         public List<string> Completions { get; private set; }
 
-        public PythonConsoleAutocompleteEventArgs(string expression, string prefix)
+        public PythonTextBoxAutocompleteEventArgs(string expression, string prefix)
         {
             Expression = expression;
             Prefix = prefix;

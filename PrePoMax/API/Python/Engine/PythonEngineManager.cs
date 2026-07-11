@@ -147,6 +147,55 @@ namespace PrePoMax.API.Python
                 }
             }
         }
+        public static PythonConsoleResult ExecuteScript(string code)
+        {
+            Initialize();
+
+            PythonConsoleResult result = new PythonConsoleResult();
+
+            using (Py.GIL())
+            {
+                dynamic io = Py.Import("io");
+                dynamic sys = Py.Import("sys");
+                dynamic stdout = io.StringIO();
+                dynamic stderr = io.StringIO();
+                PyObject oldStdout = sys.stdout;
+                PyObject oldStderr = sys.stderr;
+
+                try
+                {
+                    sys.stdout = stdout;
+                    sys.stderr = stderr;
+                    //
+                    code = NormalizeResultPathIndexLiterals(code);
+                    PythonEngine.Exec(code, null, _scope);
+                    //
+                    result.Output = stdout.getvalue().ToString();
+                    result.Error = stderr.getvalue().ToString();
+                    result.NeedMoreInput = false;
+                }
+                catch (Exception ex)
+                {
+                    result.Output = stdout.getvalue().ToString();
+                    result.Error = stderr.getvalue().ToString();
+
+                    if (!string.IsNullOrEmpty(result.Error) && !result.Error.EndsWith(Environment.NewLine))
+                        result.Error += Environment.NewLine;
+
+                    result.Error += ex.ToString() + Environment.NewLine;
+                    result.NeedMoreInput = false;
+                }
+                finally
+                {
+                    sys.stdout = oldStdout;
+                    sys.stderr = oldStderr;
+                    oldStdout.Dispose();
+                    oldStderr.Dispose();
+                }
+            }
+
+            return result;
+        }
         private static string NormalizeResultPathIndexLiterals(string line)
         {
             if (string.IsNullOrEmpty(line) || line.IndexOf('\\') < 0) return line;

@@ -11,7 +11,7 @@ using System;
 
 namespace UserControls
 {
-    public class PythonConsoleCommandEventArgs : EventArgs
+    public class PythonTextBoxCommandEventArgs : EventArgs
     {
         // Properties                                                                                                               
         public string Command { get; private set; }
@@ -21,7 +21,7 @@ namespace UserControls
 
 
         // Constructors                                                                                                             
-        public PythonConsoleCommandEventArgs(string command)
+        public PythonTextBoxCommandEventArgs(string command)
         {
             Command = command;
             Output = "";
