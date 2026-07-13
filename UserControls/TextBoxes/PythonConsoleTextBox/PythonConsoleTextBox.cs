@@ -33,7 +33,7 @@ namespace UserControls
         private readonly TextStyle _promptStyle = new TextStyle(Brushes.DarkBlue, null, FontStyle.Bold);
         private readonly TextStyle _outputStyle = new TextStyle(Brushes.Black, null, FontStyle.Regular);
         private readonly TextStyle _errorStyle = new TextStyle(Brushes.DarkRed, null, FontStyle.Regular);
-        private readonly TextStyle _introStyle = new TextStyle(Brushes.DarkGreen, null, FontStyle.Regular);
+        private readonly TextStyle _introStyle = new TextStyle(Brushes.DarkGreen, null, FontStyle.Italic);
         private readonly PythonTextBoxSyntaxHighlighter _syntaxHighlighter = new PythonTextBoxSyntaxHighlighter();
         private PythonConsoleFastTextBox _textBox;
         private AutocompleteMenu _autocompleteMenu;
@@ -171,7 +171,7 @@ namespace UserControls
             {
                 _textBox.Clear();
 
-                AppendConsoleText("Python Interactive Console" + Environment.NewLine, _introStyle);
+                AppendConsoleText("#Python Interactive Console" + Environment.NewLine, _introStyle);
 
                 _needMoreInput = false;
                 AppendPrompt(MainPrompt);

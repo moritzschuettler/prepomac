@@ -10,7 +10,7 @@ namespace UserControls
         private bool _mouseOver;
         private bool _mouseDown;
         private bool _ignoreHoverUntilMouseLeave;
-
+        private Color _backcolor = SystemColors.Control;
         public MenuStyleButton()
         {
             _colorTable = new ProfessionalColorTable();
@@ -22,7 +22,7 @@ namespace UserControls
             //
             FlatStyle = FlatStyle.Flat;
             FlatAppearance.BorderSize = 1;
-            BackColor = Color.White;
+            BackColor = _backcolor;
             UseVisualStyleBackColor = false;
         }
         protected override void OnMouseEnter(EventArgs e)
@@ -124,7 +124,7 @@ namespace UserControls
             if (!Enabled) return SystemColors.Control;
             if (_mouseDown) return _colorTable.MenuItemPressedGradientBegin;
             if (_mouseOver && !_ignoreHoverUntilMouseLeave) return _colorTable.MenuItemSelected;
-            return Color.White;
+            return _backcolor;
         }
         private Color GetCurrentBorderColor()
         {

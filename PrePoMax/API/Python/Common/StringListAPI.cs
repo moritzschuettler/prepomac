@@ -83,7 +83,8 @@ namespace PrePoMax.API.Python
         public static string ToDisplayString(string item)
         {
             if (item == null) return "None";
-            return "'" + item.Replace("'", "\\'")
+            return "'" + item.Replace("\\", "\\\\")
+                             .Replace("'", "\\'")
                              .Replace("\r", "\\r")
                              .Replace("\n", "\\n")
                              .Replace("\t", "\\t") + "'";

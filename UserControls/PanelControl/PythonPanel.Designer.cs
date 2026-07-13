@@ -41,8 +41,6 @@ namespace UserControls
             this.labTitle = new System.Windows.Forms.Label();
             this.panBackground = new System.Windows.Forms.Panel();
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
-            this.petbPythonEditor = new UserControls.PythonEditorTextBox();
-            this.pctbPythonConsole = new UserControls.PythonConsoleTextBox();
             this.btnRunSelected = new UserControls.MenuStyleButton();
             this.btnRun = new UserControls.MenuStyleButton();
             this.btnRedo = new UserControls.MenuStyleButton();
@@ -50,7 +48,9 @@ namespace UserControls
             this.btnSave = new UserControls.MenuStyleButton();
             this.btnOpen = new UserControls.MenuStyleButton();
             this.btnNew = new UserControls.MenuStyleButton();
+            this.petbPythonEditor = new UserControls.PythonEditorTextBox();
             this.btnClose = new System.Windows.Forms.Button();
+            this.pctbPythonConsole = new UserControls.PythonConsoleTextBox();
             this.ttText = new System.Windows.Forms.ToolTip(this.components);
             this.panBackground.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
@@ -58,10 +58,10 @@ namespace UserControls
             this.splitContainer1.Panel2.SuspendLayout();
             this.splitContainer1.SuspendLayout();
             this.SuspendLayout();
-            //
+            // 
             // labTitle
-            //
-            this.labTitle.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
+            // 
+            this.labTitle.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.labTitle.BackColor = System.Drawing.SystemColors.Control;
             this.labTitle.Font = new System.Drawing.Font("Segoe UI Semibold", 9F);
@@ -73,26 +73,26 @@ namespace UserControls
             this.labTitle.Text = "Python Script Editor";
             this.labTitle.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             this.labTitle.UseCompatibleTextRendering = true;
-            //
+            // 
             // panBackground
-            //
+            // 
             this.panBackground.Controls.Add(this.splitContainer1);
             this.panBackground.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panBackground.Location = new System.Drawing.Point(0, 0);
             this.panBackground.Name = "panBackground";
             this.panBackground.Size = new System.Drawing.Size(426, 462);
             this.panBackground.TabIndex = 20;
-            //
+            // 
             // splitContainer1
-            //
+            // 
             this.splitContainer1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.splitContainer1.FixedPanel = System.Windows.Forms.FixedPanel.Panel2;
             this.splitContainer1.Location = new System.Drawing.Point(0, 0);
             this.splitContainer1.Name = "splitContainer1";
             this.splitContainer1.Orientation = System.Windows.Forms.Orientation.Horizontal;
-            //
+            // 
             // splitContainer1.Panel1
-            //
+            // 
             this.splitContainer1.Panel1.Controls.Add(this.btnRunSelected);
             this.splitContainer1.Panel1.Controls.Add(this.btnRun);
             this.splitContainer1.Panel1.Controls.Add(this.btnRedo);
@@ -103,36 +103,16 @@ namespace UserControls
             this.splitContainer1.Panel1.Controls.Add(this.petbPythonEditor);
             this.splitContainer1.Panel1.Controls.Add(this.btnClose);
             this.splitContainer1.Panel1.Controls.Add(this.labTitle);
-            //
+            // 
             // splitContainer1.Panel2
-            //
+            // 
             this.splitContainer1.Panel2.Controls.Add(this.pctbPythonConsole);
             this.splitContainer1.Size = new System.Drawing.Size(426, 462);
             this.splitContainer1.SplitterDistance = 331;
             this.splitContainer1.TabIndex = 21;
-            //
-            // petbPythonEditor
-            //
-            this.petbPythonEditor.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
-            | System.Windows.Forms.AnchorStyles.Left)
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.petbPythonEditor.Location = new System.Drawing.Point(5, 33);
-            this.petbPythonEditor.Name = "petbPythonEditor";
-            this.petbPythonEditor.Size = new System.Drawing.Size(416, 298);
-            this.petbPythonEditor.TabIndex = 20;
-            //
-            // pctbPythonConsole
-            //
-            this.pctbPythonConsole.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
-            | System.Windows.Forms.AnchorStyles.Left)
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.pctbPythonConsole.Location = new System.Drawing.Point(5, 0);
-            this.pctbPythonConsole.Name = "pctbPythonConsole";
-            this.pctbPythonConsole.Size = new System.Drawing.Size(416, 123);
-            this.pctbPythonConsole.TabIndex = 20;
-            //
+            // 
             // btnRunSelected
-            //
+            // 
             this.btnRunSelected.BackColor = System.Drawing.Color.White;
             this.btnRunSelected.FlatAppearance.BorderColor = System.Drawing.SystemColors.Control;
             this.btnRunSelected.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
@@ -143,9 +123,9 @@ namespace UserControls
             this.btnRunSelected.TabIndex = 27;
             this.btnRunSelected.UseVisualStyleBackColor = false;
             this.btnRunSelected.Click += new System.EventHandler(this.btnRunSelected_Click);
-            //
+            // 
             // btnRun
-            //
+            // 
             this.btnRun.BackColor = System.Drawing.Color.White;
             this.btnRun.FlatAppearance.BorderColor = System.Drawing.SystemColors.Control;
             this.btnRun.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
@@ -156,9 +136,9 @@ namespace UserControls
             this.btnRun.TabIndex = 26;
             this.btnRun.UseVisualStyleBackColor = false;
             this.btnRun.Click += new System.EventHandler(this.btnRun_Click);
-            //
+            // 
             // btnRedo
-            //
+            // 
             this.btnRedo.BackColor = System.Drawing.Color.White;
             this.btnRedo.FlatAppearance.BorderColor = System.Drawing.SystemColors.Control;
             this.btnRedo.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
@@ -169,9 +149,9 @@ namespace UserControls
             this.btnRedo.TabIndex = 25;
             this.btnRedo.UseVisualStyleBackColor = false;
             this.btnRedo.Click += new System.EventHandler(this.btnRedo_Click);
-            //
+            // 
             // btnUndo
-            //
+            // 
             this.btnUndo.BackColor = System.Drawing.Color.White;
             this.btnUndo.FlatAppearance.BorderColor = System.Drawing.SystemColors.Control;
             this.btnUndo.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
@@ -182,9 +162,9 @@ namespace UserControls
             this.btnUndo.TabIndex = 24;
             this.btnUndo.UseVisualStyleBackColor = false;
             this.btnUndo.Click += new System.EventHandler(this.btnUndo_Click);
-            //
+            // 
             // btnSave
-            //
+            // 
             this.btnSave.BackColor = System.Drawing.Color.White;
             this.btnSave.FlatAppearance.BorderColor = System.Drawing.SystemColors.Control;
             this.btnSave.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
@@ -195,9 +175,9 @@ namespace UserControls
             this.btnSave.TabIndex = 23;
             this.btnSave.UseVisualStyleBackColor = false;
             this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
-            //
+            // 
             // btnOpen
-            //
+            // 
             this.btnOpen.BackColor = System.Drawing.Color.White;
             this.btnOpen.FlatAppearance.BorderColor = System.Drawing.SystemColors.Control;
             this.btnOpen.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
@@ -208,9 +188,9 @@ namespace UserControls
             this.btnOpen.TabIndex = 22;
             this.btnOpen.UseVisualStyleBackColor = false;
             this.btnOpen.Click += new System.EventHandler(this.btnOpen_Click);
-            //
+            // 
             // btnNew
-            //
+            // 
             this.btnNew.BackColor = System.Drawing.Color.White;
             this.btnNew.FlatAppearance.BorderColor = System.Drawing.SystemColors.Control;
             this.btnNew.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
@@ -221,10 +201,21 @@ namespace UserControls
             this.btnNew.TabIndex = 21;
             this.btnNew.UseVisualStyleBackColor = false;
             this.btnNew.Click += new System.EventHandler(this.btnNew_Click);
-            //
+            // 
+            // petbPythonEditor
+            // 
+            this.petbPythonEditor.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.petbPythonEditor.Location = new System.Drawing.Point(5, 33);
+            this.petbPythonEditor.Name = "petbPythonEditor";
+            this.petbPythonEditor.Size = new System.Drawing.Size(416, 298);
+            this.petbPythonEditor.TabIndex = 20;
+            // 
             // btnClose
-            //
+            // 
             this.btnClose.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnClose.BackColor = System.Drawing.SystemColors.Control;
             this.btnClose.FlatAppearance.BorderColor = System.Drawing.SystemColors.Control;
             this.btnClose.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(241)))), ((int)(((byte)(112)))), ((int)(((byte)(122)))));
             this.btnClose.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(232)))), ((int)(((byte)(17)))), ((int)(((byte)(35)))));
@@ -234,13 +225,23 @@ namespace UserControls
             this.btnClose.Name = "btnClose";
             this.btnClose.Size = new System.Drawing.Size(25, 25);
             this.btnClose.TabIndex = 6;
-            this.btnClose.UseVisualStyleBackColor = true;
+            this.btnClose.UseVisualStyleBackColor = false;
             this.btnClose.Click += new System.EventHandler(this.btnClose_Click);
             this.btnClose.MouseEnter += new System.EventHandler(this.btnClose_MouseEnter);
             this.btnClose.MouseLeave += new System.EventHandler(this.btnClose_MouseLeave);
-            //
+            // 
+            // pctbPythonConsole
+            // 
+            this.pctbPythonConsole.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.pctbPythonConsole.Location = new System.Drawing.Point(5, 0);
+            this.pctbPythonConsole.Name = "pctbPythonConsole";
+            this.pctbPythonConsole.Size = new System.Drawing.Size(416, 123);
+            this.pctbPythonConsole.TabIndex = 20;
+            // 
             // PythonPanel
-            //
+            // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.White;
