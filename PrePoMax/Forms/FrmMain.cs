@@ -1973,7 +1973,7 @@ namespace PrePoMax
                     //
                     _controller.ModelChanged = false; // must be here since adding a unit system changes the model
                 }
-                PythonEngineManager.SetResults(_controller.AllResults);
+                UpdatePythonEngine();
             }
             catch (Exception ex)
             {
@@ -2061,7 +2061,7 @@ namespace PrePoMax
             ActionOnFile(fileName, parameters);
             //
             UpdateResultMenus();
-            PythonEngineManager.SetResults(_controller.AllResults);
+            UpdatePythonEngine();
             //
             if (_controller.CurrentView == ViewGeometryModelResults.Geometry) _controller.DrawGeometry(resetCamera);
             else if (_controller.CurrentView == ViewGeometryModelResults.Model) _controller.DrawModel(resetCamera);
@@ -2166,7 +2166,7 @@ namespace PrePoMax
             {
                 SetStateWorking(Globals.SavingText);
                 await Task.Run(() => _controller.Save());
-                PythonEngineManager.SetResults(_controller.AllResults);
+                UpdatePythonEngine();
             }
             finally
             {
@@ -2599,24 +2599,32 @@ namespace PrePoMax
         // Controls
         private void tsmiPythonScriptEditor_Click(object sender, EventArgs e)
         {
-            if (!_controller.ModelInitialized) return;
-            // Change the panel check state
-            tsmiPythonScriptEditor.Checked = !tsmiPythonScriptEditor.Checked;
-            // Add Python panel
-            if (tsmiPythonScriptEditor.Checked == true)
+            try
             {
-                // Lazy initialization of the Python panel
-                if (_pythonPanel == null)
+                if (!_controller.ModelInitialized) return;
+                // Change the panel check state
+                tsmiPythonScriptEditor.Checked = !tsmiPythonScriptEditor.Checked;
+                // Add Python panel
+                if (tsmiPythonScriptEditor.Checked == true)
                 {
-                    _pythonPanel = new PythonPanel();
-                    _pythonPanel.ExecuteCommand += PythonPanel_ExecuteCommand;
-                    _pythonPanel.ExecuteScript += PythonPanel_ExecuteScript;
-                    _pythonPanel.AutocompleteRequested += PythonPanel_AutocompleteRequested;
-                    _pythonPanel.CloseButtonPressedEvent += tsmiPythonScriptEditor_Click;
+                    // Lazy initialization of the Python panel
+                    if (_pythonPanel == null)
+                    {
+                        _pythonPanel = new PythonPanel();
+                        _pythonPanel.ExecuteCommand += PythonPanel_ExecuteCommand;
+                        _pythonPanel.ExecuteScript += PythonPanel_ExecuteScript;
+                        _pythonPanel.AutocompleteRequested += PythonPanel_AutocompleteRequested;
+                        _pythonPanel.CloseButtonPressedEvent += tsmiPythonScriptEditor_Click;
+                    }
+                    UpdatePythonEngine(true);
+                    ShowSidePanel(_pythonPanel, 0.5, 100, 1000);
                 }
-                ShowSidePanel(_pythonPanel, 0.5, 100, 1000);
+                else HideSidePanel();
             }
-            else HideSidePanel();
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
         }
         private void ShowSidePanel(SidePanel sidePanel, double relativeSize, int min, int max)
         {
@@ -2656,6 +2664,10 @@ namespace PrePoMax
             splitContainer1.Panel2.Controls.Add(splitContainer2);
             // Update vtk control size
             UpdateVtkControlSize();
+        }
+        private void UpdatePythonEngine(bool forceUpdate = false)
+        {
+            if (_visibleSidePanel is PythonPanel || forceUpdate) PythonEngineManager.SetResults(_controller.AllResults);
         }
         private void PythonPanel_ExecuteCommand(object sender, PythonTextBoxCommandEventArgs e)
         {
@@ -10887,7 +10899,7 @@ namespace PrePoMax
         }
         private void TestPython()
         {
-            PythonEngineManager.SetResults(_controller.AllResults);
+            UpdatePythonEngine();
             string result = PythonEngineManager.Execute(
                 "result_names = pmx.results.get_result_names()\n" +
                 "for rn in result_names:\n" +
