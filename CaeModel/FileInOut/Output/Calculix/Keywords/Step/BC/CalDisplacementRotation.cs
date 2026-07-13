@@ -23,7 +23,7 @@ namespace FileInOut.Output.Calculix
     {
         // Variables                                                                                                                
         protected DisplacementRotation _displacementRotation;
-        protected Dictionary<string, int[]> _referencePointsNodeIds;
+        protected Dictionary<string, CalReferencePoint> _referencePoints;
         protected string _nodeSetNameOfSurface;
         protected ComplexLoadTypeEnum _complexLoadType;
         protected int _maxNumberNodeDOFs;
@@ -35,15 +35,16 @@ namespace FileInOut.Output.Calculix
 
         // Constructor                                                                                                              
         public CalDisplacementRotation(CalDisplacementRotation displacementRotation)
-            : this(displacementRotation._displacementRotation, displacementRotation._referencePointsNodeIds,
+            : this(displacementRotation._displacementRotation, displacementRotation._referencePoints,
                    displacementRotation._nodeSetNameOfSurface, displacementRotation._complexLoadType)
         {
         }
-        public CalDisplacementRotation(DisplacementRotation displacementRotation, Dictionary<string, int[]> referencePointsNodeIds,
+        public CalDisplacementRotation(DisplacementRotation displacementRotation,
+                                       Dictionary<string, CalReferencePoint> referencePoints,
                                        string nodeSetNameOfSurface, ComplexLoadTypeEnum complexLoadType)
         {
             _displacementRotation = displacementRotation;
-            _referencePointsNodeIds = referencePointsNodeIds;
+            _referencePoints = referencePoints;
             _nodeSetNameOfSurface = nodeSetNameOfSurface;
             _complexLoadType = complexLoadType;
             _maxNumberNodeDOFs = 3; // 3 for Calculix and 6 for Abaqus
@@ -114,14 +115,15 @@ namespace FileInOut.Output.Calculix
             // Reference point
             else if (_displacementRotation.RegionType == RegionTypeEnum.ReferencePointName)
             {
-                int[] rpNodeIds = _referencePointsNodeIds[_displacementRotation.RegionName];
+                CalReferencePoint referencePoint = _referencePoints[_displacementRotation.RegionName];
                 for (int i = 0; i < directions.Length; i++)
                 {
                     // Translational directions - first node id:        6975, 1, 1, 0
-                    if (directions[i] <= _maxNumberNodeDOFs)
-                        sb.AppendFormat("{0}, {1}, {2}", rpNodeIds[0], directions[i], directions[i]);
+                    if (directions[i] <= 3 || _maxNumberNodeDOFs == 6 || !referencePoint.HasRotationNode)
+                        sb.AppendFormat("{0}, {1}, {2}", referencePoint.ReferenceNodeId, directions[i], directions[i]);
                     // Rotational directions - second node id:          6976, 2, 2, 0
-                    else sb.AppendFormat("{0}, {1}, {2}", rpNodeIds[1], directions[i] - 3, directions[i] - 3);
+                    else sb.AppendFormat("{0}, {1}, {2}", referencePoint.RotationNodeId.Value,
+                                         directions[i] - 3, directions[i] - 3);
                     if (!fixedBc) sb.AppendFormat(", {0}", stringValues[i]);
                     sb.AppendLine();
                 }

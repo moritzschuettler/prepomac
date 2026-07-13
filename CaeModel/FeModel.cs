@@ -654,6 +654,13 @@ namespace CaeModel
                         && ((rb.RegionType == RegionTypeEnum.NodeSetName && _mesh.NodeSets.ContainsValidKey(rb.RegionName))
                         || (rb.RegionType == RegionTypeEnum.SurfaceName && _mesh.Surfaces.ContainsValidKey(rb.RegionName)));
             }
+            else if (constraint is Coupling coupling)
+            {
+                valid = coupling.ReferencePointName != null
+                        && _mesh.ReferencePoints.ContainsValidKey(coupling.ReferencePointName)
+                        && coupling.RegionType == RegionTypeEnum.SurfaceName
+                        && _mesh.Surfaces.ContainsValidKey(coupling.RegionName);
+            }
             else if (constraint is Tie t)
             {
                 valid = _mesh.Surfaces.ContainsValidKey(t.SlaveRegionName) && _mesh.Surfaces.ContainsValidKey(t.MasterRegionName)
@@ -2991,7 +2998,7 @@ namespace CaeModel
             return loads.ToArray();
         }
         public InitialTranslationalVelocity[] GetTranslationalVelocities(InitialAngularVelocity initialAngularVelocity,
-                                                                         Dictionary<string, int[]> referencePointsNodeIds)
+                                                       Dictionary<string, Calculix.CalReferencePoint> referencePoints)
         {
             Dictionary<int, double[]> nodeIdCoor = new Dictionary<int, double[]>();
             if (initialAngularVelocity.RegionType == RegionTypeEnum.NodeSetName)
@@ -3014,7 +3021,7 @@ namespace CaeModel
             else if (initialAngularVelocity.RegionType == RegionTypeEnum.ReferencePointName)
             {
                 FeReferencePoint rp = _mesh.ReferencePoints[initialAngularVelocity.RegionName];
-                nodeIdCoor[referencePointsNodeIds[rp.Name][0]] = rp.Coor();
+                nodeIdCoor[referencePoints[rp.Name].ReferenceNodeId] = rp.Coor();
             }
             //
             Dictionary<int, double[]> nodeIdVelocity;
@@ -3030,11 +3037,13 @@ namespace CaeModel
                 if (nodeId < 0)
                 {
                     // If the node is a translational node of the reference point, get a rotational node instead
-                    foreach (var rpEntry in referencePointsNodeIds)
+                    foreach (var rpEntry in referencePoints)
                     {
-                        if (rpEntry.Value[0] == -nodeId)
+                        if (rpEntry.Value.ReferenceNodeId == -nodeId)
                         {
-                            nodeId = rpEntry.Value[1];
+                            nodeId = rpEntry.Value.HasRotationNode
+                                   ? rpEntry.Value.RotationNodeId.Value
+                                   : rpEntry.Value.ReferenceNodeId;
                             break;
                         }
                     }

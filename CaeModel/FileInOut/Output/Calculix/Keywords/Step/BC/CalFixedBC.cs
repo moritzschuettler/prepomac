@@ -22,7 +22,7 @@ namespace FileInOut.Output.Calculix
     {
         // Variables                                                                                                                
         private FixedBC _fixedBC;
-        private Dictionary<string, int[]> _referencePointsNodeIds;
+        private Dictionary<string, CalReferencePoint> _referencePoints;
         private string _nodeSetNameOfSurface;
         protected int _maxNumberNodeDOFs;
 
@@ -32,11 +32,11 @@ namespace FileInOut.Output.Calculix
 
 
         // Constructor                                                                                                              
-        public CalFixedBC(FixedBC fixedBC, Dictionary<string, int[]> referencePointsNodeIds,
+        public CalFixedBC(FixedBC fixedBC, Dictionary<string, CalReferencePoint> referencePoints,
                           string nodeSetNameOfSurface)
         {
             _fixedBC = fixedBC;
-            _referencePointsNodeIds = referencePointsNodeIds;
+            _referencePoints = referencePoints;
             _nodeSetNameOfSurface = nodeSetNameOfSurface;
             _maxNumberNodeDOFs = 3; // 3 for Calculix and 6 for Abaqus
         }
@@ -70,22 +70,23 @@ namespace FileInOut.Output.Calculix
             // Reference point
             else if (_fixedBC.RegionType == CaeGlobals.RegionTypeEnum.ReferencePointName)
             {
-                int[] rpNodeIds = _referencePointsNodeIds[_fixedBC.RegionName];
+                CalReferencePoint referencePoint = _referencePoints[_fixedBC.RegionName];
                 //
-                if (_maxNumberNodeDOFs == 3)
+                if (_maxNumberNodeDOFs == 3 && referencePoint.HasRotationNode)
                 {
                     if (_fixedBC.TwoD)
                     {
-                        sb.AppendFormat("{0}, 1, 2, 0", rpNodeIds[0]); sb.AppendLine();
-                        sb.AppendFormat("{0}, 3, 3, 0", rpNodeIds[1]); sb.AppendLine();
+                        sb.AppendFormat("{0}, 1, 2, 0", referencePoint.ReferenceNodeId); sb.AppendLine();
+                        sb.AppendFormat("{0}, 3, 3, 0", referencePoint.RotationNodeId.Value); sb.AppendLine();
                     }
                     else
                     {
-                        sb.AppendFormat("{0}, 1, 3, 0", rpNodeIds[0]); sb.AppendLine();
-                        sb.AppendFormat("{0}, 1, 3, 0", rpNodeIds[1]); sb.AppendLine();
+                        sb.AppendFormat("{0}, 1, 3, 0", referencePoint.ReferenceNodeId); sb.AppendLine();
+                        sb.AppendFormat("{0}, 1, 3, 0", referencePoint.RotationNodeId.Value); sb.AppendLine();
                     }
                 }
-                else if (_maxNumberNodeDOFs == 6) AppendDOFs(sb, rpNodeIds[0].ToString());
+                else if (_maxNumberNodeDOFs == 3 || _maxNumberNodeDOFs == 6)
+                    AppendDOFs(sb, referencePoint.ReferenceNodeId.ToString());
                 else throw new NotSupportedException();
             }
             else throw new NotSupportedException();

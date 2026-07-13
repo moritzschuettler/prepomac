@@ -129,8 +129,7 @@ namespace FileInOut.Output
                 List<FeNodeSet> additionalNodeSets = new List<FeNodeSet>();
                 List<CalElement> additionalElementKeywords = new List<CalElement>();
                 HashSet<string> additionalElementSetNames = new HashSet<string>();
-                Dictionary<string, int[]> referencePointsNodeIds;
-                Dictionary<string, string[]> referencePointsNodeSetNames;
+                Dictionary<string, CalReferencePoint> referencePoints;
                 Dictionary<CoordinateSystem, HashSet<string>> coordinateSystemNodeSets =
                     new Dictionary<CoordinateSystem, HashSet<string>>();
                 List<SectionData> additionalSectionData = new List<SectionData>();
@@ -142,17 +141,16 @@ namespace FileInOut.Output
                 // Collect pre-tension loads to use them in reference point preparation
                 GetPretensionLoads(model, out preTensionLoads);
                 // Prepare reference points
-                GetReferencePoints(model, preTensionLoads, ref maxNodeId, ref additionalNodeSets,
-                                   out referencePointsNodeSetNames, out referencePointsNodeIds);
+                GetReferencePoints(model, preTensionLoads, ref maxNodeId, ref additionalNodeSets, out referencePoints);
                 // Prepare coordinate system-node set pairs
-                GetCoordinateSystemNodeSet(model, referencePointsNodeSetNames, ref coordinateSystemNodeSets);
+                GetCoordinateSystemNodeSet(model, referencePoints, ref coordinateSystemNodeSets);
                 // Fix pyramid surfaces
                 FixPyramidSurfaces(model, convertPyramidsTo, ref replacedElements, ref additionalElementSetNames);
                 // Prepare mass sections
-                GetMassSections(model, referencePointsNodeIds, ref maxElementId, ref additionalElementKeywords,
+                GetMassSections(model, referencePoints, ref maxElementId, ref additionalElementKeywords,
                                 ref additionalElementSetNames, ref additionalSectionData);
                 // Prepare point springs
-                GetPointSprings(model, referencePointsNodeIds, ref maxElementId, ref additionalElementKeywords,
+                GetPointSprings(model, referencePoints, ref maxElementId, ref additionalElementKeywords,
                                 ref additionalElementSetNames, ref additionalSectionData);
                 // Collect compression only constraints
                 GetCompressionOnlyConstraintData(model, ref maxNodeId, ref maxElementId, ref additionalNodes,
@@ -178,7 +176,7 @@ namespace FileInOut.Output
                 // Nodes
                 title = new CalTitle("Nodes", "");
                 keywords.Add(title);
-                AppendNodes(model, additionalNodes, referencePointsNodeIds, deformations, title);
+                AppendNodes(model, additionalNodes, referencePoints, deformations, title);
                 // Elements
                 title = new CalTitle("Elements", "");
                 keywords.Add(title);
@@ -214,11 +212,11 @@ namespace FileInOut.Output
                 // Pre-tension sections
                 title = new CalTitle("Pre-tension sections", "");
                 keywords.Add(title);
-                AppendPreTensionSections(preTensionLoads, referencePointsNodeIds, title);
+                AppendPreTensionSections(preTensionLoads, referencePoints, title);
                 // Constraints
                 title = new CalTitle("Constraints", "");
                 keywords.Add(title);
-                AppendConstraints(model, referencePointsNodeIds, equationParameters, title);
+                AppendConstraints(model, referencePoints, equationParameters, title);
                 // Surface interactions
                 title = new CalTitle("Surface interactions", "");
                 keywords.Add(title);
@@ -234,11 +232,11 @@ namespace FileInOut.Output
                 // Initial conditions
                 title = new CalTitle("Initial conditions", "");
                 keywords.Add(title);
-                AppendInitialConditions(model, referencePointsNodeIds, title);
+                AppendInitialConditions(model, referencePoints, title);
                 // Steps
                 title = new CalTitle("Steps", "");
                 keywords.Add(title);
-                AppendSteps(model, additionalBoundaryConditions, referencePointsNodeIds, title);
+                AppendSteps(model, additionalBoundaryConditions, referencePoints, title);
                 //
                 return keywords;
             }
@@ -282,56 +280,76 @@ namespace FileInOut.Output
         }
         static private void GetReferencePoints(FeModel model, OrderedDictionary<string, List<PreTensionLoad>> preTensionLoads,
                                                ref int maxNodeId, ref List<FeNodeSet> additionalNodeSets,
-                                               out Dictionary<string, string[]> referencePointsNodeSetNames,
-                                               out Dictionary<string, int[]> referencePointsNodeIds)
+                                               out Dictionary<string, CalReferencePoint> referencePoints)
         {
             HashSet<string> allNodeSetNames = new HashSet<string>(model.Mesh.NodeSets.Keys);
             foreach (var nodeSet in additionalNodeSets) allNodeSetNames.Add(nodeSet.Name);
             //
-            string[] nodeSetNames;
             FeNodeSet rpNodeSet;
-            referencePointsNodeIds = new Dictionary<string, int[]>();
-            referencePointsNodeSetNames = new Dictionary<string, string[]>();
+            referencePoints = new Dictionary<string, CalReferencePoint>();
             if (model.Mesh != null)
             {
+                HashSet<string> rigidBodyReferencePointNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                HashSet<string> couplingReferencePointNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var entry in model.Constraints)
+                {
+                    if (!entry.Value.Active) continue;
+                    if (entry.Value is RigidBody rigidBody && rigidBody.ReferencePointName != null)
+                        rigidBodyReferencePointNames.Add(rigidBody.ReferencePointName);
+                    else if (entry.Value is Coupling coupling && coupling.ReferencePointName != null)
+                        couplingReferencePointNames.Add(coupling.ReferencePointName);
+                }
                 // Fill reference point nodes
                 int id = maxNodeId;
                 FeReferencePoint rp;
                 foreach (var entry in model.Mesh.ReferencePoints)
                 {
                     rp = entry.Value;
+                    bool usedByRigidBody = rigidBodyReferencePointNames.Contains(rp.Name);
+                    bool usedByCoupling = couplingReferencePointNames.Contains(rp.Name);
                     // Check name
                     rp.RefNodeSetName = rp.Name + FeReferencePoint.RefName + id + 1;
                     if (allNodeSetNames.Contains(rp.RefNodeSetName))
                         rp.RefNodeSetName = allNodeSetNames.GetNextNumberedKey(rp.RefNodeSetName);
-                    rp.RotNodeSetName = rp.Name + FeReferencePoint.RotName + id + 2;
-                    if (allNodeSetNames.Contains(rp.RotNodeSetName))
-                        rp.RotNodeSetName = allNodeSetNames.GetNextNumberedKey(rp.RotNodeSetName);
-                    //
                     rpNodeSet = new FeNodeSet(rp.RefNodeSetName, new int[] { id + 1 });
                     additionalNodeSets.Add(rpNodeSet);
                     allNodeSetNames.Add(rpNodeSet.Name);
                     //
-                    rpNodeSet = new FeNodeSet(rp.RotNodeSetName, new int[] { id + 2 });
-                    additionalNodeSets.Add(rpNodeSet);
-                    allNodeSetNames.Add(rpNodeSet.Name);
-                    //
-                    nodeSetNames = new string[] { rp.RefNodeSetName, rp.RotNodeSetName };
-                    referencePointsNodeSetNames.Add(entry.Key, nodeSetNames);
-                    referencePointsNodeIds.Add(entry.Key, new int[] { id + 1, id + 2 });
-                    id += 2;
+                    CalReferencePoint calReferencePoint = new CalReferencePoint
+                    {
+                        ReferenceNodeId = id + 1,
+                        ReferenceNodeSetName = rp.RefNodeSetName,
+                        UsedByRigidBody = usedByRigidBody,
+                        UsedByCoupling = usedByCoupling
+                    };
+                    id++;
+                    // Only a rigid body needs the auxiliary CalculiX rotation node.
+                    if (usedByRigidBody)
+                    {
+                        rp.RotNodeSetName = rp.Name + FeReferencePoint.RotName + id + 1;
+                        if (allNodeSetNames.Contains(rp.RotNodeSetName))
+                            rp.RotNodeSetName = allNodeSetNames.GetNextNumberedKey(rp.RotNodeSetName);
+                        rpNodeSet = new FeNodeSet(rp.RotNodeSetName, new int[] { id + 1 });
+                        additionalNodeSets.Add(rpNodeSet);
+                        allNodeSetNames.Add(rpNodeSet.Name);
+                        calReferencePoint.RotationNodeId = id + 1;
+                        calReferencePoint.RotationNodeSetName = rp.RotNodeSetName;
+                        id++;
+                    }
+                    else rp.RotNodeSetName = null;
+                    referencePoints.Add(entry.Key, calReferencePoint);
                 }
                 //
                 foreach (var entry in preTensionLoads)
                 {
-                    referencePointsNodeIds.Add(entry.Key, new int[] { id + 1 });
+                    referencePoints.Add(entry.Key, new CalReferencePoint { ReferenceNodeId = id + 1 });
                     id++;
                 }
                 //
                 maxNodeId = id;
             }
         }
-        static private void GetCoordinateSystemNodeSet(FeModel model, Dictionary<string, string[]> referencePointsNodeSetNames,
+        static private void GetCoordinateSystemNodeSet(FeModel model, Dictionary<string, CalReferencePoint> referencePoints,
                                                        ref Dictionary<CoordinateSystem, HashSet<string>> coordinateSystemNodeSets)
         {
             if (model == null || model.StepCollection == null || model.Mesh.CoordinateSystems == null ||
@@ -399,7 +417,7 @@ namespace FileInOut.Output
                         else if (load.RegionType == RegionTypeEnum.ReferencePointName)
                         {
                             referencePoint = model.Mesh.ReferencePoints[load.RegionName];
-                            nodeSetName = referencePointsNodeSetNames[referencePoint.Name][0];
+                            nodeSetName = referencePoints[referencePoint.Name].ReferenceNodeSetName;
                             //
                             if (coordinateSystemNodeSets.TryGetValue(coordinateSystem, out nodeSetNames))
                                 nodeSetNames.Add(nodeSetName);
@@ -556,7 +574,7 @@ namespace FileInOut.Output
                 }
             }
         }
-        static private void GetMassSections(FeModel model, Dictionary<string, int[]> referencePointsNodeIds,
+        static private void GetMassSections(FeModel model, Dictionary<string, CalReferencePoint> referencePoints,
                                             ref int maxElementId, ref List<CalElement> additionalElementKeywords,
                                             ref HashSet<string> additionalElementSetNames,
                                             ref List<SectionData> additionalSectionData)
@@ -619,7 +637,7 @@ namespace FileInOut.Output
                         {
                             elementIds = new List<int>();
                             referencePoint = model.Mesh.ReferencePoints[pms.RegionName];
-                            int nodeId = referencePointsNodeIds[referencePoint.Name][0];
+                            int nodeId = referencePoints[referencePoint.Name].ReferenceNodeId;
                             nodalMass = pms.Mass.Value;
 
                             // Name
@@ -680,7 +698,7 @@ namespace FileInOut.Output
                 }
             }
         }
-        static private void GetPointSprings(FeModel model, Dictionary<string, int[]> referencePointsNodeIds, ref int maxElementId,
+        static private void GetPointSprings(FeModel model, Dictionary<string, CalReferencePoint> referencePoints, ref int maxElementId,
                                             ref List<CalElement> additionalElementKeywords,
                                             ref HashSet<string> additionalElementSetNames,
                                             ref List<SectionData> additionalSectionData)
@@ -690,7 +708,7 @@ namespace FileInOut.Output
                 bool twoD = model.Properties.ModelSpace.IsTwoD();
                 int count;
                 int[] elementIds;
-                int[] refPointIds;
+                CalReferencePoint referencePoint;
                 int[] directions;
                 double[] stiffnesses;
                 string name;
@@ -751,9 +769,10 @@ namespace FileInOut.Output
                             // Reference point
                             else if (psd.RegionType == RegionTypeEnum.ReferencePointName)
                             {
-                                if (referencePointsNodeIds.TryGetValue(psd.RegionName, out refPointIds))
+                                if (referencePoints.TryGetValue(psd.RegionName, out referencePoint))
                                 {
-                                    newElements.Add(new LinearSpringElement(elementId + 1, new int[] { refPointIds[0] }));
+                                    newElements.Add(new LinearSpringElement(elementId + 1,
+                                                                           new int[] { referencePoint.ReferenceNodeId }));
                                     elementId++;
                                 }
                             }
@@ -1109,12 +1128,12 @@ namespace FileInOut.Output
             parent.AddKeyword(submodel);
         }
         static private void AppendNodes(FeModel model, List<FeNode> additionalNodes,
-                                        Dictionary<string, int[]> referencePointsNodeIds,
+                                        Dictionary<string, CalReferencePoint> referencePoints,
                                         Dictionary<int, double[]> deformations, CalculixKeyword parent)
         {
             if (model.Mesh != null)
             {
-                CalNode node = new CalNode(model, additionalNodes, referencePointsNodeIds, deformations);
+                CalNode node = new CalNode(model, additionalNodes, referencePoints, deformations);
                 parent.AddKeyword(node);
             }
 
@@ -1457,7 +1476,7 @@ namespace FileInOut.Output
             return materialNames;
         }
         static private void AppendPreTensionSections(OrderedDictionary<string, List<PreTensionLoad>> preTensionLoads,
-                                                     Dictionary<string, int[]> referencePointsNodeIds,
+                                                     Dictionary<string, CalReferencePoint> referencePoints,
                                                      CalculixKeyword parent)
         {
             if (preTensionLoads != null)
@@ -1473,7 +1492,7 @@ namespace FileInOut.Output
                     ptl = preTensionOnSurfaceEntry.Value[0];
                     if (atLeastOneActive)
                     {
-                        nodeId = referencePointsNodeIds[preTensionOnSurfaceEntry.Key][0];
+                        nodeId = referencePoints[preTensionOnSurfaceEntry.Key].ReferenceNodeId;
                         CalPreTensionSection preTension;
                         if (ptl.AutoComputeDirection) preTension = new CalPreTensionSection(ptl.SurfaceName, nodeId);
                         else preTension = new CalPreTensionSection(ptl.SurfaceName, nodeId, ptl.X.Value, ptl.Y.Value, ptl.Z.Value);
@@ -1483,7 +1502,7 @@ namespace FileInOut.Output
                 }
             }
         }
-        static private void AppendConstraints(FeModel model, Dictionary<string, int[]> referencePointsNodeIds,
+        static private void AppendConstraints(FeModel model, Dictionary<string, CalReferencePoint> referencePoints,
                                               List<double[]> equationParameters, CalculixKeyword parent)
         {
             if (model.Mesh != null)
@@ -1500,8 +1519,18 @@ namespace FileInOut.Output
                             string surfaceNodeSetName = null;
                             if (rb.RegionType == RegionTypeEnum.SurfaceName)
                                 surfaceNodeSetName = model.Mesh.Surfaces[rb.RegionName].NodeSetName;
-                            CalRigidBody calRigidBody = new CalRigidBody(rb, referencePointsNodeIds, surfaceNodeSetName);
+                            CalRigidBody calRigidBody = new CalRigidBody(rb, referencePoints, surfaceNodeSetName);
                             parent.AddKeyword(calRigidBody);
+                        }
+                        else if (entry.Value is Coupling coupling)
+                        {
+                            CalCoupling calCoupling = new CalCoupling(coupling, referencePoints);
+                            if (coupling is KinematicCoupling kc)
+                                calCoupling.AddKeyword(new CalKinematic(kc));
+                            else if (coupling is DistributingCoupling dc)
+                                calCoupling.AddKeyword(new CalDistributing(dc));
+                            else throw new NotImplementedException();
+                            parent.AddKeyword(calCoupling);
                         }
                         else if (entry.Value is Tie tie)
                         {
@@ -1573,7 +1602,7 @@ namespace FileInOut.Output
                 }
             }
         }
-        static private void AppendInitialConditions(FeModel model, Dictionary<string, int[]> referencePointsNodeIds,
+        static private void AppendInitialConditions(FeModel model, Dictionary<string, CalReferencePoint> referencePoints,
                                                     CalculixKeyword parent)
         {
             if (model.Mesh != null)
@@ -1590,13 +1619,13 @@ namespace FileInOut.Output
                         else if (entry.Value is InitialTranslationalVelocity itv)
                         {
                             CalInitialTranslationalVelocity calInitialVelocity =
-                                new CalInitialTranslationalVelocity(model, itv, referencePointsNodeIds);
+                                new CalInitialTranslationalVelocity(model, itv, referencePoints);
                             parent.AddKeyword(calInitialVelocity);
                         }
                         else if (entry.Value is InitialAngularVelocity iav)
                         {
                             CalInitialAngularVelocity calInitialVelocity =
-                                new CalInitialAngularVelocity(model, iav, referencePointsNodeIds);
+                                new CalInitialAngularVelocity(model, iav, referencePoints);
                             parent.AddKeyword(calInitialVelocity);
                         }
                         else throw new NotSupportedException();
@@ -1607,7 +1636,7 @@ namespace FileInOut.Output
         }
         //
         static private void AppendSteps(FeModel model, List<BoundaryCondition> additionalBoundaryConditions,
-                                        Dictionary<string, int[]> referencePointsNodeIds, CalculixKeyword parent)
+                                        Dictionary<string, CalReferencePoint> referencePoints, CalculixKeyword parent)
         {
             CalTitle title;
             HashSet<Type> loadTypes = model.StepCollection.GetAllLoadTypes();
@@ -1763,11 +1792,11 @@ namespace FileInOut.Output
                 foreach (var bcEntry in step.BoundaryConditions)
                 {
                     if (step.Active && bcEntry.Value.Active)
-                        AppendBoundaryCondition(model, step, bcEntry.Value, referencePointsNodeIds, title);
+                        AppendBoundaryCondition(model, step, bcEntry.Value, referencePoints, title);
                     else title.AddKeyword(new CalDeactivated(bcEntry.Value.Name));
                 }
                 // Additional boundary conditions
-                AppendAdditionalBoundaryConditions(model, step, additionalBoundaryConditions, referencePointsNodeIds, title);
+                AppendAdditionalBoundaryConditions(model, step, additionalBoundaryConditions, referencePoints, title);
                 // Loads title
                 title = new CalTitle("Loads", "");
                 calStepHeader.AddKeyword(title);
@@ -1803,7 +1832,7 @@ namespace FileInOut.Output
                 // Loads
                 foreach (var loadEntry in step.Loads)
                 {
-                    if (step.Active && loadEntry.Value.Active) AppendLoad(model, step, loadEntry.Value, referencePointsNodeIds,
+                    if (step.Active && loadEntry.Value.Active) AppendLoad(model, step, loadEntry.Value, referencePoints,
                                                                           title);
                     else title.AddKeyword(new CalDeactivated(loadEntry.Value.Name));
                 }
@@ -1854,19 +1883,19 @@ namespace FileInOut.Output
             }
         }
         static private void AppendBoundaryCondition(FeModel model, Step step, BoundaryCondition boundaryCondition,
-                                                    Dictionary<string, int[]> referencePointsNodeIds, CalculixKeyword parent)
+                                                    Dictionary<string, CalReferencePoint> referencePoints, CalculixKeyword parent)
         {
             ComplexLoadTypeEnum complexLoadType;
             if (boundaryCondition.Complex) complexLoadType = ComplexLoadTypeEnum.Real;
             else complexLoadType = ComplexLoadTypeEnum.None;
             //
-            AppendBoundaryCondition(model, boundaryCondition, referencePointsNodeIds, complexLoadType, parent);
+            AppendBoundaryCondition(model, boundaryCondition, referencePoints, complexLoadType, parent);
             // Load case=2 - Imaginary component
             if (step is SteadyStateDynamicsStep && boundaryCondition.Complex && boundaryCondition.PhaseDeg.Value != 0)
-                AppendBoundaryCondition(model, boundaryCondition, referencePointsNodeIds, ComplexLoadTypeEnum.Imaginary, parent);
+                AppendBoundaryCondition(model, boundaryCondition, referencePoints, ComplexLoadTypeEnum.Imaginary, parent);
         }
         static private void AppendBoundaryCondition(FeModel model, BoundaryCondition boundaryCondition,
-                                                    Dictionary<string, int[]> referencePointsNodeIds,
+                                                    Dictionary<string, CalReferencePoint> referencePoints,
                                                     ComplexLoadTypeEnum complexLoadType, CalculixKeyword parent)
         {
             if (model.Mesh != null)
@@ -1876,7 +1905,7 @@ namespace FileInOut.Output
                     string nodeSetNameOfSurface = null;
                     if (fix.RegionType == RegionTypeEnum.SurfaceName)
                         nodeSetNameOfSurface = model.Mesh.Surfaces[fix.RegionName].NodeSetName;
-                    CalFixedBC calFixedBC = new CalFixedBC(fix, referencePointsNodeIds, nodeSetNameOfSurface);
+                    CalFixedBC calFixedBC = new CalFixedBC(fix, referencePoints, nodeSetNameOfSurface);
                     parent.AddKeyword(calFixedBC);
                 }
                 else if (boundaryCondition is DisplacementRotation dispRot)
@@ -1885,7 +1914,7 @@ namespace FileInOut.Output
                     if (dispRot.RegionType == RegionTypeEnum.SurfaceName)
                         nodeSetNameOfSurface = model.Mesh.Surfaces[dispRot.RegionName].NodeSetName;
                     CalDisplacementRotation calDisplacementRotation =
-                        new CalDisplacementRotation(dispRot, referencePointsNodeIds, nodeSetNameOfSurface, complexLoadType);
+                        new CalDisplacementRotation(dispRot, referencePoints, nodeSetNameOfSurface, complexLoadType);
                     parent.AddKeyword(calDisplacementRotation);
                 }
                 else if (boundaryCondition is SubmodelBC sm)
@@ -1907,9 +1936,9 @@ namespace FileInOut.Output
                 else throw new NotImplementedException();
             }
         }
-        static private void AppendAdditionalBoundaryConditions(FeModel model, Step step, 
+        static private void AppendAdditionalBoundaryConditions(FeModel model, Step step,
                                                                List<BoundaryCondition> additionalBoundaryConditions,
-                                                               Dictionary<string, int[]> referencePointsNodeIds,
+                                                               Dictionary<string, CalReferencePoint> referencePoints,
                                                                CalculixKeyword parent)
         {
             CalculixUserKeyword tmp = new CalculixUserKeyword("");
@@ -1917,38 +1946,38 @@ namespace FileInOut.Output
             foreach (var additionalBoundaryCondition in additionalBoundaryConditions)
             {
                 if (step.Active && additionalBoundaryCondition.Active)
-                    AppendBoundaryCondition(model, step, additionalBoundaryCondition, referencePointsNodeIds, tmp);
+                    AppendBoundaryCondition(model, step, additionalBoundaryCondition, referencePoints, tmp);
                 else tmp.AddKeyword(new CalDeactivated(additionalBoundaryCondition.Name));
             }
             //
             CalAdditional calAdditionalBoundaryConditions = new CalAdditional("Additional boundary conditions", tmp.Keywords);
             if (calAdditionalBoundaryConditions.GetDataString().Length > 0) parent.AddKeyword(calAdditionalBoundaryConditions);
         }
-        static private void AppendLoad(FeModel model, Step step, Load load, Dictionary<string, int[]> referencePointsNodeIds,
+        static private void AppendLoad(FeModel model, Step step, Load load, Dictionary<string, CalReferencePoint> referencePoints,
                                        CalculixKeyword parent)
         {
             ComplexLoadTypeEnum complexLoadType;
             if (load.Complex) complexLoadType = ComplexLoadTypeEnum.Real;
             else complexLoadType = ComplexLoadTypeEnum.None;
             //
-            AppendLoad(model, load, referencePointsNodeIds, complexLoadType, parent);
+            AppendLoad(model, load, referencePoints, complexLoadType, parent);
             // Load case=2 - Imaginary component
             if (step is SteadyStateDynamicsStep && load.Complex && load.PhaseDeg.Value != 0)
-                AppendLoad(model, load, referencePointsNodeIds, ComplexLoadTypeEnum.Imaginary, parent);
+                AppendLoad(model, load, referencePoints, ComplexLoadTypeEnum.Imaginary, parent);
         }
-        static private void AppendLoad(FeModel model, Load load, Dictionary<string, int[]> referencePointsNodeIds,
+        static private void AppendLoad(FeModel model, Load load, Dictionary<string, CalReferencePoint> referencePoints,
                                        ComplexLoadTypeEnum complexLoadType, CalculixKeyword parent)
         {
             if (model.Mesh != null)
             {
                 if (load is CLoad cl)
                 {
-                    CalCLoad cLoad = new CalCLoad(cl, referencePointsNodeIds, complexLoadType);
+                    CalCLoad cLoad = new CalCLoad(cl, referencePoints, complexLoadType);
                     parent.AddKeyword(cLoad);
                 }
                 else if (load is MomentLoad ml)
                 {
-                    CalMomentLoad mLoad = new CalMomentLoad(ml, referencePointsNodeIds, complexLoadType);
+                    CalMomentLoad mLoad = new CalMomentLoad(ml, referencePoints, complexLoadType);
                     parent.AddKeyword(mLoad);
                 }
                 else if (load is DLoad dl)
@@ -2023,11 +2052,11 @@ namespace FileInOut.Output
                     CalculixKeyword calKey;
                     if (ptl.Type == PreTensionLoadType.Force)
                     {
-                        int nodeId = referencePointsNodeIds[name][0];
+                        int nodeId = referencePoints[name].ReferenceNodeId;
                         CLoad cLoad = new CLoad(ptl.Name, nodeId, ptl.GetMagnitudeValue(), 0, 0, ptl.TwoD,
                                                 ptl.Complex, ptl.PhaseDeg.Value);
                         cLoad.AmplitudeName = ptl.AmplitudeName;
-                        calKey = new CalCLoad(cLoad, referencePointsNodeIds, complexLoadType);
+                        calKey = new CalCLoad(cLoad, referencePoints, complexLoadType);
                     }
                     else if (ptl.Type == PreTensionLoadType.Displacement)
                     {
@@ -2035,7 +2064,7 @@ namespace FileInOut.Output
                                                                            ptl.TwoD, ptl.Complex, ptl.PhaseDeg.Value);
                         dr.U1.SetEquationFromValue(ptl.GetMagnitudeValue());
                         dr.AmplitudeName = ptl.AmplitudeName;
-                        calKey = new CalDisplacementRotation(dr, referencePointsNodeIds, null, complexLoadType);
+                        calKey = new CalDisplacementRotation(dr, referencePoints, null, complexLoadType);
                     }
                     else throw new NotSupportedException();
                     //
@@ -2091,8 +2120,11 @@ namespace FileInOut.Output
                     FeReferencePoint rp = model.Mesh.ReferencePoints[nho.RegionName];
                     nodePrint = new CalNodePrint(nho, rp.RefNodeSetName, step.OutputFrequency);
                     parent.AddKeyword(nodePrint);
-                    nodePrint = new CalNodePrint(nho, rp.RotNodeSetName, step.OutputFrequency);
-                    parent.AddKeyword(nodePrint);
+                    if (rp.RotNodeSetName != null)
+                    {
+                        nodePrint = new CalNodePrint(nho, rp.RotNodeSetName, step.OutputFrequency);
+                        parent.AddKeyword(nodePrint);
+                    }
                 }
                 else
                 {

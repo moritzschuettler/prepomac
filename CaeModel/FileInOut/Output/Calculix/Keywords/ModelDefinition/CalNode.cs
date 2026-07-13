@@ -25,13 +25,13 @@ namespace FileInOut.Output.Calculix
         private IDictionary<int, FeNode> _nodes;
         private Dictionary<int, FeNode> _additionalNodes;
         private ModelSpaceEnum _modelSpace;
-        private IDictionary<string, int[]> _referencePointsNodeIds;
+        private IDictionary<string, CalReferencePoint> _calReferencePoints;
         private Dictionary<int, double[]> _deformations;
 
 
         // Constructor                                                                                                              
         public CalNode(FeModel model, List<FeNode> additionalNodes,
-                       IDictionary<string, int[]> referencePointsNodeIds,
+                       IDictionary<string, CalReferencePoint> referencePoints,
                        Dictionary<int, double[]> deformations)
         {
             _referencePoints = model.Mesh.ReferencePoints;
@@ -39,7 +39,7 @@ namespace FileInOut.Output.Calculix
             _additionalNodes = new Dictionary<int, FeNode>();
             foreach (var node in additionalNodes) _additionalNodes.Add(node.Id, node);
             _modelSpace = model.Properties.ModelSpace;
-            _referencePointsNodeIds = referencePointsNodeIds;
+            _calReferencePoints = referencePoints;
             _deformations = deformations;
         }
 
@@ -61,32 +61,35 @@ namespace FileInOut.Output.Calculix
             WriteNodes(sb, _additionalNodes);
             //
             FeReferencePoint rp;
-            foreach (var entry in _referencePointsNodeIds)
+            foreach (var entry in _calReferencePoints)
             {
                 if (_modelSpace == ModelSpaceEnum.ThreeD)
                 {
                     if (_referencePoints.TryGetValue(entry.Key, out rp))
                     {
-                        sb.AppendFormat("{0}, {1:E8}, {2:E8}, {3:E8}", entry.Value[0], rp.X.Value,
+                        sb.AppendFormat("{0}, {1:E8}, {2:E8}, {3:E8}", entry.Value.ReferenceNodeId, rp.X.Value,
                                                                        rp.Y.Value, rp.Z.Value).AppendLine();
-                        sb.AppendFormat("{0}, {1:E8}, {2:E8}, {3:E8}", entry.Value[1], rp.X.Value,
-                                                                       rp.Y.Value, rp.Z.Value).AppendLine();
+                        if (entry.Value.HasRotationNode)
+                            sb.AppendFormat("{0}, {1:E8}, {2:E8}, {3:E8}", entry.Value.RotationNodeId.Value, rp.X.Value,
+                                                                           rp.Y.Value, rp.Z.Value).AppendLine();
                     }
                     else
                     {
-                        sb.AppendFormat("{0}, {1:E8}, {2:E8}, {3:E8}", entry.Value[0], 0, 0, 0).AppendLine();
+                        sb.AppendFormat("{0}, {1:E8}, {2:E8}, {3:E8}", entry.Value.ReferenceNodeId, 0, 0, 0).AppendLine();
                     }
                 }
                 else if (_modelSpace.IsTwoD())
                 {
                     if (_referencePoints.TryGetValue(entry.Key, out rp))
                     {
-                        sb.AppendFormat("{0}, {1:E8}, {2:E8}", entry.Value[0], rp.X.Value, rp.Y.Value).AppendLine();
-                        sb.AppendFormat("{0}, {1:E8}, {2:E8}", entry.Value[1], rp.X.Value, rp.Y.Value).AppendLine();
+                        sb.AppendFormat("{0}, {1:E8}, {2:E8}", entry.Value.ReferenceNodeId, rp.X.Value, rp.Y.Value).AppendLine();
+                        if (entry.Value.HasRotationNode)
+                            sb.AppendFormat("{0}, {1:E8}, {2:E8}", entry.Value.RotationNodeId.Value,
+                                                                     rp.X.Value, rp.Y.Value).AppendLine();
                     }
                     else
                     {
-                        sb.AppendFormat("{0}, {1:E8}, {2:E8}", entry.Value[0], 0, 0).AppendLine();
+                        sb.AppendFormat("{0}, {1:E8}, {2:E8}", entry.Value.ReferenceNodeId, 0, 0).AppendLine();
                     }
                 }
                 else throw new NotSupportedException();

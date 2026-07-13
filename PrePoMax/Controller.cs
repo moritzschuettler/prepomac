@@ -9090,6 +9090,29 @@ namespace PrePoMax
                     rb.CreationIds = null;
                 }
             }
+            else if (constraint is Coupling coupling)
+            {
+                // Surface
+                if (coupling.RegionType == RegionTypeEnum.Selection)
+                {
+                    name = FeMesh.GetNextFreeSelectionName(_model.Mesh.Surfaces,
+                                                           constraint.Name + CaeMesh.Globals.SlaveNameSuffix);
+                    FeSurface surface = new FeSurface(name, coupling.CreationIds,
+                                                      coupling.CreationData.DeepCopy(true, false));
+                    surface.Internal = true;
+                    surface.ParentMultiRegion = coupling;
+                    AddSurface(surface, update);
+                    //
+                    coupling.RegionName = name;
+                    coupling.RegionType = RegionTypeEnum.SurfaceName;
+                }
+                // Clear the creation data if not used
+                else
+                {
+                    coupling.CreationData = null;
+                    coupling.CreationIds = null;
+                }
+            }
             else if (constraint is Tie tie)
             {
                 // Master Surface
@@ -9153,6 +9176,11 @@ namespace PrePoMax
             else if (constraint is RigidBody rb && rb.CreationData != null && rb.RegionName != null)
             {
                 RemoveNodeSets(new string[] { rb.RegionName }, false);
+            }
+            else if (constraint is Coupling coupling)
+            {
+                if (coupling.CreationData != null && coupling.RegionName != null)
+                    RemoveSurfaces(new string[] { coupling.RegionName }, false);
             }
             else if (constraint is Tie tie)
             {
@@ -11665,7 +11693,7 @@ namespace PrePoMax
             //
             if (File.Exists(job.Executable))
             {
-                if (CheckModelBeforeJobRun() && DeleteFilesBeforeJobRun(inputFileName, job)) // must be separate due to exception
+                if (CheckModelBeforeJobRun(job.FEMSolver) && DeleteFilesBeforeJobRun(inputFileName, job)) // must be separate due to exception
                 {
                     if (onlyCheckModel) _model.StepCollection.SetCheckModel();
                     else _model.StepCollection.SetRunAnalysis();
@@ -11692,7 +11720,7 @@ namespace PrePoMax
             string workDirectory = _settings.GetWorkDirectory();
             return Path.Combine(workDirectory, jobName + ".inp");
         }
-        private bool CheckModelBeforeJobRun()
+        private bool CheckModelBeforeJobRun(FEMSolverEnum femSolver)
         {
             // Check for missing section
             string msg;
@@ -11704,6 +11732,66 @@ namespace PrePoMax
                 //
                 msg = unAssignedElementIds.Length + " finite elements are missing a section assignment. Continue?";
                 if (MessageBoxes.ShowWarningQuestionOKCancel(msg) == DialogResult.Cancel) return false;
+            }
+            // Check for reference points used by both rigid body and coupling constraints
+            HashSet<string> rigidBodyReferencePointNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            HashSet<string> couplingReferencePointNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var entry in _model.Constraints)
+            {
+                if (!entry.Value.Active) continue;
+                if (entry.Value is RigidBody rigidBody && rigidBody.ReferencePointName != null)
+                    rigidBodyReferencePointNames.Add(rigidBody.ReferencePointName);
+                else if (entry.Value is Coupling coupling && coupling.ReferencePointName != null)
+                    couplingReferencePointNames.Add(coupling.ReferencePointName);
+            }
+            rigidBodyReferencePointNames.IntersectWith(couplingReferencePointNames);
+            if (rigidBodyReferencePointNames.Count > 0)
+            {
+                string[] names = rigidBodyReferencePointNames.ToArray();
+                Array.Sort(names, StringComparer.OrdinalIgnoreCase);
+                msg = "The following reference points are used by both a rigid body and a coupling constraint, " +
+                      "which is not supported:" + Environment.NewLine + Environment.NewLine +
+                      string.Join(Environment.NewLine, names) + Environment.NewLine + Environment.NewLine +
+                      "Continue?";
+                if (MessageBoxes.ShowWarningQuestionOKCancel(msg) == DialogResult.Cancel) return false;
+            }
+            // Check for boundary conditions on distributing coupling reference points
+            if (femSolver == FEMSolverEnum.Calculix)
+            {
+                HashSet<string> distributingReferencePointNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var entry in _model.Constraints)
+                {
+                    if (entry.Value.Active && entry.Value is DistributingCoupling distributingCoupling &&
+                        distributingCoupling.ReferencePointName != null)
+                        distributingReferencePointNames.Add(distributingCoupling.ReferencePointName);
+                }
+                if (distributingReferencePointNames.Count > 0)
+                {
+                    List<string> ignoredBoundaryConditions = new List<string>();
+                    foreach (var step in _model.StepCollection.StepsList)
+                    {
+                        if (!step.Active) continue;
+                        foreach (var entry in step.BoundaryConditions)
+                        {
+                            BoundaryCondition boundaryCondition = entry.Value;
+                            if (boundaryCondition.Active &&
+                                boundaryCondition.RegionType == RegionTypeEnum.ReferencePointName &&
+                                distributingReferencePointNames.Contains(boundaryCondition.RegionName))
+                                ignoredBoundaryConditions.Add(step.Name + ": " + boundaryCondition.Name +
+                                                              " (" + boundaryCondition.RegionName + ")");
+                        }
+                    }
+                    if (ignoredBoundaryConditions.Count > 0)
+                    {
+                        ignoredBoundaryConditions.Sort(StringComparer.OrdinalIgnoreCase);
+                        msg = "The following boundary conditions are assigned to reference points used by " +
+                              "distributing coupling constraints and will have no effect in CalculiX:" +
+                              Environment.NewLine + Environment.NewLine +
+                              string.Join(Environment.NewLine, ignoredBoundaryConditions) +
+                              Environment.NewLine + Environment.NewLine + "Continue?";
+                        if (MessageBoxes.ShowWarningQuestionOKCancel(msg) == DialogResult.Cancel) return false;
+                    }
+                }
             }
             // Check for contacts of different type
             if (_model.ContactPairs.Count > 0)
@@ -15876,6 +15964,32 @@ namespace PrePoMax
                         DrawRigidBodySymbol(rb, masterColor, symbolLayer, onlyVisible);
                     }
                 }
+                else if (constraint is Coupling coupling)
+                {
+                    // Master
+                    // Only draw reference point during highlight
+                    if (layer == vtkRendererLayer.Selection)
+                    {
+                        if (!_model.Mesh.ReferencePoints.ContainsKey(coupling.ReferencePointName)) return;
+                        else DrawReferencePoint(_model.Mesh.ReferencePoints[coupling.ReferencePointName], masterColor, layer);
+                    }
+                    // Slave
+                    if (coupling.RegionType == RegionTypeEnum.NodeSetName)
+                        count += DrawNodeSet(prefixName, coupling.RegionName, masterColor, layer, true, nodeSymbolSize,
+                                             true, onlyVisible);
+                    else if (coupling.RegionType == RegionTypeEnum.SurfaceName)
+                    {
+                        count += DrawSurface(prefixName, coupling.RegionName, masterColor, layer, true, true, onlyVisible);
+                        if (layer == vtkRendererLayer.Selection)
+                            DrawSurfaceEdge(prefixName, coupling.RegionName, masterColor, layer, true, true, onlyVisible);
+                    }
+                    else throw new NotSupportedException();
+                    // Symbol
+                    if (count > 0)
+                    {
+                        DrawCouplingSymbol(coupling, masterColor, symbolLayer, onlyVisible);
+                    }
+                }
                 else if (constraint is Tie tie)
                 {
                     // Master
@@ -15945,6 +16059,74 @@ namespace PrePoMax
                 {
                     vtkMaxActorData data = new vtkMaxActorData();
                     data.Name = rigidBody.Name + "_lines";
+                    data.Color = color;
+                    data.Layer = layer;
+                    data.CanHaveElementEdges = canHaveEdges;
+                    data.Pickable = false;
+                    data.ActorRepresentation = vtkMaxActorRepresentation.Wire;
+                    data.Geometry.Nodes.Ids = null;
+                    data.Geometry.Nodes.Coor = nodeCoor.ToArray();
+                    data.Geometry.Cells.CellNodeIds = cells;
+                    data.Geometry.Cells.Types = cellsTypes;
+                    ApplyLighting(data);
+                    _form.Add3DCells(data);
+                }
+            }
+        }
+        public void DrawCouplingSymbol(Coupling coupling, Color color, vtkRendererLayer layer,
+                                       bool onlyVisible)
+        {
+            int[][] cells;
+            int[] cellsTypes;
+            bool[] nodeVisibilities;
+            double[][] nodeCoor;
+            double[][] distributedNodeCoor;
+            bool canHaveEdges = false;
+            //
+            FeReferencePoint rp;
+            if (!_model.Mesh.ReferencePoints.TryGetValue(coupling.ReferencePointName, out rp)) return;
+            if (onlyVisible && !rp.Visible) return;
+            // Node set
+            string nodeSetName;
+            if (coupling.RegionType == RegionTypeEnum.SurfaceName)
+                nodeSetName = _model.Mesh.Surfaces[coupling.RegionName].NodeSetName;
+            else throw new NotSupportedException();
+            //
+            if (nodeSetName != null && _model.Mesh.NodeSets.ContainsKey(nodeSetName))
+            {
+                FeNodeSet nodeSet = _model.Mesh.NodeSets[nodeSetName];
+                if (nodeSet.Labels.Length == 0) return;     // after remeshing this is 0 before the node set update
+                // Node visibilities
+                if (onlyVisible) nodeVisibilities = _model.Mesh.GetNodeVisibilities(nodeSet.Labels);
+                else nodeVisibilities = null;
+                // All nodes
+                nodeCoor = _model.Mesh.GetNodeSetCoor(nodeSet.Labels);
+                // If all nodes are hidden
+                if (nodeCoor == null || nodeCoor.Length == 0) return;
+                // Ids go from 0 to Length
+                int[] visibleIds = GetSpatiallyEquallyDistributedCoor(nodeCoor, 3, nodeVisibilities);
+                // Distributed nodes
+                distributedNodeCoor = new double[visibleIds.Length][];
+                for (int i = 0; i < visibleIds.Length; i++) distributedNodeCoor[i] = nodeCoor[visibleIds[i]];
+                // Create wire elements
+                // Distributed coor +1 for reference point
+                nodeCoor = new double[visibleIds.Length + 1][];
+                nodeCoor[0] = rp.Coor();
+                Array.Copy(distributedNodeCoor, 0, nodeCoor, 1, distributedNodeCoor.Length);
+                //
+                cells = new int[visibleIds.Length][];
+                cellsTypes = new int[visibleIds.Length];
+                LinearBeamElement element = new LinearBeamElement(0, null);
+                for (int i = 0; i < visibleIds.Length; i++)
+                {
+                    cells[i] = new int[] { 0, i + 1 };
+                    cellsTypes[i] = element.GetVtkCellType();
+                }
+                //
+                if (cells.Length > 0)
+                {
+                    vtkMaxActorData data = new vtkMaxActorData();
+                    data.Name = coupling.Name + "_lines";
                     data.Color = color;
                     data.Layer = layer;
                     data.CanHaveElementEdges = canHaveEdges;
@@ -19860,7 +20042,7 @@ namespace PrePoMax
             constraint = _model.Constraints[constraintName];
             //
             if (constraint is PointSpring || constraint is SurfaceSpring || constraint is CompressionOnly ||
-                constraint is RigidBody || constraint is Tie)
+                constraint is RigidBody || constraint is Coupling || constraint is Tie)
             {
                 DrawConstraint(constraint, Color.Red, Color.Red, symbolSize, nodeSize, vtkRendererLayer.Selection, false);
             }

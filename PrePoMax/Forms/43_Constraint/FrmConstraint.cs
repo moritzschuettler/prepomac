@@ -44,6 +44,8 @@ namespace PrePoMax.Forms
                 else if (value is SurfaceSpring ss) _viewConstraint = new ViewSurfaceSpring(ss.DeepClone());
                 else if (value is CompressionOnly co) _viewConstraint = new ViewCompressionOnly(co.DeepClone());
                 else if (value is RigidBody rb) _viewConstraint = new ViewRigidBody(rb.DeepClone());
+                else if (value is KinematicCoupling kc) _viewConstraint = new ViewKinematicCoupling(kc.DeepClone());
+                else if (value is DistributingCoupling dc) _viewConstraint = new ViewDistributingCoupling(dc.DeepClone());
                 else if (value is Tie tie) _viewConstraint = new ViewTie(tie.DeepClone());
                 else throw new NotImplementedException();
             }
@@ -162,6 +164,16 @@ namespace PrePoMax.Forms
                     _viewConstraint = vrd;
                     _controller.Selection.EnableShellEdgeFaceSelection = true;
                 }
+                else if (itemTag is ViewKinematicCoupling vkc)
+                {
+                    _viewConstraint = vkc;
+                    _controller.Selection.EnableShellEdgeFaceSelection = true;
+                }
+                else if (itemTag is ViewDistributingCoupling vdc)
+                {
+                    _viewConstraint = vdc;
+                    _controller.Selection.EnableShellEdgeFaceSelection = true;
+                }
                 else if (itemTag is ViewTie vt)
                 {
                     _viewConstraint = vt;
@@ -177,7 +189,9 @@ namespace PrePoMax.Forms
                 //
                 HighlightConstraint();
                 // Context menu
-                if (propertyGrid.SelectedObject is ViewRigidBody) propertyGrid.ContextMenuStrip = null;
+                if (propertyGrid.SelectedObject is ViewRigidBody ||
+                    propertyGrid.SelectedObject is ViewKinematicCoupling ||
+                    propertyGrid.SelectedObject is ViewDistributingCoupling) propertyGrid.ContextMenuStrip = null;
                 // Swap Master/Slave
                 else if (propertyGrid.SelectedObject is ViewTie) propertyGrid.ContextMenuStrip = cmsPropertyGrid;
             }
@@ -234,6 +248,24 @@ namespace PrePoMax.Forms
             if (Constraint is RigidBody rb && rb.RegionType == RegionTypeEnum.Selection &&
                 (rb.CreationIds == null || rb.CreationIds.Length == 0))
                 throw new CaeException("The rigid body region selection must contain at least one item.");
+            //
+            if (Constraint is KinematicCoupling kc)
+            {
+                if (kc.RegionType == RegionTypeEnum.Selection &&
+                    (kc.CreationIds == null || kc.CreationIds.Length == 0))
+                    throw new CaeException("The kinematic coupling surface selection must contain at least one item.");
+                if (!kc.U1 && !kc.U2 && !kc.U3)
+                    throw new CaeException("At least one kinematic coupling degree of freedom must be coupled.");
+            }
+            //
+            if (Constraint is DistributingCoupling dc)
+            {
+                if (dc.RegionType == RegionTypeEnum.Selection &&
+                    (dc.CreationIds == null || dc.CreationIds.Length == 0))
+                    throw new CaeException("The distributing coupling surface selection must contain at least one item.");
+                if (!dc.U1 && !dc.U2 && !dc.U3 && !dc.UR1 && !dc.UR2 && !dc.UR3)
+                    throw new CaeException("At least one distributing coupling degree of freedom must be distributed.");
+            }
             //
             if (Constraint is Tie tie)
             {
@@ -380,6 +412,37 @@ namespace PrePoMax.Forms
                     // Context menu strip
                     propertyGrid.ContextMenuStrip = null;
                 }
+                else if (_viewConstraint is ViewKinematicCoupling vkc)
+                {
+                    selectedId = lvTypes.FindItemWithText("Kinematic Coupling").Index;
+                    // Reference point
+                    CheckMissingValueRef(ref referencePointNames, vkc.ReferencePointName,
+                                         s => { vkc.ReferencePointName = s; });
+                    // Slave
+                    if (vkc.SlaveRegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
+                    else if (vkc.SlaveRegionType == RegionTypeEnum.SurfaceName.ToFriendlyString())
+                        CheckMissingValueRef(ref surfaceNames, vkc.SurfaceName, s => { vkc.SurfaceName = s; });
+                    else throw new NotSupportedException();
+                    vkc.PopulateDropDownLists(referencePointNames, surfaceNames);
+                    // Context menu strip
+                    propertyGrid.ContextMenuStrip = null;
+                }
+                else if (_viewConstraint is ViewDistributingCoupling vdc)
+                {
+                    selectedId = lvTypes.FindItemWithText("Distributing Coupling").Index;
+                    // Reference point
+                    CheckMissingValueRef(ref referencePointNames, vdc.ReferencePointName,
+                                         s => { vdc.ReferencePointName = s; });
+                    // Slave
+                    if (vdc.SlaveRegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
+                    else if (vdc.SlaveRegionType == RegionTypeEnum.SurfaceName.ToFriendlyString())
+                        CheckMissingValueRef(ref surfaceNames, vdc.SurfaceName, s => { vdc.SurfaceName = s; });
+                    else throw new NotSupportedException();
+                    //
+                    vdc.PopulateDropDownLists(referencePointNames, surfaceNames);
+                    // Context menu strip
+                    propertyGrid.ContextMenuStrip = null;
+                }
                 else if (_viewConstraint is ViewTie vt)
                 {
                     selectedId = lvTypes.FindItemWithText("Tie").Index;
@@ -455,6 +518,30 @@ namespace PrePoMax.Forms
                 }
                 rb.RegionType = RegionTypeEnum.Selection;
             }
+            else if (constraint is KinematicCoupling kc && kc.CreationData != null)
+            {
+                if (!_controller.Model.IsConstraintRegionValid(kc) || // do not use BoundaryCondition.Valid
+                    !_controller.Model.RegionValid(kc))
+                {
+                    // Region invalid
+                    kc.CreationData = null;
+                    kc.CreationIds = null;
+                    _propertyItemChanged = true;
+                }
+                kc.RegionType = RegionTypeEnum.Selection;
+            }
+            else if (constraint is DistributingCoupling dc && dc.CreationData != null)
+            {
+                if (!_controller.Model.IsConstraintRegionValid(dc) || // do not use BoundaryCondition.Valid
+                    !_controller.Model.RegionValid(dc))
+                {
+                    // Region invalid
+                    dc.CreationData = null;
+                    dc.CreationIds = null;
+                    _propertyItemChanged = true;
+                }
+                dc.RegionType = RegionTypeEnum.Selection;
+            }
             else if (constraint is Tie tie)
             {
                 if (tie.MasterCreationData != null)
@@ -527,6 +614,34 @@ namespace PrePoMax.Forms
                 item.Tag = vrb;
             }
             else item.Tag = new ViewError("There is no reference point defined for the rigid body constraint definition.");
+            lvTypes.Items.Add(item);
+            // Kinematic coupling
+            item = new ListViewItem("Kinematic Coupling");
+            if (referencePointNames.Length > 0)
+            {
+                KinematicCoupling kc = new KinematicCoupling(GetConstraintName("Kinematic_Coupling"),
+                                                             referencePointNames[0], "",
+                                                             RegionTypeEnum.Selection, twoD);
+                ViewKinematicCoupling vkc = new ViewKinematicCoupling(kc);
+                vkc.PopulateDropDownLists(referencePointNames, surfaceNames);
+                vkc.Color = color;
+                item.Tag = vkc;
+            }
+            else item.Tag = new ViewError("There is no reference point defined for the kinematic coupling constraint definition.");
+            lvTypes.Items.Add(item);
+            // Distributing coupling
+            item = new ListViewItem("Distributing Coupling");
+            if (referencePointNames.Length > 0)
+            {
+                DistributingCoupling dc = new DistributingCoupling(GetConstraintName("Distributing_Coupling"),
+                                                                   referencePointNames[0], "",
+                                                                   RegionTypeEnum.Selection, twoD);
+                ViewDistributingCoupling vdc = new ViewDistributingCoupling(dc);
+                vdc.PopulateDropDownLists(referencePointNames, surfaceNames);
+                vdc.Color = color;
+                item.Tag = vdc;
+            }
+            else item.Tag = new ViewError("There is no reference point defined for the distributing coupling constraint definition.");
             lvTypes.Items.Add(item);
             // Tie
             item = new ListViewItem("Tie");
@@ -610,6 +725,20 @@ namespace PrePoMax.Forms
                     // Slave
                     HighlightRegion(rb.SlaveRegionType, rb.SlaveRegionName, rb.CreationData, false, true);
                 }
+                else if (Constraint is KinematicCoupling kc)
+                {
+                    // Master
+                    _controller.HighlightReferencePoint(kc.ReferencePointName);
+                    // Slave
+                    HighlightRegion(kc.SlaveRegionType, kc.SlaveRegionName, kc.CreationData, false, true);
+                }
+                else if (Constraint is DistributingCoupling dc)
+                {
+                    // Master
+                    _controller.HighlightReferencePoint(dc.ReferencePointName);
+                    // Slave
+                    HighlightRegion(dc.SlaveRegionType, dc.SlaveRegionName, dc.CreationData, false, true);
+                }
                 else if (Constraint is Tie tie)
                 {
                     // Property grid item - must be here
@@ -681,6 +810,10 @@ namespace PrePoMax.Forms
                     ItemSetDataEditor.SelectionForm.ShowIfHidden(this.Owner);
                     ItemSetDataEditor.SelectionForm.SetOnlyGeometrySelection(true, false);
                 }
+                else if (Constraint is KinematicCoupling kc && kc.RegionType == RegionTypeEnum.Selection)
+                    ItemSetDataEditor.SelectionForm.ShowIfHidden(this.Owner);
+                else if (Constraint is DistributingCoupling dc && dc.RegionType == RegionTypeEnum.Selection)
+                    ItemSetDataEditor.SelectionForm.ShowIfHidden(this.Owner);
                 else if (Constraint is Tie tie)
                 {
                     if (property == nameof(ViewTie.MasterRegionType) && tie.MasterRegionType == RegionTypeEnum.Selection)
@@ -719,6 +852,16 @@ namespace PrePoMax.Forms
             else if (Constraint is RigidBody rb)
             {
                 if (rb.RegionType == RegionTypeEnum.Selection) _controller.SetSelectItemToGeometry();
+                else _controller.SetSelectByToOff();
+            }
+            else if (Constraint is KinematicCoupling kc)
+            {
+                if (kc.RegionType == RegionTypeEnum.Selection) _controller.SetSelectItemToSurface();
+                else _controller.SetSelectByToOff();
+            }
+            else if (Constraint is DistributingCoupling dc)
+            {
+                if (dc.RegionType == RegionTypeEnum.Selection) _controller.SetSelectItemToSurface();
                 else _controller.SetSelectByToOff();
             }
             else if (Constraint is Tie tie)
@@ -780,6 +923,24 @@ namespace PrePoMax.Forms
                     {
                         rb.CreationIds = ids;
                         rb.CreationData = _controller.Selection.DeepCopy(true, false);
+                        changed = true;
+                    }
+                }
+                else if (Constraint is KinematicCoupling kc)
+                {
+                    if (kc.RegionType == RegionTypeEnum.Selection)
+                    {
+                        kc.CreationIds = ids;
+                        kc.CreationData = _controller.Selection.DeepCopy(true, false);
+                        changed = true;
+                    }
+                }
+                else if (Constraint is DistributingCoupling dc)
+                {
+                    if (dc.RegionType == RegionTypeEnum.Selection)
+                    {
+                        dc.CreationIds = ids;
+                        dc.CreationData = _controller.Selection.DeepCopy(true, false);
                         changed = true;
                     }
                 }
@@ -848,6 +1009,16 @@ namespace PrePoMax.Forms
                     if (rb.CreationData != null) return rb.CreationData.IsGeometryBased();
                     else return true;
                 }
+                else if (constraint is KinematicCoupling kc)
+                {
+                    if (kc.CreationData != null) return kc.CreationData.IsGeometryBased();
+                    else return true;
+                }
+                else if (constraint is DistributingCoupling dc)
+                {
+                    if (dc.CreationData != null) return dc.CreationData.IsGeometryBased();
+                    else return true;
+                }
                 else if (constraint is Tie tie)
                 {
                     if (property == nameof(ViewTie.MasterRegionType) && tie.MasterRegionType == RegionTypeEnum.Selection)
@@ -894,6 +1065,16 @@ namespace PrePoMax.Forms
                 else if (constraint is RigidBody rb)
                 {
                     if (rb.CreationData != null) return rb.CreationData.IsGeometryIdBased(defaultMode);
+                    else return defaultMode;
+                }
+                else if (constraint is KinematicCoupling kc)
+                {
+                    if (kc.CreationData != null) return kc.CreationData.IsGeometryIdBased(defaultMode);
+                    else return defaultMode;
+                }
+                else if (constraint is DistributingCoupling dc)
+                {
+                    if (dc.CreationData != null) return dc.CreationData.IsGeometryIdBased(defaultMode);
                     else return defaultMode;
                 }
                 else if (constraint is Tie tie)

@@ -31,8 +31,8 @@ namespace FileInOut.Output.Calculix
             : base(calRigidBody)
         {
         }
-        public AbqRigidBody(RigidBody rigidBody, Dictionary<string, int[]> referencePointsNodeIds, string surfaceNodeSetName)
-            : base(rigidBody, referencePointsNodeIds, surfaceNodeSetName)
+        public AbqRigidBody(RigidBody rigidBody, Dictionary<string, CalReferencePoint> referencePoints, string surfaceNodeSetName)
+            : base(rigidBody, referencePoints, surfaceNodeSetName)
         {
         }
 
@@ -47,7 +47,7 @@ namespace FileInOut.Output.Calculix
             else throw new NotSupportedException();
             //
             return string.Format("*Rigid body, Tie Nset={0}, Ref node={1}{2}", nodeSetName,
-                                 _referencePointsNodeIds[_rigidBody.ReferencePointName][0],
+                                 _referencePoints[_rigidBody.ReferencePointName].ReferenceNodeId,
                                  Environment.NewLine);
         }
     }

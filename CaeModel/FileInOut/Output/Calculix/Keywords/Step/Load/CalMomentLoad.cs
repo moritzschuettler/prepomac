@@ -23,7 +23,7 @@ namespace FileInOut.Output.Calculix
     {
         // Variables                                                                                                                
         private MomentLoad _load;
-        private Dictionary<string, int[]> _referencePointsNodeIds;
+        private Dictionary<string, CalReferencePoint> _referencePoints;
         protected ComplexLoadTypeEnum _complexLoadType;
         protected int _maxNumberNodeDOFs;
 
@@ -33,10 +33,11 @@ namespace FileInOut.Output.Calculix
 
 
         // Constructor                                                                                                              
-        public CalMomentLoad(MomentLoad load, Dictionary<string, int[]> referencePointsNodeIds, ComplexLoadTypeEnum complexLoadType)
+        public CalMomentLoad(MomentLoad load, Dictionary<string, CalReferencePoint> referencePoints,
+                             ComplexLoadTypeEnum complexLoadType)
         {
             _load = load;
-            _referencePointsNodeIds = referencePointsNodeIds;
+            _referencePoints = referencePoints;
             _complexLoadType = complexLoadType;
             _maxNumberNodeDOFs = 3; // 3 for Calculix and 6 for Abaqus
         }
@@ -60,8 +61,8 @@ namespace FileInOut.Output.Calculix
         {
             StringBuilder sb = new StringBuilder();
             //
-            int[] rpNodeIds = null;
-            if (_load.RegionType == RegionTypeEnum.ReferencePointName) rpNodeIds = _referencePointsNodeIds[_load.RegionName];
+            CalReferencePoint referencePoint = null;
+            if (_load.RegionType == RegionTypeEnum.ReferencePointName) referencePoint = _referencePoints[_load.RegionName];
             //
             List<int> directions = new List<int>();
             if (_load.M1.Value != 0) directions.Add(4);
@@ -80,11 +81,11 @@ namespace FileInOut.Output.Calculix
                                     (ratio * _load.GetDirection(dir - 4)).ToCalculiX16String());
                 else if (_load.RegionType == RegionTypeEnum.ReferencePointName) // reference point
                 {
-                    if (_maxNumberNodeDOFs == 3)
-                        sb.AppendFormat("{0}, {1}, {2}", rpNodeIds[1], dir - 3,
+                    if (_maxNumberNodeDOFs == 3 && referencePoint.HasRotationNode)
+                        sb.AppendFormat("{0}, {1}, {2}", referencePoint.RotationNodeId.Value, dir - 3,
                                         (ratio * _load.GetDirection(dir - 4)).ToCalculiX16String());
-                    else if (_maxNumberNodeDOFs == 6)
-                        sb.AppendFormat("{0}, {1}, {2}", rpNodeIds[0], dir,
+                    else if (_maxNumberNodeDOFs == 3 || _maxNumberNodeDOFs == 6)
+                        sb.AppendFormat("{0}, {1}, {2}", referencePoint.ReferenceNodeId, dir,
                                         (ratio * _load.GetDirection(dir - 4)).ToCalculiX16String());
                     else throw new NotSupportedException();
                 }

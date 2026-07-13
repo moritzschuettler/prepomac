@@ -23,7 +23,7 @@ namespace FileInOut.Output.Calculix
     {
         // Variables                                                                                                                
         private CLoad _load;
-        private Dictionary<string, int[]> _referencePointsNodeIds;
+        private Dictionary<string, CalReferencePoint> _referencePoints;
         private ComplexLoadTypeEnum _complexLoadType;
 
 
@@ -31,10 +31,10 @@ namespace FileInOut.Output.Calculix
 
 
         // Constructor                                                                                                              
-        public CalCLoad(CLoad load, Dictionary<string, int[]> referencePointsNodeIds, ComplexLoadTypeEnum complexLoadType)
+        public CalCLoad(CLoad load, Dictionary<string, CalReferencePoint> referencePoints, ComplexLoadTypeEnum complexLoadType)
         {
             _load = load;
-            _referencePointsNodeIds = referencePointsNodeIds;
+            _referencePoints = referencePoints;
             _complexLoadType = complexLoadType;
         }
 
@@ -58,8 +58,8 @@ namespace FileInOut.Output.Calculix
         {
             StringBuilder sb = new StringBuilder();
             //
-            int[] rpNodeIds = null;
-            if (_load.RegionType == RegionTypeEnum.ReferencePointName) rpNodeIds = _referencePointsNodeIds[_load.RegionName];
+            CalReferencePoint referencePoint = null;
+            if (_load.RegionType == RegionTypeEnum.ReferencePointName) referencePoint = _referencePoints[_load.RegionName];
             //
             List<int> directions = new List<int>();
             if (_load.F1.Value != 0) directions.Add(1);
@@ -77,7 +77,7 @@ namespace FileInOut.Output.Calculix
                     sb.AppendFormat("{0}, {1}, {2}", _load.RegionName, dir,
                                     (ratio * _load.GetComponent(dir - 1)).ToCalculiX16String());
                 else if (_load.RegionType == RegionTypeEnum.ReferencePointName) // reference point
-                    sb.AppendFormat("{0}, {1}, {2}", rpNodeIds[0], dir,
+                    sb.AppendFormat("{0}, {1}, {2}", referencePoint.ReferenceNodeId, dir,
                                     (ratio * _load.GetComponent(dir - 1)).ToCalculiX16String());
                 //
                 sb.AppendLine();

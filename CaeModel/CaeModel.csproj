@@ -175,6 +175,9 @@
     <Compile Include="Steps\BoundaryConditions\BoundaryCondition.cs" />
     <Compile Include="Constraints\Tie.cs" />
     <Compile Include="Constraints\RigidBody.cs" />
+    <Compile Include="Constraints\Coupling.cs" />
+    <Compile Include="Constraints\KinematicCoupling.cs" />
+    <Compile Include="Constraints\DistributingCoupling.cs" />
     <Compile Include="Constraints\Constraint.cs" />
     <Compile Include="FeModel.cs" />
     <Compile Include="Steps\Controls\ContactStepControlParameter.cs" />
@@ -215,6 +218,9 @@
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\FieldOutput\CalNodeFile.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\CalFrequencyStep.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Constraints\CalTie.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Constraints\CalCoupling.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Constraints\CalKinematic.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Constraints\CalDistributing.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalSTLoad.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalMomentLoad.cs" />
     <Compile Include="FileInOut\Output\Calculix\CalculixFileWriter.cs" />
@@ -222,6 +228,7 @@
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalCLoad.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalElementSet.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalElastic.cs" />
+    <Compile Include="FileInOut\Output\Calculix\CalReferencePoint.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Constraints\CalRigidBody.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Section\CalSolidSection.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalMaterial.cs" />

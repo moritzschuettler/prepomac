@@ -22,7 +22,7 @@ namespace FileInOut.Output.Calculix
     {
         // Variables                                                                                                                
         private FixedBC _fixedBC;
-        private Dictionary<string, int[]> _referencePointsNodeIds;
+        private Dictionary<string, CalReferencePoint> _referencePoints;
         private string _nodeSetNameOfSurface;
 
 
@@ -30,11 +30,11 @@ namespace FileInOut.Output.Calculix
 
 
         // Constructor                                                                                                              
-        public AbqFixedBC(FixedBC fixedBC, Dictionary<string, int[]> referencePointsNodeIds,
+        public AbqFixedBC(FixedBC fixedBC, Dictionary<string, CalReferencePoint> referencePoints,
                           string nodeSetNameOfSurface)
         {
             _fixedBC = fixedBC;
-            _referencePointsNodeIds = referencePointsNodeIds;
+            _referencePoints = referencePoints;
             _nodeSetNameOfSurface = nodeSetNameOfSurface;
         }
 
@@ -85,18 +85,10 @@ namespace FileInOut.Output.Calculix
             // Reference point
             else if (_fixedBC.RegionType == CaeGlobals.RegionTypeEnum.ReferencePointName)
             {
-                int[] rpNodeIds = _referencePointsNodeIds[_fixedBC.RegionName];
-                //
-                if (_fixedBC.TwoD)
-                {
-                    sb.AppendFormat("{0}, 1, 2, 0", rpNodeIds[0]); sb.AppendLine();
-                    sb.AppendFormat("{0}, 3, 3, 0", rpNodeIds[1]); sb.AppendLine();
-                }
-                else
-                {
-                    sb.AppendFormat("{0}, 1, 3, 0", rpNodeIds[0]); sb.AppendLine();
-                    sb.AppendFormat("{0}, 1, 3, 0", rpNodeIds[1]); sb.AppendLine();
-                }
+                CalReferencePoint referencePoint = _referencePoints[_fixedBC.RegionName];
+                if (_fixedBC.TwoD) sb.AppendFormat("{0}, 1, 2, 0", referencePoint.ReferenceNodeId);
+                else sb.AppendFormat("{0}, 1, 6, 0", referencePoint.ReferenceNodeId);
+                sb.AppendLine();
             }
             else throw new NotSupportedException();
             //

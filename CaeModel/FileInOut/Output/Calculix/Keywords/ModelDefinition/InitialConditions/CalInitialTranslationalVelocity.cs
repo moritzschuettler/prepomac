@@ -32,7 +32,7 @@ namespace FileInOut.Output.Calculix
 
         // Constructor                                                                                                              
         public CalInitialTranslationalVelocity(FeModel model, InitialTranslationalVelocity initialVelocity,
-                                               Dictionary<string, int[]> referencePointsNodeIds)
+                                               Dictionary<string, CalReferencePoint> referencePoints)
         {
             _initialVelocity = initialVelocity;
             //
@@ -44,8 +44,7 @@ namespace FileInOut.Output.Calculix
                 _regionName += model.Mesh.Surfaces[_initialVelocity.RegionName].NodeSetName;
             else if (_initialVelocity.RegionType == RegionTypeEnum.ReferencePointName)
             {
-                int[] rpNodeIds = referencePointsNodeIds[_initialVelocity.RegionName];
-                _regionName = rpNodeIds[0].ToString();
+                _regionName = referencePoints[_initialVelocity.RegionName].ReferenceNodeId.ToString();
             }
             else throw new NotSupportedException();
         }

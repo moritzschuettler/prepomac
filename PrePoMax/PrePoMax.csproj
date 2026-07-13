@@ -810,6 +810,8 @@
     <Compile Include="Forms\41_Material\ViewPlastic.cs" />
     <Compile Include="Forms\43_Constraint\ViewTie.cs" />
     <Compile Include="Forms\43_Constraint\ViewRigidBody.cs" />
+    <Compile Include="Forms\43_Constraint\ViewKinematicCoupling.cs" />
+    <Compile Include="Forms\43_Constraint\ViewDistributingCoupling.cs" />
     <Compile Include="Forms\43_Constraint\ViewConstraint.cs" />
     <Compile Include="Forms\54_BoundaryConditions\ViewBoundaryCondition.cs" />
     <Compile Include="Forms\54_BoundaryConditions\ViewDisplacementRotation.cs" />

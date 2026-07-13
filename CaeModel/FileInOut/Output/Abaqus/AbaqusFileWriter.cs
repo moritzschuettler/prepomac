@@ -80,7 +80,10 @@ namespace FileInOut.Output
             CalculixKeyword childKeyword;
             //
             HashSet<string> rpRotNames = new HashSet<string>();
-            foreach (var entry in model.Mesh.ReferencePoints) rpRotNames.Add(entry.Value.RotNodeSetName);
+            foreach (var entry in model.Mesh.ReferencePoints)
+            {
+                if (entry.Value.RotNodeSetName != null) rpRotNames.Add(entry.Value.RotNodeSetName);
+            }
             // Element
             if (keyword is CalElement ce) keyword = new AbqElement(ce);
             // Surface

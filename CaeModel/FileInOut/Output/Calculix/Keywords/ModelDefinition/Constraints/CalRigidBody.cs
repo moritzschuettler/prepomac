@@ -22,7 +22,7 @@ namespace FileInOut.Output.Calculix
     {
         // Variables                                                                                                                
         protected RigidBody _rigidBody;
-        protected Dictionary<string, int[]> _referencePointsNodeIds;
+        protected Dictionary<string, CalReferencePoint> _referencePoints;
         protected string _surfaceNodeSetName;
 
 
@@ -31,13 +31,13 @@ namespace FileInOut.Output.Calculix
 
         // Constructor                                                                                                              
         public CalRigidBody(CalRigidBody calRigidBody)
-            :this(calRigidBody._rigidBody, calRigidBody._referencePointsNodeIds, calRigidBody._surfaceNodeSetName)
+            :this(calRigidBody._rigidBody, calRigidBody._referencePoints, calRigidBody._surfaceNodeSetName)
         {
         }
-        public CalRigidBody(RigidBody rigidBody, Dictionary<string, int[]> referencePointsNodeIds, string surfaceNodeSetName)
+        public CalRigidBody(RigidBody rigidBody, Dictionary<string, CalReferencePoint> referencePoints, string surfaceNodeSetName)
         {
             _rigidBody = rigidBody;
-            _referencePointsNodeIds = referencePointsNodeIds;
+            _referencePoints = referencePoints;
             _surfaceNodeSetName = surfaceNodeSetName;
         }
 
@@ -51,9 +51,11 @@ namespace FileInOut.Output.Calculix
             else if (_rigidBody.RegionType == CaeGlobals.RegionTypeEnum.SurfaceName) nodeSetName = _surfaceNodeSetName;
             else throw new NotSupportedException();
             //
+            CalReferencePoint referencePoint = _referencePoints[_rigidBody.ReferencePointName];
+            if (!referencePoint.HasRotationNode) throw new InvalidOperationException("Rigid body rotation node is missing.");
             return string.Format("*Rigid body, Nset={0}, Ref node={1}, Rot node={2}{3}", nodeSetName,
-                                 _referencePointsNodeIds[_rigidBody.ReferencePointName][0],
-                                 _referencePointsNodeIds[_rigidBody.ReferencePointName][1],
+                                 referencePoint.ReferenceNodeId,
+                                 referencePoint.RotationNodeId.Value,
                                  Environment.NewLine);
         }
         public override string GetDataString()

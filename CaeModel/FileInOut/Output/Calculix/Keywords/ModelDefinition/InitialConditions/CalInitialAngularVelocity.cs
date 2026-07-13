@@ -32,10 +32,10 @@ namespace FileInOut.Output.Calculix
 
         // Constructor                                                                                                              
         public CalInitialAngularVelocity(FeModel model, InitialAngularVelocity initialVelocity,
-                                         Dictionary<string, int[]> referencePointsNodeIds)
+                                         Dictionary<string, CalReferencePoint> referencePoints)
         {
             _initialVelocity = initialVelocity;
-            _initialTranslationalVelocities = model.GetTranslationalVelocities(initialVelocity, referencePointsNodeIds);
+            _initialTranslationalVelocities = model.GetTranslationalVelocities(initialVelocity, referencePoints);
             //
 
         }
