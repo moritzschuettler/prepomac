@@ -12,7 +12,6 @@ using Python.Runtime;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text.RegularExpressions;
 using System.Windows.Forms;
 
 namespace PrePoMax.API.Python
@@ -23,6 +22,23 @@ namespace PrePoMax.API.Python
         private static bool _initialized;
         private static PyDict _scope;
         private static PyObject _console;
+        private const string ScriptCompiledVariable = "__prepomax_compiled_script__";
+        private const string ScriptErrorVariable = "__prepomax_script_error__";
+        private const string ScriptScopeVariable = "__prepomax_scope__";
+        private const string ScriptTracebackVariable = "__prepomax_traceback__";
+        private const string ScriptExecutionWrapper =
+            "try:\n" +
+            "    exec(" + ScriptCompiledVariable + ", " + ScriptScopeVariable + ", " + ScriptScopeVariable + ")\n" +
+            "except BaseException:\n" +
+            "    " + ScriptErrorVariable + " = " + ScriptTracebackVariable + ".format_exc()\n" +
+            "    raise\n";
+        private static readonly string[] ScriptHelperVariables = new string[]
+        {
+            ScriptCompiledVariable,
+            ScriptErrorVariable,
+            ScriptScopeVariable,
+            ScriptTracebackVariable
+        };
 
 
         // Methods
@@ -91,7 +107,6 @@ namespace PrePoMax.API.Python
                     sys.stderr = stderr;
 
                     dynamic console = _console;
-                    line = NormalizeResultPathIndexLiterals(line);
                     bool needMoreInput = console.push(line);
 
                     string output = stdout.getvalue().ToString();
@@ -167,26 +182,41 @@ namespace PrePoMax.API.Python
                     sys.stdout = stdout;
                     sys.stderr = stderr;
                     //
-                    code = NormalizeResultPathIndexLiterals(code);
-                    PythonEngine.Exec(code, null, _scope);
+                    ExecuteCompiledScriptWithTraceback(code);
                     //
                     result.Output = stdout.getvalue().ToString();
                     result.Error = stderr.getvalue().ToString();
+                    result.NeedMoreInput = false;
+                }
+                catch (PythonException ex)
+                {
+                    result.Output = stdout.getvalue().ToString();
+                    result.Error = stderr.getvalue().ToString();
+                    string scriptError = GetScriptErrorFromScope();
+
+                    if (!string.IsNullOrEmpty(scriptError))
+                        AppendError(result, scriptError);
+                    else
+                        AppendError(result, FormatPythonException(ex));
+
                     result.NeedMoreInput = false;
                 }
                 catch (Exception ex)
                 {
                     result.Output = stdout.getvalue().ToString();
                     result.Error = stderr.getvalue().ToString();
+                    string scriptError = GetScriptErrorFromScope();
 
-                    if (!string.IsNullOrEmpty(result.Error) && !result.Error.EndsWith(Environment.NewLine))
-                        result.Error += Environment.NewLine;
+                    if (!string.IsNullOrEmpty(scriptError))
+                        AppendError(result, scriptError);
+                    else
+                        AppendError(result, ex.ToString());
 
-                    result.Error += ex.ToString() + Environment.NewLine;
                     result.NeedMoreInput = false;
                 }
                 finally
                 {
+                    ClearScriptHelperVariables();
                     sys.stdout = oldStdout;
                     sys.stderr = oldStderr;
                     oldStdout.Dispose();
@@ -196,39 +226,80 @@ namespace PrePoMax.API.Python
 
             return result;
         }
-        private static string NormalizeResultPathIndexLiterals(string line)
+        private static void ExecuteCompiledScriptWithTraceback(string code)
         {
-            if (string.IsNullOrEmpty(line) || line.IndexOf('\\') < 0) return line;
-
-            line = NormalizeResultPathIndexLiterals(line, "(?<prefix>\\bpmx\\.results\\s*\\[\\s*)'(?<value>[^']*\\\\[^']*)'");
-            line = NormalizeResultPathIndexLiterals(line, "(?<prefix>\\bpmx\\.results\\s*\\[\\s*)\"(?<value>[^\"]*\\\\[^\"]*)\"");
-            return line;
-        }
-        private static string NormalizeResultPathIndexLiterals(string line, string pattern)
-        {
-            return Regex.Replace(line, pattern, match =>
+            using (PyObject builtins = Py.Import("builtins"))
+            using (PyObject compileFunc = builtins.GetAttr("compile"))
+            using (PyObject script = new PyString(code))
+            using (PyObject fileName = new PyString("<string>"))
+            using (PyObject mode = new PyString("exec"))
+            using (PyObject compiled = compileFunc.Invoke(script, fileName, mode))
+            using (PyObject traceback = Py.Import("traceback"))
+            using (PyObject emptyError = new PyString(""))
             {
-                string value = match.Groups["value"].Value;
-                if (!ContainsOddBackslashRun(value)) return match.Value;
+                _scope.SetItem(ScriptCompiledVariable, compiled);
+                _scope.SetItem(ScriptErrorVariable, emptyError);
+                _scope.SetItem(ScriptScopeVariable, _scope);
+                _scope.SetItem(ScriptTracebackVariable, traceback);
 
-                string prefix = match.Groups["prefix"].Value;
-                char quote = match.Value[match.Value.Length - 1];
-                return prefix + quote + value.Replace("\\", "\\\\") + quote;
-            });
+                PythonEngine.Exec(ScriptExecutionWrapper, null, _scope);
+            }
         }
-        private static bool ContainsOddBackslashRun(string value)
+        private static string GetScriptErrorFromScope()
         {
-            int count = 0;
-            foreach (char c in value)
+            if (_scope == null || !_scope.HasKey(ScriptErrorVariable)) return "";
+
+            using (PyObject error = _scope.GetItem(ScriptErrorVariable))
             {
-                if (c == '\\') count++;
-                else
+                return error.ToString();
+            }
+        }
+        private static string FormatPythonException(PythonException ex)
+        {
+            try
+            {
+                ex.Normalize();
+
+                using (PyObject traceback = Py.Import("traceback"))
+                using (PyObject formatException = traceback.GetAttr("format_exception"))
+                using (PyObject formattedLines = formatException.Invoke(new PyObject[]
+                       {
+                           ex.Type,
+                           ex.Value,
+                           ex.Traceback ?? PyObject.None
+                       }))
+                using (PyObject empty = new PyString(""))
+                using (PyObject formatted = empty.InvokeMethod("join", formattedLines))
                 {
-                    if (count % 2 == 1) return true;
-                    count = 0;
+                    return formatted.ToString();
                 }
             }
-            return count % 2 == 1;
+            catch
+            {
+                return ex.Message + Environment.NewLine;
+            }
+        }
+        private static void AppendError(PythonEngineResult result, string error)
+        {
+            if (string.IsNullOrEmpty(error)) return;
+
+            if (!string.IsNullOrEmpty(result.Error) && !result.Error.EndsWith("\n"))
+                result.Error += Environment.NewLine;
+
+            result.Error += error;
+
+            if (!result.Error.EndsWith("\n"))
+                result.Error += Environment.NewLine;
+        }
+        private static void ClearScriptHelperVariables()
+        {
+            if (_scope == null) return;
+
+            foreach (string variable in ScriptHelperVariables)
+            {
+                if (_scope.HasKey(variable))
+                    _scope.DelItem(variable);
+            }
         }
         // Autocompletion method for the Python console
         public static List<string> GetCompletions(string expression, string prefix)

@@ -67,6 +67,9 @@
     <Compile Include="AutocompleteMenu\ITextBoxWrapper.cs" />
     <Compile Include="AutocompleteMenu\Range.cs" />
     <Compile Include="AutocompleteMenu\TextBoxWrapper.cs" />
+    <Compile Include="Buttons\MenuStyleButton.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="Forms\FrmPropertyDataListView.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -145,6 +148,7 @@
     <Compile Include="TextBoxes\PythonTextBox\PythonTextBoxCompletionHelper.cs" />
     <Compile Include="TextBoxes\PythonTextBox\PythonTextBoxAutocompleteEventArgs.cs" />
     <Compile Include="TextBoxes\PythonTextBox\PythonTextBoxCommandEventArgs.cs" />
+    <Compile Include="TextBoxes\PythonTextBox\PythonTextBoxAutocompleteMenuHelper.cs" />
     <Compile Include="TextBoxes\PythonTextBox\PythonTextBoxScriptAnalyzer.cs" />
     <Compile Include="TextBoxes\PythonTextBox\PythonTextBoxSyntaxHighlighter.cs" />
     <Compile Include="TextBoxes\AutoScrollTextBox.cs">
@@ -479,6 +483,13 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="License-LGPL.txt" />
+    <None Include="Resources\Run.ico" />
+    <None Include="Resources\RunSelected.ico" />
+    <None Include="Resources\Redo.ico" />
+    <None Include="Resources\Undo.ico" />
+    <None Include="Resources\Save.ico" />
+    <None Include="Resources\Open.ico" />
+    <None Include="Resources\New.ico" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

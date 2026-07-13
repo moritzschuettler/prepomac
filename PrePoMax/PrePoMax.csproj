@@ -1279,6 +1279,8 @@
     <None Include="Icons\Step\Preview_boundary_condition.ico" />
     <None Include="Icons\View\FollowerView.ico" />
     <None Include="Icons\View\BoxZoom.ico" />
+    <None Include="Icons\Edit\Undo.ico" />
+    <None Include="Icons\Edit\Redo.ico" />
     <Content Include="main.ico" />
   </ItemGroup>
   <ItemGroup>
@@ -1335,4 +1337,3 @@ IF EXIST "$(SolutionDir)PrePoMax\bin\x64\Console-Release\PrePoMax.exe.config" co
 del *Cmd.exe.config</PreBuildEvent>
   </PropertyGroup>
 </Project>
-

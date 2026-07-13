@@ -917,7 +917,8 @@ namespace PrePoMax
         // Keyboard
         private void KeyboardHook_KeyDown(KeyboardHook.VKeys vKey)
         {
-            if (this == ActiveForm && !tbOutput.Focused && !_visibleSidePanel.Focused && !_modelTree.Focused)
+            if (this == ActiveForm && !tbOutput.Focused && !_modelTree.Focused &&
+               _visibleSidePanel != null && !_visibleSidePanel.Focused)
             {
                 Keys key = (Keys)vKey;
                 //
@@ -2625,53 +2626,36 @@ namespace PrePoMax
             tsmiAdvisor.Checked = sidePanel is AdvisorPanel;
             tsmiPythonScriptEditor.Checked = sidePanel is PythonPanel;
             //
-            Control parent = panelControl.Parent;
-            if (parent == splitContainer2.Panel1)
-            {
-                // First remove the vtk control and panel border
-                parent.Controls.Remove(_vtk);
-                parent.Controls.Remove(panelControl);
-                // Split container
-                SplitContainer splitContainer = new SplitContainer();
-                splitContainer.FixedPanel = FixedPanel.Panel2;
-                splitContainer.Dock = DockStyle.Fill;
-                parent.Controls.Add(splitContainer);
-                // Set the Panel 2 size - min 100 max 300
-                splitContainer.SplitterDistance = Math.Max(min, Math.Max(parent.Width - max, (int)(parent.Width * relativeSize)));
-                // Panel 1 - LEFT
-                splitContainer.Panel1.Controls.Add(_vtk);
-                splitContainer.Panel1.Controls.Add(panelControl);
-                panelControl.SendToBack();
-                // Update vtk control size
-                UpdateVtkControlSize();
-                // Panel 2 - RIGHT
-                _visibleSidePanel = sidePanel;
-                splitContainer.Panel2.Controls.Add(_visibleSidePanel);
-                _visibleSidePanel.Dock = DockStyle.Fill;
-                _visibleSidePanel.UpdateDesign();
-                _visibleSidePanel.AutoScroll = true;
-            }
+            Control parent = splitContainer1.Panel2;
+            // First remove the splitContainer2
+            parent.Controls.Remove(splitContainer2);
+            // Add split container
+            SplitContainer splitContainer3 = new SplitContainer();
+            splitContainer3.FixedPanel = FixedPanel.Panel2;
+            splitContainer3.Dock = DockStyle.Fill;
+            parent.Controls.Add(splitContainer3);
+            // Set the Panel 2 size - min 100 max 300
+            splitContainer3.SplitterDistance = Math.Max(min, Math.Max(parent.Width - max, (int)(parent.Width * relativeSize)));
+            // Panel 1 - LEFT
+            splitContainer3.Panel1.Controls.Add(splitContainer2);
+            // Update vtk control size
+            UpdateVtkControlSize();
+            // Panel 2 - RIGHT
+            _visibleSidePanel = sidePanel;
+            splitContainer3.Panel2.Controls.Add(_visibleSidePanel);
+            _visibleSidePanel.Dock = DockStyle.Fill;
+            _visibleSidePanel.UpdateDesign();
+            _visibleSidePanel.AutoScroll = true;
         }
         private void HideSidePanel()
         {
             if (_visibleSidePanel == null) return;
-            // Remove side panel
-            Control parent = panelControl.Parent;
-            if (parent is SplitterPanel && parent != splitContainer2.Panel1)
-            {
-                // First remove the vtk control and panel border
-                parent.Controls.Remove(_vtk);
-                parent.Controls.Remove(panelControl);
-                // Remove added split container
-                splitContainer2.Panel1.Controls.Clear();
-                _visibleSidePanel = null;
-                // Add controls back
-                splitContainer2.Panel1.Controls.Add(panelControl);
-                splitContainer2.Panel1.Controls.Add(_vtk);
-                panelControl.SendToBack();
-                // Update vtk control size
-                UpdateVtkControlSize();
-            }
+            // Remove all controls
+            splitContainer1.Panel2.Controls.Clear();
+            // Add controls back
+            splitContainer1.Panel2.Controls.Add(splitContainer2);
+            // Update vtk control size
+            UpdateVtkControlSize();
         }
         private void PythonPanel_ExecuteCommand(object sender, PythonTextBoxCommandEventArgs e)
         {
@@ -10670,8 +10654,17 @@ namespace PrePoMax
                 //
                 while (numColDate + data.Length > numCol)
                 {
-                    wrappedLines.Add(data.Substring(0, numCol - numColDate) + "...");
-                    data = data.Substring(numCol - numColDate);
+                    if (numCol - numColDate <= 0)
+                    {
+                        wrappedLines.Add(data);
+                        data = "";
+                        break;
+                    }
+                    else
+                    {
+                        wrappedLines.Add(data.Substring(0, numCol - numColDate) + "...");
+                        data = data.Substring(numCol - numColDate);
+                    }
                 }
                 wrappedLines.Add(data);
                 //

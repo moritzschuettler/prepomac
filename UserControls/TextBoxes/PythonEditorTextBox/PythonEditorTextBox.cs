@@ -27,18 +27,20 @@ namespace UserControls
         private readonly TextStyle _errorLineStyle;
         private readonly MarkerStyle _matchingBracketStyle;
         private PythonEditorFastTextBox _textBox;
-        private ListBox _autocompleteListBox;
+        private AutocompleteMenu _autocompleteMenu;
         private bool _internalTextChange;
         private bool _lastKnownModified;
         private string _fileName = "";
         private int _errorLine = -1;
         private string _errorMessage;
+        private bool _hasErrorDisplay;
         private EventHandler<PythonTextBoxAutocompleteEventArgs> _autocompleteProvider;
-        // Autocomplete drop-down
-        private string _autocompleteExpression;
-        private string _autocompletePrefix;
-        private int _autocompleteReplaceStartColumn;
-        private int _autocompleteLine;
+        // Autocomplete
+        private string _lastCompletionExpression;
+        private int _lastCompletionReplaceStartLine = -1;
+        private int _lastCompletionReplaceStartColumn = -1;
+        private List<string> _lastCompletions = new List<string>();
+        private int _lastCompletionIndex = -1;
         // Context menu
         private ToolStripMenuItem _undoMenuItem;
         private ToolStripMenuItem _redoMenuItem;
@@ -69,10 +71,10 @@ namespace UserControls
                 _internalTextChange = true;
                 try
                 {
+                    ClearErrorLine();
                     _textBox.Text = value ?? "";
                     _syntaxHighlighter.Highlight(_textBox.Range);
                     UpdateLineNumberMargin();
-                    ClearErrorLine();
                     _textBox.ClearUndo();
                     _textBox.IsChanged = false;
                 }
@@ -89,6 +91,18 @@ namespace UserControls
         public bool IsModified
         {
             get { return _textBox.IsChanged; }
+        }
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public bool CanUndo
+        {
+            get { return _textBox != null && _textBox.UndoEnabled; }
+        }
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public bool CanRedo
+        {
+            get { return _textBox != null && _textBox.RedoEnabled; }
         }
         [DefaultValue("")]
         public string FileName
@@ -136,7 +150,7 @@ namespace UserControls
             {
                 base.Font = value;
                 if (_textBox != null) _textBox.Font = value;
-                if (_autocompleteListBox != null) _autocompleteListBox.Font = value;
+                if (_autocompleteMenu != null) _autocompleteMenu.Font = value;
             }
         }
         [DefaultValue(BorderStyle.FixedSingle)]
@@ -186,23 +200,12 @@ namespace UserControls
             _textBox.Dock = DockStyle.Fill;
             _textBox.Name = "fctbPythonEditor";
             _textBox.TabIndex = 0;
-            //
-            _autocompleteListBox = new ListBox();
-            _autocompleteListBox.Visible = false;
-            _autocompleteListBox.IntegralHeight = true;
-            _autocompleteListBox.Height = 140;
-            _autocompleteListBox.Width = 260;
-            _autocompleteListBox.TabStop = false;
-            _autocompleteListBox.BorderStyle = BorderStyle.FixedSingle;
-            _autocompleteListBox.DoubleClick += AutocompleteListBox_DoubleClick;
-            _autocompleteListBox.KeyDown += AutocompleteListBox_KeyDown;
+            _textBox.Text = "#PrePoMax Python Script" + Environment.NewLine +
+                            "#The PrePoMax object is available as 'pmx'" + Environment.NewLine;
             //
             Name = "PythonEditorTextBox";
             Size = new Size(400, 300);
             Controls.Add(_textBox);
-            Controls.Add(_autocompleteListBox);
-            //
-            _autocompleteListBox.BringToFront();
             //
             ResumeLayout(false);
         }
@@ -226,7 +229,7 @@ namespace UserControls
             _textBox.CommentPrefix = "#";
             _textBox.ContextMenuStrip = CreateContextMenu();
             //
-            _autocompleteListBox.Font = _textBox.Font;
+            _autocompleteMenu = PythonTextBoxAutocompleteMenuHelper.Create(_textBox);
             //
             _textBox.TextChanged += PythonEditorTextBox_TextChanged;
             _textBox.TextChangedDelayed += PythonEditorTextBox_TextChangedDelayed;
@@ -264,6 +267,11 @@ namespace UserControls
             _selectAllMenuItem.Click += ContextMenuSelectAll_Click;
             _runMenuItem.Click += ContextMenuRun_Click;
             _runSelectionMenuItem.Click += ContextMenuRunSelection_Click;
+
+            _undoMenuItem.Image = Properties.Resources.Undo;
+            _redoMenuItem.Image = Properties.Resources.Redo;
+            _runMenuItem.Image = Properties.Resources.Run;
+            _runSelectionMenuItem.Image = Properties.Resources.RunSelected;
 
             menu.Items.Add(_undoMenuItem);
             menu.Items.Add(_redoMenuItem);
@@ -304,6 +312,22 @@ namespace UserControls
         {
             _textBox.ShowReplaceDialog();
         }
+        public void Undo()
+        {
+            if (CanUndo) _textBox.Undo();
+        }
+        public void Redo()
+        {
+            if (CanRedo) _textBox.Redo();
+        }
+        public void RunScript()
+        {
+            RunScriptRequested?.Invoke(this, EventArgs.Empty);
+        }
+        public void RunSelection()
+        {
+            RunSelectionRequested?.Invoke(this, EventArgs.Empty);
+        }
         public void GoToLine(int lineNumber)
         {
             if (lineNumber < 1) lineNumber = 1;
@@ -341,75 +365,56 @@ namespace UserControls
             _errorMessage = message ?? "";
             _textBox.BookmarkLine(_errorLine);
             ApplyErrorLineStyle();
+            _hasErrorDisplay = true;
             _textBox.Invalidate();
         }
         public void ClearErrorLine()
         {
-            if (_errorLine < 0)
+            if (!_hasErrorDisplay && _errorLine < 0)
             {
                 _errorMessage = null;
                 return;
             }
 
-            if (_errorLine >= 0 && _errorLine < _textBox.LinesCount)
-            {
-                _textBox.UnbookmarkLine(_errorLine);
+            if (_textBox.Bookmarks != null)
+                _textBox.Bookmarks.Clear();
 
-                int lineLength = _textBox.Lines[_errorLine].Length;
-                if (lineLength > 0)
-                {
-                    FastColoredTextBoxNS.Range range =
-                        new FastColoredTextBoxNS.Range(_textBox, 0, _errorLine, lineLength, _errorLine);
-                    range.ClearStyle(_errorLineStyle);
-                }
-            }
+            ClearErrorLineStyles();
 
             _errorLine = -1;
             _errorMessage = null;
+            _hasErrorDisplay = false;
             _textBox.Invalidate();
+        }
+        private void ClearErrorLineStyles()
+        {
+            for (int i = 0; i < _textBox.LinesCount; i++)
+            {
+                int lineLength = _textBox.Lines[i].Length;
+                if (lineLength == 0) continue;
+
+                FastColoredTextBoxNS.Range range =
+                    new FastColoredTextBoxNS.Range(_textBox, 0, i, lineLength, i);
+                range.ClearStyle(_errorLineStyle);
+            }
         }
         internal bool ProcessKeyDown(KeyEventArgs e)
         {
             if (e.Alt) return false;
 
-            if (_autocompleteListBox.Visible)
-            {
-                if (e.KeyCode == Keys.Escape)
-                {
-                    HideAutocompleteList();
-                    e.SuppressKeyPress = true;
-                    return true;
-                }
-                if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Tab)
-                {
-                    AcceptAutocompleteListSelection();
-                    e.SuppressKeyPress = true;
-                    return true;
-                }
-                if (e.KeyCode == Keys.Up)
-                {
-                    MoveAutocompleteSelection(-1);
-                    e.SuppressKeyPress = true;
-                    return true;
-                }
-                if (e.KeyCode == Keys.Down)
-                {
-                    MoveAutocompleteSelection(1);
-                    e.SuppressKeyPress = true;
-                    return true;
-                }
-            }
+            if (IsAutocompleteMenuVisible() && IsAutocompleteMenuKey(e.KeyCode))
+                return false;
 
             if (e.KeyCode == Keys.F5)
             {
-                RunScriptRequested?.Invoke(this, EventArgs.Empty);
+                RunScript();
                 e.SuppressKeyPress = true;
                 return true;
             }
 
             if (e.KeyCode == Keys.F9)
             {
-                RunSelectionRequested?.Invoke(this, EventArgs.Empty);
+                RunSelection();
                 e.SuppressKeyPress = true;
                 return true;
             }
@@ -469,7 +474,7 @@ namespace UserControls
                     UnindentSelectedLines();
                 else if (HasSelection)
                     IndentSelectedLines();
-                else
+                else if (!CompleteCurrentInput())
                     _textBox.InsertText(IndentText);
 
                 e.SuppressKeyPress = true;
@@ -503,8 +508,10 @@ namespace UserControls
         {
             if (_internalTextChange || _textBox.ReadOnly) return;
 
-            if (e.KeyChar == '.' && IsHandleCreated)
-                BeginInvoke(new MethodInvoker(ShowAutocompleteListAfterDot));
+            if (IsAutocompleteTriggerCharacter(e.KeyChar) && IsHandleCreated)
+                BeginInvoke(new MethodInvoker(ShowAutocompleteListAfterTextInput));
+            else if (!char.IsControl(e.KeyChar) && IsHandleCreated)
+                BeginInvoke(new MethodInvoker(HideAutocompleteList));
         }
         internal void ProcessSelectionChanged()
         {
@@ -522,12 +529,12 @@ namespace UserControls
             _syntaxHighlighter.Highlight(e.ChangedRange);
             UpdateLineNumberMargin();
 
-            if (_autocompleteListBox.Visible)
+            if (IsAutocompleteMenuVisible())
                 ShowAutocompleteList(false);
         }
         private void PythonEditorTextBox_Leave(object sender, EventArgs e)
         {
-            if (!_autocompleteListBox.Focused)
+            if (!IsAutocompleteMenuVisible())
                 HideAutocompleteList();
         }
         private void ContextMenu_Opening(object sender, CancelEventArgs e)
@@ -546,11 +553,11 @@ namespace UserControls
         }
         private void ContextMenuUndo_Click(object sender, EventArgs e)
         {
-            if (_textBox.UndoEnabled) _textBox.Undo();
+            Undo();
         }
         private void ContextMenuRedo_Click(object sender, EventArgs e)
         {
-            if (_textBox.RedoEnabled) _textBox.Redo();
+            Redo();
         }
         private void ContextMenuCut_Click(object sender, EventArgs e)
         {
@@ -574,11 +581,11 @@ namespace UserControls
         }
         private void ContextMenuRun_Click(object sender, EventArgs e)
         {
-            RunScriptRequested?.Invoke(this, EventArgs.Empty);
+            RunScript();
         }
         private void ContextMenuRunSelection_Click(object sender, EventArgs e)
         {
-            RunSelectionRequested?.Invoke(this, EventArgs.Empty);
+            RunSelection();
         }
         private void UpdateModifiedState()
         {
@@ -1054,7 +1061,116 @@ namespace UserControls
                 new FastColoredTextBoxNS.Range(_textBox, place.iChar, place.iLine, place.iChar + 1, place.iLine);
             range.SetStyle(_matchingBracketStyle);
         }
-        private void ShowAutocompleteListAfterDot()
+        private bool CompleteCurrentInput()
+        {
+            string expression;
+            string prefix;
+            int replaceStartColumn;
+            int lineIndex;
+            List<string> localCompletions;
+
+            if (!GetCompletionContext(out expression, out prefix, out replaceStartColumn, out lineIndex,
+                                      out localCompletions))
+                return false;
+
+            if (string.IsNullOrEmpty(prefix) && string.IsNullOrEmpty(expression)) return false;
+
+            Place caret = _textBox.Selection.Start;
+            if (caret.iLine < 0 || caret.iLine >= _textBox.LinesCount) return false;
+
+            string line = _textBox.Lines[caret.iLine];
+            int column = Math.Min(caret.iChar, line.Length);
+
+            bool continueCycling = CanContinueCompletionCycle(line,
+                                                               lineIndex,
+                                                               column,
+                                                               expression,
+                                                               replaceStartColumn);
+
+            if (!continueCycling)
+            {
+                List<string> completions = GetCompletions(expression, prefix);
+                if (string.IsNullOrEmpty(expression))
+                    AddCompletions(completions, localCompletions);
+
+                if (completions == null || completions.Count == 0)
+                {
+                    ResetAutocomplete();
+                    return false;
+                }
+
+                completions.Sort(StringComparer.OrdinalIgnoreCase);
+
+                _lastCompletionExpression = expression;
+                _lastCompletionReplaceStartLine = lineIndex;
+                _lastCompletionReplaceStartColumn = replaceStartColumn;
+                _lastCompletions = completions;
+                _lastCompletionIndex = 0;
+            }
+            else
+            {
+                _lastCompletionIndex++;
+
+                if (_lastCompletionIndex >= _lastCompletions.Count)
+                    _lastCompletionIndex = 0;
+            }
+
+            string selectedCompletion = _lastCompletions[_lastCompletionIndex];
+            int replaceLength = column - _lastCompletionReplaceStartColumn;
+
+            ReplaceLineRange(_lastCompletionReplaceStartLine,
+                             _lastCompletionReplaceStartColumn,
+                             replaceLength,
+                             selectedCompletion);
+
+            return true;
+        }
+        private bool CanContinueCompletionCycle(string line, int lineIndex, int column,
+                                                string expression, int replaceStartColumn)
+        {
+            if (_lastCompletions == null || _lastCompletions.Count == 0) return false;
+            if (_lastCompletionReplaceStartLine < 0 || _lastCompletionReplaceStartColumn < 0) return false;
+            if (_lastCompletionIndex < 0) return false;
+
+            if (_lastCompletionExpression != expression) return false;
+            if (_lastCompletionReplaceStartLine != lineIndex) return false;
+            if (_lastCompletionReplaceStartColumn != replaceStartColumn) return false;
+            if (column < _lastCompletionReplaceStartColumn) return false;
+
+            string currentCompletedText = line.Substring(_lastCompletionReplaceStartColumn,
+                                                         column - _lastCompletionReplaceStartColumn);
+
+            for (int i = 0; i < _lastCompletions.Count; i++)
+            {
+                if (string.Equals(currentCompletedText,
+                                  _lastCompletions[i],
+                                  StringComparison.Ordinal))
+                {
+                    _lastCompletionIndex = i;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        private void ReplaceLineRange(int lineIndex, int startColumn, int length, string newText)
+        {
+            _textBox.Selection = new FastColoredTextBoxNS.Range(_textBox,
+                                                                startColumn,
+                                                                lineIndex,
+                                                                startColumn + length,
+                                                                lineIndex);
+            _textBox.InsertText(newText);
+        }
+        private void ResetAutocomplete()
+        {
+            _lastCompletionExpression = null;
+            _lastCompletionReplaceStartLine = -1;
+            _lastCompletionReplaceStartColumn = -1;
+            _lastCompletions.Clear();
+            _lastCompletionIndex = -1;
+        }
+        private void ShowAutocompleteListAfterTextInput()
         {
             if (IsDisposed || _textBox == null || !_textBox.Focused) return;
 
@@ -1075,7 +1191,7 @@ namespace UserControls
                 return;
             }
 
-            if (!forced && string.IsNullOrEmpty(expression))
+            if (!forced && string.IsNullOrEmpty(expression) && string.IsNullOrEmpty(prefix))
             {
                 HideAutocompleteList();
                 return;
@@ -1093,34 +1209,7 @@ namespace UserControls
 
             completions.Sort(StringComparer.OrdinalIgnoreCase);
 
-            _autocompleteExpression = expression;
-            _autocompletePrefix = prefix;
-            _autocompleteReplaceStartColumn = replaceStartColumn;
-            _autocompleteLine = lineIndex;
-
-            _autocompleteListBox.BeginUpdate();
-            try
-            {
-                _autocompleteListBox.Items.Clear();
-
-                foreach (string completion in completions)
-                    _autocompleteListBox.Items.Add(completion);
-
-                _autocompleteListBox.SelectedIndex = 0;
-            }
-            finally
-            {
-                _autocompleteListBox.EndUpdate();
-            }
-
-            Point popupLocation = GetAutocompletePopupLocation();
-            _autocompleteListBox.Location = popupLocation;
-            _autocompleteListBox.Width = Math.Max(220, GetAutocompleteWidth(completions));
-            _autocompleteListBox.Height = Math.Min(160, Math.Max(40, completions.Count * _autocompleteListBox.ItemHeight + 4));
-
-            _autocompleteListBox.Visible = true;
-            _autocompleteListBox.BringToFront();
-
+            PythonTextBoxAutocompleteMenuHelper.ShowPrepared(_autocompleteMenu, completions);
             _textBox.Focus();
         }
         private bool GetCompletionContext(out string expression, out string prefix,
@@ -1194,101 +1283,30 @@ namespace UserControls
                     completions.Add(completion);
             }
         }
-        private Point GetAutocompletePopupLocation()
-        {
-            Point p = _textBox.PlaceToPoint(_textBox.Selection.Start);
-            p.Y += _textBox.CharHeight + 2;
-
-            if (p.X + _autocompleteListBox.Width > Width)
-                p.X = Math.Max(0, Width - _autocompleteListBox.Width);
-
-            if (p.Y + _autocompleteListBox.Height > Height)
-                p.Y = Math.Max(0, p.Y - _autocompleteListBox.Height - _textBox.CharHeight - 4);
-
-            return p;
-        }
-        private void AcceptAutocompleteListSelection()
-        {
-            if (!_autocompleteListBox.Visible) return;
-            if (_autocompleteListBox.SelectedItem == null) return;
-
-            Place caret = _textBox.Selection.Start;
-            if (caret.iLine != _autocompleteLine)
-            {
-                HideAutocompleteList();
-                return;
-            }
-
-            string selectedCompletion = _autocompleteListBox.SelectedItem.ToString();
-            int replaceLength = caret.iChar - _autocompleteReplaceStartColumn;
-            if (replaceLength < 0) replaceLength = 0;
-
-            _textBox.Selection = new FastColoredTextBoxNS.Range(_textBox,
-                                                                _autocompleteReplaceStartColumn,
-                                                                _autocompleteLine,
-                                                                _autocompleteReplaceStartColumn + replaceLength,
-                                                                _autocompleteLine);
-            _textBox.InsertText(selectedCompletion);
-
-            HideAutocompleteList();
-        }
         private void HideAutocompleteList()
         {
-            if (_autocompleteListBox == null) return;
+            if (_autocompleteMenu == null) return;
 
-            _autocompleteListBox.Visible = false;
-            _autocompleteListBox.Items.Clear();
-            _autocompleteExpression = null;
-            _autocompletePrefix = null;
-            _autocompleteReplaceStartColumn = -1;
-            _autocompleteLine = -1;
+            _autocompleteMenu.Close();
+            PythonTextBoxAutocompleteMenuHelper.ClearAutocompleteItems(_autocompleteMenu);
         }
-        private void MoveAutocompleteSelection(int delta)
+        private bool IsAutocompleteMenuVisible()
         {
-            if (!_autocompleteListBox.Visible) return;
-            if (_autocompleteListBox.Items.Count == 0) return;
-
-            int index = _autocompleteListBox.SelectedIndex;
-            if (index < 0) index = 0;
-
-            index += delta;
-
-            if (index < 0) index = _autocompleteListBox.Items.Count - 1;
-            if (index >= _autocompleteListBox.Items.Count) index = 0;
-
-            _autocompleteListBox.SelectedIndex = index;
+            return _autocompleteMenu != null && _autocompleteMenu.Visible;
         }
-        private void AutocompleteListBox_DoubleClick(object sender, EventArgs e)
+        private bool IsAutocompleteMenuKey(Keys keyCode)
         {
-            AcceptAutocompleteListSelection();
+            return keyCode == Keys.Enter ||
+                   keyCode == Keys.Tab ||
+                   keyCode == Keys.Escape ||
+                   keyCode == Keys.Up ||
+                   keyCode == Keys.Down ||
+                   keyCode == Keys.PageUp ||
+                   keyCode == Keys.PageDown;
         }
-        private void AutocompleteListBox_KeyDown(object sender, KeyEventArgs e)
+        private bool IsAutocompleteTriggerCharacter(char c)
         {
-            if (e.KeyCode == Keys.Enter)
-            {
-                AcceptAutocompleteListSelection();
-                e.SuppressKeyPress = true;
-            }
-            else if (e.KeyCode == Keys.Escape)
-            {
-                HideAutocompleteList();
-                e.SuppressKeyPress = true;
-            }
-        }
-        private int GetAutocompleteWidth(List<string> completions)
-        {
-            int width = 220;
-
-            using (Graphics g = CreateGraphics())
-            {
-                foreach (string item in completions)
-                {
-                    SizeF size = g.MeasureString(item, _autocompleteListBox.Font);
-                    width = Math.Max(width, (int)size.Width + 30);
-                }
-            }
-
-            return Math.Min(width, 500);
+            return c == '.' || c == '_' || char.IsLetterOrDigit(c);
         }
         protected override void Dispose(bool disposing)
         {
@@ -1301,19 +1319,13 @@ namespace UserControls
                     _textBox.Leave -= PythonEditorTextBox_Leave;
                 }
 
-                if (_autocompleteListBox != null)
-                {
-                    _autocompleteListBox.DoubleClick -= AutocompleteListBox_DoubleClick;
-                    _autocompleteListBox.KeyDown -= AutocompleteListBox_KeyDown;
-                }
-
                 SetPythonContext(null);
 
                 _syntaxHighlighter.Dispose();
                 _errorLineStyle.Dispose();
                 _matchingBracketStyle.Dispose();
+                _autocompleteMenu?.Dispose();
                 _textBox?.Dispose();
-                _autocompleteListBox?.Dispose();
             }
 
             base.Dispose(disposing);
