@@ -20,31 +20,50 @@ namespace PrePoMax.API.Python
             if (values == null) return null;
             try
             {
-                using (Py.GIL())
-                using (PyObject numpy = Py.Import("numpy"))
-                using (PyObject array = numpy.GetAttr("array"))
-                using (PyObject source = values.ToPython())
+                if (IsPythonModuleAvailable("numpy"))
                 {
-                    return array.Invoke(source);
+                    using (Py.GIL())
+                    using (PyObject numpy = Py.Import("numpy"))
+                    using (PyObject array = numpy.GetAttr("array"))
+                    using (PyObject source = values.ToPython())
+                    {
+                        return array.Invoke(source);
+                    }
                 }
+                else return ReturnArray(values);
             }
             catch
             {
-                if (values is int[] intValues) return new PrePoMax.API.Python.IntListAPI(intValues);
-                return values;
+                return ReturnArray(values);
             }
         }
-        public static double[,] ToRectangular(double[][] values, int columns)
+        private static bool IsPythonModuleAvailable(string moduleName)
         {
-            int rows = values != null ? values.Length : 0;
-            double[,] result = new double[rows, columns];
-            for (int i = 0; i < rows; i++)
+            if (!PythonEngine.IsInitialized)
+                throw new InvalidOperationException("The Python engine is not initialized.");
+            //
+            using (Py.GIL())
             {
-                if (values[i] == null) continue;
-                int count = Math.Min(columns, values[i].Length);
-                for (int j = 0; j < count; j++) result[i, j] = values[i][j];
+                try
+                {
+                    using (PyObject importlibUtil = Py.Import("importlib.util"))
+                    using (PyObject findSpec = importlibUtil.GetAttr("find_spec"))
+                    using (PyObject pyModuleName = new PyString(moduleName))
+                    using (PyObject result = findSpec.Invoke(pyModuleName))
+                    {
+                        return !result.IsNone();
+                    }
+                }
+                catch (PythonException)
+                {
+                    return false;
+                }
             }
-            return result;
+        }
+        private static object ReturnArray(object values)
+        {
+            if (values is int[] intValues) return new IntListAPI(intValues);
+            return values;
         }
     }
 }
