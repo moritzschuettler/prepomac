@@ -223,7 +223,7 @@ namespace PrePoMax
             DrawAnnotations();
         }
         // Draw
-        public void DrawAnnotations(bool minMaxOnly = false)
+        public void DrawAnnotations(bool minMaxOnly = false, bool arrangeVisible = false)
         {
             string text;
             double[] arrowCoor;
@@ -238,7 +238,7 @@ namespace PrePoMax
                 List<string> invalidAnnotationNames = new List<string>();
                 foreach (var entry in GetCurrentAnnotations())
                 {
-                    try // some annotation might become unvalid
+                    try // some annotation might become invalid
                     {
                         annotation = entry.Value;
                         // First get the annotation data to determine if the annotation is valid
@@ -271,6 +271,7 @@ namespace PrePoMax
                 AnnotationBase.Controller.Form.AddArrowWidget(MaxAnnotationName, "", numberFormat, new double[3],
                                                                 drawBackground, drawBorder, showMax);
             }
+            if (arrangeVisible) AnnotationBase.Controller.Form.ArrangeVisibleArrowWidgets();
         }
         // Remove
         public void RemoveCurrentArrowAnnotation(string annotationName)

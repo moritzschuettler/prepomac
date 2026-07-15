@@ -133,7 +133,7 @@ namespace PrePoMax.Forms
             //
             SetSelectItem();
             //
-            ShowHideSelectionForm();
+            HighlightSurface();
             //
             propertyGrid.BuildAutocompleteMenu(_controller.GetAllParameterNames());
             //
@@ -163,6 +163,8 @@ namespace PrePoMax.Forms
         private void ShowHideSelectionForm()
         {
             ItemSetDataEditor.SelectionForm.ShowIfHidden(this.Owner);
+            //
+            SetSelectItem();
         }
         private void SetSelectItem()
         {

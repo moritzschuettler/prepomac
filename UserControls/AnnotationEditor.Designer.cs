@@ -38,7 +38,7 @@ namespace UserControls
         private void InitializeComponent()
         {
             this.pBorder = new System.Windows.Forms.Panel();
-            this.wertbData = new UserControls.AnnotationEditorRichTextBox();
+            this.aertbData = new UserControls.AnnotationEditorRichTextBox();
             this.pBorder.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -46,39 +46,37 @@ namespace UserControls
             // 
             this.pBorder.BackColor = System.Drawing.SystemColors.Highlight;
             this.pBorder.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.pBorder.Controls.Add(this.wertbData);
+            this.pBorder.Controls.Add(this.aertbData);
             this.pBorder.Dock = System.Windows.Forms.DockStyle.Fill;
             this.pBorder.Location = new System.Drawing.Point(0, 0);
             this.pBorder.Name = "pBorder";
-            this.pBorder.Size = new System.Drawing.Size(139, 69);
+            this.pBorder.Size = new System.Drawing.Size(119, 60);
             this.pBorder.TabIndex = 0;
             // 
-            // wertbData
+            // aertbData
             // 
-            this.wertbData.Beep = false;
-            this.wertbData.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.wertbData.DetectUrls = false;
-            this.wertbData.Font = new System.Drawing.Font("Century Gothic", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
-            this.wertbData.Location = new System.Drawing.Point(2, 2);
-            this.wertbData.MaxSize = new System.Drawing.Size(0, 0);
-            this.wertbData.MinSize = new System.Drawing.Size(0, 0);
-            this.wertbData.Name = "wertbData";
-            this.wertbData.ScrollBars = System.Windows.Forms.RichTextBoxScrollBars.None;
-            this.wertbData.Size = new System.Drawing.Size(124, 43);
-            this.wertbData.TabIndex = 6;
-            this.wertbData.Text = "Edit widgets";
-            this.wertbData.WordWrap = false;
-            this.wertbData.SizeChanged += new System.EventHandler(this.wertbData_SizeChanged);
+            this.aertbData.Beep = false;
+            this.aertbData.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.aertbData.DetectUrls = false;
+            this.aertbData.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
+            this.aertbData.Location = new System.Drawing.Point(2, 2);
+            this.aertbData.MaxSize = new System.Drawing.Size(0, 0);
+            this.aertbData.MinSize = new System.Drawing.Size(0, 0);
+            this.aertbData.Name = "aertbData";
+            this.aertbData.ScrollBars = System.Windows.Forms.RichTextBoxScrollBars.None;
+            this.aertbData.Size = new System.Drawing.Size(98, 40);
+            this.aertbData.TabIndex = 6;
+            this.aertbData.Text = "Edit widgets";
+            this.aertbData.WordWrap = false;
+            this.aertbData.SizeChanged += new System.EventHandler(this.aertbData_SizeChanged);
             // 
-            // WidgetEditor
+            // AnnotationEditor
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.Controls.Add(this.pBorder);
-            this.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
-            this.Name = "WidgetEditor";
-            this.Size = new System.Drawing.Size(139, 69);
+            this.Name = "AnnotationEditor";
+            this.Size = new System.Drawing.Size(119, 60);
             this.pBorder.ResumeLayout(false);
             this.ResumeLayout(false);
 
@@ -87,6 +85,6 @@ namespace UserControls
         #endregion
 
         private System.Windows.Forms.Panel pBorder;
-        private AnnotationEditorRichTextBox wertbData;
+        private AnnotationEditorRichTextBox aertbData;
     }
 }

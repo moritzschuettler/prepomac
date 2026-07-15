@@ -2073,6 +2073,8 @@ namespace PrePoMax
                 if (resetCamera) tsmiFrontView_Click(null, null);
             }
             else throw new NotSupportedException();
+            //
+            _controller.Annotations.DrawAnnotations(false, true);
         }
         private void UpdateResultMenus()
         {
@@ -7195,6 +7197,34 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
+        private void tsmiArrangeAnnotations_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                ArrangeVisibleArrowWidgets();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiRemoveAnnotations_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (_controller.Annotations.GetCurrentAnnotationNames().Length > 0)
+                {
+                    if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete all current view annotations?") == DialogResult.OK)
+                    {
+                        _controller.Annotations.RemoveCurrentArrowAnnotations();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
         private void tsmiFind_Click(object sender, EventArgs e)
         {
             try
@@ -7257,6 +7287,7 @@ namespace PrePoMax
         private void StartEditArrowAnnotation(string name, Rectangle rectangle)
         {
             if (AnnotationContainer.IsAnnotationNameReserved(name)) return;
+            if (_frmQuery.Visible) return;
             //
             AnnotationBase annotation = _controller.Annotations.GetCurrentAnnotation(name);
             string text = annotation.GetAnnotationText();
@@ -9037,22 +9068,13 @@ namespace PrePoMax
         {
             tsmiQuery_Click(sender, e);
         }
+        private void tsbArrangeAnnotations_Click(object sender, EventArgs e)
+        {
+            tsmiArrangeAnnotations_Click(sender, e);
+        }
         private void tsbRemoveAnnotations_Click(object sender, EventArgs e)
         {
-            try
-            {
-                if (_controller.Annotations.GetCurrentAnnotationNames().Length > 0)
-                {
-                    if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete all current view annotations?") == DialogResult.OK)
-                    {
-                        _controller.Annotations.RemoveCurrentArrowAnnotations();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                ExceptionTools.Show(this, ex);
-            }
+            tsmiRemoveAnnotations_Click(sender, e);
         }
         //
         #endregion  ################################################################################################################
@@ -10480,6 +10502,10 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.AddArrowWidget, name, text, numberFormat, anchorPoint, drawBackground, drawBorder, visible);
         }
+        public void ArrangeVisibleArrowWidgets()
+        {
+            InvokeIfRequired(_vtk.ArrangeVisibleArrowWidgets);
+        }
         public void RemoveAllArrowWidgets()
         {
             InvokeIfRequired(_vtk.RemoveAllArrowWidgets);
@@ -11337,9 +11363,8 @@ namespace PrePoMax
             catch
             { }
         }
-        
 
-
+       
     }
 }
 

@@ -28,14 +28,14 @@ namespace UserControls
 
 
         // Properties                                                                                                               
-        public Size MinSize { get { return wertbData.MinSize; } set { wertbData.MinSize = value; } }
+        public Size MinSize { get { return aertbData.MinSize; } set { aertbData.MinSize = value; } }
         public Rectangle ParentArea
         {
             get { return _parentArea; }
             set
             {
                 _parentArea = value;
-                wertbData.MaxSize = new Size(_parentArea.Size.Width - _pad, _parentArea.Size.Height - _pad);
+                aertbData.MaxSize = new Size(_parentArea.Size.Width - _pad, _parentArea.Size.Height - _pad);
             }
         }
         public new Point Location
@@ -49,19 +49,19 @@ namespace UserControls
         }
         public override string Text
         {
-            get { return wertbData.Text; }
+            get { return aertbData.Text; }
             set
             {
-                wertbData.Text = value;
-                wertbData_SizeChanged(null, null);
+                aertbData.Text = value;
+                aertbData_SizeChanged(null, null);
             }
         }
 
 
         // Event handlers                                                                                                           
-        private void wertbData_SizeChanged(object sender, EventArgs e)
+        private void aertbData_SizeChanged(object sender, EventArgs e)
         {
-            Size = new Size(wertbData.Width + _pad, wertbData.Height + _pad);
+            Size = new Size(aertbData.Width + _pad, aertbData.Height + _pad);
             Point location = _initialLocation;
             //
             if (_initialLocation.X + Width > _parentArea.Right) location.X = _parentArea.Right - Width;
@@ -82,7 +82,7 @@ namespace UserControls
         {
             if (this == control) return true;
             else if (pBorder == control) return true;
-            else if (wertbData == control) return true;
+            else if (aertbData == control) return true;
             else return false;
         }
     }

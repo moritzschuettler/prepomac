@@ -1654,7 +1654,8 @@ namespace vtkControl
             foreach (var entry in _actors)
             {
                 visible = entry.Value.Geometry.GetVisibility() != 0;
-                if (_selectableActorsFilter != null && !_selectableActorsFilter.Contains(entry.Value.Name)) visible = false;
+                // Override visibility on regeneration
+                if (_selectableActorsFilter != null) visible = _selectableActorsFilter.Contains(entry.Value.Name);
                 // Skip invisible actors
                 if (visible)
                 {
@@ -3343,6 +3344,7 @@ namespace vtkControl
             AddActorGeometry(actor, data.Layer);
             //
             if (!AreAnyActorsVisible()) AdjustCameraDistanceAndClippingRedraw();
+            else AdjustCameraDistanceAndClipping();
             //
             return actor;
         }
@@ -3354,6 +3356,7 @@ namespace vtkControl
             AddActor(actor);
             //
             if (!AreAnyActorsVisible()) AdjustCameraDistanceAndClippingRedraw();
+            else AdjustCameraDistanceAndClipping();
             //
             return actor;
         }
@@ -3371,6 +3374,7 @@ namespace vtkControl
             foreach (var actor in actors) AddActor(actor);
             //
             if (!AreAnyActorsVisible()) AdjustCameraDistanceAndClippingRedraw();
+            else AdjustCameraDistanceAndClipping();
         }
         //
         public void AddSphereActor(vtkMaxActorData data, double symbolSize)
@@ -4509,7 +4513,7 @@ namespace vtkControl
         }
         private void UpdateTmpActor(vtkRendererLayer layer)
         {
-            double[] p = ((vtkPolyData)_captionTmpActor.GetMapper().GetInput()).GetPoints().GetPoint(0);
+            //double[] p = ((vtkPolyData)_captionTmpActor.GetMapper().GetInput()).GetPoints().GetPoint(0);
             //
             if (_captionActorAddedToBase || _captionActorAddedToOverlay || _captionActorAddedToSelection)
             {
@@ -6856,27 +6860,29 @@ namespace vtkControl
                                    bool drawBackground, bool drawBorder, bool visible)
         {
             vtkMaxTextWithArrowWidget arrowWidget;
+            bool newWidget = false;
+            bool wasVisible = false;
             // Create annotation
             if (!_arrowWidgets.TryGetValue(name, out arrowWidget))
             {
+                newWidget = true;
                 arrowWidget = new vtkMaxTextWithArrowWidget(name);
                 arrowWidget.SetInteractor(_selectionRenderer, _renderWindowInteractor);
                 arrowWidget.SetBorderColor(0, 0, 0);
                 arrowWidget.SetTextProperty(CreateNewTextProperty());
                 arrowWidget.SetPadding(5);
                 arrowWidget.GetBackgroundProperty().SetColor(1, 1, 1);
-                // Set text, number format and anchor before arrange
+                // Set number format before the widget contents are updated
                 arrowWidget.SetNumberFormat(numberFormat);
                 // Event
                 arrowWidget.MouseDoubleClick += arrowWidget_DoubleClicked;
                 // Add
                 _arrowWidgets.Add(name, arrowWidget);
-                // Arrange
-                ArrangeVisibleArrowWidgets();
             }
             // Edit annotation
             else
             {
+                wasVisible = arrowWidget.GetVisibility() == 1;
                 arrowWidget.SetNumberFormat(numberFormat);
             }
             //
@@ -6894,44 +6900,364 @@ namespace vtkControl
                 arrowWidget.SetText(text);
                 arrowWidget.SetAnchorPoint(anchorPoint[0], anchorPoint[1], anchorPoint[2]);
             }
+            // The final text size, visibility and anchor must be known before placement. Existing widgets are fixed.
+            if (arrowWidget.GetVisibility() == 1 && (newWidget || !wasVisible)) PositionNewArrowWidget(arrowWidget);
             //
             RenderScene();
         }
-        private void ArrangeVisibleArrowWidgets()
+        public void ArrangeVisibleArrowWidgets()
         {
-            // Count visible
-            int count = 0;
+            List<vtkMaxTextWithArrowWidget> visibleWidgets = new List<vtkMaxTextWithArrowWidget>();
             foreach (var entry in _arrowWidgets)
             {
-                if (entry.Value.GetVisibility() == 1) count++;
+                if (entry.Value.GetVisibility() == 1) visibleWidgets.Add(entry.Value);
             }
-            CaeMesh.BoundingBox[] boxes = new CaeMesh.BoundingBox[count];
-            CaeMesh.BoundingBox[] fixedBoxes = new CaeMesh.BoundingBox[count];
-            // Get bounding boxes
-            count = 0;
+            foreach (vtkMaxTextWithArrowWidget widget in visibleWidgets) widget.ResetPositionFromAnchor();
+            visibleWidgets.Sort(delegate (vtkMaxTextWithArrowWidget first, vtkMaxTextWithArrowWidget second)
+            {
+                CaeMesh.BoundingBox firstBox = first.GetBoundingBox();
+                CaeMesh.BoundingBox secondBox = second.GetBoundingBox();
+                double firstArea = (firstBox.MaxX - firstBox.MinX) * (firstBox.MaxY - firstBox.MinY);
+                double secondArea = (secondBox.MaxX - secondBox.MinX) * (secondBox.MaxY - secondBox.MinY);
+                int compare = secondArea.CompareTo(firstArea);
+                if (compare == 0) compare = string.CompareOrdinal(first.GetName(), second.GetName());
+                return compare;
+            });
+            List<vtkMaxTextWithArrowWidget> arrangedWidgets = new List<vtkMaxTextWithArrowWidget>();
+            foreach (vtkMaxTextWithArrowWidget widget in visibleWidgets)
+            {
+                PositionArrowWidget(widget, arrangedWidgets);
+                arrangedWidgets.Add(widget);
+            }
+            RefineArrowWidgetPositions(visibleWidgets);
+            RenderScene();
+        }
+        private void RefineArrowWidgetPositions(IList<vtkMaxTextWithArrowWidget> visibleWidgets)
+        {
+            const int maxPasses = 3;
+            for (int pass = 0; pass < maxPasses; pass++)
+            {
+                bool allCollisionFree = true;
+                foreach (vtkMaxTextWithArrowWidget widget in visibleWidgets)
+                {
+                    List<vtkMaxTextWithArrowWidget> fixedWidgets = new List<vtkMaxTextWithArrowWidget>();
+                    foreach (vtkMaxTextWithArrowWidget fixedWidget in visibleWidgets)
+                    {
+                        if (fixedWidget != widget) fixedWidgets.Add(fixedWidget);
+                    }
+                    if (!PositionArrowWidget(widget, fixedWidgets)) allCollisionFree = false;
+                }
+                if (allCollisionFree) break;
+            }
+        }
+        private bool PositionNewArrowWidget(vtkMaxTextWithArrowWidget newWidget)
+        {
+            List<vtkMaxTextWithArrowWidget> fixedWidgets = new List<vtkMaxTextWithArrowWidget>();
             foreach (var entry in _arrowWidgets)
             {
-                if (entry.Value.GetVisibility() == 1)
+                if (entry.Value != newWidget && entry.Value.GetVisibility() == 1) fixedWidgets.Add(entry.Value);
+            }
+            return PositionArrowWidget(newWidget, fixedWidgets);
+        }
+        private bool PositionArrowWidget(vtkMaxTextWithArrowWidget widget,
+                                         IList<vtkMaxTextWithArrowWidget> fixedWidgets)
+        {
+            const double viewportMargin = 4;
+            const double searchStep = 12;
+            CaeMesh.BoundingBox originalBox = widget.GetBoundingBox();
+            double width = originalBox.MaxX - originalBox.MinX;
+            double height = originalBox.MaxY - originalBox.MinY;
+            double preferredX = originalBox.MinX;
+            double preferredY = originalBox.MinY;
+            double[][] widgetLeader = widget.GetLeaderLine();
+            double[] leaderEnd = widgetLeader[1];
+            CaeMesh.BoundingBox anchorBox = widget.GetAnchorPointBox();
+            int[] viewportSize = _selectionRenderer.GetSize();
+            // Snapshot fixed geometry. It must not move while the new widget is being positioned.
+            List<CaeMesh.BoundingBox> fixedBoxes = new List<CaeMesh.BoundingBox>();
+            List<double[][]> fixedLeaderLines = new List<double[][]>();
+            foreach (vtkMaxTextWithArrowWidget fixedWidget in fixedWidgets)
+            {
+                fixedBoxes.Add(fixedWidget.GetBoundingBox());
+                fixedLeaderLines.Add(fixedWidget.GetLeaderLine());
+            }
+            // Search outwards from the preferred position. If no perfect position exists, retain the least obstructed one.
+            HashSet<long> evaluatedPositions = new HashSet<long>();
+            double bestX = preferredX;
+            double bestY = preferredY;
+            double bestScore = double.MaxValue;
+            if (EvaluateArrowWidgetPosition(preferredX, preferredY, width, height, preferredX, preferredY,
+                                            viewportMargin, viewportSize, anchorBox, fixedBoxes, fixedLeaderLines,
+                                            leaderEnd, evaluatedPositions, ref bestX, ref bestY, ref bestScore))
+            {
+                widget.OffsetPosition(bestX - originalBox.MinX, bestY - originalBox.MinY);
+                return true;
+            }
+            int maxRing = (int)Math.Ceiling(Math.Max(viewportSize[0], viewportSize[1]) / searchStep) + 1;
+            for (int ring = 1; ring <= maxRing; ring++)
+            {
+                for (int x = -ring; x <= ring; x++)
                 {
-                    boxes[count] = entry.Value.GetBoundingBox();
-                    fixedBoxes[count] = entry.Value.GetAnchorPointBox();
-                    count++;
+                    if (EvaluateArrowWidgetPosition(preferredX + x * searchStep, preferredY - ring * searchStep,
+                                                    width, height, preferredX, preferredY, viewportMargin, viewportSize,
+                                                    anchorBox, fixedBoxes, fixedLeaderLines, leaderEnd, evaluatedPositions,
+                                                    ref bestX, ref bestY, ref bestScore))
+                    {
+                        widget.OffsetPosition(bestX - originalBox.MinX, bestY - originalBox.MinY);
+                        return true;
+                    }
+                    if (EvaluateArrowWidgetPosition(preferredX + x * searchStep, preferredY + ring * searchStep,
+                                                    width, height, preferredX, preferredY, viewportMargin, viewportSize,
+                                                    anchorBox, fixedBoxes, fixedLeaderLines, leaderEnd, evaluatedPositions,
+                                                    ref bestX, ref bestY, ref bestScore))
+                    {
+                        widget.OffsetPosition(bestX - originalBox.MinX, bestY - originalBox.MinY);
+                        return true;
+                    }
+                }
+                for (int y = -ring + 1; y <= ring - 1; y++)
+                {
+                    if (EvaluateArrowWidgetPosition(preferredX - ring * searchStep, preferredY + y * searchStep,
+                                                    width, height, preferredX, preferredY, viewportMargin, viewportSize,
+                                                    anchorBox, fixedBoxes, fixedLeaderLines, leaderEnd, evaluatedPositions,
+                                                    ref bestX, ref bestY, ref bestScore))
+                    {
+                        widget.OffsetPosition(bestX - originalBox.MinX, bestY - originalBox.MinY);
+                        return true;
+                    }
+                    if (EvaluateArrowWidgetPosition(preferredX + ring * searchStep, preferredY + y * searchStep,
+                                                    width, height, preferredX, preferredY, viewportMargin, viewportSize,
+                                                    anchorBox, fixedBoxes, fixedLeaderLines, leaderEnd, evaluatedPositions,
+                                                    ref bestX, ref bestY, ref bestScore))
+                    {
+                        widget.OffsetPosition(bestX - originalBox.MinX, bestY - originalBox.MinY);
+                        return true;
+                    }
                 }
             }
-            // Compute BB offsets
-            int explodedType = 4; // z = 0
-            double scaleFactor = 1;
-            double[][] offsets = CaeMesh.BoundingBox.GetExplodedBBOffsets(explodedType, scaleFactor, boxes, fixedBoxes);
-            // Modify position
-            count = 0;
-            foreach (var entry in _arrowWidgets)
+            // The viewport can be too crowded for a collision-free result. Use the lowest-penalty candidate in that case.
+            widget.OffsetPosition(bestX - originalBox.MinX, bestY - originalBox.MinY);
+            return false;
+        }
+        private bool EvaluateArrowWidgetPosition(double x, double y, double width, double height,
+                                                 double preferredX, double preferredY, double viewportMargin,
+                                                 int[] viewportSize, CaeMesh.BoundingBox anchorBox,
+                                                 IList<CaeMesh.BoundingBox> fixedBoxes,
+                                                 IList<double[][]> fixedLeaderLines, double[] leaderEnd,
+                                                 HashSet<long> evaluatedPositions, ref double bestX, ref double bestY,
+                                                 ref double bestScore)
+        {
+            double maxX = Math.Max(viewportMargin, viewportSize[0] - viewportMargin - width);
+            double maxY = Math.Max(viewportMargin, viewportSize[1] - viewportMargin - height);
+            x = Math.Max(viewportMargin, Math.Min(maxX, x));
+            y = Math.Max(viewportMargin, Math.Min(maxY, y));
+            int pixelX = (int)Math.Round(x, MidpointRounding.AwayFromZero);
+            int pixelY = (int)Math.Round(y, MidpointRounding.AwayFromZero);
+            long positionKey = ((long)pixelX << 32) | (uint)pixelY;
+            if (!evaluatedPositions.Add(positionKey)) return false;
+            x = pixelX;
+            y = pixelY;
+            CaeMesh.BoundingBox candidateBox = CreateArrowWidgetBox(x, y, width, height);
+            double[] leaderStart = GetArrowWidgetLeaderStart(candidateBox, leaderEnd);
+            bool collisionFree;
+            double collisionPenalty = GetArrowWidgetCollisionPenalty(candidateBox, leaderStart, leaderEnd, anchorBox,
+                                                                      fixedBoxes, fixedLeaderLines, viewportSize,
+                                                                      out collisionFree);
+            double dx = x - preferredX;
+            double dy = y - preferredY;
+            double score = collisionPenalty + dx * dx + dy * dy;
+            if (score < bestScore)
             {
-                if (entry.Value.GetVisibility() == 1)
-                {
-                    entry.Value.OffsetPosition(offsets[count][0], offsets[count][1]);
-                    count++;
-                }
+                bestScore = score;
+                bestX = x;
+                bestY = y;
             }
+            if (collisionFree)
+            {
+                bestX = x;
+                bestY = y;
+                return true;
+            }
+            return false;
+        }
+        private double GetArrowWidgetCollisionPenalty(CaeMesh.BoundingBox candidateBox, double[] candidateLeaderStart,
+                                                      double[] candidateLeaderEnd, CaeMesh.BoundingBox anchorBox,
+                                                      IList<CaeMesh.BoundingBox> fixedBoxes,
+                                                      IList<double[][]> fixedLeaderLines, int[] viewportSize,
+                                                      out bool collisionFree)
+        {
+            const double spacing = 6;
+            const double collisionCost = 1E+9;
+            const double leaderCrossingCost = 1E+6;
+            double penalty = 0;
+            bool hardCollision = false;
+            double outsideWidth = Math.Max(0, -candidateBox.MinX) + Math.Max(0, candidateBox.MaxX - viewportSize[0]);
+            double outsideHeight = Math.Max(0, -candidateBox.MinY) + Math.Max(0, candidateBox.MaxY - viewportSize[1]);
+            if (outsideWidth > 0 || outsideHeight > 0)
+            {
+                hardCollision = true;
+                penalty += collisionCost * (1 + outsideWidth + outsideHeight);
+            }
+            // Do not place a box over its own anchor/arrowhead.
+            if (ArrowWidgetBoxesIntersect2D(candidateBox, anchorBox, spacing))
+            {
+                hardCollision = true;
+                penalty += collisionCost;
+            }
+            for (int i = 0; i < fixedBoxes.Count; i++)
+            {
+                CaeMesh.BoundingBox fixedBox = fixedBoxes[i];
+                double[][] fixedLeader = fixedLeaderLines[i];
+                if (ArrowWidgetBoxesIntersect2D(candidateBox, fixedBox, spacing))
+                {
+                    hardCollision = true;
+                    penalty += collisionCost + 1000 * GetArrowWidgetOverlapArea(candidateBox, fixedBox, spacing);
+                }
+                // The new box must not cover an existing leader, and the new leader should not cross an existing box.
+                if (ArrowWidgetLineIntersectsBox2D(fixedLeader[0], fixedLeader[1], candidateBox, spacing))
+                {
+                    hardCollision = true;
+                    penalty += collisionCost;
+                }
+                if (ArrowWidgetLineIntersectsBox2D(candidateLeaderStart, candidateLeaderEnd, fixedBox, spacing))
+                {
+                    hardCollision = true;
+                    penalty += collisionCost;
+                }
+                // Avoid leader-to-leader crossings where the available screen area permits it.
+                if (!ArrowWidgetSegmentsShareEndPoint2D(candidateLeaderStart, candidateLeaderEnd,
+                                                        fixedLeader[0], fixedLeader[1], spacing) &&
+                    ArrowWidgetSegmentsIntersect2D(candidateLeaderStart[0], candidateLeaderStart[1],
+                                                   candidateLeaderEnd[0], candidateLeaderEnd[1],
+                                                   fixedLeader[0][0], fixedLeader[0][1],
+                                                   fixedLeader[1][0], fixedLeader[1][1])) penalty += leaderCrossingCost;
+            }
+            collisionFree = !hardCollision;
+            return penalty;
+        }
+        private static CaeMesh.BoundingBox CreateArrowWidgetBox(double x, double y, double width, double height)
+        {
+            CaeMesh.BoundingBox box = new CaeMesh.BoundingBox();
+            box.MinX = x;
+            box.MaxX = x + width;
+            box.MinY = y;
+            box.MaxY = y + height;
+            box.MinZ = 0;
+            box.MaxZ = 1;
+            return box;
+        }
+        private static double[] GetArrowWidgetLeaderStart(CaeMesh.BoundingBox box, double[] leaderEnd)
+        {
+            if (leaderEnd[0] < box.MinX) return new double[] { box.MinX, (box.MinY + box.MaxY) / 2 };
+            else if (leaderEnd[0] > box.MaxX) return new double[] { box.MaxX, (box.MinY + box.MaxY) / 2 };
+            else if (leaderEnd[1] < box.MinY) return new double[] { (box.MinX + box.MaxX) / 2, box.MinY };
+            else return new double[] { (box.MinX + box.MaxX) / 2, box.MaxY };
+        }
+        private static bool ArrowWidgetBoxesIntersect2D(CaeMesh.BoundingBox first, CaeMesh.BoundingBox second,
+                                                        double spacing)
+        {
+            if (first.MaxX + spacing <= second.MinX) return false;
+            if (first.MinX - spacing >= second.MaxX) return false;
+            if (first.MaxY + spacing <= second.MinY) return false;
+            if (first.MinY - spacing >= second.MaxY) return false;
+            return true;
+        }
+        private static double GetArrowWidgetOverlapArea(CaeMesh.BoundingBox first, CaeMesh.BoundingBox second,
+                                                        double spacing)
+        {
+            double width = Math.Min(first.MaxX + spacing, second.MaxX) - Math.Max(first.MinX - spacing, second.MinX);
+            double height = Math.Min(first.MaxY + spacing, second.MaxY) - Math.Max(first.MinY - spacing, second.MinY);
+            return Math.Max(0, width) * Math.Max(0, height);
+        }
+        private static bool ArrowWidgetLineIntersectsBox2D(double[] start, double[] end,
+                                                           CaeMesh.BoundingBox box, double spacing)
+        {
+            double minX = box.MinX - spacing;
+            double maxX = box.MaxX + spacing;
+            double minY = box.MinY - spacing;
+            double maxY = box.MaxY + spacing;
+            return ArrowWidgetSegmentIntersectsRectangle2D(start[0], start[1], end[0], end[1],
+                                                           minX, maxX, minY, maxY);
+        }
+        private static bool ArrowWidgetPointInsideBox2D(double x, double y, double minX, double maxX,
+                                                        double minY, double maxY)
+        {
+            return x >= minX && x <= maxX && y >= minY && y <= maxY;
+        }
+        private static bool ArrowWidgetSegmentIntersectsRectangle2D(double ax, double ay, double bx, double by,
+                                                                    double minX, double maxX,
+                                                                    double minY, double maxY)
+        {
+            if (ArrowWidgetPointInsideBox2D(ax, ay, minX, maxX, minY, maxY) ||
+                ArrowWidgetPointInsideBox2D(bx, by, minX, maxX, minY, maxY)) return true;
+            double dx = bx - ax;
+            double dy = by - ay;
+            double t0 = 0;
+            double t1 = 1;
+            if (!ArrowWidgetClipSegment2D(-dx, ax - minX, ref t0, ref t1)) return false;
+            if (!ArrowWidgetClipSegment2D(dx, maxX - ax, ref t0, ref t1)) return false;
+            if (!ArrowWidgetClipSegment2D(-dy, ay - minY, ref t0, ref t1)) return false;
+            if (!ArrowWidgetClipSegment2D(dy, maxY - ay, ref t0, ref t1)) return false;
+            return t0 <= t1;
+        }
+        private static bool ArrowWidgetClipSegment2D(double p, double q, ref double t0, ref double t1)
+        {
+            const double tolerance = 1E-9;
+            if (Math.Abs(p) <= tolerance) return q >= -tolerance;
+            double r = q / p;
+            if (p < 0)
+            {
+                if (r > t1) return false;
+                if (r > t0) t0 = r;
+            }
+            else
+            {
+                if (r < t0) return false;
+                if (r < t1) t1 = r;
+            }
+            return true;
+        }
+        private static bool ArrowWidgetSegmentsShareEndPoint2D(double[] firstStart, double[] firstEnd,
+                                                               double[] secondStart, double[] secondEnd,
+                                                               double tolerance)
+        {
+            return ArrowWidgetPointsNear2D(firstStart, secondStart, tolerance) ||
+                   ArrowWidgetPointsNear2D(firstStart, secondEnd, tolerance) ||
+                   ArrowWidgetPointsNear2D(firstEnd, secondStart, tolerance) ||
+                   ArrowWidgetPointsNear2D(firstEnd, secondEnd, tolerance);
+        }
+        private static bool ArrowWidgetPointsNear2D(double[] first, double[] second, double tolerance)
+        {
+            double dx = first[0] - second[0];
+            double dy = first[1] - second[1];
+            return dx * dx + dy * dy <= tolerance * tolerance;
+        }
+        private static bool ArrowWidgetSegmentsIntersect2D(double ax, double ay, double bx, double by,
+                                                           double cx, double cy, double dx, double dy)
+        {
+            const double tolerance = 1E-7;
+            double abC = ArrowWidgetCross2D(ax, ay, bx, by, cx, cy);
+            double abD = ArrowWidgetCross2D(ax, ay, bx, by, dx, dy);
+            double cdA = ArrowWidgetCross2D(cx, cy, dx, dy, ax, ay);
+            double cdB = ArrowWidgetCross2D(cx, cy, dx, dy, bx, by);
+            if (((abC > tolerance && abD < -tolerance) || (abC < -tolerance && abD > tolerance)) &&
+                ((cdA > tolerance && cdB < -tolerance) || (cdA < -tolerance && cdB > tolerance))) return true;
+            if (Math.Abs(abC) <= tolerance && ArrowWidgetPointOnSegment2D(cx, cy, ax, ay, bx, by)) return true;
+            if (Math.Abs(abD) <= tolerance && ArrowWidgetPointOnSegment2D(dx, dy, ax, ay, bx, by)) return true;
+            if (Math.Abs(cdA) <= tolerance && ArrowWidgetPointOnSegment2D(ax, ay, cx, cy, dx, dy)) return true;
+            if (Math.Abs(cdB) <= tolerance && ArrowWidgetPointOnSegment2D(bx, by, cx, cy, dx, dy)) return true;
+            return false;
+        }
+        private static double ArrowWidgetCross2D(double ax, double ay, double bx, double by, double px, double py)
+        {
+            return (bx - ax) * (py - ay) - (by - ay) * (px - ax);
+        }
+        private static bool ArrowWidgetPointOnSegment2D(double px, double py, double ax, double ay,
+                                                        double bx, double by)
+        {
+            const double tolerance = 1E-9;
+            return px >= Math.Min(ax, bx) - tolerance && px <= Math.Max(ax, bx) + tolerance &&
+                   py >= Math.Min(ay, by) - tolerance && py <= Math.Max(ay, by) + tolerance;
         }
         public void RemoveAllArrowWidgets()
         {
@@ -7819,5 +8145,3 @@ namespace vtkControl
        
     }
 }
-
-

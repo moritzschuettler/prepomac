@@ -1499,7 +1499,10 @@ namespace CaeMesh
             //
             if (flatFaceEdgeNodes != null) edgeCells.AddRange(flatFaceEdgeNodes);
             //
-            part.Visualization.EdgeCells = edgeCells.ToArray();
+            part.Visualization.EdgeCells = RemoveInvalidEdgesFromEdgeCells(edgeCells, out int[] newEdgeCellIdByOld);
+            freeEdgeCellIds = RenumberEdgeCellIds(freeEdgeCellIds, newEdgeCellIdByOld);
+            errorEdgeCellIds = RenumberEdgeCellIds(errorEdgeCellIds, newEdgeCellIdByOld);
+            //
             if (geometryPart != null)
             {
                 if (freeEdgeCellIds.Count > 0) geometryPart.FreeEdgeCellIds = freeEdgeCellIds.ToArray();
@@ -1575,6 +1578,148 @@ namespace CaeMesh
                 if (cellNeighbours[i] != null) cellNeighboursArray[i] = cellNeighbours[i].ToArray();
             }
             part.Visualization.CellNeighboursOverCellEdge = cellNeighboursArray;
+        }
+        private int[][] RemoveInvalidEdgesFromEdgeCells(List<int[]> edgeCells, out int[] newEdgeCellIdByOld)
+        {
+            Graph<NodeData> graph = new Graph<NodeData>();
+            if (edgeCells == null || edgeCells.Count == 0)
+            {
+                newEdgeCellIdByOld = new int[0];
+                return new int[0][];
+            }
+            //
+            newEdgeCellIdByOld = new int[edgeCells.Count];
+            for (int i = 0; i < newEdgeCellIdByOld.Length; i++) newEdgeCellIdByOld[i] = -1;
+            //
+            Dictionary<int, Node<NodeData>> nodeIdNode = new Dictionary<int, Node<NodeData>>();
+            Dictionary<int, List<int>> edgeIdsByNodeId = new Dictionary<int, List<int>>();
+            bool[] activeEdges = new bool[edgeCells.Count];
+            int[] edgeNodeId1 = new int[edgeCells.Count];
+            int[] edgeNodeId2 = new int[edgeCells.Count];
+            Dictionary<int, int> discoveryIds = new Dictionary<int, int>();
+            Dictionary<int, int> lowIds = new Dictionary<int, int>();
+            Dictionary<int, int> parentNodeIds = new Dictionary<int, int>();
+            Dictionary<int, int> parentEdgeIds = new Dictionary<int, int>();
+            Dictionary<int, int> nextEdgeIds = new Dictionary<int, int>();
+            Stack<int> nodeIds = new Stack<int>();
+            bool[] bridgeEdges = new bool[edgeCells.Count];
+            //
+            Node<NodeData> node1;
+            Node<NodeData> node2;
+            List<int> edgeIds;
+            int nodeId1;
+            int nodeId2;
+            for (int i = 0; i < edgeCells.Count; i++)
+            {
+                if (edgeCells[i] == null || edgeCells[i].Length < 2) continue;
+                //
+                nodeId1 = edgeCells[i][0];
+                nodeId2 = edgeCells[i][1];
+                if (nodeId1 == nodeId2) continue;
+                //
+                activeEdges[i] = true;
+                edgeNodeId1[i] = nodeId1;
+                edgeNodeId2[i] = nodeId2;
+                //
+                if (!nodeIdNode.TryGetValue(nodeId1, out node1))
+                {
+                    node1 = new Node<NodeData>(new NodeData(nodeId1, null, null, 0));
+                    nodeIdNode.Add(nodeId1, node1);
+                    graph.AddNode(node1);
+                }
+                if (!nodeIdNode.TryGetValue(nodeId2, out node2))
+                {
+                    node2 = new Node<NodeData>(new NodeData(nodeId2, null, null, 0));
+                    nodeIdNode.Add(nodeId2, node2);
+                    graph.AddNode(node2);
+                }
+                graph.AddUndirectedEdge(node1, node2);
+                //
+                if (edgeIdsByNodeId.TryGetValue(nodeId1, out edgeIds)) edgeIds.Add(i);
+                else edgeIdsByNodeId.Add(nodeId1, new List<int>() { i });
+                if (edgeIdsByNodeId.TryGetValue(nodeId2, out edgeIds)) edgeIds.Add(i);
+                else edgeIdsByNodeId.Add(nodeId2, new List<int>() { i });
+            }
+            //
+            int nextDiscoveryId = 0;
+            int edgeId;
+            foreach (int startNodeId in edgeIdsByNodeId.Keys)
+            {
+                if (discoveryIds.ContainsKey(startNodeId)) continue;
+                //
+                discoveryIds.Add(startNodeId, nextDiscoveryId);
+                lowIds.Add(startNodeId, nextDiscoveryId);
+                nextDiscoveryId++;
+                parentNodeIds.Add(startNodeId, -1);
+                parentEdgeIds.Add(startNodeId, -1);
+                nextEdgeIds.Add(startNodeId, 0);
+                nodeIds.Push(startNodeId);
+                //
+                while (nodeIds.Count > 0)
+                {
+                    nodeId1 = nodeIds.Peek();
+                    edgeIds = edgeIdsByNodeId[nodeId1];
+                    //
+                    if (nextEdgeIds[nodeId1] < edgeIds.Count)
+                    {
+                        edgeId = edgeIds[nextEdgeIds[nodeId1]];
+                        nextEdgeIds[nodeId1]++;
+                        if (!activeEdges[edgeId]) continue;
+                        //
+                        nodeId2 = edgeNodeId1[edgeId] == nodeId1 ? edgeNodeId2[edgeId] : edgeNodeId1[edgeId];
+                        if (!discoveryIds.ContainsKey(nodeId2))
+                        {
+                            discoveryIds.Add(nodeId2, nextDiscoveryId);
+                            lowIds.Add(nodeId2, nextDiscoveryId);
+                            nextDiscoveryId++;
+                            parentNodeIds.Add(nodeId2, nodeId1);
+                            parentEdgeIds.Add(nodeId2, edgeId);
+                            nextEdgeIds.Add(nodeId2, 0);
+                            nodeIds.Push(nodeId2);
+                        }
+                        else if (edgeId != parentEdgeIds[nodeId1])
+                        {
+                            lowIds[nodeId1] = Math.Min(lowIds[nodeId1], discoveryIds[nodeId2]);
+                        }
+                    }
+                    else
+                    {
+                        nodeIds.Pop();
+                        edgeId = parentEdgeIds[nodeId1];
+                        if (edgeId >= 0)
+                        {
+                            nodeId2 = parentNodeIds[nodeId1];
+                            if (lowIds[nodeId1] > discoveryIds[nodeId2]) bridgeEdges[edgeId] = true;
+                            lowIds[nodeId2] = Math.Min(lowIds[nodeId2], lowIds[nodeId1]);
+                        }
+                    }
+                }
+            }
+            //
+            List<int[]> validEdgeCells = new List<int[]>(edgeCells.Count);
+            for (int i = 0; i < edgeCells.Count; i++)
+            {
+                if (activeEdges[i] && !bridgeEdges[i])
+                {
+                    newEdgeCellIdByOld[i] = validEdgeCells.Count;
+                    validEdgeCells.Add(edgeCells[i]);
+                }
+            }
+            return validEdgeCells.ToArray();
+        }
+        private List<int> RenumberEdgeCellIds(List<int> edgeCellIds, int[] newEdgeCellIdByOld)
+        {
+            List<int> renumberedIds = new List<int>(edgeCellIds.Count);
+            int newId;
+            foreach (int edgeCellId in edgeCellIds)
+            {
+                if (edgeCellId >= 0 && edgeCellId < newEdgeCellIdByOld.Length)
+                {
+                    newId = newEdgeCellIdByOld[edgeCellId];
+                    if (newId >= 0) renumberedIds.Add(newId);
+                }
+            }
+            return renumberedIds;
         }
         private HashSet<int> ExtractVerticesFromEdgesByAngle(BasePart part, double angle, bool includeEndPoints = false)
         {
@@ -3065,7 +3210,9 @@ namespace CaeMesh
                 part.Labels = part.Labels.Except(entry.Value).ToArray();
                 // Overwrite default part name to prevent the search for common nodes with itself
                 newBasePart = CreateBasePartFromElementIds(part.Labels, part.Name);
-                edgeElements.AddRange(GetLineElementsFromEdges(newBasePart)); // get new free edges
+                vertices.UnionWith(newBasePart.Visualization.VertexNodeIds);    // add new vertices
+                edgeElements.AddRange(GetLineElementsFromEdges(newBasePart));   // get new free edges
+                //
                 if (part is GeometryPart gp)
                 {
                     newGeometryPart = new GeometryPart(newBasePart);
@@ -3103,6 +3250,8 @@ namespace CaeMesh
             foreach (var newPartName in newPartNames)
             {
                 newBasePart = CreateBasePartFromElementIds(_elementSets[newPartName].Labels);
+                vertices.UnionWith(newBasePart.Visualization.VertexNodeIds);    // add new vertices
+                //
                 if (_meshRepresentation == MeshRepresentation.Mesh)
                 {
                     newMeshPart = new MeshPart(newBasePart);
@@ -5894,7 +6043,7 @@ namespace CaeMesh
             {
                 if (singlePartNamefilter != null && entry.Key != singlePartNamefilter) continue;
                 if (entry.Value is CompoundGeometryPart) continue;
-                if (!(entry.Value.Active && entry.Value.Visible)) continue;
+                if (!entry.Value.Active) continue;  // do not check for visible here
                 if (!selectedNodes.Overlaps(entry.Value.NodeLabels)) continue;   // speed
                 //
                 partId = entry.Value.PartId;
@@ -10327,44 +10476,50 @@ namespace CaeMesh
                                 }
                             }
                             // Correct SURFACES
-                            outsideNodeIdNeighSurfId.TryGetValue(nodeId, out neighSurfIdsCount);
-                            foreach (var neighSurfIdCount in neighSurfIdsCount)
+                            if (outsideNodeIdNeighSurfId.TryGetValue(nodeId, out neighSurfIdsCount))
                             {
-                                // Selection shares an edge
-                                if (neighSurfIdCount.Item2 > 1)
+                                foreach (var neighSurfIdCount in neighSurfIdsCount)
                                 {
-                                    // Add node
-                                    surfaceIdNodeIds[neighSurfIdCount.Item1].Add(newNodeId);
-                                    // Add midside node - it exists only on element edges
-                                    if (midNodes.TryGetValue((nodeId, newNodeId), out node))
-                                        surfaceIdNodeIds[neighSurfIdCount.Item1].Add(node.Id);
-                                }
-                                // Selection shares only a node
-                                else if (neighSurfIdCount.Item2 == 1)
-                                {
-                                    // Remove the old node from the surface sharing only one node
-                                    surfaceIdNodeIds[neighSurfIdCount.Item1].Remove(nodeId);
+                                    // Selection shares an edge
+                                    if (neighSurfIdCount.Item2 > 1)
+                                    {
+                                        // Add node
+                                        surfaceIdNodeIds[neighSurfIdCount.Item1].Add(newNodeId);
+                                        // Add midside node - it exists only on element edges
+                                        if (midNodes.TryGetValue((nodeId, newNodeId), out node))
+                                            surfaceIdNodeIds[neighSurfIdCount.Item1].Add(node.Id);
+                                    }
+                                    // Selection shares only a node
+                                    else if (neighSurfIdCount.Item2 == 1)
+                                    {
+                                        // Remove the old node from the surface sharing only one node
+                                        surfaceIdNodeIds[neighSurfIdCount.Item1].Remove(nodeId);
+                                    }
                                 }
                             }
+                            else if (Debugger.IsAttached) Debugger.Break();
                         }
                         // It is an edge node
                         else
                         {
-                            outsideNodeIdNeighSurfId.TryGetValue(nodeId, out neighSurfIdsCount);
-                            foreach (var neighSurfIdCount in neighSurfIdsCount)
+                            if (outsideNodeIdNeighSurfId.TryGetValue(nodeId, out neighSurfIdsCount))
                             {
-                                // Selection shares an edge
-                                if (neighSurfIdCount.Item2 > 1)
+                                foreach (var neighSurfIdCount in neighSurfIdsCount)
                                 {
-                                    // Add node
-                                    surfaceIdNodeIds[neighSurfIdCount.Item1].Add(newNodeId);
-                                    // Add midside node - it exists only on element edges
-                                    if (midNodes.TryGetValue((nodeId, newNodeId), out node))
-                                        surfaceIdNodeIds[neighSurfIdCount.Item1].Add(node.Id);
+                                    // Selection shares an edge
+                                    if (neighSurfIdCount.Item2 > 1)
+                                    {
+                                        // Add node
+                                        surfaceIdNodeIds[neighSurfIdCount.Item1].Add(newNodeId);
+                                        // Add midside node - it exists only on element edges
+                                        if (midNodes.TryGetValue((nodeId, newNodeId), out node))
+                                            surfaceIdNodeIds[neighSurfIdCount.Item1].Add(node.Id);
+                                    }
+                                    // Selection shares only a node
+                                    else if (neighSurfIdCount.Item2 == 1) throw new NotSupportedException();
                                 }
-                                // Selection shares only a node
-                                else if (neighSurfIdCount.Item2 == 1) throw new NotSupportedException();
                             }
+                            else if (Debugger.IsAttached) Debugger.Break();
                         }
                     }
                     // Create new visualization 

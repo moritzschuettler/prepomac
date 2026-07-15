@@ -14168,10 +14168,10 @@ namespace PrePoMax
                 ids = mesh.GetGeometryIds(nodeIds, elementIds, completelyInside, selectionPartNames[0]);
             else
                 ids = mesh.GetGeometryIds(nodeIds, elementIds, completelyInside);
-            // Appply select by filter to geomety ids
+            // Apply select by filter to geometry ids
             if (selectBy == vtkSelectBy.GeometryPart)
             {
-                // Change all geoemtry ids to geoemtry part ids
+                // Change all geometry ids to geometry part ids
                 HashSet<int> geometryPartIds = new HashSet<int>();
                 for (int i = 0; i < ids.Length; i++) geometryPartIds.Add(FeMesh.GetGeometryPartIdFromGeometryId(ids[i]));
                 ids = geometryPartIds.ToArray();
@@ -19452,7 +19452,7 @@ namespace PrePoMax
         {
             if (clear) Clear3DSelection();       // must be here: clears the highlight in the results
             //
-            if (obj != null)
+            if (obj != null && obj.Length > 0)
             {
                 foreach (var item in obj) Highlight3DObject(view, item, mouseOver);
                 //

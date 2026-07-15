@@ -282,6 +282,12 @@ namespace vtkControl
         {
             _anchorAlreadySet = false;
         }
+        public void ResetPositionFromAnchor()
+        {
+            _anchorAlreadySet = false;
+            double[] anchor = _worldAnchorPoint.GetValue();
+            SetAnchorPoint(anchor[0], anchor[1], anchor[2]);
+        }
 
 
         // Public setters                                                                                                           
@@ -417,6 +423,18 @@ namespace vtkControl
             box.MaxZ = 1;
             //
             return box;
+        }
+        public double[][] GetLeaderLine()
+        {
+            vtkPoints points = _leaderPolyData.GetPoints();
+            double[] start = points.GetPoint(0);
+            double[] end = points.GetPoint(1);
+            // Return copies so placement code cannot modify the VTK data by accident.
+            return new double[][]
+            {
+                new double[] { start[0], start[1], start[2] },
+                new double[] { end[0], end[1], end[2] }
+            };
         }
     }
 }

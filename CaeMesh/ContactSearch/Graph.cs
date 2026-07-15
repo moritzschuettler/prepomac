@@ -224,7 +224,7 @@ namespace CaeMesh
             //
             return connectedSubgraphs;
         }
-        // For unidirected graphs
+        // For undirected graphs
         public List<T> GetIndependencyList()
         {
             // Returns a list of all nodes from the deepest to the shallowest

@@ -220,7 +220,7 @@ namespace UserControls
             ttText.SetToolTip(btnUndo, "Undo");
             ttText.SetToolTip(btnRedo, "Redo");
             ttText.SetToolTip(btnRun, "Run script");
-            ttText.SetToolTip(btnRunSelected, "Run selected script");
+            ttText.SetToolTip(btnRunSelected, "Run selection");
             ttText.SetToolTip(btnClose, "Close Python panel");
         }
         private void NewScript()

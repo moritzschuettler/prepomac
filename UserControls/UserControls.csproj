@@ -116,13 +116,13 @@
     <Compile Include="ListView\MyListView.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="PanelControl\PythonPanel.cs">
+    <Compile Include="SidePanelControls\PythonPanel.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="PanelControl\PythonPanel.Designer.cs">
+    <Compile Include="SidePanelControls\PythonPanel.Designer.cs">
       <DependentUpon>PythonPanel.cs</DependentUpon>
     </Compile>
-    <Compile Include="PanelControl\SidePanel.cs">
+    <Compile Include="SidePanelControls\SidePanel.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Panels\BorderColoredPanel.cs">
@@ -236,17 +236,17 @@
     <Compile Include="Views\Sections\ViewSolidSection.cs" />
     <Compile Include="Views\Step\ViewStaticStep.cs" />
     <Compile Include="Views\Step\ViewStep.cs" />
-    <Compile Include="PanelControl\DoubleBufferedPanel.cs">
+    <Compile Include="SidePanelControls\DoubleBufferedPanel.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="PanelControl\PanelItemLinkLabel.cs" />
-    <Compile Include="PanelControl\PanelItemLabel.cs" />
-    <Compile Include="PanelControl\PanelItem.cs" />
-    <Compile Include="PanelControl\PanelPage.cs" />
-    <Compile Include="PanelControl\AdvisorPanel.cs">
+    <Compile Include="SidePanelControls\PanelItemLinkLabel.cs" />
+    <Compile Include="SidePanelControls\PanelItemLabel.cs" />
+    <Compile Include="SidePanelControls\PanelItem.cs" />
+    <Compile Include="SidePanelControls\PanelPage.cs" />
+    <Compile Include="SidePanelControls\AdvisorPanel.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="PanelControl\AdvisorPanel.Designer.cs">
+    <Compile Include="SidePanelControls\AdvisorPanel.Designer.cs">
       <DependentUpon>AdvisorPanel.cs</DependentUpon>
     </Compile>
     <Compile Include="AnnotationEditor.cs">
@@ -293,7 +293,7 @@
       <DependentUpon>ModelTree.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="PanelControl\PythonPanel.resx">
+    <EmbeddedResource Include="SidePanelControls\PythonPanel.resx">
       <DependentUpon>PythonPanel.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="TextBoxes\AutoScrollTextBox.resx">
@@ -329,7 +329,7 @@
     <EmbeddedResource Include="Trees\CodersLabTreeView.resx">
       <DependentUpon>CodersLabTreeView.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="PanelControl\AdvisorPanel.resx">
+    <EmbeddedResource Include="SidePanelControls\AdvisorPanel.resx">
       <DependentUpon>AdvisorPanel.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="AnnotationEditor.resx">
