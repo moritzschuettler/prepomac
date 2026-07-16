@@ -31,11 +31,12 @@ namespace PrePoMax.API.Python
         public NodeDataAPI GetNodeData(string resultName)
         {
             FeResults result = ResolveResultWithMesh(resultName);
-            int count = result.Mesh.Nodes.Count;
+            Dictionary<int, FeNode> nodes = result.UndeformedNodes;
+            int count = nodes.Count;
             int[] ids = new int[count];
             double[,] coordinates = new double[count, 3];
             int i = 0;
-            foreach (var entry in result.Mesh.Nodes)
+            foreach (var entry in nodes)
             {
                 ids[i] = entry.Key;
                 if (entry.Value.Coor != null)
@@ -45,6 +46,20 @@ namespace PrePoMax.API.Python
                 i++;
             }
             return new NodeDataAPI(ids, coordinates);
+        }
+        public object GetNodeCoordinates(string resultName, int nodeId)
+        {
+            FeResults result = ResolveResultWithMesh(resultName);
+            Dictionary<int, FeNode> nodes = result.UndeformedNodes;
+            FeNode node;
+            if (!nodes.TryGetValue(nodeId, out node))
+                throw new PythonAPIException("The node ID " + nodeId + " does not exist in result '" + resultName + "'.");
+            double[] coordinates = new double[3];
+            if (node.Coor != null)
+            {
+                for (int i = 0; i < coordinates.Length && i < node.Coor.Length; i++) coordinates[i] = node.Coor[i];
+            }
+            return NumPyConverter.ToPythonArray(coordinates);
         }
         public ElementDataAPI GetElementData(string resultName)
         {

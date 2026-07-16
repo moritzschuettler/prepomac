@@ -59,6 +59,22 @@ namespace PrePoMax.API.Python
             return new IntListAPI(_dataService.GetIncrementIds(_resultName, _stepId));
         }
 
+        [PythonAPI("Returns the first result increment in this step.", Returns = "Increment")]
+        public IncrementAPI first()
+        {
+            int[] ids = _dataService.GetIncrementIds(_resultName, _stepId);
+            if (ids.Length == 0) throw new PythonAPIException("The increments collection is empty.");
+            return this[ids[0]];
+        }
+
+        [PythonAPI("Returns the last result increment in this step.", Returns = "Increment")]
+        public IncrementAPI last()
+        {
+            int[] ids = _dataService.GetIncrementIds(_resultName, _stepId);
+            if (ids.Length == 0) throw new PythonAPIException("The increments collection is empty.");
+            return this[ids[ids.Length - 1]];
+        }
+
         [PythonAPI("Returns true if the increment ID exists in this step.", Arguments = "increment_id: int", Returns = "bool")]
         public bool contains(int incrementId)
         {

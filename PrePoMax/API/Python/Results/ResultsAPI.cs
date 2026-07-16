@@ -48,6 +48,22 @@ namespace PrePoMax.API.Python
             return new StringListAPI(_resolver.GetResultNames());
         }
 
+        [PythonAPI("Returns the first loaded result.", Returns = "Result")]
+        public ResultAPI first()
+        {
+            string[] names = _resolver.GetResultNames();
+            if (names.Length == 0) throw new PythonAPIException("The results collection is empty.");
+            return this[names[0]];
+        }
+
+        [PythonAPI("Returns the last loaded result.", Returns = "Result")]
+        public ResultAPI last()
+        {
+            string[] names = _resolver.GetResultNames();
+            if (names.Length == 0) throw new PythonAPIException("The results collection is empty.");
+            return this[names[names.Length - 1]];
+        }
+
         [PythonAPI("Returns true if a result with the specified name is loaded.", Arguments = "result_name: str", Returns = "bool")]
         public bool contains(string resultName)
         {
@@ -71,6 +87,12 @@ namespace PrePoMax.API.Python
         {
             string[] names = _resolver.GetResultNames();
             return "Results(count=" + names.Length + ", names=" + new StringListAPI(names).ToString() + ")";
+        }
+        protected override string ToFullString()
+        {
+            string[] names = _resolver.GetResultNames();
+            return "Results(count=" + names.Length + ", names=" +
+                   new StringListAPI(names).GetFullDisplayString() + ")";
         }
     }
 }

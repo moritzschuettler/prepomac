@@ -74,7 +74,7 @@ namespace PrePoMax
             //
             if (columnNames.Length > maxNumCol + 1)
             {
-                CaeGlobals.MessageBoxes.ShowWarning("Only first " + maxNumCol + " columns of " + columnNames.Length +
+                CaeGlobals.MessageBoxes.ShowWarning("Only first " + maxNumCol + " columns of " + (columnNames.Length - 1) +
                                                     " will be displayed." + Environment.NewLine+
                                                     " Use Settings → Post-processing to increase this value.");
             }

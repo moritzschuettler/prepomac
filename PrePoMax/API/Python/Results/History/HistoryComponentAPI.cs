@@ -15,7 +15,7 @@ namespace PrePoMax.API.Python
     {
         // Variables
         private readonly string _resultName;
-        private readonly string _setName;
+        private readonly string _historyOutputName;
         private readonly string _fieldName;
         private readonly string _componentName;
         private readonly HistoryDataService _historyService;
@@ -30,15 +30,15 @@ namespace PrePoMax.API.Python
 
 
         // Constructors
-        internal HistoryComponentAPI(string resultName, string setName, string fieldName, string componentName,
+        internal HistoryComponentAPI(string resultName, string historyOutputName, string fieldName, string componentName,
                                            HistoryDataService historyService)
         {
             _resultName = resultName;
-            _setName = setName;
+            _historyOutputName = historyOutputName;
             _fieldName = fieldName;
             _componentName = componentName;
             _historyService = historyService;
-            _entries = new HistoryEntriesAPI(_resultName, _setName, _fieldName, _componentName, _historyService);
+            _entries = new HistoryEntriesAPI(_resultName, _historyOutputName, _fieldName, _componentName, _historyService);
         }
 
 
@@ -46,18 +46,18 @@ namespace PrePoMax.API.Python
         [PythonAPI("Returns all compatible history entries for this component.", Returns = "HistoryData")]
         public HistoryComponentDataAPI get_data()
         {
-            return _historyService.GetComponentData(_resultName, _setName, _fieldName, _componentName);
+            return _historyService.GetComponentData(_resultName, _historyOutputName, _fieldName, _componentName);
         }
 
         [PythonAPI("Returns entry names for this component.", Returns = "StringList")]
         public StringListAPI get_entry_names()
         {
-            return new StringListAPI(_historyService.GetEntryNames(_resultName, _setName, _fieldName, _componentName));
+            return new StringListAPI(_historyService.GetEntryNames(_resultName, _historyOutputName, _fieldName, _componentName));
         }
         public override string ToString()
         {
             return "HistoryComponent(name='" + _componentName + "', entries=" +
-                   _historyService.GetEntryNames(_resultName, _setName, _fieldName, _componentName).Length + ")";
+                   _historyService.GetEntryNames(_resultName, _historyOutputName, _fieldName, _componentName).Length + ")";
         }
     }
 }

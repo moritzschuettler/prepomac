@@ -22,9 +22,9 @@ namespace PrePoMax.API.Python
 
 
         // Properties
-        [PythonAPI("History time values.", Returns = "numpy.ndarray or double[]")]
+        [PythonAPI("History time values.", Returns = "numpy.ndarray or NumericArray")]
         public object time { get { return _time; } }
-        [PythonAPI("History result values. Multiple entries are returned as a matrix with one column per entry.", Returns = "numpy.ndarray or double[]/double[,]" )]
+        [PythonAPI("History result values. Multiple entries are returned as a matrix with one column per entry.", Returns = "numpy.ndarray or NumericArray" )]
         public object values { get { return _values; } }
         [PythonAPI("The result unit abbreviation.", Returns = "str")]
         public string unit { get { return _unit; } }

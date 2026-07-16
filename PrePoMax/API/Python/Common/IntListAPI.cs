@@ -17,6 +17,8 @@ namespace PrePoMax.API.Python
     public class IntListAPI : BaseAPI, IReadOnlyList<int>
     {
         // Variables
+        private const int CompactItemLimit = 8;
+        private const int EdgeItemCount = 3;
         private readonly int[] _items;
 
 
@@ -78,7 +80,23 @@ namespace PrePoMax.API.Python
         }
         public override string ToString()
         {
-            return "[" + string.Join(", ", _items.Select(item => item.ToString())) + "]";
+            return FormatItems(true);
+        }
+        protected override string ToFullString()
+        {
+            return FormatItems(false);
+        }
+        internal string GetFullDisplayString()
+        {
+            return FormatItems(false);
+        }
+        private string FormatItems(bool compact)
+        {
+            if (!compact || _items.Length <= CompactItemLimit)
+                return "[" + string.Join(", ", _items.Select(item => item.ToString())) + "]";
+            IEnumerable<string> first = _items.Take(EdgeItemCount).Select(item => item.ToString());
+            IEnumerable<string> last = _items.Skip(_items.Length - EdgeItemCount).Select(item => item.ToString());
+            return "[" + string.Join(", ", first) + ", ..., " + string.Join(", ", last) + "]";
         }
     }
 }

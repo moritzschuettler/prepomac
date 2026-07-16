@@ -15,17 +15,17 @@ namespace PrePoMax.API.Python
     {
         // Variables
         private readonly string _resultName;
-        private readonly string _setName;
+        private readonly string _historyOutputName;
         private readonly string _fieldName;
         private readonly HistoryDataService _historyService;
 
 
         // Constructors
-        internal HistoryComponentsAPI(string resultName, string setName, string fieldName,
+        internal HistoryComponentsAPI(string resultName, string historyOutputName, string fieldName,
                                             HistoryDataService historyService)
         {
             _resultName = resultName;
-            _setName = setName;
+            _historyOutputName = historyOutputName;
             _fieldName = fieldName;
             _historyService = historyService;
         }
@@ -40,30 +40,52 @@ namespace PrePoMax.API.Python
         {
             get
             {
-                _historyService.ResolveComponent(_resultName, _setName, _fieldName, componentName);
-                return new HistoryComponentAPI(_resultName, _setName, _fieldName, componentName, _historyService);
+                _historyService.ResolveComponent(_resultName, _historyOutputName, _fieldName, componentName);
+                return new HistoryComponentAPI(_resultName, _historyOutputName, _fieldName, componentName, _historyService);
             }
         }
         public int __len__()
         {
-            return _historyService.GetComponentNames(_resultName, _setName, _fieldName).Length;
+            return _historyService.GetComponentNames(_resultName, _historyOutputName, _fieldName).Length;
         }
 
         [PythonAPI("Returns history component names.", Returns = "StringList")]
         public StringListAPI get_names()
         {
-            return new StringListAPI(_historyService.GetComponentNames(_resultName, _setName, _fieldName));
+            return new StringListAPI(_historyService.GetComponentNames(_resultName, _historyOutputName, _fieldName));
+        }
+
+        [PythonAPI("Returns the first component in this history field.", Returns = "HistoryComponent")]
+        public HistoryComponentAPI first()
+        {
+            string[] names = _historyService.GetComponentNames(_resultName, _historyOutputName, _fieldName);
+            if (names.Length == 0) throw new PythonAPIException("The history components collection is empty.");
+            return this[names[0]];
+        }
+
+        [PythonAPI("Returns the last component in this history field.", Returns = "HistoryComponent")]
+        public HistoryComponentAPI last()
+        {
+            string[] names = _historyService.GetComponentNames(_resultName, _historyOutputName, _fieldName);
+            if (names.Length == 0) throw new PythonAPIException("The history components collection is empty.");
+            return this[names[names.Length - 1]];
         }
 
         [PythonAPI("Returns true if the history component exists in this field.", Arguments = "component_name: str", Returns = "bool")]
         public bool contains(string componentName)
         {
-            return _historyService.GetComponentNames(_resultName, _setName, _fieldName).Contains(componentName);
+            return _historyService.GetComponentNames(_resultName, _historyOutputName, _fieldName).Contains(componentName);
         }
         public override string ToString()
         {
-            string[] names = _historyService.GetComponentNames(_resultName, _setName, _fieldName);
+            string[] names = _historyService.GetComponentNames(_resultName, _historyOutputName, _fieldName);
             return "HistoryComponents(count=" + names.Length + ", names=" + new StringListAPI(names).ToString() + ")";
+        }
+        protected override string ToFullString()
+        {
+            string[] names = _historyService.GetComponentNames(_resultName, _historyOutputName, _fieldName);
+            return "HistoryComponents(count=" + names.Length + ", names=" +
+                   new StringListAPI(names).GetFullDisplayString() + ")";
         }
     }
 }

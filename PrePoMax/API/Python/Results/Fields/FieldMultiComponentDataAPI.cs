@@ -23,9 +23,9 @@ namespace PrePoMax.API.Python
 
 
         // Properties
-        [PythonAPI("The node IDs corresponding to the rows of the values matrix.", Returns = "numpy.ndarray or int[]")]
+        [PythonAPI("The node IDs corresponding to the rows of the values matrix.", Returns = "numpy.ndarray or IntList")]
         public object ids { get { return _ids; } }
-        [PythonAPI("The field values with shape (node_count, component_count).", Returns = "numpy.ndarray or float[,]" )]
+        [PythonAPI("The field values with shape (node_count, component_count).", Returns = "numpy.ndarray or NumericArray" )]
         public object values { get { return _values; } }
         [PythonAPI("The component names corresponding to the value columns.", Returns = "StringList")]
         public StringListAPI component_names { get { return _componentNames; } }

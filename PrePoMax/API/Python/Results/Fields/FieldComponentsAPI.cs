@@ -59,6 +59,22 @@ namespace PrePoMax.API.Python
             return new StringListAPI(_dataService.GetComponentNames(_resultName, _stepId, _incrementId, _fieldName));
         }
 
+        [PythonAPI("Returns the first component available for this field.", Returns = "FieldComponent")]
+        public FieldComponentAPI first()
+        {
+            string[] names = _dataService.GetComponentNames(_resultName, _stepId, _incrementId, _fieldName);
+            if (names.Length == 0) throw new PythonAPIException("The field components collection is empty.");
+            return this[names[0]];
+        }
+
+        [PythonAPI("Returns the last component available for this field.", Returns = "FieldComponent")]
+        public FieldComponentAPI last()
+        {
+            string[] names = _dataService.GetComponentNames(_resultName, _stepId, _incrementId, _fieldName);
+            if (names.Length == 0) throw new PythonAPIException("The field components collection is empty.");
+            return this[names[names.Length - 1]];
+        }
+
         [PythonAPI("Returns true if this field contains the specified component.", Arguments = "component_name: str", Returns = "bool")]
         public bool contains(string componentName)
         {
@@ -68,6 +84,12 @@ namespace PrePoMax.API.Python
         {
             string[] names = _dataService.GetComponentNames(_resultName, _stepId, _incrementId, _fieldName);
             return "FieldComponents(count=" + names.Length + ", names=" + new StringListAPI(names).ToString() + ")";
+        }
+        protected override string ToFullString()
+        {
+            string[] names = _dataService.GetComponentNames(_resultName, _stepId, _incrementId, _fieldName);
+            return "FieldComponents(count=" + names.Length + ", names=" +
+                   new StringListAPI(names).GetFullDisplayString() + ")";
         }
     }
 }

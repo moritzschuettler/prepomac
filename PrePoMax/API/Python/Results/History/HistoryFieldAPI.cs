@@ -15,7 +15,7 @@ namespace PrePoMax.API.Python
     {
         // Variables
         private readonly string _resultName;
-        private readonly string _setName;
+        private readonly string _historyOutputName;
         private readonly string _fieldName;
         private readonly HistoryDataService _historyService;
         private readonly HistoryComponentsAPI _components;
@@ -29,14 +29,14 @@ namespace PrePoMax.API.Python
 
 
         // Constructors
-        internal HistoryFieldAPI(string resultName, string setName, string fieldName,
+        internal HistoryFieldAPI(string resultName, string historyOutputName, string fieldName,
                                        HistoryDataService historyService)
         {
             _resultName = resultName;
-            _setName = setName;
+            _historyOutputName = historyOutputName;
             _fieldName = fieldName;
             _historyService = historyService;
-            _components = new HistoryComponentsAPI(_resultName, _setName, _fieldName, _historyService);
+            _components = new HistoryComponentsAPI(_resultName, _historyOutputName, _fieldName, _historyService);
         }
 
 
@@ -44,7 +44,7 @@ namespace PrePoMax.API.Python
         public override string ToString()
         {
             return "HistoryField(name='" + _fieldName + "', components=" +
-                   _historyService.GetComponentNames(_resultName, _setName, _fieldName).Length + ")";
+                   _historyService.GetComponentNames(_resultName, _historyOutputName, _fieldName).Length + ")";
         }
     }
 }

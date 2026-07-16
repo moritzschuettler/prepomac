@@ -58,6 +58,9 @@ namespace CaeResults
         }
         public static bool ReadFromBinaryReader(ResultsCollection allResults, BinaryReader br, int version)
         {
+            string currentResultName = null;
+            if (allResults.CurrentResult != null) currentResultName = allResults.CurrentResult.FileName;   // save
+            //
             string resultsName;
             int numResults = br.ReadInt32();
             HashSet<string> addedResultNames = new HashSet<string>();
@@ -82,10 +85,15 @@ namespace CaeResults
             HashSet<string> failedResultNames = allResults._results.Keys.Except(addedResultNames).ToHashSet();
             foreach (var failedResultName in failedResultNames) allResults._results.Remove(failedResultName);
             //
+            if (currentResultName != null) allResults.SetCurrentResults(currentResultName);                // load
+            //
             return failedResultNames.Count == 0;
         }
         public static bool ReadFromFileStream(ResultsCollection allResults, FileStream fileStream, int version)
         {
+            string currentResultName = null;
+            if (allResults.CurrentResult != null) currentResultName = allResults.CurrentResult.FileName;   // save
+            //
             string resultsName;
             int numResults = Tools.ReadIntFromFileStream(fileStream);
             HashSet<string> addedResultNames = new HashSet<string>();
@@ -109,6 +117,8 @@ namespace CaeResults
             }
             HashSet<string> failedResultNames = allResults._results.Keys.Except(addedResultNames).ToHashSet();
             foreach (var failedResultName in failedResultNames) allResults._results.Remove(failedResultName);
+            //
+            if (currentResultName != null) allResults.SetCurrentResults(currentResultName);                // load
             //
             return failedResultNames.Count == 0;
         }

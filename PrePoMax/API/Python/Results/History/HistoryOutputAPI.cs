@@ -7,41 +7,39 @@
 // Author: Matej Borovinsek
 // Contributors:
 
-using System.Linq;
-
 namespace PrePoMax.API.Python
 {
-    public class HistorySetAPI : BaseAPI
+    public class HistoryOutputAPI : BaseAPI
     {
         // Variables
         private readonly string _resultName;
-        private readonly string _setName;
+        private readonly string _historyOutputName;
         private readonly HistoryDataService _historyService;
         private readonly HistoryFieldsAPI _fields;
 
 
         // Properties
-        [PythonAPI("The history set name.", Returns = "str")]
-        public string name { get { return _setName; } }
-        [PythonAPI("The fields in this history set.", Returns = "HistoryFields")]
+        [PythonAPI("The history output name.", Returns = "str")]
+        public string name { get { return _historyOutputName; } }
+        [PythonAPI("The fields in this history output.", Returns = "HistoryFields")]
         public HistoryFieldsAPI fields { get { return _fields; } }
 
 
         // Constructors
-        internal HistorySetAPI(string resultName, string setName, HistoryDataService historyService)
+        internal HistoryOutputAPI(string resultName, string historyOutputName, HistoryDataService historyService)
         {
             _resultName = resultName;
-            _setName = setName;
+            _historyOutputName = historyOutputName;
             _historyService = historyService;
-            _fields = new HistoryFieldsAPI(_resultName, _setName, _historyService);
+            _fields = new HistoryFieldsAPI(_resultName, _historyOutputName, _historyService);
         }
 
 
         // Methods
         public override string ToString()
         {
-            return "HistorySet(name='" + _setName + "', fields=" +
-                   _historyService.GetFieldNames(_resultName, _setName).Length + ")";
+            return "HistoryOutput(name='" + _historyOutputName + "', fields=" +
+                   _historyService.GetFieldNames(_resultName, _historyOutputName).Length + ")";
         }
     }
 }

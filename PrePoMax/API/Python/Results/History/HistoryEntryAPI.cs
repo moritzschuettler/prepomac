@@ -15,7 +15,7 @@ namespace PrePoMax.API.Python
     {
         // Variables
         private readonly string _resultName;
-        private readonly string _setName;
+        private readonly string _historyOutputName;
         private readonly string _fieldName;
         private readonly string _componentName;
         private readonly string _entryName;
@@ -28,11 +28,11 @@ namespace PrePoMax.API.Python
 
 
         // Constructors
-        internal HistoryEntryAPI(string resultName, string setName, string fieldName, string componentName,
+        internal HistoryEntryAPI(string resultName, string historyOutputName, string fieldName, string componentName,
                                        string entryName, HistoryDataService historyService)
         {
             _resultName = resultName;
-            _setName = setName;
+            _historyOutputName = historyOutputName;
             _fieldName = fieldName;
             _componentName = componentName;
             _entryName = entryName;
@@ -41,10 +41,10 @@ namespace PrePoMax.API.Python
 
 
         // Methods
-        [PythonAPI("Returns time and values for this history entry.", Returns = "HistoryData")]
-        public HistoryComponentDataAPI get_data()
+        [PythonAPI("Returns time and values for this history entry.", Returns = "HistoryEntryData")]
+        public HistoryEntryDataAPI get_data()
         {
-            return _historyService.GetEntryData(_resultName, _setName, _fieldName, _componentName, _entryName);
+            return _historyService.GetEntryData(_resultName, _historyOutputName, _fieldName, _componentName, _entryName);
         }
         public override string ToString()
         {

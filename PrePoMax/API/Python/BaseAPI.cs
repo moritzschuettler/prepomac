@@ -19,11 +19,11 @@ namespace PrePoMax.API.Python
     public class BaseAPI
     {
         // Methods
-        public string __str__()
+        public virtual string __str__()
         {
-            return ToString();
+            return ToFullString();
         }
-        public string __repr__()
+        public virtual string __repr__()
         {
             return ToString();
         }
@@ -60,6 +60,10 @@ namespace PrePoMax.API.Python
         protected virtual IEnumerable<string> GetDynamicPythonMemberNames()
         {
             return new string[0];
+        }
+        protected virtual string ToFullString()
+        {
+            return ToString();
         }
         protected List<string> GetPythonMemberNames()
         {

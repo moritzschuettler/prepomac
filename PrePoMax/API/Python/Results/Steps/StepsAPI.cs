@@ -56,6 +56,22 @@ namespace PrePoMax.API.Python
             return new IntListAPI(_dataService.GetStepIds(_resultName));
         }
 
+        [PythonAPI("Returns the first result step.", Returns = "Step")]
+        public StepAPI first()
+        {
+            int[] ids = _dataService.GetStepIds(_resultName);
+            if (ids.Length == 0) throw new PythonAPIException("The steps collection is empty.");
+            return this[ids[0]];
+        }
+
+        [PythonAPI("Returns the last result step.", Returns = "Step")]
+        public StepAPI last()
+        {
+            int[] ids = _dataService.GetStepIds(_resultName);
+            if (ids.Length == 0) throw new PythonAPIException("The steps collection is empty.");
+            return this[ids[ids.Length - 1]];
+        }
+
         [PythonAPI("Returns true if the step ID exists.", Arguments = "step_id: int", Returns = "bool")]
         public bool contains(int stepId)
         {

@@ -52,6 +52,12 @@ namespace PrePoMax.API.Python
             string[] names = _dataService.GetComponentNames(_resultName, _stepId, _incrementId, _fieldName);
             return "Field(name='" + _fieldName + "', components=" + new StringListAPI(names).ToString() + ")";
         }
+        protected override string ToFullString()
+        {
+            string[] names = _dataService.GetComponentNames(_resultName, _stepId, _incrementId, _fieldName);
+            return "Field(name='" + _fieldName + "', components=" +
+                   new StringListAPI(names).GetFullDisplayString() + ")";
+        }
     }
 }
 

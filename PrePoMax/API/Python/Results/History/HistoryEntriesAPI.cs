@@ -15,18 +15,18 @@ namespace PrePoMax.API.Python
     {
         // Variables
         private readonly string _resultName;
-        private readonly string _setName;
+        private readonly string _historyOutputName;
         private readonly string _fieldName;
         private readonly string _componentName;
         private readonly HistoryDataService _historyService;
 
 
         // Constructors
-        internal HistoryEntriesAPI(string resultName, string setName, string fieldName, string componentName,
+        internal HistoryEntriesAPI(string resultName, string historyOutputName, string fieldName, string componentName,
                                          HistoryDataService historyService)
         {
             _resultName = resultName;
-            _setName = setName;
+            _historyOutputName = historyOutputName;
             _fieldName = fieldName;
             _componentName = componentName;
             _historyService = historyService;
@@ -45,29 +45,54 @@ namespace PrePoMax.API.Python
                 if (!contains(entryName))
                     throw new PythonAPIException("The history entry '" + entryName + "' does not exist in component '" +
                                                  _componentName + "'.");
-                return new HistoryEntryAPI(_resultName, _setName, _fieldName, _componentName, entryName, _historyService);
+                return new HistoryEntryAPI(_resultName, _historyOutputName, _fieldName, _componentName, entryName,
+                                           _historyService);
             }
         }
         public int __len__()
         {
-            return _historyService.GetEntryNames(_resultName, _setName, _fieldName, _componentName).Length;
+            return _historyService.GetEntryNames(_resultName, _historyOutputName, _fieldName, _componentName).Length;
         }
 
         [PythonAPI("Returns history entry names.", Returns = "StringList")]
         public StringListAPI get_names()
         {
-            return new StringListAPI(_historyService.GetEntryNames(_resultName, _setName, _fieldName, _componentName));
+            return new StringListAPI(_historyService.GetEntryNames(_resultName, _historyOutputName, _fieldName,
+                                                                    _componentName));
+        }
+
+        [PythonAPI("Returns the first entry in this history component.", Returns = "HistoryEntry")]
+        public HistoryEntryAPI first()
+        {
+            string[] names = _historyService.GetEntryNames(_resultName, _historyOutputName, _fieldName, _componentName);
+            if (names.Length == 0) throw new PythonAPIException("The history entries collection is empty.");
+            return this[names[0]];
+        }
+
+        [PythonAPI("Returns the last entry in this history component.", Returns = "HistoryEntry")]
+        public HistoryEntryAPI last()
+        {
+            string[] names = _historyService.GetEntryNames(_resultName, _historyOutputName, _fieldName, _componentName);
+            if (names.Length == 0) throw new PythonAPIException("The history entries collection is empty.");
+            return this[names[names.Length - 1]];
         }
 
         [PythonAPI("Returns true if the history entry exists in this component.", Arguments = "entry_name: str", Returns = "bool")]
         public bool contains(string entryName)
         {
-            return _historyService.GetEntryNames(_resultName, _setName, _fieldName, _componentName).Contains(entryName);
+            return _historyService.GetEntryNames(_resultName, _historyOutputName, _fieldName,
+                                                 _componentName).Contains(entryName);
         }
         public override string ToString()
         {
-            string[] names = _historyService.GetEntryNames(_resultName, _setName, _fieldName, _componentName);
+            string[] names = _historyService.GetEntryNames(_resultName, _historyOutputName, _fieldName, _componentName);
             return "HistoryEntries(count=" + names.Length + ", names=" + new StringListAPI(names).ToString() + ")";
+        }
+        protected override string ToFullString()
+        {
+            string[] names = _historyService.GetEntryNames(_resultName, _historyOutputName, _fieldName, _componentName);
+            return "HistoryEntries(count=" + names.Length + ", names=" +
+                   new StringListAPI(names).GetFullDisplayString() + ")";
         }
     }
 }

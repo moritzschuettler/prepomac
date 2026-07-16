@@ -56,6 +56,22 @@ namespace PrePoMax.API.Python
             return new StringListAPI(_dataService.GetFieldNames(_resultName, _stepId, _incrementId));
         }
 
+        [PythonAPI("Returns the first field available for this increment.", Returns = "Field")]
+        public FieldAPI first()
+        {
+            string[] names = _dataService.GetFieldNames(_resultName, _stepId, _incrementId);
+            if (names.Length == 0) throw new PythonAPIException("The fields collection is empty.");
+            return this[names[0]];
+        }
+
+        [PythonAPI("Returns the last field available for this increment.", Returns = "Field")]
+        public FieldAPI last()
+        {
+            string[] names = _dataService.GetFieldNames(_resultName, _stepId, _incrementId);
+            if (names.Length == 0) throw new PythonAPIException("The fields collection is empty.");
+            return this[names[names.Length - 1]];
+        }
+
         [PythonAPI("Returns true if this increment contains the specified field.", Arguments = "field_name: str", Returns = "bool")]
         public bool contains(string fieldName)
         {
@@ -65,6 +81,12 @@ namespace PrePoMax.API.Python
         {
             string[] names = _dataService.GetFieldNames(_resultName, _stepId, _incrementId);
             return "Fields(count=" + names.Length + ", names=" + new StringListAPI(names).ToString() + ")";
+        }
+        protected override string ToFullString()
+        {
+            string[] names = _dataService.GetFieldNames(_resultName, _stepId, _incrementId);
+            return "Fields(count=" + names.Length + ", names=" +
+                   new StringListAPI(names).GetFullDisplayString() + ")";
         }
     }
 }

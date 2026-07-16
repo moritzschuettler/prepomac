@@ -108,6 +108,7 @@
   <ItemGroup>
     <Compile Include="API\Python\BaseAPI.cs" />
     <Compile Include="API\Python\Common\IntListAPI.cs" />
+    <Compile Include="API\Python\Common\NumericArrayAPI.cs" />
     <Compile Include="API\Python\Common\PythonAPIAttribute.cs" />
     <Compile Include="API\Python\Common\PythonAPIException.cs" />
     <Compile Include="API\Python\Common\StringListAPI.cs" />
@@ -128,16 +129,16 @@
     <Compile Include="API\Python\Results\Fields\FieldDataAPI.cs" />
     <Compile Include="API\Python\Results\Fields\FieldMultiComponentDataAPI.cs" />
     <Compile Include="API\Python\Results\Fields\FieldsAPI.cs" />
-    <Compile Include="API\Python\Results\History\HistoryAPI.cs" />
     <Compile Include="API\Python\Results\History\HistoryComponentAPI.cs" />
     <Compile Include="API\Python\Results\History\HistoryComponentDataAPI.cs" />
     <Compile Include="API\Python\Results\History\HistoryComponentsAPI.cs" />
     <Compile Include="API\Python\Results\History\HistoryEntriesAPI.cs" />
     <Compile Include="API\Python\Results\History\HistoryEntryAPI.cs" />
+    <Compile Include="API\Python\Results\History\HistoryEntryDataAPI.cs" />
     <Compile Include="API\Python\Results\History\HistoryFieldAPI.cs" />
     <Compile Include="API\Python\Results\History\HistoryFieldsAPI.cs" />
-    <Compile Include="API\Python\Results\History\HistorySetAPI.cs" />
-    <Compile Include="API\Python\Results\History\HistorySetsAPI.cs" />
+    <Compile Include="API\Python\Results\History\HistoryOutputAPI.cs" />
+    <Compile Include="API\Python\Results\History\HistoryOutputsAPI.cs" />
     <Compile Include="API\Python\Results\ResultAPI.cs" />
     <Compile Include="API\Python\Results\ResultsAPI.cs" />
     <Compile Include="API\Python\Results\Steps\IncrementAPI.cs" />

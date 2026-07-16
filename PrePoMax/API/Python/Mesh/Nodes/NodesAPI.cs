@@ -33,7 +33,7 @@ namespace PrePoMax.API.Python
 
 
         // Methods
-        [PythonAPI("Returns node IDs and coordinates in one bulk extraction.", Returns = "NodeData")]
+        [PythonAPI("Returns node IDs and undeformed coordinates in one bulk extraction.", Returns = "NodeData")]
         public NodeDataAPI get_data()
         {
             return _meshService.GetNodeData(_resultName);
@@ -45,7 +45,7 @@ namespace PrePoMax.API.Python
             return get_data().ids;
         }
 
-        [PythonAPI("Returns all node coordinates with shape (node_count, 3).", Returns = "numpy.ndarray or double[,]" )]
+        [PythonAPI("Returns all undeformed node coordinates with shape (node_count, 3).", Returns = "numpy.ndarray or NumericArray" )]
         public object get_coordinates()
         {
             return get_data().coordinates;

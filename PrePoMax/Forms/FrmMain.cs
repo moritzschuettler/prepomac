@@ -2619,7 +2619,7 @@ namespace PrePoMax
                         _pythonPanel.CloseButtonPressedEvent += tsmiPythonScriptEditor_Click;
                     }
                     UpdatePythonEngine(true);
-                    ShowSidePanel(_pythonPanel, 0.5, 100, 1000);
+                    ShowSidePanel(_pythonPanel, 0.5, 100, 1000, false);
                 }
                 else HideSidePanel();
             }
@@ -2628,7 +2628,7 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void ShowSidePanel(SidePanel sidePanel, double relativeSize, int min, int max)
+        private void ShowSidePanel(SidePanel sidePanel, double relativeSize, int min, int max, bool fixPanelWith)
         {
             // Reset
             if (sidePanel != null) HideSidePanel();
@@ -2641,7 +2641,7 @@ namespace PrePoMax
             parent.Controls.Remove(splitContainer2);
             // Add split container
             SplitContainer splitContainer3 = new SplitContainer();
-            splitContainer3.FixedPanel = FixedPanel.Panel2;
+            if (fixPanelWith) splitContainer3.FixedPanel = FixedPanel.Panel2;
             splitContainer3.Dock = DockStyle.Fill;
             parent.Controls.Add(splitContainer3);
             // Set the Panel 2 size - min 100 max 300
@@ -8629,7 +8629,7 @@ namespace PrePoMax
             // Change the wizard check state
             tsmiAdvisor.Checked = !tsmiAdvisor.Checked;
             // Add wizard panel
-            if (tsmiAdvisor.Checked == true) ShowSidePanel(AdvisorCreator.CreatePanel(this), 0.2, 100, 300);
+            if (tsmiAdvisor.Checked == true) ShowSidePanel(AdvisorCreator.CreatePanel(this), 0.2, 100, 300, true);
             else HideSidePanel();
         }
         private void tsmiHomePage_Click(object sender, EventArgs e)

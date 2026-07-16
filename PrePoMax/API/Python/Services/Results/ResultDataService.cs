@@ -89,6 +89,38 @@ namespace PrePoMax.API.Python
             ComponentArrays arrays = ExtractComponentArrays(resultName, stepId, incrementId, fieldName, componentName);
             return new FieldDataAPI(arrays.Ids, arrays.Values, "node", arrays.Unit);
         }
+        public float GetNodalValue(string resultName, int stepId, int incrementId,
+                                   string fieldName, string componentName, int nodeId)
+        {
+            FeResults result = _resolver.ResolveResult(resultName);
+            ValidateComponent(resultName, result, stepId, incrementId, fieldName, componentName);
+            if (result.Mesh == null)
+                throw new PythonAPIException("The result '" + resultName + "' does not contain a mesh.");
+            if (!result.Mesh.Nodes.ContainsKey(nodeId))
+                throw new PythonAPIException("The node ID " + nodeId + " does not exist in result '" + resultName + "'.");
+            FieldData fieldData = result.GetFieldData(fieldName, componentName, stepId, incrementId, true);
+            if (!fieldData.Valid)
+                throw new PythonAPIException("The field '" + fieldName + "' does not exist for step " + stepId +
+                                             ", increment " + incrementId + ".");
+            float[] values = result.GetValues(fieldData, new int[] { nodeId });
+            if (values == null || values.Length == 0)
+                throw new PythonAPIException("The component '" + componentName + "' could not be extracted from field '" +
+                                             fieldName + "' for node ID " + nodeId + ".");
+            return values[0];
+        }
+        public object GetDeformedNodalCoordinates(string resultName, int stepId, int incrementId, int nodeId)
+        {
+            FeResults result = _resolver.ResolveResult(resultName);
+            ValidateComponent(resultName, result, stepId, incrementId, FOFieldNames.Disp, FOComponentNames.U1);
+            ValidateComponent(resultName, result, stepId, incrementId, FOFieldNames.Disp, FOComponentNames.U2);
+            ValidateComponent(resultName, result, stepId, incrementId, FOFieldNames.Disp, FOComponentNames.U3);
+            if (result.UndeformedNodes == null || !result.UndeformedNodes.ContainsKey(nodeId))
+                throw new PythonAPIException("The node ID " + nodeId + " does not exist in result '" + resultName + "'.");
+            double[][] coordinates = new double[][] { result.UndeformedNodes[nodeId].Coor };
+            result.ScaleNodeCoordinates(FOFieldNames.Disp, 1, stepId, incrementId,
+                                        new int[] { nodeId }, ref coordinates);
+            return NumPyConverter.ToPythonArray(coordinates[0]);
+        }
         public FieldMultiComponentDataAPI GetFieldData(string resultName, int stepId, int incrementId, string fieldName)
         {
             string[] componentNames = GetComponentNames(resultName, stepId, incrementId, fieldName);

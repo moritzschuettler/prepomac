@@ -47,6 +47,22 @@ namespace PrePoMax.API.Python
             return new StringListAPI(_meshService.GetPartNames(_resultName));
         }
 
+        [PythonAPI("Returns the first result mesh part.", Returns = "Part")]
+        public PartAPI first()
+        {
+            string[] names = _meshService.GetPartNames(_resultName);
+            if (names.Length == 0) throw new PythonAPIException("The parts collection is empty.");
+            return this[names[0]];
+        }
+
+        [PythonAPI("Returns the last result mesh part.", Returns = "Part")]
+        public PartAPI last()
+        {
+            string[] names = _meshService.GetPartNames(_resultName);
+            if (names.Length == 0) throw new PythonAPIException("The parts collection is empty.");
+            return this[names[names.Length - 1]];
+        }
+
         [PythonAPI("Returns true if the result mesh contains the specified part.", Arguments = "part_name: str", Returns = "bool")]
         public bool contains(string partName)
         {
@@ -56,6 +72,12 @@ namespace PrePoMax.API.Python
         {
             string[] names = _meshService.GetPartNames(_resultName);
             return "Parts(count=" + names.Length + ", names=" + new StringListAPI(names).ToString() + ")";
+        }
+        protected override string ToFullString()
+        {
+            string[] names = _meshService.GetPartNames(_resultName);
+            return "Parts(count=" + names.Length + ", names=" +
+                   new StringListAPI(names).GetFullDisplayString() + ")";
         }
     }
 }

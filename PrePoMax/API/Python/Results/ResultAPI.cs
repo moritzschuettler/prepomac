@@ -22,7 +22,7 @@ namespace PrePoMax.API.Python
         private readonly string _resultName;
         private readonly StepsAPI _steps;
         private readonly MeshAPI _mesh;
-        private readonly HistoryAPI _history;
+        private readonly HistoryOutputsAPI _historyOutputs;
 
 
         // Properties
@@ -38,8 +38,8 @@ namespace PrePoMax.API.Python
         public StepsAPI steps { get { Resolve(); return _steps; } }
         [PythonAPI("The result mesh.", Returns = "Mesh")]
         public MeshAPI mesh { get { Resolve(); return _mesh; } }
-        [PythonAPI("The result history outputs.", Returns = "History")]
-        public HistoryAPI history { get { Resolve(); return _history; } }
+        [PythonAPI("Result history outputs indexed by history output name.", Returns = "HistoryOutputs")]
+        public HistoryOutputsAPI history_outputs { get { Resolve(); return _historyOutputs; } }
 
 
         // Constructors
@@ -52,7 +52,7 @@ namespace PrePoMax.API.Python
             _historyService = new HistoryDataService(resolver);
             _steps = new StepsAPI(_resultName, _dataService);
             _mesh = new MeshAPI(_resultName, _meshService);
-            _history = new HistoryAPI(_resultName, _historyService);
+            _historyOutputs = new HistoryOutputsAPI(_resultName, _historyService);
         }
 
 
@@ -60,6 +60,44 @@ namespace PrePoMax.API.Python
         public override string ToString()
         {
             return "Result(name=" + StringListAPI.ToDisplayString(_resultName) + ", steps=" + _dataService.GetStepIds(_resultName).Length + ")";
+        }
+        [PythonAPI("Returns one nodal field component value by node ID.",
+                   Arguments = "step_id: int, increment_id: int, field_name: str, component_name: str, node_id: int",
+                   Returns = "float")]
+        public float get_nodal_value(int stepId, int incrementId, string fieldName, string componentName, int nodeId)
+        {
+            return _dataService.GetNodalValue(_resultName, stepId, incrementId, fieldName, componentName, nodeId);
+        }
+        [PythonAPI("Returns the undeformed nodal coordinates [x, y, z] by node ID.",
+                   Arguments = "node_id: int",
+                   Returns = "numpy.ndarray or NumericArray")]
+        public object get_nodal_coordinates(int nodeId)
+        {
+            return _meshService.GetNodeCoordinates(_resultName, nodeId);
+        }
+        [PythonAPI("Returns the true-scale deformed nodal coordinates [x, y, z] using the DISP field.",
+                   Arguments = "step_id: int, increment_id: int, node_id: int",
+                   Returns = "numpy.ndarray or NumericArray")]
+        public object get_deformed_nodal_coordinates(int stepId, int incrementId, int nodeId)
+        {
+            return _dataService.GetDeformedNodalCoordinates(_resultName, stepId, incrementId, nodeId);
+        }
+        [PythonAPI("Returns the entries in a history output field component.",
+                   Arguments = "history_name: str, field_name: str, component_name: str",
+                   Returns = "HistoryEntries")]
+        public HistoryEntriesAPI get_history_output_entries(string historyName, string fieldName, string componentName)
+        {
+            _historyService.ResolveComponent(_resultName, historyName, fieldName, componentName);
+            return new HistoryEntriesAPI(_resultName, historyName, fieldName, componentName, _historyService);
+        }
+        [PythonAPI("Returns one named entry in a history output field component.",
+                   Arguments = "history_name: str, field_name: str, component_name: str, entry_name: str",
+                   Returns = "HistoryEntry")]
+        public HistoryEntryAPI get_history_output_entry(string historyName, string fieldName, string componentName,
+                                                        string entryName)
+        {
+            _historyService.ResolveEntry(_resultName, historyName, fieldName, componentName, entryName);
+            return new HistoryEntryAPI(_resultName, historyName, fieldName, componentName, entryName, _historyService);
         }
         private FeResults Resolve()
         {

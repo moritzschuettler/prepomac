@@ -46,6 +46,11 @@ namespace PrePoMax.API.Python
         {
             return _dataService.GetComponentData(_resultName, _stepId, _incrementId, _fieldName, _componentName);
         }
+        [PythonAPI("Returns this component value for one node ID.", Arguments = "node_id: int", Returns = "float")]
+        public float get_value(int nodeId)
+        {
+            return _dataService.GetNodalValue(_resultName, _stepId, _incrementId, _fieldName, _componentName, nodeId);
+        }
         public override string ToString()
         {
             return "FieldComponent(name='" + _componentName + "')";

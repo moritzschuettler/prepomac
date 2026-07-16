@@ -62,6 +62,22 @@ namespace PrePoMax.API.Python
             return new IntListAPI(_meshService.GetElementIds(_resultName));
         }
 
+        [PythonAPI("Returns the first mesh element.", Returns = "Element")]
+        public ElementAPI first()
+        {
+            int[] ids = _meshService.GetElementIds(_resultName);
+            if (ids.Length == 0) throw new PythonAPIException("The elements collection is empty.");
+            return this[ids[0]];
+        }
+
+        [PythonAPI("Returns the last mesh element.", Returns = "Element")]
+        public ElementAPI last()
+        {
+            int[] ids = _meshService.GetElementIds(_resultName);
+            if (ids.Length == 0) throw new PythonAPIException("The elements collection is empty.");
+            return this[ids[ids.Length - 1]];
+        }
+
         [PythonAPI("Returns true if the element ID exists.", Arguments = "element_id: int", Returns = "bool")]
         public bool contains(int elementId)
         {

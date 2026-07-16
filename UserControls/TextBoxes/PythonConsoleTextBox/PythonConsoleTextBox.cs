@@ -20,6 +20,7 @@ namespace UserControls
     {
         // Variables                                                                                                                
         private int _inputStart;
+        private int _promptStart;
         private bool _needMoreInput;
         private bool _internalTextChange;
         private bool _consoleInitialized;
@@ -405,6 +406,8 @@ namespace UserControls
                         int selectionEnd = _textBox.SelectionStart + _textBox.SelectionLength;
                         _textBox.SelectionStart = _inputStart;
                         _textBox.SelectionLength = Math.Max(0, selectionEnd - _inputStart);
+                        _textBox.DoSelectionVisible();
+                        _textBox.Invalidate();
                     }
                     else
                     {
@@ -500,7 +503,7 @@ namespace UserControls
 
             _pasteMenuItem.Enabled =
                 Clipboard.ContainsText() &&
-                IsSelectionFullyInInput();
+                CanPasteIntoCurrentInputSelection();
 
             _selectAllMenuItem.Enabled =
                 _textBox.TextLength > 0;
@@ -596,6 +599,7 @@ namespace UserControls
         }
         private void AppendPrompt(string prompt)
         {
+            _promptStart = _textBox.TextLength;
             AppendConsoleText(prompt, _promptStyle);
             _inputStart = _textBox.TextLength;
             MoveCaretToEnd();
@@ -620,7 +624,7 @@ namespace UserControls
         private void PasteIntoInputOnly()
         {
             if (!Clipboard.ContainsText()) return;
-            if (!IsSelectionFullyInInput()) return;
+            if (!PrepareSelectionForInputPaste()) return;
 
             string text = Clipboard.GetText();
             text = text.Replace("\r\n", "\n").Replace("\r", "\n");
@@ -673,6 +677,29 @@ namespace UserControls
 
             return selectionStart >= _inputStart &&
                    selectionEnd >= _inputStart;
+        }
+        private bool CanPasteIntoCurrentInputSelection()
+        {
+            if (IsSelectionFullyInInput()) return true;
+
+            int selectionStart = _textBox.SelectionStart;
+            int selectionEnd = selectionStart + _textBox.SelectionLength;
+
+            return selectionStart >= _promptStart &&
+                   selectionStart < _inputStart &&
+                   selectionEnd >= _promptStart;
+        }
+        private bool PrepareSelectionForInputPaste()
+        {
+            if (IsSelectionFullyInInput()) return true;
+            if (!CanPasteIntoCurrentInputSelection()) return false;
+
+            int selectionEnd = _textBox.SelectionStart + _textBox.SelectionLength;
+            _textBox.SelectionStart = _inputStart;
+            _textBox.SelectionLength = Math.Max(0, selectionEnd - _inputStart);
+                        _textBox.DoSelectionVisible();
+                        _textBox.Invalidate();
+            return true;
         }
         private void AddCommandToHistory(string command)
         {

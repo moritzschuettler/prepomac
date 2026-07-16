@@ -28,26 +28,27 @@ namespace PrePoMax.API.Python
 
 
         // Methods
-        public string[] GetSetNames(string resultName)
+        public string[] GetHistoryOutputNames(string resultName)
         {
             HistoryResults history = ResolveHistory(resultName);
             return history.Sets.Keys.ToArray();
         }
-        public string[] GetFieldNames(string resultName, string setName)
+        public string[] GetFieldNames(string resultName, string historyOutputName)
         {
-            return ResolveSet(resultName, setName).Fields.Keys.ToArray();
+            return ResolveHistoryOutput(resultName, historyOutputName).Fields.Keys.ToArray();
         }
-        public string[] GetComponentNames(string resultName, string setName, string fieldName)
+        public string[] GetComponentNames(string resultName, string historyOutputName, string fieldName)
         {
-            return ResolveField(resultName, setName, fieldName).Components.Keys.ToArray();
+            return ResolveField(resultName, historyOutputName, fieldName).Components.Keys.ToArray();
         }
-        public string[] GetEntryNames(string resultName, string setName, string fieldName, string componentName)
+        public string[] GetEntryNames(string resultName, string historyOutputName, string fieldName, string componentName)
         {
-            return ResolveComponent(resultName, setName, fieldName, componentName).Entries.Keys.ToArray();
+            return ResolveComponent(resultName, historyOutputName, fieldName, componentName).Entries.Keys.ToArray();
         }
-        public HistoryComponentDataAPI GetComponentData(string resultName, string setName, string fieldName, string componentName)
+        public HistoryComponentDataAPI GetComponentData(string resultName, string historyOutputName, string fieldName,
+                                                        string componentName)
         {
-            HistoryResultComponent component = ResolveComponent(resultName, setName, fieldName, componentName);
+            HistoryResultComponent component = ResolveComponent(resultName, historyOutputName, fieldName, componentName);
             if (component.Entries.Count == 0)
                 return new HistoryComponentDataAPI(new double[0], new double[0], component.Unit, new string[0]);
             if (component.Entries.Count == 1)
@@ -73,16 +74,13 @@ namespace PrePoMax.API.Python
             }
             return new HistoryComponentDataAPI(time.ToArray(), values, component.Unit, entryNames.ToArray());
         }
-        public HistoryComponentDataAPI GetEntryData(string resultName, string setName, string fieldName,
-                                                          string componentName, string entryName)
+        public HistoryEntryDataAPI GetEntryData(string resultName, string historyOutputName, string fieldName,
+                                                string componentName, string entryName)
         {
-            HistoryResultComponent component = ResolveComponent(resultName, setName, fieldName, componentName);
-            HistoryResultEntries entry;
-            if (!component.Entries.TryGetValue(entryName, out entry))
-                throw new PythonAPIException("The history entry '" + entryName + "' does not exist in component '" +
-                                             componentName + "'.");
-            return new HistoryComponentDataAPI(entry.Time.ToArray(), entry.Values.ToArray(),
-                                                     GetUnit(component, entry), new string[] { entry.Name });
+            HistoryResultComponent component = ResolveComponent(resultName, historyOutputName, fieldName, componentName);
+            HistoryResultEntries entry = ResolveEntry(resultName, historyOutputName, fieldName, componentName, entryName);
+            return new HistoryEntryDataAPI(entry.Name, entry.Time.ToArray(), entry.Values.ToArray(),
+                                           GetUnit(component, entry));
         }
         public HistoryResults ResolveHistory(string resultName)
         {
@@ -92,30 +90,43 @@ namespace PrePoMax.API.Python
                 throw new PythonAPIException("The result '" + resultName + "' does not contain history results.");
             return history;
         }
-        public HistoryResultSet ResolveSet(string resultName, string setName)
+        public HistoryResultSet ResolveHistoryOutput(string resultName, string historyOutputName)
         {
             HistoryResults history = ResolveHistory(resultName);
-            HistoryResultSet set;
-            if (!history.Sets.TryGetValue(setName, out set))
-                throw new PythonAPIException("The history set '" + setName + "' does not exist in result '" + resultName + "'.");
-            return set;
+            HistoryResultSet historyOutput;
+            if (!history.Sets.TryGetValue(historyOutputName, out historyOutput))
+                throw new PythonAPIException("The history output '" + historyOutputName +
+                                             "' does not exist in result '" + resultName + "'.");
+            return historyOutput;
         }
-        public HistoryResultField ResolveField(string resultName, string setName, string fieldName)
+        public HistoryResultField ResolveField(string resultName, string historyOutputName, string fieldName)
         {
-            HistoryResultSet set = ResolveSet(resultName, setName);
+            HistoryResultSet historyOutput = ResolveHistoryOutput(resultName, historyOutputName);
             HistoryResultField field;
-            if (!set.Fields.TryGetValue(fieldName, out field))
-                throw new PythonAPIException("The history field '" + fieldName + "' does not exist in set '" + setName + "'.");
+            if (!historyOutput.Fields.TryGetValue(fieldName, out field))
+                throw new PythonAPIException("The history field '" + fieldName + "' does not exist in history output '" +
+                                             historyOutputName + "'.");
             return field;
         }
-        public HistoryResultComponent ResolveComponent(string resultName, string setName, string fieldName, string componentName)
+        public HistoryResultComponent ResolveComponent(string resultName, string historyOutputName, string fieldName,
+                                                       string componentName)
         {
-            HistoryResultField field = ResolveField(resultName, setName, fieldName);
+            HistoryResultField field = ResolveField(resultName, historyOutputName, fieldName);
             HistoryResultComponent component;
             if (!field.Components.TryGetValue(componentName, out component))
                 throw new PythonAPIException("The history component '" + componentName + "' does not exist in field '" +
                                              fieldName + "'.");
             return component;
+        }
+        public HistoryResultEntries ResolveEntry(string resultName, string historyOutputName, string fieldName,
+                                                 string componentName, string entryName)
+        {
+            HistoryResultComponent component = ResolveComponent(resultName, historyOutputName, fieldName, componentName);
+            HistoryResultEntries entry;
+            if (!component.Entries.TryGetValue(entryName, out entry))
+                throw new PythonAPIException("The history entry '" + entryName + "' does not exist in component '" +
+                                             componentName + "'.");
+            return entry;
         }
         private static bool AreTimesEqual(List<double> first, List<double> second)
         {

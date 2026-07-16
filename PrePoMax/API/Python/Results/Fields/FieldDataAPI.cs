@@ -22,9 +22,9 @@ namespace PrePoMax.API.Python
 
 
         // Properties
-        [PythonAPI("The node IDs corresponding to the values array.", Returns = "numpy.ndarray or int[]")]
+        [PythonAPI("The node IDs corresponding to the values array.", Returns = "numpy.ndarray or IntList")]
         public object ids { get { return _ids; } }
-        [PythonAPI("The scalar component values.", Returns = "numpy.ndarray or float[]")]
+        [PythonAPI("The scalar component values.", Returns = "numpy.ndarray or NumericArray")]
         public object values { get { return _values; } }
         [PythonAPI("The field location. Field results are node-based in PrePoMax results.", Returns = "str")]
         public string location { get { return _location; } }

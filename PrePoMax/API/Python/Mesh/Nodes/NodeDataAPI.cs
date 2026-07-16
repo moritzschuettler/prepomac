@@ -23,7 +23,7 @@ namespace PrePoMax.API.Python
         // Properties
         [PythonAPI("Node IDs.", Returns = "numpy.ndarray or IntList")]
         public object ids { get { return _ids; } }
-        [PythonAPI("Node coordinates with shape (node_count, 3).", Returns = "numpy.ndarray or double[,]" )]
+        [PythonAPI("Undeformed node coordinates with shape (node_count, 3).", Returns = "numpy.ndarray or NumericArray" )]
         public object coordinates { get { return _coordinates; } }
         [PythonAPI("The number of nodes.", Returns = "int")]
         public int count { get { return _count; } }
