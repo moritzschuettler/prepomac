@@ -41,6 +41,8 @@ namespace PrePoMax
     public class Controller //: ISerializable
     {
         // Variables                                                                                                                
+        private const string ItemLabelsActorName = "Items";
+        //
         [NonSerialized] protected FrmMain _form;
         [NonSerialized] protected SettingsContainer _settings;
         [NonSerialized] protected OrderedDictionary<string, AnalysisJob> _jobs;
@@ -58,6 +60,8 @@ namespace PrePoMax
         [NonSerialized] protected ExplodedViewsCollection _explodedViews;
         [NonSerialized] protected FollowerViewsCollection _followerViews;
         [NonSerialized] protected AnnotateWithColorEnum _annotateWithColor;
+        [NonSerialized] protected ShowItemIdsEnum _showItemIds;
+        [NonSerialized] protected bool _itemIdsSuppressed;
         [NonSerialized] protected string _drawSymbolName;
         // Selection
         [NonSerialized] protected vtkSelectBy _selectBy;
@@ -200,6 +204,16 @@ namespace PrePoMax
                 //
                 _form.InitializeColorBarWidgetPosition();
                 //
+                Redraw();
+            }
+        }
+        // Show item ids
+        public ShowItemIdsEnum ShowItemIds
+        {
+            get { return _showItemIds; }
+            set
+            {
+                _showItemIds = value;
                 Redraw();
             }
         }
@@ -570,6 +584,8 @@ namespace PrePoMax
             SetNewModelProperties(_model.Properties.ModelSpace, _model.UnitSystem.UnitSystemType);   // update widgets
             //
             _annotateWithColor = AnnotateWithColorEnum.None;
+            _showItemIds = ShowItemIdsEnum.None;
+            _itemIdsSuppressed = false;
             _drawSymbolName = null;
             _jobs.Clear();
             ClearAllSelection();
@@ -2931,6 +2947,8 @@ namespace PrePoMax
             DrawSymbols(Globals.SymbolNone, false);
             // Suppress annotations
             _annotations.SuppressCurrentAnnotations();
+            // Suppress item Ids
+            SuppressItemIds();
             // Suppress undeformed results view
             List<Transformation> transformations = _transformations.GetCurrentTransformations();
             UndeformedModelTypeEnum undeformedType = UndeformedModelTypeEnum.None;
@@ -2975,6 +2993,8 @@ namespace PrePoMax
             DrawSymbols(drawSymbolsForStep, false);  // Clears highlight
             // Resume annotations
             _annotations.ResumeCurrentAnnotations();
+            // Resume item Ids
+            ResumeItemIds();
             // Resume section view
             if (sectionViewPlane != null) CreateSectionView(sectionViewPlane.Point.Coor, sectionViewPlane.Normal.Coor,
                                                            _sectionViews.LightenColors, _sectionViews.SectionColor);
@@ -3375,6 +3395,7 @@ namespace PrePoMax
         //******************************************************************************************
         public void ReplaceGeometryPartProperties(string oldPartName, PartProperties newPartProperties)
         {
+            bool nameChanged = oldPartName != newPartProperties.Name;
             // Replace geometry part
             GeometryPart geomPart = GetGeometryPart(oldPartName);
             geomPart.SetProperties(newPartProperties);
@@ -3433,6 +3454,7 @@ namespace PrePoMax
             }
             //
             UpdateAfterPartsChanged();
+            if (nameChanged && _showItemIds == ShowItemIdsEnum.PartNames) RedrawItemIds();
         }
         public void RenameGeometryPart(string oldPartName, string newPartName)
         {
@@ -3630,6 +3652,7 @@ namespace PrePoMax
             AnnotateWithColorLegend();
             // Annotations
             _annotations.DrawAnnotations();
+            if (_currentView == ViewGeometryModelResults.Geometry) RedrawItemIds();
         }
         public void ShowGeometryParts(string[] partNames)
         {
@@ -3674,6 +3697,7 @@ namespace PrePoMax
             AnnotateWithColorLegend();
             // Annotations
             _annotations.DrawAnnotations();
+            if (_currentView == ViewGeometryModelResults.Geometry) RedrawItemIds();
         }
         public void SetColorForGeometryParts(string[] partNames, Color color)
         {
@@ -3842,6 +3866,7 @@ namespace PrePoMax
             CheckAndUpdateModelValidity();
             //
             UpdateTreeSelection();
+            if (_currentView == ViewGeometryModelResults.Geometry) RedrawItemIds();
         }
         public void RegenerateCompoundParts(string[] compoundPartNames)
         {
@@ -6892,6 +6917,7 @@ namespace PrePoMax
             FeModelUpdate(UpdateType.RedrawSymbols);
             // Annotations
             _annotations.DrawAnnotations();
+            if (_currentView == ViewGeometryModelResults.Model) RedrawItemIds();
         }
         public void ShowModelParts(string[] partNames)
         {
@@ -6915,6 +6941,7 @@ namespace PrePoMax
             FeModelUpdate(UpdateType.RedrawSymbols);
             // Annotations
             _annotations.DrawAnnotations();
+            if (_currentView == ViewGeometryModelResults.Model) RedrawItemIds();
         }
         public void SetColorForModelParts(string[] partNames, Color color)
         {
@@ -6951,6 +6978,7 @@ namespace PrePoMax
         }
         public void ReplaceModelPartProperties(string oldPartName, PartProperties newPartProperties)
         {
+            bool nameChanged = oldPartName != newPartProperties.Name;
             // Replace mesh part
             MeshPart meshPart = GetModelPart(oldPartName);
             meshPart.SetProperties(newPartProperties);
@@ -7006,6 +7034,7 @@ namespace PrePoMax
             AnnotateWithColorLegend();
             //
             FeModelUpdate(UpdateType.Check);
+            if (nameChanged && _showItemIds == ShowItemIdsEnum.PartNames) RedrawItemIds();
         }
         public void RenameModelPart(string oldPartName, string newPartName)
         {
@@ -7172,6 +7201,7 @@ namespace PrePoMax
                 FeModelUpdate(UpdateType.RedrawSymbols);
                 // Annotations
                 _annotations.DrawAnnotations();
+                if (_currentView == ViewGeometryModelResults.Model) RedrawItemIds();
             }
         }
         public int[] RemoveModelParts(string[] partNames, bool invalidate, bool removeForRemeshing)
@@ -12332,6 +12362,7 @@ namespace PrePoMax
                 AnnotateWithColorLegend();
                 // Annotations
                 _annotations.DrawAnnotations();
+                if (_currentView == ViewGeometryModelResults.Results) RedrawItemIds();
             }
         }
         public void ShowResultParts(string[] partNames)
@@ -12351,6 +12382,7 @@ namespace PrePoMax
                 AnnotateWithColorLegend();
                 // Annotations
                 _annotations.DrawAnnotations();
+                if (_currentView == ViewGeometryModelResults.Results) RedrawItemIds();
             }
         }
         public void SetColorForResultParts(string[] partNames, Color color)
@@ -12397,6 +12429,7 @@ namespace PrePoMax
         }
         public void ReplaceResultPartProperties(string oldPartName, PartProperties newPartProperties)
         {
+            bool nameChanged = oldPartName != newPartProperties.Name;
             // Replace result part
             BasePart part = GetResultPart(oldPartName);
             part.SetProperties(newPartProperties);
@@ -12408,6 +12441,7 @@ namespace PrePoMax
             AnnotateWithColorLegend();
             //
             FeResultsUpdate(UpdateType.Check);
+            if (nameChanged && _showItemIds == ShowItemIdsEnum.PartNames) RedrawItemIds();
         }
         public void RenameResultPart(string oldPartName, string newPartName)
         {
@@ -15069,6 +15103,8 @@ namespace PrePoMax
                             AnnotateWithColorLegend();
                             _annotations.DrawAnnotations();
                             //
+                            DrawItemIds();
+                            //
                             ApplySectionView();
                         }
                         UpdateTreeSelection();
@@ -15182,6 +15218,8 @@ namespace PrePoMax
                                 DrawAllModelParts();
                                 AnnotateWithColorLegend();
                                 _annotations.DrawAnnotations();
+                                //
+                                DrawItemIds();
                                 //
                                 ApplySectionView();
                             }
@@ -15618,6 +15656,282 @@ namespace PrePoMax
             _form.DrawColorBarBorder(ps.ColorBarDrawBorder);
             //
         }
+        // Items
+        private void DrawItemIds()
+        {
+            if (_showItemIds == ShowItemIdsEnum.None || _itemIdsSuppressed) return;
+            //
+            FeMesh mesh = DisplayedMesh;
+            if (mesh == null) return;
+            //
+            List<double[]> positions = new List<double[]>();
+            double fontScaleFactor = 0.9 * _settings.Pre.SymbolSize / 50d;
+            vtkRendererLayer layer = vtkRendererLayer.Overlay;
+            //
+            if (_showItemIds == ShowItemIdsEnum.PartNames)
+            {
+                List<string> names = new List<string>();
+                foreach (var entry in mesh.Parts)
+                {
+                    BasePart part = entry.Value;
+                    if (IsPartVisibleForItemIds(part)) DrawPartName(part, positions, names);
+                }
+                if (positions.Count > 0)
+                    _form.AddLabelActor(ItemLabelsActorName, positions.ToArray(), names.ToArray(), Color.Black,
+                                        fontScaleFactor, layer);
+                return;
+            }
+            //
+            List<int> labels = new List<int>();
+            if (_showItemIds == ShowItemIdsEnum.Nodes)
+                DrawNodeIds(mesh, positions, labels);
+            else if (_showItemIds == ShowItemIdsEnum.Elements)
+                DrawElementIds(mesh, positions, labels);
+            else
+            {
+                foreach (var entry in mesh.Parts)
+                {
+                    BasePart part = entry.Value;
+                    if (!IsPartVisibleForItemIds(part)) continue;
+                    //
+                    if (_showItemIds == ShowItemIdsEnum.Vertices)
+                        DrawVertexIds(mesh, part, positions, labels);
+                    else if (_showItemIds == ShowItemIdsEnum.Edges)
+                        DrawEdgeIds(mesh, part, positions, labels);
+                    else if (_showItemIds == ShowItemIdsEnum.Surfaces)
+                        DrawSurfaceIds(part, positions, labels);
+                    else if (_showItemIds == ShowItemIdsEnum.Parts)
+                        DrawPartId(part, positions, labels);
+                }
+            }
+            //
+            if (positions.Count > 0)
+                _form.AddLabelActor(ItemLabelsActorName, positions.ToArray(), labels.ToArray(), Color.Black,
+                                    fontScaleFactor, layer);
+        }
+        private void RedrawItemIds()
+        {
+            if (_showItemIds == ShowItemIdsEnum.None || _itemIdsSuppressed) return;
+            //
+            _form.RemoveOverlayActors(new string[] { ItemLabelsActorName });
+            DrawItemIds();
+        }
+        private void SuppressItemIds()
+        {
+            _itemIdsSuppressed = true;
+            _form.RemoveOverlayActors(new string[] { ItemLabelsActorName });
+        }
+        private void ResumeItemIds()
+        {
+            _itemIdsSuppressed = false;
+            DrawItemIds();
+        }
+        private bool IsPartVisibleForItemIds(BasePart part)
+        {
+            if (part is CompoundGeometryPart || !part.Visible) return false;
+            if (_currentView == ViewGeometryModelResults.Model && !part.Active) return false;
+            return true;
+        }
+        private void DrawVertexIds(FeMesh mesh, BasePart part, List<double[]> positions, List<int> labels)
+        {
+            int[] nodeIds = part.Visualization?.VertexNodeIds;
+            if (nodeIds == null) return;
+            //
+            for (int i = 0; i < nodeIds.Length; i++)
+                AddItemIdLabel(nodeIds[i], GetItemIdNodeCoor(mesh, nodeIds[i]), positions, labels);
+        }
+        private void DrawEdgeIds(FeMesh mesh, BasePart part, List<double[]> positions, List<int> labels)
+        {
+            VisualizationData visualization = part.Visualization;
+            if (visualization?.EdgeCellIdsByEdge == null) return;
+            //
+            for (int i = 0; i < visualization.EdgeCellIdsByEdge.Length; i++)
+            {
+                mesh.GetEdgeNodeCoor(i, visualization, out int[] nodeIds, out _);
+                if (nodeIds == null || nodeIds.Length == 0) continue;
+                //
+                double[] coor;
+                if (nodeIds.Length == 2)
+                {
+                    double[] coor1 = GetItemIdNodeCoor(mesh, nodeIds[0]);
+                    double[] coor2 = GetItemIdNodeCoor(mesh, nodeIds[1]);
+                    coor = new double[] { (coor1[0] + coor2[0]) / 2,
+                                          (coor1[1] + coor2[1]) / 2,
+                                          (coor1[2] + coor2[2]) / 2 };
+                }
+                else coor = GetItemIdNodeCoor(mesh, nodeIds[nodeIds.Length / 2]);
+                //
+                AddItemIdLabel(i + 1, coor, positions, labels);
+            }
+        }
+        private void DrawSurfaceIds(BasePart part, List<double[]> positions, List<int> labels)
+        {
+            VisualizationData visualization = part.Visualization;
+            if (visualization == null || visualization.FaceCount == 0) return;
+            if (!TryGetSurfaceGeometryType(part, out GeometryType geometryType)) return;
+            //
+            for (int i = 0; i < visualization.FaceCount; i++)
+            {
+                int geometryId = FeMesh.GetGeometryId(i, (int)geometryType, part.PartId);
+                double[] coor = GetSurfaceCenter(geometryId);
+                if (coor != null) AddItemIdLabel(i + 1, coor, positions, labels);
+            }
+        }
+        public double[] GetSurfaceCenter(int geometryId)
+        {
+            FeMesh mesh = DisplayedMesh;
+            if (mesh == null) return null;
+            //
+            int[] itemTypePartIds = FeMesh.GetItemTypePartIdsFromGeometryId(geometryId);
+            BasePart part = mesh.GetPartFromId(itemTypePartIds[2]);
+            VisualizationData visualization = part?.Visualization;
+            int surfaceId = itemTypePartIds[0];
+            if (visualization == null || surfaceId < 0 || surfaceId >= visualization.FaceCount) return null;
+            //
+            mesh.GetFaceNodes(geometryId, out int[] nodeIds);
+            if (nodeIds == null || nodeIds.Length == 0) return null;
+            //
+            List<double[]> possibleCoor = new List<double[]>(nodeIds.Length);
+            for (int i = 0; i < nodeIds.Length; i++)
+                possibleCoor.Add(GetItemIdNodeCoor(mesh, nodeIds[i]));
+            if (_currentView == ViewGeometryModelResults.Geometry)
+                AddTriangleEdgeMidpoints(mesh, visualization, surfaceId, possibleCoor);
+            //
+            double[][] coor = possibleCoor.ToArray();
+            int[] distributedIds = GetSpatiallyEquallyDistributedCoor(coor, 1, null);
+            return coor[distributedIds[0]];
+        }
+        private void AddTriangleEdgeMidpoints(FeMesh mesh, VisualizationData visualization, int faceId,
+                                              List<double[]> possibleCoor)
+        {
+            HashSet<long> edgeIds = new HashSet<long>();
+            foreach (int cellId in visualization.CellIdsByFace[faceId])
+            {
+                int[] cell = visualization.Cells[cellId];
+                if (cell.Length != 3) continue;
+                //
+                for (int i = 0; i < 3; i++)
+                {
+                    int nodeId1 = cell[i];
+                    int nodeId2 = cell[(i + 1) % 3];
+                    int minNodeId = Math.Min(nodeId1, nodeId2);
+                    int maxNodeId = Math.Max(nodeId1, nodeId2);
+                    long edgeId = ((long)minNodeId << 32) | (uint)maxNodeId;
+                    if (!edgeIds.Add(edgeId)) continue;
+                    //
+                    double[] coor1 = GetItemIdNodeCoor(mesh, nodeId1);
+                    double[] coor2 = GetItemIdNodeCoor(mesh, nodeId2);
+                    possibleCoor.Add(new double[] { (coor1[0] + coor2[0]) / 2,
+                                                    (coor1[1] + coor2[1]) / 2,
+                                                    (coor1[2] + coor2[2]) / 2 });
+                }
+            }
+        }
+        private void DrawPartId(BasePart part, List<double[]> positions, List<int> labels)
+        {
+            double[] coor = GetPartCenterOfGravity(part.PartId);
+            if (coor != null) AddItemIdLabel(part.PartId, coor, positions, labels);
+        }
+        private void DrawPartName(BasePart part, List<double[]> positions, List<string> labels)
+        {
+            double[] coor = GetPartCenterOfGravity(part.PartId);
+            if (coor != null)
+            {
+                positions.Add(coor);
+                labels.Add(part.Name);
+            }
+        }
+        public double[] GetPartCenterOfGravity(int partId)
+        {
+            FeMesh mesh = DisplayedMesh;
+            BasePart part = mesh?.GetPartFromId(partId);
+            if (part == null) return null;
+            //
+            double[] coor = null;
+            if (_currentView == ViewGeometryModelResults.Results &&
+                part.NodeLabels != null && part.NodeLabels.Length > 0)
+            {
+                FeNode[] scaledNodes = GetScaledNodes(GetScale(), part.NodeLabels);
+                Dictionary<int, FeNode> nodes = new Dictionary<int, FeNode>();
+                for (int i = 0; i < scaledNodes.Length; i++) nodes.Add(scaledNodes[i].Id, scaledNodes[i]);
+                coor = mesh.ComputeVolumeArea(part, nodes).CenterOfMass;
+            }
+            else if (part.MassProperties.CenterOfMass != null)
+            {
+                coor = part.MassProperties.CenterOfMass.ToArray();
+                if (part.Offset != null)
+                {
+                    coor[0] += part.Offset[0];
+                    coor[1] += part.Offset[1];
+                    coor[2] += part.Offset[2];
+                }
+            }
+            //
+            if (coor == null && part.BoundingBox != null) coor = part.BoundingBox.GetCenter();
+            return coor;
+        }
+        private void DrawNodeIds(FeMesh mesh, List<double[]> positions, List<int> labels)
+        {
+            HashSet<int> nodeIds = new HashSet<int>();
+            foreach (var entry in mesh.Parts)
+            {
+                BasePart part = entry.Value;
+                VisualizationData visualization = part.Visualization;
+                if (IsPartVisibleForItemIds(part) && visualization?.Cells != null)
+                    nodeIds.UnionWith(visualization.GetNodeIds());
+            }
+            //
+            foreach (int nodeId in nodeIds)
+                AddItemIdLabel(nodeId, GetItemIdNodeCoor(mesh, nodeId), positions, labels);
+        }
+        private void DrawElementIds(FeMesh mesh, List<double[]> positions, List<int> labels)
+        {
+            HashSet<int> elementIds = new HashSet<int>();
+            foreach (var entry in mesh.Parts)
+            {
+                BasePart part = entry.Value;
+                VisualizationData visualization = part.Visualization;
+                if (IsPartVisibleForItemIds(part) && visualization?.CellIds != null)
+                    elementIds.UnionWith(visualization.CellIds);
+            }
+            //
+            foreach (int elementId in elementIds)
+            {
+                if (!mesh.Elements.TryGetValue(elementId, out FeElement element)) continue;
+                double[] coor = element.GetCG(mesh.Nodes, out _);
+                AddItemIdLabel(elementId, coor, positions, labels);
+            }
+        }
+        private bool TryGetSurfaceGeometryType(BasePart part, out GeometryType geometryType)
+        {
+            if (part.PartType == PartType.Shell || part.PartType == PartType.SolidAsShell)
+            {
+                geometryType = GeometryType.ShellFrontSurface;
+                return true;
+            }
+            else if (part.PartType == PartType.Solid)
+            {
+                geometryType = GeometryType.SolidSurface;
+                return true;
+            }
+            else
+            {
+                geometryType = GeometryType.Unknown;
+                return false;
+            }
+        }
+        private double[] GetItemIdNodeCoor(FeMesh mesh, int nodeId)
+        {
+            if (_currentView == ViewGeometryModelResults.Results)
+                return GetScaledNode(GetScale(), nodeId).Coor;
+            else
+                return mesh.Nodes[nodeId].Coor;
+        }
+        private void AddItemIdLabel(int itemId, double[] coor, List<double[]> positions, List<int> labels)
+        {
+            positions.Add(coor);
+            labels.Add(itemId);
+        }
         // Symbols
         public void SetSymbolsName(string symbolName)
         {
@@ -15690,6 +16004,7 @@ namespace PrePoMax
                     // Must be inside to continue screen update
                     if (_currentView != ViewGeometryModelResults.Model) CurrentView = ViewGeometryModelResults.Model;
                     DrawModelSymbols();
+                    DrawItemIds();
                     ResetSectionView();
                 }
                 catch { }
@@ -15717,6 +16032,7 @@ namespace PrePoMax
                     // Must be inside to continue screen update
                     if (_currentView != ViewGeometryModelResults.Results) CurrentView = ViewGeometryModelResults.Results;
                     DrawResultSymbols();
+                    DrawItemIds();
                     ResetSectionView();
                 }
                 catch { }
@@ -20577,6 +20893,8 @@ namespace PrePoMax
                     DrawResultSymbols();
                     // Annotations
                     _annotations.DrawAnnotations();
+                    // Item Ids
+                    DrawItemIds();
                     // Section view
                     ApplySectionView();
                     // Follower view

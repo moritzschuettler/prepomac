@@ -39,23 +39,8 @@ namespace PrePoMax
             FeMesh mesh = Controller.DisplayedMesh;
             BasePart part = mesh.GetPartFromId(_partIds[0]);
             if (part == null) throw new NotSupportedException();
-            //
-            double[][] nodeCoor = new double[part.NodeLabels.Length][];
-            //
-            if (Controller.CurrentView == ViewGeometryModelResults.Geometry ||
-                Controller.CurrentView == ViewGeometryModelResults.Model)
-            {
-                for (int i = 0; i < part.NodeLabels.Length; i++) nodeCoor[i] = mesh.Nodes[part.NodeLabels[i]].Coor;
-            }
-            else if (Controller.CurrentView == ViewGeometryModelResults.Results)
-            {
-                FeNode[] nodes = Controller.GetScaledNodes(Controller.GetScale(), part.NodeLabels);
-                for (int i = 0; i < nodes.Length; i++) nodeCoor[i] = nodes[i].Coor;
-            }
-            else throw new NotSupportedException();
             // Coor
-            int[] distributedNodeIds = Controller.GetSpatiallyEquallyDistributedCoor(nodeCoor, 1, null);
-            coor = nodeCoor[distributedNodeIds[0]];
+            coor = Controller.GetPartCenterOfGravity(part.PartId);
             //
             bool showPartName = Controller.Settings.Annotations.ShowPartName;
             bool showPartId = Controller.Settings.Annotations.ShowPartId;

@@ -903,6 +903,8 @@ namespace UserControls
         }
         public void cltv_KeyDown(object sender, KeyEventArgs e)
         {
+            Debug.WriteLine(e.KeyData);
+
             CodersLabTreeView tree = GetActiveTree();
             //if (tree.Focused) // Disable since called from FrmMain.KeyboardHook_KeyDown
             {

@@ -56,21 +56,17 @@ namespace PrePoMax
             float sum = 0;
             float avg = 0;
             int[] nodeIds;
-            double[][] nodeCoor;
             //
             GeomFaceType faceType = GeomFaceType.Unknown;
             if (part.Visualization.FaceTypes != null) faceType = part.Visualization.FaceTypes[surfaceId];
             //
             mesh.GetFaceNodes(_geometryId, out nodeIds);
-            nodeCoor = new double[nodeIds.Length][];
             //
             if (Controller.CurrentView == ViewGeometryModelResults.Geometry ||
                 Controller.CurrentView == ViewGeometryModelResults.Model)
             {
                 // Area
                 area = mesh.GetSurfaceArea(_geometryId);
-                // Coor
-                for (int i = 0; i < nodeIds.Length; i++) nodeCoor[i] = mesh.Nodes[nodeIds[i]].Coor;
             }
             else if (Controller.CurrentView == ViewGeometryModelResults.Results)
             {
@@ -81,15 +77,12 @@ namespace PrePoMax
                 Dictionary<int, FeNode> nodesDic = new Dictionary<int, FeNode>();
                 for (int i = 0; i < nodes.Length; i++) nodesDic.Add(nodes[i].Id, nodes[i]);
                 mesh.GetFaceNodeLumpedWeights(part.Visualization, surfaceId, nodesDic, out weights, out area);
-                // Coor
-                nodes = Controller.GetScaledNodes(Controller.GetScale(), nodeIds);
-                for (int i = 0; i < nodes.Length; i++) nodeCoor[i] = nodes[i].Coor;
                 //
                 if (Controller.ViewResultsType == ViewResultsTypeEnum.ColorContours)
                 {
                     results = true;
                     // Values
-                    for (int i = 0; i < nodes.Length; i++)
+                    for (int i = 0; i < nodeIds.Length; i++)
                     {
                         value = Controller.GetNodalValue(nodeIds[i]);
                         if (value < min) min = value;
@@ -105,8 +98,7 @@ namespace PrePoMax
             }
             else throw new NotSupportedException();
             // Coor
-            int[] distributedNodeIds = Controller.GetSpatiallyEquallyDistributedCoor(nodeCoor, 1, null);
-            coor = nodeCoor[distributedNodeIds[0]];
+            coor = Controller.GetSurfaceCenter(_geometryId);
             //
             bool showSurfaceId = Controller.Settings.Annotations.ShowEdgeSurId;
             bool showSurfaceType = Controller.Settings.Annotations.ShowEdgeSurType;

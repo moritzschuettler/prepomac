@@ -3548,6 +3548,85 @@ namespace vtkControl
             //
             SetAllCaptionPositions();
         }
+        public void AddLabelActor(string name, double[][] positions, int[] labels, Color color,
+                                  double fontScaleFactor, vtkRendererLayer layer)
+        {
+            if (positions == null || labels == null || positions.Length == 0 || positions.Length != labels.Length)
+                throw new ArgumentException("The label positions and values must have the same non-zero length.");
+            // Points and labels
+            vtkPoints points = vtkPoints.New();
+            vtkIntArray labelData = vtkIntArray.New();
+            labelData.SetName("Labels");
+            labelData.SetNumberOfComponents(1);
+            for (int i = 0; i < positions.Length; i++)
+            {
+                points.InsertNextPoint(positions[i][0], positions[i][1], positions[i][2]);
+                labelData.InsertNextValue(labels[i]);
+            }
+            // Poly data
+            vtkPolyData polyData = vtkPolyData.New();
+            polyData.SetPoints(points);
+            polyData.GetPointData().SetScalars(labelData);
+            // Mapper
+            vtkTextProperty textProperty = CreateNewTextProperty();
+            textProperty.SetColor(color.R / 255d, color.G / 255d, color.B / 255d);
+            textProperty.SetFontSize((int)(textProperty.GetFontSize() * fontScaleFactor));
+            vtkLabeledDataMapper mapper = vtkLabeledDataMapper.New();
+            mapper.SetInput(polyData);
+            mapper.SetLabelModeToLabelScalars();
+            mapper.SetLabelFormat("%d");
+            mapper.SetLabelTextProperty(textProperty);
+            mapper.CoordinateSystemWorld();
+            // Actor
+            vtkActor2D labelActor = vtkActor2D.New();
+            labelActor.SetMapper(mapper);
+            labelActor.PickableOff();
+            labelActor.UseBoundsOff();
+            vtkMaxCaptionActor actor = new vtkMaxCaptionActor(name, color, labelActor);
+            actor.Position = positions[0];
+            // Add all labels as one overlay actor.
+            AddActorCaption(actor, layer);
+        }
+        public void AddLabelActor(string name, double[][] positions, string[] labels, Color color,
+                                  double fontScaleFactor, vtkRendererLayer layer)
+        {
+            if (positions == null || labels == null || positions.Length == 0 || positions.Length != labels.Length)
+                throw new ArgumentException("The label positions and values must have the same non-zero length.");
+            // Points and labels
+            vtkPoints points = vtkPoints.New();
+            vtkStringArray labelData = vtkStringArray.New();
+            labelData.SetName("Labels");
+            labelData.SetNumberOfComponents(1);
+            for (int i = 0; i < positions.Length; i++)
+            {
+                points.InsertNextPoint(positions[i][0], positions[i][1], positions[i][2]);
+                labelData.InsertNextValue(labels[i]);
+            }
+            // Poly data
+            vtkPolyData polyData = vtkPolyData.New();
+            polyData.SetPoints(points);
+            polyData.GetPointData().AddArray(labelData);
+            // Mapper
+            vtkTextProperty textProperty = CreateNewTextProperty();
+            textProperty.SetColor(color.R / 255d, color.G / 255d, color.B / 255d);
+            textProperty.SetFontSize((int)(textProperty.GetFontSize() * fontScaleFactor));
+            vtkLabeledDataMapper mapper = vtkLabeledDataMapper.New();
+            mapper.SetInput(polyData);
+            mapper.SetLabelModeToLabelFieldData();
+            mapper.SetFieldDataName("Labels");
+            mapper.SetLabelFormat("%s");
+            mapper.SetLabelTextProperty(textProperty);
+            mapper.CoordinateSystemWorld();
+            // Actor
+            vtkActor2D labelActor = vtkActor2D.New();
+            labelActor.SetMapper(mapper);
+            labelActor.PickableOff();
+            labelActor.UseBoundsOff();
+            vtkMaxCaptionActor actor = new vtkMaxCaptionActor(name, color, labelActor);
+            actor.Position = positions[0];
+            // Add all labels as one overlay actor.
+            AddActorCaption(actor, layer);
+        }
         private vtkActor GetActorTmp(double x, double y, double z)
         {
             vtkPoints points = vtkPoints.New();
@@ -6848,6 +6927,26 @@ namespace vtkControl
             _overlayActors.Clear();
             //
             RenderScene();
+        }
+        public void RemoveOverlayActors(string[] actorNames)
+        {
+            if (actorNames == null) return;
+            //
+            bool removed = false;
+            foreach (string actorName in actorNames)
+            {
+                if (_overlayActors.TryGetValue(actorName, out vtkMaxActor actor))
+                {
+                    if (actor is vtkMaxCaptionActor captionActor)
+                        _overlayRenderer.RemoveActor2D(captionActor.CaptionActor);
+                    else
+                        _overlayRenderer.RemoveActor(actor.Geometry);
+                    //
+                    _overlayActors.Remove(actorName);
+                    removed = true;
+                }
+            }
+            if (removed) RenderScene();
         }
         #endregion #################################################################################################################
 

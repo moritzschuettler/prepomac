@@ -279,6 +279,7 @@ namespace PrePoMax
                 panelControl.SendToBack();
                 // Menu
                 tsmiColorAnnotations.DropDown.Closing += DropDown_Closing;
+                tsmiViewItems.DropDown.Closing += DropDown_Closing;
                 // Tree
                 _modelTree = new ModelTree();
                 // Controller
@@ -918,38 +919,31 @@ namespace PrePoMax
         private void KeyboardHook_KeyDown(KeyboardHook.VKeys vKey)
         {
             if (this != ActiveForm) return;
+            if (tbOutput.Focused) return;
+            if (_modelTree.Focused) return;
+            if (_visibleSidePanel != null && _visibleSidePanel.Focused) return;
             //
-            if (!tbOutput.Focused && !_modelTree.Focused &&
-               _visibleSidePanel != null && !_visibleSidePanel.Focused)
+            Keys key = (Keys)vKey;
+            if (key == Keys.Escape)
             {
-                Keys key = (Keys)vKey;
-                //
-                if (key == Keys.Escape)
-                {
-                    if (!_vtk.IsBoxSelectionActive) CloseAllForms();
-                }
-                // Model tree
-                else if (_modelTree.ActiveControl == null || !_modelTree.ActiveControl.Focused)
-                {
-                    Control focusedControl = FindFocusedControl(this);
-                    // Check for toolstrip
-                    if (focusedControl != null && focusedControl.Parent is ToolStripFocus) { }
-                    // Check for search box
-                    else if (_modelTree.ActiveControl != null && _modelTree.ActiveControl is SearchTextBox) { }
-                    // Check for annotation editor
-                    else if (aeAnnotationTextEditor.Visible) { }
-                    // Forward to tree
-                    else
-                    {
-                        if (_modelTree.EditModeActive) { }
-                        else
-                        {
-                            _modelTree.cltv_KeyDown(this, new KeyEventArgs(key));
-                            _vtk.Focus();   // this prevents that the coders lab tree calls _modelTree.cltv_KeyDown again
-                        }
-                    }
-                }
+                if (!_vtk.IsBoxSelectionActive) CloseAllForms();
+                return;
             }
+            // Check for toolstrip
+            Control focusedControl = FindFocusedControl(this);
+            if (focusedControl != null && focusedControl.Parent is ToolStripFocus) return;
+            // Check for annotation editor
+            if (aeAnnotationTextEditor.Visible) return;
+            // Model tree
+            if (_modelTree.ActiveControl != null && _modelTree.ActiveControl.Focused) return;
+            // Check for model tree search box
+            if (_modelTree.ActiveControl != null && _modelTree.ActiveControl is SearchTextBox) return;
+            // Model tree edit mode active
+            if (_modelTree.EditModeActive) return;
+            // Forward to tree
+            _modelTree.cltv_KeyDown(this, new KeyEventArgs(key));
+            // Prevent that the coders lab tree calls _modelTree.cltv_KeyDown again
+            _vtk.Focus();
         }
         public static Control FindFocusedControl(Control control)
         {
@@ -3010,7 +3004,7 @@ namespace PrePoMax
             }
             catch { }
         }
-        // Annotate
+        // Color annotations
         private void DropDown_Closing(object sender, ToolStripDropDownClosingEventArgs e)
         {
             if (e.CloseReason == ToolStripDropDownCloseReason.ItemClicked)
@@ -3154,7 +3148,60 @@ namespace PrePoMax
             }
             return AnnotateWithColorEnum.None;
         }
+        // Items
+        private void tsmiViewVertexIds_Click(object sender, EventArgs e)
+        {
+            _controller.ShowItemIds = ChangeVisibleItemIdsStatus(sender);
+        }
+        private void tsmiViewEdgeIds_Click(object sender, EventArgs e)
+        {
+            _controller.ShowItemIds = ChangeVisibleItemIdsStatus(sender);
+        }
+        private void tsmiViewSurfaceIds_Click(object sender, EventArgs e)
+        {
+            _controller.ShowItemIds = ChangeVisibleItemIdsStatus(sender);
+        }
+        private void tsmiViewPartIds_Click(object sender, EventArgs e)
+        {
+            _controller.ShowItemIds = ChangeVisibleItemIdsStatus(sender);
+        }
+        private void tsmiViewPartNames_Click(object sender, EventArgs e)
+        {
+            _controller.ShowItemIds = ChangeVisibleItemIdsStatus(sender);
+        }
+        private void tsmiViewNodeIds_Click(object sender, EventArgs e)
+        {
+            _controller.ShowItemIds = ChangeVisibleItemIdsStatus(sender);
+        }
+        private void tsmiViewElementIds_Click(object sender, EventArgs e)
+        {
+            _controller.ShowItemIds = ChangeVisibleItemIdsStatus(sender);
+        }
         //
+        private ShowItemIdsEnum ChangeVisibleItemIdsStatus(object sender)
+        {
+            if (sender is ToolStripMenuItem tsmi)
+            {
+                // Turn off
+                if (tsmi.Checked) tsmi.Checked = false;
+                // Turn on
+                else
+                {
+                    ClearItemIdsStatus();
+                    tsmi.Checked = true;
+                }
+                if (tsmiViewVertexIds.Checked) return ShowItemIdsEnum.Vertices;
+                if (tsmiViewEdgeIds.Checked) return ShowItemIdsEnum.Edges;
+                if (tsmiViewSurfaceIds.Checked) return ShowItemIdsEnum.Surfaces;
+                if (tsmiViewPartIds.Checked) return ShowItemIdsEnum.Parts;
+                if (tsmiViewPartNames.Checked) return ShowItemIdsEnum.PartNames;
+                if (tsmiViewNodeIds.Checked) return ShowItemIdsEnum.Nodes;
+                if (tsmiViewElementIds.Checked) return ShowItemIdsEnum.Elements;
+                else return ShowItemIdsEnum.None;
+            }
+            else return ShowItemIdsEnum.None;
+        }
+        // Results
         private void tsmiResultsUndeformed_Click(object sender, EventArgs e)
         {
             SetUndeformedModelType(ViewResultsTypeEnum.Undeformed, UndeformedModelTypeEnum.None);
@@ -9878,6 +9925,7 @@ namespace PrePoMax
                 tbOutput.Text = "";
                 ClearResults();
                 ClearAnnotationStatus();
+                ClearItemIdsStatus();
                 _selectedSymbolIndex = new Dictionary<ViewGeometryModelResults, int>();
             });
         }
@@ -9930,6 +9978,16 @@ namespace PrePoMax
             tsmiAnnotateAllSymbols.Checked = false;
             //
             HideColorBar();
+        }
+        private void ClearItemIdsStatus()
+        {
+            tsmiViewVertexIds.Checked = false;
+            tsmiViewEdgeIds.Checked = false;
+            tsmiViewSurfaceIds.Checked = false;
+            tsmiViewPartIds.Checked = false;
+            tsmiViewPartNames.Checked = false;
+            tsmiViewNodeIds.Checked = false;
+            tsmiViewElementIds.Checked = false;
         }
 
         #endregion  ################################################################################################################
@@ -10124,6 +10182,20 @@ namespace PrePoMax
                                     double[] offsetVector, double fontScaleFactor, vtkRendererLayer layer)
         {
             InvokeIfRequired(_vtk.AddCaptionActor, name, caption, color, position, offsetVector, fontScaleFactor, layer);
+        }
+        public void AddLabelActor(string name, double[][] positions, int[] labels, Color color,
+                                  double fontScaleFactor, vtkRendererLayer layer)
+        {
+            InvokeIfRequired(_vtk.AddLabelActor, name, positions, labels, color, fontScaleFactor, layer);
+        }
+        public void AddLabelActor(string name, double[][] positions, string[] labels, Color color,
+                                  double fontScaleFactor, vtkRendererLayer layer)
+        {
+            InvokeIfRequired(_vtk.AddLabelActor, name, positions, labels, color, fontScaleFactor, layer);
+        }
+        public void RemoveOverlayActors(string[] actorNames)
+        {
+            InvokeIfRequired(_vtk.RemoveOverlayActors, actorNames);
         }
         public void AddOrientedDisplacementConstraintActor(vtkMaxActorData actorData, double symbolSize)
         {

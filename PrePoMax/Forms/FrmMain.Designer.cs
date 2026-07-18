@@ -201,6 +201,15 @@ namespace PrePoMax
             this.tsmiAnnotateBCs = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiAnnotateLoads = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiAnnotateDefinedFields = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiViewItems = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiViewVertexIds = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiViewEdgeIds = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiViewSurfaceIds = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiViewPartIds = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiViewPartNames = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiDivideritemIds1 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiViewNodeIds = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiViewElementIds = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiGeometry = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiGeometryPart = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiEditGeometryPart = new System.Windows.Forms.ToolStripMenuItem();
@@ -1605,7 +1614,8 @@ namespace PrePoMax
             this.tsmiResultsDeformedColorWireframe,
             this.tsmiResultsDeformedColorSolid,
             this.tsmiDividerView5,
-            this.tsmiColorAnnotations});
+            this.tsmiColorAnnotations,
+            this.tsmiViewItems});
             this.tsmiView.Name = "tsmiView";
             this.tsmiView.Size = new System.Drawing.Size(44, 20);
             this.tsmiView.Text = "View";
@@ -1919,103 +1929,172 @@ namespace PrePoMax
             // tsmiAnnotateFaceOrientations
             // 
             this.tsmiAnnotateFaceOrientations.Name = "tsmiAnnotateFaceOrientations";
-            this.tsmiAnnotateFaceOrientations.Size = new System.Drawing.Size(179, 22);
+            this.tsmiAnnotateFaceOrientations.Size = new System.Drawing.Size(180, 22);
             this.tsmiAnnotateFaceOrientations.Text = "Face Orientations";
             this.tsmiAnnotateFaceOrientations.Click += new System.EventHandler(this.tsmiAnnotateFaceOrientations_Click);
             // 
             // tsmiDividerColorAnnotations1
             // 
             this.tsmiDividerColorAnnotations1.Name = "tsmiDividerColorAnnotations1";
-            this.tsmiDividerColorAnnotations1.Size = new System.Drawing.Size(176, 6);
+            this.tsmiDividerColorAnnotations1.Size = new System.Drawing.Size(177, 6);
             // 
             // tsmiAnnotateParts
             // 
             this.tsmiAnnotateParts.Name = "tsmiAnnotateParts";
-            this.tsmiAnnotateParts.Size = new System.Drawing.Size(179, 22);
+            this.tsmiAnnotateParts.Size = new System.Drawing.Size(180, 22);
             this.tsmiAnnotateParts.Text = "Parts";
             this.tsmiAnnotateParts.Click += new System.EventHandler(this.tsmiAnnotateParts_Click);
             // 
             // tsmiAnnotateMaterials
             // 
             this.tsmiAnnotateMaterials.Name = "tsmiAnnotateMaterials";
-            this.tsmiAnnotateMaterials.Size = new System.Drawing.Size(179, 22);
+            this.tsmiAnnotateMaterials.Size = new System.Drawing.Size(180, 22);
             this.tsmiAnnotateMaterials.Text = "Materials";
             this.tsmiAnnotateMaterials.Click += new System.EventHandler(this.tsmiAnnotateMaterials_Click);
             // 
             // tsmiAnnotateSections
             // 
             this.tsmiAnnotateSections.Name = "tsmiAnnotateSections";
-            this.tsmiAnnotateSections.Size = new System.Drawing.Size(179, 22);
+            this.tsmiAnnotateSections.Size = new System.Drawing.Size(180, 22);
             this.tsmiAnnotateSections.Text = "Sections";
             this.tsmiAnnotateSections.Click += new System.EventHandler(this.tsmiAnnotateSections_Click);
             // 
             // tsmiAnnotateSectionThicknesses
             // 
             this.tsmiAnnotateSectionThicknesses.Name = "tsmiAnnotateSectionThicknesses";
-            this.tsmiAnnotateSectionThicknesses.Size = new System.Drawing.Size(179, 22);
+            this.tsmiAnnotateSectionThicknesses.Size = new System.Drawing.Size(180, 22);
             this.tsmiAnnotateSectionThicknesses.Text = "Section Thicknesses";
             this.tsmiAnnotateSectionThicknesses.Click += new System.EventHandler(this.tsmiAnnotateSectionThicknesses_Click);
             // 
             // tsmiDividerColorAnnotations2
             // 
             this.tsmiDividerColorAnnotations2.Name = "tsmiDividerColorAnnotations2";
-            this.tsmiDividerColorAnnotations2.Size = new System.Drawing.Size(176, 6);
+            this.tsmiDividerColorAnnotations2.Size = new System.Drawing.Size(177, 6);
             // 
             // tsmiAnnotateAllSymbols
             // 
             this.tsmiAnnotateAllSymbols.Name = "tsmiAnnotateAllSymbols";
-            this.tsmiAnnotateAllSymbols.Size = new System.Drawing.Size(179, 22);
+            this.tsmiAnnotateAllSymbols.Size = new System.Drawing.Size(180, 22);
             this.tsmiAnnotateAllSymbols.Text = "All Symbols";
             this.tsmiAnnotateAllSymbols.Click += new System.EventHandler(this.tsmiAnnotateAllSymbols_Click);
             // 
             // tsmiAnnotateReferencePoints
             // 
             this.tsmiAnnotateReferencePoints.Name = "tsmiAnnotateReferencePoints";
-            this.tsmiAnnotateReferencePoints.Size = new System.Drawing.Size(179, 22);
+            this.tsmiAnnotateReferencePoints.Size = new System.Drawing.Size(180, 22);
             this.tsmiAnnotateReferencePoints.Text = "Reference Points";
             this.tsmiAnnotateReferencePoints.Click += new System.EventHandler(this.tsmiAnnotateReferencePoints_Click);
             // 
             // tsmiAnnotateConstraints
             // 
             this.tsmiAnnotateConstraints.Name = "tsmiAnnotateConstraints";
-            this.tsmiAnnotateConstraints.Size = new System.Drawing.Size(179, 22);
+            this.tsmiAnnotateConstraints.Size = new System.Drawing.Size(180, 22);
             this.tsmiAnnotateConstraints.Text = "Constraints";
             this.tsmiAnnotateConstraints.Click += new System.EventHandler(this.tsmiAnnotateConstraints_Click);
             // 
             // tsmiAnnotateContactPairs
             // 
             this.tsmiAnnotateContactPairs.Name = "tsmiAnnotateContactPairs";
-            this.tsmiAnnotateContactPairs.Size = new System.Drawing.Size(179, 22);
+            this.tsmiAnnotateContactPairs.Size = new System.Drawing.Size(180, 22);
             this.tsmiAnnotateContactPairs.Text = "Contact Pairs";
             this.tsmiAnnotateContactPairs.Click += new System.EventHandler(this.tsmiAnnotateContactPairs_Click);
             // 
             // tsmiAnnotateInitialConditions
             // 
             this.tsmiAnnotateInitialConditions.Name = "tsmiAnnotateInitialConditions";
-            this.tsmiAnnotateInitialConditions.Size = new System.Drawing.Size(179, 22);
+            this.tsmiAnnotateInitialConditions.Size = new System.Drawing.Size(180, 22);
             this.tsmiAnnotateInitialConditions.Text = "Initial conditions";
             this.tsmiAnnotateInitialConditions.Click += new System.EventHandler(this.tsmiAnnotateInitialConditions_Click);
             // 
             // tsmiAnnotateBCs
             // 
             this.tsmiAnnotateBCs.Name = "tsmiAnnotateBCs";
-            this.tsmiAnnotateBCs.Size = new System.Drawing.Size(179, 22);
+            this.tsmiAnnotateBCs.Size = new System.Drawing.Size(180, 22);
             this.tsmiAnnotateBCs.Text = "BCs";
             this.tsmiAnnotateBCs.Click += new System.EventHandler(this.tsmiAnnotateBCs_Click);
             // 
             // tsmiAnnotateLoads
             // 
             this.tsmiAnnotateLoads.Name = "tsmiAnnotateLoads";
-            this.tsmiAnnotateLoads.Size = new System.Drawing.Size(179, 22);
+            this.tsmiAnnotateLoads.Size = new System.Drawing.Size(180, 22);
             this.tsmiAnnotateLoads.Text = "Loads";
             this.tsmiAnnotateLoads.Click += new System.EventHandler(this.tsmiAnnotateLoads_Click);
             // 
             // tsmiAnnotateDefinedFields
             // 
             this.tsmiAnnotateDefinedFields.Name = "tsmiAnnotateDefinedFields";
-            this.tsmiAnnotateDefinedFields.Size = new System.Drawing.Size(179, 22);
+            this.tsmiAnnotateDefinedFields.Size = new System.Drawing.Size(180, 22);
             this.tsmiAnnotateDefinedFields.Text = "Defined Fields";
             this.tsmiAnnotateDefinedFields.Click += new System.EventHandler(this.tsmiAnnotateLoads_Click);
+            // 
+            // tsmiViewItems
+            // 
+            this.tsmiViewItems.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmiViewVertexIds,
+            this.tsmiViewEdgeIds,
+            this.tsmiViewSurfaceIds,
+            this.tsmiViewPartIds,
+            this.tsmiViewPartNames,
+            this.tsmiDivideritemIds1,
+            this.tsmiViewNodeIds,
+            this.tsmiViewElementIds});
+            this.tsmiViewItems.Name = "tsmiViewItems";
+            this.tsmiViewItems.Size = new System.Drawing.Size(243, 22);
+            this.tsmiViewItems.Text = "Items";
+            // 
+            // tsmiViewVertexIds
+            // 
+            this.tsmiViewVertexIds.Name = "tsmiViewVertexIds";
+            this.tsmiViewVertexIds.Size = new System.Drawing.Size(180, 22);
+            this.tsmiViewVertexIds.Text = "Vertex IDs";
+            this.tsmiViewVertexIds.Click += new System.EventHandler(this.tsmiViewVertexIds_Click);
+            // 
+            // tsmiViewEdgeIds
+            // 
+            this.tsmiViewEdgeIds.Name = "tsmiViewEdgeIds";
+            this.tsmiViewEdgeIds.Size = new System.Drawing.Size(180, 22);
+            this.tsmiViewEdgeIds.Text = "Edge IDs";
+            this.tsmiViewEdgeIds.Click += new System.EventHandler(this.tsmiViewEdgeIds_Click);
+            // 
+            // tsmiViewSurfaceIds
+            // 
+            this.tsmiViewSurfaceIds.Name = "tsmiViewSurfaceIds";
+            this.tsmiViewSurfaceIds.Size = new System.Drawing.Size(180, 22);
+            this.tsmiViewSurfaceIds.Text = "Surface IDs";
+            this.tsmiViewSurfaceIds.Click += new System.EventHandler(this.tsmiViewSurfaceIds_Click);
+            // 
+            // tsmiViewPartIds
+            // 
+            this.tsmiViewPartIds.Name = "tsmiViewPartIds";
+            this.tsmiViewPartIds.Size = new System.Drawing.Size(180, 22);
+            this.tsmiViewPartIds.Text = "Part IDs";
+            this.tsmiViewPartIds.Click += new System.EventHandler(this.tsmiViewPartIds_Click);
+            // 
+            // tsmiViewPartNames
+            // 
+            this.tsmiViewPartNames.Name = "tsmiViewPartNames";
+            this.tsmiViewPartNames.Size = new System.Drawing.Size(180, 22);
+            this.tsmiViewPartNames.Text = "Part Names";
+            this.tsmiViewPartNames.Click += new System.EventHandler(this.tsmiViewPartNames_Click);
+            // 
+            // tsmiDivideritemIds1
+            // 
+            this.tsmiDivideritemIds1.Name = "tsmiDivideritemIds1";
+            this.tsmiDivideritemIds1.Size = new System.Drawing.Size(177, 6);
+            // 
+            // tsmiViewNodeIds
+            // 
+            this.tsmiViewNodeIds.Name = "tsmiViewNodeIds";
+            this.tsmiViewNodeIds.Size = new System.Drawing.Size(180, 22);
+            this.tsmiViewNodeIds.Text = "Node IDs";
+            this.tsmiViewNodeIds.Click += new System.EventHandler(this.tsmiViewNodeIds_Click);
+            // 
+            // tsmiViewElementIds
+            // 
+            this.tsmiViewElementIds.Name = "tsmiViewElementIds";
+            this.tsmiViewElementIds.Size = new System.Drawing.Size(180, 22);
+            this.tsmiViewElementIds.Text = "Element IDs";
+            this.tsmiViewElementIds.Click += new System.EventHandler(this.tsmiViewElementIds_Click);
             // 
             // tsmiGeometry
             // 
@@ -5463,6 +5542,15 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripButton tsbArrangeAnnotations;
         private System.Windows.Forms.ToolStripMenuItem tsmiArrangeAnnotations;
         private System.Windows.Forms.ToolStripMenuItem tsmiRemoveAnnotations;
+        private System.Windows.Forms.ToolStripMenuItem tsmiViewItems;
+        private System.Windows.Forms.ToolStripMenuItem tsmiViewVertexIds;
+        private System.Windows.Forms.ToolStripMenuItem tsmiViewEdgeIds;
+        private System.Windows.Forms.ToolStripMenuItem tsmiViewSurfaceIds;
+        private System.Windows.Forms.ToolStripMenuItem tsmiViewPartIds;
+        private System.Windows.Forms.ToolStripMenuItem tsmiViewPartNames;
+        private System.Windows.Forms.ToolStripSeparator tsmiDivideritemIds1;
+        private System.Windows.Forms.ToolStripMenuItem tsmiViewNodeIds;
+        private System.Windows.Forms.ToolStripMenuItem tsmiViewElementIds;
     }
 }
 
