@@ -71,7 +71,7 @@ namespace FileInOut.Output.Calculix
             }
             else if (_surface.Type == FeSurfaceType.Node)
             {
-                sb.AppendFormat("{0}", _surface.NodeSetName).AppendLine();
+                sb.AppendLine(_surface.NodeSetName);
             }
             else throw new NotImplementedException();
             return sb.ToString();

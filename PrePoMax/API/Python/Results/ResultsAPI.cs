@@ -1,13 +1,11 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinsek
+// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
 // Source code: https://gitlab.com/MatejB/PrePoMax
 //
-// Author: Matej Borovinsek
+// Author: Matej Borovinšek
 // Contributors:
-
-using System.Linq;
 
 namespace PrePoMax.API.Python
 {
@@ -15,12 +13,32 @@ namespace PrePoMax.API.Python
     {
         // Variables
         private readonly ResultResolver _resolver;
+        private readonly ResultFieldOutputService _resultFieldOutputService;
+        private readonly IPythonCommandGateway _commandGateway;
+
+
+        // Properties
+        [PythonAPI("The currently selected result.", Returns = "Result")]
+        public ResultAPI current
+        {
+            get
+            {
+                string resultName = _resolver.GetCurrentResultName();
+                if (resultName == null) throw new PythonAPIException("No current result is selected.");
+                return new ResultAPI(_resolver, resultName, _resultFieldOutputService);
+            }
+        }
+        [PythonAPI("User-defined field outputs for the currently selected result.", Returns = "FieldOutputs")]
+        public ResultFieldOutputsAPI field_outputs { get { return current.field_outputs; } }
 
 
         // Constructors
-        internal ResultsAPI(ResultResolver resolver)
+        internal ResultsAPI(ResultResolver resolver, ResultFieldOutputService resultFieldOutputService,
+                            IPythonCommandGateway commandGateway)
         {
             _resolver = resolver;
+            _resultFieldOutputService = resultFieldOutputService;
+            _commandGateway = commandGateway;
         }
 
 
@@ -29,18 +47,6 @@ namespace PrePoMax.API.Python
         {
             return _resolver.GetResultNames().Length;
         }
-        public ResultAPI __getitem__(string resultName)
-        {
-            return this[resultName];
-        }
-        public ResultAPI this[string resultName]
-        {
-            get
-            {
-                _resolver.ResolveResult(resultName);
-                return new ResultAPI(_resolver, resultName);
-            }
-        }
 
         [PythonAPI("Returns the loaded result names.", Returns = "StringList")]
         public StringListAPI get_names()
@@ -48,20 +54,18 @@ namespace PrePoMax.API.Python
             return new StringListAPI(_resolver.GetResultNames());
         }
 
-        [PythonAPI("Returns the first loaded result.", Returns = "Result")]
-        public ResultAPI first()
+        [PythonAPI("Sets the current result using its loaded path name and returns it.",
+                   Arguments = "result_name: str", Returns = "Result")]
+        public ResultAPI set_current(string result_name)
         {
-            string[] names = _resolver.GetResultNames();
-            if (names.Length == 0) throw new PythonAPIException("The results collection is empty.");
-            return this[names[0]];
-        }
-
-        [PythonAPI("Returns the last loaded result.", Returns = "Result")]
-        public ResultAPI last()
-        {
-            string[] names = _resolver.GetResultNames();
-            if (names.Length == 0) throw new PythonAPIException("The results collection is empty.");
-            return this[names[names.Length - 1]];
+            if (!_resolver.ContainsResult(result_name))
+                throw new PythonAPIException("The result '" + result_name + "' is not loaded.");
+            if (_commandGateway == null)
+                throw new PythonAPIException("Result selection is not available in this Python API context.");
+            _commandGateway.SetCurrentResults(result_name);
+            if (!_resolver.IsCurrentResult(result_name))
+                throw new PythonAPIException("The result '" + result_name + "' could not be selected.");
+            return current;
         }
 
         [PythonAPI("Returns true if a result with the specified name is loaded.", Arguments = "result_name: str", Returns = "bool")]
@@ -70,28 +74,18 @@ namespace PrePoMax.API.Python
             return _resolver.ContainsResult(resultName);
         }
 
-        // Backward-compatible console test methods from the prototype API.
-        public StringListAPI get_result_names()
-        {
-            return get_names();
-        }
-        public StringListAPI get_field_names(string resultName)
-        {
-            return new StringListAPI(_resolver.ResolveResult(resultName).GetVisibleFieldNames());
-        }
-        public StringListAPI get_field_component_names(string resultName, string fieldName)
-        {
-            return new StringListAPI(_resolver.ResolveResult(resultName).GetFieldComponentNames(fieldName));
-        }
         public override string ToString()
         {
             string[] names = _resolver.GetResultNames();
-            return "Results(count=" + names.Length + ", names=" + new StringListAPI(names).ToString() + ")";
+            return "Results(count=" + names.Length + ", current=" +
+                   StringListAPI.ToDisplayString(_resolver.GetCurrentResultName()) +
+                   ", names=" + new StringListAPI(names).ToString() + ")";
         }
         protected override string ToFullString()
         {
             string[] names = _resolver.GetResultNames();
-            return "Results(count=" + names.Length + ", names=" +
+            return "Results(count=" + names.Length + ", current=" +
+                   StringListAPI.ToDisplayString(_resolver.GetCurrentResultName()) + ", names=" +
                    new StringListAPI(names).GetFullDisplayString() + ")";
         }
     }

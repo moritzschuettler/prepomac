@@ -1,10 +1,10 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinsek
+// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
 // Source code: https://gitlab.com/MatejB/PrePoMax
 //
-// Author: Matej Borovinsek
+// Author: Matej Borovinšek
 // Contributors:
 
 using CaeResults;
@@ -75,9 +75,16 @@ namespace PrePoMax.API.Python
         //
         public static void SetResults(ResultsCollection results)
         {
+            SetResults(results, null);
+        }
+        public static void SetResults(ResultsCollection results, Controller controller)
+        {
             Initialize();
             //
-            PrePoMaxAPI pmx = new PrePoMaxAPI(results);
+            IPythonCommandGateway commandGateway = controller != null
+                                                   ? new ControllerPythonCommandGateway(controller)
+                                                   : null;
+            PrePoMaxAPI pmx = new PrePoMaxAPI(results, commandGateway);
             //
             using (Py.GIL())
             {

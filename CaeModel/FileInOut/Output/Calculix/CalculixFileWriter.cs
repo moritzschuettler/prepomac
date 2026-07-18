@@ -1320,12 +1320,16 @@ namespace FileInOut.Output
         {
             if (model.Mesh != null)
             {
+                FeSurface surface;
                 CalSurface calSurface;
                 foreach (var entry in model.Mesh.Surfaces)
                 {
-                    if (entry.Value.Active && entry.Value.ElementFaces != null)
+                    surface = entry.Value;
+                    if (surface.Active &&
+                        ((surface.Type == FeSurfaceType.Element && surface.ElementFaces != null) ||
+                        (surface.Type == FeSurfaceType.Node && surface.NodeSetName != null)))
                     {
-                        calSurface = new CalSurface(entry.Value, model.Properties.ModelSpace.IsTwoD());
+                        calSurface = new CalSurface(surface, model.Properties.ModelSpace.IsTwoD());
                         parent.AddKeyword(calSurface);
                     }
                     else parent.AddKeyword(new CalDeactivated(entry.Value.Name));

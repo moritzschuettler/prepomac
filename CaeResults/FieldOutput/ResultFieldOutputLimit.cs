@@ -24,7 +24,9 @@ namespace CaeResults
         [StandardValue("Parts", DisplayName = "Parts", Description = "Parts")]
         Parts,
         [StandardValue("ElementSets", DisplayName = "Element sets", Description = "Element sets")]
-        ElementSets
+        ElementSets,
+        [StandardValue("AllElements", DisplayName = "All elements", Description = "All elements")]
+        AllElements,
     }
 
 
@@ -32,7 +34,6 @@ namespace CaeResults
     public class ResultFieldOutputLimit : ResultFieldOutput
     {
         // Variables                                                                                                                
-        public static readonly string AllElementsName = "All elements";
         private string _fieldName;
         private string _componentName;
         private LimitPlotBasedOnEnum _limitPlotBasedOn;

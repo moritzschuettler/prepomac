@@ -917,7 +917,9 @@ namespace PrePoMax
         // Keyboard
         private void KeyboardHook_KeyDown(KeyboardHook.VKeys vKey)
         {
-            if (this == ActiveForm && !tbOutput.Focused && !_modelTree.Focused &&
+            if (this != ActiveForm) return;
+            //
+            if (!tbOutput.Focused && !_modelTree.Focused &&
                _visibleSidePanel != null && !_visibleSidePanel.Focused)
             {
                 Keys key = (Keys)vKey;
@@ -2669,7 +2671,8 @@ namespace PrePoMax
         }
         private void UpdatePythonEngine(bool forceUpdate = false)
         {
-            if (_visibleSidePanel is PythonPanel || forceUpdate) PythonEngineManager.SetResults(_controller.AllResults);
+            if (_visibleSidePanel is PythonPanel || forceUpdate)
+                PythonEngineManager.SetResults(_controller.AllResults, _controller);
         }
         private void PythonPanel_ExecuteCommand(object sender, PythonTextBoxCommandEventArgs e)
         {

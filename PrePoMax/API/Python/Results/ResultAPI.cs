@@ -1,10 +1,10 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinsek
+// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
 // Source code: https://gitlab.com/MatejB/PrePoMax
 //
-// Author: Matej Borovinsek
+// Author: Matej Borovinšek
 // Contributors:
 
 using CaeResults;
@@ -18,11 +18,13 @@ namespace PrePoMax.API.Python
         private readonly ResultResolver _resolver;
         private readonly ResultDataService _dataService;
         private readonly MeshDataService _meshService;
-        private readonly HistoryDataService _historyService;
+        private readonly ResultHistoryOutputDataService _resultHistoryService;
+        private readonly ResultFieldOutputService _resultFieldOutputService;
         private readonly string _resultName;
-        private readonly StepsAPI _steps;
+        private readonly ResultStepsAPI _steps;
         private readonly MeshAPI _mesh;
-        private readonly HistoryOutputsAPI _historyOutputs;
+        private readonly ResultHistoryOutputsAPI _historyOutputs;
+        private readonly ResultFieldOutputsAPI _fieldOutputs;
 
 
         // Properties
@@ -35,24 +37,28 @@ namespace PrePoMax.API.Python
         [PythonAPI("The result unit system.", Returns = "str")]
         public string unit_system { get { return Resolve().UnitSystem != null ? Resolve().UnitSystem.ToString() : null; } }
         [PythonAPI("Result steps indexed by result step ID.", Returns = "Steps")]
-        public StepsAPI steps { get { Resolve(); return _steps; } }
+        public ResultStepsAPI steps { get { Resolve(); return _steps; } }
         [PythonAPI("The result mesh.", Returns = "Mesh")]
         public MeshAPI mesh { get { Resolve(); return _mesh; } }
         [PythonAPI("Result history outputs indexed by history output name.", Returns = "HistoryOutputs")]
-        public HistoryOutputsAPI history_outputs { get { Resolve(); return _historyOutputs; } }
+        public ResultHistoryOutputsAPI history_outputs { get { Resolve(); return _historyOutputs; } }
+        [PythonAPI("User-defined result field outputs indexed by field output name.", Returns = "FieldOutputs")]
+        public ResultFieldOutputsAPI field_outputs { get { Resolve(); return _fieldOutputs; } }
 
 
         // Constructors
-        internal ResultAPI(ResultResolver resolver, string resultName)
+        internal ResultAPI(ResultResolver resolver, string resultName, ResultFieldOutputService resultFieldOutputService)
         {
             _resolver = resolver;
             _resultName = resultName;
+            _resultFieldOutputService = resultFieldOutputService;
             _dataService = new ResultDataService(resolver);
             _meshService = new MeshDataService(resolver);
-            _historyService = new HistoryDataService(resolver);
-            _steps = new StepsAPI(_resultName, _dataService);
+            _resultHistoryService = new ResultHistoryOutputDataService(resolver);
+            _steps = new ResultStepsAPI(_resultName, _dataService);
             _mesh = new MeshAPI(_resultName, _meshService);
-            _historyOutputs = new HistoryOutputsAPI(_resultName, _historyService);
+            _historyOutputs = new ResultHistoryOutputsAPI(_resultName, _resultHistoryService);
+            _fieldOutputs = new ResultFieldOutputsAPI(_resultName, _resultFieldOutputService);
         }
 
 
@@ -85,19 +91,19 @@ namespace PrePoMax.API.Python
         [PythonAPI("Returns the entries in a history output field component.",
                    Arguments = "history_name: str, field_name: str, component_name: str",
                    Returns = "HistoryEntries")]
-        public HistoryEntriesAPI get_history_output_entries(string historyName, string fieldName, string componentName)
+        public ResultHistoryOutputEntriesAPI get_history_output_entries(string historyName, string fieldName, string componentName)
         {
-            _historyService.ResolveComponent(_resultName, historyName, fieldName, componentName);
-            return new HistoryEntriesAPI(_resultName, historyName, fieldName, componentName, _historyService);
+            _resultHistoryService.ResolveComponent(_resultName, historyName, fieldName, componentName);
+            return new ResultHistoryOutputEntriesAPI(_resultName, historyName, fieldName, componentName, _resultHistoryService);
         }
         [PythonAPI("Returns one named entry in a history output field component.",
                    Arguments = "history_name: str, field_name: str, component_name: str, entry_name: str",
                    Returns = "HistoryEntry")]
-        public HistoryEntryAPI get_history_output_entry(string historyName, string fieldName, string componentName,
+        public ResultHistoryOutputEntryAPI get_history_output_entry(string historyName, string fieldName, string componentName,
                                                         string entryName)
         {
-            _historyService.ResolveEntry(_resultName, historyName, fieldName, componentName, entryName);
-            return new HistoryEntryAPI(_resultName, historyName, fieldName, componentName, entryName, _historyService);
+            _resultHistoryService.ResolveEntry(_resultName, historyName, fieldName, componentName, entryName);
+            return new ResultHistoryOutputEntryAPI(_resultName, historyName, fieldName, componentName, entryName, _resultHistoryService);
         }
         private FeResults Resolve()
         {

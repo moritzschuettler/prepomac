@@ -538,7 +538,10 @@ namespace CaeResults
                             else if (rfol.LimitPlotBasedOn == LimitPlotBasedOnEnum.ElementSets)
                             {
                                 names = new HashSet<string>(_mesh.ElementSets.Keys);
-                                names.Add(ResultFieldOutputLimit.AllElementsName);
+                            }
+                            else if (rfol.LimitPlotBasedOn == LimitPlotBasedOnEnum.AllElements)
+                            {
+                                names = new HashSet<string>{LimitPlotBasedOnEnum.AllElements.GetDisplayedName()};
                             }
                             else throw new NotSupportedException();
                             //
@@ -3300,7 +3303,7 @@ namespace CaeResults
                 if (resultFieldOutput.Filter1.Type != FieldResultFilterTypeEnum.None)
                     values = FilterFieldValues(values, resultFieldOutput.Filter1);
                 if (resultFieldOutput.Filter2.Type != FieldResultFilterTypeEnum.None)
-                    values = FilterFieldValues(values, resultFieldOutput.Filter1);
+                    values = FilterFieldValues(values, resultFieldOutput.Filter2);
                 //
                 int count = 0;
                 FieldData newFieldData;
@@ -3566,16 +3569,17 @@ namespace CaeResults
                             }
                         }
                     }
-                    else if (resultFieldOutput.LimitPlotBasedOn == LimitPlotBasedOnEnum.ElementSets)
+                    else if (resultFieldOutput.LimitPlotBasedOn == LimitPlotBasedOnEnum.ElementSets ||
+                             resultFieldOutput.LimitPlotBasedOn == LimitPlotBasedOnEnum.AllElements)
                     {
                         // Collect limits for element sets
                         FeElementSet elementSet;
                         foreach (var itemEntry in resultFieldOutput.ItemNameLimit)
                         {
                             if (_mesh.ElementSets.TryGetValue(itemEntry.Key, out elementSet) ||
-                                itemEntry.Key == ResultFieldOutputLimit.AllElementsName)
+                                resultFieldOutput.LimitPlotBasedOn == LimitPlotBasedOnEnum.AllElements)
                             {
-                                if (itemEntry.Key == ResultFieldOutputLimit.AllElementsName)
+                                if (resultFieldOutput.LimitPlotBasedOn == LimitPlotBasedOnEnum.AllElements)
                                     elementSet = new FeElementSet("tmp", _mesh.Elements.Keys.ToArray());
                                 //
                                 itemLimit = (float)itemEntry.Value;
@@ -6491,7 +6495,7 @@ namespace CaeResults
                 //
                 globalVectors = smoothedVectors;
             }
-            // Move midside nodes to to central positions                                                                           
+            // Move midside nodes to the central positions                                                                           
             Dictionary<int, int[]> midNodeIdNeighbours = new Dictionary<int, int[]>();
             foreach (var entry in _mesh.Elements)
             {

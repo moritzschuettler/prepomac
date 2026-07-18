@@ -1,10 +1,10 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinsek
+// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
 // Source code: https://gitlab.com/MatejB/PrePoMax
 //
-// Author: Matej Borovinsek
+// Author: Matej Borovinšek
 // Contributors:
 
 using FastColoredTextBoxNS;
@@ -296,6 +296,12 @@ namespace UserControls
 
             if (IsAutocompleteMenuVisible() && IsAutocompleteMenuKey(e.KeyCode))
                 return false;
+
+            if (IsAutocompleteMenuVisible() && IsAutocompleteCommitAndContinueKey(e))
+            {
+                _autocompleteMenu.OnSelecting();
+                return false;
+            }
 
             // Tab key: Auto-complete the current input
             if (e.KeyCode == Keys.Tab)
@@ -982,6 +988,14 @@ namespace UserControls
                    keyCode == Keys.Down ||
                    keyCode == Keys.PageUp ||
                    keyCode == Keys.PageDown;
+        }
+        private bool IsAutocompleteCommitAndContinueKey(KeyEventArgs e)
+        {
+            if (e.Control || e.Alt) return false;
+            if (e.KeyCode == Keys.Space) return true;
+
+            return !e.Shift &&
+                   (e.KeyCode == Keys.OemPeriod || e.KeyCode == Keys.Decimal);
         }
         private bool IsAutocompleteTriggerCharacter(char c)
         {

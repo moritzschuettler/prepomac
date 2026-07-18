@@ -26,6 +26,7 @@ namespace PrePoMax
         // Variables                                                                                                                
         private List<LimitPartDataPoint> _partPoints;
         private List<LimitElementSetDataPoint> _elementSetPoints;
+        private List<LimitElementSetDataPoint> _allElementsPoints;
         private Dictionary<string, string[]> _filedNameComponentNames;
 
 
@@ -93,6 +94,7 @@ namespace PrePoMax
             {
                 if (LimitPlotBasedOn == LimitPlotBasedOnEnum.Parts) return _partPoints;
                 if (LimitPlotBasedOn == LimitPlotBasedOnEnum.ElementSets) return _elementSetPoints;
+                if (LimitPlotBasedOn == LimitPlotBasedOnEnum.AllElements) return _allElementsPoints;
                 else throw new NotSupportedException();
             }
         }
@@ -114,7 +116,7 @@ namespace PrePoMax
                 _partPoints.Add(new LimitPartDataPoint(partName, limit));
             }
             // Element sets
-            if (elementSetNames.Length == 0) elementSetNames = new string[] { ResultFieldOutputLimit.AllElementsName };
+            if (elementSetNames.Length == 0) elementSetNames = new string[] { "Missing" };
             //
             _elementSetPoints = new List<LimitElementSetDataPoint>();
             foreach (var elementSetName in elementSetNames)
@@ -123,6 +125,11 @@ namespace PrePoMax
                 valid &= ResultFieldOutput.ItemNameLimit.TryGetValue(elementSetName, out limit);
                 _elementSetPoints.Add(new LimitElementSetDataPoint(elementSetName, limit));
             }
+            // All elements
+            _allElementsPoints = new List<LimitElementSetDataPoint>();
+            limit = 0;
+            valid &= ResultFieldOutput.ItemNameLimit.TryGetValue(LimitPlotBasedOnEnum.AllElements.GetDisplayedName(), out limit);
+            _allElementsPoints.Add(new LimitElementSetDataPoint(LimitPlotBasedOnEnum.AllElements.GetDisplayedName(), limit));
             //
             if (!valid) propertyChanged = true;
         }
@@ -143,6 +150,13 @@ namespace PrePoMax
             else if (LimitPlotBasedOn == LimitPlotBasedOnEnum.ElementSets)
             {
                 foreach (var point in _elementSetPoints)
+                {
+                    ResultFieldOutput.ItemNameLimit.Add(point.ElementSetName, point.Limit);
+                }
+            }
+            else if (LimitPlotBasedOn == LimitPlotBasedOnEnum.AllElements)
+            {
+                foreach (var point in _allElementsPoints)
                 {
                     ResultFieldOutput.ItemNameLimit.Add(point.ElementSetName, point.Limit);
                 }

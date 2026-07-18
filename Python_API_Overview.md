@@ -1,4 +1,4 @@
-﻿# PrePoMax Python API Overview
+# PrePoMax Python API Overview
 
 This document is a simple overview of the Python API objects exposed by PrePoMax.
 The root object available in the Python console is `pmx`.
@@ -11,18 +11,23 @@ The root object available in the Python console is `pmx`.
 - Ordered object collections provide `first()` and `last()` convenience methods.
 - Name collections return `StringList` objects. ID collections return `IntList` objects.
 - Long API arrays and named collections are shortened when evaluated directly. Use `print(array)` to display every item.
-- Result names are strings. In many projects they are full file paths.
+- Result names are strings. In many projects they are full file paths and are used to select the current result.
+- Result data is exposed through `pmx.results.current`. Use `set_current(result_name)` to change it.
 - Result steps and increments are indexed by result IDs, not by model step names.
 - Field result data is node-based. Only history output can contain integration point values.
 - Integration point history entry names use the form `elementId_intPointId`.
 - NumPy is optional. Where available, numeric arrays are returned as NumPy arrays. Otherwise, `NumericArray` or typed API list wrappers are returned.
+- Methods that construct Python-side drafts or specifications start with `create_` and do not modify PrePoMax.
+- Collection `add(...)` methods perform validation and make the command-recorded database change.
 
 ## Typical access path
 
 ```python
 pmx
 pmx.results
-result = pmx.results.first()
+result_names = pmx.results.get_names()
+pmx.results.set_current(result_names[-1])
+result = pmx.results.current
 step = result.steps[1]
 increment = step.increments[1]
 field = increment.fields['DISP']
@@ -70,6 +75,19 @@ Read-only list wrapper for integers.
 | `contains(item)` | Checks whether the ID exists. |
 | `to_array()` | Returns a copied CLR integer array. |
 
+### `StringDoubleMap`
+
+Read-only ordered mapping from string names to floating-point values.
+
+| Member | Description |
+| --- | --- |
+| `count` | Number of name-value pairs. |
+| `len(mapping)` | Number of name-value pairs. |
+| `mapping[name]` | Value for the specified name. |
+| `name in mapping` | Checks whether a name exists. |
+| `get_names()` | Returns names as `StringList`. |
+| `contains(name)` | Checks whether a name exists. |
+
 ### `NumericArray`
 
 Read-only fallback for numeric arrays when NumPy is unavailable.
@@ -90,7 +108,7 @@ Root object exposed as `pmx`.
 
 | Member | Description |
 | --- | --- |
-| `results` | Loaded PrePoMax results selected explicitly by result name. |
+| `results` | Loaded result names and the currently selected result. |
 | `help()` | Prints documented members. |
 
 Example:
@@ -110,18 +128,19 @@ Collection of loaded result files.
 | Member | Description |
 | --- | --- |
 | `len(pmx.results)` | Number of loaded results. |
-| `pmx.results[result_name]` | Gets a `Result` by result name. |
-| `result_name in pmx.results` | Checks whether a result exists. |
+| `current` | Returns the currently selected `Result`. |
+| `field_outputs` | Returns field outputs for the currently selected result. |
 | `get_names()` | Returns result names as `StringList`. |
-| `first()` | Returns the first loaded result. |
-| `last()` | Returns the last loaded result. |
+| `set_current(result_name)` | Sets the current result through command history and returns it. |
 | `contains(result_name)` | Checks whether a result exists. |
 
 Example:
 
 ```python
-first_result = pmx.results.first()
-latest_result = pmx.results.last()
+names = pmx.results.get_names()
+result = pmx.results.set_current(names[-1])
+# Equivalent after selection:
+result = pmx.results.current
 ```
 
 ### `Result`
@@ -137,6 +156,7 @@ Single loaded result file.
 | `steps` | Result steps indexed by result step ID. |
 | `mesh` | Result mesh. |
 | `history_outputs` | Result history outputs indexed by history output name. |
+| `field_outputs` | User-defined result field output definitions. |
 | `get_nodal_value(step_id, increment_id, field_name, component_name, node_id)` | Returns one nodal field component value. |
 | `get_nodal_coordinates(node_id)` | Returns the undeformed node coordinates as `[x, y, z]`. |
 | `get_deformed_nodal_coordinates(step_id, increment_id, node_id)` | Returns true-scale deformed coordinates using `DISP`. |
@@ -150,11 +170,277 @@ result.name
 result.steps
 result.mesh
 result.history_outputs
+result.field_outputs
 node_id = int(result.mesh.nodes.get_ids()[0])
 coordinates = result.get_nodal_coordinates(node_id)
 deformed_coordinates = result.get_deformed_nodal_coordinates(1, 1, node_id)
 value = result.get_nodal_value(1, 1, 'DISP', 'U1', node_id)
 ```
+
+## Result field output definitions
+
+### `FieldOutputFilter`
+
+Immutable Python filter specification used while creating result field outputs.
+
+| Member | Description |
+| --- | --- |
+| `type` | `"median"`, `"average"`, or `"smooth"`. |
+| `source` | `"all_nodes"` or `"surface_nodes"`. |
+| `layers` | Number of neighbouring node layers. |
+| `iterations` | Number of filter iterations. |
+
+### `FieldOutputs`
+
+Collection of user-defined result field outputs. These are postprocessing definitions that generate derived fields.
+
+| Member | Description |
+| --- | --- |
+| `len(result.field_outputs)` | Number of user-defined result field outputs. |
+| `result.field_outputs[name]` | Gets a field output definition by name. |
+| `name in result.field_outputs` | Checks whether a definition exists. |
+| `get_names()` | Returns definition names as `StringList`. |
+| `first()` | Returns the first field output definition. |
+| `last()` | Returns the last field output definition. |
+| `contains(name)` | Checks whether a definition exists. |
+| `create_field_output_limit(name, field_name, component_name, based_on, item_limits)` | Creates a part-, element-set-, or all-elements-based limit draft without modifying the result. |
+| `create_field_output_envelope(name, field_name, component_name)` | Creates an envelope draft with `MAX`, `MIN`, and `AVERAGE` components. |
+| `create_field_output_equation(name, equation, unit="/")` | Creates an equation draft. References use case-sensitive `FIELD.COMPONENT` names. |
+| `create_field_output_coordinate_system_transform(name, field_name, coordinate_system_name)` | Creates a coordinate-system transform draft for a vector or tensor field. |
+| `create_median_filter(source="all_nodes", layers=1, iterations=1)` | Creates a median filter. `source` can be `"all_nodes"` or `"surface_nodes"`. |
+| `create_average_filter(source="all_nodes", layers=1, iterations=1)` | Creates an average filter. `source` can be `"all_nodes"` or `"surface_nodes"`. |
+| `create_smooth_filter(source="all_nodes", layers=1, iterations=1)` | Creates a smooth filter. `source` can be `"all_nodes"` or `"surface_nodes"`. |
+| `add(output)` | Validates and adds a `FieldOutputDraft` using command history. |
+| `replace(old_name, output)` | Validates and replaces a field-output definition using command history. |
+| `remove(field_output_names)` | Removes field outputs using command history. The argument is a non-empty list of names. |
+| `remove_components(field_output_name, component_names)` | Removes components from a field output using command history. |
+| `export_to_csv(file_name, field_output_name, step_id, increment_id)` | Exports all field components at one result increment using command history. |
+
+`based_on` is required and must be `"parts"`, `"element_sets"`, or `"all_elements"`. `item_limits` must be a non-empty Python dictionary with finite, nonzero values. Its keys are part names, element-set names, or the single key `"All elements"` when `based_on="all_elements"`.
+
+Creation only produces a Python-side draft and does not call the controller or modify command history. Assign optional filters to the draft, then call `add(output)`. The complete draft is converted and validated before the postprocessing command is created. If the current result changes after a `Result` object was obtained, get `pmx.results.current` again before adding the draft.
+
+Filter creation is available directly on `pmx.results.field_outputs` and `result.field_outputs`. The filter `source` must be `"all_nodes"` or `"surface_nodes"`; `layers` and `iterations` must both be at least 1.
+
+One limit for all elements:
+
+```python
+result = pmx.results.current
+
+output = result.field_outputs.create_field_output_limit(
+    name="Stress_limit",
+    field_name="STRESS",
+    component_name="MISES",
+    based_on="all_elements",
+    item_limits={"All elements": 235.0}
+)
+
+limit_output = result.field_outputs.add(output)
+```
+
+One limit with two filters:
+
+```python
+output = result.field_outputs.create_field_output_limit(
+    name="Filtered_stress_limit",
+    field_name="STRESS",
+    component_name="MISES",
+    based_on="all_elements",
+    item_limits={"All elements": 235.0}
+)
+
+output.filter1 = pmx.results.field_outputs.create_median_filter(
+    source="surface_nodes",
+    layers=2
+)
+output.filter2 = pmx.results.field_outputs.create_smooth_filter(
+    iterations=3
+)
+
+filtered_output = result.field_outputs.add(output)
+```
+
+Different limits by part:
+
+```python
+output = result.field_outputs.create_field_output_limit(
+    name="Stress_limits_by_part",
+    field_name="STRESS",
+    component_name="MISES",
+    based_on="parts",
+    item_limits={
+        "Part-1": 235.0,
+        "Part-2": 180.0
+    }
+)
+
+limit_output = result.field_outputs.add(output)
+```
+
+Envelope across all result increments:
+
+```python
+output = result.field_outputs.create_field_output_envelope(
+    name="Stress_envelope",
+    field_name="STRESS",
+    component_name="MISES"
+)
+result.field_outputs.add(output)
+```
+
+Equation with the generated component `VALUE`:
+
+```python
+output = result.field_outputs.create_field_output_equation(
+    name="Normalized_stress",
+    equation="=STRESS.MISES / 235.0",
+    unit="/"
+)
+result.field_outputs.add(output)
+```
+
+Coordinate-system transform:
+
+```python
+output = result.field_outputs.create_field_output_coordinate_system_transform(
+    name="Local_stress",
+    field_name="STRESS",
+    coordinate_system_name="Local_CS"
+)
+result.field_outputs.add(output)
+```
+
+Replace an existing definition:
+
+```python
+replacement = result.field_outputs.create_field_output_limit(
+    name="Stress_limit",
+    field_name="STRESS",
+    component_name="MISES",
+    based_on="all_elements",
+    item_limits={"All elements": 250.0}
+)
+
+result.field_outputs.replace("Stress_limit", replacement)
+```
+
+Remove definitions or stored fields and components:
+
+```python
+result.field_outputs.remove(["Stress_limit", "Old_field"])
+result.field_outputs.remove_components("DISP", ["U3"])
+```
+
+Export every component of a field at one increment to a file:
+
+```python
+result.field_outputs.export_to_csv(
+    file_name=r"C:\Temp\Stress_limit.csv",
+    field_output_name="Stress_limit",
+    step_id=1,
+    increment_id=1
+)
+```
+
+### `FieldOutputDraft`
+
+Python-side field-output definition that has not yet been added to the result.
+
+| Member | Description |
+| --- | --- |
+| `name` | Field output name. |
+| `filter1` | Optional first `FieldOutputFilter`; writable before `add(output)`. |
+| `filter2` | Optional second `FieldOutputFilter`; writable before `add(output)`. |
+
+`filter2` cannot be used unless `filter1` is also assigned.
+
+### `FieldOutputLimitDraft`
+
+Limit field-output draft returned by `create_field_output_limit`.
+
+| Member | Description |
+| --- | --- |
+| `name` | Field output name. |
+| `field_name` | Source field name. |
+| `component_name` | Source component name. |
+| `based_on` | `"parts"`, `"element_sets"`, or `"all_elements"`. |
+| `item_limits` | Draft limit values as a read-only `StringDoubleMap`. |
+
+### `FieldOutputEnvelopeDraft`
+
+Envelope draft returned by `create_field_output_envelope`. It produces `MAX`, `MIN`, and `AVERAGE` components.
+
+| Member | Description |
+| --- | --- |
+| `name` | Field output name. |
+| `field_name` | Source field name. |
+| `component_name` | Source component name. |
+
+### `FieldOutputEquationDraft`
+
+Equation draft returned by `create_field_output_equation`.
+
+| Member | Description |
+| --- | --- |
+| `name` | Field output name. |
+| `equation` | Equation using case-sensitive `FIELD.COMPONENT` references. |
+| `unit` | User-defined result unit. |
+| `component_name` | Generated component name, always `VALUE`. |
+
+### `FieldOutputCoordinateSystemTransformDraft`
+
+Coordinate-system transform draft returned by `create_field_output_coordinate_system_transform`.
+
+| Member | Description |
+| --- | --- |
+| `name` | Field output name. |
+| `field_name` | Source vector or tensor field name. |
+| `coordinate_system_name` | Result coordinate system name. |
+
+### `FieldOutput`
+
+Base representation of a user-defined result field output.
+
+| Member | Description |
+| --- | --- |
+| `name` | Field output name. |
+| `type_name` | C# field output definition type. |
+| `filter1` | First `FieldOutputFilter`, or `None` when disabled. |
+| `filter2` | Second `FieldOutputFilter`, or `None` when disabled. |
+
+### `FieldOutputLimit`
+
+Limit-based field output returned by `add(output)` or collection lookup.
+
+| Member | Description |
+| --- | --- |
+| `name` | Field output name. |
+| `field_name` | Source field name. |
+| `component_name` | Source component name. |
+| `based_on` | `"parts"`, `"element_sets"`, or `"all_elements"`. |
+| `item_limits` | Limit values as a `StringDoubleMap`. |
+
+### `FieldOutputEnvelope`
+
+| Member | Description |
+| --- | --- |
+| `field_name` | Source field name. |
+| `component_name` | Source component name. |
+
+### `FieldOutputEquation`
+
+| Member | Description |
+| --- | --- |
+| `equation` | Validated field equation. |
+| `unit` | User-defined result unit. |
+| `component_name` | Generated component name, always `VALUE`. |
+
+### `FieldOutputCoordinateSystemTransform`
+
+| Member | Description |
+| --- | --- |
+| `field_name` | Source vector or tensor field name. |
+| `coordinate_system_name` | Result coordinate system name. |
 
 ## Steps and increments
 
@@ -575,22 +861,23 @@ These classes exist in the implementation but are not normally used directly fro
 
 ## Source Folder Layout
 
-The C# API source is grouped by object area. The C# source stays grouped by folders, but all Python API classes use the flat `PrePoMax.API.Python` namespace.
+The C# API source is grouped by object area, with helper and data-service classes stored beside the APIs they support. All Python API classes use the flat `PrePoMax.API.Python` namespace.
+
+C# classes and files use explicit names such as `ResultStepAPI`, `ResultIncrementAPI`, `ResultHistoryOutputAPI`, and `ResultHistoryOutputFieldAPI`. Python-visible names remain `Step`, `Increment`, `HistoryOutput`, and `HistoryField`.
 
 ```text
 PrePoMax/API/Python
+  Commands
+  Common
+  Engine
   Mesh
     Elements
     Nodes
     Parts
   Results
     Fields
-    History
-    Steps
-  Services
-    History
-    Mesh
-    Results
+    ResultFieldOutputs
+    ResultHistoryOutputs
 ```
 
 ## Notes for documentation generation
@@ -599,7 +886,3 @@ PrePoMax/API/Python
 - `ToString()` implementations provide concise expression output; `print(...)` uses the full display text for arrays and named collections.
 - Keep implementation-only methods unmarked by `[PythonAPI]` if they should be hidden from help and autocomplete.
 - Prefer documenting collection access with `[...]` because this is the intended Python style.
-
-
-
-
