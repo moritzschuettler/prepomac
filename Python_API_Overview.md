@@ -109,6 +109,7 @@ Root object exposed as `pmx`.
 | Member | Description |
 | --- | --- |
 | `results` | Loaded result names and the currently selected result. |
+| `selection` | Creates and highlights reusable view-aware selections. |
 | `help()` | Prints documented members. |
 
 Example:
@@ -116,9 +117,59 @@ Example:
 ```python
 pmx
 pmx.results
+pmx.selection
 pmx.help()
 ```
 
+## Selections
+
+### `SelectionFactory`
+
+`pmx.selection` creates selection drafts that are independent of the live UI selection. The `view` is required and remains stored in the selection so command replay uses the correct mesh.
+
+| Member | Description |
+| --- | --- |
+| `create_by_ids(view, target, source, ids)` | Creates an ID-based selection. |
+| `highlight(selection)` | Switches to the stored view and highlights the selection. |
+| `clear_highlight()` | Clears the interactive selection and its highlight. |
+
+Possible `view` values are `"geometry"`, `"femodel"`, and `"results"`.
+
+Possible `target` values are `"nodes"`, `"elements"`, `"surfaces"`, `"parts"`, and `"geometry"`. Possible `source` values are `"nodes"`, `"elements"`, `"vertices"`, `"edges"`, `"surfaces"`, and `"parts"`.
+
+Nodes, elements, vertices, and parts use a list of IDs. Vertex IDs are the node IDs displayed by Query. Edge and surface IDs are 1-based within each part and use a part-to-ID mapping:
+
+```python
+selection = pmx.selection.create_by_ids(
+    view="results",
+    target="nodes",
+    source="edges",
+    ids={3: [1, 2], 7: [4]}
+)
+
+selection.add_by_ids(source="vertices", ids=[10282])
+pmx.selection.highlight(selection)
+```
+
+Supported conversions:
+
+| Target | Sources |
+| --- | --- |
+| `nodes` | `nodes`, `vertices`, `edges`, `surfaces`, `parts` |
+| `elements` | `elements`, `surfaces`, `parts` |
+| `surfaces` | `surfaces`, `parts` |
+| `parts` | `vertices`, `edges`, `surfaces`, `parts` |
+| `geometry` | `vertices`, `edges`, `surfaces`, `parts` |
+
+### `Selection`
+
+| Member | Description |
+| --- | --- |
+| `view` | Immutable selection view. |
+| `target` | Immutable resulting item type. |
+| `count` | Number of source IDs. |
+| `add_by_ids(source, ids)` | Adds another compatible ID source. |
+| `get_sources()` | Returns the source types as `StringList`. |
 ## Results collection
 
 ### `Results`
@@ -597,6 +648,9 @@ Mesh associated with a result.
 | `nodes` | Mesh nodes. |
 | `elements` | Mesh elements. |
 | `parts` | Mesh parts. |
+| `node_sets` | User-visible, read-only result node sets. |
+| `element_sets` | User-visible, read-only result element sets. |
+| `surfaces` | User-visible, read-only result surfaces. |
 
 ### `Nodes`
 
@@ -707,6 +761,28 @@ Single mesh part.
 | `node_ids` | Node IDs belonging to the part. |
 | `element_ids` | Element IDs belonging to the part. |
 
+### Read-only result regions
+
+Node sets, element sets, and surfaces are copied from the model into the result mesh. They can be inspected and
+used by result history outputs, but they cannot be created, changed, or removed through the results API.
+
+The `node_sets`, `element_sets`, and `surfaces` collections support indexing by name, `len()`, `get_names()`,
+`first()`, `last()`, and `contains(name)`.
+
+| Object | Members |
+| --- | --- |
+| `NodeSet` | `name`, `count`, `node_ids` |
+| `ElementSet` | `name`, `count`, `element_ids` |
+| `Surface` | `name`, `face_ids`, `node_ids`, `area` |
+
+Example:
+
+```python
+node_set = result.mesh.node_sets["Node_Set-1"]
+element_set = result.mesh.element_sets["Element_Set-1"]
+surface = result.mesh.surfaces["Surface-1"]
+```
+
 ## History results
 
 History outputs can contain node, element, or integration point values depending on the output definition.
@@ -725,6 +801,98 @@ Collection of result history outputs.
 | `first()` | Returns the first history output. |
 | `last()` | Returns the last history output. |
 | `contains(history_name)` | Checks whether the history output exists. |
+| `create_history_output_from_field(name, field_name, component_names, region)` | Creates a From Field draft using a node selection, node set, or surface. |
+| `create_history_output_from_equation(name, equation, unit="/")` | Creates a From History Output by Equation draft. |
+| `create_history_output_from_element_size(name, size_type, region, deformation_variable_name="Displacements")` | Creates an area or volume history-output draft. |
+| `create_history_output_from_integration(name, integral_type, field_name, component_names, region, deformation_variable_name="Displacements", unit="/")` | Creates a surface or volume integration draft. |
+| `create_minimum_filter(return_value="column")` | Creates a minimum filter; `return_value` is `"row"` or `"column"`. |
+| `create_maximum_filter(return_value="column")` | Creates a maximum filter; `return_value` is `"row"` or `"column"`. |
+| `create_sum_filter(operate_on="columns")` | Creates a sum filter; `operate_on` is `"rows"` or `"columns"`. |
+| `create_average_filter(operate_on="columns")` | Creates an average filter; `operate_on` is `"rows"` or `"columns"`. |
+| `add(output)` | Validates and adds a draft using command history. |
+| `replace(old_name, output)` | Validates and replaces a result history-output definition. |
+| `remove(history_output_names)` | Removes history outputs using command history. |
+
+
+Creation examples:
+
+```python
+result = pmx.results.current
+
+nodes = pmx.selection.create_by_ids(
+    view="results",
+    target="nodes",
+    source="edges",
+    ids={3: [1, 2]}
+)
+
+output = result.history_outputs.create_history_output_from_field(
+    name="Edge_DISP",
+    field_name="DISP",
+    component_names=["U1", "U2", "U3"],
+    region=nodes
+)
+output.step_id = None
+output.increment_id = None
+output.filter1 = result.history_outputs.create_average_filter(operate_on="rows")
+output.filter2 = result.history_outputs.create_maximum_filter(return_value="row")
+result.history_outputs.add(output)
+```
+
+Existing result regions are passed directly through the same `region` argument:
+
+```python
+output = result.history_outputs.create_history_output_from_field(
+    name="Node_set_DISP",
+    field_name="DISP",
+    component_names=["U1"],
+    region=result.mesh.node_sets["Node_Set-1"]
+)
+result.history_outputs.add(output)
+```
+
+```python
+output = result.history_outputs.create_history_output_from_equation(
+    name="Energy_sum",
+    equation="Energy_1 + Energy_2",
+    unit="J"
+)
+result.history_outputs.add(output)
+```
+
+The supported region combinations are:
+
+| History output | Mode | Selection target | Existing result region |
+| --- | --- | --- | --- |
+| From Field | All | `"nodes"` | Node set or surface |
+| From Element Size | `"area"` | `"surfaces"` | Surface |
+| From Element Size | `"volume"` | `"elements"` | Element set |
+| From Integration | `"surface"` | `"surfaces"` | Surface |
+| From Integration | `"volume"` | `"elements"` | Element set |
+| From Equation | All | None | None |
+
+Possible deformation variable names are `"Displacements"`, `"Forces"`, `"Surface Normals"`, `"Wear Depths"`, `"Mesh Deformation"`, `"Disp&Def"`, and `"Disp&Def&Depth"`.
+
+### `HistoryOutputFilter`
+
+Immutable Python filter specification assigned to `filter1` or `filter2` on any history-output draft.
+Filters are applied in order, and `filter2` cannot be used without `filter1`.
+
+| Member | Description |
+| --- | --- |
+| `type` | `"minimum"`, `"maximum"`, `"sum"`, or `"average"`. |
+| `option` | `"row"`, `"column"`, `"rows"`, or `"columns"`, depending on the filter type. |
+
+### `HistoryOutputDraft`
+
+Base object for history-output definitions that have not yet been added to the result.
+
+| Member | Description |
+| --- | --- |
+| `name` | History output name. |
+| `region` | Integrated selection or read-only result mesh region; `None` for equation drafts. |
+| `filter1` | Optional first `HistoryOutputFilter`. |
+| `filter2` | Optional second `HistoryOutputFilter`; requires `filter1`. |
 
 ### `HistoryOutput`
 
@@ -861,23 +1029,28 @@ These classes exist in the implementation but are not normally used directly fro
 
 ## Source Folder Layout
 
-The C# API source is grouped by object area, with helper and data-service classes stored beside the APIs they support. All Python API classes use the flat `PrePoMax.API.Python` namespace.
+The Python API resides in the `APIs` class-library project. Its source is grouped by object area under the `Python` folder, with helper and data-service classes stored beside the APIs they support. All Python API classes use the flat `APIs.Python` namespace. PrePoMax keeps only the controller and embedded-engine host adapters.
 
 C# classes and files use explicit names such as `ResultStepAPI`, `ResultIncrementAPI`, `ResultHistoryOutputAPI`, and `ResultHistoryOutputFieldAPI`. Python-visible names remain `Step`, `Increment`, `HistoryOutput`, and `HistoryField`.
 
 ```text
-PrePoMax/API/Python
+APIs
+  Python
+    Commands
+    Common
+    Mesh
+      Elements
+      Nodes
+      Parts
+    Selection
+    Results
+      Fields
+      ResultFieldOutputs
+      ResultHistoryOutputs
+
+PrePoMax/Python
   Commands
-  Common
   Engine
-  Mesh
-    Elements
-    Nodes
-    Parts
-  Results
-    Fields
-    ResultFieldOutputs
-    ResultHistoryOutputs
 ```
 
 ## Notes for documentation generation

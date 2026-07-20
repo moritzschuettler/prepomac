@@ -1,4 +1,4 @@
-﻿//
+//
 //  THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY
 //  KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
 //  IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR
@@ -476,10 +476,14 @@ namespace AutocompleteMenuNS
         {
             TargetControlWrapper = FindWrapper(sender as Control);
 
+            if (IsModifierKey(e.KeyCode)) return;
+
             bool backspaceORdel = e.KeyCode == Keys.Back || e.KeyCode == Keys.Delete;
 
             if (Host.Visible)
             {
+                if (IsShiftPrintableKey(e.KeyCode)) return;
+
                 if (ProcessKey((char)e.KeyCode, Control.ModifierKeys))
                     e.SuppressKeyPress = true;
                 else
@@ -521,6 +525,36 @@ namespace AutocompleteMenuNS
             ResetTimer();
         }
 
+        private bool IsShiftPrintableKey(Keys keyCode)
+        {
+            if (Control.ModifierKeys != Keys.Shift) return false;
+
+            return (keyCode >= Keys.A && keyCode <= Keys.Z) ||
+                   (keyCode >= Keys.D0 && keyCode <= Keys.D9) ||
+                   keyCode == Keys.OemMinus ||
+                   keyCode == Keys.Oemplus ||
+                   keyCode == Keys.OemOpenBrackets ||
+                   keyCode == Keys.OemCloseBrackets ||
+                   keyCode == Keys.OemPipe ||
+                   keyCode == Keys.OemSemicolon ||
+                   keyCode == Keys.OemQuotes ||
+                   keyCode == Keys.Oemcomma ||
+                   keyCode == Keys.OemPeriod ||
+                   keyCode == Keys.OemQuestion ||
+                   keyCode == Keys.Oemtilde;
+        }
+        private bool IsModifierKey(Keys keyCode)
+        {
+            return keyCode == Keys.ShiftKey ||
+                   keyCode == Keys.LShiftKey ||
+                   keyCode == Keys.RShiftKey ||
+                   keyCode == Keys.ControlKey ||
+                   keyCode == Keys.LControlKey ||
+                   keyCode == Keys.RControlKey ||
+                   keyCode == Keys.Menu ||
+                   keyCode == Keys.LMenu ||
+                   keyCode == Keys.RMenu;
+        }
         void ResetTimer()
         {
             ResetTimer(-1);

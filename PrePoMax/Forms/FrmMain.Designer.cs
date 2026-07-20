@@ -148,7 +148,7 @@ namespace PrePoMax
             this.tsmiRegenerateHistoryUsingOtherFiles = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiRegenerateHistoryWithRemeshing = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiView = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiViewControls = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiViewSidePanels = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiPythonScriptEditor = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItem6 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiStandardViews = new System.Windows.Forms.ToolStripMenuItem();
@@ -545,9 +545,10 @@ namespace PrePoMax
             this.tsmiRemoveAnnotations = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiFind = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiHelp = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiAdvisor = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiSidePanelAdvisor = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiHelpAdvisor = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiHomePage = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiAdvisorHelp1 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiDividerHelp1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiAbout = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiTest = new System.Windows.Forms.ToolStripMenuItem();
             this.panelControl = new System.Windows.Forms.Panel();
@@ -1588,7 +1589,7 @@ namespace PrePoMax
             // tsmiView
             // 
             this.tsmiView.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.tsmiViewControls,
+            this.tsmiViewSidePanels,
             this.toolStripMenuItem6,
             this.tsmiStandardViews,
             this.tsmiUserViews,
@@ -1622,11 +1623,12 @@ namespace PrePoMax
             // 
             // tsmiViewControls
             // 
-            this.tsmiViewControls.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.tsmiPythonScriptEditor});
-            this.tsmiViewControls.Name = "tsmiViewControls";
-            this.tsmiViewControls.Size = new System.Drawing.Size(243, 22);
-            this.tsmiViewControls.Text = "Controls";
+            this.tsmiViewSidePanels.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmiPythonScriptEditor,
+            this.tsmiSidePanelAdvisor});
+            this.tsmiViewSidePanels.Name = "tsmiViewSidePanels";
+            this.tsmiViewSidePanels.Size = new System.Drawing.Size(243, 22);
+            this.tsmiViewSidePanels.Text = "Side Panels";
             // 
             // tsmiPythonScriptEditor
             // 
@@ -1634,6 +1636,13 @@ namespace PrePoMax
             this.tsmiPythonScriptEditor.Size = new System.Drawing.Size(179, 22);
             this.tsmiPythonScriptEditor.Text = "Python Script Editor";
             this.tsmiPythonScriptEditor.Click += new System.EventHandler(this.tsmiPythonScriptEditor_Click);
+            // 
+            // tsmiSidePanelAdvisor
+            // 
+            this.tsmiSidePanelAdvisor.Name = "tsmiHelpAdvisor";
+            this.tsmiSidePanelAdvisor.Size = new System.Drawing.Size(136, 22);
+            this.tsmiSidePanelAdvisor.Text = "Advisor";
+            this.tsmiSidePanelAdvisor.Click += new System.EventHandler(this.tsmiAdvisor_Click);
             // 
             // toolStripMenuItem6
             // 
@@ -4704,9 +4713,9 @@ namespace PrePoMax
             // tsmiHelp
             // 
             this.tsmiHelp.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.tsmiAdvisor,
+            this.tsmiHelpAdvisor,
             this.tsmiHomePage,
-            this.tsmiAdvisorHelp1,
+            this.tsmiDividerHelp1,
             this.tsmiAbout,
             this.tsmiTest});
             this.tsmiHelp.Name = "tsmiHelp";
@@ -4715,10 +4724,10 @@ namespace PrePoMax
             // 
             // tsmiAdvisor
             // 
-            this.tsmiAdvisor.Name = "tsmiAdvisor";
-            this.tsmiAdvisor.Size = new System.Drawing.Size(136, 22);
-            this.tsmiAdvisor.Text = "Advisor";
-            this.tsmiAdvisor.Click += new System.EventHandler(this.tsmiAdvisor_Click);
+            this.tsmiHelpAdvisor.Name = "tsmiHelpAdvisor";
+            this.tsmiHelpAdvisor.Size = new System.Drawing.Size(136, 22);
+            this.tsmiHelpAdvisor.Text = "Advisor";
+            this.tsmiHelpAdvisor.Click += new System.EventHandler(this.tsmiAdvisor_Click);
             // 
             // tsmiHomePage
             // 
@@ -4729,8 +4738,8 @@ namespace PrePoMax
             // 
             // tsmiAdvisorHelp1
             // 
-            this.tsmiAdvisorHelp1.Name = "tsmiAdvisorHelp1";
-            this.tsmiAdvisorHelp1.Size = new System.Drawing.Size(133, 6);
+            this.tsmiDividerHelp1.Name = "tsmiAdvisorHelp1";
+            this.tsmiDividerHelp1.Size = new System.Drawing.Size(133, 6);
             // 
             // tsmiAbout
             // 
@@ -5291,8 +5300,9 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiDuplicateStep;
         private System.Windows.Forms.ToolStripStatusLabel tsslEmpty;
         private System.Windows.Forms.ToolStripStatusLabel tsslUnitSystem;
-        private System.Windows.Forms.ToolStripMenuItem tsmiAdvisor;
-        private System.Windows.Forms.ToolStripSeparator tsmiAdvisorHelp1;
+        private System.Windows.Forms.ToolStripMenuItem tsmiSidePanelAdvisor;
+        private System.Windows.Forms.ToolStripMenuItem tsmiHelpAdvisor;
+        private System.Windows.Forms.ToolStripSeparator tsmiDividerHelp1;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerResults1;
         private System.Windows.Forms.ToolStripMenuItem tsmiTransformation;
         private System.Windows.Forms.ToolStripSeparator toolStripResultsSeparator2;
@@ -5536,7 +5546,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripButton tsbBoxZoom;
         private System.Windows.Forms.ToolStripMenuItem tsmiExportResultFieldOutput;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerResultFieldOutput2;
-        private System.Windows.Forms.ToolStripMenuItem tsmiViewControls;
+        private System.Windows.Forms.ToolStripMenuItem tsmiViewSidePanels;
         private System.Windows.Forms.ToolStripMenuItem tsmiPythonScriptEditor;
         private System.Windows.Forms.ToolStripSeparator toolStripMenuItem6;
         private System.Windows.Forms.ToolStripButton tsbArrangeAnnotations;

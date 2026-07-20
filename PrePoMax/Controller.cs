@@ -20802,6 +20802,14 @@ namespace PrePoMax
             //
             _form.AdjustCameraDistanceAndClipping();
         }
+        public void HighlightSelection(Selection selection)
+        {
+            if (selection == null) throw new ArgumentNullException(nameof(selection));
+            // Changing the view clears the current selection, so install the supplied selection afterwards.
+            CurrentView = GetSelectionView(selection);
+            _selection = selection.DeepCopy(true, false);
+            HighlightSelection();
+        }
         private void HighlightItemsByNodeIds(int[] ids, bool useSecondaryHighlightColor)
         {
             vtkMaxActorData data = GetNodeActorData(ids);

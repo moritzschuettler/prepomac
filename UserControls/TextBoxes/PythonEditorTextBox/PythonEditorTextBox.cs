@@ -405,6 +405,12 @@ namespace UserControls
             if (IsAutocompleteMenuVisible() && IsAutocompleteMenuKey(e.KeyCode))
                 return false;
 
+            if (IsAutocompleteMenuVisible() && TryAutocompleteCommitAndInsert(e))
+                return true;
+
+            if (IsAutocompleteMenuVisible() && IsAutocompletePassThroughKey(e))
+                return false;
+
             if (e.KeyCode == Keys.F5)
             {
                 RunScript();
@@ -507,6 +513,9 @@ namespace UserControls
         internal void ProcessKeyPress(KeyPressEventArgs e)
         {
             if (_internalTextChange || _textBox.ReadOnly) return;
+
+            if (IsAutocompleteMenuVisible() && IsAutocompleteCommitAndContinueCharacter(e.KeyChar))
+                _autocompleteMenu.OnSelecting();
 
             if (IsAutocompleteTriggerCharacter(e.KeyChar) && IsHandleCreated)
                 BeginInvoke(new MethodInvoker(ShowAutocompleteListAfterTextInput));
@@ -1303,6 +1312,83 @@ namespace UserControls
                    keyCode == Keys.Down ||
                    keyCode == Keys.PageUp ||
                    keyCode == Keys.PageDown;
+        }
+        private bool IsAutocompletePassThroughKey(KeyEventArgs e)
+        {
+            return IsModifierKey(e.KeyCode) || IsShiftPrintableKey(e);
+        }
+        private bool IsModifierKey(Keys keyCode)
+        {
+            return keyCode == Keys.Shift ||
+                   keyCode == Keys.ShiftKey ||
+                   keyCode == Keys.LShiftKey ||
+                   keyCode == Keys.RShiftKey ||
+                   keyCode == Keys.Control ||
+                   keyCode == Keys.ControlKey ||
+                   keyCode == Keys.LControlKey ||
+                   keyCode == Keys.RControlKey ||
+                   keyCode == Keys.Alt ||
+                   keyCode == Keys.Menu ||
+                   keyCode == Keys.LMenu ||
+                   keyCode == Keys.RMenu;
+        }
+        private bool IsShiftPrintableKey(KeyEventArgs e)
+        {
+            if (!e.Shift || e.Control || e.Alt) return false;
+
+            Keys keyCode = e.KeyCode;
+
+            return (keyCode >= Keys.A && keyCode <= Keys.Z) ||
+                   (keyCode >= Keys.D0 && keyCode <= Keys.D9) ||
+                   keyCode == Keys.OemMinus ||
+                   keyCode == Keys.Oemplus ||
+                   keyCode == Keys.OemOpenBrackets ||
+                   keyCode == Keys.OemCloseBrackets ||
+                   keyCode == Keys.OemPipe ||
+                   keyCode == Keys.OemSemicolon ||
+                   keyCode == Keys.OemQuotes ||
+                   keyCode == Keys.Oemcomma ||
+                   keyCode == Keys.OemPeriod ||
+                   keyCode == Keys.OemQuestion ||
+                   keyCode == Keys.Oemtilde;
+        }
+        private bool TryAutocompleteCommitAndInsert(KeyEventArgs e)
+        {
+            string text;
+            if (!TryGetAutocompleteCommitAndInsertText(e, out text)) return false;
+
+            _autocompleteMenu.OnSelecting();
+            _textBox.InsertText(text);
+
+            if (text == "." && IsHandleCreated)
+                BeginInvoke(new MethodInvoker(ShowAutocompleteListAfterTextInput));
+
+            e.SuppressKeyPress = true;
+            return true;
+        }
+        private bool TryGetAutocompleteCommitAndInsertText(KeyEventArgs e, out string text)
+        {
+            text = null;
+            if (e.Control || e.Alt) return false;
+
+            if (!e.Shift && (e.KeyCode == Keys.OemPeriod || e.KeyCode == Keys.Decimal))
+            {
+                text = ".";
+                return true;
+            }
+
+            char keyChar;
+            if (PythonTextBoxAutocompleteMenuHelper.TryGetKeyChar(e, out keyChar) && keyChar == '(')
+            {
+                text = "(";
+                return true;
+            }
+
+            return false;
+        }
+        private bool IsAutocompleteCommitAndContinueCharacter(char c)
+        {
+            return c == '(';
         }
         private bool IsAutocompleteTriggerCharacter(char c)
         {

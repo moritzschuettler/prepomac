@@ -106,70 +106,10 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="API\Python\BaseAPI.cs" />
-    <Compile Include="API\Python\Common\IntListAPI.cs" />
-    <Compile Include="API\Python\Common\NumPyConverter.cs" />
-    <Compile Include="API\Python\Common\NumericArrayAPI.cs" />
-    <Compile Include="API\Python\Common\PythonAPIAttribute.cs" />
-    <Compile Include="API\Python\Common\PythonAPIException.cs" />
-    <Compile Include="API\Python\Common\PythonDictionaryConverter.cs" />
-    <Compile Include="API\Python\Common\PythonStringListConverter.cs" />
-    <Compile Include="API\Python\Common\StringDoubleMapAPI.cs" />
-    <Compile Include="API\Python\Common\StringListAPI.cs" />
-    <Compile Include="API\Python\Commands\ControllerPythonCommandGateway.cs" />
-    <Compile Include="API\Python\Commands\IPythonCommandGateway.cs" />
-    <Compile Include="API\Python\Engine\PythonConsoleResult.cs" />
-    <Compile Include="API\Python\Engine\PythonEngineManager.cs" />
-    <Compile Include="API\Python\Mesh\Elements\ElementAPI.cs" />
-    <Compile Include="API\Python\Mesh\Elements\ElementDataAPI.cs" />
-    <Compile Include="API\Python\Mesh\Elements\ElementInfo.cs" />
-    <Compile Include="API\Python\Mesh\Elements\ElementsAPI.cs" />
-    <Compile Include="API\Python\Mesh\MeshAPI.cs" />
-    <Compile Include="API\Python\Mesh\MeshDataService.cs" />
-    <Compile Include="API\Python\Mesh\Nodes\NodeDataAPI.cs" />
-    <Compile Include="API\Python\Mesh\Nodes\NodesAPI.cs" />
-    <Compile Include="API\Python\Mesh\Parts\PartAPI.cs" />
-    <Compile Include="API\Python\Mesh\Parts\PartData.cs" />
-    <Compile Include="API\Python\Mesh\Parts\PartsAPI.cs" />
-    <Compile Include="API\Python\PrePoMaxAPI.cs" />
-    <Compile Include="API\Python\Results\ResultFieldOutputs\ResultFieldOutputAPI.cs" />
-    <Compile Include="API\Python\Results\ResultFieldOutputs\ResultFieldOutputCoordinateSystemTransformAPI.cs" />
-    <Compile Include="API\Python\Results\ResultFieldOutputs\ResultFieldOutputCoordinateSystemTransformDraftAPI.cs" />
-    <Compile Include="API\Python\Results\ResultFieldOutputs\ResultFieldOutputDraftAPI.cs" />
-    <Compile Include="API\Python\Results\ResultFieldOutputs\ResultFieldOutputEnvelopeAPI.cs" />
-    <Compile Include="API\Python\Results\ResultFieldOutputs\ResultFieldOutputEnvelopeDraftAPI.cs" />
-    <Compile Include="API\Python\Results\ResultFieldOutputs\ResultFieldOutputEquationAPI.cs" />
-    <Compile Include="API\Python\Results\ResultFieldOutputs\ResultFieldOutputEquationDraftAPI.cs" />
-    <Compile Include="API\Python\Results\ResultFieldOutputs\ResultFieldOutputFilterAPI.cs" />
-    <Compile Include="API\Python\Results\ResultFieldOutputs\ResultFieldOutputLimitAPI.cs" />
-    <Compile Include="API\Python\Results\ResultFieldOutputs\ResultFieldOutputLimitDraftAPI.cs" />
-    <Compile Include="API\Python\Results\ResultFieldOutputs\ResultFieldOutputService.cs" />
-    <Compile Include="API\Python\Results\ResultFieldOutputs\ResultFieldOutputsAPI.cs" />
-    <Compile Include="API\Python\Results\Fields\FieldAPI.cs" />
-    <Compile Include="API\Python\Results\Fields\FieldComponentAPI.cs" />
-    <Compile Include="API\Python\Results\Fields\FieldComponentsAPI.cs" />
-    <Compile Include="API\Python\Results\Fields\FieldDataAPI.cs" />
-    <Compile Include="API\Python\Results\Fields\FieldMultiComponentDataAPI.cs" />
-    <Compile Include="API\Python\Results\Fields\FieldsAPI.cs" />
-    <Compile Include="API\Python\Results\ResultHistoryOutputs\ResultHistoryOutputComponentAPI.cs" />
-    <Compile Include="API\Python\Results\ResultHistoryOutputs\ResultHistoryOutputComponentDataAPI.cs" />
-    <Compile Include="API\Python\Results\ResultHistoryOutputs\ResultHistoryOutputComponentsAPI.cs" />
-    <Compile Include="API\Python\Results\ResultHistoryOutputs\ResultHistoryOutputDataService.cs" />
-    <Compile Include="API\Python\Results\ResultHistoryOutputs\ResultHistoryOutputEntriesAPI.cs" />
-    <Compile Include="API\Python\Results\ResultHistoryOutputs\ResultHistoryOutputEntryAPI.cs" />
-    <Compile Include="API\Python\Results\ResultHistoryOutputs\ResultHistoryOutputEntryDataAPI.cs" />
-    <Compile Include="API\Python\Results\ResultHistoryOutputs\ResultHistoryOutputFieldAPI.cs" />
-    <Compile Include="API\Python\Results\ResultHistoryOutputs\ResultHistoryOutputFieldsAPI.cs" />
-    <Compile Include="API\Python\Results\ResultHistoryOutputs\ResultHistoryOutputAPI.cs" />
-    <Compile Include="API\Python\Results\ResultHistoryOutputs\ResultHistoryOutputsAPI.cs" />
-    <Compile Include="API\Python\Results\ResultDataService.cs" />
-    <Compile Include="API\Python\Results\ResultAPI.cs" />
-    <Compile Include="API\Python\Results\ResultResolver.cs" />
-    <Compile Include="API\Python\Results\ResultsAPI.cs" />
-    <Compile Include="API\Python\Results\Fields\ResultIncrementAPI.cs" />
-    <Compile Include="API\Python\Results\Fields\ResultIncrementsAPI.cs" />
-    <Compile Include="API\Python\Results\Fields\ResultStepAPI.cs" />
-    <Compile Include="API\Python\Results\Fields\ResultStepsAPI.cs" />
+    <Compile Include="Python\Commands\ControllerPythonCommandGateway.cs" />
+    <Compile Include="Python\Commands\ControllerPythonSelectionGateway.cs" />
+    <Compile Include="Python\Engine\PythonConsoleResult.cs" />
+    <Compile Include="Python\Engine\PythonEngineManager.cs" />
     <Compile Include="Collections\ExplodedViewsCollection.cs" />
     <Compile Include="Collections\EdgesVisibilitiesCollection.cs" />
     <Compile Include="Collections\FollowerViewsCollection.cs" />
@@ -1180,6 +1120,10 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\APIs\APIs.csproj">
+      <Project>{d6bea63c-b490-4e4b-ae37-0aee4c647c11}</Project>
+      <Name>APIs</Name>
+    </ProjectReference>
     <ProjectReference Include="..\CaeGlobals\CaeGlobals.csproj">
       <Project>{104caebc-0761-4850-a97d-3fc59116c5b6}</Project>
       <Name>CaeGlobals</Name>

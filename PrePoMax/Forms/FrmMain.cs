@@ -15,7 +15,7 @@ using CaeResults;
 using FileInOut.Output;
 using PrePoMax.Commands;
 using PrePoMax.Forms;
-using PrePoMax.API.Python;
+using PrePoMax.Python;
 using Python.Runtime;
 using System;
 using System.Collections.Generic;
@@ -2624,12 +2624,23 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
+        internal void tsmiAdvisor_Click(object sender, EventArgs e)
+        {
+            if (!_controller.ModelInitialized) return;
+            // Change the wizard check state
+            tsmiSidePanelAdvisor.Checked = !tsmiSidePanelAdvisor.Checked;
+            tsmiHelpAdvisor.Checked = tsmiSidePanelAdvisor.Checked;
+            // Add wizard panel
+            if (tsmiSidePanelAdvisor.Checked == true) ShowSidePanel(AdvisorCreator.CreatePanel(this), 0.2, 100, 300, true);
+            else HideSidePanel();
+        }
         private void ShowSidePanel(SidePanel sidePanel, double relativeSize, int min, int max, bool fixPanelWith)
         {
             // Reset
             if (sidePanel != null) HideSidePanel();
             // Set
-            tsmiAdvisor.Checked = sidePanel is AdvisorPanel;
+            tsmiSidePanelAdvisor.Checked = sidePanel is AdvisorPanel;
+            tsmiHelpAdvisor.Checked = tsmiSidePanelAdvisor.Checked;
             tsmiPythonScriptEditor.Checked = sidePanel is PythonPanel;
             //
             Control parent = splitContainer1.Panel2;
@@ -8673,15 +8684,6 @@ namespace PrePoMax
         #endregion  ################################################################################################################
 
         #region Help menu  #########################################################################################################
-        internal void tsmiAdvisor_Click(object sender, EventArgs e)
-        {
-            if (!_controller.ModelInitialized) return;
-            // Change the wizard check state
-            tsmiAdvisor.Checked = !tsmiAdvisor.Checked;
-            // Add wizard panel
-            if (tsmiAdvisor.Checked == true) ShowSidePanel(AdvisorCreator.CreatePanel(this), 0.2, 100, 300, true);
-            else HideSidePanel();
-        }
         private void tsmiHomePage_Click(object sender, EventArgs e)
         {
             System.Diagnostics.Process.Start(Globals.HomePage);

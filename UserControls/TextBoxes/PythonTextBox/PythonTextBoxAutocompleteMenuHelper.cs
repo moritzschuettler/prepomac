@@ -10,6 +10,9 @@
 using FastColoredTextBoxNS;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Windows.Forms;
 
 namespace UserControls
 {
@@ -17,6 +20,17 @@ namespace UserControls
     {
         private static readonly Color SelectionBackColor = Color.FromArgb(0, 120, 215);
         private static readonly Color SelectionForeColor = Color.White;
+        private const uint MapvkVkToVsc = 0;
+
+        [DllImport("user32.dll")]
+        private static extern bool GetKeyboardState(byte[] keyState);
+        [DllImport("user32.dll")]
+        private static extern uint MapVirtualKey(uint code, uint mapType);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern int ToUnicode(uint virtualKeyCode, uint scanCode, byte[] keyState,
+                                            [Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder receivingBuffer,
+                                            int bufferSize, uint flags);
+
 
 
         public static AutocompleteMenu Create(FastColoredTextBox textBox)
@@ -59,6 +73,25 @@ namespace UserControls
         public static void ClearAutocompleteItems(AutocompleteMenu menu)
         {
             menu.Items.SetAutocompleteItems(new List<AutocompleteItem>());
+        }
+        public static bool TryGetKeyChar(KeyEventArgs e, out char character)
+        {
+            character = '\0';
+
+            byte[] keyState = new byte[256];
+            if (!GetKeyboardState(keyState)) return false;
+
+            if (e.Shift) keyState[(int)Keys.ShiftKey] = 0x80;
+            if (e.Control) keyState[(int)Keys.ControlKey] = 0x80;
+            if (e.Alt) keyState[(int)Keys.Menu] = 0x80;
+
+            StringBuilder buffer = new StringBuilder(8);
+            uint scanCode = MapVirtualKey((uint)e.KeyCode, MapvkVkToVsc);
+            int result = ToUnicode((uint)e.KeyCode, scanCode, keyState, buffer, buffer.Capacity, 0);
+            if (result <= 0 || buffer.Length == 0) return false;
+
+            character = buffer[0];
+            return true;
         }
         private static List<AutocompleteItem> CreateAutocompleteItems(IEnumerable<string> completions)
         {
