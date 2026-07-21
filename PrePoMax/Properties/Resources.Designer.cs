@@ -413,16 +413,6 @@ namespace PrePoMax.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
-        public static System.Drawing.Bitmap Keyword_user {
-            get {
-                object obj = ResourceManager.GetObject("Keyword_user", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
-        /// </summary>
         public static System.Drawing.Bitmap Last {
             get {
                 object obj = ResourceManager.GetObject("Last", resourceCulture);

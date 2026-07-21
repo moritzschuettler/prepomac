@@ -1160,7 +1160,6 @@
     <None Include="Icons\Keywords editor\Dots.ico" />
     <None Include="Icons\Keywords editor\Dots_t.ico" />
     <None Include="Icons\Keywords editor\Keyword_modified.ico" />
-    <None Include="Icons\Keywords editor\Keyword_user.ico" />
     <None Include="Icons\Common\Hide.ico" />
     <None Include="Icons\Common\Show.ico" />
     <None Include="Icons\Common\Up_arrow.ico" />

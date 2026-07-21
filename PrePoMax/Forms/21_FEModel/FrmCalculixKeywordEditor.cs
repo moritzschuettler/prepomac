@@ -41,7 +41,6 @@ namespace PrePoMax.Forms
         private const string HiddenDataPlaceholder = "... hidden data ...";
         private const string DotsImageKey = "Dots.ico";
         private const string DotsTransparentImageKey = "Dots_t.ico";
-        private const string UserKeywordImageKey = "Keyword_user.ico";
         private const string ModifiedKeywordImageKey = "Keyword_modified.ico";
         private int _selectedKeywordFirstLine;
         private int _selectedKeywordNumOfLines;
@@ -432,7 +431,7 @@ namespace PrePoMax.Forms
         {
             string imageKey;
             if (node.Tag is KeywordAtNode kn && kn.Keyword is CalculixUserKeyword)
-                imageKey = UserKeywordImageKey;
+                imageKey = ModifiedKeywordImageKey;
             else if (node.Tag is KeywordAtNode generatedKn && generatedKn.GeneratedIndices != null &&
                      generatedKn.KeywordOverride != null)
                 imageKey = ModifiedKeywordImageKey;
@@ -532,7 +531,6 @@ namespace PrePoMax.Forms
             keywordImageList.TransparentColor = Color.Transparent;
             keywordImageList.Images.Add(DotsImageKey, Properties.Resources.Dots);
             keywordImageList.Images.Add(DotsTransparentImageKey, Properties.Resources.Dots_t);
-            keywordImageList.Images.Add(UserKeywordImageKey, Properties.Resources.Keyword_user);
             keywordImageList.Images.Add(ModifiedKeywordImageKey, Properties.Resources.Keyword_modified);
             cltvKeywordsTree.ImageList = keywordImageList;
         }
