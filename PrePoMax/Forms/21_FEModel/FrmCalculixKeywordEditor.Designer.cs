@@ -77,26 +77,26 @@ namespace PrePoMax.Forms
             // btnAddKeyword
             // 
             this.btnAddKeyword.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.btnAddKeyword.Location = new System.Drawing.Point(12, 576);
+            this.btnAddKeyword.Image = global::PrePoMax.Properties.Resources.Add;
+            this.btnAddKeyword.Location = new System.Drawing.Point(439, 18);
             this.btnAddKeyword.Name = "btnAddKeyword";
-            this.btnAddKeyword.Size = new System.Drawing.Size(87, 23);
+            this.btnAddKeyword.Size = new System.Drawing.Size(27, 27);
             this.btnAddKeyword.TabIndex = 9;
-            this.btnAddKeyword.Text = "Add keyword";
             this.btnAddKeyword.UseVisualStyleBackColor = true;
             this.btnAddKeyword.Click += new System.EventHandler(this.btnAddKeyword_Click);
             // 
             // btnReset
-            //
+            // 
             this.btnReset.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.btnReset.Enabled = false;
-            this.btnReset.Location = new System.Drawing.Point(105, 576);
+            this.btnReset.Image = global::PrePoMax.Properties.Resources.Undo;
+            this.btnReset.Location = new System.Drawing.Point(439, 117);
             this.btnReset.Name = "btnReset";
-            this.btnReset.Size = new System.Drawing.Size(104, 23);
+            this.btnReset.Size = new System.Drawing.Size(27, 27);
             this.btnReset.TabIndex = 10;
-            this.btnReset.Text = "Reset selected";
             this.btnReset.UseVisualStyleBackColor = true;
             this.btnReset.Click += new System.EventHandler(this.btnReset_Click);
-            //
+            // 
             // btnOK
             // 
             this.btnOK.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
@@ -123,6 +123,8 @@ namespace PrePoMax.Forms
             // 
             this.splitContainer1.Panel1.Controls.Add(this.panel1);
             this.splitContainer1.Panel1.Controls.Add(this.label2);
+            this.splitContainer1.Panel1.Controls.Add(this.btnReset);
+            this.splitContainer1.Panel1.Controls.Add(this.btnAddKeyword);
             this.splitContainer1.Panel1.Controls.Add(this.cltvKeywordsTree);
             this.splitContainer1.Panel1.Controls.Add(this.btnMoveDown);
             this.splitContainer1.Panel1.Controls.Add(this.btnMoveUp);
@@ -185,7 +187,7 @@ namespace PrePoMax.Forms
             // 
             this.btnMoveDown.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.btnMoveDown.Image = global::PrePoMax.Properties.Resources.Down_arrow;
-            this.btnMoveDown.Location = new System.Drawing.Point(439, 51);
+            this.btnMoveDown.Location = new System.Drawing.Point(439, 84);
             this.btnMoveDown.Name = "btnMoveDown";
             this.btnMoveDown.Size = new System.Drawing.Size(27, 27);
             this.btnMoveDown.TabIndex = 7;
@@ -196,7 +198,7 @@ namespace PrePoMax.Forms
             // 
             this.btnMoveUp.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.btnMoveUp.Image = global::PrePoMax.Properties.Resources.Up_arrow;
-            this.btnMoveUp.Location = new System.Drawing.Point(439, 18);
+            this.btnMoveUp.Location = new System.Drawing.Point(439, 51);
             this.btnMoveUp.Name = "btnMoveUp";
             this.btnMoveUp.Size = new System.Drawing.Size(27, 27);
             this.btnMoveUp.TabIndex = 5;
@@ -207,7 +209,7 @@ namespace PrePoMax.Forms
             // 
             this.btnDelete.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.btnDelete.Image = global::PrePoMax.Properties.Resources.Remove;
-            this.btnDelete.Location = new System.Drawing.Point(439, 84);
+            this.btnDelete.Location = new System.Drawing.Point(439, 150);
             this.btnDelete.Name = "btnDelete";
             this.btnDelete.Size = new System.Drawing.Size(27, 27);
             this.btnDelete.TabIndex = 6;
@@ -238,7 +240,7 @@ namespace PrePoMax.Forms
             this.cbHide.UseVisualStyleBackColor = true;
             this.cbHide.CheckedChanged += new System.EventHandler(this.cbHide_CheckedChanged);
             // 
-            // fctbKeyword
+            // citbKeyword
             // 
             this.citbKeyword.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
@@ -246,13 +248,13 @@ namespace PrePoMax.Forms
             this.citbKeyword.Cursor = System.Windows.Forms.Cursors.IBeam;
             this.citbKeyword.Font = new System.Drawing.Font("Consolas", 9F);
             this.citbKeyword.Location = new System.Drawing.Point(3, 18);
-            this.citbKeyword.Name = "fctbKeyword";
+            this.citbKeyword.Name = "citbKeyword";
+            this.citbKeyword.ReadOnly = false;
             this.citbKeyword.Size = new System.Drawing.Size(531, 150);
             this.citbKeyword.TabIndex = 12;
-            this.citbKeyword.Text = "User keyword";
             this.citbKeyword.KeyDown += new System.Windows.Forms.KeyEventHandler(this.ictbKeyword_KeyDown);
             // 
-            // fctbInpFile
+            // citbInpFile
             // 
             this.citbInpFile.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
@@ -261,11 +263,10 @@ namespace PrePoMax.Forms
             this.citbInpFile.Cursor = System.Windows.Forms.Cursors.IBeam;
             this.citbInpFile.Font = new System.Drawing.Font("Consolas", 9F);
             this.citbInpFile.Location = new System.Drawing.Point(3, 199);
-            this.citbInpFile.Name = "fctbInpFile";
+            this.citbInpFile.Name = "citbInpFile";
             this.citbInpFile.ReadOnly = true;
             this.citbInpFile.Size = new System.Drawing.Size(531, 356);
             this.citbInpFile.TabIndex = 10;
-            this.citbInpFile.Text = "Inp file content";
             // 
             // label3
             // 
@@ -298,8 +299,6 @@ namespace PrePoMax.Forms
             this.ClientSize = new System.Drawing.Size(1034, 611);
             this.Controls.Add(this.btnOK);
             this.Controls.Add(this.splitContainer1);
-            this.Controls.Add(this.btnAddKeyword);
-            this.Controls.Add(this.btnReset);
             this.Controls.Add(this.btnCancel);
             this.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
             this.MinimizeBox = false;

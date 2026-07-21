@@ -1252,6 +1252,7 @@
     <None Include="Icons\Edit\Undo.ico" />
     <None Include="Icons\Edit\Redo.ico" />
     <None Include="Icons\Tools\Arrange_annotations.ico" />
+    <None Include="Icons\Keywords editor\Add.ico" />
     <Content Include="main.ico" />
   </ItemGroup>
   <ItemGroup>
