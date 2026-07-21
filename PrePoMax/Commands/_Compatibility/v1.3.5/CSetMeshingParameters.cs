@@ -59,7 +59,7 @@ namespace PrePoMax.Commands
             return base.GetCommandString();
         }
         // ISerialization
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
+        public new void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             // Compatibility for version v1.3.5
         }

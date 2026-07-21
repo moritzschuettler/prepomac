@@ -22,5 +22,8 @@ namespace PrePoMax
         public CalculixKeyword Keyword;
         public string Data;
         public int NumOfLines;
+        public int[] GeneratedIndices;
+        public string OriginalSignature;
+        public CalculixKeywordOverride KeywordOverride;
     }
 }

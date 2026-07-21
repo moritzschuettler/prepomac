@@ -32,9 +32,16 @@ namespace PrePoMax.Commands
             : base(name)
         {
         }
+        protected PreprocessCommand(SerializationInfo info, StreamingContext context)
+            : base(info, context)
+        {
+        }
 
 
         // Methods                                                                                                                  
-        
+        protected override void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            base.GetObjectData(info, context);
+        }
     }
 }

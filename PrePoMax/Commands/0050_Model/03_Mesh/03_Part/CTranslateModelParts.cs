@@ -39,16 +39,12 @@ namespace PrePoMax.Commands
             _numberOfCopies = numberOfCopies;
         }
         public CTranslateModelParts(SerializationInfo info, StreamingContext context)
-            : base("") // this can be empty
+            : base(info, context)
         {
             foreach (SerializationEntry entry in info)
             {
                 switch (entry.Name)
                 {
-                    case "Command+_name":
-                        _name = (string)entry.Value; break;
-                    case "Command+_dateCreated":
-                        _dateCreated = (DateTime)entry.Value; break;
                     case "_partNames":
                         _partNames = (string[])entry.Value;
                         break;
@@ -61,8 +57,6 @@ namespace PrePoMax.Commands
                     case "_numberOfCopies":
                         _numberOfCopies = (int)entry.Value;
                         break;
-                    default:
-                        throw new NotSupportedException();
                 }
             }
         }
@@ -79,11 +73,10 @@ namespace PrePoMax.Commands
             return base.GetCommandString() + GetArrayAsString(_partNames);
         }
         // ISerialization
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
+        public new void GetObjectData(SerializationInfo info, StreamingContext context)
         {
+            base.GetObjectData(info, context);
             // Using typeof() works also for null fields
-            info.AddValue("Command+_name", _name, typeof(string));
-            info.AddValue("Command+_dateCreated", _dateCreated, typeof(DateTime));
             info.AddValue("_partNames", _partNames, typeof(string[]));
             info.AddValue("_translateVector", _translateVector, typeof(double[]));
             info.AddValue("_numberOfCopies", _numberOfCopies, typeof(int));

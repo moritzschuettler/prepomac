@@ -51,6 +51,7 @@ namespace CaeModel
         private OrderedDictionary<string, InitialCondition> _initialConditions;                 //ISerializable
         private StepCollection _stepCollection;                                                 //ISerializable
         private OrderedDictionary<int[], Calculix.CalculixUserKeyword> _calculixUserKeywords;   //ISerializable
+        private List<Calculix.CalculixKeywordOverride> _calculixKeywordOverrides;                //ISerializable
         private ModelProperties _properties;                                                    //ISerializable
         private UnitSystem _unitSystem;                                                         //ISerializable
 
@@ -78,6 +79,14 @@ namespace CaeModel
             {
                 _calculixUserKeywords = value;
             } 
+        }
+        public List<Calculix.CalculixKeywordOverride> CalculixKeywordOverrides
+        {
+            get { return _calculixKeywordOverrides; }
+            set
+            {
+                _calculixKeywordOverrides = value ?? new List<Calculix.CalculixKeywordOverride>();
+            }
         }
         public ModelProperties Properties { get { return _properties; } set { _properties = value; } }
         public UnitSystem UnitSystem
@@ -108,6 +117,7 @@ namespace CaeModel
             _distributions = new OrderedDictionary<string, Distribution>("Distributions", sc);
             _amplitudes = new OrderedDictionary<string, Amplitude>("Amplitudes", sc);
             _stepCollection = new StepCollection();
+            _calculixKeywordOverrides = new List<Calculix.CalculixKeywordOverride>();
             _properties = new ModelProperties();
             if (unitSystem == null) _unitSystem = new UnitSystem();
             else _unitSystem = unitSystem;
@@ -138,6 +148,7 @@ namespace CaeModel
             _initialConditions = copy._initialConditions;
             _stepCollection = copy._stepCollection;
             _calculixUserKeywords = copy._calculixUserKeywords;
+            _calculixKeywordOverrides = copy._calculixKeywordOverrides;
             _properties = copy._properties;
             _unitSystem = copy._unitSystem;
         }
@@ -161,6 +172,8 @@ namespace CaeModel
             _parameters = new EquationParameterCollection();
             // Compatibility for version v.2.3.9
             _userViews = new OrderedDictionary<string, UserViewParameters>("User Views", sc);
+            // Compatibility for models saved before CalculiX keyword overrides were introduced
+            _calculixKeywordOverrides = new List<Calculix.CalculixKeywordOverride>();
             //
             foreach (SerializationEntry entry in info)
             {
@@ -240,6 +253,9 @@ namespace CaeModel
                             _calculixUserKeywords = cukod;
                         else if (entry.Value == null) _calculixUserKeywords = null;
                         else throw new NotSupportedException();
+                        break;
+                    case "_calculixKeywordOverrides":
+                        CalculixKeywordOverrides = (List<Calculix.CalculixKeywordOverride>)entry.Value;
                         break;
                     case "_properties":
                         _properties = (ModelProperties)entry.Value;
@@ -3394,6 +3410,8 @@ namespace CaeModel
             info.AddValue("_stepCollection", _stepCollection, typeof(StepCollection));
             info.AddValue("_calculixUserKeywords", _calculixUserKeywords,
                           typeof(OrderedDictionary<int[], Calculix.CalculixUserKeyword>));
+            info.AddValue("_calculixKeywordOverrides", _calculixKeywordOverrides,
+                          typeof(List<Calculix.CalculixKeywordOverride>));
             info.AddValue("_properties", _properties, typeof(ModelProperties));
             info.AddValue("_unitSystem", _unitSystem, typeof(UnitSystem));
             info.AddValue("_hashName", _hashName, typeof(string));

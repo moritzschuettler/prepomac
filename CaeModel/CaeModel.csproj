@@ -238,6 +238,7 @@
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalDLoad.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\CalEndStep.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\CalculixUserKeyword.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\CalculixKeywordOverride.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalTitle.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalSurface.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalNodeSet.cs" />

@@ -2610,6 +2610,14 @@ namespace PrePoMax
             Commands.CSetCalculixUserKeywords comm = new Commands.CSetCalculixUserKeywords(userKeywords);
             _commands.AddAndExecute(comm);
         }
+        public void SetCalculixKeywordEditorStateCommand(
+            OrderedDictionary<int[], FileInOut.Output.Calculix.CalculixUserKeyword> userKeywords,
+            List<FileInOut.Output.Calculix.CalculixKeywordOverride> keywordOverrides)
+        {
+            Commands.CSetCalculixKeywordEditorState comm =
+                new Commands.CSetCalculixKeywordEditorState(userKeywords, keywordOverrides);
+            _commands.AddAndExecute(comm);
+        }
         //******************************************************************************************
         public void UndoHistory(RegenerateTypeEnum regenerateType)
         {
@@ -2670,10 +2678,26 @@ namespace PrePoMax
             }
             else return _model.CalculixUserKeywords;
         }
+        public List<FileInOut.Output.Calculix.CalculixKeywordOverride> GetCalculixKeywordOverrides()
+        {
+            if (_model == null)
+            {
+                MessageBoxes.ShowError("There is no model.");
+                return null;
+            }
+            else return _model.CalculixKeywordOverrides;
+        }
         public void SetCalculixUserKeywords(OrderedDictionary<int[], FileInOut.Output.Calculix.CalculixUserKeyword> userKeywords)
         {
             _model.CalculixUserKeywords = userKeywords;
             _form.SetNumberOfModelUserKeywords(userKeywords.Count);
+        }
+        public void SetCalculixKeywordEditorState(
+            OrderedDictionary<int[], FileInOut.Output.Calculix.CalculixUserKeyword> userKeywords,
+            List<FileInOut.Output.Calculix.CalculixKeywordOverride> keywordOverrides)
+        {
+            SetCalculixUserKeywords(userKeywords);
+            _model.CalculixKeywordOverrides = keywordOverrides;
         }
 
         #endregion ################################################################################################################

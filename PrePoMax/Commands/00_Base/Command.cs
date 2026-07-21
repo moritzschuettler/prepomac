@@ -37,6 +37,24 @@ namespace PrePoMax.Commands
             _name = name;
             _dateCreated = DateTime.Now;
         }
+        protected Command(SerializationInfo info, StreamingContext context)
+        {
+            foreach (SerializationEntry entry in info)
+            {
+                switch (entry.Name)
+                {
+                    case "Command+_name":                               // Compatibility for version v.2.5.2
+                    case "_name":
+                        _name = (string)entry.Value; break;
+                    case "Command+_dateCreated":                        // Compatibility for version v.2.5.2
+                    case "_dateCreated":
+                        _dateCreated = (DateTime)entry.Value; break;
+                    case "Command+_timeSpan":                           // Compatibility for version v.2.5.2
+                    case "_timeSpan":
+                        _timeSpan = (TimeSpan)entry.Value; break;
+                }
+            }
+        }
 
 
         // Methods                                                                                                                  
@@ -74,6 +92,13 @@ namespace PrePoMax.Commands
             names += "]";
 
             return names;
+        }
+        protected virtual void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            // Using typeof() works also for null fields
+            info.AddValue("_name", _name, typeof(string));
+            info.AddValue("_dateCreated", _dateCreated, typeof(DateTime));
+            info.AddValue("_timeSpan", _timeSpan, typeof(TimeSpan));
         }
     }
 }

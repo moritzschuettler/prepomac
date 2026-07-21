@@ -40,6 +40,7 @@ namespace PrePoMax.Forms
             this.components = new System.ComponentModel.Container();
             this.btnCancel = new System.Windows.Forms.Button();
             this.btnAddKeyword = new System.Windows.Forms.Button();
+            this.btnReset = new System.Windows.Forms.Button();
             this.btnOK = new System.Windows.Forms.Button();
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
             this.panel1 = new System.Windows.Forms.Panel();
@@ -84,6 +85,18 @@ namespace PrePoMax.Forms
             this.btnAddKeyword.UseVisualStyleBackColor = true;
             this.btnAddKeyword.Click += new System.EventHandler(this.btnAddKeyword_Click);
             // 
+            // btnReset
+            //
+            this.btnReset.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.btnReset.Enabled = false;
+            this.btnReset.Location = new System.Drawing.Point(105, 576);
+            this.btnReset.Name = "btnReset";
+            this.btnReset.Size = new System.Drawing.Size(104, 23);
+            this.btnReset.TabIndex = 10;
+            this.btnReset.Text = "Reset selected";
+            this.btnReset.UseVisualStyleBackColor = true;
+            this.btnReset.Click += new System.EventHandler(this.btnReset_Click);
+            //
             // btnOK
             // 
             this.btnOK.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
@@ -286,6 +299,7 @@ namespace PrePoMax.Forms
             this.Controls.Add(this.btnOK);
             this.Controls.Add(this.splitContainer1);
             this.Controls.Add(this.btnAddKeyword);
+            this.Controls.Add(this.btnReset);
             this.Controls.Add(this.btnCancel);
             this.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
             this.MinimizeBox = false;
@@ -311,6 +325,7 @@ namespace PrePoMax.Forms
         private System.Windows.Forms.Button btnMoveUp;
         private System.Windows.Forms.Button btnDelete;
         private System.Windows.Forms.Button btnAddKeyword;
+        private System.Windows.Forms.Button btnReset;
         private System.Windows.Forms.Button btnOK;
         private UserControls.CodersLabTreeView cltvKeywordsTree; 
         private System.Windows.Forms.Label label1;

@@ -239,6 +239,26 @@ namespace PrePoMax.Properties {
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap Dots {
+            get {
+                object obj = ResourceManager.GetObject("Dots", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap Dots_t {
+            get {
+                object obj = ResourceManager.GetObject("Dots_t", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
@@ -376,6 +396,26 @@ namespace PrePoMax.Properties {
         public static System.Drawing.Bitmap Isometric {
             get {
                 object obj = ResourceManager.GetObject("Isometric", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap Keyword_modified {
+            get {
+                object obj = ResourceManager.GetObject("Keyword_modified", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap Keyword_user {
+            get {
+                object obj = ResourceManager.GetObject("Keyword_user", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

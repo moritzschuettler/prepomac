@@ -37,6 +37,12 @@ namespace PrePoMax.Forms
         // Variables                                                                                                                
         private List<CalculixKeyword> _keywords;
         private OrderedDictionary<int[], CalculixUserKeyword> _userKeywords;
+        private List<CalculixKeywordOverride> _keywordOverrides;
+        private const string HiddenDataPlaceholder = "... hidden data ...";
+        private const string DotsImageKey = "Dots.ico";
+        private const string DotsTransparentImageKey = "Dots_t.ico";
+        private const string UserKeywordImageKey = "Keyword_user.ico";
+        private const string ModifiedKeywordImageKey = "Keyword_modified.ico";
         private int _selectedKeywordFirstLine;
         private int _selectedKeywordNumOfLines;
         private bool _adding;
@@ -48,26 +54,60 @@ namespace PrePoMax.Forms
             get { return _userKeywords; }
             set { _userKeywords = value; }
         }
-
-
+        public List<CalculixKeywordOverride> KeywordOverrides
+        {
+            get { return _keywordOverrides; }
+            set
+            {
+                _keywordOverrides = new List<CalculixKeywordOverride>();
+                if (value != null)
+                {
+                    foreach (CalculixKeywordOverride keywordOverride in value)
+                    {
+                        if (keywordOverride == null) continue;
+                        CalculixKeywordOverride copy =
+                            new CalculixKeywordOverride(keywordOverride.Indices, keywordOverride.OriginalSignature);
+                        copy.Data = keywordOverride.Data;
+                        copy.Disabled = keywordOverride.Disabled;
+                        _keywordOverrides.Add(copy);
+                    }
+                }
+            }
+        }
         // Constructors                                                                                                             
         public FrmCalculixKeywordEditor()
         {
             InitializeComponent();
+            InitializeKeywordTreeImages();
+            _keywordOverrides = new List<CalculixKeywordOverride>();
             //
             citbKeyword.TextChanged += ictbKeyword_TextChanged;
+            cltvKeywordsTree.AfterCollapse += cltvKeywordsTree_AfterCollapse;
+            cltvKeywordsTree.AfterExpand += cltvKeywordsTree_AfterExpand;
         }
 
 
         // Event handlers                                                                                                           
+        private void cltvKeywordsTree_AfterCollapse(object sender, TreeViewEventArgs e)
+        {
+            UpdateKeywordNodeIcon(e.Node);
+        }
+        private void cltvKeywordsTree_AfterExpand(object sender, TreeViewEventArgs e)
+        {
+            UpdateKeywordNodeIcon(e.Node);
+        }
         private void cltvKeywordsTree_AfterSelect(object sender, TreeViewEventArgs e)
         {
             if (cltvKeywordsTree.SelectedNode != null)
             {
                 bool userNode = false;
+                bool generatedNode = false;
                 //
-                if (cltvKeywordsTree.SelectedNode.Tag is KeywordAtNode kn1 && kn1.Keyword is CalculixUserKeyword)
-                    userNode = true;
+                if (cltvKeywordsTree.SelectedNode.Tag is KeywordAtNode kn1)
+                {
+                    userNode = kn1.Keyword is CalculixUserKeyword;
+                    generatedNode = kn1.GeneratedIndices != null;
+                }
                 // De-reference text changed event
                 citbKeyword.TextChanged -= ictbKeyword_TextChanged;
                 // Clear keyword textbox
@@ -77,7 +117,8 @@ namespace PrePoMax.Forms
                 if (citbKeyword.Tag != null && citbKeyword.Tag is KeywordAtNode kn2)
                 {
                     citbKeyword.Text = kn2.Data;
-                    citbKeyword.ReadOnly = !userNode;
+                    bool hiddenData = kn2.Data.Contains(HiddenDataPlaceholder);
+                    citbKeyword.ReadOnly = !(userNode || generatedNode) || hiddenData;
                     // Activate/Deactivate
                     cbActive.CheckedChanged -= cbActive_CheckedChanged;
                     if (kn2.Keyword is CalculixUserKeyword ck)
@@ -85,12 +126,19 @@ namespace PrePoMax.Forms
                         cbActive.Checked = ck.Active;
                         cbActive.Enabled = true;
                     }
+                    else if (generatedNode)
+                    {
+                        cbActive.Checked = kn2.KeywordOverride == null || !kn2.KeywordOverride.Disabled;
+                        cbActive.Enabled = true;
+                        if (!cbActive.Checked) citbKeyword.ReadOnly = true;
+                    }
                     else
                     {
                         cbActive.Checked = true;
                         cbActive.Enabled = false;
                     }
                     cbActive.CheckedChanged += cbActive_CheckedChanged;
+                    btnReset.Enabled = generatedNode && kn2.KeywordOverride != null;
                     //
                     _selectedKeywordNumOfLines = kn2.NumOfLines;
                 }
@@ -98,6 +146,8 @@ namespace PrePoMax.Forms
                 {
                     _selectedKeywordFirstLine = 0;
                     _selectedKeywordNumOfLines = 0;
+                    cbActive.Enabled = false;
+                    btnReset.Enabled = false;
                 }
                 // Find the first line of the selected keyword
                 bool nodeFound = false;
@@ -121,6 +171,13 @@ namespace PrePoMax.Forms
         private void ictbKeyword_TextChanged(object sender, EventArgs e)
         {
             //System.Diagnostics.Debug.WriteLine(DateTime.Now.Millisecond.ToString() + " ms");
+            if (citbKeyword.Tag is KeywordAtNode kn && kn.GeneratedIndices != null)
+            {
+                UpdateGeneratedKeywordOverride(kn);
+                kn.Data = citbKeyword.Text;
+                kn.NumOfLines = citbKeyword.LineCount;
+                UpdateKeywordNodeIcon(cltvKeywordsTree.SelectedNode);
+            }
             tUpdate.Stop();
             tUpdate.Start();
             tUpdate.Interval = 500;
@@ -251,11 +308,30 @@ namespace PrePoMax.Forms
         }
         private void cbHide_CheckedChanged(object sender, EventArgs e)
         {
+            tUpdate.Stop();
+            UpdateKeywordTextBox();
             UpdateAllKeywords();
+        }
+        private void btnReset_Click(object sender, EventArgs e)
+        {
+            tUpdate.Stop();
+            if (cltvKeywordsTree.SelectedNode != null &&
+                cltvKeywordsTree.SelectedNode.Tag is KeywordAtNode kn && kn.GeneratedIndices != null)
+            {
+                if (kn.KeywordOverride != null) _keywordOverrides.Remove(kn.KeywordOverride);
+                kn.KeywordOverride = null;
+                UpdateKeywordNodeIcon(cltvKeywordsTree.SelectedNode);
+                UpdateKeywordDataInTreeNode(cltvKeywordsTree.SelectedNode);
+                WriteTreeToTextBox();
+                cltvKeywordsTree_AfterSelect(null, null);
+                cltvKeywordsTree.Focus();
+            }
         }
         //
         private void btnOK_Click(object sender, EventArgs e)
         {
+            tUpdate.Stop();
+            UpdateKeywordTextBox();
             var newUserKeywords = new OrderedDictionary<int[], CalculixUserKeyword>("User CalculiX keywords");
             // First add suppressed keywords
             if (_userKeywords != null && _userKeywords.Count > 0)
@@ -308,11 +384,10 @@ namespace PrePoMax.Forms
             TreeNode node = new TreeNode();
             node.Text = "CalculiX inp file";
             // Build the keyword tree
-            int index;
-            foreach (CalculixKeyword keyword in _keywords)
+            for (int i = 0; i < _keywords.Count; i++)
             {
-                index = node.Nodes.Add(new TreeNode());
-                AddKeywordToTreeNode(keyword, node.Nodes[index]);
+                int index = node.Nodes.Add(new TreeNode());
+                AddKeywordToTreeNode(_keywords[i], node.Nodes[index], new int[] { i });
             }
             // Add user keywords
             if (_userKeywords != null)
@@ -324,12 +399,15 @@ namespace PrePoMax.Forms
             }
             // At the end add nodes to the tree
             cltvKeywordsTree.Nodes.Add(node);
+            // Make changed generated keywords visible
+            ExpandKeywordOverrideParentNodes(node);
             // Clear the keyword editor
             citbKeyword.Clear();
             // Output tree to the inp read-only textbox
             WriteTreeToTextBox();
             // Expand first tree node
             node.Expand();
+            UpdateKeywordNodeIcons(node);
             //
             _selectedKeywordFirstLine = -1;
             _selectedKeywordNumOfLines = -1;
@@ -345,31 +423,74 @@ namespace PrePoMax.Forms
             //
             cltvKeywordsTree_AfterSelect(null, null);
         }
-        // Add keywords to tree
-        private void AddKeywordToTreeNode(CalculixKeyword keyword, TreeNode node)
+        private void UpdateKeywordNodeIcons(TreeNode node)
         {
-            string nodeText;
-            if (keyword is CalTitle ct) nodeText = ct.Title;
-            else nodeText = keyword.GetKeywordString();
+            UpdateKeywordNodeIcon(node);
+            foreach (TreeNode childNode in node.Nodes) UpdateKeywordNodeIcons(childNode);
+        }
+        private void UpdateKeywordNodeIcon(TreeNode node)
+        {
+            string imageKey;
+            if (node.Tag is KeywordAtNode kn && kn.Keyword is CalculixUserKeyword)
+                imageKey = UserKeywordImageKey;
+            else if (node.Tag is KeywordAtNode generatedKn && generatedKn.GeneratedIndices != null &&
+                     generatedKn.KeywordOverride != null)
+                imageKey = ModifiedKeywordImageKey;
+            else if (node.Nodes.Count > 0 && node.IsExpanded)
+                imageKey = DotsTransparentImageKey;
+            else imageKey = DotsImageKey;
             //
-            nodeText = GetFirstLineFromMultiline(nodeText);
+            if (node.ImageKey != imageKey)
+            {
+                node.ImageKey = imageKey;
+                node.SelectedImageKey = imageKey;
+            }
+        }
+        private void ExpandKeywordOverrideParentNodes(TreeNode node)
+        {
+            if (node.Tag is KeywordAtNode kn && kn.GeneratedIndices != null && kn.KeywordOverride != null)
+            {
+                TreeNode parentNode = node.Parent;
+                while (parentNode != null)
+                {
+                    parentNode.Expand();
+                    parentNode = parentNode.Parent;
+                }
+            }
             //
-            node.Text = nodeText;
-            node.Name = node.Text;
-            //
+            foreach (TreeNode childNode in node.Nodes) ExpandKeywordOverrideParentNodes(childNode);
+        }
+        // Add keywords to tree
+        private void AddKeywordToTreeNode(CalculixKeyword keyword, TreeNode node, int[] generatedIndices)
+        {
             KeywordAtNode keywordAtNode = new KeywordAtNode();
             keywordAtNode.Keyword = keyword;
-            keywordAtNode.Data = FileInOut.Output.CalculixFileWriter.GetShortKeywordData(keyword, cbHide.Checked);
-            keywordAtNode.NumOfLines = 
+            keywordAtNode.GeneratedIndices = (int[])generatedIndices.Clone();
+            keywordAtNode.OriginalSignature =
+                FileInOut.Output.CalculixFileWriter.GetKeywordSignature(keyword);
+            keywordAtNode.KeywordOverride =
+                FindKeywordOverride(keywordAtNode.GeneratedIndices, keywordAtNode.OriginalSignature);
+            keywordAtNode.Data = GetKeywordData(keywordAtNode);
+            keywordAtNode.NumOfLines =
                 keywordAtNode.Data.Split(new string[] { Environment.NewLine }, StringSplitOptions.None).Length;
             node.Tag = keywordAtNode;
+            UpdateKeywordNodeIcon(node);
+            //
+            string nodeText;
+            if (keywordAtNode.KeywordOverride == null && keyword is CalTitle ct) nodeText = ct.Title;
+            else nodeText = keywordAtNode.Data;
+            node.Text = GetFirstLineFromMultiline(nodeText);
+            node.Name = node.Text;
             //
             int count = 0;
             foreach (var childKeyword in keyword.Keywords)
             {
                 TreeNode childNode = new TreeNode();
                 node.Nodes.Add(childNode);
-                AddKeywordToTreeNode(childKeyword, childNode);
+                int[] childIndices = new int[generatedIndices.Length + 1];
+                Array.Copy(generatedIndices, childIndices, generatedIndices.Length);
+                childIndices[childIndices.Length - 1] = count;
+                AddKeywordToTreeNode(childKeyword, childNode, childIndices);
                 count++;
             }
         }
@@ -401,15 +522,19 @@ namespace PrePoMax.Forms
             node.Tag = keywordAtNode;
             Font font = new Font(cltvKeywordsTree.Font, FontStyle.Bold);
             node.NodeFont = font;
-
-            //node.BackColor = Color.FromArgb(195, 195, 255);
-            //node.BackColor = Color.FromArgb(230, 255, 230);
-            //node.BackColor = Color.FromArgb(230, 255, 230);
-            //node.ForeColor = Color.Green;
-            //node.BackColor = Color.FromArgb(149, 91, 165);
-
-            node.ForeColor = Color.Black;
-            node.BackColor = Color.FromArgb(189, 160, 204);
+            UpdateKeywordNodeIcon(node);
+        }
+        private void InitializeKeywordTreeImages()
+        {
+            ImageList keywordImageList = new ImageList(components);
+            keywordImageList.ColorDepth = ColorDepth.Depth32Bit;
+            keywordImageList.ImageSize = new Size(16, 16);
+            keywordImageList.TransparentColor = Color.Transparent;
+            keywordImageList.Images.Add(DotsImageKey, Properties.Resources.Dots);
+            keywordImageList.Images.Add(DotsTransparentImageKey, Properties.Resources.Dots_t);
+            keywordImageList.Images.Add(UserKeywordImageKey, Properties.Resources.Keyword_user);
+            keywordImageList.Images.Add(ModifiedKeywordImageKey, Properties.Resources.Keyword_modified);
+            cltvKeywordsTree.ImageList = keywordImageList;
         }
         private void UpdateKeywordDataInTree()
         {
@@ -422,7 +547,7 @@ namespace PrePoMax.Forms
         {
             if (node.Tag != null && node.Tag is KeywordAtNode kn)
             {
-                kn.Data = FileInOut.Output.CalculixFileWriter.GetShortKeywordData(kn.Keyword, cbHide.Checked);
+                kn.Data = GetKeywordData(kn);
                 kn.NumOfLines = kn.Data.Split(new string[] { Environment.NewLine }, StringSplitOptions.None).Length;
             }
             //
@@ -543,6 +668,29 @@ namespace PrePoMax.Forms
                         ck.Active = cbActive.Checked;
                         citbKeyword.ReadOnly = !ck.Active;
                     }
+                    else if (kn.GeneratedIndices != null)
+                    {
+                        UpdateGeneratedKeywordOverride(kn);
+                        kn.Data = citbKeyword.Text;
+                        kn.NumOfLines = citbKeyword.LineCount;
+                        //
+                        ReplaceText(_selectedKeywordFirstLine, _selectedKeywordNumOfLines, kn.Data);
+                        _selectedKeywordNumOfLines = citbKeyword.LineCount;
+                        // Change the name of the selected tree node
+                        string nodeText;
+                        if (kn.KeywordOverride == null && kn.Keyword is CalTitle ct) nodeText = ct.Title;
+                        else if (citbKeyword.LineCount > 0 && citbKeyword.GetLine(0).Length > 0)
+                            nodeText = citbKeyword.GetLine(0);
+                        else nodeText = "Empty keyword fragment";
+                        LockWindowUpdate(cltvKeywordsTree.Handle);
+                        if (cltvKeywordsTree.SelectedNode.Text != nodeText)
+                            cltvKeywordsTree.SelectedNode.Text = nodeText;
+                        LockWindowUpdate(IntPtr.Zero);
+                        // Enabled/disabled generated fragment
+                        btnReset.Enabled = kn.KeywordOverride != null;
+                        UpdateKeywordNodeIcon(cltvKeywordsTree.SelectedNode);
+                        citbKeyword.ReadOnly = !cbActive.Checked || kn.Data.Contains(HiddenDataPlaceholder);
+                    }
                 }
                 //
                 SelectKeywordLinesAndScrollToSelection();
@@ -551,6 +699,92 @@ namespace PrePoMax.Forms
                 }
             catch
             { }
+        }
+        private void UpdateGeneratedKeywordOverride(KeywordAtNode kn)
+        {
+            bool disabled = !cbActive.Checked;
+            bool hiddenData = citbKeyword.Text.Contains(HiddenDataPlaceholder);
+            if (hiddenData)
+            {
+                if (disabled)
+                {
+                    GetOrCreateKeywordOverride(kn).Disabled = true;
+                }
+                else if (kn.KeywordOverride != null)
+                {
+                    kn.KeywordOverride.Disabled = false;
+                    if (kn.KeywordOverride.Data == null) RemoveKeywordOverride(kn);
+                }
+                return;
+            }
+            //
+            string data = disabled ? citbKeyword.GetActivatedText() : citbKeyword.GetTextRows();
+            string originalData =
+                FileInOut.Output.CalculixFileWriter.GetShortKeywordData(kn.Keyword, false);
+            string replacementData = KeywordDataEquals(data, originalData) ? null : data;
+            //
+            if (replacementData != null || disabled)
+            {
+                CalculixKeywordOverride keywordOverride = GetOrCreateKeywordOverride(kn);
+                keywordOverride.Data = replacementData;
+                keywordOverride.Disabled = disabled;
+            }
+            else if (kn.KeywordOverride != null) RemoveKeywordOverride(kn);
+        }
+        private CalculixKeywordOverride FindKeywordOverride(int[] indices, string originalSignature)
+        {
+            return _keywordOverrides.FirstOrDefault(
+                item => item != null && item.HasSameIndices(indices) &&
+                        item.OriginalSignature == originalSignature);
+        }
+        private CalculixKeywordOverride GetOrCreateKeywordOverride(KeywordAtNode kn)
+        {
+            if (kn.KeywordOverride != null) return kn.KeywordOverride;
+            _keywordOverrides.RemoveAll(
+                item => item != null && item.HasSameIndices(kn.GeneratedIndices));
+            CalculixKeywordOverride keywordOverride =
+                new CalculixKeywordOverride(kn.GeneratedIndices, kn.OriginalSignature);
+            _keywordOverrides.Add(keywordOverride);
+            kn.KeywordOverride = keywordOverride;
+            return keywordOverride;
+        }
+        private void RemoveKeywordOverride(KeywordAtNode kn)
+        {
+            _keywordOverrides.Remove(kn.KeywordOverride);
+            kn.KeywordOverride = null;
+        }
+        private string GetKeywordData(KeywordAtNode kn)
+        {
+            if (kn.GeneratedIndices != null)
+            {
+                string data = kn.KeywordOverride != null && kn.KeywordOverride.Data != null
+                                  ? kn.KeywordOverride.Data
+                                  : FileInOut.Output.CalculixFileWriter.GetShortKeywordData(kn.Keyword, cbHide.Checked);
+                if (kn.KeywordOverride != null && kn.KeywordOverride.Disabled)
+                    return GetDeactivatedKeywordData(data);
+                return data;
+            }
+            return FileInOut.Output.CalculixFileWriter.GetShortKeywordData(kn.Keyword, cbHide.Checked);
+        }
+        private static bool KeywordDataEquals(string first, string second)
+        {
+            string normalizedFirst = (first ?? "").Replace("\r\n", "\n").Replace("\r", "\n");
+            string normalizedSecond = (second ?? "").Replace("\r\n", "\n").Replace("\r", "\n");
+            return normalizedFirst == normalizedSecond;
+        }
+        private static string GetDeactivatedKeywordData(string data)
+        {
+            if (string.IsNullOrEmpty(data)) return "** Disabled by CalculiX keyword editor";
+            string normalizedData = data.Replace("\r\n", "\n").Replace("\r", "\n");
+            if (normalizedData.EndsWith("\n")) normalizedData = normalizedData.Substring(0, normalizedData.Length - 1);
+            string[] lines = normalizedData.Split('\n');
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < lines.Length; i++)
+            {
+                if (i > 0) sb.AppendLine();
+                sb.Append("**").Append(lines[i]);
+            }
+            return sb.ToString();
         }
         //
         private string ReplaceText(int firstLine, int numOfLines, string newText)
@@ -575,8 +809,7 @@ namespace PrePoMax.Forms
         {
             tUpdate.Stop();
             UpdateKeywordTextBox();
+            WriteTreeToTextBox();
         }
     }
 }
-
-

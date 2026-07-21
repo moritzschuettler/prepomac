@@ -4382,13 +4382,15 @@ namespace PrePoMax
                     {
                         _frmCalculixKeywordEditor.Keywords = _controller.GetCalculixModelKeywords();
                         _frmCalculixKeywordEditor.UserKeywords = _controller.GetCalculixUserKeywords();
+                        _frmCalculixKeywordEditor.KeywordOverrides = _controller.GetCalculixKeywordOverrides();
                         //
                         if (_frmCalculixKeywordEditor.Keywords != null)
                         {
                             _frmCalculixKeywordEditor.PrepareForm(); // must be here to check for errors
                             if (_frmCalculixKeywordEditor.ShowDialog(this) == DialogResult.OK)
                             {
-                                _controller.SetCalculixUserKeywordsCommand(_frmCalculixKeywordEditor.UserKeywords);
+                                _controller.SetCalculixKeywordEditorStateCommand(
+                                    _frmCalculixKeywordEditor.UserKeywords, _frmCalculixKeywordEditor.KeywordOverrides);
                                 _controller.CheckAndUpdateModelValidity(); // update keyword states
                             }
                         }

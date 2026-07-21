@@ -133,6 +133,7 @@
     <Compile Include="Commands\000_General\CRenamePost.cs" />
     <Compile Include="Commands\000_General\CRenamePre.cs" />
     <Compile Include="Commands\0010_Edit\CSetCalculixUserKeywords.cs" />
+    <Compile Include="Commands\0010_Edit\CSetCalculixKeywordEditorState.cs" />
     <Compile Include="Commands\0030_Geometry\01_Part\CResetColorForGeometryParts.cs" />
     <Compile Include="Commands\0030_Geometry\01_Part\CSetColorForGeometryParts.cs" />
     <Compile Include="Commands\0030_Geometry\CConvertSolidToShell.cs" />
@@ -1156,6 +1157,10 @@
   <ItemGroup>
     <None Include="Resources\Splash_02.png" />
     <None Include="Resources\Splash_01.png" />
+    <None Include="Icons\Keywords editor\Dots.ico" />
+    <None Include="Icons\Keywords editor\Dots_t.ico" />
+    <None Include="Icons\Keywords editor\Keyword_modified.ico" />
+    <None Include="Icons\Keywords editor\Keyword_user.ico" />
     <None Include="Icons\Common\Hide.ico" />
     <None Include="Icons\Common\Show.ico" />
     <None Include="Icons\Common\Up_arrow.ico" />

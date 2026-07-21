@@ -385,4 +385,16 @@
   <data name="Arrange_annotations" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Icons\Tools\Arrange_annotations.ico;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="Dots" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Icons\Keywords editor\Dots.ico;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Dots_t" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Icons\Keywords editor\Dots_t.ico;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Keyword_modified" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Icons\Keywords editor\Keyword_modified.ico;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Keyword_user" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Icons\Keywords editor\Keyword_user.ico;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
 </root>

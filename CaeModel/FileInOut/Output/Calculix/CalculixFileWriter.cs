@@ -24,6 +24,7 @@ using System.Xml.Linq;
 using System.Diagnostics.Eventing.Reader;
 using System.Security;
 using System.Diagnostics;
+using System.Security.Cryptography;
 
 namespace FileInOut.Output
 {
@@ -95,6 +96,8 @@ namespace FileInOut.Output
                                                            Dictionary<int, double[]> deformations = null)
         {
             List<CalculixKeyword> keywords = GetModelKeywords(model, convertPyramidsTo, deformations);
+            // Overrides use indices from the generated tree, before user keywords shift visual positions.
+            ApplyKeywordOverrides(keywords, model.CalculixKeywordOverrides);
             // Add user keywords
             if (model.CalculixUserKeywords != null)
             {
@@ -988,6 +991,53 @@ namespace FileInOut.Output
             //
             maxNodeId = newNodeId;
             maxElementId = newElementId;
+        }
+        static public string GetCompleteKeywordData(CalculixKeyword keyword)
+        {
+            return keyword.GetKeywordString() + keyword.GetDataString();
+        }
+        static public string GetKeywordSignature(CalculixKeyword keyword)
+        {
+            string signatureData = keyword.GetType().FullName + "\n" + GetCompleteKeywordData(keyword);
+            using (SHA256 sha256 = SHA256.Create())
+            {
+                byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(signatureData));
+                return BitConverter.ToString(hash).Replace("-", "");
+            }
+        }
+        static public int ApplyKeywordOverrides(List<CalculixKeyword> keywords,
+                                                IList<CalculixKeywordOverride> keywordOverrides)
+        {
+            if (keywords == null || keywordOverrides == null || keywordOverrides.Count == 0) return 0;
+            return ApplyKeywordOverrides(keywords, keywordOverrides, new List<int>());
+        }
+        static private int ApplyKeywordOverrides(List<CalculixKeyword> keywords,
+                                                 IList<CalculixKeywordOverride> keywordOverrides,
+                                                 List<int> parentIndices)
+        {
+            int appliedCount = 0;
+            for (int i = 0; i < keywords.Count; i++)
+            {
+                CalculixKeyword originalKeyword = keywords[i];
+                List<int> indices = new List<int>(parentIndices);
+                indices.Add(i);
+                // Apply child overrides first, then retain those effective children when wrapping this fragment.
+                appliedCount += ApplyKeywordOverrides(originalKeyword.Keywords, keywordOverrides, indices);
+                // Resolve by generated path and validate against the generated type and complete own text.
+                int[] indexPath = indices.ToArray();
+                CalculixKeywordOverride keywordOverride = keywordOverrides.FirstOrDefault(
+                    item => item != null && item.HasSameIndices(indexPath) &&
+                            item.OriginalSignature == GetKeywordSignature(originalKeyword));
+                if (keywordOverride != null)
+                {
+                    keywords[i] = new CalKeywordOverride(originalKeyword,
+                                                         GetCompleteKeywordData(originalKeyword),
+                                                         keywordOverride.Data,
+                                                         keywordOverride.Disabled);
+                    appliedCount++;
+                }
+            }
+            return appliedCount;
         }
         static public bool AddUserKeywordByIndices(List<CalculixKeyword> keywords, int[] indices, CalculixUserKeyword userKeyword)
         {

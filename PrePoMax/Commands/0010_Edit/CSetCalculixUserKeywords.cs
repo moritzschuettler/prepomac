@@ -36,16 +36,12 @@ namespace PrePoMax.Commands
             _userKeywords = userKeywords.DeepClone();
         }
         public CSetCalculixUserKeywords(SerializationInfo info, StreamingContext context)
-            : base("") // this can be empty
+            : base(info, context)
         {
             foreach (SerializationEntry entry in info)
             {
                 switch (entry.Name)
                 {
-                    case "Command+_name":
-                        _name = (string)entry.Value; break;
-                    case "Command+_dateCreated":
-                        _dateCreated = (DateTime)entry.Value; break;
                     case "_userKeywords":
                         if (entry.Value is Dictionary<int[], Calculix.CalculixUserKeyword> cukd)
                         {
@@ -58,8 +54,6 @@ namespace PrePoMax.Commands
                         else if (entry.Value == null) _userKeywords = null;
                         else throw new NotSupportedException();
                         break;
-                    default:
-                        throw new NotSupportedException();
                 }
             }
         }
@@ -76,11 +70,9 @@ namespace PrePoMax.Commands
             return base.GetCommandString() + _userKeywords.Count;
         }
         // ISerialization
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
+        public new void GetObjectData(SerializationInfo info, StreamingContext context)
         {
-            // Using typeof() works also for null fields
-            info.AddValue("Command+_name", _name, typeof(string));
-            info.AddValue("Command+_dateCreated", _dateCreated, typeof(DateTime));
+            base.GetObjectData(info, context);
             info.AddValue("_userKeywords", _userKeywords, typeof(OrderedDictionary<int[], Calculix.CalculixUserKeyword>));
         }
     }
