@@ -38,7 +38,7 @@
 //			  node becomes selected.
 //			- If in the BeforeSelect event, e.Cancel is set to true, then node 
 //			  will not be selected
-//			- SHIFT selection sometimes didn’t behave correctly. Fixed.
+//			- SHIFT selection sometimes didnâ€™t behave correctly. Fixed.
 //		04/09/2004	
 //			- SelectedNodes is no longer an array of tree nodes, but a 
 //			  SelectedNodesCollection
@@ -212,6 +212,7 @@ namespace UserControls
 		private Color _unfocusedSelectionBackColor = SystemColors.Control;
 		private bool _changeHighlightOnFocusLost = true;
 		private bool _disableMouse = false;
+        private bool _ensureSelectedNodeVisible = true;
         private Color _mouseOverColor = Color.FromArgb((int)(SystemColors.Highlight.R + (255 - SystemColors.Highlight.R) * 0.8),
                                                        (int)(SystemColors.Highlight.G + (255 - SystemColors.Highlight.G) * 0.8),
                                                        (int)(SystemColors.Highlight.B + (255 - SystemColors.Highlight.B) * 0.8));
@@ -232,6 +233,11 @@ namespace UserControls
             set { _mouseOverColor = value; }
         }
         public bool DisableMouse { get { return _disableMouse; } set { _disableMouse = value; } }
+		public bool EnsureSelectedNodeVisible
+		{
+			get { return _ensureSelectedNodeVisible; }
+			set { _ensureSelectedNodeVisible = value; }
+		}
 		public bool ChangeHighlightOnFocusLost
 		{
 			get { return _changeHighlightOnFocusLost; }
@@ -759,7 +765,7 @@ namespace UserControls
 					blnSelected = true;
 					blnSelectionChanged = true;
                     //
-                    tn.EnsureVisible();
+                    if (_ensureSelectedNodeVisible) tn.EnsureVisible();
 					//
 					base.OnAfterSelect(new TreeViewEventArgs(tn, tva));
 				}
@@ -1202,12 +1208,12 @@ namespace UserControls
                 base.OnMouseDown(e);
                 return;
             }
-			// Preserve colors here, because if you do it later then it will already have selected colors 
-			// Don't know why...!
-			PreserveNodeColors(tn);
 			// If +/- was clicked, we should not process the node.
 			if (!IsPlusMinusClicked(tn, e))
 			{
+				// Preserve colors here, because if you do it later then it will already have selected colors
+				// Don't know why...!
+				PreserveNodeColors(tn);
 				// If mouse down on a node that is already selected, then we should process this node in the mouse up event, because we
 				// might want to drag it and it should not be put in edit mode.
 				// Also, only process node if click was in node's bounds.

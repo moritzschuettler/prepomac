@@ -11,16 +11,16 @@ using System;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [Serializable, Flags]
     public enum ShowItemIdsEnum
     {
-        None,
-        Vertices,
-        Edges,
-        Surfaces,
-        Parts,
-        PartNames,
-        Nodes,
-        Elements
+        None = 0,
+        Vertices = 1,
+        Edges = 2,
+        Surfaces = 4,
+        Parts = 8,
+        PartNames = 16,
+        Nodes = 32,
+        Elements = 64
     }
 }

@@ -413,6 +413,16 @@ namespace PrePoMax.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        public static System.Drawing.Bitmap Keyword_added {
+            get {
+                object obj = ResourceManager.GetObject("Keyword_added", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         public static System.Drawing.Bitmap Keyword_modified {
             get {
                 object obj = ResourceManager.GetObject("Keyword_modified", resourceCulture);
@@ -756,6 +766,16 @@ namespace PrePoMax.Properties {
         public static System.Drawing.Bitmap Save {
             get {
                 object obj = ResourceManager.GetObject("Save", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap Save_as {
+            get {
+                object obj = ResourceManager.GetObject("Save_as", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

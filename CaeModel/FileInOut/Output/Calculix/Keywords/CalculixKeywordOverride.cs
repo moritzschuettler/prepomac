@@ -9,6 +9,7 @@
 
 using System;
 using System.Linq;
+using System.Runtime.Serialization;
 using System.Text;
 
 namespace FileInOut.Output.Calculix
@@ -25,11 +26,13 @@ namespace FileInOut.Output.Calculix
         private string _originalSignature;
         private string _data;
         private bool _disabled;
+        [OptionalField] private bool _suppressed;
 
         public int[] Indices { get { return _indices == null ? null : (int[])_indices.Clone(); } }
         public string OriginalSignature { get { return _originalSignature; } }
         public string Data { get { return _data; } set { _data = value; } }
         public bool Disabled { get { return _disabled; } set { _disabled = value; } }
+        public bool IsSuppressed { get { return _suppressed; } }
 
         public CalculixKeywordOverride(int[] indices, string originalSignature)
         {
@@ -41,6 +44,14 @@ namespace FileInOut.Output.Calculix
         {
             if (_indices == null || indices == null) return _indices == indices;
             return _indices.SequenceEqual(indices);
+        }
+        public void Suppress()
+        {
+            _suppressed = true;
+        }
+        public void Unsuppress()
+        {
+            _suppressed = false;
         }
     }
 

@@ -1159,6 +1159,7 @@
     <None Include="Resources\Splash_01.png" />
     <None Include="Icons\Keywords editor\Dots.ico" />
     <None Include="Icons\Keywords editor\Dots_t.ico" />
+    <None Include="Icons\Keywords editor\Keyword_added.ico" />
     <None Include="Icons\Keywords editor\Keyword_modified.ico" />
     <None Include="Icons\Common\Hide.ico" />
     <None Include="Icons\Common\Show.ico" />
@@ -1253,6 +1254,7 @@
     <None Include="Icons\Edit\Redo.ico" />
     <None Include="Icons\Tools\Arrange_annotations.ico" />
     <None Include="Icons\Keywords editor\Add.ico" />
+    <None Include="Icons\File\Save_as.ico" />
     <Content Include="main.ico" />
   </ItemGroup>
   <ItemGroup>

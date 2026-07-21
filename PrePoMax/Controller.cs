@@ -77,6 +77,7 @@ namespace PrePoMax
         [NonSerialized] protected TransformationsCollection _transformations;
         // Errors
         [NonSerialized] protected List<string> _errors;
+        [NonSerialized] protected List<string> _deferredKeywordStateMessages;
         //
         protected FeModel _model;
         [NonSerialized] protected ExecutableJob _executableJob;
@@ -461,6 +462,25 @@ namespace PrePoMax
         //}
 
         #region Validity   #########################################################################################################
+        internal void BeginKeywordStateNotificationBatch()
+        {
+            _deferredKeywordStateMessages = new List<string>();
+        }
+        internal List<string> EndKeywordStateNotificationBatch()
+        {
+            List<string> messages = _deferredKeywordStateMessages;
+            _deferredKeywordStateMessages = null;
+            return messages;
+        }
+        private void ShowOrDeferKeywordStateMessages(List<string> messages)
+        {
+            if (messages == null || messages.Count == 0) return;
+            //
+            if (_deferredKeywordStateMessages == null)
+                MessageBoxes.ShowWarning(string.Join(Environment.NewLine, messages));
+            else
+                _deferredKeywordStateMessages.AddRange(messages);
+        }
         public string[] CheckAndUpdateModelValidity(bool afterRemove = false)
         {
             // Update user keywords
@@ -468,20 +488,18 @@ namespace PrePoMax
             {
                 int suppresedCount;
                 int unsuppresedCount;
-                _model.UpdateUserKeywordStates(afterRemove, out suppresedCount, out unsuppresedCount);
+                int removedCount;
+                _model.UpdateUserKeywordStates(afterRemove, out suppresedCount, out unsuppresedCount, out removedCount);
                 //
                 _form.SetNumberOfModelUserKeywords(_model.GetNumberOfUnsuppresedUserKeywords());
                 //
-                if (suppresedCount > 0 || unsuppresedCount > 0)
+                if (suppresedCount > 0 || unsuppresedCount > 0 || removedCount > 0)
                 {
                     var parts = new List<string>();
-                    if (suppresedCount > 0)
-                    {
-                        if (afterRemove) parts.Add($"Number of deleted CalculiX user keywords: {suppresedCount}.");
-                        else parts.Add($"Number of suppressed CalculiX user keywords: {suppresedCount}.");
-                    }
+                    if (suppresedCount > 0) parts.Add($"Number of suppressed CalculiX user keywords: {suppresedCount}.");
                     if (unsuppresedCount > 0) parts.Add($"Number of unsuppressed CalculiX user keywords: {unsuppresedCount}.");
-                    MessageBoxes.ShowWarning(string.Join(Environment.NewLine, parts));
+                    if (removedCount > 0) parts.Add($"Number of deleted CalculiX user keywords: {removedCount}.");
+                    ShowOrDeferKeywordStateMessages(parts);
                 }
             }
             // Tuple<NamedClass, string>   ...   Tuple<invalidItem, stepName>
@@ -2698,6 +2716,12 @@ namespace PrePoMax
         {
             SetCalculixUserKeywords(userKeywords);
             _model.CalculixKeywordOverrides = keywordOverrides;
+            _form.SetNumberOfModelModifiedKeywords(_model.GetNumberOfUnsuppressedKeywordOverrides());
+        }
+        internal void UpdateNumberOfModelModifiedKeywords()
+        {
+            int count = _model?.GetNumberOfUnsuppressedKeywordOverrides() ?? 0;
+            _form.SetNumberOfModelModifiedKeywords(count);
         }
 
         #endregion ################################################################################################################
@@ -3478,7 +3502,7 @@ namespace PrePoMax
             }
             //
             UpdateAfterPartsChanged();
-            if (nameChanged && _showItemIds == ShowItemIdsEnum.PartNames) RedrawItemIds();
+            if (nameChanged && _showItemIds.HasFlag(ShowItemIdsEnum.PartNames)) RedrawItemIds();
         }
         public void RenameGeometryPart(string oldPartName, string newPartName)
         {
@@ -7058,7 +7082,7 @@ namespace PrePoMax
             AnnotateWithColorLegend();
             //
             FeModelUpdate(UpdateType.Check);
-            if (nameChanged && _showItemIds == ShowItemIdsEnum.PartNames) RedrawItemIds();
+            if (nameChanged && _showItemIds.HasFlag(ShowItemIdsEnum.PartNames)) RedrawItemIds();
         }
         public void RenameModelPart(string oldPartName, string newPartName)
         {
@@ -10262,7 +10286,7 @@ namespace PrePoMax
                 _model.StepCollection.RemoveStep(name);
                 _form.RemoveTreeNode<Step>(ViewGeometryModelResults.Model, name, null);
             }
-            CheckAndUpdateModelValidity(true); // must be here to delete the user keywords
+            CheckAndUpdateModelValidity(true); // must be here to reconcile the user keywords after the steps are removed
             //
             FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
         }
@@ -12465,7 +12489,7 @@ namespace PrePoMax
             AnnotateWithColorLegend();
             //
             FeResultsUpdate(UpdateType.Check);
-            if (nameChanged && _showItemIds == ShowItemIdsEnum.PartNames) RedrawItemIds();
+            if (nameChanged && _showItemIds.HasFlag(ShowItemIdsEnum.PartNames)) RedrawItemIds();
         }
         public void RenameResultPart(string oldPartName, string newPartName)
         {
@@ -15692,41 +15716,25 @@ namespace PrePoMax
             double fontScaleFactor = 0.9 * _settings.Pre.SymbolSize / 50d;
             vtkRendererLayer layer = vtkRendererLayer.Overlay;
             //
-            if (_showItemIds == ShowItemIdsEnum.PartNames)
-            {
-                List<string> names = new List<string>();
-                foreach (var entry in mesh.Parts)
-                {
-                    BasePart part = entry.Value;
-                    if (IsPartVisibleForItemIds(part)) DrawPartName(part, positions, names);
-                }
-                if (positions.Count > 0)
-                    _form.AddLabelActor(ItemLabelsActorName, positions.ToArray(), names.ToArray(), Color.Black,
-                                        fontScaleFactor, layer);
-                return;
-            }
+            List<string> labels = new List<string>();
+            if (_showItemIds.HasFlag(ShowItemIdsEnum.Nodes)) DrawNodeIds(mesh, positions, labels);
+            if (_showItemIds.HasFlag(ShowItemIdsEnum.Elements)) DrawElementIds(mesh, positions, labels);
             //
-            List<int> labels = new List<int>();
-            if (_showItemIds == ShowItemIdsEnum.Nodes)
-                DrawNodeIds(mesh, positions, labels);
-            else if (_showItemIds == ShowItemIdsEnum.Elements)
-                DrawElementIds(mesh, positions, labels);
-            else
+            foreach (var entry in mesh.Parts)
             {
-                foreach (var entry in mesh.Parts)
-                {
-                    BasePart part = entry.Value;
-                    if (!IsPartVisibleForItemIds(part)) continue;
-                    //
-                    if (_showItemIds == ShowItemIdsEnum.Vertices)
-                        DrawVertexIds(mesh, part, positions, labels);
-                    else if (_showItemIds == ShowItemIdsEnum.Edges)
-                        DrawEdgeIds(mesh, part, positions, labels);
-                    else if (_showItemIds == ShowItemIdsEnum.Surfaces)
-                        DrawSurfaceIds(part, positions, labels);
-                    else if (_showItemIds == ShowItemIdsEnum.Parts)
-                        DrawPartId(part, positions, labels);
-                }
+                BasePart part = entry.Value;
+                if (!IsPartVisibleForItemIds(part)) continue;
+                //
+                if (_showItemIds.HasFlag(ShowItemIdsEnum.Vertices))
+                    DrawVertexIds(mesh, part, positions, labels);
+                if (_showItemIds.HasFlag(ShowItemIdsEnum.Edges))
+                    DrawEdgeIds(mesh, part, positions, labels);
+                if (_showItemIds.HasFlag(ShowItemIdsEnum.Surfaces))
+                    DrawSurfaceIds(part, positions, labels);
+                if (_showItemIds.HasFlag(ShowItemIdsEnum.Parts))
+                    DrawPartId(part, positions, labels);
+                if (_showItemIds.HasFlag(ShowItemIdsEnum.PartNames))
+                    DrawPartName(part, positions, labels);
             }
             //
             if (positions.Count > 0)
@@ -15756,15 +15764,15 @@ namespace PrePoMax
             if (_currentView == ViewGeometryModelResults.Model && !part.Active) return false;
             return true;
         }
-        private void DrawVertexIds(FeMesh mesh, BasePart part, List<double[]> positions, List<int> labels)
+        private void DrawVertexIds(FeMesh mesh, BasePart part, List<double[]> positions, List<string> labels)
         {
             int[] nodeIds = part.Visualization?.VertexNodeIds;
             if (nodeIds == null) return;
             //
             for (int i = 0; i < nodeIds.Length; i++)
-                AddItemIdLabel(nodeIds[i], GetItemIdNodeCoor(mesh, nodeIds[i]), positions, labels);
+                AddItemIdLabel("V" + (i + 1), GetItemIdNodeCoor(mesh, nodeIds[i]), positions, labels);
         }
-        private void DrawEdgeIds(FeMesh mesh, BasePart part, List<double[]> positions, List<int> labels)
+        private void DrawEdgeIds(FeMesh mesh, BasePart part, List<double[]> positions, List<string> labels)
         {
             VisualizationData visualization = part.Visualization;
             if (visualization?.EdgeCellIdsByEdge == null) return;
@@ -15785,10 +15793,10 @@ namespace PrePoMax
                 }
                 else coor = GetItemIdNodeCoor(mesh, nodeIds[nodeIds.Length / 2]);
                 //
-                AddItemIdLabel(i + 1, coor, positions, labels);
+                AddItemIdLabel("E" + (i + 1), coor, positions, labels);
             }
         }
-        private void DrawSurfaceIds(BasePart part, List<double[]> positions, List<int> labels)
+        private void DrawSurfaceIds(BasePart part, List<double[]> positions, List<string> labels)
         {
             VisualizationData visualization = part.Visualization;
             if (visualization == null || visualization.FaceCount == 0) return;
@@ -15798,7 +15806,8 @@ namespace PrePoMax
             {
                 int geometryId = FeMesh.GetGeometryId(i, (int)geometryType, part.PartId);
                 double[] coor = GetSurfaceCenter(geometryId);
-                if (coor != null) AddItemIdLabel(i + 1, coor, positions, labels);
+                if (coor != null)
+                    AddItemIdLabel("S" + (i + 1), coor, positions, labels);
             }
         }
         public double[] GetSurfaceCenter(int geometryId)
@@ -15812,49 +15821,42 @@ namespace PrePoMax
             int surfaceId = itemTypePartIds[0];
             if (visualization == null || surfaceId < 0 || surfaceId >= visualization.FaceCount) return null;
             //
-            mesh.GetFaceNodes(geometryId, out int[] nodeIds);
-            if (nodeIds == null || nodeIds.Length == 0) return null;
+            if (visualization.CellIdsByFace[surfaceId].Length == 0) return null;
             //
-            List<double[]> possibleCoor = new List<double[]>(nodeIds.Length);
-            for (int i = 0; i < nodeIds.Length; i++)
-                possibleCoor.Add(GetItemIdNodeCoor(mesh, nodeIds[i]));
-            if (_currentView == ViewGeometryModelResults.Geometry)
-                AddTriangleEdgeMidpoints(mesh, visualization, surfaceId, possibleCoor);
+            List<double[]> possibleCoor = new List<double[]>(visualization.CellIdsByFace[surfaceId].Length);
+            AddTriangleCenters(mesh, visualization, surfaceId, possibleCoor);
+            if (possibleCoor.Count == 0) return null;
             //
             double[][] coor = possibleCoor.ToArray();
             int[] distributedIds = GetSpatiallyEquallyDistributedCoor(coor, 1, null);
             return coor[distributedIds[0]];
         }
-        private void AddTriangleEdgeMidpoints(FeMesh mesh, VisualizationData visualization, int faceId,
-                                              List<double[]> possibleCoor)
+        private void AddTriangleCenters(FeMesh mesh, VisualizationData visualization, int faceId,
+                                        List<double[]> possibleCoor)
         {
-            HashSet<long> edgeIds = new HashSet<long>();
             foreach (int cellId in visualization.CellIdsByFace[faceId])
             {
                 int[] cell = visualization.Cells[cellId];
                 if (cell.Length != 3) continue;
                 //
+                double[] center = new double[3];
                 for (int i = 0; i < 3; i++)
                 {
-                    int nodeId1 = cell[i];
-                    int nodeId2 = cell[(i + 1) % 3];
-                    int minNodeId = Math.Min(nodeId1, nodeId2);
-                    int maxNodeId = Math.Max(nodeId1, nodeId2);
-                    long edgeId = ((long)minNodeId << 32) | (uint)maxNodeId;
-                    if (!edgeIds.Add(edgeId)) continue;
-                    //
-                    double[] coor1 = GetItemIdNodeCoor(mesh, nodeId1);
-                    double[] coor2 = GetItemIdNodeCoor(mesh, nodeId2);
-                    possibleCoor.Add(new double[] { (coor1[0] + coor2[0]) / 2,
-                                                    (coor1[1] + coor2[1]) / 2,
-                                                    (coor1[2] + coor2[2]) / 2 });
+                    double[] coor = GetItemIdNodeCoor(mesh, cell[i]);
+                    center[0] += coor[0];
+                    center[1] += coor[1];
+                    center[2] += coor[2];
                 }
+                center[0] /= 3;
+                center[1] /= 3;
+                center[2] /= 3;
+                possibleCoor.Add(center);
             }
         }
-        private void DrawPartId(BasePart part, List<double[]> positions, List<int> labels)
+        private void DrawPartId(BasePart part, List<double[]> positions, List<string> labels)
         {
             double[] coor = GetPartCenterOfGravity(part.PartId);
-            if (coor != null) AddItemIdLabel(part.PartId, coor, positions, labels);
+            if (coor != null) AddItemIdLabel("P" + part.PartId, coor, positions, labels);
         }
         private void DrawPartName(BasePart part, List<double[]> positions, List<string> labels)
         {
@@ -15894,7 +15896,7 @@ namespace PrePoMax
             if (coor == null && part.BoundingBox != null) coor = part.BoundingBox.GetCenter();
             return coor;
         }
-        private void DrawNodeIds(FeMesh mesh, List<double[]> positions, List<int> labels)
+        private void DrawNodeIds(FeMesh mesh, List<double[]> positions, List<string> labels)
         {
             HashSet<int> nodeIds = new HashSet<int>();
             foreach (var entry in mesh.Parts)
@@ -15906,9 +15908,9 @@ namespace PrePoMax
             }
             //
             foreach (int nodeId in nodeIds)
-                AddItemIdLabel(nodeId, GetItemIdNodeCoor(mesh, nodeId), positions, labels);
+                AddItemIdLabel("N" + nodeId, GetItemIdNodeCoor(mesh, nodeId), positions, labels);
         }
-        private void DrawElementIds(FeMesh mesh, List<double[]> positions, List<int> labels)
+        private void DrawElementIds(FeMesh mesh, List<double[]> positions, List<string> labels)
         {
             HashSet<int> elementIds = new HashSet<int>();
             foreach (var entry in mesh.Parts)
@@ -15923,7 +15925,7 @@ namespace PrePoMax
             {
                 if (!mesh.Elements.TryGetValue(elementId, out FeElement element)) continue;
                 double[] coor = element.GetCG(mesh.Nodes, out _);
-                AddItemIdLabel(elementId, coor, positions, labels);
+                AddItemIdLabel("E" + elementId, coor, positions, labels);
             }
         }
         private bool TryGetSurfaceGeometryType(BasePart part, out GeometryType geometryType)
@@ -15951,7 +15953,7 @@ namespace PrePoMax
             else
                 return mesh.Nodes[nodeId].Coor;
         }
-        private void AddItemIdLabel(int itemId, double[] coor, List<double[]> positions, List<int> labels)
+        private void AddItemIdLabel(string itemId, double[] coor, List<double[]> positions, List<string> labels)
         {
             positions.Add(coor);
             labels.Add(itemId);
@@ -21710,4 +21712,3 @@ namespace PrePoMax
         }
     }
 }
-

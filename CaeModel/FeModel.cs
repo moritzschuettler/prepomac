@@ -1080,7 +1080,13 @@ namespace CaeModel
         public void UpdateUserKeywordStates(bool remove, out int suppresedCount, out int unsuppresedCount)
         {
             FileInOut.Output.CalculixFileWriter.UpdateUserKeywordStates(this, remove, out suppresedCount, out unsuppresedCount);
-        }        
+        }
+        public void UpdateUserKeywordStates(bool remove, out int suppresedCount, out int unsuppresedCount,
+                                            out int removedCount)
+        {
+            FileInOut.Output.CalculixFileWriter.UpdateUserKeywordStates(this, remove, out suppresedCount,
+                                                                        out unsuppresedCount, out removedCount);
+        }
         // Import                                                                                   
         public string[] ImportGeometryFromStlFile(string fileName)
         {
@@ -1524,6 +1530,18 @@ namespace CaeModel
         {
             int count = 0;
             foreach (var entry in _calculixUserKeywords) if (!entry.Value.IsSuppressed) count++;
+            return count;
+        }
+        public int GetNumberOfUnsuppressedKeywordOverrides()
+        {
+            int count = 0;
+            if (_calculixKeywordOverrides != null)
+            {
+                foreach (var keywordOverride in _calculixKeywordOverrides)
+                {
+                    if (keywordOverride != null && !keywordOverride.IsSuppressed) count++;
+                }
+            }
             return count;
         }
         // Mesh setup items

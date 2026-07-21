@@ -1039,29 +1039,57 @@ namespace FileInOut.Output
             }
             return appliedCount;
         }
+        private enum UserKeywordStatus
+        {
+            Active,
+            Suppressed,
+            Conflict
+        }
+        static private UserKeywordStatus GetUserKeywordStatus(List<CalculixKeyword> keywords, int[] indices)
+        {
+            if (keywords == null || indices == null || indices.Length == 0) return UserKeywordStatus.Conflict;
+            // A root keyword is inserted between two generated keywords.
+            if (indices.Length == 1)
+            {
+                if (indices[0] >= 0 && indices[0] <= keywords.Count) return UserKeywordStatus.Active;
+                else return UserKeywordStatus.Conflict;
+            }
+            // Find and validate the generated parent of the user keyword.
+            if (indices[0] < 0 || indices[0] >= keywords.Count) return UserKeywordStatus.Conflict;
+            CalculixKeyword keywordParent = keywords[indices[0]];
+            if (keywordParent is CalDeactivated) return UserKeywordStatus.Suppressed;
+            //
+            for (int i = 1; i < indices.Length - 1; i++)
+            {
+                if (indices[i] < 0 || indices[i] >= keywordParent.Keywords.Count)
+                    return UserKeywordStatus.Conflict;
+                //
+                keywordParent = keywordParent.Keywords[indices[i]];
+                if (keywordParent is CalDeactivated) return UserKeywordStatus.Suppressed;
+            }
+            // The final index is an insertion position, so Count is valid.
+            int insertionIndex = indices[indices.Length - 1];
+            if (insertionIndex >= 0 && insertionIndex <= keywordParent.Keywords.Count)
+                return UserKeywordStatus.Active;
+            else
+                return UserKeywordStatus.Conflict;
+        }
         static public bool AddUserKeywordByIndices(List<CalculixKeyword> keywords, int[] indices, CalculixUserKeyword userKeyword)
         {
+            if (GetUserKeywordStatus(keywords, indices) != UserKeywordStatus.Active) return false;
+            //
             if (indices.Length == 1)
             {
                 keywords.Insert(indices[0], userKeyword);
             }
             else
             {
-                bool deactivated = false;
                 CalculixKeyword keywordParent = keywords[indices[0]];
-                if (keywordParent is CalDeactivated) deactivated = true;
                 // Find a parent
                 for (int i = 1; i < indices.Length - 1; i++)
                 {
-                    if (indices[i] < keywordParent.Keywords.Count)
-                    {
-                        keywordParent = keywordParent.Keywords[indices[i]];
-                        if (keywordParent is CalDeactivated) deactivated = true;
-                    }
-                    else return false;
+                    keywordParent = keywordParent.Keywords[indices[i]];
                 }
-                // Check keyword
-                if (deactivated || keywordParent.Keywords.Count < indices[indices.Length - 1]) return false;
                 // Add the keyword
                 keywordParent.Keywords.Insert(indices[indices.Length - 1], userKeyword);
             }
@@ -1070,8 +1098,17 @@ namespace FileInOut.Output
         //
         static public void UpdateUserKeywordStates(FeModel model, bool remove, out int suppresedCount, out int unsuppresedCount)
         {
+            int removedCount;
+            UpdateUserKeywordStates(model, remove, out suppresedCount, out unsuppresedCount, out removedCount);
+            // Preserve the original API behavior where removed keywords were returned as suppressed.
+            suppresedCount += removedCount;
+        }
+        static public void UpdateUserKeywordStates(FeModel model, bool remove, out int suppresedCount,
+                                                   out int unsuppresedCount, out int removedCount)
+        {
             suppresedCount = 0;
             unsuppresedCount = 0;
+            removedCount = 0;
             List<CalculixKeyword> keywords = GetModelKeywords(model, ConvertPyramidsToEnum.Wedges, null, true);
             List<int[]> keywordsToRemove = new List<int[]>();
             // Add user keywords
@@ -1079,17 +1116,27 @@ namespace FileInOut.Output
             {
                 foreach (var entry in model.CalculixUserKeywords)
                 {
-                    if (AddUserKeywordByIndices(keywords, entry.Key, entry.Value.DeepClone()))
+                    UserKeywordStatus status = GetUserKeywordStatus(keywords, entry.Key);
+                    if (status == UserKeywordStatus.Active)
                     {
+                        AddUserKeywordByIndices(keywords, entry.Key, entry.Value.DeepClone());
                         if (entry.Value.IsSuppressed) unsuppresedCount++;
                         entry.Value.Unsuppress();
+                    }
+                    else if (status == UserKeywordStatus.Suppressed)
+                    {
+                        if (!entry.Value.IsSuppressed) suppresedCount++;
+                        entry.Value.Suppress();
+                    }
+                    else if (remove)
+                    {
+                        keywordsToRemove.Add(entry.Key);
+                        removedCount++;
                     }
                     else
                     {
                         if (!entry.Value.IsSuppressed) suppresedCount++;
                         entry.Value.Suppress();
-                        //
-                        if (remove) keywordsToRemove.Add(entry.Key);
                     }
                 }
             }
@@ -1100,8 +1147,6 @@ namespace FileInOut.Output
                 {
                     model.CalculixUserKeywords.Remove(indices);
                 }
-                //
-                suppresedCount = keywordsToRemove.Count;
             }
         }
         //

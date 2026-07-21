@@ -16,6 +16,9 @@ using System.IO;
 using CaeGlobals;
 using System.Diagnostics;
 using System.Windows.Forms;
+using CaeModel;
+using FileInOut.Output;
+using FileInOut.Output.Calculix;
 
 namespace PrePoMax.Commands
 {
@@ -31,6 +34,21 @@ namespace PrePoMax.Commands
     [Serializable]
     public class CommandsCollection
     {
+        private enum KeywordOverrideStatus
+        {
+            Active,
+            Suppressed,
+            Conflict
+        }
+        private class KeywordOverrideState
+        {
+            public CalculixKeywordOverride KeywordOverride;
+        }
+        private class KeywordOverridesSnapshot
+        {
+            public FeModel Model;
+            public List<KeywordOverrideState> States;
+        }
         
         // Variables                                                                                                                
         private int _currPositionIndex;
@@ -202,24 +220,163 @@ namespace PrePoMax.Commands
         }
         private bool ExecuteCommandWithTimer(Command command, bool executeWithDialog = false, bool executeSynchronous = false)
         {
-            bool result;
+            KeywordOverridesSnapshot keywordOverridesSnapshot = CaptureKeywordOverrides(command);
+            bool result = false;
+            bool batchKeywordStateNotifications = command is PreprocessCommand;
+            List<string> keywordStateMessages = null;
             Stopwatch stopwatch = Stopwatch.StartNew();
             //
-            if (executeWithDialog && command is ICommandWithDialog cwd)
+            if (batchKeywordStateNotifications) _controller.BeginKeywordStateNotificationBatch();
+            try
             {
-                result = cwd.ExecuteWithDialog(_controller);
+                if (executeWithDialog && command is ICommandWithDialog cwd)
+                {
+                    result = cwd.ExecuteWithDialog(_controller);
+                }
+                else
+                {
+                    // Execute asynchronous tasks in synchronous mode
+                    if (executeSynchronous && command is ICommandAsynchronous ca) result = ca.ExecuteSynchronous(_controller);
+                    else result = command.Execute(_controller);
+                }
             }
-            else
+            finally
             {
-                // Execute asynchronous tasks in synchronous mode
-                if (executeSynchronous && command is ICommandAsynchronous ca) result = ca.ExecuteSynchronous(_controller);
-                else result = command.Execute(_controller);
+                if (batchKeywordStateNotifications)
+                    keywordStateMessages = _controller.EndKeywordStateNotificationBatch();
             }
             //
             stopwatch.Stop();
             command.TimeSpan = stopwatch.Elapsed;
             //
+            if (result) ReconcileKeywordOverrides(command, keywordOverridesSnapshot, keywordStateMessages);
+            else ShowKeywordStateMessages(keywordStateMessages);
+            //
             return result;
+        }
+        private KeywordOverridesSnapshot CaptureKeywordOverrides(Command command)
+        {
+            if (!(command is PreprocessCommand) || command is CSetCalculixKeywordEditorState) return null;
+            FeModel model = _controller.Model;
+            if (model == null || model.CalculixKeywordOverrides == null ||
+                model.CalculixKeywordOverrides.Count == 0)
+                return null;
+            //
+            try
+            {
+                KeywordOverridesSnapshot snapshot = new KeywordOverridesSnapshot();
+                snapshot.Model = model;
+                snapshot.States = new List<KeywordOverrideState>();
+                foreach (CalculixKeywordOverride keywordOverride in model.CalculixKeywordOverrides)
+                {
+                    if (keywordOverride == null) continue;
+                    snapshot.States.Add(new KeywordOverrideState
+                    {
+                        KeywordOverride = keywordOverride
+                    });
+                }
+                return snapshot;
+            }
+            catch
+            {
+                // Failure to inspect generated keywords must not block the GUI command.
+                return null;
+            }
+        }
+        private void ReconcileKeywordOverrides(Command command, KeywordOverridesSnapshot snapshot,
+                                               List<string> keywordStateMessages)
+        {
+            List<string> parts = keywordStateMessages ?? new List<string>();
+            if (snapshot != null && ReferenceEquals(_controller.Model, snapshot.Model))
+            {
+                try
+                {
+                    List<CalculixKeywordOverride> keywordOverrides = snapshot.Model.CalculixKeywordOverrides;
+                    List<CalculixKeyword> keywords = CalculixFileWriter.GetModelKeywords(
+                        snapshot.Model, _controller.Settings.Calculix.ConvertPyramidsTo, null, true);
+                    int suppressedCount = 0;
+                    int unsuppressedCount = 0;
+                    int removedCount = 0;
+                    foreach (KeywordOverrideState state in snapshot.States)
+                    {
+                        CalculixKeywordOverride currentOverride = keywordOverrides.FirstOrDefault(
+                            item => ReferenceEquals(item, state.KeywordOverride) ||
+                                    item != null && item.HasSameIndices(state.KeywordOverride.Indices) &&
+                                    item.OriginalSignature == state.KeywordOverride.OriginalSignature);
+                        if (currentOverride == null) continue;
+                        //
+                        KeywordOverrideStatus status = GetKeywordOverrideStatus(keywords, currentOverride);
+                        if (status == KeywordOverrideStatus.Active)
+                        {
+                            if (currentOverride.IsSuppressed)
+                            {
+                                currentOverride.Unsuppress();
+                                unsuppressedCount++;
+                            }
+                        }
+                        else if (status == KeywordOverrideStatus.Suppressed)
+                        {
+                            if (!currentOverride.IsSuppressed)
+                            {
+                                currentOverride.Suppress();
+                                suppressedCount++;
+                            }
+                        }
+                        else
+                        {
+                            keywordOverrides.Remove(currentOverride);
+                            removedCount++;
+                        }
+                    }
+                    //
+                    if (suppressedCount > 0 || unsuppressedCount > 0 || removedCount > 0)
+                    {
+                        _controller.UpdateNumberOfModelModifiedKeywords();
+                        if (suppressedCount > 0)
+                            parts.Add("Number of suppressed modified CalculiX keywords: " + suppressedCount + ".");
+                        if (unsuppressedCount > 0)
+                            parts.Add("Number of unsuppressed modified CalculiX keywords: " + unsuppressedCount + ".");
+                        if (removedCount > 0)
+                        {
+                            string suffix = removedCount == 1 ? " was" : "s were";
+                            parts.Add(removedCount + " modified CalculiX keyword" + suffix +
+                                      " reset because the feature '" + command.Name + "' changed it.");
+                        }
+                    }
+                }
+                catch
+                {
+                    // Keep all overrides if regenerated keyword inspection fails.
+                }
+            }
+            //
+            ShowKeywordStateMessages(parts);
+        }
+        private static void ShowKeywordStateMessages(List<string> messages)
+        {
+            if (messages != null && messages.Count > 0)
+                MessageBoxes.ShowWarning(string.Join(Environment.NewLine, messages));
+        }
+        private static KeywordOverrideStatus GetKeywordOverrideStatus(
+            List<CalculixKeyword> keywords, CalculixKeywordOverride keywordOverride)
+        {
+            if (keywords == null || keywordOverride == null) return KeywordOverrideStatus.Conflict;
+            int[] indices = keywordOverride.Indices;
+            if (indices == null || indices.Length == 0) return KeywordOverrideStatus.Conflict;
+            //
+            List<CalculixKeyword> currentKeywords = keywords;
+            CalculixKeyword keyword = null;
+            foreach (int index in indices)
+            {
+                if (index < 0 || index >= currentKeywords.Count) return KeywordOverrideStatus.Conflict;
+                keyword = currentKeywords[index];
+                if (keyword is CalDeactivated) return KeywordOverrideStatus.Suppressed;
+                currentKeywords = keyword.Keywords;
+            }
+            //
+            string signature = CalculixFileWriter.GetKeywordSignature(keyword);
+            if (signature == keywordOverride.OriginalSignature) return KeywordOverrideStatus.Active;
+            else return KeywordOverrideStatus.Conflict;
         }
         public void ExecuteAllCommands()
         {

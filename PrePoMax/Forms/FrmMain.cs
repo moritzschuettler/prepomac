@@ -3198,17 +3198,28 @@ namespace PrePoMax
                 // Turn on
                 else
                 {
-                    ClearItemIdsStatus();
+                    if (tsmi == tsmiViewNodeIds || tsmi == tsmiViewElementIds)
+                    {
+                        ClearGeometryItemIdsStatus();
+                    }
+                    else
+                    {
+                        ClearMeshItemIdsStatus();
+                        if (tsmi == tsmiViewPartIds) tsmiViewPartNames.Checked = false;
+                        else if (tsmi == tsmiViewPartNames) tsmiViewPartIds.Checked = false;
+                    }
                     tsmi.Checked = true;
                 }
-                if (tsmiViewVertexIds.Checked) return ShowItemIdsEnum.Vertices;
-                if (tsmiViewEdgeIds.Checked) return ShowItemIdsEnum.Edges;
-                if (tsmiViewSurfaceIds.Checked) return ShowItemIdsEnum.Surfaces;
-                if (tsmiViewPartIds.Checked) return ShowItemIdsEnum.Parts;
-                if (tsmiViewPartNames.Checked) return ShowItemIdsEnum.PartNames;
-                if (tsmiViewNodeIds.Checked) return ShowItemIdsEnum.Nodes;
-                if (tsmiViewElementIds.Checked) return ShowItemIdsEnum.Elements;
-                else return ShowItemIdsEnum.None;
+                //
+                ShowItemIdsEnum status = ShowItemIdsEnum.None;
+                if (tsmiViewVertexIds.Checked) status |= ShowItemIdsEnum.Vertices;
+                if (tsmiViewEdgeIds.Checked) status |= ShowItemIdsEnum.Edges;
+                if (tsmiViewSurfaceIds.Checked) status |= ShowItemIdsEnum.Surfaces;
+                if (tsmiViewPartIds.Checked) status |= ShowItemIdsEnum.Parts;
+                if (tsmiViewPartNames.Checked) status |= ShowItemIdsEnum.PartNames;
+                if (tsmiViewNodeIds.Checked) status |= ShowItemIdsEnum.Nodes;
+                if (tsmiViewElementIds.Checked) status |= ShowItemIdsEnum.Elements;
+                return status;
             }
             else return ShowItemIdsEnum.None;
         }
@@ -4380,6 +4391,7 @@ namespace PrePoMax
                 {
                     using (_frmCalculixKeywordEditor = new FrmCalculixKeywordEditor())
                     {
+                        _frmCalculixKeywordEditor.Icon = this.Icon;
                         _frmCalculixKeywordEditor.Keywords = _controller.GetCalculixModelKeywords();
                         _frmCalculixKeywordEditor.UserKeywords = _controller.GetCalculixUserKeywords();
                         _frmCalculixKeywordEditor.KeywordOverrides = _controller.GetCalculixKeywordOverrides();
@@ -9985,11 +9997,19 @@ namespace PrePoMax
         }
         private void ClearItemIdsStatus()
         {
+            ClearGeometryItemIdsStatus();
+            ClearMeshItemIdsStatus();
+        }
+        private void ClearGeometryItemIdsStatus()
+        {
             tsmiViewVertexIds.Checked = false;
             tsmiViewEdgeIds.Checked = false;
             tsmiViewSurfaceIds.Checked = false;
             tsmiViewPartIds.Checked = false;
             tsmiViewPartNames.Checked = false;
+        }
+        private void ClearMeshItemIdsStatus()
+        {
             tsmiViewNodeIds.Checked = false;
             tsmiViewElementIds.Checked = false;
         }
@@ -10731,6 +10751,10 @@ namespace PrePoMax
         public void SetNumberOfModelUserKeywords(int numOfUserKeywords)
         {
             InvokeIfRequired(_modelTree.SetNumberOfUserKeywords, numOfUserKeywords);
+        }
+        public void SetNumberOfModelModifiedKeywords(int numOfModifiedKeywords)
+        {
+            InvokeIfRequired(_modelTree.SetNumberOfModifiedKeywords, numOfModifiedKeywords);
         }
         
         #endregion  ################################################################################################################

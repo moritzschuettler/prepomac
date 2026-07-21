@@ -131,6 +131,17 @@ namespace UserControls
                 CaeGlobals.ExceptionTools.Show(this, ex);
             }
         }
+        private void btnSaveAs_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SaveScriptAs();
+            }
+            catch (Exception ex)
+            {
+                CaeGlobals.ExceptionTools.Show(this, ex);
+            }
+        }
         private void btnUndo_Click(object sender, EventArgs e)
         {
             try
@@ -203,6 +214,7 @@ namespace UserControls
         }
         private void PythonEditor_ModifiedChanged(object sender, EventArgs e)
         {
+            UpdateTitle();
             UpdateButtonState();
         }
 
@@ -217,6 +229,7 @@ namespace UserControls
             ttText.SetToolTip(btnNew, "New script");
             ttText.SetToolTip(btnOpen, "Open script");
             ttText.SetToolTip(btnSave, "Save script");
+            ttText.SetToolTip(btnSaveAs, "Save script as");
             ttText.SetToolTip(btnUndo, "Undo");
             ttText.SetToolTip(btnRedo, "Redo");
             ttText.SetToolTip(btnRun, "Run script");
@@ -344,7 +357,10 @@ namespace UserControls
             }
             else
             {
-                labTitle.Text = Path.GetFileName(fileName);
+                string title = Path.GetFileName(fileName);
+                if (petbPythonEditor.IsModified) title += "*";
+
+                labTitle.Text = title;
                 ttText.SetToolTip(labTitle, fileName);
             }
         }

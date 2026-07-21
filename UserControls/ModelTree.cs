@@ -130,6 +130,8 @@ namespace UserControls
         private TreeNode _initialConditions;        //   2
         private TreeNode _steps;                    //   2
         private TreeNode _analyses;                 // 1
+        private int _numOfUserKeywords;
+        private int _numOfModifiedKeywords;
         // Results
         private TreeNode _resultModel;              // 1
         private TreeNode _resultMesh;               //   2
@@ -1800,6 +1802,7 @@ namespace UserControls
             _analyses.Nodes.Clear();
             //
             SetNumberOfUserKeywords(0);
+            SetNumberOfModifiedKeywords(0);
             // Geometry
             _geomParts.Text = _geomPartsName;
             _meshSetupItems.Text = _meshSetupItemsName;
@@ -2009,6 +2012,9 @@ namespace UserControls
                 {
                     // User keywords
                     if (model.CalculixUserKeywords != null) SetNumberOfUserKeywords(model.CalculixUserKeywords.Count);
+                    // Modified keywords
+                    if (model.CalculixKeywordOverrides != null)
+                        SetNumberOfModifiedKeywords(model.GetNumberOfUnsuppressedKeywordOverrides());
                     // Geom Parts
                     if (model.Geometry != null)
                     {
@@ -3324,8 +3330,21 @@ namespace UserControls
         //                                                                                                                          
         public void SetNumberOfUserKeywords(int numOfUserKeywords)
         {
+            _numOfUserKeywords = numOfUserKeywords;
+            UpdateNumberOfKeywords();
+        }
+        public void SetNumberOfModifiedKeywords(int numOfModifiedKeywords)
+        {
+            _numOfModifiedKeywords = numOfModifiedKeywords;
+            UpdateNumberOfKeywords();
+        }
+        private void UpdateNumberOfKeywords()
+        {
             _model.Text = _modelName;
-            if (numOfUserKeywords > 0) _model.Text += " (User Keywords: " + numOfUserKeywords + ")";
+            List<string> counts = new List<string>();
+            if (_numOfUserKeywords > 0) counts.Add("User Keywords: " + _numOfUserKeywords);
+            if (_numOfModifiedKeywords > 0) counts.Add("Modified Keywords: " + _numOfModifiedKeywords);
+            if (counts.Count > 0) _model.Text += " (" + string.Join("; ", counts) + ")";
         }
 
         public void UpdateNumberOfStepControls(TreeNode stepNode)

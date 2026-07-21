@@ -22,9 +22,11 @@ namespace PrePoMax.Forms
         /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
         protected override void Dispose(bool disposing)
         {
-            if (disposing && (components != null))
+            if (disposing)
             {
-                components.Dispose();
+                _emphasizedKeywordFont?.Dispose();
+                _emphasizedKeywordFont = null;
+                if (components != null) components.Dispose();
             }
             base.Dispose(disposing);
         }
@@ -76,7 +78,7 @@ namespace PrePoMax.Forms
             // 
             // btnAddKeyword
             // 
-            this.btnAddKeyword.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.btnAddKeyword.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.btnAddKeyword.Image = global::PrePoMax.Properties.Resources.Add;
             this.btnAddKeyword.Location = new System.Drawing.Point(439, 18);
             this.btnAddKeyword.Name = "btnAddKeyword";
@@ -87,7 +89,7 @@ namespace PrePoMax.Forms
             // 
             // btnReset
             // 
-            this.btnReset.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.btnReset.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.btnReset.Enabled = false;
             this.btnReset.Image = global::PrePoMax.Properties.Resources.Undo;
             this.btnReset.Location = new System.Drawing.Point(439, 117);

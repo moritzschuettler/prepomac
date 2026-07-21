@@ -483,11 +483,12 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="License-LGPL.txt" />
+    <None Include="Resources\Save.ico" />
+    <None Include="Resources\Save_as.ico" />
     <None Include="Resources\Run.ico" />
     <None Include="Resources\RunSelected.ico" />
     <None Include="Resources\Redo.ico" />
     <None Include="Resources\Undo.ico" />
-    <None Include="Resources\Save.ico" />
     <None Include="Resources\Open.ico" />
     <None Include="Resources\New.ico" />
   </ItemGroup>

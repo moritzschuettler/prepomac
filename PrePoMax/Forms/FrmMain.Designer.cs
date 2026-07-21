@@ -1380,6 +1380,7 @@ namespace PrePoMax
             // 
             // tsmiSaveAs
             // 
+            this.tsmiSaveAs.Image = global::PrePoMax.Properties.Resources.Save_as;
             this.tsmiSaveAs.Name = "tsmiSaveAs";
             this.tsmiSaveAs.Size = new System.Drawing.Size(219, 22);
             this.tsmiSaveAs.Text = "Save As";
