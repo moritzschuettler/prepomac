@@ -540,6 +540,7 @@ namespace PrePoMax
             this.tsmiExportParameters = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiImportParameters = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerTools2 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiDividerTools3 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiQuery = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiArrangeAnnotations = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiRemoveAnnotations = new System.Windows.Forms.ToolStripMenuItem();
@@ -572,6 +573,7 @@ namespace PrePoMax
             this.tbOutput = new UserControls.AutoScrollTextBox();
             this.timerTest = new System.Windows.Forms.Timer(this.components);
             this.timerOutput = new System.Windows.Forms.Timer(this.components);
+            this.tsmiBidirectionalMeshConverter = new System.Windows.Forms.ToolStripMenuItem();
             this.tsFile.SuspendLayout();
             this.tsViews.SuspendLayout();
             this.tsSymbols.SuspendLayout();
@@ -4173,8 +4175,7 @@ namespace PrePoMax
             this.tsmiDividerResults2,
             this.tsmiTransformation,
             this.tsmiDividerResults3,
-            this.tsmiAppendResults,
-            this.tsmiConvertOdbToFrd});
+            this.tsmiAppendResults});
             this.tsmiResults.Name = "tsmiResults";
             this.tsmiResults.Size = new System.Drawing.Size(56, 20);
             this.tsmiResults.Text = "Results";
@@ -4620,7 +4621,10 @@ namespace PrePoMax
             this.tsmiQuery,
             this.tsmiArrangeAnnotations,
             this.tsmiRemoveAnnotations,
-            this.tsmiFind});
+            this.tsmiFind,
+            this.tsmiDividerTools3,
+            this.tsmiBidirectionalMeshConverter,
+            this.tsmiConvertOdbToFrd});
             this.tsmiTools.Name = "tsmiTools";
             this.tsmiTools.Size = new System.Drawing.Size(47, 20);
             this.tsmiTools.Text = "Tools";
@@ -4963,6 +4967,13 @@ namespace PrePoMax
             this.tbOutput.Size = new System.Drawing.Size(419, 86);
             this.tbOutput.TabIndex = 0;
             this.tbOutput.Text = "Output text box";
+            // 
+            // tsmiBidirectionalMeshConverter
+            // 
+            this.tsmiBidirectionalMeshConverter.Name = "tsmiBidirectionalMeshConverter";
+            this.tsmiBidirectionalMeshConverter.Size = new System.Drawing.Size(340, 34);
+            this.tsmiBidirectionalMeshConverter.Text = "Bidirectional Mesh Converter";
+            this.tsmiBidirectionalMeshConverter.Click += new System.EventHandler(this.tsmiBidirectionalMeshConverter_Click);
             // 
             // timerTest
             // 
@@ -5434,6 +5445,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripSeparator tsmiDividerTools1;
         private System.Windows.Forms.ToolStripMenuItem tsmiParameters;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerTools2;
+        private System.Windows.Forms.ToolStripSeparator tsmiDividerTools3;
         private System.Windows.Forms.ToolStripMenuItem tsmiRegenerateHistoryWithRemeshing;
         private System.Windows.Forms.ToolStripMenuItem tsmiDuplicateSection;
         private System.Windows.Forms.ToolStripMenuItem tsmiDuplicateModelReferencePoint;
@@ -5562,6 +5574,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripSeparator tsmiDivideritemIds1;
         private System.Windows.Forms.ToolStripMenuItem tsmiViewNodeIds;
         private System.Windows.Forms.ToolStripMenuItem tsmiViewElementIds;
+        private System.Windows.Forms.ToolStripMenuItem tsmiBidirectionalMeshConverter;
     }
 }
 

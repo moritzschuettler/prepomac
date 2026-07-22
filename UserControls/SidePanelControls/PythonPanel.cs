@@ -57,6 +57,7 @@ namespace UserControls
             InitializeToolTips();
             UpdateTitle();
             UpdateButtonState();
+            NewScript();
             //
             pctbPythonConsole.InitializeConsole();
         }

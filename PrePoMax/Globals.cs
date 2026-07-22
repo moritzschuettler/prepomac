@@ -82,7 +82,9 @@ namespace PrePoMax
         public static string Mmg3DMesher = @"\NetGen\mmg3d.exe";
         public static string GmshCaller = @"\lib\GmshCaller.exe";
         public static string PythonDll = @"\Python\python312.dll";
+        public static string BidirectionalMeshConverter = @"\Tools\BidirectionalMeshConverter.exe";
         public static string OdbToFrd = @"\Tools\abqodb_to_ccxfrd.py";
+        public static string TempFolder = @"\Temp\";
         public static string VisFileName = "geometry.vis";
         public static string BrepFileName = "geometry.brep";
         public static string StlFileName = "geometry.stl";        

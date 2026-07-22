@@ -2128,6 +2128,7 @@ namespace PrePoMax
                 if (files != null && files.Length > 0)
                 {
                     _controller.ClearErrors();
+                    _controller.ClearWarnings();
                     //
                     SetStateWorking(Globals.ImportingText);
                     foreach (var file in files)
@@ -2137,12 +2138,20 @@ namespace PrePoMax
                     SetFrontBackView(true, true);   // animate must be true in order for the scale bar to work correctly
                     //
                     int numErrors = _controller.GetNumberOfErrors();
+                    int numWarnings = _controller.GetNumberOfWarnings();
+                    if (numWarnings > 0) _controller.OutputWarnings();
                     if (numErrors > 0)
                     {
                         _controller.OutputErrors();
                         string message = "There were errors while importing the file/files.";
                         WriteDataToOutput(message);
                         AutoClosingMessageBox.ShowError(message, 3000);
+                    }
+                    else if (numWarnings > 0)
+                    {
+                        string message = "There were warnings while importing the file/files.";
+                        WriteDataToOutput(message);
+                        AutoClosingMessageBox.ShowWarning(message, 3000);
                     }
                 }
             }
@@ -7326,6 +7335,54 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
+        private void tsmiBidirectionalMeshConverter_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                string converterPath = Application.StartupPath + Globals.BidirectionalMeshConverter;
+                string tempPath = Application.StartupPath + Globals.TempFolder;
+                //
+                if (!File.Exists(converterPath))
+                    throw new FileNotFoundException("The Bidirectional Mesh Converter was not found.", converterPath);
+                //
+                if (!Directory.Exists(tempPath))
+                    throw new DirectoryNotFoundException("The temporary folder '" + tempPath + "' was not found.");
+                //
+                ProcessStartInfo startInfo = new ProcessStartInfo
+                {
+                    FileName = converterPath,
+                    WorkingDirectory = Path.GetDirectoryName(converterPath),
+                    UseShellExecute = true
+                };
+                // Start the process
+                Process.Start(startInfo);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private async void tsmiConvertOdbToFrd_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                using (OpenFileDialog openFileDialog = new OpenFileDialog())
+                {
+                    openFileDialog.Filter = "Abaqus result files|*.odb";
+                    openFileDialog.Multiselect = false;
+                    //
+                    openFileDialog.FileName = "";
+                    if (openFileDialog.ShowDialog(this) == DialogResult.OK)
+                    {
+                        await Task.Run(() => _controller.ConvertOdbToFrd(openFileDialog.FileName));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
         //
         private void ShowColorBarSettings()
         {
@@ -8001,27 +8058,6 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
                 _controller.ModelChanged = false;   // hide message box
                 tsmiNew_Click(null, null);
-            }
-        }
-        private async void tsmiConvertOdbToFrd_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                using (OpenFileDialog openFileDialog = new OpenFileDialog())
-                {
-                    openFileDialog.Filter = "Abaqus result files|*.odb";
-                    openFileDialog.Multiselect = false;
-                    //
-                    openFileDialog.FileName = "";
-                    if (openFileDialog.ShowDialog(this) == DialogResult.OK)
-                    {
-                        await Task.Run(() => _controller.ConvertOdbToFrd(openFileDialog.FileName));
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                ExceptionTools.Show(this, ex);
             }
         }
 
@@ -9021,7 +9057,6 @@ namespace PrePoMax
         {
             tsmiNew_Click(null, null);
         }
-        
         private void tsbOpen_Click(object sender, EventArgs e)
         {
             tsmiOpen_Click(null, null);
@@ -9473,6 +9508,8 @@ namespace PrePoMax
             // Invoke
             if (InvokeRequired)
                 return (DeformationScaleFactorTypeEnum)Invoke(new Func<DeformationScaleFactorTypeEnum>(GetDeformationType));
+            //
+            if (tscbDeformationType.SelectedItem == null) return DeformationScaleFactorTypeEnum.Automatic;
             //
             string displayName = tscbDeformationType.SelectedItem.ToString();
             DeformationScaleFactorTypeEnum[] scaleFactorTypes =

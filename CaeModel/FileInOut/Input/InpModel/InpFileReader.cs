@@ -24,7 +24,84 @@ namespace FileInOut.Input
     static public class InpFileReader
     {
         // Variables                                                                                                                
+        private delegate FeElement ElementReader(ref int lineId, string[] lines, string[] splitter);
+        // Keep the supported element type names and their readers in one place so that exact and fallback matching
+        // cannot get out of sync with element creation.
+        private static readonly Dictionary<string, ElementReader> _elementReaders =
+            new Dictionary<string, ElementReader>(StringComparer.Ordinal)
+            {
+                // Linear beam
+                { "T3D2", GetLinearBeamElement },
+                // Linear triangle
+                { "S3", GetLinearTriangleElement },
+                { "S3R", GetLinearTriangleElement },
+                { "M3D3", GetLinearTriangleElement },
+                { "CPS3", GetLinearTriangleElement },
+                { "CPE3", GetLinearTriangleElement },
+                { "CAX3", GetLinearTriangleElement },
+                // Linear quadrilateral
+                { "S4", GetLinearQuadrilateralElement },
+                { "S4R", GetLinearQuadrilateralElement },
+                { "M3D4", GetLinearQuadrilateralElement },
+                { "M3D4R", GetLinearQuadrilateralElement },
+                { "CPS4", GetLinearQuadrilateralElement },
+                { "CPS4R", GetLinearQuadrilateralElement },
+                { "CPE4", GetLinearQuadrilateralElement },
+                { "CPE4R", GetLinearQuadrilateralElement },
+                { "CAX4", GetLinearQuadrilateralElement },
+                { "CAX4R", GetLinearQuadrilateralElement },
+                // Linear tetrahedron
+                { "C3D4", GetLinearTetraElement },
+                { "DC3D4", GetLinearTetraElement },
+                // Linear pyramid
+                { "C3D5", GetLinearPyramidElement },
+                { "C3D5I", GetLinearPyramidElement },
+                { "C3D5R", GetLinearPyramidElement },
+                // Linear wedge
+                { "C3D6", GetLinearWedgeElement },
+                { "DC3D6", GetLinearWedgeElement },
+                // Linear hexahedron
+                { "C3D8", GetLinearHexaElement },
+                { "C3D8R", GetLinearHexaElement },
+                { "C3D8I", GetLinearHexaElement },
+                { "DC3D8", GetLinearHexaElement },
+                // Parabolic beam
+                { "T3D3", GetParabolicBeamElement },
+                // Parabolic triangle
+                { "S6", GetParabolicTriangleElement },
+                { "M3D6", GetParabolicTriangleElement },
+                { "CPS6", GetParabolicTriangleElement },
+                { "CPE6", GetParabolicTriangleElement },
+                { "CAX6", GetParabolicTriangleElement },
+                // Parabolic quadrilateral
+                { "S8", GetParabolicQuadrilateralElement },
+                { "S8R", GetParabolicQuadrilateralElement },
+                { "M3D8", GetParabolicQuadrilateralElement },
+                { "M3D8R", GetParabolicQuadrilateralElement },
+                { "CPS8", GetParabolicQuadrilateralElement },
+                { "CPS8R", GetParabolicQuadrilateralElement },
+                { "CPE8", GetParabolicQuadrilateralElement },
+                { "CPE8R", GetParabolicQuadrilateralElement },
+                { "CAX8", GetParabolicQuadrilateralElement },
+                { "CAX8R", GetParabolicQuadrilateralElement },
+                // Parabolic tetrahedron
+                { "C3D10", GetParabolicTetraElement },
+                { "C3D10T", GetParabolicTetraElement },
+                { "DC3D10", GetParabolicTetraElement },
+                // Parabolic wedge
+                { "C3D15", GetParabolicWedgeElement },
+                { "DC3D15", GetParabolicWedgeElement },
+                // Parabolic pyramid
+                { "C3D13", GetParabolicPyramidElement },
+                { "C3D13I", GetParabolicPyramidElement },
+                { "C3D13R", GetParabolicPyramidElement },
+                // Parabolic hexahedron
+                { "C3D20", GetParabolicHexaElement },
+                { "C3D20R", GetParabolicHexaElement },
+                { "DC3D20", GetParabolicHexaElement }
+            };
         private static List<string> _errors;
+        private static List<string> _warnings;
         private static string[] _splitterComma = new string[] { "," };
         private static string[] _splitterEqual = new string[] { "=" };
         private static string[] _splitter = new string[] { " ", ",", "\t" };
@@ -94,6 +171,7 @@ namespace FileInOut.Input
 
         // Properties                                                                                                               
         static public List<string> Errors { get { return _errors; } }
+        static public List<string> Warnings { get { return _warnings; } }
 
 
         // Methods                                                                                                                  
@@ -103,6 +181,7 @@ namespace FileInOut.Input
         {
             WriteDataToOutputStatic = WriteDataToOutput;
             _errors = new List<string>();
+            _warnings = new List<string>();
             indexedUserKeywords = new OrderedDictionary<int[], CalculixUserKeyword>("User Calculix keywords");
             //
             if (fileName != null && File.Exists(fileName))
@@ -320,6 +399,7 @@ namespace FileInOut.Input
         static public FeMesh ReadMesh(string fileName, ElementsToImport elementsToImport, bool convertToSecondOrder)
         {
             _errors = new List<string>();
+            _warnings = new List<string>();
             if (fileName != null && File.Exists(fileName))
             {
                 string[] lines = Tools.ReadAllLines(fileName);
@@ -446,6 +526,7 @@ namespace FileInOut.Input
                                    out Dictionary<string, FeElementSet> elementSets)
         {
             _errors = new List<string>();
+            _warnings = new List<string>();
             uniqueElements = null;
             elementSets = null;
             //
@@ -484,6 +565,7 @@ namespace FileInOut.Input
             List<string> nodeSetNamesList = new List<string>();
             List<int[]> nodeIdsLists = new List<int[]>();
             _errors = new List<string>();
+            _warnings = new List<string>();
             //
             if (fileName != null && File.Exists(fileName))
             {
@@ -755,6 +837,18 @@ namespace FileInOut.Input
                     }
                 }
                 if (elementType == null) return;
+                // Use an exact match whenever possible. For unsupported formulations, use the longest supported
+                // prefix so, for example, C3D20RH resolves to C3D20R rather than C3D20.
+                string originalElementType = elementType;
+                ElementReader elementReader;
+                if (!TryGetElementReader(elementType, out elementType, out elementReader))
+                    throw new Exception("The element type '" + originalElementType + "' is not supported.");
+                // Notify once per *ELEMENT block while allowing the compatible element topology to be imported.
+                if (elementType != originalElementType)
+                {
+                    AddWarning("The element type '" + originalElementType + "' is not directly supported and was imported as '" +
+                               elementType + "'. Formulation-specific behavior may be lost.");
+                }
                 //
                 List<int> elementIds = new List<int>();
                 // Line 0 is the line with the keyword
@@ -762,110 +856,7 @@ namespace FileInOut.Input
                 {
                     if (lines[i].StartsWith("*")) continue;
                     //
-                    switch (elementType)
-                    {
-                        // LINEAR ELEMENTS                                                                                          
-                        // Linear beam element
-                        case "T3D2":
-                            element = GetLinearBeamElement(ref i, lines, _splitter);
-                            break;
-                        // Linear triangle element
-                        case "S3":
-                        case "S3R":
-                        case "M3D3":
-                        case "CPS3":
-                        case "CPE3":
-                        case "CAX3":
-                            element = GetLinearTriangleElement(ref i, lines, _splitter);
-                            break;
-                        // Linear quadrilateral element
-                        case "S4":
-                        case "S4R":
-                        case "M3D4":
-                        case "M3D4R":
-                        case "CPS4":
-                        case "CPS4R":
-                        case "CPE4":
-                        case "CPE4R":
-                        case "CAX4":
-                        case "CAX4R":
-                            element = GetLinearQuadrilateralElement(ref i, lines, _splitter);
-                            break;
-                        // Linear tetrahedron element
-                        case "C3D4":
-                        case "DC3D4":
-                            element = GetLinearTetraElement(ref i, lines, _splitter);
-                            break;
-                        // Linear pyramid element
-                        case "C3D5":
-                        case "C3D5I":
-                        case "C3D5R":
-                            element = GetLinearPyramidElement(ref i, lines, _splitter);
-                            break;
-                        // Linear wedge element
-                        case "C3D6":
-                        case "DC3D6":
-                            element = GetLinearWedgeElement(ref i, lines, _splitter);
-                            break;
-                        // Linear hexahedron element
-                        case "C3D8":
-                        case "C3D8R":
-                        case "C3D8I":
-                        case "DC3D8":
-                            element = GetLinearHexaElement(ref i, lines, _splitter);
-                            break;
-                        // PARABOLIC ELEMENTS                                                                                       
-                        // Parabolic beam element
-                        case "T3D3":
-                            element = GetParabolicBeamElement(ref i, lines, _splitter);
-                            break;
-                        // Parabolic triangle element
-                        case "S6":
-                        case "M3D6":
-                        case "CPS6":
-                        case "CPE6":
-                        case "CAX6":
-                            element = GetParabolicTriangleElement(ref i, lines, _splitter);
-                            break;
-                        // Parabolic quadrilateral element
-                        case "S8":
-                        case "S8R":
-                        case "M3D8":
-                        case "M3D8R":
-                        case "CPS8":
-                        case "CPS8R":
-                        case "CPE8":
-                        case "CPE8R":
-                        case "CAX8":
-                        case "CAX8R":
-                            element = GetParabolicQuadrilateralElement(ref i, lines, _splitter);
-                            break;
-                        // Parabolic tetrahedron element
-                        case "C3D10":
-                        case "C3D10T":
-                        case "DC3D10":
-                            element = GetParabolicTetraElement(ref i, lines, _splitter);
-                            break;
-                        // Parabolic wedge element
-                        case "C3D15":
-                        case "DC3D15":
-                            element = GetParabolicWedgeElement(ref i, lines, _splitter);
-                            break;
-                        // Parabolic pyramid element
-                        case "C3D13":
-                        case "C3D13I":
-                        case "C3D13R":
-                            element = GetParabolicPyramidElement(ref i, lines, _splitter);
-                            break;
-                        // Parabolic hexahedron element
-                        case "C3D20":
-                        case "C3D20R":
-                        case "DC3D20":
-                            element = GetParabolicHexaElement(ref i, lines, _splitter);
-                            break;
-                        default:
-                            throw new Exception("The element type '" + elementType + "' is not supported.");
-                    }
+                    element = elementReader(ref i, lines, _splitter);
                     elementIds.Add(element.Id);
                     elements.Add(element.Id, element);
                 }
@@ -893,6 +884,25 @@ namespace FileInOut.Input
             {
                 AddError(ex.Message);
             }
+        }
+        private static bool TryGetElementReader(string elementType, out string supportedElementType,
+                                                out ElementReader elementReader)
+        {
+            supportedElementType = elementType;
+            if (_elementReaders.TryGetValue(elementType, out elementReader)) return true;
+            // Find the most specific supported prefix. Dictionary enumeration order is not relied upon.
+            supportedElementType = null;
+            elementReader = null;
+            foreach (var entry in _elementReaders)
+            {
+                if (elementType.StartsWith(entry.Key, StringComparison.Ordinal) &&
+                    (supportedElementType == null || entry.Key.Length > supportedElementType.Length))
+                {
+                    supportedElementType = entry.Key;
+                    elementReader = entry.Value;
+                }
+            }
+            return supportedElementType != null;
         }
         // Part name
         private static string GetPartName(string[] lines)
@@ -2899,6 +2909,11 @@ namespace FileInOut.Input
         {
             Errors.Add(error);
             if (WriteDataToOutputStatic != null) WriteDataToOutputStatic(error);
+        }
+        private static void AddWarning(string warning)
+        {
+            Warnings.Add(warning);
+            if (WriteDataToOutputStatic != null) WriteDataToOutputStatic(warning);
         }
 
 

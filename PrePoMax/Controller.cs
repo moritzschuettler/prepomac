@@ -75,8 +75,9 @@ namespace PrePoMax
         [NonSerialized] protected ViewResultsTypeEnum _viewResultsType;
         [NonSerialized] protected FieldData _currentFieldData;
         [NonSerialized] protected TransformationsCollection _transformations;
-        // Errors
+        // Errors and warnings
         [NonSerialized] protected List<string> _errors;
+        [NonSerialized] protected List<string> _warnings;
         [NonSerialized] protected List<string> _deferredKeywordStateMessages;
         //
         protected FeModel _model;
@@ -297,6 +298,10 @@ namespace PrePoMax
         {
             return _errors.Count();
         }
+        public int GetNumberOfWarnings()
+        {
+            return _warnings.Count();
+        }
         // Tools
         public string OpenedFileName
         {
@@ -421,8 +426,9 @@ namespace PrePoMax
             _allResults = new ResultsCollection();  // must be first
             ViewResultsType = ViewResultsTypeEnum.ColorContours;
             _transformations = new TransformationsCollection(this);
-            // Errors - must be here before Clear
+            // Errors and warnings - must be here before Clear
             _errors = new List<string>();
+            _warnings = new List<string>();
             // History
             _commands = new CommandsCollection(this);
             _commands.WriteOutput = _form.WriteDataToOutput;
@@ -1676,9 +1682,15 @@ namespace PrePoMax
             else if (extension == ".mesh")
                 _model.ImportMeshFromMmgFile(fileName);
             else if (extension == ".inp" && onlyMaterials)
+            {
                 _errors = _model.ImportMaterialsFromInpFile(fileName, _form.WriteDataToOutput);
+                _warnings = FileInOut.Input.InpFileReader.Warnings;
+            }
             else if (extension == ".inp")
+            {
                 _errors = _model.ImportModelFromInpFile(fileName, _form.WriteDataToOutput);
+                _warnings = FileInOut.Input.InpFileReader.Warnings;
+            }
             else if (extension == ".unv")
                 _model.ImportMeshFromUnvFile(fileName);
             else if (extension == ".obj")
@@ -2225,6 +2237,10 @@ namespace PrePoMax
         {
             _errors.Clear();
         }
+        public void ClearWarnings()
+        {
+            _warnings.Clear();
+        }
         public int OutputErrors()
         {
             if (_errors.Count > 0)
@@ -2233,6 +2249,15 @@ namespace PrePoMax
                 foreach (var line in _errors) _form.WriteDataToOutput("Error: " + line);
             }
             return _errors.Count;
+        }
+        public int OutputWarnings()
+        {
+            if (_warnings.Count > 0)
+            {
+                _form.WriteDataToOutput("");
+                foreach (var line in _warnings) _form.WriteDataToOutput("Warning: " + line);
+            }
+            return _warnings.Count;
         }
         // Save
         public string GetFileNameToSaveAs()
@@ -15824,32 +15849,36 @@ namespace PrePoMax
             if (visualization.CellIdsByFace[surfaceId].Length == 0) return null;
             //
             List<double[]> possibleCoor = new List<double[]>(visualization.CellIdsByFace[surfaceId].Length);
-            AddTriangleCenters(mesh, visualization, surfaceId, possibleCoor);
+            AddCellCenters(mesh, visualization, surfaceId, possibleCoor);
             if (possibleCoor.Count == 0) return null;
             //
             double[][] coor = possibleCoor.ToArray();
             int[] distributedIds = GetSpatiallyEquallyDistributedCoor(coor, 1, null);
             return coor[distributedIds[0]];
         }
-        private void AddTriangleCenters(FeMesh mesh, VisualizationData visualization, int faceId,
-                                        List<double[]> possibleCoor)
+        private void AddCellCenters(FeMesh mesh, VisualizationData visualization, int faceId,
+                                    List<double[]> possibleCoor)
         {
             foreach (int cellId in visualization.CellIdsByFace[faceId])
             {
                 int[] cell = visualization.Cells[cellId];
-                if (cell.Length != 3) continue;
+                int n;
+                if (cell.Length == 3 || cell.Length == 6) n = 3;
+                else if (cell.Length == 4 || cell.Length == 8) n = 4;
+                else if (Debugger.IsAttached) throw new NotSupportedException();
+                else continue;
                 //
                 double[] center = new double[3];
-                for (int i = 0; i < 3; i++)
+                for (int i = 0; i < n; i++)
                 {
                     double[] coor = GetItemIdNodeCoor(mesh, cell[i]);
                     center[0] += coor[0];
                     center[1] += coor[1];
                     center[2] += coor[2];
                 }
-                center[0] /= 3;
-                center[1] /= 3;
-                center[2] /= 3;
+                center[0] /= n;
+                center[1] /= n;
+                center[2] /= n;
                 possibleCoor.Add(center);
             }
         }

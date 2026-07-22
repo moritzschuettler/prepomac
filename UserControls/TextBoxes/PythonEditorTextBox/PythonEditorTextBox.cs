@@ -200,8 +200,7 @@ namespace UserControls
             _textBox.Dock = DockStyle.Fill;
             _textBox.Name = "fctbPythonEditor";
             _textBox.TabIndex = 0;
-            _textBox.Text = "#PrePoMax Python Script" + Environment.NewLine +
-                            "#The PrePoMax object is available as 'pmx'" + Environment.NewLine;
+            _textBox.Text = "";
             //
             Name = "PythonEditorTextBox";
             Size = new Size(400, 300);
