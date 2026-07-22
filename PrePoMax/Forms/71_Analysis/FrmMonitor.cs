@@ -27,6 +27,8 @@ namespace PrePoMax.Forms
         // Variables                                                                                                                
         private AnalysisJob _job;
         private Controller _controller;
+        private string _plottedStatusData;
+        private string _plottedConvergenceData;
 
         // Properties                                                                                                               
 
@@ -48,8 +50,7 @@ namespace PrePoMax.Forms
         // Event handlers                                                                                                           
         private void FrmMonitor_Shown(object sender, EventArgs e)
         {
-            tbOutput.Select(tbOutput.TextLength, 0);
-            tbOutput.ScrollToCaret();
+            tbOutput.ScrollToEnd();
         }
         private void FrmMonitor_FormClosing(object sender, FormClosingEventArgs e)
         {
@@ -63,18 +64,15 @@ namespace PrePoMax.Forms
             {
                 if (tabControl1.SelectedTab == tpOutput)
                 {
-                    tbOutput.Select(tbOutput.TextLength, 0);
-                    tbOutput.ScrollToCaret();
+                    tbOutput.ScrollToEnd();
                 }
                 else if (tabControl1.SelectedTab == tpStatus)
                 {
-                    tbStatus.Select(tbOutput.TextLength, 0);
-                    tbStatus.ScrollToCaret();
+                    tbStatus.ScrollToEnd();
                 }
                 else if (tabControl1.SelectedTab == tpCovergence)
                 {
-                    tbConvergence.Select(tbOutput.TextLength, 0);
-                    tbConvergence.ScrollToCaret();
+                    tbConvergence.ScrollToEnd();
                 }
             }
         }
@@ -122,22 +120,23 @@ namespace PrePoMax.Forms
             //else throw new NotSupportedException();
             //
             UpdateProgress();
+            _plottedStatusData = null;
+            _plottedConvergenceData = null;
+            analysisProgressView.ClearData();
             //
             tbOutput.Text = _job.GetAllOutputData();
-            tbOutput.Select(tbOutput.TextLength, 0);
-            tbOutput.ScrollToCaret();
+            tbOutput.ScrollToEnd();
             //
             tbStatus.Text = _job.StatusFileData;
-            tbStatus.Select(tbStatus.TextLength, 0);
-            tbStatus.ScrollToCaret();
+            tbStatus.ScrollToEnd();
             //
             tbConvergence.Text = _job.ConvergenceFileData;
-            tbConvergence.Select(tbConvergence.TextLength, 0);
-            tbConvergence.ScrollToCaret();
+            tbConvergence.ScrollToEnd();
             //
             tbDatFile.Text = _job.DatFileData;
-            tbDatFile.Select(tbDatFile.TextLength, 0);
-            tbDatFile.ScrollToCaret();
+            tbDatFile.ScrollToEnd();
+            //
+            UpdateProgressPlots();
         }
 
         private void UpdateOutput(AnalysisJob job, string data)
@@ -158,11 +157,28 @@ namespace PrePoMax.Forms
                         tbDatFile.AutoScrollSetText(_job.DatFileData);
                         tbStatus.AutoScrollSetText(_job.StatusFileData);
                         tbConvergence.AutoScrollSetText(_job.ConvergenceFileData);
+                        UpdateProgressPlots();
                     }
                 }
             }
             catch
             { }
+        }
+        private void UpdateProgressPlots()
+        {
+            string statusData = _job.StatusFileData;
+            if (!object.ReferenceEquals(statusData, _plottedStatusData))
+            {
+                analysisProgressView.SetStatusData(CalculixMonitorDataParser.ParseStatus(statusData));
+                _plottedStatusData = statusData;
+            }
+
+            string convergenceData = _job.ConvergenceFileData;
+            if (!object.ReferenceEquals(convergenceData, _plottedConvergenceData))
+            {
+                analysisProgressView.SetConvergenceData(CalculixMonitorDataParser.ParseConvergence(convergenceData));
+                _plottedConvergenceData = convergenceData;
+            }
         }
         public void UpdateProgress()
         {

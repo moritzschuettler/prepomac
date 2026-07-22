@@ -50,6 +50,9 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AnalysisProgressView.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="AutocompleteMenu\AutocompleteItem.cs" />
     <Compile Include="AutocompleteMenu\AutocompleteItems.cs" />
     <Compile Include="AutocompleteMenu\AutocompleteListView.cs">
@@ -116,13 +119,13 @@
     <Compile Include="ListView\MyListView.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="SidePanelControls\PythonPanel.cs">
+    <Compile Include="SidePanel\PythonPanel.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="SidePanelControls\PythonPanel.Designer.cs">
+    <Compile Include="SidePanel\PythonPanel.Designer.cs">
       <DependentUpon>PythonPanel.cs</DependentUpon>
     </Compile>
-    <Compile Include="SidePanelControls\SidePanel.cs">
+    <Compile Include="SidePanel\SidePanel.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Panels\BorderColoredPanel.cs">
@@ -236,17 +239,17 @@
     <Compile Include="Views\Sections\ViewSolidSection.cs" />
     <Compile Include="Views\Step\ViewStaticStep.cs" />
     <Compile Include="Views\Step\ViewStep.cs" />
-    <Compile Include="SidePanelControls\DoubleBufferedPanel.cs">
+    <Compile Include="SidePanel\DoubleBufferedPanel.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="SidePanelControls\PanelItemLinkLabel.cs" />
-    <Compile Include="SidePanelControls\PanelItemLabel.cs" />
-    <Compile Include="SidePanelControls\PanelItem.cs" />
-    <Compile Include="SidePanelControls\PanelPage.cs" />
-    <Compile Include="SidePanelControls\AdvisorPanel.cs">
+    <Compile Include="SidePanel\PanelItemLinkLabel.cs" />
+    <Compile Include="SidePanel\PanelItemLabel.cs" />
+    <Compile Include="SidePanel\PanelItem.cs" />
+    <Compile Include="SidePanel\PanelPage.cs" />
+    <Compile Include="SidePanel\AdvisorPanel.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="SidePanelControls\AdvisorPanel.Designer.cs">
+    <Compile Include="SidePanel\AdvisorPanel.Designer.cs">
       <DependentUpon>AdvisorPanel.cs</DependentUpon>
     </Compile>
     <Compile Include="AnnotationEditor.cs">
@@ -293,7 +296,7 @@
       <DependentUpon>ModelTree.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="SidePanelControls\PythonPanel.resx">
+    <EmbeddedResource Include="SidePanel\PythonPanel.resx">
       <DependentUpon>PythonPanel.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="TextBoxes\AutoScrollTextBox.resx">
@@ -329,7 +332,7 @@
     <EmbeddedResource Include="Trees\CodersLabTreeView.resx">
       <DependentUpon>CodersLabTreeView.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="SidePanelControls\AdvisorPanel.resx">
+    <EmbeddedResource Include="SidePanel\AdvisorPanel.resx">
       <DependentUpon>AdvisorPanel.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="AnnotationEditor.resx">

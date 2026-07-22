@@ -43,6 +43,8 @@ namespace PrePoMax.Forms
             this.btnResults = new System.Windows.Forms.Button();
             this.tabControl1 = new System.Windows.Forms.TabControl();
             this.tpOutput = new System.Windows.Forms.TabPage();
+            this.tpProgress = new System.Windows.Forms.TabPage();
+            this.analysisProgressView = new UserControls.AnalysisProgressView();
             this.tpStatus = new System.Windows.Forms.TabPage();
             this.tbStatus = new UserControls.AutoScrollTextBox();
             this.tpCovergence = new System.Windows.Forms.TabPage();
@@ -53,6 +55,7 @@ namespace PrePoMax.Forms
             this.labAnalysisStatus = new System.Windows.Forms.Label();
             this.tabControl1.SuspendLayout();
             this.tpOutput.SuspendLayout();
+            this.tpProgress.SuspendLayout();
             this.tpStatus.SuspendLayout();
             this.tpCovergence.SuspendLayout();
             this.tpDatFile.SuspendLayout();
@@ -114,6 +117,7 @@ namespace PrePoMax.Forms
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.tabControl1.Controls.Add(this.tpOutput);
+            this.tabControl1.Controls.Add(this.tpProgress);
             this.tabControl1.Controls.Add(this.tpStatus);
             this.tabControl1.Controls.Add(this.tpCovergence);
             this.tabControl1.Controls.Add(this.tpDatFile);
@@ -134,6 +138,25 @@ namespace PrePoMax.Forms
             this.tpOutput.TabIndex = 0;
             this.tpOutput.Text = "Output";
             this.tpOutput.UseVisualStyleBackColor = true;
+            //
+            // tpProgress
+            //
+            this.tpProgress.Controls.Add(this.analysisProgressView);
+            this.tpProgress.Location = new System.Drawing.Point(4, 24);
+            this.tpProgress.Name = "tpProgress";
+            this.tpProgress.Padding = new System.Windows.Forms.Padding(3);
+            this.tpProgress.Size = new System.Drawing.Size(702, 326);
+            this.tpProgress.TabIndex = 1;
+            this.tpProgress.Text = "Progress";
+            this.tpProgress.UseVisualStyleBackColor = true;
+            //
+            // analysisProgressView
+            //
+            this.analysisProgressView.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.analysisProgressView.Location = new System.Drawing.Point(3, 3);
+            this.analysisProgressView.Name = "analysisProgressView";
+            this.analysisProgressView.Size = new System.Drawing.Size(696, 320);
+            this.analysisProgressView.TabIndex = 0;
             // 
             // tpStatus
             // 
@@ -142,7 +165,7 @@ namespace PrePoMax.Forms
             this.tpStatus.Name = "tpStatus";
             this.tpStatus.Padding = new System.Windows.Forms.Padding(3);
             this.tpStatus.Size = new System.Drawing.Size(702, 326);
-            this.tpStatus.TabIndex = 1;
+            this.tpStatus.TabIndex = 2;
             this.tpStatus.Text = "Status";
             this.tpStatus.UseVisualStyleBackColor = true;
             // 
@@ -166,7 +189,7 @@ namespace PrePoMax.Forms
             this.tpCovergence.Name = "tpCovergence";
             this.tpCovergence.Padding = new System.Windows.Forms.Padding(3);
             this.tpCovergence.Size = new System.Drawing.Size(702, 326);
-            this.tpCovergence.TabIndex = 2;
+            this.tpCovergence.TabIndex = 3;
             this.tpCovergence.Text = "Convergence";
             this.tpCovergence.UseVisualStyleBackColor = true;
             // 
@@ -190,7 +213,7 @@ namespace PrePoMax.Forms
             this.tpDatFile.Name = "tpDatFile";
             this.tpDatFile.Padding = new System.Windows.Forms.Padding(3);
             this.tpDatFile.Size = new System.Drawing.Size(702, 326);
-            this.tpDatFile.TabIndex = 3;
+            this.tpDatFile.TabIndex = 4;
             this.tpDatFile.Text = "Dat File";
             this.tpDatFile.UseVisualStyleBackColor = true;
             // 
@@ -256,6 +279,7 @@ namespace PrePoMax.Forms
             this.tabControl1.ResumeLayout(false);
             this.tpOutput.ResumeLayout(false);
             this.tpOutput.PerformLayout();
+            this.tpProgress.ResumeLayout(false);
             this.tpStatus.ResumeLayout(false);
             this.tpStatus.PerformLayout();
             this.tpCovergence.ResumeLayout(false);
@@ -274,6 +298,8 @@ namespace PrePoMax.Forms
         private System.Windows.Forms.Button btnResults;
         private System.Windows.Forms.TabControl tabControl1;
         private System.Windows.Forms.TabPage tpOutput;
+        private System.Windows.Forms.TabPage tpProgress;
+        private UserControls.AnalysisProgressView analysisProgressView;
         private System.Windows.Forms.TabPage tpStatus;
         private UserControls.AutoScrollTextBox tbStatus;
         private System.Windows.Forms.ProgressBar pbAnalysisStatus;

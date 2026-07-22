@@ -204,7 +204,7 @@ namespace UserControls
             this.btnSave.BackColor = System.Drawing.Color.White;
             this.btnSave.FlatAppearance.BorderColor = System.Drawing.SystemColors.Control;
             this.btnSave.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSave.Image = ((System.Drawing.Image)(resources.GetObject("btnSave.Image")));
+            this.btnSave.Image = global::UserControls.Properties.Resources.Save;
             this.btnSave.Location = new System.Drawing.Point(56, 5);
             this.btnSave.Name = "btnSave";
             this.btnSave.Size = new System.Drawing.Size(25, 25);
