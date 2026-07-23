@@ -16,7 +16,7 @@ using ZedGraph;
 
 namespace UserControls
 {
-    public class AnalysisProgressView : UserControl
+    public partial class AnalysisProgressView : UserControl
     {
         // Variables                                                                                                                
         private const string IncrementSizeName = "Increment size";
@@ -27,9 +27,6 @@ namespace UserControls
         private const string TemperatureCorrectionName = "Temperature correction";
         private const string ContactElementCountName = "Contact elements";
         //
-        private TableLayoutPanel _tableLayoutPanel;
-        private ZedGraphControl _statusGraph;
-        private ZedGraphControl _convergenceGraph;
         private CalculixStatusData _statusData;
         private CalculixConvergenceData _convergenceData;
         private string _timeUnit;
@@ -47,51 +44,13 @@ namespace UserControls
 
 
         // Methods                                                                                                                  
-        private void InitializeComponent()
-        {
-            SuspendLayout();
-            //
-            _tableLayoutPanel = new TableLayoutPanel();
-            _statusGraph = CreateGraphControl("zedGraphStatus");
-            _convergenceGraph = CreateGraphControl("zedGraphConvergence");
-            //
-            _tableLayoutPanel.ColumnCount = 1;
-            _tableLayoutPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            _tableLayoutPanel.Dock = DockStyle.Fill;
-            _tableLayoutPanel.Name = "tableLayoutPanelProgress";
-            _tableLayoutPanel.RowCount = 2;
-            _tableLayoutPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
-            _tableLayoutPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
-            _tableLayoutPanel.TabIndex = 0;
-            _statusGraph.Margin = new Padding(3, 3, 3, 2);
-            _convergenceGraph.Margin = new Padding(3, 2, 3, 3);
-            _tableLayoutPanel.Controls.Add(_statusGraph, 0, 0);
-            _tableLayoutPanel.Controls.Add(_convergenceGraph, 0, 1);
-            //
-            Controls.Add(_tableLayoutPanel);
-            Name = "AnalysisProgressView";
-            Size = new Size(600, 300);
-            //
-            ResumeLayout(false);
-        }
-
-        private ZedGraphControl CreateGraphControl(string name)
-        {
-            ZedGraphControl graph = new ZedGraphControl();
-            graph.Dock = DockStyle.Fill;
-            graph.IsShowPointValues = true;
-            graph.Name = name;
-            graph.UseExtendedPrintDialog = true;
-            return graph;
-        }
-
         private void ConfigureStatusGraph()
         {
             GraphPane pane = _statusGraph.GraphPane;
             ConfigureGraphPane(pane);
             pane.Title.Text = "Status";
             UpdateTimeUnitLabels();
-            pane.Y2Axis.Title.Text = "Number of iterations";
+            pane.Y2Axis.Title.Text = "Iterations";
             pane.Y2Axis.IsVisible = true;
             pane.Y2Axis.Title.FontSpec.Size = 12;
             pane.Y2Axis.Scale.FontSpec.Size = 12;
@@ -115,7 +74,7 @@ namespace UserControls
             pane.YAxis.Scale.MajorStep = 3;
             pane.YAxis.Scale.MajorStepAuto = false;
             pane.YAxis.Scale.MinAuto = true;
-            pane.Y2Axis.Title.Text = "Number of contact elements";
+            pane.Y2Axis.Title.Text = "Contact elements";
             pane.Y2Axis.IsVisible = false;
             pane.Y2Axis.Title.FontSpec.Size = 12;
             pane.Y2Axis.Scale.FontSpec.Size = 12;

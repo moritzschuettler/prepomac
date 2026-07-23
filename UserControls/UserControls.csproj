@@ -53,6 +53,9 @@
     <Compile Include="AnalysisProgressView.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="AnalysisProgressView.Designer.cs">
+      <DependentUpon>AnalysisProgressView.cs</DependentUpon>
+    </Compile>
     <Compile Include="AutocompleteMenu\AutocompleteItem.cs" />
     <Compile Include="AutocompleteMenu\AutocompleteItems.cs" />
     <Compile Include="AutocompleteMenu\AutocompleteListView.cs">
