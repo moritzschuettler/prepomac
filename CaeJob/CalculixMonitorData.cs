@@ -46,6 +46,7 @@ namespace CaeJob
         public int[] Attempts { get; private set; }
         public int[] Iterations { get; private set; }
         public double[] RecordNumbers { get; private set; }
+        public double[] ContactElementCounts { get; private set; }
         public double[] ResidualForces { get; private set; }
         public double[] DisplacementCorrections { get; private set; }
         public double[] ResidualFluxes { get; private set; }
@@ -55,7 +56,7 @@ namespace CaeJob
 
         // Constructors                                                                                                             
         internal CalculixConvergenceData(int[] steps, int[] increments, int[] attempts, int[] iterations,
-                                         double[] recordNumbers, double[] residualForces,
+                                         double[] recordNumbers, double[] contactElementCounts, double[] residualForces,
                                          double[] displacementCorrections, double[] residualFluxes,
                                          double[] temperatureCorrections)
         {
@@ -64,6 +65,7 @@ namespace CaeJob
             Attempts = attempts;
             Iterations = iterations;
             RecordNumbers = recordNumbers;
+            ContactElementCounts = contactElementCounts;
             ResidualForces = residualForces;
             DisplacementCorrections = displacementCorrections;
             ResidualFluxes = residualFluxes;
@@ -125,6 +127,7 @@ namespace CaeJob
             List<int> attempts = new List<int>();
             List<int> iterations = new List<int>();
             List<double> recordNumbers = new List<double>();
+            List<double> contactElementCounts = new List<double>();
             List<double> residualForces = new List<double>();
             List<double> displacementCorrections = new List<double>();
             List<double> residualFluxes = new List<double>();
@@ -139,6 +142,7 @@ namespace CaeJob
                 int increment;
                 int attempt;
                 int iteration;
+                double contactElementCount;
                 double residualForce;
                 double displacementCorrection;
                 double residualFlux;
@@ -148,6 +152,7 @@ namespace CaeJob
                     !TryParseInt(fields[1], out increment) ||
                     !TryParseInt(fields[2], out attempt) ||
                     !TryParseInt(fields[3], out iteration) ||
+                    !TryParseDouble(fields[4], out contactElementCount) ||
                     !TryParseDouble(fields[5], out residualForce) ||
                     !TryParseDouble(fields[6], out displacementCorrection) ||
                     !TryParseDouble(fields[7], out residualFlux) ||
@@ -161,6 +166,7 @@ namespace CaeJob
                 attempts.Add(attempt);
                 iterations.Add(iteration);
                 recordNumbers.Add(recordNumbers.Count + 1);
+                contactElementCounts.Add(contactElementCount);
                 residualForces.Add(residualForce);
                 displacementCorrections.Add(displacementCorrection);
                 residualFluxes.Add(residualFlux);
@@ -169,6 +175,7 @@ namespace CaeJob
 
             return new CalculixConvergenceData(steps.ToArray(), increments.ToArray(), attempts.ToArray(),
                                                iterations.ToArray(), recordNumbers.ToArray(),
+                                               contactElementCounts.ToArray(),
                                                residualForces.ToArray(), displacementCorrections.ToArray(),
                                                residualFluxes.ToArray(), temperatureCorrections.ToArray());
         }

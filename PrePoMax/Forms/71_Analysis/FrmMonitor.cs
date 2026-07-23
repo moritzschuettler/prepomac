@@ -114,6 +114,7 @@ namespace PrePoMax.Forms
         {
             _job = _controller.GetJob(jobName);
             _job.DataOutputEvent += UpdateOutput;
+            analysisProgressView.SetTimeUnit(_controller.Model.UnitSystem.TimeUnitAbbreviation);
             //
             //if (_job.FEMSolver == FEMSolverEnum.Calculix) btnResults.Enabled = true;
             //else if (_job.FEMSolver == FEMSolverEnum.Abaqus) btnResults.Enabled = false;

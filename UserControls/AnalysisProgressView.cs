@@ -25,18 +25,20 @@ namespace UserControls
         private const string DisplacementCorrectionName = "Displacement correction";
         private const string ResidualFluxName = "Residual flux";
         private const string TemperatureCorrectionName = "Temperature correction";
-        private const int ConvergencePlotDecimalPlaces = 6;
+        private const string ContactElementCountName = "Contact elements";
         //
         private TableLayoutPanel _tableLayoutPanel;
         private ZedGraphControl _statusGraph;
         private ZedGraphControl _convergenceGraph;
         private CalculixStatusData _statusData;
         private CalculixConvergenceData _convergenceData;
+        private string _timeUnit;
 
 
         // Constructors                                                                                                             
         public AnalysisProgressView()
         {
+            _timeUnit = "";
             InitializeComponent();
             ConfigureStatusGraph();
             ConfigureConvergenceGraph();
@@ -88,9 +90,8 @@ namespace UserControls
             GraphPane pane = _statusGraph.GraphPane;
             ConfigureGraphPane(pane);
             pane.Title.Text = "Status";
-            pane.XAxis.Title.Text = "Total analysis time";
-            pane.YAxis.Title.Text = "Increment size";
-            pane.Y2Axis.Title.Text = "Iterations";
+            UpdateTimeUnitLabels();
+            pane.Y2Axis.Title.Text = "Number of iterations";
             pane.Y2Axis.IsVisible = true;
             pane.Y2Axis.Title.FontSpec.Size = 12;
             pane.Y2Axis.Scale.FontSpec.Size = 12;
@@ -108,11 +109,18 @@ namespace UserControls
             GraphPane pane = _convergenceGraph.GraphPane;
             ConfigureGraphPane(pane);
             pane.Title.Text = "Convergence";
-            pane.XAxis.Title.Text = "Convergence record";
+            pane.XAxis.Title.Text = "Comulative iteration";
             pane.YAxis.Title.Text = "Percent (log)";
             pane.YAxis.Type = AxisType.Log;
             pane.YAxis.Scale.MajorStep = 3;
             pane.YAxis.Scale.MajorStepAuto = false;
+            pane.YAxis.Scale.MinAuto = true;
+            pane.Y2Axis.Title.Text = "Number of contact elements";
+            pane.Y2Axis.IsVisible = false;
+            pane.Y2Axis.Title.FontSpec.Size = 12;
+            pane.Y2Axis.Scale.FontSpec.Size = 12;
+            pane.Y2Axis.Scale.Min = 0;
+            pane.Y2Axis.Scale.MinAuto = false;
             pane.XAxis.Scale.Min = 1;
             pane.XAxis.Scale.MinAuto = false;
             _convergenceGraph.PointValueEvent += ConvergenceGraph_PointValueEvent;
@@ -132,6 +140,10 @@ namespace UserControls
             pane.XAxis.Scale.FontSpec.Size = 12;
             pane.YAxis.Title.FontSpec.Size = 12;
             pane.YAxis.Scale.FontSpec.Size = 12;
+            pane.YAxis.MinorTic.IsAllTics = false;
+            pane.YAxis.MinorGrid.IsVisible = false;
+            pane.Y2Axis.MinorTic.IsAllTics = false;
+            pane.Y2Axis.MinorGrid.IsVisible = false;
             pane.XAxis.MajorGrid.IsVisible = true;
             pane.XAxis.MajorGrid.Color = Color.Gainsboro;
             pane.YAxis.MajorGrid.IsVisible = true;
@@ -151,9 +163,25 @@ namespace UserControls
             //
             GraphPane convergencePane = _convergenceGraph.GraphPane;
             convergencePane.CurveList.Clear();
+            convergencePane.Y2Axis.IsVisible = false;
             convergencePane.Title.Text = "Convergence - waiting for data";
             ResetConvergenceScale();
             _convergenceGraph.Invalidate();
+        }
+
+        public void SetTimeUnit(string timeUnit)
+        {
+            _timeUnit = timeUnit ?? "";
+            UpdateTimeUnitLabels();
+            _statusGraph.Invalidate();
+        }
+
+        private void UpdateTimeUnitLabels()
+        {
+            string unit = _timeUnit.Length > 0 ? " [" + _timeUnit + "]" : "";
+            GraphPane pane = _statusGraph.GraphPane;
+            pane.XAxis.Title.Text = "Total analysis time" + unit;
+            pane.YAxis.Title.Text = "Increment size" + unit;
         }
 
         public void SetStatusData(CalculixStatusData data)
@@ -203,6 +231,8 @@ namespace UserControls
             _convergenceData = data;
             GraphPane pane = _convergenceGraph.GraphPane;
             pane.CurveList.Clear();
+            pane.Y2Axis.IsVisible = false;
+            bool contactMaximumAuto = pane.Y2Axis.Scale.MaxAuto;
 
             if (data == null || data.Count == 0)
             {
@@ -217,9 +247,23 @@ namespace UserControls
                 AddLogCurve(pane, ResidualFluxName, data.RecordNumbers, data.ResidualFluxes, Color.ForestGreen);
                 AddLogCurve(pane, TemperatureCorrectionName, data.RecordNumbers, data.TemperatureCorrections,
                             Color.DarkViolet);
+                if (ContainsPositiveValue(data.ContactElementCounts))
+                {
+                    pane.Y2Axis.IsVisible = true;
+                    LineItem contactCurve = pane.AddCurve(ContactElementCountName, data.RecordNumbers,
+                                                          data.ContactElementCounts, Color.Black, SymbolType.Circle);
+                    contactCurve.IsY2Axis = true;
+                    ConfigureCurve(contactCurve);
+                    if (contactMaximumAuto)
+                    {
+                        pane.Y2Axis.Scale.Max = GetIterationMaximumWithHeadroom(data.ContactElementCounts);
+                        pane.Y2Axis.Scale.MaxAuto = false;
+                    }
+                }
             }
 
             _convergenceGraph.AxisChange();
+            pane.Y2Axis.Scale.MaxAuto = contactMaximumAuto;
             _convergenceGraph.Invalidate();
         }
 
@@ -227,7 +271,18 @@ namespace UserControls
         {
             if (!ContainsPositiveValue(y)) return;
 
-            LineItem curve = pane.AddCurve(name, x, GetPositiveValues(y), color, SymbolType.None);
+            PointPairList points = new PointPairList();
+            int count = Math.Min(x.Length, y.Length);
+            for (int i = 0; i < count; i++)
+            {
+                double value = y[i];
+                if (value > 0 && !double.IsInfinity(value) && !double.IsNaN(value))
+                    points.Add(new PointPair(x[i], value, 0, i));
+                else
+                    points.Add(new PointPair(x[i], PointPairBase.Missing, 0, i));
+            }
+
+            LineItem curve = pane.AddCurve(name, points, color, SymbolType.Circle);
             ConfigureCurve(curve);
         }
 
@@ -268,27 +323,9 @@ namespace UserControls
         {
             foreach (double value in values)
             {
-                if (GetRoundedConvergenceValue(value) > 0) return true;
+                if (value > 0 && !double.IsInfinity(value) && !double.IsNaN(value)) return true;
             }
             return false;
-        }
-
-        private double[] GetPositiveValues(double[] values)
-        {
-            double[] positiveValues = new double[values.Length];
-            for (int i = 0; i < values.Length; i++)
-            {
-                double value = GetRoundedConvergenceValue(values[i]);
-                if (value > 0) positiveValues[i] = value;
-                else positiveValues[i] = double.MaxValue;     // ZedGraph missing-value marker
-            }
-            return positiveValues;
-        }
-
-        private double GetRoundedConvergenceValue(double value)
-        {
-            if (double.IsInfinity(value) || double.IsNaN(value)) return 0;
-            else return Math.Round(value, ConvergencePlotDecimalPlaces);
         }
 
         private string StatusGraph_PointValueEvent(ZedGraphControl sender, GraphPane pane, CurveItem curve, int index)
@@ -298,31 +335,46 @@ namespace UserControls
             double value;
             if (curve.Label.Text == IterationCountName) value = _statusData.IterationCounts[index];
             else value = _statusData.IncrementTimes[index];
+            string timeUnit = _timeUnit.Length > 0 ? " " + _timeUnit : "";
+            string valueUnit = curve.Label.Text == IterationCountName ? "" : timeUnit;
 
             return string.Format(CultureInfo.CurrentCulture,
-                                 "Step {0}, increment {1}, attempt {2}\nTotal time: {3:G6}\n{4}: {5:G6}",
+                                 "Step {0}, increment {1}, attempt {2}\nTotal time: {3:G6}{4}\n{5}: {6:G6}{7}",
                                  _statusData.Steps[index], _statusData.Increments[index],
                                  _statusData.Attempts[index], _statusData.TotalTimes[index],
-                                 curve.Label.Text, value);
+                                 timeUnit, curve.Label.Text, value, valueUnit);
         }
 
         private string ConvergenceGraph_PointValueEvent(ZedGraphControl sender, GraphPane pane, CurveItem curve,
                                                          int index)
         {
-            if (_convergenceData == null || index < 0 || index >= _convergenceData.Count) return "";
+            if (_convergenceData == null || index < 0 || index >= curve.Points.Count) return "";
 
             double value;
-            if (curve.Label.Text == ResidualForceName) value = _convergenceData.ResidualForces[index];
-            else if (curve.Label.Text == DisplacementCorrectionName)
-                value = _convergenceData.DisplacementCorrections[index];
-            else if (curve.Label.Text == ResidualFluxName) value = _convergenceData.ResidualFluxes[index];
-            else value = _convergenceData.TemperatureCorrections[index];
+            int dataIndex = index;
+            bool percentage = true;
+            if (curve.Label.Text == ContactElementCountName)
+            {
+                value = _convergenceData.ContactElementCounts[index];
+                percentage = false;
+            }
+            else
+            {
+                if (curve.Points[index].Tag is int originalIndex) dataIndex = originalIndex;
+                if (dataIndex < 0 || dataIndex >= _convergenceData.Count) return "";
+                //
+                if (curve.Label.Text == ResidualForceName) value = _convergenceData.ResidualForces[dataIndex];
+                else if (curve.Label.Text == DisplacementCorrectionName)
+                    value = _convergenceData.DisplacementCorrections[dataIndex];
+                else if (curve.Label.Text == ResidualFluxName) value = _convergenceData.ResidualFluxes[dataIndex];
+                else value = _convergenceData.TemperatureCorrections[dataIndex];
+            }
 
             return string.Format(CultureInfo.CurrentCulture,
-                                 "Step {0}, increment {1}, attempt {2}, iteration {3}\n{4}: {5:G6}%",
-                                 _convergenceData.Steps[index], _convergenceData.Increments[index],
-                                 _convergenceData.Attempts[index], _convergenceData.Iterations[index],
-                                 curve.Label.Text, value);
+                                 "Step {0}, increment {1}, attempt {2}, iteration {3}\n{4}: {5:G6}{6}",
+                                 _convergenceData.Steps[dataIndex], _convergenceData.Increments[dataIndex],
+                                 _convergenceData.Attempts[dataIndex], _convergenceData.Iterations[dataIndex],
+                                 curve.Label.Text, value, percentage ? "%" : "");
         }
 
         private void ResetStatusScale()
@@ -347,6 +399,9 @@ namespace UserControls
             pane.XAxis.Scale.MaxAuto = true;
             pane.YAxis.Scale.MinAuto = true;
             pane.YAxis.Scale.MaxAuto = true;
+            pane.Y2Axis.Scale.Min = 0;
+            pane.Y2Axis.Scale.MinAuto = false;
+            pane.Y2Axis.Scale.MaxAuto = true;
         }
     }
 }
