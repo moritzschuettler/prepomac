@@ -10387,6 +10387,10 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.SetStatusBlockVisibility, draw);
         }
+        public void SetStatusBlockNumberFormat(string numberFormat)
+        {
+            InvokeIfRequired(_vtk.SetStatusBlockNumberFormat, numberFormat);
+        }
         public void DrawStatusBlockBackground(bool drawBackground)
         {
             InvokeIfRequired(_vtk.DrawStatusBlockBackground, drawBackground);

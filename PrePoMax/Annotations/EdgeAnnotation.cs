@@ -47,7 +47,7 @@ namespace PrePoMax
             double length;
             string lenUnit = Controller.GetLengthUnit();
             string fieldUnit = "";
-            string numberFormat = Controller.Settings.Annotations.GetNumberFormat();
+            string numberFormat = Controller.Settings.NumberFormat.GetNumberFormat();
             //
             FeNode n1;
             FeNode n2;

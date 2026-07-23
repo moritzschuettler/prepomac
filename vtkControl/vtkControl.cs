@@ -5953,6 +5953,10 @@ namespace vtkControl
         {
             _drawStatusBlock = visibility;
         }
+        public void SetStatusBlockNumberFormat(string numberFormat)
+        {
+            _statusBlockWidget.SetNumberFormat(numberFormat);
+        }
         public void DrawStatusBlockBackground(bool drawBackground)
         {
             _statusBlockWidget.SetBackgroundColor(1, 1, 1);

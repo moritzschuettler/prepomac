@@ -24,8 +24,6 @@ namespace PrePoMax
     public class AnnotationSettings : ISettings
     {
         // Variables                                                                                                                
-        private AnnotationNumberFormat _numberFormat;
-        private int _numberOfSignificantDigits;
         private AnnotationBackgroundType _backgroundType;
         private bool _drawBorder;
         //
@@ -50,17 +48,6 @@ namespace PrePoMax
 
 
         // Properties                                                                                                               
-        public AnnotationNumberFormat NumberFormat { get { return _numberFormat; } set { _numberFormat = value; } }
-        public int NumberOfSignificantDigits
-        {
-            get { return _numberOfSignificantDigits; }
-            set
-            {
-                _numberOfSignificantDigits = value;
-                if (_numberOfSignificantDigits < 2) _numberOfSignificantDigits = 2;
-                if (_numberOfSignificantDigits > 8) _numberOfSignificantDigits = 8;
-            }
-        }
         public AnnotationBackgroundType BackgroundType
         {
             get { return _backgroundType; }
@@ -112,9 +99,6 @@ namespace PrePoMax
         }
         public void Reset()
         {
-            _numberFormat = AnnotationNumberFormat.General;
-            _numberOfSignificantDigits = 4;
-            //
             _backgroundType = AnnotationBackgroundType.White;
             _drawBorder = true;
             //
@@ -136,19 +120,6 @@ namespace PrePoMax
             _showPartNumberOfElements = true;
             _showPartNumberOfNodes = true;
             _showPartVolumeArea = true;
-        }
-        public string GetNumberFormat()
-        {
-            string numberFormat;
-            if (_numberFormat == AnnotationNumberFormat.General)
-            {
-                numberFormat = "G" + _numberOfSignificantDigits.ToString();
-            }
-            else
-            {
-                numberFormat = "E" + (_numberOfSignificantDigits - 1).ToString();
-            }
-            return numberFormat;
         }
     }
 }

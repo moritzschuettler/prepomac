@@ -21,13 +21,6 @@ using System.Runtime.InteropServices;
 namespace PrePoMax
 {
     [Serializable]
-    public enum AnnotationNumberFormat
-    {
-        Scientific,
-        General
-    }
-
-    [Serializable]
     public enum AnnotationBackgroundType
     {
         None,
@@ -39,25 +32,12 @@ namespace PrePoMax
     public class LegendSettings : ISettings
     {
         // Variables                                                                                                                
-        private AnnotationNumberFormat _numberFormat;
-        private int _numberOfSignificantDigits;
         private vtkControl.vtkMaxColorSpectrum _colorSpectrum;
         private AnnotationBackgroundType _backgroundType;
         private bool _drawBorder;
 
 
         // Properties                                                                                                               
-        public AnnotationNumberFormat NumberFormat { get { return _numberFormat; } set { _numberFormat = value; } }
-        public int NumberOfSignificantDigits
-        {
-            get { return _numberOfSignificantDigits; }
-            set
-            {
-                _numberOfSignificantDigits = value;
-                if (_numberOfSignificantDigits < 2) _numberOfSignificantDigits = 2;
-                if (_numberOfSignificantDigits > 8) _numberOfSignificantDigits = 8;
-            }
-        }
         public vtkControl.vtkMaxColorSpectrum ColorSpectrum { get { return _colorSpectrum; } set { _colorSpectrum = value; } }
         public AnnotationBackgroundType BackgroundType
         {
@@ -87,27 +67,10 @@ namespace PrePoMax
         }
         public void Reset()
         {
-            _numberFormat = AnnotationNumberFormat.General;
-            _numberOfSignificantDigits = 4;
-            //
             _colorSpectrum = new vtkControl.vtkMaxColorSpectrum();
             //
             _backgroundType = AnnotationBackgroundType.None;
             _drawBorder = false;
-        }
-        //
-        public string GetColorChartNumberFormat()
-        {
-            string numberformat;
-            if (_numberFormat == AnnotationNumberFormat.General)
-            {
-                numberformat = "G" + _numberOfSignificantDigits.ToString();
-            }
-            else
-            {
-                numberformat = "E" + (_numberOfSignificantDigits - 1).ToString();
-            }
-            return numberformat;
         }
     }
 }

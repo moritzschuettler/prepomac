@@ -46,24 +46,6 @@ namespace PrePoMax.Settings
             set { _annotationSettings.DrawBorder = value; }
         }
         //
-        [CategoryAttribute("Design")]
-        [OrderedDisplayName(2, 10, "Number format")]
-        [DescriptionAttribute("Select the number format.")]
-        public AnnotationNumberFormat LegendNumberFormat
-        {
-            get { return _annotationSettings.NumberFormat; }
-            set { _annotationSettings.NumberFormat = value; }
-        }
-        //
-        [CategoryAttribute("Design")]
-        [OrderedDisplayName(3, 10, "Number of significant digits")]
-        [DescriptionAttribute("Set the number of significant digits (2 ... 8).")]
-        public int NumberOfSignificantDigits
-        {
-            get { return _annotationSettings.NumberOfSignificantDigits; }
-            set { _annotationSettings.NumberOfSignificantDigits = value; }
-        }
-        //
         [CategoryAttribute("Node annotation")]
         [OrderedDisplayName(0, 10, "Show node id")]
         [DescriptionAttribute("Show node id in the annotation.")]

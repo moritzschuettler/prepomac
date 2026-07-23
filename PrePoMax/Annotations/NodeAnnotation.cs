@@ -53,7 +53,7 @@ namespace PrePoMax
             Vec3D arrowVec;
             string fieldData = "";
             string fieldDataValue = "";
-            string numberFormat = Controller.Settings.Annotations.GetNumberFormat();
+            string numberFormat = Controller.Settings.NumberFormat.GetNumberFormat();
             //
             if (Controller.CurrentView == ViewGeometryModelResults.Geometry ||
                 Controller.CurrentView == ViewGeometryModelResults.Model)

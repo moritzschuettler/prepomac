@@ -172,19 +172,9 @@ namespace PrePoMax.Settings
             get { return _legendSettings.ColorSpectrum.NumberOfColors; }
             set { _legendSettings.ColorSpectrum.NumberOfColors = value; }
         }
-        // Color spectrum values                                                                        
+        // Color spectrum values
         [CategoryAttribute("Color spectrum values")]
-        [OrderedDisplayName(0, 10, "Number format")]
-        [DescriptionAttribute("Select the number format.")]
-        public AnnotationNumberFormat LegendNumberFormat { get { return _legendSettings.NumberFormat; } set { _legendSettings.NumberFormat = value; } }
-        //
-        [CategoryAttribute("Color spectrum values")]
-        [OrderedDisplayName(1, 10, "Number of significant digits")]
-        [DescriptionAttribute("Set the number of significant digits (2 ... 8).")]
-        public int NumberOfSignificantDigits { get { return _legendSettings.NumberOfSignificantDigits; } set { _legendSettings.NumberOfSignificantDigits = value; } }
-        //
-        [CategoryAttribute("Color spectrum values")]
-        [OrderedDisplayName(2, 10, "Min/max limit type")]
+        [OrderedDisplayName(0, 10, "Min/max limit type")]
         [DescriptionAttribute("Select the min/max limit type.")]
         public vtkControl.vtkColorSpectrumMinMaxType ColorSpectrumMinMaxType
         {
@@ -197,7 +187,7 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Color spectrum values")]
-        [OrderedDisplayName(3, 10, "Min value")]
+        [OrderedDisplayName(1, 10, "Min value")]
         [DescriptionAttribute("Set the min limit value.")]
         [TypeConverter(typeof(StringDoubleConverter))]
         public double ColorSpectrumMin
@@ -207,7 +197,7 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Color spectrum values")]
-        [OrderedDisplayName(4, 10, "Max value")]
+        [OrderedDisplayName(2, 10, "Max value")]
         [DescriptionAttribute("Set the max limit value.")]
         [TypeConverter(typeof(StringDoubleConverter))]
         public double ColorSpectrumMax
@@ -217,7 +207,7 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Color spectrum values")]
-        [OrderedDisplayName(5, 10, "Min color")]
+        [OrderedDisplayName(3, 10, "Min color")]
         [DescriptionAttribute("Select the color for the values below the min value.")]
         public System.Drawing.Color ColorSpectrumMinColor
         {
@@ -226,7 +216,7 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Color spectrum values")]
-        [OrderedDisplayName(6, 10, "Max color")]
+        [OrderedDisplayName(4, 10, "Max color")]
         [DescriptionAttribute("Select the color for the values above the max value.")]
         public System.Drawing.Color ColorSpectrumMaxColor
         {
@@ -235,7 +225,7 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Color spectrum values")]
-        [OrderedDisplayName(7, 10, "Show min color in legend")]
+        [OrderedDisplayName(5, 10, "Show min color in legend")]
         [DescriptionAttribute("Set the min limit color visibility.")]
         public bool MinColorVisible
         {
@@ -244,7 +234,7 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Color spectrum values")]
-        [OrderedDisplayName(8, 10, "Show max color in legend")]
+        [OrderedDisplayName(6, 10, "Show max color in legend")]
         [DescriptionAttribute("Set the max limit color visibility.")]
         public bool MaxColorVisible
         {

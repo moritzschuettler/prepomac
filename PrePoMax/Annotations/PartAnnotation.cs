@@ -61,7 +61,7 @@ namespace PrePoMax
             // Volume/Area
             string areaUnit = Controller.GetAreaUnit();
             string volumeUnit = Controller.GetVolumeUnit();
-            string numberFormat = Controller.Settings.Annotations.GetNumberFormat();
+            string numberFormat = Controller.Settings.NumberFormat.GetNumberFormat();
             bool volume = part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell ||
                           part.PartType == PartType.Compound;
             double value = 0;

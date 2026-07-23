@@ -24,6 +24,7 @@ namespace PrePoMax
         [NonSerialized] private string _regenerationWorkDirectory;
         //
         private GeneralSettings _general;
+        private NumberFormatSettings _numberFormat;
         private GraphicsSettings _graphics;
         private ColorSettings _color;
         private AnnotationSettings _annotations;
@@ -38,6 +39,7 @@ namespace PrePoMax
 
         // Properties                                                                                                               
         public GeneralSettings General { get { return _general; } set { _general = value; } }
+        public NumberFormatSettings NumberFormat { get { return _numberFormat; } set { _numberFormat = value; } }
         public GraphicsSettings Graphics { get { return _graphics; } set { _graphics = value; } }
         public ColorSettings Color { get { return _color; } set { _color = value; } }
         public AnnotationSettings Annotations { get { return _annotations; } set { _annotations = value; } }
@@ -68,6 +70,7 @@ namespace PrePoMax
             _colorSpectrums = new Dictionary<string, vtkControl.vtkMaxColorSpectrum>();
             //
             _general = new GeneralSettings();
+            _numberFormat = new NumberFormatSettings();
             _graphics = new GraphicsSettings();
             _color = new ColorSettings();
             _annotations = new AnnotationSettings();
@@ -82,6 +85,7 @@ namespace PrePoMax
         public void Reset()
         {
             _general.Reset();
+            _numberFormat.Reset();
             _graphics.Reset();
             _color.Reset();
             _annotations.Reset();
@@ -143,6 +147,7 @@ namespace PrePoMax
             SettingsContainer clone = settingsContainer.DeepClone();
             //
             _general = clone._general;
+            _numberFormat = clone._numberFormat;
             _graphics = clone._graphics;
             _color = clone._color;
             _annotations = clone._annotations;
@@ -158,6 +163,7 @@ namespace PrePoMax
         {
             Dictionary<string, ISettings> items = new Dictionary<string, ISettings>();
             items.Add(Globals.GeneralSettingsName, _general);
+            items.Add(Globals.NumberFormatSettingsName, _numberFormat);
             items.Add(Globals.GraphicsSettingsName, _graphics);
             items.Add(Globals.ColorSettingsName, _color);
             items.Add(Globals.AnnotationSettingsName, _annotations);
@@ -175,6 +181,7 @@ namespace PrePoMax
             try
             {
                 _general = (GeneralSettings)items[Globals.GeneralSettingsName];
+                _numberFormat = (NumberFormatSettings)items[Globals.NumberFormatSettingsName];
                 _graphics = (GraphicsSettings)items[Globals.GraphicsSettingsName];
                 _color = (ColorSettings)items[Globals.ColorSettingsName];
                 _annotations = (AnnotationSettings)items[Globals.AnnotationSettingsName];

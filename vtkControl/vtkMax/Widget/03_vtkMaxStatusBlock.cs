@@ -36,7 +36,6 @@ namespace vtkControl
         private int _incrementNumber;
         private bool _deformationScaleFactorTextClicked;
         private System.Drawing.Rectangle _deformationScaleFactorRect;
-        private StringAngleDegConverter _stringAngleDegConverter;
 
 
         // Properties                                                                                                               
@@ -78,7 +77,6 @@ namespace vtkControl
             _deformationScaleFactor = 1;
             _fieldType = vtkMaxFieldDataType.Static;
             _animationType = vtkMaxAnimationType.ScaleFactor;
-            _stringAngleDegConverter = new StringAngleDegConverter();
         }
 
 
@@ -99,48 +97,49 @@ namespace vtkControl
             if (_fieldType == vtkMaxFieldDataType.Static)
             {
                 line2 = "Step: #" + _stepNumber + "   Increment: #" + _incrementNumber +
-                        "   Analysis time: " + _analysisTime.ToString() + " " + _analysisTimeUnit;
+                        "   Analysis time: " + _analysisTime.ToString(_numberFormat) + " " + _analysisTimeUnit;
             }
             else if (_fieldType == vtkMaxFieldDataType.Frequency)
             {
                 line2 = "Step: #" + _stepNumber + "   Mode: #" + _incrementNumber + "   Frequency: " +
-                        _analysisTime.ToString() + " " + _analysisTimeUnit;
+                        _analysisTime.ToString(_numberFormat) + " " + _analysisTimeUnit;
             }
             else if (_fieldType == vtkMaxFieldDataType.FrequencySensitivity)
             {
                 // subtract 1 since first increment contains only normals
                 line2 = "Step: #" + _stepNumber + "   Mode: #" + _incrementNumber + "   Frequency: " +
-                        _analysisTime.ToString() + " " + _analysisTimeUnit;
+                        _analysisTime.ToString(_numberFormat) + " " + _analysisTimeUnit;
             }
             else if (_fieldType == vtkMaxFieldDataType.Buckling)
             {
-                line2 = "Step: #" + _stepNumber + "   Buckling factor: " + _analysisTime.ToString();
+                line2 = "Step: #" + _stepNumber + "   Buckling factor: " + _analysisTime.ToString(_numberFormat);
             }
             else if (_fieldType == vtkMaxFieldDataType.SteadyStateDynamic)
             {
                 line2 = "Step: #" + _stepNumber + "   Data point: #" + _incrementNumber + "   Frequency: " +
-                        _analysisTime.ToString() + " " + _analysisTimeUnit;
+                        _analysisTime.ToString(_numberFormat) + " " + _analysisTimeUnit;
             }
             else if (_fieldType == vtkMaxFieldDataType.LastIterations)
             {
                 line2 = "Increment: #" + _stepNumber + "   Iteration: #" + _incrementNumber +
-                        "   Analysis time: " + _analysisTime.ToString() + " " + _analysisTimeUnit;
+                        "   Analysis time: " + _analysisTime.ToString(_numberFormat) + " " + _analysisTimeUnit;
             }
             else throw new NotSupportedException();
             //
             line3fix = "Deformation variable: " + _deformationVariable + "   " + "Deformation scale factor: ";
-            line3factor = _deformationScaleFactor.ToString();
+            line3factor = _deformationScaleFactor.ToString(_numberFormat);
             //
             if (_animationScaleFactor >= 0)
             {
                 if (_animationType == vtkMaxAnimationType.ScaleFactor)
                 {
-                    line4 = "Animation scale factor: " + _animationScaleFactor.ToString();
+                    line4 = "Animation scale factor: " + _animationScaleFactor.ToString(_numberFormat);
                 }
                 else if (_animationType == vtkMaxAnimationType.TimeIncrements) { }
                 else if (_animationType == vtkMaxAnimationType.Harmonic)
                 {
-                    line4 = "Complex angle: " + _stringAngleDegConverter.ConvertToString(_animationScaleFactor);
+                    line4 = "Complex angle: " + _animationScaleFactor.ToString(_numberFormat) + " " +
+                            StringAngleDegConverter.GetUnitAbbreviation();
                 }
             }
             //

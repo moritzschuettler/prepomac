@@ -647,6 +647,7 @@
     <Compile Include="Forms\61_Settings\ViewAbaqusSettings.cs" />
     <Compile Include="Forms\61_Settings\ViewCalculixSettings.cs" />
     <Compile Include="Forms\61_Settings\ViewColorSettings.cs" />
+    <Compile Include="Forms\61_Settings\ViewNumberFormatSettings.cs" />
     <Compile Include="Forms\61_Settings\ViewAnnotationSettings.cs" />
     <Compile Include="Forms\61_Settings\ViewMeshingSettings.cs" />
     <Compile Include="Forms\61_Settings\ViewUnitSystemlSettings.cs" />
@@ -880,6 +881,7 @@
     <Compile Include="Settings.cs" />
     <Compile Include="Settings\AbaqusSettings.cs" />
     <Compile Include="Settings\ColorSettings.cs" />
+    <Compile Include="Settings\NumberFormatSettings.cs" />
     <Compile Include="Settings\AnnotationSettings.cs" />
     <Compile Include="Settings\MeshingSettings.cs" />
     <Compile Include="Settings\UnitSystemSettings.cs" />

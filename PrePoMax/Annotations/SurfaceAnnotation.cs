@@ -48,7 +48,7 @@ namespace PrePoMax
             double area;
             string areaUnit = Controller.GetAreaUnit();
             string fieldUnit = "";
-            string numberFormat = Controller.Settings.Annotations.GetNumberFormat();
+            string numberFormat = Controller.Settings.NumberFormat.GetNumberFormat();
             //
             bool results = false;
             float min = float.MaxValue;

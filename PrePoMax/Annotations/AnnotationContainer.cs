@@ -230,7 +230,7 @@ namespace PrePoMax
             //
             bool drawBackground = AnnotationBase.Controller.Settings.Annotations.BackgroundType == AnnotationBackgroundType.White;
             bool drawBorder = AnnotationBase.Controller.Settings.Annotations.DrawBorder;
-            string numberFormat = AnnotationBase.Controller.Settings.Annotations.GetNumberFormat();
+            string numberFormat = AnnotationBase.Controller.Settings.NumberFormat.GetNumberFormat();
             //
             if (!minMaxOnly)
             {

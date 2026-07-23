@@ -21417,8 +21417,10 @@ namespace PrePoMax
             //
             if (_viewResultsType == ViewResultsTypeEnum.ColorContours)
             {
-                LegendSettings legendSettings = Settings.Legend;    // use Settings property to account for the results view
-                StatusBlockSettings statusBlockSettings = _settings.StatusBlock;
+                SettingsContainer settings = Settings;    // use Settings property to account for the results view
+                LegendSettings legendSettings = settings.Legend;
+                NumberFormatSettings numberFormatSettings = settings.NumberFormat;
+                StatusBlockSettings statusBlockSettings = settings.StatusBlock;
                 // Legend settings
                 _form.SetScalarBarColorSpectrum(legendSettings.ColorSpectrum);
                 string complexComponent;
@@ -21440,10 +21442,11 @@ namespace PrePoMax
                                        complexComponent,
                                        legendSettings.ColorSpectrum.MinMaxType.ToString());
                 //
-                _form.SetScalarBarNumberFormat(legendSettings.GetColorChartNumberFormat());
+                _form.SetScalarBarNumberFormat(numberFormatSettings.GetNumberFormat());
                 _form.DrawLegendBackground(legendSettings.BackgroundType == AnnotationBackgroundType.White);
                 _form.DrawLegendBorder(legendSettings.DrawBorder);
                 // Status block
+                _form.SetStatusBlockNumberFormat(numberFormatSettings.GetNumberFormat());
                 _form.SetStatusBlockVisibility(statusBlockSettings.Visible);
                 _form.DrawStatusBlockBackground(statusBlockSettings.BackgroundType == AnnotationBackgroundType.White);
                 _form.DrawStatusBlockBorder(statusBlockSettings.DrawBorder);
