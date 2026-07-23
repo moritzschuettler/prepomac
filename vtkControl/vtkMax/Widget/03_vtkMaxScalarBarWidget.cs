@@ -35,6 +35,7 @@ namespace vtkControl
         protected vtkTextMapper _textMapperLabel;
         //
         private int _numberOfColors;
+        private bool _smoothColors;
         private string[] _labels;
         private string _labelFormat;
         private bool _addMinColor;
@@ -70,6 +71,7 @@ namespace vtkControl
             InitializeBar();
             //
             _numberOfColors = 12;
+            _smoothColors = false;
             _labelFormat = "G3";
             _lookupTable = vtkLookupTable.New();
             _lookupTable.SetTableRange(-5.5, 11);
@@ -332,6 +334,28 @@ namespace vtkControl
             //
             _scalarBarBorderActor.GetPositionCoordinate().SetValue(offsetX, offsetY);
         }
+        private void AddBarColorCell(vtkPoints points, vtkCellArray polygons, vtkFloatArray scalars, int cellId,
+                                     double boxWidth, double cellHeight, float scalar, ref double height)
+        {
+            int pointId = 4 * cellId;
+            points.SetPoint(pointId + 0, 0, height, 0);
+            points.SetPoint(pointId + 1, boxWidth, height, 0);
+            //
+            height += cellHeight;
+            points.SetPoint(pointId + 2, boxWidth, height, 0);
+            points.SetPoint(pointId + 3, 0, height, 0);
+            //
+            polygons.InsertNextCell(4);
+            polygons.InsertCellPoint(pointId + 0);
+            polygons.InsertCellPoint(pointId + 1);
+            polygons.InsertCellPoint(pointId + 2);
+            polygons.InsertCellPoint(pointId + 3);
+            //
+            scalars.SetValue(pointId + 0, scalar);
+            scalars.SetValue(pointId + 1, scalar);
+            scalars.SetValue(pointId + 2, scalar);
+            scalars.SetValue(pointId + 3, scalar);
+        }
         private void GenerateBarColors(double offsetX, double offsetY, double boxWidth, double boxHeight, double verticalLineLength)
         {
             vtkPoints scalarBarPoints = vtkPoints.New();
@@ -339,8 +363,11 @@ namespace vtkControl
             vtkFloatArray scalars = vtkFloatArray.New();
             //
             int numOfAllTableColors = (int)_lookupTable.GetNumberOfColors();
+            int numOfGradientColors = _smoothColors
+                ? vtkMaxColorSpectrum.SmoothNumberOfColors
+                : _numberOfColors;
             //
-            int numOfTableColors = _numberOfColors;
+            int numOfTableColors = numOfGradientColors;
             if (_addMinColor && _minColorVisible) numOfTableColors++;
             if (_addMaxColor && _maxColorVisible) numOfTableColors++;
             //
@@ -348,33 +375,31 @@ namespace vtkControl
             scalarBarPolygons.SetNumberOfCells(numOfTableColors);
             scalars.SetNumberOfValues(4 * numOfTableColors);
             //
-            double h;
-            float colorDelta = 1f / (numOfAllTableColors - 1);
-            float colorSum = 0;
-            if (_addMinColor && !_minColorVisible) colorSum += colorDelta;
+            int cellId = 0;
+            double height = 0;
+            int firstGradientColor = _addMinColor ? 1 : 0;
+            float scalarDelta = 1f / (numOfAllTableColors - 1);
             //
-            for (int i = 0; i < numOfTableColors; i++)
+            if (_addMinColor && _minColorVisible)
             {
-                h = i * boxHeight;
-                scalarBarPoints.SetPoint(4 * i + 0, 0, h, 0);
-                scalarBarPoints.SetPoint(4 * i + 1, boxWidth, h, 0);
-                //
-                h += boxHeight;
-                scalarBarPoints.SetPoint(4 * i + 2, boxWidth, h, 0);
-                scalarBarPoints.SetPoint(4 * i + 3, 0, h, 0);
-                //
-                scalarBarPolygons.InsertNextCell(4);
-                scalarBarPolygons.InsertCellPoint(4 * i + 0);
-                scalarBarPolygons.InsertCellPoint(4 * i + 1);
-                scalarBarPolygons.InsertCellPoint(4 * i + 2);
-                scalarBarPolygons.InsertCellPoint(4 * i + 3);
-                //
-                scalars.SetValue(4 * i + 0, colorSum);
-                scalars.SetValue(4 * i + 1, colorSum);
-                scalars.SetValue(4 * i + 2, colorSum);
-                scalars.SetValue(4 * i + 3, colorSum);
-                //
-                colorSum += colorDelta;
+                AddBarColorCell(scalarBarPoints, scalarBarPolygons, scalars, cellId++, boxWidth, boxHeight,
+                                0, ref height);
+            }
+            //
+            double gradientCellHeight = _smoothColors
+                ? _numberOfColors * boxHeight / numOfGradientColors
+                : boxHeight;
+            for (int i = 0; i < numOfGradientColors; i++)
+            {
+                float scalar = (firstGradientColor + i) * scalarDelta;
+                AddBarColorCell(scalarBarPoints, scalarBarPolygons, scalars, cellId++, boxWidth, gradientCellHeight,
+                                scalar, ref height);
+            }
+            //
+            if (_addMaxColor && _maxColorVisible)
+            {
+                AddBarColorCell(scalarBarPoints, scalarBarPolygons, scalars, cellId, boxWidth, boxHeight,
+                                1, ref height);
             }
             //
             vtkPolyData scalarBarPoly = _scalarBarColorsMapper.GetInput();
@@ -466,6 +491,10 @@ namespace vtkControl
             //
             base.RemoveInteractor();
         }
+        public void SetSmoothColors(bool smoothColors)
+        {
+            _smoothColors = smoothColors;
+        }
         public void SetNumberOfColors(int numOfColors)
         {
             if (_numberOfColors != numOfColors)
@@ -492,6 +521,9 @@ namespace vtkControl
             double delta;
             double[] color;
             _lookupTable = vtkLookupTable.New();
+            int numberOfLookupColors = _smoothColors
+                ? vtkMaxColorSpectrum.SmoothNumberOfColors
+                : _numberOfColors;
 
             double min = scalarRangeMin;
             double max = scalarRangeMax;
@@ -513,7 +545,7 @@ namespace vtkControl
             if (_addMinColor || _addMaxColor)
             {
                 int colorCount = 0;
-                int numAllColors = _numberOfColors;
+                int numAllColors = numberOfLookupColors;
                 if (_addMinColor) numAllColors++;
                 if (_addMaxColor) numAllColors++;
 
@@ -527,8 +559,8 @@ namespace vtkControl
                 }
 
                 // between range color
-                delta = 1.0 / (_numberOfColors - 1);
-                for (int i = 0; i < _numberOfColors; i++)
+                delta = 1.0 / (numberOfLookupColors - 1);
+                for (int i = 0; i < numberOfLookupColors; i++)
                 {
                     color = ctf.GetColor(i * delta);
                     _lookupTable.SetTableValue(colorCount++, color[0], color[1], color[2], 1.0); //R,G,B,A
@@ -543,7 +575,7 @@ namespace vtkControl
             }
             else
             {
-                _lookupTable.SetNumberOfColors(_numberOfColors);
+                _lookupTable.SetNumberOfColors(numberOfLookupColors);
                 delta = 1.0 / (_lookupTable.GetNumberOfColors() - 1);
                 for (int i = 0; i < _lookupTable.GetNumberOfColors(); i++)
                 {
@@ -559,6 +591,9 @@ namespace vtkControl
             double delta;
             double[] color;
             _lookupTable = vtkLookupTable.New();
+            int numberOfLookupColors = _smoothColors
+                ? vtkMaxColorSpectrum.SmoothNumberOfColors
+                : _numberOfColors;
 
             double min = scalarRangeMin;
             double max = scalarRangeMax;
@@ -580,7 +615,7 @@ namespace vtkControl
             if (_addMinColor || _addMaxColor)
             {
                 int colorCount = 0;
-                int numAllColors = _numberOfColors;
+                int numAllColors = numberOfLookupColors;
                 if (_addMinColor) numAllColors++;
                 if (_addMaxColor) numAllColors++;
 
@@ -594,8 +629,8 @@ namespace vtkControl
                 }
 
                 // between range color
-                delta = 1.0 / (_numberOfColors - 1);
-                for (int i = 0; i < _numberOfColors; i++)
+                delta = 1.0 / (numberOfLookupColors - 1);
+                for (int i = 0; i < numberOfLookupColors; i++)
                 {
                     color = ctf.GetColor(i * delta);
                     _lookupTable.SetTableValue(colorCount++, color[0], color[1], color[2], 1.0); //R,G,B,A
@@ -610,7 +645,7 @@ namespace vtkControl
             }
             else
             {
-                _lookupTable.SetNumberOfColors(_numberOfColors);
+                _lookupTable.SetNumberOfColors(numberOfLookupColors);
                 delta = 1.0 / (_lookupTable.GetNumberOfColors() - 1);
                 for (int i = 0; i < _lookupTable.GetNumberOfColors(); i++)
                 {

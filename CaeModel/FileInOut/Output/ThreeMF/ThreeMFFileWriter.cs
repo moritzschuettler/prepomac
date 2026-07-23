@@ -208,7 +208,7 @@ namespace CaeResults
         private static CTexture2DGroup CreateTextureGroup(string path, CModel model, vtkMaxLookupTable lookupTable)
         {
             // Textures
-            int textureHeight = lookupTable.Colors.Length * 200;
+            int textureHeight = lookupTable.GetRecommendedTextureHeight();
             string textureFileName = Path.Combine(path, "texture.png");
             lookupTable.WriteAsTexture(1, textureHeight, textureFileName);
             string internalTexturePath = "/3D/Textures/texture.png";
@@ -218,6 +218,7 @@ namespace CaeResults
             CTexture2D texture2D = model.AddTexture2DFromAttachment(attachment);
             texture2D.SetContentType(eTextureType.PNG);
             texture2D.SetTileStyleUV(eTextureTileStyle.NoTileStyle, eTextureTileStyle.NoTileStyle);
+            texture2D.SetFilter(lookupTable.SmoothColors ? eTextureFilter.Linear : eTextureFilter.Nearest);
             CTexture2DGroup textureGroup = model.AddTexture2DGroup(texture2D);
             return textureGroup;
         }

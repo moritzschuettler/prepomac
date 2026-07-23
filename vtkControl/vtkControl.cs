@@ -2032,7 +2032,9 @@ namespace vtkControl
             double max = scalarRangeMax;
             bool addMinColor = false;
             bool addMaxColor = false;
-            int numOfColors = _colorSpectrum.NumberOfColors;
+            int numOfColors = _colorSpectrum.Mode == vtkColorSpectrumMode.Smooth
+                ? vtkMaxColorSpectrum.SmoothNumberOfColors
+                : _colorSpectrum.NumberOfColors;
             if (overrideNumOfColors > 0) numOfColors = overrideNumOfColors;
             //
             vtkColorTransferFunction ctf = GetColorTransferFunction();
@@ -5872,7 +5874,9 @@ namespace vtkControl
         {
             _colorSpectrum.DeepCopy(colorSpectrum);
             //
-            _scalarBarWidget.SetNumberOfColors(_colorSpectrum.NumberOfColors);  // for the scalar bar
+            bool smoothColors = _colorSpectrum.Mode == vtkColorSpectrumMode.Smooth;
+            _scalarBarWidget.SetSmoothColors(smoothColors);
+            _scalarBarWidget.SetNumberOfColors(_colorSpectrum.NumberOfColors);  // colors or legend intervals
             _scalarBarWidget.MinColorVisible = colorSpectrum.MinColorVisible;
             _scalarBarWidget.MaxColorVisible = colorSpectrum.MaxColorVisible;
             _scalarBarWidget.MinColor = colorSpectrum.MinColor;
@@ -7728,7 +7732,8 @@ namespace vtkControl
             {
                 double min = _lookupTable.GetTableRange()[0];
                 double max = _lookupTable.GetTableRange()[1];
-                maxLookupTable = new vtkMaxLookupTable(PrepareActorLookupTable(min, max));
+                maxLookupTable = new vtkMaxLookupTable(PrepareActorLookupTable(min, max),
+                                                       _colorSpectrum.Mode == vtkColorSpectrumMode.Smooth);
             }
             return maxLookupTable;
         }

@@ -146,7 +146,20 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Color spectrum settings")]
-        [OrderedDisplayName(1, 10, "Brightness")]
+        [OrderedDisplayName(1, 10, "Color mode")]
+        [DescriptionAttribute("Display result colors as discrete bands or as a smooth gradient.")]
+        public vtkControl.vtkColorSpectrumMode ColorMode
+        {
+            get { return _legendSettings.ColorSpectrum.Mode; }
+            set
+            {
+                _legendSettings.ColorSpectrum.Mode = value;
+                UpdateVisibility();
+            }
+        }
+        //
+        [CategoryAttribute("Color spectrum settings")]
+        [OrderedDisplayName(2, 10, "Brightness")]
         [DescriptionAttribute("Set the brightness of the color legend (0 ... 1).")]
         [TypeConverter(typeof(StringDoubleConverter))]
         public double ColorBrightness
@@ -156,7 +169,7 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Color spectrum settings")]
-        [OrderedDisplayName(2, 10, "Reverse colors")]
+        [OrderedDisplayName(3, 10, "Reverse colors")]
         [DescriptionAttribute("Reverse colors.")]
         public bool ReverseColors
         {
@@ -165,7 +178,7 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Color spectrum settings")]
-        [OrderedDisplayName(3, 10, "Number of discrete colors")]
+        [OrderedDisplayName(4, 10, "Number of discrete colors")]
         [DescriptionAttribute("Set the number of discrete colors (2 ... 24).")]
         public int NumberOfDiscreteColors
         {
@@ -289,6 +302,18 @@ namespace PrePoMax.Settings
         }
         public void UpdateVisibility()
         {
+            var numberOfColorsProperty = _dctd.GetProperty(nameof(NumberOfDiscreteColors));
+            if (_legendSettings.ColorSpectrum.Mode == vtkControl.vtkColorSpectrumMode.Discrete)
+            {
+                numberOfColorsProperty.SetDisplayName("Number of discrete colors");
+                numberOfColorsProperty.SetDescription("Set the number of discrete colors (2 ... 24).");
+            }
+            else
+            {
+                numberOfColorsProperty.SetDisplayName("Number of legend intervals");
+                numberOfColorsProperty.SetDescription("Set the number of labeled intervals in the smooth color legend (2 ... 24).");
+            }
+            //
             if (_legendSettings.ColorSpectrum.MinMaxType == vtkControl.vtkColorSpectrumMinMaxType.Automatic)
             {
                 _dctd.GetProperty(nameof(MinColorVisible)).SetIsBrowsable(false);

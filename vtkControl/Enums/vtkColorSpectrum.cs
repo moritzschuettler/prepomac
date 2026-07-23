@@ -17,6 +17,13 @@ using System.Threading.Tasks;
 namespace vtkControl
 {
     [Serializable]
+    public enum vtkColorSpectrumMode
+    {
+        Discrete,
+        Smooth
+    }
+
+    [Serializable]
     public enum vtkColorSpectrumType
     {
         CoolWarm,

@@ -26,10 +26,12 @@ namespace vtkControl
         private double _minValue;
         private double _maxValue;
         private Color[] _colors;
+        private bool _smoothColors;
 
 
         // Properties
         public Color[] Colors { get { return _colors; } set { _colors = value; } }
+        public bool SmoothColors { get { return _smoothColors; } }
 
 
         // Constructors                                                                                                             
@@ -38,11 +40,17 @@ namespace vtkControl
             _minValue = 0.0;
             _maxValue = 0.0;
             _colors = new Color[0];
+            _smoothColors = false;
         }
         public vtkMaxLookupTable(vtkLookupTable lookupTable)
+            : this(lookupTable, false)
+        {
+        }
+        public vtkMaxLookupTable(vtkLookupTable lookupTable, bool smoothColors)
         {
             _minValue = lookupTable.GetTableRange()[0];
             _maxValue = lookupTable.GetTableRange()[1];
+            _smoothColors = smoothColors;
             
             int numberOfColors = (int)lookupTable.GetNumberOfColors();
             _colors = new Color[numberOfColors];
@@ -75,23 +83,25 @@ namespace vtkControl
             int colorIndex = (int)(normalizedValue * _colors.Length);
             return colorIndex;
         }
+        public int GetRecommendedTextureHeight()
+        {
+            if (_colors.Length == 0) return 1;
+            else if (_smoothColors) return _colors.Length;
+            else return _colors.Length * 200;
+        }
         public void WriteAsTexture(int width, int height, string filePath)
         {
+            if (width < 1) throw new ArgumentOutOfRangeException(nameof(width));
+            if (height < 1) throw new ArgumentOutOfRangeException(nameof(height));
+            //
             using (Bitmap bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb))
-            using (Graphics g = Graphics.FromImage(bmp))
             {
-                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
-                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
-                g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.None;
-                //
-                Pen pen;
-                float delta = (float)height / _colors.Length;
-                for (int i = 0; i < _colors.Length; i++)
+                Color[] colors = _colors.Length == 0 ? new Color[] { Color.White } : _colors;
+                for (int y = 0; y < height; y++)
                 {
-                    pen = new Pen(_colors[i], width * 2);
-                    g.DrawLine(pen, width / 2, height - i * delta, width / 2, height - (i + 1) * delta);
+                    int colorIndex = (int)((long)(height - y - 1) * colors.Length / height);
+                    for (int x = 0; x < width; x++) bmp.SetPixel(x, y, colors[colorIndex]);
                 }
-                //
                 bmp.Save(filePath, ImageFormat.Png);
             }
         }

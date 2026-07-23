@@ -20,7 +20,10 @@ namespace vtkControl
     [Serializable]
     public class vtkMaxColorSpectrum
     {
+        public const int SmoothNumberOfColors = 256;
+
         // Variables                                                                                                                
+        private vtkColorSpectrumMode _mode;
         private vtkColorSpectrumType _type;
         private vtkColorSpectrumMinMaxType _minMaxType;
         private double _minUserValue;
@@ -35,6 +38,7 @@ namespace vtkControl
 
 
         // Properties                                                                                                               
+        public vtkColorSpectrumMode Mode { get { return _mode; } set { _mode = value; } }
         public vtkColorSpectrumType Type { get { return _type; } set { _type = value; } }
         public vtkColorSpectrumMinMaxType MinMaxType { get { return _minMaxType; } set { _minMaxType = value; } }
         public bool MinColorVisible { get { return _minColorVisible; } set { _minColorVisible = value; } }
@@ -85,6 +89,7 @@ namespace vtkControl
         // Constructors                                                                                                             
         public vtkMaxColorSpectrum()
         {
+            _mode = vtkColorSpectrumMode.Discrete;
             _type = vtkColorSpectrumType.Rainbow;
             _minMaxType = vtkColorSpectrumMinMaxType.Automatic;
             _minColorVisible = true;
@@ -102,6 +107,7 @@ namespace vtkControl
         // Methods                                                                                                                  
         public void DeepCopy(vtkMaxColorSpectrum source)
         {
+            _mode = source.Mode;
             _type = source.Type;
             _minMaxType = source.MinMaxType;
             _minUserValue = source.MinUserValue;
