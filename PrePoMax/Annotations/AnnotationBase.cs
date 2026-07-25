@@ -63,6 +63,18 @@ namespace PrePoMax
         }
         //
         public abstract void GetAnnotationData(out string text, out double[] coor);
+        public virtual bool IsAnimationTextChanged()
+        {
+            return false;
+        }
+        public virtual bool IsAnimationAnchorChanged()
+        {
+            return false;
+        }
+        public virtual bool CanUseAnimationArrowAnchor()
+        {
+            return true;
+        }
         public string GetAnnotationText()
         {
             GetAnnotationData(out string text, out _);

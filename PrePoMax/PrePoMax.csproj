@@ -656,6 +656,7 @@
     <Compile Include="Annotations\MaxValueAnnotation.cs" />
     <Compile Include="Annotations\MinValueAnnotation.cs" />
     <Compile Include="Annotations\TextAnnotation.cs" />
+    <Compile Include="Annotations\MeasurementAnnotation.cs" />
     <Compile Include="Annotations\PartAnnotation.cs" />
     <Compile Include="Annotations\SurfaceAnnotation.cs" />
     <Compile Include="Annotations\EdgeAnnotation.cs" />

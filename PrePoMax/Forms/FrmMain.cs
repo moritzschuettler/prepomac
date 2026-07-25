@@ -362,6 +362,7 @@ namespace PrePoMax
                 _vtk.OnMouseLeftButtonUpSelection += _vtk_SelectPointOrArea;
                 _vtk.RotationPointChanged += _vtk_RotationPointChanged;
                 _vtk.Controller_GetAnnotationText += _controller.GetAnnotationText;
+                _vtk.Controller_AnimationFrameChanged = _controller.AnimationFrameChanged;
                 _vtk.Controller_GetNodeActorData = _controller.GetNodeActorData;
                 _vtk.Controller_GetCellActorData = _controller.GetCellActorData;
                 _vtk.Controller_GetCellFaceActorData = _controller.GetCellFaceActorData;
@@ -1597,6 +1598,15 @@ namespace PrePoMax
         }
         private void SetMenuAndToolStripVisibilityByAnimation(bool menusActive)
         {
+            if (!menusActive)
+            {
+                CancelViewportEdit();
+                cmsAnnotation.Close();
+                cmsLegendColor.Close();
+            }
+            //
+            _vtk.SetWidgetInteractionEnabled(menusActive);
+            //
             _modelTree.DisableMouse = !menusActive;
             menuStripMain.DisableMouseButtons = !menusActive;
             // DisableMouseButtons does not work for combo boxes so use .Enabled
@@ -10449,6 +10459,23 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.RemoveOverlayActors, actorNames);
         }
+        public void AddMeasurementAnnotation(string name, vtkMaxActorData nodeData, vtkMaxActorData lineData,
+                                             double[][] arrowCoordinates, double[][] arrowNormals,
+                                             double symbolSize, bool visible)
+        {
+            InvokeIfRequired(() => _vtk.AddMeasurementAnnotation(name, nodeData, lineData, arrowCoordinates,
+                                                                  arrowNormals, symbolSize, visible));
+        }
+        public void UpdateMeasurementAnnotation(string name, double[][] nodeCoordinates, double[][] lineCoordinates,
+                                                double[][] arrowCoordinates, double[][] arrowNormals, bool visible)
+        {
+            InvokeIfRequired(() => _vtk.UpdateMeasurementAnnotation(name, nodeCoordinates, lineCoordinates,
+                                                                     arrowCoordinates, arrowNormals, visible));
+        }
+        public void RemoveMeasurementAnnotations(string[] names)
+        {
+            InvokeIfRequired(_vtk.RemoveMeasurementAnnotations, names);
+        }
         public void AddOrientedDisplacementConstraintActor(vtkMaxActorData actorData, double symbolSize)
         {
             InvokeIfRequired(_vtk.AddOrientedDisplacementConstraintActor, actorData, symbolSize);
@@ -10834,7 +10861,25 @@ namespace PrePoMax
         public void AddArrowWidget(string name, string text, string numberFormat, double[] anchorPoint,
                                    bool drawBackground, bool drawBorder, bool visible)
         {
-            InvokeIfRequired(_vtk.AddArrowWidget, name, text, numberFormat, anchorPoint, drawBackground, drawBorder, visible);
+            AddArrowWidget(name, text, numberFormat, anchorPoint, drawBackground, drawBorder, visible, null);
+        }
+        public void AddArrowWidget(string name, string text, string numberFormat, double[] anchorPoint,
+                                   bool drawBackground, bool drawBorder, bool visible, string[] animationActorNames)
+        {
+            InvokeIfRequired(() => _vtk.AddArrowWidget(name, text, numberFormat, anchorPoint, drawBackground, drawBorder,
+                                                       visible, animationActorNames));
+        }
+        public void UpdateArrowWidgetText(string name, string text)
+        {
+            InvokeIfRequired(_vtk.UpdateArrowWidgetText, name, text);
+        }
+        public void UpdateArrowWidgetAnimationData(string name, string text, double[] anchorPoint)
+        {
+            InvokeIfRequired(_vtk.UpdateArrowWidgetAnimationData, name, text, anchorPoint);
+        }
+        public bool TryGetAnimationNodeData(int nodeId, out double[] coordinates, out float value)
+        {
+            return _vtk.TryGetAnimationNodeData(nodeId, out coordinates, out value);
         }
         public void ArrangeVisibleArrowWidgets()
         {

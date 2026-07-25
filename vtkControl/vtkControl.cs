@@ -79,6 +79,7 @@ namespace vtkControl
         private vtkMaxColorBarWidget _colorBarWidget;
         private vtkMaxStatusBlockWidget _statusBlockWidget;
         private vtkInteractorStyleControl _style;
+        private bool _widgetInteractionEnabled;
         private bool _drawCoorSys;
         private bool _drawStatusBlock;
         private vtkEdgesVisibility _edgesVisibility;
@@ -91,9 +92,14 @@ namespace vtkControl
         private Dictionary<string, vtkMaxActor> _actors;
         private List<vtkMaxActor> _selectedActors;
         private Dictionary<string, vtkMaxActor> _overlayActors;
-        private Dictionary<string, vtkMaxActor[]> _animationActors;
+        private Dictionary<string, vtkMaxActor> _animationActors;
+        private Dictionary<int, vtkMaxActor> _animationNodeActors;
+        private Dictionary<string, vtkMaxAnimationArrowAnchor> _animationArrowAnchors;
+        private Dictionary<string, Tuple<double[], string[]>> _animationArrowAnchorRequests;
+        private Dictionary<string, vtkPolyData> _measurementArrowInputs;
+        private Dictionary<string, double> _measurementArrowSymbolSizes;
         private vtkMaxAnimationFrameData _animationFrameData;
-        private bool _animationAcceleration;
+        private int _currentAnimationFrameNumber;
         private Color _primaryHighlightColor;
         private Color _secondaryHighlightColor;
         private double _maxSymbolSize;
@@ -235,7 +241,7 @@ namespace vtkControl
         }
         public void SetAnimationAcceleration(bool animationAcceleration)
         {
-            _animationAcceleration = animationAcceleration;
+            // Retained for API compatibility. The persistent VTK animation pipeline is always enabled.
         }
         public void SetSelectableActorsFilter(string[] selectableActors)
         {
@@ -261,6 +267,7 @@ namespace vtkControl
 
         // Callbacks                                                                                                                
         public Func<string, string> Controller_GetAnnotationText;
+        public Action<int, bool> Controller_AnimationFrameChanged;
         public Func<int[], vtkMaxActorData> Controller_GetNodeActorData;
         public Func<int[], int[], vtkMaxActorData> Controller_GetCellActorData;
         public Func<int, int[], vtkMaxActorData> Controller_GetCellFaceActorData;
@@ -302,14 +309,21 @@ namespace vtkControl
             _renderingOn = true;
             _drawCoorSys = true;
             _drawStatusBlock = true;
+            _widgetInteractionEnabled = true;
             _edgesVisibility = vtkEdgesVisibility.ElementEdges;
             _colorSpectrum = new vtkMaxColorSpectrum();
             //
             _actors = new Dictionary<string, vtkMaxActor>();
             _selectedActors = new List<vtkMaxActor>();
             _overlayActors = new Dictionary<string, vtkMaxActor>();
-            _animationActors = new Dictionary<string, vtkMaxActor[]>();
+            _animationActors = new Dictionary<string, vtkMaxActor>();
+            _animationNodeActors = new Dictionary<int, vtkMaxActor>();
+            _animationArrowAnchors = new Dictionary<string, vtkMaxAnimationArrowAnchor>();
+            _animationArrowAnchorRequests = new Dictionary<string, Tuple<double[], string[]>>();
+            _measurementArrowInputs = new Dictionary<string, vtkPolyData>();
+            _measurementArrowSymbolSizes = new Dictionary<string, double>();
             _animationFrameData = null;
+            _currentAnimationFrameNumber = -1;
             _primaryHighlightColor = Color.Red;
             _secondaryHighlightColor = Color.Violet;
             _drawSymbolEdges = true;
@@ -414,10 +428,14 @@ namespace vtkControl
         //
         private void colorBarWidget_DoubleClicked(object sender, MouseEventArgs e)
         {
+            if (!_widgetInteractionEnabled) return;
+            //
             Form_ShowColorBarSettings?.Invoke();
         }
         private void scalarBarWidget_DoubleClicked(object sender, MouseEventArgs e)
         {
+            if (!_widgetInteractionEnabled) return;
+            //
             if (_scalarBarWidget.TryGetUserColorData(e.X, e.Y, out bool minimumColor, out Rectangle colorRectangle))
             {
                 Form_SetLegendColor?.Invoke(minimumColor);
@@ -431,10 +449,14 @@ namespace vtkControl
         }
         private void statusBlockWidget_DoubleClicked(object sender, MouseEventArgs e)
         {
+            if (!_widgetInteractionEnabled) return;
+            //
             Form_ShowStatusBlockSettings?.Invoke();
         }
         private void arrowWidget_DoubleClicked(object sender, MouseEventArgs e)
         {
+            if (!_widgetInteractionEnabled) return;
+            //
             if (sender is vtkMaxTextWithArrowWidget aw)
             {
                 Form_WidgetPicked(e, Keys.None, aw.GetName(), aw.GetRectangle());
@@ -623,6 +645,7 @@ namespace vtkControl
             // Off
             if (_selectBy == vtkSelectBy.Off) return;
             else if (_selectBy == vtkSelectBy.Widget) return;
+            else if (!_widgetInteractionEnabled && sender is vtkMaxBorderWidget) return;
             //
             if (sender != null && sender is vtkMaxTextWithArrowWidget widget)
             {
@@ -6132,100 +6155,46 @@ namespace vtkControl
         //
         public bool AddAnimatedScalarFieldOnCells(vtkMaxActorData data)
         {
-            if (_animationAcceleration) return AddAnimatedScalarFieldOnCellsAllActors(data);
-            else return AddAnimatedScalarFieldOnCellsAddRemoveActors(data);
+            return AddAnimatedScalarFieldOnCellsPersistentActor(data);
         }
         public bool AddAnimatedScalarFieldOnCellsAddRemoveActors(vtkMaxActorData data)
         {
-            //countError = 0;
-            int n = data.Geometry.NodesAnimation.Length;
-            // Create actor
-            vtkMaxActor actor;
-            vtkMaxActor baseActor = new vtkMaxActor(data);
-            // Add actor
-            AddActorGeometry(baseActor, data.Layer);
-            _animationFrameData.MemMb += n * baseActor.GeometryMapper.GetInput().GetActualMemorySize() / 1024.0;
-            // Add actorElementEdges
-            if (data.CanHaveElementEdges && baseActor.ElementEdges != null)
-            {
-                AddActorEdges(baseActor, false, data.Layer);
-                _animationFrameData.MemMb += n * baseActor.ElementEdges.GetMapper().GetInput().GetActualMemorySize() / 1024.0;
-            }
-            // Add modelEdges
-            if (baseActor.ModelEdges != null)
-            {
-                AddActorEdges(baseActor, true, data.Layer);
-                _animationFrameData.MemMb += n * baseActor.ModelEdges.GetMapper().GetInput().GetActualMemorySize() / 1024.0;
-            }
-            string name;
-            vtkMaxActor[] actors = new vtkMaxActor[n];
-            for (int i = 0; i < n; i++)
-            {
-                name = data.Name + "_animation-frame-" + i;
-                // Create actor
-                actor = new vtkMaxActor(baseActor);
-                actor.SetAnimationFrame(data, i);
-                actor.Name = name;
-                // Add actor
-                actors[i] = actor;
-            }
-            //
-            _animationActors.Add(baseActor.Name, actors);
-            //
-            AdjustCameraDistanceAndClippingRedraw();
-            //
-            return true;
+            return AddAnimatedScalarFieldOnCellsPersistentActor(data);
         }
         public bool AddAnimatedScalarFieldOnCellsAllActors(vtkMaxActorData data)
         {
-            string name;
-            Dictionary<int, string> animatedActorNames = new Dictionary<int, string>();
-            vtkMaxActor actor;
-            vtkMaxActor baseActor = new vtkMaxActor(data);
-            //
-            int n = data.Geometry.NodesAnimation.Length;
-            for (int i = 0; i < n; i++)
+            return AddAnimatedScalarFieldOnCellsPersistentActor(data);
+        }
+        private bool AddAnimatedScalarFieldOnCellsPersistentActor(vtkMaxActorData data)
+        {
+            vtkMaxActor actor = new vtkMaxActor(data);
+            double animationMemorySizeKb = actor.InitializeAnimation(data);
+            actor.RecomputeMemorySize();
+            _animationFrameData.MemMb += (actor.MemorySize + animationMemorySizeKb) / 1024.0;
+
+            const int memLimit = 1000;
+            if (_animationFrameData.MemMb > memLimit)
             {
-                // Animated actor names
-                name = data.Name + "_animation-frame-" + i;
-                animatedActorNames.Add(i, name);
-                // Create actor
-                actor = new vtkMaxActor(baseActor);
-                actor.Name = name;
-                actor.SetAnimationFrame(data, i);
-                // Add actor
-                AddActorGeometry(actor, vtkRendererLayer.Base);
-                _animationFrameData.MemMb += actor.GeometryMapper.GetInput().GetActualMemorySize() / 1024.0;
-                // Add actorEdges
-                if (data.CanHaveElementEdges && actor.ElementEdges != null)
-                {
-                    AddActorEdges(actor, false, vtkRendererLayer.Base);
-                    _animationFrameData.MemMb += actor.ElementEdges.GetMapper().GetInput().GetActualMemorySize() / 1024.0;
-                }
-                // Add modelEdges
-                if (actor.ModelEdges != null)
-                {
-                    AddActorEdges(actor, true, data.Layer);
-                    _animationFrameData.MemMb += actor.ModelEdges.GetMapper().GetInput().GetActualMemorySize() / 1024.0;
-                }
-                int memLimit = 1000;
-                if (_animationFrameData.MemMb > memLimit)
-                {
-                    if (MessageBoxes.ShowWarningQuestionOKCancel("The size of the problem requires more than " + memLimit + " MB of RAM." +
-                                                         "This might cause the application to close down unexpectedly. Continue?")
-                                                         == DialogResult.OK)
-                    {
-                        _animationFrameData.MemMb = -1000000;   // prevet the message box from reappearing
-                    }
-                    else return false;
-                }
+                if (MessageBoxes.ShowWarningQuestionOKCancel("The size of the problem requires more than " + memLimit +
+                                                             " MB of RAM. This might cause the application to close " +
+                                                             "down unexpectedly. Continue?") == DialogResult.OK)
+                    _animationFrameData.MemMb = -1000000; // Prevent the message box from reappearing.
+                else return false;
             }
-            //
-            _animationFrameData.ActorVisible.Add(data.Name, true);
-            _animationFrameData.AnimatedActorNames.Add(animatedActorNames);
-            //
+
+            AddActorGeometry(actor, data.Layer);
+            if (data.CanHaveElementEdges && actor.ElementEdges != null)
+                AddActorEdges(actor, false, data.Layer);
+            if (actor.ModelEdges != null) AddActorEdges(actor, true, data.Layer);
+            _animationActors.Add(actor.Name, actor);
+            _currentAnimationFrameNumber = 0;
+            int[] animationNodeIds = data.CellLocator?.Nodes?.Ids ?? data.Geometry.Nodes.Ids;
+            if (animationNodeIds != null)
+            {
+                foreach (int nodeId in animationNodeIds) _animationNodeActors[nodeId] = actor;
+            }
+
             AdjustCameraDistanceAndClippingRedraw();
-            //
             return true;
         }
         //
@@ -6292,6 +6261,15 @@ namespace vtkControl
                 }
             }
             if (minNode == null || maxNode == null) return;
+            // A uniform zero initial frame has no unique extrema and normally selects the first node.
+            // Keep its zero values, but use the material nodes that become the first meaningful extrema.
+            if (minNode.Value == 0 && maxNode.Value == 0 &&
+                TryGetStableInitialAnimationExtremeNodes(out vtkMaxExtreemeNode stableMinNode,
+                                                         out vtkMaxExtreemeNode stableMaxNode))
+            {
+                minNode = stableMinNode;
+                maxNode = stableMaxNode;
+            }
             // Scalar bar and min/max values of actor scalar range
             if (_colorSpectrum.MinMaxType == vtkColorSpectrumMinMaxType.Automatic)
             {
@@ -6325,8 +6303,7 @@ namespace vtkControl
                 actor = entry.Value;
                 mapper = actor.GeometryMapper;
                 pointData = mapper.GetInput().GetPointData();
-                if (actor.ColorContours && actor.VtkMaxActorVisible && pointData.GetScalars() != null
-                    && !_animationFrameData.InitializedActorNames.Contains(entry.Value.Name)) // animation speedup
+                if (actor.ColorContours && actor.VtkMaxActorVisible && pointData.GetScalars() != null)
                 {
                     mapper.SetScalarRange(actorRange[0], actorRange[1]);
                     mapper.SetLookupTable(lookup);
@@ -6368,6 +6345,71 @@ namespace vtkControl
                 }
                 else maxValueWidget.VisibilityOff();
             }
+        }
+        private bool TryGetStableInitialAnimationExtremeNodes(out vtkMaxExtreemeNode minNode,
+                                                               out vtkMaxExtreemeNode maxNode)
+        {
+            minNode = null;
+            maxNode = null;
+            if (_currentAnimationFrameNumber != 0 || _animationActors.Count == 0) return false;
+            //
+            int frameCount = int.MaxValue;
+            foreach (vtkMaxActor actor in _animationActors.Values)
+            {
+                int actorFrameCount = actor.GetAnimationFrameCount();
+                if (actorFrameCount > 0 && actorFrameCount < frameCount) frameCount = actorFrameCount;
+            }
+            if (frameCount == int.MaxValue || frameCount < 2) return false;
+            //
+            for (int frameNumber = 1; frameNumber < frameCount; frameNumber++)
+            {
+                if (!TryGetAnimationFrameExtremeNodes(frameNumber, out vtkMaxActor minActor,
+                                                      out vtkMaxExtreemeNode nextMinNode,
+                                                      out vtkMaxActor maxActor,
+                                                      out vtkMaxExtreemeNode nextMaxNode))
+                    continue;
+                if (nextMinNode.Value == 0 && nextMaxNode.Value == 0) continue;
+                //
+                if (!minActor.TryGetAnimationNodeCoordinates(0, nextMinNode.Id, out double[] minCoordinates))
+                    minCoordinates = nextMinNode.Coor?.ToArray();
+                if (!maxActor.TryGetAnimationNodeCoordinates(0, nextMaxNode.Id, out double[] maxCoordinates))
+                    maxCoordinates = nextMaxNode.Coor?.ToArray();
+                //
+                minNode = new vtkMaxExtreemeNode(nextMinNode.Id, minCoordinates, 0);
+                maxNode = new vtkMaxExtreemeNode(nextMaxNode.Id, maxCoordinates, 0);
+                return true;
+            }
+            return false;
+        }
+        private bool TryGetAnimationFrameExtremeNodes(int frameNumber, out vtkMaxActor minActor,
+                                                       out vtkMaxExtreemeNode minNode,
+                                                       out vtkMaxActor maxActor,
+                                                       out vtkMaxExtreemeNode maxNode)
+        {
+            minActor = null;
+            minNode = null;
+            maxActor = null;
+            maxNode = null;
+            //
+            foreach (vtkMaxActor actor in _animationActors.Values)
+            {
+                if (!actor.VtkMaxActorVisible || !actor.ColorContours ||
+                    !actor.TryGetAnimationExtremeNodes(frameNumber, out vtkMaxExtreemeNode actorMinNode,
+                                                       out vtkMaxExtreemeNode actorMaxNode))
+                    continue;
+                //
+                if (!float.IsNaN(actorMinNode.Value) && (minNode == null || actorMinNode.Value < minNode.Value))
+                {
+                    minActor = actor;
+                    minNode = actorMinNode;
+                }
+                if (!float.IsNaN(actorMaxNode.Value) && (maxNode == null || actorMaxNode.Value > maxNode.Value))
+                {
+                    maxActor = actor;
+                    maxNode = actorMaxNode;
+                }
+            }
+            return minNode != null && maxNode != null;
         }
         public void UpdateActorScalarField(string actorName, float[] values, NodesExchangeData extremeNodes,
                                            float[] frustumCellLocatorValues, bool update)
@@ -6593,13 +6635,6 @@ namespace vtkControl
         //
         public void SetAnimationFrame(int frameNumber, bool scalarRangeFromAllFrames)
         {
-            if (_animationAcceleration) SetAnimationFrameAllActors(frameNumber, scalarRangeFromAllFrames);
-            else SetAnimationFrameAddRemoveActors(frameNumber, scalarRangeFromAllFrames);
-            //
-            UpdateFollowerView();
-        }
-        private void SetAnimationFrameAddRemoveActors(int frameNumber, bool scalarRangeFromAllFrames)
-        {
             _animationFrameData.UseAllFrameData = scalarRangeFromAllFrames;
             //
             if (_statusBlockWidget != null && _animationFrameData != null)
@@ -6611,8 +6646,6 @@ namespace vtkControl
                 _statusBlockWidget.AnimationType = _animationFrameData.AnimationType;
             }
             //
-            List<string> visibleActors = new List<string>();
-            vtkMaxActor actor;
             bool applySectionView = false;
             SectionViewData sectionViewData = null;
             if (_sectionViewData.Active)
@@ -6622,92 +6655,35 @@ namespace vtkControl
                 RemoveSectionView();
             }
             //
-            RemoveTransformedActors();
+            bool applyTransforms = _transforms.Count > 0;
+            if (applyTransforms) RemoveTransformedActors();
             //
-            bool visible;
-            foreach (var entry in _animationActors)
-            {
-                // Find actor
-                if (_actors.TryGetValue(entry.Key, out actor))
-                {
-                    visible = actor.VtkMaxActorVisible;
-                    // Remove actor
-                    RemoveActorWithCopies(actor);
-                    _actors.Remove(entry.Key);  // must be here to remove the actor - it has a different key than name
-                    //
-                    if (visible)
-                    {
-                        // Get animation actor
-                        actor = entry.Value[frameNumber];
-                        // Add actor
-                        _actors.Add(entry.Key, actor);
-                        _renderer.AddActor(actor.Geometry);
-                        _renderer.AddActor(actor.ElementEdges);
-                        _renderer.AddActor(actor.ModelEdges);
-                        // Add actor name
-                        visibleActors.Add(actor.Name);
-                    }
-                }
-            }
+            foreach (vtkMaxActor actor in _animationActors.Values) actor.SetAnimationFrame(frameNumber);
+            _currentAnimationFrameNumber = frameNumber;
             //
-            ApplyTransforms();
+            if (applyTransforms) ApplyTransforms();
             //
             if (applySectionView) CreateSectionView(sectionViewData.Plane.GetOrigin(), sectionViewData.Plane.GetNormal(),
                                                    sectionViewData.LightenColors, sectionViewData.SectionColor);
             //
             UpdateScalarFormatting();
             //
-            _animationFrameData.InitializedActorNames.UnionWith(visibleActors); // add visible actors to initialized actors
+            bool initializeArrowAnchors = _animationArrowAnchorRequests.Count > 0;
+            Controller_AnimationFrameChanged?.Invoke(frameNumber, initializeArrowAnchors);
+            UpdateAnimatedArrowWidgetAnchors();
             //
-            ApplyEdgesVisibilityAndBackfaceCulling();   // calls invalidate
-            _style.AdjustCameraDistanceAndClipping();
-            //
-            //countError++;
-            //if (countError % 10 == 0) System.Diagnostics.Debug.WriteLine("Count: " + countError);
+            UpdateFollowerView();
+            _style.AdjustCameraDistanceAndClipping(false);
+            _style.RefreshWidgetHighlights();
+            RenderScene();
         }
-        //
-        private void SetAnimationFrameAllActors(int frameNumber, bool scalarRangeFromAllFrames)
+        public bool TryGetAnimationNodeData(int nodeId, out double[] coordinates, out float value)
         {
-            _animationFrameData.UseAllFrameData = scalarRangeFromAllFrames;
-            //
-            if (_statusBlockWidget != null && _animationFrameData != null)
-            {
-                _statusBlockWidget.StepNumber = _animationFrameData.StepId[frameNumber];
-                _statusBlockWidget.IncrementNumber = _animationFrameData.StepIncrementId[frameNumber];
-                _statusBlockWidget.AnalysisTime = _animationFrameData.Time[frameNumber];
-                _statusBlockWidget.AnimationScaleFactor = _animationFrameData.ScaleFactor[frameNumber];
-                _statusBlockWidget.AnimationType = _animationFrameData.AnimationType;
-            }
-            //
-            bool visible;
-            vtkMaxActor maxActor;
-            List<string> visibleActors = new List<string>();
-            string[] tmp;
-            string[] splitter = new string[] { "_animation-frame-" };
-            foreach (var listEntry in _animationFrameData.AnimatedActorNames)
-            {
-                foreach (var entry in listEntry)
-                {
-                    tmp = entry.Value.Split(splitter, StringSplitOptions.None);
-                    if (_animationFrameData.ActorVisible[tmp[0]])
-                    {
-                        if (_actors.TryGetValue(entry.Value, out maxActor))
-                        {
-                            visible = entry.Key == frameNumber;
-                            //
-                            HideShowActor(maxActor, visible);
-                            if (visible) visibleActors.Add(entry.Value);
-                        }
-                    }
-                }
-            }
-            //
-            UpdateScalarFormatting();
-            //
-            _animationFrameData.InitializedActorNames.UnionWith(visibleActors); // add visible actors to initialized actors
-            //
-            ApplyEdgesVisibilityAndBackfaceCulling();   // calls invalidate
-            _style.AdjustCameraDistanceAndClipping();
+            if (_animationNodeActors.TryGetValue(nodeId, out vtkMaxActor actor))
+                return actor.TryGetAnimationNodeData(nodeId, out coordinates, out value);
+            coordinates = null;
+            value = float.NaN;
+            return false;
         }
         //
         public void SaveAnimationAsAVI(string fileName, int[] firstLastFrame, int step, int fps, bool scalarRangeFromAllFrames,
@@ -6852,6 +6828,10 @@ namespace vtkControl
             _cellPicker.RemoveAllLocators();
             _propPicker.InitializePickList();
             _animationActors.Clear();
+            _animationNodeActors.Clear();
+            _currentAnimationFrameNumber = -1;
+            _animationArrowAnchors.Clear();
+            _animationArrowAnchorRequests.Clear();
             _animationFrameData = new vtkMaxAnimationFrameData();
             //
             if (_scalarBarWidget != null) _scalarBarWidget.VisibilityOff();
@@ -6955,15 +6935,212 @@ namespace vtkControl
             foreach (var entry in _overlayActors)
             {
                 if (entry.Value is vtkMaxCaptionActor ca) _overlayRenderer.RemoveActor2D(ca.CaptionActor);
-                else _overlayRenderer.RemoveActor(entry.Value.Geometry);
+                else
+                {
+                    ReleaseActorGraphicsResources(entry.Value);
+                    _overlayRenderer.RemoveActor(entry.Value.Geometry);
+                }
             }
             //
             _overlayRenderer.RemoveActor(_captionTmpActor);
             _captionActorAddedToOverlay = false;
             //
             _overlayActors.Clear();
+            _measurementArrowInputs.Clear();
+            _measurementArrowSymbolSizes.Clear();
             //
             RenderScene();
+        }
+        public void AddMeasurementAnnotation(string name, vtkMaxActorData nodeData, vtkMaxActorData lineData,
+                                             double[][] arrowCoordinates, double[][] arrowNormals,
+                                             double symbolSize, bool visible)
+        {
+            if (CanUpdateMeasurementAnnotation(name, nodeData.Geometry.Nodes.Coor, lineData.Geometry.Nodes.Coor,
+                                               arrowCoordinates, arrowNormals, symbolSize))
+            {
+                UpdateMeasurementAnnotation(name, nodeData.Geometry.Nodes.Coor, lineData.Geometry.Nodes.Coor,
+                                            arrowCoordinates, arrowNormals, visible);
+                return;
+            }
+            //
+            RemoveMeasurementAnnotation(name);
+
+            nodeData.Name = GetMeasurementActorName(name, "nodes");
+            nodeData.Layer = vtkRendererLayer.Overlay;
+            vtkMaxActor nodeActor = AddPoints(nodeData);
+
+            lineData.Name = GetMeasurementActorName(name, "lines");
+            lineData.Layer = vtkRendererLayer.Overlay;
+            vtkMaxActor lineActor = AddCells(lineData);
+
+            nodeActor.VtkMaxActorVisible = visible;
+            lineActor.VtkMaxActorVisible = visible;
+
+            if (arrowCoordinates != null && arrowNormals != null)
+            {
+                vtkMaxActor arrowActor = AddMeasurementArrowActor(name, arrowCoordinates, arrowNormals,
+                                                                  symbolSize, lineData.Color);
+                arrowActor.VtkMaxActorVisible = visible;
+            }
+        }
+        private bool CanUpdateMeasurementAnnotation(string name, double[][] nodeCoordinates,
+                                                    double[][] lineCoordinates, double[][] arrowCoordinates,
+                                                    double[][] arrowNormals, double symbolSize)
+        {
+            if (!MeasurementActorHasPointCount(GetMeasurementActorName(name, "nodes"), nodeCoordinates) ||
+                !MeasurementActorHasPointCount(GetMeasurementActorName(name, "lines"), lineCoordinates))
+                return false;
+            //
+            string arrowActorName = GetMeasurementActorName(name, "arrows");
+            bool hasArrowActor = _overlayActors.ContainsKey(arrowActorName);
+            bool hasArrowData = arrowCoordinates != null && arrowNormals != null;
+            if (!hasArrowData) return !hasArrowActor;
+            //
+            return hasArrowActor &&
+                   _measurementArrowInputs.TryGetValue(name, out vtkPolyData arrowInput) &&
+                   arrowCoordinates.Length == arrowInput.GetNumberOfPoints() &&
+                   _measurementArrowSymbolSizes.TryGetValue(name, out double currentSymbolSize) &&
+                   currentSymbolSize == symbolSize;
+        }
+        private bool MeasurementActorHasPointCount(string actorName, double[][] coordinates)
+        {
+            if (coordinates == null || !_overlayActors.TryGetValue(actorName, out vtkMaxActor actor)) return false;
+            vtkPointSet pointSet = actor.GeometryMapper.GetInput() as vtkPointSet;
+            return pointSet != null && pointSet.GetNumberOfPoints() == coordinates.Length;
+        }
+        public void UpdateMeasurementAnnotation(string name, double[][] nodeCoordinates, double[][] lineCoordinates,
+                                                double[][] arrowCoordinates, double[][] arrowNormals, bool visible)
+        {
+            UpdateMeasurementActor(GetMeasurementActorName(name, "nodes"), nodeCoordinates, visible);
+            UpdateMeasurementActor(GetMeasurementActorName(name, "lines"), lineCoordinates, visible);
+
+            string arrowActorName = GetMeasurementActorName(name, "arrows");
+            if (_measurementArrowInputs.TryGetValue(name, out vtkPolyData arrowInput) &&
+                arrowCoordinates != null && arrowNormals != null &&
+                arrowCoordinates.Length == arrowInput.GetNumberOfPoints())
+            {
+                vtkPoints points = arrowInput.GetPoints();
+                vtkDataArray normals = arrowInput.GetPointData().GetNormals();
+                for (int i = 0; i < arrowCoordinates.Length; i++)
+                {
+                    points.SetPoint(i, arrowCoordinates[i][0], arrowCoordinates[i][1], arrowCoordinates[i][2]);
+                    normals.SetTuple3(i, arrowNormals[i][0], arrowNormals[i][1], arrowNormals[i][2]);
+                }
+                points.Modified();
+                arrowInput.Modified();
+                if (_overlayActors.TryGetValue(arrowActorName, out vtkMaxActor arrowActor))
+                    arrowActor.VtkMaxActorVisible = visible;
+            }
+        }
+        public void RemoveMeasurementAnnotations(string[] names)
+        {
+            if (names == null) return;
+            bool removed = false;
+            foreach (string name in names) removed |= RemoveMeasurementAnnotation(name);
+            if (removed) RenderScene();
+        }
+        private bool RemoveMeasurementAnnotation(string name)
+        {
+            bool removed = false;
+            string[] actorNames = new string[]
+            {
+                GetMeasurementActorName(name, "nodes"),
+                GetMeasurementActorName(name, "lines"),
+                GetMeasurementActorName(name, "arrows")
+            };
+            foreach (string actorName in actorNames)
+            {
+                if (_overlayActors.TryGetValue(actorName, out vtkMaxActor actor))
+                {
+                    ReleaseActorGraphicsResources(actor);
+                    _overlayRenderer.RemoveActor(actor.Geometry);
+                    _overlayActors.Remove(actorName);
+                    removed = true;
+                }
+            }
+            _measurementArrowInputs.Remove(name);
+            _measurementArrowSymbolSizes.Remove(name);
+            return removed;
+        }
+        private void UpdateMeasurementActor(string actorName, double[][] coordinates, bool visible)
+        {
+            if (coordinates == null || !_overlayActors.TryGetValue(actorName, out vtkMaxActor actor)) return;
+            vtkPointSet pointSet = actor.GeometryMapper.GetInput() as vtkPointSet;
+            if (pointSet == null || pointSet.GetNumberOfPoints() != coordinates.Length) return;
+
+            vtkPoints points = pointSet.GetPoints();
+            for (int i = 0; i < coordinates.Length; i++)
+                points.SetPoint(i, coordinates[i][0], coordinates[i][1], coordinates[i][2]);
+            points.Modified();
+            pointSet.Modified();
+            actor.GeometryMapper.Modified();
+            actor.VtkMaxActorVisible = visible;
+        }
+        private vtkMaxActor AddMeasurementArrowActor(string name, double[][] coordinates, double[][] normals,
+                                                     double symbolSize, Color color)
+        {
+            if (symbolSize > _maxSymbolSize) _maxSymbolSize = symbolSize;
+
+            vtkPoints points = vtkPoints.New();
+            vtkDoubleArray normalArray = vtkDoubleArray.New();
+            normalArray.SetNumberOfComponents(3);
+            for (int i = 0; i < coordinates.Length; i++)
+            {
+                points.InsertNextPoint(coordinates[i][0], coordinates[i][1], coordinates[i][2]);
+                normalArray.InsertNextTuple3(normals[i][0], normals[i][1], normals[i][2]);
+            }
+
+            vtkPolyData input = vtkPolyData.New();
+            input.SetPoints(points);
+            input.GetPointData().SetNormals(normalArray);
+
+            vtkDistanceToCamera distanceToCamera = vtkDistanceToCamera.New();
+            distanceToCamera.SetInput(input);
+            distanceToCamera.SetScreenSize(symbolSize);
+            distanceToCamera.SetRenderer(_renderer);
+
+            vtkConeSource cone = vtkConeSource.New();
+            cone.SetCenter(-0.5, 0, 0);
+            cone.SetRadius(0.35);
+            cone.CappingOn();
+            cone.SetResolution(11);
+
+            vtkTriangleFilter triangleFilter = vtkTriangleFilter.New();
+            triangleFilter.SetInput(cone.GetOutput());
+            triangleFilter.Update();
+
+            vtkGlyph3D glyph = vtkGlyph3D.New();
+            glyph.SetSourceConnection(triangleFilter.GetOutputPort());
+            glyph.SetInputConnection(distanceToCamera.GetOutputPort());
+            glyph.SetVectorModeToUseNormal();
+            glyph.ScalingOn();
+            glyph.SetScaleModeToScaleByScalar();
+            glyph.SetInputArrayToProcess(0, 0, 0, "vtkDataObject::FIELD_ASSOCIATION_POINTS", "DistanceToCamera");
+            glyph.SetScaleFactor(0.3);
+            glyph.OrientOn();
+            glyph.Update();
+
+            vtkPolyDataMapper mapper = vtkPolyDataMapper.New();
+            mapper.SetInputConnection(glyph.GetOutputPort());
+            mapper.ScalarVisibilityOff();
+
+            vtkMaxActorData data = new vtkMaxActorData();
+            data.Name = GetMeasurementActorName(name, "arrows");
+            data.Color = color;
+            data.Layer = vtkRendererLayer.Overlay;
+            data.Pickable = false;
+            vtkMaxActor actor = new vtkMaxActor(data, mapper);
+            actor.GeometryProperty.SetRepresentationToSurface();
+            ApplySymbolFormattingToActor(actor);
+            AddActorGeometry(actor, vtkRendererLayer.Overlay);
+
+            _measurementArrowInputs[name] = input;
+            _measurementArrowSymbolSizes[name] = symbolSize;
+            return actor;
+        }
+        private static string GetMeasurementActorName(string annotationName, string suffix)
+        {
+            return "__measurement_annotation__" + annotationName + "__" + suffix;
         }
         public void RemoveOverlayActors(string[] actorNames)
         {
@@ -6977,7 +7154,10 @@ namespace vtkControl
                     if (actor is vtkMaxCaptionActor captionActor)
                         _overlayRenderer.RemoveActor2D(captionActor.CaptionActor);
                     else
+                    {
+                        ReleaseActorGraphicsResources(actor);
                         _overlayRenderer.RemoveActor(actor.Geometry);
+                    }
                     //
                     _overlayActors.Remove(actorName);
                     removed = true;
@@ -6985,15 +7165,36 @@ namespace vtkControl
             }
             if (removed) RenderScene();
         }
+        private void ReleaseActorGraphicsResources(vtkMaxActor actor)
+        {
+            if (actor == null || _renderWindow == null) return;
+            //
+            if (actor.Geometry != null) actor.Geometry.ReleaseGraphicsResources(_renderWindow);
+            if (actor.ElementEdges != null) actor.ElementEdges.ReleaseGraphicsResources(_renderWindow);
+            if (actor.ModelEdges != null) actor.ModelEdges.ReleaseGraphicsResources(_renderWindow);
+            if (actor.Nodes != null) actor.Nodes.ReleaseGraphicsResources(_renderWindow);
+        }
         #endregion #################################################################################################################
 
         #region Widgets ############################################################################################################
+        public void SetWidgetInteractionEnabled(bool enabled)
+        {
+            _widgetInteractionEnabled = enabled;
+            //
+            if (_style != null) _style.SetWidgetLocalHighlightEnabled(enabled);
+            RenderScene();
+        }
         public void ResetScaleBarPosition()
         {
             _scaleWidget.SetHorizontallyRelativePosition((Width - _scaleWidget.GetWidth()) / 2, 0);
         }
         public void AddArrowWidget(string name, string text, string numberFormat, double[] anchorPoint,
                                    bool drawBackground, bool drawBorder, bool visible)
+        {
+            AddArrowWidget(name, text, numberFormat, anchorPoint, drawBackground, drawBorder, visible, null);
+        }
+        public void AddArrowWidget(string name, string text, string numberFormat, double[] anchorPoint,
+                                   bool drawBackground, bool drawBorder, bool visible, string[] animationActorNames)
         {
             vtkMaxTextWithArrowWidget arrowWidget;
             bool newWidget = false;
@@ -7035,11 +7236,71 @@ namespace vtkControl
             {
                 arrowWidget.SetText(text);
                 arrowWidget.SetAnchorPoint(anchorPoint[0], anchorPoint[1], anchorPoint[2]);
+                SetAnimationArrowAnchor(name, anchorPoint, animationActorNames);
             }
             // The final text size, visibility and anchor must be known before placement. Existing widgets are fixed.
             if (arrowWidget.GetVisibility() == 1 && (newWidget || !wasVisible)) PositionNewArrowWidget(arrowWidget);
             //
             RenderScene();
+        }
+        public void UpdateArrowWidgetText(string name, string text)
+        {
+            if (_arrowWidgets.TryGetValue(name, out vtkMaxTextWithArrowWidget arrowWidget))
+                arrowWidget.SetText(text);
+        }
+        public void UpdateArrowWidgetAnimationData(string name, string text, double[] anchorPoint)
+        {
+            if (text != null) UpdateArrowWidgetText(name, text);
+            if (anchorPoint != null)
+            {
+                if (_animationArrowAnchorRequests.TryGetValue(name, out Tuple<double[], string[]> request))
+                    _animationArrowAnchorRequests[name] =
+                        new Tuple<double[], string[]>(anchorPoint.ToArray(), request.Item2);
+                else if (!_animationArrowAnchors.ContainsKey(name) &&
+                         _arrowWidgets.TryGetValue(name, out vtkMaxTextWithArrowWidget arrowWidget))
+                    arrowWidget.SetAnchorPoint(anchorPoint[0], anchorPoint[1], anchorPoint[2]);
+            }
+        }
+        private void SetAnimationArrowAnchor(string widgetName, double[] anchorPoint, string[] animationActorNames)
+        {
+            _animationArrowAnchors.Remove(widgetName);
+            _animationArrowAnchorRequests.Remove(widgetName);
+            if (animationActorNames == null) return;
+
+            _animationArrowAnchorRequests.Add(widgetName,
+                new Tuple<double[], string[]>(anchorPoint.ToArray(), animationActorNames.ToArray()));
+        }
+        private bool TryCreateAnimationArrowAnchor(double[] anchorPoint, string[] animationActorNames,
+                                                   out vtkMaxAnimationArrowAnchor animationAnchor)
+        {
+            foreach (string actorName in animationActorNames)
+            {
+                if (_animationActors.TryGetValue(actorName, out vtkMaxActor actor) &&
+                    actor.TryCreateAnimationArrowAnchor(anchorPoint, out animationAnchor)) return true;
+            }
+            animationAnchor = null;
+            return false;
+        }
+        private void UpdateAnimatedArrowWidgetAnchors()
+        {
+            foreach (var entry in _animationArrowAnchorRequests.ToArray())
+            {
+                if (TryCreateAnimationArrowAnchor(entry.Value.Item1, entry.Value.Item2,
+                                                  out vtkMaxAnimationArrowAnchor animationAnchor))
+                {
+                    _animationArrowAnchors.Add(entry.Key, animationAnchor);
+                }
+                _animationArrowAnchorRequests.Remove(entry.Key);
+            }
+            foreach (var entry in _animationArrowAnchors)
+            {
+                if (_arrowWidgets.TryGetValue(entry.Key, out vtkMaxTextWithArrowWidget arrowWidget) &&
+                    arrowWidget.GetVisibility() == 1)
+                {
+                    double[] anchorPoint = entry.Value.GetAnchorPoint();
+                    arrowWidget.SetAnchorPoint(anchorPoint[0], anchorPoint[1], anchorPoint[2]);
+                }
+            }
         }
         public void ArrangeVisibleArrowWidgets()
         {
@@ -7400,6 +7661,8 @@ namespace vtkControl
             foreach (var entry in _arrowWidgets) entry.Value.RemoveInteractor();
             //
             _arrowWidgets.Clear();
+            _animationArrowAnchors.Clear();
+            _animationArrowAnchorRequests.Clear();
         }
         public void RemoveArrowWidgets(string[] widgetNames)
         {
@@ -7410,6 +7673,8 @@ namespace vtkControl
                 {
                     widget.RemoveInteractor();
                     _arrowWidgets.Remove(name);
+                    _animationArrowAnchors.Remove(name);
+                    _animationArrowAnchorRequests.Remove(name);
                 }
             }
             //

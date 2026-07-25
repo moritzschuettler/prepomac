@@ -5751,9 +5751,11 @@ namespace CaeResults
                 if (invariant) relativeScale = Math.Abs(relativeScale);
                 // Model
                 ScaleValues(relativeScale, modelResultData.Nodes.Values, out modelResultData.NodesAnimation[i].Values);
-                modelResultData.ExtremeNodesAnimation[i] = GetScaledExtremeValues(part.Name, fData, relativeScale);
                 // Locator
-                ScaleValues(relativeScale, locatorResultData.Nodes.Values, out locatorResultData.NodesAnimation[i].Values);
+                ScaleValuesAndGetExtreme(relativeScale, locatorResultData.Nodes.Ids,
+                                         locatorResultData.NodesAnimation[i].Coor, locatorResultData.Nodes.Values,
+                                         out locatorResultData.NodesAnimation[i].Values,
+                                         out modelResultData.ExtremeNodesAnimation[i]);
             }
         }
         public void GetTimeIncrementAnimationData(BasePart part, FieldData fData, float scale,
@@ -5871,6 +5873,51 @@ namespace CaeResults
                     }
                 }
             }
+        }
+        private void ScaleValuesAndGetExtreme(float scale, int[] nodeIds, double[][] coordinates, float[] values,
+                                              out float[] scaledValues, out NodesExchangeData extremeNodes)
+        {
+            ScaleValues(scale, values, out scaledValues);
+            if (scaledValues == null || scaledValues.Length == 0)
+            {
+                extremeNodes = null;
+                return;
+            }
+
+            int minIndex = -1;
+            int maxIndex = -1;
+            float minValue = float.MaxValue;
+            float maxValue = -float.MaxValue;
+            for (int i = 0; i < scaledValues.Length; i++)
+            {
+                float value = scaledValues[i];
+                if (float.IsNaN(value)) continue;
+                if (minIndex < 0 || value < minValue)
+                {
+                    minIndex = i;
+                    minValue = value;
+                }
+                if (maxIndex < 0 || value > maxValue)
+                {
+                    maxIndex = i;
+                    maxValue = value;
+                }
+            }
+
+            if (minIndex < 0)
+            {
+                minIndex = 0;
+                maxIndex = 0;
+                minValue = 0;
+                maxValue = 0;
+            }
+
+            extremeNodes = new NodesExchangeData
+            {
+                Ids = new int[] { nodeIds[minIndex], nodeIds[maxIndex] },
+                Coor = new double[][] { coordinates[minIndex], coordinates[maxIndex] },
+                Values = new float[] { minValue, maxValue }
+            };
         }
         //
         public float GetMaxDeformation()

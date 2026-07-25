@@ -28,7 +28,6 @@ namespace PrePoMax.Forms
         // Variables                                                                                                                
         private int _numOfNodesToSelect;
         private double[][] _coorNodesToDraw;
-        private double[][] _coorLinesToDraw;
         private Controller _controller;
         private string _queryNumberFormat;
 
@@ -118,8 +117,7 @@ namespace PrePoMax.Forms
                         default:
                             break;
                     }
-                    // Clear
-                    RemoveMeasureAnnotation();
+                    _coorNodesToDraw = null;
                     _controller.ClearSelectionHistoryAndCallSelectionChanged();
                 }
             }
@@ -161,7 +159,6 @@ namespace PrePoMax.Forms
             {
                 _controller.SelectBy = vtkSelectBy.Default;
                 // Clear
-                RemoveMeasureAnnotation();
                 _controller.ClearSelectionHistoryAndCallSelectionChanged();
                 //
                 _controller.SetQuerySelection(false);
@@ -185,9 +182,6 @@ namespace PrePoMax.Forms
             try
             {
                 UpdateQueryNumberFormat();
-                // Clear annotations
-                RemoveMeasureAnnotation();
-                //
                 if (ids == null || ids.Length == 0) return;
                 //
                 if (_controller.SelectItem == vtkSelectItem.Element && ids.Length == 1) OneElementPicked(ids[0]);
@@ -215,7 +209,7 @@ namespace PrePoMax.Forms
                     //
                     _controller.ClearSelectionHistoryAndCallSelectionChanged();
                     //
-                    Highlight();
+                    if (ids.Length == 1) Highlight();
                 }
             }
             catch
@@ -231,7 +225,8 @@ namespace PrePoMax.Forms
                 string lenUnitInBrackets = string.Format("[{0}]", lenUnit);
                 _coorNodesToDraw = new double[_numOfNodesToSelect][];
                 //
-                Vec3D baseV = new Vec3D(_controller.GetNode(nodeId).Coor);
+                Vec3D baseV = new Vec3D(_controller.GetNode(nodeId, false).Coor);
+                Vec3D drawV = new Vec3D(_controller.GetNode(nodeId, true).Coor);
                 // Item name
                 string itemName = "Node";
                 if (_controller.CurrentView == ViewGeometryModelResults.Geometry) itemName = "Vertex";
@@ -249,7 +244,7 @@ namespace PrePoMax.Forms
                     float fieldValue = _controller.GetNodalValue(nodeId);
                     string fieldUnit = "[" + _controller.GetCurrentResultsUnitAbbreviation() + "]";
                     //
-                    Vec3D trueScaledV = new Vec3D(_controller.GetScaledNode(1, nodeId).Coor);
+                    Vec3D trueScaledV = new Vec3D(_controller.GetScaledNode(1, nodeId, false).Coor);
                     Vec3D disp = trueScaledV - baseV;
                     //
                     data = string.Format("{0,16}{1,8}{2,16}{3,16}, {4,16}, {5,16}",
@@ -266,13 +261,12 @@ namespace PrePoMax.Forms
                     Form_WriteDataToOutput(data);
                     //
                     float scale = _controller.GetScale();
-                    baseV = new Vec3D(_controller.GetScaledNode(scale, nodeId).Coor); // for the _coorNodesToDraw
+                    drawV = new Vec3D(_controller.GetScaledNode(scale, nodeId, true).Coor);
                 }
                 //
                 Form_WriteDataToOutput("");
                 //
-                _coorNodesToDraw[0] = baseV.Coor;
-                _coorLinesToDraw = null;
+                _coorNodesToDraw[0] = drawV.Coor;
                 //
                 _controller.Annotations.AddNodeAnnotation(nodeId);
             }
@@ -327,7 +321,7 @@ namespace PrePoMax.Forms
             {
                 int[] nodeIds;
                 _controller.DisplayedMesh.GetEdgeNodeCoor(geometryId, out nodeIds, out double[][] nodeCoor);
-                FeNode[] nodes = _controller.GetScaledNodes(1, nodeIds);
+                FeNode[] nodes = _controller.GetScaledNodes(1, nodeIds, false);
                 double length2 = 0;
                 Vec3D n1;
                 Vec3D n2;
@@ -379,7 +373,7 @@ namespace PrePoMax.Forms
             {
                 int[] nodeIds;
                 _controller.DisplayedMesh.GetFaceNodes(geometryId, out nodeIds);
-                FeNode[] nodes = _controller.GetScaledNodes(1, nodeIds);
+                FeNode[] nodes = _controller.GetScaledNodes(1, nodeIds, false);
                 Dictionary<int, FeNode> nodesDic = new Dictionary<int, FeNode>();
                 for (int i = 0; i < nodes.Length; i++) nodesDic.Add(nodes[i].Id, nodes[i]);
                 double area2 = _controller.DisplayedMesh.ComputeFaceArea(part.Visualization, surfaceId, nodesDic);
@@ -437,7 +431,7 @@ namespace PrePoMax.Forms
             //
             if (_controller.CurrentView == ViewGeometryModelResults.Results)
             {
-                FeNode[] nodes = _controller.GetScaledNodes(1, part.NodeLabels);
+                FeNode[] nodes = _controller.GetScaledNodes(1, part.NodeLabels, false);
                 Dictionary<int, FeNode> nodesDic = new Dictionary<int, FeNode>();
                 foreach (var node in nodes) nodesDic.Add(node.Id, node);
                 PartMassProperties massProperties = mesh.ComputeVolumeArea(part, nodesDic);
@@ -532,11 +526,8 @@ namespace PrePoMax.Forms
             if (Form_WriteDataToOutput != null)
             {
                 string data;
-                _coorNodesToDraw = new double[_numOfNodesToSelect][];
-                //
-                Vec3D trueScaledD = null;
-                Vec3D baseV1 = new Vec3D(_controller.GetNode(nodeId1).Coor);
-                Vec3D baseV2 = new Vec3D(_controller.GetNode(nodeId2).Coor);
+                Vec3D baseV1 = new Vec3D(_controller.GetNode(nodeId1, false).Coor);
+                Vec3D baseV2 = new Vec3D(_controller.GetNode(nodeId2, false).Coor);
                 Vec3D baseD = baseV2 - baseV1;
                 string lenUnit = _controller.GetLengthUnit();
                 string lenUnitInBrackets = string.Format("[{0}]", lenUnit);
@@ -553,9 +544,9 @@ namespace PrePoMax.Forms
                 //
                 if (_controller.CurrentView == ViewGeometryModelResults.Results)
                 {
-                    Vec3D trueScaledV1 = new Vec3D(_controller.GetScaledNode(1, nodeId1).Coor);
-                    Vec3D trueScaledV2 = new Vec3D(_controller.GetScaledNode(1, nodeId2).Coor);
-                    trueScaledD = trueScaledV2 - trueScaledV1;
+                    Vec3D trueScaledV1 = new Vec3D(_controller.GetScaledNode(1, nodeId1, false).Coor);
+                    Vec3D trueScaledV2 = new Vec3D(_controller.GetScaledNode(1, nodeId2, false).Coor);
+                    Vec3D trueScaledD = trueScaledV2 - trueScaledV1;
                     Vec3D delta = trueScaledD - baseD;
                     //
                     data = string.Format("{0,16}{1,8}{2,16}{3,16}, {4,16}, {5,16}, {6,16}",
@@ -568,29 +559,9 @@ namespace PrePoMax.Forms
                                          FormatQueryValue(delta.X), FormatQueryValue(delta.Y), FormatQueryValue(delta.Z),
                                          FormatQueryValue(trueScaledD.Len - baseD.Len));
                     Form_WriteDataToOutput(data);
-                    //
-                    float scale = _controller.GetScale();
-                    baseV1 = new Vec3D(_controller.GetScaledNode(scale, nodeId1).Coor);    // for the _coorNodesToDraw
-                    baseV2 = new Vec3D(_controller.GetScaledNode(scale, nodeId2).Coor);    // for the _coorNodesToDraw
                 }
                 Form_WriteDataToOutput("");
-                //
-                _coorNodesToDraw[0] = baseV1.Coor;
-                _coorNodesToDraw[1] = baseV2.Coor;
-                _coorLinesToDraw = _coorNodesToDraw;
-                // Annotation
-                string text;
-                string numberFormat = _controller.Settings.NumberFormat.GetNumberFormat();
-                //
-                if (trueScaledD != null) baseD = trueScaledD;
-                //
-                text = string.Format("Distance: {0} {1}{2}", baseD.Len.ToString(numberFormat), lenUnit, Environment.NewLine);
-                text += string.Format("dx: {0} {1}{2}", baseD.X.ToString(numberFormat), lenUnit, Environment.NewLine);
-                text += string.Format("dy: {0} {1}{2}", baseD.Y.ToString(numberFormat), lenUnit, Environment.NewLine);
-                text += string.Format("dz: {0} {1}", baseD.Z.ToString(numberFormat), lenUnit);
-                //
-                Vec3D anchor = (baseV1 + baseV2) * 0.5;
-                _controller.Annotations.AddMeasureAnnotation(text, anchor.Coor);
+                _controller.Annotations.AddDistanceAnnotation(nodeId1, nodeId2);
             }
         }
         public void ThreeNodesPicked(int nodeId1, int nodeId2, int nodeId3)
@@ -607,15 +578,11 @@ namespace PrePoMax.Forms
             System.Diagnostics.Debug.Write(nodeId1 + " " + nodeId2 + " " + nodeId3);
             string data;
             double angle;
-            double angle2draw;
-            Vec3D p;
-            Vec3D axis;
-            Vec3D baseV1 = new Vec3D(_controller.GetNode(nodeId1).Coor);
-            Vec3D baseV2 = new Vec3D(_controller.GetNode(nodeId2).Coor);
-            Vec3D baseV3 = new Vec3D(_controller.GetNode(nodeId3).Coor);
+            Vec3D baseV1 = new Vec3D(_controller.GetNode(nodeId1, false).Coor);
+            Vec3D baseV2 = new Vec3D(_controller.GetNode(nodeId2, false).Coor);
+            Vec3D baseV3 = new Vec3D(_controller.GetNode(nodeId3, false).Coor);
             //
-            angle = ComputeAngle(baseV1, baseV2, baseV3, out p, out axis);
-            angle2draw = angle;
+            angle = ComputeAngle(baseV1, baseV2, baseV3, out _, out _);
             string angleUnit = StringAngleDegConverter.GetUnitAbbreviation();
             string angleUnitInBrackets = "[" + angleUnit + "]";
             //
@@ -628,11 +595,11 @@ namespace PrePoMax.Forms
             //
             if (_controller.CurrentView == ViewGeometryModelResults.Results)
             {
-                baseV1 = new Vec3D(_controller.GetScaledNode(1, nodeId1).Coor);
-                baseV2 = new Vec3D(_controller.GetScaledNode(1, nodeId2).Coor);
-                baseV3 = new Vec3D(_controller.GetScaledNode(1, nodeId3).Coor);
+                baseV1 = new Vec3D(_controller.GetScaledNode(1, nodeId1, false).Coor);
+                baseV2 = new Vec3D(_controller.GetScaledNode(1, nodeId2, false).Coor);
+                baseV3 = new Vec3D(_controller.GetScaledNode(1, nodeId3, false).Coor);
                 //
-                double angle2 = ComputeAngle(baseV1, baseV2, baseV3, out p, out axis);
+                double angle2 = ComputeAngle(baseV1, baseV2, baseV3, out _, out _);
                 double delta = angle2 - angle;
                 //
                 data = string.Format("{0,16}{1,8}{2,16}{3,16}", "Deformed".PadRight(16), angleUnitInBrackets, "ϕ:",
@@ -641,33 +608,9 @@ namespace PrePoMax.Forms
                 data = string.Format("{0,16}{1,8}{2,16}{3,16}", "Delta".PadRight(16), angleUnitInBrackets, "ϕ:",
                                      FormatQueryValue(delta));
                 Form_WriteDataToOutput(data);
-                //
-                float scale = _controller.GetScale();
-                baseV1 = new Vec3D(_controller.GetScaledNode(scale, nodeId1).Coor);    // for the _coorNodesToDraw
-                baseV2 = new Vec3D(_controller.GetScaledNode(scale, nodeId2).Coor);    // for the _coorNodesToDraw
-                baseV3 = new Vec3D(_controller.GetScaledNode(scale, nodeId3).Coor);    // for the _coorNodesToDraw
-                //
-                angle = angle2;                                                 // for the annotation
-                angle2draw = ComputeAngle(baseV1, baseV2, baseV3, out p, out axis); // for drawing
             }
             Form_WriteDataToOutput("");
-            //
-            _coorNodesToDraw = new double[_numOfNodesToSelect][];
-            _coorNodesToDraw[0] = baseV1.Coor;
-            _coorNodesToDraw[1] = baseV2.Coor;
-            _coorNodesToDraw[2] = baseV3.Coor;
-            //
-            List<double[]> coorLines = new List<double[]>() { baseV1.Coor, baseV2.Coor, baseV3.Coor, baseV2.Coor };
-            coorLines.AddRange(ComputeCirclePoints(baseV2, axis, p, angle2draw * Math.PI / 180));
-            _coorLinesToDraw = coorLines.ToArray();
-            // Annotation
-            string text;
-            string numberFormat = _controller.Settings.NumberFormat.GetNumberFormat();
-            //
-            text = string.Format("Angle: {0}{1}", angle.ToString(numberFormat), angleUnit);
-            //
-            double[] anchor = _coorLinesToDraw[_coorLinesToDraw.Length / 2];
-            _controller.Annotations.AddMeasureAnnotation(text, anchor);
+            _controller.Annotations.AddAngleAnnotation(nodeId1, nodeId2, nodeId3);
         }
         private void ComputeCircle(int nodeId1, int nodeId2, int nodeId3)
         {
@@ -676,18 +619,11 @@ namespace PrePoMax.Forms
             double r;
             Vec3D center;
             Vec3D axis;
-            double rDraw;
-            Vec3D centerDraw;
-            Vec3D axisDraw;
-            Vec3D baseV1 = new Vec3D(_controller.GetNode(nodeId1).Coor);
-            Vec3D baseV2 = new Vec3D(_controller.GetNode(nodeId2).Coor);
-            Vec3D baseV3 = new Vec3D(_controller.GetNode(nodeId3).Coor);
+            Vec3D baseV1 = new Vec3D(_controller.GetNode(nodeId1, false).Coor);
+            Vec3D baseV2 = new Vec3D(_controller.GetNode(nodeId2, false).Coor);
+            Vec3D baseV3 = new Vec3D(_controller.GetNode(nodeId3, false).Coor);
             //
-            double arcAngleDeg;
-            Vec3D.GetCircle(baseV1, baseV2, baseV3, out r, out arcAngleDeg, out center, out axis);
-            rDraw = r;
-            centerDraw = center;
-            axisDraw = axis;
+            Vec3D.GetCircle(baseV1, baseV2, baseV3, out r, out _, out center, out axis);
             string lenUnit = _controller.GetLengthUnit();
             string lenUnitInBrackets = string.Format("[{0}]", lenUnit);
             //
@@ -706,9 +642,9 @@ namespace PrePoMax.Forms
             //
             if (_controller.CurrentView == ViewGeometryModelResults.Results)
             {
-                baseV1 = new Vec3D(_controller.GetScaledNode(1, nodeId1).Coor);
-                baseV2 = new Vec3D(_controller.GetScaledNode(1, nodeId2).Coor);
-                baseV3 = new Vec3D(_controller.GetScaledNode(1, nodeId3).Coor);
+                baseV1 = new Vec3D(_controller.GetScaledNode(1, nodeId1, false).Coor);
+                baseV2 = new Vec3D(_controller.GetScaledNode(1, nodeId2, false).Coor);
+                baseV3 = new Vec3D(_controller.GetScaledNode(1, nodeId3, false).Coor);
                 //
                 Vec3D.GetCircle(baseV1, baseV2, baseV3, out r, out center, out axis);
                 //
@@ -721,34 +657,9 @@ namespace PrePoMax.Forms
                                      "Deformed axis".PadRight(16), lenUnitInBrackets, "x, y, z:",
                                      FormatQueryValue(axis.X), FormatQueryValue(axis.Y), FormatQueryValue(axis.Z));
                 Form_WriteDataToOutput(data);
-                //
-                float scale = _controller.GetScale();
-                baseV1 = new Vec3D(_controller.GetScaledNode(scale, nodeId1).Coor);    // for the _coorNodesToDraw
-                baseV2 = new Vec3D(_controller.GetScaledNode(scale, nodeId2).Coor);    // for the _coorNodesToDraw
-                baseV3 = new Vec3D(_controller.GetScaledNode(scale, nodeId3).Coor);    // for the _coorNodesToDraw
-                //
-                Vec3D.GetCircle(baseV1, baseV2, baseV3, out rDraw, out centerDraw, out axisDraw);
             }
             Form_WriteDataToOutput("");
-            //
-            _coorNodesToDraw = new double[_numOfNodesToSelect + 1][];
-            _coorNodesToDraw[0] = baseV1.Coor;
-            _coorNodesToDraw[1] = baseV2.Coor;
-            _coorNodesToDraw[2] = baseV3.Coor;
-            _coorNodesToDraw[3] = centerDraw.Coor;
-            //
-            _coorLinesToDraw = ComputeCirclePoints(centerDraw, axisDraw, baseV1, 2 * Math.PI);
-            // Annotation
-            string text;
-            string numberFormat = _controller.Settings.NumberFormat.GetNumberFormat();
-            //
-            text = string.Format("Radius: {0} {1}{2}", r.ToString(numberFormat), lenUnit, Environment.NewLine);
-            text += string.Format("X: {0} {1}{2}", center.X.ToString(numberFormat), lenUnit, Environment.NewLine);
-            text += string.Format("Y: {0} {1}{2}", center.Y.ToString(numberFormat), lenUnit, Environment.NewLine);
-            text += string.Format("Z: {0} {1}", center.Z.ToString(numberFormat), lenUnit);
-            //
-            double[] anchor = _coorLinesToDraw[2];
-            _controller.Annotations.AddMeasureAnnotation(text, anchor);
+            _controller.Annotations.AddCircleAnnotation(nodeId1, nodeId2, nodeId3);
         }
         private double ComputeAngle(Vec3D baseV1, Vec3D baseV2, Vec3D baseV3, out Vec3D p, out Vec3D axis)
         {
@@ -780,56 +691,9 @@ namespace PrePoMax.Forms
         {
             _queryNumberFormat = _controller.Settings.NumberFormat.GetNumberFormat();
         }
-        private double[][] ComputeCirclePoints(Vec3D c, Vec3D axis, Vec3D p, double angle)
-        {
-            // The circe is constructed by moving the r vector around the axis
-            // d vector is the change in normal n and perpendicular r direction
-            int segments = 40;
-            double [][] coorLines = new double[segments + 1][];
-            double dAngle = angle / segments;
-            Vec3D r = p - c;
-            double rLen = r.Len;
-            Vec3D n;
-            Vec3D d;
-            //
-            coorLines[0] = p.Coor;
-            for (int i = 0; i < segments; i++)
-            {
-                n = Vec3D.CrossProduct(axis, r);
-                n.Normalize();
-                //
-                d = rLen * Math.Sin(dAngle) * n - (1 - Math.Cos(dAngle)) * r;
-                p = p + d;
-                r = r + d;
-                //
-                coorLines[i + 1] = p.Coor;
-            }
-            return coorLines;
-        }
-        //
-        private void RemoveMeasureAnnotation()
-        {
-            _controller.Annotations.RemoveCurrentMeasureAnnotation();
-        }
         public void Highlight()
         {
-            if (_coorNodesToDraw != null)
-            {
-                if (_coorNodesToDraw.GetLength(0) == 1)
-                {
-                    _controller.HighlightNodes(_coorNodesToDraw);
-                }
-                else if (_coorNodesToDraw.GetLength(0) == 2)
-                {
-                    _controller.HighlightNodes(_coorNodesToDraw);
-                    _controller.HighlightLineWithArrow(_coorNodesToDraw[0], _coorNodesToDraw[1], true, true, false, 1);
-                }
-                else if (_coorNodesToDraw.GetLength(0) > 2)
-                {
-                    _controller.HighlightNodes(_coorNodesToDraw);
-                    _controller.HighlightConnectedLines(_coorLinesToDraw);
-                }
-            }
+            if (_coorNodesToDraw != null) _controller.HighlightNodes(_coorNodesToDraw);
         }
     }
 }

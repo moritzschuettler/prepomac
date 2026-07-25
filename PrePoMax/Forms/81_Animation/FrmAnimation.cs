@@ -43,7 +43,6 @@ namespace PrePoMax.Forms
     public partial class FrmAnimation : UserControls.PrePoMaxChildForm
     {
         // Variables                                                                                                                
-        private int _countFrames;
         private Size _expandedSize;
         private bool _updateAnimation;
         private bool _doUpdateFrame;
@@ -70,7 +69,11 @@ namespace PrePoMax.Forms
         {
             InitializeComponent();
             //
-            _countFrames = 0;
+            groupBox4.Text = "Animation pipeline";
+            cbGraphicsRam.Text = "Use persistent VTK frame buffers";
+            cbGraphicsRam.Checked = true;
+            cbGraphicsRam.Enabled = false;
+            //
             _updateAnimation = false;
             _expandedSize = Size;            
             _setSaveAsFolder = true;
@@ -246,6 +249,7 @@ namespace PrePoMax.Forms
         // Acceleration
         private void cbGraphicsRam_CheckedChanged(object sender, EventArgs e)
         {
+            if (_form == null) return;
             _form.SetAnimationAcceleration(cbGraphicsRam.Checked);
             Stop();
             _updateAnimation = true;
@@ -400,7 +404,6 @@ namespace PrePoMax.Forms
         //
         private void InitializeVariables()
         {
-            _countFrames = 0;
             numNumberOfFrames_ValueChanged(null, null);
             _currFrame = (int)numLastFrame.Value;
 
@@ -557,13 +560,7 @@ namespace PrePoMax.Forms
                     //
                     timerAnimation.Enabled = timer;
                 }
-                if (_countFrames >= 1000)
-                {
-                    _updateAnimation = true;
-                    _countFrames = 0;
-                }
                 _form.SetAnimationFrame(_currFrame - 1, _colorSpectrumLimitsType == ColorSpectrumLimitsType.AllFrames);
-                _countFrames++;
             }
             catch (Exception ex)
             {

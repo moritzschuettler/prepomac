@@ -71,7 +71,7 @@ namespace PrePoMax
             else if (Controller.CurrentView == ViewGeometryModelResults.Results)
             {
                 float value;
-                FeNode[] nodes = Controller.GetScaledNodes(1, nodeIds);
+                FeNode[] nodes = Controller.GetScaledNodes(1, nodeIds, false);
                 // Area
                 Dictionary<int, double> weights;
                 Dictionary<int, FeNode> nodesDic = new Dictionary<int, FeNode>();
@@ -155,6 +155,15 @@ namespace PrePoMax
             }
             //
             if (IsTextOverridden) text = OverriddenText;
+        }
+        public override bool IsAnimationTextChanged()
+        {
+            var settings = Controller.Settings.Annotations;
+            bool fieldData = Controller.ViewResultsType == ViewResultsTypeEnum.ColorContours &&
+                             (settings.ShowEdgeSurMax || settings.ShowEdgeSurMin ||
+                              settings.ShowEdgeSurSum || settings.ShowEdgeSurAvg);
+            return !IsTextOverridden && Controller.CurrentView == ViewGeometryModelResults.Results &&
+                   (settings.ShowEdgeSurSize || fieldData);
         }
     }
 }

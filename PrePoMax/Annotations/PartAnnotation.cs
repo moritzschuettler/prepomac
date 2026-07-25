@@ -40,7 +40,9 @@ namespace PrePoMax
             BasePart part = mesh.GetPartFromId(_partIds[0]);
             if (part == null) throw new NotSupportedException();
             // Coor
-            coor = Controller.GetPartCenterOfGravity(part.PartId);
+            if (Controller.UpdatingAnimationAnnotations && !Controller.InitializingAnimationAnnotationAnchors)
+                coor = null; // The VTK material attachment updates the anchor.
+            else coor = Controller.GetPartCenterOfGravity(part.PartId);
             //
             bool showPartName = Controller.Settings.Annotations.ShowPartName;
             bool showPartId = Controller.Settings.Annotations.ShowPartId;
@@ -64,25 +66,29 @@ namespace PrePoMax
             string numberFormat = Controller.Settings.NumberFormat.GetNumberFormat();
             bool volume = part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell ||
                           part.PartType == PartType.Compound;
-            double value = 0;
-            string volumeArea;
-            if (Controller.CurrentView == ViewGeometryModelResults.Results)
+            string volumeArea = null;
+            if (showPartVolumeArea)
             {
-                FeNode[] nodes = Controller.GetScaledNodes(1, part.NodeLabels);
-                Dictionary<int, FeNode> nodesDic = new Dictionary<int, FeNode>();
-                foreach (var node in nodes) nodesDic.Add(node.Id, node);
-                PartMassProperties massProperties = mesh.ComputeVolumeArea(part, nodesDic);
-                //
-                if (volume) value = massProperties.Volume;
-                else value = massProperties.Area;
+                double value;
+                if (Controller.CurrentView == ViewGeometryModelResults.Results)
+                {
+                    FeNode[] nodes = Controller.GetScaledNodes(1, part.NodeLabels, false);
+                    Dictionary<int, FeNode> nodesDic = new Dictionary<int, FeNode>();
+                    foreach (var node in nodes) nodesDic.Add(node.Id, node);
+                    PartMassProperties massProperties = mesh.ComputeVolumeArea(part, nodesDic);
+                    //
+                    if (volume) value = massProperties.Volume;
+                    else value = massProperties.Area;
+                }
+                else
+                {
+                    if (volume) value = part.MassProperties.Volume;
+                    else value = part.MassProperties.Area;
+                }
+                if (volume)
+                    volumeArea = string.Format("Part volume: {0} {1}", value.ToString(numberFormat), volumeUnit);
+                else volumeArea = string.Format("Part area: {0} {1}", value.ToString(numberFormat), areaUnit);
             }
-            else
-            {
-                if (volume) value = part.MassProperties.Volume;
-                else value = part.MassProperties.Area;
-            }
-            if (volume) volumeArea = string.Format("Part volume: {0} {1}", value.ToString(numberFormat), volumeUnit);
-            else volumeArea = string.Format("Part area: {0} {1}", value.ToString(numberFormat), areaUnit);
             //
             text = "";
             //
@@ -121,6 +127,11 @@ namespace PrePoMax
             }
             //
             if (IsTextOverridden) text = OverriddenText;
+        }
+        public override bool IsAnimationTextChanged()
+        {
+            return !IsTextOverridden && Controller.CurrentView == ViewGeometryModelResults.Results &&
+                   Controller.Settings.Annotations.ShowPartVolumeArea;
         }
     }
 }

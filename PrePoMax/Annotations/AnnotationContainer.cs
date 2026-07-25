@@ -84,6 +84,16 @@ namespace PrePoMax
             //
             return GetCurrentAnnotations().GetNextNumberedKey(prefix + "Annotation");
         }
+        private string GetFreeMeasurementAnnotationName(MeasurementAnnotationType measurementType)
+        {
+            string prefix = "";
+            if (AnnotationBase.Controller.CurrentView == ViewGeometryModelResults.Geometry) prefix = "G_";
+            else if (AnnotationBase.Controller.CurrentView == ViewGeometryModelResults.Model) prefix = "M_";
+            else if (AnnotationBase.Controller.CurrentView == ViewGeometryModelResults.Results) prefix = "R_";
+            else throw new NotSupportedException();
+            //
+            return GetCurrentAnnotations().GetNextNumberedKey(prefix + measurementType.ToString());
+        }
         public string[] GetCurrentAnnotationNames()
         {
             return GetCurrentAnnotations().Keys.ToArray();
@@ -127,6 +137,24 @@ namespace PrePoMax
         public void AddMeasureAnnotation(string text, double[] anchor)
         {
             AddAnnotation(new TextAnnotation(MeasureAnnotationName, text, anchor));
+        }
+        public void AddDistanceAnnotation(int nodeId1, int nodeId2)
+        {
+            string name = GetFreeMeasurementAnnotationName(MeasurementAnnotationType.Distance);
+            AddAnnotation(new MeasurementAnnotation(name, MeasurementAnnotationType.Distance,
+                                                    new int[] { nodeId1, nodeId2 }));
+        }
+        public void AddAngleAnnotation(int nodeId1, int nodeId2, int nodeId3)
+        {
+            string name = GetFreeMeasurementAnnotationName(MeasurementAnnotationType.Angle);
+            AddAnnotation(new MeasurementAnnotation(name, MeasurementAnnotationType.Angle,
+                                                    new int[] { nodeId1, nodeId2, nodeId3 }));
+        }
+        public void AddCircleAnnotation(int nodeId1, int nodeId2, int nodeId3)
+        {
+            string name = GetFreeMeasurementAnnotationName(MeasurementAnnotationType.Circle);
+            AddAnnotation(new MeasurementAnnotation(name, MeasurementAnnotationType.Circle,
+                                                    new int[] { nodeId1, nodeId2, nodeId3 }));
         }
         //
         public AnnotationBase GetCurrentAnnotation(string name)
@@ -242,11 +270,22 @@ namespace PrePoMax
                     {
                         annotation = entry.Value;
                         // First get the annotation data to determine if the annotation is valid
-                        annotation.GetAnnotationData(out text, out arrowCoor);
+                        double[][] measurementNodeCoordinates = null;
+                        double[][] measurementLineCoordinates = null;
+                        if (annotation is MeasurementAnnotation measurement)
+                            measurement.GetAnnotationData(out text, out arrowCoor, out measurementNodeCoordinates,
+                                                          out measurementLineCoordinates);
+                        else
+                            annotation.GetAnnotationData(out text, out arrowCoor);
+                        string[] animationActorNames = GetAnimationActorNames(annotation);
                         AnnotationBase.Controller.Form.AddArrowWidget(entry.Value.Name, text, numberFormat, arrowCoor,
                                                                       drawBackground, drawBorder,
-                                                                      annotation.IsAnnotationVisible());
-
+                                                                      annotation.IsAnnotationVisible(),
+                                                                      animationActorNames);
+                        if (annotation is MeasurementAnnotation measurementAnnotation)
+                            AnnotationBase.Controller.DrawMeasurementAnnotation(
+                                measurementAnnotation.Name, measurementNodeCoordinates, measurementLineCoordinates,
+                                measurementAnnotation.DrawEndArrows, annotation.IsAnnotationVisible());
                     }
                     catch
                     {
@@ -267,11 +306,56 @@ namespace PrePoMax
                 bool showMax = AnnotationBase.Controller.Settings.Post.ShowMaxValueLocation && !_suppressed;
                 //
                 AnnotationBase.Controller.Form.AddArrowWidget(MinAnnotationName, "", numberFormat, new double[3],
-                                                                drawBackground, drawBorder, showMin);
+                                                                drawBackground, drawBorder, showMin, null);
                 AnnotationBase.Controller.Form.AddArrowWidget(MaxAnnotationName, "", numberFormat, new double[3],
-                                                                drawBackground, drawBorder, showMax);
+                                                                drawBackground, drawBorder, showMax, null);
             }
             if (arrangeVisible) AnnotationBase.Controller.Form.ArrangeVisibleArrowWidgets();
+        }
+        public void UpdateAnimationAnnotations(bool updateAnchors)
+        {
+            foreach (var entry in GetCurrentAnnotations())
+            {
+                AnnotationBase annotation = entry.Value;
+                bool updateText = annotation.IsAnimationTextChanged();
+                bool updateAnchor = updateAnchors || annotation.IsAnimationAnchorChanged();
+                bool updateMeasurement = annotation is MeasurementAnnotation;
+                if (!annotation.IsAnnotationVisible() || (!updateAnchor && !updateText && !updateMeasurement)) continue;
+                try
+                {
+                    string text;
+                    double[] anchorPoint;
+                    if (annotation is MeasurementAnnotation measurement)
+                    {
+                        measurement.GetAnnotationData(out text, out anchorPoint, out double[][] nodeCoordinates,
+                                                      out double[][] lineCoordinates);
+                        AnnotationBase.Controller.UpdateMeasurementAnnotation(
+                            measurement.Name, nodeCoordinates, lineCoordinates, measurement.DrawEndArrows, true);
+                    }
+                    else
+                        annotation.GetAnnotationData(out text, out anchorPoint);
+                    AnnotationBase.Controller.Form.UpdateArrowWidgetAnimationData(annotation.Name,
+                        updateText ? text : null, updateAnchor ? anchorPoint : null);
+                }
+                catch
+                {
+                    // Keep the previous text if an annotation is temporarily unavailable in this frame.
+                }
+            }
+        }
+        private string[] GetAnimationActorNames(AnnotationBase annotation)
+        {
+            if (AnnotationBase.Controller.CurrentView != ViewGeometryModelResults.Results ||
+                annotation.PartIds == null || !annotation.CanUseAnimationArrowAnchor()) return null;
+
+            List<string> actorNames = new List<string>();
+            FeMesh mesh = AnnotationBase.Controller.DisplayedMesh;
+            foreach (int partId in annotation.PartIds)
+            {
+                BasePart part = mesh.GetPartFromId(partId);
+                if (part != null) actorNames.Add(part.Name);
+            }
+            return actorNames.Count > 0 ? actorNames.ToArray() : null;
         }
         // Remove
         public void RemoveCurrentArrowAnnotation(string annotationName)
@@ -289,6 +373,7 @@ namespace PrePoMax
             if (annotations != null)
             {
                 foreach (var annotationName in annotationNames) annotations.Remove(annotationName);
+                AnnotationBase.Controller.Form.RemoveMeasurementAnnotations(annotationNames);
                 AnnotationBase.Controller.ModelChanged = true;
             }
         }
@@ -310,6 +395,7 @@ namespace PrePoMax
                 List<AnnotationBase> annotationsToRemove = new List<AnnotationBase>();
                 foreach (var entry in annotations)
                 {
+                    if (entry.Value.PartIds == null) continue;
                     foreach (var partId in entry.Value.PartIds)
                     {
                         if (partIds.Contains(partId)) annotationsToRemove.Add(entry.Value);
@@ -317,6 +403,9 @@ namespace PrePoMax
                 }
                 // Remove
                 foreach (var annotation in annotationsToRemove) annotations.Remove(annotation.Name);
+                string[] annotationNames = annotationsToRemove.Select(annotation => annotation.Name).Distinct().ToArray();
+                AnnotationBase.Controller.Form.RemoveArrowWidgets(annotationNames);
+                AnnotationBase.Controller.Form.RemoveMeasurementAnnotations(annotationNames);
                 //
                 AnnotationBase.Controller.ModelChanged = true;
             }
@@ -342,6 +431,7 @@ namespace PrePoMax
         {
             var annotations = GetCurrentAnnotations();
             AnnotationBase.Controller.Form.RemoveArrowWidgets(annotations.Keys.ToArray());
+            AnnotationBase.Controller.Form.RemoveMeasurementAnnotations(annotations.Keys.ToArray());
             annotations.Clear();
             //
             AnnotationBase.Controller.ModelChanged = true;
@@ -352,6 +442,7 @@ namespace PrePoMax
             if (_allResultsAnnotations.TryGetValue(CurrentResultName, out resultAnnotations))
             {
                 AnnotationBase.Controller.Form.RemoveArrowWidgets(resultAnnotations.Keys.ToArray());
+                AnnotationBase.Controller.Form.RemoveMeasurementAnnotations(resultAnnotations.Keys.ToArray());
                 //
                 _allResultsAnnotations.Remove(CurrentResultName);
                 //
@@ -366,6 +457,7 @@ namespace PrePoMax
         }
         public void RemoveAllArrowAnnotations()
         {
+            AnnotationBase.Controller.Form.RemoveMeasurementAnnotations(GetCurrentAnnotationNames());
             _geometryAnnotations.Clear();
             _modelAnnotations.Clear();
             _allResultsAnnotations.Clear();

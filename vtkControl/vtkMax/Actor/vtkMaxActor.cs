@@ -17,6 +17,7 @@ using CaeGlobals;
 using static System.Windows.Forms.LinkLabel;
 using System.Security.Policy;
 using System.Threading;
+using System.Runtime.InteropServices;
 
 namespace vtkControl
 {
@@ -44,6 +45,9 @@ namespace vtkControl
         protected vtkPointData _frustumPointData;
         protected vtkMaxActor _sectionViewActor;
         protected List<vtkMaxActor> _copies;
+        protected vtkMaxActorAnimationData[] _animationData;
+        protected Dictionary<int, int> _animationNodeIdToPointId;
+        protected Dictionary<int, int> _animationLocatorNodeIdToPointId;
         //
         protected bool _isAPart;
         protected vtkMaxActorRepresentation _actorRepresentation;
@@ -1737,49 +1741,247 @@ namespace vtkControl
 
 
         // Animation                                                                                                                
-        public void SetAnimationFrame(vtkMaxActorData data, int frameNumber)
+        public double InitializeAnimation(vtkMaxActorData data)
         {
-            if (data.Geometry.NodesAnimation != null)
+            if (data.Geometry.NodesAnimation == null)
             {
-                if (frameNumber < 0 || frameNumber >= data.Geometry.NodesAnimation.Length)
-                    throw new Exception("The animation frame cannot be set.");
-                //
-                vtkMaxActorAnimationData animationData = 
-                    new vtkMaxActorAnimationData(data.Geometry.NodesAnimation[frameNumber].Coor, 
-                                                 data.ModelEdges.NodesAnimation[frameNumber].Coor,
-                                                 data.Geometry.NodesAnimation[frameNumber].Values,
-                                                 data.Geometry.ExtremeNodesAnimation[frameNumber],
-                                                 data.CellLocator.NodesAnimation[frameNumber].Coor,
-                                                 data.CellLocator.NodesAnimation[frameNumber].Values);
-                // Actor points
-                if (animationData.Points != null)
-                {
-                    vtkPointSet pointSet = _geometryMapper.GetInput() as vtkPointSet;
-                    pointSet.SetPoints(animationData.Points);
-                    (_elementEdges.GetMapper().GetInput() as vtkPointSet).SetPoints(animationData.Points);
-                    // Normals
-                    if (pointSet.GetPointData().GetNormals() != null && animationData.PointNormals == null)
-                        animationData.PointNormals = ComputeNormals(pointSet);
-                    pointSet.GetPointData().SetNormals(animationData.PointNormals);
-                }
-                // Actor edges points
-                if (animationData.ModelEdgesPoints != null && _modelEdges != null)
-                    (_modelEdges.GetMapper().GetInput() as vtkPointSet).SetPoints(animationData.ModelEdgesPoints);
-                // Values
-                if (animationData.Values != null) _geometryMapper.GetInput().GetPointData().SetScalars(animationData.Values);
-                // Min/max
-                if (animationData.MinNode != null) _minNode = animationData.MinNode;
-                if (animationData.MaxNode != null) _maxNode = animationData.MaxNode;
-                // Locator points
-                if (animationData.LocatorPoints != null)
-                {
-                    vtkPointSet pointSet = _frustumCellLocator.GetDataSet() as vtkPointSet;
-                    pointSet.SetPoints(animationData.LocatorPoints);
-                }
-                // Locator values
-                if (animationData.LocatorValues != null)
-                    _frustumCellLocator.GetDataSet().GetPointData().SetScalars(animationData.LocatorValues);
+                _animationData = null;
+                return 0;
             }
+
+            int numOfFrames = data.Geometry.NodesAnimation.Length;
+            _animationData = new vtkMaxActorAnimationData[numOfFrames];
+            _animationNodeIdToPointId = new Dictionary<int, int>();
+            if (data.Geometry.Nodes.Ids != null)
+            {
+                for (int i = 0; i < data.Geometry.Nodes.Ids.Length; i++)
+                    _animationNodeIdToPointId[data.Geometry.Nodes.Ids[i]] = i;
+            }
+            _animationLocatorNodeIdToPointId = new Dictionary<int, int>();
+            if (data.CellLocator?.Nodes?.Ids != null)
+            {
+                for (int i = 0; i < data.CellLocator.Nodes.Ids.Length; i++)
+                    _animationLocatorNodeIdToPointId[data.CellLocator.Nodes.Ids[i]] = i;
+            }
+            vtkPointSet geometryPointSet = _geometryMapper.GetInput() as vtkPointSet;
+            bool computeNormals = geometryPointSet.GetPointData().GetNormals() != null;
+            double memorySizeKb = 0;
+
+            for (int frameNumber = 0; frameNumber < numOfFrames; frameNumber++)
+            {
+                double[][] modelEdgesNodes = null;
+                if (data.ModelEdges != null && data.ModelEdges.NodesAnimation != null)
+                    modelEdgesNodes = data.ModelEdges.NodesAnimation[frameNumber].Coor;
+                double[][] locatorNodes = null;
+                float[] locatorValues = null;
+                if (data.CellLocator != null && data.CellLocator.NodesAnimation != null)
+                {
+                    locatorNodes = data.CellLocator.NodesAnimation[frameNumber].Coor;
+                    locatorValues = data.CellLocator.NodesAnimation[frameNumber].Values;
+                }
+                NodesExchangeData extremeNodes = null;
+                if (data.Geometry.ExtremeNodesAnimation != null)
+                    extremeNodes = data.Geometry.ExtremeNodesAnimation[frameNumber];
+                //
+                vtkMaxActorAnimationData animationData =
+                    new vtkMaxActorAnimationData(data.Geometry.NodesAnimation[frameNumber].Coor, 
+                                                 modelEdgesNodes,
+                                                 data.Geometry.NodesAnimation[frameNumber].Values,
+                                                 extremeNodes,
+                                                 locatorNodes,
+                                                 locatorValues);
+                if (computeNormals && animationData.Points != null)
+                {
+                    geometryPointSet.SetPoints(animationData.Points);
+                    animationData.PointNormals = ComputeNormals(geometryPointSet);
+                }
+                _animationData[frameNumber] = animationData;
+                memorySizeKb += animationData.GetActualMemorySizeKb();
+            }
+
+            SetAnimationFrame(0);
+            return memorySizeKb;
+        }
+
+        public void SetAnimationFrame(int frameNumber)
+        {
+            if (_animationData == null || frameNumber < 0 || frameNumber >= _animationData.Length)
+                throw new Exception("The animation frame cannot be set.");
+
+            vtkMaxActorAnimationData animationData = _animationData[frameNumber];
+            // Actor points
+            if (animationData.Points != null)
+            {
+                vtkPointSet pointSet = _geometryMapper.GetInput() as vtkPointSet;
+                pointSet.SetPoints(animationData.Points);
+                if (_elementEdges != null)
+                    (_elementEdges.GetMapper().GetInput() as vtkPointSet).SetPoints(animationData.Points);
+                pointSet.GetPointData().SetNormals(animationData.PointNormals);
+            }
+            // Actor edges points
+            if (animationData.ModelEdgesPoints != null && _modelEdges != null)
+                (_modelEdges.GetMapper().GetInput() as vtkPointSet).SetPoints(animationData.ModelEdgesPoints);
+            // Values
+            if (animationData.Values != null)
+                _geometryMapper.GetInput().GetPointData().SetScalars(animationData.Values);
+            // Min/max
+            if (animationData.MinNode != null) _minNode = animationData.MinNode;
+            if (animationData.MaxNode != null) _maxNode = animationData.MaxNode;
+            // Locator points
+            if (animationData.LocatorPoints != null && _frustumCellLocator != null)
+            {
+                vtkPointSet pointSet = _frustumCellLocator.GetDataSet() as vtkPointSet;
+                pointSet.SetPoints(animationData.LocatorPoints);
+            }
+            // Locator values
+            if (animationData.LocatorValues != null && _frustumCellLocator != null)
+                _frustumCellLocator.GetDataSet().GetPointData().SetScalars(animationData.LocatorValues);
+        }
+        internal int GetAnimationFrameCount()
+        {
+            return _animationData?.Length ?? 0;
+        }
+        internal bool TryGetAnimationExtremeNodes(int frameNumber, out vtkMaxExtreemeNode minNode,
+                                                   out vtkMaxExtreemeNode maxNode)
+        {
+            minNode = null;
+            maxNode = null;
+            if (_animationData == null || frameNumber < 0 || frameNumber >= _animationData.Length) return false;
+            //
+            minNode = _animationData[frameNumber].MinNode;
+            maxNode = _animationData[frameNumber].MaxNode;
+            return minNode != null && maxNode != null;
+        }
+        internal bool TryGetAnimationNodeCoordinates(int frameNumber, int nodeId, out double[] coordinates)
+        {
+            coordinates = null;
+            if (_animationData == null || frameNumber < 0 || frameNumber >= _animationData.Length) return false;
+            //
+            vtkMaxActorAnimationData animationData = _animationData[frameNumber];
+            if (_animationNodeIdToPointId != null &&
+                _animationNodeIdToPointId.TryGetValue(nodeId, out int pointId) &&
+                animationData.Points != null)
+            {
+                coordinates = animationData.Points.GetPoint(pointId);
+                return true;
+            }
+            if (_animationLocatorNodeIdToPointId != null &&
+                _animationLocatorNodeIdToPointId.TryGetValue(nodeId, out pointId) &&
+                animationData.LocatorPoints != null)
+            {
+                coordinates = animationData.LocatorPoints.GetPoint(pointId);
+                return true;
+            }
+            return false;
+        }
+
+        internal bool TryGetAnimationNodeData(int nodeId, out double[] coordinates, out float value)
+        {
+            coordinates = null;
+            value = float.NaN;
+            vtkPointSet pointSet;
+            int pointId;
+            if (_animationNodeIdToPointId != null &&
+                _animationNodeIdToPointId.TryGetValue(nodeId, out pointId))
+                pointSet = _geometryMapper.GetInput() as vtkPointSet;
+            else if (_animationLocatorNodeIdToPointId != null &&
+                     _animationLocatorNodeIdToPointId.TryGetValue(nodeId, out pointId))
+                pointSet = _frustumCellLocator?.GetDataSet() as vtkPointSet;
+            else return false;
+
+            if (pointSet == null) return false;
+            coordinates = pointSet.GetPoint(pointId);
+            vtkDataArray scalars = pointSet.GetPointData().GetScalars();
+            if (scalars != null && pointId < scalars.GetNumberOfTuples())
+                value = (float)scalars.GetTuple1(pointId);
+            return true;
+        }
+
+        internal bool TryCreateAnimationArrowAnchor(double[] anchorPoint, out vtkMaxAnimationArrowAnchor anchor)
+        {
+            anchor = null;
+            vtkCellLocator locator = _frustumCellLocator ?? _cellLocator;
+            vtkPointSet pointSet = locator?.GetDataSet() as vtkPointSet;
+            if (pointSet == null) return false;
+            locator.BuildLocator();
+
+            vtkGenericCell cell = vtkGenericCell.New();
+            IntPtr pointPointer = IntPtr.Zero;
+            IntPtr closestPointPointer = IntPtr.Zero;
+            IntPtr parametricCoordinatesPointer = IntPtr.Zero;
+            IntPtr weightsPointer = IntPtr.Zero;
+            try
+            {
+                pointPointer = CopyToUnmanaged(anchorPoint);
+                long cellId = locator.FindCell(pointPointer);
+                double[] evaluationPoint = anchorPoint;
+                int subId = 0;
+                double distanceSquared = 0;
+
+                if (cellId >= 0) pointSet.GetCell(cellId, cell);
+                else
+                {
+                    closestPointPointer = Marshal.AllocHGlobal(3 * sizeof(double));
+                    locator.FindClosestPoint(pointPointer, closestPointPointer, cell, ref cellId, ref subId,
+                                             ref distanceSquared);
+                    if (cellId < 0) return false;
+                    evaluationPoint = new double[3];
+                    Marshal.Copy(closestPointPointer, evaluationPoint, 0, 3);
+                }
+
+                int numOfPoints = (int)cell.GetNumberOfPoints();
+                if (numOfPoints == 0) return false;
+
+                IntPtr evaluationPointPointer = CopyToUnmanaged(evaluationPoint);
+                if (closestPointPointer == IntPtr.Zero)
+                    closestPointPointer = Marshal.AllocHGlobal(3 * sizeof(double));
+                parametricCoordinatesPointer = Marshal.AllocHGlobal(3 * sizeof(double));
+                weightsPointer = Marshal.AllocHGlobal(numOfPoints * sizeof(double));
+                try
+                {
+                    int result = cell.EvaluatePosition(evaluationPointPointer, closestPointPointer, ref subId,
+                                                       parametricCoordinatesPointer, ref distanceSquared, weightsPointer);
+                    if (result < 0) return false;
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(evaluationPointPointer);
+                }
+
+                double[] weights = new double[numOfPoints];
+                Marshal.Copy(weightsPointer, weights, 0, numOfPoints);
+                long[] pointIds = new long[numOfPoints];
+                vtkIdList ids = cell.GetPointIds();
+                double[] interpolatedPoint = new double[3];
+                for (int i = 0; i < numOfPoints; i++)
+                {
+                    pointIds[i] = ids.GetId(i);
+                    double[] point = pointSet.GetPoint(pointIds[i]);
+                    interpolatedPoint[0] += weights[i] * point[0];
+                    interpolatedPoint[1] += weights[i] * point[1];
+                    interpolatedPoint[2] += weights[i] * point[2];
+                }
+                double[] offset = new double[] { anchorPoint[0] - interpolatedPoint[0],
+                                                 anchorPoint[1] - interpolatedPoint[1],
+                                                 anchorPoint[2] - interpolatedPoint[2] };
+                anchor = new vtkMaxAnimationArrowAnchor(pointSet, pointIds, weights, offset);
+                return true;
+            }
+            finally
+            {
+                if (pointPointer != IntPtr.Zero) Marshal.FreeHGlobal(pointPointer);
+                if (closestPointPointer != IntPtr.Zero) Marshal.FreeHGlobal(closestPointPointer);
+                if (parametricCoordinatesPointer != IntPtr.Zero)
+                    Marshal.FreeHGlobal(parametricCoordinatesPointer);
+                if (weightsPointer != IntPtr.Zero) Marshal.FreeHGlobal(weightsPointer);
+            }
+        }
+
+        private static IntPtr CopyToUnmanaged(double[] values)
+        {
+            IntPtr pointer = Marshal.AllocHGlobal(values.Length * sizeof(double));
+            Marshal.Copy(values, 0, pointer, values.Length);
+            return pointer;
         }
 
         // Section cut                                                                                                              

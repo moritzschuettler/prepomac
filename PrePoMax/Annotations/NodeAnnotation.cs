@@ -58,15 +58,15 @@ namespace PrePoMax
             if (Controller.CurrentView == ViewGeometryModelResults.Geometry ||
                 Controller.CurrentView == ViewGeometryModelResults.Model)
             {
-                nodeVec = new Vec3D(Controller.GetNode(_nodeId).Coor);
-                arrowVec = nodeVec;
+                nodeVec = new Vec3D(Controller.GetNode(_nodeId, false).Coor);
+                arrowVec = new Vec3D(Controller.GetNode(_nodeId, true).Coor);
             }
             else if (Controller.CurrentView == ViewGeometryModelResults.Results)
             {
-                nodeVec = new Vec3D(Controller.GetScaledNode(1, _nodeId).Coor);
+                nodeVec = new Vec3D(Controller.GetScaledNode(1, _nodeId, false).Coor);
                 // Arrow
                 float scale = Controller.GetScale();
-                arrowVec = new Vec3D(Controller.GetScaledNode(scale, _nodeId).Coor); // for the arrow
+                arrowVec = new Vec3D(Controller.GetScaledNode(scale, _nodeId, true).Coor); // for the arrow
                 //
                 if (Controller.ViewResultsType == ViewResultsTypeEnum.ColorContours)
                 {
@@ -117,6 +117,12 @@ namespace PrePoMax
             coor = arrowVec.Coor;
             //
             if (IsTextOverridden) text = OverriddenText;
+        }
+        public override bool IsAnimationTextChanged()
+        {
+            return !IsTextOverridden && Controller.CurrentView == ViewGeometryModelResults.Results &&
+                   (Controller.Settings.Annotations.ShowCoordinates ||
+                    Controller.ViewResultsType == ViewResultsTypeEnum.ColorContours);
         }
 
     }

@@ -52,6 +52,8 @@ namespace PrePoMax
         [NonSerialized] protected bool _animating;
         [NonSerialized] protected bool _batchRegenerationMode;
         [NonSerialized] protected bool _disableDrawSymbols;
+        [NonSerialized] protected bool _updatingAnimationAnnotations;
+        [NonSerialized] protected bool _initializingAnimationAnnotationAnchors;
         // View
         [NonSerialized] protected ViewGeometryModelResults _currentView;
         [NonSerialized] protected Dictionary<string, double[]> _viewNameRotationCenter;
@@ -221,6 +223,8 @@ namespace PrePoMax
         }
         // Annotations
         public AnnotationContainer Annotations { get { return _annotations; } }
+        public bool UpdatingAnimationAnnotations { get { return _updatingAnimationAnnotations; } }
+        public bool InitializingAnimationAnnotationAnchors { get { return _initializingAnimationAnnotationAnchors; } }
         // Selection
         public vtkSelectBy SelectBy
         {
@@ -6711,6 +6715,25 @@ namespace PrePoMax
         {
             if (_currentView == ViewGeometryModelResults.Results) return _allResults.CurrentResult.UndeformedNodes[nodeId];
             else return DisplayedMesh.Nodes[nodeId];
+        }
+        public FeNode GetNode(int nodeId, bool includeExplodedViewOffset)
+        {
+            FeNode sourceNode;
+            bool coordinatesContainExplodedViewOffset;
+            if (_currentView == ViewGeometryModelResults.Results)
+            {
+                sourceNode = _allResults.CurrentResult.UndeformedNodes[nodeId];
+                coordinatesContainExplodedViewOffset = false;
+            }
+            else
+            {
+                sourceNode = DisplayedMesh.Nodes[nodeId];
+                coordinatesContainExplodedViewOffset = true;
+            }
+            //
+            FeNode node = new FeNode(sourceNode.Id, sourceNode.Coor.ToArray());
+            return AdjustExplodedViewOffset(node, coordinatesContainExplodedViewOffset,
+                                            includeExplodedViewOffset);
         }
 
         #endregion #################################################################################################################
@@ -20646,6 +20669,78 @@ namespace PrePoMax
             }
             _form.AdjustCameraDistanceAndClipping();
         }
+        public void DrawMeasurementAnnotation(string name, double[][] nodeCoordinates, double[][] lineCoordinates,
+                                              bool drawEndArrows, bool visible)
+        {
+            if (nodeCoordinates == null || lineCoordinates == null || lineCoordinates.Length < 2) return;
+
+            vtkMaxActorData nodeData = new vtkMaxActorData();
+            nodeData.NodeSize = _settings.Pre.HighlightNodeSymbolSize;
+            nodeData.Color = Color.Black;
+            nodeData.Layer = vtkRendererLayer.Overlay;
+            nodeData.Pickable = false;
+            nodeData.Geometry.Nodes.Ids = null;
+            nodeData.Geometry.Nodes.Coor = nodeCoordinates;
+            ApplyLighting(nodeData);
+
+            LinearBeamElement element = new LinearBeamElement(0, new int[] { 0, 1 });
+            int[][] cells = new int[lineCoordinates.Length - 1][];
+            int[] cellTypes = new int[cells.Length];
+            for (int i = 0; i < cells.Length; i++)
+            {
+                cells[i] = new int[] { i, i + 1 };
+                cellTypes[i] = element.GetVtkCellType();
+            }
+
+            vtkMaxActorData lineData = new vtkMaxActorData();
+            lineData.LineWidth = 2;
+            lineData.Color = Color.Black;
+            lineData.Layer = vtkRendererLayer.Overlay;
+            lineData.Pickable = false;
+            lineData.Geometry.Nodes.Ids = null;
+            lineData.Geometry.Nodes.Coor = lineCoordinates;
+            lineData.Geometry.Cells.CellNodeIds = cells;
+            lineData.Geometry.Cells.Types = cellTypes;
+            ApplyLighting(lineData);
+
+            GetMeasurementArrowData(lineCoordinates, drawEndArrows, out double[][] arrowCoordinates,
+                                    out double[][] arrowNormals);
+            _form.AddMeasurementAnnotation(name, nodeData, lineData, arrowCoordinates, arrowNormals,
+                                           _settings.Pre.SymbolSize, visible);
+        }
+        public void UpdateMeasurementAnnotation(string name, double[][] nodeCoordinates, double[][] lineCoordinates,
+                                                bool drawEndArrows, bool visible)
+        {
+            GetMeasurementArrowData(lineCoordinates, drawEndArrows, out double[][] arrowCoordinates,
+                                    out double[][] arrowNormals);
+            _form.UpdateMeasurementAnnotation(name, nodeCoordinates, lineCoordinates, arrowCoordinates,
+                                              arrowNormals, visible);
+        }
+        private static void GetMeasurementArrowData(double[][] lineCoordinates, bool drawEndArrows,
+                                                    out double[][] arrowCoordinates, out double[][] arrowNormals)
+        {
+            if (drawEndArrows && lineCoordinates != null && lineCoordinates.Length >= 2)
+            {
+                Vec3D direction = new Vec3D(lineCoordinates[lineCoordinates.Length - 1]) -
+                                  new Vec3D(lineCoordinates[0]);
+                direction.Normalize();
+                arrowCoordinates = new double[][]
+                {
+                    lineCoordinates[0].ToArray(),
+                    lineCoordinates[lineCoordinates.Length - 1].ToArray()
+                };
+                arrowNormals = new double[][]
+                {
+                    (-1 * direction).Coor,
+                    direction.Coor
+                };
+            }
+            else
+            {
+                arrowCoordinates = null;
+                arrowNormals = null;
+            }
+        }
         // Transformations
         public void HighlightTranslatedEdges(string[] _partNames, double[] translateVector, int numCopies,
                                              bool useSecondaryHighlightColor = false)
@@ -21068,6 +21163,20 @@ namespace PrePoMax
             return data;
         }
         // Animation
+        public void AnimationFrameChanged(int frameNumber, bool initializeAnnotationAnchors)
+        {
+            _updatingAnimationAnnotations = true;
+            _initializingAnimationAnnotationAnchors = initializeAnnotationAnchors;
+            try
+            {
+                _annotations.UpdateAnimationAnnotations(initializeAnnotationAnchors);
+            }
+            finally
+            {
+                _initializingAnimationAnnotationAnchors = false;
+                _updatingAnimationAnnotations = false;
+            }
+        }
         public bool DrawScaleFactorAnimation(int numFrames)
         {
             _form.Clear3D();
@@ -21128,7 +21237,7 @@ namespace PrePoMax
             // Symbols
             DrawResultSymbols();
             // Annotations
-            _annotations.DrawAnnotations(true);
+            _annotations.DrawAnnotations();
             // Section view
             ApplySectionView();
             // Animation field data
@@ -21208,7 +21317,7 @@ namespace PrePoMax
             // Symbols
             DrawResultSymbols();
             // Annotations
-            _annotations.DrawAnnotations(true);
+            _annotations.DrawAnnotations();
             // Section view
             ApplySectionView();
             // Follower view
@@ -21343,7 +21452,7 @@ namespace PrePoMax
             // Transformation
             ApplyTransformation();
             // Annotations
-            _annotations.DrawAnnotations(true);
+            _annotations.DrawAnnotations();
             // Section view
             ApplySectionView();
             // Animation field data
@@ -21604,86 +21713,153 @@ namespace PrePoMax
         // Scale 
         public FeNode GetScaledNode(float scale, int nodeId)
         {
-            return GetScaledNode(FOFieldNames.Default, scale, nodeId);
+            return GetScaledNode(FOFieldNames.Default, scale, nodeId, true);
+        }
+        public FeNode GetScaledNode(float scale, int nodeId, bool includeExplodedViewOffset)
+        {
+            return GetScaledNode(FOFieldNames.Default, scale, nodeId, includeExplodedViewOffset);
         }
         public FeNode GetScaledNode(string deformationFieldOutputName, float scale, int nodeId)
         {
+            return GetScaledNode(deformationFieldOutputName, scale, nodeId, true);
+        }
+        public FeNode GetScaledNode(string deformationFieldOutputName, float scale, int nodeId,
+                                    bool includeExplodedViewOffset)
+        {
+            if (_updatingAnimationAnnotations &&
+                _form.TryGetAnimationNodeData(nodeId, out double[] animationCoordinates, out _))
+            {
+                FeNode animationNode = new FeNode(nodeId, animationCoordinates);
+                return AdjustExplodedViewOffset(animationNode, true, includeExplodedViewOffset);
+            }
+
             if (_currentView == ViewGeometryModelResults.Results)
             {
-                FeNode node = _allResults.CurrentResult.UndeformedNodes[nodeId];
-                double[][] coor = new double[][] { node.Coor };
+                FeNode undeformedNode = _allResults.CurrentResult.UndeformedNodes[nodeId];
+                double[][] coor = new double[][] { undeformedNode.Coor.ToArray() };
                 _allResults.CurrentResult.ScaleNodeCoordinates(deformationFieldOutputName, scale, _currentFieldData.StepId,
                                                                _currentFieldData.StepIncrementId,
                                                                new int[] { nodeId }, ref coor);
-                node.X = coor[0][0];
-                node.Y = coor[0][1];
-                node.Z = coor[0][2];
-                // Exploded view
-                if (IsExplodedViewActive())
-                {
-                    int[] partIds = _allResults.CurrentResult.Mesh.GetPartIdsFromNodeIds(new int[] { nodeId });
-                    if (partIds != null && partIds.Length == 1)
-                    {
-                        BasePart part = _allResults.CurrentResult.Mesh.GetPartFromId(partIds[0]);
-                        node.X += part.Offset[0];
-                        node.Y += part.Offset[1];
-                        node.Z += part.Offset[2];
-                    }
-                }
-                //
-                return node;
+                FeNode node = new FeNode(nodeId, coor[0]);
+                return AdjustExplodedViewOffset(node, false, includeExplodedViewOffset);
             }
             return new FeNode();
         }
         public FeNode[] GetScaledNodes(float scale, int[] nodeIds)
         {
-            return GetScaledNodes(FOFieldNames.Default, scale, nodeIds);
+            return GetScaledNodes(FOFieldNames.Default, scale, nodeIds, true);
+        }
+        public FeNode[] GetScaledNodes(float scale, int[] nodeIds, bool includeExplodedViewOffset)
+        {
+            return GetScaledNodes(FOFieldNames.Default, scale, nodeIds, includeExplodedViewOffset);
         }
         public FeNode[] GetScaledNodes(string deformationFieldOutputName, float scale, int[] nodeIds)
         {
+            return GetScaledNodes(deformationFieldOutputName, scale, nodeIds, true);
+        }
+        public FeNode[] GetScaledNodes(string deformationFieldOutputName, float scale, int[] nodeIds,
+                                       bool includeExplodedViewOffset)
+        {
+            if (_updatingAnimationAnnotations)
+            {
+                FeNode[] animationNodes = new FeNode[nodeIds.Length];
+                bool allNodesFound = true;
+                for (int i = 0; i < nodeIds.Length; i++)
+                {
+                    if (_form.TryGetAnimationNodeData(nodeIds[i], out double[] coordinates, out _))
+                        animationNodes[i] = new FeNode(nodeIds[i], coordinates);
+                    else
+                    {
+                        allNodesFound = false;
+                        break;
+                    }
+                }
+                if (allNodesFound)
+                {
+                    AdjustExplodedViewOffset(animationNodes, true, includeExplodedViewOffset);
+                    return animationNodes;
+                }
+            }
+
             if (_currentView == ViewGeometryModelResults.Results)
             {
                 double[][] coor = new double[nodeIds.Length][];
-                for (int i = 0; i < nodeIds.Length; i++) coor[i] = _allResults.CurrentResult.UndeformedNodes[nodeIds[i]].Coor;
+                for (int i = 0; i < nodeIds.Length; i++)
+                    coor[i] = _allResults.CurrentResult.UndeformedNodes[nodeIds[i]].Coor.ToArray();
                 //
                 _allResults.CurrentResult.ScaleNodeCoordinates(deformationFieldOutputName, scale, _currentFieldData.StepId,
                                                                _currentFieldData.StepIncrementId, nodeIds, ref coor);
                 //
                 FeNode[] nodes = new FeNode[nodeIds.Length];
-                Dictionary<int, int> globalToLocalNodeIds = new Dictionary<int, int>();
                 for (int i = 0; i < nodes.Length; i++)
                 {
                     nodes[i] = new FeNode(nodeIds[i], coor[i]);
-                    globalToLocalNodeIds.Add(nodeIds[i], i);
                 }
-                // Exploded view
-                if (IsExplodedViewActive())
-                {
-                    HashSet<int> nodeIdsHash = new HashSet<int>(nodeIds);
-                    HashSet<int> commonNodes;
-                    foreach (var entry in _allResults.CurrentResult.Mesh.Parts)
-                    {
-                        commonNodes = new HashSet<int>(nodeIdsHash.Intersect(entry.Value.NodeLabels));
-                        if (commonNodes.Count() > 0)
-                        {
-                            foreach (var nodeId in commonNodes)
-                            {
-                                nodes[globalToLocalNodeIds[nodeId]].X += entry.Value.Offset[0];
-                                nodes[globalToLocalNodeIds[nodeId]].Y += entry.Value.Offset[1];
-                                nodes[globalToLocalNodeIds[nodeId]].Z += entry.Value.Offset[2];
-                            }
-                            nodeIdsHash.ExceptWith(commonNodes);
-                        }
-                        if (nodeIdsHash.Count() == 0) break;
-                    }
-                }
+                AdjustExplodedViewOffset(nodes, false, includeExplodedViewOffset);
                 //
                 return nodes;
             }
             return new FeNode[0];
         }
+        private FeNode AdjustExplodedViewOffset(FeNode node, bool coordinatesContainExplodedViewOffset,
+                                                bool includeExplodedViewOffset)
+        {
+            if (!IsExplodedViewActive() || coordinatesContainExplodedViewOffset == includeExplodedViewOffset)
+                return node;
+            //
+            double sign = includeExplodedViewOffset ? 1 : -1;
+            foreach (var entry in DisplayedMesh.Parts)
+            {
+                BasePart part = entry.Value;
+                if (part.NodeLabels != null && part.Offset != null && part.NodeLabels.Contains(node.Id))
+                {
+                    node.X += sign * part.Offset[0];
+                    node.Y += sign * part.Offset[1];
+                    node.Z += sign * part.Offset[2];
+                    // A shared node can use the first owning part: connected parts always have the same offset.
+                    break;
+                }
+            }
+            return node;
+        }
+        private void AdjustExplodedViewOffset(FeNode[] nodes, bool coordinatesContainExplodedViewOffset,
+                                              bool includeExplodedViewOffset)
+        {
+            if (!IsExplodedViewActive() || coordinatesContainExplodedViewOffset == includeExplodedViewOffset ||
+                nodes == null || nodes.Length == 0)
+                return;
+            //
+            double sign = includeExplodedViewOffset ? 1 : -1;
+            FeMesh mesh = DisplayedMesh;
+            Dictionary<int, int> nodeIdIndex = new Dictionary<int, int>();
+            for (int i = 0; i < nodes.Length; i++) nodeIdIndex[nodes[i].Id] = i;
+            HashSet<int> remainingNodeIds = new HashSet<int>(nodeIdIndex.Keys);
+            //
+            foreach (var entry in mesh.Parts)
+            {
+                BasePart part = entry.Value;
+                if (part.NodeLabels == null || part.Offset == null) continue;
+                //
+                foreach (int nodeId in part.NodeLabels)
+                {
+                    if (remainingNodeIds.Remove(nodeId))
+                    {
+                        int index = nodeIdIndex[nodeId];
+                        nodes[index].X += sign * part.Offset[0];
+                        nodes[index].Y += sign * part.Offset[1];
+                        nodes[index].Z += sign * part.Offset[2];
+                    }
+                }
+                // A shared node can use the first owning part: connected parts always have the same offset.
+                if (remainingNodeIds.Count == 0) break;
+            }
+        }
         public float GetNodalValue(int nodeId)
         {
+            if (_updatingAnimationAnnotations &&
+                _form.TryGetAnimationNodeData(nodeId, out _, out float animationValue))
+                return animationValue;
+
             float[] values = _allResults.CurrentResult.GetValues(_currentFieldData, new int[] { nodeId });
             if (values == null) return 0;
             else return values[0];

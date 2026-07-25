@@ -52,7 +52,16 @@ namespace PrePoMax
                     text += string.Format("{0}Element type: {1}", Environment.NewLine, elementType);
                 }
             }
-            coor = Controller.GetElement(_elementId).GetCG(Controller.DisplayedMesh.Nodes, out _);
+            CaeMesh.FeElement element = Controller.GetElement(_elementId);
+            if (Controller.CurrentView == ViewGeometryModelResults.Results)
+            {
+                CaeMesh.FeNode[] scaledNodes =
+                    Controller.GetScaledNodes(Controller.GetScale(), element.NodeIds, true);
+                Dictionary<int, CaeMesh.FeNode> nodes = new Dictionary<int, CaeMesh.FeNode>();
+                foreach (CaeMesh.FeNode node in scaledNodes) nodes.Add(node.Id, node);
+                coor = element.GetCG(nodes, out _);
+            }
+            else coor = element.GetCG(Controller.DisplayedMesh.Nodes, out _);
             //
             if (IsTextOverridden) text = OverriddenText;
         }

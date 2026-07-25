@@ -82,10 +82,10 @@ namespace PrePoMax
             else if (Controller.CurrentView == ViewGeometryModelResults.Results)
             {
                 // Coor
-                n2 = Controller.GetScaledNode(Controller.GetScale(), nodeIds[nodeIds.Length / 2]);
+                n2 = Controller.GetScaledNode(Controller.GetScale(), nodeIds[nodeIds.Length / 2], true);
                 if (nodeIds.Length == 2)
                 {
-                    n1 = Controller.GetScaledNode(Controller.GetScale(), nodeIds[0]);
+                    n1 = Controller.GetScaledNode(Controller.GetScale(), nodeIds[0], true);
                     coor = FeMesh.GetMidNodeCoor(n1, n2);
                 }
                 else coor = n2.Coor;
@@ -95,7 +95,7 @@ namespace PrePoMax
                 float value;
                 double segLen;
                 length = 0;
-                FeNode[] nodes = Controller.GetScaledNodes(1, nodeIds);
+                FeNode[] nodes = Controller.GetScaledNodes(1, nodeIds, false);
                 // Length
                 for (int i = 0; i < nodes.Length - 1; i++)
                 {
@@ -173,6 +173,15 @@ namespace PrePoMax
             }
             //
             if (IsTextOverridden) text = OverriddenText;
+        }
+        public override bool IsAnimationTextChanged()
+        {
+            var settings = Controller.Settings.Annotations;
+            bool fieldData = Controller.ViewResultsType == ViewResultsTypeEnum.ColorContours &&
+                             (settings.ShowEdgeSurMax || settings.ShowEdgeSurMin ||
+                              settings.ShowEdgeSurSum || settings.ShowEdgeSurAvg);
+            return !IsTextOverridden && Controller.CurrentView == ViewGeometryModelResults.Results &&
+                   (settings.ShowEdgeSurSize || fieldData);
         }
     }
 }

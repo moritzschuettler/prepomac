@@ -44,6 +44,7 @@ namespace vtkControl
         protected bool _backgroundVisibility;
         protected bool _keepInsideVisibleBounds;
         protected bool _scaleBySectors;
+        protected bool _localHighlightEnabled;
         protected int _quadrant;
         protected int[] _prevWindowSize;
         protected double[] _position;
@@ -67,6 +68,7 @@ namespace vtkControl
             _borderVisibility = true;
             _backgroundVisibility = true;
             _keepInsideVisibleBounds = true;
+            _localHighlightEnabled = true;
             _position = null;
             _prevWindowSize = new int[] { 0, 0 };
             _scaleBySectors = true;
@@ -211,6 +213,13 @@ namespace vtkControl
         public virtual void KeepInsideVisibleBoundsOff()
         {
             _keepInsideVisibleBounds = false;
+        }
+        public void SetLocalHighlightEnabled(bool enabled)
+        {
+            if (_localHighlightEnabled == enabled) return;
+            //
+            _localHighlightEnabled = enabled;
+            _highlight.Clear();
         }
         //
         public virtual void OnRenderWindowModified()
@@ -439,7 +448,9 @@ namespace vtkControl
             bool internalHighlight = false;
             if (mouseOver)
             {
-                Rectangle localRectangle = GetHighlightRectangle(x, y);
+                Rectangle localRectangle = _localHighlightEnabled
+                    ? GetHighlightRectangle(x, y)
+                    : displayRectangle;
                 internalHighlight = localRectangle != Rectangle.Empty && localRectangle != displayRectangle;
                 rectangle = highlightEntireWidget && !internalHighlight ? displayRectangle : localRectangle;
             }

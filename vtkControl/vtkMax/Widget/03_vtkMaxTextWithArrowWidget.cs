@@ -357,6 +357,11 @@ namespace vtkControl
             RecomputeLeader();
             //OnBorderRepresentationModified();
         }
+        public override void SetText(string text)
+        {
+            base.SetText(text);
+            if (_renderer != null) RecomputeLeader();
+        }
         private void SetPositionFromWorldPosition()
         {
             double[] positionWorld = _worldPositionPoint.GetValue();

@@ -137,6 +137,7 @@ namespace vtkControl
         protected List<vtkMaxBorderWidget> _reversedWidgets;
         protected vtkMaxBorderWidget _capturedWidget;
         protected bool _capturedWidgetPromoted;
+        protected bool _widgetLocalHighlightEnabled;
 
 
         // Properties                                                                                                               
@@ -198,6 +199,7 @@ namespace vtkControl
             _reversedWidgets = new List<vtkMaxBorderWidget>();
             _capturedWidget = null;
             _capturedWidgetPromoted = false;
+            _widgetLocalHighlightEnabled = true;
             //
             this.LeftButtonPressEvt += vtkInteractorStyleControl_LeftButtonPressEvt;
             this.LeftButtonReleaseEvt += vtkInteractorStyleControl_LeftButtonReleaseEvt;
@@ -726,6 +728,7 @@ namespace vtkControl
         //
         public void AddVtkMaxWidget(vtkMaxBorderWidget widget)
         {
+            widget.SetLocalHighlightEnabled(_widgetLocalHighlightEnabled);
             _widgets.Add(widget);
             _reversedWidgets.Insert(0, widget);
         }
@@ -750,6 +753,20 @@ namespace vtkControl
         {
             bool highlightChanged = ClearWidgetHighlightsInternal();
             if (highlightChanged && GetInteractor() != null) GetInteractor().Render();
+        }
+        public void RefreshWidgetHighlights()
+        {
+            vtkRenderWindowInteractor interactor = GetInteractor();
+            if (interactor == null) return;
+            //
+            int[] position = interactor.GetEventPosition();
+            UpdateWidgetHighlights(position[0], position[1]);
+        }
+        public void SetWidgetLocalHighlightEnabled(bool enabled)
+        {
+            _widgetLocalHighlightEnabled = enabled;
+            foreach (vtkMaxBorderWidget widget in _widgets) widget.SetLocalHighlightEnabled(enabled);
+            RefreshWidgetHighlights();
         }
         private bool ClearWidgetHighlightsInternal()
         {
@@ -1140,9 +1157,9 @@ namespace vtkControl
                 _centerAnnotationActor = null;
             }
         }
-        public void AdjustCameraDistanceAndClipping()
+        public void AdjustCameraDistanceAndClipping(bool clearWidgetHighlights = true)
         {
-            ClearWidgetHighlightsInternal();
+            if (clearWidgetHighlights) ClearWidgetHighlightsInternal();
             vtkRenderer renderer = this.GetCurrentRenderer();
             vtkCamera camera = renderer.GetActiveCamera();
             //
