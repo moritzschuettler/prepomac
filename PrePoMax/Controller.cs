@@ -20234,11 +20234,22 @@ namespace PrePoMax
         {
             HighlightShellInMeshSetupItem(revolveMesh, useSecondaryHighlightColor);
             //
+            int[] ids = revolveMesh.CreationIds;
+            if (ids.Length == 0) return;
+            // The selection is limited to one part
+            int partId = FeMesh.GetPartIdFromGeometryId(ids[0]);
+            BasePart part = (GeometryPart)_model.Geometry.GetPartFromId(partId);
+            if (part == null) return;
+            //
+            double[] offset = part.Offset;
             string prefixName = revolveMesh.Name + Globals.NameSeparator + "Arrows";
             if (revolveMesh.AxisCenter != null && revolveMesh.AxisDirection != null)
             {
+                double[] axisCenter = new double[] {revolveMesh.AxisCenter[0] + offset[0],
+                                                    revolveMesh.AxisCenter[1] + offset[1],
+                                                    revolveMesh.AxisCenter[2] + offset[2]};
                 int symbolSize = 2 * _settings.Pre.SymbolSize;
-                DrawArrowSymbols(prefixName, new double[][] { revolveMesh.AxisCenter },
+                DrawArrowSymbols(prefixName, new double[][] { axisCenter },
                                  new double[][] { revolveMesh.AxisDirection }, Color.Empty, symbolSize,
                                  vtkRendererLayer.Selection, !useSecondaryHighlightColor, true);
             }

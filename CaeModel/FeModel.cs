@@ -2001,6 +2001,7 @@ namespace CaeModel
                     return "The revolve mesh setup item cannot be defined on a shell part.";
                 //
                 VisualizationData vis = part.Visualization;
+                double[] offset = part.Offset;
                 // Get surface ids
                 HashSet<int> surfaceIds = new HashSet<int>();
                 for (int i = 0; i < revolveMesh.CreationIds.Length; i++)
@@ -2039,7 +2040,9 @@ namespace CaeModel
                         if (r > 0 && arcAngleDeg > 0)
                         {
                             revolveMesh.AxisDirection = axisDirection;
-                            revolveMesh.AxisCenter = axisCenter;
+                            revolveMesh.AxisCenter = new double[3] {axisCenter[0] - offset[0],
+                                                                    axisCenter[1] - offset[1],
+                                                                    axisCenter[2] - offset[2]};
                             revolveMesh.AngleDeg = arcAngleDeg;
                             revolveMesh.MiddleR = r;
                             // Round
