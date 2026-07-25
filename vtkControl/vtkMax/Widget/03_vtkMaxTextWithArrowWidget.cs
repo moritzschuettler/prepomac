@@ -277,6 +277,23 @@ namespace vtkControl
                 if (_headActor2D != null) _renderer.RemoveActor(_headActor2D);
             }
         }
+        public override void BringToFront()
+        {
+            if (!_visibility || _renderer == null) return;
+            //
+            // Keep the arrow behind its label.
+            if (_leaderActor2D != null)
+            {
+                _renderer.RemoveActor(_leaderActor2D);
+                _renderer.AddActor(_leaderActor2D);
+            }
+            if (_headActor2D != null)
+            {
+                _renderer.RemoveActor(_headActor2D);
+                _renderer.AddActor(_headActor2D);
+            }
+            base.BringToFront();
+        }
         //
         public void ResetInitialPosition()
         {

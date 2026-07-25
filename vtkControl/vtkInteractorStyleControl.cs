@@ -135,6 +135,8 @@ namespace vtkControl
         //
         protected List<vtkMaxBorderWidget> _widgets;
         protected List<vtkMaxBorderWidget> _reversedWidgets;
+        protected vtkMaxBorderWidget _capturedWidget;
+        protected bool _capturedWidgetPromoted;
 
 
         // Properties                                                                                                               
@@ -172,6 +174,7 @@ namespace vtkControl
         public event Action<double[]> RotationPointChanged;
         public event Action ClearCurrentMouseSelection;
         public event Action<object, MouseEventArgs> RightButtonPressEvent;
+        public event Action MouseInteractionEvent;
         public event Action ZoomChangedEvent;
 
 
@@ -193,6 +196,8 @@ namespace vtkControl
             _boxZoomEnabled = false;
             _widgets = new List<vtkMaxBorderWidget>();
             _reversedWidgets = new List<vtkMaxBorderWidget>();
+            _capturedWidget = null;
+            _capturedWidgetPromoted = false;
             //
             this.LeftButtonPressEvt += vtkInteractorStyleControl_LeftButtonPressEvt;
             this.LeftButtonReleaseEvt += vtkInteractorStyleControl_LeftButtonReleaseEvt;
@@ -215,12 +220,20 @@ namespace vtkControl
         // Event handlers                                                                                                           
         void vtkInteractorStyleControl_LeftButtonPressEvt(vtkObject sender, vtkObjectEventArgs e)
         {
+            MouseInteractionEvent?.Invoke();
             if (_animating) return;
             //
             vtkRenderWindowInteractor rwi = this.GetInteractor();
             //
             int x = rwi.GetEventPosition()[0];
             int y = rwi.GetEventPosition()[1];
+            // Recover cleanly if the native control did not deliver a previous release.
+            if (_capturedWidget != null)
+            {
+                _capturedWidget.LeftButtonRelease(x, y);
+                _capturedWidget = null;
+                _capturedWidgetPromoted = false;
+            }
             //
             _numOfClicks = 1;
             // Double click
@@ -243,6 +256,18 @@ namespace vtkControl
                     borderWidget = widget;
                     break;  // do not return here to set _lastX, lastY, _lastClickTime
                 }
+            }
+            if (borderWidget != null)
+            {
+                _capturedWidget = borderWidget;
+                _capturedWidgetPromoted = false;
+                if (_numOfClicks == 2)
+                {
+                    PromoteWidget(borderWidget);
+                    _capturedWidgetPromoted = true;
+                }
+                UpdateWidgetHighlights(x, y);
+                rwi.Render();
             }
             //
             if (borderWidget == null)
@@ -275,15 +300,16 @@ namespace vtkControl
             _selectionBackgroundActor.VisibilityOff();
             _selectionBorderActor.VisibilityOff();
             //
-            // Widgets
-            if (!_boxSelection)
+            // A pressed widget exclusively owns the pointer until this release.
+            bool widgetHandled = _capturedWidget != null;
+            if (_capturedWidget != null)
             {
-                foreach (vtkMaxBorderWidget widget in _reversedWidgets)
-                {
-                    if (widget.LeftButtonRelease(x, y)) return;
-                }
+                _capturedWidget.LeftButtonRelease(x, y);
+                _capturedWidget = null;
+                _capturedWidgetPromoted = false;
+                UpdateWidgetHighlights(x, y);
             }
-            if (!_selectionCanceled)
+            if (!widgetHandled && !_selectionCanceled)
             {
                 int[] mousePos = rwi.GetEventPosition();
                 //
@@ -316,7 +342,9 @@ namespace vtkControl
         //
         void vtkInteractorStyleControl_MiddleButtonPressEvt(vtkObject sender, vtkObjectEventArgs e)
         {
+            MouseInteractionEvent?.Invoke();
             if (_animating) return;
+            ClearWidgetHighlightsInternal();
             // Cancel box selection
             CancelBoxSelection();
             //
@@ -419,6 +447,7 @@ namespace vtkControl
         //
         void vtkInteractorStyleControl_RightButtonPressEvt(vtkObject sender, vtkObjectEventArgs e)
         {
+            MouseInteractionEvent?.Invoke();
             if (_animating) return;
             //
             vtkRenderWindowInteractor rwi = this.GetInteractor();
@@ -435,13 +464,19 @@ namespace vtkControl
                 vtkMaxBorderWidget clickedWidget = null;
                 MouseEventArgs mea = new MouseEventArgs(MouseButtons.Right, 1, x, y, 0);
                 //
-                foreach (vtkMaxBorderWidget widget in _widgets)
+                foreach (vtkMaxBorderWidget widget in _reversedWidgets)
                 {
                     if (widget.RightButtonPress(x, y))
                     {
                         clickedWidget = widget;
                         break;
                     }
+                }
+                if (clickedWidget != null)
+                {
+                    PromoteWidget(clickedWidget);
+                    UpdateWidgetHighlights(x, y);
+                    rwi.Render();
                 }
                 //
                 RightButtonPressEvent?.Invoke(clickedWidget, mea);
@@ -458,17 +493,28 @@ namespace vtkControl
             //
             _x = this.GetInteractor().GetEventPosition()[0];
             _y = this.GetInteractor().GetEventPosition()[1];
-            // Widgets - Move
-            foreach (vtkMaxBorderWidget widget in _widgets)
+            int interactionState = this.GetState();
+            bool widgetMoved = false;
+            bool widgetHighlightChanged = false;
+            if (interactionState == VTKIS_NONE)
             {
-                if (widget.MouseMove(_x, _y))
+                // Widgets - Move
+                widgetMoved = _capturedWidget != null && _capturedWidget.MouseMove(_x, _y);
+                if (widgetMoved && !_capturedWidgetPromoted)
+                {
+                    PromoteWidget(_capturedWidget);
+                    _capturedWidgetPromoted = true;
+                }
+                // Widgets - Hover
+                widgetHighlightChanged = UpdateWidgetHighlights(_x, _y);
+                if (widgetMoved || widgetHighlightChanged)
                 {
                     this.GetInteractor().Render();
                     return;
                 }
             }
             //
-            switch (this.GetState())
+            switch (interactionState)
             {
                 case VTKIS_NONE:
                     _selectionTimer.Stop();
@@ -504,6 +550,7 @@ namespace vtkControl
         //
         void vtkInteractorStyleControl_MouseWheelForwardEvt(vtkObject sender, vtkObjectEventArgs e)
         {
+            MouseInteractionEvent?.Invoke();
             if (_animating) return;
             //
             if (this.GetState() == VTKIS_NONE)
@@ -536,15 +583,18 @@ namespace vtkControl
                 {
                     widget.MouseWheelScrolled();
                 }
-
                 if (ZoomChangedEvent != null) ZoomChangedEvent();
 
                 this.GetInteractor().Modified();
+                // A wheel zoom may reposition projected widgets; restore the hover at the
+                // unchanged pointer position after all widget geometry has been updated.
+                UpdateWidgetHighlights(clickPos[0], clickPos[1]);
                 this.GetInteractor().Render();
             }            
         }
         void vtkInteractorStyleControl_MouseWheelBackwardEvt(vtkObject sender, vtkObjectEventArgs e)
         {
+            MouseInteractionEvent?.Invoke();
             if (_animating) return;
             //
             if (this.GetState() == VTKIS_NONE)
@@ -577,10 +627,12 @@ namespace vtkControl
                 {
                     widget.MouseWheelScrolled();
                 }
-
                 if (ZoomChangedEvent != null) ZoomChangedEvent();
 
                 this.GetInteractor().Modified();
+                // A wheel zoom may reposition projected widgets; restore the hover at the
+                // unchanged pointer position after all widget geometry has been updated.
+                UpdateWidgetHighlights(clickPos[0], clickPos[1]);
                 this.GetInteractor().Render();                
             }
         }
@@ -679,8 +731,81 @@ namespace vtkControl
         }
         public void RemoveVtkMaxWidget(vtkMaxBorderWidget widget)
         {
+            if (_capturedWidget == widget)
+            {
+                _capturedWidget = null;
+                _capturedWidgetPromoted = false;
+            }
+            widget.ClearMouseHover();
             _widgets.Remove(widget);
             _reversedWidgets.Remove(widget);
+        }
+        public void VtkMaxWidgetVisibilityOn(vtkMaxBorderWidget widget)
+        {
+            if (!_widgets.Contains(widget)) return;
+            //
+            MoveWidgetToTop(widget);
+        }
+        public void ClearWidgetHighlights()
+        {
+            bool highlightChanged = ClearWidgetHighlightsInternal();
+            if (highlightChanged && GetInteractor() != null) GetInteractor().Render();
+        }
+        private bool ClearWidgetHighlightsInternal()
+        {
+            bool highlightChanged = false;
+            foreach (vtkMaxBorderWidget widget in _widgets)
+            {
+                if (widget.ClearMouseHover()) highlightChanged = true;
+            }
+            return highlightChanged;
+        }
+        private void PromoteWidget(vtkMaxBorderWidget widget)
+        {
+            MoveWidgetToTop(widget);
+            UpdateWidgetZOrder();
+        }
+        private void MoveWidgetToTop(vtkMaxBorderWidget widget)
+        {
+            _widgets.Remove(widget);
+            _widgets.Add(widget);
+            _reversedWidgets.Remove(widget);
+            _reversedWidgets.Insert(0, widget);
+        }
+        private bool UpdateWidgetHighlights(int x, int y)
+        {
+            vtkMaxBorderWidget highlightedWidget = _capturedWidget;
+            if (highlightedWidget == null)
+            {
+                foreach (vtkMaxBorderWidget widget in _reversedWidgets)
+                {
+                    if (widget.MouseOver(x, y))
+                    {
+                        highlightedWidget = widget;
+                        break;
+                    }
+                }
+            }
+            //
+            bool highlightChanged = false;
+            foreach (vtkMaxBorderWidget widget in _widgets)
+            {
+                bool isHighlighted = widget == highlightedWidget;
+                bool highlightEntireWidget = isHighlighted && _capturedWidget != null;
+                if (widget.UpdateMouseHover(x, y, isHighlighted, highlightEntireWidget)) highlightChanged = true;
+            }
+            if (highlightChanged) UpdateWidgetZOrder();
+            return highlightChanged;
+        }
+        private void UpdateWidgetZOrder()
+        {
+            // Each widget highlight belongs directly above its own content and below all widgets
+            // that are logically in front of it.
+            foreach (vtkMaxBorderWidget widget in _widgets)
+            {
+                widget.BringToFront();
+                widget.BringHighlightToFront();
+            }
         }
         public void ResetRotationCenter()
         {
@@ -781,6 +906,7 @@ namespace vtkControl
         // Zoom on mouse move - slow zooming
         public override void Zoom()
         {
+            ClearWidgetHighlightsInternal();
             vtkRenderer renderer = this.GetCurrentRenderer();
             if (renderer == null) return;
             //
@@ -1016,6 +1142,7 @@ namespace vtkControl
         }
         public void AdjustCameraDistanceAndClipping()
         {
+            ClearWidgetHighlightsInternal();
             vtkRenderer renderer = this.GetCurrentRenderer();
             vtkCamera camera = renderer.GetActiveCamera();
             //

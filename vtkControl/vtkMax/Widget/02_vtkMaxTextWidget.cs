@@ -66,6 +66,17 @@ namespace vtkControl
                 if (_textActor != null) _renderer.RemoveActor(_textActor);
             }
         }
+        public override void BringToFront()
+        {
+            if (!_visibility || _renderer == null) return;
+            //
+            base.BringToFront();
+            if (_textActor != null)
+            {
+                _renderer.RemoveActor(_textActor);
+                _renderer.AddActor(_textActor);
+            }
+        }
         public override void BackgroundVisibilityOn()
         {
             if (_backgroundVisibility == false)

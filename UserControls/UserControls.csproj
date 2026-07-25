@@ -163,7 +163,7 @@
     <Compile Include="TextBoxes\AutoScrollTextBox.Designer.cs">
       <DependentUpon>AutoScrollTextBox.cs</DependentUpon>
     </Compile>
-    <Compile Include="TextBoxes\AnnotationEditorRichTextBox.cs">
+    <Compile Include="TextBoxes\ViewportEditorRichTextBox.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="TextBoxes\MultiIntegerTextBox.cs">
@@ -255,11 +255,11 @@
     <Compile Include="SidePanel\AdvisorPanel.Designer.cs">
       <DependentUpon>AdvisorPanel.cs</DependentUpon>
     </Compile>
-    <Compile Include="AnnotationEditor.cs">
+    <Compile Include="ViewportTextEditor.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="AnnotationEditor.Designer.cs">
-      <DependentUpon>AnnotationEditor.cs</DependentUpon>
+    <Compile Include="ViewportTextEditor.Designer.cs">
+      <DependentUpon>ViewportTextEditor.cs</DependentUpon>
     </Compile>
   </ItemGroup>
   <ItemGroup>
@@ -338,8 +338,8 @@
     <EmbeddedResource Include="SidePanel\AdvisorPanel.resx">
       <DependentUpon>AdvisorPanel.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="AnnotationEditor.resx">
-      <DependentUpon>AnnotationEditor.cs</DependentUpon>
+    <EmbeddedResource Include="ViewportTextEditor.resx">
+      <DependentUpon>ViewportTextEditor.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>

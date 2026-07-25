@@ -553,7 +553,7 @@ namespace PrePoMax
             this.tsmiAbout = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiTest = new System.Windows.Forms.ToolStripMenuItem();
             this.panelControl = new System.Windows.Forms.Panel();
-            this.aeAnnotationTextEditor = new UserControls.AnnotationEditor();
+            this.viewportTextEditor = new UserControls.ViewportTextEditor();
             this.cmsAnnotation = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.tsmiEditAnnotation = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiResetAnnotation = new System.Windows.Forms.ToolStripMenuItem();
@@ -4763,23 +4763,24 @@ namespace PrePoMax
             // panelControl
             // 
             this.panelControl.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.panelControl.Controls.Add(this.aeAnnotationTextEditor);
+            this.panelControl.Controls.Add(this.viewportTextEditor);
             this.panelControl.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panelControl.Location = new System.Drawing.Point(0, 0);
             this.panelControl.Name = "panelControl";
             this.panelControl.Size = new System.Drawing.Size(991, 399);
             this.panelControl.TabIndex = 1;
             // 
-            // aeAnnotationTextEditor
+            // viewportTextEditor
             // 
-            this.aeAnnotationTextEditor.Location = new System.Drawing.Point(8, 3);
-            this.aeAnnotationTextEditor.Margin = new System.Windows.Forms.Padding(8, 3, 8, 3);
-            this.aeAnnotationTextEditor.MinSize = new System.Drawing.Size(0, 0);
-            this.aeAnnotationTextEditor.Name = "aeAnnotationTextEditor";
-            this.aeAnnotationTextEditor.ParentArea = new System.Drawing.Rectangle(0, 0, 0, 0);
-            this.aeAnnotationTextEditor.Size = new System.Drawing.Size(278, 133);
-            this.aeAnnotationTextEditor.TabIndex = 6;
-            this.aeAnnotationTextEditor.Visible = false;
+            this.viewportTextEditor.Location = new System.Drawing.Point(8, 3);
+            this.viewportTextEditor.Margin = new System.Windows.Forms.Padding(8, 3, 8, 3);
+            this.viewportTextEditor.MinSize = new System.Drawing.Size(0, 0);
+            this.viewportTextEditor.Name = "viewportTextEditor";
+            this.viewportTextEditor.ParentArea = new System.Drawing.Rectangle(0, 0, 0, 0);
+            this.viewportTextEditor.Size = new System.Drawing.Size(278, 133);
+            this.viewportTextEditor.TabIndex = 6;
+            this.viewportTextEditor.ViewportEditMode = UserControls.ViewportEditModeEnum.None;
+            this.viewportTextEditor.Visible = false;
             // 
             // cmsAnnotation
             // 
@@ -5402,7 +5403,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiEditAmplitude;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerAmplitude1;
         private System.Windows.Forms.ToolStripMenuItem tsmiDeleteAmplitude;
-        private UserControls.AnnotationEditor aeAnnotationTextEditor;
+        private UserControls.ViewportTextEditor viewportTextEditor;
         private System.Windows.Forms.ContextMenuStrip cmsAnnotation;
         private System.Windows.Forms.ToolStripMenuItem tsmiDeleteAnnotation;
         private System.Windows.Forms.ToolStripMenuItem tsmiAnnotationSettings;

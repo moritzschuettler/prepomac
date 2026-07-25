@@ -119,6 +119,11 @@ namespace vtkControl
                 this._selectionRenderer.SetLayer(2);
                 this._selectionRenderer.InteractiveOff();
                 this._selectionRenderer.SetActiveCamera(this._renderer.GetActiveCamera());
+
+                this._widgetRenderer = Kitware.VTK.vtkRenderer.New();
+                this._widgetRenderer.SetLayer(3);
+                this._widgetRenderer.InteractiveOff();
+                this._widgetRenderer.SetActiveCamera(this._renderer.GetActiveCamera());
                 
                 this._renderWindow = Kitware.VTK.vtkRenderWindow.New();
 
@@ -152,11 +157,12 @@ namespace vtkControl
                 }
 
                 this._renderWindow.SetParentId(this.Handle);
-                this._renderWindow.SetNumberOfLayers(3);
+                this._renderWindow.SetNumberOfLayers(4);
 
                 this._renderWindow.AddRenderer(this._renderer);
                 this._renderWindow.AddRenderer(this._overlayRenderer);
                 this._renderWindow.AddRenderer(this._selectionRenderer);
+                this._renderWindow.AddRenderer(this._widgetRenderer);
 
                 if (!isX11)
                 {
@@ -177,6 +183,7 @@ namespace vtkControl
             if (this._renderer != null) this._renderer.SetRenderWindow(null);
             if (this._overlayRenderer != null) this._overlayRenderer.SetRenderWindow(null);
             if (this._selectionRenderer != null) this._selectionRenderer.SetRenderWindow(null);
+            if (this._widgetRenderer != null) this._widgetRenderer.SetRenderWindow(null);
 
             if (this._renderWindowInteractor != null)
             {
@@ -212,7 +219,11 @@ namespace vtkControl
                 this._selectionRenderer.Dispose();
                 this._selectionRenderer = null;
             }
-
+            if (this._widgetRenderer != null)
+            {
+                this._widgetRenderer.Dispose();
+                this._widgetRenderer = null;
+            }
             base.OnHandleDestroyed(e);
         }
 

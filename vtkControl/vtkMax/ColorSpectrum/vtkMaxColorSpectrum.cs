@@ -126,6 +126,16 @@ namespace vtkControl
             _minColor = colorSpectrum._minColor;
             _maxColor = colorSpectrum._maxColor;
         }
+        public void SetUserMinMax(double minUserValue, double maxUserValue)
+        {
+            if (double.IsNaN(minUserValue) || double.IsInfinity(minUserValue) ||
+                double.IsNaN(maxUserValue) || double.IsInfinity(maxUserValue) ||
+                minUserValue >= maxUserValue)
+                throw new Exception("The min value must be smaller than the max value.");
+            //
+            _minUserValue = minUserValue;
+            _maxUserValue = maxUserValue;
+        }
         public bool IsMinMaxEqual(vtkMaxColorSpectrum colorSpectrum)
         {
             if (_minMaxType != colorSpectrum._minMaxType) return false;

@@ -33,8 +33,10 @@ namespace vtkControl
         protected vtkActor2D _borderActor;
         protected vtkPolyDataMapper2D _backgroundMapper;
         protected vtkActor2D _backgroundActor;
+        protected vtkMaxWidgetHighlight _highlight;
         //
         protected vtkRenderer _renderer;
+        protected vtkRenderer _highlightRenderer;
         protected vtkRenderWindowInteractor _renderWindowInteractor;
         //
         protected bool _visibility;
@@ -126,6 +128,8 @@ namespace vtkControl
             _backgroundActor = vtkActor2D.New();
             _backgroundActor.SetMapper(_backgroundMapper);
             _backgroundActor.GetProperty().SetColor(1, 1, 1);
+            //
+            _highlight = new vtkMaxWidgetHighlight();
         }
 
 
@@ -150,6 +154,10 @@ namespace vtkControl
                 _visibility = true;
                 if (_backgroundVisibility == true && _backgroundActor != null) _renderer.AddActor(_backgroundActor);
                 if (_borderVisibility == true &&_borderActor != null) _renderer.AddActor(_borderActor);
+                if (_highlightRenderer != null) _highlight.AddToRenderer(_highlightRenderer);
+                if (_renderWindowInteractor != null &&
+                    _renderWindowInteractor.GetInteractorStyle() is vtkInteractorStyleControl visc)
+                    visc.VtkMaxWidgetVisibilityOn(this);
             }
         }
         public virtual void VisibilityOff()
@@ -159,6 +167,7 @@ namespace vtkControl
                 _visibility = false;
                 if (_borderActor != null) _renderer.RemoveActor(_borderActor);
                 if (_backgroundActor != null) _renderer.RemoveActor(_backgroundActor);
+                if (_highlightRenderer != null) _highlight.RemoveFromRenderer(_highlightRenderer);
             }
         }
         public void BorderVisibilityOn()
@@ -254,6 +263,8 @@ namespace vtkControl
             int[] size = _renderer.GetSize();
             if (size[0] == 0 && size[1] == 0) return;
             //
+            _highlight.Clear();
+            //
             double[] max = new double[] { size[0] - _size[0], size[1] - _size[1] };
             //
             if (_widgetPosition == vtkMaxWidgetPosition.FromTopLeft)
@@ -294,6 +305,7 @@ namespace vtkControl
         }
         public virtual void OnSizeChanged()
         {
+            _highlight.Clear();
             OnMovedOrSizeChanged();
         }
         //
@@ -395,23 +407,7 @@ namespace vtkControl
         //
         public virtual bool MouseOver(int x, int y)
         {
-            if (!_visibility) return false;
-            //
-            int[] size = _renderer.GetSize();
-            double[] position = _position.ToArray();
-            if (_widgetPosition == vtkMaxWidgetPosition.FromTopLeft)
-            {
-                position[1] = size[1] - _size[1] - position[1];
-            }
-            //
-            if (x >= position[0] && x <= position[0] + _size[0] &&
-                y >= position[1] && y <= position[1] + _size[1])
-            {
-                // inside click
-                return true;
-            }
-            else
-                return false;
+            return GetDisplayRectangle().Contains(x, y);
         }
         public virtual bool MouseMove(int x, int y)
         {
@@ -436,6 +432,48 @@ namespace vtkControl
             }
             else return false;
         }
+        public bool UpdateMouseHover(int x, int y, bool mouseOver, bool highlightEntireWidget = false)
+        {
+            Rectangle rectangle = Rectangle.Empty;
+            Rectangle displayRectangle = GetDisplayRectangle();
+            bool internalHighlight = false;
+            if (mouseOver)
+            {
+                Rectangle localRectangle = GetHighlightRectangle(x, y);
+                internalHighlight = localRectangle != Rectangle.Empty && localRectangle != displayRectangle;
+                rectangle = highlightEntireWidget && !internalHighlight ? displayRectangle : localRectangle;
+            }
+            //
+            double fillOpacity = internalHighlight
+                ? vtkMaxWidgetHighlight.InternalFillOpacity
+                : vtkMaxWidgetHighlight.WidgetFillOpacity;
+            return _highlight.SetRectangle(rectangle, fillOpacity);
+        }
+        public bool ClearMouseHover()
+        {
+            return _highlight.Clear();
+        }
+        public virtual void BringToFront()
+        {
+            if (!_visibility || _renderer == null) return;
+            //
+            if (_backgroundVisibility && _backgroundActor != null)
+            {
+                _renderer.RemoveActor(_backgroundActor);
+                _renderer.AddActor(_backgroundActor);
+            }
+            if (_borderVisibility && _borderActor != null)
+            {
+                _renderer.RemoveActor(_borderActor);
+                _renderer.AddActor(_borderActor);
+            }
+        }
+        public void BringHighlightToFront()
+        {
+            if (!_visibility || _highlightRenderer == null) return;
+            //
+            _highlight.BringToFront(_highlightRenderer);
+        }
         public virtual void MousePan(int dx, int dy)
         {
             if (!_visibility) return;
@@ -454,7 +492,32 @@ namespace vtkControl
         }
         
 
-        // Private methods                                                                                                          
+        // Protected methods
+        protected virtual Rectangle GetDisplayRectangle()
+        {
+            if (!_visibility || _renderer == null) return Rectangle.Empty;
+            //
+            int[] rendererSize = _renderer.GetSize();
+            double[] position = _position.ToArray();
+            if (_widgetPosition == vtkMaxWidgetPosition.FromTopLeft)
+            {
+                position[1] = rendererSize[1] - _size[1] - position[1];
+            }
+            //
+            int left = (int)Math.Floor(position[0]);
+            int bottom = (int)Math.Floor(position[1]);
+            int right = (int)Math.Ceiling(position[0] + _size[0]);
+            int top = (int)Math.Ceiling(position[1] + _size[1]);
+            return Rectangle.FromLTRB(left, bottom, right, top);
+        }
+        protected virtual Rectangle GetHighlightRectangle(int x, int y)
+        {
+            Rectangle rectangle = GetDisplayRectangle();
+            return rectangle.Contains(x, y) ? rectangle : Rectangle.Empty;
+        }
+
+
+        // Public methods
         public virtual void UpdateBorderGeometry()
         {
             int[] size = _renderer.GetSize();
@@ -484,6 +547,7 @@ namespace vtkControl
             if (renderWindowInteractor == null) return;
             _renderWindowInteractor = renderWindowInteractor;
             _renderer = renderer;
+            _highlightRenderer = renderer;
             // Reference
             _renderWindowInteractor.GetRenderWindow().ModifiedEvt += renderWindow_ModifiedEvt;
             // Add widget
@@ -491,6 +555,16 @@ namespace vtkControl
             //
             _renderer.AddActor(_backgroundActor);
             _renderer.AddActor(_borderActor);
+            _highlight.AddToRenderer(_highlightRenderer);
+        }
+        public void SetHighlightRenderer(vtkRenderer highlightRenderer)
+        {
+            if (_highlightRenderer == highlightRenderer) return;
+            //
+            if (_highlightRenderer != null) _highlight.RemoveFromRenderer(_highlightRenderer);
+            _highlightRenderer = highlightRenderer;
+            if (_visibility && _renderWindowInteractor != null && _highlightRenderer != null)
+                _highlight.AddToRenderer(_highlightRenderer);
         }
         public virtual void RemoveInteractor()
         {
@@ -502,9 +576,11 @@ namespace vtkControl
             //
             _renderer.RemoveActor(_backgroundActor);
             _renderer.RemoveActor(_borderActor);
+            if (_highlightRenderer != null) _highlight.RemoveFromRenderer(_highlightRenderer);
             // Pointers
             _renderWindowInteractor = null;
             _renderer = null;
+            _highlightRenderer = null;
         }
         //
         public void SetPosition(double x, double y)

@@ -127,8 +127,8 @@ namespace vtkControl
             GenerateLableValues();       // must be before Background
             GenerateBackground();       // must be before Borders
             GenerateBorders();
-            UpdateOuterBorder();
             PositionLabels();
+            UpdateOuterBorder();
         }
         private void UpdateSize()
         {
@@ -232,6 +232,9 @@ namespace vtkControl
         private void PositionLabels()
         {
             vtkPoints points = _scaleBackgroundMapper.GetInput().GetPoints();
+            int lastIndex = _scaleTextMappers.Length - 1;
+            string lastLabel = _scaleTextMappers[lastIndex].GetInput();
+            if (!string.IsNullOrEmpty(_unit)) _scaleTextMappers[lastIndex].SetInput(lastLabel + " " + _unit);
             //
             int[] size;
             double[] point;
@@ -242,9 +245,6 @@ namespace vtkControl
                 //
                 _scaleTextActors[i].GetPositionCoordinate().SetValue(point[0] - size[0] / 2, _padding);
             }
-            //
-            string lastLabel = _scaleTextMappers[_scaleTextMappers.Length - 1].GetInput();
-            _scaleTextMappers[_scaleTextMappers.Length - 1].SetInput(lastLabel + " " + _unit);
         }
         private void UpdateOuterBorder()
         {
@@ -315,6 +315,30 @@ namespace vtkControl
                 for (int i = 0; i < _scaleTextActors.Length; i++)
                 {
                     if (_scaleTextActors[i] != null) _renderer.RemoveActor(_scaleTextActors[i]);
+                }
+            }
+        }
+        public override void BringToFront()
+        {
+            if (!_visibility || _renderer == null) return;
+            //
+            base.BringToFront();
+            if (_scaleBackgroundActor != null)
+            {
+                _renderer.RemoveActor(_scaleBackgroundActor);
+                _renderer.AddActor(_scaleBackgroundActor);
+            }
+            if (_scaleBorderActor != null)
+            {
+                _renderer.RemoveActor(_scaleBorderActor);
+                _renderer.AddActor(_scaleBorderActor);
+            }
+            for (int i = 0; i < _scaleTextActors.Length; i++)
+            {
+                if (_scaleTextActors[i] != null)
+                {
+                    _renderer.RemoveActor(_scaleTextActors[i]);
+                    _renderer.AddActor(_scaleTextActors[i]);
                 }
             }
         }

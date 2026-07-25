@@ -29,13 +29,13 @@ namespace UserControls
         private const int WM_LBUTTONDOWN = 0x201;
         private const int WM_LBUTTONUP = 0x202;
         //WM_LBUTTONDBLCLK = 0x203
-        //WM_RBUTTONDOWN = 0x204
+        private const int WM_RBUTTONDOWN = 0x204;
         //WM_RBUTTONUP = 0x205
         //WM_RBUTTONDBLCLK = 0x206
-        //WM_MBUTTONDOWN = 0x207
+        private const int WM_MBUTTONDOWN = 0x207;
         //WM_MBUTTONUP = 0x208
         //WM_MBUTTONDBLCLK = 0x209
-        //WM_MOUSEWHEEL = 0x20A
+        private const int WM_MOUSEWHEEL = 0x20A;
         //WM_MOUSEHWHEEL = 0x20E
         //private const int WM_MOUSEWHEEL = 0x20a;
         private const int WM_KEYDOWN = 0x100;
@@ -116,11 +116,12 @@ namespace UserControls
             //
             if (DisableAllMouseEvents && m.Msg >= 512 && m.Msg <= 527) return true;  // Disable all mouse events
             //
-            if (m.Msg == WM_LBUTTONDOWN)
+            if (m.Msg == WM_LBUTTONDOWN || m.Msg == WM_RBUTTONDOWN ||
+                m.Msg == WM_MBUTTONDOWN || m.Msg == WM_MOUSEWHEEL)
             {
                 if (IsChildControlOnTheSameForm(FromHandle(m.HWnd)))
                 {
-                    LeftMouseDownOnForm(FromHandle(m.HWnd));
+                    MouseInteractionOnForm(FromHandle(m.HWnd));
                 }
             }
             // Prevent arrow keys to change focus from PassThroughControl
@@ -184,7 +185,7 @@ namespace UserControls
 
             return false;
         }
-        public virtual void LeftMouseDownOnForm(Control sender)
+        public virtual void MouseInteractionOnForm(Control sender)
         {
         }
 

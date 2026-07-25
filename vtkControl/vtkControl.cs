@@ -62,6 +62,7 @@ namespace vtkControl
         private vtkRenderer _renderer;
         private vtkRenderer _selectionRenderer;
         private vtkRenderer _overlayRenderer;
+        private vtkRenderer _widgetRenderer;
         private vtkRenderWindow _renderWindow;
         private vtkRenderWindowInteractor _renderWindowInteractor;
         private vtkLight _light1;
@@ -272,10 +273,13 @@ namespace vtkControl
         //
         public Action<MouseEventArgs, Keys, string[]> Controller_ActorsPicked;
         public Action<MouseEventArgs, Keys, string, Rectangle> Form_WidgetPicked;
+        public Action<bool, Rectangle, string, double, double> Form_EditLegendValue;
+        public Action<bool> Form_SetLegendColor;
+        public Action<bool, System.Drawing.Point> Form_ShowLegendColorContextMenu;
         public Action Form_ShowColorBarSettings;
         public Action Form_ShowLegendSettings;
         public Action Form_ShowStatusBlockSettings;
-        public Action Form_EndEditArrowWidget;
+        public Func<bool> Form_CommitViewportEdit;
         //
         public Action Form_BoxZoomEnded;
 
@@ -400,7 +404,12 @@ namespace vtkControl
         void style_LeaveEvt(vtkObject sender, vtkObjectEventArgs e)
         {
             if (_mouseIn) _mouseIn = false;
+            _style.ClearWidgetHighlights();
             _renderWindow.SetCurrentCursor(0);  // Default
+        }
+        private void style_MouseInteractionEvent()
+        {
+            Form_CommitViewportEdit?.Invoke();
         }
         //
         private void colorBarWidget_DoubleClicked(object sender, MouseEventArgs e)
@@ -409,7 +418,16 @@ namespace vtkControl
         }
         private void scalarBarWidget_DoubleClicked(object sender, MouseEventArgs e)
         {
-            Form_ShowLegendSettings?.Invoke();
+            if (_scalarBarWidget.TryGetUserColorData(e.X, e.Y, out bool minimumColor, out Rectangle colorRectangle))
+            {
+                Form_SetLegendColor?.Invoke(minimumColor);
+            }
+            else if (_scalarBarWidget.TryGetValueEditData(e.X, e.Y, out bool editMinimum, out Rectangle rectangle,
+                                                     out string valueText, out double minimum, out double maximum))
+            {
+                Form_EditLegendValue?.Invoke(editMinimum, rectangle, valueText, minimum, maximum);
+            }
+            else Form_ShowLegendSettings?.Invoke();
         }
         private void statusBlockWidget_DoubleClicked(object sender, MouseEventArgs e)
         {
@@ -532,7 +550,7 @@ namespace vtkControl
             if (_selectBy == vtkSelectBy.Off) return;
             else if (_selectBy == vtkSelectBy.Widget)
             {
-                if (mea.Clicks == 1) Form_EndEditArrowWidget?.Invoke();
+                if (mea.Clicks == 1) Form_CommitViewportEdit?.Invoke();
             }
             // Default selection of parts during normal use
             else if (_selectBy == vtkSelectBy.Default)
@@ -609,6 +627,11 @@ namespace vtkControl
             if (sender != null && sender is vtkMaxTextWithArrowWidget widget)
             {
                 Form_WidgetPicked(e, Keys.None, widget.GetName(), widget.GetRectangle());
+            }
+            else if (sender != null && sender is vtkMaxScalarBarWidget scalarBarWidget &&
+                     scalarBarWidget.TryGetUserColorData(e.X, e.Y, out bool minimumColor, out Rectangle rectangle))
+            {
+                Form_ShowLegendColorContextMenu?.Invoke(minimumColor, e.Location);
             }
             else
             {
@@ -1804,6 +1827,7 @@ namespace vtkControl
             _style.PointPickedOnLeftUpEvt += style_PointPickedOnLeftUpEvt;
             _style.ClearCurrentMouseSelection += ClearCurrentMouseSelection;
             _style.RightButtonPressEvent += style_RightButtonPressEvent;
+            _style.MouseInteractionEvent += style_MouseInteractionEvent;
             _style.RotationPointChanged += _style_RotationPointChanged;
             _style.ZoomChangedEvent += style_ZoomChangedEvent;
             _style.KeyPressEvt += style_KeyPressEvt;
@@ -1823,7 +1847,7 @@ namespace vtkControl
             vtkPolyDataMapper.SetResolveCoincidentTopologyToPolygonOffset();
             // Scale bar
             _scaleWidget = new vtkMaxScaleWidget();
-            _scaleWidget.SetInteractor(_selectionRenderer, _renderWindowInteractor);
+            _scaleWidget.SetInteractor(_widgetRenderer, _renderWindowInteractor);
             _scaleWidget.SetWidth(400);
             _scaleWidget.SetHorizontallyRelativePosition(320, 0);
             _scaleWidget.SetBorderColor(0, 0, 0);
@@ -1837,7 +1861,7 @@ namespace vtkControl
             InitializeScalarBar();
             // Color bar
             _colorBarWidget = new vtkMaxColorBarWidget();
-            _colorBarWidget.SetInteractor(_renderer, _renderWindowInteractor);
+            _colorBarWidget.SetInteractor(_widgetRenderer, _renderWindowInteractor);
             _colorBarWidget.SetTextProperty(CreateNewTextProperty());
             _colorBarWidget.SetPadding(15);
             _colorBarWidget.VisibilityOn();
@@ -1847,8 +1871,7 @@ namespace vtkControl
             _colorBarWidget.MouseDoubleClick += colorBarWidget_DoubleClicked;
             // Status block
             _statusBlockWidget = new vtkMaxStatusBlockWidget();
-            //_statusBlock.SetRenderer(_selectionRenderer);
-            _statusBlockWidget.SetInteractor(_selectionRenderer, _renderWindowInteractor);
+            _statusBlockWidget.SetInteractor(_widgetRenderer, _renderWindowInteractor);
             _statusBlockWidget.SetTextProperty(CreateNewTextProperty());
             _statusBlockWidget.SetPadding(5);
             _statusBlockWidget.GetBackgroundProperty().SetColor(1, 1, 1);
@@ -1857,7 +1880,7 @@ namespace vtkControl
             _statusBlockWidget.MouseDoubleClick += statusBlockWidget_DoubleClicked;
             // Probe widget
             _probeWidget = new vtkMaxTextWidget();
-            _probeWidget.SetInteractor(_selectionRenderer, _renderWindowInteractor);
+            _probeWidget.SetInteractor(_widgetRenderer, _renderWindowInteractor);
             _probeWidget.SetBorderColor(0, 0, 0);
             _probeWidget.SetTextProperty(CreateNewTextProperty());
             _probeWidget.SetPadding(5);
@@ -1880,8 +1903,7 @@ namespace vtkControl
             _lookupTable = vtkLookupTable.New();
             // Scalar bar
             _scalarBarWidget = new vtkMaxScalarBarWidget();
-            _scalarBarWidget.SetInteractor(_renderer, _renderWindowInteractor);
-            //_vtkMaxScalarBar.SetRenderer(_selectionRenderer);
+            _scalarBarWidget.SetInteractor(_widgetRenderer, _renderWindowInteractor);
             _scalarBarWidget.SetTextProperty(CreateNewTextProperty());
             _scalarBarWidget.CreateLookupTable(GetColorTransferFunction(), 0, 1);
             _scalarBarWidget.SetLabelFormat("E3");
@@ -5882,6 +5904,12 @@ namespace vtkControl
             _scalarBarWidget.MinColor = colorSpectrum.MinColor;
             _scalarBarWidget.MaxColor = colorSpectrum.MaxColor;            
         }       
+        public bool TryGetScalarBarValueEditData(bool editMinimum, out Rectangle rectangle, out string valueText,
+                                                 out double minimum, out double maximum)
+        {
+            return _scalarBarWidget.TryGetValueEditData(editMinimum, out rectangle, out valueText,
+                                                        out minimum, out maximum);
+        }
         public void SetScalarBarNumberFormat(string numberFormat)
         {
             _scalarBarWidget.SetLabelFormat(numberFormat);
@@ -6022,11 +6050,12 @@ namespace vtkControl
 
                     _renderWindow = vtkRenderWindow.New();
                     _renderWindow.SetParentId(this.Handle);
-                    _renderWindow.SetNumberOfLayers(3);
+                    _renderWindow.SetNumberOfLayers(4);
 
                     _renderWindow.AddRenderer(_renderer);
                     _renderWindow.AddRenderer(_overlayRenderer);
                     _renderWindow.AddRenderer(_selectionRenderer);
+                    _renderWindow.AddRenderer(_widgetRenderer);
 
                     SyncRenderWindowSize();
 
@@ -6974,7 +7003,7 @@ namespace vtkControl
             {
                 newWidget = true;
                 arrowWidget = new vtkMaxTextWithArrowWidget(name);
-                arrowWidget.SetInteractor(_selectionRenderer, _renderWindowInteractor);
+                arrowWidget.SetInteractor(_widgetRenderer, _renderWindowInteractor);
                 arrowWidget.SetBorderColor(0, 0, 0);
                 arrowWidget.SetTextProperty(CreateNewTextProperty());
                 arrowWidget.SetPadding(5);
@@ -7757,6 +7786,7 @@ namespace vtkControl
 
             _renderWindow.RemoveRenderer(_selectionRenderer);
             _renderWindow.RemoveRenderer(_overlayRenderer);
+            _renderWindow.RemoveRenderer(_widgetRenderer);
             vtkOBJExporter exporter = vtkOBJExporter.New();
             //vtkX3DExporter exporter = vtkX3DExporter.New();
             //vtkVRMLExporter exporter = vtkVRMLExporter.New();
@@ -7774,6 +7804,7 @@ namespace vtkControl
 
             _renderWindow.AddRenderer(_selectionRenderer);
             _renderWindow.AddRenderer(_overlayRenderer);
+            _renderWindow.AddRenderer(_widgetRenderer);
         }
         public void AddTetrahedronFaces(double[][] nodes, int[][] tetrahedrons, Color color, int faceId, vtkRendererLayer layer)
         {

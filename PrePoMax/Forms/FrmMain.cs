@@ -23,6 +23,7 @@ using System.ComponentModel;
 using System.Data;
 using System.Diagnostics;
 using System.Drawing;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -40,6 +41,21 @@ namespace PrePoMax
 {
     public partial class FrmMain : MainMouseWheelManagedForm
     {
+        private class ViewportLegendValueEditData
+        {
+            public readonly double Minimum;
+            public readonly double Maximum;
+            public readonly string OriginalText;
+
+            public ViewportLegendValueEditData(double minimum, double maximum, string originalText)
+            {
+                Minimum = minimum;
+                Maximum = maximum;
+                OriginalText = originalText;
+            }
+        }
+
+
         // Variables                                                                                                                
         #region Variables ##########################################################################################################
         //
@@ -58,6 +74,10 @@ namespace PrePoMax
         private bool _closeAfterRegeneration;
         private float _prevScaleFactor;
         private bool _suppressSymbolChanged;
+        private ContextMenuStrip _cmsLegendColor;
+        private ToolStripMenuItem _tsmiSetLegendColor;
+        private ToolStripMenuItem _tsmiHideLegendColor;
+        private bool _legendMinimumColor;
         //
         private Point _formLocation;
         private List<Form> _allForms;
@@ -270,9 +290,12 @@ namespace PrePoMax
             //
             try
             {
-                // Edit annotation text box
-                panelControl.Controls.Remove(aeAnnotationTextEditor);
-                this.Controls.Add(aeAnnotationTextEditor);
+                // Viewport text editor
+                panelControl.Controls.Remove(viewportTextEditor);
+                this.Controls.Add(viewportTextEditor);
+                viewportTextEditor.CommitRequested += ViewportTextEditor_CommitRequested;
+                viewportTextEditor.CancelRequested += CancelViewportEdit;
+                viewportTextEditor.NextRequested += ViewportTextEditor_NextRequested;
                 // Vtk
                 _vtk = new vtkControl.vtkControl();
                 panelControl.Parent.Controls.Add(_vtk);
@@ -280,6 +303,7 @@ namespace PrePoMax
                 // Menu
                 tsmiColorAnnotations.DropDown.Closing += DropDown_Closing;
                 tsmiViewItems.DropDown.Closing += DropDown_Closing;
+                InitializeLegendColorContextMenu();
                 // Tree
                 _modelTree = new ModelTree();
                 // Controller
@@ -353,10 +377,13 @@ namespace PrePoMax
                 _vtk.Controller_GetGeometryActorData = _controller.GetGeometryActorData;
                 _vtk.Controller_GetGeometryVertexActorData = _controller.GetGeometryVertexActorData;
                 _vtk.Controller_ActorsPicked = SelectBaseParts;
+                _vtk.Form_EditLegendValue = StartEditLegendValue;
+                _vtk.Form_SetLegendColor = SetLegendColor;
+                _vtk.Form_ShowLegendColorContextMenu = ShowLegendColorContextMenu;
                 _vtk.Form_ShowColorBarSettings = ShowColorBarSettings;
                 _vtk.Form_ShowLegendSettings = ShowLegendSettings;
                 _vtk.Form_ShowStatusBlockSettings = ShowStatusBlockSettings;
-                _vtk.Form_EndEditArrowWidget = EndEditArrowAnnotation;
+                _vtk.Form_CommitViewportEdit = CommitViewportEdit;
                 _vtk.Form_WidgetPicked = AnnotationPicked;
                 _vtk.Form_BoxZoomEnded = BoxZoomEnded;
                 // Output
@@ -749,6 +776,8 @@ namespace PrePoMax
         }
         private void FrmMain_Resize(object sender, EventArgs e)
         {
+            CommitViewportEdit();
+            //
             if (this.WindowState == FormWindowState.Minimized && _frmAnimation != null && _frmAnimation.Visible)
                 _frmAnimation.UpdateAnimation();
             //
@@ -924,6 +953,11 @@ namespace PrePoMax
             if (_visibleSidePanel != null && _visibleSidePanel.Focused) return;
             //
             Keys key = (Keys)vKey;
+            if (viewportTextEditor.Visible)
+            {
+                if (key == Keys.Escape) CancelViewportEdit();
+                return;
+            }
             if (key == Keys.Escape)
             {
                 if (!_vtk.IsBoxSelectionActive) CloseAllForms();
@@ -932,8 +966,6 @@ namespace PrePoMax
             // Check for toolstrip
             Control focusedControl = FindFocusedControl(this);
             if (focusedControl != null && focusedControl.Parent is ToolStripFocus) return;
-            // Check for annotation editor
-            if (aeAnnotationTextEditor.Visible) return;
             // Model tree
             if (_modelTree.ActiveControl != null && _modelTree.ActiveControl.Focused) return;
             // Check for model tree search box
@@ -7410,12 +7442,68 @@ namespace PrePoMax
             _frmSettings.SetSettingsToShow(Globals.LegendSettingsName);
             tsmiSettings_Click(null, null);
         }
+        private void InitializeLegendColorContextMenu()
+        {
+            _cmsLegendColor = new ContextMenuStrip(components);
+            _tsmiSetLegendColor = new ToolStripMenuItem("Set color");
+            _tsmiHideLegendColor = new ToolStripMenuItem("Hide");
+            //
+            _tsmiSetLegendColor.Click += tsmiSetLegendColor_Click;
+            _tsmiHideLegendColor.Click += tsmiHideLegendColor_Click;
+            //
+            _cmsLegendColor.Items.AddRange(new ToolStripItem[]
+            {
+                _tsmiSetLegendColor,
+                _tsmiHideLegendColor
+            });
+        }
+        private void ShowLegendColorContextMenu(bool minimumColor, Point vtkPoint)
+        {
+            _legendMinimumColor = minimumColor;
+            //
+            int x = Math.Max(0, Math.Min(vtkPoint.X, _vtk.Width - 1));
+            int y = Math.Max(0, Math.Min(_vtk.Height - 1 - vtkPoint.Y, _vtk.Height - 1));
+            _cmsLegendColor.Show(_vtk, new Point(x, y));
+        }
+        private void tsmiSetLegendColor_Click(object sender, EventArgs e)
+        {
+            SetLegendColor(_legendMinimumColor);
+        }
+        private void tsmiHideLegendColor_Click(object sender, EventArgs e)
+        {
+            SettingsContainer settings = _controller.Settings;
+            if (_legendMinimumColor) settings.Legend.ColorSpectrum.MinColorVisible = false;
+            else settings.Legend.ColorSpectrum.MaxColorVisible = false;
+            _controller.Settings = settings;
+        }
+        private void SetLegendColor(bool minimumColor)
+        {
+            if (_frmQuery.Visible) return;
+            //
+            SettingsContainer settings = _controller.Settings;
+            vtkMaxColorSpectrum colorSpectrum = settings.Legend.ColorSpectrum;
+            Color color = minimumColor ? colorSpectrum.MinColor : colorSpectrum.MaxColor;
+            string title = minimumColor ? "Set Below-Minimum Color" : "Set Above-Maximum Color";
+            //
+            using (FrmGetColor frmGetColor = new FrmGetColor())
+            {
+                SetFormLocation(frmGetColor);
+                frmGetColor.PrepareForm(title, color);
+                if (frmGetColor.ShowDialog(this) == DialogResult.OK && frmGetColor.Color != color)
+                {
+                    if (minimumColor) colorSpectrum.MinColor = frmGetColor.Color;
+                    else colorSpectrum.MaxColor = frmGetColor.Color;
+                    _controller.Settings = settings;
+                }
+                SaveFormLocation(frmGetColor);
+            }
+        }
         private void ShowStatusBlockSettings()
         {
             _frmSettings.SetSettingsToShow(Globals.StatusBlockSettingsName);
             tsmiSettings_Click(null, null);
         }
-        // Annotations
+        // Viewport text editing
         private void StartEditArrowAnnotation(string name, Rectangle rectangle)
         {
             if (AnnotationContainer.IsAnnotationNameReserved(name)) return;
@@ -7425,50 +7513,169 @@ namespace PrePoMax
             string text = annotation.GetAnnotationText();
             rectangle.Offset(-4, 4);
             //
-            Point vtkLocation = this.PointToClient(_vtk.PointToScreen(_vtk.Location));
+            StartViewportEdit(rectangle, text, ViewportEditModeEnum.Annotation, annotation);
+        }
+        private void StartEditLegendValue(bool editMinimum, Rectangle rectangle, string valueText,
+                                          double minimum, double maximum)
+        {
+            if (_frmQuery.Visible) return;
+            //
+            ViewportEditModeEnum editMode = editMinimum
+                ? ViewportEditModeEnum.LegendMinimum
+                : ViewportEditModeEnum.LegendMaximum;
+            rectangle.Offset(-1, 0);
+            ViewportLegendValueEditData editData =
+                new ViewportLegendValueEditData(minimum, maximum, valueText);
+            StartViewportEdit(rectangle, valueText, editMode, editData);
+        }
+        private void StartViewportEdit(Rectangle rectangle, string text, ViewportEditModeEnum editMode, object tag)
+        {
+            if (viewportTextEditor.Visible && !CommitViewportEdit()) return;
+            //
+            Point vtkLocation = this.PointToClient(_vtk.PointToScreen(Point.Empty));
             Point location = new Point(vtkLocation.X + rectangle.X,
                                        vtkLocation.Y + (_vtk.Height - rectangle.Y - rectangle.Height));
             Rectangle vtkArea = new Rectangle(vtkLocation, _vtk.Size);
             //
-            aeAnnotationTextEditor.Location = location;
-            aeAnnotationTextEditor.Size = rectangle.Size;
-            aeAnnotationTextEditor.MinSize = rectangle.Size;
-            aeAnnotationTextEditor.ParentArea = vtkArea;
-            aeAnnotationTextEditor.Text = text;
-            aeAnnotationTextEditor.BringToFront();
-            aeAnnotationTextEditor.Visible = true;
-            aeAnnotationTextEditor.Tag = annotation;
+            viewportTextEditor.Location = location;
+            viewportTextEditor.Size = rectangle.Size;
+            viewportTextEditor.MinSize = rectangle.Size;
+            viewportTextEditor.ParentArea = vtkArea;
+            viewportTextEditor.ViewportEditMode = editMode;
+            viewportTextEditor.Text = text;
+            viewportTextEditor.Tag = tag;
+            //
+            bool legendValue = editMode == ViewportEditModeEnum.LegendMinimum ||
+                               editMode == ViewportEditModeEnum.LegendMaximum;
+            if (legendValue)
+            {
+                double highlightCenterY = vtkLocation.Y + _vtk.Height - rectangle.Y - rectangle.Height / 2.0;
+                int editorY = (int)Math.Round(highlightCenterY - viewportTextEditor.Height / 2.0,
+                                              MidpointRounding.AwayFromZero);
+                viewportTextEditor.Location = new Point(location.X, editorY);
+            }
+            //
+            viewportTextEditor.BringToFront();
+            viewportTextEditor.Visible = true;
+            viewportTextEditor.SetCaretAtEnd();
             //
             _vtk.SelectBy = vtkSelectBy.Widget;
-            //_vtk.DisableInteractor = true;
         }
-        private void EndEditArrowAnnotation()
+        private void ViewportTextEditor_CommitRequested()
         {
-            if (aeAnnotationTextEditor.Visible)
+            CommitViewportEdit();
+        }
+        private void ViewportTextEditor_NextRequested()
+        {
+            ViewportEditModeEnum editMode = viewportTextEditor.ViewportEditMode;
+            if (editMode != ViewportEditModeEnum.LegendMinimum &&
+                editMode != ViewportEditModeEnum.LegendMaximum) return;
+            //
+            bool editMinimum = editMode == ViewportEditModeEnum.LegendMaximum;
+            if (CommitViewportEdit() &&
+                _vtk.TryGetScalarBarValueEditData(editMinimum, out Rectangle rectangle,
+                                                  out string valueText, out double minimum, out double maximum))
             {
-                AnnotationBase annotation = (AnnotationBase)aeAnnotationTextEditor.Tag;
+                StartEditLegendValue(editMinimum, rectangle, valueText, minimum, maximum);
+            }
+        }
+        private bool CommitViewportEdit()
+        {
+            if (InvokeRequired)
+                return (bool)Invoke(new Func<bool>(CommitViewportEdit));
+            //
+            if (!viewportTextEditor.Visible) return false;
+            //
+            ViewportEditModeEnum editMode = viewportTextEditor.ViewportEditMode;
+            if (editMode == ViewportEditModeEnum.Annotation)
+            {
+                AnnotationBase annotation = (AnnotationBase)viewportTextEditor.Tag;
                 string nonOverriddenText = annotation.GetNotOverriddenAnnotationText();
                 //
                 nonOverriddenText = nonOverriddenText.Replace("\r\n", "\n");
-                string newText = aeAnnotationTextEditor.Text.Replace("\r\n", "\n");
+                string newText = viewportTextEditor.Text.Replace("\r\n", "\n");
                 //
                 if (newText.Length > 0 && newText != nonOverriddenText)
-                    annotation.OverriddenText = aeAnnotationTextEditor.Text;
+                    annotation.OverriddenText = viewportTextEditor.Text;
                 else
                     annotation.OverriddenText = null;
                 //
-                aeAnnotationTextEditor.Visible = false;
-                //
-                //_vtk.DisableInteractor = false;
-                _vtk.SelectBy = vtkSelectBy.Default;
-                //
+                EndViewportEdit();
                 _controller.Annotations.DrawAnnotations();  // redraw in both cases
+                return true;
             }
+            else if (editMode == ViewportEditModeEnum.LegendMinimum ||
+                     editMode == ViewportEditModeEnum.LegendMaximum)
+            {
+                try
+                {
+                    StringDoubleConverter converter = new StringDoubleConverter();
+                    string valueText = viewportTextEditor.Text.Replace(" ", "");
+                    double value = Convert.ToDouble(converter.ConvertFrom(null, CultureInfo.CurrentCulture,
+                                                                           valueText),
+                                                    CultureInfo.CurrentCulture);
+                    if (double.IsNaN(value) || double.IsInfinity(value)) throw new FormatException();
+                    //
+                    ViewportLegendValueEditData editData =
+                        (ViewportLegendValueEditData)viewportTextEditor.Tag;
+                    string originalText = editData.OriginalText.Replace(" ", "");
+                    double displayedValue =
+                        Convert.ToDouble(converter.ConvertFrom(null, CultureInfo.CurrentCulture, originalText),
+                                         CultureInfo.CurrentCulture);
+                    double originalValue = editMode == ViewportEditModeEnum.LegendMinimum
+                        ? editData.Minimum
+                        : editData.Maximum;
+                    //
+                    if (value == displayedValue || value == originalValue)
+                    {
+                        EndViewportEdit();
+                        return true;
+                    }
+                    //
+                    double minimum = editMode == ViewportEditModeEnum.LegendMinimum ? value : editData.Minimum;
+                    double maximum = editMode == ViewportEditModeEnum.LegendMaximum ? value : editData.Maximum;
+                    if (minimum >= maximum) throw new FormatException();
+                    //
+                    SettingsContainer settings = _controller.Settings;
+                    settings.Legend.ColorSpectrum.SetUserMinMax(minimum, maximum);
+                    settings.Legend.ColorSpectrum.MinMaxType = vtkColorSpectrumMinMaxType.Manual;
+                    //
+                    EndViewportEdit();
+                    _controller.Settings = settings;
+                    return true;
+                }
+                catch
+                {
+                    viewportTextEditor.SetError(true);
+                    viewportTextEditor.SetCaretAtEnd();
+                    return false;
+                }
+            }
+            //
+            CancelViewportEdit();
+            return false;
         }
-        public override void LeftMouseDownOnForm(Control sender)
+        private void EndViewportEdit()
         {
-            if (aeAnnotationTextEditor.Visible && !aeAnnotationTextEditor.IsOrContainsControl(sender))
-                EndEditArrowAnnotation();
+            viewportTextEditor.Visible = false;
+            viewportTextEditor.ViewportEditMode = ViewportEditModeEnum.None;
+            viewportTextEditor.Tag = null;
+            _vtk.SelectBy = vtkSelectBy.Default;
+        }
+        private void CancelViewportEdit()
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action(CancelViewportEdit));
+                return;
+            }
+            //
+            if (viewportTextEditor != null && viewportTextEditor.Visible) EndViewportEdit();
+        }
+        public override void MouseInteractionOnForm(Control sender)
+        {
+            if (viewportTextEditor.Visible && !viewportTextEditor.IsOrContainsControl(sender))
+                CommitViewportEdit();
         }
         public void AnnotationPicked(MouseEventArgs e, Keys modifierKeys, string annotationName, Rectangle annotationRectangle)
         {
@@ -9039,6 +9246,8 @@ namespace PrePoMax
         {
             InvokeIfRequired(() =>
             {
+                CommitViewportEdit();
+                //
                 if (_allForms != null)
                 {
                     foreach (var form in _allForms)
@@ -9996,6 +10205,7 @@ namespace PrePoMax
         }
         public void Clear3D()
         {
+            CommitViewportEdit();
             InvokeIfRequired(_vtk.Clear);
         }
         public void ClearButKeepParts()
@@ -10467,6 +10677,8 @@ namespace PrePoMax
         }
         public void SetFieldData(string name, string component, int stepId, int stepIncrementId)
         {
+            CommitViewportEdit();
+            //
             FieldData fieldData = new FieldData(name, component, stepId, stepIncrementId);
             FieldData currentData = _controller.CurrentFieldData;
             // In case the currentData is null exit
@@ -10623,6 +10835,7 @@ namespace PrePoMax
         }
         public void SetAnimationFrame(int frameNum, bool scalarRangeFromAllFrames)
         {
+            CommitViewportEdit();
             InvokeIfRequired(_vtk.SetAnimationFrame, frameNum, scalarRangeFromAllFrames);
         }
         public void SaveAnimationAsAVI(string fileName, int[] firstLastFrame, int step, int fps, bool scalarRangeFromAllFrames,

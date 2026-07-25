@@ -9,7 +9,7 @@
 
 namespace UserControls
 {
-    partial class AnnotationEditor
+    partial class ViewportTextEditor
     {
         /// <summary> 
         /// Required designer variable.
@@ -38,7 +38,7 @@ namespace UserControls
         private void InitializeComponent()
         {
             this.pBorder = new System.Windows.Forms.Panel();
-            this.aertbData = new UserControls.AnnotationEditorRichTextBox();
+            this.vertbData = new UserControls.ViewportEditorRichTextBox();
             this.pBorder.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -46,36 +46,36 @@ namespace UserControls
             // 
             this.pBorder.BackColor = System.Drawing.SystemColors.Highlight;
             this.pBorder.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.pBorder.Controls.Add(this.aertbData);
+            this.pBorder.Controls.Add(this.vertbData);
             this.pBorder.Dock = System.Windows.Forms.DockStyle.Fill;
             this.pBorder.Location = new System.Drawing.Point(0, 0);
             this.pBorder.Name = "pBorder";
             this.pBorder.Size = new System.Drawing.Size(119, 60);
             this.pBorder.TabIndex = 0;
             // 
-            // aertbData
+            // vertbData
             // 
-            this.aertbData.Beep = false;
-            this.aertbData.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.aertbData.DetectUrls = false;
-            this.aertbData.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
-            this.aertbData.Location = new System.Drawing.Point(2, 2);
-            this.aertbData.MaxSize = new System.Drawing.Size(0, 0);
-            this.aertbData.MinSize = new System.Drawing.Size(0, 0);
-            this.aertbData.Name = "aertbData";
-            this.aertbData.ScrollBars = System.Windows.Forms.RichTextBoxScrollBars.None;
-            this.aertbData.Size = new System.Drawing.Size(98, 40);
-            this.aertbData.TabIndex = 6;
-            this.aertbData.Text = "Edit widgets";
-            this.aertbData.WordWrap = false;
-            this.aertbData.SizeChanged += new System.EventHandler(this.aertbData_SizeChanged);
+            this.vertbData.Beep = false;
+            this.vertbData.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.vertbData.DetectUrls = false;
+            this.vertbData.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
+            this.vertbData.Location = new System.Drawing.Point(2, 2);
+            this.vertbData.MaxSize = new System.Drawing.Size(0, 0);
+            this.vertbData.MinSize = new System.Drawing.Size(0, 0);
+            this.vertbData.Name = "vertbData";
+            this.vertbData.ScrollBars = System.Windows.Forms.RichTextBoxScrollBars.None;
+            this.vertbData.Size = new System.Drawing.Size(98, 40);
+            this.vertbData.TabIndex = 6;
+            this.vertbData.Text = "Edit widgets";
+            this.vertbData.WordWrap = false;
+            this.vertbData.SizeChanged += new System.EventHandler(this.vertbData_SizeChanged);
             // 
-            // AnnotationEditor
+            // ViewportTextEditor
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.Controls.Add(this.pBorder);
-            this.Name = "AnnotationEditor";
+            this.Name = "ViewportTextEditor";
             this.Size = new System.Drawing.Size(119, 60);
             this.pBorder.ResumeLayout(false);
             this.ResumeLayout(false);
@@ -85,6 +85,6 @@ namespace UserControls
         #endregion
 
         private System.Windows.Forms.Panel pBorder;
-        private AnnotationEditorRichTextBox aertbData;
+        private ViewportEditorRichTextBox vertbData;
     }
 }

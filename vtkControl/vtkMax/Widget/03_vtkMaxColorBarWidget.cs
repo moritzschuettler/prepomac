@@ -353,6 +353,22 @@ namespace vtkControl
                 if (_colorBarColorsActor != null) _renderer.RemoveActor(_colorBarColorsActor);
             }
         }
+        public override void BringToFront()
+        {
+            if (!_visibility || _renderer == null) return;
+            //
+            base.BringToFront();
+            vtkActor2D[] actors = new vtkActor2D[] { _textActorFooter, _textActorLabel,
+                                                    _colorBarColorsActor, _colorBarBorderActor };
+            foreach (vtkActor2D actor in actors)
+            {
+                if (actor != null)
+                {
+                    _renderer.RemoveActor(actor);
+                    _renderer.AddActor(actor);
+                }
+            }
+        }
 
 
         // Public setters                                                                                                           

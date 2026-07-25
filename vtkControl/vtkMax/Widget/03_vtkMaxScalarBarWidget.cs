@@ -13,6 +13,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Kitware.VTK;
+using System.Drawing;
 
 
 namespace vtkControl
@@ -47,6 +48,14 @@ namespace vtkControl
         private System.Drawing.Color _minColor;
         private System.Drawing.Color _maxColor;
         private string _unitAbbreviation;
+        private double _editMinValue;
+        private double _editMaxValue;
+        private int[] _labelSize;
+        private double _labelLineStep;
+        private double _colorBoxWidth;
+        private double _colorBoxHeight;
+        private int _minimumLabelIndex;
+        private int _maximumLabelIndex;
         //
         
 
@@ -82,6 +91,14 @@ namespace vtkControl
             _minColorVisible = true;
             //
             _unitAbbreviation = "";
+            _editMinValue = double.NaN;
+            _editMaxValue = double.NaN;
+            _labelSize = new int[] { 0, 0 };
+            _labelLineStep = 0;
+            _colorBoxWidth = 0;
+            _colorBoxHeight = 0;
+            _minimumLabelIndex = -1;
+            _maximumLabelIndex = -1;
         }
 
 
@@ -152,7 +169,6 @@ namespace vtkControl
             _scalarBarColorsActor.GetPositionCoordinate().SetCoordinateSystemToDisplay();
             _scalarBarColorsActor.GetPositionCoordinate().SetReferenceCoordinate(_positionCoordinate);
         }
-        //
         private void GenerateGeometry()
         {
             // Geometry
@@ -166,8 +182,11 @@ namespace vtkControl
             _textMapperLabel.SetInput(tmp);
             //
             double lineSpacing = ((double)sizeOfTwo[1] - 2 * sizeOfOne[1]);
+            _labelLineStep = sizeOfOne[1] + lineSpacing;
             double boxHeight = sizeOfOne[1] + lineSpacing;
-            double boxWidth = boxHeight / boxAspectRatio;
+            _colorBoxWidth = boxHeight / boxAspectRatio;
+            _colorBoxHeight = boxHeight;
+            double boxWidth = _colorBoxWidth;
             double spacing = boxHeight * 0.5;
             double verticalLineLength = boxWidth + spacing;
             double lineOffset = _textMapperLabel.GetTextProperty().GetLineOffset();
@@ -282,6 +301,10 @@ namespace vtkControl
             int[] size = vtkMaxWidgetTools.GetTextSize(_textMapperLabel, _renderer);
             _textActorLabel.GetPositionCoordinate().SetValue(offsetX, offsetY);
             //
+            _labelSize = size;
+            _maximumLabelIndex = _addMaxColor && _maxColorVisible ? 1 : 0;
+            _minimumLabelIndex = _labels.Length - 1 - (_addMinColor && _minColorVisible ? 1 : 0);
+            //
             return new double[] { offsetX + size[0], offsetY + size[1] };
         }
         //
@@ -291,6 +314,105 @@ namespace vtkControl
             if (value >= 0) result = "+" + result;
             if (value < 0) result = result.Insert(1, " ");
             return result;
+        }
+        private Rectangle GetValueLabelRectangle(int labelIndex)
+        {
+            if (_labels == null || _labels.Length == 0 || labelIndex < 0 || labelIndex >= _labels.Length)
+                return Rectangle.Empty;
+            //
+            string allLabels = _textMapperLabel.GetInput();
+            _textMapperLabel.SetInput(_labels[labelIndex]);
+            int[] labelSize = vtkMaxWidgetTools.GetTextSize(_textMapperLabel, _renderer);
+            _textMapperLabel.SetInput(allLabels);
+            //
+            double lineStep = _labelLineStep > 0
+                ? _labelLineStep
+                : (double)_labelSize[1] / _labels.Length;
+            double[] labelPosition =
+                _textActorLabel.GetPositionCoordinate().GetComputedDoubleDisplayValue(_renderer);
+            double x = labelPosition[0];
+            double y = labelPosition[1] + (_labels.Length - labelIndex - 1) * lineStep;
+            //
+            Rectangle rectangle = new Rectangle((int)Math.Floor(x),
+                                                (int)Math.Floor(y),
+                                                Math.Max(1, labelSize[0]),
+                                                Math.Max(1, labelSize[1]));
+            rectangle.Inflate(3, 1);
+            return rectangle;
+        }
+        private Rectangle GetValueLabelHighlightRectangle(Rectangle labelRectangle)
+        {
+            if (labelRectangle == Rectangle.Empty) return Rectangle.Empty;
+            //
+            double[] widgetPosition = _positionCoordinate.GetComputedDoubleDisplayValue(_renderer);
+            //
+            int widgetBottom = (int)Math.Floor(widgetPosition[1]);
+            int widgetTop = (int)Math.Ceiling(widgetPosition[1] + _size[1]);
+            int height = Math.Max(1, (int)Math.Round(_colorBoxHeight, MidpointRounding.AwayFromZero));
+            height = Math.Min(height, widgetTop - widgetBottom);
+            int y = labelRectangle.Y + (labelRectangle.Height - height) / 2;
+            labelRectangle.Y = Math.Max(widgetBottom, Math.Min(y, widgetTop - height));
+            labelRectangle.Height = height;
+            return labelRectangle;
+        }
+        private Rectangle GetUserColorRectangle(bool minimumColor)
+        {
+            bool colorVisible = minimumColor
+                ? _addMinColor && _minColorVisible
+                : _addMaxColor && _maxColorVisible;
+            if (!_visibility || !colorVisible || _colorBoxWidth <= 0 || _colorBoxHeight <= 0)
+                return Rectangle.Empty;
+            //
+            double[] colorPosition =
+                _scalarBarColorsActor.GetPositionCoordinate().GetComputedDoubleDisplayValue(_renderer);
+            double y = colorPosition[1];
+            if (!minimumColor)
+            {
+                y += _numberOfColors * _colorBoxHeight;
+                if (_addMinColor && _minColorVisible) y += _colorBoxHeight;
+            }
+            //
+            int left = (int)Math.Floor(colorPosition[0]);
+            int bottom = (int)Math.Floor(y);
+            int right = (int)Math.Ceiling(colorPosition[0] + _colorBoxWidth);
+            int top = Math.Max(bottom + 1, (int)Math.Ceiling(y + _colorBoxHeight) - 1);
+            return Rectangle.FromLTRB(left, bottom, right, top);
+        }
+        protected override Rectangle GetDisplayRectangle()
+        {
+            Rectangle rectangle = base.GetDisplayRectangle();
+            if (rectangle == Rectangle.Empty || _textActor == null || _textMapper == null) return rectangle;
+            //
+            // The title block also contains the unit line. Use its rendered bounds so the
+            // whole-widget highlight includes it even when VTK reports a larger text extent.
+            double[] textPosition =
+                _textActor.GetPositionCoordinate().GetComputedDoubleDisplayValue(_renderer);
+            int[] textSize = vtkMaxWidgetTools.GetTextSize(_textMapper, _renderer);
+            Rectangle textRectangle = new Rectangle((int)Math.Floor(textPosition[0]),
+                                                    (int)Math.Floor(textPosition[1]),
+                                                    Math.Max(1, textSize[0]),
+                                                    Math.Max(1, textSize[1]));
+            textRectangle.Inflate(_padding, _padding);
+            return Rectangle.Union(rectangle, textRectangle);
+        }
+        protected override Rectangle GetHighlightRectangle(int x, int y)
+        {
+            if (_visibility)
+            {
+                Rectangle minimumColorRectangle = GetUserColorRectangle(true);
+                Rectangle maximumColorRectangle = GetUserColorRectangle(false);
+                Rectangle minimumRectangle =
+                    GetValueLabelHighlightRectangle(GetValueLabelRectangle(_minimumLabelIndex));
+                Rectangle maximumRectangle =
+                    GetValueLabelHighlightRectangle(GetValueLabelRectangle(_maximumLabelIndex));
+                //
+                if (minimumColorRectangle.Contains(x, y)) return minimumColorRectangle;
+                else if (maximumColorRectangle.Contains(x, y)) return maximumColorRectangle;
+                else if (minimumRectangle.Contains(x, y)) return minimumRectangle;
+                else if (maximumRectangle.Contains(x, y)) return maximumRectangle;
+            }
+            //
+            return base.GetHighlightRectangle(x, y);
         }
         private void GenerateBarBorders(double offsetX, double offsetY, double boxWidth, double boxHeight, double verticalLineLength)
         {
@@ -425,6 +547,7 @@ namespace vtkControl
         // Public methods                                                                                                           
         public override void OnSizeChanged()
         {
+            _highlight.Clear();
             GenerateGeometry();
             OnMovedOrSizeChanged();
         }
@@ -529,6 +652,8 @@ namespace vtkControl
             double max = scalarRangeMax;
             _minUserValue = minUserValue;
             _maxUserValue = maxUserValue;
+            _editMinValue = double.IsNaN(minUserValue) ? scalarRangeMin : minUserValue;
+            _editMaxValue = double.IsNaN(maxUserValue) ? scalarRangeMax : maxUserValue;
             _addMinColor = false;
             _addMaxColor = false;
 
@@ -581,10 +706,25 @@ namespace vtkControl
                 {
                     color = ctf.GetColor(i * delta);
                     _lookupTable.SetTableValue(i, color[0], color[1], color[2], 1.0); //R,G,B,A
+            }
+        }
+            OnSizeChanged();
+        }
+        public override void BringToFront()
+        {
+            if (!_visibility || _renderer == null) return;
+            //
+            base.BringToFront();
+            vtkActor2D[] actors = new vtkActor2D[] { _textActorFooter, _textActorLabel,
+                                                    _scalarBarColorsActor, _scalarBarBorderActor };
+            foreach (vtkActor2D actor in actors)
+            {
+                if (actor != null)
+                {
+                    _renderer.RemoveActor(actor);
+                    _renderer.AddActor(actor);
                 }
             }
-
-            OnSizeChanged();
         }
         public void CreateLookupTable(vtkColorTransferFunction ctf, double scalarRangeMin, double scalarRangeMax, double minUserValue, double maxUserValue)
         {
@@ -599,6 +739,8 @@ namespace vtkControl
             double max = scalarRangeMax;
             _minUserValue = minUserValue;
             _maxUserValue = maxUserValue;
+            _editMinValue = double.IsNaN(minUserValue) ? scalarRangeMin : minUserValue;
+            _editMaxValue = double.IsNaN(maxUserValue) ? scalarRangeMax : maxUserValue;
             _addMinColor = false;
             _addMaxColor = false;
 
@@ -673,6 +815,63 @@ namespace vtkControl
         public vtkLookupTable GetLookupTable()
         {
             return _lookupTable;
+        }
+        public bool TryGetUserColorData(int x, int y, out bool minimumColor, out Rectangle rectangle)
+        {
+            minimumColor = false;
+            rectangle = GetUserColorRectangle(true);
+            if (rectangle.Contains(x, y))
+            {
+                minimumColor = true;
+                return true;
+            }
+            //
+            rectangle = GetUserColorRectangle(false);
+            return rectangle.Contains(x, y);
+        }
+        public bool TryGetValueEditData(int x, int y, out bool editMinimum, out Rectangle rectangle,
+                                        out string valueText, out double minimum, out double maximum)
+        {
+            editMinimum = false;
+            rectangle = Rectangle.Empty;
+            valueText = null;
+            minimum = _editMinValue;
+            maximum = _editMaxValue;
+            //
+            if (!_visibility || double.IsNaN(minimum) || double.IsNaN(maximum)) return false;
+            //
+            Rectangle minimumRectangle = GetValueLabelRectangle(_minimumLabelIndex);
+            Rectangle maximumRectangle = GetValueLabelRectangle(_maximumLabelIndex);
+            Rectangle minimumHighlightRectangle = GetValueLabelHighlightRectangle(minimumRectangle);
+            Rectangle maximumHighlightRectangle = GetValueLabelHighlightRectangle(maximumRectangle);
+            if (minimumHighlightRectangle.Contains(x, y))
+            {
+                editMinimum = true;
+                rectangle = minimumHighlightRectangle;
+                valueText = _labels[_minimumLabelIndex];
+                return true;
+            }
+            else if (maximumHighlightRectangle.Contains(x, y))
+            {
+                rectangle = maximumHighlightRectangle;
+                valueText = _labels[_maximumLabelIndex];
+                return true;
+            }
+            //
+            return false;
+        }
+        public bool TryGetValueEditData(bool editMinimum, out Rectangle rectangle, out string valueText,
+                                        out double minimum, out double maximum)
+        {
+            int labelIndex = editMinimum ? _minimumLabelIndex : _maximumLabelIndex;
+            rectangle = GetValueLabelHighlightRectangle(GetValueLabelRectangle(labelIndex));
+            valueText = _labels != null && labelIndex >= 0 && labelIndex < _labels.Length
+                ? _labels[labelIndex]
+                : null;
+            minimum = _editMinValue;
+            maximum = _editMaxValue;
+            return _visibility && rectangle != Rectangle.Empty && valueText != null &&
+                   !double.IsNaN(minimum) && !double.IsNaN(maximum);
         }
     }
 }
