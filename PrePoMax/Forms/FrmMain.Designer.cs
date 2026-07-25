@@ -561,6 +561,9 @@ namespace PrePoMax
             this.tsmiAnnotationSettings = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerAnnotation2 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiDeleteAnnotation = new System.Windows.Forms.ToolStripMenuItem();
+            this.cmsLegendColor = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.tsmiSetLegendColor = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiHideLegendColor = new System.Windows.Forms.ToolStripMenuItem();
             this.statusStripMain = new System.Windows.Forms.StatusStrip();
             this.tspbProgress = new System.Windows.Forms.ToolStripProgressBar();
             this.tsslState = new System.Windows.Forms.ToolStripStatusLabel();
@@ -582,6 +585,7 @@ namespace PrePoMax
             this.menuStripMain.SuspendLayout();
             this.panelControl.SuspendLayout();
             this.cmsAnnotation.SuspendLayout();
+            this.cmsLegendColor.SuspendLayout();
             this.statusStripMain.SuspendLayout();
             this.toolStripContainer1.ContentPanel.SuspendLayout();
             this.toolStripContainer1.TopToolStripPanel.SuspendLayout();
@@ -4831,7 +4835,29 @@ namespace PrePoMax
             this.tsmiDeleteAnnotation.Size = new System.Drawing.Size(116, 22);
             this.tsmiDeleteAnnotation.Text = "Delete";
             this.tsmiDeleteAnnotation.Click += new System.EventHandler(this.tsmiDeleteAnnotation_Click);
-            // 
+            //
+            // _cmsLegendColor
+            //
+            this.cmsLegendColor.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmiSetLegendColor,
+            this.tsmiHideLegendColor});
+            this.cmsLegendColor.Name = "_cmsLegendColor";
+            this.cmsLegendColor.Size = new System.Drawing.Size(117, 48);
+            //
+            // _tsmiSetLegendColor
+            //
+            this.tsmiSetLegendColor.Name = "_tsmiSetLegendColor";
+            this.tsmiSetLegendColor.Size = new System.Drawing.Size(116, 22);
+            this.tsmiSetLegendColor.Text = "Set color";
+            this.tsmiSetLegendColor.Click += new System.EventHandler(this.tsmiSetLegendColor_Click);
+            //
+            // _tsmiHideLegendColor
+            //
+            this.tsmiHideLegendColor.Name = "_tsmiHideLegendColor";
+            this.tsmiHideLegendColor.Size = new System.Drawing.Size(116, 22);
+            this.tsmiHideLegendColor.Text = "Hide";
+            this.tsmiHideLegendColor.Click += new System.EventHandler(this.tsmiHideLegendColor_Click);
+            //
             // statusStripMain
             // 
             this.statusStripMain.AutoSize = false;
@@ -5017,6 +5043,7 @@ namespace PrePoMax
             this.menuStripMain.PerformLayout();
             this.panelControl.ResumeLayout(false);
             this.cmsAnnotation.ResumeLayout(false);
+            this.cmsLegendColor.ResumeLayout(false);
             this.statusStripMain.ResumeLayout(false);
             this.statusStripMain.PerformLayout();
             this.toolStripContainer1.ContentPanel.ResumeLayout(false);
@@ -5405,6 +5432,9 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiDeleteAmplitude;
         private UserControls.ViewportTextEditor viewportTextEditor;
         private System.Windows.Forms.ContextMenuStrip cmsAnnotation;
+        private System.Windows.Forms.ContextMenuStrip cmsLegendColor;
+        private System.Windows.Forms.ToolStripMenuItem tsmiSetLegendColor;
+        private System.Windows.Forms.ToolStripMenuItem tsmiHideLegendColor;
         private System.Windows.Forms.ToolStripMenuItem tsmiDeleteAnnotation;
         private System.Windows.Forms.ToolStripMenuItem tsmiAnnotationSettings;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerAnnotation1;

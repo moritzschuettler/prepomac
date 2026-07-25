@@ -74,9 +74,6 @@ namespace PrePoMax
         private bool _closeAfterRegeneration;
         private float _prevScaleFactor;
         private bool _suppressSymbolChanged;
-        private ContextMenuStrip _cmsLegendColor;
-        private ToolStripMenuItem _tsmiSetLegendColor;
-        private ToolStripMenuItem _tsmiHideLegendColor;
         private bool _legendMinimumColor;
         //
         private Point _formLocation;
@@ -303,7 +300,6 @@ namespace PrePoMax
                 // Menu
                 tsmiColorAnnotations.DropDown.Closing += DropDown_Closing;
                 tsmiViewItems.DropDown.Closing += DropDown_Closing;
-                InitializeLegendColorContextMenu();
                 // Tree
                 _modelTree = new ModelTree();
                 // Controller
@@ -7442,28 +7438,13 @@ namespace PrePoMax
             _frmSettings.SetSettingsToShow(Globals.LegendSettingsName);
             tsmiSettings_Click(null, null);
         }
-        private void InitializeLegendColorContextMenu()
-        {
-            _cmsLegendColor = new ContextMenuStrip(components);
-            _tsmiSetLegendColor = new ToolStripMenuItem("Set color");
-            _tsmiHideLegendColor = new ToolStripMenuItem("Hide");
-            //
-            _tsmiSetLegendColor.Click += tsmiSetLegendColor_Click;
-            _tsmiHideLegendColor.Click += tsmiHideLegendColor_Click;
-            //
-            _cmsLegendColor.Items.AddRange(new ToolStripItem[]
-            {
-                _tsmiSetLegendColor,
-                _tsmiHideLegendColor
-            });
-        }
         private void ShowLegendColorContextMenu(bool minimumColor, Point vtkPoint)
         {
             _legendMinimumColor = minimumColor;
             //
             int x = Math.Max(0, Math.Min(vtkPoint.X, _vtk.Width - 1));
             int y = Math.Max(0, Math.Min(_vtk.Height - 1 - vtkPoint.Y, _vtk.Height - 1));
-            _cmsLegendColor.Show(_vtk, new Point(x, y));
+            cmsLegendColor.Show(_vtk, new Point(x, y));
         }
         private void tsmiSetLegendColor_Click(object sender, EventArgs e)
         {
@@ -7483,7 +7464,7 @@ namespace PrePoMax
             SettingsContainer settings = _controller.Settings;
             vtkMaxColorSpectrum colorSpectrum = settings.Legend.ColorSpectrum;
             Color color = minimumColor ? colorSpectrum.MinColor : colorSpectrum.MaxColor;
-            string title = minimumColor ? "Set Below-Minimum Color" : "Set Above-Maximum Color";
+            string title = minimumColor ? "Set Below Minimum Color" : "Set Above Maximum Color";
             //
             using (FrmGetColor frmGetColor = new FrmGetColor())
             {

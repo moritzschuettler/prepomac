@@ -31,8 +31,8 @@ namespace PrePoMax.Forms
 
         // Properties                                                                                                               
         [Category("Appearance")]
-        [OrderedDisplayName(0, 10, "Part color")]
-        [Description("Select part color.")]
+        [OrderedDisplayName(0, 10, "Color")]
+        [Description("Select color.")]
         [Editor(typeof(UserControls.ColorEditorEx), typeof(UITypeEditor))]
         public Color Color
         {
