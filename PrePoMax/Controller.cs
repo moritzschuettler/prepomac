@@ -262,16 +262,23 @@ namespace PrePoMax
             get { return _viewResultsType; }
             set
             {
-                _viewResultsType = value;
-                // This is used by the model tree to show/hide the Deformed and Color contour context menu lines
-                ResultPart.Undeformed = _viewResultsType == ViewResultsTypeEnum.Undeformed;
+                ViewResultsTypeEnum previousViewResultsType = _viewResultsType;
+                _viewResultsType = GetInternalViewResultsType(value);
+                bool resultRepresentationAvailable = _viewResultsType == ViewResultsTypeEnum.ColorContours ||
+                                                     _viewResultsType == ViewResultsTypeEnum.VectorPlot ||
+                                                     _viewResultsType == ViewResultsTypeEnum.TensorPlot;
+                // This is used by the model tree to show/hide the result representation context menu lines.
+                ResultPart.ResultRepresentationAvailable = resultRepresentationAvailable;
                 //
                 if (_allResults.CurrentResult != null && _allResults.CurrentResult.Mesh != null)
                 {
-                    foreach (var entry in _allResults.CurrentResult.Mesh.Parts)
+                    if (previousViewResultsType != _viewResultsType)
                     {
-                        if (entry.Value is ResultPart resultPart)
-                            resultPart.ColorContours = _viewResultsType == ViewResultsTypeEnum.ColorContours;
+                        foreach (var entry in _allResults.CurrentResult.Mesh.Parts)
+                        {
+                            if (entry.Value is ResultPart resultPart)
+                                resultPart.ResultRepresentation = resultRepresentationAvailable;
+                        }
                     }
                     //
                     DrawResults(false);
@@ -286,7 +293,24 @@ namespace PrePoMax
                 _currentFieldData = value;
                 _currentFieldData.Time = _allResults.CurrentResult.GetIncrementTime(_currentFieldData.StepId,
                                                                                     _currentFieldData.StepIncrementId);
+                //
+                if (_viewResultsType == ViewResultsTypeEnum.VectorPlot ||
+                    _viewResultsType == ViewResultsTypeEnum.TensorPlot)
+                    _viewResultsType = GetInternalViewResultsType(_viewResultsType);
             }
+        }
+        private ViewResultsTypeEnum GetInternalViewResultsType(ViewResultsTypeEnum viewResultsType)
+        {
+            if (viewResultsType == ViewResultsTypeEnum.VectorPlot ||
+                viewResultsType == ViewResultsTypeEnum.TensorPlot)
+            {
+                if (_allResults?.CurrentResult != null &&
+                    _allResults.CurrentResult.IsTensorPlotComponent(_currentFieldData))
+                    return ViewResultsTypeEnum.TensorPlot;
+                else
+                    return ViewResultsTypeEnum.VectorPlot;
+            }
+            else return viewResultsType;
         }
         public string GetCurrentResultsUnitAbbreviation()
         {
@@ -12367,9 +12391,10 @@ namespace PrePoMax
             CSetTransparencyForResultParts comm = new CSetTransparencyForResultParts(partNames, alpha);
             _commands.AddAndExecute(comm);
         }
-        public void SetColorContoursForResultPartsCommand(string[] partNames, bool colorContours)
+        public void SetResultRepresentationForResultPartsCommand(string[] partNames, bool resultRepresentation)
         {
-            CSetColorContoursForResultPartsCommand comm = new CSetColorContoursForResultPartsCommand(partNames, colorContours);
+            CSetColorContoursForResultPartsCommand comm =
+                new CSetColorContoursForResultPartsCommand(partNames, resultRepresentation);
             _commands.AddAndExecute(comm);
         }
         // Edit
@@ -12475,6 +12500,16 @@ namespace PrePoMax
                 }
                 _form.ShowActors(partNames, true);
                 //
+                if (_viewResultsType == ViewResultsTypeEnum.VectorPlot ||
+                    _viewResultsType == ViewResultsTypeEnum.TensorPlot)
+                {
+                    string[] hiddenRepresentationPartNames = partNames.Where(
+                        name => _allResults.CurrentResult.Mesh.Parts[name] is ResultPart resultPart &&
+                                !resultPart.ResultRepresentation).ToArray();
+                    if (hiddenRepresentationPartNames.Length > 0)
+                        _form.UpdateResultRepresentationVisibility(hiddenRepresentationPartNames, false, true);
+                }
+                //
                 AnnotateWithColorLegend();
                 // Annotations
                 _annotations.DrawAnnotations();
@@ -12514,13 +12549,20 @@ namespace PrePoMax
                 _form.UpdateTreeNode(ViewGeometryModelResults.Results, name, part, null, false);
             }
         }
-        public void SetColorContoursForResultParts(string[] partNames, bool colorContours)
+        public void SetResultRepresentationForResultParts(string[] partNames, bool resultRepresentation)
         {
             foreach (var name in partNames)
             {
-                if (_allResults.CurrentResult.Mesh.Parts[name] is ResultPart resultPart) resultPart.ColorContours = colorContours;
+                if (_allResults.CurrentResult.Mesh.Parts[name] is ResultPart resultPart)
+                    resultPart.ResultRepresentation = resultRepresentation;
             }
-            _form.UpdateActorColorContoursVisibility(partNames, colorContours);
+            //
+            if (_viewResultsType == ViewResultsTypeEnum.ColorContours)
+                _form.UpdateActorColorContoursVisibility(partNames, resultRepresentation);
+            else if (_viewResultsType == ViewResultsTypeEnum.VectorPlot ||
+                     _viewResultsType == ViewResultsTypeEnum.TensorPlot)
+                _form.UpdateResultRepresentationVisibility(partNames, resultRepresentation, true);
+            //
             UpdateTreeSelection();
         }
         public void ReplaceResultPartProperties(string oldPartName, PartProperties newPartProperties)
@@ -15211,9 +15253,10 @@ namespace PrePoMax
                     _form.AdjustCameraDistanceAndClipping();
                 }
             }
-            catch
+            catch (Exception ex)
             {
                 // Do not throw an error - it might cancel a procedure
+                Debug.WriteLine(ex);
             }
         }
         public void DrawGeomParts()
@@ -15480,7 +15523,10 @@ namespace PrePoMax
             // Clears the contents
             _form.HideColorBar();
             //
-            if (_currentView == ViewGeometryModelResults.Results && _viewResultsType == ViewResultsTypeEnum.ColorContours)
+            if (_currentView == ViewGeometryModelResults.Results &&
+                (_viewResultsType == ViewResultsTypeEnum.ColorContours ||
+                 _viewResultsType == ViewResultsTypeEnum.VectorPlot ||
+                 _viewResultsType == ViewResultsTypeEnum.TensorPlot))
                 return;
             // Face orientation legend
             ColorSettings colorSettings = _settings.Color;
@@ -21056,6 +21102,8 @@ namespace PrePoMax
                                                                  _currentFieldData.StepIncrementId);
                     DrawAllResultParts(_currentFieldData, _settings.Post.UndeformedModelType,
                                        _settings.Post.UndeformedModelColor);
+                    if (_viewResultsType == ViewResultsTypeEnum.VectorPlot) DrawVectorPlot(_currentFieldData);
+                    else if (_viewResultsType == ViewResultsTypeEnum.TensorPlot) DrawTensorPlot(_currentFieldData);
                     // Transformation
                     ApplyTransformation();
                     // Symbols
@@ -21150,17 +21198,214 @@ namespace PrePoMax
             vtkMaxActorData data = GetVtkData(actorResultData, modelEdgesResultData, locatorResultData);
             data.Name = part.Name;
             GetPartColor(part, ref data.Color, ref data.BackfaceColor);
-            data.ColorContours = part.ColorContours;
+            data.ColorContours = _viewResultsType == ViewResultsTypeEnum.ColorContours &&
+                                 part.ResultRepresentation;
             data.CanHaveElementEdges = true;
             data.Pickable = true;
             data.SmoothShaded = part.SmoothShaded;
             data.IsAPart = true;
             data.ActorRepresentation = GetRepresentation(part);
             data.NodeSize = Globals.BeamNodeSize;
+            if (_viewResultsType == ViewResultsTypeEnum.VectorPlot ||
+                _viewResultsType == ViewResultsTypeEnum.TensorPlot)
+            {
+                data.ColorContours = false;
+            }
             // Back face                                                    
             if (part.PartType == PartType.Shell) data.BackfaceCulling = false;
             //
             return data;
+        }
+        private void DrawVectorPlot(FieldData fieldData)
+        {
+            Field field = _allResults.CurrentResult.GetField(fieldData);
+            DataTypeEnum dataType = field != null ? field.DataType :
+                                    _allResults.CurrentResult.GetFieldDataType(fieldData.Name);
+            if (dataType != DataTypeEnum.Vector) return;
+            if (field != null && field.Complex)
+            {
+                ComplexResultTypeEnum complexType = _form.GetComplexResultType();
+                if (complexType != ComplexResultTypeEnum.Real &&
+                    complexType != ComplexResultTypeEnum.Imaginary &&
+                    complexType != ComplexResultTypeEnum.RealAtAngle) return;
+            }
+            //
+            FeMesh mesh = _allResults.CurrentResult.Mesh;
+            List<vtkMaxActorData> vectorActorData = new List<vtkMaxActorData>();
+            List<string> hiddenPartNames = new List<string>();
+            List<string> hiddenRepresentationPartNames = new List<string>();
+            BoundingBox boundingBox = new BoundingBox();
+            double maxMagnitude = 0;
+            //
+            foreach (var entry in mesh.Parts)
+            {
+                if (!(entry.Value is ResultPart part) || part.Labels.Length == 0) continue;
+                //
+                mesh.GetVisualizationNodesAndCells(part, out int[] visualizationNodeIds,
+                                                   out double[][] visualizationNodeCoor, out _, out _, out _);
+                HashSet<int> addedNodeIds = new HashSet<int>();
+                List<int> nodeIds = new List<int>();
+                List<double[]> nodeCoor = new List<double[]>();
+                for (int i = 0; i < visualizationNodeIds.Length; i++)
+                {
+                    if (addedNodeIds.Add(visualizationNodeIds[i]))
+                    {
+                        nodeIds.Add(visualizationNodeIds[i]);
+                        nodeCoor.Add(visualizationNodeCoor[i]);
+                    }
+                }
+                int[] vectorNodeIds = nodeIds.ToArray();
+                if (!_allResults.CurrentResult.GetVectorValues(fieldData, vectorNodeIds,
+                                                               out double[][] vectors, out float[] magnitudes)) return;
+                float[] colorValues = _allResults.CurrentResult.GetValues(fieldData, vectorNodeIds);
+                if (colorValues == null) return;
+                //
+                for (int i = 0; i < magnitudes.Length; i++)
+                {
+                    if (!float.IsNaN(magnitudes[i]) && !float.IsInfinity(magnitudes[i]) &&
+                        magnitudes[i] > maxMagnitude) maxMagnitude = magnitudes[i];
+                }
+                // Keep the glyph size independent of the exploded-view spacing.
+                double[] offset = part.Offset;
+                if (offset != null && (offset[0] != 0 || offset[1] != 0 || offset[2] != 0))
+                {
+                    foreach (double[] coor in nodeCoor)
+                        boundingBox.IncludeCoorFast(new double[] { coor[0] - offset[0],
+                                                                  coor[1] - offset[1],
+                                                                  coor[2] - offset[2] });
+                }
+                else boundingBox.IncludeCoors(nodeCoor.ToArray());
+                //
+                vtkMaxActorData data = new vtkMaxActorData();
+                data.Name = part.Name + Globals.NameSeparator + "Vector plot";
+                data.ParentName = part.Name;
+                data.Geometry.Nodes.Ids = vectorNodeIds;
+                data.Geometry.Nodes.Coor = nodeCoor.ToArray();
+                data.Geometry.Nodes.Normals = vectors;
+                data.Geometry.Nodes.Values = colorValues;
+                data.Geometry.ExtremeNodes = _allResults.CurrentResult.GetScaledExtremeValues(part.Name, fieldData, 1);
+                data.Color = Color.White;
+                data.ColorContours = true;
+                data.Lighting = false;
+                data.UseGlobalLighting = false;
+                data.UseEdgeVisibility = false;
+                data.LineWidth = 1.5f;
+                data.Pickable = false;
+                data.SectionViewPossible = true;
+                data.Layer = vtkRendererLayer.Base;
+                vectorActorData.Add(data);
+                //
+                if (!part.Visible) hiddenPartNames.Add(part.Name);
+                if (!part.ResultRepresentation) hiddenRepresentationPartNames.Add(part.Name);
+            }
+            //
+            double diagonal = boundingBox.GetDiagonal();
+            if (double.IsNaN(diagonal) || double.IsInfinity(diagonal) || diagonal <= 0)
+                diagonal = mesh.BoundingBox.GetDiagonal();
+            if (double.IsNaN(diagonal) || double.IsInfinity(diagonal) || diagonal <= 0) diagonal = 1;
+            double maxArrowLength = 0.05 * diagonal * _settings.Post.VectorPlotScaleFactor;
+            foreach (vtkMaxActorData data in vectorActorData)
+                _form.AddVectorFieldActor(data, maxMagnitude, maxArrowLength);
+            //
+            if (hiddenRepresentationPartNames.Count > 0)
+                _form.UpdateResultRepresentationVisibility(hiddenRepresentationPartNames.ToArray(), false, false);
+            if (hiddenPartNames.Count > 0) _form.HideActors(hiddenPartNames.ToArray(), true);
+        }
+        private void DrawTensorPlot(FieldData fieldData)
+        {
+            Field field = _allResults.CurrentResult.GetField(fieldData);
+            DataTypeEnum dataType = field != null ? field.DataType :
+                                    _allResults.CurrentResult.GetFieldDataType(fieldData.Name);
+            if (dataType != DataTypeEnum.Tensor ||
+                !_allResults.CurrentResult.IsTensorPlotComponent(fieldData)) return;
+            if (field != null && field.Complex)
+            {
+                ComplexResultTypeEnum complexType = _form.GetComplexResultType();
+                if (complexType != ComplexResultTypeEnum.Real &&
+                    complexType != ComplexResultTypeEnum.Imaginary &&
+                    complexType != ComplexResultTypeEnum.RealAtAngle) return;
+            }
+            //
+            FeMesh mesh = _allResults.CurrentResult.Mesh;
+            List<vtkMaxActorData> tensorActorData = new List<vtkMaxActorData>();
+            List<string> hiddenPartNames = new List<string>();
+            List<string> hiddenRepresentationPartNames = new List<string>();
+            BoundingBox boundingBox = new BoundingBox();
+            double maxAbsValue = 0;
+            //
+            foreach (var entry in mesh.Parts)
+            {
+                if (!(entry.Value is ResultPart part) || part.Labels.Length == 0) continue;
+                //
+                mesh.GetVisualizationNodesAndCells(part, out int[] visualizationNodeIds,
+                                                   out double[][] visualizationNodeCoor, out _, out _, out _);
+                HashSet<int> addedNodeIds = new HashSet<int>();
+                List<int> nodeIds = new List<int>();
+                List<double[]> nodeCoor = new List<double[]>();
+                for (int i = 0; i < visualizationNodeIds.Length; i++)
+                {
+                    if (addedNodeIds.Add(visualizationNodeIds[i]))
+                    {
+                        nodeIds.Add(visualizationNodeIds[i]);
+                        nodeCoor.Add(visualizationNodeCoor[i]);
+                    }
+                }
+                int[] tensorNodeIds = nodeIds.ToArray();
+                if (!_allResults.CurrentResult.GetTensorPlotValues(fieldData, tensorNodeIds,
+                                                                   out double[][] directions,
+                                                                   out float[] values)) return;
+                //
+                for (int i = 0; i < values.Length; i++)
+                {
+                    if (directions[i] != null &&
+                        !float.IsNaN(values[i]) && !float.IsInfinity(values[i]) &&
+                        Math.Abs(values[i]) > maxAbsValue) maxAbsValue = Math.Abs(values[i]);
+                }
+                // Keep the glyph size independent of the exploded-view spacing.
+                double[] offset = part.Offset;
+                if (offset != null && (offset[0] != 0 || offset[1] != 0 || offset[2] != 0))
+                {
+                    foreach (double[] coor in nodeCoor)
+                        boundingBox.IncludeCoorFast(new double[] { coor[0] - offset[0],
+                                                                  coor[1] - offset[1],
+                                                                  coor[2] - offset[2] });
+                }
+                else boundingBox.IncludeCoors(nodeCoor.ToArray());
+                //
+                vtkMaxActorData data = new vtkMaxActorData();
+                data.Name = part.Name + Globals.NameSeparator + "Tensor plot";
+                data.ParentName = part.Name;
+                data.Geometry.Nodes.Ids = tensorNodeIds;
+                data.Geometry.Nodes.Coor = nodeCoor.ToArray();
+                data.Geometry.Nodes.Normals = directions;
+                data.Geometry.Nodes.Values = values;
+                data.Geometry.ExtremeNodes = _allResults.CurrentResult.GetScaledExtremeValues(part.Name, fieldData, 1);
+                data.Color = Color.White;
+                data.ColorContours = true;
+                data.Lighting = false;
+                data.UseGlobalLighting = false;
+                data.UseEdgeVisibility = false;
+                data.LineWidth = 1.5f;
+                data.Pickable = false;
+                data.SectionViewPossible = true;
+                data.Layer = vtkRendererLayer.Base;
+                tensorActorData.Add(data);
+                //
+                if (!part.Visible) hiddenPartNames.Add(part.Name);
+                if (!part.ResultRepresentation) hiddenRepresentationPartNames.Add(part.Name);
+            }
+            //
+            double diagonal = boundingBox.GetDiagonal();
+            if (double.IsNaN(diagonal) || double.IsInfinity(diagonal) || diagonal <= 0)
+                diagonal = mesh.BoundingBox.GetDiagonal();
+            if (double.IsNaN(diagonal) || double.IsInfinity(diagonal) || diagonal <= 0) diagonal = 1;
+            double maxGlyphLength = 0.05 * diagonal * _settings.Post.VectorPlotScaleFactor;
+            foreach (vtkMaxActorData data in tensorActorData)
+                _form.AddTensorFieldActor(data, maxAbsValue, maxGlyphLength);
+            //
+            if (hiddenRepresentationPartNames.Count > 0)
+                _form.UpdateResultRepresentationVisibility(hiddenRepresentationPartNames.ToArray(), false, false);
+            if (hiddenPartNames.Count > 0) _form.HideActors(hiddenPartNames.ToArray(), true);
         }
         // Animation
         public void AnimationFrameChanged(int frameNumber, bool initializeAnnotationAnchors)
@@ -21535,7 +21780,9 @@ namespace PrePoMax
                 UpdateCurrentFieldData();
             }
             //
-            if (_viewResultsType == ViewResultsTypeEnum.ColorContours)
+            if (_viewResultsType == ViewResultsTypeEnum.ColorContours ||
+                _viewResultsType == ViewResultsTypeEnum.VectorPlot ||
+                _viewResultsType == ViewResultsTypeEnum.TensorPlot)
             {
                 SettingsContainer settings = Settings;    // use Settings property to account for the results view
                 LegendSettings legendSettings = settings.Legend;
@@ -21657,6 +21904,7 @@ namespace PrePoMax
             if (undeformedModelType == UndeformedModelTypeEnum.WireframeBody)
             {
                 data.ActorRepresentation = vtkMaxActorRepresentation.Wire;
+                data.UseEdgeVisibility = false;
                 //
                 if (data.Color.A == 255) data.Color = Color.FromArgb(254, data.Color);
                 _allResults.CurrentResult.GetUndeformedModelEdges(part, out data.Geometry.Nodes.Coor,

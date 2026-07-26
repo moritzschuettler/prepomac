@@ -25,6 +25,7 @@ namespace vtkControl
     {
         // Variables                                                                                                                
         protected string _name;
+        protected string _parentName;
         protected vtkMaxExtreemeNode _minNode;
         protected vtkMaxExtreemeNode _maxNode;
         //
@@ -60,6 +61,8 @@ namespace vtkControl
         protected double _ambient;
         protected double _diffuse;
         protected bool _colorContours;
+        protected bool _useGlobalLighting;
+        protected bool _useEdgeVisibility;
         protected bool _sectionViewPossible;
         protected bool _drawOnGeometry;
         protected bool _useSecondaryHighlightColor;
@@ -74,6 +77,7 @@ namespace vtkControl
 
         // Properties                                                                                                               
         public string Name { get { return _name; } set { _name = value; } }
+        public string ParentName { get { return _parentName; } set { _parentName = value; } }
         public vtkMaxExtreemeNode MinNode { get { return _minNode; } set { _minNode = value; } }
         public vtkMaxExtreemeNode MaxNode { get { return _maxNode; } set { _maxNode = value; } }
         //
@@ -214,6 +218,8 @@ namespace vtkControl
             }
         }
         public bool ColorContours { get { return _colorContours; } set { _colorContours = value; } }
+        public bool UseGlobalLighting { get { return _useGlobalLighting; } set { _useGlobalLighting = value; } }
+        public bool UseEdgeVisibility { get { return _useEdgeVisibility; } set { _useEdgeVisibility = value; } }
         public bool SectionViewPossible { get { return _sectionViewPossible; } set { _sectionViewPossible = value; } }
         public bool DrawOnGeometry { get { return _drawOnGeometry; } set { _drawOnGeometry = value; } }
         public bool UseSecondaryHighlightColor 
@@ -230,6 +236,7 @@ namespace vtkControl
         public vtkMaxActor()
         {
             _name = null;
+            _parentName = null;
             _minNode = null;
             _maxNode = null;
             //
@@ -258,6 +265,8 @@ namespace vtkControl
             _ambient = 0.5;
             _diffuse = 0.5;
             _colorContours = false;
+            _useGlobalLighting = true;
+            _useEdgeVisibility = true;
             _sectionViewPossible = true;
             _drawOnGeometry = false;
             _useSecondaryHighlightColor = false;
@@ -303,6 +312,7 @@ namespace vtkControl
             : this()
         {
             _name = data.Name;
+            _parentName = data.ParentName;
             _geometryMapper = mapper;
             _geometry.SetMapper(_geometryMapper);
             _geometry.SetPickable(data.Pickable ? 1 : 0);
@@ -318,6 +328,8 @@ namespace vtkControl
             _ambient = data.Ambient;
             _diffuse = data.Diffuse;
             _colorContours = data.ColorContours;
+            _useGlobalLighting = data.UseGlobalLighting;
+            _useEdgeVisibility = data.UseEdgeVisibility;
             _sectionViewPossible = data.SectionViewPossible;
             _drawOnGeometry = data.DrawOnGeometry;
             _useSecondaryHighlightColor = data.UseSecondaryHighlightColor;
@@ -328,12 +340,14 @@ namespace vtkControl
             _memorySize = 0;
             //
             UpdateColor();
+            _geometryProperty.SetLighting(data.Lighting);
         }
         
         public vtkMaxActor(vtkMaxActorData data, bool extractVisualizationSurface, bool createNodalActor)
             : this()
         {
             _name = data.Name;
+            _parentName = data.ParentName;
             //
             if ((data.Geometry.Cells.CellNodeIds == null && data.Geometry.Nodes.Coor != null) || createNodalActor)
             {
@@ -374,6 +388,8 @@ namespace vtkControl
             _ambient = data.Ambient;
             _diffuse = data.Diffuse;
             _colorContours = data.ColorContours;
+            _useGlobalLighting = data.UseGlobalLighting;
+            _useEdgeVisibility = data.UseEdgeVisibility;
             _sectionViewPossible = data.SectionViewPossible;
             _drawOnGeometry = data.DrawOnGeometry;
             _useSecondaryHighlightColor = data.UseSecondaryHighlightColor;
@@ -384,11 +400,13 @@ namespace vtkControl
             _memorySize = 0;
             //
             UpdateColor();
+            _geometryProperty.SetLighting(data.Lighting);
         }
         public vtkMaxActor(vtkMaxActor sourceActor)
           : this()
         {
             _name = sourceActor.Name;
+            _parentName = sourceActor.ParentName;
             //
             if (sourceActor.MinNode != null) _minNode = new vtkMaxExtreemeNode(sourceActor.MinNode);
             if (sourceActor.MaxNode != null) _maxNode = new vtkMaxExtreemeNode(sourceActor.MaxNode);
@@ -476,6 +494,8 @@ namespace vtkControl
             _ambient = sourceActor.Ambient;
             _diffuse = sourceActor.Diffuse;
             _colorContours = sourceActor.ColorContours;
+            _useGlobalLighting = sourceActor.UseGlobalLighting;
+            _useEdgeVisibility = sourceActor.UseEdgeVisibility;
             _sectionViewPossible = sourceActor.SectionViewPossible;
             _drawOnGeometry = sourceActor.DrawOnGeometry;
             _useSecondaryHighlightColor = sourceActor.UseSecondaryHighlightColor;

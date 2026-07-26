@@ -45,6 +45,9 @@ namespace vtkControl
         public bool Pickable;
         public bool BackfaceCulling;
         public bool ColorContours;
+        public bool Lighting;
+        public bool UseGlobalLighting;
+        public bool UseEdgeVisibility;
         public bool SmoothShaded;
         public bool DrawOnGeometry;
         public bool UseSecondaryHighlightColor;
@@ -76,6 +79,9 @@ namespace vtkControl
             Pickable = false;
             BackfaceCulling = true;
             ColorContours = false;
+            Lighting = true;
+            UseGlobalLighting = true;
+            UseEdgeVisibility = true;
             SmoothShaded = false;
             DrawOnGeometry = false;
             UseSecondaryHighlightColor = false;

@@ -97,6 +97,7 @@ namespace PrePoMax
             this.tsbResultsUndeformed = new System.Windows.Forms.ToolStripButton();
             this.tsbResultsDeformed = new System.Windows.Forms.ToolStripButton();
             this.tsbResultsColorContours = new System.Windows.Forms.ToolStripButton();
+            this.tsbResultsVectorPlot = new System.Windows.Forms.ToolStripButton();
             this.tsbResultsUndeformedWireframe = new System.Windows.Forms.ToolStripButton();
             this.tsbResultsUndeformedSolid = new System.Windows.Forms.ToolStripButton();
             this.toolStripResultsSeparator1 = new System.Windows.Forms.ToolStripSeparator();
@@ -182,8 +183,9 @@ namespace PrePoMax
             this.tsmiResultsUndeformed = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiResultsDeformed = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiResultsColorContours = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiResultsDeformedColorWireframe = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiResultsDeformedColorSolid = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiResultsVectorPlot = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiResultsUndeformedWireframe = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiResultsUndeformedSolid = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerView5 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiColorAnnotations = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiAnnotateFaceOrientations = new System.Windows.Forms.ToolStripMenuItem();
@@ -1123,6 +1125,7 @@ namespace PrePoMax
             this.tsbResultsUndeformed,
             this.tsbResultsDeformed,
             this.tsbResultsColorContours,
+            this.tsbResultsVectorPlot,
             this.tsbResultsUndeformedWireframe,
             this.tsbResultsUndeformedSolid,
             this.toolStripResultsSeparator1,
@@ -1169,9 +1172,19 @@ namespace PrePoMax
             this.tsbResultsColorContours.ImageTransparentColor = System.Drawing.Color.Magenta;
             this.tsbResultsColorContours.Name = "tsbResultsColorContours";
             this.tsbResultsColorContours.Size = new System.Drawing.Size(23, 22);
-            this.tsbResultsColorContours.Text = "Deformed with color contours";
+            this.tsbResultsColorContours.Text = "Color contours";
             this.tsbResultsColorContours.Click += new System.EventHandler(this.tsbResultsColorContours_Click);
-            // 
+            //
+            // tsbResultsVectorPlot
+            //
+            this.tsbResultsVectorPlot.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+            this.tsbResultsVectorPlot.Image = global::PrePoMax.Properties.Resources.Vector_plot;
+            this.tsbResultsVectorPlot.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.tsbResultsVectorPlot.Name = "tsbResultsVectorPlot";
+            this.tsbResultsVectorPlot.Size = new System.Drawing.Size(23, 22);
+            this.tsbResultsVectorPlot.Text = "Vector plot";
+            this.tsbResultsVectorPlot.Click += new System.EventHandler(this.tsbResultsVectorPlot_Click);
+            //
             // tsbResultsUndeformedWireframe
             // 
             this.tsbResultsUndeformedWireframe.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
@@ -1619,8 +1632,9 @@ namespace PrePoMax
             this.tsmiResultsUndeformed,
             this.tsmiResultsDeformed,
             this.tsmiResultsColorContours,
-            this.tsmiResultsDeformedColorWireframe,
-            this.tsmiResultsDeformedColorSolid,
+            this.tsmiResultsVectorPlot,
+            this.tsmiResultsUndeformedWireframe,
+            this.tsmiResultsUndeformedSolid,
             this.tsmiDividerView5,
             this.tsmiColorAnnotations,
             this.tsmiViewItems});
@@ -1896,24 +1910,32 @@ namespace PrePoMax
             this.tsmiResultsColorContours.Image = global::PrePoMax.Properties.Resources.Color_contours;
             this.tsmiResultsColorContours.Name = "tsmiResultsColorContours";
             this.tsmiResultsColorContours.Size = new System.Drawing.Size(243, 22);
-            this.tsmiResultsColorContours.Text = "Deformed With Color Contours";
+            this.tsmiResultsColorContours.Text = "Color Contours";
             this.tsmiResultsColorContours.Click += new System.EventHandler(this.tsmiResultsColorContours_Click);
+            //
+            // tsmiResultsVectorPlot
+            //
+            this.tsmiResultsVectorPlot.Image = global::PrePoMax.Properties.Resources.Vector_plot;
+            this.tsmiResultsVectorPlot.Name = "tsmiResultsVectorPlot";
+            this.tsmiResultsVectorPlot.Size = new System.Drawing.Size(243, 22);
+            this.tsmiResultsVectorPlot.Text = "Vector Plot";
+            this.tsmiResultsVectorPlot.Click += new System.EventHandler(this.tsmiResultsVectorPlot_Click);
+            //
+            // tsmiResultsUndeformedWireframe
             // 
-            // tsmiResultsDeformedColorWireframe
+            this.tsmiResultsUndeformedWireframe.Image = global::PrePoMax.Properties.Resources.Undeformed_Wireframe;
+            this.tsmiResultsUndeformedWireframe.Name = "tsmiResultsUndeformedWireframe";
+            this.tsmiResultsUndeformedWireframe.Size = new System.Drawing.Size(243, 22);
+            this.tsmiResultsUndeformedWireframe.Text = "Show Undeformed Wireframe Model";
+            this.tsmiResultsUndeformedWireframe.Click += new System.EventHandler(this.tsmiResultsUndeformedWireframe_Click);
             // 
-            this.tsmiResultsDeformedColorWireframe.Image = global::PrePoMax.Properties.Resources.Undeformed_Wireframe;
-            this.tsmiResultsDeformedColorWireframe.Name = "tsmiResultsDeformedColorWireframe";
-            this.tsmiResultsDeformedColorWireframe.Size = new System.Drawing.Size(243, 22);
-            this.tsmiResultsDeformedColorWireframe.Text = "Deformed && Color && Wireframe";
-            this.tsmiResultsDeformedColorWireframe.Click += new System.EventHandler(this.tsmiResultsDeformedColorWireframe_Click);
+            // tsmiResultsUndeformedSolid
             // 
-            // tsmiResultsDeformedColorSolid
-            // 
-            this.tsmiResultsDeformedColorSolid.Image = global::PrePoMax.Properties.Resources.Undeformed_Solid;
-            this.tsmiResultsDeformedColorSolid.Name = "tsmiResultsDeformedColorSolid";
-            this.tsmiResultsDeformedColorSolid.Size = new System.Drawing.Size(243, 22);
-            this.tsmiResultsDeformedColorSolid.Text = "Deformed && Color && Solid";
-            this.tsmiResultsDeformedColorSolid.Click += new System.EventHandler(this.tsmiResultsDeformedColorSolid_Click);
+            this.tsmiResultsUndeformedSolid.Image = global::PrePoMax.Properties.Resources.Undeformed_Solid;
+            this.tsmiResultsUndeformedSolid.Name = "tsmiResultsUndeformedSolid";
+            this.tsmiResultsUndeformedSolid.Size = new System.Drawing.Size(243, 22);
+            this.tsmiResultsUndeformedSolid.Text = "Show Undeformed Solid Model";
+            this.tsmiResultsUndeformedSolid.Click += new System.EventHandler(this.tsmiResultsUndeformedSolid_Click);
             // 
             // tsmiDividerView5
             // 
@@ -4286,16 +4308,16 @@ namespace PrePoMax
             this.tsmiColorContoursOff.Image = global::PrePoMax.Properties.Resources.Deformed;
             this.tsmiColorContoursOff.Name = "tsmiColorContoursOff";
             this.tsmiColorContoursOff.Size = new System.Drawing.Size(173, 22);
-            this.tsmiColorContoursOff.Text = "Color Contours off";
-            this.tsmiColorContoursOff.Click += new System.EventHandler(this.tsmiColorContoursOff_Click);
+            this.tsmiColorContoursOff.Text = "Result Representation Off";
+            this.tsmiColorContoursOff.Click += new System.EventHandler(this.tsmiResultRepresentationOff_Click);
             // 
             // tsmiColorContoursOn
             // 
             this.tsmiColorContoursOn.Image = global::PrePoMax.Properties.Resources.Color_contours;
             this.tsmiColorContoursOn.Name = "tsmiColorContoursOn";
             this.tsmiColorContoursOn.Size = new System.Drawing.Size(173, 22);
-            this.tsmiColorContoursOn.Text = "Color Contours on";
-            this.tsmiColorContoursOn.Click += new System.EventHandler(this.tsmiColorContoursOn_Click);
+            this.tsmiColorContoursOn.Text = "Result Representation On";
+            this.tsmiColorContoursOn.Click += new System.EventHandler(this.tsmiResultRepresentationOn_Click);
             // 
             // tsmiDividerResultPart4
             // 
@@ -5271,11 +5293,13 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripButton tsbResultsUndeformed;
         private System.Windows.Forms.ToolStripButton tsbResultsDeformed;
         private System.Windows.Forms.ToolStripButton tsbResultsColorContours;
+        private System.Windows.Forms.ToolStripButton tsbResultsVectorPlot;
         private System.Windows.Forms.ToolStripSeparator toolStripResultsSeparator1;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerView3;
         private System.Windows.Forms.ToolStripMenuItem tsmiResultsUndeformed;
         private System.Windows.Forms.ToolStripMenuItem tsmiResultsDeformed;
         private System.Windows.Forms.ToolStripMenuItem tsmiResultsColorContours;
+        private System.Windows.Forms.ToolStripMenuItem tsmiResultsVectorPlot;
         private System.Windows.Forms.ToolStripMenuItem tsmiHelp;
         private System.Windows.Forms.ToolStripMenuItem tsmiAbout;
         private System.Windows.Forms.ToolStripMenuItem tsmiHomePage;
@@ -5471,8 +5495,8 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiAppendResults;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerResults3;
         private System.Windows.Forms.ToolStripMenuItem tsmiDuplicateConstraint;
-        private System.Windows.Forms.ToolStripMenuItem tsmiResultsDeformedColorWireframe;
-        private System.Windows.Forms.ToolStripMenuItem tsmiResultsDeformedColorSolid;
+        private System.Windows.Forms.ToolStripMenuItem tsmiResultsUndeformedWireframe;
+        private System.Windows.Forms.ToolStripMenuItem tsmiResultsUndeformedSolid;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerTools1;
         private System.Windows.Forms.ToolStripMenuItem tsmiParameters;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerTools2;

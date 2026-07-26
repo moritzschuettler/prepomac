@@ -130,6 +130,15 @@ namespace CaeResults
                                                                                               FOFieldNames.ErrorMaxAng,
                                                                                               FOFieldNames.ErrorMin,
                                                                                               FOFieldNames.ErrorMinAng}};
+        private static readonly string[][] _tensorComponentNameFamilies = new string[][]
+        {
+            new string[] { FOComponentNames.S11, FOComponentNames.S22, FOComponentNames.S33,
+                           FOComponentNames.S12, FOComponentNames.S23, FOComponentNames.S13 },
+            new string[] { FOComponentNames.E11, FOComponentNames.E22, FOComponentNames.E33,
+                           FOComponentNames.E12, FOComponentNames.E23, FOComponentNames.E13 },
+            new string[] { FOComponentNames.ME11, FOComponentNames.ME22, FOComponentNames.ME33,
+                           FOComponentNames.ME12, FOComponentNames.ME23, FOComponentNames.ME13 }
+        };
         //
         private string _hashName;
         private string _fileName;
@@ -2406,7 +2415,7 @@ namespace CaeResults
             {
                 result = new FieldData(name, component, stepId, stepIncrementId);
                 result.StepType = StepTypeEnum.Static;
-                //result.Time = 0; // unnecessary since this result does not exits
+                result.Time = 0;
                 return result;
             }
             // Find the result
@@ -2832,6 +2841,379 @@ namespace CaeResults
                 }
             }
             return values;
+        }
+        public bool GetVectorValues(FieldData fieldData, int[] globalNodeIds, out double[][] vectors,
+                                    out float[] magnitudes)
+        {
+            vectors = null;
+            magnitudes = null;
+            if (fieldData == null || globalNodeIds == null) return false;
+            //
+            Field field = GetFieldForPlot(fieldData);
+            if (field == null || field.DataType != DataTypeEnum.Vector ||
+                !field.ContainsComponent(fieldData.Component)) return false;
+            //
+            string[] componentNames = field.GetComponentNames().Where(name => !field.IsComponentInvariant(name)).ToArray();
+            if (componentNames.Length != 3) return false;
+            //
+            int selectedComponent = Array.IndexOf(componentNames, fieldData.Component);
+            bool completeVector = field.IsComponentInvariant(fieldData.Component);
+            if (!completeVector && selectedComponent < 0) return false;
+            //
+            if (fieldData.StepId == 1 && fieldData.StepIncrementId == 0)
+            {
+                vectors = new double[globalNodeIds.Length][];
+                magnitudes = new float[globalNodeIds.Length];
+                for (int i = 0; i < vectors.Length; i++) vectors[i] = new double[3];
+                return true;
+            }
+            //
+            float[][] componentValues = new float[3][];
+            for (int i = 0; i < componentValues.Length; i++)
+            {
+                FieldData componentFieldData = new FieldData(fieldData);
+                componentFieldData.Component = componentNames[i];
+                componentValues[i] = GetValues(componentFieldData, globalNodeIds);
+                if (componentValues[i] == null) return false;
+            }
+            //
+            CoordinateSystem coordinateSystem = null;
+            if (_resultFieldOutputs.ContainsKey(fieldData.Name) &&
+                _resultFieldOutputs[fieldData.Name] is ResultFieldOutputCoordinateSystemTransform transform)
+            {
+                _mesh.CoordinateSystems.TryGetValue(transform.CoordinateSystemName, out coordinateSystem);
+            }
+            //
+            vectors = new double[globalNodeIds.Length][];
+            magnitudes = new float[globalNodeIds.Length];
+            for (int i = 0; i < globalNodeIds.Length; i++)
+            {
+                double c0 = completeVector || selectedComponent == 0 ? componentValues[0][i] : 0;
+                double c1 = completeVector || selectedComponent == 1 ? componentValues[1][i] : 0;
+                double c2 = completeVector || selectedComponent == 2 ? componentValues[2][i] : 0;
+                double x;
+                double y;
+                double z;
+                //
+                if (coordinateSystem != null && _undeformedNodes.TryGetValue(globalNodeIds[i], out FeNode node))
+                {
+                    Vec3D dx = coordinateSystem.DirectionX(node.Coor);
+                    Vec3D dy = coordinateSystem.DirectionY(node.Coor, dx);
+                    Vec3D dz = coordinateSystem.DirectionZ(node.Coor);
+                    x = c0 * dx.X + c1 * dy.X + c2 * dz.X;
+                    y = c0 * dx.Y + c1 * dy.Y + c2 * dz.Y;
+                    z = c0 * dx.Z + c1 * dy.Z + c2 * dz.Z;
+                }
+                else
+                {
+                    x = c0;
+                    y = c1;
+                    z = c2;
+                }
+                //
+                vectors[i] = new double[] { x, y, z };
+                magnitudes[i] = (float)Math.Sqrt(x * x + y * y + z * z);
+            }
+            return true;
+        }
+        public bool IsTensorPlotComponent(FieldData fieldData)
+        {
+            if (fieldData == null) return false;
+            //
+            Field field = GetFieldForPlot(fieldData);
+            if (field == null || field.DataType != DataTypeEnum.Tensor ||
+                !field.ContainsComponent(fieldData.Component)) return false;
+            //
+            if (!TryGetTensorComponentNames(field, out string[] componentNames)) return false;
+            //
+            return fieldData.Component == componentNames[0] ||
+                   fieldData.Component == componentNames[1] ||
+                   fieldData.Component == componentNames[2] ||
+                   fieldData.Component == FOComponentNames.PrincipalMax ||
+                   fieldData.Component == FOComponentNames.PrincipalMid ||
+                   fieldData.Component == FOComponentNames.PrincipalMin;
+        }
+        public bool GetTensorPlotValues(FieldData fieldData, int[] globalNodeIds, out double[][] directions,
+                                        out float[] values)
+        {
+            directions = null;
+            values = null;
+            if (globalNodeIds == null || !IsTensorPlotComponent(fieldData)) return false;
+            //
+            Field field = GetFieldForPlot(fieldData);
+            if (!TryGetTensorComponentNames(field, out string[] componentNames)) return false;
+            values = GetValues(fieldData, globalNodeIds);
+            if (values == null) return false;
+            if (fieldData.StepId == 1 && fieldData.StepIncrementId == 0)
+            {
+                directions = new double[globalNodeIds.Length][];
+                return true;
+            }
+            //
+            bool principal = fieldData.Component == FOComponentNames.PrincipalMax ||
+                             fieldData.Component == FOComponentNames.PrincipalMid ||
+                             fieldData.Component == FOComponentNames.PrincipalMin;
+            int principalId = fieldData.Component == FOComponentNames.PrincipalMax ? 0 :
+                              fieldData.Component == FOComponentNames.PrincipalMid ? 1 : 2;
+            int normalId = Array.IndexOf(componentNames, fieldData.Component);
+            //
+            float[][] tensorValues = null;
+            if (principal)
+            {
+                tensorValues = new float[componentNames.Length][];
+                for (int i = 0; i < componentNames.Length; i++)
+                {
+                    if (!field.ContainsComponent(componentNames[i])) return false;
+                    //
+                    FieldData componentFieldData = new FieldData(fieldData);
+                    componentFieldData.Component = componentNames[i];
+                    tensorValues[i] = GetValues(componentFieldData, globalNodeIds);
+                    if (tensorValues[i] == null) return false;
+                }
+            }
+            //
+            CoordinateSystem coordinateSystem = null;
+            if (_resultFieldOutputs.ContainsKey(fieldData.Name) &&
+                _resultFieldOutputs[fieldData.Name] is ResultFieldOutputCoordinateSystemTransform transform)
+            {
+                _mesh.CoordinateSystems.TryGetValue(transform.CoordinateSystemName, out coordinateSystem);
+            }
+            //
+            double[,] tensor = principal ? new double[3, 3] : null;
+            double[,] eigenvectors = principal ? new double[3, 3] : null;
+            directions = new double[globalNodeIds.Length][];
+            for (int i = 0; i < globalNodeIds.Length; i++)
+            {
+                double lx;
+                double ly;
+                double lz;
+                if (normalId == 0)
+                {
+                    lx = 1;
+                    ly = 0;
+                    lz = 0;
+                }
+                else if (normalId == 1)
+                {
+                    lx = 0;
+                    ly = 1;
+                    lz = 0;
+                }
+                else if (normalId == 2)
+                {
+                    lx = 0;
+                    ly = 0;
+                    lz = 1;
+                }
+                else
+                {
+                    if (float.IsNaN(values[i]) || float.IsInfinity(values[i]) ||
+                        !GetPrincipalDirection(tensorValues[0][i], tensorValues[1][i], tensorValues[2][i],
+                                               tensorValues[3][i], tensorValues[4][i], tensorValues[5][i],
+                                               principalId, tensor, eigenvectors, out lx, out ly, out lz))
+                    {
+                        directions[i] = null;
+                        continue;
+                    }
+                }
+                //
+                double x;
+                double y;
+                double z;
+                if (coordinateSystem != null && _undeformedNodes.TryGetValue(globalNodeIds[i], out FeNode node))
+                {
+                    Vec3D dx = coordinateSystem.DirectionX(node.Coor);
+                    Vec3D dy = coordinateSystem.DirectionY(node.Coor, dx);
+                    Vec3D dz = coordinateSystem.DirectionZ(node.Coor);
+                    x = lx * dx.X + ly * dy.X + lz * dz.X;
+                    y = lx * dx.Y + ly * dy.Y + lz * dz.Y;
+                    z = lx * dx.Z + ly * dy.Z + lz * dz.Z;
+                }
+                else
+                {
+                    x = lx;
+                    y = ly;
+                    z = lz;
+                }
+                //
+                double length = Math.Sqrt(x * x + y * y + z * z);
+                if (double.IsNaN(length) || double.IsInfinity(length) || length <= 0)
+                    directions[i] = null;
+                else
+                    directions[i] = new double[] { x / length, y / length, z / length };
+            }
+            return true;
+        }
+        private Field GetFieldForPlot(FieldData fieldData)
+        {
+            Field field = GetField(fieldData);
+            if (field != null || fieldData == null ||
+                fieldData.StepId != 1 || fieldData.StepIncrementId != 0) return field;
+            //
+            // The initial increment is synthesized and has no field object of its own.
+            // Use a real increment only for the field metadata; its result values are
+            // never used for the zero-increment glyph data.
+            foreach (var entry in _fields)
+            {
+                if (string.Equals(entry.Key.Name, fieldData.Name, StringComparison.OrdinalIgnoreCase) &&
+                    entry.Value.ContainsComponent(fieldData.Component))
+                    return entry.Value;
+            }
+            return null;
+        }
+        private static bool TryGetTensorComponentNames(Field field, out string[] componentNames)
+        {
+            componentNames = null;
+            if (field == null) return false;
+            //
+            foreach (string[] candidate in _tensorComponentNameFamilies)
+            {
+                bool containsAll = true;
+                for (int i = 0; i < candidate.Length; i++)
+                {
+                    if (!field.ContainsComponent(candidate[i]))
+                    {
+                        containsAll = false;
+                        break;
+                    }
+                }
+                if (containsAll)
+                {
+                    componentNames = candidate;
+                    return true;
+                }
+            }
+            return false;
+        }
+        private static bool GetPrincipalDirection(double s11, double s22, double s33, double s12, double s23,
+                                                  double s13, int principalId, double[,] tensor,
+                                                  double[,] eigenvectors, out double x, out double y, out double z)
+        {
+            x = y = z = 0;
+            if (double.IsNaN(s11) || double.IsInfinity(s11) ||
+                double.IsNaN(s22) || double.IsInfinity(s22) ||
+                double.IsNaN(s33) || double.IsInfinity(s33) ||
+                double.IsNaN(s12) || double.IsInfinity(s12) ||
+                double.IsNaN(s23) || double.IsInfinity(s23) ||
+                double.IsNaN(s13) || double.IsInfinity(s13)) return false;
+            //
+            tensor[0, 0] = s11;
+            tensor[1, 1] = s22;
+            tensor[2, 2] = s33;
+            tensor[0, 1] = tensor[1, 0] = s12;
+            tensor[1, 2] = tensor[2, 1] = s23;
+            tensor[0, 2] = tensor[2, 0] = s13;
+            //
+            for (int i = 0; i < 3; i++)
+            {
+                for (int j = 0; j < 3; j++) eigenvectors[i, j] = i == j ? 1 : 0;
+            }
+            //
+            double matrixScale = Math.Max(Math.Max(Math.Abs(s11), Math.Abs(s22)), Math.Abs(s33));
+            matrixScale = Math.Max(matrixScale, Math.Max(Math.Max(Math.Abs(s12), Math.Abs(s23)), Math.Abs(s13)));
+            if (matrixScale == 0) return false;
+            double offDiagonalTolerance = matrixScale * 1E-14;
+            //
+            for (int iteration = 0; iteration < 32; iteration++)
+            {
+                int p = 0;
+                int q = 1;
+                double largest = Math.Abs(tensor[0, 1]);
+                if (Math.Abs(tensor[0, 2]) > largest)
+                {
+                    p = 0;
+                    q = 2;
+                    largest = Math.Abs(tensor[0, 2]);
+                }
+                if (Math.Abs(tensor[1, 2]) > largest)
+                {
+                    p = 1;
+                    q = 2;
+                    largest = Math.Abs(tensor[1, 2]);
+                }
+                if (largest <= offDiagonalTolerance) break;
+                //
+                double app = tensor[p, p];
+                double aqq = tensor[q, q];
+                double apq = tensor[p, q];
+                double angle = 0.5 * Math.Atan2(2 * apq, aqq - app);
+                double c = Math.Cos(angle);
+                double s = Math.Sin(angle);
+                //
+                for (int k = 0; k < 3; k++)
+                {
+                    if (k == p || k == q) continue;
+                    //
+                    double akp = tensor[k, p];
+                    double akq = tensor[k, q];
+                    tensor[k, p] = tensor[p, k] = c * akp - s * akq;
+                    tensor[k, q] = tensor[q, k] = s * akp + c * akq;
+                }
+                tensor[p, p] = c * c * app - 2 * s * c * apq + s * s * aqq;
+                tensor[q, q] = s * s * app + 2 * s * c * apq + c * c * aqq;
+                tensor[p, q] = tensor[q, p] = 0;
+                //
+                for (int k = 0; k < 3; k++)
+                {
+                    double vkp = eigenvectors[k, p];
+                    double vkq = eigenvectors[k, q];
+                    eigenvectors[k, p] = c * vkp - s * vkq;
+                    eigenvectors[k, q] = s * vkp + c * vkq;
+                }
+            }
+            //
+            double e0 = tensor[0, 0];
+            double e1 = tensor[1, 1];
+            double e2 = tensor[2, 2];
+            int direction0 = 0;
+            int direction1 = 1;
+            int direction2 = 2;
+            if (e0 < e1)
+            {
+                Swap(ref e0, ref e1);
+                Swap(ref direction0, ref direction1);
+            }
+            if (e1 < e2)
+            {
+                Swap(ref e1, ref e2);
+                Swap(ref direction1, ref direction2);
+            }
+            if (e0 < e1)
+            {
+                Swap(ref e0, ref e1);
+                Swap(ref direction0, ref direction1);
+            }
+            //
+            double eigenvalueScale = Math.Max(Math.Max(Math.Abs(e0), Math.Abs(e1)), Math.Abs(e2));
+            double repeatedValueTolerance = eigenvalueScale * 1E-8;
+            if ((principalId == 0 && Math.Abs(e0 - e1) <= repeatedValueTolerance) ||
+                (principalId == 1 && (Math.Abs(e0 - e1) <= repeatedValueTolerance ||
+                                      Math.Abs(e1 - e2) <= repeatedValueTolerance)) ||
+                (principalId == 2 && Math.Abs(e1 - e2) <= repeatedValueTolerance)) return false;
+            //
+            int directionId = principalId == 0 ? direction0 : principalId == 1 ? direction1 : direction2;
+            x = eigenvectors[0, directionId];
+            y = eigenvectors[1, directionId];
+            z = eigenvectors[2, directionId];
+            double length = Math.Sqrt(x * x + y * y + z * z);
+            if (double.IsNaN(length) || double.IsInfinity(length) || length <= 0) return false;
+            //
+            x /= length;
+            y /= length;
+            z /= length;
+            return true;
+        }
+        private static void Swap(ref double value1, ref double value2)
+        {
+            double tmp = value1;
+            value1 = value2;
+            value2 = tmp;
+        }
+        private static void Swap(ref int value1, ref int value2)
+        {
+            int tmp = value1;
+            value1 = value2;
+            value2 = tmp;
         }
         public bool IsComponentInvariant(FieldData fieldData)
         {

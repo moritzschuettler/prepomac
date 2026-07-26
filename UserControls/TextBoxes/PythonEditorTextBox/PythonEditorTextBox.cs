@@ -311,6 +311,10 @@ namespace UserControls
         {
             _textBox.ShowReplaceDialog();
         }
+        public void ShowGoToLine()
+        {
+            ShowGoToLineDialog();
+        }
         public void Undo()
         {
             if (CanUndo) _textBox.Undo();

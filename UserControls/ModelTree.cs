@@ -73,8 +73,8 @@ namespace UserControls
         public int Show;
         public int ColorTransparency;
         //
-        public int Deformed;
-        public int ColorContours;
+        public int ResultRepresentationOn;
+        public int ResultRepresentationOff;
         //
         public int Run;
         public int Monitor;
@@ -309,7 +309,7 @@ namespace UserControls
         public event Action<string[]> SetPartColorEvent;
         public event Action<string[]> ResetPartColorEvent;
         public event Action<string[]> SetTransparencyEvent;
-        public event Action<NamedClass[], bool> ColorContoursVisibilityEvent;
+        public event Action<NamedClass[], bool> ResultRepresentationVisibilityEvent;
         public event Action<string> RunEvent;
         public event Action<string> CheckModelEvent;
         public event Action<string> MonitorEvent;
@@ -587,8 +587,9 @@ namespace UserControls
             tsmiResetColor.Visible = visible;
             tsmiSetTransparency.Visible = visible; // transparency
             oneAboveVisible |= visible;
-            // Deformed/Color contours                              
-            visible = menuFields.Deformed == n;
+            // Result representation
+            visible = menuFields.ResultRepresentationOn + menuFields.ResultRepresentationOff == n &&
+                      n > 0;
             tsmiSpaceColorContours.Visible = visible && oneAboveVisible;
             tsmiColorContoursOff.Visible = visible;
             tsmiColorContoursOn.Visible = visible;
@@ -639,9 +640,9 @@ namespace UserControls
             tsmiHide.Enabled = true;
             tsmiShow.Enabled = true;
             tsmiShowOnly.Enabled = true;
-            // Deformed/Color contours
-            tsmiColorContoursOff.Enabled = true;
-            tsmiColorContoursOn.Enabled = true;
+            // Result representation
+            tsmiColorContoursOff.Enabled = menuFields.ResultRepresentationOn > 0;
+            tsmiColorContoursOn.Enabled = menuFields.ResultRepresentationOff > 0;
             // Analysis
             enabled = menuFields.Run == 1;
             tsmiRun.Enabled = enabled;
@@ -729,14 +730,11 @@ namespace UserControls
             }
             // Color & Transparency
             if (item != null && item is BasePart) menuFields.ColorTransparency++;
-            // Deformed/Color contours
-            if (item != null && item is ResultPart)
+            // Result representation
+            if (item is ResultPart resultPart && ResultPart.ResultRepresentationAvailable)
             {
-                if (!ResultPart.Undeformed)
-                {
-                    menuFields.Deformed++;
-                    menuFields.ColorContours++;
-                }
+                if (resultPart.ResultRepresentation) menuFields.ResultRepresentationOn++;
+                else menuFields.ResultRepresentationOff++;
             }
             // Analysis
             if (node.Parent == _analyses)
@@ -1301,7 +1299,7 @@ namespace UserControls
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiResultColorContoursVisibility_Click(object sender, EventArgs e)
+        private void tsmiResultRepresentationOnOff_Click(object sender, EventArgs e)
         {
             try
             {
@@ -1319,8 +1317,8 @@ namespace UserControls
 
                 if (items.Count > 0)
                 {
-                    bool colorContours = (sender == tsmiColorContoursOn);
-                    ColorContoursVisibilityEvent?.Invoke(items.ToArray(), colorContours);
+                    bool resultRepresentation = (sender == tsmiColorContoursOn);
+                    ResultRepresentationVisibilityEvent?.Invoke(items.ToArray(), resultRepresentation);
                 }
             }
             catch (Exception ex)

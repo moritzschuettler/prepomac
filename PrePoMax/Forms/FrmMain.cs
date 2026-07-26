@@ -1,10 +1,10 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej BorovinĹˇek
+// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
 // Source code: https://gitlab.com/MatejB/PrePoMax
 //
-// Author: Matej BorovinĹˇek
+// Author: Matej Borovinšek
 // Contributors:
 
 using CaeGlobals;
@@ -243,6 +243,10 @@ namespace PrePoMax
         }
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
+            PythonPanel pythonPanel = _visibleSidePanel as PythonPanel;
+            if (pythonPanel != null && pythonPanel.Focused && pythonPanel.ProcessShortcutKey(keyData))
+                return true;
+
             if ((keyData & Keys.Alt) == Keys.Alt && (keyData & Keys.Control) == Keys.Control)
                 return false;
 
@@ -340,7 +344,7 @@ namespace PrePoMax
                 _modelTree.MergeByMasterSlave += ModelTree_MergeByMasterSlave;
                 _modelTree.HideShowEvent += ModelTree_HideShowEvent;
                 _modelTree.SetTransparencyEvent += ModelTree_SetTransparencyEvent;
-                _modelTree.ColorContoursVisibilityEvent += ModelTree_ColorContoursVisibilityEvent;
+                _modelTree.ResultRepresentationVisibilityEvent += ModelTree_ResultRepresentationVisibilityEvent;
                 _modelTree.RunEvent += RunAnalysis;
                 _modelTree.CheckModelEvent += CheckModel;
                 _modelTree.MonitorEvent += MonitorAnalysis;
@@ -1271,7 +1275,7 @@ namespace PrePoMax
             else if (_controller.CurrentView == ViewGeometryModelResults.Model) SetTransparencyForModelParts(partNames);
             else if (_controller.CurrentView == ViewGeometryModelResults.Results) SetTransparencyForResultParts(partNames);
         }
-        private void ModelTree_ColorContoursVisibilityEvent(NamedClass[] items, bool colorContours)
+        private void ModelTree_ResultRepresentationVisibilityEvent(NamedClass[] items, bool resultRepresentation)
         {
             List<string> names = new List<string>();
             for (int i = 0; i < items.Length; i++)
@@ -1281,8 +1285,8 @@ namespace PrePoMax
             //
             if (names.Count > 0)
             {
-                if (colorContours) ColorContoursOnResultPart(names.ToArray());
-                else ColorContoursOffResultPart(names.ToArray());
+                if (resultRepresentation) ResultRepresentationOnResultPart(names.ToArray());
+                else ResultRepresentationOffResultPart(names.ToArray());
             }
         }
         //
@@ -3281,16 +3285,30 @@ namespace PrePoMax
         }
         private void tsmiResultsColorContours_Click(object sender, EventArgs e)
         {
-            SetUndeformedModelType(ViewResultsTypeEnum.ColorContours, UndeformedModelTypeEnum.None);
+            SetUndeformedModelType(ViewResultsTypeEnum.ColorContours, _controller.GetUndeformedModelType());
         }
-        private void tsmiResultsDeformedColorWireframe_Click(object sender, EventArgs e)
+        private void tsmiResultsVectorPlot_Click(object sender, EventArgs e)
         {
-            SetUndeformedModelType(ViewResultsTypeEnum.ColorContours, UndeformedModelTypeEnum.WireframeBody);
+            SetUndeformedModelType(ViewResultsTypeEnum.VectorPlot, _controller.GetUndeformedModelType());
         }
-
-        private void tsmiResultsDeformedColorSolid_Click(object sender, EventArgs e)
+        private void tsmiResultsUndeformedWireframe_Click(object sender, EventArgs e)
         {
-            SetUndeformedModelType(ViewResultsTypeEnum.ColorContours, UndeformedModelTypeEnum.SolidBody);
+            ToggleUndeformedModelType(UndeformedModelTypeEnum.WireframeBody);
+        }
+        private void tsmiResultsUndeformedSolid_Click(object sender, EventArgs e)
+        {
+            ToggleUndeformedModelType(UndeformedModelTypeEnum.SolidBody);
+        }
+        private void ToggleUndeformedModelType(UndeformedModelTypeEnum undeformedModelType)
+        {
+            if (_controller.ViewResultsType != ViewResultsTypeEnum.ColorContours &&
+                _controller.ViewResultsType != ViewResultsTypeEnum.VectorPlot &&
+                _controller.ViewResultsType != ViewResultsTypeEnum.TensorPlot) return;
+            //
+            if (_controller.GetUndeformedModelType() == undeformedModelType)
+                undeformedModelType = UndeformedModelTypeEnum.None;
+            //
+            SetUndeformedModelType(_controller.ViewResultsType, undeformedModelType);
         }
         private void SetUndeformedModelType(ViewResultsTypeEnum viewResultsType, UndeformedModelTypeEnum undeformedModelType)
         {
@@ -3306,24 +3324,66 @@ namespace PrePoMax
         }
         private void UpdateResultsTypeIconStates()
         {
+            bool resultRepresentationAvailable =
+                GetCurrentView() == ViewGeometryModelResults.Results &&
+                (_controller.ViewResultsType == ViewResultsTypeEnum.ColorContours ||
+                 _controller.ViewResultsType == ViewResultsTypeEnum.VectorPlot ||
+                 _controller.ViewResultsType == ViewResultsTypeEnum.TensorPlot);
+            tsmiDividerResultPart2.Visible = resultRepresentationAvailable;
+            tsmiColorContoursOff.Visible = resultRepresentationAvailable;
+            tsmiColorContoursOn.Visible = resultRepresentationAvailable;
+            //
             tsbResultsUndeformed.Checked = false;
             tsbResultsDeformed.Checked = false;
             tsbResultsColorContours.Checked = false;
+            tsbResultsVectorPlot.Checked = false;
             tsbResultsUndeformedWireframe.Checked = false;
             tsbResultsUndeformedSolid.Checked = false;
+            tsmiResultsUndeformed.Checked = false;
+            tsmiResultsDeformed.Checked = false;
+            tsmiResultsColorContours.Checked = false;
+            tsmiResultsVectorPlot.Checked = false;
+            tsmiResultsUndeformedWireframe.Checked = false;
+            tsmiResultsUndeformedSolid.Checked = false;
             //
             if (GetCurrentView() == ViewGeometryModelResults.Results)
             {
-                if (_controller.ViewResultsType == ViewResultsTypeEnum.Undeformed) tsbResultsUndeformed.Checked = true;
-                else if (_controller.ViewResultsType == ViewResultsTypeEnum.Deformed) tsbResultsDeformed.Checked = true;
+                if (_controller.ViewResultsType == ViewResultsTypeEnum.Undeformed)
+                {
+                    tsbResultsUndeformed.Checked = true;
+                    tsmiResultsUndeformed.Checked = true;
+                }
+                else if (_controller.ViewResultsType == ViewResultsTypeEnum.Deformed)
+                {
+                    tsbResultsDeformed.Checked = true;
+                    tsmiResultsDeformed.Checked = true;
+                }
                 else if (_controller.ViewResultsType == ViewResultsTypeEnum.ColorContours)
                 {
-                    if (_controller.GetUndeformedModelType() == UndeformedModelTypeEnum.None)
-                        tsbResultsColorContours.Checked = true;
-                    else if (_controller.GetUndeformedModelType() == UndeformedModelTypeEnum.WireframeBody)
+                    tsbResultsColorContours.Checked = true;
+                    tsmiResultsColorContours.Checked = true;
+                }
+                else if (_controller.ViewResultsType == ViewResultsTypeEnum.VectorPlot ||
+                         _controller.ViewResultsType == ViewResultsTypeEnum.TensorPlot)
+                {
+                    tsbResultsVectorPlot.Checked = true;
+                    tsmiResultsVectorPlot.Checked = true;
+                }
+                //
+                if (_controller.ViewResultsType == ViewResultsTypeEnum.ColorContours ||
+                    _controller.ViewResultsType == ViewResultsTypeEnum.VectorPlot ||
+                    _controller.ViewResultsType == ViewResultsTypeEnum.TensorPlot)
+                {
+                    if (_controller.GetUndeformedModelType() == UndeformedModelTypeEnum.WireframeBody)
+                    {
                         tsbResultsUndeformedWireframe.Checked = true;
+                        tsmiResultsUndeformedWireframe.Checked = true;
+                    }
                     else if (_controller.GetUndeformedModelType() == UndeformedModelTypeEnum.SolidBody)
+                    {
                         tsbResultsUndeformedSolid.Checked = true;
+                        tsmiResultsUndeformedSolid.Checked = true;
+                    }
                 }
             }
         }
@@ -8351,22 +8411,24 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiColorContoursOff_Click(object sender, EventArgs e)
+        private void tsmiResultRepresentationOff_Click(object sender, EventArgs e)
         {
             try
             {
-                SelectMultipleEntities("Parts", _controller.GetResultParts<ResultPart>(), ColorContoursOffResultPart);
+                SelectMultipleEntities("Parts", _controller.GetResultParts<ResultPart>(),
+                                       ResultRepresentationOffResultPart);
             }
             catch (Exception ex)
             {
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiColorContoursOn_Click(object sender, EventArgs e)
+        private void tsmiResultRepresentationOn_Click(object sender, EventArgs e)
         {
             try
             {
-                SelectMultipleEntities("Parts", _controller.GetResultParts<ResultPart>(), ColorContoursOnResultPart);
+                SelectMultipleEntities("Parts", _controller.GetResultParts<ResultPart>(),
+                                       ResultRepresentationOnResultPart);
             }
             catch (Exception ex)
             {
@@ -8459,13 +8521,13 @@ namespace PrePoMax
                 SaveFormLocation(frmGetValue);
             }
         }
-        private void ColorContoursOffResultPart(string[] partNames)
+        private void ResultRepresentationOffResultPart(string[] partNames)
         {
-            _controller.SetColorContoursForResultPartsCommand(partNames, false);
+            _controller.SetResultRepresentationForResultPartsCommand(partNames, false);
         }
-        private void ColorContoursOnResultPart(string[] partNames)
+        private void ResultRepresentationOnResultPart(string[] partNames)
         {
-            _controller.SetColorContoursForResultPartsCommand(partNames, true);
+            _controller.SetResultRepresentationForResultPartsCommand(partNames, true);
         }
         private void DeleteResultParts(string[] partNames)
         {
@@ -9826,13 +9888,17 @@ namespace PrePoMax
         {
             tsmiResultsColorContours_Click(null, null);
         }
+        private void tsbResultsVectorPlot_Click(object sender, EventArgs e)
+        {
+            tsmiResultsVectorPlot_Click(null, null);
+        }
         private void tsbResultsUndeformedWireframe_Click(object sender, EventArgs e)
         {
-            tsmiResultsDeformedColorWireframe_Click(null, null);
+            tsmiResultsUndeformedWireframe_Click(null, null);
         }
         private void tsbResultsUndeformedSolid_Click(object sender, EventArgs e)
         {
-            tsmiResultsDeformedColorSolid_Click(null, null);
+            tsmiResultsUndeformedSolid_Click(null, null);
         }
         private void tsbTransformation_Click(object sender, EventArgs e)
         {
@@ -9892,6 +9958,8 @@ namespace PrePoMax
             try
             {
                 if (_controller.ViewResultsType != ViewResultsTypeEnum.Undeformed &&
+                    _controller.ViewResultsType != ViewResultsTypeEnum.VectorPlot &&
+                    _controller.ViewResultsType != ViewResultsTypeEnum.TensorPlot &&
                     _controller.GetResultStepIDs().Length > 0 && !_frmAnimation.Visible)
                 {
                     CloseAllForms();
@@ -10419,6 +10487,14 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.AddScalarFieldOnCells, actorData, update);
         }
+        public void AddVectorFieldActor(vtkMaxActorData actorData, double maxMagnitude, double maxArrowLength)
+        {
+            InvokeIfRequired(_vtk.AddVectorFieldActor, actorData, maxMagnitude, maxArrowLength);
+        }
+        public void AddTensorFieldActor(vtkMaxActorData actorData, double maxAbsValue, double maxGlyphLength)
+        {
+            InvokeIfRequired(_vtk.AddTensorFieldActor, actorData, maxAbsValue, maxGlyphLength);
+        }
         public bool AddAnimatedScalarFieldOn3DCells(vtkMaxActorData actorData)
         {
             return _vtk.AddAnimatedScalarFieldOnCells(actorData);
@@ -10431,6 +10507,10 @@ namespace PrePoMax
         public void UpdateActorColorContoursVisibility(string[] actorNames, bool colorContour)
         {
             InvokeIfRequired(_vtk.UpdateActorsColorContoursVisibility, actorNames, colorContour);
+        }
+        public void UpdateResultRepresentationVisibility(string[] partNames, bool visible, bool update)
+        {
+            InvokeIfRequired(() => _vtk.UpdateResultRepresentationVisibility(partNames, visible, update));
         }
         public void AddSphereActor(vtkMaxActorData actorData, double symbolSize)
         {
@@ -10727,7 +10807,11 @@ namespace PrePoMax
                     // Update controller field data
                     _controller.CurrentFieldData = fieldData;
                     // Draw field data
-                    if (_controller.ViewResultsType == ViewResultsTypeEnum.ColorContours) _controller.UpdatePartsScalarFields();
+                    if (_controller.ViewResultsType == ViewResultsTypeEnum.ColorContours)
+                        _controller.UpdatePartsScalarFields();
+                    else if (_controller.ViewResultsType == ViewResultsTypeEnum.VectorPlot ||
+                             _controller.ViewResultsType == ViewResultsTypeEnum.TensorPlot)
+                        _controller.DrawResults(false);
                 }
                 //
                 UpdateComplexControlStates();

@@ -53,11 +53,22 @@ namespace PrePoMax.Settings
             get { return _postSettings.UndeformedModelColor; } 
             set { _postSettings.UndeformedModelColor = value; }
         }
+        // Vector plot
+        [CategoryAttribute("Vector plot")]
+        [OrderedDisplayName(0, 10, "Vector plot scale factor")]
+        [DescriptionAttribute("Set the vector plot arrow length scale factor.")]
+        [TypeConverter(typeof(StringDoubleConverter))]
+        [Id(1, 2)]
+        public double VectorPlotScaleFactor
+        {
+            get { return _postSettings.VectorPlotScaleFactor; }
+            set { _postSettings.VectorPlotScaleFactor = value; }
+        }
         // Limit values                                                         
         [CategoryAttribute("Limit values")]
         [OrderedDisplayName(0, 10, "Show min value and location")]
         [DescriptionAttribute("Show min value and location.")]
-        [Id(1, 2)]
+        [Id(1, 4)]
         public bool ShowMinValueLocation
         {
             get { return _postSettings.ShowMinValueLocation; }
@@ -67,7 +78,7 @@ namespace PrePoMax.Settings
         [CategoryAttribute("Limit values")]
         [OrderedDisplayName(1, 10, "Show max value and location")]
         [DescriptionAttribute("Show max value and location.")]
-        [Id(2, 2)]
+        [Id(2, 4)]
         public bool ShowMaxValueLocation
         {
             get { return _postSettings.ShowMaxValueLocation; }
@@ -77,7 +88,7 @@ namespace PrePoMax.Settings
         [CategoryAttribute("History output")]
         [OrderedDisplayName(0, 10, "Max history output entries")]
         [DescriptionAttribute("Enter the maximum number of the history outputs entries to show.")]
-        [Id(1, 3)]
+        [Id(1, 5)]
         public int MaxHistoryEntriesToShow
         {
             get { return _postSettings.MaxHistoryEntriesToShow; }

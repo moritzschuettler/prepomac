@@ -2391,6 +2391,24 @@ namespace vtkControl
             // Skip formatting for the overlay layer
             if (layer == vtkRendererLayer.Overlay) return;
             //
+            vtkMaxActor maxActor = null;
+            if (layer == vtkRendererLayer.Base)
+            {
+                if (actorName == null) actorName = GetActorName(actor);
+                maxActor = _actors[actorName];
+            }
+            else if (layer == vtkRendererLayer.Selection)
+            {
+                maxActor = GetSelectedMaxActor(actor);
+            }
+            //
+            if (maxActor != null && !maxActor.UseEdgeVisibility)
+            {
+                if (maxActor.VtkMaxActorVisible) actor.VisibilityOn();
+                else actor.VisibilityOff();
+                return;
+            }
+            //
             if (_edgesVisibility == vtkEdgesVisibility.ElementEdges) actorProperty.SetInterpolationToFlat();
             else actorProperty.SetInterpolationToPhong();
             //
@@ -2401,17 +2419,6 @@ namespace vtkControl
             else
             {
                 actorProperty.SetRepresentationToSurface();
-                //
-                vtkMaxActor maxActor = null;
-                if (layer == vtkRendererLayer.Base)
-                {
-                    if (actorName == null) actorName = GetActorName(actor);
-                    maxActor = _actors[actorName];
-                }
-                else if (layer == vtkRendererLayer.Selection)
-                {
-                    maxActor = GetSelectedMaxActor(actor);
-                }
                 //
                 if (maxActor != null)
                 {
@@ -4836,7 +4843,9 @@ namespace vtkControl
                 // Non animated actors
                 else
                 {
-                    if (actorNamesHash.Contains(entry.Key)) HideShowActor(entry.Value, visible);
+                    if (actorNamesHash.Contains(entry.Key) ||
+                        (entry.Value.ParentName != null && actorNamesHash.Contains(entry.Value.ParentName)))
+                        HideShowActor(entry.Value, visible);
                 }
             }
             // Overlay actors
@@ -4861,6 +4870,27 @@ namespace vtkControl
                 actor.SectionViewActor.VtkMaxActorVisible = visible;
             // Transformed copies
             foreach (var copy in actor.Copies) HideShowActor(copy, visible);
+        }
+        public void UpdateResultRepresentationVisibility(string[] partNames, bool visible, bool update)
+        {
+            HashSet<string> partNameSet = new HashSet<string>(partNames);
+            foreach (vtkMaxActor actor in _actors.Values)
+            {
+                if (actor.ParentName != null && partNameSet.Contains(actor.ParentName))
+                {
+                    bool actorVisible = visible;
+                    if (actorVisible && _actors.TryGetValue(actor.ParentName, out vtkMaxActor parentActor))
+                        actorVisible = parentActor.VtkMaxActorVisible;
+                    HideShowActor(actor, actorVisible);
+                }
+            }
+            //
+            if (update)
+            {
+                UpdateScalarFormatting();
+                _style.AdjustCameraDistanceAndClipping();
+                RenderScene();
+            }
         }
 
         #endregion  ################################################################################################################
@@ -5446,6 +5476,7 @@ namespace vtkControl
             double[] offsetStart;
             //
             Dictionary<string, double[]> partOffsetsAnimation = new Dictionary<string, double[]>();
+            Dictionary<string, List<vtkMaxActor>> partActors = new Dictionary<string, List<vtkMaxActor>>();
             foreach (var partOffset in partOffsets)
             {
                 offsetFinal = partOffset.Value;
@@ -5455,6 +5486,10 @@ namespace vtkControl
                     partOffsetsAnimation.Add(partOffset.Key, new double[] { offsetFinal[0] - offsetStart[0],
                                                                             offsetFinal[1] - offsetStart[1],
                                                                             offsetFinal[2] - offsetStart[2]});
+                    partActors.Add(partOffset.Key,
+                                   _actors.Where(entry => entry.Key == partOffset.Key ||
+                                                          entry.Value.ParentName == partOffset.Key)
+                                          .Select(entry => entry.Value).ToList());
                 }
             }
             //
@@ -5476,12 +5511,12 @@ namespace vtkControl
                 {
                     position.Coor = partOffset.Value;
                     position *= (t - tPrev);
-                    actor = _actors[partOffset.Key];
-                    position += new Vec3D(actor.Geometry.GetPosition());
-                    //
-                    actor.Geometry.SetPosition(position.X, position.Y, position.Z);
-                    actor.ModelEdges.SetPosition(position.X, position.Y, position.Z);
-                    actor.ElementEdges.SetPosition(position.X, position.Y, position.Z);
+                    foreach (vtkMaxActor partActor in partActors[partOffset.Key])
+                    {
+                        Vec3D actorPosition = new Vec3D(partActor.Geometry.GetPosition());
+                        actorPosition += position;
+                        SetExplodedViewActorPosition(partActor, actorPosition.Coor);
+                    }
                 }
                 tPrev = t;
                 //
@@ -5495,20 +5530,24 @@ namespace vtkControl
         }
         public void RemovePreviewedExplodedView(string[] partNames)
         {
-            vtkMaxActor actor;
             double[] offset = new double[] { 0, 0, 0 };
+            HashSet<string> partNameSet = new HashSet<string>(partNames);
             //
-            foreach (var partName in partNames)
+            foreach (var entry in _actors)
             {
-                if (_actors.TryGetValue(partName, out actor))
-                {
-                    actor.Geometry.SetPosition(offset[0], offset[1], offset[2]);
-                    actor.ModelEdges.SetPosition(offset[0], offset[1], offset[2]);
-                    actor.ElementEdges.SetPosition(offset[0], offset[1], offset[2]);
-                }
+                if (partNameSet.Contains(entry.Key) ||
+                    (entry.Value.ParentName != null && partNameSet.Contains(entry.Value.ParentName)))
+                    SetExplodedViewActorPosition(entry.Value, offset);
             }
             //
             RenderScene();
+        }
+        private static void SetExplodedViewActorPosition(vtkMaxActor actor, double[] position)
+        {
+            actor.Geometry?.SetPosition(position[0], position[1], position[2]);
+            actor.ModelEdges?.SetPosition(position[0], position[1], position[2]);
+            actor.ElementEdges?.SetPosition(position[0], position[1], position[2]);
+            actor.Nodes?.SetPosition(position[0], position[1], position[2]);
         }
 
         #endregion  ################################################################################################################
@@ -6056,8 +6095,11 @@ namespace vtkControl
         {
             foreach (var entry in _actors)
             {
-                entry.Value.Ambient = ambient; // calls update color
-                entry.Value.Diffuse = diffuse; // calls update color
+                if (entry.Value.UseGlobalLighting)
+                {
+                    entry.Value.Ambient = ambient; // calls update color
+                    entry.Value.Diffuse = diffuse; // calls update color
+                }
             }
             if (redraw) RenderScene();
         }
@@ -6139,6 +6181,386 @@ namespace vtkControl
         #endregion #################################################################################################################
 
         #region Scalar fields ######################################################################################################
+        public void AddVectorFieldActor(vtkMaxActorData data, double maxMagnitude, double maxArrowLength)
+        {
+            if (data?.Geometry?.Nodes?.Coor == null || data.Geometry.Nodes.Normals == null ||
+                data.Geometry.Nodes.Values == null) return;
+            if (maxMagnitude <= 0 || maxArrowLength <= 0)
+            {
+                AddEmptyScalarFieldActor(data);
+                return;
+            }
+            //
+            double tolerance = maxMagnitude * 1E-10;
+            int numArrows = 0;
+            for (int i = 0; i < data.Geometry.Nodes.Values.Length; i++)
+            {
+                float scalarValue = data.Geometry.Nodes.Values[i];
+                double[] vector = data.Geometry.Nodes.Normals[i];
+                if (!float.IsNaN(scalarValue) && !float.IsInfinity(scalarValue) &&
+                    vector != null && vector.Length == 3)
+                {
+                    double vectorLength = Math.Sqrt(vector[0] * vector[0] +
+                                                    vector[1] * vector[1] +
+                                                    vector[2] * vector[2]);
+                    if (!double.IsNaN(vectorLength) && !double.IsInfinity(vectorLength) &&
+                        vectorLength > tolerance) numArrows++;
+                }
+            }
+            if (numArrows == 0)
+            {
+                AddEmptyScalarFieldActor(data);
+                return;
+            }
+            //
+            const int numPointsPerArrow = 4;
+            float[] coordinates = new float[3 * numPointsPerArrow * numArrows];
+            float[] values = new float[numPointsPerArrow * numArrows];
+            vtkCellArray lines = vtkCellArray.New();
+            lines.Allocate(12L * numArrows, 1000);
+            //
+            double headLength = 0.25 * maxArrowLength;
+            double headHalfWidth = 0.06 * maxArrowLength;
+            int arrowId = 0;
+            for (int i = 0; i < data.Geometry.Nodes.Values.Length; i++)
+            {
+                float scalarValue = data.Geometry.Nodes.Values[i];
+                double[] vector = data.Geometry.Nodes.Normals[i];
+                if (float.IsNaN(scalarValue) || float.IsInfinity(scalarValue) ||
+                    vector == null || vector.Length != 3) continue;
+                //
+                double vectorLength = Math.Sqrt(vector[0] * vector[0] + vector[1] * vector[1] + vector[2] * vector[2]);
+                if (vectorLength <= tolerance || double.IsNaN(vectorLength) || double.IsInfinity(vectorLength)) continue;
+                //
+                double ux = vector[0] / vectorLength;
+                double uy = vector[1] / vectorLength;
+                double uz = vector[2] / vectorLength;
+                double shaftLength = maxArrowLength * vectorLength / maxMagnitude;
+                double[] origin = data.Geometry.Nodes.Coor[i];
+                double tx = origin[0] + shaftLength * ux;
+                double ty = origin[1] + shaftLength * uy;
+                double tz = origin[2] + shaftLength * uz;
+                //
+                // A stable vector perpendicular to the arrow direction.
+                double rx;
+                double ry;
+                double rz;
+                if (Math.Abs(uz) < 0.9)
+                {
+                    rx = 0;
+                    ry = 0;
+                    rz = 1;
+                }
+                else
+                {
+                    rx = 0;
+                    ry = 1;
+                    rz = 0;
+                }
+                double px = uy * rz - uz * ry;
+                double py = uz * rx - ux * rz;
+                double pz = ux * ry - uy * rx;
+                double perpendicularLength = Math.Sqrt(px * px + py * py + pz * pz);
+                px /= perpendicularLength;
+                py /= perpendicularLength;
+                pz /= perpendicularLength;
+                //
+                double bx = tx - headLength * ux;
+                double by = ty - headLength * uy;
+                double bz = tz - headLength * uz;
+                int pointId = numPointsPerArrow * arrowId;
+                int coordinateId = 3 * pointId;
+                coordinates[coordinateId] = (float)origin[0];
+                coordinates[coordinateId + 1] = (float)origin[1];
+                coordinates[coordinateId + 2] = (float)origin[2];
+                coordinates[coordinateId + 3] = (float)tx;
+                coordinates[coordinateId + 4] = (float)ty;
+                coordinates[coordinateId + 5] = (float)tz;
+                coordinates[coordinateId + 6] = (float)(bx + headHalfWidth * px);
+                coordinates[coordinateId + 7] = (float)(by + headHalfWidth * py);
+                coordinates[coordinateId + 8] = (float)(bz + headHalfWidth * pz);
+                coordinates[coordinateId + 9] = (float)(bx - headHalfWidth * px);
+                coordinates[coordinateId + 10] = (float)(by - headHalfWidth * py);
+                coordinates[coordinateId + 11] = (float)(bz - headHalfWidth * pz);
+                for (int j = 0; j < numPointsPerArrow; j++) values[pointId + j] = scalarValue;
+                //
+                AddLine(lines, pointId, pointId + 1);       // Shaft
+                AddLine(lines, pointId + 1, pointId + 2);   // Arrow head
+                AddLine(lines, pointId + 2, pointId + 3);   // Close the triangular arrow head
+                AddLine(lines, pointId + 3, pointId + 1);   // Arrow head
+                arrowId++;
+            }
+            //
+            vtkFloatArray vtkCoordinates = vtkFloatArray.New();
+            vtkCoordinates.SetNumberOfComponents(3);
+            IntPtr coordinatePointer = vtkCoordinates.WriteVoidPointer(0, coordinates.Length);
+            Marshal.Copy(coordinates, 0, coordinatePointer, coordinates.Length);
+            vtkCoordinates.DataChanged();
+            vtkPoints points = vtkPoints.New();
+            points.SetData(vtkCoordinates);
+            //
+            vtkFloatArray scalars = vtkFloatArray.New();
+            scalars.SetName(Globals.ScalarArrayName);
+            scalars.SetNumberOfComponents(1);
+            IntPtr scalarPointer = scalars.WriteVoidPointer(0, values.Length);
+            Marshal.Copy(values, 0, scalarPointer, values.Length);
+            scalars.DataChanged();
+            //
+            vtkPolyData polyData = vtkPolyData.New();
+            polyData.SetPoints(points);
+            polyData.SetLines(lines);
+            polyData.GetPointData().SetScalars(scalars);
+            //
+            vtkPolyDataMapper mapper = vtkPolyDataMapper.New();
+            mapper.SetInput(polyData);
+            vtkMaxActor actor = new vtkMaxActor(data, mapper);
+            // Keep lookup-table colors unchanged on render paths that use the diffuse
+            // material color even when lighting is disabled.
+            actor.GeometryProperty.SetColor(1, 1, 1);
+            actor.GeometryProperty.SetLighting(false);
+            if (data.Geometry.ExtremeNodes != null)
+            {
+                NodesExchangeData extremes = data.Geometry.ExtremeNodes;
+                actor.MinNode = new vtkMaxExtreemeNode(extremes.Ids[0], extremes.Coor[0], extremes.Values[0]);
+                actor.MaxNode = new vtkMaxExtreemeNode(extremes.Ids[1], extremes.Coor[1], extremes.Values[1]);
+            }
+            AddActorGeometry(actor, data.Layer);
+        }
+        public void AddTensorFieldActor(vtkMaxActorData data, double maxAbsValue, double maxGlyphLength)
+        {
+            if (data?.Geometry?.Nodes?.Coor == null || data.Geometry.Nodes.Normals == null ||
+                data.Geometry.Nodes.Values == null) return;
+            if (maxAbsValue <= 0 || maxGlyphLength <= 0)
+            {
+                AddEmptyScalarFieldActor(data);
+                return;
+            }
+            //
+            double tolerance = maxAbsValue * 1E-10;
+            int numGlyphs = 0;
+            for (int i = 0; i < data.Geometry.Nodes.Values.Length; i++)
+            {
+                float scalarValue = data.Geometry.Nodes.Values[i];
+                double[] direction = data.Geometry.Nodes.Normals[i];
+                if (!float.IsNaN(scalarValue) && !float.IsInfinity(scalarValue) &&
+                    Math.Abs(scalarValue) > tolerance && direction != null && direction.Length == 3)
+                {
+                    double directionLength = Math.Sqrt(direction[0] * direction[0] +
+                                                       direction[1] * direction[1] +
+                                                       direction[2] * direction[2]);
+                    if (!double.IsNaN(directionLength) && !double.IsInfinity(directionLength) &&
+                        directionLength > 0) numGlyphs++;
+                }
+            }
+            if (numGlyphs == 0)
+            {
+                AddEmptyScalarFieldActor(data);
+                return;
+            }
+            //
+            const int numArrowsPerGlyph = 2;
+            const int numPointsPerArrow = 4;
+            int numArrows = numArrowsPerGlyph * numGlyphs;
+            float[] coordinates = new float[3 * numPointsPerArrow * numArrows];
+            float[] values = new float[numPointsPerArrow * numArrows];
+            vtkCellArray lines = vtkCellArray.New();
+            lines.Allocate(24L * numGlyphs, 1000);
+            //
+            double headLength = 0.125 * maxGlyphLength;
+            double headHalfWidth = 0.03 * maxGlyphLength;
+            int arrowId = 0;
+            for (int i = 0; i < data.Geometry.Nodes.Values.Length; i++)
+            {
+                float scalarValue = data.Geometry.Nodes.Values[i];
+                double[] direction = data.Geometry.Nodes.Normals[i];
+                if (float.IsNaN(scalarValue) || float.IsInfinity(scalarValue) ||
+                    Math.Abs(scalarValue) <= tolerance || direction == null || direction.Length != 3) continue;
+                //
+                double directionLength = Math.Sqrt(direction[0] * direction[0] +
+                                                   direction[1] * direction[1] +
+                                                   direction[2] * direction[2]);
+                if (directionLength <= 0 || double.IsNaN(directionLength) ||
+                    double.IsInfinity(directionLength)) continue;
+                //
+                double ux = direction[0] / directionLength;
+                double uy = direction[1] / directionLength;
+                double uz = direction[2] / directionLength;
+                double halfLength = 0.5 * maxGlyphLength * Math.Abs(scalarValue) / maxAbsValue;
+                double[] origin = data.Geometry.Nodes.Coor[i];
+                double leftX = origin[0] - halfLength * ux;
+                double leftY = origin[1] - halfLength * uy;
+                double leftZ = origin[2] - halfLength * uz;
+                double rightX = origin[0] + halfLength * ux;
+                double rightY = origin[1] + halfLength * uy;
+                double rightZ = origin[2] + halfLength * uz;
+                //
+                if (scalarValue > 0)
+                {
+                    AddLineArrow(coordinates, values, lines, arrowId++, scalarValue,
+                                 origin[0], origin[1], origin[2], leftX, leftY, leftZ,
+                                 headLength, headHalfWidth);
+                    AddLineArrow(coordinates, values, lines, arrowId++, scalarValue,
+                                 origin[0], origin[1], origin[2], rightX, rightY, rightZ,
+                                 headLength, headHalfWidth);
+                }
+                else
+                {
+                    AddLineArrow(coordinates, values, lines, arrowId++, scalarValue,
+                                 leftX, leftY, leftZ, origin[0], origin[1], origin[2],
+                                 headLength, headHalfWidth);
+                    AddLineArrow(coordinates, values, lines, arrowId++, scalarValue,
+                                 rightX, rightY, rightZ, origin[0], origin[1], origin[2],
+                                 headLength, headHalfWidth);
+                }
+            }
+            //
+            vtkFloatArray vtkCoordinates = vtkFloatArray.New();
+            vtkCoordinates.SetNumberOfComponents(3);
+            IntPtr coordinatePointer = vtkCoordinates.WriteVoidPointer(0, coordinates.Length);
+            Marshal.Copy(coordinates, 0, coordinatePointer, coordinates.Length);
+            vtkCoordinates.DataChanged();
+            vtkPoints points = vtkPoints.New();
+            points.SetData(vtkCoordinates);
+            //
+            vtkFloatArray scalars = vtkFloatArray.New();
+            scalars.SetName(Globals.ScalarArrayName);
+            scalars.SetNumberOfComponents(1);
+            IntPtr scalarPointer = scalars.WriteVoidPointer(0, values.Length);
+            Marshal.Copy(values, 0, scalarPointer, values.Length);
+            scalars.DataChanged();
+            //
+            vtkPolyData polyData = vtkPolyData.New();
+            polyData.SetPoints(points);
+            polyData.SetLines(lines);
+            polyData.GetPointData().SetScalars(scalars);
+            //
+            vtkPolyDataMapper mapper = vtkPolyDataMapper.New();
+            mapper.SetInput(polyData);
+            vtkMaxActor actor = new vtkMaxActor(data, mapper);
+            actor.GeometryProperty.SetColor(1, 1, 1);
+            actor.GeometryProperty.SetLighting(false);
+            if (data.Geometry.ExtremeNodes != null)
+            {
+                NodesExchangeData extremes = data.Geometry.ExtremeNodes;
+                actor.MinNode = new vtkMaxExtreemeNode(extremes.Ids[0], extremes.Coor[0], extremes.Values[0]);
+                actor.MaxNode = new vtkMaxExtreemeNode(extremes.Ids[1], extremes.Coor[1], extremes.Values[1]);
+            }
+            AddActorGeometry(actor, data.Layer);
+        }
+        private void AddEmptyScalarFieldActor(vtkMaxActorData data)
+        {
+            // A field with no non-zero glyphs still has a valid scalar range. Register an
+            // actor without renderable cells so the scalar bar and extreme-value widgets
+            // remain available while zero-length arrows are omitted.
+            vtkPolyData polyData = vtkPolyData.New();
+            if (data.Geometry.ExtremeNodes != null)
+            {
+                NodesExchangeData extremes = data.Geometry.ExtremeNodes;
+                float[] coordinates = new float[6];
+                float[] values = new float[2];
+                for (int i = 0; i < 2; i++)
+                {
+                    coordinates[3 * i] = (float)extremes.Coor[i][0];
+                    coordinates[3 * i + 1] = (float)extremes.Coor[i][1];
+                    coordinates[3 * i + 2] = (float)extremes.Coor[i][2];
+                    values[i] = extremes.Values[i];
+                }
+                //
+                vtkFloatArray vtkCoordinates = vtkFloatArray.New();
+                vtkCoordinates.SetNumberOfComponents(3);
+                IntPtr coordinatePointer = vtkCoordinates.WriteVoidPointer(0, coordinates.Length);
+                Marshal.Copy(coordinates, 0, coordinatePointer, coordinates.Length);
+                vtkCoordinates.DataChanged();
+                vtkPoints points = vtkPoints.New();
+                points.SetData(vtkCoordinates);
+                polyData.SetPoints(points);
+                //
+                vtkFloatArray scalars = vtkFloatArray.New();
+                scalars.SetName(Globals.ScalarArrayName);
+                scalars.SetNumberOfComponents(1);
+                IntPtr scalarPointer = scalars.WriteVoidPointer(0, values.Length);
+                Marshal.Copy(values, 0, scalarPointer, values.Length);
+                scalars.DataChanged();
+                polyData.GetPointData().SetScalars(scalars);
+            }
+            vtkPolyDataMapper mapper = vtkPolyDataMapper.New();
+            mapper.SetInput(polyData);
+            vtkMaxActor actor = new vtkMaxActor(data, mapper);
+            if (data.Geometry.ExtremeNodes != null)
+            {
+                NodesExchangeData extremes = data.Geometry.ExtremeNodes;
+                actor.MinNode = new vtkMaxExtreemeNode(extremes.Ids[0], extremes.Coor[0], extremes.Values[0]);
+                actor.MaxNode = new vtkMaxExtreemeNode(extremes.Ids[1], extremes.Coor[1], extremes.Values[1]);
+            }
+            AddActorGeometry(actor, data.Layer);
+        }
+        private static void AddLineArrow(float[] coordinates, float[] values, vtkCellArray lines, int arrowId,
+                                         float scalarValue, double startX, double startY, double startZ,
+                                         double endX, double endY, double endZ, double headLength,
+                                         double headHalfWidth)
+        {
+            double ux = endX - startX;
+            double uy = endY - startY;
+            double uz = endZ - startZ;
+            double length = Math.Sqrt(ux * ux + uy * uy + uz * uz);
+            ux /= length;
+            uy /= length;
+            uz /= length;
+            //
+            double rx;
+            double ry;
+            double rz;
+            if (Math.Abs(uz) < 0.9)
+            {
+                rx = 0;
+                ry = 0;
+                rz = 1;
+            }
+            else
+            {
+                rx = 0;
+                ry = 1;
+                rz = 0;
+            }
+            double px = uy * rz - uz * ry;
+            double py = uz * rx - ux * rz;
+            double pz = ux * ry - uy * rx;
+            double perpendicularLength = Math.Sqrt(px * px + py * py + pz * pz);
+            px /= perpendicularLength;
+            py /= perpendicularLength;
+            pz /= perpendicularLength;
+            //
+            double baseX = endX - headLength * ux;
+            double baseY = endY - headLength * uy;
+            double baseZ = endZ - headLength * uz;
+            int pointId = 4 * arrowId;
+            int coordinateId = 3 * pointId;
+            coordinates[coordinateId] = (float)startX;
+            coordinates[coordinateId + 1] = (float)startY;
+            coordinates[coordinateId + 2] = (float)startZ;
+            coordinates[coordinateId + 3] = (float)endX;
+            coordinates[coordinateId + 4] = (float)endY;
+            coordinates[coordinateId + 5] = (float)endZ;
+            coordinates[coordinateId + 6] = (float)(baseX + headHalfWidth * px);
+            coordinates[coordinateId + 7] = (float)(baseY + headHalfWidth * py);
+            coordinates[coordinateId + 8] = (float)(baseZ + headHalfWidth * pz);
+            coordinates[coordinateId + 9] = (float)(baseX - headHalfWidth * px);
+            coordinates[coordinateId + 10] = (float)(baseY - headHalfWidth * py);
+            coordinates[coordinateId + 11] = (float)(baseZ - headHalfWidth * pz);
+            for (int i = 0; i < 4; i++) values[pointId + i] = scalarValue;
+            //
+            AddLine(lines, pointId, pointId + 1);
+            AddLine(lines, pointId + 1, pointId + 2);
+            AddLine(lines, pointId + 2, pointId + 3);
+            AddLine(lines, pointId + 3, pointId + 1);
+        }
+        private static void AddLine(vtkCellArray lines, int pointId1, int pointId2)
+        {
+            lines.InsertNextCell(2);
+            lines.InsertCellPoint(pointId1);
+            lines.InsertCellPoint(pointId2);
+        }
+        //
         public void AddScalarFieldOnCells(vtkMaxActorData data, bool update)
         {
             // Create actor
@@ -6853,7 +7275,10 @@ namespace vtkControl
             foreach (var entry in _actors)
             {
                 actor = entry.Value;
-                if (!actor.IsAPart)
+                bool isPartChild = actor.ParentName != null &&
+                                   _actors.TryGetValue(actor.ParentName, out vtkMaxActor parentActor) &&
+                                   parentActor.IsAPart;
+                if (!actor.IsAPart && !isPartChild)
                 {
                     actorsToRemove.Add(actor.Name);
                     // Remove from renderer

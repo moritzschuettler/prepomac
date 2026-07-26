@@ -501,16 +501,16 @@ namespace UserControls
             this.tsmiColorContoursOff.Image = global::UserControls.Properties.Resources.Deformed;
             this.tsmiColorContoursOff.Name = "tsmiColorContoursOff";
             this.tsmiColorContoursOff.Size = new System.Drawing.Size(211, 22);
-            this.tsmiColorContoursOff.Text = "Color Contours off";
-            this.tsmiColorContoursOff.Click += new System.EventHandler(this.tsmiResultColorContoursVisibility_Click);
+            this.tsmiColorContoursOff.Text = "Result Representation Off";
+            this.tsmiColorContoursOff.Click += new System.EventHandler(this.tsmiResultRepresentationOnOff_Click);
             // 
             // tsmiColorContoursOn
             // 
             this.tsmiColorContoursOn.Image = global::UserControls.Properties.Resources.Color_contours;
             this.tsmiColorContoursOn.Name = "tsmiColorContoursOn";
             this.tsmiColorContoursOn.Size = new System.Drawing.Size(211, 22);
-            this.tsmiColorContoursOn.Text = "Color Contours on";
-            this.tsmiColorContoursOn.Click += new System.EventHandler(this.tsmiResultColorContoursVisibility_Click);
+            this.tsmiColorContoursOn.Text = "Result Representation On";
+            this.tsmiColorContoursOn.Click += new System.EventHandler(this.tsmiResultRepresentationOnOff_Click);
             // 
             // tsmiSpaceAnalysis
             // 

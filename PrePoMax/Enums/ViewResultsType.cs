@@ -16,6 +16,8 @@ namespace PrePoMax
     {
         Undeformed,
         Deformed,
-        ColorContours
+        ColorContours,
+        VectorPlot,
+        TensorPlot
     }
 }

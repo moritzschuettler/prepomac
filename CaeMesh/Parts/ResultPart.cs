@@ -18,7 +18,7 @@ namespace CaeMesh
     [Serializable]
     public class ResultPart : BasePart
     {
-        public static bool Undeformed = true;
+        public static bool ResultRepresentationAvailable = false;
 
 
         // Variables                                                                                                                
@@ -28,6 +28,7 @@ namespace CaeMesh
 
         // Properties                                                                                                               
         public bool ColorContours { get { return _colorContours; } set { _colorContours = value; } }
+        public bool ResultRepresentation { get { return _colorContours; } set { _colorContours = value; } }
         public bool CreatedFromBasePart { get { return _createdFromBasePart; } }
 
 

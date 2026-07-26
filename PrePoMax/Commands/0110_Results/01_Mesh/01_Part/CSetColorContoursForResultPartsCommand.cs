@@ -29,18 +29,18 @@ namespace PrePoMax.Commands
 
 
         // Constructor                                                                                                              
-        public CSetColorContoursForResultPartsCommand(string[] partNames, bool colorContours)
-            : base("Set color contours for result parts")
+        public CSetColorContoursForResultPartsCommand(string[] partNames, bool resultRepresentation)
+            : base("Set result representation for result parts")
         {
             _partNames = partNames;
-            _colorContours = colorContours;
+            _colorContours = resultRepresentation;
         }
 
 
         // Methods                                                                                                                  
         public override bool Execute(Controller receiver)
         {
-            receiver.SetColorContoursForResultParts(_partNames, _colorContours);
+            receiver.SetResultRepresentationForResultParts(_partNames, _colorContours);
             return true;
         }
 

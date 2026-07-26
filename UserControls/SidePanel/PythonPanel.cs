@@ -30,7 +30,7 @@ namespace UserControls
 
 
         // Properties
-        public override bool Focused { get { return petbPythonEditor.Focused || pctbPythonConsole.Focused; } }
+        public override bool Focused { get { return ContainsFocus; } }
 
 
         // Events
@@ -221,9 +221,97 @@ namespace UserControls
 
 
         // Methods
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if (ContainsFocus && ProcessShortcutKey(keyData)) return true;
+
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
+        public bool ProcessShortcutKey(Keys keyData)
+        {
+            Keys keyCode = keyData & Keys.KeyCode;
+            Keys modifiers = keyData & (Keys.Control | Keys.Shift | Keys.Alt);
+
+            try
+            {
+                if (modifiers == Keys.Control)
+                {
+                    if (keyCode == Keys.S)
+                    {
+                        SaveScript();
+                        return true;
+                    }
+                    else if (keyCode == Keys.O)
+                    {
+                        OpenScript();
+                        return true;
+                    }
+                    else if (keyCode == Keys.N)
+                    {
+                        NewScript();
+                        return true;
+                    }
+                    else if (keyCode == Keys.F)
+                    {
+                        ShowEditorFind();
+                        return true;
+                    }
+                    else if (keyCode == Keys.H)
+                    {
+                        ShowEditorReplace();
+                        return true;
+                    }
+                    else if (keyCode == Keys.G)
+                    {
+                        ShowEditorGoToLine();
+                        return true;
+                    }
+                }
+                else if (modifiers == (Keys.Control | Keys.Shift) && keyCode == Keys.S)
+                {
+                    SaveScriptAs();
+                    return true;
+                }
+                else if (modifiers == Keys.None)
+                {
+                    if (keyCode == Keys.F5)
+                    {
+                        petbPythonEditor.RunScript();
+                        return true;
+                    }
+                    else if (keyCode == Keys.F9)
+                    {
+                        petbPythonEditor.RunSelection();
+                        return true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                CaeGlobals.ExceptionTools.Show(this, ex);
+                return true;
+            }
+
+            return false;
+        }
         public void ShowFind()
         {
+            ShowEditorFind();
+        }
+        private void ShowEditorFind()
+        {
+            petbPythonEditor.Focus();
             petbPythonEditor.ShowFind();
+        }
+        private void ShowEditorReplace()
+        {
+            petbPythonEditor.Focus();
+            petbPythonEditor.ShowReplace();
+        }
+        private void ShowEditorGoToLine()
+        {
+            petbPythonEditor.Focus();
+            petbPythonEditor.ShowGoToLine();
         }
         private void InitializeToolTips()
         {

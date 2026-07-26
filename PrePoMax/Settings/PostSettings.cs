@@ -41,6 +41,7 @@ namespace PrePoMax
         private UndeformedModelTypeEnum _undeformedModelType;
         private Color _undeformedWireModelColor;
         private Color _undeformedSolidModelColor;
+        private double _vectorPlotScaleFactor;
         private bool _showMinValueLocation;
         private bool _showMaxValueLocation;
         private int _maxHistoryEntriesToShow;
@@ -80,6 +81,15 @@ namespace PrePoMax
             get { return _undeformedSolidModelColor; }
             set { _undeformedSolidModelColor = value; }
         }
+        public double VectorPlotScaleFactor
+        {
+            get { return _vectorPlotScaleFactor > 0 ? _vectorPlotScaleFactor : 1; }
+            set
+            {
+                _vectorPlotScaleFactor = value;
+                if (_vectorPlotScaleFactor <= 0) _vectorPlotScaleFactor = 1;
+            }
+        }
         public bool ShowMinValueLocation { get { return _showMinValueLocation; } set { _showMinValueLocation = value; } }
         public bool ShowMaxValueLocation { get { return _showMaxValueLocation; } set { _showMaxValueLocation = value; } }
         public int MaxHistoryEntriesToShow
@@ -103,12 +113,14 @@ namespace PrePoMax
         // Methods                                                                                                                  
         public void CheckValues()
         {
+            VectorPlotScaleFactor = _vectorPlotScaleFactor;
         }
         public void Reset()
         {
             _undeformedModelType = UndeformedModelTypeEnum.WireframeBody;
             _undeformedWireModelColor = Color.FromArgb(128, Color.Black);
             _undeformedSolidModelColor = Color.FromArgb(128, Color.Gray);
+            _vectorPlotScaleFactor = 1;
             //
             _showMinValueLocation = false;
             _showMaxValueLocation = true;
