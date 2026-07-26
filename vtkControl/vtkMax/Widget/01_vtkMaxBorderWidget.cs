@@ -526,6 +526,30 @@ namespace vtkControl
             Rectangle rectangle = GetDisplayRectangle();
             return rectangle.Contains(x, y) ? rectangle : Rectangle.Empty;
         }
+        protected double[] GetDisplayTopLeftPoint()
+        {
+            if (_renderer == null || _position == null) return null;
+            //
+            double top;
+            if (_widgetPosition == vtkMaxWidgetPosition.FromTopLeft)
+                top = _renderer.GetSize()[1] - _position[1];
+            else
+                top = _position[1] + _size[1];
+            //
+            return new double[] { _position[0], top };
+        }
+        protected void SetDisplayTopLeftPoint(double[] topLeft)
+        {
+            if (_renderer == null || _position == null || topLeft == null) return;
+            //
+            _position[0] = topLeft[0];
+            if (_widgetPosition == vtkMaxWidgetPosition.FromTopLeft)
+                _position[1] = _renderer.GetSize()[1] - topLeft[1];
+            else
+                _position[1] = topLeft[1] - _size[1];
+            //
+            OnMovedOrSizeChanged();
+        }
 
 
         // Public methods

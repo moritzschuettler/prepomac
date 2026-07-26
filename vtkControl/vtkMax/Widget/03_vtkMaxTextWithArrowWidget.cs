@@ -23,7 +23,7 @@ namespace vtkControl
         string _name;
         private bool _anchorAlreadySet;
         vtkCoordinate _worldAnchorPoint;
-        vtkCoordinate _worldPositionPoint;
+        vtkCoordinate _worldTopLeftPoint;
         //
         vtkPolyData _leaderPolyData;
         vtkPolyDataMapper2D _leaderMapper2D;
@@ -48,8 +48,8 @@ namespace vtkControl
             _worldAnchorPoint.SetCoordinateSystemToWorld();
             _worldAnchorPoint.SetValue(0, 0, 0);
 
-            _worldPositionPoint = vtkCoordinate.New();
-            _worldPositionPoint.SetCoordinateSystemToWorld();
+            _worldTopLeftPoint = vtkCoordinate.New();
+            _worldTopLeftPoint.SetCoordinateSystemToWorld();
 
             // Leader - This is the leader (line) from the attachment point to the caption                              
             _leaderPolyData = vtkPolyData.New();
@@ -193,6 +193,7 @@ namespace vtkControl
             if (!_visibility) return;
 
             base.OnRenderWindowModified();
+            if (_anchorAlreadySet) SetWorldTopLeftFromPosition();
             RecomputeLeader();
         }
         public override void CameraModified()
@@ -200,8 +201,16 @@ namespace vtkControl
             if (!_visibility) return;
 
             base.CameraModified();
-            SetPositionFromWorldPosition();
+            SetPositionFromWorldTopLeft();
             RecomputeLeader();
+        }
+        public override void OnSizeChanged()
+        {
+            base.OnSizeChanged();
+            //
+            // The camera reference is the top-left point, so the text can be resized independently.
+            if (_anchorAlreadySet && _renderer != null) SetPositionFromWorldTopLeft();
+            if (_renderer != null) RecomputeLeader();
         }
         //
         public override void MiddleButtonPress(int x, int y)
@@ -216,7 +225,7 @@ namespace vtkControl
             if (!_visibility) return;
 
             base.MiddleButtonRelease(x, y);
-            SetPositionFromWorldPosition();
+            SetPositionFromWorldTopLeft();
             RecomputeLeader();
         }
         public override bool MouseMove(int x, int y)
@@ -225,7 +234,7 @@ namespace vtkControl
 
             if (base.MouseMove(x, y))
             {
-                SetWorldPositionFromPosition();
+                SetWorldTopLeftFromPosition();
                 RecomputeLeader();
                 return true;
             }
@@ -237,6 +246,7 @@ namespace vtkControl
 
             base.MousePan(dx, dy);
             SetPosition(_position[0] + dx, _position[1] + dy);
+            SetWorldTopLeftFromPosition();
             RecomputeLeader();
         }
         public override void MouseRotate(double azimuthAngle, double ElevationAngle)
@@ -244,7 +254,7 @@ namespace vtkControl
             if (!_visibility) return;
 
             base.MouseRotate(azimuthAngle, ElevationAngle);
-            SetPositionFromWorldPosition();
+            SetPositionFromWorldTopLeft();
             RecomputeLeader();
         }
         public override void MouseWheelScrolled()
@@ -252,7 +262,7 @@ namespace vtkControl
             if (!_visibility) return;
 
             base.MouseWheelScrolled();
-            SetPositionFromWorldPosition();
+            SetPositionFromWorldTopLeft();
             RecomputeLeader();
         }
         //
@@ -260,7 +270,7 @@ namespace vtkControl
         {
             if (_visibility == false)
             {
-                SetWorldPositionFromPosition();
+                SetWorldTopLeftFromPosition();
                 // Arrow first
                 if (_leaderActor2D != null) _renderer.AddActor(_leaderActor2D);
                 if (_headActor2D != null) _renderer.AddActor(_headActor2D);
@@ -341,16 +351,15 @@ namespace vtkControl
                 if (displayAnchor[0] + dx + _size[0] > windowSize[0]) dx = -(_size[0] + dx);     // if there is no room to the left, go to the right
                 if (displayAnchor[1] + dy + _size[1] > windowSize[1]) dy = -(_size[1] + dy);     // if there is no room to the top, go down
 
-                _renderer.SetDisplayPoint(displayAnchor[0] + dx, displayAnchor[1] + dy, 0);
-                _renderer.DisplayToWorld();
-                double[] positionWorld = _renderer.GetWorldPoint();
-
-                double[] normal = _renderer.GetActiveCamera().GetViewPlaneNormal();
-                double[] pointOnPlane = _worldAnchorPoint.GetValue();
-                double[] projectedOnPlane = ProjectPointOnPlane(positionWorld, pointOnPlane, normal);
-                _worldPositionPoint.SetValue(projectedOnPlane[0], projectedOnPlane[1], projectedOnPlane[2]);
-
-                SetPositionFromWorldPosition();
+                // Preserve the existing automatic placement, which was defined around the label center,
+                // but store its upper-left corner as the camera reference.
+                double[] displayTopLeft = new double[]
+                {
+                    displayAnchor[0] + dx - _size[0] / 2,
+                    displayAnchor[1] + dy + _size[1] / 2
+                };
+                SetWorldTopLeftFromDisplayPoint(displayTopLeft);
+                SetPositionFromWorldTopLeft();
 
                 _anchorAlreadySet = true;
             }
@@ -362,53 +371,33 @@ namespace vtkControl
             base.SetText(text);
             if (_renderer != null) RecomputeLeader();
         }
-        private void SetPositionFromWorldPosition()
+        private void SetPositionFromWorldTopLeft()
         {
-            double[] positionWorld = _worldPositionPoint.GetValue();
-            // Get display projection from the world position
-            _renderer.SetWorldPoint(positionWorld[0], positionWorld[1], positionWorld[2], 1.0);
+            double[] worldTopLeft = _worldTopLeftPoint.GetValue();
+            // Get the display projection of the stored upper-left point.
+            _renderer.SetWorldPoint(worldTopLeft[0], worldTopLeft[1], worldTopLeft[2], 1.0);
             _renderer.WorldToDisplay();
-            double[] displayPosition = _renderer.GetDisplayPoint();
-            //
-            if (false)
-            {
-                CaeGlobals.Vec3D center = new CaeGlobals.Vec3D(displayPosition[0], displayPosition[1], 0);
-                CaeGlobals.Vec3D size = new CaeGlobals.Vec3D(_size[0], _size[1], 0);
-                RecomputeLeaderStart();
-                vtkPoints pts = _leaderPolyData.GetPoints();
-                CaeGlobals.Vec3D arrow = new CaeGlobals.Vec3D(pts.GetPoint(1));
-
-                CaeGlobals.Vec3D direction = center - arrow;
-                double minDist = size.Len / 2 + 20;
-                if (direction.Len < minDist)
-                {
-                    direction.Normalize();
-                    center = arrow + direction * minDist;
-                    displayPosition[0] = center.X;
-                    displayPosition[1] = center.Y;
-                }
-            }
-            //
-            displayPosition[0] -= _size[0] / 2;
-            displayPosition[1] -= _size[1] / 2;
-            //
-            SetPosition(displayPosition[0], displayPosition[1]);
+            SetDisplayTopLeftPoint(_renderer.GetDisplayPoint());
         }
-        private void SetWorldPositionFromPosition()
+        private void SetWorldTopLeftFromPosition()
         {
-            if (_position == null) return;      // if borederRepresentation is changed before _positionInPixels is initialized
+            double[] displayTopLeft = GetDisplayTopLeftPoint();
+            if (displayTopLeft == null) return;
             //
+            SetWorldTopLeftFromDisplayPoint(displayTopLeft);
+        }
+        private void SetWorldTopLeftFromDisplayPoint(double[] displayTopLeft)
+        {
             vtkCamera camera = _renderer.GetActiveCamera();
-            // Get world projection from display position
-            _renderer.SetDisplayPoint(_position[0] + _size[0] / 2, _position[1] + _size[1] / 2, 0);
+            // Get the world projection of the displayed upper-left point.
+            _renderer.SetDisplayPoint(displayTopLeft[0], displayTopLeft[1], 0);
             _renderer.DisplayToWorld();
-            double[] positionWorld = _renderer.GetWorldPoint();
+            double[] worldTopLeft = _renderer.GetWorldPoint();
             // Project world position on the plane through anchor point
             double[] normal = camera.GetViewPlaneNormal();
             double[] pointOnPlane = _worldAnchorPoint.GetValue();
-            double[] projectedOnPlane = ProjectPointOnPlane(positionWorld, pointOnPlane, normal);
-            // Set world position
-            _worldPositionPoint.SetValue(projectedOnPlane[0], projectedOnPlane[1], projectedOnPlane[2]);
+            double[] projectedOnPlane = ProjectPointOnPlane(worldTopLeft, pointOnPlane, normal);
+            _worldTopLeftPoint.SetValue(projectedOnPlane[0], projectedOnPlane[1], projectedOnPlane[2]);
         }
         //
         public void OffsetPosition(double x, double y)
@@ -416,10 +405,10 @@ namespace vtkControl
             _position[0] += x;
             _position[1] += y;
             //
-            SetWorldPositionFromPosition();
+            SetWorldTopLeftFromPosition();
             //
-            SetPositionFromWorldPosition(); // must be here
-            RecomputeLeader();              // must be here
+            SetPositionFromWorldTopLeft(); // must be here
+            RecomputeLeader();             // must be here
         }
         
         
