@@ -50,10 +50,10 @@ namespace CaeResults
     public class Field : NamedClass
     {
         // Variables                                                                                                                
-        private DataTypeEnum _dataType;
-        private OrderedDictionary<string,  FieldComponent> _components;
-        private bool _complex;
-        private DataStateEnum _dataState;
+        private DataTypeEnum _dataType;                                     // add to binary writer/reader
+        private OrderedDictionary<string,  FieldComponent> _components;     // add to binary writer/reader
+        private bool _complex;                                              // add to binary writer/reader
+        private DataStateEnum _dataState;                                   // add to binary writer/reader
 
 
         // Properties                                                                                                               
@@ -110,6 +110,7 @@ namespace CaeResults
                     foreach (var entry in field._components) FieldComponent.WriteToBinaryWriter(entry.Value, bw);
                 }
                 //
+                bw.Write((int)field.DataType);
                 bw.Write(field.Complex);
                 bw.Write((int)field.DataState);
                 //
@@ -145,6 +146,7 @@ namespace CaeResults
                 //
                 if (version >= 1_004_000)
                 {
+                    if (version >= 2_005_003) field.DataType = (DataTypeEnum)br.ReadInt32();
                     field.Complex = br.ReadBoolean();
                     field.DataState = (DataStateEnum)br.ReadInt32();
                     //

@@ -9101,13 +9101,19 @@ namespace PrePoMax
         {
             //pickedPoint = null;
             //selectionDirection = null;
-            ////planeParameters.DumpToFile(@"C:\temp\planeParameters");
             //completelyInside = true;
             //selectOperation = vtkSelectOperation.None;
-            ////pickedPartNames.DumpToFile(@"C:\temp\partNames");
             ////
-            //planeParameters = CaeGlobals.ExtensionMethods.LoadFromFile<double[][]>(@"C:\temp\planeParameters");
-            //pickedPartNames = CaeGlobals.ExtensionMethods.LoadFromFile<string[]>(@"C:\temp\partNames");
+            //if (false)
+            //{
+            //    planeParameters.DumpToFile(@"C:\temp\planeParameters");
+            //    pickedPartNames.DumpToFile(@"C:\temp\partNames");
+            //}
+            //else
+            //{
+            //    planeParameters = CaeGlobals.ExtensionMethods.LoadFromFile<double[][]>(@"C:\temp\planeParameters");
+            //    pickedPartNames = CaeGlobals.ExtensionMethods.LoadFromFile<string[]>(@"C:\temp\partNames");
+            //}
             //
             PushMenuStates();
             //

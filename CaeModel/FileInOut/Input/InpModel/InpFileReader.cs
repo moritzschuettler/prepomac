@@ -398,6 +398,11 @@ namespace FileInOut.Input
         }
         static public FeMesh ReadMesh(string fileName, ElementsToImport elementsToImport, bool convertToSecondOrder)
         {
+            return ReadMesh(fileName, elementsToImport, convertToSecondOrder, null, null);
+        }
+        static public FeMesh ReadMesh(string fileName, ElementsToImport elementsToImport, bool convertToSecondOrder,
+                                      FeMesh geometryMesh, BasePart geometryPart)
+        {
             _errors = new List<string>();
             _warnings = new List<string>();
             if (fileName != null && File.Exists(fileName))
@@ -458,6 +463,9 @@ namespace FileInOut.Input
                     if (!elementsToImport.HasFlag(ElementsToImport.Shell)) mesh.RemoveElementsByType<FeElement2D>();
                     if (!elementsToImport.HasFlag(ElementsToImport.Solid)) mesh.RemoveElementsByType<FeElement3D>();
                 }
+                //
+                if (elementsToImport.HasFlag(ElementsToImport.Shell))
+                    mesh.FixShellPartOrientation(geometryMesh, geometryPart);
                 //
                 if (_errors.Count == 0) return mesh;
                 else return null;
@@ -639,13 +647,6 @@ namespace FileInOut.Input
                 }
                 elementSet = new FeElementSet(inpElementSet.Name, labels.ToArray());
                 elementSets.Add(elementSet.Name, elementSet);
-            }
-        }
-        private static void ReorientElements(Dictionary<int, FeElement> elements, Dictionary<int, FeNode> nodes)
-        {
-            foreach (var entry in elements)
-            {
-
             }
         }
         private static string[] ReadIncludes(string[] lines, int firstLine, string workDirectoryName)

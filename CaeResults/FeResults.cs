@@ -421,7 +421,6 @@ namespace CaeResults
                         if (field != null)
                         {
                             field.ComputeInvariants();
-                            //
                             results.AddField(fieldData, field);
                         }
                     }
@@ -3688,14 +3687,19 @@ namespace CaeResults
                     values = FilterFieldValues(values, resultFieldOutput.Filter2);
                 //
                 int count = 0;
+                bool invariant;
                 FieldData newFieldData;
                 Field newField;
                 FieldComponent newComponent;
                 foreach (var componentName in componentNames)
                 {
+                    invariant = false;
+                    if (resultFieldOutput is ResultFieldOutputCoordinateSystemTransform)
+                        invariant = sourceField.IsComponentInvariant(componentName);
+                    //
                     newFieldData = GetFieldData(resultFieldOutput.Name, componentName, stepId, stepIncrementId);
                     newField = GetField(newFieldData, false);
-                    newComponent = new FieldComponent(newFieldData.Component, values[count++]);
+                    newComponent = new FieldComponent(newFieldData.Component, values[count++], invariant);
                     newField.ReplaceComponent(newComponent.Name, newComponent);
                     newField.DataType = sourceField != null ? sourceField.DataType : DataTypeEnum.None;
                     newField.DataState = DataStateEnum.OK;
@@ -4135,7 +4139,6 @@ namespace CaeResults
                 //
                 FeNode node;
                 Field resultField = new Field(sourceField);
-                DataTypeEnum dataType = sourceField.DataType;
                 // Remove invariants
                 resultField.RemoveInvariants();
                 // Prepare arrays
@@ -4152,11 +4155,11 @@ namespace CaeResults
                 // Remove components
                 for (int i = 0; i < numOfComponents; i++) resultField.RemoveComponent(componentNames[i]);
                 // Scalar
-                if (dataType == DataTypeEnum.Scalar)
+                if (resultField.DataType == DataTypeEnum.Scalar)
                 {
                 }
                 // Vector
-                else if (dataType == DataTypeEnum.Vector)
+                else if (resultField.DataType == DataTypeEnum.Vector)
                 {
                     foreach (var entry in _undeformedNodes)
                     {
@@ -4181,7 +4184,7 @@ namespace CaeResults
                     for (int i = 0; i < numOfComponents; i++) resultField.AddComponent(componentNames[i], values[i]);
                 }
                 // Tensor
-                else if (dataType == DataTypeEnum.Tensor)
+                else if (resultField.DataType == DataTypeEnum.Tensor)
                 {
                     tensor = Matrix.MatrixCreate(3, 3);
                     rotation = Matrix.MatrixCreate(3, 3);

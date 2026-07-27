@@ -21,7 +21,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CReplaceResultCoordinateSystem : PreprocessCommand
+    class CReplaceResultCoordinateSystem : PostprocessCommand
     {
         // Variables                                                                                                                
         private string _oldCoordinateSystemName;

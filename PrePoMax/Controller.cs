@@ -6260,8 +6260,7 @@ namespace PrePoMax
             //
             return true;
         }
-        public bool ThickenShellMesh(string[] partNames, double thickness, int numberOfLayers, double offset,
-                                     bool keepModelEdges)
+        public bool ThickenShellMesh(string[] partNames, double thickness, int numberOfLayers, double offset, bool keepModelEdges)
         {
             try
             {
@@ -13793,13 +13792,13 @@ namespace PrePoMax
                 if (_selection.MaxNumberOfItemIds >= 1)
                 {
                     ids = GetSelectionIds();
-                    if (ids.Length > _selection.MaxNumberOfItemIds) _selection.RemoveLast(false);
+                    if (ids.Length > _selection.MaxNumberOfItemIds) _selection.RemoveLast(true);
                 }
                 // Remove the node if the maximum number of geometry items is exceeded
                 if (_selection.MaxNumberOfGeometryIds > 1)
                 {
                     ids = GetSelectionIds();
-                    if (ids.Length > _selection.MaxNumberOfGeometryIds) _selection.RemoveLast(false);
+                    if (ids.Length > _selection.MaxNumberOfGeometryIds) _selection.RemoveLast(true);
                 }
             }
             //

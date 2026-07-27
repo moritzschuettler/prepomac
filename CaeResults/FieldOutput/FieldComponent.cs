@@ -22,8 +22,8 @@ namespace CaeResults
     public class FieldComponent : NamedClass
     {
         // Variables                                                                                                                
-        public float[] Values;
-        public bool Invariant;
+        public bool Invariant;                  // add to binary writer/reader
+        public float[] Values;                  // add to binary writer/reader
         public IDValuePair Max;
         public IDValuePair Min;
 

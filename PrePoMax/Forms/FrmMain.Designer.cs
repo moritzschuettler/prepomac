@@ -103,6 +103,7 @@ namespace PrePoMax
             this.toolStripResultsSeparator1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsbTransformation = new System.Windows.Forms.ToolStripButton();
             this.toolStripResultsSeparator2 = new System.Windows.Forms.ToolStripSeparator();
+            this.toolStripResultsSeparator3 = new System.Windows.Forms.ToolStripSeparator();
             this.tsbFirstStepIncrement = new System.Windows.Forms.ToolStripButton();
             this.tsbPreviousStepIncrement = new System.Windows.Forms.ToolStripButton();
             this.tslStepIncrement = new System.Windows.Forms.ToolStripLabel();
@@ -187,6 +188,7 @@ namespace PrePoMax
             this.tsmiResultsUndeformedWireframe = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiResultsUndeformedSolid = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerView5 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiDividerView6 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiColorAnnotations = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiAnnotateFaceOrientations = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerColorAnnotations1 = new System.Windows.Forms.ToolStripSeparator();
@@ -1126,11 +1128,12 @@ namespace PrePoMax
             this.tsbResultsDeformed,
             this.tsbResultsColorContours,
             this.tsbResultsVectorPlot,
+            this.toolStripResultsSeparator1,
             this.tsbResultsUndeformedWireframe,
             this.tsbResultsUndeformedSolid,
-            this.toolStripResultsSeparator1,
-            this.tsbTransformation,
             this.toolStripResultsSeparator2,
+            this.tsbTransformation,
+            this.toolStripResultsSeparator3,
             this.tsbFirstStepIncrement,
             this.tsbPreviousStepIncrement,
             this.tslStepIncrement,
@@ -1224,6 +1227,11 @@ namespace PrePoMax
             // 
             this.toolStripResultsSeparator2.Name = "toolStripResultsSeparator2";
             this.toolStripResultsSeparator2.Size = new System.Drawing.Size(6, 25);
+            // 
+            // toolStripResultsSeparator3
+            // 
+            this.toolStripResultsSeparator3.Name = "toolStripResultsSeparator3";
+            this.toolStripResultsSeparator3.Size = new System.Drawing.Size(6, 25);
             // 
             // tsbFirstStepIncrement
             // 
@@ -1633,9 +1641,10 @@ namespace PrePoMax
             this.tsmiResultsDeformed,
             this.tsmiResultsColorContours,
             this.tsmiResultsVectorPlot,
+            this.tsmiDividerView5,
             this.tsmiResultsUndeformedWireframe,
             this.tsmiResultsUndeformedSolid,
-            this.tsmiDividerView5,
+            this.tsmiDividerView6,
             this.tsmiColorAnnotations,
             this.tsmiViewItems});
             this.tsmiView.Name = "tsmiView";
@@ -1926,7 +1935,7 @@ namespace PrePoMax
             this.tsmiResultsUndeformedWireframe.Image = global::PrePoMax.Properties.Resources.Undeformed_Wireframe;
             this.tsmiResultsUndeformedWireframe.Name = "tsmiResultsUndeformedWireframe";
             this.tsmiResultsUndeformedWireframe.Size = new System.Drawing.Size(243, 22);
-            this.tsmiResultsUndeformedWireframe.Text = "Show Undeformed Wireframe Model";
+            this.tsmiResultsUndeformedWireframe.Text = "Undeformed Wireframe Model";
             this.tsmiResultsUndeformedWireframe.Click += new System.EventHandler(this.tsmiResultsUndeformedWireframe_Click);
             // 
             // tsmiResultsUndeformedSolid
@@ -1934,13 +1943,18 @@ namespace PrePoMax
             this.tsmiResultsUndeformedSolid.Image = global::PrePoMax.Properties.Resources.Undeformed_Solid;
             this.tsmiResultsUndeformedSolid.Name = "tsmiResultsUndeformedSolid";
             this.tsmiResultsUndeformedSolid.Size = new System.Drawing.Size(243, 22);
-            this.tsmiResultsUndeformedSolid.Text = "Show Undeformed Solid Model";
+            this.tsmiResultsUndeformedSolid.Text = "Undeformed Solid Model";
             this.tsmiResultsUndeformedSolid.Click += new System.EventHandler(this.tsmiResultsUndeformedSolid_Click);
             // 
             // tsmiDividerView5
             // 
             this.tsmiDividerView5.Name = "tsmiDividerView5";
             this.tsmiDividerView5.Size = new System.Drawing.Size(240, 6);
+            // 
+            // tsmiDividerView6
+            // 
+            this.tsmiDividerView6.Name = "tsmiDividerView6";
+            this.tsmiDividerView6.Size = new System.Drawing.Size(240, 6);
             // 
             // tsmiColorAnnotations
             // 
@@ -5370,8 +5384,10 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripSeparator tsmiDividerResults1;
         private System.Windows.Forms.ToolStripMenuItem tsmiTransformation;
         private System.Windows.Forms.ToolStripSeparator toolStripResultsSeparator2;
+        private System.Windows.Forms.ToolStripSeparator toolStripResultsSeparator3;
         private System.Windows.Forms.ToolStripButton tsbTransformation;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerView5;
+        private System.Windows.Forms.ToolStripSeparator tsmiDividerView6;
         private System.Windows.Forms.ToolStripMenuItem tsmiAnnotateFaceOrientations;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerGeometry2;
         private System.Windows.Forms.ToolStripMenuItem tsmiFlipFaceNormalCAD;

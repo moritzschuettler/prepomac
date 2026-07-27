@@ -900,6 +900,112 @@ namespace CaeMesh
                 }
             }
         }
+        public void FixShellPartOrientation(FeMesh geometryMesh, BasePart geometryPart)
+        {
+            if (geometryMesh == null || geometryPart == null) return;
+            //
+            List<BasePart> geometryParts = new List<BasePart>();
+            if (geometryPart is CompoundGeometryPart compoundPart)
+            {
+                BasePart subPart;
+                foreach (string subPartName in compoundPart.SubPartNames)
+                {
+                    if (geometryMesh.Parts.TryGetValue(subPartName, out subPart) && subPart.PartType == PartType.Shell)
+                        geometryParts.Add(subPart);
+                }
+            }
+            else if (geometryPart.PartType == PartType.Shell) geometryParts.Add(geometryPart);
+            //
+            List<BasePart> shellParts = new List<BasePart>();
+            foreach (var entry in _parts)
+            {
+                if (entry.Value.PartType == PartType.Shell) shellParts.Add(entry.Value);
+            }
+            if (geometryParts.Count != shellParts.Count) return;
+            //
+            if (geometryMesh._nodeIdElementIds == null) geometryMesh.UpdateNodeIdElementIds();
+            //
+            for (int i = 0; i < shellParts.Count; i++)
+            {
+                if (IsShellPartReversed(shellParts[i], geometryMesh, geometryParts[i]))
+                {
+                    foreach (int elementId in shellParts[i].Labels)
+                    {
+                        if (_elements[elementId] is FeElement2D element) element.Mirror();
+                    }
+                    shellParts[i].Visualization.MirrorCells();
+                }
+            }
+        }
+        private bool IsShellPartReversed(BasePart shellPart, FeMesh geometryMesh, BasePart geometryPart)
+        {
+            int[] geometryVertexNodeIds = geometryPart.Visualization.VertexNodeIds;
+            int[] shellVertexNodeIds = shellPart.Visualization.VertexNodeIds;
+            if (geometryVertexNodeIds == null || geometryVertexNodeIds.Length == 0 ||
+                shellVertexNodeIds == null || shellVertexNodeIds.Length == 0) return false;
+            //
+            double modelSize = shellPart.BoundingBox.GetDiagonal();
+            if (modelSize <= 0) modelSize = 1;
+            int orientation = 0;
+            //
+            foreach (int geometryVertexNodeId in geometryVertexNodeIds)
+            {
+                int shellVertexNodeId = GetNodeIdAtGeometryVertex(geometryMesh.Nodes[geometryVertexNodeId].Coor,
+                                                                  shellVertexNodeIds, modelSize);
+                if (shellVertexNodeId != -1)
+                {
+                    FeElement2D geometryElement = geometryMesh.GetShellElementAtNode(geometryVertexNodeId,
+                                                                                     geometryPart.PartId);
+                    FeElement2D shellElement = GetShellElementAtNode(shellVertexNodeId, shellPart.PartId);
+                    if (geometryElement != null && shellElement != null)
+                    {
+                        geometryMesh.GetElementFaceCenterAndNormal(geometryElement, FeFaceName.S2, out _,
+                                                                   out double[] geometryNormal, out _);
+                        GetElementFaceCenterAndNormal(shellElement, FeFaceName.S2, out _,
+                                                      out double[] shellNormal, out _);
+                        if (geometryNormal == null || shellNormal == null) continue;
+                        //
+                        double dot = Vec3D.DotProduct(new Vec3D(geometryNormal), new Vec3D(shellNormal));
+                        if (dot > 1E-6) orientation++;
+                        else if (dot < -1E-6) orientation--;
+                    }
+                }
+            }
+            //
+            return orientation < 0;
+        }
+        private FeElement2D GetShellElementAtNode(int nodeId, int partId)
+        {
+            if (_nodeIdElementIds.TryGetValue(nodeId, out HashSet<int> elementIds))
+            {
+                foreach (int elementId in elementIds)
+                {
+                    if (_elements.TryGetValue(elementId, out FeElement element) &&
+                        element.PartId == partId && element is FeElement2D shellElement) return shellElement;
+                }
+            }
+            return null;
+        }
+        private int GetNodeIdAtGeometryVertex(double[] coor, int[] shellVertexNodeIds, double modelSize)
+        {
+            int closestNodeId = -1;
+            double minDistance2 = double.MaxValue;
+            Vec3D geometryVertex = new Vec3D(coor);
+            //
+            foreach (int nodeId in shellVertexNodeIds)
+            {
+                Vec3D delta = new Vec3D(_nodes[nodeId].Coor) - geometryVertex;
+                if (delta.Len2 < minDistance2)
+                {
+                    minDistance2 = delta.Len2;
+                    closestNodeId = nodeId;
+                }
+            }
+            //
+            double tolerance = Math.Max(modelSize * 1E-6, 1E-12);
+            if (minDistance2 <= tolerance * tolerance) return closestNodeId;
+            else return -1;
+        }
         // Bounding box
         private void ComputeBoundingBox()
         {

@@ -1169,7 +1169,7 @@ namespace CaeModel
             else if (Path.GetExtension(fileName) == ".mesh")
                 mesh = MmgFileReader.Read(fileName, elementsToImport, MeshRepresentation.Mesh, convertToSecondOrder);
             else if (Path.GetExtension(fileName) == ".inp")
-                mesh = InpFileReader.ReadMesh(fileName, elementsToImport, convertToSecondOrder);
+                mesh = InpFileReader.ReadMesh(fileName, elementsToImport, convertToSecondOrder, _geometry, part);
             else throw new NotSupportedException();
             // Split compound mesh
             if (splitCompoundMesh) mesh.SplitSolidCompoundMesh();

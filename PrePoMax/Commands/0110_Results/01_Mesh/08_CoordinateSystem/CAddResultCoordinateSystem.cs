@@ -21,7 +21,7 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CAddResultCoordinateSystem : PreprocessCommand
+    class CAddResultCoordinateSystem : PostprocessCommand
     {
         // Variables                                                                                                                
         private CoordinateSystem _coordinateSystem;

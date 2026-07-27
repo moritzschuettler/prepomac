@@ -817,9 +817,12 @@ namespace UserControls
                     // Results
                     if (node.Tag is FieldData)
                     {
-                        SelectEvent?.Invoke(null, false);      // clear selection
-                        FieldDataSelectEvent?.Invoke(new string[] { node.Parent.Name, node.Name });
-                        ActiveControl = cltvResults;    // this is for the arrow keys to work on the results tree
+                        SelectEvent?.Invoke(null, false);   // clear selection
+                        if (node.Parent != null)            // deleting tree nodes can delete the parent
+                        {
+                            FieldDataSelectEvent?.Invoke(new string[] { node.Parent.Name, node.Name });
+                        }
+                        ActiveControl = cltvResults;        // this is for the arrow keys to work on the results tree
                         return;
                     }
                 }

@@ -9,6 +9,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Runtime.Serialization;
@@ -36,6 +37,7 @@ namespace CaeGlobals
 
         // Temporary storage for speed optimization: keep current ids;
         [NonSerialized] private static Dictionary<int, int[]> _nodeIds;
+        [NonSerialized] private static readonly object myLock = new object();
 
 
         // Properties                                                                                                               
@@ -181,22 +183,28 @@ namespace CaeGlobals
         // Methods                                                                                                                  
         public static void EnableSelectionCache(bool enable)
         {
-            if (enable) _nodeIds = new Dictionary<int, int[]>();
-            else _nodeIds = null;
+            lock (myLock)
+            {
+                if (enable) _nodeIds = new Dictionary<int, int[]>();
+                else _nodeIds = null;
+            }
         }
         public static void AddToCache(SelectionNode node, int[] ids)
         {
-            if (_nodeIds != null)   // enabled
+            lock (myLock)
             {
-                if (node.Hash == -1)
+                if (_nodeIds != null)   // enabled
                 {
-                    int hash;
-                    Random rnd = new Random((int)DateTime.Now.Ticks);
-                    do hash = rnd.Next();
-                    while (hash == 0 || _nodeIds.ContainsKey(hash));
-                    node.Hash = hash;
+                    if (node.Hash == -1)
+                    {
+                        int hash;
+                        Random rnd = new Random((int)DateTime.Now.Ticks);
+                        do hash = rnd.Next();
+                        while (hash == 0 || _nodeIds.ContainsKey(hash));
+                        node.Hash = hash;
+                    }
+                    _nodeIds[node.Hash] = ids;
                 }
-                _nodeIds[node.Hash] = ids;
             }
         }
         public void Add(SelectionNode node)
@@ -206,20 +214,26 @@ namespace CaeGlobals
         public bool TryGetNodeIds(SelectionNode node, out int[] ids)
         {
             ids = null;
-            if (_nodeIds == null)
-                return false;
-            else if (_nodeIds.TryGetValue(node.Hash, out ids))
-                return true;
-            else
-                return false;
+            lock (myLock)
+            {
+                if (_nodeIds == null)
+                    return false;
+                else if (_nodeIds.TryGetValue(node.Hash, out ids))
+                    return true;
+                else
+                    return false;
+            }
         }
         public void RemoveFirst()
         {
             if (_nodes.Count > 0)
             {
                 SelectionNode node = _nodes.First();
-                if (_nodeIds != null) _nodeIds.Remove(node.Hash);
-                node.Hash = -1;
+                lock (myLock)
+                {
+                    if (_nodeIds != null) _nodeIds.Remove(node.Hash);
+                    node.Hash = -1;
+                }
                 _nodes.Remove(node);
             }
         }
@@ -228,8 +242,15 @@ namespace CaeGlobals
             if (_nodes.Count > 0)
             {
                 SelectionNode node = _nodes.Last();
-                if (_nodeIds != null) _nodeIds.Remove(node.Hash);
-                if (resetNodeHash) node.Hash = -1;
+                // A node that retains its hash must also retain the corresponding cache entry.
+                if (resetNodeHash)
+                {
+                    lock (myLock)
+                    {
+                        if (_nodeIds != null) _nodeIds.Remove(node.Hash);
+                        node.Hash = -1;
+                    }
+                }
                 _nodes.Remove(node);
             }
         }
