@@ -9958,8 +9958,6 @@ namespace PrePoMax
             try
             {
                 if (_controller.ViewResultsType != ViewResultsTypeEnum.Undeformed &&
-                    _controller.ViewResultsType != ViewResultsTypeEnum.VectorPlot &&
-                    _controller.ViewResultsType != ViewResultsTypeEnum.TensorPlot &&
                     _controller.GetResultStepIDs().Length > 0 && !_frmAnimation.Visible)
                 {
                     CloseAllForms();
@@ -10495,6 +10493,14 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.AddTensorFieldActor, actorData, maxAbsValue, maxGlyphLength);
         }
+        public bool AddAnimatedVectorFieldActor(vtkMaxActorData actorData, double maxMagnitude, double maxArrowLength)
+        {
+            return InvokeIfRequired(() => _vtk.AddAnimatedVectorFieldActor(actorData, maxMagnitude, maxArrowLength));
+        }
+        public bool AddAnimatedTensorFieldActor(vtkMaxActorData actorData, double maxAbsValue, double maxGlyphLength)
+        {
+            return InvokeIfRequired(() => _vtk.AddAnimatedTensorFieldActor(actorData, maxAbsValue, maxGlyphLength));
+        }
         public bool AddAnimatedScalarFieldOn3DCells(vtkMaxActorData actorData)
         {
             return _vtk.AddAnimatedScalarFieldOnCells(actorData);
@@ -10637,6 +10643,10 @@ namespace PrePoMax
         public void SetScalarBarColorSpectrum(vtkControl.vtkMaxColorSpectrum colorSpectrum)
         {
             InvokeIfRequired(_vtk.SetScalarBarColorSpectrum, colorSpectrum);
+        }
+        public void SetScalarBarVisibility(bool visibility)
+        {
+            InvokeIfRequired(_vtk.SetScalarBarVisibility, visibility);
         }
         public void SetScalarBarNumberFormat(string numberFormat)
         {

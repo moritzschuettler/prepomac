@@ -80,6 +80,7 @@ namespace vtkControl
         private vtkMaxStatusBlockWidget _statusBlockWidget;
         private vtkInteractorStyleControl _style;
         private bool _widgetInteractionEnabled;
+        private bool _keepScalarBarVisible;
         private bool _drawCoorSys;
         private bool _drawStatusBlock;
         private vtkEdgesVisibility _edgesVisibility;
@@ -307,6 +308,7 @@ namespace vtkControl
             Controller_GetCellActorData = null;
             //
             _renderingOn = true;
+            _keepScalarBarVisible = false;
             _drawCoorSys = true;
             _drawStatusBlock = true;
             _widgetInteractionEnabled = true;
@@ -5965,7 +5967,12 @@ namespace vtkControl
             _scalarBarWidget.MaxColorVisible = colorSpectrum.MaxColorVisible;
             _scalarBarWidget.MinColor = colorSpectrum.MinColor;
             _scalarBarWidget.MaxColor = colorSpectrum.MaxColor;            
-        }       
+        }
+        public void SetScalarBarVisibility(bool visibility)
+        {
+            _keepScalarBarVisible = visibility;
+            if (!visibility) _scalarBarWidget.VisibilityOff();
+        }
         public bool TryGetScalarBarValueEditData(bool editMinimum, out Rectangle rectangle, out string valueText,
                                                  out double minimum, out double maximum)
         {
@@ -6447,6 +6454,219 @@ namespace vtkControl
             }
             AddActorGeometry(actor, data.Layer);
         }
+        public bool AddAnimatedVectorFieldActor(vtkMaxActorData data, double maxMagnitude, double maxArrowLength)
+        {
+            return AddAnimatedGlyphFieldActor(data, maxMagnitude, maxArrowLength, false);
+        }
+        public bool AddAnimatedTensorFieldActor(vtkMaxActorData data, double maxAbsValue, double maxGlyphLength)
+        {
+            return AddAnimatedGlyphFieldActor(data, maxAbsValue, maxGlyphLength, true);
+        }
+        private bool AddAnimatedGlyphFieldActor(vtkMaxActorData data, double maxValue, double maxLength,
+                                                bool tensorGlyph)
+        {
+            if (data?.Geometry?.NodesAnimation == null || data.Geometry.NodesAnimation.Length == 0 ||
+                maxLength <= 0) return true;
+            //
+            NodesExchangeData[] sourceFrames = data.Geometry.NodesAnimation;
+            int numSourceNodes = sourceFrames[0]?.Coor?.Length ?? 0;
+            int numArrowsPerNode = tensorGlyph ? 2 : 1;
+            NodesExchangeData[] glyphFrames = new NodesExchangeData[sourceFrames.Length];
+            double normalizationValue = maxValue > 0 ? maxValue : 1;
+            for (int i = 0; i < sourceFrames.Length; i++)
+            {
+                NodesExchangeData sourceFrame = sourceFrames[i] ?? data.Geometry.Nodes;
+                if ((sourceFrame?.Coor?.Length ?? 0) != numSourceNodes)
+                    throw new CaeException("The animated glyph node count is not constant.");
+                //
+                glyphFrames[i] = CreateAnimatedGlyphNodes(sourceFrame, normalizationValue, maxLength, tensorGlyph);
+            }
+            //
+            data.Geometry.Nodes = glyphFrames[0];
+            data.Geometry.NodesAnimation = glyphFrames;
+            //
+            vtkPolyData polyData = CreateAnimatedGlyphPolyData(glyphFrames[0], numArrowsPerNode * numSourceNodes);
+            vtkPolyDataMapper mapper = vtkPolyDataMapper.New();
+            mapper.SetInput(polyData);
+            vtkMaxActor actor = new vtkMaxActor(data, mapper);
+            actor.GeometryProperty.SetColor(1, 1, 1);
+            actor.GeometryProperty.SetLighting(false);
+            //
+            return InitializeAndAddAnimatedActor(actor, data, false);
+        }
+        private static NodesExchangeData CreateAnimatedGlyphNodes(NodesExchangeData sourceNodes, double maxValue,
+                                                                  double maxLength, bool tensorGlyph)
+        {
+            int numSourceNodes = sourceNodes?.Coor?.Length ?? 0;
+            int numArrowsPerNode = tensorGlyph ? 2 : 1;
+            const int numPointsPerArrow = 4;
+            NodesExchangeData glyphNodes = new NodesExchangeData();
+            glyphNodes.Coor = new double[numPointsPerArrow * numArrowsPerNode * numSourceNodes][];
+            glyphNodes.Values = new float[numPointsPerArrow * numArrowsPerNode * numSourceNodes];
+            //
+            double tolerance = maxValue * 1E-10;
+            double headLength = (tensorGlyph ? 0.125 : 0.25) * maxLength;
+            double headHalfWidth = (tensorGlyph ? 0.03 : 0.06) * maxLength;
+            for (int i = 0; i < numSourceNodes; i++)
+            {
+                double[] origin = sourceNodes.Coor[i] ?? new double[3];
+                double[] direction = sourceNodes.Normals != null && i < sourceNodes.Normals.Length
+                    ? sourceNodes.Normals[i] : null;
+                float scalarValue = sourceNodes.Values != null && i < sourceNodes.Values.Length
+                    ? sourceNodes.Values[i] : float.NaN;
+                //
+                double directionLength = direction != null && direction.Length == 3
+                    ? Math.Sqrt(direction[0] * direction[0] + direction[1] * direction[1] +
+                                direction[2] * direction[2])
+                    : double.NaN;
+                bool valid = !float.IsNaN(scalarValue) && !float.IsInfinity(scalarValue) &&
+                             !double.IsNaN(directionLength) && !double.IsInfinity(directionLength) &&
+                             directionLength > (tensorGlyph ? 0 : tolerance);
+                if (tensorGlyph) valid &= Math.Abs(scalarValue) > tolerance;
+                //
+                if (!valid)
+                {
+                    for (int j = 0; j < numArrowsPerNode; j++)
+                        SetDegenerateLineArrow(glyphNodes.Coor, glyphNodes.Values,
+                                               numArrowsPerNode * i + j, scalarValue, origin);
+                    continue;
+                }
+                //
+                double ux = direction[0] / directionLength;
+                double uy = direction[1] / directionLength;
+                double uz = direction[2] / directionLength;
+                if (tensorGlyph)
+                {
+                    double halfLength = 0.5 * maxLength * Math.Abs(scalarValue) / maxValue;
+                    double leftX = origin[0] - halfLength * ux;
+                    double leftY = origin[1] - halfLength * uy;
+                    double leftZ = origin[2] - halfLength * uz;
+                    double rightX = origin[0] + halfLength * ux;
+                    double rightY = origin[1] + halfLength * uy;
+                    double rightZ = origin[2] + halfLength * uz;
+                    int arrowId = numArrowsPerNode * i;
+                    if (scalarValue > 0)
+                    {
+                        SetLineArrow(glyphNodes.Coor, glyphNodes.Values, arrowId, scalarValue,
+                                     origin[0], origin[1], origin[2], leftX, leftY, leftZ,
+                                     headLength, headHalfWidth);
+                        SetLineArrow(glyphNodes.Coor, glyphNodes.Values, arrowId + 1, scalarValue,
+                                     origin[0], origin[1], origin[2], rightX, rightY, rightZ,
+                                     headLength, headHalfWidth);
+                    }
+                    else
+                    {
+                        SetLineArrow(glyphNodes.Coor, glyphNodes.Values, arrowId, scalarValue,
+                                     leftX, leftY, leftZ, origin[0], origin[1], origin[2],
+                                     headLength, headHalfWidth);
+                        SetLineArrow(glyphNodes.Coor, glyphNodes.Values, arrowId + 1, scalarValue,
+                                     rightX, rightY, rightZ, origin[0], origin[1], origin[2],
+                                     headLength, headHalfWidth);
+                    }
+                }
+                else
+                {
+                    double shaftLength = maxLength * directionLength / maxValue;
+                    SetLineArrow(glyphNodes.Coor, glyphNodes.Values, i, scalarValue,
+                                 origin[0], origin[1], origin[2],
+                                 origin[0] + shaftLength * ux,
+                                 origin[1] + shaftLength * uy,
+                                 origin[2] + shaftLength * uz,
+                                 headLength, headHalfWidth);
+                }
+            }
+            return glyphNodes;
+        }
+        private static void SetDegenerateLineArrow(double[][] coordinates, float[] values, int arrowId,
+                                                   float scalarValue, double[] origin)
+        {
+            int pointId = 4 * arrowId;
+            for (int i = 0; i < 4; i++)
+            {
+                coordinates[pointId + i] = new double[] { origin[0], origin[1], origin[2] };
+                values[pointId + i] = scalarValue;
+            }
+        }
+        private static void SetLineArrow(double[][] coordinates, float[] values, int arrowId, float scalarValue,
+                                         double startX, double startY, double startZ,
+                                         double endX, double endY, double endZ,
+                                         double headLength, double headHalfWidth)
+        {
+            double ux = endX - startX;
+            double uy = endY - startY;
+            double uz = endZ - startZ;
+            double length = Math.Sqrt(ux * ux + uy * uy + uz * uz);
+            ux /= length;
+            uy /= length;
+            uz /= length;
+            //
+            double rx = 0;
+            double ry = Math.Abs(uz) < 0.9 ? 0 : 1;
+            double rz = Math.Abs(uz) < 0.9 ? 1 : 0;
+            double px = uy * rz - uz * ry;
+            double py = uz * rx - ux * rz;
+            double pz = ux * ry - uy * rx;
+            double perpendicularLength = Math.Sqrt(px * px + py * py + pz * pz);
+            px /= perpendicularLength;
+            py /= perpendicularLength;
+            pz /= perpendicularLength;
+            //
+            double baseX = endX - headLength * ux;
+            double baseY = endY - headLength * uy;
+            double baseZ = endZ - headLength * uz;
+            int pointId = 4 * arrowId;
+            coordinates[pointId] = new double[] { startX, startY, startZ };
+            coordinates[pointId + 1] = new double[] { endX, endY, endZ };
+            coordinates[pointId + 2] = new double[] { baseX + headHalfWidth * px,
+                                                      baseY + headHalfWidth * py,
+                                                      baseZ + headHalfWidth * pz };
+            coordinates[pointId + 3] = new double[] { baseX - headHalfWidth * px,
+                                                      baseY - headHalfWidth * py,
+                                                      baseZ - headHalfWidth * pz };
+            for (int i = 0; i < 4; i++) values[pointId + i] = scalarValue;
+        }
+        private static vtkPolyData CreateAnimatedGlyphPolyData(NodesExchangeData nodes, int numArrows)
+        {
+            float[] coordinates = new float[3 * nodes.Coor.Length];
+            int coordinateId = 0;
+            foreach (double[] coor in nodes.Coor)
+            {
+                coordinates[coordinateId++] = (float)coor[0];
+                coordinates[coordinateId++] = (float)coor[1];
+                coordinates[coordinateId++] = (float)coor[2];
+            }
+            vtkFloatArray vtkCoordinates = vtkFloatArray.New();
+            vtkCoordinates.SetNumberOfComponents(3);
+            IntPtr coordinatePointer = vtkCoordinates.WriteVoidPointer(0, coordinates.Length);
+            Marshal.Copy(coordinates, 0, coordinatePointer, coordinates.Length);
+            vtkCoordinates.DataChanged();
+            vtkPoints points = vtkPoints.New();
+            points.SetData(vtkCoordinates);
+            //
+            vtkFloatArray scalars = vtkFloatArray.New();
+            scalars.SetName(Globals.ScalarArrayName);
+            scalars.SetNumberOfComponents(1);
+            IntPtr scalarPointer = scalars.WriteVoidPointer(0, nodes.Values.Length);
+            Marshal.Copy(nodes.Values, 0, scalarPointer, nodes.Values.Length);
+            scalars.DataChanged();
+            //
+            vtkCellArray lines = vtkCellArray.New();
+            lines.Allocate(12L * numArrows, 1000);
+            for (int arrowId = 0; arrowId < numArrows; arrowId++)
+            {
+                int pointId = 4 * arrowId;
+                AddLine(lines, pointId, pointId + 1);
+                AddLine(lines, pointId + 1, pointId + 2);
+                AddLine(lines, pointId + 2, pointId + 3);
+                AddLine(lines, pointId + 3, pointId + 1);
+            }
+            //
+            vtkPolyData polyData = vtkPolyData.New();
+            polyData.SetPoints(points);
+            polyData.SetLines(lines);
+            polyData.GetPointData().SetScalars(scalars);
+            return polyData;
+        }
         private void AddEmptyScalarFieldActor(vtkMaxActorData data)
         {
             // A field with no non-zero glyphs still has a valid scalar range. Register an
@@ -6590,19 +6810,13 @@ namespace vtkControl
         private bool AddAnimatedScalarFieldOnCellsPersistentActor(vtkMaxActorData data)
         {
             vtkMaxActor actor = new vtkMaxActor(data);
+            return InitializeAndAddAnimatedActor(actor, data, true);
+        }
+        private bool InitializeAndAddAnimatedActor(vtkMaxActor actor, vtkMaxActorData data, bool registerNodeIds)
+        {
             double animationMemorySizeKb = actor.InitializeAnimation(data);
             actor.RecomputeMemorySize();
             _animationFrameData.MemMb += (actor.MemorySize + animationMemorySizeKb) / 1024.0;
-
-            const int memLimit = 1000;
-            if (_animationFrameData.MemMb > memLimit)
-            {
-                if (MessageBoxes.ShowWarningQuestionOKCancel("The size of the problem requires more than " + memLimit +
-                                                             " MB of RAM. This might cause the application to close " +
-                                                             "down unexpectedly. Continue?") == DialogResult.OK)
-                    _animationFrameData.MemMb = -1000000; // Prevent the message box from reappearing.
-                else return false;
-            }
 
             AddActorGeometry(actor, data.Layer);
             if (data.CanHaveElementEdges && actor.ElementEdges != null)
@@ -6610,7 +6824,9 @@ namespace vtkControl
             if (actor.ModelEdges != null) AddActorEdges(actor, true, data.Layer);
             _animationActors.Add(actor.Name, actor);
             _currentAnimationFrameNumber = 0;
-            int[] animationNodeIds = data.CellLocator?.Nodes?.Ids ?? data.Geometry.Nodes.Ids;
+            int[] animationNodeIds = registerNodeIds
+                ? data.CellLocator?.Nodes?.Ids ?? data.Geometry.Nodes.Ids
+                : null;
             if (animationNodeIds != null)
             {
                 foreach (int nodeId in animationNodeIds) _animationNodeActors[nodeId] = actor;
@@ -6641,6 +6857,8 @@ namespace vtkControl
             //
             vtkMaxExtreemeNode minNode = null;
             vtkMaxExtreemeNode maxNode = null;
+            vtkMaxExtreemeNode fallbackMinNode = null;
+            vtkMaxExtreemeNode fallbackMaxNode = null;
             // Find min and max value on actors
             foreach (var entry in _actors)
             {
@@ -6650,6 +6868,13 @@ namespace vtkControl
                 pointData = mapper.GetInput().GetPointData();
                 // if the part does not have scalar data
                 if (actor.MinNode == null || actor.MaxNode == null) continue;
+                // Keep a result-wide fallback for an active plot whose representation is disabled on every part.
+                if (!float.IsNaN(actor.MinNode.Value) &&
+                    (fallbackMinNode == null || actor.MinNode.Value < fallbackMinNode.Value))
+                    fallbackMinNode = actor.MinNode;
+                if (!float.IsNaN(actor.MaxNode.Value) &&
+                    (fallbackMaxNode == null || actor.MaxNode.Value > fallbackMaxNode.Value))
+                    fallbackMaxNode = actor.MaxNode;
                 //
                 if (actor.ColorContours)
                 {
@@ -6682,7 +6907,20 @@ namespace vtkControl
                         maxNode = actor.MaxNode;
                 }
             }
-            if (minNode == null || maxNode == null) return;
+            bool showMinMaxWidgets = minNode != null && maxNode != null;
+            if (!showMinMaxWidgets)
+            {
+                if (!_keepScalarBarVisible)
+                    return;
+                else if (fallbackMinNode == null || fallbackMaxNode == null)
+                {
+                    _scalarBarWidget.VisibilityOn();
+                    return;
+                }
+                //
+                minNode = fallbackMinNode;
+                maxNode = fallbackMaxNode;
+            }
             // A uniform zero initial frame has no unique extrema and normally selects the first node.
             // Keep its zero values, but use the material nodes that become the first meaningful extrema.
             if (minNode.Value == 0 && maxNode.Value == 0 &&
@@ -6733,6 +6971,7 @@ namespace vtkControl
             }
             // Scalar bar
             _scalarBarWidget.VisibilityOn();
+            if (!showMinMaxWidgets) return;
             // Min Max widgets
             string format;
             //
@@ -7255,6 +7494,7 @@ namespace vtkControl
             _animationArrowAnchors.Clear();
             _animationArrowAnchorRequests.Clear();
             _animationFrameData = new vtkMaxAnimationFrameData();
+            _keepScalarBarVisible = false;
             //
             if (_scalarBarWidget != null) _scalarBarWidget.VisibilityOff();
             if (_colorBarWidget != null) HideColorBar();
