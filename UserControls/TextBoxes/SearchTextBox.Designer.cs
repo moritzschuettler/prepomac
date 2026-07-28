@@ -71,11 +71,11 @@ namespace UserControls
             // 
             // btnClear
             // 
-            this.btnClear.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnClear.Image = global::UserControls.Properties.Resources.Remove;
-            this.btnClear.Location = new System.Drawing.Point(176, -2);
+            this.btnClear.Dock = System.Windows.Forms.DockStyle.Right;
+            this.btnClear.Image = global::UserControls.Properties.Resources.Close;
+            this.btnClear.Location = new System.Drawing.Point(178, 0);
             this.btnClear.Name = "btnClear";
-            this.btnClear.Size = new System.Drawing.Size(24, 24);
+            this.btnClear.Size = new System.Drawing.Size(20, 20);
             this.btnClear.TabIndex = 11;
             this.btnClear.UseVisualStyleBackColor = true;
             this.btnClear.Visible = false;
@@ -84,8 +84,9 @@ namespace UserControls
             // lIcon
             // 
             this.lIcon.BackColor = System.Drawing.SystemColors.Window;
+            this.lIcon.Dock = System.Windows.Forms.DockStyle.Left;
             this.lIcon.Image = global::UserControls.Properties.Resources.Search;
-            this.lIcon.Location = new System.Drawing.Point(-1, 0);
+            this.lIcon.Location = new System.Drawing.Point(0, 0);
             this.lIcon.Name = "lIcon";
             this.lIcon.Size = new System.Drawing.Size(20, 20);
             this.lIcon.TabIndex = 9;
@@ -96,20 +97,21 @@ namespace UserControls
             | System.Windows.Forms.AnchorStyles.Right)));
             this.tbSearchBox.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.tbSearchBox.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.tbSearchBox.Location = new System.Drawing.Point(21, 2);
+            this.tbSearchBox.Location = new System.Drawing.Point(21, 1);
             this.tbSearchBox.Name = "tbSearchBox";
-            this.tbSearchBox.Size = new System.Drawing.Size(149, 18);
+            this.tbSearchBox.Size = new System.Drawing.Size(157, 18);
             this.tbSearchBox.TabIndex = 10;
             this.tbSearchBox.EnabledChanged += new System.EventHandler(this.tbSearchBox_EnabledChanged);
             this.tbSearchBox.TextChanged += new System.EventHandler(this.tbSearchBox_TextChanged);
             // 
             // SearchTextBox
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.Controls.Add(this.pBackground);
             this.Controls.Add(this.lBorder);
             this.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
+            this.MaximumSize = new System.Drawing.Size(0, 22);
+            this.MinimumSize = new System.Drawing.Size(0, 22);
             this.Name = "SearchTextBox";
             this.Size = new System.Drawing.Size(200, 22);
             this.pBackground.ResumeLayout(false);

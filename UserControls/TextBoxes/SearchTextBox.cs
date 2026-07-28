@@ -31,17 +31,11 @@ namespace UserControls
         public bool ReadOnly { get { return tbSearchBox.ReadOnly; } set { tbSearchBox.ReadOnly = value; } }
 
 
-        // Events                                                                                                                   
-        [Browsable(true)]
-        public new event Action<object, EventArgs> TextChanged;
-
-
         // Event handling                                                                                                           
         private void tbSearchBox_TextChanged(object sender, EventArgs e)
         {
             btnClear.Visible = tbSearchBox.Text.Length > 0;
-            TextChanged?.Invoke(sender, e);
-            Focus();
+            OnTextChanged(e);
         }
         private void btnClear_Click(object sender, EventArgs e)
         {

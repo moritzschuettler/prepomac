@@ -2096,6 +2096,19 @@ namespace PrePoMax
             List<string> partNames = new List<string>();
             if (part is CompoundGeometryPart cgp) { partNames.Add(cgp.Name); partNames.AddRange(cgp.SubPartNames); }
             else partNames.Add(part.Name);
+            // The compound part only exists in the geometry. Its subparts are the matching parts in the FE mesh.
+            string[] replacedMeshPartNames;
+            if (part is CompoundGeometryPart compoundPart) replacedMeshPartNames = compoundPart.SubPartNames.ToArray();
+            else replacedMeshPartNames = new string[] { part.Name };
+            //
+            OrderedDictionaryItemLayout<string> oldMeshPartLayout = null;
+            string[] oldMeshPartNames = null;
+            if (_model.Mesh != null &&
+                replacedMeshPartNames.Any(name => _model.Mesh.Parts.ContainsKey(name)))
+            {
+                oldMeshPartNames = _model.Mesh.Parts.Keys.ToArray();
+                oldMeshPartLayout = _model.Mesh.Parts.GetItemLayoutSnapshot();
+            }
             //
             int[] removedPartIds = RemoveModelParts(partNames.ToArray(), false, true);
             //
@@ -2119,6 +2132,14 @@ namespace PrePoMax
             }
             // Import, convert and split mesh
             _model.ImportGeneratedMeshFromMeshFile(fileName, part, convertToSecondOrder, splitCompoundMesh, mergeCompoundParts);
+            // A remesh removes and recreates the same FE parts. Restore the complete layout so their order and groups
+            // remain unchanged. For a first mesh, or if the set of generated FE parts changed, retain the normal add order.
+            if (oldMeshPartLayout != null &&
+                oldMeshPartNames.Length == _model.Mesh.Parts.Count &&
+                new HashSet<string>(oldMeshPartNames, _model.Mesh.Parts.Comparer).SetEquals(_model.Mesh.Parts.Keys))
+            {
+                _model.Mesh.Parts.SetItemLayout(oldMeshPartLayout);
+            }
             // Calculate the number of new nodes and elements
             BasePart basePart;
             if (convertToSecondOrder || Path.GetExtension(fileName) == ".inp")

@@ -148,6 +148,7 @@ namespace UserControls
             this.tsmiSpaceSwapMergeMasterSlave = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiSwapMasterSlave = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiMergeByMasterSlave = new System.Windows.Forms.ToolStripMenuItem();
+            this.cmsTreeSecondary = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.tsmiSpaceHideShow = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiHide = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiShow = new System.Windows.Forms.ToolStripMenuItem();
@@ -168,6 +169,8 @@ namespace UserControls
             this.tsmiSpaceActive = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiActivate = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDeactivate = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiSpaceOrganize = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiCreateGroup = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSpaceExpandColapse = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiExpandAll = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiCollapseAll = new System.Windows.Forms.ToolStripMenuItem();
@@ -177,7 +180,7 @@ namespace UserControls
             this.ilStatusIcons = new System.Windows.Forms.ImageList(this.components);
             this.tcGeometryModelResults = new System.Windows.Forms.TabControl();
             this.tpGeometry = new System.Windows.Forms.TabPage();
-            this.stbGeometry = new UserControls.SearchTextBox();
+            this.stbGeometrySearch = new UserControls.SearchTextBox();
             this.cltvGeometry = new UserControls.CodersLabTreeView();
             this.tpModel = new System.Windows.Forms.TabPage();
             this.stbModel = new UserControls.SearchTextBox();
@@ -187,6 +190,7 @@ namespace UserControls
             this.cltvResults = new UserControls.CodersLabTreeView();
             this.timerMouseMove = new System.Windows.Forms.Timer(this.components);
             this.cmsTree.SuspendLayout();
+            this.cmsTreeSecondary.SuspendLayout();
             this.tcGeometryModelResults.SuspendLayout();
             this.tpGeometry.SuspendLayout();
             this.tpModel.SuspendLayout();
@@ -223,34 +227,9 @@ namespace UserControls
             this.tsmiSearchContactPairs,
             this.tsmiSpaceSwapMergeMasterSlave,
             this.tsmiSwapMasterSlave,
-            this.tsmiMergeByMasterSlave,
-            this.tsmiSpaceHideShow,
-            this.tsmiHide,
-            this.tsmiShow,
-            this.tsmiShowOnly,
-            this.tsmiSpaceColor,
-            this.tsmiSetColor,
-            this.tsmiResetColor,
-            this.tsmiSetTransparency,
-            this.tsmiSpaceColorContours,
-            this.tsmiColorContoursOff,
-            this.tsmiColorContoursOn,
-            this.tsmiSpaceAnalysis,
-            this.tsmiRun,
-            this.tsmiCheckModel,
-            this.tsmiMonitor,
-            this.tsmiResults,
-            this.tsmiKill,
-            this.tsmiSpaceActive,
-            this.tsmiActivate,
-            this.tsmiDeactivate,
-            this.tsmiSpaceExpandColapse,
-            this.tsmiExpandAll,
-            this.tsmiCollapseAll,
-            this.tsmiSpaceDelete,
-            this.tsmiDelete});
+            this.tsmiMergeByMasterSlave});
             this.cmsTree.Name = "cmsTree";
-            this.cmsTree.Size = new System.Drawing.Size(212, 914);
+            this.cmsTree.Size = new System.Drawing.Size(212, 476);
             // 
             // tsmiCreate
             // 
@@ -435,17 +414,50 @@ namespace UserControls
             this.tsmiMergeByMasterSlave.Size = new System.Drawing.Size(211, 22);
             this.tsmiMergeByMasterSlave.Text = "Merge by Master/Slave";
             this.tsmiMergeByMasterSlave.Click += new System.EventHandler(this.tsmiMergeByMasterSlave_Click);
+            //
+            // cmsTreeSecondary
             // 
+            this.cmsTreeSecondary.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmiSpaceHideShow,
+            this.tsmiHide,
+            this.tsmiShow,
+            this.tsmiShowOnly,
+            this.tsmiSpaceColor,
+            this.tsmiSetColor,
+            this.tsmiResetColor,
+            this.tsmiSetTransparency,
+            this.tsmiSpaceColorContours,
+            this.tsmiColorContoursOff,
+            this.tsmiColorContoursOn,
+            this.tsmiSpaceAnalysis,
+            this.tsmiRun,
+            this.tsmiCheckModel,
+            this.tsmiMonitor,
+            this.tsmiResults,
+            this.tsmiKill,
+            this.tsmiSpaceActive,
+            this.tsmiActivate,
+            this.tsmiDeactivate,
+            this.tsmiSpaceOrganize,
+            this.tsmiCreateGroup,
+            this.tsmiSpaceExpandColapse,
+            this.tsmiExpandAll,
+            this.tsmiCollapseAll,
+            this.tsmiSpaceDelete,
+            this.tsmiDelete});
+            this.cmsTreeSecondary.Name = "cmsTreeSecondary";
+            this.cmsTreeSecondary.Size = new System.Drawing.Size(209, 470);
+            //
             // tsmiSpaceHideShow
             // 
             this.tsmiSpaceHideShow.Name = "tsmiSpaceHideShow";
-            this.tsmiSpaceHideShow.Size = new System.Drawing.Size(208, 6);
+            this.tsmiSpaceHideShow.Size = new System.Drawing.Size(205, 6);
             // 
             // tsmiHide
             // 
             this.tsmiHide.Image = global::UserControls.Properties.Resources.Hide;
             this.tsmiHide.Name = "tsmiHide";
-            this.tsmiHide.Size = new System.Drawing.Size(211, 22);
+            this.tsmiHide.Size = new System.Drawing.Size(208, 22);
             this.tsmiHide.Text = "Hide";
             this.tsmiHide.Click += new System.EventHandler(this.tsmiHideShow_Click);
             // 
@@ -453,7 +465,7 @@ namespace UserControls
             // 
             this.tsmiShow.Image = global::UserControls.Properties.Resources.Show;
             this.tsmiShow.Name = "tsmiShow";
-            this.tsmiShow.Size = new System.Drawing.Size(211, 22);
+            this.tsmiShow.Size = new System.Drawing.Size(208, 22);
             this.tsmiShow.Text = "Show";
             this.tsmiShow.Click += new System.EventHandler(this.tsmiHideShow_Click);
             // 
@@ -461,46 +473,46 @@ namespace UserControls
             // 
             this.tsmiShowOnly.Image = global::UserControls.Properties.Resources.Show;
             this.tsmiShowOnly.Name = "tsmiShowOnly";
-            this.tsmiShowOnly.Size = new System.Drawing.Size(211, 22);
+            this.tsmiShowOnly.Size = new System.Drawing.Size(208, 22);
             this.tsmiShowOnly.Text = "Show Only";
             this.tsmiShowOnly.Click += new System.EventHandler(this.tsmiHideShow_Click);
             // 
             // tsmiSpaceColor
             // 
             this.tsmiSpaceColor.Name = "tsmiSpaceColor";
-            this.tsmiSpaceColor.Size = new System.Drawing.Size(208, 6);
+            this.tsmiSpaceColor.Size = new System.Drawing.Size(205, 6);
             // 
             // tsmiSetColor
             // 
             this.tsmiSetColor.Name = "tsmiSetColor";
-            this.tsmiSetColor.Size = new System.Drawing.Size(211, 22);
+            this.tsmiSetColor.Size = new System.Drawing.Size(208, 22);
             this.tsmiSetColor.Text = "Set Color";
             this.tsmiSetColor.Click += new System.EventHandler(this.tsmiSetColor_Click);
             // 
             // tsmiResetColor
             // 
             this.tsmiResetColor.Name = "tsmiResetColor";
-            this.tsmiResetColor.Size = new System.Drawing.Size(211, 22);
+            this.tsmiResetColor.Size = new System.Drawing.Size(208, 22);
             this.tsmiResetColor.Text = "Reset Color";
             this.tsmiResetColor.Click += new System.EventHandler(this.tsmiResetColor_Click);
             // 
             // tsmiSetTransparency
             // 
             this.tsmiSetTransparency.Name = "tsmiSetTransparency";
-            this.tsmiSetTransparency.Size = new System.Drawing.Size(211, 22);
+            this.tsmiSetTransparency.Size = new System.Drawing.Size(208, 22);
             this.tsmiSetTransparency.Text = "Set Transparency";
             this.tsmiSetTransparency.Click += new System.EventHandler(this.tsmiSetTransparency_Click);
             // 
             // tsmiSpaceColorContours
             // 
             this.tsmiSpaceColorContours.Name = "tsmiSpaceColorContours";
-            this.tsmiSpaceColorContours.Size = new System.Drawing.Size(208, 6);
+            this.tsmiSpaceColorContours.Size = new System.Drawing.Size(205, 6);
             // 
             // tsmiColorContoursOff
             // 
             this.tsmiColorContoursOff.Image = global::UserControls.Properties.Resources.Deformed;
             this.tsmiColorContoursOff.Name = "tsmiColorContoursOff";
-            this.tsmiColorContoursOff.Size = new System.Drawing.Size(211, 22);
+            this.tsmiColorContoursOff.Size = new System.Drawing.Size(208, 22);
             this.tsmiColorContoursOff.Text = "Result Representation Off";
             this.tsmiColorContoursOff.Click += new System.EventHandler(this.tsmiResultRepresentationOnOff_Click);
             // 
@@ -508,59 +520,59 @@ namespace UserControls
             // 
             this.tsmiColorContoursOn.Image = global::UserControls.Properties.Resources.Color_contours;
             this.tsmiColorContoursOn.Name = "tsmiColorContoursOn";
-            this.tsmiColorContoursOn.Size = new System.Drawing.Size(211, 22);
+            this.tsmiColorContoursOn.Size = new System.Drawing.Size(208, 22);
             this.tsmiColorContoursOn.Text = "Result Representation On";
             this.tsmiColorContoursOn.Click += new System.EventHandler(this.tsmiResultRepresentationOnOff_Click);
             // 
             // tsmiSpaceAnalysis
             // 
             this.tsmiSpaceAnalysis.Name = "tsmiSpaceAnalysis";
-            this.tsmiSpaceAnalysis.Size = new System.Drawing.Size(208, 6);
+            this.tsmiSpaceAnalysis.Size = new System.Drawing.Size(205, 6);
             // 
             // tsmiRun
             // 
             this.tsmiRun.Name = "tsmiRun";
-            this.tsmiRun.Size = new System.Drawing.Size(211, 22);
+            this.tsmiRun.Size = new System.Drawing.Size(208, 22);
             this.tsmiRun.Text = "Run";
             this.tsmiRun.Click += new System.EventHandler(this.tsmiRun_Click);
             // 
             // tsmiCheckModel
             // 
             this.tsmiCheckModel.Name = "tsmiCheckModel";
-            this.tsmiCheckModel.Size = new System.Drawing.Size(211, 22);
+            this.tsmiCheckModel.Size = new System.Drawing.Size(208, 22);
             this.tsmiCheckModel.Text = "Check Model";
             this.tsmiCheckModel.Click += new System.EventHandler(this.tsmiCheckModel_Click);
             // 
             // tsmiMonitor
             // 
             this.tsmiMonitor.Name = "tsmiMonitor";
-            this.tsmiMonitor.Size = new System.Drawing.Size(211, 22);
+            this.tsmiMonitor.Size = new System.Drawing.Size(208, 22);
             this.tsmiMonitor.Text = "Monitor";
             this.tsmiMonitor.Click += new System.EventHandler(this.tsmiMonitor_Click);
             // 
             // tsmiResults
             // 
             this.tsmiResults.Name = "tsmiResults";
-            this.tsmiResults.Size = new System.Drawing.Size(211, 22);
+            this.tsmiResults.Size = new System.Drawing.Size(208, 22);
             this.tsmiResults.Text = "Results";
             this.tsmiResults.Click += new System.EventHandler(this.tsmiResults_Click);
             // 
             // tsmiKill
             // 
             this.tsmiKill.Name = "tsmiKill";
-            this.tsmiKill.Size = new System.Drawing.Size(211, 22);
+            this.tsmiKill.Size = new System.Drawing.Size(208, 22);
             this.tsmiKill.Text = "Kill";
             this.tsmiKill.Click += new System.EventHandler(this.tsmiKill_Click);
             // 
             // tsmiSpaceActive
             // 
             this.tsmiSpaceActive.Name = "tsmiSpaceActive";
-            this.tsmiSpaceActive.Size = new System.Drawing.Size(208, 6);
+            this.tsmiSpaceActive.Size = new System.Drawing.Size(205, 6);
             // 
             // tsmiActivate
             // 
             this.tsmiActivate.Name = "tsmiActivate";
-            this.tsmiActivate.Size = new System.Drawing.Size(211, 22);
+            this.tsmiActivate.Size = new System.Drawing.Size(208, 22);
             this.tsmiActivate.Text = "Activate";
             this.tsmiActivate.Click += new System.EventHandler(this.ActivateDeactivate_Click);
             // 
@@ -568,38 +580,51 @@ namespace UserControls
             // 
             this.tsmiDeactivate.Image = global::UserControls.Properties.Resources.Unactive;
             this.tsmiDeactivate.Name = "tsmiDeactivate";
-            this.tsmiDeactivate.Size = new System.Drawing.Size(211, 22);
+            this.tsmiDeactivate.Size = new System.Drawing.Size(208, 22);
             this.tsmiDeactivate.Text = "Deactivate";
             this.tsmiDeactivate.Click += new System.EventHandler(this.ActivateDeactivate_Click);
-            // 
+            //
+            // tsmiSpaceOrganize
+            //
+            this.tsmiSpaceOrganize.Name = "tsmiSpaceOrganize";
+            this.tsmiSpaceOrganize.Size = new System.Drawing.Size(205, 6);
+            //
+            // tsmiCreateGroup
+            //
+            this.tsmiCreateGroup.Image = global::UserControls.Properties.Resources.Folder;
+            this.tsmiCreateGroup.Name = "tsmiCreateGroup";
+            this.tsmiCreateGroup.Size = new System.Drawing.Size(208, 22);
+            this.tsmiCreateGroup.Text = "Create group";
+            this.tsmiCreateGroup.Click += new System.EventHandler(this.tsmiCreateGroup_Click);
+            //
             // tsmiSpaceExpandColapse
             // 
             this.tsmiSpaceExpandColapse.Name = "tsmiSpaceExpandColapse";
-            this.tsmiSpaceExpandColapse.Size = new System.Drawing.Size(208, 6);
+            this.tsmiSpaceExpandColapse.Size = new System.Drawing.Size(205, 6);
             // 
             // tsmiExpandAll
             // 
             this.tsmiExpandAll.Name = "tsmiExpandAll";
-            this.tsmiExpandAll.Size = new System.Drawing.Size(211, 22);
+            this.tsmiExpandAll.Size = new System.Drawing.Size(208, 22);
             this.tsmiExpandAll.Text = "Expand All";
             this.tsmiExpandAll.Click += new System.EventHandler(this.tsmiExpandAll_Click);
             // 
             // tsmiCollapseAll
             // 
             this.tsmiCollapseAll.Name = "tsmiCollapseAll";
-            this.tsmiCollapseAll.Size = new System.Drawing.Size(211, 22);
+            this.tsmiCollapseAll.Size = new System.Drawing.Size(208, 22);
             this.tsmiCollapseAll.Text = "Collapse All";
             this.tsmiCollapseAll.Click += new System.EventHandler(this.tsmiCollapseAll_Click);
             // 
             // tsmiSpaceDelete
             // 
             this.tsmiSpaceDelete.Name = "tsmiSpaceDelete";
-            this.tsmiSpaceDelete.Size = new System.Drawing.Size(208, 6);
+            this.tsmiSpaceDelete.Size = new System.Drawing.Size(205, 6);
             // 
             // tsmiDelete
             // 
             this.tsmiDelete.Name = "tsmiDelete";
-            this.tsmiDelete.Size = new System.Drawing.Size(211, 22);
+            this.tsmiDelete.Size = new System.Drawing.Size(208, 22);
             this.tsmiDelete.Text = "Delete";
             this.tsmiDelete.Click += new System.EventHandler(this.tsmiDelete_Click);
             // 
@@ -645,15 +670,16 @@ namespace UserControls
             this.ilIcons.Images.SetKeyName(35, "Warning.ico");
             this.ilIcons.Images.SetKeyName(36, "Dots.ico");
             this.ilIcons.Images.SetKeyName(37, "Dots_t.ico");
-            this.ilIcons.Images.SetKeyName(38, "Compound.ico");
-            this.ilIcons.Images.SetKeyName(39, "Compound_transparent.ico");
-            this.ilIcons.Images.SetKeyName(40, "Shell.ico");
-            this.ilIcons.Images.SetKeyName(41, "Shell_transparent.ico");
-            this.ilIcons.Images.SetKeyName(42, "Solid.ico");
-            this.ilIcons.Images.SetKeyName(43, "Solid_transparent.ico");
-            this.ilIcons.Images.SetKeyName(44, "Wire.ico");
-            this.ilIcons.Images.SetKeyName(45, "Wire_transparent.ico");
-            this.ilIcons.Images.SetKeyName(46, "Unactive.ico");
+            this.ilIcons.Images.SetKeyName(38, "Folder.ico");
+            this.ilIcons.Images.SetKeyName(39, "Compound.ico");
+            this.ilIcons.Images.SetKeyName(40, "Compound_transparent.ico");
+            this.ilIcons.Images.SetKeyName(41, "Shell.ico");
+            this.ilIcons.Images.SetKeyName(42, "Shell_transparent.ico");
+            this.ilIcons.Images.SetKeyName(43, "Solid.ico");
+            this.ilIcons.Images.SetKeyName(44, "Solid_transparent.ico");
+            this.ilIcons.Images.SetKeyName(45, "Wire.ico");
+            this.ilIcons.Images.SetKeyName(46, "Wire_transparent.ico");
+            this.ilIcons.Images.SetKeyName(47, "Unactive.ico");
             // 
             // ilStatusIcons
             // 
@@ -680,7 +706,7 @@ namespace UserControls
             // 
             // tpGeometry
             // 
-            this.tpGeometry.Controls.Add(this.stbGeometry);
+            this.tpGeometry.Controls.Add(this.stbGeometrySearch);
             this.tpGeometry.Controls.Add(this.cltvGeometry);
             this.tpGeometry.Location = new System.Drawing.Point(4, 24);
             this.tpGeometry.Name = "tpGeometry";
@@ -689,17 +715,18 @@ namespace UserControls
             this.tpGeometry.Text = "Geometry";
             this.tpGeometry.UseVisualStyleBackColor = true;
             // 
-            // stbGeometry
+            // stbGeometrySearch
             // 
-            this.stbGeometry.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.stbGeometry.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.stbGeometry.Location = new System.Drawing.Point(0, 0);
-            this.stbGeometry.Name = "stbGeometry";
-            this.stbGeometry.ReadOnly = false;
-            this.stbGeometry.Size = new System.Drawing.Size(270, 22);
-            this.stbGeometry.TabIndex = 1;
-            this.stbGeometry.TextChanged += new System.Action<object, System.EventArgs>(this.stbGeometry_TextChanged);
+            this.stbGeometrySearch.Dock = System.Windows.Forms.DockStyle.Top;
+            this.stbGeometrySearch.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.stbGeometrySearch.Location = new System.Drawing.Point(0, 0);
+            this.stbGeometrySearch.MaximumSize = new System.Drawing.Size(0, 22);
+            this.stbGeometrySearch.MinimumSize = new System.Drawing.Size(0, 22);
+            this.stbGeometrySearch.Name = "stbGeometrySearch";
+            this.stbGeometrySearch.ReadOnly = false;
+            this.stbGeometrySearch.Size = new System.Drawing.Size(231, 22);
+            this.stbGeometrySearch.TabIndex = 1;
+            this.stbGeometrySearch.TextChanged += new System.EventHandler(this.stbGeometry_TextChanged);
             // 
             // cltvGeometry
             // 
@@ -709,6 +736,7 @@ namespace UserControls
             this.cltvGeometry.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.cltvGeometry.ChangeHighlightOnFocusLost = false;
             this.cltvGeometry.DisableMouse = false;
+            this.cltvGeometry.EnsureSelectedNodeVisible = true;
             this.cltvGeometry.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
             this.cltvGeometry.HideSelection = false;
             this.cltvGeometry.HighlightForeErrorColor = System.Drawing.Color.Red;
@@ -802,11 +830,13 @@ namespace UserControls
             | System.Windows.Forms.AnchorStyles.Right)));
             this.stbModel.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.stbModel.Location = new System.Drawing.Point(0, 0);
+            this.stbModel.MaximumSize = new System.Drawing.Size(0, 22);
+            this.stbModel.MinimumSize = new System.Drawing.Size(0, 22);
             this.stbModel.Name = "stbModel";
             this.stbModel.ReadOnly = false;
-            this.stbModel.Size = new System.Drawing.Size(270, 22);
+            this.stbModel.Size = new System.Drawing.Size(231, 22);
             this.stbModel.TabIndex = 2;
-            this.stbModel.TextChanged += new System.Action<object, System.EventArgs>(this.stbModel_TextChanged);
+            this.stbModel.TextChanged += new System.EventHandler(this.stbModel_TextChanged);
             // 
             // cltvModel
             // 
@@ -817,6 +847,7 @@ namespace UserControls
             this.cltvModel.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.cltvModel.ChangeHighlightOnFocusLost = false;
             this.cltvModel.DisableMouse = false;
+            this.cltvModel.EnsureSelectedNodeVisible = true;
             this.cltvModel.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
             this.cltvModel.HideSelection = false;
             this.cltvModel.HighlightForeErrorColor = System.Drawing.Color.Red;
@@ -963,11 +994,13 @@ namespace UserControls
             | System.Windows.Forms.AnchorStyles.Right)));
             this.stbResults.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.stbResults.Location = new System.Drawing.Point(0, 0);
+            this.stbResults.MaximumSize = new System.Drawing.Size(0, 22);
+            this.stbResults.MinimumSize = new System.Drawing.Size(0, 22);
             this.stbResults.Name = "stbResults";
             this.stbResults.ReadOnly = false;
-            this.stbResults.Size = new System.Drawing.Size(270, 22);
+            this.stbResults.Size = new System.Drawing.Size(231, 22);
             this.stbResults.TabIndex = 3;
-            this.stbResults.TextChanged += new System.Action<object, System.EventArgs>(this.stbResults_TextChanged);
+            this.stbResults.TextChanged += new System.EventHandler(this.stbResults_TextChanged);
             // 
             // cltvResults
             // 
@@ -978,6 +1011,7 @@ namespace UserControls
             this.cltvResults.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.cltvResults.ChangeHighlightOnFocusLost = false;
             this.cltvResults.DisableMouse = false;
+            this.cltvResults.EnsureSelectedNodeVisible = true;
             this.cltvResults.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
             this.cltvResults.HighlightForeErrorColor = System.Drawing.Color.Red;
             this.cltvResults.ImageIndex = 0;
@@ -1073,12 +1107,12 @@ namespace UserControls
             // 
             // ModelTree
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.Controls.Add(this.tcGeometryModelResults);
             this.Name = "ModelTree";
             this.Size = new System.Drawing.Size(239, 498);
             this.cmsTree.ResumeLayout(false);
+            this.cmsTreeSecondary.ResumeLayout(false);
             this.tcGeometryModelResults.ResumeLayout(false);
             this.tpGeometry.ResumeLayout(false);
             this.tpModel.ResumeLayout(false);
@@ -1101,6 +1135,7 @@ namespace UserControls
 
         private CodersLabTreeView cltvModel;
         private System.Windows.Forms.ContextMenuStrip cmsTree;
+        private System.Windows.Forms.ContextMenuStrip cmsTreeSecondary;
         private System.Windows.Forms.ToolStripMenuItem tsmiExpandAll;
         private System.Windows.Forms.ToolStripMenuItem tsmiCollapseAll;
         private System.Windows.Forms.ToolStripSeparator tsmiSpaceDelete;
@@ -1114,6 +1149,8 @@ namespace UserControls
         private System.Windows.Forms.ToolStripMenuItem tsmiResults;
         private System.Windows.Forms.ToolStripSeparator tsmiSpaceAnalysis;
         private System.Windows.Forms.ToolStripMenuItem tsmiDeactivate;
+        private System.Windows.Forms.ToolStripSeparator tsmiSpaceOrganize;
+        private System.Windows.Forms.ToolStripMenuItem tsmiCreateGroup;
         private System.Windows.Forms.ToolStripSeparator tsmiSpaceActive;
         private System.Windows.Forms.ToolStripMenuItem tsmiActivate;
         private System.Windows.Forms.TabControl tcGeometryModelResults;
@@ -1149,7 +1186,7 @@ namespace UserControls
         private System.Windows.Forms.ToolStripMenuItem tsmiPropagate;
         private System.Windows.Forms.ToolStripMenuItem tsmiSwapPartGeometries;
         private System.Windows.Forms.TabPage tpGeometry;
-        private SearchTextBox stbGeometry;
+        private SearchTextBox stbGeometrySearch;
         private CodersLabTreeView cltvGeometry;
         private SearchTextBox stbModel;
         private SearchTextBox stbResults;

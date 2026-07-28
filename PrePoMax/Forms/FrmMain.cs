@@ -951,7 +951,7 @@ namespace PrePoMax
         {
             if (this != ActiveForm) return;
             if (tbOutput.Focused) return;
-            if (_modelTree.Focused) return;
+            if (_modelTree.ContainsFocus) return;
             if (_visibleSidePanel != null && _visibleSidePanel.Focused) return;
             //
             Keys key = (Keys)vKey;
@@ -4279,7 +4279,17 @@ namespace PrePoMax
                     {
                         part = _controller.GetGeometryPart(partName);
                         //
-                        await Task.Run(() => _controller.CreateMeshCommand(partName));
+                        bool screenUpdating = _modelTree.ScreenUpdating;
+                        _modelTree.ScreenUpdating = false;
+                        try
+                        {
+                            await Task.Run(() => _controller.CreateMeshCommand(partName));
+                        }
+                        finally
+                        {
+                            _modelTree.ScreenUpdating = screenUpdating;
+                            if (screenUpdating) RegenerateTree(true);
+                        }
                         // Check for the cancel button click
                         if (IsStateWorking())
                         {

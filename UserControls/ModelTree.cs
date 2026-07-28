@@ -131,8 +131,6 @@ namespace UserControls
         private Dictionary<TreeNode, OrderedDictionaryGroupInfo> _orderedDictionaryGroups;
         private TreeNode _dragOverNode;
         private Color _dragOverNodeBackColor;
-        private ToolStripSeparator _tsmiSpaceOrganize;
-        private ToolStripMenuItem _tsmiCreateGroup;
         // Geometry
         private TreeNode _geomParts;                // 1
         private TreeNode _meshSetupItems;           // 1
@@ -237,7 +235,7 @@ namespace UserControls
                 cltvModel.DisableMouse = value;
                 cltvResults.DisableMouse = value;
                 //
-                stbGeometry.Enabled = !value;
+                stbGeometrySearch.Enabled = !value;
                 stbModel.Enabled = !value;
                 stbResults.Enabled = !value;
             }
@@ -249,7 +247,7 @@ namespace UserControls
                 cltvGeometry.DisableMouse = value;
                 cltvModel.DisableMouse = value;
                 //
-                stbGeometry.Enabled = !value;
+                stbGeometrySearch.Enabled = !value;
                 stbModel.Enabled = !value;
             }
         }
@@ -360,6 +358,7 @@ namespace UserControls
         public ModelTree()
         {
             InitializeComponent();
+            AssembleTreeContextMenu();
             //
             cltvGeometry.IsNodeRenameable = CanRename;
             cltvModel.IsNodeRenameable = CanRename;
@@ -371,7 +370,6 @@ namespace UserControls
             //
             _orderedDictionaryContexts = new Dictionary<TreeNode, OrderedDictionaryTreeContext>();
             _orderedDictionaryGroups = new Dictionary<TreeNode, OrderedDictionaryGroupInfo>();
-            InitializeOrderedDictionaryContextMenu();
             InitializeOrderedDictionaryDragDrop(cltvGeometry);
             InitializeOrderedDictionaryDragDrop(cltvModel);
             InitializeOrderedDictionaryDragDrop(cltvResults);
@@ -466,7 +464,7 @@ namespace UserControls
         }
         private void stbGeometry_TextChanged(object sender, EventArgs e)
         {
-            FilterTree(cltvGeometry, stbGeometry.Text);
+            FilterTree(cltvGeometry, stbGeometrySearch.Text);
         }
         private void stbModel_TextChanged(object sender, EventArgs e)
         {
@@ -527,15 +525,16 @@ namespace UserControls
         #endregion
 
         #region Tree event handlers
-        private void InitializeOrderedDictionaryContextMenu()
+        private void AssembleTreeContextMenu()
         {
-            _tsmiSpaceOrganize = new ToolStripSeparator();
-            _tsmiCreateGroup = new ToolStripMenuItem("Create group");
-            _tsmiCreateGroup.Click += tsmiCreateGroup_Click;
+            if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
             //
-            int index = cmsTree.Items.IndexOf(tsmiSpaceExpandColapse);
-            cmsTree.Items.Insert(index, _tsmiSpaceOrganize);
-            cmsTree.Items.Insert(index + 1, _tsmiCreateGroup);
+            while (cmsTreeSecondary.Items.Count > 0)
+            {
+                ToolStripItem item = cmsTreeSecondary.Items[0];
+                cmsTreeSecondary.Items.RemoveAt(0);
+                cmsTree.Items.Add(item);
+            }
         }
         private void InitializeOrderedDictionaryDragDrop(CodersLabTreeView tree)
         {
@@ -1336,8 +1335,8 @@ namespace UserControls
             oneAboveVisible |= visible;
             // Ordered dictionary organization
             bool createGroupVisible = CanCreateOrderedDictionaryGroup(tree);
-            _tsmiSpaceOrganize.Visible = createGroupVisible && oneAboveVisible;
-            _tsmiCreateGroup.Visible = createGroupVisible;
+            tsmiSpaceOrganize.Visible = createGroupVisible && oneAboveVisible;
+            tsmiCreateGroup.Visible = createGroupVisible;
             oneAboveVisible |= createGroupVisible;
             //Expand / Collapse                                     
             tsmiSpaceExpandColapse.Visible = oneAboveVisible;
@@ -2801,7 +2800,7 @@ namespace UserControls
                     // Geom Parts
                     if (model.Geometry != null)
                     {
-                        AddGeometryParts(model.Geometry.Parts);
+                        AddObjectsToNode(_geomPartsName, _geomParts, model.Geometry.Parts);
                         _geomParts.Expand();
                         // Mesh setup items
                         AddObjectsToNode(_meshSetupItemsName, _meshSetupItems, model.Geometry.MeshSetupItems);
@@ -3501,7 +3500,7 @@ namespace UserControls
                 {
                     TreeNode groupNode = parentNode.Nodes.Add("OrderedDictionaryGroup:" + layoutNode.Id.ToString("N"),
                                                               layoutNode.Name);
-                    SetNodeImage(groupNode, "Dots.ico");
+                    SetNodeImage(groupNode, "Folder.ico");
                     _orderedDictionaryGroups[groupNode] = new OrderedDictionaryGroupInfo
                     {
                         Context = context,
@@ -3533,51 +3532,6 @@ namespace UserControls
                 else if (child.Tag is NamedClass) count++;
             }
             return count;
-        }
-        private void AddGeometryParts(IDictionary<string, BasePart> parts)
-        {
-            HashSet<string> dependentPartNames = new HashSet<string>();
-            foreach (var entry in parts)
-            {
-                if (entry.Value is CompoundGeometryPart cgp)
-                {
-                    dependentPartNames.UnionWith(cgp.SubPartNames);
-                }
-            }
-            //
-            BasePart part;
-            BasePart subPart;
-            TreeNode nodeToAdd;
-            TreeNode subNodeToAdd;
-            foreach (var entry in parts)
-            {
-                part = entry.Value;
-                if (!dependentPartNames.Contains(part.Name))
-                {
-                    // Independent parts
-                    nodeToAdd = _geomParts.Nodes.Add(part.Name);
-                    nodeToAdd.Name = nodeToAdd.Text;
-                    nodeToAdd.Tag = part;
-                    SetNodeStatus(nodeToAdd);
-                    //Compound parts
-                    if (part is CompoundGeometryPart cgp)
-                    {
-                        for (int i = 0; i < cgp.SubPartNames.Length; i++)
-                        {
-                            subPart = parts[cgp.SubPartNames[i]];
-                            subNodeToAdd = nodeToAdd.Nodes.Add(subPart.Name);
-                            subNodeToAdd.Name = subNodeToAdd.Text;
-                            subNodeToAdd.Tag = subPart;
-                            SetNodeStatus(subNodeToAdd);
-                        }
-                        //
-                        nodeToAdd.Expand();
-                    }
-                }
-            }
-            //
-            if (_geomParts.Nodes.Count > 0) _geomParts.Text = _geomPartsName + " (" + _geomParts.Nodes.Count.ToString() + ")";
-            else _geomParts.Text = _geomPartsName;
         }
         private void AddSteps(List<Step> steps)
         {
