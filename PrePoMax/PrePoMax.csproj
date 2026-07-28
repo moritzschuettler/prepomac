@@ -132,6 +132,7 @@
     <Compile Include="Commands\0110_Results\00_Base\CRemoveAllResults.cs" />
     <Compile Include="Commands\000_General\CRenamePost.cs" />
     <Compile Include="Commands\000_General\CRenamePre.cs" />
+    <Compile Include="Commands\000_General\CSetOrderedDictionaryItemLayout.cs" />
     <Compile Include="Commands\0010_Edit\CSetCalculixUserKeywords.cs" />
     <Compile Include="Commands\0010_Edit\CSetCalculixKeywordEditorState.cs" />
     <Compile Include="Commands\0030_Geometry\01_Part\CResetColorForGeometryParts.cs" />

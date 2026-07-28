@@ -13325,6 +13325,190 @@ namespace PrePoMax
         
         #endregion #################################################################################################################
 
+        #region Ordered dictionary item layout  ####################################################################################
+        public void ChangeOrderedDictionaryItemLayoutCommand(OrderedDictionaryTreeLayoutChange change)
+        {
+            if (change == null) throw new ArgumentNullException("change");
+            //
+            ViewGeometryModelResults view = GetViewGeometryModelResults(change.View);
+            IOrderedDictionaryItemLayout<string> dictionary =
+                GetOrderedDictionaryItemLayout(change.ItemType, view, change.ParentName);
+            OrderedDictionaryItemLayout<string> oldLayout = dictionary.GetItemLayoutSnapshot();
+            OrderedDictionary<string, object> preview =
+                new OrderedDictionary<string, object>("Ordered dictionary item layout preview", dictionary.Comparer);
+            foreach (string key in dictionary.Keys) preview.Add(key, null);
+            preview.SetItemLayout(oldLayout);
+            //
+            string commandName;
+            string details;
+            switch (change.Action)
+            {
+                case OrderedDictionaryTreeLayoutAction.CreateGroup:
+                    Guid newGroupId = preview.CreateGroup(change.GroupName, change.TargetGroupId, change.TargetIndex);
+                    if (change.ItemNames != null && change.ItemNames.Length > 0)
+                        preview.MoveItems(change.ItemNames, newGroupId, 0);
+                    commandName = "Create tree group";
+                    details = change.GroupName;
+                    if (change.ItemNames != null && change.ItemNames.Length > 0)
+                        details += ": " + change.ItemNames.ToShortString();
+                    break;
+                case OrderedDictionaryTreeLayoutAction.RenameGroup:
+                    string oldGroupName = GetOrderedDictionaryGroupName(oldLayout.Nodes, change.GroupId.Value);
+                    preview.RenameGroup(change.GroupId.Value, change.GroupName);
+                    commandName = "Rename tree group";
+                    details = oldGroupName + " to " + change.GroupName;
+                    break;
+                case OrderedDictionaryTreeLayoutAction.RemoveGroup:
+                    if (change.GroupIds == null || change.GroupIds.Length == 0)
+                        throw new InvalidOperationException("No tree groups were selected for removal.");
+                    string[] removedGroupNames = change.GroupIds
+                        .Select(groupId => GetOrderedDictionaryGroupName(oldLayout.Nodes, groupId))
+                        .ToArray();
+                    foreach (Guid groupId in change.GroupIds) preview.RemoveGroup(groupId);
+                    commandName = change.GroupIds.Length == 1 ? "Remove tree group" : "Remove tree groups";
+                    details = removedGroupNames.ToShortString();
+                    break;
+                case OrderedDictionaryTreeLayoutAction.MoveItems:
+                    preview.MoveItems(change.ItemNames, change.TargetGroupId, change.TargetIndex);
+                    commandName = "Move tree items";
+                    details = change.ItemNames.ToShortString();
+                    break;
+                case OrderedDictionaryTreeLayoutAction.MoveGroup:
+                    preview.MoveGroup(change.GroupId.Value, change.TargetGroupId, change.TargetIndex);
+                    commandName = "Move tree group";
+                    details = change.GroupName;
+                    break;
+                default:
+                    throw new NotSupportedException();
+            }
+            //
+            OrderedDictionaryItemLayout<string> newLayout = preview.GetItemLayoutSnapshot();
+            if (OrderedDictionaryItemLayoutsEqual(oldLayout.Nodes, newLayout.Nodes, dictionary.Comparer)) return;
+            //
+            Command command;
+            if (view == ViewGeometryModelResults.Results)
+                command = new CSetResultOrderedDictionaryItemLayout(commandName, change.ItemType, view,
+                                                                    change.ParentName, newLayout, details);
+            else
+                command = new CSetOrderedDictionaryItemLayout(commandName, change.ItemType, view, change.ParentName,
+                                                              newLayout, details);
+            _commands.AddAndExecute(command);
+        }
+        public void SetOrderedDictionaryItemLayout(Type itemType, ViewGeometryModelResults view, string parentName,
+                                                   OrderedDictionaryItemLayout<string> itemLayout)
+        {
+            IOrderedDictionaryItemLayout<string> dictionary =
+                GetOrderedDictionaryItemLayout(itemType, view, parentName);
+            dictionary.SetItemLayout(itemLayout);
+            _form?.RegenerateTree(false);
+        }
+        private IOrderedDictionaryItemLayout<string> GetOrderedDictionaryItemLayout(
+            Type itemType, ViewGeometryModelResults view, string parentName)
+        {
+            IOrderedDictionaryItemLayout<string> dictionary = null;
+            //
+            if (view == ViewGeometryModelResults.Geometry)
+            {
+                if (itemType == typeof(MeshSetupItem)) dictionary = _model.Geometry.MeshSetupItems;
+                else if (typeof(BasePart).IsAssignableFrom(itemType)) dictionary = _model.Geometry.Parts;
+            }
+            else if (view == ViewGeometryModelResults.Model)
+            {
+                if (typeof(BasePart).IsAssignableFrom(itemType)) dictionary = _model.Mesh.Parts;
+                else if (itemType == typeof(FeNodeSet)) dictionary = _model.Mesh.NodeSets;
+                else if (itemType == typeof(FeElementSet)) dictionary = _model.Mesh.ElementSets;
+                else if (itemType == typeof(FeSurface)) dictionary = _model.Mesh.Surfaces;
+                else if (itemType == typeof(FeReferencePoint)) dictionary = _model.Mesh.ReferencePoints;
+                else if (itemType == typeof(CoordinateSystem)) dictionary = _model.Mesh.CoordinateSystems;
+                else if (itemType == typeof(Material)) dictionary = _model.Materials;
+                else if (itemType == typeof(Section)) dictionary = _model.Sections;
+                else if (itemType == typeof(CaeModel.Constraint)) dictionary = _model.Constraints;
+                else if (itemType == typeof(SurfaceInteraction)) dictionary = _model.SurfaceInteractions;
+                else if (itemType == typeof(ContactPair)) dictionary = _model.ContactPairs;
+                else if (itemType == typeof(Distribution)) dictionary = _model.Distributions;
+                else if (itemType == typeof(Amplitude)) dictionary = _model.Amplitudes;
+                else if (itemType == typeof(InitialCondition)) dictionary = _model.InitialConditions;
+                else if (itemType == typeof(AnalysisJob)) dictionary = _jobs;
+                else
+                {
+                    Step step = _model.StepCollection.GetStep(parentName);
+                    if (step == null) throw new KeyNotFoundException("The owning step was not found.");
+                    //
+                    if (itemType == typeof(HistoryOutput)) dictionary = step.HistoryOutputs;
+                    else if (itemType == typeof(FieldOutput)) dictionary = step.FieldOutputs;
+                    else if (itemType == typeof(BoundaryCondition)) dictionary = step.BoundaryConditions;
+                    else if (itemType == typeof(Load)) dictionary = step.Loads;
+                    else if (itemType == typeof(DefinedField)) dictionary = step.DefinedFields;
+                }
+            }
+            else if (view == ViewGeometryModelResults.Results)
+            {
+                FeResults results = CurrentResult;
+                if (results?.Mesh != null)
+                {
+                    if (typeof(BasePart).IsAssignableFrom(itemType)) dictionary = results.Mesh.Parts;
+                    else if (itemType == typeof(FeNodeSet)) dictionary = results.Mesh.NodeSets;
+                    else if (itemType == typeof(FeElementSet)) dictionary = results.Mesh.ElementSets;
+                    else if (itemType == typeof(FeSurface)) dictionary = results.Mesh.Surfaces;
+                    else if (itemType == typeof(FeReferencePoint)) dictionary = results.Mesh.ReferencePoints;
+                    else if (itemType == typeof(CoordinateSystem)) dictionary = results.Mesh.CoordinateSystems;
+                }
+            }
+            //
+            if (dictionary == null)
+                throw new NotSupportedException("The selected model-tree collection cannot be organized.");
+            return dictionary;
+        }
+        private static ViewGeometryModelResults GetViewGeometryModelResults(ViewType view)
+        {
+            if (view == ViewType.Geometry) return ViewGeometryModelResults.Geometry;
+            else if (view == ViewType.Model) return ViewGeometryModelResults.Model;
+            else if (view == ViewType.Results) return ViewGeometryModelResults.Results;
+            else throw new NotSupportedException();
+        }
+        private static string GetOrderedDictionaryGroupName(
+            IEnumerable<OrderedDictionaryItemNode<string>> nodes, Guid groupId)
+        {
+            foreach (OrderedDictionaryItemNode<string> node in nodes)
+            {
+                if (!node.IsGroup) continue;
+                if (node.Id == groupId) return node.Name;
+                string name = GetOrderedDictionaryGroupName(node.Children, groupId);
+                if (name != null) return name;
+            }
+            return null;
+        }
+        private static bool OrderedDictionaryItemLayoutsEqual(
+            IEnumerable<OrderedDictionaryItemNode<string>> first,
+            IEnumerable<OrderedDictionaryItemNode<string>> second,
+            IEqualityComparer<string> comparer)
+        {
+            OrderedDictionaryItemNode<string>[] firstNodes = first.ToArray();
+            OrderedDictionaryItemNode<string>[] secondNodes = second.ToArray();
+            if (firstNodes.Length != secondNodes.Length) return false;
+            //
+            for (int i = 0; i < firstNodes.Length; i++)
+            {
+                OrderedDictionaryItemNode<string> firstNode = firstNodes[i];
+                OrderedDictionaryItemNode<string> secondNode = secondNodes[i];
+                if (firstNode.NodeType != secondNode.NodeType) return false;
+                if (firstNode.IsItem)
+                {
+                    if (!comparer.Equals(firstNode.Key, secondNode.Key)) return false;
+                }
+                else
+                {
+                    if (firstNode.Id != secondNode.Id ||
+                        !String.Equals(firstNode.Name, secondNode.Name, StringComparison.Ordinal) ||
+                        !OrderedDictionaryItemLayoutsEqual(firstNode.Children, secondNode.Children, comparer))
+                        return false;
+                }
+            }
+            return true;
+        }
+
+        #endregion #################################################################################################################
+
         #region Activate Deactivate  ###############################################################################################
         // COMMANDS ********************************************************************************
         public void ActivateDeactivateMultipleCommand(NamedClass[] items, bool activate, string[] stepNames)

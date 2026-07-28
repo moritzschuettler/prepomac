@@ -208,6 +208,7 @@
     <Compile Include="ModelTree.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="OrderedDictionaryTreeLayoutChange.cs" />
     <Compile Include="ModelTree.Designer.cs">
       <DependentUpon>ModelTree.cs</DependentUpon>
     </Compile>

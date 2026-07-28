@@ -95,10 +95,31 @@ namespace UserControls
         Show,
         ShowOnly
     }
-
-
     public partial class ModelTree : UserControl
     {
+        private sealed class OrderedDictionaryTreeContext
+        {
+            public ViewType View;
+            public Type ItemType;
+            public string ParentName;
+            public IOrderedDictionaryItemLayout<string> Dictionary;
+            public TreeNode RootNode;
+        }
+        private sealed class OrderedDictionaryGroupInfo
+        {
+            public OrderedDictionaryTreeContext Context;
+            public Guid Id;
+            public string Name;
+        }
+        private sealed class OrderedDictionaryTreeDragData
+        {
+            public CodersLabTreeView Tree;
+            public TreeNode[] Nodes;
+            public OrderedDictionaryTreeContext Context;
+            public bool IsGroup;
+        }
+
+
         // Variables                                                                                                                
         private bool _screenUpdating;
         private bool _doubleClick;
@@ -106,6 +127,12 @@ namespace UserControls
         private bool _disableMouse;
         private bool _disableSelectionsChanged;
         private Dictionary<CodersLabTreeView, bool[]> _prevStates;
+        private Dictionary<TreeNode, OrderedDictionaryTreeContext> _orderedDictionaryContexts;
+        private Dictionary<TreeNode, OrderedDictionaryGroupInfo> _orderedDictionaryGroups;
+        private TreeNode _dragOverNode;
+        private Color _dragOverNodeBackColor;
+        private ToolStripSeparator _tsmiSpaceOrganize;
+        private ToolStripMenuItem _tsmiCreateGroup;
         // Geometry
         private TreeNode _geomParts;                // 1
         private TreeNode _meshSetupItems;           // 1
@@ -317,6 +344,7 @@ namespace UserControls
         public event Action<string> KillEvent;
         public event Action<NamedClass[], bool, string[]> ActivateDeactivateEvent;
         public event Action<NamedClass[], string[]> DeleteEvent;
+        public event Action<OrderedDictionaryTreeLayoutChange> OrderedDictionaryTreeLayoutChangeEvent;
         //
         public event Action<string[]> FieldDataSelectEvent;
         public event Action RenderingOn;
@@ -340,6 +368,13 @@ namespace UserControls
             cltvGeometry.CheckNodeName = CheckNodeName;
             cltvModel.CheckNodeName = CheckNodeName;
             cltvResults.CheckNodeName = CheckNodeName;
+            //
+            _orderedDictionaryContexts = new Dictionary<TreeNode, OrderedDictionaryTreeContext>();
+            _orderedDictionaryGroups = new Dictionary<TreeNode, OrderedDictionaryGroupInfo>();
+            InitializeOrderedDictionaryContextMenu();
+            InitializeOrderedDictionaryDragDrop(cltvGeometry);
+            InitializeOrderedDictionaryDragDrop(cltvModel);
+            InitializeOrderedDictionaryDragDrop(cltvResults);
             // Geometry
             _geomParts = cltvGeometry.Nodes.Find(_geomPartsName, true)[0];
             _meshSetupItems = cltvGeometry.Nodes.Find(_meshSetupItemsName, true)[0];
@@ -451,6 +486,13 @@ namespace UserControls
             else if (tcGeometryModelResults.SelectedTab == tpResults) return ViewType.Results;
             else throw new NotSupportedException();
         }
+        private ViewType GetViewType(CodersLabTreeView tree)
+        {
+            if (tree == cltvGeometry) return ViewType.Geometry;
+            else if (tree == cltvModel) return ViewType.Model;
+            else if (tree == cltvResults) return ViewType.Results;
+            else throw new NotSupportedException();
+        }
         private void tcGeometryModelResults_SelectedIndexChanged(object sender, EventArgs e)
         {
             GeometryMeshResultsEvent?.Invoke(GetViewType());
@@ -485,6 +527,689 @@ namespace UserControls
         #endregion
 
         #region Tree event handlers
+        private void InitializeOrderedDictionaryContextMenu()
+        {
+            _tsmiSpaceOrganize = new ToolStripSeparator();
+            _tsmiCreateGroup = new ToolStripMenuItem("Create group");
+            _tsmiCreateGroup.Click += tsmiCreateGroup_Click;
+            //
+            int index = cmsTree.Items.IndexOf(tsmiSpaceExpandColapse);
+            cmsTree.Items.Insert(index, _tsmiSpaceOrganize);
+            cmsTree.Items.Insert(index + 1, _tsmiCreateGroup);
+        }
+        private void InitializeOrderedDictionaryDragDrop(CodersLabTreeView tree)
+        {
+            tree.AllowDrop = true;
+            tree.ItemDrag += cltv_ItemDrag;
+            tree.DragEnter += cltv_DragEnter;
+            tree.DragOver += cltv_DragOver;
+            tree.DragDrop += cltv_DragDrop;
+            tree.DragLeave += cltv_DragLeave;
+        }
+        private bool TryGetOrderedDictionaryContext(TreeNode node, out OrderedDictionaryTreeContext context)
+        {
+            while (node != null)
+            {
+                if (_orderedDictionaryContexts.TryGetValue(node, out context)) return true;
+                node = node.Parent;
+            }
+            //
+            context = null;
+            return false;
+        }
+        private bool IsOrderedDictionaryItemNode(TreeNode node, OrderedDictionaryTreeContext context)
+        {
+            if (!(node?.Tag is NamedClass item) || context == null) return false;
+            //
+            foreach (string key in context.Dictionary.Keys)
+            {
+                if (context.Dictionary.Comparer.Equals(key, item.Name)) return true;
+            }
+            return false;
+        }
+        private bool CanCreateOrderedDictionaryGroup(CodersLabTreeView tree)
+        {
+            if (tree.SelectedNodes.Count == 0) return false;
+            if (tree.SelectedNodes.Count == 1)
+            {
+                TreeNode node = tree.SelectedNode;
+                if (_orderedDictionaryContexts.ContainsKey(node) || _orderedDictionaryGroups.ContainsKey(node))
+                    return true;
+            }
+            //
+            OrderedDictionaryTreeContext context = null;
+            foreach (TreeNode node in tree.SelectedNodes)
+            {
+                OrderedDictionaryTreeContext nodeContext;
+                if (!TryGetOrderedDictionaryContext(node, out nodeContext) ||
+                    !IsOrderedDictionaryItemNode(node, nodeContext))
+                    return false;
+                if (context == null) context = nodeContext;
+                else if (!ReferenceEquals(context, nodeContext)) return false;
+            }
+            return context != null;
+        }
+        private void tsmiCreateGroup_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                CodersLabTreeView tree = GetActiveTree();
+                if (!CanCreateOrderedDictionaryGroup(tree)) return;
+                //
+                OrderedDictionaryTreeContext context;
+                Guid? parentGroupId = null;
+                int index;
+                string[] itemNames = null;
+                TreeNode selectedNode = tree.SelectedNode;
+                OrderedDictionaryItemLayout<string> layout;
+                //
+                if (tree.SelectedNodes.Count == 1 &&
+                    _orderedDictionaryContexts.TryGetValue(selectedNode, out context))
+                {
+                    layout = context.Dictionary.GetItemLayoutSnapshot();
+                    index = layout.Nodes.Count;
+                }
+                else if (tree.SelectedNodes.Count == 1 &&
+                         _orderedDictionaryGroups.TryGetValue(selectedNode, out OrderedDictionaryGroupInfo groupInfo))
+                {
+                    context = groupInfo.Context;
+                    parentGroupId = groupInfo.Id;
+                    layout = context.Dictionary.GetItemLayoutSnapshot();
+                    index = GetLayoutChildren(layout.Nodes, parentGroupId.Value).Count;
+                }
+                else
+                {
+                    TryGetOrderedDictionaryContext(selectedNode, out context);
+                    layout = context.Dictionary.GetItemLayoutSnapshot();
+                    List<string> names = new List<string>();
+                    Guid? commonParentId = null;
+                    bool first = true;
+                    bool sameParent = true;
+                    int firstIndex = Int32.MaxValue;
+                    //
+                    foreach (TreeNode node in tree.SelectedNodes)
+                    {
+                        NamedClass item = (NamedClass)node.Tag;
+                        names.Add(item.Name);
+                        FindLayoutItem(layout.Nodes, item.Name, context.Dictionary.Comparer,
+                                       out Guid? itemParentId, out int itemIndex);
+                        if (first)
+                        {
+                            commonParentId = itemParentId;
+                            first = false;
+                        }
+                        else if (commonParentId != itemParentId) sameParent = false;
+                        if (itemIndex < firstIndex) firstIndex = itemIndex;
+                    }
+                    //
+                    itemNames = names.ToArray();
+                    if (sameParent)
+                    {
+                        parentGroupId = commonParentId;
+                        index = firstIndex;
+                    }
+                    else
+                    {
+                        parentGroupId = null;
+                        index = layout.Nodes.Count;
+                    }
+                }
+                //
+                string groupName = GetNextGroupName(layout, parentGroupId);
+                InvokeOrderedDictionaryTreeLayoutChangeAndExpandParent(
+                    new OrderedDictionaryTreeLayoutChange(context.View, context.ItemType, context.ParentName,
+                        OrderedDictionaryTreeLayoutAction.CreateGroup, itemNames, null, null, parentGroupId,
+                        index, groupName),
+                    context, parentGroupId);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void RemoveSelectedGroups()
+        {
+            try
+            {
+                CodersLabTreeView tree = GetActiveTree();
+                TreeNode[] groupNodes = tree.SelectedNodes.Cast<TreeNode>()
+                                                .Where(node => _orderedDictionaryGroups.ContainsKey(node))
+                                                .OrderByDescending(node => node.Level)
+                                                .ThenBy(node => node.Index)
+                                                .ToArray();
+                if (groupNodes.Length == 0 || groupNodes.Length != tree.SelectedNodes.Count) return;
+                //
+                OrderedDictionaryGroupInfo firstGroupInfo = _orderedDictionaryGroups[groupNodes[0]];
+                if (groupNodes.Any(node =>
+                    !ReferenceEquals(_orderedDictionaryGroups[node].Context, firstGroupInfo.Context)))
+                    return;
+                //
+                Guid? parentGroupId = null;
+                TreeNode commonParent = groupNodes[0].Parent;
+                if (groupNodes.All(node => ReferenceEquals(node.Parent, commonParent)) &&
+                    commonParent != null &&
+                    _orderedDictionaryGroups.TryGetValue(commonParent, out OrderedDictionaryGroupInfo parentGroupInfo))
+                    parentGroupId = parentGroupInfo.Id;
+                //
+                Guid[] groupIds = groupNodes.Select(node => _orderedDictionaryGroups[node].Id).ToArray();
+                string[] groupNames = groupNodes.Select(node => _orderedDictionaryGroups[node].Name).ToArray();
+                InvokeOrderedDictionaryTreeLayoutChangeAndExpandParent(
+                    new OrderedDictionaryTreeLayoutChange(firstGroupInfo.Context.View, firstGroupInfo.Context.ItemType,
+                        firstGroupInfo.Context.ParentName, OrderedDictionaryTreeLayoutAction.RemoveGroup, null,
+                        groupIds, null, null, -1, groupNames.ToShortString()),
+                    firstGroupInfo.Context, parentGroupId);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void InvokeOrderedDictionaryTreeLayoutChangeAndExpandParent(
+            OrderedDictionaryTreeLayoutChange change, OrderedDictionaryTreeContext previousContext,
+            Guid? parentGroupId)
+        {
+            CodersLabTreeView previousTree = previousContext.RootNode.TreeView as CodersLabTreeView;
+            Dictionary<string, bool> expandCollapseState = GetStableTreeExpandCollapseState(previousTree);
+            //
+            OrderedDictionaryTreeLayoutChangeEvent?.Invoke(change);
+            //
+            OrderedDictionaryTreeContext context = _orderedDictionaryContexts.Values.FirstOrDefault(
+                item => item.View == previousContext.View &&
+                        item.ItemType == previousContext.ItemType &&
+                        String.Equals(item.ParentName, previousContext.ParentName, StringComparison.Ordinal));
+            if (context == null) return;
+            //
+            CodersLabTreeView tree = context.RootNode.TreeView as CodersLabTreeView;
+            SetStableTreeExpandCollapseState(tree, expandCollapseState);
+            //
+            TreeNode parentNode = context.RootNode;
+            if (parentGroupId.HasValue)
+            {
+                parentNode = _orderedDictionaryGroups
+                    .Where(entry => ReferenceEquals(entry.Value.Context, context) &&
+                                    entry.Value.Id == parentGroupId.Value)
+                    .Select(entry => entry.Key)
+                    .FirstOrDefault();
+            }
+            //
+            TreeNode nodeToExpand = parentNode;
+            while (nodeToExpand != null)
+            {
+                nodeToExpand.Expand();
+                nodeToExpand = nodeToExpand.Parent;
+            }
+            //
+            if (change.Action == OrderedDictionaryTreeLayoutAction.CreateGroup)
+            {
+                TreeNode groupNode = _orderedDictionaryGroups
+                    .Where(entry => ReferenceEquals(entry.Value.Context, context) &&
+                                    String.Equals(entry.Value.Name, change.GroupName,
+                                                  StringComparison.OrdinalIgnoreCase))
+                    .Select(entry => entry.Key)
+                    .FirstOrDefault(node => ReferenceEquals(node.Parent, parentNode));
+                if (groupNode != null) tree.SelectedNode = groupNode;
+            }
+            else if (change.Action == OrderedDictionaryTreeLayoutAction.MoveItems)
+            {
+                SelectOrderedDictionaryItems(tree, context, change.ItemNames);
+            }
+            else if (change.Action == OrderedDictionaryTreeLayoutAction.MoveGroup && change.GroupId.HasValue)
+            {
+                TreeNode groupNode = _orderedDictionaryGroups
+                    .Where(entry => ReferenceEquals(entry.Value.Context, context) &&
+                                    entry.Value.Id == change.GroupId.Value)
+                    .Select(entry => entry.Key)
+                    .FirstOrDefault();
+                if (groupNode != null) tree.SelectedNode = groupNode;
+            }
+        }
+        private void SelectOrderedDictionaryItems(CodersLabTreeView tree, OrderedDictionaryTreeContext context,
+                                                  string[] itemNames)
+        {
+            if (tree == null || itemNames == null) return;
+            //
+            Dictionary<string, TreeNode> itemNodes =
+                new Dictionary<string, TreeNode>(context.Dictionary.Comparer);
+            GetOrderedDictionaryItemNodes(context.RootNode, context, itemNodes);
+            //
+            try
+            {
+                _disableSelectionsChanged = true;
+                var selectedNodes = tree.SelectedNodes;
+                selectedNodes.Clear();
+                foreach (string itemName in itemNames)
+                {
+                    if (itemNodes.TryGetValue(itemName, out TreeNode itemNode)) selectedNodes.Add(itemNode);
+                }
+            }
+            finally
+            {
+                _disableSelectionsChanged = false;
+            }
+            UpdateHighlight();
+        }
+        private void GetOrderedDictionaryItemNodes(TreeNode parentNode, OrderedDictionaryTreeContext context,
+                                                   Dictionary<string, TreeNode> itemNodes)
+        {
+            foreach (TreeNode node in parentNode.Nodes)
+            {
+                if (_orderedDictionaryGroups.TryGetValue(node, out OrderedDictionaryGroupInfo groupInfo) &&
+                    ReferenceEquals(groupInfo.Context, context))
+                {
+                    GetOrderedDictionaryItemNodes(node, context, itemNodes);
+                }
+                else if (IsOrderedDictionaryItemNode(node, context))
+                {
+                    NamedClass item = (NamedClass)node.Tag;
+                    itemNodes[item.Name] = node;
+                }
+            }
+        }
+        private Dictionary<string, bool> GetStableTreeExpandCollapseState(CodersLabTreeView tree)
+        {
+            Dictionary<string, bool> state = new Dictionary<string, bool>(StringComparer.Ordinal);
+            if (tree == null) return state;
+            //
+            foreach (TreeNode node in tree.Nodes) GetStableNodeExpandCollapseState(node, state);
+            return state;
+        }
+        private void GetStableNodeExpandCollapseState(TreeNode node, Dictionary<string, bool> state)
+        {
+            state[GetStableTreeNodeIdentity(node)] = node.IsExpanded;
+            foreach (TreeNode child in node.Nodes) GetStableNodeExpandCollapseState(child, state);
+        }
+        private void SetStableTreeExpandCollapseState(CodersLabTreeView tree, Dictionary<string, bool> state)
+        {
+            if (tree == null || state == null) return;
+            //
+            try
+            {
+                tree.BeginUpdate();
+                foreach (TreeNode node in tree.Nodes) SetStableNodeExpandCollapseState(node, state);
+            }
+            finally
+            {
+                tree.EndUpdate();
+            }
+        }
+        private void SetStableNodeExpandCollapseState(TreeNode node, Dictionary<string, bool> state)
+        {
+            if (state.TryGetValue(GetStableTreeNodeIdentity(node), out bool expanded))
+            {
+                if (expanded) node.Expand();
+                else node.Collapse();
+            }
+            //
+            foreach (TreeNode child in node.Nodes) SetStableNodeExpandCollapseState(child, state);
+        }
+        private string GetStableTreeNodeIdentity(TreeNode node)
+        {
+            if (_orderedDictionaryGroups.TryGetValue(node, out OrderedDictionaryGroupInfo groupInfo))
+                return "Group:" + groupInfo.Id.ToString("N");
+            //
+            Stack<string> names = new Stack<string>();
+            while (node != null)
+            {
+                names.Push(node.Name ?? "");
+                node = node.Parent;
+            }
+            //
+            StringBuilder identity = new StringBuilder("Path:");
+            foreach (string name in names)
+            {
+                identity.Append(name.Length);
+                identity.Append(':');
+                identity.Append(name);
+            }
+            return identity.ToString();
+        }
+        private static IList<OrderedDictionaryItemNode<string>> GetLayoutChildren(
+            IEnumerable<OrderedDictionaryItemNode<string>> nodes, Guid groupId)
+        {
+            foreach (OrderedDictionaryItemNode<string> node in nodes)
+            {
+                if (!node.IsGroup) continue;
+                if (node.Id == groupId) return node.Children;
+                IList<OrderedDictionaryItemNode<string>> children = GetLayoutChildren(node.Children, groupId);
+                if (children != null) return children;
+            }
+            return null;
+        }
+        private static void FindLayoutItem(IEnumerable<OrderedDictionaryItemNode<string>> nodes, string key,
+                                           IEqualityComparer<string> comparer, out Guid? parentGroupId,
+                                           out int index)
+        {
+            if (TryFindLayoutItem(nodes, key, comparer, null, out parentGroupId, out index)) return;
+            throw new KeyNotFoundException("The item was not found in the ordered dictionary layout.");
+        }
+        private static bool TryFindLayoutItem(IEnumerable<OrderedDictionaryItemNode<string>> nodes, string key,
+                                              IEqualityComparer<string> comparer, Guid? currentParentId,
+                                              out Guid? parentGroupId, out int index)
+        {
+            int currentIndex = 0;
+            foreach (OrderedDictionaryItemNode<string> node in nodes)
+            {
+                if (node.IsItem && comparer.Equals(node.Key, key))
+                {
+                    parentGroupId = currentParentId;
+                    index = currentIndex;
+                    return true;
+                }
+                if (node.IsGroup &&
+                    TryFindLayoutItem(node.Children, key, comparer, node.Id, out parentGroupId, out index))
+                    return true;
+                currentIndex++;
+            }
+            //
+            parentGroupId = null;
+            index = -1;
+            return false;
+        }
+        private static string GetNextGroupName(OrderedDictionaryItemLayout<string> layout, Guid? parentGroupId)
+        {
+            IEnumerable<OrderedDictionaryItemNode<string>> nodes = parentGroupId.HasValue
+                ? GetLayoutChildren(layout.Nodes, parentGroupId.Value)
+                : layout.Nodes;
+            HashSet<string> names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (OrderedDictionaryItemNode<string> node in nodes)
+            {
+                if (node.IsGroup) names.Add(node.Name);
+            }
+            //
+            string name = "Group";
+            int id = 1;
+            while (names.Contains(name)) name = "Group-" + id++;
+            return name;
+        }
+        private void cltv_ItemDrag(object sender, ItemDragEventArgs e)
+        {
+            try
+            {
+                CodersLabTreeView tree = (CodersLabTreeView)sender;
+                TreeNode[] nodes = tree.SelectedNodes.Cast<TreeNode>().ToArray();
+                if (nodes.Length == 0) return;
+                //
+                OrderedDictionaryTreeContext context = null;
+                bool isGroup = false;
+                if (nodes.Length == 1 &&
+                    _orderedDictionaryGroups.TryGetValue(nodes[0], out OrderedDictionaryGroupInfo groupInfo))
+                {
+                    context = groupInfo.Context;
+                    isGroup = true;
+                }
+                else
+                {
+                    foreach (TreeNode node in nodes)
+                    {
+                        OrderedDictionaryTreeContext nodeContext;
+                        if (!TryGetOrderedDictionaryContext(node, out nodeContext) ||
+                            !IsOrderedDictionaryItemNode(node, nodeContext))
+                            return;
+                        if (context == null) context = nodeContext;
+                        else if (!ReferenceEquals(context, nodeContext)) return;
+                    }
+                }
+                //
+                if (context == null) return;
+                OrderedDictionaryTreeDragData data = new OrderedDictionaryTreeDragData
+                {
+                    Tree = tree,
+                    Nodes = nodes,
+                    Context = context,
+                    IsGroup = isGroup
+                };
+                tree.DoDragDrop(data, DragDropEffects.Move);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+            finally
+            {
+                ClearDragOverNode();
+            }
+        }
+        private void cltv_DragEnter(object sender, DragEventArgs e)
+        {
+            e.Effect = e.Data.GetDataPresent(typeof(OrderedDictionaryTreeDragData))
+                ? DragDropEffects.Move
+                : DragDropEffects.None;
+        }
+        private void cltv_DragOver(object sender, DragEventArgs e)
+        {
+            CodersLabTreeView tree = (CodersLabTreeView)sender;
+            OrderedDictionaryTreeDragData data =
+                e.Data.GetData(typeof(OrderedDictionaryTreeDragData)) as OrderedDictionaryTreeDragData;
+            //
+            if (data == null || !ReferenceEquals(data.Tree, tree))
+            {
+                e.Effect = DragDropEffects.None;
+                ClearDragOverNode();
+                return;
+            }
+            //
+            Point point = tree.PointToClient(new Point(e.X, e.Y));
+            if (TryGetOrderedDictionaryDropTarget(tree, point, data, out TreeNode targetNode,
+                                                   out Guid? targetGroupId, out int targetIndex))
+            {
+                e.Effect = DragDropEffects.Move;
+                SetDragOverNode(targetNode);
+            }
+            else
+            {
+                e.Effect = DragDropEffects.None;
+                ClearDragOverNode();
+            }
+        }
+        private void cltv_DragDrop(object sender, DragEventArgs e)
+        {
+            try
+            {
+                CodersLabTreeView tree = (CodersLabTreeView)sender;
+                OrderedDictionaryTreeDragData data =
+                    e.Data.GetData(typeof(OrderedDictionaryTreeDragData)) as OrderedDictionaryTreeDragData;
+                if (data == null || !ReferenceEquals(data.Tree, tree)) return;
+                //
+                Point point = tree.PointToClient(new Point(e.X, e.Y));
+                if (!TryGetOrderedDictionaryDropTarget(tree, point, data, out TreeNode targetNode,
+                                                        out Guid? targetGroupId, out int targetIndex))
+                    return;
+                //
+                if (data.IsGroup)
+                {
+                    OrderedDictionaryGroupInfo groupInfo = _orderedDictionaryGroups[data.Nodes[0]];
+                    InvokeOrderedDictionaryTreeLayoutChangeAndExpandParent(
+                        new OrderedDictionaryTreeLayoutChange(data.Context.View, data.Context.ItemType,
+                            data.Context.ParentName, OrderedDictionaryTreeLayoutAction.MoveGroup, null, null,
+                            groupInfo.Id, targetGroupId, targetIndex, groupInfo.Name),
+                        data.Context, targetGroupId);
+                }
+                else
+                {
+                    string[] names = data.Nodes.Cast<TreeNode>()
+                                               .Select(node => ((NamedClass)node.Tag).Name)
+                                               .ToArray();
+                    InvokeOrderedDictionaryTreeLayoutChangeAndExpandParent(
+                        new OrderedDictionaryTreeLayoutChange(data.Context.View, data.Context.ItemType,
+                            data.Context.ParentName, OrderedDictionaryTreeLayoutAction.MoveItems, names, null, null,
+                            targetGroupId, targetIndex, null),
+                        data.Context, targetGroupId);
+                }
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+            finally
+            {
+                ClearDragOverNode();
+            }
+        }
+        private void cltv_DragLeave(object sender, EventArgs e)
+        {
+            ClearDragOverNode();
+        }
+        private bool TryGetOrderedDictionaryDropTarget(CodersLabTreeView tree, Point point,
+                                                        OrderedDictionaryTreeDragData data,
+                                                        out TreeNode targetNode, out Guid? targetGroupId,
+                                                        out int targetIndex)
+        {
+            targetNode = tree.GetNodeAt(point);
+            targetGroupId = null;
+            targetIndex = -1;
+            if (targetNode == null) return false;
+            //
+            OrderedDictionaryTreeContext targetContext;
+            if (!TryGetOrderedDictionaryContext(targetNode, out targetContext) ||
+                !ReferenceEquals(data.Context, targetContext))
+                return false;
+            //
+            OrderedDictionaryItemLayout<string> layout = data.Context.Dictionary.GetItemLayoutSnapshot();
+            if (ReferenceEquals(targetNode, data.Context.RootNode))
+            {
+                targetIndex = layout.Nodes.Count;
+            }
+            else if (_orderedDictionaryGroups.TryGetValue(targetNode, out OrderedDictionaryGroupInfo targetGroup))
+            {
+                // Without an insertion-line renderer, the highlighted group row has one
+                // unambiguous meaning: append the dragged nodes inside the group.
+                targetGroupId = targetGroup.Id;
+                targetIndex = GetLayoutChildren(layout.Nodes, targetGroup.Id).Count;
+            }
+            else if (IsOrderedDictionaryItemNode(targetNode, targetContext))
+            {
+                string key = ((NamedClass)targetNode.Tag).Name;
+                FindLayoutItem(layout.Nodes, key, targetContext.Dictionary.Comparer,
+                               out targetGroupId, out targetIndex);
+                // A row below the dragged nodes means after; a row above them means before.
+                // The result no longer depends on the vertical release point within the row.
+                if (ShouldInsertAfterDropTarget(data.Nodes, targetNode)) targetIndex++;
+            }
+            else return false;
+            //
+            if (data.IsGroup)
+            {
+                Guid groupId = _orderedDictionaryGroups[data.Nodes[0]].Id;
+                if (targetGroupId == groupId || IsLayoutGroupDescendant(layout.Nodes, groupId, targetGroupId))
+                    return false;
+            }
+            //
+            targetIndex = AdjustDropTargetIndex(layout, data, targetGroupId, targetIndex);
+            return targetIndex >= 0;
+        }
+        private static bool ShouldInsertAfterDropTarget(IEnumerable<TreeNode> draggedNodes, TreeNode targetNode)
+        {
+            bool sourceBeforeTarget = false;
+            bool sourceAfterTarget = false;
+            foreach (TreeNode draggedNode in draggedNodes)
+            {
+                if (ReferenceEquals(draggedNode, targetNode)) continue;
+                //
+                if (IsTreeNodeBefore(draggedNode, targetNode)) sourceBeforeTarget = true;
+                else if (IsTreeNodeBefore(targetNode, draggedNode)) sourceAfterTarget = true;
+            }
+            return sourceBeforeTarget && !sourceAfterTarget;
+        }
+        private static bool IsTreeNodeBefore(TreeNode firstNode, TreeNode secondNode)
+        {
+            TreeNode node = firstNode.NextVisibleNode;
+            while (node != null)
+            {
+                if (ReferenceEquals(node, secondNode)) return true;
+                node = node.NextVisibleNode;
+            }
+            return false;
+        }
+        private static void FindLayoutGroup(IEnumerable<OrderedDictionaryItemNode<string>> nodes, Guid groupId,
+                                            Guid? currentParentId, out Guid? parentGroupId, out int index)
+        {
+            if (TryFindLayoutGroup(nodes, groupId, currentParentId, out parentGroupId, out index)) return;
+            throw new KeyNotFoundException("The group was not found in the ordered dictionary layout.");
+        }
+        private static bool TryFindLayoutGroup(IEnumerable<OrderedDictionaryItemNode<string>> nodes, Guid groupId,
+                                               Guid? currentParentId, out Guid? parentGroupId, out int index)
+        {
+            int currentIndex = 0;
+            foreach (OrderedDictionaryItemNode<string> node in nodes)
+            {
+                if (node.IsGroup && node.Id == groupId)
+                {
+                    parentGroupId = currentParentId;
+                    index = currentIndex;
+                    return true;
+                }
+                if (node.IsGroup &&
+                    TryFindLayoutGroup(node.Children, groupId, node.Id, out parentGroupId, out index))
+                    return true;
+                currentIndex++;
+            }
+            //
+            parentGroupId = null;
+            index = -1;
+            return false;
+        }
+        private static bool IsLayoutGroupDescendant(IEnumerable<OrderedDictionaryItemNode<string>> nodes,
+                                                     Guid groupId, Guid? possibleDescendantId)
+        {
+            if (!possibleDescendantId.HasValue) return false;
+            foreach (OrderedDictionaryItemNode<string> node in nodes)
+            {
+                if (!node.IsGroup) continue;
+                if (node.Id == groupId) return ContainsLayoutGroup(node.Children, possibleDescendantId.Value);
+                if (IsLayoutGroupDescendant(node.Children, groupId, possibleDescendantId)) return true;
+            }
+            return false;
+        }
+        private static bool ContainsLayoutGroup(IEnumerable<OrderedDictionaryItemNode<string>> nodes, Guid groupId)
+        {
+            foreach (OrderedDictionaryItemNode<string> node in nodes)
+            {
+                if (!node.IsGroup) continue;
+                if (node.Id == groupId || ContainsLayoutGroup(node.Children, groupId)) return true;
+            }
+            return false;
+        }
+        private int AdjustDropTargetIndex(OrderedDictionaryItemLayout<string> layout,
+                                          OrderedDictionaryTreeDragData data, Guid? targetGroupId,
+                                          int targetIndex)
+        {
+            int beforeTarget = 0;
+            if (data.IsGroup)
+            {
+                OrderedDictionaryGroupInfo groupInfo = _orderedDictionaryGroups[data.Nodes[0]];
+                FindLayoutGroup(layout.Nodes, groupInfo.Id, null, out Guid? parentId, out int index);
+                if (parentId == targetGroupId && index < targetIndex) beforeTarget++;
+            }
+            else
+            {
+                foreach (TreeNode node in data.Nodes)
+                {
+                    string key = ((NamedClass)node.Tag).Name;
+                    FindLayoutItem(layout.Nodes, key, data.Context.Dictionary.Comparer,
+                                   out Guid? parentId, out int index);
+                    if (parentId == targetGroupId && index < targetIndex) beforeTarget++;
+                }
+            }
+            return targetIndex - beforeTarget;
+        }
+        private void SetDragOverNode(TreeNode node)
+        {
+            if (ReferenceEquals(_dragOverNode, node)) return;
+            ClearDragOverNode();
+            //
+            _dragOverNode = node;
+            _dragOverNodeBackColor = node.BackColor;
+            node.BackColor = Color.LightSteelBlue;
+        }
+        private void ClearDragOverNode()
+        {
+            if (_dragOverNode != null)
+            {
+                _dragOverNode.BackColor = _dragOverNodeBackColor;
+                _dragOverNode = null;
+            }
+        }
+
         private void PrepareToolStripItem(CodersLabTreeView tree)
         {
             int n = tree.SelectedNodes.Count;
@@ -609,13 +1334,24 @@ namespace UserControls
             tsmiActivate.Visible = visible;
             tsmiDeactivate.Visible = visible;
             oneAboveVisible |= visible;
+            // Ordered dictionary organization
+            bool createGroupVisible = CanCreateOrderedDictionaryGroup(tree);
+            _tsmiSpaceOrganize.Visible = createGroupVisible && oneAboveVisible;
+            _tsmiCreateGroup.Visible = createGroupVisible;
+            oneAboveVisible |= createGroupVisible;
             //Expand / Collapse                                     
             tsmiSpaceExpandColapse.Visible = oneAboveVisible;
             tsmiExpandAll.Visible = true;
             tsmiCollapseAll.Visible = true;
             oneAboveVisible = true;
             // Delete                                               
-            visible = menuFields.Delete == n;
+            TreeNode[] selectedGroupNodes = tree.SelectedNodes.Cast<TreeNode>()
+                                                     .Where(node => _orderedDictionaryGroups.ContainsKey(node))
+                                                     .ToArray();
+            bool compatibleGroupSelection = selectedGroupNodes.Length == n &&
+                selectedGroupNodes.Select(node => _orderedDictionaryGroups[node].Context).Distinct().Count() == 1;
+            visible = menuFields.Delete == n &&
+                      (selectedGroupNodes.Length == 0 || compatibleGroupSelection);
             tsmiSpaceDelete.Visible = visible && oneAboveVisible;
             tsmiDelete.Visible = visible;
             oneAboveVisible |= visible;
@@ -737,7 +1473,9 @@ namespace UserControls
                 else menuFields.ResultRepresentationOff++;
             }
             // Analysis
-            if (node.Parent == _analyses)
+            if (item is AnalysisJob &&
+                TryGetOrderedDictionaryContext(node, out OrderedDictionaryTreeContext analysisContext) &&
+                analysisContext.ItemType == typeof(AnalysisJob))
             {
                 menuFields.Run++;
                 menuFields.Monitor++;
@@ -751,7 +1489,11 @@ namespace UserControls
                 else menuFields.Activate++;
             }
             // Delete
-            if (item != null && !subPart)
+            if (_orderedDictionaryGroups.ContainsKey(node))
+            {
+                menuFields.Delete++;
+            }
+            else if (item != null && !subPart)
             {
                 if (node.TreeView == cltvResults &&
                     (item is FeNodeSet ||
@@ -908,7 +1650,10 @@ namespace UserControls
         {
             Debug.WriteLine(e.KeyData);
 
-            CodersLabTreeView tree = GetActiveTree();
+            CodersLabTreeView tree = sender as CodersLabTreeView ?? GetActiveTree();
+            // Let the native tree label editor consume Enter and Escape. Processing the
+            // model-tree shortcuts here can act on the rebuilt tree after a rename.
+            if (tree.EditModeActive) return;
             //if (tree.Focused) // Disable since called from FrmMain.KeyboardHook_KeyDown
             {
                 if (e.KeyCode == Keys.Delete)
@@ -930,16 +1675,47 @@ namespace UserControls
         }
         private void cltv_AfterLabelEdit(object sender, NodeLabelEditEventArgs e)
         {
+            if (e.Label == null) return;
             CodersLabTreeView tree = GetActiveTree();
             //
             if (tree.SelectedNodes.Count == 1)
             {
                 TreeNode selectedNode = tree.SelectedNode;
-                //
-                string stepName = GetStepNameFromNode(selectedNode);
-                // Accept rename
                 string newName = e.Label.Trim();
-                RenameEvent?.Invoke((NamedClass)e.Node.Tag, newName, stepName);
+                if (_orderedDictionaryGroups.TryGetValue(selectedNode, out OrderedDictionaryGroupInfo groupInfo))
+                {
+                    Guid? parentGroupId = null;
+                    if (selectedNode.Parent != null &&
+                        _orderedDictionaryGroups.TryGetValue(selectedNode.Parent,
+                                                             out OrderedDictionaryGroupInfo parentGroupInfo))
+                        parentGroupId = parentGroupInfo.Id;
+                    //
+                    OrderedDictionaryTreeLayoutChange change =
+                        new OrderedDictionaryTreeLayoutChange(groupInfo.Context.View, groupInfo.Context.ItemType,
+                            groupInfo.Context.ParentName, OrderedDictionaryTreeLayoutAction.RenameGroup, null, null,
+                            groupInfo.Id, null, -1, newName);
+                    OrderedDictionaryTreeContext previousContext = groupInfo.Context;
+                    //
+                    // Rebuilding the tree before the native label-edit message completes can
+                    // transfer its final Enter processing to a node in the rebuilt tree.
+                    BeginInvoke((MethodInvoker)(() =>
+                    {
+                        try
+                        {
+                            InvokeOrderedDictionaryTreeLayoutChangeAndExpandParent(
+                                change, previousContext, parentGroupId);
+                        }
+                        catch (Exception ex)
+                        {
+                            ExceptionTools.Show(this, ex);
+                        }
+                    }));
+                }
+                else if (e.Node.Tag is NamedClass item)
+                {
+                    string stepName = GetStepNameFromNode(selectedNode);
+                    RenameEvent?.Invoke(item, newName, stepName);
+                }
             }
         }
         private void timerMouseMove_Tick(object sender, EventArgs e)
@@ -968,10 +1744,12 @@ namespace UserControls
         }
         private string GetStepNameFromNode(TreeNode node)
         {
-            if (node.Parent != null && node.Parent.Parent != null && node.Parent.Parent.Tag is Step)
-                return node.Parent.Parent.Name;
-            else
-                return null;
+            while (node != null)
+            {
+                if (node.Tag is Step step) return step.Name;
+                node = node.Parent;
+            }
+            return null;
         }
         #endregion
 
@@ -1014,10 +1792,7 @@ namespace UserControls
                 //
                 if (selectedNode.Tag == null) return;
                 //
-                string stepName = null;
-                if (selectedNode.Parent != null && selectedNode.Parent.Parent != null &&
-                    selectedNode.Parent.Parent.Tag is Step)
-                    stepName = selectedNode.Parent.Parent.Name;
+                string stepName = GetStepNameFromNode(selectedNode);
                 //
                 EditEvent?.Invoke((NamedClass)selectedNode.Tag, stepName);
             }
@@ -1072,9 +1847,7 @@ namespace UserControls
                 {
                     if (selectedNode.Tag == null) continue;
                     //
-                    stepName = null;
-                    if (selectedNode.Parent != null && selectedNode.Parent.Parent != null && selectedNode.Parent.Parent.Tag is Step)
-                        stepName = selectedNode.Parent.Parent.Name;
+                    stepName = GetStepNameFromNode(selectedNode);
                     //
                     if (stepNames == null) continue;
                     //
@@ -1106,9 +1879,7 @@ namespace UserControls
                 {
                     if (selectedNode.Tag == null) continue;
                     //
-                    stepName = null;
-                    if (selectedNode.Parent != null && selectedNode.Parent.Parent != null && selectedNode.Parent.Parent.Tag is Step)
-                        stepName = selectedNode.Parent.Parent.Name;
+                    stepName = GetStepNameFromNode(selectedNode);
                     //
                     if (stepNames == null) continue;
                     //
@@ -1140,9 +1911,7 @@ namespace UserControls
                 {
                     if (selectedNode.Tag == null) continue;
                     //
-                    stepName = null;
-                    if (selectedNode.Parent != null && selectedNode.Parent.Parent != null && selectedNode.Parent.Parent.Tag is Step)
-                        stepName = selectedNode.Parent.Parent.Name;
+                    stepName = GetStepNameFromNode(selectedNode);
                     //
                     if (stepNames == null) continue;
                     //
@@ -1176,9 +1945,7 @@ namespace UserControls
                     if (CanHide(selectedNode.Tag))
                     {
                         items.Add((NamedClass)selectedNode.Tag);
-                        stepName = null;
-                        if (selectedNode.Parent != null && selectedNode.Parent.Parent != null && selectedNode.Parent.Parent.Tag is Step)
-                            stepName = selectedNode.Parent.Parent.Name;
+                        stepName = GetStepNameFromNode(selectedNode);
                         stepNames.Add(stepName);
                     }
                 }
@@ -1216,9 +1983,7 @@ namespace UserControls
                     if (CanHide(selectedNode.Tag))
                     {
                         items.Add((NamedClass)selectedNode.Tag);
-                        stepName = null;
-                        if (selectedNode.Parent != null && selectedNode.Parent.Parent != null && selectedNode.Parent.Parent.Tag is Step)
-                            stepName = selectedNode.Parent.Parent.Name;
+                        stepName = GetStepNameFromNode(selectedNode);
                         stepNames.Add(stepName);
                     }
                 }
@@ -1650,10 +2415,7 @@ namespace UserControls
                     if (CanDeactivate(selectedNode))
                     {
                         items.Add((NamedClass)selectedNode.Tag);
-                        stepName = null;
-                        if (selectedNode.Parent != null && selectedNode.Parent.Parent != null
-                            && selectedNode.Parent.Parent.Tag is Step)
-                            stepName = selectedNode.Parent.Parent.Name;
+                        stepName = GetStepNameFromNode(selectedNode);
                         stepNames.Add(stepName);
                     }
                 }
@@ -1688,6 +2450,16 @@ namespace UserControls
         {
             try
             {
+                CodersLabTreeView tree = GetActiveTree();
+                TreeNode[] selectedNodes = tree.SelectedNodes.Cast<TreeNode>().ToArray();
+                bool groupSelected = selectedNodes.Any(node => _orderedDictionaryGroups.ContainsKey(node));
+                if (groupSelected)
+                {
+                    if (selectedNodes.All(node => _orderedDictionaryGroups.ContainsKey(node)))
+                        RemoveSelectedGroups();
+                    return;
+                }
+                //
                 List<NamedClass> items = new List<NamedClass>();
                 string parentName;
                 List<string> parentNames = new List<string>();
@@ -1697,11 +2469,10 @@ namespace UserControls
                     if (selectedNode.Tag == null) continue;
                     //
                     items.Add((NamedClass)selectedNode.Tag);
-                    parentName = null;
-                    if (selectedNode.Parent != null && selectedNode.Parent.Parent != null) 
+                    parentName = GetStepNameFromNode(selectedNode);
+                    if (parentName == null && selectedNode.Parent != null && selectedNode.Parent.Parent != null)
                     {
-                        if (selectedNode.Parent.Parent.Tag is Step) parentName = selectedNode.Parent.Parent.Name;
-                        else if (selectedNode.Parent.Tag is Field) parentName = selectedNode.Parent.Text;
+                        if (selectedNode.Parent.Tag is Field) parentName = selectedNode.Parent.Text;
                         else if (selectedNode.Parent.Tag is ResultFieldOutput) parentName = selectedNode.Parent.Text;
                         else if (selectedNode.Parent.Tag is HistoryResultSet) parentName = selectedNode.Parent.Text;
                         else if (selectedNode.Parent.Tag is ResultHistoryOutput) parentName = selectedNode.Parent.Text;
@@ -1773,6 +2544,9 @@ namespace UserControls
         // Clear                                                                                                                    
         public void Clear()
         {
+            ClearDragOverNode();
+            _orderedDictionaryContexts.Clear();
+            _orderedDictionaryGroups.Clear();
             // Geometry
             cltvGeometry.SelectedNodes.Clear();
             cltvGeometry.Nodes.Clear();
@@ -1874,6 +2648,14 @@ namespace UserControls
         }
         public void ClearResults()
         {
+            foreach (TreeNode node in _orderedDictionaryContexts
+                         .Where(entry => entry.Value.View == ViewType.Results)
+                         .Select(entry => entry.Key).ToArray())
+                _orderedDictionaryContexts.Remove(node);
+            foreach (TreeNode node in _orderedDictionaryGroups
+                         .Where(entry => entry.Value.Context.View == ViewType.Results)
+                         .Select(entry => entry.Key).ToArray())
+                _orderedDictionaryGroups.Remove(node);
             cltvResults.SelectedNodes.Clear();
             cltvResults.Nodes.Clear();
             _resultModel.Nodes.Clear();
@@ -2391,7 +3173,10 @@ namespace UserControls
                 else throw new NotImplementedException();
                 //
                 parent.Text = parent.Name;
-                if (parent.Nodes.Count > 0) parent.Text += " (" + parent.Nodes.Count + ")";
+                int parentItemCount = _orderedDictionaryContexts.ContainsKey(parent)
+                    ? CountOrderedDictionaryItemNodes(parent)
+                    : parent.Nodes.Count;
+                if (parentItemCount > 0) parent.Text += " (" + parentItemCount + ")";
                 //
                 SetNodeStatus(node);
                 //
@@ -2643,13 +3428,22 @@ namespace UserControls
                 tree.SelectedNodes.Remove(tmp[0]);
                 _disableSelectionsChanged = false;
                 //
-                parent.Text = parent.Name;
-                if (parent.Tag is Field || parent.Tag is ResultFieldOutput ||
+                if (TryGetOrderedDictionaryContext(parent, out OrderedDictionaryTreeContext context))
+                {
+                    context.RootNode.Text = context.RootNode.Name;
+                    int itemCount = CountOrderedDictionaryItemNodes(context.RootNode);
+                    if (itemCount > 0) context.RootNode.Text += " (" + itemCount + ")";
+                }
+                else if (parent.Tag is Field || parent.Tag is ResultFieldOutput ||
                     parent.Tag is HistoryResultSet || parent.Tag is HistoryResultField || parent.Tag is ResultHistoryOutput)
                 {
                     SetNodeStatus(parent);  // remove dotted T icon
                 }
-                else if (parent.Nodes.Count > 0) parent.Text += " (" + parent.Nodes.Count + ")";
+                else
+                {
+                    parent.Text = parent.Name;
+                    if (parent.Nodes.Count > 0) parent.Text += " (" + parent.Nodes.Count + ")";
+                }
             }
             catch { }
             finally
@@ -2659,24 +3453,86 @@ namespace UserControls
             }
         }
         private void AddObjectsToNode<TKey, TVal>(string initialNodeName, TreeNode node, IDictionary<TKey, TVal> dictionary,
-                                                  bool countNodes = true)
+                                                  bool countNodes = true, string parentName = null)
         {
             TreeNode nodeToAdd;
             //
-            var list = dictionary.Keys.ToList();
-            //
-            foreach (var key in list)
+            if (dictionary is IOrderedDictionaryItemLayout<string> orderedDictionary &&
+                typeof(TKey) == typeof(string) && typeof(NamedClass).IsAssignableFrom(typeof(TVal)))
             {
-                if (dictionary[key] is NamedClass nc && nc.Internal) continue;
+                OrderedDictionaryTreeContext context = new OrderedDictionaryTreeContext
+                {
+                    View = GetViewType((CodersLabTreeView)node.TreeView),
+                    ItemType = typeof(TVal),
+                    ParentName = parentName,
+                    Dictionary = orderedDictionary,
+                    RootNode = node
+                };
+                _orderedDictionaryContexts[node] = context;
+                AddOrderedDictionaryLayoutNodes(node, orderedDictionary.GetItemLayoutSnapshot().Nodes,
+                                                dictionary, context);
+            }
+            else
+            {
+                var list = dictionary.Keys.ToList();
                 //
-                nodeToAdd = node.Nodes.Add(key.ToString());
-                nodeToAdd.Name = nodeToAdd.Text;
-                nodeToAdd.Tag = dictionary[key];
-                SetNodeStatus(nodeToAdd);
+                foreach (var key in list)
+                {
+                    if (dictionary[key] is NamedClass nc && nc.Internal) continue;
+                    //
+                    nodeToAdd = node.Nodes.Add(key.ToString());
+                    nodeToAdd.Name = nodeToAdd.Text;
+                    nodeToAdd.Tag = dictionary[key];
+                    SetNodeStatus(nodeToAdd);
+                }
             }
             //
-            if (countNodes && node.Nodes.Count > 0) node.Text = initialNodeName + " (" + node.Nodes.Count.ToString() + ")";
+            int itemCount = CountOrderedDictionaryItemNodes(node);
+            if (countNodes && itemCount > 0) node.Text = initialNodeName + " (" + itemCount.ToString() + ")";
             else node.Text = initialNodeName;
+        }
+        private void AddOrderedDictionaryLayoutNodes<TKey, TVal>(
+            TreeNode parentNode, IEnumerable<OrderedDictionaryItemNode<string>> layoutNodes,
+            IDictionary<TKey, TVal> dictionary, OrderedDictionaryTreeContext context)
+        {
+            foreach (OrderedDictionaryItemNode<string> layoutNode in layoutNodes)
+            {
+                if (layoutNode.IsGroup)
+                {
+                    TreeNode groupNode = parentNode.Nodes.Add("OrderedDictionaryGroup:" + layoutNode.Id.ToString("N"),
+                                                              layoutNode.Name);
+                    SetNodeImage(groupNode, "Dots.ico");
+                    _orderedDictionaryGroups[groupNode] = new OrderedDictionaryGroupInfo
+                    {
+                        Context = context,
+                        Id = layoutNode.Id,
+                        Name = layoutNode.Name
+                    };
+                    AddOrderedDictionaryLayoutNodes(groupNode, layoutNode.Children, dictionary, context);
+                    groupNode.Expand();
+                }
+                else
+                {
+                    TKey key = (TKey)(object)layoutNode.Key;
+                    if (!dictionary.TryGetValue(key, out TVal value)) continue;
+                    if (value is NamedClass nc && nc.Internal) continue;
+                    //
+                    TreeNode itemNode = parentNode.Nodes.Add(layoutNode.Key);
+                    itemNode.Name = itemNode.Text;
+                    itemNode.Tag = value;
+                    SetNodeStatus(itemNode);
+                }
+            }
+        }
+        private int CountOrderedDictionaryItemNodes(TreeNode node)
+        {
+            int count = 0;
+            foreach (TreeNode child in node.Nodes)
+            {
+                if (_orderedDictionaryGroups.ContainsKey(child)) count += CountOrderedDictionaryItemNodes(child);
+                else if (child.Tag is NamedClass) count++;
+            }
+            return count;
         }
         private void AddGeometryParts(IDictionary<string, BasePart> parts)
         {
@@ -2743,27 +3599,28 @@ namespace UserControls
             // History outputs
             tmp = stepNode.Nodes.Add(_modelHistoryOutputsName);
             tmp.Name = tmp.Text;
-            AddObjectsToNode<string, HistoryOutput>(_modelHistoryOutputsName, tmp, step.HistoryOutputs);
+            AddObjectsToNode<string, HistoryOutput>(_modelHistoryOutputsName, tmp, step.HistoryOutputs, true, step.Name);
             SetNodeImage(tmp, "History_output.ico");
             // Field outputs
             tmp = stepNode.Nodes.Add(_modelFieldOutputsName);
             tmp.Name = tmp.Text;
-            AddObjectsToNode<string, FieldOutput>(_modelFieldOutputsName, tmp, step.FieldOutputs);
+            AddObjectsToNode<string, FieldOutput>(_modelFieldOutputsName, tmp, step.FieldOutputs, true, step.Name);
             SetNodeImage(tmp, "Field_output.ico");
             // Boundary conditions
             tmp = stepNode.Nodes.Add(_boundaryConditionsName);
             tmp.Name = tmp.Text;
-            AddObjectsToNode<string, BoundaryCondition>(_boundaryConditionsName, tmp, step.BoundaryConditions);
+            AddObjectsToNode<string, BoundaryCondition>(_boundaryConditionsName, tmp, step.BoundaryConditions, true,
+                                                        step.Name);
             SetNodeImage(tmp, "Bc.ico");
             // Loads
             tmp = stepNode.Nodes.Add(_loadsName);
             tmp.Name = tmp.Text;
-            AddObjectsToNode<string, Load>(_loadsName, tmp, step.Loads);
+            AddObjectsToNode<string, Load>(_loadsName, tmp, step.Loads, true, step.Name);
             SetNodeImage(tmp, "Load.ico");
             // Defined fields
             tmp = stepNode.Nodes.Add(_definedFieldsName);
             tmp.Name = tmp.Text;
-            AddObjectsToNode<string, DefinedField>(_definedFieldsName, tmp, step.DefinedFields);
+            AddObjectsToNode<string, DefinedField>(_definedFieldsName, tmp, step.DefinedFields, true, step.Name);
             SetNodeImage(tmp, "Defined_field.ico");
             //
             stepNode.Expand();
@@ -2959,6 +3816,18 @@ namespace UserControls
         }
         private bool CheckNodeName(TreeNode node, string newName)
         {
+            if (_orderedDictionaryGroups.TryGetValue(node, out OrderedDictionaryGroupInfo groupInfo))
+            {
+                foreach (TreeNode sibling in node.Parent.Nodes)
+                {
+                    if (!ReferenceEquals(sibling, node) &&
+                        _orderedDictionaryGroups.TryGetValue(sibling, out OrderedDictionaryGroupInfo siblingInfo) &&
+                        String.Equals(siblingInfo.Name, newName, StringComparison.OrdinalIgnoreCase))
+                        return false;
+                }
+                return true;
+            }
+            //
             NamedClass item = (NamedClass)node.Tag;
             string stepName = GetStepNameFromNode(node);
             if (CheckItemName?.Invoke(item, newName, stepName) == false) return false;
@@ -3214,7 +4083,8 @@ namespace UserControls
         }
         private bool CanRename(TreeNode node)
         {
-            if (node.Tag is BasePart) return true;
+            if (_orderedDictionaryGroups.ContainsKey(node)) return true;
+            else if (node.Tag is BasePart) return true;
             else if (node.Tag is MeshSetupItem) return true;
             //
             else if (node.Tag is FeNodeSet) return true;
