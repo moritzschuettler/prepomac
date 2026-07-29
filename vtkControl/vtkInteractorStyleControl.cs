@@ -137,6 +137,7 @@ namespace vtkControl
         protected List<vtkMaxBorderWidget> _reversedWidgets;
         protected vtkMaxBorderWidget _capturedWidget;
         protected bool _capturedWidgetPromoted;
+        protected bool _widgetHighlightEnabled;
         protected bool _widgetLocalHighlightEnabled;
 
 
@@ -199,6 +200,7 @@ namespace vtkControl
             _reversedWidgets = new List<vtkMaxBorderWidget>();
             _capturedWidget = null;
             _capturedWidgetPromoted = false;
+            _widgetHighlightEnabled = true;
             _widgetLocalHighlightEnabled = true;
             //
             this.LeftButtonPressEvt += vtkInteractorStyleControl_LeftButtonPressEvt;
@@ -768,6 +770,14 @@ namespace vtkControl
             foreach (vtkMaxBorderWidget widget in _widgets) widget.SetLocalHighlightEnabled(enabled);
             RefreshWidgetHighlights();
         }
+        public void SetWidgetHighlightEnabled(bool enabled)
+        {
+            if (_widgetHighlightEnabled == enabled) return;
+            //
+            _widgetHighlightEnabled = enabled;
+            if (enabled) RefreshWidgetHighlights();
+            else ClearWidgetHighlights();
+        }
         private bool ClearWidgetHighlightsInternal()
         {
             bool highlightChanged = false;
@@ -791,6 +801,8 @@ namespace vtkControl
         }
         private bool UpdateWidgetHighlights(int x, int y)
         {
+            if (!_widgetHighlightEnabled) return ClearWidgetHighlightsInternal();
+            //
             vtkMaxBorderWidget highlightedWidget = _capturedWidget;
             if (highlightedWidget == null)
             {

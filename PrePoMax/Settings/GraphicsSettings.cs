@@ -42,6 +42,7 @@ namespace PrePoMax
         private Color _bottomColor;
         private bool _coorSysVisibility;
         private bool _scaleWidgetVisibility;
+        private bool _widgetHighlightEnabled;
         private double _ambientComponent;
         private double _diffuseComponent;
         private bool _pointSmoothing;
@@ -77,6 +78,11 @@ namespace PrePoMax
         public Color BottomColor { get { return _bottomColor; } set { _bottomColor = value; } }
         public bool CoorSysVisibility { get { return _coorSysVisibility; } set { _coorSysVisibility = value; } }
         public bool ScaleWidgetVisibility { get { return _scaleWidgetVisibility; } set { _scaleWidgetVisibility = value; } }
+        public bool WidgetHighlightEnabled
+        {
+            get { return _widgetHighlightEnabled; }
+            set { _widgetHighlightEnabled = value; }
+        }
         public double AmbientComponent
         {
             get { return _ambientComponent; }
@@ -142,6 +148,7 @@ namespace PrePoMax
             _bottomColor = Color.WhiteSmoke;
             _coorSysVisibility = true;
             _scaleWidgetVisibility = true;
+            _widgetHighlightEnabled = true;
             _ambientComponent = 0.6;
             _diffuseComponent = 0.6;
             _pointSmoothing = true;

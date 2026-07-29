@@ -31,7 +31,7 @@ namespace UserControls.Properties {
         [global::System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
         internal Resources() {
         }
-
+        
         /// <summary>
         ///   Returns the cached ResourceManager instance used by this class.
         /// </summary>
@@ -116,6 +116,16 @@ namespace UserControls.Properties {
         internal static System.Drawing.Bitmap Color_contours {
             get {
                 object obj = ResourceManager.GetObject("Color_contours", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap Color_palette {
+            get {
+                object obj = ResourceManager.GetObject("Color_palette", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -219,7 +229,7 @@ namespace UserControls.Properties {
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>

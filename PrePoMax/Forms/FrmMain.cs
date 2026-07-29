@@ -74,7 +74,8 @@ namespace PrePoMax
         private bool _closeAfterRegeneration;
         private float _prevScaleFactor;
         private bool _suppressSymbolChanged;
-        private bool _legendMinimumColor;
+        private vtkResultWidgetContextMenuTypeEnum _resultWidgetContextMenuType;
+        private bool _resultWidgetContextMenuMinimum;
         //
         private Point _formLocation;
         private List<Form> _allForms;
@@ -381,7 +382,7 @@ namespace PrePoMax
                 _vtk.Controller_ActorsPicked = SelectBaseParts;
                 _vtk.Form_EditLegendValue = StartEditLegendValue;
                 _vtk.Form_SetLegendColor = SetLegendColor;
-                _vtk.Form_ShowLegendColorContextMenu = ShowLegendColorContextMenu;
+                _vtk.Form_ShowResultWidgetContextMenu = ShowResultWidgetContextMenu;
                 _vtk.Form_ShowColorBarSettings = ShowColorBarSettings;
                 _vtk.Form_ShowLegendSettings = ShowLegendSettings;
                 _vtk.Form_ShowStatusBlockSettings = ShowStatusBlockSettings;
@@ -1611,7 +1612,7 @@ namespace PrePoMax
             {
                 CancelViewportEdit();
                 cmsAnnotation.Close();
-                cmsLegendColor.Close();
+                cmsResultWidget.Close();
             }
             //
             _vtk.SetWidgetInteractionEnabled(menusActive);
@@ -7523,23 +7524,66 @@ namespace PrePoMax
             _frmSettings.SetSettingsToShow(Globals.LegendSettingsName);
             tsmiSettings_Click(null, null);
         }
-        private void ShowLegendColorContextMenu(bool minimumColor, Point vtkPoint)
+        private void ShowResultWidgetContextMenu(vtkResultWidgetContextMenuTypeEnum contextMenuType,
+                                                 bool minimum, Point vtkPoint)
         {
-            _legendMinimumColor = minimumColor;
+            _resultWidgetContextMenuType = contextMenuType;
+            _resultWidgetContextMenuMinimum = minimum;
+            //
+            bool legendValue = contextMenuType == vtkResultWidgetContextMenuTypeEnum.LegendValue;
+            bool legendColor = contextMenuType == vtkResultWidgetContextMenuTypeEnum.LegendColor;
+            bool legend = contextMenuType == vtkResultWidgetContextMenuTypeEnum.Legend;
+            bool statusBlock = contextMenuType == vtkResultWidgetContextMenuTypeEnum.StatusBlock;
+            //
+            tsmiEditLegendValue.Visible = legendValue;
+            tsmiSetLegendColor.Visible = legendColor;
+            tsmiHideLegendColor.Visible = legendColor;
+            tsmiResultWidgetSettings.Visible = legend || statusBlock;
+            tsmiResetLegend.Visible = legend;
             //
             int x = Math.Max(0, Math.Min(vtkPoint.X, _vtk.Width - 1));
             int y = Math.Max(0, Math.Min(_vtk.Height - 1 - vtkPoint.Y, _vtk.Height - 1));
-            cmsLegendColor.Show(_vtk, new Point(x, y));
+            _vtk.SetWidgetHighlightLocked(true);
+            cmsResultWidget.Show(_vtk, new Point(x, y));
+        }
+        private void cmsViewportWidget_Closed(object sender, ToolStripDropDownClosedEventArgs e)
+        {
+            _vtk.SetWidgetHighlightLocked(false);
+        }
+        private void tsmiEditLegendValue_Click(object sender, EventArgs e)
+        {
+            if (_resultWidgetContextMenuType != vtkResultWidgetContextMenuTypeEnum.LegendValue) return;
+            //
+            if (_vtk.TryGetScalarBarValueEditData(_resultWidgetContextMenuMinimum, out Rectangle rectangle,
+                                                  out string valueText, out double minimum, out double maximum))
+            {
+                StartEditLegendValue(_resultWidgetContextMenuMinimum, rectangle, valueText, minimum, maximum);
+            }
         }
         private void tsmiSetLegendColor_Click(object sender, EventArgs e)
         {
-            SetLegendColor(_legendMinimumColor);
+            SetLegendColor(_resultWidgetContextMenuMinimum);
         }
         private void tsmiHideLegendColor_Click(object sender, EventArgs e)
         {
             SettingsContainer settings = _controller.Settings;
-            if (_legendMinimumColor) settings.Legend.ColorSpectrum.MinColorVisible = false;
+            if (_resultWidgetContextMenuMinimum) settings.Legend.ColorSpectrum.MinColorVisible = false;
             else settings.Legend.ColorSpectrum.MaxColorVisible = false;
+            _controller.Settings = settings;
+        }
+        private void tsmiResultWidgetSettings_Click(object sender, EventArgs e)
+        {
+            if (_resultWidgetContextMenuType == vtkResultWidgetContextMenuTypeEnum.StatusBlock)
+                ShowStatusBlockSettings();
+            else if (_resultWidgetContextMenuType == vtkResultWidgetContextMenuTypeEnum.Legend)
+                ShowLegendSettings();
+        }
+        private void tsmiResetLegend_Click(object sender, EventArgs e)
+        {
+            if (_resultWidgetContextMenuType != vtkResultWidgetContextMenuTypeEnum.Legend) return;
+            //
+            SettingsContainer settings = _controller.Settings;
+            settings.Legend.Reset();
             _controller.Settings = settings;
         }
         private void SetLegendColor(bool minimumColor)
@@ -7757,6 +7801,7 @@ namespace PrePoMax
                 tsmiEditAnnotation.Enabled = !reserved;
                 tsmiResetAnnotation.Enabled = !reserved;
                 tsmiDeleteAnnotation.Enabled = !reserved;
+                _vtk.SetWidgetHighlightLocked(true);
                 cmsAnnotation.Show(_vtk, new Point(e.X, _vtk.Height-  e.Y));
             }
         }
@@ -10648,6 +10693,10 @@ namespace PrePoMax
         public void SetScaleWidgetVisibility(bool visibility)
         {
             InvokeIfRequired(_vtk.SetScaleWidgetVisibility, visibility);
+        }
+        public void SetWidgetHighlightEnabled(bool enabled)
+        {
+            InvokeIfRequired(_vtk.SetWidgetHighlightEnabled, enabled);
         }
         private void SetScaleWidgetUnit(UnitSystem unitSystem)
         {

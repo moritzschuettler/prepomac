@@ -114,6 +114,15 @@ namespace PrePoMax.Settings
             get { return _graphicsSettings.ScaleWidgetVisibility; }
             set { _graphicsSettings.ScaleWidgetVisibility = value; }
         }
+        //
+        [CategoryAttribute("Widgets")]
+        [OrderedDisplayName(2, 10, "Widget highlighting")]
+        [DescriptionAttribute("Highlight viewport widgets and their interactive parts when the mouse pointer is over them.")]
+        public bool WidgetHighlightEnabled
+        {
+            get { return _graphicsSettings.WidgetHighlightEnabled; }
+            set { _graphicsSettings.WidgetHighlightEnabled = value; }
+        }
         // Lighting                                                                                 
         [CategoryAttribute("Lighting")]
         [OrderedDisplayName(0, 10, "Ambient component")]
@@ -203,6 +212,7 @@ namespace PrePoMax.Settings
             // Now lets display On/Off instead of True/False
             _dctd.RenameBooleanPropertyToOnOff(nameof(CoorSysVisibility));
             _dctd.RenameBooleanPropertyToOnOff(nameof(ScaleWidgetVisibility));
+            _dctd.RenameBooleanPropertyToOnOff(nameof(WidgetHighlightEnabled));
             _dctd.RenameBooleanPropertyToOnOff(nameof(PointSmoothing));
             _dctd.RenameBooleanPropertyToOnOff(nameof(LineSmoothing));
             _dctd.RenameBooleanProperty(nameof(LinearDeflectionRelative), "Relative", "Absolute");

@@ -455,9 +455,7 @@ namespace vtkControl
                 rectangle = highlightEntireWidget && !internalHighlight ? displayRectangle : localRectangle;
             }
             //
-            double fillOpacity = internalHighlight
-                ? vtkMaxWidgetHighlight.InternalFillOpacity
-                : vtkMaxWidgetHighlight.WidgetFillOpacity;
+            double fillOpacity = GetHighlightFillOpacity(rectangle);
             return _highlight.SetRectangle(rectangle, fillOpacity);
         }
         public bool ClearMouseHover()
@@ -525,6 +523,10 @@ namespace vtkControl
         {
             Rectangle rectangle = GetDisplayRectangle();
             return rectangle.Contains(x, y) ? rectangle : Rectangle.Empty;
+        }
+        protected virtual double GetHighlightFillOpacity(Rectangle rectangle)
+        {
+            return vtkMaxWidgetHighlight.WidgetFillOpacity;
         }
         protected double[] GetDisplayTopLeftPoint()
         {

@@ -80,6 +80,8 @@ namespace vtkControl
         private vtkMaxStatusBlockWidget _statusBlockWidget;
         private vtkInteractorStyleControl _style;
         private bool _widgetInteractionEnabled;
+        private bool _widgetHighlightEnabled;
+        private bool _widgetHighlightLocked;
         private bool _keepScalarBarVisible;
         private bool _drawCoorSys;
         private bool _drawStatusBlock;
@@ -283,7 +285,7 @@ namespace vtkControl
         public Action<MouseEventArgs, Keys, string, Rectangle> Form_WidgetPicked;
         public Action<bool, Rectangle, string, double, double> Form_EditLegendValue;
         public Action<bool> Form_SetLegendColor;
-        public Action<bool, System.Drawing.Point> Form_ShowLegendColorContextMenu;
+        public Action<vtkResultWidgetContextMenuTypeEnum, bool, System.Drawing.Point> Form_ShowResultWidgetContextMenu;
         public Action Form_ShowColorBarSettings;
         public Action Form_ShowLegendSettings;
         public Action Form_ShowStatusBlockSettings;
@@ -312,6 +314,7 @@ namespace vtkControl
             _drawCoorSys = true;
             _drawStatusBlock = true;
             _widgetInteractionEnabled = true;
+            _widgetHighlightEnabled = true;
             _edgesVisibility = vtkEdgesVisibility.ElementEdges;
             _colorSpectrum = new vtkMaxColorSpectrum();
             //
@@ -420,7 +423,7 @@ namespace vtkControl
         void style_LeaveEvt(vtkObject sender, vtkObjectEventArgs e)
         {
             if (_mouseIn) _mouseIn = false;
-            _style.ClearWidgetHighlights();
+            if (!_widgetHighlightLocked) _style.ClearWidgetHighlights();
             _renderWindow.SetCurrentCursor(0);  // Default
         }
         private void style_MouseInteractionEvent()
@@ -653,10 +656,28 @@ namespace vtkControl
             {
                 Form_WidgetPicked(e, Keys.None, widget.GetName(), widget.GetRectangle());
             }
-            else if (sender != null && sender is vtkMaxScalarBarWidget scalarBarWidget &&
-                     scalarBarWidget.TryGetUserColorData(e.X, e.Y, out bool minimumColor, out Rectangle rectangle))
+            else if (sender is vtkMaxScalarBarWidget scalarBarWidget)
             {
-                Form_ShowLegendColorContextMenu?.Invoke(minimumColor, e.Location);
+                vtkResultWidgetContextMenuTypeEnum contextMenuType;
+                bool minimum = false;
+                //
+                if (scalarBarWidget.TryGetUserColorData(e.X, e.Y, out minimum, out Rectangle colorRectangle))
+                {
+                    contextMenuType = vtkResultWidgetContextMenuTypeEnum.LegendColor;
+                }
+                else if (scalarBarWidget.TryGetValueEditData(e.X, e.Y, out minimum, out Rectangle valueRectangle,
+                                                             out string valueText, out double min, out double max))
+                {
+                    contextMenuType = vtkResultWidgetContextMenuTypeEnum.LegendValue;
+                }
+                else contextMenuType = vtkResultWidgetContextMenuTypeEnum.Legend;
+                //
+                Form_ShowResultWidgetContextMenu?.Invoke(contextMenuType, minimum, e.Location);
+            }
+            else if (sender is vtkMaxStatusBlockWidget)
+            {
+                Form_ShowResultWidgetContextMenu?.Invoke(vtkResultWidgetContextMenuTypeEnum.StatusBlock,
+                                                         false, e.Location);
             }
             else
             {
@@ -1839,6 +1860,7 @@ namespace vtkControl
             _coorSys.InteractiveOff();  // must be after enabled ???
             // Interactor style
             _style = vtkInteractorStyleControl.New();
+            _style.SetWidgetHighlightEnabled(_widgetHighlightEnabled);
             _style.AutoAdjustCameraClippingRangeOn();
             _style.SetDefaultRenderer(_renderer);
             _style.SetCurrentRenderer(_renderer);
@@ -7848,6 +7870,16 @@ namespace vtkControl
             //
             if (_style != null) _style.SetWidgetLocalHighlightEnabled(enabled);
             RenderScene();
+        }
+        public void SetWidgetHighlightLocked(bool locked)
+        {
+            _widgetHighlightLocked = locked;
+            if (!locked && _style != null) _style.ClearWidgetHighlights();
+        }
+        public void SetWidgetHighlightEnabled(bool enabled)
+        {
+            _widgetHighlightEnabled = enabled;
+            if (_style != null) _style.SetWidgetHighlightEnabled(enabled);
         }
         public void ResetScaleBarPosition()
         {

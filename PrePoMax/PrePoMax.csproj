@@ -1259,6 +1259,7 @@
     <None Include="Icons\Tools\Arrange_annotations.ico" />
     <None Include="Icons\Keywords editor\Add.ico" />
     <None Include="Icons\File\Save_as.ico" />
+    <None Include="Icons\Common\Color_palette.ico" />
     <Content Include="main.ico" />
   </ItemGroup>
   <ItemGroup>

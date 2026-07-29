@@ -414,6 +414,16 @@ namespace vtkControl
             //
             return base.GetHighlightRectangle(x, y);
         }
+        protected override double GetHighlightFillOpacity(Rectangle rectangle)
+        {
+            Rectangle minimumColorRectangle = GetUserColorRectangle(true);
+            Rectangle maximumColorRectangle = GetUserColorRectangle(false);
+            if (rectangle != Rectangle.Empty &&
+                (rectangle == minimumColorRectangle || rectangle == maximumColorRectangle))
+                return vtkMaxWidgetHighlight.ColorRectangleFillOpacity;
+            //
+            return base.GetHighlightFillOpacity(rectangle);
+        }
         private void GenerateBarBorders(double offsetX, double offsetY, double boxWidth, double boxHeight, double verticalLineLength)
         {
             vtkPoints scalarBarPoints = vtkPoints.New();

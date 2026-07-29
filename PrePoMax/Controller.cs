@@ -11514,6 +11514,7 @@ namespace PrePoMax
             _form.SetBackground(gs.BackgroundType == BackgroundType.Gradient, gs.TopColor, gs.BottomColor, false);
             _form.SetCoorSysVisibility(gs.CoorSysVisibility);
             _form.SetScaleWidgetVisibility(gs.ScaleWidgetVisibility);
+            _form.SetWidgetHighlightEnabled(gs.WidgetHighlightEnabled);
             _form.SetLighting(gs.AmbientComponent, gs.DiffuseComponent, false);
             _form.SetSmoothing(gs.PointSmoothing, gs.LineSmoothing, false);
             // Color settings

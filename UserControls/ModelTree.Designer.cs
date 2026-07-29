@@ -414,7 +414,7 @@ namespace UserControls
             this.tsmiMergeByMasterSlave.Size = new System.Drawing.Size(211, 22);
             this.tsmiMergeByMasterSlave.Text = "Merge by Master/Slave";
             this.tsmiMergeByMasterSlave.Click += new System.EventHandler(this.tsmiMergeByMasterSlave_Click);
-            //
+            // 
             // cmsTreeSecondary
             // 
             this.cmsTreeSecondary.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -446,8 +446,8 @@ namespace UserControls
             this.tsmiSpaceDelete,
             this.tsmiDelete});
             this.cmsTreeSecondary.Name = "cmsTreeSecondary";
-            this.cmsTreeSecondary.Size = new System.Drawing.Size(209, 470);
-            //
+            this.cmsTreeSecondary.Size = new System.Drawing.Size(209, 492);
+            // 
             // tsmiSpaceHideShow
             // 
             this.tsmiSpaceHideShow.Name = "tsmiSpaceHideShow";
@@ -484,6 +484,7 @@ namespace UserControls
             // 
             // tsmiSetColor
             // 
+            this.tsmiSetColor.Image = global::UserControls.Properties.Resources.Color_palette;
             this.tsmiSetColor.Name = "tsmiSetColor";
             this.tsmiSetColor.Size = new System.Drawing.Size(208, 22);
             this.tsmiSetColor.Text = "Set Color";
@@ -531,6 +532,7 @@ namespace UserControls
             // 
             // tsmiRun
             // 
+            this.tsmiRun.Image = global::UserControls.Properties.Resources.Run;
             this.tsmiRun.Name = "tsmiRun";
             this.tsmiRun.Size = new System.Drawing.Size(208, 22);
             this.tsmiRun.Text = "Run";
@@ -583,20 +585,20 @@ namespace UserControls
             this.tsmiDeactivate.Size = new System.Drawing.Size(208, 22);
             this.tsmiDeactivate.Text = "Deactivate";
             this.tsmiDeactivate.Click += new System.EventHandler(this.ActivateDeactivate_Click);
-            //
+            // 
             // tsmiSpaceOrganize
-            //
+            // 
             this.tsmiSpaceOrganize.Name = "tsmiSpaceOrganize";
             this.tsmiSpaceOrganize.Size = new System.Drawing.Size(205, 6);
-            //
+            // 
             // tsmiCreateGroup
-            //
+            // 
             this.tsmiCreateGroup.Image = global::UserControls.Properties.Resources.Folder;
             this.tsmiCreateGroup.Name = "tsmiCreateGroup";
             this.tsmiCreateGroup.Size = new System.Drawing.Size(208, 22);
             this.tsmiCreateGroup.Text = "Create group";
             this.tsmiCreateGroup.Click += new System.EventHandler(this.tsmiCreateGroup_Click);
-            //
+            // 
             // tsmiSpaceExpandColapse
             // 
             this.tsmiSpaceExpandColapse.Name = "tsmiSpaceExpandColapse";

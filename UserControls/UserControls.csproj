@@ -490,6 +490,7 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="License-LGPL.txt" />
+    <None Include="Resources\Color_palette.ico" />
     <None Include="Resources\Folder.ico" />
     <None Include="Resources\Close1.ico" />
     <None Include="Resources\Save.ico" />

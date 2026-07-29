@@ -17,7 +17,7 @@ namespace vtkControl
     class vtkMaxWidgetHighlight
     {
         public const double WidgetFillOpacity = 0.1;
-        public const double InternalFillOpacity = 0.1;
+        public const double ColorRectangleFillOpacity = 0.4;
         //
         // Variables
         private vtkPolyDataMapper2D _borderMapper;
@@ -73,7 +73,7 @@ namespace vtkControl
             vtkProperty2D fillProperty = vtkProperty2D.New();
             Color fillColor = Color.LightSkyBlue;
             fillProperty.SetColor(fillColor.R / 255.0, fillColor.G / 255.0, fillColor.B / 255.0);
-            fillProperty.SetOpacity(InternalFillOpacity);
+            fillProperty.SetOpacity(WidgetFillOpacity);
             //
             _fillActor = vtkActor2D.New();
             _fillActor.SetMapper(_fillMapper);
@@ -81,7 +81,7 @@ namespace vtkControl
             _fillActor.VisibilityOff();
             //
             _rectangle = Rectangle.Empty;
-            _fillOpacity = InternalFillOpacity;
+            _fillOpacity = WidgetFillOpacity;
         }
 
 
