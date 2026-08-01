@@ -1,5 +1,5 @@
 # Prerequisites
-*  Visual Studio 2022 Community (development environment) - https://www.visualstudio.com/downloads/
+*  Visual Studio 2026 Community (development environment) - https://www.visualstudio.com/downloads/
 *  ActiViz OpenSource Edition 5.8.0 (64-bit Windows XP or later) (3D library used for graphics - must be installed only on the development PC; users do not need it) - https://prepomax.fs.um.si/downloads/
 
 # PrePoMax Visual Studio setup
@@ -27,7 +27,7 @@ Compiling PrePoMax only creates some of its subfolders and default settings are 
 # Structure
 
 The PrePoMax is a solution which consists of 11 projects:
-*  3MF: classes for 3MF geometry export
+*  APIs: classes for interfacing with PrePoMax from other programs (Python, ...)
 *  CaeGlobals: global classes for all other projects to use
 *  CaeJob: classes for running the analysis
 *  CaeMesh: classes for FE mesh: nodes, elements, sets, ...
@@ -37,6 +37,7 @@ The PrePoMax is a solution which consists of 11 projects:
 *  GmshCommon: wrapper for the Gmsh mesher from https://github.com/tsvilans/gmsh_common 
 *  PrePoMax: classes for user interface
 *  STL: classes for stl geometry import
+*  ThreeMF: classes for 3MF geometry export
 *  UserControls: classes for more complex user controls, as model tree view...
 *  vtkControl: classes for 3D visualization
 
