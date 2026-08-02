@@ -698,7 +698,7 @@ namespace PrePoMax
                             //
                             bool regenerateAll = MessageBoxes.ShowQuestionYesNo("Regenerate All",
                                 "Select Yes to regenerate all commands or No to regenerate FE model commands only. " +
-                                "All commands can be regenerated later using Edit â†’ Regenerate All.") == DialogResult.Yes;
+                                "All commands can be regenerated later using Edit -> Regenerate All.") == DialogResult.Yes;
                             if (regenerateAll) parameters = Globals.RegenerateAll;
                         }
                     }

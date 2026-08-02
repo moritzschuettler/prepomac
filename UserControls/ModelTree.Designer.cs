@@ -446,7 +446,7 @@ namespace UserControls
             this.tsmiSpaceDelete,
             this.tsmiDelete});
             this.cmsTreeSecondary.Name = "cmsTreeSecondary";
-            this.cmsTreeSecondary.Size = new System.Drawing.Size(209, 492);
+            this.cmsTreeSecondary.Size = new System.Drawing.Size(209, 470);
             // 
             // tsmiSpaceHideShow
             // 
