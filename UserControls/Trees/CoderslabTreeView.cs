@@ -1691,7 +1691,7 @@ namespace UserControls
                 throw new CaeException("Name cannot be an empty string.");
             }
             //
-            if (e.Node.Tag is NamedClass nc && CheckNodeName?.Invoke(SelectedNode, newName) == false)
+            if (CheckNodeName?.Invoke(SelectedNode, newName) == false)
             {
                 e.CancelEdit = true;
                 return;

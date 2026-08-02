@@ -1951,7 +1951,7 @@ namespace PrePoMax
         private void ImportBrepCompoundPart(string brepFileName, string[] createdFromPartNames,
                                             out string compoundPartName, out string[] importedPartNames)
         {
-            compoundPartName = _model.Geometry.Parts.GetNextNumberedKey("Compound");
+            compoundPartName = _model.GetPartAndPartGroupNames().GetNextNumberedKey("Compound");
             importedPartNames = ImportCADAssemblyFile(brepFileName, "BREP_ASSEMBLY_SPLIT_TO_PARTS");
             //
             bool shellParts = true;
@@ -1970,7 +1970,7 @@ namespace PrePoMax
             {
                 foreach (var partName in importedPartNames)
                 {
-                    compoundPartName = _model.Geometry.Parts.GetNextNumberedKey("Compound");
+                    compoundPartName = _model.GetPartAndPartGroupNames().GetNextNumberedKey("Compound");
                     // Rename the part
                     PartProperties properties = _model.Geometry.Parts[partName].GetProperties();
                     properties.Name = compoundPartName;
@@ -3532,9 +3532,16 @@ namespace PrePoMax
         //******************************************************************************************
         public void ReplaceGeometryPartProperties(string oldPartName, PartProperties newPartProperties)
         {
+            ReplaceGeometryPartProperties(oldPartName, newPartProperties, true);
+        }
+        private void ReplaceGeometryPartProperties(string oldPartName, PartProperties newPartProperties,
+                                                   bool regenerateTree)
+        {
             bool nameChanged = oldPartName != newPartProperties.Name;
-            // Replace geometry part
             GeometryPart geomPart = GetGeometryPart(oldPartName);
+            if (nameChanged)
+                CheckName(oldPartName, newPartProperties.Name, _model.GetReservedPartNames(), "part");
+            // Replace geometry part
             geomPart.SetProperties(newPartProperties);
             _model.Geometry.Parts.Replace(oldPartName, geomPart.Name, geomPart);
             // Rename compound sub-part names array
@@ -3589,9 +3596,13 @@ namespace PrePoMax
                     _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldPartName, meshPart, null);
                 }
             }
+            // Rename the finite element group paired with a meshed compound geometry part.
+            bool compoundPartGroupRenamed = nameChanged && geomPart is CompoundGeometryPart &&
+                                            RenameModelPartGroup(oldPartName, geomPart.Name);
             //
             UpdateAfterPartsChanged();
             if (nameChanged && _showItemIds.HasFlag(ShowItemIdsEnum.PartNames)) RedrawItemIds();
+            if (compoundPartGroupRenamed && regenerateTree) _form?.RegenerateTree(false);
         }
         public void RenameGeometryPart(string oldPartName, string newPartName)
         {
@@ -7485,6 +7496,8 @@ namespace PrePoMax
         public void ReplaceModelPartProperties(string oldPartName, PartProperties newPartProperties)
         {
             bool nameChanged = oldPartName != newPartProperties.Name;
+            if (nameChanged)
+                CheckName(oldPartName, newPartProperties.Name, _model.GetReservedPartNames(), "part");
             // Replace mesh part
             MeshPart meshPart = GetModelPart(oldPartName);
             meshPart.SetProperties(newPartProperties);
@@ -13714,6 +13727,14 @@ namespace PrePoMax
         #endregion #################################################################################################################
 
         #region Ordered dictionary item layout  ####################################################################################
+        public string GetNextPartGroupName()
+        {
+            return _model.GetPartAndPartGroupNames().GetNextNumberedKey("Group");
+        }
+        public bool CheckPartGroupName(string groupNameToEdit, string groupName)
+        {
+            return CheckName(groupNameToEdit, groupName, _model.GetPartAndPartGroupNames(), "part or group");
+        }
         public void ChangeOrderedDictionaryItemLayoutCommand(OrderedDictionaryTreeLayoutChange change)
         {
             if (change == null) throw new ArgumentNullException("change");
@@ -13722,6 +13743,17 @@ namespace PrePoMax
             IOrderedDictionaryItemLayout<string> dictionary =
                 GetOrderedDictionaryItemLayout(change.ItemType, view, change.ParentName);
             OrderedDictionaryItemLayout<string> oldLayout = dictionary.GetItemLayoutSnapshot();
+            bool partLayout = (view == ViewGeometryModelResults.Geometry ||
+                               view == ViewGeometryModelResults.Model) &&
+                              typeof(BasePart).IsAssignableFrom(change.ItemType);
+            if (partLayout && change.Action == OrderedDictionaryTreeLayoutAction.CreateGroup)
+                CheckPartGroupName(null, change.GroupName);
+            else if (partLayout && change.Action == OrderedDictionaryTreeLayoutAction.RenameGroup)
+            {
+                string groupNameToEdit = GetOrderedDictionaryGroupName(oldLayout.Nodes, change.GroupId.Value);
+                CheckPartGroupName(groupNameToEdit, change.GroupName);
+            }
+            //
             OrderedDictionary<string, object> preview =
                 new OrderedDictionary<string, object>("Ordered dictionary item layout preview", dictionary.Comparer);
             foreach (string key in dictionary.Keys) preview.Add(key, null);
@@ -13787,8 +13819,47 @@ namespace PrePoMax
         {
             IOrderedDictionaryItemLayout<string> dictionary =
                 GetOrderedDictionaryItemLayout(itemType, view, parentName);
+            if (view == ViewGeometryModelResults.Model && typeof(BasePart).IsAssignableFrom(itemType))
+            {
+                OrderedDictionaryItemLayout<string> oldLayout = dictionary.GetItemLayoutSnapshot();
+                SynchronizeCompoundPartGroupRenames(oldLayout.Nodes, itemLayout.Nodes);
+            }
             dictionary.SetItemLayout(itemLayout);
             _form?.RegenerateTree(false);
+        }
+        private bool RenameModelPartGroup(string oldGroupName, string newGroupName)
+        {
+            if (_model.Mesh?.Parts == null) return false;
+            //
+            OrderedDictionaryItemLayout<string> layout = _model.Mesh.Parts.GetItemLayoutSnapshot();
+            Guid? groupId = GetOrderedDictionaryGroupId(layout.Nodes, oldGroupName);
+            if (!groupId.HasValue) return false;
+            //
+            _model.Mesh.Parts.RenameGroup(groupId.Value, newGroupName);
+            return true;
+        }
+        private void SynchronizeCompoundPartGroupRenames(
+            IEnumerable<OrderedDictionaryItemNode<string>> oldNodes,
+            IEnumerable<OrderedDictionaryItemNode<string>> newNodes)
+        {
+            foreach (OrderedDictionaryItemNode<string> oldNode in oldNodes)
+            {
+                if (!oldNode.IsGroup) continue;
+                //
+                string newGroupName = GetOrderedDictionaryGroupName(newNodes, oldNode.Id);
+                if (newGroupName != null &&
+                    !String.Equals(oldNode.Name, newGroupName, StringComparison.Ordinal) &&
+                    _model.Geometry?.Parts != null &&
+                    _model.Geometry.Parts.TryGetValue(oldNode.Name, out BasePart geometryPart) &&
+                    geometryPart is CompoundGeometryPart compoundPart)
+                {
+                    PartProperties properties = compoundPart.GetProperties();
+                    properties.Name = newGroupName;
+                    ReplaceGeometryPartProperties(oldNode.Name, properties, false);
+                }
+                //
+                SynchronizeCompoundPartGroupRenames(oldNode.Children, newNodes);
+            }
         }
         private IOrderedDictionaryItemLayout<string> GetOrderedDictionaryItemLayout(
             Type itemType, ViewGeometryModelResults view, string parentName)
@@ -13863,6 +13934,18 @@ namespace PrePoMax
                 if (node.Id == groupId) return node.Name;
                 string name = GetOrderedDictionaryGroupName(node.Children, groupId);
                 if (name != null) return name;
+            }
+            return null;
+        }
+        private static Guid? GetOrderedDictionaryGroupId(
+            IEnumerable<OrderedDictionaryItemNode<string>> nodes, string groupName)
+        {
+            foreach (OrderedDictionaryItemNode<string> node in nodes)
+            {
+                if (!node.IsGroup) continue;
+                if (String.Equals(node.Name, groupName, StringComparison.OrdinalIgnoreCase)) return node.Id;
+                Guid? groupId = GetOrderedDictionaryGroupId(node.Children, groupName);
+                if (groupId.HasValue) return groupId;
             }
             return null;
         }
@@ -13953,7 +14036,7 @@ namespace PrePoMax
             if (_currentView == ViewGeometryModelResults.Geometry)
             {
                 if (item is GeometryPart || item is CompoundGeometryPart)
-                    return CheckName(item.Name, newName, GetAllMeshEntityNames(), "part");
+                    return CheckName(item.Name, newName, _model.GetReservedPartNames(), "part");
                 else if (item is MeshSetupItem)
                     return CheckName(item.Name, newName, GetMeshSetupItemNames(), "mesh setup item");
                 else throw new NotImplementedException();
@@ -13961,7 +14044,7 @@ namespace PrePoMax
             else if (_currentView == ViewGeometryModelResults.Model)
             {
                 if (item is MeshPart)
-                    return CheckName(item.Name, newName, GetAllMeshEntityNames(), "part");
+                    return CheckName(item.Name, newName, _model.GetReservedPartNames(), "part");
                 else if (item is FeNodeSet)
                     return CheckName(item.Name, newName, GetAllMeshEntityNames(), "node set");
                 else if (item is FeElementSet)

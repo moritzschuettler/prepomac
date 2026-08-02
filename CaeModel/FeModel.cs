@@ -1531,10 +1531,34 @@ namespace CaeModel
         }
         public HashSet<string> GetReservedPartNames()
         {
-            HashSet<string> reservedPartNames = new HashSet<string>();
-            if (_geometry != null && _geometry.Parts != null) reservedPartNames.UnionWith(_geometry.Parts.Keys);
+            HashSet<string> reservedPartNames = GetPartAndPartGroupNames();
             reservedPartNames.UnionWith(GetAllMeshEntityNames());
             return reservedPartNames;
+        }
+        public HashSet<string> GetPartAndPartGroupNames()
+        {
+            HashSet<string> names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (_geometry?.Parts != null)
+            {
+                names.UnionWith(_geometry.Parts.Keys);
+                AddOrderedDictionaryGroupNames(_geometry.Parts.GetItemLayoutSnapshot().Nodes, names);
+            }
+            if (_mesh?.Parts != null)
+            {
+                names.UnionWith(_mesh.Parts.Keys);
+                AddOrderedDictionaryGroupNames(_mesh.Parts.GetItemLayoutSnapshot().Nodes, names);
+            }
+            return names;
+        }
+        private static void AddOrderedDictionaryGroupNames(
+            IEnumerable<OrderedDictionaryItemNode<string>> nodes, HashSet<string> names)
+        {
+            foreach (OrderedDictionaryItemNode<string> node in nodes)
+            {
+                if (!node.IsGroup) continue;
+                names.Add(node.Name);
+                AddOrderedDictionaryGroupNames(node.Children, names);
+            }
         }
         public HashSet<int> GetReservedPartIds()
         {

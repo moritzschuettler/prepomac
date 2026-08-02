@@ -316,6 +316,8 @@ namespace PrePoMax
                 _modelTree.TabIndex = 0;
                 _modelTree.RegenerateTreeCallBack = RegenerateTreeCallback;
                 _modelTree.CheckItemName = _controller.CheckItemName;
+                _modelTree.GetNextPartGroupName = _controller.GetNextPartGroupName;
+                _modelTree.CheckPartGroupName = _controller.CheckPartGroupName;
                 //
                 _modelTree.GeometryMeshResultsEvent += ModelTree_ViewEvent;
                 _modelTree.SelectEvent += ModelTree_SelectEvent;
