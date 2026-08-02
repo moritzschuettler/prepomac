@@ -85,6 +85,9 @@ namespace PrePoMax
         protected FeModel _model;
         [NonSerialized] protected ExecutableJob _executableJob;
         [NonSerialized] protected Stopwatch _watch;
+        [NonSerialized] protected string[] _lastMeshedPartNames;
+        [NonSerialized] protected string[] _lastMeshedModelPartNames;
+        [NonSerialized] protected string[] _lastMeshingErrors;
         protected FeResults _results;   // Compatibility v1.3.3
         protected ResultsCollection _allResults;
         [NonSerialized] protected FeResults _wearResults;
@@ -157,6 +160,18 @@ namespace PrePoMax
         }
         //
         public FeModel Model { get { return _model; } }
+        public string[] LastMeshedPartNames
+        {
+            get { return _lastMeshedPartNames == null ? new string[0] : _lastMeshedPartNames; }
+        }
+        public string[] LastMeshedModelPartNames
+        {
+            get { return _lastMeshedModelPartNames == null ? new string[0] : _lastMeshedModelPartNames; }
+        }
+        public string[] LastMeshingErrors
+        {
+            get { return _lastMeshingErrors == null ? new string[0] : _lastMeshingErrors; }
+        }
         public bool ExecutableJobIdle
         {
             get
@@ -4803,11 +4818,40 @@ namespace PrePoMax
         #endregion #################################################################################################################
 
         #region Mesh   #############################################################################################################
+        private class GeneratedMeshData
+        {
+            public GeometryPart GeometryPart;
+            public string MeshFileName;
+            public bool SmoothShaded;
+            public FeMesh Mesh;
+            public string[] RelatedPartNames;
+        }
+        private class MeshBatchPerformance
+        {
+            public double Generation;
+            public double Validation;
+            public double Removal;
+            public double Import;
+            public double Adjacency;
+            public double Drawing;
+            public double Finalization;
+            public double Total;
+        }
+        //
         // COMMANDS ********************************************************************************
         public void CreateMeshCommand(string partName)
         {
-            CCreateMesh comm = new CCreateMesh(partName);
-            _commands.AddAndExecute(comm);
+            CreateMeshesCommand(new string[] { partName });
+        }
+        public bool CreateMeshesCommand(string[] partNames)
+        {
+            CCreateMesh comm = new CCreateMesh(partNames);
+            bool result = _commands.AddAndExecute(comm);
+            //
+            _form.WriteDataToOutput("History serialization [s]: " +
+                                    comm.HistorySerializationTime.TotalSeconds.ToString("0.000"));
+            //
+            return result;
         }
         //******************************************************************************************
         public MeshingParameters GetPartMeshingParameters(string partName,
@@ -5282,47 +5326,350 @@ namespace PrePoMax
         //
         public bool CreateMesh(string partName)
         {
-            GeometryPart part = (GeometryPart)_model.Geometry.Parts[partName];
-            //
-            bool result;
-            if (part.IsCADPart) result = CreateMeshFromBrep(part);
-            else result = CreateMeshFromStl(part);
-            // Thicken shell mesh
-            if (result)
-            {
-                MeshSetupItem[] meshSetupItems = GetActiveValidMeshSetupItems<ThickenShellMesh>(part.Name);
-                if (meshSetupItems != null && meshSetupItems.Length > 0)
-                {
-                    ThickenShellMesh tsm = (ThickenShellMesh)meshSetupItems[meshSetupItems.Length - 1];
-                    result &= ThickenShellMesh(new string[] { partName }, tsm.Thickness, tsm.NumberOfLayers, tsm.Offset,
-                                               tsm.KeepModelEdges);
-                }
-            }
-            return result;
+            return CreateMeshes(new string[] { partName }, out _);
         }
-        private bool CreateMeshFromStl(GeometryPart part)
+        public bool CreateMeshes(string[] partNames, out string[] successfulPartNames)
         {
-            MeshSetupItem[] meshSetupItems = GetActiveValidMeshSetupItems<GmshSetupItem>(part.Name);
-            //
-            if (meshSetupItems.Length > 0) return CreateMeshFromStlGmsh(part, meshSetupItems);
-            else
-            {
-                if (part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell) return CreateMeshFromSolidStl(part);
-                else if (part.PartType == PartType.Shell) return CreateMeshFromShellStl(part);
-                else throw new NotSupportedException();
-            }
-        }
-        private bool CreateMeshFromStlGmsh(GeometryPart part, MeshSetupItem[] meshSetupItems)
-        {
-            _form.WriteDataToOutput("");
+            Stopwatch totalWatch = Stopwatch.StartNew();
+            MeshBatchPerformance performance = new MeshBatchPerformance();
+            List<GeneratedMeshData> generatedMeshes = new List<GeneratedMeshData>();
+            List<string> errors = new List<string>();
+            HashSet<string> generatedMeshPartNames = new HashSet<string>();
+            _lastMeshedPartNames = new string[0];
+            _lastMeshedModelPartNames = new string[0];
+            _lastMeshingErrors = new string[0];
+            successfulPartNames = new string[0];
             //
             string workDirectory = _settings.GetWorkDirectory();
-            //
             if (workDirectory == null || !Directory.Exists(workDirectory))
             {
                 MessageBoxes.ShowWorkDirectoryError();
                 return false;
             }
+            //
+            string batchDirectory = Path.Combine(workDirectory, "MeshBatch_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(batchDirectory);
+            //
+            try
+            {
+                string[] uniquePartNames = partNames.Where(name => name != null).Distinct().ToArray();
+                for (int i = 0; i < uniquePartNames.Length; i++)
+                {
+                    string partName = uniquePartNames[i];
+                    try
+                    {
+                        if (!_model.Geometry.Parts.TryGetValue(partName, out BasePart basePart) ||
+                            !(basePart is GeometryPart part))
+                            throw new CaeException("The geometry part does not exist.");
+                        //
+                        string partDirectory = Path.Combine(batchDirectory, i.ToString("D4"));
+                        Directory.CreateDirectory(partDirectory);
+                        //
+                        Stopwatch phaseWatch = Stopwatch.StartNew();
+                        GeneratedMeshData generatedMesh;
+                        try
+                        {
+                            generatedMesh = GenerateMesh(part, partDirectory);
+                        }
+                        finally
+                        {
+                            phaseWatch.Stop();
+                            performance.Generation += phaseWatch.Elapsed.TotalSeconds;
+                        }
+                        //
+                        if (generatedMesh == null)
+                        {
+                            if (_executableJob != null && _executableJob.JobStatus == JobStatus.Killed)
+                            {
+                                errors.Add("Mesh generation canceled.");
+                                break;
+                            }
+                            errors.Add(partName + ": Mesh generation failed.");
+                            continue;
+                        }
+                        //
+                        phaseWatch.Restart();
+                        try
+                        {
+                            PrepareGeneratedMesh(generatedMesh);
+                            ApplyThickenShellMesh(generatedMesh);
+                        }
+                        finally
+                        {
+                            phaseWatch.Stop();
+                            performance.Validation += phaseWatch.Elapsed.TotalSeconds;
+                        }
+                        //
+                        string duplicateMeshPartName = generatedMesh.Mesh.Parts.Keys.FirstOrDefault(
+                            name => generatedMeshPartNames.Contains(name));
+                        if (duplicateMeshPartName != null)
+                            throw new CaeException("More than one selected geometry part generates the mesh part '" +
+                                                   duplicateMeshPartName + "'.");
+                        //
+                        generatedMeshPartNames.UnionWith(generatedMesh.Mesh.Parts.Keys);
+                        generatedMeshes.Add(generatedMesh);
+                    }
+                    catch (Exception ex)
+                    {
+                        errors.Add(partName + ": " + ex.Message);
+                        if (_executableJob != null && _executableJob.JobStatus == JobStatus.Killed)
+                        {
+                            errors.Add("Mesh generation canceled.");
+                            break;
+                        }
+                    }
+                }
+                //
+                if (generatedMeshes.Count > 0) CommitGeneratedMeshes(generatedMeshes, performance);
+            }
+            finally
+            {
+                try
+                {
+                    if (Directory.Exists(batchDirectory)) Directory.Delete(batchDirectory, true);
+                }
+                catch { }
+            }
+            //
+            totalWatch.Stop();
+            performance.Total = totalWatch.Elapsed.TotalSeconds;
+            successfulPartNames = generatedMeshes.Select(item => item.GeometryPart.Name).ToArray();
+            _lastMeshedPartNames = successfulPartNames;
+            _lastMeshedModelPartNames = generatedMeshes.SelectMany(item => item.Mesh.Parts.Keys).ToArray();
+            _lastMeshingErrors = errors.ToArray();
+            WriteMeshBatchPerformance(performance);
+            //
+            if (errors.Count > 0)
+            {
+                _form.WriteDataToOutput("");
+                foreach (string error in errors) _form.WriteDataToOutput(error);
+            }
+            //
+            return generatedMeshes.Count > 0;
+        }
+        private GeneratedMeshData GenerateMesh(GeometryPart part, string workDirectory)
+        {
+            if (part.IsCADPart) return CreateMeshFromBrep(part, workDirectory);
+            else return CreateMeshFromStl(part, workDirectory);
+        }
+        private void PrepareGeneratedMesh(GeneratedMeshData generatedMesh)
+        {
+            GeometryPart part = generatedMesh.GeometryPart;
+            MeshingParameters meshingParameters = GetPartMeshingParameters(part.Name);
+            string extension = Path.GetExtension(generatedMesh.MeshFileName);
+            bool convertToSecondOrder;
+            if (extension == ".mesh") convertToSecondOrder = meshingParameters.SecondOrder;
+            else if (extension == ".inp") convertToSecondOrder = false;
+            else convertToSecondOrder = meshingParameters.SecondOrder && !meshingParameters.MidsideNodesOnGeometry;
+            //
+            if (convertToSecondOrder) _form.WriteDataToOutput("Converting mesh to second order...");
+            //
+            generatedMesh.Mesh = _model.PrepareGeneratedMeshFromMeshFile(generatedMesh.MeshFileName, part,
+                                                                          convertToSecondOrder,
+                                                                          meshingParameters.SplitCompoundMesh,
+                                                                          meshingParameters.MergeCompoundParts);
+            List<string> relatedPartNames = new List<string>();
+            if (part is CompoundGeometryPart compoundPart)
+            {
+                relatedPartNames.Add(compoundPart.Name);
+                relatedPartNames.AddRange(compoundPart.SubPartNames);
+            }
+            else relatedPartNames.Add(part.Name);
+            generatedMesh.RelatedPartNames = relatedPartNames.ToArray();
+        }
+        private void ApplyThickenShellMesh(GeneratedMeshData generatedMesh)
+        {
+            MeshSetupItem[] meshSetupItems =
+                GetActiveValidMeshSetupItems<ThickenShellMesh>(generatedMesh.GeometryPart.Name);
+            if (meshSetupItems == null || meshSetupItems.Length == 0) return;
+            //
+            ThickenShellMesh thickenShellMesh = (ThickenShellMesh)meshSetupItems[meshSetupItems.Length - 1];
+            string[] partNames = generatedMesh.Mesh.Parts.Keys.ToArray();
+            Dictionary<int, Vec3D> nodeIdNormal;
+            if (_model.Geometry.GetAllCADPartNames().Intersect(partNames).Count() == partNames.Length)
+            {
+                nodeIdNormal = _model.Geometry.GetNodeNormals(partNames, generatedMesh.Mesh,
+                                                              thickenShellMesh.KeepModelEdges,
+                                                              GeNormalsFromGeometryAtMeshNodes);
+            }
+            else
+            {
+                nodeIdNormal = generatedMesh.Mesh.GetNodeNormals(partNames, generatedMesh.Mesh,
+                                                                 thickenShellMesh.KeepModelEdges,
+                                                                 GeNormalsFromGeometryAtMeshNodes);
+            }
+            //
+            string[] errors = generatedMesh.Mesh.ThickenShellMesh(partNames, nodeIdNormal,
+                                                                  thickenShellMesh.Thickness,
+                                                                  thickenShellMesh.NumberOfLayers,
+                                                                  thickenShellMesh.Offset,
+                                                                  false, out _);
+            if (errors.Length > 0) throw new CaeException(errors[0]);
+        }
+        private void CommitGeneratedMeshes(List<GeneratedMeshData> generatedMeshes, MeshBatchPerformance performance)
+        {
+            OrderedDictionaryItemLayout<string> oldMeshPartLayout = null;
+            string[] oldMeshPartNames = null;
+            HashSet<string> oldMeshPartNameSet = new HashSet<string>();
+            if (_model.Mesh != null)
+            {
+                oldMeshPartNames = _model.Mesh.Parts.Keys.ToArray();
+                oldMeshPartNameSet.UnionWith(oldMeshPartNames);
+                oldMeshPartLayout = _model.Mesh.Parts.GetItemLayoutSnapshot();
+            }
+            //
+            HashSet<string> meshPartNamesToRemove = new HashSet<string>();
+            foreach (GeneratedMeshData generatedMesh in generatedMeshes)
+                meshPartNamesToRemove.UnionWith(generatedMesh.RelatedPartNames);
+            //
+            Stopwatch phaseWatch = Stopwatch.StartNew();
+            if (_model.Mesh != null)
+            {
+                ViewGeometryModelResults view = ViewGeometryModelResults.Model;
+                string[] names = meshPartNamesToRemove.ToArray();
+                _annotations.RemoveCurrentArrowAnnotationsByParts(names, view);
+                _model.Mesh.RemoveParts(names, out _, true);
+            }
+            phaseWatch.Stop();
+            performance.Removal = phaseWatch.Elapsed.TotalSeconds;
+            //
+            bool renumbered = false;
+            phaseWatch.Restart();
+            foreach (GeneratedMeshData generatedMesh in generatedMeshes)
+            {
+                _model.ImportGeneratedMesh(generatedMesh.Mesh, false);
+                //
+                foreach (string partName in generatedMesh.RelatedPartNames)
+                {
+                    if (_model.Mesh.Parts.TryGetValue(partName, out BasePart meshPart))
+                    {
+                        _form.WriteDataToOutput("Nodes: " + meshPart.NodeLabels.Length);
+                        _form.WriteDataToOutput("Elements: " + meshPart.Labels.Length);
+                        //
+                        if (_model.Geometry.Parts.ContainsKey(partName))
+                        {
+                            _model.Mesh.ChangePartId(partName, _model.Geometry.Parts[partName].PartId);
+                            renumbered = true;
+                        }
+                        //
+                        if (oldMeshPartNameSet.Contains(partName) && meshPart is MeshPart modelPart)
+                            modelPart.SetElementTypeEnums(GetGeometryPart(partName).GetElementTypeEnums());
+                        //
+                        if (generatedMesh.SmoothShaded) meshPart.SmoothShaded = true;
+                    }
+                }
+            }
+            phaseWatch.Stop();
+            performance.Import = phaseWatch.Elapsed.TotalSeconds;
+            //
+            phaseWatch.Restart();
+            _model.Mesh.UpdateNodeIdElementIds();
+            phaseWatch.Stop();
+            performance.Adjacency = phaseWatch.Elapsed.TotalSeconds;
+            //
+            if (oldMeshPartLayout != null &&
+                oldMeshPartNames.Length == _model.Mesh.Parts.Count &&
+                new HashSet<string>(oldMeshPartNames, _model.Mesh.Parts.Comparer).SetEquals(_model.Mesh.Parts.Keys))
+            {
+                _model.Mesh.Parts.SetItemLayout(oldMeshPartLayout);
+            }
+            CreateFirstMeshCompoundGroups(generatedMeshes, oldMeshPartNameSet);
+            _model.UpdateMeshPartsElementTypes(false);
+            //
+            phaseWatch.Restart();
+            UpdateAfterPartsChanged();
+            phaseWatch.Stop();
+            performance.Finalization += phaseWatch.Elapsed.TotalSeconds;
+            //
+            phaseWatch.Restart();
+            _form.Clear3D();
+            _currentView = ViewGeometryModelResults.Model;
+            _form.SetCurrentView(_currentView);
+            FeModelUpdate(UpdateType.DrawModel);
+            phaseWatch.Stop();
+            performance.Drawing = phaseWatch.Elapsed.TotalSeconds;
+            //
+            phaseWatch.Restart();
+            if (renumbered) UpdateGeometryBasedItems(false, true);
+            FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            _form.RegenerateTree(true);
+            phaseWatch.Stop();
+            performance.Finalization += phaseWatch.Elapsed.TotalSeconds;
+        }
+        private void CreateFirstMeshCompoundGroups(List<GeneratedMeshData> generatedMeshes,
+                                                   HashSet<string> oldMeshPartNames)
+        {
+            foreach (GeneratedMeshData generatedMesh in generatedMeshes)
+            {
+                if (!(generatedMesh.GeometryPart is CompoundGeometryPart compoundPart)) continue;
+                //
+                string[] meshPartNames = generatedMesh.Mesh.Parts.Keys.ToArray();
+                if (meshPartNames.Length < 2 ||
+                    generatedMesh.RelatedPartNames.Any(name => oldMeshPartNames.Contains(name)))
+                    continue;
+                //
+                OrderedDictionaryItemLayout<string> layout = _model.Mesh.Parts.GetItemLayoutSnapshot();
+                OrderedDictionaryItemNode<string> groupNode = layout.Nodes.FirstOrDefault(
+                    node => node.IsGroup &&
+                            String.Equals(node.Name, compoundPart.Name, StringComparison.OrdinalIgnoreCase));
+                Guid groupId;
+                int targetIndex;
+                if (groupNode == null)
+                {
+                    HashSet<string> meshPartNameSet =
+                        new HashSet<string>(meshPartNames, _model.Mesh.Parts.Comparer);
+                    int groupIndex = layout.Nodes.Count;
+                    for (int i = 0; i < layout.Nodes.Count; i++)
+                    {
+                        OrderedDictionaryItemNode<string> node = layout.Nodes[i];
+                        if (node.IsItem && meshPartNameSet.Contains(node.Key))
+                        {
+                            groupIndex = i;
+                            break;
+                        }
+                    }
+                    //
+                    groupId = _model.Mesh.Parts.CreateGroup(compoundPart.Name, null, groupIndex);
+                    targetIndex = 0;
+                }
+                else
+                {
+                    groupId = groupNode.Id;
+                    targetIndex = groupNode.Children.Count;
+                }
+                _model.Mesh.Parts.MoveItems(meshPartNames, groupId, targetIndex);
+            }
+        }
+        private void WriteMeshBatchPerformance(MeshBatchPerformance performance)
+        {
+            _form.WriteDataToOutput("");
+            _form.WriteDataToOutput("Batch meshing performance [s]");
+            _form.WriteDataToOutput("  Generation: " + performance.Generation.ToString("0.000"));
+            _form.WriteDataToOutput("  Validation/parsing: " + performance.Validation.ToString("0.000"));
+            _form.WriteDataToOutput("  Bulk removal: " + performance.Removal.ToString("0.000"));
+            _form.WriteDataToOutput("  Import: " + performance.Import.ToString("0.000"));
+            _form.WriteDataToOutput("  Adjacency rebuild: " + performance.Adjacency.ToString("0.000"));
+            _form.WriteDataToOutput("  Drawing: " + performance.Drawing.ToString("0.000"));
+            _form.WriteDataToOutput("  Finalization: " + performance.Finalization.ToString("0.000"));
+            _form.WriteDataToOutput("  Total: " + performance.Total.ToString("0.000"));
+        }
+        private GeneratedMeshData CreateMeshFromStl(GeometryPart part, string workDirectory)
+        {
+            MeshSetupItem[] meshSetupItems = GetActiveValidMeshSetupItems<GmshSetupItem>(part.Name);
+            //
+            if (meshSetupItems.Length > 0) return CreateMeshFromStlGmsh(part, meshSetupItems, workDirectory);
+            else
+            {
+                if (part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell)
+                    return CreateMeshFromSolidStl(part, workDirectory);
+                else if (part.PartType == PartType.Shell) return CreateMeshFromShellStl(part, workDirectory);
+                else throw new NotSupportedException();
+            }
+        }
+        private GeneratedMeshData CreateMeshFromStlGmsh(GeometryPart part, MeshSetupItem[] meshSetupItems,
+                                                        string workDirectory)
+        {
+            _form.WriteDataToOutput("");
             //
             string executable = Application.StartupPath + Globals.GmshCaller;
             string stlFileName = Path.Combine(workDirectory, Globals.StlFileName);
@@ -5335,19 +5682,25 @@ namespace PrePoMax
             //
             string[] partNames = new string[] { part.Name };
             SuppressExplodedView(partNames);
-            StlFileWriter.Write(stlFileName, _model.Geometry, partNames);
-            MeshingParameters partMeshingParameters = GetPartMeshingParameters(part.Name);
             GmshData gmshData = new GmshData();
-            gmshData.GeometryFileName = stlFileName;
-            gmshData.InpFileName = inpFileName;
-            gmshData.PartMeshingParameters = partMeshingParameters;
-            gmshData.GmshSetupItems = meshSetupItems;
-            gmshData.Preview = false;
-            gmshData.StlFeatureAngleDeg = _settings.General.EdgeAngle;
-            _model.Geometry.GetPartTopologyForGmsh(part.Name, ref gmshData);
-            GetMeshItemSizes(part.Name, ref gmshData);
-            gmshData.WriteToFile(gmshDataFileName);
-            ResumeExplodedViews(false);
+            try
+            {
+                StlFileWriter.Write(stlFileName, _model.Geometry, partNames);
+                MeshingParameters partMeshingParameters = GetPartMeshingParameters(part.Name);
+                gmshData.GeometryFileName = stlFileName;
+                gmshData.InpFileName = inpFileName;
+                gmshData.PartMeshingParameters = partMeshingParameters;
+                gmshData.GmshSetupItems = meshSetupItems;
+                gmshData.Preview = false;
+                gmshData.StlFeatureAngleDeg = _settings.General.EdgeAngle;
+                _model.Geometry.GetPartTopologyForGmsh(part.Name, ref gmshData);
+                GetMeshItemSizes(part.Name, ref gmshData);
+                gmshData.WriteToFile(gmshDataFileName);
+            }
+            finally
+            {
+                ResumeExplodedViews(false);
+            }
             //
             string argument = Globals.GmshDataFileName + " " + CaeMesh.Meshing.GmshCommandEnum.Mesh;
             //
@@ -5369,21 +5722,17 @@ namespace PrePoMax
             //
             if (jobCompleted)
             {
-                ImportGeneratedMesh(inpFileName, part, true);
-                return true;
+                return new GeneratedMeshData()
+                {
+                    GeometryPart = part,
+                    MeshFileName = inpFileName,
+                    SmoothShaded = true
+                };
             }
-            else return false;
+            else return null;
         }
-        private bool CreateMeshFromSolidStl(GeometryPart part)
+        private GeneratedMeshData CreateMeshFromSolidStl(GeometryPart part, string workDirectory)
         {
-            string workDirectory = _settings.GetWorkDirectory();
-            //
-            if (workDirectory == null || !Directory.Exists(workDirectory))
-            {
-                MessageBoxes.ShowWorkDirectoryError();
-                return false;
-            }
-            //
             string executable = Application.StartupPath + Globals.NetGenMesher;
             string stlFileName = Path.Combine(workDirectory, Globals.StlFileName);
             string volFileName = Path.Combine(workDirectory, Globals.VolFileName);
@@ -5399,11 +5748,17 @@ namespace PrePoMax
             //
             string[] partNames = new string[] { part.Name };
             SuppressExplodedView(partNames);
-            FileInOut.Output.StlFileWriter.Write(stlFileName, _model.Geometry, partNames);
-            CreateLocalMeshSizeFile(part, localMeshSizesFileName, null);
-            GetPartMeshingParameters(part.Name).WriteToFile(meshParametersFileName, part.BoundingBox.GetDiagonal());
-            _model.Geometry.WriteEdgeNodesToFile(part, edgeNodesFileName);
-            ResumeExplodedViews(false);
+            try
+            {
+                FileInOut.Output.StlFileWriter.Write(stlFileName, _model.Geometry, partNames);
+                CreateLocalMeshSizeFile(part, localMeshSizesFileName, null);
+                GetPartMeshingParameters(part.Name).WriteToFile(meshParametersFileName, part.BoundingBox.GetDiagonal());
+                _model.Geometry.WriteEdgeNodesToFile(part, edgeNodesFileName);
+            }
+            finally
+            {
+                ResumeExplodedViews(false);
+            }
             //
             string argument = "STL_MESH " +
                               "\"" + stlFileName + "\" " +
@@ -5418,21 +5773,17 @@ namespace PrePoMax
             // Job completed
             if (_executableJob.JobStatus == JobStatus.OK)
             {
-                ImportGeneratedMesh(volFileName, part, false);
-                return true;
+                return new GeneratedMeshData()
+                {
+                    GeometryPart = part,
+                    MeshFileName = volFileName,
+                    SmoothShaded = false
+                };
             }
             else throw new CaeException("Mesh generation failed.");
         }
-        private bool CreateMeshFromShellStl(GeometryPart part)
+        private GeneratedMeshData CreateMeshFromShellStl(GeometryPart part, string workDirectory)
         {
-            string workDirectory = _settings.GetWorkDirectory();
-            //
-            if (workDirectory == null || !Directory.Exists(workDirectory))
-            {
-                MessageBoxes.ShowWorkDirectoryError();
-                return false;
-            }
-            //
             string executable = Application.StartupPath + Globals.MmgsMesher;
             string mmgInFileName = Path.Combine(workDirectory, Globals.MmgMeshFileName);
             string mmgOutFileName = Path.Combine(workDirectory, Path.GetFileNameWithoutExtension(Globals.MmgMeshFileName) +
@@ -5447,8 +5798,14 @@ namespace PrePoMax
             //
             SuppressExplodedView(new string[] { part.Name });
             MeshingParameters meshingParameters = GetPartMeshingParameters(part.Name);
-            MmgFileWriter.Write(mmgInFileName, part, _model.Geometry, meshingParameters.KeepModelEdges, false);
-            ResumeExplodedViews(false);
+            try
+            {
+                MmgFileWriter.Write(mmgInFileName, part, _model.Geometry, meshingParameters.KeepModelEdges, false);
+            }
+            finally
+            {
+                ResumeExplodedViews(false);
+            }
             //
             System.Diagnostics.PerformanceCounter ramCounter;
             ramCounter = new System.Diagnostics.PerformanceCounter("Memory", "Available MBytes");
@@ -5499,30 +5856,26 @@ namespace PrePoMax
                 //
                 if (_executableJob.JobStatus == JobStatus.OK)
                 {
-                    ImportGeneratedMesh(mmgOutFileName, part, false);
-                    return true;
+                    return new GeneratedMeshData()
+                    {
+                        GeometryPart = part,
+                        MeshFileName = mmgOutFileName,
+                        SmoothShaded = false
+                    };
                 }
                 else throw new CaeException("Mesh generation failed.");
             }
             else throw new CaeException("Mesh generation failed.");
         }
-        private bool CreateMeshFromBrep(GeometryPart part)
+        private GeneratedMeshData CreateMeshFromBrep(GeometryPart part, string workDirectory)
         {
             MeshSetupItem[] meshSetupItems = GetActiveValidMeshSetupItems<GmshSetupItem>(part.Name);
             //
-            if (meshSetupItems.Length > 0) return CreateMeshFromBrepGmsh(part, meshSetupItems);
-            else return CreateMeshFromBrepNetgen(part);
+            if (meshSetupItems.Length > 0) return CreateMeshFromBrepGmsh(part, meshSetupItems, workDirectory);
+            else return CreateMeshFromBrepNetgen(part, workDirectory);
         }
-        private bool CreateMeshFromBrepNetgen(GeometryPart part)
+        private GeneratedMeshData CreateMeshFromBrepNetgen(GeometryPart part, string workDirectory)
         {
-            string workDirectory = _settings.GetWorkDirectory();
-            //
-            if (workDirectory == null || !Directory.Exists(workDirectory))
-            {
-                MessageBoxes.ShowWorkDirectoryError();
-                return false;
-            }
-            //
             string executable = Application.StartupPath + Globals.NetGenMesher;
             string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
             string volFileName = Path.Combine(workDirectory, Globals.VolFileName);
@@ -5535,11 +5888,18 @@ namespace PrePoMax
             if (File.Exists(localMeshSizesFileName)) File.Delete(localMeshSizesFileName);
             //
             SuppressExplodedView(new string[] { part.Name });
-            File.WriteAllText(brepFileName, part.CADFileData);
-            MeshingParameters meshingParameters = GetPartMeshingParameters(part.Name);
-            meshingParameters.WriteToFile(meshParametersFileName, part.BoundingBox.GetDiagonal());
-            CreateLocalMeshSizeFile(part, localMeshSizesFileName, null);
-            ResumeExplodedViews(false);
+            MeshingParameters meshingParameters;
+            try
+            {
+                File.WriteAllText(brepFileName, part.CADFileData);
+                meshingParameters = GetPartMeshingParameters(part.Name);
+                meshingParameters.WriteToFile(meshParametersFileName, part.BoundingBox.GetDiagonal());
+                CreateLocalMeshSizeFile(part, localMeshSizesFileName, null);
+            }
+            finally
+            {
+                ResumeExplodedViews(false);
+            }
             //
             string argument = "BREP_MESH " +
                               "\"" + brepFileName.ToUTF8() + "\" " +
@@ -5553,23 +5913,19 @@ namespace PrePoMax
             // Job completed
             if (_executableJob.JobStatus == JobStatus.OK)
             {
-                //bool convertToSecondOrder = meshingParameters.SecondOrder && !meshingParameters.MidsideNodesOnGeometry;
-                ImportGeneratedMesh(volFileName, part, true);
-                return true;
+                return new GeneratedMeshData()
+                {
+                    GeometryPart = part,
+                    MeshFileName = volFileName,
+                    SmoothShaded = true
+                };
             }
             else throw new CaeException("Mesh generation failed.");
         }
-        private bool CreateMeshFromBrepGmsh(GeometryPart part, MeshSetupItem[] meshSetupItems)
+        private GeneratedMeshData CreateMeshFromBrepGmsh(GeometryPart part, MeshSetupItem[] meshSetupItems,
+                                                         string workDirectory)
         {
             _form.WriteDataToOutput("");
-            //
-            string workDirectory = _settings.GetWorkDirectory();
-            //
-            if (workDirectory == null || !Directory.Exists(workDirectory))
-            {
-                MessageBoxes.ShowWorkDirectoryError();
-                return false;
-            }
             //
             string executable = Application.StartupPath + Globals.GmshCaller;
             string brepFileName = Path.Combine(workDirectory, Globals.BrepFileName);
@@ -5581,18 +5937,24 @@ namespace PrePoMax
             if (File.Exists(gmshDataFileName)) File.Delete(gmshDataFileName);
             //
             SuppressExplodedView(new string[] { part.Name });
-            File.WriteAllText(brepFileName, part.CADFileData);
-            MeshingParameters partMeshingParameters = GetPartMeshingParameters(part.Name);
             GmshData gmshData = new GmshData();
-            gmshData.GeometryFileName = brepFileName;
-            gmshData.InpFileName = inpFileName;
-            gmshData.PartMeshingParameters = partMeshingParameters;
-            gmshData.GmshSetupItems = meshSetupItems;
-            gmshData.Preview = false;
-            _model.Geometry.GetPartTopologyForGmsh(part.Name, ref gmshData);
-            GetMeshItemSizes(part.Name, ref gmshData);
-            gmshData.WriteToFile(gmshDataFileName);
-            ResumeExplodedViews(false);
+            try
+            {
+                File.WriteAllText(brepFileName, part.CADFileData);
+                MeshingParameters partMeshingParameters = GetPartMeshingParameters(part.Name);
+                gmshData.GeometryFileName = brepFileName;
+                gmshData.InpFileName = inpFileName;
+                gmshData.PartMeshingParameters = partMeshingParameters;
+                gmshData.GmshSetupItems = meshSetupItems;
+                gmshData.Preview = false;
+                _model.Geometry.GetPartTopologyForGmsh(part.Name, ref gmshData);
+                GetMeshItemSizes(part.Name, ref gmshData);
+                gmshData.WriteToFile(gmshDataFileName);
+            }
+            finally
+            {
+                ResumeExplodedViews(false);
+            }
             //
             string argument = Globals.GmshDataFileName + " " + CaeMesh.Meshing.GmshCommandEnum.Mesh;
             //
@@ -5615,8 +5977,12 @@ namespace PrePoMax
             //
             if (jobCompleted)
             {
-                ImportGeneratedMesh(inpFileName, part, true);
-                return true;
+                return new GeneratedMeshData()
+                {
+                    GeometryPart = part,
+                    MeshFileName = inpFileName,
+                    SmoothShaded = true
+                };
             }
             else
             {

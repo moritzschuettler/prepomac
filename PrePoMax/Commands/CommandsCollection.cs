@@ -201,7 +201,11 @@ namespace PrePoMax.Commands
                     // Check model changed
                     CheckModelChanged(command);
                     // Write to file
+                    Stopwatch historyWriteWatch = Stopwatch.StartNew();
                     WriteToFile();
+                    historyWriteWatch.Stop();
+                    if (command is CCreateMesh createMesh)
+                        createMesh.HistorySerializationTime = historyWriteWatch.Elapsed;
                     //
                     _currPositionIndex++;
                     //

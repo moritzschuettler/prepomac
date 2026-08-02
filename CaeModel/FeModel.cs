@@ -1142,6 +1142,13 @@ namespace CaeModel
         public void ImportGeneratedMeshFromMeshFile(string fileName, BasePart part, bool convertToSecondOrder,
                                                     bool splitCompoundMesh, bool mergeCompoundParts)
         {
+            FeMesh mesh = PrepareGeneratedMeshFromMeshFile(fileName, part, convertToSecondOrder,
+                                                           splitCompoundMesh, mergeCompoundParts);
+            ImportGeneratedMesh(mesh);
+        }
+        public FeMesh PrepareGeneratedMeshFromMeshFile(string fileName, BasePart part, bool convertToSecondOrder,
+                                                       bool splitCompoundMesh, bool mergeCompoundParts)
+        {
             ElementsToImport elementsToImport;
             GeometryPart subPart;
             if (part.PartType == PartType.SolidAsShell) elementsToImport = ElementsToImport.Solid;
@@ -1194,9 +1201,13 @@ namespace CaeModel
             mesh.Parts.Clear();
             for (int i = 0; i < partNames.Length; i++) mesh.Parts.Add(importedParts[i].Name, importedParts[i]);
             //
-            ImportMesh(mesh, null, false);
+            return mesh;
+        }
+        public void ImportGeneratedMesh(FeMesh mesh, bool updateNodeIdElementIds = true)
+        {
+            ImportMesh(mesh, null, false, true, updateNodeIdElementIds);
             // Recolor parts at the end of the import
-            foreach (var importedPart in importedParts)
+            foreach (var importedPart in mesh.Parts.Values)
             {
                 if (_geometry.Parts.ContainsKey(importedPart.Name) && _mesh.Parts.ContainsKey(importedPart.Name))
                     _mesh.Parts[importedPart.Name].Color = _geometry.Parts[importedPart.Name].Color;
@@ -1479,6 +1490,11 @@ namespace CaeModel
         public void ImportMesh(FeMesh mesh, ICollection<string> reservedPartNames, bool forceRenameParts = true,
                                bool renumberNodesAndElements = true)
         {
+            ImportMesh(mesh, reservedPartNames, forceRenameParts, renumberNodesAndElements, true);
+        }
+        public void ImportMesh(FeMesh mesh, ICollection<string> reservedPartNames, bool forceRenameParts,
+                               bool renumberNodesAndElements, bool updateNodeIdElementIds)
+        {
             Check2D(mesh);
             //
             if (_mesh == null)
@@ -1486,7 +1502,8 @@ namespace CaeModel
                 _mesh = new FeMesh(MeshRepresentation.Mesh);
                 mesh.ResetPartsColor();
             }
-            _mesh.AddMesh(mesh, reservedPartNames, GetReservedPartIds(), forceRenameParts, renumberNodesAndElements);
+            _mesh.AddMesh(mesh, reservedPartNames, GetReservedPartIds(), forceRenameParts, renumberNodesAndElements,
+                          updateNodeIdElementIds);
         }
         // Update                                                                                   
         public void UpdateGeometryPartMassPropertiesFromVisFile(string visFileName, string partName)

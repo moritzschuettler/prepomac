@@ -115,6 +115,7 @@ namespace UserControls
         {
             public CodersLabTreeView Tree;
             public TreeNode[] Nodes;
+            public string[] ItemNames;
             public OrderedDictionaryTreeContext Context;
             public bool IsGroup;
         }
@@ -566,6 +567,41 @@ namespace UserControls
             }
             return false;
         }
+        private static bool IsCompoundGeometrySubPartNode(TreeNode node)
+        {
+            return node?.Parent?.Tag is CompoundGeometryPart;
+        }
+        private string[] GetOrderedDictionaryItemNames(IEnumerable<TreeNode> nodes,
+                                                       OrderedDictionaryTreeContext context)
+        {
+            List<string> itemNames = new List<string>();
+            HashSet<string> addedItemNames = new HashSet<string>(context.Dictionary.Comparer);
+            //
+            foreach (TreeNode node in nodes)
+            {
+                if (!(node.Tag is NamedClass item)) continue;
+                if (addedItemNames.Add(item.Name)) itemNames.Add(item.Name);
+                //
+                if (context.View == ViewType.Geometry && item is CompoundGeometryPart compoundPart)
+                {
+                    foreach (string subPartName in compoundPart.SubPartNames)
+                    {
+                        if (ContainsOrderedDictionaryItem(context, subPartName) &&
+                            addedItemNames.Add(subPartName))
+                            itemNames.Add(subPartName);
+                    }
+                }
+            }
+            return itemNames.ToArray();
+        }
+        private static bool ContainsOrderedDictionaryItem(OrderedDictionaryTreeContext context, string itemName)
+        {
+            foreach (string key in context.Dictionary.Keys)
+            {
+                if (context.Dictionary.Comparer.Equals(key, itemName)) return true;
+            }
+            return false;
+        }
         private bool CanCreateOrderedDictionaryGroup(CodersLabTreeView tree)
         {
             if (tree.SelectedNodes.Count == 0) return false;
@@ -579,6 +615,8 @@ namespace UserControls
             OrderedDictionaryTreeContext context = null;
             foreach (TreeNode node in tree.SelectedNodes)
             {
+                if (IsCompoundGeometrySubPartNode(node)) return false;
+                //
                 OrderedDictionaryTreeContext nodeContext;
                 if (!TryGetOrderedDictionaryContext(node, out nodeContext) ||
                     !IsOrderedDictionaryItemNode(node, nodeContext))
@@ -620,17 +658,15 @@ namespace UserControls
                 {
                     TryGetOrderedDictionaryContext(selectedNode, out context);
                     layout = context.Dictionary.GetItemLayoutSnapshot();
-                    List<string> names = new List<string>();
+                    itemNames = GetOrderedDictionaryItemNames(tree.SelectedNodes.Cast<TreeNode>(), context);
                     Guid? commonParentId = null;
                     bool first = true;
                     bool sameParent = true;
                     int firstIndex = Int32.MaxValue;
                     //
-                    foreach (TreeNode node in tree.SelectedNodes)
+                    foreach (string itemName in itemNames)
                     {
-                        NamedClass item = (NamedClass)node.Tag;
-                        names.Add(item.Name);
-                        FindLayoutItem(layout.Nodes, item.Name, context.Dictionary.Comparer,
+                        FindLayoutItem(layout.Nodes, itemName, context.Dictionary.Comparer,
                                        out Guid? itemParentId, out int itemIndex);
                         if (first)
                         {
@@ -641,7 +677,6 @@ namespace UserControls
                         if (itemIndex < firstIndex) firstIndex = itemIndex;
                     }
                     //
-                    itemNames = names.ToArray();
                     if (sameParent)
                     {
                         parentGroupId = commonParentId;
@@ -927,6 +962,7 @@ namespace UserControls
                 CodersLabTreeView tree = (CodersLabTreeView)sender;
                 TreeNode[] nodes = tree.SelectedNodes.Cast<TreeNode>().ToArray();
                 if (nodes.Length == 0) return;
+                if (IsCompoundGeometrySubPartNode(e.Item as TreeNode)) return;
                 //
                 OrderedDictionaryTreeContext context = null;
                 bool isGroup = false;
@@ -940,6 +976,8 @@ namespace UserControls
                 {
                     foreach (TreeNode node in nodes)
                     {
+                        if (IsCompoundGeometrySubPartNode(node)) return;
+                        //
                         OrderedDictionaryTreeContext nodeContext;
                         if (!TryGetOrderedDictionaryContext(node, out nodeContext) ||
                             !IsOrderedDictionaryItemNode(node, nodeContext))
@@ -954,6 +992,7 @@ namespace UserControls
                 {
                     Tree = tree,
                     Nodes = nodes,
+                    ItemNames = isGroup ? null : GetOrderedDictionaryItemNames(nodes, context),
                     Context = context,
                     IsGroup = isGroup
                 };
@@ -1025,13 +1064,10 @@ namespace UserControls
                 }
                 else
                 {
-                    string[] names = data.Nodes.Cast<TreeNode>()
-                                               .Select(node => ((NamedClass)node.Tag).Name)
-                                               .ToArray();
                     InvokeOrderedDictionaryTreeLayoutChangeAndExpandParent(
                         new OrderedDictionaryTreeLayoutChange(data.Context.View, data.Context.ItemType,
-                            data.Context.ParentName, OrderedDictionaryTreeLayoutAction.MoveItems, names, null, null,
-                            targetGroupId, targetIndex, null),
+                            data.Context.ParentName, OrderedDictionaryTreeLayoutAction.MoveItems, data.ItemNames,
+                            null, null, targetGroupId, targetIndex, null),
                         data.Context, targetGroupId);
                 }
             }
@@ -1061,6 +1097,11 @@ namespace UserControls
             OrderedDictionaryTreeContext targetContext;
             if (!TryGetOrderedDictionaryContext(targetNode, out targetContext) ||
                 !ReferenceEquals(data.Context, targetContext))
+                return false;
+            // Compound geometry parts are fixed presentation subtrees. Their child rows
+            // cannot be reordered and their parent row cannot accept additional parts.
+            if (targetContext.View == ViewType.Geometry &&
+                (targetNode.Tag is CompoundGeometryPart || IsCompoundGeometrySubPartNode(targetNode)))
                 return false;
             //
             OrderedDictionaryItemLayout<string> layout = data.Context.Dictionary.GetItemLayoutSnapshot();
@@ -1181,9 +1222,8 @@ namespace UserControls
             }
             else
             {
-                foreach (TreeNode node in data.Nodes)
+                foreach (string key in data.ItemNames)
                 {
-                    string key = ((NamedClass)node.Tag).Name;
                     FindLayoutItem(layout.Nodes, key, data.Context.Dictionary.Comparer,
                                    out Guid? parentId, out int index);
                     if (parentId == targetGroupId && index < targetIndex) beforeTarget++;
@@ -3468,8 +3508,18 @@ namespace UserControls
                     RootNode = node
                 };
                 _orderedDictionaryContexts[node] = context;
+                HashSet<string> compoundSubPartNames = null;
+                if (context.View == ViewType.Geometry)
+                {
+                    compoundSubPartNames = new HashSet<string>(orderedDictionary.Comparer);
+                    foreach (TVal value in dictionary.Values)
+                    {
+                        if (value is CompoundGeometryPart compoundPart)
+                            compoundSubPartNames.UnionWith(compoundPart.SubPartNames);
+                    }
+                }
                 AddOrderedDictionaryLayoutNodes(node, orderedDictionary.GetItemLayoutSnapshot().Nodes,
-                                                dictionary, context);
+                                                dictionary, context, compoundSubPartNames);
             }
             else
             {
@@ -3492,7 +3542,8 @@ namespace UserControls
         }
         private void AddOrderedDictionaryLayoutNodes<TKey, TVal>(
             TreeNode parentNode, IEnumerable<OrderedDictionaryItemNode<string>> layoutNodes,
-            IDictionary<TKey, TVal> dictionary, OrderedDictionaryTreeContext context)
+            IDictionary<TKey, TVal> dictionary, OrderedDictionaryTreeContext context,
+            HashSet<string> compoundSubPartNames)
         {
             foreach (OrderedDictionaryItemNode<string> layoutNode in layoutNodes)
             {
@@ -3507,11 +3558,14 @@ namespace UserControls
                         Id = layoutNode.Id,
                         Name = layoutNode.Name
                     };
-                    AddOrderedDictionaryLayoutNodes(groupNode, layoutNode.Children, dictionary, context);
+                    AddOrderedDictionaryLayoutNodes(groupNode, layoutNode.Children, dictionary, context,
+                                                    compoundSubPartNames);
                     groupNode.Expand();
                 }
                 else
                 {
+                    if (compoundSubPartNames != null && compoundSubPartNames.Contains(layoutNode.Key)) continue;
+                    //
                     TKey key = (TKey)(object)layoutNode.Key;
                     if (!dictionary.TryGetValue(key, out TVal value)) continue;
                     if (value is NamedClass nc && nc.Internal) continue;
@@ -3520,6 +3574,22 @@ namespace UserControls
                     itemNode.Name = itemNode.Text;
                     itemNode.Tag = value;
                     SetNodeStatus(itemNode);
+                    //
+                    if (context.View == ViewType.Geometry && value is CompoundGeometryPart compoundPart)
+                    {
+                        foreach (string subPartName in compoundPart.SubPartNames)
+                        {
+                            TKey subPartKey = (TKey)(object)subPartName;
+                            if (!dictionary.TryGetValue(subPartKey, out TVal subPart)) continue;
+                            if (subPart is NamedClass subPartNamedClass && subPartNamedClass.Internal) continue;
+                            //
+                            TreeNode subPartNode = itemNode.Nodes.Add(subPartName);
+                            subPartNode.Name = subPartNode.Text;
+                            subPartNode.Tag = subPart;
+                            SetNodeStatus(subPartNode);
+                        }
+                        itemNode.Expand();
+                    }
                 }
             }
         }

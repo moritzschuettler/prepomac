@@ -225,7 +225,9 @@ namespace PrePoMax.Forms
             foreach (var command in meshSetupCommands) commands.Insert(index++, command);
             foreach (var command in meshCommands)
             {
-                if (meshedPartNames.Add(command.PartName)) commands.Insert(index++, command);
+                string[] newPartNames = command.PartNames.Where(name => meshedPartNames.Add(name)).ToArray();
+                if (newPartNames.Length == command.PartNames.Length) commands.Insert(index++, command);
+                else if (newPartNames.Length > 0) commands.Insert(index++, new CCreateMesh(newPartNames));
             }
             //
             SetCommands(commands);

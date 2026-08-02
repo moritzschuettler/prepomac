@@ -4273,40 +4273,15 @@ namespace PrePoMax
                 Stopwatch watch = new Stopwatch();
                 watch.Start();
                 //
-                GeometryPart part;
-                foreach (var partName in partNames)
+                await Task.Run(() => _controller.CreateMeshesCommand(partNames));
+                //
+                errors.AddRange(_controller.LastMeshingErrors);
+                if (IsStateWorking())
                 {
-                    try
+                    foreach (string partName in _controller.LastMeshedModelPartNames)
                     {
-                        part = _controller.GetGeometryPart(partName);
-                        //
-                        bool screenUpdating = _modelTree.ScreenUpdating;
-                        _modelTree.ScreenUpdating = false;
-                        try
-                        {
-                            await Task.Run(() => _controller.CreateMeshCommand(partName));
-                        }
-                        finally
-                        {
-                            _modelTree.ScreenUpdating = screenUpdating;
-                            if (screenUpdating) RegenerateTree(true);
-                        }
-                        // Check for the cancel button click
-                        if (IsStateWorking())
-                        {
-                            _modelTree.SelectBasePart(e, modifierKeys, part, true);
-                        }
-                        else
-                        {
-                            errors.Add("Mesh generation canceled.");
-                            break;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        if (ex is CaeException) errors.Add(partName + ": " + ex.Message);
-                        errors.Add("Mesh generation failed for part " + partName +
-                                   ". Check the geometry and/or adjust the meshing parameters.");
+                        MeshPart part = _controller.GetModelPart(partName);
+                        _modelTree.SelectBasePart(e, modifierKeys, part, true);
                     }
                 }
                 watch.Stop();
@@ -4320,8 +4295,6 @@ namespace PrePoMax
                 //
                 if (errors.Count > 0)
                 {
-                    WriteDataToOutput("");
-                    foreach (var error in errors) WriteDataToOutput(error);
                     MessageBoxes.ShowError("Errors occurred during meshing. Please check the output window.");
                 }
             }

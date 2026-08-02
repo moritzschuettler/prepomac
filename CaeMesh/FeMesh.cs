@@ -7471,6 +7471,11 @@ namespace CaeMesh
                                 bool forceRenameParts = true,
                                 bool renumberNodesAndElements = true)
         {
+            return AddMesh(mesh, reservedPartNames, reservedPartIds, forceRenameParts, renumberNodesAndElements, true);
+        }
+        public string[] AddMesh(FeMesh mesh, ICollection<string> reservedPartNames, HashSet<int> reservedPartIds,
+                                bool forceRenameParts, bool renumberNodesAndElements, bool updateNodeIdElementIds)
+        {
             int numOfNodes = mesh.Nodes.Count;
             int numOfElements = mesh.Elements.Count;
             int firstNodeId = _nodes.FindFreeIntervalOfKeys(numOfNodes, _maxNodeId);
@@ -7493,7 +7498,7 @@ namespace CaeMesh
             _elements.AddRange(mesh.Elements);
             if (_maxElementId < mesh.MaxElementId) _maxElementId = mesh.MaxElementId;
             //
-            UpdateNodeIdElementIds();
+            if (updateNodeIdElementIds) UpdateNodeIdElementIds();
             // Add and rename nodeSets
             count = 1;
             foreach (var entry in mesh.NodeSets)
