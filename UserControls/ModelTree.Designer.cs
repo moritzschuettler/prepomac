@@ -177,18 +177,17 @@ namespace UserControls
             this.tsmiSpaceDelete = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiDelete = new System.Windows.Forms.ToolStripMenuItem();
             this.ilIcons = new System.Windows.Forms.ImageList(this.components);
-            this.ilStatusIcons = new System.Windows.Forms.ImageList(this.components);
             this.tcGeometryModelResults = new System.Windows.Forms.TabControl();
             this.tpGeometry = new System.Windows.Forms.TabPage();
+            this.tpModel = new System.Windows.Forms.TabPage();
+            this.tpResults = new System.Windows.Forms.TabPage();
+            this.timerMouseMove = new System.Windows.Forms.Timer(this.components);
             this.stbGeometrySearch = new UserControls.SearchTextBox();
             this.cltvGeometry = new UserControls.CodersLabTreeView();
-            this.tpModel = new System.Windows.Forms.TabPage();
             this.stbModel = new UserControls.SearchTextBox();
             this.cltvModel = new UserControls.CodersLabTreeView();
-            this.tpResults = new System.Windows.Forms.TabPage();
             this.stbResults = new UserControls.SearchTextBox();
             this.cltvResults = new UserControls.CodersLabTreeView();
-            this.timerMouseMove = new System.Windows.Forms.Timer(this.components);
             this.cmsTree.SuspendLayout();
             this.cmsTreeSecondary.SuspendLayout();
             this.tcGeometryModelResults.SuspendLayout();
@@ -684,13 +683,6 @@ namespace UserControls
             this.ilIcons.Images.SetKeyName(46, "Wire_transparent.ico");
             this.ilIcons.Images.SetKeyName(47, "Unactive.ico");
             // 
-            // ilStatusIcons
-            // 
-            this.ilStatusIcons.ImageStream = ((System.Windows.Forms.ImageListStreamer)(resources.GetObject("ilStatusIcons.ImageStream")));
-            this.ilStatusIcons.TransparentColor = System.Drawing.Color.Transparent;
-            this.ilStatusIcons.Images.SetKeyName(0, "Warning.ico");
-            this.ilStatusIcons.Images.SetKeyName(1, "Unactive.ico");
-            // 
             // tcGeometryModelResults
             // 
             this.tcGeometryModelResults.Controls.Add(this.tpGeometry);
@@ -717,6 +709,33 @@ namespace UserControls
             this.tpGeometry.TabIndex = 2;
             this.tpGeometry.Text = "Geometry";
             this.tpGeometry.UseVisualStyleBackColor = true;
+            // 
+            // tpModel
+            // 
+            this.tpModel.Controls.Add(this.stbModel);
+            this.tpModel.Controls.Add(this.cltvModel);
+            this.tpModel.Location = new System.Drawing.Point(4, 24);
+            this.tpModel.Name = "tpModel";
+            this.tpModel.Size = new System.Drawing.Size(231, 470);
+            this.tpModel.TabIndex = 0;
+            this.tpModel.Text = "FE Model";
+            this.tpModel.UseVisualStyleBackColor = true;
+            // 
+            // tpResults
+            // 
+            this.tpResults.Controls.Add(this.stbResults);
+            this.tpResults.Controls.Add(this.cltvResults);
+            this.tpResults.Location = new System.Drawing.Point(4, 24);
+            this.tpResults.Name = "tpResults";
+            this.tpResults.Padding = new System.Windows.Forms.Padding(3);
+            this.tpResults.Size = new System.Drawing.Size(231, 470);
+            this.tpResults.TabIndex = 1;
+            this.tpResults.Text = "Results";
+            this.tpResults.UseVisualStyleBackColor = true;
+            // 
+            // timerMouseMove
+            // 
+            this.timerMouseMove.Tick += new System.EventHandler(this.timerMouseMove_Tick);
             // 
             // stbGeometrySearch
             // 
@@ -816,17 +835,6 @@ namespace UserControls
             this.cltvGeometry.MouseDown += new System.Windows.Forms.MouseEventHandler(this.cltv_MouseDown);
             this.cltvGeometry.MouseUp += new System.Windows.Forms.MouseEventHandler(this.cltv_MouseUp);
             // 
-            // tpModel
-            // 
-            this.tpModel.Controls.Add(this.stbModel);
-            this.tpModel.Controls.Add(this.cltvModel);
-            this.tpModel.Location = new System.Drawing.Point(4, 24);
-            this.tpModel.Name = "tpModel";
-            this.tpModel.Size = new System.Drawing.Size(231, 470);
-            this.tpModel.TabIndex = 0;
-            this.tpModel.Text = "FE Model";
-            this.tpModel.UseVisualStyleBackColor = true;
-            // 
             // stbModel
             // 
             this.stbModel.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
@@ -857,6 +865,7 @@ namespace UserControls
             this.cltvModel.ImageIndex = 0;
             this.cltvModel.ImageList = this.ilIcons;
             this.cltvModel.LabelEdit = true;
+            this.cltvModel.LineColor = System.Drawing.Color.Empty;
             this.cltvModel.Location = new System.Drawing.Point(0, 21);
             this.cltvModel.Margin = new System.Windows.Forms.Padding(0);
             this.cltvModel.MouseOverColor = System.Drawing.Color.FromArgb(((int)(((byte)(204)))), ((int)(((byte)(228)))), ((int)(((byte)(247)))));
@@ -979,18 +988,6 @@ namespace UserControls
             this.cltvModel.MouseDown += new System.Windows.Forms.MouseEventHandler(this.cltv_MouseDown);
             this.cltvModel.MouseUp += new System.Windows.Forms.MouseEventHandler(this.cltv_MouseUp);
             // 
-            // tpResults
-            // 
-            this.tpResults.Controls.Add(this.stbResults);
-            this.tpResults.Controls.Add(this.cltvResults);
-            this.tpResults.Location = new System.Drawing.Point(4, 24);
-            this.tpResults.Name = "tpResults";
-            this.tpResults.Padding = new System.Windows.Forms.Padding(3);
-            this.tpResults.Size = new System.Drawing.Size(231, 470);
-            this.tpResults.TabIndex = 1;
-            this.tpResults.Text = "Results";
-            this.tpResults.UseVisualStyleBackColor = true;
-            // 
             // stbResults
             // 
             this.stbResults.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
@@ -1020,6 +1017,7 @@ namespace UserControls
             this.cltvResults.ImageIndex = 0;
             this.cltvResults.ImageList = this.ilIcons;
             this.cltvResults.LabelEdit = true;
+            this.cltvResults.LineColor = System.Drawing.Color.Empty;
             this.cltvResults.Location = new System.Drawing.Point(0, 21);
             this.cltvResults.Margin = new System.Windows.Forms.Padding(0);
             this.cltvResults.MouseOverColor = System.Drawing.Color.FromArgb(((int)(((byte)(204)))), ((int)(((byte)(228)))), ((int)(((byte)(247)))));
@@ -1104,10 +1102,6 @@ namespace UserControls
             this.cltvResults.MouseDown += new System.Windows.Forms.MouseEventHandler(this.cltv_MouseDown);
             this.cltvResults.MouseUp += new System.Windows.Forms.MouseEventHandler(this.cltv_MouseUp);
             // 
-            // timerMouseMove
-            // 
-            this.timerMouseMove.Tick += new System.EventHandler(this.timerMouseMove_Tick);
-            // 
             // ModelTree
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
@@ -1160,7 +1154,6 @@ namespace UserControls
         private System.Windows.Forms.TabPage tpModel;
         private System.Windows.Forms.TabPage tpResults;
         private CodersLabTreeView cltvResults;
-        private System.Windows.Forms.ImageList ilStatusIcons;
         private System.Windows.Forms.ImageList ilIcons;
         private System.Windows.Forms.ToolStripSeparator tsmiSpaceHideShow;
         private System.Windows.Forms.ToolStripMenuItem tsmiHide;
