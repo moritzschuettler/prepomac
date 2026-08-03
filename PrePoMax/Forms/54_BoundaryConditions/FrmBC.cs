@@ -193,7 +193,7 @@ namespace PrePoMax.Forms
                     dr.CoordinateSystemName != CoordinateSystem.DefaultCoordinateSystemName)
                 {
                     if (MessageBoxes.ShowWarningQuestionOKCancel(
-                        "A coordinate system will not be taken into account if applied on a reference point?") ==
+                        "A coordinate system will not be taken into account if applied on a reference point.") ==
                         DialogResult.Cancel)
                         throw new CaeException("BreakOnApply");
                 }

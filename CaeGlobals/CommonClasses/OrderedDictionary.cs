@@ -578,10 +578,7 @@ namespace CaeGlobals
         public OrderedDictionaryItemLayout<TKey> GetItemLayoutSnapshot()
         {
             if (_itemLayout != null) return _itemLayout.DeepCopy();
-            //
-            List<OrderedDictionaryItemNode<TKey>> nodes = new List<OrderedDictionaryItemNode<TKey>>(_list.Count);
-            foreach (TKey key in _list) nodes.Add(OrderedDictionaryItemNode<TKey>.CreateItem(key));
-            return new OrderedDictionaryItemLayout<TKey>(nodes);
+            return CreateFlatItemLayout();
         }
 
         /// <summary>
@@ -624,14 +621,30 @@ namespace CaeGlobals
         /// </summary>
         public Guid CreateGroup(string name, Guid? parentGroupId, int index)
         {
+            return CreateGroup(Guid.NewGuid(), name, parentGroupId, index);
+        }
+
+        /// <summary>
+        /// Creates an empty group with a specified stable id. This allows corresponding groups in separate
+        /// ordered dictionaries to be linked without using their names as identity.
+        /// </summary>
+        public Guid CreateGroup(Guid groupId, string name, Guid? parentGroupId, int index)
+        {
+            if (groupId == Guid.Empty) throw new ArgumentException("The group id must not be empty.", "groupId");
             name = OrderedDictionaryItemNode<TKey>.ValidateGroupName(name);
             EnsureItemLayout();
+            //
+            OrderedDictionaryItemNode<TKey> existingNode;
+            List<OrderedDictionaryItemNode<TKey>> existingParent;
+            if (TryFindNodeById(_itemLayout.MutableNodes, groupId, out existingNode, out existingParent))
+                throw new ArgumentException("The group id already exists in the item layout.", "groupId");
             //
             List<OrderedDictionaryItemNode<TKey>> children = GetGroupChildren(parentGroupId);
             if (index < 0 || index > children.Count) throw new ArgumentOutOfRangeException("index");
             EnsureUniqueGroupName(children, name, Guid.Empty);
             //
-            OrderedDictionaryItemNode<TKey> group = OrderedDictionaryItemNode<TKey>.CreateGroup(name);
+            OrderedDictionaryItemNode<TKey> group =
+                OrderedDictionaryItemNode<TKey>.CreateGroup(groupId, name, null);
             children.Insert(index, group);
             return group.Id;
         }
@@ -703,6 +716,8 @@ namespace CaeGlobals
             EnsureItemLayout();
             List<OrderedDictionaryItemNode<TKey>> targetChildren = GetGroupChildren(targetGroupId);
             List<OrderedDictionaryItemNode<TKey>> nodesToMove = new List<OrderedDictionaryItemNode<TKey>>();
+            List<List<OrderedDictionaryItemNode<TKey>>> sourceParents =
+                new List<List<OrderedDictionaryItemNode<TKey>>>();
             //
             foreach (TKey key in _list)
             {
@@ -713,27 +728,20 @@ namespace CaeGlobals
                 if (!TryFindItemNode(_itemLayout.MutableNodes, key, out node, out parent))
                     throw new InvalidOperationException("The item layout is inconsistent with the dictionary.");
                 nodesToMove.Add(node);
+                sourceParents.Add(parent);
             }
             //
             int targetCountAfterRemoval = targetChildren.Count;
-            foreach (OrderedDictionaryItemNode<TKey> node in nodesToMove)
+            foreach (List<OrderedDictionaryItemNode<TKey>> sourceParent in sourceParents)
             {
-                OrderedDictionaryItemNode<TKey> currentNode;
-                List<OrderedDictionaryItemNode<TKey>> currentParent;
-                if (!TryFindNodeById(_itemLayout.MutableNodes, node.Id, out currentNode, out currentParent))
-                    throw new InvalidOperationException("The item layout is inconsistent with the dictionary.");
-                if (ReferenceEquals(currentParent, targetChildren)) targetCountAfterRemoval--;
+                if (ReferenceEquals(sourceParent, targetChildren)) targetCountAfterRemoval--;
             }
             if (targetIndex < 0 || targetIndex > targetCountAfterRemoval)
                 throw new ArgumentOutOfRangeException("targetIndex");
             //
-            foreach (OrderedDictionaryItemNode<TKey> node in nodesToMove)
+            for (int i = 0; i < nodesToMove.Count; i++)
             {
-                OrderedDictionaryItemNode<TKey> currentNode;
-                List<OrderedDictionaryItemNode<TKey>> currentParent;
-                if (!TryFindNodeById(_itemLayout.MutableNodes, node.Id, out currentNode, out currentParent))
-                    throw new InvalidOperationException("The item layout is inconsistent with the dictionary.");
-                currentParent.Remove(currentNode);
+                sourceParents[i].Remove(nodesToMove[i]);
             }
             //
             targetChildren.InsertRange(targetIndex, nodesToMove);
@@ -790,10 +798,13 @@ namespace CaeGlobals
         private void EnsureItemLayout()
         {
             if (_itemLayout != null) return;
-            //
+            _itemLayout = CreateFlatItemLayout();
+        }
+        private OrderedDictionaryItemLayout<TKey> CreateFlatItemLayout()
+        {
             List<OrderedDictionaryItemNode<TKey>> nodes = new List<OrderedDictionaryItemNode<TKey>>(_list.Count);
             foreach (TKey key in _list) nodes.Add(OrderedDictionaryItemNode<TKey>.CreateItem(key));
-            _itemLayout = new OrderedDictionaryItemLayout<TKey>(nodes);
+            return new OrderedDictionaryItemLayout<TKey>(nodes);
         }
         private void NormalizeItemLayout()
         {

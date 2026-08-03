@@ -74,6 +74,39 @@ namespace PrePoMax.Commands
     }
 
     /// <summary>
+    /// Stores the geometry and model part layouts produced by one linked-group rename.
+    /// Both layouts are replayed by one history command.
+    /// </summary>
+    [Serializable]
+    internal sealed class CSetLinkedPartGroupLayouts : PreprocessCommand
+    {
+        private OrderedDictionaryItemLayout<string> _geometryLayout;
+        private OrderedDictionaryItemLayout<string> _modelLayout;
+        private string _details;
+
+
+        public CSetLinkedPartGroupLayouts(string name, OrderedDictionaryItemLayout<string> geometryLayout,
+                                          OrderedDictionaryItemLayout<string> modelLayout, string details)
+            : base(name)
+        {
+            _geometryLayout = new OrderedDictionaryItemLayout<string>(geometryLayout.Nodes);
+            _modelLayout = new OrderedDictionaryItemLayout<string>(modelLayout.Nodes);
+            _details = details;
+        }
+
+
+        public override bool Execute(Controller receiver)
+        {
+            receiver.SetLinkedPartGroupLayouts(_geometryLayout, _modelLayout);
+            return true;
+        }
+        public override string GetCommandString()
+        {
+            return base.GetCommandString() + _details;
+        }
+    }
+
+    /// <summary>
     /// Results-tree counterpart required by the existing postprocessing replay classifier.
     /// </summary>
     [Serializable]

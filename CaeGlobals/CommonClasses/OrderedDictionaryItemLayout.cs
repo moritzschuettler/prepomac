@@ -21,9 +21,11 @@ namespace CaeGlobals
     {
         ICollection<TKey> Keys { get; }
         IEqualityComparer<TKey> Comparer { get; }
+        bool ContainsKey(TKey key);
         OrderedDictionaryItemLayout<TKey> GetItemLayoutSnapshot();
         void SetItemLayout(OrderedDictionaryItemLayout<TKey> itemLayout);
         Guid CreateGroup(string name, Guid? parentGroupId, int index);
+        Guid CreateGroup(Guid groupId, string name, Guid? parentGroupId, int index);
         void RenameGroup(Guid groupId, string newName);
         void RemoveGroup(Guid groupId);
         void MoveItems(ICollection<TKey> keys, Guid? targetGroupId, int targetIndex);

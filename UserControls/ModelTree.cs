@@ -354,7 +354,7 @@ namespace UserControls
         public Action RegenerateTreeCallBack;
         public Func<NamedClass, string, string, bool> CheckItemName;
         public Func<string> GetNextPartGroupName;
-        public Func<string, string, bool> CheckPartGroupName;
+        public Func<Guid?, string, bool> CheckPartGroupName;
 
 
         // Constructors                                                                                                             
@@ -562,16 +562,49 @@ namespace UserControls
         private bool IsOrderedDictionaryItemNode(TreeNode node, OrderedDictionaryTreeContext context)
         {
             if (!(node?.Tag is NamedClass item) || context == null) return false;
-            //
-            foreach (string key in context.Dictionary.Keys)
-            {
-                if (context.Dictionary.Comparer.Equals(key, item.Name)) return true;
-            }
-            return false;
+            return ContainsOrderedDictionaryItem(context, item.Name);
         }
         private static bool IsCompoundGeometrySubPartNode(TreeNode node)
         {
             return node?.Parent?.Tag is CompoundGeometryPart;
+        }
+        private TreeNode[] GetSelectedNodesIncludingGroupItems(CodersLabTreeView tree)
+        {
+            List<TreeNode> nodes = new List<TreeNode>();
+            HashSet<TreeNode> addedNodes = new HashSet<TreeNode>();
+            //
+            foreach (TreeNode selectedNode in tree.SelectedNodes)
+            {
+                AddSelectedNodeIncludingGroupItems(selectedNode, nodes, addedNodes);
+            }
+            return nodes.ToArray();
+        }
+        private TreeNode GetSingleSelectedNodeIncludingGroupItems(CodersLabTreeView tree)
+        {
+            TreeNode[] nodes = GetSelectedNodesIncludingGroupItems(tree);
+            return nodes.Length == 1 ? nodes[0] : null;
+        }
+        private string[] GetSelectedItemNamesIncludingGroupItems(CodersLabTreeView tree)
+        {
+            return GetSelectedNodesIncludingGroupItems(tree)
+                .Where(node => node.Tag is NamedClass)
+                .Select(node => ((NamedClass)node.Tag).Name)
+                .ToArray();
+        }
+        private void AddSelectedNodeIncludingGroupItems(TreeNode node, List<TreeNode> nodes,
+                                                        HashSet<TreeNode> addedNodes)
+        {
+            if (_orderedDictionaryGroups.ContainsKey(node))
+            {
+                foreach (TreeNode childNode in node.Nodes)
+                {
+                    if (_orderedDictionaryGroups.ContainsKey(childNode))
+                        AddSelectedNodeIncludingGroupItems(childNode, nodes, addedNodes);
+                    else if (childNode.Tag != null && addedNodes.Add(childNode))
+                        nodes.Add(childNode);
+                }
+            }
+            else if (addedNodes.Add(node)) nodes.Add(node);
         }
         private string[] GetOrderedDictionaryItemNames(IEnumerable<TreeNode> nodes,
                                                        OrderedDictionaryTreeContext context)
@@ -598,11 +631,14 @@ namespace UserControls
         }
         private static bool ContainsOrderedDictionaryItem(OrderedDictionaryTreeContext context, string itemName)
         {
-            foreach (string key in context.Dictionary.Keys)
-            {
-                if (context.Dictionary.Comparer.Equals(key, itemName)) return true;
-            }
-            return false;
+            return context.Dictionary.ContainsKey(itemName);
+        }
+        private TreeNode FindOrderedDictionaryGroupNode(OrderedDictionaryTreeContext context, Guid groupId)
+        {
+            return _orderedDictionaryGroups
+                .Where(entry => ReferenceEquals(entry.Value.Context, context) && entry.Value.Id == groupId)
+                .Select(entry => entry.Key)
+                .FirstOrDefault();
         }
         private bool CanCreateOrderedDictionaryGroup(CodersLabTreeView tree)
         {
@@ -698,10 +734,11 @@ namespace UserControls
                     groupName = GetNextPartGroupName();
                 else
                     groupName = GetNextGroupName(layout, parentGroupId);
+                Guid newGroupId = Guid.NewGuid();
                 InvokeOrderedDictionaryTreeLayoutChangeAndExpandParent(
-                    new OrderedDictionaryTreeLayoutChange(context.View, context.ItemType, context.ParentName,
-                        OrderedDictionaryTreeLayoutAction.CreateGroup, itemNames, null, null, parentGroupId,
-                        index, groupName),
+                    OrderedDictionaryTreeLayoutChange.CreateGroup(
+                        context.View, context.ItemType, context.ParentName, itemNames, newGroupId,
+                        parentGroupId, index, groupName),
                     context, parentGroupId);
             }
             catch (Exception ex)
@@ -734,11 +771,10 @@ namespace UserControls
                     parentGroupId = parentGroupInfo.Id;
                 //
                 Guid[] groupIds = groupNodes.Select(node => _orderedDictionaryGroups[node].Id).ToArray();
-                string[] groupNames = groupNodes.Select(node => _orderedDictionaryGroups[node].Name).ToArray();
                 InvokeOrderedDictionaryTreeLayoutChangeAndExpandParent(
-                    new OrderedDictionaryTreeLayoutChange(firstGroupInfo.Context.View, firstGroupInfo.Context.ItemType,
-                        firstGroupInfo.Context.ParentName, OrderedDictionaryTreeLayoutAction.RemoveGroup, null,
-                        groupIds, null, null, -1, groupNames.ToShortString()),
+                    OrderedDictionaryTreeLayoutChange.RemoveGroups(
+                        firstGroupInfo.Context.View, firstGroupInfo.Context.ItemType,
+                        firstGroupInfo.Context.ParentName, groupIds),
                     firstGroupInfo.Context, parentGroupId);
             }
             catch (Exception ex)
@@ -758,11 +794,8 @@ namespace UserControls
                 bool? movedGroupExpanded = null;
                 if (change.Action == OrderedDictionaryTreeLayoutAction.MoveGroup && change.GroupId.HasValue)
                 {
-                    TreeNode movedGroupNode = _orderedDictionaryGroups
-                        .Where(entry => ReferenceEquals(entry.Value.Context, previousContext) &&
-                                        entry.Value.Id == change.GroupId.Value)
-                        .Select(entry => entry.Key)
-                        .FirstOrDefault();
+                    TreeNode movedGroupNode =
+                        FindOrderedDictionaryGroupNode(previousContext, change.GroupId.Value);
                     if (movedGroupNode != null) movedGroupExpanded = movedGroupNode.IsExpanded;
                 }
                 //
@@ -780,11 +813,7 @@ namespace UserControls
                 TreeNode parentNode = context.RootNode;
                 if (parentGroupId.HasValue)
                 {
-                    parentNode = _orderedDictionaryGroups
-                        .Where(entry => ReferenceEquals(entry.Value.Context, context) &&
-                                        entry.Value.Id == parentGroupId.Value)
-                        .Select(entry => entry.Key)
-                        .FirstOrDefault();
+                    parentNode = FindOrderedDictionaryGroupNode(context, parentGroupId.Value);
                 }
                 //
                 TreeNode nodeToExpand = parentNode;
@@ -796,12 +825,8 @@ namespace UserControls
                 //
                 if (change.Action == OrderedDictionaryTreeLayoutAction.CreateGroup)
                 {
-                    TreeNode groupNode = _orderedDictionaryGroups
-                        .Where(entry => ReferenceEquals(entry.Value.Context, context) &&
-                                        String.Equals(entry.Value.Name, change.GroupName,
-                                                      StringComparison.OrdinalIgnoreCase))
-                        .Select(entry => entry.Key)
-                        .FirstOrDefault(node => ReferenceEquals(node.Parent, parentNode));
+                    TreeNode groupNode = FindOrderedDictionaryGroupNode(context, change.GroupId.Value);
+                    if (groupNode != null && !ReferenceEquals(groupNode.Parent, parentNode)) groupNode = null;
                     if (groupNode != null) tree.SelectedNode = groupNode;
                 }
                 else if (change.Action == OrderedDictionaryTreeLayoutAction.MoveItems)
@@ -810,11 +835,7 @@ namespace UserControls
                 }
                 else if (change.Action == OrderedDictionaryTreeLayoutAction.MoveGroup && change.GroupId.HasValue)
                 {
-                    TreeNode groupNode = _orderedDictionaryGroups
-                        .Where(entry => ReferenceEquals(entry.Value.Context, context) &&
-                                        entry.Value.Id == change.GroupId.Value)
-                        .Select(entry => entry.Key)
-                        .FirstOrDefault();
+                    TreeNode groupNode = FindOrderedDictionaryGroupNode(context, change.GroupId.Value);
                     if (groupNode != null)
                     {
                         tree.SelectedNode = groupNode;
@@ -951,6 +972,52 @@ namespace UserControls
         {
             if (TryFindLayoutItem(nodes, key, comparer, null, out parentGroupId, out index)) return;
             throw new KeyNotFoundException("The item was not found in the ordered dictionary layout.");
+        }
+        private void MoveTreeNodeToOrderedDictionaryLayoutParent(TreeNode rootNode, TreeNode itemNode)
+        {
+            if (!_orderedDictionaryContexts.TryGetValue(rootNode, out OrderedDictionaryTreeContext context)) return;
+            //
+            OrderedDictionaryItemLayout<string> layout = context.Dictionary.GetItemLayoutSnapshot();
+            if (!TryFindLayoutItem(layout.Nodes, itemNode.Name, context.Dictionary.Comparer, null,
+                                   out Guid? parentGroupId, out _))
+                return;
+            //
+            TreeNode targetParentNode = context.RootNode;
+            if (parentGroupId.HasValue)
+            {
+                targetParentNode = FindOrderedDictionaryGroupNode(context, parentGroupId.Value);
+                if (targetParentNode == null) return;
+            }
+            if (ReferenceEquals(itemNode.Parent, targetParentNode)) return;
+            //
+            itemNode.Remove();
+            targetParentNode.Nodes.Add(itemNode);
+        }
+        public void UpdateTreeNodeLayout(ViewType view, string itemName, NamedClass item, string parentName)
+        {
+            if (!_screenUpdating) return;
+            //
+            CodersLabTreeView tree = GetTree(view);
+            try
+            {
+                tree.BeginUpdate();
+                TreeNode itemNode = FindTreeNode(view, itemName, item, parentName);
+                if (itemNode == null ||
+                    !TryGetOrderedDictionaryContext(itemNode, out OrderedDictionaryTreeContext context))
+                    return;
+                //
+                MoveTreeNodeToOrderedDictionaryLayoutParent(context.RootNode, itemNode);
+                TreeNode nodeToExpand = itemNode.Parent;
+                while (nodeToExpand != null)
+                {
+                    nodeToExpand.Expand();
+                    nodeToExpand = nodeToExpand.Parent;
+                }
+            }
+            finally
+            {
+                tree.EndUpdate();
+            }
         }
         private static bool TryFindLayoutItem(IEnumerable<OrderedDictionaryItemNode<string>> nodes, string key,
                                               IEqualityComparer<string> comparer, Guid? currentParentId,
@@ -1093,17 +1160,17 @@ namespace UserControls
                 {
                     OrderedDictionaryGroupInfo groupInfo = _orderedDictionaryGroups[data.Nodes[0]];
                     InvokeOrderedDictionaryTreeLayoutChangeAndExpandParent(
-                        new OrderedDictionaryTreeLayoutChange(data.Context.View, data.Context.ItemType,
-                            data.Context.ParentName, OrderedDictionaryTreeLayoutAction.MoveGroup, null, null,
-                            groupInfo.Id, targetGroupId, targetIndex, groupInfo.Name),
+                        OrderedDictionaryTreeLayoutChange.MoveGroup(
+                            data.Context.View, data.Context.ItemType, data.Context.ParentName, groupInfo.Id,
+                            targetGroupId, targetIndex),
                         data.Context, targetGroupId);
                 }
                 else
                 {
                     InvokeOrderedDictionaryTreeLayoutChangeAndExpandParent(
-                        new OrderedDictionaryTreeLayoutChange(data.Context.View, data.Context.ItemType,
-                            data.Context.ParentName, OrderedDictionaryTreeLayoutAction.MoveItems, data.ItemNames,
-                            null, null, targetGroupId, targetIndex, null),
+                        OrderedDictionaryTreeLayoutChange.MoveItems(
+                            data.Context.View, data.Context.ItemType, data.Context.ParentName, data.ItemNames,
+                            targetGroupId, targetIndex),
                         data.Context, targetGroupId);
                 }
             }
@@ -1287,11 +1354,13 @@ namespace UserControls
 
         private void PrepareToolStripItem(CodersLabTreeView tree)
         {
-            int n = tree.SelectedNodes.Count;
+            TreeNode[] actionNodes = GetSelectedNodesIncludingGroupItems(tree);
+            int n = actionNodes.Length;
+            bool hasActionNodes = n > 0;
             //
             ContextMenuFields menuFields = new ContextMenuFields();
             menuFields.Types = new HashSet<Type>();
-            foreach (TreeNode node in tree.SelectedNodes)
+            foreach (TreeNode node in actionNodes)
             {
                 AppendMenuFields(node, ref menuFields);
             }
@@ -1299,15 +1368,15 @@ namespace UserControls
             // Visibility                                                                                           
             bool visible;
             // Create
-            visible = menuFields.Create == n;
+            visible = hasActionNodes && menuFields.Create == n;
             tsmiCreate.Visible = visible;
             oneAboveVisible |= visible;
             // Edit
-            visible = menuFields.Edit == n;
+            visible = hasActionNodes && menuFields.Edit == n;
             tsmiEdit.Visible = visible;
             oneAboveVisible |= visible;
             // Edit step controls
-            visible = menuFields.EditStepControls == n;
+            visible = hasActionNodes && menuFields.EditStepControls == n;
             tsmiEditStepControls.Visible = visible;
             oneAboveVisible |= visible;
             // Query
@@ -1315,15 +1384,15 @@ namespace UserControls
             tsmiQuery.Visible = visible;
             oneAboveVisible |= visible;
             // Duplicate
-            visible = menuFields.Duplicate == n;
+            visible = hasActionNodes && menuFields.Duplicate == n;
             tsmiDuplicate.Visible = visible;
             oneAboveVisible |= visible;
             // Propagate
-            visible = menuFields.Propagate == n;
+            visible = hasActionNodes && menuFields.Propagate == n;
             tsmiPropagate.Visible = visible;
             oneAboveVisible |= visible;
             // Preview
-            visible = menuFields.Preview == n;
+            visible = hasActionNodes && menuFields.Preview == n;
             tsmiPreview.Visible = visible;
             oneAboveVisible |= visible;
             // Geometry                                             
@@ -1334,7 +1403,7 @@ namespace UserControls
             tsmiSwapPartGeometries.Visible = visible;
             oneAboveVisible |= visible;
             // Mesh                                                 
-            visible = menuFields.MeshingParameters == n;
+            visible = hasActionNodes && menuFields.MeshingParameters == n;
             tsmiSpaceMesh.Visible = visible && oneAboveVisible;
             tsmiPreviewEdgeMesh.Visible = visible;
             tsmiCreateMesh.Visible = visible;
@@ -1353,7 +1422,7 @@ namespace UserControls
             tsmiMergeParts.Visible = visible;
             oneAboveVisible |= visible;
             // Convert element set                                  
-            visible = menuFields.ConvertToPart == n;
+            visible = hasActionNodes && menuFields.ConvertToPart == n;
             tsmiSpaceConvertToPart.Visible = visible && oneAboveVisible;
             tsmiConvertToPart.Visible = visible;
             oneAboveVisible |= visible;
@@ -1374,14 +1443,14 @@ namespace UserControls
             tsmiMergeByMasterSlave.Visible = visible && n > 1;
             oneAboveVisible |= visible;
             // Hide/Show                                            
-            visible = menuFields.Hide + menuFields.Show == n;
+            visible = hasActionNodes && menuFields.Hide + menuFields.Show == n;
             tsmiSpaceHideShow.Visible = visible && oneAboveVisible;
             tsmiHide.Visible = visible;
             tsmiShow.Visible = visible;
             tsmiShowOnly.Visible = visible;
             oneAboveVisible |= visible;
             // Color                                                
-            visible = menuFields.ColorTransparency == n;
+            visible = hasActionNodes && menuFields.ColorTransparency == n;
             tsmiSpaceColor.Visible = visible && oneAboveVisible;
             tsmiSetColor.Visible = visible;
             tsmiResetColor.Visible = visible;
@@ -1395,7 +1464,7 @@ namespace UserControls
             tsmiColorContoursOn.Visible = visible;
             oneAboveVisible |= visible;
             // Analysis                                             
-            visible = menuFields.Run == n;
+            visible = hasActionNodes && menuFields.Run == n;
             tsmiSpaceAnalysis.Visible = visible && oneAboveVisible;
             tsmiRun.Visible = visible;
             tsmiCheckModel.Visible = visible;
@@ -1404,7 +1473,7 @@ namespace UserControls
             tsmiKill.Visible = visible;
             oneAboveVisible |= visible;
             // Activate/Deactivate                                  
-            visible = menuFields.Activate + menuFields.Deactivate == n;
+            visible = hasActionNodes && menuFields.Activate + menuFields.Deactivate == n;
             tsmiSpaceActive.Visible = visible && oneAboveVisible;
             tsmiActivate.Visible = visible;
             tsmiDeactivate.Visible = visible;
@@ -1420,13 +1489,14 @@ namespace UserControls
             tsmiCollapseAll.Visible = true;
             oneAboveVisible = true;
             // Delete                                               
-            TreeNode[] selectedGroupNodes = tree.SelectedNodes.Cast<TreeNode>()
+            TreeNode[] selectedNodes = tree.SelectedNodes.Cast<TreeNode>().ToArray();
+            TreeNode[] selectedGroupNodes = selectedNodes
                                                      .Where(node => _orderedDictionaryGroups.ContainsKey(node))
                                                      .ToArray();
-            bool compatibleGroupSelection = selectedGroupNodes.Length == n &&
+            bool compatibleGroupSelection = selectedGroupNodes.Length == selectedNodes.Length &&
                 selectedGroupNodes.Select(node => _orderedDictionaryGroups[node].Context).Distinct().Count() == 1;
-            visible = menuFields.Delete == n &&
-                      (selectedGroupNodes.Length == 0 || compatibleGroupSelection);
+            if (selectedGroupNodes.Length > 0) visible = compatibleGroupSelection;
+            else visible = hasActionNodes && menuFields.Delete == n;
             tsmiSpaceDelete.Visible = visible && oneAboveVisible;
             tsmiDelete.Visible = visible;
             oneAboveVisible |= visible;
@@ -1564,11 +1634,7 @@ namespace UserControls
                 else menuFields.Activate++;
             }
             // Delete
-            if (_orderedDictionaryGroups.ContainsKey(node))
-            {
-                menuFields.Delete++;
-            }
-            else if (item != null && !subPart)
+            if (item != null && !subPart)
             {
                 if (node.TreeView == cltvResults &&
                     (item is FeNodeSet ||
@@ -1766,9 +1832,9 @@ namespace UserControls
                         parentGroupId = parentGroupInfo.Id;
                     //
                     OrderedDictionaryTreeLayoutChange change =
-                        new OrderedDictionaryTreeLayoutChange(groupInfo.Context.View, groupInfo.Context.ItemType,
-                            groupInfo.Context.ParentName, OrderedDictionaryTreeLayoutAction.RenameGroup, null, null,
-                            groupInfo.Id, null, -1, newName);
+                        OrderedDictionaryTreeLayoutChange.RenameGroup(
+                            groupInfo.Context.View, groupInfo.Context.ItemType, groupInfo.Context.ParentName,
+                            groupInfo.Id, newName);
                     OrderedDictionaryTreeContext previousContext = groupInfo.Context;
                     //
                     // Rebuilding the tree before the native label-edit message completes can
@@ -1850,9 +1916,8 @@ namespace UserControls
             try
             {
                 CodersLabTreeView tree = GetActiveTree();
-                if (tree.SelectedNodes.Count != 1) return;
-                //
-                TreeNode selectedNode = tree.SelectedNode;
+                TreeNode selectedNode = GetSingleSelectedNodeIncludingGroupItems(tree);
+                if (selectedNode == null) return;
                 //
                 if (selectedNode.Tag == null)
                 {
@@ -1877,9 +1942,8 @@ namespace UserControls
             {
                 CodersLabTreeView tree = GetActiveTree();
                 // Edit Part Color
-                if (tree.SelectedNodes.Count != 1) return;
-                //
-                TreeNode selectedNode = tree.SelectedNode;
+                TreeNode selectedNode = GetSingleSelectedNodeIncludingGroupItems(tree);
+                if (selectedNode == null) return;
                 //
                 if (selectedNode.Tag == null) return;
                 //
@@ -1897,9 +1961,8 @@ namespace UserControls
             try
             {
                 CodersLabTreeView tree = GetActiveTree();
-                if (tree.SelectedNodes.Count != 1) return;
-                //
-                TreeNode selectedNode = tree.SelectedNode;
+                TreeNode selectedNode = GetSingleSelectedNodeIncludingGroupItems(tree);
+                if (selectedNode == null) return;
                 //
                 if (selectedNode.Tag == null) return;
                 //
@@ -1914,12 +1977,8 @@ namespace UserControls
         {
             try
             {
-                List<string> names = new List<string>();
-                foreach (TreeNode node in GetActiveTree().SelectedNodes)
-                {
-                    if (node.Tag != null) names.Add(((NamedClass)node.Tag).Name);
-                }
-                if (names.Count > 0) QueryEvent?.Invoke();
+                if (GetSelectedItemNamesIncludingGroupItems(GetActiveTree()).Length > 0)
+                    QueryEvent?.Invoke();
             }
             catch (Exception ex)
             {
@@ -1934,7 +1993,7 @@ namespace UserControls
                 List<NamedClass> items = new List<NamedClass>();
                 List<string> stepNames = new List<string>();
                 //
-                foreach (TreeNode selectedNode in GetActiveTree().SelectedNodes)
+                foreach (TreeNode selectedNode in GetSelectedNodesIncludingGroupItems(GetActiveTree()))
                 {
                     if (selectedNode.Tag == null) continue;
                     //
@@ -1966,7 +2025,7 @@ namespace UserControls
                 List<NamedClass> items = new List<NamedClass>();
                 List<string> stepNames = new List<string>();
                 //
-                foreach (TreeNode selectedNode in GetActiveTree().SelectedNodes)
+                foreach (TreeNode selectedNode in GetSelectedNodesIncludingGroupItems(GetActiveTree()))
                 {
                     if (selectedNode.Tag == null) continue;
                     //
@@ -1998,7 +2057,7 @@ namespace UserControls
                 List<NamedClass> items = new List<NamedClass>();
                 List<string> stepNames = new List<string>();
                 //
-                foreach (TreeNode selectedNode in GetActiveTree().SelectedNodes)
+                foreach (TreeNode selectedNode in GetSelectedNodesIncludingGroupItems(GetActiveTree()))
                 {
                     if (selectedNode.Tag == null) continue;
                     //
@@ -2029,7 +2088,7 @@ namespace UserControls
                 string stepName;
                 List<string> stepNames = new List<string>();
                 //
-                foreach (TreeNode selectedNode in GetActiveTree().SelectedNodes)
+                foreach (TreeNode selectedNode in GetSelectedNodesIncludingGroupItems(GetActiveTree()))
                 {
                     if (selectedNode.Tag == null) continue;
                     //
@@ -2067,7 +2126,7 @@ namespace UserControls
                 string stepName;
                 List<string> stepNames = new List<string>();
 
-                foreach (TreeNode selectedNode in GetActiveTree().SelectedNodes)
+                foreach (TreeNode selectedNode in GetSelectedNodesIncludingGroupItems(GetActiveTree()))
                 {
                     if (selectedNode.Tag == null) continue;
 
@@ -2084,15 +2143,27 @@ namespace UserControls
                     RenderingOff?.Invoke();
                     List<NamedClass> toShow = new List<NamedClass>();
                     List<NamedClass> toHide = new List<NamedClass>();
+                    List<string> toShowStepNames = new List<string>();
+                    List<string> toHideStepNames = new List<string>();
 
-                    foreach (var item in items)
+                    for (int i = 0; i < items.Count; i++)
                     {
-                        if (item.Visible) toHide.Add(item);
-                        else toShow.Add(item);
+                        if (items[i].Visible)
+                        {
+                            toHide.Add(items[i]);
+                            toHideStepNames.Add(stepNames[i]);
+                        }
+                        else
+                        {
+                            toShow.Add(items[i]);
+                            toShowStepNames.Add(stepNames[i]);
+                        }
                     }
 
-                    if (toShow.Count > 0) HideShowEvent?.Invoke(toShow.ToArray(), HideShowOperation.Show, stepNames.ToArray());
-                    if (toHide.Count > 0) HideShowEvent?.Invoke(toHide.ToArray(), HideShowOperation.Hide, stepNames.ToArray());
+                    if (toShow.Count > 0)
+                        HideShowEvent?.Invoke(toShow.ToArray(), HideShowOperation.Show, toShowStepNames.ToArray());
+                    if (toHide.Count > 0)
+                        HideShowEvent?.Invoke(toHide.ToArray(), HideShowOperation.Hide, toHideStepNames.ToArray());
                     RenderingOn?.Invoke();
                 }
             }
@@ -2107,7 +2178,7 @@ namespace UserControls
             {
                 List<string> parts = new List<string>();
                 //
-                foreach (TreeNode selectedNode in GetActiveTree().SelectedNodes)
+                foreach (TreeNode selectedNode in GetSelectedNodesIncludingGroupItems(GetActiveTree()))
                 {
                     if (selectedNode.Tag == null) continue;
                     if (selectedNode.Tag is BasePart part) parts.Add(part.Name);
@@ -2126,7 +2197,7 @@ namespace UserControls
             {
                 List<string> parts = new List<string>();
                 //
-                foreach (TreeNode selectedNode in GetActiveTree().SelectedNodes)
+                foreach (TreeNode selectedNode in GetSelectedNodesIncludingGroupItems(GetActiveTree()))
                 {
                     if (selectedNode.Tag == null) continue;
                     if (selectedNode.Tag is BasePart part) parts.Add(part.Name);
@@ -2145,7 +2216,7 @@ namespace UserControls
             {
                 List<string> parts = new List<string>();
                 //
-                foreach (TreeNode selectedNode in GetActiveTree().SelectedNodes)
+                foreach (TreeNode selectedNode in GetSelectedNodesIncludingGroupItems(GetActiveTree()))
                 {
                     if (selectedNode.Tag == null) continue;
                     if (selectedNode.Tag is BasePart part) parts.Add(part.Name);
@@ -2164,7 +2235,7 @@ namespace UserControls
             {
                 List<NamedClass> items = new List<NamedClass>();
 
-                foreach (TreeNode selectedNode in GetActiveTree().SelectedNodes)
+                foreach (TreeNode selectedNode in GetSelectedNodesIncludingGroupItems(GetActiveTree()))
                 {
                     if (selectedNode.Tag == null) continue;
 
@@ -2190,12 +2261,8 @@ namespace UserControls
         {
             try
             {
-                List<string> names = new List<string>();
-                foreach (TreeNode node in cltvGeometry.SelectedNodes)
-                {
-                    if (node.Tag != null) names.Add(((NamedClass)node.Tag).Name);
-                }
-                if (names.Count > 1) CreateCompoundPart?.Invoke(names.ToArray());
+                string[] names = GetSelectedItemNamesIncludingGroupItems(cltvGeometry);
+                if (names.Length > 1) CreateCompoundPart?.Invoke(names);
             }
             catch (Exception ex)
             {
@@ -2206,12 +2273,8 @@ namespace UserControls
         {
             try
             {
-                List<string> names = new List<string>();
-                foreach (TreeNode node in cltvGeometry.SelectedNodes)
-                {
-                    if (node.Tag != null) names.Add(((NamedClass)node.Tag).Name);
-                }
-                if (names.Count == 2) SwapPartGeometries?.Invoke(names.ToArray());
+                string[] names = GetSelectedItemNamesIncludingGroupItems(cltvGeometry);
+                if (names.Length == 2) SwapPartGeometries?.Invoke(names);
             }
             catch (Exception ex)
             {
@@ -2223,12 +2286,8 @@ namespace UserControls
         {
             try
             {
-                List<string> names = new List<string>();
-                foreach (TreeNode node in cltvGeometry.SelectedNodes)
-                {
-                    if (node.Tag != null) names.Add(((NamedClass)node.Tag).Name);
-                }
-                if (names.Count > 0) await PreviewEdgeMesh?.Invoke(names.ToArray(), null);
+                string[] names = GetSelectedItemNamesIncludingGroupItems(cltvGeometry);
+                if (names.Length > 0) await PreviewEdgeMesh?.Invoke(names, null);
             }
             catch (Exception ex)
             {
@@ -2239,12 +2298,8 @@ namespace UserControls
         {
             try
             {
-                List<string> names = new List<string>();
-                foreach (TreeNode node in cltvGeometry.SelectedNodes)
-                {
-                    if (node.Tag != null) names.Add(((NamedClass)node.Tag).Name);
-                }
-                if (names.Count > 0) CreateMeshEvent?.Invoke(names.ToArray());
+                string[] names = GetSelectedItemNamesIncludingGroupItems(cltvGeometry);
+                if (names.Length > 0) CreateMeshEvent?.Invoke(names);
             }
             catch (Exception ex)
             {
@@ -2256,12 +2311,8 @@ namespace UserControls
         {
             try
             {
-                List<string> names = new List<string>();
-                foreach (TreeNode node in cltvGeometry.SelectedNodes)
-                {
-                    if (node.Tag != null) names.Add(((NamedClass)node.Tag).Name);
-                }
-                if (names.Count > 0) CopyGeometryToResultsEvent?.Invoke(names.ToArray());
+                string[] names = GetSelectedItemNamesIncludingGroupItems(cltvGeometry);
+                if (names.Length > 0) CopyGeometryToResultsEvent?.Invoke(names);
             }
             catch (Exception ex)
             {
@@ -2290,17 +2341,12 @@ namespace UserControls
         {
             try
             {
-                List<string> names = new List<string>();
                 CodersLabTreeView tree = GetActiveTree();
-                //
-                foreach (TreeNode node in tree.SelectedNodes)
+                string[] names = GetSelectedItemNamesIncludingGroupItems(tree);
+                if (names.Length > 0)
                 {
-                    if (node.Tag != null) names.Add(((NamedClass)node.Tag).Name);
-                }
-                if (names.Count > 0)
-                {
-                    if (tree == cltvModel) MergeParts?.Invoke(names.ToArray());
-                    else if (tree == cltvResults) MergeResultParts?.Invoke(names.ToArray());
+                    if (tree == cltvModel) MergeParts?.Invoke(names);
+                    else if (tree == cltvResults) MergeResultParts?.Invoke(names);
                 }
             }
             catch (Exception ex)
@@ -2312,12 +2358,8 @@ namespace UserControls
         {
             try
             {
-                List<string> names = new List<string>();
-                foreach (TreeNode node in cltvModel.SelectedNodes)
-                {
-                    if (node.Tag != null) names.Add(((NamedClass)node.Tag).Name);
-                }
-                if (names.Count > 0) ConvertElementSetsToMeshParts?.Invoke(names.ToArray());
+                string[] names = GetSelectedItemNamesIncludingGroupItems(cltvModel);
+                if (names.Length > 0) ConvertElementSetsToMeshParts?.Invoke(names);
             }
             catch (Exception ex)
             {
@@ -2366,7 +2408,7 @@ namespace UserControls
             {
                 List<NamedClass> items = new List<NamedClass>();
                 //
-                foreach (TreeNode selectedNode in GetActiveTree().SelectedNodes)
+                foreach (TreeNode selectedNode in GetSelectedNodesIncludingGroupItems(GetActiveTree()))
                 {
                     if (selectedNode.Tag == null) continue;
                     items.Add((NamedClass)selectedNode.Tag);
@@ -2385,7 +2427,7 @@ namespace UserControls
             {
                 List<NamedClass> items = new List<NamedClass>();
                 //
-                foreach (TreeNode selectedNode in GetActiveTree().SelectedNodes)
+                foreach (TreeNode selectedNode in GetSelectedNodesIncludingGroupItems(GetActiveTree()))
                 {
                     if (selectedNode.Tag == null) continue;
                     items.Add((NamedClass)selectedNode.Tag);
@@ -2404,9 +2446,8 @@ namespace UserControls
             try
             {
                 CodersLabTreeView tree = GetActiveTree();
-                if (tree.SelectedNodes.Count != 1) return;
-                //
-                TreeNode selectedNode = tree.SelectedNode;
+                TreeNode selectedNode = GetSingleSelectedNodeIncludingGroupItems(tree);
+                if (selectedNode == null) return;
                 //
                 if (selectedNode.Tag == null) return;
                 //
@@ -2422,9 +2463,8 @@ namespace UserControls
             try
             {
                 CodersLabTreeView tree = GetActiveTree();
-                if (tree.SelectedNodes.Count != 1) return;
-                //
-                TreeNode selectedNode = tree.SelectedNode;
+                TreeNode selectedNode = GetSingleSelectedNodeIncludingGroupItems(tree);
+                if (selectedNode == null) return;
                 //
                 if (selectedNode.Tag == null) return;
                 //
@@ -2440,9 +2480,8 @@ namespace UserControls
             try
             {
                 CodersLabTreeView tree = GetActiveTree();
-                if (tree.SelectedNodes.Count != 1) return;
-
-                TreeNode selectedNode = tree.SelectedNode;
+                TreeNode selectedNode = GetSingleSelectedNodeIncludingGroupItems(tree);
+                if (selectedNode == null) return;
 
                 if (selectedNode.Tag == null) return;
 
@@ -2458,9 +2497,8 @@ namespace UserControls
             try
             {
                 CodersLabTreeView tree = GetActiveTree();
-                if (tree.SelectedNodes.Count != 1) return;
-
-                TreeNode selectedNode = tree.SelectedNode;
+                TreeNode selectedNode = GetSingleSelectedNodeIncludingGroupItems(tree);
+                if (selectedNode == null) return;
 
                 if (selectedNode.Tag == null) return;
 
@@ -2476,9 +2514,8 @@ namespace UserControls
             try
             {
                 CodersLabTreeView tree = GetActiveTree();
-                if (tree.SelectedNodes.Count != 1) return;
-
-                TreeNode selectedNode = tree.SelectedNode;
+                TreeNode selectedNode = GetSingleSelectedNodeIncludingGroupItems(tree);
+                if (selectedNode == null) return;
 
                 if (selectedNode.Tag == null) return;
 
@@ -2499,7 +2536,7 @@ namespace UserControls
                 List<string> stepNames = new List<string>();
                 CodersLabTreeView tree = GetActiveTree();
                 //
-                foreach (TreeNode selectedNode in GetActiveTree().SelectedNodes)
+                foreach (TreeNode selectedNode in GetSelectedNodesIncludingGroupItems(tree))
                 {
                     if (selectedNode.Tag == null) continue;
                     //
@@ -3263,6 +3300,8 @@ namespace UserControls
                 }
                 else throw new NotImplementedException();
                 //
+                MoveTreeNodeToOrderedDictionaryLayoutParent(parent, node);
+                //
                 parent.Text = parent.Name;
                 int parentItemCount = _orderedDictionaryContexts.ContainsKey(parent)
                     ? CountOrderedDictionaryItemNodes(parent)
@@ -3898,7 +3937,7 @@ namespace UserControls
                      groupInfo.Context.View == ViewType.Model) &&
                     typeof(BasePart).IsAssignableFrom(groupInfo.Context.ItemType) &&
                     CheckPartGroupName != null)
-                    return CheckPartGroupName(groupInfo.Name, newName);
+                    return CheckPartGroupName(groupInfo.Id, newName);
                 //
                 foreach (TreeNode sibling in node.Parent.Nodes)
                 {

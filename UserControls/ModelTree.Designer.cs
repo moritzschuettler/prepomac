@@ -573,6 +573,7 @@ namespace UserControls
             // 
             // tsmiActivate
             // 
+            this.tsmiActivate.Image = global::UserControls.Properties.Resources.Active;
             this.tsmiActivate.Name = "tsmiActivate";
             this.tsmiActivate.Size = new System.Drawing.Size(208, 22);
             this.tsmiActivate.Text = "Activate";

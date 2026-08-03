@@ -1260,6 +1260,7 @@
     <None Include="Icons\Keywords editor\Add.ico" />
     <None Include="Icons\File\Save_as.ico" />
     <None Include="Icons\Common\Color_palette.ico" />
+    <None Include="Icons\Analysis\Run.ico" />
     <Content Include="main.ico" />
   </ItemGroup>
   <ItemGroup>

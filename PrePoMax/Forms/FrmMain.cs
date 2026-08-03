@@ -11062,6 +11062,12 @@ namespace PrePoMax
             InvokeIfRequired(_modelTree.UpdateTreeNode, viewType, oldItemName, item, parentName, updateSelection);
             if (item is Step) UpdateSymbolsList();
         }
+        public void UpdateTreeNodeLayout(ViewGeometryModelResults view, string itemName, NamedClass item,
+                                         string parentName)
+        {
+            ViewType viewType = GetViewType(view);
+            InvokeIfRequired(_modelTree.UpdateTreeNodeLayout, viewType, itemName, item, parentName);
+        }
         public void SwapTreeNode(ViewGeometryModelResults view, string firstItemName, NamedClass firstItem,
                                 string secondItemName, NamedClass secondItem, string parentName)
         {

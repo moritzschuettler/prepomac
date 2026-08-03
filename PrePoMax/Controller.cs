@@ -1786,7 +1786,8 @@ namespace PrePoMax
                     {
                         if (partFileName.ToLower().Contains("compound"))
                         {
-                            ImportBrepCompoundPart(partFileName, null, out string compoundPartName, out addedPartNames);
+                            ImportBrepCompoundPart(partFileName, null, null,
+                                                   out string compoundPartName, out addedPartNames);
                         }
                         else
                         {
@@ -1868,6 +1869,8 @@ namespace PrePoMax
         {
             compoundPartName = null;
             importedPartNames = null;
+            Guid? targetGroupId =
+                GetLastOrderedDictionaryItemParentGroupId(_model.Geometry.Parts, partNames);
             //
             GeometryPart part;
             HashSet<PartType> stlPartTypes = new HashSet<PartType>();
@@ -1891,11 +1894,13 @@ namespace PrePoMax
                 // Hide parts
                 HideGeometryParts(mergedPartNames);
                 // Add parts
-                _model.Geometry.AddPartsFromMesh(mesh, new string[] { geometryPart.Name }, null, _model.GetReservedPartIds());
+                importedPartNames =
+                    _model.Geometry.AddPartsFromMesh(mesh, new string[] { geometryPart.Name }, null,
+                                                     _model.GetReservedPartIds());
+                MoveOrderedDictionaryItemsToGroup(_model.Geometry.Parts, importedPartNames, targetGroupId);
                 //
                 UpdateAfterImport(".stl");
                 //
-                importedPartNames = new string[] { geometryPart.Name };
             }
             else if (cadPartTypes.Count > 0)
             {
@@ -1905,7 +1910,8 @@ namespace PrePoMax
                 {
                     string brepFileName = createdFileNames[0];
                     HideGeometryParts(partNames);
-                    ImportBrepCompoundPart(brepFileName, partNames, out compoundPartName, out importedPartNames);
+                    ImportBrepCompoundPart(brepFileName, partNames, targetGroupId,
+                                           out compoundPartName, out importedPartNames);
                 }
             }
             else throw new NotSupportedException();
@@ -1949,8 +1955,11 @@ namespace PrePoMax
             else return null;
         }
         private void ImportBrepCompoundPart(string brepFileName, string[] createdFromPartNames,
-                                            out string compoundPartName, out string[] importedPartNames)
+                                            Guid? targetGroupId, out string compoundPartName,
+                                            out string[] importedPartNames)
         {
+            HashSet<string> oldPartNames = CaptureOrderedDictionaryItemNamesForGroupPlacement(
+                _model.Geometry.Parts, targetGroupId);
             compoundPartName = _model.GetPartAndPartGroupNames().GetNextNumberedKey("Compound");
             importedPartNames = ImportCADAssemblyFile(brepFileName, "BREP_ASSEMBLY_SPLIT_TO_PARTS");
             //
@@ -2010,6 +2019,7 @@ namespace PrePoMax
                 _model.Geometry.Parts.Add(compoundPartName, compPart);
             }
             //
+            MoveAddedOrderedDictionaryItemsToGroup(_model.Geometry.Parts, oldPartNames, targetGroupId);
             UpdateAfterImport(".brep");
         }
         //
@@ -2154,6 +2164,13 @@ namespace PrePoMax
                 new HashSet<string>(oldMeshPartNames, _model.Mesh.Parts.Comparer).SetEquals(_model.Mesh.Parts.Keys))
             {
                 _model.Mesh.Parts.SetItemLayout(oldMeshPartLayout);
+            }
+            else
+            {
+                string[] firstMeshPartNames = partNames
+                    .Where(name => _model.Mesh.Parts.ContainsKey(name))
+                    .ToArray();
+                PlaceFirstMeshedPartsInLinkedGroups((GeometryPart)part, firstMeshPartNames);
             }
             // Calculate the number of new nodes and elements
             BasePart basePart;
@@ -3597,8 +3614,9 @@ namespace PrePoMax
                 }
             }
             // Rename the finite element group paired with a meshed compound geometry part.
-            bool compoundPartGroupRenamed = nameChanged && geomPart is CompoundGeometryPart &&
-                                            RenameModelPartGroup(oldPartName, geomPart.Name);
+            bool compoundPartGroupRenamed =
+                nameChanged && geomPart is CompoundGeometryPart compoundPart &&
+                RenameModelPartGroup(compoundPart.LinkedGroupId, geomPart.Name);
             //
             UpdateAfterPartsChanged();
             if (nameChanged && _showItemIds.HasFlag(ShowItemIdsEnum.PartNames)) RedrawItemIds();
@@ -3615,6 +3633,10 @@ namespace PrePoMax
         {
             if (IsExplodedViewActive())
                 throw new CaeException("The scaling can only be done when the exploded view is turned off.");
+            Guid? targetGroupId =
+                GetLastOrderedDictionaryItemParentGroupId(_model.Geometry.Parts, partNames);
+            HashSet<string> oldPartNames = CaptureOrderedDictionaryItemNamesForGroupPlacement(
+                _model.Geometry.Parts, targetGroupId);
             // Split parts to groups
             GeometryPart geometryPart;
             List<string> cadPartNames = new List<string>();
@@ -3665,7 +3687,7 @@ namespace PrePoMax
                 //
                 if (brepFileName != null)
                 {
-                    ImportBrepCompoundPart(brepFileName, compoundPart.SubPartNames,
+                    ImportBrepCompoundPart(brepFileName, compoundPart.SubPartNames, targetGroupId,
                                            out newCompoundPartName, out importedPartNames);
                     //
                     if (copy) count++;
@@ -3687,7 +3709,11 @@ namespace PrePoMax
                 }
             }
             //
-            if (count > 0) UpdateAfterImport(".brep");
+            if (count > 0)
+            {
+                MoveAddedOrderedDictionaryItemsToGroup(_model.Geometry.Parts, oldPartNames, targetGroupId);
+                UpdateAfterImport(".brep");
+            }
             //
             CheckAndUpdateModelValidity();
         }
@@ -4055,6 +4081,9 @@ namespace PrePoMax
         }
         private void SwapCompoundParts(string oldCompoundPartName, string newCompoundPartName, bool removeOldCompoundPart)
         {
+            Guid? targetGroupId =
+                GetLastOrderedDictionaryItemParentGroupId(_model.Geometry.Parts,
+                                                           new string[] { oldCompoundPartName });
             PartProperties properties;
             CompoundGeometryPart compoundPart;
             CompoundGeometryPart importedCompoundPart;
@@ -4100,6 +4129,9 @@ namespace PrePoMax
                 properties.Color = subParts[i].Color;
                 ReplaceGeometryPartProperties(importedSubParts[i].Name, properties);
             }
+            // Keep regenerated hidden subpart layout items with their compound parent.
+            MoveOrderedDictionaryItemsToGroup(_model.Geometry.Parts, importedCompoundPart.SubPartNames,
+                                              targetGroupId);
             //
             UpdateMeshSetupItems(false);
             //
@@ -4213,6 +4245,10 @@ namespace PrePoMax
         }
         public void ConvertGeometryParts(string[] partNames, string convertCommand)
         {
+            Guid? targetGroupId =
+                GetLastOrderedDictionaryItemParentGroupId(_model.Geometry.Parts, partNames);
+            HashSet<string> oldPartNames = CaptureOrderedDictionaryItemNamesForGroupPlacement(
+                _model.Geometry.Parts, targetGroupId);
             // Split parts to groups
             GeometryPart geometryPart;
             List<string> cadPartNames = new List<string>();
@@ -4255,13 +4291,18 @@ namespace PrePoMax
                 //
                 if (brepFileName != null)
                 {
-                    ImportBrepCompoundPart(brepFileName, compoundPart.SubPartNames, out _, out _);
+                    ImportBrepCompoundPart(brepFileName, compoundPart.SubPartNames, targetGroupId,
+                                           out _, out _);
                     count++;
                 }
                 else ClearAllSelection();
             }
             //
-            if (count > 0) UpdateAfterImport(".brep");
+            if (count > 0)
+            {
+                MoveAddedOrderedDictionaryItemsToGroup(_model.Geometry.Parts, oldPartNames, targetGroupId);
+                UpdateAfterImport(".brep");
+            }
             //
             CheckAndUpdateModelValidity();
         }
@@ -5521,7 +5562,9 @@ namespace PrePoMax
         {
             OrderedDictionaryItemLayout<string> oldMeshPartLayout = null;
             string[] oldMeshPartNames = null;
-            HashSet<string> oldMeshPartNameSet = new HashSet<string>();
+            HashSet<string> oldMeshPartNameSet = _model.Mesh?.Parts != null
+                ? new HashSet<string>(_model.Mesh.Parts.Comparer)
+                : new HashSet<string>();
             if (_model.Mesh != null)
             {
                 oldMeshPartNames = _model.Mesh.Parts.Keys.ToArray();
@@ -5584,7 +5627,7 @@ namespace PrePoMax
             {
                 _model.Mesh.Parts.SetItemLayout(oldMeshPartLayout);
             }
-            CreateFirstMeshCompoundGroups(generatedMeshes, oldMeshPartNameSet);
+            CreateFirstMeshPartGroups(generatedMeshes, oldMeshPartNameSet);
             _model.UpdateMeshPartsElementTypes(false);
             //
             phaseWatch.Restart();
@@ -5607,49 +5650,213 @@ namespace PrePoMax
             phaseWatch.Stop();
             performance.Finalization += phaseWatch.Elapsed.TotalSeconds;
         }
-        private void CreateFirstMeshCompoundGroups(List<GeneratedMeshData> generatedMeshes,
-                                                   HashSet<string> oldMeshPartNames)
+        private void CreateFirstMeshPartGroups(List<GeneratedMeshData> generatedMeshes,
+                                               HashSet<string> oldMeshPartNames)
         {
             foreach (GeneratedMeshData generatedMesh in generatedMeshes)
             {
-                if (!(generatedMesh.GeometryPart is CompoundGeometryPart compoundPart)) continue;
-                //
                 string[] meshPartNames = generatedMesh.Mesh.Parts.Keys.ToArray();
-                if (meshPartNames.Length < 2 ||
+                if (meshPartNames.Length == 0 ||
                     generatedMesh.RelatedPartNames.Any(name => oldMeshPartNames.Contains(name)))
                     continue;
-                //
-                OrderedDictionaryItemLayout<string> layout = _model.Mesh.Parts.GetItemLayoutSnapshot();
-                OrderedDictionaryItemNode<string> groupNode = layout.Nodes.FirstOrDefault(
-                    node => node.IsGroup &&
-                            String.Equals(node.Name, compoundPart.Name, StringComparison.OrdinalIgnoreCase));
-                Guid groupId;
-                int targetIndex;
-                if (groupNode == null)
+                PlaceFirstMeshedPartsInLinkedGroups(generatedMesh.GeometryPart, meshPartNames);
+            }
+        }
+        private void PlaceFirstMeshedPartsInLinkedGroups(GeometryPart geometryPart, string[] meshPartNames)
+        {
+            if (geometryPart == null || meshPartNames == null || meshPartNames.Length == 0 ||
+                _model.Geometry?.Parts == null || _model.Mesh?.Parts == null)
+                return;
+            //
+            OrderedDictionaryItemLayout<string> geometryLayout =
+                _model.Geometry.Parts.GetItemLayoutSnapshot();
+            List<OrderedDictionaryItemNode<string>> geometryGroupPath =
+                new List<OrderedDictionaryItemNode<string>>();
+            TryGetOrderedDictionaryItemGroupPath(geometryLayout.Nodes, geometryPart.Name,
+                                                 _model.Geometry.Parts.Comparer, geometryGroupPath);
+            //
+            Guid? targetGroupId = null;
+            foreach (OrderedDictionaryItemNode<string> geometryGroup in geometryGroupPath)
+            {
+                targetGroupId = EnsureModelPartGroup(geometryGroup.Id, geometryGroup.Name, targetGroupId);
+            }
+            //
+            if (geometryPart is CompoundGeometryPart compoundPart && meshPartNames.Length > 1)
+            {
+                targetGroupId = EnsureModelPartGroup(compoundPart.LinkedGroupId, compoundPart.Name,
+                                                     targetGroupId);
+            }
+            //
+            MoveOrderedDictionaryItemsToGroup(_model.Mesh.Parts, meshPartNames, targetGroupId);
+        }
+        private static bool TryGetOrderedDictionaryItemGroupPath(
+            IEnumerable<OrderedDictionaryItemNode<string>> nodes, string itemName,
+            IEqualityComparer<string> comparer, List<OrderedDictionaryItemNode<string>> groupPath)
+        {
+            foreach (OrderedDictionaryItemNode<string> node in nodes)
+            {
+                if (node.IsItem)
                 {
-                    HashSet<string> meshPartNameSet =
-                        new HashSet<string>(meshPartNames, _model.Mesh.Parts.Comparer);
-                    int groupIndex = layout.Nodes.Count;
-                    for (int i = 0; i < layout.Nodes.Count; i++)
-                    {
-                        OrderedDictionaryItemNode<string> node = layout.Nodes[i];
-                        if (node.IsItem && meshPartNameSet.Contains(node.Key))
-                        {
-                            groupIndex = i;
-                            break;
-                        }
-                    }
-                    //
-                    groupId = _model.Mesh.Parts.CreateGroup(compoundPart.Name, null, groupIndex);
-                    targetIndex = 0;
+                    if (comparer.Equals(node.Key, itemName)) return true;
                 }
                 else
                 {
-                    groupId = groupNode.Id;
-                    targetIndex = groupNode.Children.Count;
+                    groupPath.Add(node);
+                    if (TryGetOrderedDictionaryItemGroupPath(node.Children, itemName, comparer, groupPath))
+                        return true;
+                    groupPath.RemoveAt(groupPath.Count - 1);
                 }
-                _model.Mesh.Parts.MoveItems(meshPartNames, groupId, targetIndex);
             }
+            return false;
+        }
+        private void PlaceDuplicatedOrderedDictionaryItem(
+            IOrderedDictionaryItemLayout<string> dictionary, string sourceItemName, NamedClass duplicatedItem,
+            ViewGeometryModelResults view, string parentName = null)
+        {
+            Guid? targetGroupId = GetLastOrderedDictionaryItemParentGroupId(
+                dictionary, new string[] { sourceItemName });
+            if (!targetGroupId.HasValue) return;
+            //
+            MoveOrderedDictionaryItemsToGroup(dictionary, new string[] { duplicatedItem.Name }, targetGroupId);
+            _form.UpdateTreeNodeLayout(view, duplicatedItem.Name, duplicatedItem, parentName);
+        }
+        private bool PlacePropagatedOrderedDictionaryItem(
+            IOrderedDictionaryItemLayout<string> sourceDictionary,
+            IOrderedDictionaryItemLayout<string> targetDictionary,
+            string itemName, NamedClass propagatedItem, string targetStepName)
+        {
+            List<OrderedDictionaryItemNode<string>> sourceGroupPath =
+                new List<OrderedDictionaryItemNode<string>>();
+            if (!TryGetOrderedDictionaryItemGroupPath(sourceDictionary.GetItemLayoutSnapshot().Nodes, itemName,
+                                                       sourceDictionary.Comparer, sourceGroupPath))
+                throw new KeyNotFoundException("The source item was not found in the ordered dictionary layout.");
+            //
+            Guid? targetGroupId = EnsureOrderedDictionaryGroupPath(targetDictionary, sourceGroupPath,
+                                                                   out bool groupsCreated);
+            MoveOrderedDictionaryItemsToParent(targetDictionary, new string[] { itemName }, targetGroupId);
+            if (!groupsCreated)
+                _form.UpdateTreeNodeLayout(ViewGeometryModelResults.Model, itemName, propagatedItem, targetStepName);
+            return groupsCreated;
+        }
+        private static Guid? EnsureOrderedDictionaryGroupPath(
+            IOrderedDictionaryItemLayout<string> targetDictionary,
+            IEnumerable<OrderedDictionaryItemNode<string>> sourceGroupPath, out bool groupsCreated)
+        {
+            groupsCreated = false;
+            Guid? targetParentGroupId = null;
+            foreach (OrderedDictionaryItemNode<string> sourceGroup in sourceGroupPath)
+            {
+                OrderedDictionaryItemLayout<string> targetLayout = targetDictionary.GetItemLayoutSnapshot();
+                IList<OrderedDictionaryItemNode<string>> targetSiblings = targetLayout.Nodes;
+                if (targetParentGroupId.HasValue)
+                {
+                    OrderedDictionaryItemNode<string> targetParentGroup =
+                        GetOrderedDictionaryGroupNode(targetLayout.Nodes, targetParentGroupId.Value);
+                    if (targetParentGroup == null)
+                        throw new KeyNotFoundException("The propagated parent group was not found.");
+                    targetSiblings = targetParentGroup.Children;
+                }
+                // Groups in different step collections remain independent and are matched by their path names.
+                OrderedDictionaryItemNode<string> targetGroup = targetSiblings.FirstOrDefault(
+                    node => node.IsGroup &&
+                            String.Equals(node.Name, sourceGroup.Name, StringComparison.OrdinalIgnoreCase));
+                if (targetGroup == null)
+                {
+                    targetParentGroupId = targetDictionary.CreateGroup(
+                        sourceGroup.Name, targetParentGroupId, targetSiblings.Count);
+                    groupsCreated = true;
+                }
+                else targetParentGroupId = targetGroup.Id;
+            }
+            return targetParentGroupId;
+        }
+        private Guid EnsureModelPartGroup(Guid groupId, string groupName, Guid? parentGroupId)
+        {
+            OrderedDictionaryItemLayout<string> layout = _model.Mesh.Parts.GetItemLayoutSnapshot();
+            if (GetOrderedDictionaryGroupNode(layout.Nodes, groupId) != null) return groupId;
+            //
+            int targetIndex;
+            if (parentGroupId.HasValue)
+            {
+                OrderedDictionaryItemNode<string> parentGroup =
+                    GetOrderedDictionaryGroupNode(layout.Nodes, parentGroupId.Value);
+                if (parentGroup == null)
+                    throw new KeyNotFoundException("The linked parent group was not found.");
+                targetIndex = parentGroup.Children.Count;
+            }
+            else targetIndex = layout.Nodes.Count;
+            //
+            _model.Mesh.Parts.CreateGroup(groupId, groupName, parentGroupId, targetIndex);
+            return groupId;
+        }
+        private static Guid? GetLastOrderedDictionaryItemParentGroupId(
+            IOrderedDictionaryItemLayout<string> dictionary, IEnumerable<string> itemNames)
+        {
+            if (dictionary == null || itemNames == null) return null;
+            HashSet<string> names = new HashSet<string>(itemNames, dictionary.Comparer);
+            if (names.Count == 0) return null;
+            //
+            Guid? lastParentGroupId = null;
+            FindLastOrderedDictionaryItemParentGroupId(dictionary.GetItemLayoutSnapshot().Nodes, null, names,
+                                                       ref lastParentGroupId);
+            return lastParentGroupId;
+        }
+        private static void FindLastOrderedDictionaryItemParentGroupId(
+            IEnumerable<OrderedDictionaryItemNode<string>> nodes, Guid? parentGroupId,
+            HashSet<string> itemNames, ref Guid? lastParentGroupId)
+        {
+            foreach (OrderedDictionaryItemNode<string> node in nodes)
+            {
+                if (node.IsItem)
+                {
+                    if (itemNames.Contains(node.Key)) lastParentGroupId = parentGroupId;
+                }
+                else FindLastOrderedDictionaryItemParentGroupId(node.Children, node.Id, itemNames,
+                                                                ref lastParentGroupId);
+            }
+        }
+        private static void MoveOrderedDictionaryItemsToGroup(
+            IOrderedDictionaryItemLayout<string> dictionary, IEnumerable<string> itemNames, Guid? targetGroupId)
+        {
+            if (!targetGroupId.HasValue) return;
+            MoveOrderedDictionaryItemsToParent(dictionary, itemNames, targetGroupId);
+        }
+        private static void MoveOrderedDictionaryItemsToParent(
+            IOrderedDictionaryItemLayout<string> dictionary, IEnumerable<string> itemNames, Guid? targetGroupId)
+        {
+            if (dictionary == null || itemNames == null) return;
+            HashSet<string> requestedNames = new HashSet<string>(itemNames, dictionary.Comparer);
+            string[] existingNames = dictionary.Keys.Where(name => requestedNames.Contains(name)).ToArray();
+            if (existingNames.Length == 0) return;
+            //
+            OrderedDictionaryItemLayout<string> layout = dictionary.GetItemLayoutSnapshot();
+            IList<OrderedDictionaryItemNode<string>> targetChildren = layout.Nodes;
+            if (targetGroupId.HasValue)
+            {
+                OrderedDictionaryItemNode<string> targetGroup =
+                    GetOrderedDictionaryGroupNode(layout.Nodes, targetGroupId.Value);
+                if (targetGroup == null) throw new KeyNotFoundException("The target parent group was not found.");
+                targetChildren = targetGroup.Children;
+            }
+            int movedFromTargetCount = targetChildren
+                .Count(node => node.IsItem && requestedNames.Contains(node.Key));
+            int targetIndex = targetChildren.Count - movedFromTargetCount;
+            dictionary.MoveItems(existingNames, targetGroupId, targetIndex);
+        }
+        private static HashSet<string> CaptureOrderedDictionaryItemNamesForGroupPlacement(
+            IOrderedDictionaryItemLayout<string> dictionary, Guid? targetGroupId)
+        {
+            return targetGroupId.HasValue
+                ? new HashSet<string>(dictionary.Keys, dictionary.Comparer)
+                : null;
+        }
+        private static void MoveAddedOrderedDictionaryItemsToGroup(
+            IOrderedDictionaryItemLayout<string> dictionary, HashSet<string> oldItemNames,
+            Guid? targetGroupId)
+        {
+            if (oldItemNames == null) return;
+            string[] addedItemNames = dictionary.Keys.Where(name => !oldItemNames.Contains(name)).ToArray();
+            MoveOrderedDictionaryItemsToGroup(dictionary, addedItemNames, targetGroupId);
         }
         private void WriteMeshBatchPerformance(MeshBatchPerformance performance)
         {
@@ -6299,6 +6506,8 @@ namespace PrePoMax
                 newMeshSetupItem.Name = NamedClass.GetNameWithoutLastValue(newMeshSetupItem.Name);
                 newMeshSetupItem.Name = _model.Geometry.MeshSetupItems.GetNextNumberedKey(newMeshSetupItem.Name);
                 AddMeshSetupItem(newMeshSetupItem);
+                PlaceDuplicatedOrderedDictionaryItem(_model.Geometry.MeshSetupItems, name, newMeshSetupItem,
+                                                     ViewGeometryModelResults.Geometry);
             }
         }
         public void RemoveMeshSetupItems(string[] meshSetupItemNames)
@@ -6811,6 +7020,10 @@ namespace PrePoMax
             // In file
             string[] basePartNames = new string[baseParts.Length];
             for (int i = 0; i < baseParts.Length; i++) basePartNames[i] = baseParts[i].Name;
+            Guid? targetGroupId =
+                GetLastOrderedDictionaryItemParentGroupId(_model.Mesh.Parts, basePartNames);
+            HashSet<string> oldPartNames = CaptureOrderedDictionaryItemNamesForGroupPlacement(
+                _model.Mesh.Parts, targetGroupId);
             ExportPartsAsMmgMesh(basePartNames, mmgInFileName, true);
             // Sol file
             FeMesh mesh = DisplayedMesh;
@@ -6851,6 +7064,7 @@ namespace PrePoMax
                 if (parabolic.Count != 1) throw new NotSupportedException();
                 //
                 _model.ImportMeshFromMmgFile(mmgOutFileName, FileInOut.Input.ElementsToImport.Solid, parabolic.First());
+                MoveAddedOrderedDictionaryItemsToGroup(_model.Mesh.Parts, oldPartNames, targetGroupId);
                 //
                 HideModelParts(basePartNames);
                 //
@@ -7564,6 +7778,8 @@ namespace PrePoMax
         // Transform
         public void TranslateModelParts(string[] partNames, double[] translateVector, int numberOfCopies)
         {
+            Guid? targetGroupId =
+                GetLastOrderedDictionaryItemParentGroupId(_model.Mesh.Parts, partNames);
             SuppressExplodedView();
             //
             if (numberOfCopies == -1) TranslateSelectionsContainingParts(partNames, translateVector);
@@ -7574,6 +7790,7 @@ namespace PrePoMax
             //
             if (translatedPartNames != null)
             {
+                MoveOrderedDictionaryItemsToGroup(_model.Mesh.Parts, translatedPartNames, targetGroupId);
                 foreach (var partName in translatedPartNames)
                 {
                     _form.AddTreeNode(ViewGeometryModelResults.Model, _model.Mesh.Parts[partName], null);
@@ -7590,6 +7807,8 @@ namespace PrePoMax
         public void RotateModelParts(string[] partNames, double[] rotateCenter, double[] rotateAxis, double rotateAngle,
                                      int numberOfCopies)
         {
+            Guid? targetGroupId =
+                GetLastOrderedDictionaryItemParentGroupId(_model.Mesh.Parts, partNames);
             SuppressExplodedView();
             //
             if (numberOfCopies == -1) RotateSelectionsContainingParts(partNames, rotateCenter, rotateAxis, rotateAngle);
@@ -7598,6 +7817,7 @@ namespace PrePoMax
                                                                 _model.GetReservedPartNames(), _model.GetReservedPartIds());
             if (rotatedPartNames != null)
             {
+                MoveOrderedDictionaryItemsToGroup(_model.Mesh.Parts, rotatedPartNames, targetGroupId);
                 foreach (var partName in rotatedPartNames)
                 {
                     _form.AddTreeNode(ViewGeometryModelResults.Model, _model.Mesh.Parts[partName], null);
@@ -7612,6 +7832,8 @@ namespace PrePoMax
         }
         public void MirrorModelParts(string[] partNames, double[] mirrorPoint, double[] mirrorDirection, bool copy)
         {
+            Guid? targetGroupId =
+                GetLastOrderedDictionaryItemParentGroupId(_model.Mesh.Parts, partNames);
             SuppressExplodedView();
             //
             if (!copy) MirrorSelectionsContainingParts(partNames, mirrorPoint, mirrorDirection);
@@ -7621,6 +7843,7 @@ namespace PrePoMax
                                                                  _model.GetReservedPartIds());
             if (copy)
             {
+                MoveOrderedDictionaryItemsToGroup(_model.Mesh.Parts, mirroredPartNames, targetGroupId);
                 foreach (var partName in mirroredPartNames)
                 {
                     _form.AddTreeNode(ViewGeometryModelResults.Model, _model.Mesh.Parts[partName], null);
@@ -7637,6 +7860,8 @@ namespace PrePoMax
         }
         public void ScaleModelParts(string[] partNames, double[] scaleCenter, double[] scaleFactors, bool copy)
         {
+            Guid? targetGroupId =
+                GetLastOrderedDictionaryItemParentGroupId(_model.Mesh.Parts, partNames);
             bool explodedViewActive = IsExplodedViewActive();
             if (explodedViewActive) TurnExplodedViewOnOff(false);
             //
@@ -7647,6 +7872,7 @@ namespace PrePoMax
                                                               _model.GetReservedPartIds());
             if (copy)
             {
+                MoveOrderedDictionaryItemsToGroup(_model.Mesh.Parts, scaledPartNames, targetGroupId);
                 foreach (var partName in scaledPartNames)
                 {
                     _form.AddTreeNode(ViewGeometryModelResults.Model, _model.Mesh.Parts[partName], null);
@@ -7666,6 +7892,8 @@ namespace PrePoMax
         }
         public void MergeModelParts(string[] partNames)
         {
+            Guid? targetGroupId =
+                GetLastOrderedDictionaryItemParentGroupId(_model.Mesh.Parts, partNames);
             MeshPart newMeshPart;
             string[] mergedPartNames;
             //
@@ -7679,6 +7907,8 @@ namespace PrePoMax
             //
             if (newMeshPart != null && mergedPartNames != null)
             {
+                MoveOrderedDictionaryItemsToGroup(_model.Mesh.Parts,
+                                                  new string[] { newMeshPart.Name }, targetGroupId);
                 foreach (var partName in mergedPartNames)
                 {
                     _form.RemoveTreeNode<MeshPart>(ViewGeometryModelResults.Model, partName, null);
@@ -8091,6 +8321,8 @@ namespace PrePoMax
                 newNodeSet.Name = NamedClass.GetNameWithoutLastValue(newNodeSet.Name);
                 newNodeSet.Name = GetAllMeshEntityNames().GetNextNumberedKey(newNodeSet.Name);
                 AddNodeSet(newNodeSet);
+                PlaceDuplicatedOrderedDictionaryItem(_model.Mesh.NodeSets, name, newNodeSet,
+                                                     ViewGeometryModelResults.Model);
             }
         }
         public void RemoveNodeSets(string[] nodeSetNames, bool update = true)
@@ -8275,6 +8507,8 @@ namespace PrePoMax
                 newElementSet.Name = NamedClass.GetNameWithoutLastValue(newElementSet.Name);
                 newElementSet.Name = GetAllMeshEntityNames().GetNextNumberedKey(newElementSet.Name);
                 AddElementSet(newElementSet);
+                PlaceDuplicatedOrderedDictionaryItem(_model.Mesh.ElementSets, name, newElementSet,
+                                                     ViewGeometryModelResults.Model);
             }
         }
         public void ConvertElementSetsToMeshParts(string[] elementSetNames)
@@ -8513,6 +8747,8 @@ namespace PrePoMax
                 newSurface.Name = _model.Mesh.Surfaces.GetNextNumberedKey(newSurface.Name);
                 if (newSurface.CreationData != null) newSurface.CreatedFrom = FeSurfaceCreatedFrom.Selection;
                 AddSurface(newSurface);
+                PlaceDuplicatedOrderedDictionaryItem(_model.Mesh.Surfaces, name, newSurface,
+                                                     ViewGeometryModelResults.Model);
             }
         }
         public void RemoveSurfaces(string[] surfaceNames, bool update = true)
@@ -8717,6 +8953,8 @@ namespace PrePoMax
                 newReferencePoint.Name = NamedClass.GetNameWithoutLastValue(newReferencePoint.Name);
                 newReferencePoint.Name = _model.Mesh.ReferencePoints.GetNextNumberedKey(newReferencePoint.Name);
                 AddModelReferencePoint(newReferencePoint);
+                PlaceDuplicatedOrderedDictionaryItem(_model.Mesh.ReferencePoints, name, newReferencePoint,
+                                                     ViewGeometryModelResults.Model);
             }
         }
         public void RemoveModelReferencePoints(string[] referencePointNames)
@@ -8897,6 +9135,8 @@ namespace PrePoMax
                 newCoordinateSystem.Name = NamedClass.GetNameWithoutLastValue(newCoordinateSystem.Name);
                 newCoordinateSystem.Name = _model.Mesh.CoordinateSystems.GetNextNumberedKey(newCoordinateSystem.Name);
                 AddModelCoordinateSystem(newCoordinateSystem);
+                PlaceDuplicatedOrderedDictionaryItem(_model.Mesh.CoordinateSystems, name, newCoordinateSystem,
+                                                     ViewGeometryModelResults.Model);
             }
         }
         public void RemoveModelCoordinateSystems(string[] coordinateSystemNames)
@@ -9040,6 +9280,8 @@ namespace PrePoMax
                 newMaterial.Name = NamedClass.GetNameWithoutLastValue(newMaterial.Name);
                 newMaterial.Name = _model.Materials.GetNextNumberedKey(newMaterial.Name);
                 AddMaterial(newMaterial);
+                PlaceDuplicatedOrderedDictionaryItem(_model.Materials, name, newMaterial,
+                                                     ViewGeometryModelResults.Model);
             }
         }
         public void ExportMaterials(string[] materialNames, string fileName)
@@ -9191,6 +9433,8 @@ namespace PrePoMax
                 newSection.Name = _model.Sections.GetNextNumberedKey(newSection.Name);
                 if (newSection.CreationData != null) newSection.RegionType = RegionTypeEnum.Selection;
                 AddSection(newSection);
+                PlaceDuplicatedOrderedDictionaryItem(_model.Sections, name, newSection,
+                                                     ViewGeometryModelResults.Model);
             }
         }
         public void RemoveSections(string[] sectionNames)
@@ -9380,6 +9624,8 @@ namespace PrePoMax
                 if (newConstraint.MasterCreationData != null) newConstraint.MasterRegionType = RegionTypeEnum.Selection;
                 if (newConstraint.SlaveCreationData != null) newConstraint.SlaveRegionType = RegionTypeEnum.Selection;
                 AddConstraint(newConstraint);
+                PlaceDuplicatedOrderedDictionaryItem(_model.Constraints, constraintName, newConstraint,
+                                                     ViewGeometryModelResults.Model);
             }
         }
         public void SwapMasterSlaveConstraints(string[] constraintNames)
@@ -9877,6 +10123,8 @@ namespace PrePoMax
                 newSurfaceInteraction.Name = NamedClass.GetNameWithoutLastValue(newSurfaceInteraction.Name);
                 newSurfaceInteraction.Name = _model.SurfaceInteractions.GetNextNumberedKey(newSurfaceInteraction.Name);
                 AddSurfaceInteraction(newSurfaceInteraction);
+                PlaceDuplicatedOrderedDictionaryItem(_model.SurfaceInteractions, name, newSurfaceInteraction,
+                                                     ViewGeometryModelResults.Model);
             }
         }
         public void RemoveSurfaceInteractions(string[] surfaceInteractionNames)
@@ -9990,6 +10238,8 @@ namespace PrePoMax
                 if (newContactPair.MasterCreationData != null) newContactPair.MasterRegionType = RegionTypeEnum.Selection;
                 if (newContactPair.SlaveCreationData != null) newContactPair.SlaveRegionType = RegionTypeEnum.Selection;
                 AddContactPair(newContactPair);
+                PlaceDuplicatedOrderedDictionaryItem(_model.ContactPairs, name, newContactPair,
+                                                     ViewGeometryModelResults.Model);
             }
         }
         public void SwapMasterSlaveContactPairs(string[] contactPairNames)
@@ -10350,6 +10600,8 @@ namespace PrePoMax
                 newDistribution.Name = NamedClass.GetNameWithoutLastValue(newDistribution.Name);
                 newDistribution.Name = _model.Distributions.GetNextNumberedKey(newDistribution.Name);
                 AddDistribution(newDistribution);
+                PlaceDuplicatedOrderedDictionaryItem(_model.Distributions, name, newDistribution,
+                                                     ViewGeometryModelResults.Model);
             }
         }
         public void RemoveDistributions(string[] distributionNames)
@@ -10431,6 +10683,8 @@ namespace PrePoMax
                 newAmplitude.Name = NamedClass.GetNameWithoutLastValue(newAmplitude.Name);
                 newAmplitude.Name = _model.Amplitudes.GetNextNumberedKey(newAmplitude.Name);
                 AddAmplitude(newAmplitude);
+                PlaceDuplicatedOrderedDictionaryItem(_model.Amplitudes, name, newAmplitude,
+                                                     ViewGeometryModelResults.Model);
             }
         }
         public void RemoveAmplitudes(string[] amplitudeNames)
@@ -10556,6 +10810,8 @@ namespace PrePoMax
                 newInitialCondition.Name = _model.InitialConditions.GetNextNumberedKey(newInitialCondition.Name);
                 if (newInitialCondition.CreationData != null) newInitialCondition.RegionType = RegionTypeEnum.Selection;
                 AddInitialCondition(newInitialCondition);
+                PlaceDuplicatedOrderedDictionaryItem(_model.InitialConditions, name, newInitialCondition,
+                                                     ViewGeometryModelResults.Model);
             }
         }
         public void HideInitialConditions(string[] initialConditionNames)
@@ -10864,13 +11120,18 @@ namespace PrePoMax
                     _model.StepCollection.GetStepHistoryOutputNames(stepName).GetNextNumberedKey(newHistoryOutput.Name);
                 if (newHistoryOutput.CreationData != null) newHistoryOutput.RegionType = RegionTypeEnum.Selection;
                 AddHistoryOutput(stepName, newHistoryOutput);
+                PlaceDuplicatedOrderedDictionaryItem(
+                    _model.StepCollection.GetStep(stepName).HistoryOutputs, historyOutputNames[i],
+                    newHistoryOutput, ViewGeometryModelResults.Model, stepName);
             }
         }
         public void PropagateHistoryOutput(string stepName, string historyOutputName)
         {
             string[] nextStepNames = _model.StepCollection.GetNextStepNames(stepName);
             HistoryOutput historyOutput = GetHistoryOutput(stepName, historyOutputName).DeepClone();
+            Step sourceStep = _model.StepCollection.GetStep(stepName);
             Step step;
+            bool treeRegenerationRequired = false;
             foreach (var nextStepName in nextStepNames)
             {
                 step = _model.StepCollection.GetStep(nextStepName);
@@ -10879,8 +11140,11 @@ namespace PrePoMax
                     ReplaceHistoryOutput(nextStepName, historyOutputName, historyOutput, true);
                 else
                     AddHistoryOutput(nextStepName, historyOutput);
+                treeRegenerationRequired |= PlacePropagatedOrderedDictionaryItem(
+                    sourceStep.HistoryOutputs, step.HistoryOutputs, historyOutputName,
+                    historyOutput, nextStepName);
             }
-
+            if (treeRegenerationRequired) _form.RegenerateTree(false);
         }
         public void ActivateDeactivateHistoryOutput(string stepName, string historyOutputName, bool active)
         {
@@ -11049,13 +11313,18 @@ namespace PrePoMax
                 newFieldOutput.Name =
                     _model.StepCollection.GetStepFieldOutputNames(stepName).GetNextNumberedKey(newFieldOutput.Name);
                 AddFieldOutput(stepName, newFieldOutput);
+                PlaceDuplicatedOrderedDictionaryItem(
+                    _model.StepCollection.GetStep(stepName).FieldOutputs, fieldOutputNames[i],
+                    newFieldOutput, ViewGeometryModelResults.Model, stepName);
             }
         }
         public void PropagateFieldOutput(string stepName, string fieldOutputName)
         {
             string[] nextStepNames = _model.StepCollection.GetNextStepNames(stepName);
             FieldOutput fieldOutput = GetFieldOutput(stepName, fieldOutputName).DeepClone();
+            Step sourceStep = _model.StepCollection.GetStep(stepName);
             Step step;
+            bool treeRegenerationRequired = false;
             foreach (var nextStepName in nextStepNames)
             {
                 step = _model.StepCollection.GetStep(nextStepName);
@@ -11064,7 +11333,10 @@ namespace PrePoMax
                     ReplaceFieldOutput(nextStepName, fieldOutputName, fieldOutput);
                 else
                     AddFieldOutput(nextStepName, fieldOutput);
+                treeRegenerationRequired |= PlacePropagatedOrderedDictionaryItem(
+                    sourceStep.FieldOutputs, step.FieldOutputs, fieldOutputName, fieldOutput, nextStepName);
             }
+            if (treeRegenerationRequired) _form.RegenerateTree(false);
         }
         public void ActivateDeactivateFieldOutput(string stepName, string fieldOutputName, bool active)
         {
@@ -11194,21 +11466,31 @@ namespace PrePoMax
                     _model.StepCollection.GetStepBoundaryConditionNames(stepName).GetNextNumberedKey(newBoundaryCondition.Name);
                 if (newBoundaryCondition.CreationData != null) newBoundaryCondition.RegionType = RegionTypeEnum.Selection;
                 AddBoundaryCondition(stepName, newBoundaryCondition);
+                PlaceDuplicatedOrderedDictionaryItem(
+                    _model.StepCollection.GetStep(stepName).BoundaryConditions, boundaryConditionNames[i],
+                    newBoundaryCondition, ViewGeometryModelResults.Model, stepName);
             }
         }
         public void PropagateBoundaryCondition(string stepName, string boundaryConditionName)
         {
             string[] nextStepNames = _model.StepCollection.GetNextStepNames(stepName);
             BoundaryCondition boundaryCondition = GetBoundaryCondition(stepName, boundaryConditionName);
+            Step sourceStep = _model.StepCollection.GetStep(stepName);
             BoundaryCondition boundaryConditionClone;
+            bool treeRegenerationRequired = false;
             foreach (var nextStepName in nextStepNames)
             {
+                Step nextStep = _model.StepCollection.GetStep(nextStepName);
                 boundaryConditionClone = boundaryCondition.DeepClone();
-                if (_model.StepCollection.GetStep(nextStepName).BoundaryConditions.ContainsKey(boundaryConditionName))
+                if (nextStep.BoundaryConditions.ContainsKey(boundaryConditionName))
                     ReplaceBoundaryCondition(nextStepName, boundaryConditionName, boundaryConditionClone, true);
                 else
                     AddBoundaryCondition(nextStepName, boundaryConditionClone);
+                treeRegenerationRequired |= PlacePropagatedOrderedDictionaryItem(
+                    sourceStep.BoundaryConditions, nextStep.BoundaryConditions, boundaryConditionName,
+                    boundaryConditionClone, nextStepName);
             }
+            if (treeRegenerationRequired) _form.RegenerateTree(false);
         }
         public void PreviewBoundaryCondition(string stepName, string boundaryConditionName)
         {
@@ -11422,21 +11704,30 @@ namespace PrePoMax
                 newLoad.Name = _model.StepCollection.GetStepLoadNames(stepName).GetNextNumberedKey(newLoad.Name);
                 if (newLoad.CreationData != null) newLoad.RegionType = RegionTypeEnum.Selection;
                 AddLoad(stepName, newLoad);
+                PlaceDuplicatedOrderedDictionaryItem(
+                    _model.StepCollection.GetStep(stepName).Loads, loadNames[i], newLoad,
+                    ViewGeometryModelResults.Model, stepName);
             }
         }
         public void PropagateLoad(string stepName, string loadName)
         {
             string[] nextStepNames = _model.StepCollection.GetNextStepNames(stepName);
             Load load = GetLoad(stepName, loadName);
+            Step sourceStep = _model.StepCollection.GetStep(stepName);
             Load loadClone;
+            bool treeRegenerationRequired = false;
             foreach (var nextStepName in nextStepNames)
             {
+                Step nextStep = _model.StepCollection.GetStep(nextStepName);
                 loadClone = load.DeepClone();
-                if (_model.StepCollection.GetStep(nextStepName).Loads.ContainsKey(loadName))
+                if (nextStep.Loads.ContainsKey(loadName))
                     ReplaceLoad(nextStepName, loadName, loadClone, true);
                 else
                     AddLoad(nextStepName, loadClone);
+                treeRegenerationRequired |= PlacePropagatedOrderedDictionaryItem(
+                    sourceStep.Loads, nextStep.Loads, loadName, loadClone, nextStepName);
             }
+            if (treeRegenerationRequired) _form.RegenerateTree(false);
         }
         public void PreviewLoad(string stepName, string loadName)
         {
@@ -11699,19 +11990,29 @@ namespace PrePoMax
                     _model.StepCollection.GetStepDefinedFieldNames(stepName).GetNextNumberedKey(newDefinedField.Name);
                 if (newDefinedField.CreationData != null) newDefinedField.RegionType = RegionTypeEnum.Selection;
                 AddDefinedField(stepName, newDefinedField);
+                PlaceDuplicatedOrderedDictionaryItem(
+                    _model.StepCollection.GetStep(stepName).DefinedFields, definedFieldNames[i],
+                    newDefinedField, ViewGeometryModelResults.Model, stepName);
             }
         }
         public void PropagateDefinedField(string stepName, string definedFieldName)
         {
             string[] nextStepNames = _model.StepCollection.GetNextStepNames(stepName);
             DefinedField definedField = GetDefinedField(stepName, definedFieldName).DeepClone();
+            Step sourceStep = _model.StepCollection.GetStep(stepName);
+            bool treeRegenerationRequired = false;
             foreach (var nextStepName in nextStepNames)
             {
-                if (_model.StepCollection.GetStep(nextStepName).DefinedFields.ContainsKey(definedFieldName))
+                Step nextStep = _model.StepCollection.GetStep(nextStepName);
+                if (nextStep.DefinedFields.ContainsKey(definedFieldName))
                     ReplaceDefinedField(nextStepName, definedFieldName, definedField, true);
                 else
                     AddDefinedField(nextStepName, definedField);
+                treeRegenerationRequired |= PlacePropagatedOrderedDictionaryItem(
+                    sourceStep.DefinedFields, nextStep.DefinedFields, definedFieldName,
+                    definedField, nextStepName);
             }
+            if (treeRegenerationRequired) _form.RegenerateTree(false);
         }
         public void PreviewDefinedField(string stepName, string definedFieldName)
         {
@@ -12229,6 +12530,8 @@ namespace PrePoMax
                 newAnalysisJob.Name = _jobs.GetNextNumberedKey(newAnalysisJob.Name);
                 newAnalysisJob.ResetJobStatus();
                 AddJob(newAnalysisJob);
+                PlaceDuplicatedOrderedDictionaryItem(_jobs, name, newAnalysisJob,
+                                                     ViewGeometryModelResults.Model);
             }
         }
         public bool PrepareAndRunJob(string jobName, bool onlyCheckModel, bool asynchronous = true)
@@ -13016,6 +13319,8 @@ namespace PrePoMax
             string[] mergedParts;
             ResultPart newResultPart;
             FeResults result = _allResults.CurrentResult;
+            Guid? targetGroupId =
+                GetLastOrderedDictionaryItemParentGroupId(result.Mesh.Parts, partNames);
             ViewGeometryModelResults view = ViewGeometryModelResults.Results;
             // Remove annotations
             _annotations.RemoveCurrentArrowAnnotationsByParts(partNames, view);
@@ -13035,6 +13340,8 @@ namespace PrePoMax
             //
             if (newResultPart != null && mergedParts != null)
             {
+                MoveOrderedDictionaryItemsToGroup(result.Mesh.Parts,
+                                                  new string[] { newResultPart.Name }, targetGroupId);
                 foreach (var partName in mergedParts) _form.RemoveTreeNode<ResultPart>(view, partName, null);
                 //
                 _form.AddTreeNode(view, newResultPart, null);
@@ -13213,6 +13520,8 @@ namespace PrePoMax
                     _allResults.CurrentResult.Mesh.ReferencePoints.GetNextNumberedKey(newReferencePoint.Name);
                 if (newReferencePoint.CreationData != null) newReferencePoint.RegionType = RegionTypeEnum.Selection;
                 AddResultReferencePoint(newReferencePoint);
+                PlaceDuplicatedOrderedDictionaryItem(_allResults.CurrentResult.Mesh.ReferencePoints, name,
+                                                     newReferencePoint, ViewGeometryModelResults.Results);
             }
         }
         public void RemoveResultReferencePoints(string[] referencePointNames)
@@ -13378,6 +13687,8 @@ namespace PrePoMax
                 newCoordinateSystem.Name = NamedClass.GetNameWithoutLastValue(newCoordinateSystem.Name);
                 newCoordinateSystem.Name = _allResults.CurrentResult.Mesh.CoordinateSystems.GetNextNumberedKey(newCoordinateSystem.Name);
                 AddResultCoordinateSystem(newCoordinateSystem);
+                PlaceDuplicatedOrderedDictionaryItem(_allResults.CurrentResult.Mesh.CoordinateSystems, name,
+                                                     newCoordinateSystem, ViewGeometryModelResults.Results);
             }
         }
         public void RemoveResultCoordinateSystems(string[] coordinateSystemNames)
@@ -13731,9 +14042,9 @@ namespace PrePoMax
         {
             return _model.GetPartAndPartGroupNames().GetNextNumberedKey("Group");
         }
-        public bool CheckPartGroupName(string groupNameToEdit, string groupName)
+        public bool CheckPartGroupName(Guid? groupIdToEdit, string groupName)
         {
-            return CheckName(groupNameToEdit, groupName, _model.GetPartAndPartGroupNames(), "part or group");
+            return CheckName(null, groupName, _model.GetPartAndPartGroupNames(groupIdToEdit), "part or group");
         }
         public void ChangeOrderedDictionaryItemLayoutCommand(OrderedDictionaryTreeLayoutChange change)
         {
@@ -13746,25 +14057,23 @@ namespace PrePoMax
             bool partLayout = (view == ViewGeometryModelResults.Geometry ||
                                view == ViewGeometryModelResults.Model) &&
                               typeof(BasePart).IsAssignableFrom(change.ItemType);
-            if (partLayout && change.Action == OrderedDictionaryTreeLayoutAction.CreateGroup)
-                CheckPartGroupName(null, change.GroupName);
-            else if (partLayout && change.Action == OrderedDictionaryTreeLayoutAction.RenameGroup)
-            {
-                string groupNameToEdit = GetOrderedDictionaryGroupName(oldLayout.Nodes, change.GroupId.Value);
-                CheckPartGroupName(groupNameToEdit, change.GroupName);
-            }
+            if (partLayout &&
+                (change.Action == OrderedDictionaryTreeLayoutAction.CreateGroup ||
+                 change.Action == OrderedDictionaryTreeLayoutAction.RenameGroup))
+                CheckPartGroupName(change.GroupId, change.GroupName);
             //
-            OrderedDictionary<string, object> preview =
-                new OrderedDictionary<string, object>("Ordered dictionary item layout preview", dictionary.Comparer);
-            foreach (string key in dictionary.Keys) preview.Add(key, null);
-            preview.SetItemLayout(oldLayout);
+            OrderedDictionary<string, object> preview = CreateOrderedDictionaryItemLayoutPreview(
+                dictionary, oldLayout, "Ordered dictionary item layout preview");
             //
             string commandName;
             string details;
             switch (change.Action)
             {
                 case OrderedDictionaryTreeLayoutAction.CreateGroup:
-                    Guid newGroupId = preview.CreateGroup(change.GroupName, change.TargetGroupId, change.TargetIndex);
+                    if (!change.GroupId.HasValue)
+                        throw new InvalidOperationException("The new tree group has no stable id.");
+                    Guid newGroupId = preview.CreateGroup(change.GroupId.Value, change.GroupName,
+                                                          change.TargetGroupId, change.TargetIndex);
                     if (change.ItemNames != null && change.ItemNames.Length > 0)
                         preview.MoveItems(change.ItemNames, newGroupId, 0);
                     commandName = "Create tree group";
@@ -13796,7 +14105,7 @@ namespace PrePoMax
                 case OrderedDictionaryTreeLayoutAction.MoveGroup:
                     preview.MoveGroup(change.GroupId.Value, change.TargetGroupId, change.TargetIndex);
                     commandName = "Move tree group";
-                    details = change.GroupName;
+                    details = GetOrderedDictionaryGroupName(oldLayout.Nodes, change.GroupId.Value);
                     break;
                 default:
                     throw new NotSupportedException();
@@ -13805,14 +14114,55 @@ namespace PrePoMax
             OrderedDictionaryItemLayout<string> newLayout = preview.GetItemLayoutSnapshot();
             if (OrderedDictionaryItemLayoutsEqual(oldLayout.Nodes, newLayout.Nodes, dictionary.Comparer)) return;
             //
-            Command command;
-            if (view == ViewGeometryModelResults.Results)
-                command = new CSetResultOrderedDictionaryItemLayout(commandName, change.ItemType, view,
-                                                                    change.ParentName, newLayout, details);
-            else
-                command = new CSetOrderedDictionaryItemLayout(commandName, change.ItemType, view, change.ParentName,
-                                                              newLayout, details);
+            Command command = null;
+            if (partLayout && change.Action == OrderedDictionaryTreeLayoutAction.RenameGroup &&
+                _model.Geometry?.Parts != null && _model.Mesh?.Parts != null)
+            {
+                IOrderedDictionaryItemLayout<string> linkedDictionary =
+                    view == ViewGeometryModelResults.Geometry
+                    ? (IOrderedDictionaryItemLayout<string>)_model.Mesh.Parts
+                    : _model.Geometry.Parts;
+                OrderedDictionaryItemLayout<string> linkedLayout = linkedDictionary.GetItemLayoutSnapshot();
+                if (GetOrderedDictionaryGroupName(linkedLayout.Nodes, change.GroupId.Value) != null)
+                {
+                    OrderedDictionaryItemLayout<string> renamedLinkedLayout =
+                        CreateRenamedGroupLayout(linkedDictionary, change.GroupId.Value, change.GroupName);
+                    OrderedDictionaryItemLayout<string> geometryLayout =
+                        view == ViewGeometryModelResults.Geometry ? newLayout : renamedLinkedLayout;
+                    OrderedDictionaryItemLayout<string> modelLayout =
+                        view == ViewGeometryModelResults.Model ? newLayout : renamedLinkedLayout;
+                    command = new CSetLinkedPartGroupLayouts(commandName, geometryLayout, modelLayout, details);
+                }
+            }
+            //
+            if (command == null)
+            {
+                if (view == ViewGeometryModelResults.Results)
+                    command = new CSetResultOrderedDictionaryItemLayout(commandName, change.ItemType, view,
+                                                                        change.ParentName, newLayout, details);
+                else
+                    command = new CSetOrderedDictionaryItemLayout(commandName, change.ItemType, view,
+                                                                  change.ParentName, newLayout, details);
+            }
             _commands.AddAndExecute(command);
+        }
+        private static OrderedDictionaryItemLayout<string> CreateRenamedGroupLayout(
+            IOrderedDictionaryItemLayout<string> dictionary, Guid groupId, string newName)
+        {
+            OrderedDictionary<string, object> preview = CreateOrderedDictionaryItemLayoutPreview(
+                dictionary, dictionary.GetItemLayoutSnapshot(), "Linked part group layout preview");
+            preview.RenameGroup(groupId, newName);
+            return preview.GetItemLayoutSnapshot();
+        }
+        private static OrderedDictionary<string, object> CreateOrderedDictionaryItemLayoutPreview(
+            IOrderedDictionaryItemLayout<string> dictionary, OrderedDictionaryItemLayout<string> layout,
+            string name)
+        {
+            OrderedDictionary<string, object> preview =
+                new OrderedDictionary<string, object>(name, dictionary.Comparer);
+            foreach (string key in dictionary.Keys) preview.Add(key, null);
+            preview.SetItemLayout(layout);
+            return preview;
         }
         public void SetOrderedDictionaryItemLayout(Type itemType, ViewGeometryModelResults view, string parentName,
                                                    OrderedDictionaryItemLayout<string> itemLayout)
@@ -13827,15 +14177,26 @@ namespace PrePoMax
             dictionary.SetItemLayout(itemLayout);
             _form?.RegenerateTree(false);
         }
-        private bool RenameModelPartGroup(string oldGroupName, string newGroupName)
+        public void SetLinkedPartGroupLayouts(OrderedDictionaryItemLayout<string> geometryLayout,
+                                              OrderedDictionaryItemLayout<string> modelLayout)
+        {
+            if (_model.Geometry?.Parts == null || _model.Mesh?.Parts == null)
+                throw new InvalidOperationException("The linked part-group layouts are not available.");
+            //
+            OrderedDictionaryItemLayout<string> oldModelLayout = _model.Mesh.Parts.GetItemLayoutSnapshot();
+            SynchronizeCompoundPartGroupRenames(oldModelLayout.Nodes, modelLayout.Nodes);
+            _model.Geometry.Parts.SetItemLayout(geometryLayout);
+            _model.Mesh.Parts.SetItemLayout(modelLayout);
+            _form?.RegenerateTree(false);
+        }
+        private bool RenameModelPartGroup(Guid groupId, string newGroupName)
         {
             if (_model.Mesh?.Parts == null) return false;
             //
             OrderedDictionaryItemLayout<string> layout = _model.Mesh.Parts.GetItemLayoutSnapshot();
-            Guid? groupId = GetOrderedDictionaryGroupId(layout.Nodes, oldGroupName);
-            if (!groupId.HasValue) return false;
+            if (GetOrderedDictionaryGroupName(layout.Nodes, groupId) == null) return false;
             //
-            _model.Mesh.Parts.RenameGroup(groupId.Value, newGroupName);
+            _model.Mesh.Parts.RenameGroup(groupId, newGroupName);
             return true;
         }
         private void SynchronizeCompoundPartGroupRenames(
@@ -13847,15 +14208,16 @@ namespace PrePoMax
                 if (!oldNode.IsGroup) continue;
                 //
                 string newGroupName = GetOrderedDictionaryGroupName(newNodes, oldNode.Id);
+                CompoundGeometryPart compoundPart = _model.Geometry?.Parts?.Values
+                    .OfType<CompoundGeometryPart>()
+                    .FirstOrDefault(part => part.LinkedGroupId == oldNode.Id);
                 if (newGroupName != null &&
                     !String.Equals(oldNode.Name, newGroupName, StringComparison.Ordinal) &&
-                    _model.Geometry?.Parts != null &&
-                    _model.Geometry.Parts.TryGetValue(oldNode.Name, out BasePart geometryPart) &&
-                    geometryPart is CompoundGeometryPart compoundPart)
+                    compoundPart != null)
                 {
                     PartProperties properties = compoundPart.GetProperties();
                     properties.Name = newGroupName;
-                    ReplaceGeometryPartProperties(oldNode.Name, properties, false);
+                    ReplaceGeometryPartProperties(compoundPart.Name, properties, false);
                 }
                 //
                 SynchronizeCompoundPartGroupRenames(oldNode.Children, newNodes);
@@ -13928,24 +14290,18 @@ namespace PrePoMax
         private static string GetOrderedDictionaryGroupName(
             IEnumerable<OrderedDictionaryItemNode<string>> nodes, Guid groupId)
         {
-            foreach (OrderedDictionaryItemNode<string> node in nodes)
-            {
-                if (!node.IsGroup) continue;
-                if (node.Id == groupId) return node.Name;
-                string name = GetOrderedDictionaryGroupName(node.Children, groupId);
-                if (name != null) return name;
-            }
-            return null;
+            return GetOrderedDictionaryGroupNode(nodes, groupId)?.Name;
         }
-        private static Guid? GetOrderedDictionaryGroupId(
-            IEnumerable<OrderedDictionaryItemNode<string>> nodes, string groupName)
+        private static OrderedDictionaryItemNode<string> GetOrderedDictionaryGroupNode(
+            IEnumerable<OrderedDictionaryItemNode<string>> nodes, Guid groupId)
         {
             foreach (OrderedDictionaryItemNode<string> node in nodes)
             {
                 if (!node.IsGroup) continue;
-                if (String.Equals(node.Name, groupName, StringComparison.OrdinalIgnoreCase)) return node.Id;
-                Guid? groupId = GetOrderedDictionaryGroupId(node.Children, groupName);
-                if (groupId.HasValue) return groupId;
+                if (node.Id == groupId) return node;
+                OrderedDictionaryItemNode<string> group =
+                    GetOrderedDictionaryGroupNode(node.Children, groupId);
+                if (group != null) return group;
             }
             return null;
         }

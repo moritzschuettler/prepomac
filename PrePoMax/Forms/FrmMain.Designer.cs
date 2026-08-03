@@ -4137,73 +4137,74 @@ namespace PrePoMax
             // tsmiCreateAnalysis
             // 
             this.tsmiCreateAnalysis.Name = "tsmiCreateAnalysis";
-            this.tsmiCreateAnalysis.Size = new System.Drawing.Size(144, 22);
+            this.tsmiCreateAnalysis.Size = new System.Drawing.Size(180, 22);
             this.tsmiCreateAnalysis.Text = "Create";
             this.tsmiCreateAnalysis.Click += new System.EventHandler(this.tsmiCreateAnalysis_Click);
             // 
             // tsmiEditAnalysis
             // 
             this.tsmiEditAnalysis.Name = "tsmiEditAnalysis";
-            this.tsmiEditAnalysis.Size = new System.Drawing.Size(144, 22);
+            this.tsmiEditAnalysis.Size = new System.Drawing.Size(180, 22);
             this.tsmiEditAnalysis.Text = "Edit";
             this.tsmiEditAnalysis.Click += new System.EventHandler(this.tsmiEditAnalysis_Click);
             // 
             // tsmiDuplicateAnalysis
             // 
             this.tsmiDuplicateAnalysis.Name = "tsmiDuplicateAnalysis";
-            this.tsmiDuplicateAnalysis.Size = new System.Drawing.Size(144, 22);
+            this.tsmiDuplicateAnalysis.Size = new System.Drawing.Size(180, 22);
             this.tsmiDuplicateAnalysis.Text = "Duplicate";
             this.tsmiDuplicateAnalysis.Click += new System.EventHandler(this.tsmiDuplicateAnalysis_Click);
             // 
             // tsmiDividerAnalysis1
             // 
             this.tsmiDividerAnalysis1.Name = "tsmiDividerAnalysis1";
-            this.tsmiDividerAnalysis1.Size = new System.Drawing.Size(141, 6);
+            this.tsmiDividerAnalysis1.Size = new System.Drawing.Size(177, 6);
             // 
             // tsmiRunAnalysis
             // 
+            this.tsmiRunAnalysis.Image = global::PrePoMax.Properties.Resources.Run;
             this.tsmiRunAnalysis.Name = "tsmiRunAnalysis";
-            this.tsmiRunAnalysis.Size = new System.Drawing.Size(144, 22);
+            this.tsmiRunAnalysis.Size = new System.Drawing.Size(180, 22);
             this.tsmiRunAnalysis.Text = "Run";
             this.tsmiRunAnalysis.Click += new System.EventHandler(this.tsmiRunAnalysis_Click);
             // 
             // tsmiCheckModel
             // 
             this.tsmiCheckModel.Name = "tsmiCheckModel";
-            this.tsmiCheckModel.Size = new System.Drawing.Size(144, 22);
+            this.tsmiCheckModel.Size = new System.Drawing.Size(180, 22);
             this.tsmiCheckModel.Text = "Check Model";
             this.tsmiCheckModel.Click += new System.EventHandler(this.tsmiCheckModel_Click);
             // 
             // tsmiMonitorAnalysis
             // 
             this.tsmiMonitorAnalysis.Name = "tsmiMonitorAnalysis";
-            this.tsmiMonitorAnalysis.Size = new System.Drawing.Size(144, 22);
+            this.tsmiMonitorAnalysis.Size = new System.Drawing.Size(180, 22);
             this.tsmiMonitorAnalysis.Text = "Monitor";
             this.tsmiMonitorAnalysis.Click += new System.EventHandler(this.tsmiMonitorAnalysis_Click);
             // 
             // tsmiResultsAnalysis
             // 
             this.tsmiResultsAnalysis.Name = "tsmiResultsAnalysis";
-            this.tsmiResultsAnalysis.Size = new System.Drawing.Size(144, 22);
+            this.tsmiResultsAnalysis.Size = new System.Drawing.Size(180, 22);
             this.tsmiResultsAnalysis.Text = "Results";
             this.tsmiResultsAnalysis.Click += new System.EventHandler(this.tsmiResultsAnalysis_Click);
             // 
             // tsmiKillAnalysis
             // 
             this.tsmiKillAnalysis.Name = "tsmiKillAnalysis";
-            this.tsmiKillAnalysis.Size = new System.Drawing.Size(144, 22);
+            this.tsmiKillAnalysis.Size = new System.Drawing.Size(180, 22);
             this.tsmiKillAnalysis.Text = "Kill";
             this.tsmiKillAnalysis.Click += new System.EventHandler(this.tsmiKillAnalysis_Click);
             // 
             // tsmiDividerAnalysis2
             // 
             this.tsmiDividerAnalysis2.Name = "tsmiDividerAnalysis2";
-            this.tsmiDividerAnalysis2.Size = new System.Drawing.Size(141, 6);
+            this.tsmiDividerAnalysis2.Size = new System.Drawing.Size(177, 6);
             // 
             // tsmiDeleteAnalysis
             // 
             this.tsmiDeleteAnalysis.Name = "tsmiDeleteAnalysis";
-            this.tsmiDeleteAnalysis.Size = new System.Drawing.Size(144, 22);
+            this.tsmiDeleteAnalysis.Size = new System.Drawing.Size(180, 22);
             this.tsmiDeleteAnalysis.Text = "Delete";
             this.tsmiDeleteAnalysis.Click += new System.EventHandler(this.tsmiDeleteAnalysis_Click);
             // 
@@ -4897,13 +4898,13 @@ namespace PrePoMax
             this.tsmiResultWidgetSettings,
             this.tsmiResetLegend});
             this.cmsResultWidget.Name = "cmsResultWidget";
-            this.cmsResultWidget.Size = new System.Drawing.Size(181, 136);
+            this.cmsResultWidget.Size = new System.Drawing.Size(121, 114);
             this.cmsResultWidget.Closed += new System.Windows.Forms.ToolStripDropDownClosedEventHandler(this.cmsViewportWidget_Closed);
             // 
             // tsmiEditLegendValue
             // 
             this.tsmiEditLegendValue.Name = "tsmiEditLegendValue";
-            this.tsmiEditLegendValue.Size = new System.Drawing.Size(180, 22);
+            this.tsmiEditLegendValue.Size = new System.Drawing.Size(120, 22);
             this.tsmiEditLegendValue.Text = "Edit";
             this.tsmiEditLegendValue.Click += new System.EventHandler(this.tsmiEditLegendValue_Click);
             // 
@@ -4911,28 +4912,28 @@ namespace PrePoMax
             // 
             this.tsmiSetLegendColor.Image = global::PrePoMax.Properties.Resources.Color_palette;
             this.tsmiSetLegendColor.Name = "tsmiSetLegendColor";
-            this.tsmiSetLegendColor.Size = new System.Drawing.Size(180, 22);
+            this.tsmiSetLegendColor.Size = new System.Drawing.Size(120, 22);
             this.tsmiSetLegendColor.Text = "Set color";
             this.tsmiSetLegendColor.Click += new System.EventHandler(this.tsmiSetLegendColor_Click);
             // 
             // tsmiHideLegendColor
             // 
             this.tsmiHideLegendColor.Name = "tsmiHideLegendColor";
-            this.tsmiHideLegendColor.Size = new System.Drawing.Size(180, 22);
+            this.tsmiHideLegendColor.Size = new System.Drawing.Size(120, 22);
             this.tsmiHideLegendColor.Text = "Hide";
             this.tsmiHideLegendColor.Click += new System.EventHandler(this.tsmiHideLegendColor_Click);
             // 
             // tsmiResultWidgetSettings
             // 
             this.tsmiResultWidgetSettings.Name = "tsmiResultWidgetSettings";
-            this.tsmiResultWidgetSettings.Size = new System.Drawing.Size(180, 22);
+            this.tsmiResultWidgetSettings.Size = new System.Drawing.Size(120, 22);
             this.tsmiResultWidgetSettings.Text = "Settings";
             this.tsmiResultWidgetSettings.Click += new System.EventHandler(this.tsmiResultWidgetSettings_Click);
             // 
             // tsmiResetLegend
             // 
             this.tsmiResetLegend.Name = "tsmiResetLegend";
-            this.tsmiResetLegend.Size = new System.Drawing.Size(180, 22);
+            this.tsmiResetLegend.Size = new System.Drawing.Size(120, 22);
             this.tsmiResetLegend.Text = "Reset";
             this.tsmiResetLegend.Click += new System.EventHandler(this.tsmiResetLegend_Click);
             // 

@@ -22,11 +22,13 @@ namespace CaeMesh
         // Variables                                                                                                                
         private string[] _createdFromPartNames;
         private string[] _subPartNames;
+        private Guid _linkedGroupId;
 
 
         // Properties                                                                                                               
         public string[] CreatedFromPartNames { get { return _createdFromPartNames; } set { _createdFromPartNames = value; } }
         public string[] SubPartNames { get { return _subPartNames; } set { _subPartNames = value; } }
+        public Guid LinkedGroupId { get { return _linkedGroupId; } }
 
 
         // Constructors                                                                                                             
@@ -35,12 +37,14 @@ namespace CaeMesh
         {
             _createdFromPartNames = createdFromPartNames;
             _subPartNames = subPartNames;
+            _linkedGroupId = Guid.NewGuid();
             _partType = PartType.Compound;
         }
 
         public CompoundGeometryPart(CompoundGeometryPart part)
             : this(part.Name, part.CreatedFromPartNames, part.SubPartNames)
         {
+            _linkedGroupId = part._linkedGroupId;
         }
 
 

@@ -35,10 +35,50 @@ namespace UserControls
         public string GroupName { get; private set; }
 
 
-        public OrderedDictionaryTreeLayoutChange(ViewType view, Type itemType, string parentName,
-                                                 OrderedDictionaryTreeLayoutAction action, string[] itemNames,
-                                                 Guid[] groupIds, Guid? groupId, Guid? targetGroupId,
-                                                 int targetIndex, string groupName)
+        public static OrderedDictionaryTreeLayoutChange CreateGroup(
+            ViewType view, Type itemType, string parentName, string[] itemNames, Guid groupId,
+            Guid? parentGroupId, int index, string groupName)
+        {
+            return new OrderedDictionaryTreeLayoutChange(
+                view, itemType, parentName, OrderedDictionaryTreeLayoutAction.CreateGroup, itemNames, null,
+                groupId, parentGroupId, index, groupName);
+        }
+        public static OrderedDictionaryTreeLayoutChange RenameGroup(
+            ViewType view, Type itemType, string parentName, Guid groupId, string newName)
+        {
+            return new OrderedDictionaryTreeLayoutChange(
+                view, itemType, parentName, OrderedDictionaryTreeLayoutAction.RenameGroup, null, null,
+                groupId, null, -1, newName);
+        }
+        public static OrderedDictionaryTreeLayoutChange RemoveGroups(
+            ViewType view, Type itemType, string parentName, Guid[] groupIds)
+        {
+            return new OrderedDictionaryTreeLayoutChange(
+                view, itemType, parentName, OrderedDictionaryTreeLayoutAction.RemoveGroup, null, groupIds,
+                null, null, -1, null);
+        }
+        public static OrderedDictionaryTreeLayoutChange MoveItems(
+            ViewType view, Type itemType, string parentName, string[] itemNames, Guid? targetGroupId,
+            int targetIndex)
+        {
+            return new OrderedDictionaryTreeLayoutChange(
+                view, itemType, parentName, OrderedDictionaryTreeLayoutAction.MoveItems, itemNames, null,
+                null, targetGroupId, targetIndex, null);
+        }
+        public static OrderedDictionaryTreeLayoutChange MoveGroup(
+            ViewType view, Type itemType, string parentName, Guid groupId, Guid? targetGroupId,
+            int targetIndex)
+        {
+            return new OrderedDictionaryTreeLayoutChange(
+                view, itemType, parentName, OrderedDictionaryTreeLayoutAction.MoveGroup, null, null,
+                groupId, targetGroupId, targetIndex, null);
+        }
+
+
+        private OrderedDictionaryTreeLayoutChange(ViewType view, Type itemType, string parentName,
+                                                  OrderedDictionaryTreeLayoutAction action, string[] itemNames,
+                                                  Guid[] groupIds, Guid? groupId, Guid? targetGroupId,
+                                                  int targetIndex, string groupName)
         {
             View = view;
             ItemType = itemType;

@@ -1535,29 +1535,40 @@ namespace CaeModel
             reservedPartNames.UnionWith(GetAllMeshEntityNames());
             return reservedPartNames;
         }
-        public HashSet<string> GetPartAndPartGroupNames()
+        public HashSet<string> GetPartAndPartGroupNames(Guid? excludedLinkedGroupId = null)
         {
             HashSet<string> names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (_geometry?.Parts != null)
             {
-                names.UnionWith(_geometry.Parts.Keys);
-                AddOrderedDictionaryGroupNames(_geometry.Parts.GetItemLayoutSnapshot().Nodes, names);
+                foreach (var entry in _geometry.Parts)
+                {
+                    if (excludedLinkedGroupId.HasValue &&
+                        entry.Value is CompoundGeometryPart compoundPart &&
+                        compoundPart.LinkedGroupId == excludedLinkedGroupId.Value)
+                        continue;
+                    names.Add(entry.Key);
+                }
+                AddOrderedDictionaryGroupNames(_geometry.Parts.GetItemLayoutSnapshot().Nodes, names,
+                                               excludedLinkedGroupId);
             }
             if (_mesh?.Parts != null)
             {
                 names.UnionWith(_mesh.Parts.Keys);
-                AddOrderedDictionaryGroupNames(_mesh.Parts.GetItemLayoutSnapshot().Nodes, names);
+                AddOrderedDictionaryGroupNames(_mesh.Parts.GetItemLayoutSnapshot().Nodes, names,
+                                               excludedLinkedGroupId);
             }
             return names;
         }
         private static void AddOrderedDictionaryGroupNames(
-            IEnumerable<OrderedDictionaryItemNode<string>> nodes, HashSet<string> names)
+            IEnumerable<OrderedDictionaryItemNode<string>> nodes, HashSet<string> names,
+            Guid? excludedLinkedGroupId)
         {
             foreach (OrderedDictionaryItemNode<string> node in nodes)
             {
                 if (!node.IsGroup) continue;
-                names.Add(node.Name);
-                AddOrderedDictionaryGroupNames(node.Children, names);
+                if (!excludedLinkedGroupId.HasValue || node.Id != excludedLinkedGroupId.Value)
+                    names.Add(node.Name);
+                AddOrderedDictionaryGroupNames(node.Children, names, excludedLinkedGroupId);
             }
         }
         public HashSet<int> GetReservedPartIds()

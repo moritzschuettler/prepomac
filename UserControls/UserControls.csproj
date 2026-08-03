@@ -338,6 +338,7 @@
     </EmbeddedResource>
     <EmbeddedResource Include="SidePanel\AdvisorPanel.resx">
       <DependentUpon>AdvisorPanel.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="ViewportTextEditor.resx">
       <DependentUpon>ViewportTextEditor.cs</DependentUpon>
@@ -490,6 +491,8 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="License-LGPL.txt" />
+    <None Include="Resources\Active1.ico" />
+    <None Include="Resources\Active.ico" />
     <None Include="Resources\Color_palette.ico" />
     <None Include="Resources\Folder.ico" />
     <None Include="Resources\Close1.ico" />
