@@ -356,6 +356,7 @@ namespace PrePoMax
                 _modelTree.ActivateDeactivateEvent += ModelTree_ActivateDeactivateEvent;
                 _modelTree.DeleteEvent += ModelTree_DeleteEvent;
                 _modelTree.OrderedDictionaryTreeLayoutChangeEvent += ModelTree_OrderedDictionaryTreeLayoutChangeEvent;
+                _modelTree.MoveStepsEvent += ModelTree_MoveStepsEvent;
                 _modelTree.FieldDataSelectEvent += ModelTree_FieldDataSelectEvent;
                 _modelTree.RenderingOff += () => _vtk.RenderingOn = false;
                 _modelTree.RenderingOn += () => _vtk.RenderingOn = true;
@@ -1353,6 +1354,10 @@ namespace PrePoMax
         private void ModelTree_OrderedDictionaryTreeLayoutChangeEvent(OrderedDictionaryTreeLayoutChange change)
         {
             _controller.ChangeOrderedDictionaryItemLayoutCommand(change);
+        }
+        private void ModelTree_MoveStepsEvent(string[] stepNames, int targetIndex)
+        {
+            _controller.MoveStepsCommand(stepNames, targetIndex);
         }
         private void ModelTree_FieldDataSelectEvent(string[] obj)
         {

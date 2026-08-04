@@ -10938,6 +10938,11 @@ namespace PrePoMax
             CRemoveSteps comm = new CRemoveSteps(stepNames);
             _commands.AddAndExecute(comm);
         }
+        public void MoveStepsCommand(string[] stepNames, int targetIndex)
+        {
+            CMoveSteps comm = new CMoveSteps(stepNames, targetIndex);
+            _commands.AddAndExecute(comm);
+        }
         //
         public void ReplaceStepControlsCommand(string stepName, StepControls stepControls)
         {
@@ -10957,6 +10962,11 @@ namespace PrePoMax
             _form.AddTreeNode(ViewGeometryModelResults.Model, step, null);
             //
             FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+        }
+        public void MoveSteps(string[] stepNames, int targetIndex)
+        {
+            _model.StepCollection.MoveSteps(stepNames, targetIndex);
+            _form?.RegenerateTree(false);
         }
         public Step GetStep(string stepName)
         {

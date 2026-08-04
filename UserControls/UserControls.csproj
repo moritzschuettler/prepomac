@@ -491,6 +491,8 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="License-LGPL.txt" />
+    <None Include="Resources\Propagate.ico" />
+    <None Include="Resources\Delete.ico" />
     <None Include="Resources\Active1.ico" />
     <None Include="Resources\Active.ico" />
     <None Include="Resources\Color_palette.ico" />

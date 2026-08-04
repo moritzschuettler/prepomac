@@ -2284,6 +2284,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteGeometryParts
             // 
+            this.tsmiDeleteGeometryParts.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteGeometryParts.Name = "tsmiDeleteGeometryParts";
             this.tsmiDeleteGeometryParts.Size = new System.Drawing.Size(211, 22);
             this.tsmiDeleteGeometryParts.Text = "Delete";
@@ -2384,6 +2385,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteStlPartFaces
             // 
+            this.tsmiDeleteStlPartFaces.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteStlPartFaces.Name = "tsmiDeleteStlPartFaces";
             this.tsmiDeleteStlPartFaces.Size = new System.Drawing.Size(218, 22);
             this.tsmiDeleteStlPartFaces.Text = "Delete Part Faces";
@@ -2493,6 +2495,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteMeshSetupItem
             // 
+            this.tsmiDeleteMeshSetupItem.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteMeshSetupItem.Name = "tsmiDeleteMeshSetupItem";
             this.tsmiDeleteMeshSetupItem.Size = new System.Drawing.Size(124, 22);
             this.tsmiDeleteMeshSetupItem.Text = "Delete";
@@ -2787,6 +2790,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteModelParts
             // 
+            this.tsmiDeleteModelParts.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteModelParts.Name = "tsmiDeleteModelParts";
             this.tsmiDeleteModelParts.Size = new System.Drawing.Size(163, 22);
             this.tsmiDeleteModelParts.Text = "Delete";
@@ -2833,6 +2837,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteNodeSet
             // 
+            this.tsmiDeleteNodeSet.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteNodeSet.Name = "tsmiDeleteNodeSet";
             this.tsmiDeleteNodeSet.Size = new System.Drawing.Size(124, 22);
             this.tsmiDeleteNodeSet.Text = "Delete";
@@ -2887,6 +2892,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteElementSet
             // 
+            this.tsmiDeleteElementSet.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteElementSet.Name = "tsmiDeleteElementSet";
             this.tsmiDeleteElementSet.Size = new System.Drawing.Size(154, 22);
             this.tsmiDeleteElementSet.Text = "Delete";
@@ -2933,6 +2939,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteSurface
             // 
+            this.tsmiDeleteSurface.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteSurface.Name = "tsmiDeleteSurface";
             this.tsmiDeleteSurface.Size = new System.Drawing.Size(124, 22);
             this.tsmiDeleteSurface.Text = "Delete";
@@ -3022,6 +3029,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteModelReferencePoint
             // 
+            this.tsmiDeleteModelReferencePoint.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteModelReferencePoint.Name = "tsmiDeleteModelReferencePoint";
             this.tsmiDeleteModelReferencePoint.Size = new System.Drawing.Size(131, 22);
             this.tsmiDeleteModelReferencePoint.Text = "Delete";
@@ -3101,6 +3109,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteModelCoordinateSystem
             // 
+            this.tsmiDeleteModelCoordinateSystem.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteModelCoordinateSystem.Name = "tsmiDeleteModelCoordinateSystem";
             this.tsmiDeleteModelCoordinateSystem.Size = new System.Drawing.Size(131, 22);
             this.tsmiDeleteModelCoordinateSystem.Text = "Delete";
@@ -3179,6 +3188,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteMaterial
             // 
+            this.tsmiDeleteMaterial.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteMaterial.Name = "tsmiDeleteMaterial";
             this.tsmiDeleteMaterial.Size = new System.Drawing.Size(162, 22);
             this.tsmiDeleteMaterial.Text = "Delete";
@@ -3233,6 +3243,7 @@ namespace PrePoMax
             // 
             // tsmiDelete
             // 
+            this.tsmiDelete.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDelete.Name = "tsmiDelete";
             this.tsmiDelete.Size = new System.Drawing.Size(124, 22);
             this.tsmiDelete.Text = "Delete";
@@ -3336,6 +3347,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteConstraint
             // 
+            this.tsmiDeleteConstraint.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteConstraint.Name = "tsmiDeleteConstraint";
             this.tsmiDeleteConstraint.Size = new System.Drawing.Size(195, 22);
             this.tsmiDeleteConstraint.Text = "Delete";
@@ -3392,6 +3404,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteSurfaceInteraction
             // 
+            this.tsmiDeleteSurfaceInteraction.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteSurfaceInteraction.Name = "tsmiDeleteSurfaceInteraction";
             this.tsmiDeleteSurfaceInteraction.Size = new System.Drawing.Size(124, 22);
             this.tsmiDeleteSurfaceInteraction.Text = "Delete";
@@ -3484,6 +3497,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteContactPair
             // 
+            this.tsmiDeleteContactPair.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteContactPair.Name = "tsmiDeleteContactPair";
             this.tsmiDeleteContactPair.Size = new System.Drawing.Size(195, 22);
             this.tsmiDeleteContactPair.Text = "Delete";
@@ -3541,6 +3555,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteDistribution
             // 
+            this.tsmiDeleteDistribution.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteDistribution.Name = "tsmiDeleteDistribution";
             this.tsmiDeleteDistribution.Size = new System.Drawing.Size(124, 22);
             this.tsmiDeleteDistribution.Text = "Delete";
@@ -3586,6 +3601,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteAmplitude
             // 
+            this.tsmiDeleteAmplitude.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteAmplitude.Name = "tsmiDeleteAmplitude";
             this.tsmiDeleteAmplitude.Size = new System.Drawing.Size(124, 22);
             this.tsmiDeleteAmplitude.Text = "Delete";
@@ -3664,6 +3680,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteInitialCondition
             // 
+            this.tsmiDeleteInitialCondition.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteInitialCondition.Name = "tsmiDeleteInitialCondition";
             this.tsmiDeleteInitialCondition.Size = new System.Drawing.Size(124, 22);
             this.tsmiDeleteInitialCondition.Text = "Delete";
@@ -3732,6 +3749,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteStep
             // 
+            this.tsmiDeleteStep.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteStep.Name = "tsmiDeleteStep";
             this.tsmiDeleteStep.Size = new System.Drawing.Size(142, 22);
             this.tsmiDeleteStep.Text = "Delete";
@@ -3792,6 +3810,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteHistoryOutput
             // 
+            this.tsmiDeleteHistoryOutput.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteHistoryOutput.Name = "tsmiDeleteHistoryOutput";
             this.tsmiDeleteHistoryOutput.Size = new System.Drawing.Size(128, 22);
             this.tsmiDeleteHistoryOutput.Text = "Delete";
@@ -3847,6 +3866,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteFieldOutput
             // 
+            this.tsmiDeleteFieldOutput.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteFieldOutput.Name = "tsmiDeleteFieldOutput";
             this.tsmiDeleteFieldOutput.Size = new System.Drawing.Size(128, 22);
             this.tsmiDeleteFieldOutput.Text = "Delete";
@@ -3935,6 +3955,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteBC
             // 
+            this.tsmiDeleteBC.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteBC.Name = "tsmiDeleteBC";
             this.tsmiDeleteBC.Size = new System.Drawing.Size(128, 22);
             this.tsmiDeleteBC.Text = "Delete";
@@ -4023,6 +4044,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteLoad
             // 
+            this.tsmiDeleteLoad.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteLoad.Name = "tsmiDeleteLoad";
             this.tsmiDeleteLoad.Size = new System.Drawing.Size(128, 22);
             this.tsmiDeleteLoad.Text = "Delete";
@@ -4111,6 +4133,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteDefinedField
             // 
+            this.tsmiDeleteDefinedField.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteDefinedField.Name = "tsmiDeleteDefinedField";
             this.tsmiDeleteDefinedField.Size = new System.Drawing.Size(128, 22);
             this.tsmiDeleteDefinedField.Text = "Delete";
@@ -4203,6 +4226,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteAnalysis
             // 
+            this.tsmiDeleteAnalysis.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteAnalysis.Name = "tsmiDeleteAnalysis";
             this.tsmiDeleteAnalysis.Size = new System.Drawing.Size(180, 22);
             this.tsmiDeleteAnalysis.Text = "Delete";
@@ -4344,6 +4368,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteResultParts
             // 
+            this.tsmiDeleteResultParts.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteResultParts.Name = "tsmiDeleteResultParts";
             this.tsmiDeleteResultParts.Size = new System.Drawing.Size(208, 22);
             this.tsmiDeleteResultParts.Text = "Delete";
@@ -4433,6 +4458,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteResultReferencePoint
             // 
+            this.tsmiDeleteResultReferencePoint.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteResultReferencePoint.Name = "tsmiDeleteResultReferencePoint";
             this.tsmiDeleteResultReferencePoint.Size = new System.Drawing.Size(131, 22);
             this.tsmiDeleteResultReferencePoint.Text = "Delete";
@@ -4509,6 +4535,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteResultCoordinateSystem
             // 
+            this.tsmiDeleteResultCoordinateSystem.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteResultCoordinateSystem.Name = "tsmiDeleteResultCoordinateSystem";
             this.tsmiDeleteResultCoordinateSystem.Size = new System.Drawing.Size(131, 22);
             this.tsmiDeleteResultCoordinateSystem.Text = "Delete";
@@ -4566,6 +4593,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteResultFieldOutput
             // 
+            this.tsmiDeleteResultFieldOutput.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteResultFieldOutput.Name = "tsmiDeleteResultFieldOutput";
             this.tsmiDeleteResultFieldOutput.Size = new System.Drawing.Size(108, 22);
             this.tsmiDeleteResultFieldOutput.Text = "Delete";
@@ -4618,6 +4646,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteResultHistoryOutput
             // 
+            this.tsmiDeleteResultHistoryOutput.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteResultHistoryOutput.Name = "tsmiDeleteResultHistoryOutput";
             this.tsmiDeleteResultHistoryOutput.Size = new System.Drawing.Size(108, 22);
             this.tsmiDeleteResultHistoryOutput.Text = "Delete";
@@ -4884,6 +4913,7 @@ namespace PrePoMax
             // 
             // tsmiDeleteAnnotation
             // 
+            this.tsmiDeleteAnnotation.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteAnnotation.Name = "tsmiDeleteAnnotation";
             this.tsmiDeleteAnnotation.Size = new System.Drawing.Size(116, 22);
             this.tsmiDeleteAnnotation.Text = "Delete";

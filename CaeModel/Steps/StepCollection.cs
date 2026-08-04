@@ -132,6 +132,36 @@ namespace CaeModel
             }
             _steps.Add(step);
         }
+        /// <summary>
+        /// Moves the specified steps to the requested position. The target index is evaluated after the
+        /// selected steps have been removed, and the selected steps retain their current relative order.
+        /// </summary>
+        public void MoveSteps(ICollection<string> stepNames, int targetIndex)
+        {
+            if (stepNames == null) throw new ArgumentNullException("stepNames");
+            if (stepNames.Count == 0) return;
+            //
+            HashSet<string> selectedStepNames = new HashSet<string>();
+            foreach (string stepName in stepNames)
+            {
+                if (GetStep(stepName) == null) throw new KeyNotFoundException("A step to move was not found.");
+                if (!selectedStepNames.Add(stepName))
+                    throw new ArgumentException("A step can only be moved once.", "stepNames");
+            }
+            //
+            List<Step> stepsToMove = new List<Step>();
+            foreach (Step step in _steps)
+            {
+                if (selectedStepNames.Contains(step.Name)) stepsToMove.Add(step);
+            }
+            //
+            int targetCountAfterRemoval = _steps.Count - stepsToMove.Count;
+            if (targetIndex < 0 || targetIndex > targetCountAfterRemoval)
+                throw new ArgumentOutOfRangeException("targetIndex");
+            //
+            _steps.RemoveAll(step => selectedStepNames.Contains(step.Name));
+            _steps.InsertRange(targetIndex, stepsToMove);
+        }
         public Step GetStep(string stepName)
         {
             foreach (var step in _steps)

@@ -121,6 +121,12 @@ namespace UserControls
         }
 
 
+        private sealed class StepTreeDragData
+        {
+            public CodersLabTreeView Tree;
+            public TreeNode[] Nodes;
+            public string[] StepNames;
+        }
         // Variables                                                                                                                
         private bool _screenUpdating;
         private bool _doubleClick;
@@ -344,6 +350,7 @@ namespace UserControls
         public event Action<NamedClass[], bool, string[]> ActivateDeactivateEvent;
         public event Action<NamedClass[], string[]> DeleteEvent;
         public event Action<OrderedDictionaryTreeLayoutChange> OrderedDictionaryTreeLayoutChangeEvent;
+        public event Action<string[], int> MoveStepsEvent;
         //
         public event Action<string[]> FieldDataSelectEvent;
         public event Action RenderingOn;
@@ -1058,6 +1065,29 @@ namespace UserControls
             while (names.Contains(name)) name = "Group-" + id++;
             return name;
         }
+        private bool TryGetStepTreeDragData(CodersLabTreeView tree, TreeNode[] nodes,
+                                            out StepTreeDragData data)
+        {
+            data = null;
+            if (nodes.Length == 0) return false;
+            //
+            foreach (TreeNode node in nodes)
+            {
+                if (!IsStepTreeNode(node)) return false;
+            }
+            //
+            data = new StepTreeDragData
+            {
+                Tree = tree,
+                Nodes = nodes,
+                StepNames = nodes.Select(node => ((Step)node.Tag).Name).ToArray()
+            };
+            return true;
+        }
+        private bool IsStepTreeNode(TreeNode node)
+        {
+            return node != null && ReferenceEquals(node.Parent, _steps) && node.Tag is Step;
+        }
         private void cltv_ItemDrag(object sender, ItemDragEventArgs e)
         {
             try
@@ -1066,6 +1096,12 @@ namespace UserControls
                 TreeNode[] nodes = tree.SelectedNodes.Cast<TreeNode>().ToArray();
                 if (nodes.Length == 0) return;
                 if (IsCompoundGeometrySubPartNode(e.Item as TreeNode)) return;
+                StepTreeDragData stepData;
+                if (TryGetStepTreeDragData(tree, nodes, out stepData))
+                {
+                    tree.DoDragDrop(stepData, DragDropEffects.Move);
+                    return;
+                }
                 //
                 OrderedDictionaryTreeContext context = null;
                 bool isGroup = false;
@@ -1112,13 +1148,39 @@ namespace UserControls
         }
         private void cltv_DragEnter(object sender, DragEventArgs e)
         {
-            e.Effect = e.Data.GetDataPresent(typeof(OrderedDictionaryTreeDragData))
+            e.Effect = e.Data.GetDataPresent(typeof(OrderedDictionaryTreeDragData)) ||
+                       e.Data.GetDataPresent(typeof(StepTreeDragData))
                 ? DragDropEffects.Move
                 : DragDropEffects.None;
         }
         private void cltv_DragOver(object sender, DragEventArgs e)
         {
             CodersLabTreeView tree = (CodersLabTreeView)sender;
+            StepTreeDragData stepData =
+                e.Data.GetData(typeof(StepTreeDragData)) as StepTreeDragData;
+            if (stepData != null)
+            {
+                if (!ReferenceEquals(stepData.Tree, tree))
+                {
+                    e.Effect = DragDropEffects.None;
+                    ClearDragOverNode();
+                    return;
+                }
+                //
+                Point stepPoint = tree.PointToClient(new Point(e.X, e.Y));
+                if (TryGetStepDropTarget(tree, stepPoint, stepData, out TreeNode stepTargetNode,
+                                         out int stepTargetIndex))
+                {
+                    e.Effect = DragDropEffects.Move;
+                    SetDragOverNode(stepTargetNode);
+                }
+                else
+                {
+                    e.Effect = DragDropEffects.None;
+                    ClearDragOverNode();
+                }
+                return;
+            }
             OrderedDictionaryTreeDragData data =
                 e.Data.GetData(typeof(OrderedDictionaryTreeDragData)) as OrderedDictionaryTreeDragData;
             //
@@ -1147,6 +1209,18 @@ namespace UserControls
             try
             {
                 CodersLabTreeView tree = (CodersLabTreeView)sender;
+                StepTreeDragData stepData =
+                    e.Data.GetData(typeof(StepTreeDragData)) as StepTreeDragData;
+                if (stepData != null)
+                {
+                    if (!ReferenceEquals(stepData.Tree, tree)) return;
+                    //
+                    Point stepPoint = tree.PointToClient(new Point(e.X, e.Y));
+                    if (TryGetStepDropTarget(tree, stepPoint, stepData, out TreeNode stepTargetNode,
+                                             out int stepTargetIndex))
+                        MoveStepsEvent?.Invoke(stepData.StepNames, stepTargetIndex);
+                    return;
+                }
                 OrderedDictionaryTreeDragData data =
                     e.Data.GetData(typeof(OrderedDictionaryTreeDragData)) as OrderedDictionaryTreeDragData;
                 if (data == null || !ReferenceEquals(data.Tree, tree)) return;
@@ -1186,6 +1260,34 @@ namespace UserControls
         private void cltv_DragLeave(object sender, EventArgs e)
         {
             ClearDragOverNode();
+        }
+        private bool TryGetStepDropTarget(CodersLabTreeView tree, Point point, StepTreeDragData data,
+                                          out TreeNode targetNode, out int targetIndex)
+        {
+            targetNode = tree.GetNodeAt(point);
+            targetIndex = -1;
+            if (targetNode == null) return false;
+            //
+            if (ReferenceEquals(targetNode, _steps)) targetIndex = _steps.Nodes.Count;
+            else if (IsStepTreeNode(targetNode))
+            {
+                targetIndex = targetNode.Index;
+                if (ShouldInsertAfterDropTarget(data.Nodes, targetNode)) targetIndex++;
+            }
+            else return false;
+            //
+            int dropTargetIndex = targetIndex;
+            targetIndex -= data.Nodes.Count(node => node.Index < dropTargetIndex);
+            return targetIndex >= 0 && !IsStepMoveUnchanged(data, targetIndex);
+        }
+        private bool IsStepMoveUnchanged(StepTreeDragData data, int targetIndex)
+        {
+            List<TreeNode> originalNodes = _steps.Nodes.Cast<TreeNode>().ToList();
+            HashSet<TreeNode> draggedNodes = new HashSet<TreeNode>(data.Nodes);
+            List<TreeNode> movedNodes = originalNodes.Where(node => draggedNodes.Contains(node)).ToList();
+            List<TreeNode> remainingNodes = originalNodes.Where(node => !draggedNodes.Contains(node)).ToList();
+            remainingNodes.InsertRange(targetIndex, movedNodes);
+            return originalNodes.SequenceEqual(remainingNodes);
         }
         private bool TryGetOrderedDictionaryDropTarget(CodersLabTreeView tree, Point point,
                                                         OrderedDictionaryTreeDragData data,

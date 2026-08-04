@@ -408,6 +408,7 @@ namespace PrePoMax.Forms
             {
                 newStep = prevOrLastStep.DeepClone();
                 //
+                newStep.Active = true;
                 newStep.BoundaryConditions.Clear(); // this gets added at the step collection
                 newStep.Loads.Clear();              // this gets added at the step collection
                 newStep.DefinedFields.Clear();      // this gets added at the step collection

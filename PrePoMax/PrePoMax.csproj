@@ -311,6 +311,7 @@
     <Compile Include="Commands\0075_Amplitude\CReplaceAmplitude.cs" />
     <Compile Include="Commands\0081_Step\CAddStep.cs" />
     <Compile Include="Commands\0081_Step\CDuplicateSteps.cs" />
+    <Compile Include="Commands\0081_Step\CMoveSteps.cs" />
     <Compile Include="Commands\0081_Step\CRemoveSteps.cs" />
     <Compile Include="Commands\0081_Step\CReplaceStepControls.cs" />
     <Compile Include="Commands\0081_Step\CReplaceStep.cs" />

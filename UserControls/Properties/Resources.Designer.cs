@@ -191,6 +191,16 @@ namespace UserControls.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap Delete {
+            get {
+                object obj = ResourceManager.GetObject("Delete", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
         /// </summary>
         internal static System.Drawing.Icon Element_set {
@@ -393,6 +403,16 @@ namespace UserControls.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap Propagate {
+            get {
+                object obj = ResourceManager.GetObject("Propagate", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap Query {
             get {
                 object obj = ResourceManager.GetObject("Query", resourceCulture);
@@ -506,16 +526,6 @@ namespace UserControls.Properties {
         internal static System.Drawing.Bitmap Show {
             get {
                 object obj = ResourceManager.GetObject("Show", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
-        /// </summary>
-        internal static System.Drawing.Bitmap Step {
-            get {
-                object obj = ResourceManager.GetObject("Step", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
