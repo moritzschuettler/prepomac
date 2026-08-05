@@ -206,6 +206,9 @@ namespace CaeMesh
                         Gmsh.Model.Mesh.Optimize(gsi.OptimizeHighOrder.ToString(), false, 1, dimTags);
                     }
                 }
+                // Revolving a surface that touches the axis can create duplicate nodes on collapsed edges.
+                // Merge them after all mesh operations and before exporting, so visualization topology sees merged nodes.
+                if (!_gmshData.Preview && gsi is RevolveMesh) Gmsh.Model.Mesh.RemoveDuplicateNodes();
                 // Output
                 Gmsh.Write(_gmshData.InpFileName);
                 //Gmsh.Write(@"c:\Temp\mesh.mesh");

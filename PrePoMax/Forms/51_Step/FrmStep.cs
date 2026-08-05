@@ -270,7 +270,7 @@ namespace PrePoMax.Forms
             }
             else
             {
-                SolverTypeEnum defaultSolverType = _controller.Settings.Calculix.DefaultSolverType;
+                SolverTypeEnum defaultSolverType = _controller.Settings.Solver.CalculixDefaultSolverType;
                 if (addStaticStep)
                 {
                     // Static step

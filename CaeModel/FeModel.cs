@@ -1140,14 +1140,16 @@ namespace CaeModel
         }
         
         public void ImportGeneratedMeshFromMeshFile(string fileName, BasePart part, bool convertToSecondOrder,
-                                                    bool splitCompoundMesh, bool mergeCompoundParts)
+                                                    bool splitCompoundMesh, bool mergeCompoundParts,
+                                                    RevolveMesh revolveMesh = null)
         {
             FeMesh mesh = PrepareGeneratedMeshFromMeshFile(fileName, part, convertToSecondOrder,
-                                                           splitCompoundMesh, mergeCompoundParts);
+                                                           splitCompoundMesh, mergeCompoundParts, revolveMesh);
             ImportGeneratedMesh(mesh);
         }
         public FeMesh PrepareGeneratedMeshFromMeshFile(string fileName, BasePart part, bool convertToSecondOrder,
-                                                       bool splitCompoundMesh, bool mergeCompoundParts)
+                                                       bool splitCompoundMesh, bool mergeCompoundParts,
+                                                       RevolveMesh revolveMesh = null)
         {
             ElementsToImport elementsToImport;
             GeometryPart subPart;
@@ -1191,6 +1193,15 @@ namespace CaeModel
                 }
                 else throw new NotSupportedException();
             }
+            // Complete a requested full revolution only after the generated mesh has been imported. This keeps the
+            // model edges stored in the PrePoMax part visualization instead of reconstructing the mesh in Gmsh.
+            if (revolveMesh != null && revolveMesh.CreateFull360Model)
+            {
+                if (prevPartNames.Length != 1 || partNames.Length != 1)
+                    throw new CaeException("A full 360 degree revolve mesh must result in one mesh part.");
+                CreateFull360RevolveMesh(mesh, revolveMesh);
+                partNames = mesh.Parts.Keys.ToArray();
+            }
             // Rename the imported part/s
             BasePart[] importedParts = new BasePart[partNames.Length];
             for (int i = 0; i < partNames.Length; i++)
@@ -1202,6 +1213,44 @@ namespace CaeModel
             for (int i = 0; i < partNames.Length; i++) mesh.Parts.Add(importedParts[i].Name, importedParts[i]);
             //
             return mesh;
+        }
+        private void CreateFull360RevolveMesh(FeMesh mesh, RevolveMesh revolveMesh)
+        {
+            if (Math.Abs(revolveMesh.AngleDeg - 180) > 1E-3)
+                throw new CaeException("A full 360 degree mesh can only be created from a 180 degree revolve mesh.");
+            if (revolveMesh.AxisCenter == null || revolveMesh.AxisCenter.Length != 3 ||
+                revolveMesh.AxisDirection == null || revolveMesh.AxisDirection.Length != 3 ||
+                new Vec3D(revolveMesh.AxisDirection).Len < 1E-12)
+                throw new CaeException("The revolve axis is not valid.");
+            // Copy the imported half with the existing model-part rotate operation. It copies the visualization data,
+            // including the model edges, and renumbers the copied nodes and elements.
+            string[] originalPartNames = mesh.Parts.Keys.ToArray();
+            string[] reservedPartNames = originalPartNames.ToArray();
+            HashSet<int> reservedPartIds = mesh.Parts.Values.Select(item => item.PartId).ToHashSet();
+            string[] rotatedPartNames = mesh.RotateParts(originalPartNames, revolveMesh.AxisCenter,
+                                                         revolveMesh.AxisDirection, Math.PI, 1,
+                                                         reservedPartNames, reservedPartIds);
+            string[] fullRevolvePartNames = originalPartNames.Concat(rotatedPartNames).ToArray();
+            // Merge coincident nodes before the two halves are combined into one part. The final part visualization is
+            // then constructed from a conforming volume mesh, so the 180 degree seam is not detected as an outer face.
+            string nodeSetName = mesh.NodeSets.GetNextNumberedKey(Globals.InternalSelectionName + "_" +
+                                                                  Globals.MergedCoincidentNodes);
+            FeNodeSet nodeSet = new FeNodeSet(nodeSetName, mesh.GetNodeIdsFromParts(fullRevolvePartNames));
+            nodeSet.Internal = true;
+            mesh.NodeSets.Add(nodeSetName, nodeSet);
+            try
+            {
+                MergeCoincidentNodes mergeCoincidentNodes = new MergeCoincidentNodes();
+                mergeCoincidentNodes.Tolerance = Math.Max(1E-12, 1E-6 * mesh.BoundingBox.GetDiagonal());
+                mergeCoincidentNodes.NodesToKeep = NodesToKeepEnum.SmallerID;
+                mesh.MergeCoincidentNodes(nodeSetName, mergeCoincidentNodes);
+            }
+            finally
+            {
+                mesh.NodeSets.Remove(nodeSetName);
+            }
+            // Both revolved halves now share their seam nodes and can be rebuilt as one volume without internal faces.
+            mesh.MergeMeshParts(fullRevolvePartNames, out _, out _);
         }
         public void ImportGeneratedMesh(FeMesh mesh, bool updateNodeIdElementIds = true)
         {
@@ -2065,55 +2114,104 @@ namespace CaeModel
                     HashSet<int> surfaceVertices = vis.GetVertexNodeIdsForSurfaceIds(surfaceIds.ToArray());
                     HashSet<int> surfaceEdgeIds = vis.GetEdgeIdsForSurfaceIds(surfaceIds.ToArray());
                     //
-                    HashSet<int> directionEdgeIds = new HashSet<int>();
+                    Dictionary<int, HashSet<int>> vertexIdConnectedEdgeIds = new Dictionary<int, HashSet<int>>();
+                    HashSet<int> allConnectedEdgeIds = new HashSet<int>();
                     foreach (var vertexId in surfaceVertices)
-                        directionEdgeIds.UnionWith(vertexIdEdgeId[vertexId].Except(surfaceEdgeIds));
-                    //
-                    bool arcEdges = false;
-                    if (vis.EdgeTypes != null)
                     {
-                        HashSet<GeomCurveType> edgeTypes = new HashSet<GeomCurveType>();
-                        foreach (var directionEdgeId in directionEdgeIds) edgeTypes.Add(vis.EdgeTypes[directionEdgeId]);
+                        HashSet<int> vertexDirectionEdgeIds = new HashSet<int>(vertexIdEdgeId[vertexId]);
+                        vertexDirectionEdgeIds.ExceptWith(surfaceEdgeIds);
+                        vertexIdConnectedEdgeIds.Add(vertexId, vertexDirectionEdgeIds);
+                        allConnectedEdgeIds.UnionWith(vertexDirectionEdgeIds);
+                    }
+                    // Find an axis from a circular edge, then ignore all edges attached to vertices on that axis.
+                    HashSet<int> directionEdgeIds = null;
+                    HashSet<int> axisNodeIds = null;
+                    double r = -1;
+                    double arcAngleDeg = -1;
+                    double[] axisCenter = null;
+                    double[] axisDirection = null;
+                    double axisTolerance = 1E-6 * part.BoundingBox.GetDiagonal();
+                    int maxNumDirectionEdges = -1;
+                    foreach (var edgeId in allConnectedEdgeIds)
+                    {
+                        if (!TryGetRevolveMeshArcData(vis, new HashSet<int>() { edgeId }, surfaceVertices,
+                                                      out _, out _, out double[] candidateAxisCenter,
+                                                      out double[] candidateAxisDirection))
+                            continue;
                         //
-                        if (edgeTypes.Count() == 1 && edgeTypes.First() == GeomCurveType.Circle) arcEdges = true;
+                        HashSet<int> candidateAxisNodeIds = new HashSet<int>();
+                        foreach (var vertexId in surfaceVertices)
+                        {
+                            Vec3D radialDirection = new Vec3D(_geometry.Nodes[vertexId].Coor) -
+                                                    new Vec3D(candidateAxisCenter);
+                            if (Vec3D.CrossProduct(radialDirection, new Vec3D(candidateAxisDirection)).Len <= axisTolerance)
+                                candidateAxisNodeIds.Add(vertexId);
+                        }
+                        if (candidateAxisNodeIds.Count == 0) continue;
+                        //
+                        HashSet<int> candidateDirectionEdgeIds = new HashSet<int>();
+                        foreach (var vertexId in surfaceVertices)
+                        {
+                            if (!candidateAxisNodeIds.Contains(vertexId))
+                                candidateDirectionEdgeIds.UnionWith(vertexIdConnectedEdgeIds[vertexId]);
+                        }
+                        if (TryGetRevolveMeshArcData(vis, candidateDirectionEdgeIds, surfaceVertices,
+                                                      out double candidateR, out double candidateArcAngleDeg,
+                                                      out double[] candidateAxisCenter2,
+                                                      out double[] candidateAxisDirection2) &&
+                            candidateDirectionEdgeIds.Count > maxNumDirectionEdges)
+                        {
+                            directionEdgeIds = candidateDirectionEdgeIds;
+                            axisNodeIds = candidateAxisNodeIds;
+                            r = candidateR;
+                            arcAngleDeg = candidateArcAngleDeg;
+                            axisCenter = candidateAxisCenter2;
+                            axisDirection = candidateAxisDirection2;
+                            maxNumDirectionEdges = candidateDirectionEdgeIds.Count;
+                        }
                     }
-                    if (!arcEdges)
+                    // Preserve the previous validation for surfaces that do not touch the revolution axis.
+                    bool arcEdges;
+                    if (directionEdgeIds == null)
                     {
-                        arcEdges = vis.IsEdgeRadiusConstant(directionEdgeIds, _geometry.Nodes);
+                        directionEdgeIds = allConnectedEdgeIds;
+                        axisNodeIds = new HashSet<int>();
+                        arcEdges = TryGetRevolveMeshArcData(vis, directionEdgeIds, surfaceVertices,
+                                                            out r, out arcAngleDeg, out axisCenter, out axisDirection);
                     }
+                    else arcEdges = true;
+                    //
                     if (arcEdges)
                     {
-                        double r;
-                        double arcAngleDeg;
-                        double[] axisCenter;
-                        double[] axisDirection;
-                        vis.GetArcEdgeDataForEdgeIds(directionEdgeIds, surfaceVertices, _geometry.Nodes,
-                                                     out r, out arcAngleDeg, out axisCenter, out axisDirection);
                         if (r > 0 && arcAngleDeg > 0)
                         {
-                            revolveMesh.AxisDirection = axisDirection;
-                            revolveMesh.AxisCenter = new double[3] {axisCenter[0] - offset[0],
-                                                                    axisCenter[1] - offset[1],
-                                                                    axisCenter[2] - offset[2]};
-                            revolveMesh.AngleDeg = arcAngleDeg;
-                            revolveMesh.MiddleR = r;
-                            // Round
-                            double d = part.BoundingBox.GetDiagonal();
-                            int digits = (int)Math.Log10(d) - 6;
-                            if (digits > 0) digits = 0;
-                            else if (digits < 0) digits *= -1;
-                            //
-                            revolveMesh.AxisDirection[0] = Math.Round(revolveMesh.AxisDirection[0], digits);
-                            revolveMesh.AxisDirection[1] = Math.Round(revolveMesh.AxisDirection[1], digits);
-                            revolveMesh.AxisDirection[2] = Math.Round(revolveMesh.AxisDirection[2], digits);
-                            //
-                            revolveMesh.AxisCenter[0] = Math.Round(revolveMesh.AxisCenter[0], digits);
-                            revolveMesh.AxisCenter[1] = Math.Round(revolveMesh.AxisCenter[1], digits);
-                            revolveMesh.AxisCenter[2] = Math.Round(revolveMesh.AxisCenter[2], digits);
-                            //
-                            revolveMesh.AngleDeg = Math.Round(revolveMesh.AngleDeg, 4);
-                            //
-                            revolveMesh.MiddleR = Math.Round(revolveMesh.MiddleR, digits);
+                            if (AreNodesOnRevolveAxis(axisNodeIds, axisCenter, axisDirection, axisTolerance))
+                            {
+                                revolveMesh.AxisDirection = axisDirection;
+                                revolveMesh.AxisCenter = new double[3] {axisCenter[0] - offset[0],
+                                                                        axisCenter[1] - offset[1],
+                                                                        axisCenter[2] - offset[2]};
+                                revolveMesh.AngleDeg = arcAngleDeg;
+                                revolveMesh.MiddleR = r;
+                                // Round
+                                double d = part.BoundingBox.GetDiagonal();
+                                int digits = (int)Math.Log10(d) - 6;
+                                if (digits > 0) digits = 0;
+                                else if (digits < 0) digits *= -1;
+                                //
+                                revolveMesh.AxisDirection[0] = Math.Round(revolveMesh.AxisDirection[0], digits);
+                                revolveMesh.AxisDirection[1] = Math.Round(revolveMesh.AxisDirection[1], digits);
+                                revolveMesh.AxisDirection[2] = Math.Round(revolveMesh.AxisDirection[2], digits);
+                                //
+                                revolveMesh.AxisCenter[0] = Math.Round(revolveMesh.AxisCenter[0], digits);
+                                revolveMesh.AxisCenter[1] = Math.Round(revolveMesh.AxisCenter[1], digits);
+                                revolveMesh.AxisCenter[2] = Math.Round(revolveMesh.AxisCenter[2], digits);
+                                //
+                                revolveMesh.AngleDeg = Math.Round(revolveMesh.AngleDeg, 4);
+                                //
+                                revolveMesh.MiddleR = Math.Round(revolveMesh.MiddleR, digits);
+                            }
+                            else error = "The selected surfaces contain a vertex without a direction edge that is not on the revolution axis.";
                         }
                         else error = "The selected surfaces have direction edges with different arc angles or axes.";
                     }
@@ -2124,6 +2222,44 @@ namespace CaeModel
             else error = "The surfaces of more than one part are selected.";
             //
             return error == null ? null : error + " The revolve mesh cannot be created.";
+        }
+        private bool TryGetRevolveMeshArcData(VisualizationData vis, HashSet<int> edgeIds,
+                                               HashSet<int> surfaceVertices, out double r, out double arcAngleDeg,
+                                               out double[] axisCenter, out double[] axisDirection)
+        {
+            r = -1;
+            arcAngleDeg = -1;
+            axisCenter = null;
+            axisDirection = null;
+            //
+            bool arcEdges = false;
+            if (vis.EdgeTypes != null)
+            {
+                HashSet<GeomCurveType> edgeTypes = new HashSet<GeomCurveType>();
+                foreach (var edgeId in edgeIds) edgeTypes.Add(vis.EdgeTypes[edgeId]);
+                //
+                if (edgeTypes.Count() == 1 && edgeTypes.First() == GeomCurveType.Circle) arcEdges = true;
+            }
+            if (!arcEdges) arcEdges = vis.IsEdgeRadiusConstant(edgeIds, _geometry.Nodes);
+            if (!arcEdges) return false;
+            //
+            vis.GetArcEdgeDataForEdgeIds(edgeIds, surfaceVertices, _geometry.Nodes,
+                                         out r, out arcAngleDeg, out axisCenter, out axisDirection);
+            return r > 0 && arcAngleDeg > 0;
+        }
+        private bool AreNodesOnRevolveAxis(HashSet<int> nodeIds, double[] axisCenter,
+                                            double[] axisDirection, double tolerance)
+        {
+            Vec3D center = new Vec3D(axisCenter);
+            Vec3D direction = new Vec3D(axisDirection);
+            direction.Normalize();
+            //
+            foreach (var nodeId in nodeIds)
+            {
+                Vec3D radialDirection = new Vec3D(_geometry.Nodes[nodeId].Coor) - center;
+                if (Vec3D.CrossProduct(radialDirection, direction).Len > tolerance) return false;
+            }
+            return true;
         }
         public bool IsPartCompoundSubPart(string partName)
         {

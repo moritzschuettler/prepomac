@@ -117,7 +117,7 @@ namespace PrePoMax.Forms
             //
             if (_jobToEditName == null)
             {
-                Job = new AnalysisJob(GetJobName(), _controller.Settings.Calculix.CalculixExe, GetJobName(),
+                Job = new AnalysisJob(GetJobName(), _controller.Settings.Solver.CalculixExe, GetJobName(),
                                       _controller.Settings.GetWorkDirectory());
             }
             else
@@ -125,11 +125,14 @@ namespace PrePoMax.Forms
                 Job = _controller.GetJob(_jobToEditName); // to clone
             }
             _viewJob.PopulateSolverSettings(new FEMSolverEnum[] { FEMSolverEnum.Calculix,
-                                                                  FEMSolverEnum.Abaqus},
-                                            new string[] { _controller.Settings.Calculix.CalculixExe,
-                                                           _controller.Settings.Abaqus.AbaqusExe },
+                                                                  FEMSolverEnum.Abaqus,
+                                                                  FEMSolverEnum.FEMaster},
+                                            new string[] { _controller.Settings.Solver.CalculixExe,
+                                                           _controller.Settings.Solver.AbaqusExe,
+                                                           _controller.Settings.Solver.FEMasterExe },
                                             new string[] { _controller.Settings.GetWorkDirectory(),
-                                                           _controller.Settings.GetAbaqusWorkDirectory()});
+                                                           _controller.Settings.GetWorkDirectory(),
+                                                           _controller.Settings.GetWorkDirectory()});
             //
             propertyGrid.SelectedObject = _viewJob;
             //

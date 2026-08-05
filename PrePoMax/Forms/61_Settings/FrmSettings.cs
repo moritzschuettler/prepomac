@@ -66,10 +66,8 @@ namespace PrePoMax.Forms
                         _viewSettings.Add(entry.Key, new ViewMeshingSettings(ms.DeepClone()));
                     else if (entry.Value is PreSettings prs)
                         _viewSettings.Add(entry.Key, new ViewPreSettings(prs.DeepClone()));
-                    else if (entry.Value is CalculixSettings cas)
-                        _viewSettings.Add(entry.Key, new ViewCalculixSettings(cas.DeepClone()));
-                    else if (entry.Value is AbaqusSettings abs)
-                        _viewSettings.Add(entry.Key, new ViewAbaqusSettings(abs.DeepClone()));
+                    else if (entry.Value is SolverSettings ss)
+                        _viewSettings.Add(entry.Key, new ViewSolverSettings(ss.DeepClone()));
                     else if (entry.Value is PostSettings pos)
                         _viewSettings.Add(entry.Key, new ViewPostSettings(pos.DeepClone()));
                     else if (entry.Value is LegendSettings les)
@@ -218,9 +216,10 @@ namespace PrePoMax.Forms
             foreach (var entry in settings) entry.Value.CheckValues();
             //
             SettingsContainer settingsContainer = new SettingsContainer(settings);
-            if (settingsContainer.GetWorkDirectory().ContainsNonEnglishCharacters())
+            string workDirectory = settingsContainer.GetWorkDirectory();
+            if (workDirectory != null && workDirectory.ContainsNonEnglishCharacters())
             {
-                if (MessageBoxes.ShowWarningQuestionOKCancel(CalculixSettings.NonEnglishDirectoryWarning) ==
+                if (MessageBoxes.ShowWarningQuestionOKCancel(SolverSettings.NonEnglishDirectoryWarning) ==
                     DialogResult.Cancel)
                     return false;
             }

@@ -10110,7 +10110,6 @@ namespace PrePoMax
             }
             return true;
         }
-
         public double[] GetBoundingBox()
         {
             // xMin, xMax, yMin, yMax, zMin, zMax
@@ -11055,8 +11054,10 @@ namespace PrePoMax
         public void AddTreeNode(ViewGeometryModelResults view, NamedClass item, string parentName)
         {
             ViewType viewType = GetViewType(view);
+            _controller.TryGetOrderedDictionaryItemLayout(item.GetType(), view, parentName,
+                                                          out IOrderedDictionaryItemLayout<string> orderedDictionary);
             //
-            InvokeIfRequired(_modelTree.AddTreeNode, viewType, item, parentName);
+            InvokeIfRequired(_modelTree.AddTreeNode, viewType, item, parentName, orderedDictionary);
             if (item is Step) UpdateSymbolsList();
         }
         public void UpdateTreeNode(ViewGeometryModelResults view, string oldItemName, NamedClass item, string parentName,

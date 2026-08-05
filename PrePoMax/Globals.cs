@@ -71,8 +71,7 @@ namespace PrePoMax
         public static string AnnotationSettingsName = "Annotations";
         public static string MeshingSettingsName = "Meshing";
         public static string PreSettingsName = "Pre-processing";
-        public static string CalculixSettingsName = "Calculix";
-        public static string AbaqusSettingsName = "Abaqus";
+        public static string SolverSettingsName = "Solver";
         public static string PostSettingsName = "Post-processing";
         public static string LegendSettingsName = "Legend";
         public static string StatusBlockSettingsName = "Status Block";

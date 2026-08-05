@@ -43,7 +43,8 @@ namespace CaeJob
     public enum FEMSolverEnum
     {
         Calculix,
-        Abaqus
+        Abaqus,
+        FEMaster
     }
     //
     [Serializable]
@@ -97,6 +98,7 @@ namespace CaeJob
                     //
                     if (_femSolver == FEMSolverEnum.Calculix) _argument = Name;
                     else if (_femSolver == FEMSolverEnum.Abaqus) _argument = "job=" + Name;
+                    else if (_femSolver == FEMSolverEnum.FEMaster) _argument = Name + ".inp";
                     else throw new NotSupportedException();
                 }
             }
@@ -122,6 +124,7 @@ namespace CaeJob
             {
                 if (_femSolver == FEMSolverEnum.Calculix) return Path.Combine(WorkDirectory, _name + ".frd");
                 else if (_femSolver == FEMSolverEnum.Abaqus) return Path.Combine(WorkDirectory, _name + ".odb");
+                else if (_femSolver == FEMSolverEnum.FEMaster) return Path.Combine(WorkDirectory, _name + ".frd");
                 else throw new NotSupportedException();
             }
         }
@@ -168,6 +171,7 @@ namespace CaeJob
                     //
                     if (_femSolver == FEMSolverEnum.Calculix) _argument = Name;
                     else if (_femSolver == FEMSolverEnum.Abaqus) _argument = "job=" + Name;
+                    else if (_femSolver == FEMSolverEnum.FEMaster) _argument = Name + ".inp";
                     else throw new NotSupportedException();
                 }
             }
@@ -386,6 +390,15 @@ namespace CaeJob
                 string odbFailFileName = Path.Combine(WorkDirectory, _name + ".odb_f");
                 if (!File.Exists(odbFailFileName)) resultsExist = true;
             }
+            else if (_femSolver == FEMSolverEnum.FEMaster)
+            {
+                string resultsFileName = ResultsFileName;
+                if (File.Exists(resultsFileName))
+                {
+                    long length = new FileInfo(resultsFileName).Length;
+                    if (length > 15 * 20) resultsExist = true;
+                }
+            }
             else throw new NotSupportedException();
             //
             bool continueAnalysis = false;
@@ -435,6 +448,9 @@ namespace CaeJob
             else if (_femSolver == FEMSolverEnum.Abaqus)
             {
                 if (text.Contains("Abaqus/Analysis exited with errors")) return true;
+            }
+            else if (_femSolver == FEMSolverEnum.FEMaster)
+            {
             }
             else throw new NotSupportedException();
             //
@@ -871,6 +887,10 @@ namespace CaeJob
                 argument += "interactive ask_delete=OFF ";
                 if (_numCPUs > 1) argument += "cpus=" + _numCPUs + " ";
                 argument += _argument;
+            }
+            else if (_femSolver == FEMSolverEnum.FEMaster)
+            {
+                argument = _argument + " --ncpus " + _numCPUs;
             }
             else throw new NotSupportedException();
             //

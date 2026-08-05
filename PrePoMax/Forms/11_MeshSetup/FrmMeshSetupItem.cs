@@ -180,7 +180,7 @@ namespace PrePoMax.Forms
             if (MeshSetupItem is MeshingParameters mp)
             {
                 mp.CopyFrom(GetDefaultMeshingParameters(MeshSetupItem.CreationIds));
-               ((ViewMeshingParameters)_viewMeshSetupItem).AdvancedView = mp.AdvancedView;  // update advanced view
+                ((ViewMeshingParameters)_viewMeshSetupItem).AdvancedView = mp.AdvancedView;  // update advanced view
                 _meshingParametersChanged = false;
             }
             else if (MeshSetupItem is LocalMeshSize lms) lms.Reset();
@@ -190,7 +190,11 @@ namespace PrePoMax.Forms
             else if (MeshSetupItem is TransfiniteMesh tm) tm.Reset();
             else if (MeshSetupItem is ExtrudeMesh em) em.Reset();
             else if (MeshSetupItem is SweepMesh sm) sm.Reset();
-            else if (MeshSetupItem is RevolveMesh rm) rm.Reset();
+            else if (MeshSetupItem is RevolveMesh rm)
+            {
+                rm.Reset();
+                if (_viewMeshSetupItem is ViewRevolveMesh vrm) vrm.UpdateVisibility();
+            }
             else throw new NotSupportedException("MeshSetupItemTypeException");
             //
             _propertyItemChanged = true;
@@ -631,6 +635,7 @@ namespace PrePoMax.Forms
             else _controller.SetSelectByToOff();
         }
         //
+        int[] _prevIds = new int[0];
         public void SelectionChanged(int[] ids)
         {
             if (MeshSetupItem != null)
@@ -644,18 +649,25 @@ namespace PrePoMax.Forms
                     {
                         mp.CopyFrom(GetDefaultMeshingParameters(ids));
                     }
+                    else if (MeshSetupItem is RevolveMesh rm)
+                    {
+                        if (_prevIds.Length == 0 && ids.Length == 0) rm.AngleDeg = -1;
+                    }
                     //
                     MeshSetupItem.CreationIds = ids;
                     MeshSetupItem.CreationData = _controller.Selection.DeepCopy(true, false);
                     //
+                    if (ids.Length != 0) HighlightMeshSetupItem(); // this will redraw the selection with correct backfaceCulling
+                    // The highlight computes the revolve mesh properties - update
+                    if (_viewMeshSetupItem is ViewRevolveMesh vrm) vrm.UpdateVisibility();
+                    //
                     propertyGrid.Refresh();
                     //
                     _propertyItemChanged = true;
-                    //
-                    if (ids.Length != 0) HighlightMeshSetupItem(); // this will redraw the selection with correct backfaceCulling
                 }
                 else throw new NotSupportedException("MeshSetupItemTypeException");
             }
+            _prevIds = ids.ToArray();
         }
 
         // IFormHighlight

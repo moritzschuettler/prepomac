@@ -1135,7 +1135,7 @@ namespace PrePoMax
                 return false;
             }
             // Get the Abaqus executable
-            string executable = _settings.Abaqus.AbaqusExe;
+            string executable = _settings.Solver.AbaqusExe;
             if (executable == null || !File.Exists(executable))
             {
                 MessageBoxes.ShowError("The Abaqus executable does not exist!");
@@ -1235,7 +1235,7 @@ namespace PrePoMax
                     //
                     if (similarity == 1)
                     {
-                        ConvertPyramidsToEnum convertPyramidsTo = Settings.Calculix.ConvertPyramidsTo;
+                        ConvertPyramidsToEnum convertPyramidsTo = Settings.Solver.ConvertPyramidsTo;
                         _allResults.CurrentResult.CopyPartsFromMesh(_model.Mesh, convertPyramidsTo);
                         _allResults.CurrentResult.CopyMeshItemsFromMesh(_model.Mesh, convertPyramidsTo);
                     }
@@ -1312,7 +1312,7 @@ namespace PrePoMax
                         //
                         if (similarity == 1)
                         {
-                            ConvertPyramidsToEnum convertPyramidsTo = Settings.Calculix.ConvertPyramidsTo;
+                            ConvertPyramidsToEnum convertPyramidsTo = Settings.Solver.ConvertPyramidsTo;
                             results.CopyPartsFromMesh(_allResults.CurrentResult.Mesh, convertPyramidsTo);
                             //_allResults.CurrentResult.CopyMeshItemsFromMesh(_allResults.CurrentResult.Mesh);
                         }
@@ -2156,7 +2156,9 @@ namespace PrePoMax
                 mergeCompoundParts = meshingParameters.MergeCompoundParts;
             }
             // Import, convert and split mesh
-            _model.ImportGeneratedMeshFromMeshFile(fileName, part, convertToSecondOrder, splitCompoundMesh, mergeCompoundParts);
+            RevolveMesh revolveMesh = GetFull360RevolveMesh(part.Name);
+            _model.ImportGeneratedMeshFromMeshFile(fileName, part, convertToSecondOrder, splitCompoundMesh,
+                                                   mergeCompoundParts, revolveMesh);
             // A remesh removes and recreates the same FE parts. Restore the complete layout so their order and groups
             // remain unchanged. For a first mesh, or if the set of generated FE parts changed, retain the normal add order.
             if (oldMeshPartLayout != null &&
@@ -2604,7 +2606,7 @@ namespace PrePoMax
             // Add deformations to model
             _model.Mesh.UpdateNodalCoordinatesFromDeformations(deformations);
             UpdateNCalcParameters();
-            CalculixFileWriter.Write(fileName, _model, _settings.Calculix.ConvertPyramidsTo);
+            CalculixFileWriter.Write(fileName, _model, _settings.Solver.ConvertPyramidsTo);
             // Remove deformations from model
             _model.Mesh.UpdateNodalCoordinatesFromDeformations(deformations, true);
             ResumeExplodedViews(false);
@@ -2614,7 +2616,7 @@ namespace PrePoMax
         public void ExportToAbaqus(string fileName)
         {
             SuppressExplodedView();
-            AbaqusFileWriter.Write(fileName, _model, _settings.Calculix.ConvertPyramidsTo);
+            AbaqusFileWriter.Write(fileName, _model, _settings.Solver.ConvertPyramidsTo);
             ResumeExplodedViews(false);
             //
             _form.WriteDataToOutput("Model exported to file: " + fileName);
@@ -2680,7 +2682,7 @@ namespace PrePoMax
                 }
                 newModel.Mesh.Parts = meshParts;
                 //
-                CalculixFileWriter.Write(fileName, newModel, _settings.Calculix.ConvertPyramidsTo);
+                CalculixFileWriter.Write(fileName, newModel, _settings.Solver.ConvertPyramidsTo);
                 ResumeExplodedViews(false);
                 //
                 _form.WriteDataToOutput("Deformed mesh exported to file: " + fileName);
@@ -2791,7 +2793,7 @@ namespace PrePoMax
                 MessageBoxes.ShowError("There is no model.");
                 return null;
             }
-            else return CalculixFileWriter.GetModelKeywords(_model, _settings.Calculix.ConvertPyramidsTo, null, true);
+            else return CalculixFileWriter.GetModelKeywords(_model, _settings.Solver.ConvertPyramidsTo, null, true);
         }
         public OrderedDictionary<int[], FileInOut.Output.Calculix.CalculixUserKeyword> GetCalculixUserKeywords()
         {
@@ -5516,10 +5518,12 @@ namespace PrePoMax
             //
             if (convertToSecondOrder) _form.WriteDataToOutput("Converting mesh to second order...");
             //
+            RevolveMesh revolveMesh = GetFull360RevolveMesh(part.Name);
             generatedMesh.Mesh = _model.PrepareGeneratedMeshFromMeshFile(generatedMesh.MeshFileName, part,
                                                                           convertToSecondOrder,
                                                                           meshingParameters.SplitCompoundMesh,
-                                                                          meshingParameters.MergeCompoundParts);
+                                                                          meshingParameters.MergeCompoundParts,
+                                                                          revolveMesh);
             List<string> relatedPartNames = new List<string>();
             if (part is CompoundGeometryPart compoundPart)
             {
@@ -5528,6 +5532,14 @@ namespace PrePoMax
             }
             else relatedPartNames.Add(part.Name);
             generatedMesh.RelatedPartNames = relatedPartNames.ToArray();
+        }
+        private RevolveMesh GetFull360RevolveMesh(string partName)
+        {
+            MeshSetupItem[] meshSetupItems = GetActiveValidMeshSetupItems<GmshSetupItem>(partName);
+            if (meshSetupItems.Length > 0 && meshSetupItems[0] is RevolveMesh revolveMesh &&
+                revolveMesh.CreateFull360Model)
+                return revolveMesh;
+            else return null;
         }
         private void ApplyThickenShellMesh(GeneratedMeshData generatedMesh)
         {
@@ -12220,23 +12232,28 @@ namespace PrePoMax
             // Job settings
             if (_jobs != null)
             {
-                CalculixSettings cs = _settings.Calculix;
-                AbaqusSettings abs = _settings.Abaqus;
+                SolverSettings ss = _settings.Solver;
                 //
                 foreach (var entry in _jobs)
                 {
                     if (entry.Value.FEMSolver == FEMSolverEnum.Calculix)
                     {
                         entry.Value.WorkDirectory = Settings.GetWorkDirectory();
-                        entry.Value.Executable = cs.CalculixExe;
-                        entry.Value.NumCPUs = cs.NumCPUs;
-                        entry.Value.EnvironmentVariables = cs.EnvironmentVariables;
+                        entry.Value.Executable = ss.CalculixExe;
+                        entry.Value.NumCPUs = ss.NumCPUs;
+                        entry.Value.EnvironmentVariables = ss.EnvironmentVariables;
                     }
                     else if (entry.Value.FEMSolver == FEMSolverEnum.Abaqus)
                     {
-                        entry.Value.WorkDirectory = Settings.GetAbaqusWorkDirectory();
-                        entry.Value.Executable = abs.AbaqusExe;
-                        entry.Value.NumCPUs = abs.NumCPUs;
+                        entry.Value.WorkDirectory = Settings.GetWorkDirectory();
+                        entry.Value.Executable = ss.AbaqusExe;
+                        entry.Value.NumCPUs = ss.NumCPUs;
+                    }
+                    else if (entry.Value.FEMSolver == FEMSolverEnum.FEMaster)
+                    {
+                        entry.Value.WorkDirectory = Settings.GetWorkDirectory();
+                        entry.Value.Executable = ss.FEMasterExe;
+                        entry.Value.NumCPUs = ss.NumCPUs;
                     }
                     else throw new NotSupportedException();
                 }
@@ -12741,6 +12758,11 @@ namespace PrePoMax
                 files.Add(Path.Combine(directory, inputFileNameWithoutExtension + ".odb"));
                 files.Add(Path.Combine(directory, inputFileNameWithoutExtension + ".odb_f"));
             }
+            else if (job.FEMSolver == FEMSolverEnum.FEMaster)
+            {
+                files.Add(Path.Combine(directory, inputFileNameWithoutExtension + ".frd"));
+                files.Add(Path.Combine(directory, inputFileNameWithoutExtension + ".res"));
+            }
             else throw new NotSupportedException();
             //
             try
@@ -12758,6 +12780,7 @@ namespace PrePoMax
         {
             if (job.FEMSolver == FEMSolverEnum.Calculix) ExportToCalculix(inputFileName);
             else if (job.FEMSolver == FEMSolverEnum.Abaqus) ExportToAbaqus(inputFileName);
+            else if (job.FEMSolver == FEMSolverEnum.FEMaster) ExportToCalculix(inputFileName);
             else throw new NotSupportedException();
             //
             job.JobStatusChanged = JobStatusChanged;
@@ -12806,7 +12829,7 @@ namespace PrePoMax
             {
                 SuppressExplodedView();
                 FeModel model = _model.PrepareBdmModel(deformations);
-                CalculixFileWriter.Write(job.InputFileName, model, _settings.Calculix.ConvertPyramidsTo, null);
+                CalculixFileWriter.Write(job.InputFileName, model, _settings.Solver.ConvertPyramidsTo, null);
                 ResumeExplodedViews(false);
             }
         }
@@ -14233,6 +14256,18 @@ namespace PrePoMax
                 SynchronizeCompoundPartGroupRenames(oldNode.Children, newNodes);
             }
         }
+        internal bool TryGetOrderedDictionaryItemLayout(
+            Type itemType, ViewGeometryModelResults view, string parentName,
+            out IOrderedDictionaryItemLayout<string> dictionary)
+        {
+            dictionary = null;
+            if (typeof(Step).IsAssignableFrom(itemType) ||
+                typeof(ResultFieldOutput).IsAssignableFrom(itemType) ||
+                typeof(ResultHistoryOutput).IsAssignableFrom(itemType))
+                return false;
+            dictionary = GetOrderedDictionaryItemLayout(itemType, view, parentName);
+            return true;
+        }
         private IOrderedDictionaryItemLayout<string> GetOrderedDictionaryItemLayout(
             Type itemType, ViewGeometryModelResults view, string parentName)
         {
@@ -14240,36 +14275,36 @@ namespace PrePoMax
             //
             if (view == ViewGeometryModelResults.Geometry)
             {
-                if (itemType == typeof(MeshSetupItem)) dictionary = _model.Geometry.MeshSetupItems;
+                if (typeof(MeshSetupItem).IsAssignableFrom(itemType)) dictionary = _model.Geometry.MeshSetupItems;
                 else if (typeof(BasePart).IsAssignableFrom(itemType)) dictionary = _model.Geometry.Parts;
             }
             else if (view == ViewGeometryModelResults.Model)
             {
                 if (typeof(BasePart).IsAssignableFrom(itemType)) dictionary = _model.Mesh.Parts;
-                else if (itemType == typeof(FeNodeSet)) dictionary = _model.Mesh.NodeSets;
-                else if (itemType == typeof(FeElementSet)) dictionary = _model.Mesh.ElementSets;
-                else if (itemType == typeof(FeSurface)) dictionary = _model.Mesh.Surfaces;
-                else if (itemType == typeof(FeReferencePoint)) dictionary = _model.Mesh.ReferencePoints;
-                else if (itemType == typeof(CoordinateSystem)) dictionary = _model.Mesh.CoordinateSystems;
-                else if (itemType == typeof(Material)) dictionary = _model.Materials;
-                else if (itemType == typeof(Section)) dictionary = _model.Sections;
-                else if (itemType == typeof(CaeModel.Constraint)) dictionary = _model.Constraints;
-                else if (itemType == typeof(SurfaceInteraction)) dictionary = _model.SurfaceInteractions;
-                else if (itemType == typeof(ContactPair)) dictionary = _model.ContactPairs;
-                else if (itemType == typeof(Distribution)) dictionary = _model.Distributions;
-                else if (itemType == typeof(Amplitude)) dictionary = _model.Amplitudes;
-                else if (itemType == typeof(InitialCondition)) dictionary = _model.InitialConditions;
-                else if (itemType == typeof(AnalysisJob)) dictionary = _jobs;
+                else if (typeof(FeNodeSet).IsAssignableFrom(itemType)) dictionary = _model.Mesh.NodeSets;
+                else if (typeof(FeElementSet).IsAssignableFrom(itemType)) dictionary = _model.Mesh.ElementSets;
+                else if (typeof(FeSurface).IsAssignableFrom(itemType)) dictionary = _model.Mesh.Surfaces;
+                else if (typeof(FeReferencePoint).IsAssignableFrom(itemType)) dictionary = _model.Mesh.ReferencePoints;
+                else if (typeof(CoordinateSystem).IsAssignableFrom(itemType)) dictionary = _model.Mesh.CoordinateSystems;
+                else if (typeof(Material).IsAssignableFrom(itemType)) dictionary = _model.Materials;
+                else if (typeof(Section).IsAssignableFrom(itemType)) dictionary = _model.Sections;
+                else if (typeof(CaeModel.Constraint).IsAssignableFrom(itemType)) dictionary = _model.Constraints;
+                else if (typeof(SurfaceInteraction).IsAssignableFrom(itemType)) dictionary = _model.SurfaceInteractions;
+                else if (typeof(ContactPair).IsAssignableFrom(itemType)) dictionary = _model.ContactPairs;
+                else if (typeof(Distribution).IsAssignableFrom(itemType)) dictionary = _model.Distributions;
+                else if (typeof(Amplitude).IsAssignableFrom(itemType)) dictionary = _model.Amplitudes;
+                else if (typeof(InitialCondition).IsAssignableFrom(itemType)) dictionary = _model.InitialConditions;
+                else if (typeof(AnalysisJob).IsAssignableFrom(itemType)) dictionary = _jobs;
                 else
                 {
                     Step step = _model.StepCollection.GetStep(parentName);
                     if (step == null) throw new KeyNotFoundException("The owning step was not found.");
                     //
-                    if (itemType == typeof(HistoryOutput)) dictionary = step.HistoryOutputs;
-                    else if (itemType == typeof(FieldOutput)) dictionary = step.FieldOutputs;
-                    else if (itemType == typeof(BoundaryCondition)) dictionary = step.BoundaryConditions;
-                    else if (itemType == typeof(Load)) dictionary = step.Loads;
-                    else if (itemType == typeof(DefinedField)) dictionary = step.DefinedFields;
+                    if (typeof(HistoryOutput).IsAssignableFrom(itemType)) dictionary = step.HistoryOutputs;
+                    else if (typeof(FieldOutput).IsAssignableFrom(itemType)) dictionary = step.FieldOutputs;
+                    else if (typeof(BoundaryCondition).IsAssignableFrom(itemType)) dictionary = step.BoundaryConditions;
+                    else if (typeof(Load).IsAssignableFrom(itemType)) dictionary = step.Loads;
+                    else if (typeof(DefinedField).IsAssignableFrom(itemType)) dictionary = step.DefinedFields;
                 }
             }
             else if (view == ViewGeometryModelResults.Results)
@@ -14278,11 +14313,11 @@ namespace PrePoMax
                 if (results?.Mesh != null)
                 {
                     if (typeof(BasePart).IsAssignableFrom(itemType)) dictionary = results.Mesh.Parts;
-                    else if (itemType == typeof(FeNodeSet)) dictionary = results.Mesh.NodeSets;
-                    else if (itemType == typeof(FeElementSet)) dictionary = results.Mesh.ElementSets;
-                    else if (itemType == typeof(FeSurface)) dictionary = results.Mesh.Surfaces;
-                    else if (itemType == typeof(FeReferencePoint)) dictionary = results.Mesh.ReferencePoints;
-                    else if (itemType == typeof(CoordinateSystem)) dictionary = results.Mesh.CoordinateSystems;
+                    else if (typeof(FeNodeSet).IsAssignableFrom(itemType)) dictionary = results.Mesh.NodeSets;
+                    else if (typeof(FeElementSet).IsAssignableFrom(itemType)) dictionary = results.Mesh.ElementSets;
+                    else if (typeof(FeSurface).IsAssignableFrom(itemType)) dictionary = results.Mesh.Surfaces;
+                    else if (typeof(FeReferencePoint).IsAssignableFrom(itemType)) dictionary = results.Mesh.ReferencePoints;
+                    else if (typeof(CoordinateSystem).IsAssignableFrom(itemType)) dictionary = results.Mesh.CoordinateSystems;
                 }
             }
             //

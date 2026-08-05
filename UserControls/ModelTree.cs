@@ -566,6 +566,26 @@ namespace UserControls
             context = null;
             return false;
         }
+        private OrderedDictionaryTreeContext EnsureOrderedDictionaryContext(
+            TreeNode rootNode, ViewType view, Type itemType, string parentName,
+            IOrderedDictionaryItemLayout<string> dictionary)
+        {
+            if (rootNode == null || dictionary == null) return null;
+            if (_orderedDictionaryContexts.TryGetValue(rootNode, out OrderedDictionaryTreeContext context) &&
+                ReferenceEquals(context.Dictionary, dictionary))
+                return context;
+            //
+            context = new OrderedDictionaryTreeContext
+            {
+                View = view,
+                ItemType = itemType,
+                ParentName = parentName,
+                Dictionary = dictionary,
+                RootNode = rootNode
+            };
+            _orderedDictionaryContexts[rootNode] = context;
+            return context;
+        }
         private bool IsOrderedDictionaryItemNode(TreeNode node, OrderedDictionaryTreeContext context)
         {
             if (!(node?.Tag is NamedClass item) || context == null) return false;
@@ -3177,7 +3197,8 @@ namespace UserControls
                 }
             }
         }
-        public void AddTreeNode(ViewType view, NamedClass item, string parentName)
+        public void AddTreeNode(ViewType view, NamedClass item, string parentName,
+                                IOrderedDictionaryItemLayout<string> orderedDictionary)
         {
             if (!_screenUpdating) return;
             if (item.Internal) return;
@@ -3402,6 +3423,7 @@ namespace UserControls
                 }
                 else throw new NotImplementedException();
                 //
+                EnsureOrderedDictionaryContext(parent, view, item.GetType(), parentName, orderedDictionary);
                 MoveTreeNodeToOrderedDictionaryLayoutParent(parent, node);
                 //
                 parent.Text = parent.Name;
@@ -3692,15 +3714,9 @@ namespace UserControls
             if (dictionary is IOrderedDictionaryItemLayout<string> orderedDictionary &&
                 typeof(TKey) == typeof(string) && typeof(NamedClass).IsAssignableFrom(typeof(TVal)))
             {
-                OrderedDictionaryTreeContext context = new OrderedDictionaryTreeContext
-                {
-                    View = GetViewType((CodersLabTreeView)node.TreeView),
-                    ItemType = typeof(TVal),
-                    ParentName = parentName,
-                    Dictionary = orderedDictionary,
-                    RootNode = node
-                };
-                _orderedDictionaryContexts[node] = context;
+                OrderedDictionaryTreeContext context = EnsureOrderedDictionaryContext(
+                    node, GetViewType((CodersLabTreeView)node.TreeView), typeof(TVal), parentName,
+                    orderedDictionary);
                 HashSet<string> compoundSubPartNames = null;
                 if (context.View == ViewType.Geometry)
                 {

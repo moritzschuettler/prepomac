@@ -30,6 +30,16 @@ namespace PrePoMax.Forms
         // Properties                                                                                                               
         
 
+        [CategoryAttribute("Full revolution")]
+        [OrderedDisplayName(0, 10, "Create 360° model")]
+        [DescriptionAttribute("Create a full 360° model from the selected 180° revolution.")]
+        [Id(1, 10)]
+        public bool CreateFull360Model
+        {
+            get { return _revolveMesh.CreateFull360Model; }
+            set { _revolveMesh.CreateFull360Model = value; }
+        }
+
         // Constructors                                                                                                             
         public ViewRevolveMesh(RevolveMesh revolveMesh)
         {
@@ -42,6 +52,8 @@ namespace PrePoMax.Forms
             _dctd.GetProperty(nameof(OptimizeFirstOrderSolid)).SetIsBrowsable(false);
             _dctd.GetProperty(nameof(OptimizeHighOrder)).SetIsBrowsable(false);
             //
+            _dctd.RenameBooleanPropertyToYesNo(nameof(CreateFull360Model));
+            //
             UpdateVisibility();
         }
 
@@ -50,6 +62,13 @@ namespace PrePoMax.Forms
         public override MeshSetupItem GetBase()
         {
             return _revolveMesh;
+        }
+        public override void UpdateVisibility()
+        {
+            base.UpdateVisibility();
+            // The revolution angle is determined while validating the selected source faces.
+            bool isHalfRevolution = Math.Abs(_revolveMesh.AngleDeg - 180) < 1E-3;
+            _dctd.GetProperty(nameof(CreateFull360Model)).SetIsBrowsable(isHalfRevolution);
         }
     }
 }

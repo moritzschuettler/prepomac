@@ -297,7 +297,7 @@ namespace PrePoMax.Commands
                 {
                     List<CalculixKeywordOverride> keywordOverrides = snapshot.Model.CalculixKeywordOverrides;
                     List<CalculixKeyword> keywords = CalculixFileWriter.GetModelKeywords(
-                        snapshot.Model, _controller.Settings.Calculix.ConvertPyramidsTo, null, true);
+                        snapshot.Model, _controller.Settings.Solver.ConvertPyramidsTo, null, true);
                     int suppressedCount = 0;
                     int unsuppressedCount = 0;
                     int removedCount = 0;

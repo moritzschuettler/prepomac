@@ -1228,8 +1228,11 @@ namespace FileInOut.Output
         {
             if (model.Mesh != null)
             {
-                CalNode node = new CalNode(model, additionalNodes, referencePoints, deformations);
-                parent.AddKeyword(node);
+                if (model.Mesh.Nodes.Count + additionalNodes.Count + referencePoints.Count > 0)
+                {
+                    CalNode node = new CalNode(model, additionalNodes, referencePoints, deformations);
+                    parent.AddKeyword(node);
+                }
             }
 
         }

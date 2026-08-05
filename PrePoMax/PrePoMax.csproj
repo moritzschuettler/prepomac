@@ -646,8 +646,7 @@
     </Compile>
     <Compile Include="Forms\56_DefinedField\ViewDefinedField.cs" />
     <Compile Include="Forms\56_DefinedField\ViewDefinedTemperature.cs" />
-    <Compile Include="Forms\61_Settings\ViewAbaqusSettings.cs" />
-    <Compile Include="Forms\61_Settings\ViewCalculixSettings.cs" />
+    <Compile Include="Forms\61_Settings\ViewSolverSettings.cs" />
     <Compile Include="Forms\61_Settings\ViewColorSettings.cs" />
     <Compile Include="Forms\61_Settings\ViewNumberFormatSettings.cs" />
     <Compile Include="Forms\61_Settings\ViewAnnotationSettings.cs" />
@@ -882,7 +881,7 @@
     </Compile>
     <Compile Include="Selection\ItemSet\ItemSetDataEditor.cs" />
     <Compile Include="Settings.cs" />
-    <Compile Include="Settings\AbaqusSettings.cs" />
+    <Compile Include="Settings\SolverSettings.cs" />
     <Compile Include="Settings\ColorSettings.cs" />
     <Compile Include="Settings\NumberFormatSettings.cs" />
     <Compile Include="Settings\AnnotationSettings.cs" />
@@ -897,7 +896,6 @@
     <Compile Include="Settings\PreSettings.cs" />
     <Compile Include="Settings\PostSettings.cs" />
     <Compile Include="Settings\ISettings.cs" />
-    <Compile Include="Settings\CalculixSettings.cs" />
     <Compile Include="Enums\UpdateModelType.cs" />
     <Compile Include="Annotations\AnnotationContainer.cs" />
     <EmbeddedResource Include="Forms\00_Common\FileExporter\FrmExportFileWithProperties.resx">
