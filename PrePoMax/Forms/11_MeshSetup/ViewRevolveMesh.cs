@@ -32,7 +32,9 @@ namespace PrePoMax.Forms
 
         [CategoryAttribute("Full revolution")]
         [OrderedDisplayName(0, 10, "Create 360° model")]
-        [DescriptionAttribute("Create a full 360° model from the selected 180° revolution.")]
+        [DescriptionAttribute("Create a full 360° model by repeating the revolved mesh around the axis. " +
+                              "Available when the revolution angle divides 360° into an integer number of sectors " +
+                              "(e.g. 180°, 120°, 90°, 60°, 45°).")]
         [Id(1, 10)]
         public bool CreateFull360Model
         {
@@ -66,9 +68,9 @@ namespace PrePoMax.Forms
         public override void UpdateVisibility()
         {
             base.UpdateVisibility();
-            // The revolution angle is determined while validating the selected source faces.
-            bool isHalfRevolution = Math.Abs(_revolveMesh.AngleDeg - 180) < 1E-3;
-            _dctd.GetProperty(nameof(CreateFull360Model)).SetIsBrowsable(isHalfRevolution);
+            // The revolution angle is determined while validating the selected source faces. The full 360 degree
+            // option is offered whenever that angle divides 360 degrees into an integer number of equal sectors.
+            _dctd.GetProperty(nameof(CreateFull360Model)).SetIsBrowsable(_revolveMesh.CanCreateFull360Model);
         }
     }
 }

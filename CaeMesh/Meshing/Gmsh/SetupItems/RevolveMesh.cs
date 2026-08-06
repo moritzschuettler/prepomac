@@ -36,13 +36,24 @@ namespace CaeMesh
         public double[] AxisDirection { get { return _axisDirection; } set { _axisDirection = value; } }
         public double AngleDeg { get { return _angleDeg; } set { _angleDeg = value; } }
         public double MiddleR { get { return _middleR; } set { _middleR = value; } }
-        public bool CreateFull360Model
+        // The number of equal sectors of size AngleDeg that tile a full revolution, or 0 when AngleDeg does not
+        // divide 360 degrees into at least two integer sectors. A full 360 degree model is built by repeating the
+        // revolved mesh around the axis this many times.
+        public int Full360SegmentCount
         {
             get
             {
-                bool isHalfRevolution = Math.Abs(_angleDeg - 180) < 1E-3;
-                return isHalfRevolution && _createFull360Model;
+                if (_angleDeg <= 1E-3) return 0;
+                int n = (int)Math.Round(360.0 / _angleDeg);
+                if (n < 2) return 0;
+                if (Math.Abs(_angleDeg - 360.0 / n) > 1E-3) return 0;
+                return n;
             }
+        }
+        public bool CanCreateFull360Model { get { return Full360SegmentCount >= 2; } }
+        public bool CreateFull360Model
+        {
+            get { return CanCreateFull360Model && _createFull360Model; }
             set { _createFull360Model = value; }
         }
 

@@ -1216,23 +1216,28 @@ namespace CaeModel
         }
         private void CreateFull360RevolveMesh(FeMesh mesh, RevolveMesh revolveMesh)
         {
-            if (Math.Abs(revolveMesh.AngleDeg - 180) > 1E-3)
-                throw new CaeException("A full 360 degree mesh can only be created from a 180 degree revolve mesh.");
+            int segmentCount = revolveMesh.Full360SegmentCount;
+            if (segmentCount < 2)
+                throw new CaeException("A full 360 degree mesh can only be created from a revolve angle that " +
+                                       "divides 360 degrees into an integer number of sectors.");
             if (revolveMesh.AxisCenter == null || revolveMesh.AxisCenter.Length != 3 ||
                 revolveMesh.AxisDirection == null || revolveMesh.AxisDirection.Length != 3 ||
                 new Vec3D(revolveMesh.AxisDirection).Len < 1E-12)
                 throw new CaeException("The revolve axis is not valid.");
-            // Copy the imported half with the existing model-part rotate operation. It copies the visualization data,
-            // including the model edges, and renumbers the copied nodes and elements.
+            // Copy the imported sector with the existing model-part rotate operation. It copies the visualization
+            // data, including the model edges, and renumbers the copied nodes and elements. One copy is made for
+            // each of the remaining sectors, each rotated by an additional sector angle so the sectors tile the
+            // full revolution.
+            double sectorAngleRad = 2.0 * Math.PI / segmentCount;
             string[] originalPartNames = mesh.Parts.Keys.ToArray();
             string[] reservedPartNames = originalPartNames.ToArray();
             HashSet<int> reservedPartIds = mesh.Parts.Values.Select(item => item.PartId).ToHashSet();
             string[] rotatedPartNames = mesh.RotateParts(originalPartNames, revolveMesh.AxisCenter,
-                                                         revolveMesh.AxisDirection, Math.PI, 1,
-                                                         reservedPartNames, reservedPartIds);
+                                                         revolveMesh.AxisDirection, sectorAngleRad,
+                                                         segmentCount - 1, reservedPartNames, reservedPartIds);
             string[] fullRevolvePartNames = originalPartNames.Concat(rotatedPartNames).ToArray();
-            // Merge coincident nodes before the two halves are combined into one part. The final part visualization is
-            // then constructed from a conforming volume mesh, so the 180 degree seam is not detected as an outer face.
+            // Merge coincident nodes before the sectors are combined into one part. The final part visualization is
+            // then constructed from a conforming volume mesh, so the sector seams are not detected as outer faces.
             string nodeSetName = mesh.NodeSets.GetNextNumberedKey(Globals.InternalSelectionName + "_" +
                                                                   Globals.MergedCoincidentNodes);
             FeNodeSet nodeSet = new FeNodeSet(nodeSetName, mesh.GetNodeIdsFromParts(fullRevolvePartNames));
@@ -1249,7 +1254,7 @@ namespace CaeModel
             {
                 mesh.NodeSets.Remove(nodeSetName);
             }
-            // Both revolved halves now share their seam nodes and can be rebuilt as one volume without internal faces.
+            // All revolved sectors now share their seam nodes and can be rebuilt as one volume without internal faces.
             mesh.MergeMeshParts(fullRevolvePartNames, out _, out _);
         }
         public void ImportGeneratedMesh(FeMesh mesh, bool updateNodeIdElementIds = true)
@@ -2080,8 +2085,8 @@ namespace CaeModel
             revolveMesh.AngleDeg = -1;
             revolveMesh.MiddleR = -1;
             //
-            if (revolveMesh.AlgorithmMesh2D == CaeMesh.Meshing.GmshAlgorithmMesh2DEnum.QuasiStructuredQuad)
-                return "The revolve mesh setup item cannot use the quasi-structured quad algorithm.";
+            //if (revolveMesh.AlgorithmMesh2D == CaeMesh.Meshing.GmshAlgorithmMesh2DEnum.QuasiStructuredQuad)
+            //    return "The revolve mesh setup item cannot use the quasi-structured quad algorithm.";
             //
             if (revolveMesh.ElementSizeType == CaeMesh.Meshing.ElementSizeTypeEnum.MultiLayerd &&
                 (revolveMesh.LayerSizes.Length != revolveMesh.NumOfElementsPerLayer.Length))
