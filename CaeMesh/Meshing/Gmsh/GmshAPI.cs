@@ -411,18 +411,24 @@ namespace CaeMesh
             }
             else
             {
-                // Gmsh creates only the source surface mesh. The solid, target and side meshes are
-                // constructed analytically so that no OCC revolve operation changes the model topology.
-                GenerateMesh(2);
-                // Optimize first order shell
-                if (revolveMesh.OptimizeFirstOrderShell != GmshOptimizeFirstOrderShellEnum.None)
+                // Only the source faces are meshed. The solid, target and side meshes are built analytically from
+                // the source-surface mesh, so the sizing of the other faces and the volume is irrelevant.
+                // RevolveMethods captures the topology, removes the volume and the non-source faces, and then calls
+                // back to mesh the source faces in isolation (a neighbour-aware 2D algorithm such as the
+                // Quasi-structured quad meshes a face differently when its neighbours are still present).
+                Action meshSourceSurfaces = () =>
                 {
-                    Tuple<int, int>[] dimTags = new Tuple<int, int>[0];
-                    Gmsh.Model.Mesh.Optimize(revolveMesh.OptimizeFirstOrderShell.ToString(), false, 10, dimTags);
-                }
+                    GenerateMesh(2);
+                    // Optimize first order shell
+                    if (revolveMesh.OptimizeFirstOrderShell != GmshOptimizeFirstOrderShellEnum.None)
+                    {
+                        Tuple<int, int>[] dimTags = new Tuple<int, int>[0];
+                        Gmsh.Model.Mesh.Optimize(revolveMesh.OptimizeFirstOrderShell.ToString(), false, 10, dimTags);
+                    }
+                };
                 RevolveMethods.CreateRevolveMesh(sourceSurfaceIds, revolveMesh.AxisCenter,
                                                   revolveMesh.AxisDirection, angleRad,
-                                                  numElements, height);
+                                                  numElements, height, meshSourceSurfaces);
             }
         }
         private static void GetExtrudeRevolveLayers(GmshSetupItem gmshSetupItem,

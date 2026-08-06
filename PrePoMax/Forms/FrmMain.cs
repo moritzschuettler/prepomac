@@ -11187,10 +11187,14 @@ namespace PrePoMax
         {
             InvokeIfRequired(_modelTree.SetNumberOfModifiedKeywords, numOfModifiedKeywords);
         }
-        
+
         #endregion  ################################################################################################################
 
         // Output
+        private void tsmiClearOutputTextbox_Click(object sender, EventArgs e)
+        {
+            tbOutput.Clear();
+        }
         public void WriteDataToOutput(string data)
         {
             if (data == null) return;
@@ -11219,7 +11223,7 @@ namespace PrePoMax
             {
                 int numColDate = 20;
                 int numCol = (int)((tbOutput.Width - 60) / tbOutput.TextCharWidth);
-                int numRows = 100;      // number of displayed lines
+                int numRows = 500;      // number of displayed lines
                 //
                 List<string> lines = new List<string>(outputLines);
                 List<string> wrappedLines = new List<string>();
@@ -11898,7 +11902,7 @@ namespace PrePoMax
             { }
         }
 
-       
+        
     }
 }
 

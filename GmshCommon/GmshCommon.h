@@ -250,6 +250,20 @@ namespace GmshCommon {
 
                 gmsh::model::removeEntities(dimTags, recursive);
             }
+            static void SetVisibility(array<System::Tuple<int, int>^>^ tags, int value)
+            {
+                SetVisibility(tags, value, false);
+            }
+            static void SetVisibility(array<System::Tuple<int, int>^>^ tags, int value, System::Boolean recursive)
+            {
+                gmsh::vectorpair dimTags;
+                for (int i = 0; i < tags->Length; ++i)
+                {
+                    dimTags.push_back(std::pair<int, int>(tags[i]->Item1, tags[i]->Item2));
+                }
+
+                gmsh::model::setVisibility(dimTags, value, recursive);
+            }
             static System::String^ GetType(int dim, int tag)
             {
                 std::string value;

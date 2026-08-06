@@ -584,6 +584,8 @@ namespace PrePoMax
             this.tbOutput = new UserControls.AutoScrollTextBox();
             this.timerTest = new System.Windows.Forms.Timer(this.components);
             this.timerOutput = new System.Windows.Forms.Timer(this.components);
+            this.cmsOutputTextbox = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.tsmiClearOutputTextbox = new System.Windows.Forms.ToolStripMenuItem();
             this.tsFile.SuspendLayout();
             this.tsViews.SuspendLayout();
             this.tsSymbols.SuspendLayout();
@@ -604,6 +606,7 @@ namespace PrePoMax
             this.splitContainer2.Panel1.SuspendLayout();
             this.splitContainer2.Panel2.SuspendLayout();
             this.splitContainer2.SuspendLayout();
+            this.cmsOutputTextbox.SuspendLayout();
             this.SuspendLayout();
             // 
             // tsFile
@@ -4160,75 +4163,75 @@ namespace PrePoMax
             // tsmiCreateAnalysis
             // 
             this.tsmiCreateAnalysis.Name = "tsmiCreateAnalysis";
-            this.tsmiCreateAnalysis.Size = new System.Drawing.Size(180, 22);
+            this.tsmiCreateAnalysis.Size = new System.Drawing.Size(144, 22);
             this.tsmiCreateAnalysis.Text = "Create";
             this.tsmiCreateAnalysis.Click += new System.EventHandler(this.tsmiCreateAnalysis_Click);
             // 
             // tsmiEditAnalysis
             // 
             this.tsmiEditAnalysis.Name = "tsmiEditAnalysis";
-            this.tsmiEditAnalysis.Size = new System.Drawing.Size(180, 22);
+            this.tsmiEditAnalysis.Size = new System.Drawing.Size(144, 22);
             this.tsmiEditAnalysis.Text = "Edit";
             this.tsmiEditAnalysis.Click += new System.EventHandler(this.tsmiEditAnalysis_Click);
             // 
             // tsmiDuplicateAnalysis
             // 
             this.tsmiDuplicateAnalysis.Name = "tsmiDuplicateAnalysis";
-            this.tsmiDuplicateAnalysis.Size = new System.Drawing.Size(180, 22);
+            this.tsmiDuplicateAnalysis.Size = new System.Drawing.Size(144, 22);
             this.tsmiDuplicateAnalysis.Text = "Duplicate";
             this.tsmiDuplicateAnalysis.Click += new System.EventHandler(this.tsmiDuplicateAnalysis_Click);
             // 
             // tsmiDividerAnalysis1
             // 
             this.tsmiDividerAnalysis1.Name = "tsmiDividerAnalysis1";
-            this.tsmiDividerAnalysis1.Size = new System.Drawing.Size(177, 6);
+            this.tsmiDividerAnalysis1.Size = new System.Drawing.Size(141, 6);
             // 
             // tsmiRunAnalysis
             // 
             this.tsmiRunAnalysis.Image = global::PrePoMax.Properties.Resources.Run;
             this.tsmiRunAnalysis.Name = "tsmiRunAnalysis";
-            this.tsmiRunAnalysis.Size = new System.Drawing.Size(180, 22);
+            this.tsmiRunAnalysis.Size = new System.Drawing.Size(144, 22);
             this.tsmiRunAnalysis.Text = "Run";
             this.tsmiRunAnalysis.Click += new System.EventHandler(this.tsmiRunAnalysis_Click);
             // 
             // tsmiCheckModel
             // 
             this.tsmiCheckModel.Name = "tsmiCheckModel";
-            this.tsmiCheckModel.Size = new System.Drawing.Size(180, 22);
+            this.tsmiCheckModel.Size = new System.Drawing.Size(144, 22);
             this.tsmiCheckModel.Text = "Check Model";
             this.tsmiCheckModel.Click += new System.EventHandler(this.tsmiCheckModel_Click);
             // 
             // tsmiMonitorAnalysis
             // 
             this.tsmiMonitorAnalysis.Name = "tsmiMonitorAnalysis";
-            this.tsmiMonitorAnalysis.Size = new System.Drawing.Size(180, 22);
+            this.tsmiMonitorAnalysis.Size = new System.Drawing.Size(144, 22);
             this.tsmiMonitorAnalysis.Text = "Monitor";
             this.tsmiMonitorAnalysis.Click += new System.EventHandler(this.tsmiMonitorAnalysis_Click);
             // 
             // tsmiResultsAnalysis
             // 
             this.tsmiResultsAnalysis.Name = "tsmiResultsAnalysis";
-            this.tsmiResultsAnalysis.Size = new System.Drawing.Size(180, 22);
+            this.tsmiResultsAnalysis.Size = new System.Drawing.Size(144, 22);
             this.tsmiResultsAnalysis.Text = "Results";
             this.tsmiResultsAnalysis.Click += new System.EventHandler(this.tsmiResultsAnalysis_Click);
             // 
             // tsmiKillAnalysis
             // 
             this.tsmiKillAnalysis.Name = "tsmiKillAnalysis";
-            this.tsmiKillAnalysis.Size = new System.Drawing.Size(180, 22);
+            this.tsmiKillAnalysis.Size = new System.Drawing.Size(144, 22);
             this.tsmiKillAnalysis.Text = "Kill";
             this.tsmiKillAnalysis.Click += new System.EventHandler(this.tsmiKillAnalysis_Click);
             // 
             // tsmiDividerAnalysis2
             // 
             this.tsmiDividerAnalysis2.Name = "tsmiDividerAnalysis2";
-            this.tsmiDividerAnalysis2.Size = new System.Drawing.Size(177, 6);
+            this.tsmiDividerAnalysis2.Size = new System.Drawing.Size(141, 6);
             // 
             // tsmiDeleteAnalysis
             // 
             this.tsmiDeleteAnalysis.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteAnalysis.Name = "tsmiDeleteAnalysis";
-            this.tsmiDeleteAnalysis.Size = new System.Drawing.Size(180, 22);
+            this.tsmiDeleteAnalysis.Size = new System.Drawing.Size(144, 22);
             this.tsmiDeleteAnalysis.Text = "Delete";
             this.tsmiDeleteAnalysis.Click += new System.EventHandler(this.tsmiDeleteAnalysis_Click);
             // 
@@ -5018,7 +5021,7 @@ namespace PrePoMax
             // tsslEmpty
             // 
             this.tsslEmpty.Name = "tsslEmpty";
-            this.tsslEmpty.Size = new System.Drawing.Size(867, 21);
+            this.tsslEmpty.Size = new System.Drawing.Size(916, 21);
             this.tsslEmpty.Spring = true;
             this.tsslEmpty.Text = " ";
             // 
@@ -5094,6 +5097,7 @@ namespace PrePoMax
             // 
             this.tbOutput.BackColor = System.Drawing.Color.White;
             this.tbOutput.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.tbOutput.ContextMenuStrip = this.cmsOutputTextbox;
             this.tbOutput.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.tbOutput.Location = new System.Drawing.Point(5, 3);
             this.tbOutput.Multiline = true;
@@ -5111,6 +5115,20 @@ namespace PrePoMax
             // timerOutput
             // 
             this.timerOutput.Tick += new System.EventHandler(this.timerOutput_Tick);
+            // 
+            // cmsOutputTextbox
+            // 
+            this.cmsOutputTextbox.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmiClearOutputTextbox});
+            this.cmsOutputTextbox.Name = "cmsOutputTextbox";
+            this.cmsOutputTextbox.Size = new System.Drawing.Size(102, 26);
+            // 
+            // tsmiClearOutputTextbox
+            // 
+            this.tsmiClearOutputTextbox.Name = "tsmiClearOutputTextbox";
+            this.tsmiClearOutputTextbox.Size = new System.Drawing.Size(180, 22);
+            this.tsmiClearOutputTextbox.Text = "Clear";
+            this.tsmiClearOutputTextbox.Click += new System.EventHandler(this.tsmiClearOutputTextbox_Click);
             // 
             // FrmMain
             // 
@@ -5161,6 +5179,7 @@ namespace PrePoMax
             this.splitContainer2.Panel2.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer2)).EndInit();
             this.splitContainer2.ResumeLayout(false);
+            this.cmsOutputTextbox.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -5715,6 +5734,8 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiViewNodeIds;
         private System.Windows.Forms.ToolStripMenuItem tsmiViewElementIds;
         private System.Windows.Forms.ToolStripMenuItem tsmiBidirectionalMeshConverter;
+        private System.Windows.Forms.ContextMenuStrip cmsOutputTextbox;
+        private System.Windows.Forms.ToolStripMenuItem tsmiClearOutputTextbox;
     }
 }
 

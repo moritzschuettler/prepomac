@@ -98,13 +98,15 @@ namespace CaeMesh
 
         public static void CreateRevolveMesh(HashSet<int> sourceSurfaceIds, double[] axisCenter,
                                              double[] axisDirection, double angleRad,
-                                             int[] numElements, double[] heights)
+                                             int[] numElements, double[] heights, Action meshSourceSurfaces)
         {
             if (sourceSurfaceIds == null || sourceSurfaceIds.Count == 0)
                 throw new CaeException("No source surfaces were selected for the revolve mesh.");
             if (axisCenter == null || axisCenter.Length != 3 ||
                 axisDirection == null || axisDirection.Length != 3)
                 throw new CaeException("The revolve axis could not be determined.");
+            if (meshSourceSurfaces == null)
+                throw new CaeException("The revolve mesh source-surface meshing step was not provided.");
 
             double[] unitAxis = Normalize(axisDirection);
             double[] layerFractions = GetLayerFractions(numElements, heights);
@@ -132,61 +134,29 @@ namespace CaeMesh
             }
             HashSet<int> boundaryEdgeIds = new HashSet<int>(boundaryEdgeUseCount.Where(x => x.Value == 1)
                                                                                 .Select(x => x.Key));
-            HashSet<int> axisEdgeIds = GetAxisEdgeIds(boundaryEdgeIds, topology, axisCenter, unitAxis);
             HashSet<int> boundaryVertexIds = new HashSet<int>();
             foreach (int boundaryEdgeId in boundaryEdgeIds)
                 boundaryVertexIds.UnionWith(topology.EdgeVertexIds[boundaryEdgeId]);
 
-            Dictionary<int, int> sideSurfaceIds = null;
-            Dictionary<int, int> targetSurfaceIds = null;
-            Dictionary<int, int> targetSurfaceBySourceVertexIds;
-            Dictionary<int, int> targetSurfaceBySourceEdgeIds;
-            Dictionary<int, int> targetVertexIds;
-            Dictionary<int, int> targetEdgeIds;
-            // A single source face revolves one-to-one onto the matching CAD boundary faces, so that CAD
-            // topology can be reused. Several source faces revolve into a richer boundary than a CAD body
-            // stores: the CAD merges co-planar/co-axial side and target faces and drops the dividing edges,
-            // so forcing the mesh onto those merged faces is not one-to-one. In that case the boundary is
-            // built directly from the source mesh instead.
-            bool useDiscreteTopology = sourceSurfaceIds.Count > 1;
-            if (!useDiscreteTopology)
-            {
-                sideSurfaceIds = GetSideSurfaceIds(boundaryEdgeIds, axisEdgeIds, sourceSurfaceIds,
-                                                    topology, axisCenter, unitAxis, angleRad);
-                targetSurfaceIds = GetTargetSurfaceIds(sourceSurfaceIds, sideSurfaceIds.Values, topology,
-                                                        axisCenter, unitAxis, angleRad);
-                useDiscreteTopology = targetSurfaceIds.Values.Distinct().Count() != sourceSurfaceIds.Count;
-            }
-            if (useDiscreteTopology)
-            {
-                // Each rotated boundary source edge keeps its own side surface and each rotated boundary
-                // source vertex keeps its own connecting edge, so the side surfaces are split exactly where
-                // the source boundary is split. Interior source edges and vertices sweep the volume interior
-                // and therefore create no side surface, connecting edge or internal partition surface.
-                HashSet<int> sourceAxisEdgeIds = GetAxisEdgeIds(sourceEdgeIds, topology,
-                                                                 axisCenter, unitAxis);
-                sideSurfaceIds = CreateDiscreteSideSurfaceIds(boundaryEdgeIds, axisEdgeIds);
-                targetSurfaceIds = CreateDiscreteTargetSurfaceIds(sourceSurfaceIds);
-                targetVertexIds = CreateDiscreteTargetVertexIds(sourceVertexIds, topology,
-                                                                  axisCenter, unitAxis);
-                targetEdgeIds = CreateDiscreteTargetEdgeIds(sourceEdgeIds, sourceAxisEdgeIds);
-                targetSurfaceBySourceVertexIds = new Dictionary<int, int>();
-                targetSurfaceBySourceEdgeIds = new Dictionary<int, int>();
-            }
-            else
-            {
-                targetVertexIds = GetExistingTargetVertexIds(sourceVertexIds, topology,
-                                                              axisCenter, unitAxis, angleRad);
-                targetEdgeIds = GetTargetEdgeIds(sourceEdgeIds, boundaryEdgeIds,
-                                                 axisEdgeIds, sideSurfaceIds,
-                                                 sourceSurfaceIds, targetSurfaceIds,
-                                                 topology, axisCenter, unitAxis, angleRad);
-                GetTargetSurfacesForUnmatchedSourceEntities(sourceVertexIds, sourceEdgeIds,
-                                                            targetVertexIds, targetEdgeIds,
-                                                            sourceSurfaceIds, targetSurfaceIds, topology,
-                                                            out targetSurfaceBySourceVertexIds,
-                                                            out targetSurfaceBySourceEdgeIds);
-            }
+            // Mesh only the source faces, in isolation. The solid, target and side meshes are built analytically
+            // from the source-surface mesh, so the mesh sizing of the other faces and the volume is irrelevant.
+            // They are removed before meshing (as the revolve preview does) because a neighbour-aware 2D algorithm
+            // (Quasi-structured quad) meshes a source face differently when the adjacent faces are still present.
+            int volumeId = IsolateSourceSurfacesAndMesh(topology, sourceSurfaceIds, meshSourceSurfaces);
+
+            // The revolved boundary is built entirely on discrete entities, since the CAD target/side faces were
+            // removed. Each rotated boundary source edge keeps its own side surface and each rotated boundary
+            // source vertex its own connecting edge; interior source edges/vertices sweep the volume interior and
+            // create no side surface, connecting edge or internal partition surface.
+            HashSet<int> axisEdgeIds = GetAxisEdgeIds(boundaryEdgeIds, topology, axisCenter, unitAxis);
+            HashSet<int> sourceAxisEdgeIds = GetAxisEdgeIds(sourceEdgeIds, topology, axisCenter, unitAxis);
+            Dictionary<int, int> sideSurfaceIds = CreateDiscreteSideSurfaceIds(boundaryEdgeIds, axisEdgeIds);
+            Dictionary<int, int> targetSurfaceIds = CreateDiscreteTargetSurfaceIds(sourceSurfaceIds);
+            Dictionary<int, int> targetVertexIds = CreateDiscreteTargetVertexIds(sourceVertexIds, topology,
+                                                                                  axisCenter, unitAxis);
+            Dictionary<int, int> targetEdgeIds = CreateDiscreteTargetEdgeIds(sourceEdgeIds, sourceAxisEdgeIds);
+            Dictionary<int, int> targetSurfaceBySourceVertexIds = new Dictionary<int, int>();
+            Dictionary<int, int> targetSurfaceBySourceEdgeIds = new Dictionary<int, int>();
             Dictionary<int, int> connectingEdgeIds = GetConnectingEdgeIds(sourceVertexIds, boundaryVertexIds,
                                                                            targetVertexIds, sourceEdgeIds,
                                                                            topology, axisCenter, unitAxis,
@@ -204,20 +174,20 @@ namespace CaeMesh
             long maxNodeId = GetMaxNodeId();
             long maxElementId = GetMaxElementId();
 
-            ClearNonSourceMesh(topology, sourceSurfaceIds, sourceEdgeIds, sourceVertexIds);
+            ClearStrayNonSourceMesh(topology, sourceEdgeIds, sourceVertexIds);
 
             Dictionary<IntPtr, IntPtr[]> nodeIdLayerIds;
             AddRevolvedNodes(sourceNodeCoordinates, sourceNodeEntities, layerFractions,
                              targetVertexIds, targetEdgeIds, targetSurfaceIds,
                              targetSurfaceBySourceVertexIds, targetSurfaceBySourceEdgeIds,
                              boundaryEdgeIds, sideSurfaceIds, connectingEdgeIds,
-                             topology.VolumeId, axisCenter, unitAxis, angleRad, topology.Tolerance,
+                             volumeId, axisCenter, unitAxis, angleRad, topology.Tolerance,
                              ref maxNodeId, out nodeIdLayerIds);
 
             AddRevolvedElements(sourceSurfaceElements, sourceEdgeElements, sourceNodeCoordinates,
                                 nodeIdLayerIds, layerFractions, targetEdgeIds, targetSurfaceIds,
                                 boundaryEdgeIds, sideSurfaceIds, connectingEdgeIds,
-                                topology.VolumeId, axisCenter, unitAxis, angleRad, topology.Tolerance,
+                                volumeId, axisCenter, unitAxis, angleRad, topology.Tolerance,
                                 ref maxElementId);
         }
 
@@ -689,6 +659,37 @@ namespace CaeMesh
             return elements;
         }
 
+        private static int IsolateSourceSurfacesAndMesh(TopologyData topology, HashSet<int> sourceSurfaceIds,
+                                                        Action meshSourceSurfaces)
+        {
+            // Remove the volume and the non-source faces so that only the source faces (and the edges/vertices
+            // they share) remain, then mesh the source faces in isolation. A discrete volume is added afterwards
+            // to receive the revolved solid elements in place of the removed CAD volume.
+            List<Tuple<int, int>> toRemove = new List<Tuple<int, int>>()
+            {
+                new Tuple<int, int>(3, topology.VolumeId)
+            };
+            foreach (int surfaceId in topology.SurfaceIds)
+                if (!sourceSurfaceIds.Contains(surfaceId)) toRemove.Add(new Tuple<int, int>(2, surfaceId));
+            Gmsh.Model.OCC.Remove(toRemove.ToArray(), false);
+            Gmsh.Model.OCC.Synchronize();
+            //
+            meshSourceSurfaces();
+            //
+            return Gmsh.Model.AddDiscreteEntity(3, -1);
+        }
+
+        private static void ClearStrayNonSourceMesh(TopologyData topology, HashSet<int> sourceEdgeIds,
+                                                    HashSet<int> sourceVertexIds)
+        {
+            // The volume and the non-source faces were removed, but the non-source edges/vertices they leave
+            // behind still get a 1D/0D mesh. Clear that stray mesh so only the source-face mesh remains.
+            ClearEntities(topology.EdgeIds.Where(x => !sourceEdgeIds.Contains(x))
+                                           .Select(x => new Tuple<int, int>(1, x)).ToArray());
+            ClearEntities(topology.VertexIds.Where(x => !sourceVertexIds.Contains(x))
+                                             .Select(x => new Tuple<int, int>(0, x)).ToArray());
+        }
+
         private static void ClearNonSourceMesh(TopologyData topology, HashSet<int> sourceSurfaceIds,
                                                HashSet<int> sourceEdgeIds, HashSet<int> sourceVertexIds)
         {
@@ -987,8 +988,10 @@ namespace CaeMesh
                                                         axisCenter, axisDirection) <= axisTolerance;
                     bool node1OnAxis = DistanceFromAxis(sourceNodeCoordinates[sourceElement.NodeIds[1]],
                                                         axisCenter, axisDirection) <= axisTolerance;
-                    if (node0OnAxis && node1OnAxis)
-                        throw new CaeException("An edge on the revolution axis was identified as a side surface.");
+                    // A side-surface edge can still contain a single element with both ends on the axis: the
+                    // edge only touches the axis, but a border element the mesher places at the axis corner
+                    // sits on it. Revolving that element sweeps zero area, so skip the degenerate side element.
+                    if (node0OnAxis && node1OnAxis) continue;
                     for (int layerId = 0; layerId < numLayers; layerId++)
                     {
                         IntPtr[] sideNodeIds;
