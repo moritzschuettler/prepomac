@@ -315,56 +315,6 @@ namespace CaeMesh
             return true;
         }
 
-        private static Dictionary<int, int> GetSideSurfaceIds(HashSet<int> boundaryEdgeIds,
-                                                               HashSet<int> axisEdgeIds,
-                                                               HashSet<int> sourceSurfaceIds,
-                                                               TopologyData topology, double[] axisCenter,
-                                                               double[] axisDirection, double angleRad)
-        {
-            Dictionary<int, int> sideSurfaceIds = new Dictionary<int, int>();
-            foreach (int sourceEdgeId in boundaryEdgeIds)
-            {
-                if (axisEdgeIds.Contains(sourceEdgeId)) continue;
-                List<int> candidates = topology.EdgeSurfaceIds[sourceEdgeId]
-                                               .Where(x => !sourceSurfaceIds.Contains(x)).Distinct().ToList();
-                if (candidates.Count == 0)
-                    throw new CaeException("A side surface of the revolved mesh could not be identified.");
-                double[] expectedCenter = Rotate(topology.EdgeCenters[sourceEdgeId], axisCenter,
-                                                 axisDirection, 0.5 * angleRad);
-                int sideSurfaceId = candidates.OrderBy(x => Distance2(expectedCenter,
-                                                      topology.SurfaceCenters[x])).First();
-                sideSurfaceIds.Add(sourceEdgeId, sideSurfaceId);
-            }
-            return sideSurfaceIds;
-        }
-
-        private static Dictionary<int, int> GetTargetSurfaceIds(HashSet<int> sourceSurfaceIds,
-                                                                 IEnumerable<int> sideSurfaceIds,
-                                                                 TopologyData topology, double[] axisCenter,
-                                                                 double[] axisDirection, double angleRad)
-        {
-            HashSet<int> candidates = new HashSet<int>(topology.SurfaceIds);
-            candidates.ExceptWith(sourceSurfaceIds);
-            candidates.ExceptWith(sideSurfaceIds);
-            if (candidates.Count == 0)
-                throw new CaeException("The target surface of the revolved mesh could not be identified.");
-
-            bool useEachCandidateOnce = candidates.Count >= sourceSurfaceIds.Count;
-            HashSet<int> availableCandidates = new HashSet<int>(candidates);
-            Dictionary<int, int> targetSurfaceIds = new Dictionary<int, int>();
-            foreach (int sourceSurfaceId in sourceSurfaceIds.OrderBy(x => x))
-            {
-                IEnumerable<int> currentCandidates = useEachCandidateOnce ? availableCandidates : candidates;
-                double[] expectedCenter = Rotate(topology.SurfaceCenters[sourceSurfaceId], axisCenter,
-                                                 axisDirection, angleRad);
-                int targetSurfaceId = currentCandidates.OrderBy(x => Distance2(expectedCenter,
-                                                               topology.SurfaceCenters[x])).First();
-                targetSurfaceIds.Add(sourceSurfaceId, targetSurfaceId);
-                if (useEachCandidateOnce) availableCandidates.Remove(targetSurfaceId);
-            }
-            return targetSurfaceIds;
-        }
-
         private static Dictionary<int, int> CreateDiscreteSideSurfaceIds(
             HashSet<int> boundaryEdgeIds, HashSet<int> axisEdgeIds)
         {
@@ -416,129 +366,6 @@ namespace CaeMesh
                     targetEdgeIds.Add(sourceEdgeId, Gmsh.Model.AddDiscreteEntity(1, -1));
             }
             return targetEdgeIds;
-        }
-
-        private static Dictionary<int, int> GetExistingTargetVertexIds(HashSet<int> sourceVertexIds,
-                                                                        TopologyData topology,
-                                                                        double[] axisCenter,
-                                                                        double[] axisDirection,
-                                                                        double angleRad)
-        {
-            Dictionary<int, int> targetVertexIds = new Dictionary<int, int>();
-            double tolerance2 = topology.Tolerance * topology.Tolerance;
-            foreach (int sourceVertexId in sourceVertexIds)
-            {
-                double[] targetCoordinate = Rotate(topology.VertexCoordinates[sourceVertexId], axisCenter,
-                                                   axisDirection, angleRad);
-                int targetVertexId = -1;
-                double minDistance2 = double.MaxValue;
-                foreach (int candidateId in topology.VertexIds)
-                {
-                    double distance2 = Distance2(targetCoordinate, topology.VertexCoordinates[candidateId]);
-                    if (distance2 < minDistance2)
-                    {
-                        minDistance2 = distance2;
-                        targetVertexId = candidateId;
-                    }
-                }
-                if (targetVertexId >= 0 && minDistance2 <= tolerance2)
-                    targetVertexIds.Add(sourceVertexId, targetVertexId);
-            }
-            return targetVertexIds;
-        }
-
-        private static Dictionary<int, int> GetTargetEdgeIds(HashSet<int> sourceEdgeIds,
-                                                              HashSet<int> boundaryEdgeIds,
-                                                              HashSet<int> axisEdgeIds,
-                                                              Dictionary<int, int> sideSurfaceIds,
-                                                              HashSet<int> sourceSurfaceIds,
-                                                              Dictionary<int, int> targetSurfaceIds,
-                                                              TopologyData topology, double[] axisCenter,
-                                                              double[] axisDirection, double angleRad)
-        {
-            Dictionary<int, int> targetEdgeIds = new Dictionary<int, int>();
-            foreach (int sourceEdgeId in sourceEdgeIds)
-            {
-                if (axisEdgeIds.Contains(sourceEdgeId))
-                {
-                    targetEdgeIds.Add(sourceEdgeId, sourceEdgeId);
-                    continue;
-                }
-
-                HashSet<int> mappedTargetSurfaceIds = GetMappedTargetSurfaceIds(sourceEdgeId,
-                    sourceSurfaceIds, targetSurfaceIds, topology);
-                HashSet<int> requiredSurfaceIds = new HashSet<int>(mappedTargetSurfaceIds);
-                int sideSurfaceId;
-                if (boundaryEdgeIds.Contains(sourceEdgeId) &&
-                    sideSurfaceIds.TryGetValue(sourceEdgeId, out sideSurfaceId))
-                {
-                    requiredSurfaceIds.Add(sideSurfaceId);
-                }
-                else if (mappedTargetSurfaceIds.Count <= 1)
-                {
-                    // An internal source partition can disappear into a single merged target face.
-                    continue;
-                }
-
-                List<int> candidates = topology.EdgeIds.Where(x => !sourceEdgeIds.Contains(x) &&
-                    requiredSurfaceIds.All(y => topology.EdgeSurfaceIds[x].Contains(y))).ToList();
-                if (candidates.Count == 0)
-                    throw new CaeException("A required target edge of the revolved mesh could not be identified.");
-                double[] expectedCenter = Rotate(topology.EdgeCenters[sourceEdgeId], axisCenter,
-                                                 axisDirection, angleRad);
-                int targetEdgeId = candidates.OrderBy(x => Distance2(expectedCenter,
-                                                    topology.EdgeCenters[x])).First();
-                targetEdgeIds.Add(sourceEdgeId, targetEdgeId);
-            }
-            return targetEdgeIds;
-        }
-
-        private static HashSet<int> GetMappedTargetSurfaceIds(int sourceEdgeId,
-                                                               HashSet<int> sourceSurfaceIds,
-                                                               Dictionary<int, int> targetSurfaceIds,
-                                                               TopologyData topology)
-        {
-            HashSet<int> mappedTargetSurfaceIds = new HashSet<int>();
-            foreach (int surfaceId in topology.EdgeSurfaceIds[sourceEdgeId])
-            {
-                if (sourceSurfaceIds.Contains(surfaceId))
-                    mappedTargetSurfaceIds.Add(targetSurfaceIds[surfaceId]);
-            }
-            return mappedTargetSurfaceIds;
-        }
-
-        private static void GetTargetSurfacesForUnmatchedSourceEntities(
-            HashSet<int> sourceVertexIds, HashSet<int> sourceEdgeIds,
-            Dictionary<int, int> targetVertexIds, Dictionary<int, int> targetEdgeIds,
-            HashSet<int> sourceSurfaceIds, Dictionary<int, int> targetSurfaceIds,
-            TopologyData topology, out Dictionary<int, int> targetSurfaceBySourceVertexIds,
-            out Dictionary<int, int> targetSurfaceBySourceEdgeIds)
-        {
-            targetSurfaceBySourceEdgeIds = new Dictionary<int, int>();
-            foreach (int sourceEdgeId in sourceEdgeIds)
-            {
-                if (targetEdgeIds.ContainsKey(sourceEdgeId)) continue;
-                HashSet<int> mappedTargetSurfaceIds = GetMappedTargetSurfaceIds(sourceEdgeId,
-                    sourceSurfaceIds, targetSurfaceIds, topology);
-                if (mappedTargetSurfaceIds.Count != 1)
-                    throw new CaeException("The target surface for an unmatched source edge is ambiguous.");
-                targetSurfaceBySourceEdgeIds.Add(sourceEdgeId, mappedTargetSurfaceIds.First());
-            }
-
-            targetSurfaceBySourceVertexIds = new Dictionary<int, int>();
-            foreach (int sourceVertexId in sourceVertexIds)
-            {
-                if (targetVertexIds.ContainsKey(sourceVertexId)) continue;
-                HashSet<int> mappedTargetSurfaceIds = new HashSet<int>();
-                foreach (int sourceSurfaceId in sourceSurfaceIds)
-                {
-                    if (topology.SurfaceVertexIds[sourceSurfaceId].Contains(sourceVertexId))
-                        mappedTargetSurfaceIds.Add(targetSurfaceIds[sourceSurfaceId]);
-                }
-                if (mappedTargetSurfaceIds.Count != 1)
-                    throw new CaeException("The target surface for an unmatched source vertex is ambiguous.");
-                targetSurfaceBySourceVertexIds.Add(sourceVertexId, mappedTargetSurfaceIds.First());
-            }
         }
 
         private static Dictionary<int, int> GetConnectingEdgeIds(HashSet<int> sourceVertexIds,
@@ -684,18 +511,6 @@ namespace CaeMesh
         {
             // The volume and the non-source faces were removed, but the non-source edges/vertices they leave
             // behind still get a 1D/0D mesh. Clear that stray mesh so only the source-face mesh remains.
-            ClearEntities(topology.EdgeIds.Where(x => !sourceEdgeIds.Contains(x))
-                                           .Select(x => new Tuple<int, int>(1, x)).ToArray());
-            ClearEntities(topology.VertexIds.Where(x => !sourceVertexIds.Contains(x))
-                                             .Select(x => new Tuple<int, int>(0, x)).ToArray());
-        }
-
-        private static void ClearNonSourceMesh(TopologyData topology, HashSet<int> sourceSurfaceIds,
-                                               HashSet<int> sourceEdgeIds, HashSet<int> sourceVertexIds)
-        {
-            ClearEntities(Gmsh.Model.OCC.GetEntities(3));
-            ClearEntities(topology.SurfaceIds.Where(x => !sourceSurfaceIds.Contains(x))
-                                              .Select(x => new Tuple<int, int>(2, x)).ToArray());
             ClearEntities(topology.EdgeIds.Where(x => !sourceEdgeIds.Contains(x))
                                            .Select(x => new Tuple<int, int>(1, x)).ToArray());
             ClearEntities(topology.VertexIds.Where(x => !sourceVertexIds.Contains(x))

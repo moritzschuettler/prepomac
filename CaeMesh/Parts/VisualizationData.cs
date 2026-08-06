@@ -377,7 +377,7 @@ namespace CaeMesh
             {
                 if (entry.Value.Id2 == -1)
                 {
-                    visualizationCells.Add(entry.Value.Cell1);
+                    visualizationCells.Add(entry.Value.Cell1.ToArray());    // copy!
                     visualizationCellsIds.Add(entry.Value.Id1);
                 }
             }
@@ -424,7 +424,6 @@ namespace CaeMesh
                     else _cellNeighboursOverCell.Add(key, new CellNeighbour(id, -1, cell));
                 }
             }
-
         }
         //
         public void RenumberNodes(Dictionary<int, int> newIds)
@@ -473,7 +472,7 @@ namespace CaeMesh
                 //
                 foreach (var entry in _cellNeighboursOverCell)
                 {
-                    renumberedCell = entry.Value.Cell1.ToArray();   // not all nodes are renumbered - make a copy
+                    renumberedCell = entry.Value.Cell1;//.ToArray();   // copy!
                     //
                     for (int i = 0; i < renumberedCell.Length; i++)
                     {
@@ -481,27 +480,28 @@ namespace CaeMesh
                     }
                     //
                     var renumberedKey = new SortedIntKey(renumberedCell);
-                    //
                     cellNeighbour = entry.Value;
                     cellNeighbour.Cell1 = renumberedCell;
                     //
                     if (renumberedNeighbours.TryGetValue(renumberedKey, out existingCellNeighbour))
                     {
-                        cellIds[0] = cellNeighbour.Id1;
-                        cellIds[1] = cellNeighbour.Id2;
-                        cellIds[2] = existingCellNeighbour.Id1;
-                        cellIds[3] = existingCellNeighbour.Id2;
-                        Array.Sort(cellIds);
-                        // The same cell
-                        if (cellIds[0] == cellIds[1] && cellIds[2] == cellIds[3]) error = true;
-                        // Two outer cells connected together
-                        else if (cellIds[0] == -1 && cellIds[1] == -1 && cellIds[2] != -1 && cellIds[3] != -1)
-                        {
-                            existingCellNeighbour.Id1 = cellIds[2];
-                            existingCellNeighbour.Id2 = cellIds[3];
-                        }
-                        // The rest
-                        else error = true;
+                        //cellIds[0] = cellNeighbour.Id1;
+                        //cellIds[1] = cellNeighbour.Id2;
+                        //cellIds[2] = existingCellNeighbour.Id1;
+                        //cellIds[3] = existingCellNeighbour.Id2;
+                        //Array.Sort(cellIds);
+                        //// The same cell
+                        //if (cellIds[0] == cellIds[1] && cellIds[2] == cellIds[3])
+                        //    error = true;
+                        //// Two outer cells connected together
+                        //else if (cellIds[0] == -1 && cellIds[1] == -1 && cellIds[2] != -1 && cellIds[3] != -1)
+                        //{
+                        //    existingCellNeighbour.Id1 = cellIds[2];
+                        //    existingCellNeighbour.Id2 = cellIds[3];
+                        //}
+                        //// The rest
+                        //else
+                        error = true;
                     }
                     else renumberedNeighbours.Add(renumberedKey, cellNeighbour);
                 }
