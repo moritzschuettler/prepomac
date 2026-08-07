@@ -219,6 +219,14 @@ namespace UserControls
         private TreeNode _prevMouseOverNode;
         private Color[] _prevMouseOverNodeColors;
         private Timer _editTmer;
+        // Related nodes: a third highlight state, drawn under the mouse-over and selection highlights,
+        // used to show items that are connected to the currently focused item (e.g. a part and the mesh
+        // setup items that reference it).
+        private Color _relatedColor = Color.FromArgb((int)(Color.Thistle.R + (255 - Color.Thistle.R) * 0.5),
+                                                     (int)(Color.Thistle.G + (255 - Color.Thistle.G) * 0.5),
+                                                     (int)(Color.Thistle.B + (255 - Color.Thistle.B) * 0.5));
+        private HashSet<TreeNode> _relatedNodes = new HashSet<TreeNode>();
+        private Dictionary<int, Color> _relatedNodesOrigBackColor = new Dictionary<int, Color>();
 
 
         // Properties                                                                                                               
@@ -231,6 +239,11 @@ namespace UserControls
         {
             get { return _mouseOverColor; }
             set { _mouseOverColor = value; }
+        }
+        public Color RelatedColor
+        {
+            get { return _relatedColor; }
+            set { _relatedColor = value; }
         }
         public bool DisableMouse { get { return _disableMouse; } set { _disableMouse = value; } }
 		public bool EnsureSelectedNodeVisible
@@ -321,6 +334,70 @@ namespace UserControls
         {
             _editTmer.Stop();
             BeginInvoke((MethodInvoker)StartEdit);
+        }
+        // Related nodes
+        /// <summary>
+        /// Sets the collection of nodes that should show the related highlight. The highlight is drawn
+        /// under the mouse-over and selection highlights (selected > mouse-over > related > normal).
+        /// </summary>
+        public void SetRelatedNodes(ICollection<TreeNode> nodes)
+        {
+            HashSet<TreeNode> newSet = (nodes == null) ? new HashSet<TreeNode>() : new HashSet<TreeNode>(nodes);
+            if (newSet.SetEquals(_relatedNodes)) return;
+            //
+            BeginUpdate();
+            try
+            {
+                // Remove the highlight from nodes that are no longer related
+                List<TreeNode> toRemove = new List<TreeNode>();
+                foreach (TreeNode node in _relatedNodes) if (!newSet.Contains(node)) toRemove.Add(node);
+                foreach (TreeNode node in toRemove) RestoreRelatedNode(node);
+                // Apply the highlight to newly related nodes
+                foreach (TreeNode node in newSet) ApplyRelatedNode(node);
+            }
+            finally { EndUpdate(); }
+        }
+        private void ApplyRelatedNode(TreeNode node)
+        {
+            if (node == null || _relatedNodes.Contains(node)) return;
+            // A selected node keeps its darker selection highlight
+            if (IsNodeSelected(node)) return;
+            //
+            int hash = node.GetHashCode();
+            // The node under the mouse keeps its lighter mouse-over highlight on top; remember the related
+            // color so it is restored (instead of the true base color) once the mouse leaves the node
+            if (node == _prevMouseOverNode && _prevMouseOverNodeColors != null)
+            {
+                _relatedNodesOrigBackColor[hash] = _prevMouseOverNodeColors[0];
+                _prevMouseOverNodeColors[0] = _relatedColor;
+                _relatedNodes.Add(node);
+                return;
+            }
+            _relatedNodesOrigBackColor[hash] = node.BackColor;
+            node.BackColor = _relatedColor;
+            _relatedNodes.Add(node);
+        }
+        private void RestoreRelatedNode(TreeNode node)
+        {
+            if (node == null || !_relatedNodes.Contains(node)) return;
+            _relatedNodes.Remove(node);
+            //
+            int hash = node.GetHashCode();
+            if (!_relatedNodesOrigBackColor.TryGetValue(hash, out Color orig)) return;
+            _relatedNodesOrigBackColor.Remove(hash);
+            // If the node became selected while related, correct the color stored for the selection
+            if (IsNodeSelected(node))
+            {
+                if (htblSelectedNodesOrigColors.TryGetValue(hash, out Color[] selColors)) selColors[0] = orig;
+                return;
+            }
+            // If the node is under the mouse, restore the color it shows once the mouse leaves the node
+            if (node == _prevMouseOverNode && _prevMouseOverNodeColors != null)
+            {
+                _prevMouseOverNodeColors[0] = orig;
+                return;
+            }
+            node.BackColor = orig;
         }
 
         #endregion
@@ -727,6 +804,8 @@ namespace UserControls
             if (tn == null) return;
             //
             ClearMouseOverSelection();
+            // Strip the related highlight so the preserved color is the true base color, not the related color
+            if (_relatedNodes.Contains(tn)) RestoreRelatedNode(tn);
             //
             if (!htblSelectedNodesOrigColors.ContainsKey(tn.GetHashCode()))
             {

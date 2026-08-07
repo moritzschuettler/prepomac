@@ -362,6 +362,9 @@ namespace UserControls
         public Func<NamedClass, string, string, bool> CheckItemName;
         public Func<string> GetNextPartGroupName;
         public Func<Guid?, string, bool> CheckPartGroupName;
+        // Returns the names of the geometry items related to the given focused items
+        // (a part -> the mesh setup items that reference it, and a mesh setup item -> the parts it references).
+        public Func<NamedClass[], string[]> GetRelatedGeometryItemNames;
 
 
         // Constructors                                                                                                             
@@ -1846,6 +1849,8 @@ namespace UserControls
             }
             else if (tree.SelectedNodes.Count == 0) ClearSelectionEvent();
             //
+            UpdateRelatedNodesHighlight();
+            //
             return;
         }
         private void cltv_MouseOverNodeChangedEvent(object sender)
@@ -2019,7 +2024,54 @@ namespace UserControls
             //if (items.Count > 0)
                 SelectEvent?.Invoke(items.ToArray(), true);
             //
+            UpdateRelatedNodesHighlight();
+            //
             timerMouseMove.Stop();
+        }
+        // Highlights the geometry items related to the currently focused items (selected + mouse-over)
+        // with the related (light green) highlight. Only the geometry tree shows part <-> mesh-setup-item
+        // relations; on the other trees any related highlight is cleared.
+        private void UpdateRelatedNodesHighlight()
+        {
+            CodersLabTreeView tree = GetActiveTree();
+            if (tree != cltvGeometry || GetRelatedGeometryItemNames == null)
+            {
+                cltvGeometry.SetRelatedNodes(null);
+                return;
+            }
+            // Gather the focused items. When nodes are selected, the related highlight tracks the
+            // selection only; the node under the mouse contributes only when nothing is selected (otherwise
+            // an item could be highlighted both from the selection and from the hover).
+            List<NamedClass> focusItems = new List<NamedClass>();
+            foreach (TreeNode selectedNode in tree.SelectedNodes)
+                if (selectedNode.Tag is NamedClass selectedItem) focusItems.Add(selectedItem);
+            if (focusItems.Count == 0)
+            {
+                TreeNode overNode = tree.MouseOverNode;
+                if (overNode != null && overNode.Tag is NamedClass overItem) focusItems.Add(overItem);
+            }
+            //
+            if (focusItems.Count == 0)
+            {
+                tree.SetRelatedNodes(null);
+                return;
+            }
+            //
+            string[] relatedNames = GetRelatedGeometryItemNames(focusItems.ToArray());
+            if (relatedNames == null || relatedNames.Length == 0)
+            {
+                tree.SetRelatedNodes(null);
+                return;
+            }
+            //
+            List<TreeNode> relatedNodes = new List<TreeNode>();
+            foreach (string name in relatedNames)
+            {
+                TreeNode[] found = cltvGeometry.Nodes.Find(name, true);
+                foreach (TreeNode node in found)
+                    if (node.Tag is NamedClass) relatedNodes.Add(node);
+            }
+            tree.SetRelatedNodes(relatedNodes);
         }
         private string GetStepNameFromNode(TreeNode node)
         {

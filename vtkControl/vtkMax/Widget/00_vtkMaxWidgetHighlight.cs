@@ -17,7 +17,6 @@ namespace vtkControl
     class vtkMaxWidgetHighlight
     {
         public const double WidgetFillOpacity = 0.1;
-        public const double ColorRectangleFillOpacity = 0.4;
         //
         // Variables
         private vtkPolyDataMapper2D _borderMapper;

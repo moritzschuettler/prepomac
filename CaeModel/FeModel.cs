@@ -2154,25 +2154,26 @@ namespace CaeModel
                         }
                         if (candidateAxisNodeIds.Count == 0) continue;
                         //
-                        HashSet<int> candidateDirectionEdgeIds = new HashSet<int>();
-                        foreach (var vertexId in surfaceVertices)
-                        {
-                            if (!candidateAxisNodeIds.Contains(vertexId))
-                                candidateDirectionEdgeIds.UnionWith(vertexIdConnectedEdgeIds[vertexId]);
-                        }
-                        if (TryGetRevolveMeshArcData(vis, candidateDirectionEdgeIds, surfaceVertices,
+                        HashSet<int> candidateNonAxisVertexIds = new HashSet<int>(surfaceVertices);
+                        candidateNonAxisVertexIds.ExceptWith(candidateAxisNodeIds);
+                        // Follow each revolved (direction) edge through the vertices where a revolved/side surface
+                        // is split, so that the full swept angle is measured instead of only the first segment.
+                        if (TryGetRevolveMeshArcDataAlongChains(vis, candidateNonAxisVertexIds,
+                                                      vertexIdConnectedEdgeIds, surfaceEdgeIds, surfaceVertices,
+                                                      vertexIdEdgeId, axisTolerance,
                                                       out double candidateR, out double candidateArcAngleDeg,
                                                       out double[] candidateAxisCenter2,
-                                                      out double[] candidateAxisDirection2) &&
-                            candidateDirectionEdgeIds.Count > maxNumDirectionEdges)
+                                                      out double[] candidateAxisDirection2,
+                                                      out HashSet<int> candidateChainEdgeIds) &&
+                            candidateChainEdgeIds.Count > maxNumDirectionEdges)
                         {
-                            directionEdgeIds = candidateDirectionEdgeIds;
+                            directionEdgeIds = candidateChainEdgeIds;
                             axisNodeIds = candidateAxisNodeIds;
                             r = candidateR;
                             arcAngleDeg = candidateArcAngleDeg;
                             axisCenter = candidateAxisCenter2;
                             axisDirection = candidateAxisDirection2;
-                            maxNumDirectionEdges = candidateDirectionEdgeIds.Count;
+                            maxNumDirectionEdges = candidateChainEdgeIds.Count;
                         }
                     }
                     // Preserve the previous validation for surfaces that do not touch the revolution axis.
@@ -2251,6 +2252,148 @@ namespace CaeModel
             vis.GetArcEdgeDataForEdgeIds(edgeIds, surfaceVertices, _geometry.Nodes,
                                          out r, out arcAngleDeg, out axisCenter, out axisDirection);
             return r > 0 && arcAngleDeg > 0;
+        }
+        private bool TryGetRevolveMeshArcDataAlongChains(VisualizationData vis,
+                                                         HashSet<int> nonAxisSourceVertexIds,
+                                                         Dictionary<int, HashSet<int>> vertexIdConnectedEdgeIds,
+                                                         HashSet<int> surfaceEdgeIds, HashSet<int> surfaceVertices,
+                                                         Dictionary<int, HashSet<int>> vertexIdEdgeIds,
+                                                         double tolerance, out double r, out double arcAngleDeg,
+                                                         out double[] axisCenter, out double[] axisDirection,
+                                                         out HashSet<int> chainEdgeIds)
+        {
+            r = -1;
+            arcAngleDeg = -1;
+            axisCenter = null;
+            axisDirection = null;
+            chainEdgeIds = new HashSet<int>();
+            //
+            double minAngle = double.MaxValue;
+            double maxAngle = -double.MaxValue;
+            double minR = double.MaxValue;
+            double maxR = -double.MaxValue;
+            BoundingBox bbCenter = new BoundingBox();
+            BoundingBox bbDirection = new BoundingBox();
+            bool any = false;
+            // Each non-axis source vertex starts one revolved edge. Walk each along its full chain of split
+            // segments so that all revolved edges are required to share the same axis, radius and swept angle.
+            foreach (int vertexId in nonAxisSourceVertexIds)
+            {
+                foreach (int startEdgeId in vertexIdConnectedEdgeIds[vertexId])
+                {
+                    if (chainEdgeIds.Contains(startEdgeId)) continue;
+                    if (!TryGetRevolvedEdgeChain(vis, startEdgeId, vertexId, surfaceEdgeIds, surfaceVertices,
+                                                 vertexIdEdgeIds, tolerance, out HashSet<int> oneChainEdgeIds,
+                                                 out double chainAngleDeg, out double chainR,
+                                                 out double[] chainCenter, out double[] chainDirection))
+                        return false;
+                    //
+                    chainEdgeIds.UnionWith(oneChainEdgeIds);
+                    if (chainAngleDeg < minAngle) minAngle = chainAngleDeg;
+                    if (chainAngleDeg > maxAngle) maxAngle = chainAngleDeg;
+                    if (chainR < minR) minR = chainR;
+                    if (chainR > maxR) maxR = chainR;
+                    bbCenter.IncludeCoor(chainCenter);
+                    bbDirection.IncludeCoor(chainDirection);
+                    any = true;
+                }
+            }
+            if (!any) return false;
+            // The revolved edges must span the same angle about the same axis. Their radii differ (each source
+            // vertex is a different distance from the axis), so only a representative middle radius is returned -
+            // exactly as GetArcEdgeDataForEdgeIds does for the unsplit case.
+            if (minAngle <= 0 || maxAngle - minAngle > 1E-3 * maxAngle) return false;
+            if (minR <= 0) return false;
+            if (bbDirection.GetDiagonal() >= 0.0017) return false;   // approximately 0.1 degree difference
+            //
+            r = (minR + maxR) / 2;
+            arcAngleDeg = (minAngle + maxAngle) / 2;
+            axisCenter = bbCenter.GetCenter();
+            axisDirection = bbDirection.GetCenter();
+            return true;
+        }
+        private bool TryGetRevolvedEdgeChain(VisualizationData vis, int startEdgeId, int startVertexId,
+                                             HashSet<int> surfaceEdgeIds, HashSet<int> surfaceVertices,
+                                             Dictionary<int, HashSet<int>> vertexIdEdgeIds, double tolerance,
+                                             out HashSet<int> chainEdgeIds, out double totalArcAngleDeg,
+                                             out double r, out double[] axisCenter, out double[] axisDirection)
+        {
+            chainEdgeIds = new HashSet<int>();
+            totalArcAngleDeg = 0;
+            r = -1;
+            axisCenter = null;
+            axisDirection = null;
+            //
+            int currentEdgeId = startEdgeId;
+            int fromVertexId = startVertexId;
+            while (true)
+            {
+                vis.GetArcEdgeDataForEdgeId(currentEdgeId, new HashSet<int>() { fromVertexId }, _geometry.Nodes,
+                                            out double edgeR, out double edgeAngleDeg,
+                                            out double[] edgeCenter, out double[] edgeDirection);
+                if (edgeCenter == null || edgeR <= 0 || double.IsInfinity(edgeR) || edgeAngleDeg <= 0)
+                {
+                    // The direction edge is a line or could not be evaluated as an arc.
+                    if (chainEdgeIds.Count == 0) return false;
+                    break;
+                }
+                if (chainEdgeIds.Count == 0)
+                {
+                    r = edgeR;
+                    axisCenter = edgeCenter;
+                    axisDirection = edgeDirection;
+                }
+                else if (!RevolveArcsMatch(edgeR, edgeCenter, edgeDirection, r, axisCenter, axisDirection, tolerance))
+                {
+                    break;   // the next segment is a different circle - the chain has ended
+                }
+                chainEdgeIds.Add(currentEdgeId);
+                totalArcAngleDeg += edgeAngleDeg;
+                // Move to the far vertex of the current edge
+                int[] edgeVertexIds = vis.GetVertexNodeIdsForEdgeId(currentEdgeId);
+                if (edgeVertexIds.Length != 2) break;
+                int farVertexId = edgeVertexIds[0] == fromVertexId ? edgeVertexIds[1] : edgeVertexIds[0];
+                if (farVertexId == fromVertexId || surfaceVertices.Contains(farVertexId)) break;
+                // Find a single arc continuation at the far vertex that shares the axis and radius
+                int nextEdgeId = -1;
+                if (vertexIdEdgeIds.TryGetValue(farVertexId, out HashSet<int> farVertexEdgeIds))
+                {
+                    foreach (int candidateEdgeId in farVertexEdgeIds)
+                    {
+                        if (candidateEdgeId == currentEdgeId || surfaceEdgeIds.Contains(candidateEdgeId) ||
+                            chainEdgeIds.Contains(candidateEdgeId)) continue;
+                        vis.GetArcEdgeDataForEdgeId(candidateEdgeId, new HashSet<int>() { farVertexId },
+                                                    _geometry.Nodes, out double candR, out double candAngleDeg,
+                                                    out double[] candCenter, out double[] candDirection);
+                        if (candCenter == null || candR <= 0 || double.IsInfinity(candR) || candAngleDeg <= 0)
+                            continue;
+                        if (RevolveArcsMatch(candR, candCenter, candDirection, r, axisCenter, axisDirection, tolerance))
+                        {
+                            if (nextEdgeId >= 0) { nextEdgeId = -1; break; }   // ambiguous branch - stop here
+                            nextEdgeId = candidateEdgeId;
+                        }
+                    }
+                }
+                if (nextEdgeId < 0) break;
+                currentEdgeId = nextEdgeId;
+                fromVertexId = farVertexId;
+            }
+            return chainEdgeIds.Count > 0 && totalArcAngleDeg > 0 && r > 0;
+        }
+        private static bool RevolveArcsMatch(double r1, double[] center1, double[] direction1,
+                                             double r2, double[] center2, double[] direction2, double tolerance)
+        {
+            double radiusTolerance = Math.Max(tolerance, 1E-3 * r2);
+            if (Math.Abs(r1 - r2) > radiusTolerance) return false;
+            if ((new Vec3D(center1) - new Vec3D(center2)).Len > Math.Max(tolerance, 1E-3 * r2)) return false;
+            //
+            Vec3D u1 = new Vec3D(direction1);
+            Vec3D u2 = new Vec3D(direction2);
+            double denominator = u1.Len * u2.Len;
+            if (denominator <= 0) return false;
+            // The continuation must wind the same way (same axis direction), not just lie on a parallel axis.
+            if (Vec3D.DotProduct(u1, u2) <= 0) return false;
+            return Vec3D.CrossProduct(u1, u2).Len / denominator < 1.7E-3;   // approximately 0.1 degree
         }
         private bool AreNodesOnRevolveAxis(HashSet<int> nodeIds, double[] axisCenter,
                                             double[] axisDirection, double tolerance)

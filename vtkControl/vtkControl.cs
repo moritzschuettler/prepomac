@@ -284,7 +284,6 @@ namespace vtkControl
         public Action<MouseEventArgs, Keys, string[]> Controller_ActorsPicked;
         public Action<MouseEventArgs, Keys, string, Rectangle> Form_WidgetPicked;
         public Action<bool, Rectangle, string, double, double> Form_EditLegendValue;
-        public Action<bool> Form_SetLegendColor;
         public Action<vtkResultWidgetContextMenuTypeEnum, bool, System.Drawing.Point> Form_ShowResultWidgetContextMenu;
         public Action Form_ShowColorBarSettings;
         public Action Form_ShowLegendSettings;
@@ -441,11 +440,7 @@ namespace vtkControl
         {
             if (!_widgetInteractionEnabled) return;
             //
-            if (_scalarBarWidget.TryGetUserColorData(e.X, e.Y, out bool minimumColor, out Rectangle colorRectangle))
-            {
-                Form_SetLegendColor?.Invoke(minimumColor);
-            }
-            else if (_scalarBarWidget.TryGetValueEditData(e.X, e.Y, out bool editMinimum, out Rectangle rectangle,
+            if (_scalarBarWidget.TryGetValueEditData(e.X, e.Y, out bool editMinimum, out Rectangle rectangle,
                                                      out string valueText, out double minimum, out double maximum))
             {
                 Form_EditLegendValue?.Invoke(editMinimum, rectangle, valueText, minimum, maximum);
@@ -661,12 +656,8 @@ namespace vtkControl
                 vtkResultWidgetContextMenuTypeEnum contextMenuType;
                 bool minimum = false;
                 //
-                if (scalarBarWidget.TryGetUserColorData(e.X, e.Y, out minimum, out Rectangle colorRectangle))
-                {
-                    contextMenuType = vtkResultWidgetContextMenuTypeEnum.LegendColor;
-                }
-                else if (scalarBarWidget.TryGetValueEditData(e.X, e.Y, out minimum, out Rectangle valueRectangle,
-                                                             out string valueText, out double min, out double max))
+                if (scalarBarWidget.TryGetValueEditData(e.X, e.Y, out minimum, out Rectangle valueRectangle,
+                                                        out string valueText, out double min, out double max))
                 {
                     contextMenuType = vtkResultWidgetContextMenuTypeEnum.LegendValue;
                 }
@@ -5988,8 +5979,11 @@ namespace vtkControl
             _scalarBarWidget.MinColorVisible = colorSpectrum.MinColorVisible;
             _scalarBarWidget.MaxColorVisible = colorSpectrum.MaxColorVisible;
             _scalarBarWidget.MinColor = colorSpectrum.MinColor;
-            _scalarBarWidget.MaxColor = colorSpectrum.MaxColor;            
+            _scalarBarWidget.MaxColor = colorSpectrum.MaxColor;
         }
+        // Below-min / above-max limit color bands only exist when the manual limit clips the data
+        public bool ScalarBarAddMinColor { get { return _scalarBarWidget.AddMinColor; } }
+        public bool ScalarBarAddMaxColor { get { return _scalarBarWidget.AddMaxColor; } }
         public void SetScalarBarVisibility(bool visibility)
         {
             _keepScalarBarVisible = visibility;

@@ -6474,6 +6474,47 @@ namespace PrePoMax
             //
             return meshSetupItemsToCheck.ToArray();
         }
+        // Returns the names of the geometry items related to the given focused items: for a part, the mesh
+        // setup items that reference it; for a mesh setup item, the parts it references. Used by the model
+        // tree to show these connections with the related (light green) highlight.
+        public string[] GetRelatedGeometryItemNames(NamedClass[] items)
+        {
+            if (items == null || items.Length == 0) return null;
+            FeMesh geometry = _model?.Geometry;
+            if (geometry == null) return null;
+            //
+            OrderedDictionary<string, MeshSetupItem> meshSetupItems = geometry.MeshSetupItems;
+            HashSet<string> relatedNames = new HashSet<string>();
+            //
+            foreach (NamedClass item in items)
+            {
+                if (item is MeshSetupItem msi)
+                {
+                    // Mesh setup item -> the parts it references
+                    if (msi.CreationIds != null && msi.CreationIds.Length > 0)
+                    {
+                        int[] partIds = FeMesh.GetPartIdsFromGeometryIds(msi.CreationIds);
+                        string[] partNames = geometry.GetPartNamesFromPartIds(partIds);
+                        if (partNames != null)
+                            foreach (string partName in partNames) relatedNames.Add(partName);
+                    }
+                }
+                else if (geometry.Parts.ContainsKey(item.Name))
+                {
+                    // Part -> the mesh setup items that reference it
+                    int partId = geometry.Parts[item.Name].PartId;
+                    foreach (var entry in meshSetupItems)
+                    {
+                        MeshSetupItem meshSetupItem = entry.Value;
+                        if (meshSetupItem.CreationIds == null || meshSetupItem.CreationIds.Length == 0) continue;
+                        if (FeMesh.GetPartIdsFromGeometryIds(meshSetupItem.CreationIds).Contains(partId))
+                            relatedNames.Add(meshSetupItem.Name);
+                    }
+                }
+            }
+            //
+            return relatedNames.ToArray();
+        }
         public void ActivateDeactivateMeshSetupItem(string meshSetupItemName, bool active)
         {
             MeshSetupItem meshSetupItem = _model.Geometry.MeshSetupItems[meshSetupItemName];

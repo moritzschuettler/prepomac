@@ -318,6 +318,7 @@ namespace PrePoMax
                 _modelTree.CheckItemName = _controller.CheckItemName;
                 _modelTree.GetNextPartGroupName = _controller.GetNextPartGroupName;
                 _modelTree.CheckPartGroupName = _controller.CheckPartGroupName;
+                _modelTree.GetRelatedGeometryItemNames = _controller.GetRelatedGeometryItemNames;
                 //
                 _modelTree.GeometryMeshResultsEvent += ModelTree_ViewEvent;
                 _modelTree.SelectEvent += ModelTree_SelectEvent;
@@ -384,7 +385,6 @@ namespace PrePoMax
                 _vtk.Controller_GetGeometryVertexActorData = _controller.GetGeometryVertexActorData;
                 _vtk.Controller_ActorsPicked = SelectBaseParts;
                 _vtk.Form_EditLegendValue = StartEditLegendValue;
-                _vtk.Form_SetLegendColor = SetLegendColor;
                 _vtk.Form_ShowResultWidgetContextMenu = ShowResultWidgetContextMenu;
                 _vtk.Form_ShowColorBarSettings = ShowColorBarSettings;
                 _vtk.Form_ShowLegendSettings = ShowLegendSettings;
@@ -7511,20 +7511,57 @@ namespace PrePoMax
             _resultWidgetContextMenuMinimum = minimum;
             //
             bool legendValue = contextMenuType == vtkResultWidgetContextMenuTypeEnum.LegendValue;
-            bool legendColor = contextMenuType == vtkResultWidgetContextMenuTypeEnum.LegendColor;
             bool legend = contextMenuType == vtkResultWidgetContextMenuTypeEnum.Legend;
             bool statusBlock = contextMenuType == vtkResultWidgetContextMenuTypeEnum.StatusBlock;
+            // Min/max limit colors: only when the manual limit clips the data (a color band exists)
+            vtkMaxColorSpectrum colorSpectrum = _controller.Settings.Legend.ColorSpectrum;
+            bool maxColor = legend && _vtk.ScalarBarAddMaxColor;
+            bool minColor = legend && _vtk.ScalarBarAddMinColor;
             //
             tsmiEditLegendValue.Visible = legendValue;
-            tsmiSetLegendColor.Visible = legendColor;
-            tsmiHideLegendColor.Visible = legendColor;
+            tsmiSetMaxColor.Visible = maxColor;
+            tsmiMaxColorVisible.Visible = maxColor;
+            tsmiMaxColorVisible.Checked = colorSpectrum.MaxColorVisible;
+            tsmiSetMinColor.Visible = minColor;
+            tsmiMinColorVisible.Visible = minColor;
+            tsmiMinColorVisible.Checked = colorSpectrum.MinColorVisible;
             tsmiResultWidgetSettings.Visible = legend || statusBlock;
             tsmiResetLegend.Visible = legend;
+            // Collapse separators so only a single one shows between visible groups
+            UpdateSeparatorVisibility(cmsResultWidget.Items);
             //
             int x = Math.Max(0, Math.Min(vtkPoint.X, _vtk.Width - 1));
             int y = Math.Max(0, Math.Min(_vtk.Height - 1 - vtkPoint.Y, _vtk.Height - 1));
             _vtk.SetWidgetHighlightLocked(true);
             cmsResultWidget.Show(_vtk, new Point(x, y));
+        }
+        // Hides leading, trailing and consecutive separators so only a single separator
+        // remains visible between two visible groups of items.
+        private void UpdateSeparatorVisibility(ToolStripItemCollection items)
+        {
+            bool visibleSinceSeparator = false;
+            ToolStripSeparator pendingSeparator = null;
+            foreach (ToolStripItem item in items)
+            {
+                if (item is ToolStripSeparator separator)
+                {
+                    separator.Visible = false;
+                    if (visibleSinceSeparator)
+                    {
+                        pendingSeparator = separator;
+                        visibleSinceSeparator = false;
+                    }
+                }
+                else if (item.Available)   // intended visibility (parent not shown yet)
+                {
+                    if (pendingSeparator != null)
+                    {
+                        pendingSeparator.Visible = true;
+                        pendingSeparator = null;
+                    }
+                    visibleSinceSeparator = true;
+                }
+            }
         }
         private void cmsViewportWidget_Closed(object sender, ToolStripDropDownClosedEventArgs e)
         {
@@ -7540,15 +7577,24 @@ namespace PrePoMax
                 StartEditLegendValue(_resultWidgetContextMenuMinimum, rectangle, valueText, minimum, maximum);
             }
         }
-        private void tsmiSetLegendColor_Click(object sender, EventArgs e)
+        private void tsmiSetMaxColor_Click(object sender, EventArgs e)
         {
-            SetLegendColor(_resultWidgetContextMenuMinimum);
+            SetLegendColor(false);
         }
-        private void tsmiHideLegendColor_Click(object sender, EventArgs e)
+        private void tsmiMaxColorVisible_Click(object sender, EventArgs e)
         {
             SettingsContainer settings = _controller.Settings;
-            if (_resultWidgetContextMenuMinimum) settings.Legend.ColorSpectrum.MinColorVisible = false;
-            else settings.Legend.ColorSpectrum.MaxColorVisible = false;
+            settings.Legend.ColorSpectrum.MaxColorVisible = !settings.Legend.ColorSpectrum.MaxColorVisible;
+            _controller.Settings = settings;
+        }
+        private void tsmiSetMinColor_Click(object sender, EventArgs e)
+        {
+            SetLegendColor(true);
+        }
+        private void tsmiMinColorVisible_Click(object sender, EventArgs e)
+        {
+            SettingsContainer settings = _controller.Settings;
+            settings.Legend.ColorSpectrum.MinColorVisible = !settings.Legend.ColorSpectrum.MinColorVisible;
             _controller.Settings = settings;
         }
         private void tsmiResultWidgetSettings_Click(object sender, EventArgs e)

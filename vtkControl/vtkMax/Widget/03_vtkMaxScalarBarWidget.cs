@@ -64,6 +64,8 @@ namespace vtkControl
         public System.Drawing.Color MaxColor { get { return _maxColor; } set { _maxColor = value; } }
         public bool MinColorVisible { get { return _minColorVisible; } set { _minColorVisible = value; } }
         public bool MaxColorVisible { get { return _maxColorVisible; } set { _maxColorVisible = value; } }
+        public bool AddMinColor { get { return _addMinColor; } }
+        public bool AddMaxColor { get { return _addMaxColor; } }
         public string UnitAbbreviation { get { return _unitAbbreviation; } }
 
 
@@ -355,29 +357,6 @@ namespace vtkControl
             labelRectangle.Height = height;
             return labelRectangle;
         }
-        private Rectangle GetUserColorRectangle(bool minimumColor)
-        {
-            bool colorVisible = minimumColor
-                ? _addMinColor && _minColorVisible
-                : _addMaxColor && _maxColorVisible;
-            if (!_visibility || !colorVisible || _colorBoxWidth <= 0 || _colorBoxHeight <= 0)
-                return Rectangle.Empty;
-            //
-            double[] colorPosition =
-                _scalarBarColorsActor.GetPositionCoordinate().GetComputedDoubleDisplayValue(_renderer);
-            double y = colorPosition[1];
-            if (!minimumColor)
-            {
-                y += _numberOfColors * _colorBoxHeight;
-                if (_addMinColor && _minColorVisible) y += _colorBoxHeight;
-            }
-            //
-            int left = (int)Math.Floor(colorPosition[0]);
-            int bottom = (int)Math.Floor(y);
-            int right = (int)Math.Ceiling(colorPosition[0] + _colorBoxWidth);
-            int top = Math.Max(bottom + 1, (int)Math.Ceiling(y + _colorBoxHeight) - 1);
-            return Rectangle.FromLTRB(left, bottom, right, top);
-        }
         protected override Rectangle GetDisplayRectangle()
         {
             Rectangle rectangle = base.GetDisplayRectangle();
@@ -399,30 +378,16 @@ namespace vtkControl
         {
             if (_visibility)
             {
-                Rectangle minimumColorRectangle = GetUserColorRectangle(true);
-                Rectangle maximumColorRectangle = GetUserColorRectangle(false);
                 Rectangle minimumRectangle =
                     GetValueLabelHighlightRectangle(GetValueLabelRectangle(_minimumLabelIndex));
                 Rectangle maximumRectangle =
                     GetValueLabelHighlightRectangle(GetValueLabelRectangle(_maximumLabelIndex));
                 //
-                if (minimumColorRectangle.Contains(x, y)) return minimumColorRectangle;
-                else if (maximumColorRectangle.Contains(x, y)) return maximumColorRectangle;
-                else if (minimumRectangle.Contains(x, y)) return minimumRectangle;
+                if (minimumRectangle.Contains(x, y)) return minimumRectangle;
                 else if (maximumRectangle.Contains(x, y)) return maximumRectangle;
             }
             //
             return base.GetHighlightRectangle(x, y);
-        }
-        protected override double GetHighlightFillOpacity(Rectangle rectangle)
-        {
-            Rectangle minimumColorRectangle = GetUserColorRectangle(true);
-            Rectangle maximumColorRectangle = GetUserColorRectangle(false);
-            if (rectangle != Rectangle.Empty &&
-                (rectangle == minimumColorRectangle || rectangle == maximumColorRectangle))
-                return vtkMaxWidgetHighlight.ColorRectangleFillOpacity;
-            //
-            return base.GetHighlightFillOpacity(rectangle);
         }
         private void GenerateBarBorders(double offsetX, double offsetY, double boxWidth, double boxHeight, double verticalLineLength)
         {
@@ -825,19 +790,6 @@ namespace vtkControl
         public vtkLookupTable GetLookupTable()
         {
             return _lookupTable;
-        }
-        public bool TryGetUserColorData(int x, int y, out bool minimumColor, out Rectangle rectangle)
-        {
-            minimumColor = false;
-            rectangle = GetUserColorRectangle(true);
-            if (rectangle.Contains(x, y))
-            {
-                minimumColor = true;
-                return true;
-            }
-            //
-            rectangle = GetUserColorRectangle(false);
-            return rectangle.Contains(x, y);
         }
         public bool TryGetValueEditData(int x, int y, out bool editMinimum, out Rectangle rectangle,
                                         out string valueText, out double minimum, out double maximum)

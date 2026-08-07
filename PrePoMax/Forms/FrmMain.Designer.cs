@@ -568,8 +568,10 @@ namespace PrePoMax
             this.tsmiDeleteAnnotation = new System.Windows.Forms.ToolStripMenuItem();
             this.cmsResultWidget = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.tsmiEditLegendValue = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiSetLegendColor = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiHideLegendColor = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiSetMaxColor = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiMaxColorVisible = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiSetMinColor = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiMinColorVisible = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiResultWidgetSettings = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiResetLegend = new System.Windows.Forms.ToolStripMenuItem();
             this.statusStripMain = new System.Windows.Forms.StatusStrip();
@@ -582,10 +584,13 @@ namespace PrePoMax
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
             this.splitContainer2 = new System.Windows.Forms.SplitContainer();
             this.tbOutput = new UserControls.AutoScrollTextBox();
-            this.timerTest = new System.Windows.Forms.Timer(this.components);
-            this.timerOutput = new System.Windows.Forms.Timer(this.components);
             this.cmsOutputTextbox = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.tsmiClearOutputTextbox = new System.Windows.Forms.ToolStripMenuItem();
+            this.timerTest = new System.Windows.Forms.Timer(this.components);
+            this.timerOutput = new System.Windows.Forms.Timer(this.components);
+            this.tsmiResultWidgetSeparator1 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiResultWidgetSeparator2 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiResultWidgetSeparator3 = new System.Windows.Forms.ToolStripSeparator();
             this.tsFile.SuspendLayout();
             this.tsViews.SuspendLayout();
             this.tsSymbols.SuspendLayout();
@@ -4926,47 +4931,69 @@ namespace PrePoMax
             // 
             this.cmsResultWidget.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsmiEditLegendValue,
-            this.tsmiSetLegendColor,
-            this.tsmiHideLegendColor,
             this.tsmiResultWidgetSettings,
+            this.tsmiResultWidgetSeparator1,
+            this.tsmiSetMaxColor,
+            this.tsmiMaxColorVisible,
+            this.tsmiResultWidgetSeparator2,
+            this.tsmiSetMinColor,
+            this.tsmiMinColorVisible,
+            this.tsmiResultWidgetSeparator3,
             this.tsmiResetLegend});
             this.cmsResultWidget.Name = "cmsResultWidget";
-            this.cmsResultWidget.Size = new System.Drawing.Size(121, 114);
+            this.cmsResultWidget.Size = new System.Drawing.Size(181, 198);
             this.cmsResultWidget.Closed += new System.Windows.Forms.ToolStripDropDownClosedEventHandler(this.cmsViewportWidget_Closed);
             // 
             // tsmiEditLegendValue
             // 
             this.tsmiEditLegendValue.Name = "tsmiEditLegendValue";
-            this.tsmiEditLegendValue.Size = new System.Drawing.Size(120, 22);
+            this.tsmiEditLegendValue.Size = new System.Drawing.Size(180, 22);
             this.tsmiEditLegendValue.Text = "Edit";
             this.tsmiEditLegendValue.Click += new System.EventHandler(this.tsmiEditLegendValue_Click);
             // 
-            // tsmiSetLegendColor
+            // tsmiSetMaxColor
             // 
-            this.tsmiSetLegendColor.Image = global::PrePoMax.Properties.Resources.Color_palette;
-            this.tsmiSetLegendColor.Name = "tsmiSetLegendColor";
-            this.tsmiSetLegendColor.Size = new System.Drawing.Size(120, 22);
-            this.tsmiSetLegendColor.Text = "Set color";
-            this.tsmiSetLegendColor.Click += new System.EventHandler(this.tsmiSetLegendColor_Click);
+            this.tsmiSetMaxColor.Image = global::PrePoMax.Properties.Resources.Color_palette;
+            this.tsmiSetMaxColor.Name = "tsmiSetMaxColor";
+            this.tsmiSetMaxColor.Size = new System.Drawing.Size(180, 22);
+            this.tsmiSetMaxColor.Text = "Set max color";
+            this.tsmiSetMaxColor.Click += new System.EventHandler(this.tsmiSetMaxColor_Click);
             // 
-            // tsmiHideLegendColor
+            // tsmiMaxColorVisible
             // 
-            this.tsmiHideLegendColor.Name = "tsmiHideLegendColor";
-            this.tsmiHideLegendColor.Size = new System.Drawing.Size(120, 22);
-            this.tsmiHideLegendColor.Text = "Hide";
-            this.tsmiHideLegendColor.Click += new System.EventHandler(this.tsmiHideLegendColor_Click);
+            this.tsmiMaxColorVisible.CheckOnClick = true;
+            this.tsmiMaxColorVisible.Name = "tsmiMaxColorVisible";
+            this.tsmiMaxColorVisible.Size = new System.Drawing.Size(180, 22);
+            this.tsmiMaxColorVisible.Text = "Max color visible";
+            this.tsmiMaxColorVisible.Click += new System.EventHandler(this.tsmiMaxColorVisible_Click);
+            // 
+            // tsmiSetMinColor
+            // 
+            this.tsmiSetMinColor.Image = global::PrePoMax.Properties.Resources.Color_palette;
+            this.tsmiSetMinColor.Name = "tsmiSetMinColor";
+            this.tsmiSetMinColor.Size = new System.Drawing.Size(180, 22);
+            this.tsmiSetMinColor.Text = "Set min color";
+            this.tsmiSetMinColor.Click += new System.EventHandler(this.tsmiSetMinColor_Click);
+            // 
+            // tsmiMinColorVisible
+            // 
+            this.tsmiMinColorVisible.CheckOnClick = true;
+            this.tsmiMinColorVisible.Name = "tsmiMinColorVisible";
+            this.tsmiMinColorVisible.Size = new System.Drawing.Size(180, 22);
+            this.tsmiMinColorVisible.Text = "Min color visible";
+            this.tsmiMinColorVisible.Click += new System.EventHandler(this.tsmiMinColorVisible_Click);
             // 
             // tsmiResultWidgetSettings
             // 
             this.tsmiResultWidgetSettings.Name = "tsmiResultWidgetSettings";
-            this.tsmiResultWidgetSettings.Size = new System.Drawing.Size(120, 22);
+            this.tsmiResultWidgetSettings.Size = new System.Drawing.Size(180, 22);
             this.tsmiResultWidgetSettings.Text = "Settings";
             this.tsmiResultWidgetSettings.Click += new System.EventHandler(this.tsmiResultWidgetSettings_Click);
             // 
             // tsmiResetLegend
             // 
             this.tsmiResetLegend.Name = "tsmiResetLegend";
-            this.tsmiResetLegend.Size = new System.Drawing.Size(120, 22);
+            this.tsmiResetLegend.Size = new System.Drawing.Size(180, 22);
             this.tsmiResetLegend.Text = "Reset";
             this.tsmiResetLegend.Click += new System.EventHandler(this.tsmiResetLegend_Click);
             // 
@@ -5021,7 +5048,7 @@ namespace PrePoMax
             // tsslEmpty
             // 
             this.tsslEmpty.Name = "tsslEmpty";
-            this.tsslEmpty.Size = new System.Drawing.Size(916, 21);
+            this.tsslEmpty.Size = new System.Drawing.Size(867, 21);
             this.tsslEmpty.Spring = true;
             this.tsslEmpty.Text = " ";
             // 
@@ -5108,14 +5135,6 @@ namespace PrePoMax
             this.tbOutput.TabIndex = 0;
             this.tbOutput.Text = "Output text box";
             // 
-            // timerTest
-            // 
-            this.timerTest.Tick += new System.EventHandler(this.timerTest_Tick);
-            // 
-            // timerOutput
-            // 
-            this.timerOutput.Tick += new System.EventHandler(this.timerOutput_Tick);
-            // 
             // cmsOutputTextbox
             // 
             this.cmsOutputTextbox.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -5126,9 +5145,32 @@ namespace PrePoMax
             // tsmiClearOutputTextbox
             // 
             this.tsmiClearOutputTextbox.Name = "tsmiClearOutputTextbox";
-            this.tsmiClearOutputTextbox.Size = new System.Drawing.Size(180, 22);
+            this.tsmiClearOutputTextbox.Size = new System.Drawing.Size(101, 22);
             this.tsmiClearOutputTextbox.Text = "Clear";
             this.tsmiClearOutputTextbox.Click += new System.EventHandler(this.tsmiClearOutputTextbox_Click);
+            // 
+            // timerTest
+            // 
+            this.timerTest.Tick += new System.EventHandler(this.timerTest_Tick);
+            // 
+            // timerOutput
+            // 
+            this.timerOutput.Tick += new System.EventHandler(this.timerOutput_Tick);
+            // 
+            // tsmiResultWidgetSeparator1
+            // 
+            this.tsmiResultWidgetSeparator1.Name = "tsmiResultWidgetSeparator1";
+            this.tsmiResultWidgetSeparator1.Size = new System.Drawing.Size(177, 6);
+            // 
+            // tsmiResultWidgetSeparator2
+            // 
+            this.tsmiResultWidgetSeparator2.Name = "tsmiResultWidgetSeparator2";
+            this.tsmiResultWidgetSeparator2.Size = new System.Drawing.Size(177, 6);
+            // 
+            // tsmiResultWidgetSeparator3
+            // 
+            this.tsmiResultWidgetSeparator3.Name = "tsmiResultWidgetSeparator3";
+            this.tsmiResultWidgetSeparator3.Size = new System.Drawing.Size(177, 6);
             // 
             // FrmMain
             // 
@@ -5559,8 +5601,10 @@ namespace PrePoMax
         private System.Windows.Forms.ContextMenuStrip cmsAnnotation;
         private System.Windows.Forms.ContextMenuStrip cmsResultWidget;
         private System.Windows.Forms.ToolStripMenuItem tsmiEditLegendValue;
-        private System.Windows.Forms.ToolStripMenuItem tsmiSetLegendColor;
-        private System.Windows.Forms.ToolStripMenuItem tsmiHideLegendColor;
+        private System.Windows.Forms.ToolStripMenuItem tsmiSetMaxColor;
+        private System.Windows.Forms.ToolStripMenuItem tsmiMaxColorVisible;
+        private System.Windows.Forms.ToolStripMenuItem tsmiSetMinColor;
+        private System.Windows.Forms.ToolStripMenuItem tsmiMinColorVisible;
         private System.Windows.Forms.ToolStripMenuItem tsmiResultWidgetSettings;
         private System.Windows.Forms.ToolStripMenuItem tsmiResetLegend;
         private System.Windows.Forms.ToolStripMenuItem tsmiDeleteAnnotation;
@@ -5736,6 +5780,9 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiBidirectionalMeshConverter;
         private System.Windows.Forms.ContextMenuStrip cmsOutputTextbox;
         private System.Windows.Forms.ToolStripMenuItem tsmiClearOutputTextbox;
+        private System.Windows.Forms.ToolStripSeparator tsmiResultWidgetSeparator1;
+        private System.Windows.Forms.ToolStripSeparator tsmiResultWidgetSeparator2;
+        private System.Windows.Forms.ToolStripSeparator tsmiResultWidgetSeparator3;
     }
 }
 
