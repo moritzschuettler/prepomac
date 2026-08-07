@@ -21,6 +21,7 @@ namespace PrePoMax
     public static class Globals
     {
         public static string HomePage = "https://prepomax.fs.um.si/";
+        public static string ReleaseCandidate = "RC1";
         //
         public static string ProgramName
         {
@@ -29,7 +30,8 @@ namespace PrePoMax
                 string name = "PrePoMax";
                 Version appVersion = Assembly.GetExecutingAssembly().GetName().Version;
                 name += " v" + appVersion.Major + "." + appVersion.Minor + "." + appVersion.Build;
-                if (appVersion.Build != 0) name += " dev";
+                if (ReleaseCandidate != null && ReleaseCandidate.Length > 0) name += " " + ReleaseCandidate;
+                else if (appVersion.Build != 0) name += " dev";
                 return name;
             }
         }

@@ -604,6 +604,7 @@ namespace PrePoMax
             if (!Debugger.IsAttached)
             {
                 tsmiTest.Visible = false;
+                tsmiPythonScriptEditor.Visible = false;
                 tsmiCropStlPartWithCylinder.Visible = false;
                 tsmiCropStlPartWithCube.Visible = false;
             }
