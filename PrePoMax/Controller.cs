@@ -16454,13 +16454,14 @@ namespace PrePoMax
                                 AnnotateWithColorLegend();
                                 _annotations.DrawAnnotations();
                                 //
+                                DrawModelSymbols();
+                                //
                                 DrawItemIds();
                                 //
                                 ApplySectionView();
                             }
                             catch { }
                         }
-                        DrawModelSymbols();
                         UpdateTreeSelection();
                     }
                     //
@@ -20194,95 +20195,155 @@ namespace PrePoMax
                 xyz[2] = 1;
             }
             //
-            return GetSpatiallyEquallyDistributedCoor(coor, box, xyz, visible);
+            return GetSpatiallyEquallyDistributedCoorSparse(coor, box, xyz, visible);
         }
-        private int[] GetSpatiallyEquallyDistributedCoor(double[][] coor, BoundingBox box, int[] n, bool[] visible)
+        private int[] GetSpatiallyEquallyDistributedCoorByPercentage(double[][] coor, int percentage)
         {
-            // Divide space into boxes and then find the coor closest to the box center
-            if (coor.Length <= 0) return null;
-            // Divide space into hexahedrons
-            int nX = n[0];
-            int nY = n[1];
-            int nZ = n[2];
+            if (coor == null || coor.Length == 0 || percentage <= 0) return new int[0];
+            if (percentage >= 100) return Enumerable.Range(0, coor.Length).ToArray();
             //
-            double deltaX = 1;
-            double deltaY = 1;
-            double deltaZ = 1;
-            // Interval from 0...2 has 2 segments; value 2 is out of it
-            if (box.MaxX - box.MinX != 0) deltaX = ((box.MaxX - box.MinX) / nX) * 1.01;    
-            if (box.MaxY - box.MinY != 0) deltaY = ((box.MaxY - box.MinY) / nY) * 1.01;
-            if (box.MaxZ - box.MinZ != 0) deltaZ = ((box.MaxZ - box.MinZ) / nZ) * 1.01;
-            box.MinX -= deltaX * 0.005;
-            box.MinY -= deltaY * 0.005;
-            box.MinZ -= deltaZ * 0.005;
+            int targetCount = (int)Math.Ceiling(coor.Length * percentage / 100.0);
+            if (targetCount >= coor.Length) return Enumerable.Range(0, coor.Length).ToArray();
             //
-            List<int>[][][] spatialIds = new List<int>[nX][][];
-            for (int i = 0; i < nX; i++)
+            BoundingBox box = new BoundingBox();
+            box.IncludeCoors(coor);
+            int bestMaxN = 1;
+            int bestCount = int.MaxValue;
+            int bestDifference = int.MaxValue;
+            int low = 1;
+            int high = 1;
+            int count;
+            // First bracket the requested occupied-cell count. The sparse grid makes large
+            // subdivision counts safe because empty cells are never allocated.
+            while (true)
             {
-                spatialIds[i] = new List<int>[nY][];
-                for (int j = 0; j < nY; j++)
-                {
-                    spatialIds[i][j] = new List<int>[nZ];
-                }
+                count = GetSpatialGridCellCount(coor, box, GetSpatialGridDivisions(box, high), null);
+                UpdateBestSpatialGrid(high, count, targetCount, ref bestMaxN, ref bestCount, ref bestDifference);
+                if (count >= targetCount || high >= coor.Length) break;
+                //
+                low = high + 1;
+                high = high > coor.Length / 2 ? coor.Length : 2 * high;
             }
-            // Fill space hexahedrons
-            int idX;
-            int idY;
-            int idZ;
+            // Find the grid resolution whose occupied-cell count is closest to the requested percentage.
+            while (low <= high)
+            {
+                int mid = low + (high - low) / 2;
+                count = GetSpatialGridCellCount(coor, box, GetSpatialGridDivisions(box, mid), null);
+                UpdateBestSpatialGrid(mid, count, targetCount, ref bestMaxN, ref bestCount, ref bestDifference);
+                if (count < targetCount) low = mid + 1;
+                else if (count > targetCount) high = mid - 1;
+                else break;
+            }
+            //
+            return GetSpatiallyEquallyDistributedCoorSparse(coor, box, GetSpatialGridDivisions(box, bestMaxN), null);
+        }
+        private static void UpdateBestSpatialGrid(int maxN, int count, int targetCount, ref int bestMaxN,
+                                                  ref int bestCount, ref int bestDifference)
+        {
+            int difference = Math.Abs(count - targetCount);
+            if (difference < bestDifference ||
+                (difference == bestDifference && count < bestCount))
+            {
+                bestMaxN = maxN;
+                bestCount = count;
+                bestDifference = difference;
+            }
+        }
+        private static int[] GetSpatialGridDivisions(BoundingBox box, int maxN)
+        {
+            maxN = Math.Max(1, maxN);
+            double[] lengths = new double[] { box.MaxX - box.MinX,
+                                               box.MaxY - box.MinY,
+                                               box.MaxZ - box.MinZ };
+            double maxLength = Math.Max(lengths[0], Math.Max(lengths[1], lengths[2]));
+            int[] divisions = new int[] { 1, 1, 1 };
+            if (double.IsNaN(maxLength) || double.IsInfinity(maxLength) || maxLength <= 0) return divisions;
+            //
+            for (int i = 0; i < divisions.Length; i++)
+            {
+                if (lengths[i] > 1E-12 * maxLength)
+                    divisions[i] = Math.Max(1, (int)Math.Ceiling(maxN * lengths[i] / maxLength));
+            }
+            return divisions;
+        }
+        private int GetSpatialGridCellCount(double[][] coor, BoundingBox box, int[] n, bool[] visible)
+        {
+            GetSpatialGridParameters(box, n, out int nX, out int nY, out int nZ,
+                                     out double minX, out double minY, out double minZ,
+                                     out double deltaX, out double deltaY, out double deltaZ);
+            bool useVisibility = visible != null && visible.Length > 0;
+            HashSet<long> occupiedCells = new HashSet<long>();
             for (int i = 0; i < coor.Length; i++)
             {
-                idX = (int)Math.Floor((coor[i][0] - box.MinX) / deltaX);
-                idY = (int)Math.Floor((coor[i][1] - box.MinY) / deltaY);
-                idZ = (int)Math.Floor((coor[i][2] - box.MinZ) / deltaZ);
-                if (spatialIds[idX][idY][idZ] == null) spatialIds[idX][idY][idZ] = new List<int>();
-                spatialIds[idX][idY][idZ].Add(i);
+                if (useVisibility && (i >= visible.Length || !visible[i])) continue;
+                long cellId = GetSpatialGridCellId(coor[i], nX, nY, nZ, minX, minY, minZ,
+                                                   deltaX, deltaY, deltaZ, out _, out _, out _);
+                occupiedCells.Add(cellId);
             }
-            //
-            double[] center = new double[3];
-            int centerId;
-            List<int> centerIds = new List<int>();
-            for (int i = 0; i < nX; i++)
-            {
-                for (int j = 0; j < nY; j++)
-                {
-                    for (int k = 0; k < nZ; k++)
-                    {
-                        if (spatialIds[i][j][k] != null)
-                        {
-                            center[0] = box.MinX + (i + 0.5) * deltaX;
-                            center[1] = box.MinY + (j + 0.5) * deltaY;
-                            center[2] = box.MinZ + (k + 0.5) * deltaZ;
-                            //
-                            centerId = FindClosestIdFromIds(spatialIds[i][j][k].ToArray(), center, coor);
-                            if (visible == null || visible.Length == 0) centerIds.Add(centerId);
-                            else if (visible[centerId]) centerIds.Add(centerId);
-                        }
-                    }
-                }
-            }
-            //
-            return centerIds.ToArray();
+            return occupiedCells.Count;
         }
-        private int FindClosestIdFromIds(int[] ids, double[] center, double[][] coor)
+        private int[] GetSpatiallyEquallyDistributedCoorSparse(double[][] coor, BoundingBox box, int[] n, bool[] visible)
         {
-            int minId = -1;
-            double minDistance = double.MaxValue;
-            int id;
-            double d;
-            for (int i = 0; i < ids.Length; i++)
+            if (coor == null || coor.Length == 0) return null;
+            // Store only occupied cells. This avoids allocating nX*nY*nZ lists for points
+            // that usually lie on a surface or line rather than throughout the volume.
+            GetSpatialGridParameters(box, n, out int nX, out int nY, out int nZ,
+                                     out double minX, out double minY, out double minZ,
+                                     out double deltaX, out double deltaY, out double deltaZ);
+            bool useVisibility = visible != null && visible.Length > 0;
+            Dictionary<long, int> closestIds = new Dictionary<long, int>();
+            Dictionary<long, double> closestDistances = new Dictionary<long, double>();
+            for (int i = 0; i < coor.Length; i++)
             {
-                id = ids[i];
-                d = Math.Pow(center[0] - coor[id][0], 2) +
-                             Math.Pow(center[1] - coor[id][1], 2) +
-                             Math.Pow(center[2] - coor[id][2], 2);
+                if (useVisibility && (i >= visible.Length || !visible[i])) continue;
                 //
-                if (d < minDistance)
+                long cellId = GetSpatialGridCellId(coor[i], nX, nY, nZ, minX, minY, minZ,
+                                                   deltaX, deltaY, deltaZ,
+                                                   out int idX, out int idY, out int idZ);
+                double centerX = minX + (idX + 0.5) * deltaX;
+                double centerY = minY + (idY + 0.5) * deltaY;
+                double centerZ = minZ + (idZ + 0.5) * deltaZ;
+                double distance = Math.Pow(centerX - coor[i][0], 2) +
+                                  Math.Pow(centerY - coor[i][1], 2) +
+                                  Math.Pow(centerZ - coor[i][2], 2);
+                if (!closestDistances.TryGetValue(cellId, out double closestDistance) ||
+                    distance < closestDistance)
                 {
-                    minDistance = d;
-                    minId = id;
+                    closestIds[cellId] = i;
+                    closestDistances[cellId] = distance;
                 }
             }
-            return minId;
+            // Preserve the previous deterministic x/y/z cell traversal order.
+            long[] cellIds = closestIds.Keys.ToArray();
+            Array.Sort(cellIds);
+            int[] centerIds = new int[cellIds.Length];
+            for (int i = 0; i < cellIds.Length; i++) centerIds[i] = closestIds[cellIds[i]];
+            return centerIds;
+        }
+        private static void GetSpatialGridParameters(BoundingBox box, int[] n,
+                                                     out int nX, out int nY, out int nZ,
+                                                     out double minX, out double minY, out double minZ,
+                                                     out double deltaX, out double deltaY, out double deltaZ)
+        {
+            nX = Math.Max(1, n[0]);
+            nY = Math.Max(1, n[1]);
+            nZ = Math.Max(1, n[2]);
+            deltaX = box.MaxX != box.MinX ? ((box.MaxX - box.MinX) / nX) * 1.01 : 1;
+            deltaY = box.MaxY != box.MinY ? ((box.MaxY - box.MinY) / nY) * 1.01 : 1;
+            deltaZ = box.MaxZ != box.MinZ ? ((box.MaxZ - box.MinZ) / nZ) * 1.01 : 1;
+            minX = box.MinX - deltaX * 0.005;
+            minY = box.MinY - deltaY * 0.005;
+            minZ = box.MinZ - deltaZ * 0.005;
+        }
+        private static long GetSpatialGridCellId(double[] coor, int nX, int nY, int nZ,
+                                                 double minX, double minY, double minZ,
+                                                 double deltaX, double deltaY, double deltaZ,
+                                                 out int idX, out int idY, out int idZ)
+        {
+            idX = Math.Max(0, Math.Min(nX - 1, (int)Math.Floor((coor[0] - minX) / deltaX)));
+            idY = Math.Max(0, Math.Min(nY - 1, (int)Math.Floor((coor[1] - minY) / deltaY)));
+            idZ = Math.Max(0, Math.Min(nZ - 1, (int)Math.Floor((coor[2] - minZ) / deltaZ)));
+            return ((long)idX * nY + idY) * nZ + idZ;
         }
         // Defined field
         public void DrawAllDefinedFields(string stepName)
@@ -21697,7 +21758,6 @@ namespace PrePoMax
         public void HighlightResultHistoryOutput(ResultHistoryOutput resultHistoryOutput)
         {
             if (resultHistoryOutput is ResultHistoryOutputFromField ||
-                resultHistoryOutput is ResultHistoryOutputFromElementSize ||
                 resultHistoryOutput is ResultHistoryOutputFromIntegration)
             {
                 if (resultHistoryOutput.RegionType == RegionTypeEnum.NodeSetName ||
@@ -22086,7 +22146,7 @@ namespace PrePoMax
                 HighlightItemsByElementIds(ids);
             else if (_selection.SelectItem == vtkSelectItem.GeometryVertex)
                 HighlightItemsByGeometryVertexIds(ids, useSecondaryHighlightColor);
-            else if (_selection.SelectItem == vtkSelectItem.GeometryEdge)   // QueryEdge
+            else if (_selection.SelectItem == vtkSelectItem.GeometryEdge)   // QueryEdge, Intergate Edge
                 HighlightItemsByGeometryEdgeIds(ids, useSecondaryHighlightColor);
             else if (_selection.SelectItem == vtkSelectItem.Surface)
                 HighlightItemsBySurfaceIds(ids, useSecondaryHighlightColor);
@@ -22361,6 +22421,12 @@ namespace PrePoMax
                     if (!float.IsNaN(magnitudes[i]) && !float.IsInfinity(magnitudes[i]) &&
                         magnitudes[i] > maxMagnitude) maxMagnitude = magnitudes[i];
                 }
+                double[][] allNodeCoor = nodeCoor.ToArray();
+                int[] sampleIndices = GetVectorPlotSampleIndices(vectorNodeIds, allNodeCoor);
+                vectorNodeIds = GetIndexedIds(vectorNodeIds, sampleIndices);
+                double[][] vectorNodeCoor = GetIndexedCoordinates(allNodeCoor, sampleIndices);
+                vectors = GetIndexedCoordinates(vectors, sampleIndices);
+                colorValues = GetIndexedValues(colorValues, sampleIndices);
                 // Keep the glyph size independent of the exploded-view spacing.
                 double[] offset = part.Offset;
                 if (offset != null && (offset[0] != 0 || offset[1] != 0 || offset[2] != 0))
@@ -22370,16 +22436,17 @@ namespace PrePoMax
                                                                   coor[1] - offset[1],
                                                                   coor[2] - offset[2] });
                 }
-                else boundingBox.IncludeCoors(nodeCoor.ToArray());
+                else boundingBox.IncludeCoors(allNodeCoor);
                 //
                 vtkMaxActorData data = new vtkMaxActorData();
                 data.Name = part.Name + Globals.NameSeparator + "Vector plot";
                 data.ParentName = part.Name;
                 data.Geometry.Nodes.Ids = vectorNodeIds;
-                data.Geometry.Nodes.Coor = nodeCoor.ToArray();
+                data.Geometry.Nodes.Coor = vectorNodeCoor;
                 data.Geometry.Nodes.Normals = vectors;
                 data.Geometry.Nodes.Values = colorValues;
                 data.Geometry.ExtremeNodes = _allResults.CurrentResult.GetScaledExtremeValues(part.Name, fieldData, 1);
+                data.NodeSize = (float)(5 * _settings.Post.VectorPlotScaleFactor);
                 data.Color = Color.White;
                 data.ColorContours = true;
                 data.Lighting = false;
@@ -22399,9 +22466,10 @@ namespace PrePoMax
             if (double.IsNaN(diagonal) || double.IsInfinity(diagonal) || diagonal <= 0)
                 diagonal = mesh.BoundingBox.GetDiagonal();
             if (double.IsNaN(diagonal) || double.IsInfinity(diagonal) || diagonal <= 0) diagonal = 1;
-            double maxArrowLength = 0.05 * diagonal * _settings.Post.VectorPlotScaleFactor;
+            double arrowSize = 0.05 * diagonal * _settings.Post.VectorPlotScaleFactor;
+            double maxArrowLength = arrowSize * _settings.Post.VectorPlotLengthScaleFactor;
             foreach (vtkMaxActorData data in vectorActorData)
-                _form.AddVectorFieldActor(data, maxMagnitude, maxArrowLength);
+                _form.AddVectorFieldActor(data, maxMagnitude, maxArrowLength, arrowSize);
             //
             if (hiddenRepresentationPartNames.Count > 0)
                 _form.UpdateResultRepresentationVisibility(hiddenRepresentationPartNames.ToArray(), false, false);
@@ -22457,6 +22525,12 @@ namespace PrePoMax
                         !float.IsNaN(values[i]) && !float.IsInfinity(values[i]) &&
                         Math.Abs(values[i]) > maxAbsValue) maxAbsValue = Math.Abs(values[i]);
                 }
+                double[][] allNodeCoor = nodeCoor.ToArray();
+                int[] sampleIndices = GetVectorPlotSampleIndices(tensorNodeIds, allNodeCoor);
+                tensorNodeIds = GetIndexedIds(tensorNodeIds, sampleIndices);
+                double[][] tensorNodeCoor = GetIndexedCoordinates(allNodeCoor, sampleIndices);
+                directions = GetIndexedCoordinates(directions, sampleIndices);
+                values = GetIndexedValues(values, sampleIndices);
                 // Keep the glyph size independent of the exploded-view spacing.
                 double[] offset = part.Offset;
                 if (offset != null && (offset[0] != 0 || offset[1] != 0 || offset[2] != 0))
@@ -22466,16 +22540,17 @@ namespace PrePoMax
                                                                   coor[1] - offset[1],
                                                                   coor[2] - offset[2] });
                 }
-                else boundingBox.IncludeCoors(nodeCoor.ToArray());
+                else boundingBox.IncludeCoors(allNodeCoor);
                 //
                 vtkMaxActorData data = new vtkMaxActorData();
                 data.Name = part.Name + Globals.NameSeparator + "Tensor plot";
                 data.ParentName = part.Name;
                 data.Geometry.Nodes.Ids = tensorNodeIds;
-                data.Geometry.Nodes.Coor = nodeCoor.ToArray();
+                data.Geometry.Nodes.Coor = tensorNodeCoor;
                 data.Geometry.Nodes.Normals = directions;
                 data.Geometry.Nodes.Values = values;
                 data.Geometry.ExtremeNodes = _allResults.CurrentResult.GetScaledExtremeValues(part.Name, fieldData, 1);
+                data.NodeSize = (float)(5 * _settings.Post.VectorPlotScaleFactor);
                 data.Color = Color.White;
                 data.ColorContours = true;
                 data.Lighting = false;
@@ -22495,9 +22570,10 @@ namespace PrePoMax
             if (double.IsNaN(diagonal) || double.IsInfinity(diagonal) || diagonal <= 0)
                 diagonal = mesh.BoundingBox.GetDiagonal();
             if (double.IsNaN(diagonal) || double.IsInfinity(diagonal) || diagonal <= 0) diagonal = 1;
-            double maxGlyphLength = 2 * 0.05 * diagonal * _settings.Post.VectorPlotScaleFactor;
+            double arrowSize = 2 * 0.05 * diagonal * _settings.Post.VectorPlotScaleFactor;
+            double maxGlyphLength = arrowSize * _settings.Post.VectorPlotLengthScaleFactor;
             foreach (vtkMaxActorData data in tensorActorData)
-                _form.AddTensorFieldActor(data, maxAbsValue, maxGlyphLength);
+                _form.AddTensorFieldActor(data, maxAbsValue, maxGlyphLength, arrowSize);
             //
             if (hiddenRepresentationPartNames.Count > 0)
                 _form.UpdateResultRepresentationVisibility(hiddenRepresentationPartNames.ToArray(), false, false);
@@ -22540,6 +22616,9 @@ namespace PrePoMax
                 //
                 UpdateAnimatedPlotMaximum(frames[i], _viewResultsType == ViewResultsTypeEnum.TensorPlot, ref maxValue);
             }
+            int[] sampleIndices = GetVectorPlotSampleIndices(nodeIds,
+                GetIndexedCoordinates(resultData.Geometry.Nodes.Coor, sourceIndices));
+            ApplyAnimatedPlotSampling(frames, sampleIndices);
             return CreateAnimatedPlotActorData(part, frames, resultData.Geometry.ExtremeNodesAnimation);
         }
         private vtkMaxActorData GetTimeIncrementAnimatedPlotActorData(ResultPart part, vtkMaxActorData resultData,
@@ -22574,10 +22653,13 @@ namespace PrePoMax
                 frames[i].Values = GetIndexedValues(resultFrame.Values, sourceIndices);
                 UpdateAnimatedPlotMaximum(frames[i], _viewResultsType == ViewResultsTypeEnum.TensorPlot, ref maxValue);
             }
+            int[] sampleIndices = GetVectorPlotSampleIndices(nodeIds,
+                GetIndexedCoordinates(resultData.Geometry.Nodes.Coor, sourceIndices));
+            ApplyAnimatedPlotSampling(frames, sampleIndices);
             return CreateAnimatedPlotActorData(part, frames, resultData.Geometry.ExtremeNodesAnimation);
         }
-        private bool GetCurrentPlotFrameNodes(ResultPart part, FieldData fieldData, out NodesExchangeData nodes,
-                                              out double maxValue)
+        private bool GetCurrentPlotFrameNodes(ResultPart part, FieldData fieldData, ref int[] sampleIndices,
+                                              out NodesExchangeData nodes, out double maxValue)
         {
             nodes = null;
             maxValue = 0;
@@ -22606,6 +22688,11 @@ namespace PrePoMax
             if (nodes.Values == null) return false;
             //
             UpdateAnimatedPlotMaximum(nodes, _viewResultsType == ViewResultsTypeEnum.TensorPlot, ref maxValue);
+            if (sampleIndices == null) sampleIndices = GetVectorPlotSampleIndices(nodeIds, nodes.Coor);
+            nodes.Ids = GetIndexedIds(nodes.Ids, sampleIndices);
+            nodes.Coor = GetIndexedCoordinates(nodes.Coor, sampleIndices);
+            nodes.Normals = GetIndexedCoordinates(nodes.Normals, sampleIndices);
+            nodes.Values = GetIndexedValues(nodes.Values, sampleIndices);
             return true;
         }
         private vtkMaxActorData CreateAnimatedPlotActorData(ResultPart part, NodesExchangeData[] frames,
@@ -22622,6 +22709,7 @@ namespace PrePoMax
             data.Geometry.ExtremeNodes =
                 extremeFrames != null && extremeFrames.Length > 0 ? extremeFrames[0] : null;
             data.Geometry.ExtremeNodesAnimation = extremeFrames;
+            data.NodeSize = (float)(5 * _settings.Post.VectorPlotScaleFactor);
             data.Color = Color.White;
             data.ColorContours = true;
             data.Lighting = false;
@@ -22638,14 +22726,15 @@ namespace PrePoMax
             if (actorData == null || actorData.Count == 0) return true;
             //
             double diagonal = GetPlotActorDiagonal(actorData);
-            double maxLength = 0.05 * diagonal * _settings.Post.VectorPlotScaleFactor;
-            if (_viewResultsType == ViewResultsTypeEnum.TensorPlot) maxLength *= 2;
+            double arrowSize = 0.05 * diagonal * _settings.Post.VectorPlotScaleFactor;
+            double maxLength = arrowSize * _settings.Post.VectorPlotLengthScaleFactor;
+            if (_viewResultsType == ViewResultsTypeEnum.TensorPlot) { maxLength *= 2; arrowSize *= 2; }
             //
             foreach (vtkMaxActorData data in actorData)
             {
                 bool added = _viewResultsType == ViewResultsTypeEnum.TensorPlot
-                    ? _form.AddAnimatedTensorFieldActor(data, maxValue, maxLength)
-                    : _form.AddAnimatedVectorFieldActor(data, maxValue, maxLength);
+                    ? _form.AddAnimatedTensorFieldActor(data, maxValue, maxLength, arrowSize)
+                    : _form.AddAnimatedVectorFieldActor(data, maxValue, maxLength, arrowSize);
                 if (!added) return false;
             }
             return true;
@@ -22675,6 +22764,44 @@ namespace PrePoMax
                 diagonal = _allResults.CurrentResult.Mesh.BoundingBox.GetDiagonal();
             if (double.IsNaN(diagonal) || double.IsInfinity(diagonal) || diagonal <= 0) diagonal = 1;
             return diagonal;
+        }
+        private int[] GetVectorPlotSampleIndices(int[] nodeIds, double[][] fallbackCoordinates)
+        {
+            if (nodeIds == null || nodeIds.Length == 0 || _settings.Post.VectorPlotDensity <= 0)
+                return new int[0];
+            if (_settings.Post.VectorPlotDensity >= 100)
+                return Enumerable.Range(0, nodeIds.Length).ToArray();
+            // Use undeformed coordinates so the retained node IDs stay unchanged through
+            // deformation-scale, time-increment, harmonic, and exploded-view animations.
+            double[][] samplingCoordinates = new double[nodeIds.Length][];
+            for (int i = 0; i < nodeIds.Length; i++)
+            {
+                if (_allResults.CurrentResult.UndeformedNodes.TryGetValue(nodeIds[i], out FeNode node))
+                    samplingCoordinates[i] = node.Coor;
+                else if (fallbackCoordinates != null && i < fallbackCoordinates.Length)
+                    samplingCoordinates[i] = fallbackCoordinates[i];
+                else
+                    samplingCoordinates[i] = new double[3];
+            }
+            return GetSpatiallyEquallyDistributedCoorByPercentage(samplingCoordinates,
+                                                                  _settings.Post.VectorPlotDensity);
+        }
+        private static int[] GetIndexedIds(int[] ids, int[] indices)
+        {
+            int[] indexedIds = new int[indices.Length];
+            for (int i = 0; i < indices.Length; i++) indexedIds[i] = ids[indices[i]];
+            return indexedIds;
+        }
+        private static void ApplyAnimatedPlotSampling(NodesExchangeData[] frames, int[] sampleIndices)
+        {
+            foreach (NodesExchangeData frame in frames)
+            {
+                if (frame == null) continue;
+                frame.Ids = GetIndexedIds(frame.Ids, sampleIndices);
+                frame.Coor = GetIndexedCoordinates(frame.Coor, sampleIndices);
+                frame.Normals = GetIndexedCoordinates(frame.Normals, sampleIndices);
+                frame.Values = GetIndexedValues(frame.Values, sampleIndices);
+            }
         }
         private static bool GetUniqueNodes(int[] nodeIds, out int[] uniqueNodeIds, out int[] sourceIndices)
         {
@@ -23015,6 +23142,7 @@ namespace PrePoMax
             vtkMaxActorData existingData;
             Dictionary<ResultPart, vtkMaxActorData> partData = new Dictionary<ResultPart, vtkMaxActorData>();
             Dictionary<ResultPart, vtkMaxActorData> plotPartData = new Dictionary<ResultPart, vtkMaxActorData>();
+            Dictionary<ResultPart, int[]> plotPartSampleIndices = new Dictionary<ResultPart, int[]>();
             double animatedPlotMaxValue = 0;
             for (int i = 0; i < angles.Length; i++)
             {
@@ -23028,10 +23156,12 @@ namespace PrePoMax
                     if (entry.Value is ResultPart resultPart)
                     {
                         frameData = GetResultPartActorData(resultPart, _currentFieldData);
+                        plotPartSampleIndices.TryGetValue(resultPart, out int[] sampleIndices);
                         bool plotFrameAvailable =
-                            GetCurrentPlotFrameNodes(resultPart, _currentFieldData,
+                            GetCurrentPlotFrameNodes(resultPart, _currentFieldData, ref sampleIndices,
                                                      out NodesExchangeData plotFrameNodes,
                                                      out double framePlotMaxValue);
+                        if (sampleIndices != null) plotPartSampleIndices[resultPart] = sampleIndices;
                         if (framePlotMaxValue > animatedPlotMaxValue)
                             animatedPlotMaxValue = framePlotMaxValue;
                         //

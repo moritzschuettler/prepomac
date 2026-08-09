@@ -65,6 +65,7 @@ namespace PrePoMax
         [CategoryAttribute("Source")]
         [OrderedDisplayName(1, 10, "Components")]
         [DescriptionAttribute("Component names for the history output.")]
+        [Editor(typeof(UserControls.FlagsEnumEditorUIEditor), typeof(System.Drawing.Design.UITypeEditor))]
         [Id(2, 3)]
         public MultiChoiceEnum ComponentNames
         {

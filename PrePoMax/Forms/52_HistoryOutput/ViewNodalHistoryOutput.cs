@@ -52,6 +52,7 @@ namespace PrePoMax
         [OrderedDisplayName(1, 10, "Variables to output")]
         [CategoryAttribute("Data")]
         [DescriptionAttribute("Nodal history variables")]
+        [Editor(typeof(UserControls.FlagsEnumEditorUIEditor), typeof(System.Drawing.Design.UITypeEditor))]
         public ViewNodalHistoryVariable Variables
         {
             get

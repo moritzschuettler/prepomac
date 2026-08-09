@@ -93,6 +93,7 @@ namespace PrePoMax
         [OrderedDisplayName(4, 10, "Variables to output")]
         [CategoryAttribute("Data")]
         [DescriptionAttribute("Element field variables")]
+        [Editor(typeof(UserControls.FlagsEnumEditorUIEditor), typeof(System.Drawing.Design.UITypeEditor))]
         public ViewElementFieldVariable Variables
         {
             get

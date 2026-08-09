@@ -38,6 +38,7 @@ namespace PrePoMax
         [CategoryAttribute("Data")]
         [OrderedDisplayName(1, 10, "History outputs")]
         [DescriptionAttribute("Select history outputs to be exported.")]
+        [Editor(typeof(UserControls.FlagsEnumEditorUIEditor), typeof(System.Drawing.Design.UITypeEditor))]
         [Id(2, 1)]
         public MultiChoiceEnum HistoryOutputNames
         {

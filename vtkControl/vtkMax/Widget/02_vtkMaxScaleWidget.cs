@@ -348,12 +348,14 @@ namespace vtkControl
         public override void SetInteractor(vtkRenderer renderer, vtkRenderWindowInteractor renderWindowInteractor)
         {
             base.SetInteractor(renderer, renderWindowInteractor);
-            //
-            _renderer.AddActor(_scaleBackgroundActor);
-            _renderer.AddActor(_scaleBorderActor);
-            for (int i = 0; i < _scaleTextActors.Length; i++)
+            if (_visibility)
             {
-                _renderer.AddActor(_scaleTextActors[i]);
+                _renderer.AddActor(_scaleBackgroundActor);
+                _renderer.AddActor(_scaleBorderActor);
+                for (int i = 0; i < _scaleTextActors.Length; i++)
+                {
+                    _renderer.AddActor(_scaleTextActors[i]);
+                }
             }
             //
             OnSizeChanged();

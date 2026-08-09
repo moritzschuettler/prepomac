@@ -42,6 +42,8 @@ namespace PrePoMax
         private Color _undeformedWireModelColor;
         private Color _undeformedSolidModelColor;
         private double _vectorPlotScaleFactor;
+        private double _vectorPlotLengthScaleFactor;
+        private int _vectorPlotDensity;
         private bool _showMinValueLocation;
         private bool _showMaxValueLocation;
         private int _maxHistoryEntriesToShow;
@@ -90,6 +92,25 @@ namespace PrePoMax
                 if (_vectorPlotScaleFactor <= 0) _vectorPlotScaleFactor = 1;
             }
         }
+        public double VectorPlotLengthScaleFactor
+        {
+            get { return _vectorPlotLengthScaleFactor > 0 ? _vectorPlotLengthScaleFactor : 1; }
+            set
+            {
+                _vectorPlotLengthScaleFactor = value;
+                if (_vectorPlotLengthScaleFactor <= 0) _vectorPlotLengthScaleFactor = 1;
+            }
+        }
+        public int VectorPlotDensity
+        {
+            get { return _vectorPlotDensity; }
+            set
+            {
+                _vectorPlotDensity = value;
+                if (_vectorPlotDensity < 0) _vectorPlotDensity = 0;
+                else if (_vectorPlotDensity > 100) _vectorPlotDensity = 100;
+            }
+        }
         public bool ShowMinValueLocation { get { return _showMinValueLocation; } set { _showMinValueLocation = value; } }
         public bool ShowMaxValueLocation { get { return _showMaxValueLocation; } set { _showMaxValueLocation = value; } }
         public int MaxHistoryEntriesToShow
@@ -114,6 +135,8 @@ namespace PrePoMax
         public void CheckValues()
         {
             VectorPlotScaleFactor = _vectorPlotScaleFactor;
+            VectorPlotDensity = _vectorPlotDensity;
+            VectorPlotLengthScaleFactor = _vectorPlotLengthScaleFactor;
         }
         public void Reset()
         {
@@ -121,6 +144,8 @@ namespace PrePoMax
             _undeformedWireModelColor = Color.FromArgb(128, Color.Black);
             _undeformedSolidModelColor = Color.FromArgb(128, Color.Gray);
             _vectorPlotScaleFactor = 1;
+            _vectorPlotDensity = 100;
+            _vectorPlotLengthScaleFactor = 1;
             //
             _showMinValueLocation = false;
             _showMaxValueLocation = true;

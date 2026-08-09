@@ -233,10 +233,21 @@ namespace CaeMesh
                              nodes[NodeIds[4]], nodes[NodeIds[5]],
                              nodalValues[NodeIds[0]], nodalValues[NodeIds[1]],
                              nodalValues[NodeIds[2]], nodalValues[NodeIds[3]],
-                             nodalValues[NodeIds[4]], nodalValues[NodeIds[5]]);
+                             nodalValues[NodeIds[4]], nodalValues[NodeIds[5]], IntegrationScale.None);
+        }
+        public override double Integrate(Dictionary<int, FeNode> nodes, Dictionary<int, double> nodalValues,
+                                         IntegrationScale scale)
+        {
+            return Integrate(nodes[NodeIds[0]], nodes[NodeIds[1]],
+                             nodes[NodeIds[2]], nodes[NodeIds[3]],
+                             nodes[NodeIds[4]], nodes[NodeIds[5]],
+                             nodalValues[NodeIds[0]], nodalValues[NodeIds[1]],
+                             nodalValues[NodeIds[2]], nodalValues[NodeIds[3]],
+                             nodalValues[NodeIds[4]], nodalValues[NodeIds[5]], scale);
         }
         private static double Integrate(FeNode n1, FeNode n2, FeNode n3, FeNode n4, FeNode n5, FeNode n6,
-                                       double u1, double u2, double u3, double u4, double u5, double u6)
+                                       double u1, double u2, double u3, double u4, double u5, double u6,
+                                       IntegrationScale scale)
         {
             double integral = 0;
             //
@@ -249,7 +260,10 @@ namespace CaeMesh
                 //
                 double jNorm = JNorm(n1, n2, n3, n4, n5, n6, xi, eta);
                 //
-                integral += _w[gp] * u * jNorm;
+                double weight = scale.IsUnity ? 1.0
+                    : scale.GetWeight(Interpolate(n1.X, n2.X, n3.X, n4.X, n5.X, n6.X, xi, eta));
+                //
+                integral += _w[gp] * u * jNorm * weight;
             }
             //
             return integral;

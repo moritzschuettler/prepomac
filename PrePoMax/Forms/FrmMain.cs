@@ -208,6 +208,7 @@ namespace PrePoMax
             else throw new NotSupportedException();
             return viewType;
         }
+        public bool LastOpenResultsAccepted { get; private set; }
 
         #endregion  ################################################################################################################
 
@@ -8198,7 +8199,7 @@ namespace PrePoMax
         {
             await Task.Run(() => _controller.OpenResultsCommand(jobName));
             //
-            RunHistoryPostprocessing();
+            if (LastOpenResultsAccepted) RunHistoryPostprocessing();
         }
         public void RunHistoryPostprocessing()
         {
@@ -8229,6 +8230,8 @@ namespace PrePoMax
         }
         public async void OpenAnalysisResults(string jobName, bool asynchronous = true)
         {
+            LastOpenResultsAccepted = false;
+            //
             AnalysisJob job = _controller.GetJob(jobName);
             //
             bool openResults = true;
@@ -8239,11 +8242,8 @@ namespace PrePoMax
                 if (job.JobStatus == JobStatus.Running)
                 {
                     string question = $"The analysis {job.Name} is still running. Continue?";
-                    if (MessageBoxes.ShowWarningQuestionOKCancel(question) == DialogResult.OK)
-                    {
-                        openResults = true;
-                        parameters += Globals.NameSeparator + Globals.OpenRunningJobResults;
-                    }
+                    openResults = MessageBoxes.ShowWarningQuestionOKCancel(question) == DialogResult.OK;
+                    if (openResults) parameters += Globals.NameSeparator + Globals.OpenRunningJobResults;
                 }
                 else if (!job.IsUpToDate)
                 {
@@ -8252,19 +8252,16 @@ namespace PrePoMax
                 }
             }
             //
-            if (openResults)
-            {
-                string resultsFile = job.ResultsFileName;
-                //
-                if (asynchronous)
-                    await OpenAsync(Path.Combine(job.WorkDirectory, resultsFile),
-                                    _controller.Open, false, CloseMonitorWindow,
-                                    parameters);
-                else
-                    OpenAsync(Path.Combine(job.WorkDirectory, resultsFile),
-                              _controller.Open, false, CloseMonitorWindow,
-                              parameters).Wait();
-            }
+            if (!openResults) return;
+            //
+            LastOpenResultsAccepted = true;
+            //
+            string resultsFileName = Path.Combine(job.WorkDirectory, job.ResultsFileName);
+            //
+            if (asynchronous)
+                await OpenAsync(resultsFileName, _controller.Open, false, CloseMonitorWindow, parameters);
+            else
+                OpenAsync(resultsFileName, _controller.Open, false, CloseMonitorWindow, parameters).Wait();
         }
         private void CloseMonitorWindow()
         {
@@ -10577,21 +10574,21 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.AddScalarFieldOnCells, actorData, update);
         }
-        public void AddVectorFieldActor(vtkMaxActorData actorData, double maxMagnitude, double maxArrowLength)
+        public void AddVectorFieldActor(vtkMaxActorData actorData, double maxMagnitude, double maxArrowLength, double arrowSize)
         {
-            InvokeIfRequired(_vtk.AddVectorFieldActor, actorData, maxMagnitude, maxArrowLength);
+            InvokeIfRequired(_vtk.AddVectorFieldActor, actorData, maxMagnitude, maxArrowLength, arrowSize);
         }
-        public void AddTensorFieldActor(vtkMaxActorData actorData, double maxAbsValue, double maxGlyphLength)
+        public void AddTensorFieldActor(vtkMaxActorData actorData, double maxAbsValue, double maxGlyphLength, double arrowSize)
         {
-            InvokeIfRequired(_vtk.AddTensorFieldActor, actorData, maxAbsValue, maxGlyphLength);
+            InvokeIfRequired(_vtk.AddTensorFieldActor, actorData, maxAbsValue, maxGlyphLength, arrowSize);
         }
-        public bool AddAnimatedVectorFieldActor(vtkMaxActorData actorData, double maxMagnitude, double maxArrowLength)
+        public bool AddAnimatedVectorFieldActor(vtkMaxActorData actorData, double maxMagnitude, double maxArrowLength, double arrowSize)
         {
-            return InvokeIfRequired(() => _vtk.AddAnimatedVectorFieldActor(actorData, maxMagnitude, maxArrowLength));
+            return InvokeIfRequired(() => _vtk.AddAnimatedVectorFieldActor(actorData, maxMagnitude, maxArrowLength, arrowSize));
         }
-        public bool AddAnimatedTensorFieldActor(vtkMaxActorData actorData, double maxAbsValue, double maxGlyphLength)
+        public bool AddAnimatedTensorFieldActor(vtkMaxActorData actorData, double maxAbsValue, double maxGlyphLength, double arrowSize)
         {
-            return InvokeIfRequired(() => _vtk.AddAnimatedTensorFieldActor(actorData, maxAbsValue, maxGlyphLength));
+            return InvokeIfRequired(() => _vtk.AddAnimatedTensorFieldActor(actorData, maxAbsValue, maxGlyphLength, arrowSize));
         }
         public bool AddAnimatedScalarFieldOn3DCells(vtkMaxActorData actorData)
         {

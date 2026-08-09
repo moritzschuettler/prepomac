@@ -7,15 +7,17 @@
 // Author: Matej Borovinšek
 // Contributors:
 
+using CaeGlobals;
+using CaeMesh;
+using CaeResults;
+using DynamicTypeDescriptor;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Drawing.Design;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.ComponentModel;
-using CaeGlobals;
-using DynamicTypeDescriptor;
-using CaeResults;
 
 namespace PrePoMax
 {
@@ -44,10 +46,43 @@ namespace PrePoMax
         }
         //
         [CategoryAttribute("Data")]
-        [OrderedDisplayName(2, 10, "User defined unit")]
-        [DescriptionAttribute("User defined unit for the history output.")]
+        [OrderedDisplayName(2, 10, "Integral result")]
+        [DescriptionAttribute("Select what the integral evaluates: Geometry (the region size), " +
+                              "Field (the field integral) or Field by Geometry (the region average of the field).")]
         [Id(3, 1)]
+        public IntegralResultEnum IntegralResult
+        {
+            get { return _historyOutput.IntegralResult; }
+            set { _historyOutput.IntegralResult = value; UpdateVisibility(); }
+        }
+        //
+        [CategoryAttribute("Data")]
+        [OrderedDisplayName(3, 10, "User defined unit")]
+        [DescriptionAttribute("User defined unit for the history output.")]
+        [Id(4, 1)]
         public string Unit { get { return _historyOutput.Unit; } set { _historyOutput.Unit = value; } }
+        //
+        [CategoryAttribute("Data")]
+        [OrderedDisplayName(4, 10, "Cross section")]
+        [DescriptionAttribute("Out-of-plane scaling for a 2D region: None (plain integral), Thickness " +
+                              "(plane stress / plane strain) or Axisymmetric (2*pi*r revolution).")]
+        [Id(5, 1)]
+        public IntegrationScaleType CrossSection
+        {
+            get { return _historyOutput.CrossSection; }
+            set { _historyOutput.CrossSection = value; UpdateVisibility(); }
+        }
+        //
+        [CategoryAttribute("Data")]
+        [OrderedDisplayName(5, 10, "Thickness")]
+        [DescriptionAttribute("Out-of-plane thickness used when the cross section is set to Thickness.")]
+        [TypeConverter(typeof(StringLengthConverter))]
+        [Id(6, 1)]
+        public double Thickness
+        {
+            get { return _historyOutput.Thickness; }
+            set { _historyOutput.Thickness = value; }
+        }
         //
         [CategoryAttribute("Region")]
         [OrderedDisplayName(2, 10, "Element set")]
@@ -81,6 +116,7 @@ namespace PrePoMax
         [CategoryAttribute("Source")]
         [OrderedDisplayName(1, 10, "Components")]
         [DescriptionAttribute("Component names for the history output.")]
+        [Editor(typeof(UserControls.FlagsEnumEditorUIEditor), typeof(UITypeEditor))]
         [Id(2, 3)]
         public MultiChoiceEnum ComponentNames
         {
@@ -97,7 +133,7 @@ namespace PrePoMax
         }
         [CategoryAttribute("Mesh deformation")]
         [OrderedDisplayName(0, 10, "Variable")]
-        [DescriptionAttribute("Select the deformation variable to be applied in the volume calculation.")]
+        [DescriptionAttribute("Select the deformation variable to be applied in the geometry calculation.")]
         [Id(1, 4)]
         public string DeformationVariableName
         {
@@ -133,8 +169,6 @@ namespace PrePoMax
         {
             _elementSetNames = elementSetNames;
             _surfaceNames = surfaceNames;
-            //
-            UpdateVisibility();
             // Components
             List<string> componentNames;
             _filedNameComponentNames = new Dictionary<string, string[]>();
@@ -149,6 +183,8 @@ namespace PrePoMax
             //
             DynamicCustomTypeDescriptor.PopulateProperty(nameof(DeformationVariableName),
                                                          FeResults.GetPossibleDeformationFieldOutputNamesMap().Keys.ToArray());
+            // Must be last: PopulateProperty resets the browsable state of the populated properties
+            UpdateVisibility();
         }
         private void UpdateComponents(string[] selectedComponentNames = null)
         {
@@ -165,20 +201,37 @@ namespace PrePoMax
         }
         private void UpdateVisibility()
         {
-            if (_historyOutput.IntegralType == IntegralTypeEnum.Surface)
+            Dictionary<RegionTypeEnum, string[]> regionTypeListItemsPairs = new Dictionary<RegionTypeEnum, string[]>();
+            regionTypeListItemsPairs.Add(RegionTypeEnum.Selection, new string[] { "Hidden" });
+            //
+            bool crossSectionVisible;
+            if (_historyOutput.IntegralType == IntegralTypeEnum.Line)
             {
-                Dictionary<RegionTypeEnum, string[]> regionTypeListItemsPairs = new Dictionary<RegionTypeEnum, string[]>();
-                regionTypeListItemsPairs.Add(RegionTypeEnum.Selection, new string[] { "Hidden" });
+                // The line region is a set of geometry edges - selection only
+                crossSectionVisible = true;
+            }
+            else if (_historyOutput.IntegralType == IntegralTypeEnum.Surface)
+            {
                 regionTypeListItemsPairs.Add(RegionTypeEnum.SurfaceName, _surfaceNames);
-                base.PopulateDropDownLists(regionTypeListItemsPairs);
+                crossSectionVisible = false;
             }
             else if (_historyOutput.IntegralType == IntegralTypeEnum.Volume)
             {
-                Dictionary<RegionTypeEnum, string[]> regionTypeListItemsPairs = new Dictionary<RegionTypeEnum, string[]>();
-                regionTypeListItemsPairs.Add(RegionTypeEnum.Selection, new string[] { "Hidden" });
                 regionTypeListItemsPairs.Add(RegionTypeEnum.ElementSetName, _elementSetNames);
-                base.PopulateDropDownLists(regionTypeListItemsPairs);
+                crossSectionVisible = true;
             }
+            else throw new NotSupportedException();
+            //
+            base.PopulateDropDownLists(regionTypeListItemsPairs);
+            // The geometry (size) result integrates the unit field, so no field/components are needed
+            bool fieldVisible = _historyOutput.IntegralResult != IntegralResultEnum.Geometry &&
+                                _filedNameComponentNames != null && _filedNameComponentNames.Count > 0;
+            DynamicCustomTypeDescriptor.GetProperty(nameof(FieldName)).SetIsBrowsable(fieldVisible);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(ComponentNames)).SetIsBrowsable(fieldVisible);
+            // Out-of-plane cross section scaling (Line and Volume integrals of a 2D region)
+            DynamicCustomTypeDescriptor.GetProperty(nameof(CrossSection)).SetIsBrowsable(crossSectionVisible);
+            DynamicCustomTypeDescriptor.GetProperty(nameof(Thickness)).SetIsBrowsable(
+                crossSectionVisible && _historyOutput.CrossSection == IntegrationScaleType.Thickness);
         }
     }
 }

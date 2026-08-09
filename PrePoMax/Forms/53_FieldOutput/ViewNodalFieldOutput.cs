@@ -66,6 +66,7 @@ namespace PrePoMax
         [CategoryAttribute("Data")]
         [OrderedDisplayName(3, 10, "Variables to output")]
         [DescriptionAttribute("Nodal field variables")]
+        [Editor(typeof(UserControls.FlagsEnumEditorUIEditor), typeof(System.Drawing.Design.UITypeEditor))]
         public ViewNodalFieldVariable Variables 
         { 
             get

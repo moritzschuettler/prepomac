@@ -139,7 +139,7 @@ namespace PrePoMax
         [CategoryAttribute("Damping")]
         [OrderedDisplayName(3, 10, "Damping ratios")]
         [DescriptionAttribute("Viscous damping ratios between the damping coefficient and the critical damping coefficient.")]
-        [Editor(typeof(Forms.DampingRatiosAndValuesUIEditor), typeof(UITypeEditor))]
+        [Editor(typeof(UserControls.DampingRatiosAndValuesUIEditor), typeof(UITypeEditor))]
         [Id(4, 3)]
         public List<DampingRatioAndRange> DampingRatiosAndRanges
         {

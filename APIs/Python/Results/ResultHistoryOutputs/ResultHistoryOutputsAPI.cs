@@ -100,38 +100,33 @@ namespace APIs.Python
             return _service.CreateFromEquation(name, equation, unit);
         }
 
-        [PythonAPI("Creates a From Element Size draft. Possible size_type values are 'area' and 'volume'. " +
-                   "Area accepts a surface-target selection or result surface; volume accepts an element-target " +
-                   "selection or result element set. " +
-                   "Possible deformation_variable_name values are 'Displacements', 'Forces', 'Surface Normals', " +
-                   "'Wear Depths', 'Mesh Deformation', 'Disp&Def', and 'Disp&Def&Depth'.",
-                   Arguments = "name: str, size_type: str, region: Selection or ElementSet or Surface, " +
-                               "deformation_variable_name: str = 'Displacements'",
-                   Returns = "HistoryOutputFromElementSizeDraft")]
-        public ResultHistoryOutputFromElementSizeDraftAPI create_history_output_from_element_size(
-            string name, string size_type, object region,
-            string deformation_variable_name = "Displacements")
-        {
-            return _service.CreateFromElementSize(name, size_type, region, deformation_variable_name);
-        }
-
-        [PythonAPI("Creates a From Integration draft. Possible integral_type values are 'surface' and 'volume'. " +
-                   "Surface integration accepts a surface-target selection or result surface; volume integration " +
-                   "accepts an element-target selection or result element set. Possible deformation_variable_name " +
-                   "values are 'Displacements', " +
+        [PythonAPI("Creates a From Integration draft. Possible integral_type values are 'line', 'surface' and " +
+                   "'volume'. Line integration accepts an edges-target selection; surface integration accepts a " +
+                   "surface-target selection or result surface; volume integration accepts an element-target " +
+                   "selection or result element set. Possible integral_result values are 'geometry' (the region " +
+                   "length/area/volume), 'field' (the field integral) and 'field_by_geometry' (the region average " +
+                   "of the field); field_name and component_names are ignored for 'geometry'. The cross_section " +
+                   "scaling ('none', 'thickness' or 'axisymmetric') applies to 'line' and 'volume' integrals of " +
+                   "2D output, and 'thickness' additionally uses the thickness argument. Possible " +
+                   "deformation_variable_name values are 'Displacements', " +
                    "'Forces', 'Surface Normals', 'Wear Depths', 'Mesh Deformation', 'Disp&Def', and " +
                    "'Disp&Def&Depth'.",
-                   Arguments = "name: str, integral_type: str, field_name: str, component_names: list[str], " +
-                               "region: Selection or ElementSet or Surface, " +
+                   Arguments = "name: str, integral_type: str, field_name: str = None, " +
+                               "component_names: list[str] = None, " +
+                               "region: Selection or ElementSet or Surface = None, " +
+                               "integral_result: str = 'geometry', " +
                                "deformation_variable_name: str = 'Displacements', " +
-                               "unit: str = '/'",
+                               "unit: str = '/', cross_section: str = 'none', thickness: float = 1.0",
                    Returns = "HistoryOutputFromIntegrationDraft")]
         public ResultHistoryOutputFromIntegrationDraftAPI create_history_output_from_integration(
-            string name, string integral_type, string field_name, object component_names,
-            object region, string deformation_variable_name = "Displacements", string unit = "/")
+            string name, string integral_type, string field_name = null, object component_names = null,
+            object region = null, string integral_result = "geometry",
+            string deformation_variable_name = "Displacements", string unit = "/",
+            string cross_section = "none", double thickness = 1.0)
         {
             return _service.CreateFromIntegration(name, integral_type, field_name, component_names, region,
-                                                  deformation_variable_name, unit);
+                                                  integral_result, deformation_variable_name, unit,
+                                                  cross_section, thickness);
         }
 
         [PythonAPI("Creates a minimum history-output filter. Possible return_value values are 'row' and 'column'.",

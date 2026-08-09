@@ -80,6 +80,7 @@
     <Compile Include="Elements\3D\ParabolicHexaElement.cs" />
     <Compile Include="Elements\3D\LinearHexaElement.cs" />
     <Compile Include="Elements\FeElement.cs" />
+    <Compile Include="Elements\IntegrationScale.cs" />
     <Compile Include="Elements\3D\ParabolicWedgeElement.cs" />
     <Compile Include="Elements\2D\ParabolicQuadrilateralElement.cs" />
     <Compile Include="Elements\2D\LinearQuadrilateralElement.cs" />

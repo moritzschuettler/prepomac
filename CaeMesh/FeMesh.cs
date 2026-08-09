@@ -6573,7 +6573,7 @@ namespace CaeMesh
             }
             else if (selectItem == vtkSelectItem.Element)
             {
-                return GetElementIdsFromGeometryId(itemTypePartIds, geometryId);
+                return GetElementIdsFromGeometryId(geometryId, itemTypePartIds);
             }
             else if (selectItem == vtkSelectItem.Geometry)
             {
@@ -6585,7 +6585,7 @@ namespace CaeMesh
             }
             else if (selectItem == vtkSelectItem.GeometryEdge)
             {
-                return new int[] { geometryId };
+                return GetGeometryEdgeIdsFromGeometryId(geometryId, itemTypePartIds);
             }
             else if (selectItem == vtkSelectItem.GeometrySurface)
             {
@@ -6654,7 +6654,7 @@ namespace CaeMesh
             //
             return nodeIds.ToArray();
         }
-        public int[] GetElementIdsFromGeometryId(int[] itemTypePartIds, int geometryId)
+        public int[] GetElementIdsFromGeometryId(int geometryId, int[] itemTypePartIds)
         {
             bool containsEdge = false;
             bool containsFace = false;
@@ -6668,6 +6668,38 @@ namespace CaeMesh
             //
             int[] nodeIds = GetNodeIdsFromGeometryId(geometryId);
             return GetElementIdsFromNodeIds(nodeIds, containsEdge, containsFace, false, itemTypePartIds[2]);
+        }
+        public int[] GetGeometryEdgeIdsFromGeometryId(int geometryId, int[] itemTypePartIds)
+        {
+            int[] ids = null;
+            int itemId = itemTypePartIds[0];
+            GeometryType geomType = (GeometryType)itemTypePartIds[1];
+            BasePart part = GetPartFromId(itemTypePartIds[2]);
+            HashSet<int> geometryEdgeIds = new HashSet<int>();
+            //
+            if (geomType == GeometryType.Vertex)
+            {
+                ids = new int[0];
+            }
+            else if (geomType == GeometryType.Edge || geomType == GeometryType.ShellEdgeSurface)
+            {
+                ids = new int[] { geometryId };
+            }
+            else if (geomType.IsSurface())
+            {
+                ids = part.Visualization.FaceEdgeIds[itemId].ToArray(); // copy
+                for (int i = 0; i < ids.Length; i++)
+                    ids[i] = GetGeometryId(ids[i], (int)GeometryType.Edge, itemTypePartIds[2]);
+            }
+            else if (geomType == GeometryType.Part)
+            {
+                ids = new int[part.Visualization.EdgeCount];
+                for (int i = 0; i < ids.Length; i++)
+                    ids[i] = GetGeometryId(i, (int)GeometryType.Edge, itemTypePartIds[2]);
+            }
+            else throw new NotSupportedException();
+            //
+            return ids;
         }
         // Get node, edge or triangle coordinates for mesh refinement for Netgen
         public void GetVertexAndEdgeCoorFromGeometryIds(int[] ids, double meshSize, bool edgeRepresentation,

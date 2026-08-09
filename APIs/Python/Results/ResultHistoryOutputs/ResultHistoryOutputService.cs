@@ -55,37 +55,38 @@ namespace APIs.Python
             if (!normalizedEquation.StartsWith("=")) normalizedEquation = "=" + normalizedEquation;
             return new ResultHistoryOutputFromEquationDraftAPI(name, normalizedEquation, unit);
         }
-        public ResultHistoryOutputFromElementSizeDraftAPI CreateFromElementSize(string name, string sizeType,
-                                                                                 object region,
-                                                                                 string deformationVariableName)
-        {
-            ValidateNameSyntax(name);
-            ElementSizeTypeEnum type = ParseElementSizeType(sizeType);
-            ValidateDeformationVariableName(deformationVariableName);
-            if (type == ElementSizeTypeEnum.Area)
-                ValidateRegionArgument(region, "surfaces", RegionTypeEnum.SurfaceName);
-            else ValidateRegionArgument(region, "elements", RegionTypeEnum.ElementSetName);
-            return new ResultHistoryOutputFromElementSizeDraftAPI(name, type, region, deformationVariableName);
-        }
         public ResultHistoryOutputFromIntegrationDraftAPI CreateFromIntegration(string name, string integralType,
                                                                                  string fieldName,
                                                                                  object componentNames,
                                                                                  object region,
+                                                                                 string integralResult,
                                                                                  string deformationVariableName,
-                                                                                 string unit)
+                                                                                 string unit,
+                                                                                 string crossSection,
+                                                                                 double thickness)
         {
             ValidateNameSyntax(name);
             IntegralTypeEnum type = ParseIntegralType(integralType);
-            ValidateRequiredString(fieldName, "field_name");
-            string[] components = PythonStringListConverter.ToStringArray(componentNames, "component_names");
-            ValidateStringList(components, "component_names");
+            IntegralResultEnum resultType = ParseIntegralResult(integralResult);
+            // The geometry (measure) result integrates the unit field, so it needs no field/components
+            string[] components = null;
+            if (resultType != IntegralResultEnum.Geometry)
+            {
+                ValidateRequiredString(fieldName, "field_name");
+                components = PythonStringListConverter.ToStringArray(componentNames, "component_names");
+                ValidateStringList(components, "component_names");
+            }
             ValidateDeformationVariableName(deformationVariableName);
             if (unit == null) throw new PythonAPIException("The argument 'unit' must not be None.");
-            if (type == IntegralTypeEnum.Surface)
+            IntegrationScaleType scale = ParseCrossSection(crossSection);
+            ValidateCrossSection(type, scale, thickness);
+            if (type == IntegralTypeEnum.Line)
+                ValidateRegionArgument(region, "edges");
+            else if (type == IntegralTypeEnum.Surface)
                 ValidateRegionArgument(region, "surfaces", RegionTypeEnum.SurfaceName);
             else ValidateRegionArgument(region, "elements", RegionTypeEnum.ElementSetName);
-            return new ResultHistoryOutputFromIntegrationDraftAPI(name, type, fieldName, components, region,
-                                                                   deformationVariableName, unit);
+            return new ResultHistoryOutputFromIntegrationDraftAPI(name, type, resultType, fieldName, components, region,
+                                                                   deformationVariableName, unit, scale, thickness);
         }
         public string AddHistoryOutput(string resultName, ResultHistoryOutputDraftAPI output)
         {
@@ -138,8 +139,6 @@ namespace APIs.Python
             if (output is ResultHistoryOutputFromField fromField) ValidateFromField(result, fromField);
             else if (output is ResultHistoryOutputFromEquation fromEquation)
                 ValidateFromEquation(result, fromEquation, replacedName);
-            else if (output is ResultHistoryOutputFromElementSize fromElementSize)
-                ValidateFromElementSize(result, fromElementSize);
             else if (output is ResultHistoryOutputFromIntegration fromIntegration)
                 ValidateFromIntegration(result, fromIntegration);
             else throw new PythonAPIException("The result history output type '" + output.GetType().Name +
@@ -178,21 +177,19 @@ namespace APIs.Python
             if (result.AreResultHistoryOutputsInCyclicDependance(replacedName, output))
                 throw new PythonAPIException("The history output equation would create a cyclic dependency.");
         }
-        private static void ValidateFromElementSize(FeResults result, ResultHistoryOutputFromElementSize output)
-        {
-            if (output.ElementSizeType == ElementSizeTypeEnum.Area)
-                ValidateRegion(result, output, "surfaces", RegionTypeEnum.SurfaceName);
-            else ValidateRegion(result, output, "elements", RegionTypeEnum.ElementSetName);
-            ValidateDeformationField(result, output.DeformationVariableName);
-        }
         private static void ValidateFromIntegration(FeResults result, ResultHistoryOutputFromIntegration output)
         {
-            if (output.IntegralType == IntegralTypeEnum.Surface)
+            if (output.IntegralType == IntegralTypeEnum.Line)
+                ValidateRegion(result, output, "edges");
+            else if (output.IntegralType == IntegralTypeEnum.Surface)
                 ValidateRegion(result, output, "surfaces", RegionTypeEnum.SurfaceName);
             else ValidateRegion(result, output, "elements", RegionTypeEnum.ElementSetName);
-            ValidateFieldComponents(result, output.FieldName, output.ComponentNames);
+            // The geometry (measure) result integrates the unit field, so it needs no field/components
+            if (output.IntegralResult != IntegralResultEnum.Geometry)
+                ValidateFieldComponents(result, output.FieldName, output.ComponentNames);
             ValidateDeformationField(result, output.DeformationVariableName);
             if (output.Unit == null) throw new PythonAPIException("The integration unit must not be None.");
+            ValidateCrossSection(output.IntegralType, output.CrossSection, output.Thickness);
         }
         private static void ValidateRegion(FeResults result, ResultHistoryOutput output, string selectionTarget,
                                            params RegionTypeEnum[] namedRegionTypes)
@@ -294,17 +291,38 @@ namespace APIs.Python
             if (region == null) throw new PythonAPIException("The argument 'region' must not be None.");
             throw new PythonAPIException("The argument 'region' must be a Selection, NodeSet, ElementSet, or Surface.");
         }
-        private static ElementSizeTypeEnum ParseElementSizeType(string sizeType)
-        {
-            if (sizeType == "area") return ElementSizeTypeEnum.Area;
-            if (sizeType == "volume") return ElementSizeTypeEnum.Volume;
-            throw new PythonAPIException("The argument 'size_type' must be 'area' or 'volume'.");
-        }
         private static IntegralTypeEnum ParseIntegralType(string integralType)
         {
+            if (integralType == "line") return IntegralTypeEnum.Line;
             if (integralType == "surface") return IntegralTypeEnum.Surface;
             if (integralType == "volume") return IntegralTypeEnum.Volume;
-            throw new PythonAPIException("The argument 'integral_type' must be 'surface' or 'volume'.");
+            throw new PythonAPIException("The argument 'integral_type' must be 'line', 'surface' or 'volume'.");
+        }
+        private static IntegralResultEnum ParseIntegralResult(string integralResult)
+        {
+            if (integralResult == null || integralResult == "geometry") return IntegralResultEnum.Geometry;
+            if (integralResult == "field") return IntegralResultEnum.Field;
+            if (integralResult == "field_by_geometry") return IntegralResultEnum.FieldByGeometry;
+            throw new PythonAPIException("The argument 'integral_result' must be 'geometry', 'field' or " +
+                                         "'field_by_geometry'.");
+        }
+        private static IntegrationScaleType ParseCrossSection(string crossSection)
+        {
+            if (crossSection == null || crossSection == "none") return IntegrationScaleType.None;
+            if (crossSection == "thickness") return IntegrationScaleType.Thickness;
+            if (crossSection == "axisymmetric") return IntegrationScaleType.Axisymmetric;
+            throw new PythonAPIException("The argument 'cross_section' must be 'none', 'thickness' or 'axisymmetric'.");
+        }
+        private static void ValidateCrossSection(IntegralTypeEnum integralType, IntegrationScaleType crossSection,
+                                                 double thickness)
+        {
+            // Out-of-plane scaling only makes sense for the line and (2D) volume integrals
+            if (integralType == IntegralTypeEnum.Surface && crossSection != IntegrationScaleType.None)
+                throw new PythonAPIException("The 'cross_section' scaling is only supported for 'line' and " +
+                                             "'volume' integral types.");
+            if (crossSection == IntegrationScaleType.Thickness && thickness <= 0)
+                throw new PythonAPIException("The argument 'thickness' must be larger than zero when " +
+                                             "cross_section is 'thickness'.");
         }
         private static void ValidateDeformationVariableName(string deformationVariableName)
         {

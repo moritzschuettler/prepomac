@@ -201,6 +201,14 @@ namespace CaeMesh
             return cg;
         }
         public abstract double Integrate(Dictionary<int, FeNode> nodes, Dictionary<int, double> nodalValues);
+        // Out-of-plane scaled integral. Elements that support 2D scaling (planar 2D and beam
+        // elements) override this; for all other elements only the unscaled integral is meaningful.
+        public virtual double Integrate(Dictionary<int, FeNode> nodes, Dictionary<int, double> nodalValues,
+                                        IntegrationScale scale)
+        {
+            if (scale.IsUnity) return Integrate(nodes, nodalValues);
+            else throw new NotSupportedException();
+        }
         //
         public abstract void Mirror();
         //

@@ -203,10 +203,17 @@ namespace CaeMesh
         public override double Integrate(Dictionary<int, FeNode> nodes, Dictionary<int, double> nodalValues)
         {
             return Integrate(nodes[NodeIds[0]], nodes[NodeIds[1]], nodes[NodeIds[2]],
-                             nodalValues[NodeIds[0]], nodalValues[NodeIds[1]], nodalValues[NodeIds[2]]);
+                             nodalValues[NodeIds[0]], nodalValues[NodeIds[1]], nodalValues[NodeIds[2]],
+                             IntegrationScale.None);
+        }
+        public override double Integrate(Dictionary<int, FeNode> nodes, Dictionary<int, double> nodalValues,
+                                         IntegrationScale scale)
+        {
+            return Integrate(nodes[NodeIds[0]], nodes[NodeIds[1]], nodes[NodeIds[2]],
+                             nodalValues[NodeIds[0]], nodalValues[NodeIds[1]], nodalValues[NodeIds[2]], scale);
         }
         private static double Integrate(FeNode n1, FeNode n2, FeNode n3,
-                                       double u1, double u2, double u3)
+                                       double u1, double u2, double u3, IntegrationScale scale)
         {
             double integral = 0;
             //
@@ -219,7 +226,9 @@ namespace CaeMesh
                 //
                 double jNorm = JNorm(n1, n2, n3);
                 //
-                integral += _w[gp] * u * jNorm;
+                double weight = scale.IsUnity ? 1.0 : scale.GetWeight(Interpolate(n1.X, n2.X, n3.X, xi, eta));
+                //
+                integral += _w[gp] * u * jNorm * weight;
             }
             //
             return integral;

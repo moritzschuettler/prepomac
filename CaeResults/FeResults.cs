@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -238,6 +238,48 @@ namespace CaeResults
                         _complexAngleDeg = (float)entry.Value; break;
                 }
             }
+            // Compatibility for version v2.6.0
+            MigrateElementSizeResultHistoryOutputs();
+        }
+        // Compatibility for version v2.6.0
+        // The From Element Size history output was replaced by the From Integration history output using the
+        // Geometry integral result: area -> surface integral, volume -> volume integral of the unit field.
+        private void MigrateElementSizeResultHistoryOutputs()
+        {
+            if (_resultHistoryOutputs == null) return;
+            //
+            foreach (string name in _resultHistoryOutputs.Keys.ToArray())
+            {
+                if (_resultHistoryOutputs[name] is ResultHistoryOutputFromElementSize rhofes)
+                    _resultHistoryOutputs[name] = ConvertElementSizeToIntegration(rhofes);
+            }
+        }
+        // Compatibility for version v2.6.0
+        public static ResultHistoryOutputFromIntegration
+            ConvertElementSizeToIntegration(ResultHistoryOutputFromElementSize resultHistoryOutput)
+        {
+            IntegralTypeEnum integralType = resultHistoryOutput.ElementSizeType == ElementSizeTypeEnum.Area ?
+                                            IntegralTypeEnum.Surface : IntegralTypeEnum.Volume;
+            // The deformation variable must exist in order to create the history output
+            OrderedDictionary<string, string> deformationNames = GetPossibleDeformationFieldOutputNamesMap();
+            string deformationVariableName = resultHistoryOutput.DeformationVariableName;
+            if (deformationVariableName == null || !deformationNames.ContainsKey(deformationVariableName))
+                deformationVariableName = deformationNames.Keys.First();
+            //
+            ResultHistoryOutputFromIntegration rhofi =
+                new ResultHistoryOutputFromIntegration(resultHistoryOutput.Name, integralType,
+                                                       resultHistoryOutput.RegionName, resultHistoryOutput.RegionType,
+                                                       "", null, deformationVariableName);
+            rhofi.IntegralResult = IntegralResultEnum.Geometry;
+            rhofi.CreationIds = resultHistoryOutput.CreationIds;
+            rhofi.CreationData = resultHistoryOutput.CreationData;
+            rhofi.Filter1 = resultHistoryOutput.Filter1;
+            rhofi.Filter2 = resultHistoryOutput.Filter2;
+            rhofi.Active = resultHistoryOutput.Active;
+            rhofi.Visible = resultHistoryOutput.Visible;
+            rhofi.Valid = resultHistoryOutput.Valid;
+            //
+            return rhofi;
         }
         // ISerialization
         public void GetObjectData(SerializationInfo info, StreamingContext context)
@@ -638,23 +680,26 @@ namespace CaeResults
                             valid &= CheckResultHistoryOutputEquation(rhofe.Equation, out _, out _) == null;
                         }
                     }
-                    else if (rho is ResultHistoryOutputFromElementSize rhofes) { }
                     else if (rho is ResultHistoryOutputFromIntegration rhofi)
                     {
-                        names = new HashSet<string>(GetVisibleFieldNames());
-                        valid &= names.Contains(rhofi.FieldName);
-                        //
-                        if (valid)
+                        // The geometry (measure) result integrates the unit field, so it needs no field/components
+                        if (rhofi.IntegralResult != IntegralResultEnum.Geometry)
                         {
-                            // Check if USER DEFINED FILED is used and if it is valid
-                            if (_resultFieldOutputs.TryGetValue(rhofi.FieldName, out existingResultFieldOutput))
-                                valid &= existingResultFieldOutput.Valid;
+                            names = new HashSet<string>(GetVisibleFieldNames());
+                            valid &= names.Contains(rhofi.FieldName);
                             //
                             if (valid)
                             {
-                                componentNames = rhofi.ComponentNames;
-                                names = new HashSet<string>(filedNameComponentNames[rhofi.FieldName]);
-                                valid &= names.IsSupersetOf(componentNames);
+                                // Check if USER DEFINED FILED is used and if it is valid
+                                if (_resultFieldOutputs.TryGetValue(rhofi.FieldName, out existingResultFieldOutput))
+                                    valid &= existingResultFieldOutput.Valid;
+                                //
+                                if (valid)
+                                {
+                                    componentNames = rhofi.ComponentNames;
+                                    names = new HashSet<string>(filedNameComponentNames[rhofi.FieldName]);
+                                    valid &= names.IsSupersetOf(componentNames);
+                                }
                             }
                         }
                     }
@@ -4499,6 +4544,10 @@ namespace CaeResults
         //
         public void AddResultHistoryOutput(ResultHistoryOutput resultHistoryOutput)
         {
+            // Compatibility for version v2.6.0: convert a From Element Size output added by the replay of an
+            // old command history into the equivalent From Integration output of the geometry
+            if (resultHistoryOutput is ResultHistoryOutputFromElementSize rhofes)
+                resultHistoryOutput = ConvertElementSizeToIntegration(rhofes);
             // First try to create the historyResultSet to catch potential errors
             HistoryResultSet historyResultSet = GetHistorySetFromResultHistoryOutput(resultHistoryOutput);
             //
@@ -4525,10 +4574,6 @@ namespace CaeResults
             else if (resultHistoryOutput is ResultHistoryOutputFromEquation rhofe)
             {
                 historyResultSet = GetHistorySetFromEquation(rhofe);
-            }
-            else if (resultHistoryOutput is ResultHistoryOutputFromElementSize rhofes)
-            {
-                historyResultSet = GetHistorySetFromElementSize(rhofes);
             }
             else if (resultHistoryOutput is ResultHistoryOutputFromIntegration rhofi)
             {
@@ -4759,187 +4804,14 @@ namespace CaeResults
                 MyNCalc.ExistingParameters = existingParameters;
             }
         }
-        private HistoryResultSet GetHistorySetFromElementSize(ResultHistoryOutputFromElementSize resultHistoryOutput)
-        {
-            if (resultHistoryOutput.ElementSizeType == ElementSizeTypeEnum.Area)
-                return GetHistorySetFromElementArea(resultHistoryOutput);
-            else if (resultHistoryOutput.ElementSizeType == ElementSizeTypeEnum.Volume)
-                return GetHistorySetFromElementVolume(resultHistoryOutput);
-            else throw new NotSupportedException();
-        }
-        private HistoryResultSet GetHistorySetFromElementArea(ResultHistoryOutputFromElementSize resultHistoryOutput)
-        {
-            if (resultHistoryOutput.ElementSizeType != ElementSizeTypeEnum.Area) throw new NotSupportedException();
-            // Collect face ids
-            int[] faceIds = null;
-            HistoryResultSet historyResultSet = null;
-            //
-            if (resultHistoryOutput.RegionType == RegionTypeEnum.SurfaceName)
-                faceIds = _mesh.Surfaces[resultHistoryOutput.RegionName].FaceIds;
-            else if (resultHistoryOutput.RegionType == RegionTypeEnum.Selection)
-                faceIds = resultHistoryOutput.CreationIds;
-            else throw new NotSupportedException();
-            //
-            if (faceIds != null)
-            {
-                int[] nodeIds;
-                Dictionary<FeFaceName, List<int>> elementSets;
-                _mesh.GetNodeIdsElementSetsFromFaceIds(faceIds, out nodeIds, out elementSets, out _, out _);
-                //
-                double[][] undeformedCoor = new double[nodeIds.Length][];
-                for (int i = 0; i < nodeIds.Length; i++) undeformedCoor[i] = _undeformedNodes[nodeIds[i]].Coor;
-                //
-                HistoryResultField historyResultField = new HistoryResultField(HOFieldNames.SurfaceArea);
-                HistoryResultComponent component = new HistoryResultComponent("EAREA");
-                // Prepare component entries
-                string name;
-                int element2DId = 1;
-                int[] elementNodeIds;
-                FeFaceName faceName;
-                FeElement element;
-                FeElement element2D;
-                Dictionary<string, int> nameElement2DId = new Dictionary<string, int>();
-                Dictionary<int, FeElement> elements = new Dictionary<int, FeElement>();
-                foreach (var entry in elementSets)
-                {
-                    faceName = entry.Key;
-                    foreach (int elementId in entry.Value)
-                    {
-                        element = _mesh.Elements[elementId];
-                        elementNodeIds = element.GetNodeIdsFromFaceName(faceName);
-                        if (elementNodeIds.Length == 3) element2D = new LinearTriangleElement(element2DId, elementNodeIds);
-                        else if (elementNodeIds.Length == 4) element2D = new LinearQuadrilateralElement(element2DId, elementNodeIds);
-                        else if (elementNodeIds.Length == 6) element2D = new ParabolicTriangleElement(element2DId, elementNodeIds);
-                        else if (elementNodeIds.Length == 8) element2D = new ParabolicQuadrilateralElement(element2DId, elementNodeIds);
-                        else throw new NotSupportedException();
-                        elements.Add(element2DId, element2D);
-                        //
-                        name = element.Id.ToString() + "_" + faceName;
-                        component.Entries.Add(name, new HistoryResultEntries(name, false));
-                        //
-                        nameElement2DId.Add(name, element2D.Id);
-                        element2DId++;
-                    }
-                }
-                // Get all existing increments
-                Dictionary<int, int[]> existingStepIncrementIds = GetAllExistingIncrementIds();
-                string fieldName = GetPossibleDeformationFieldOutputNamesMap()[resultHistoryOutput.DeformationVariableName];
-                //
-                double time;
-                double[][] coor;
-                foreach (var existingStepEntry in existingStepIncrementIds)
-                {
-                    foreach (var incrementId in existingStepEntry.Value)
-                    {
-                        coor = new double[undeformedCoor.Length][];
-                        for (int i = 0; i < undeformedCoor.Length; i++) coor[i] = undeformedCoor[i].ToArray();
-                        ScaleNodeCoordinates(fieldName, 1, existingStepEntry.Key, incrementId, nodeIds, ref coor);
-                        Dictionary<int, FeNode> nodes = new Dictionary<int, FeNode>();
-                        for (int i = 0; i < nodeIds.Length; i++) nodes.Add(nodeIds[i], new FeNode(nodeIds[i], coor[i]));
-                        Dictionary<int, double> elementIdSize = _mesh.ComputeVolumeArea(elements, nodes, typeof(FeElement2D));
-                        //
-                        time = GetIncrementTime(existingStepEntry.Key, incrementId);
-                        //
-                        foreach (var entry in elementSets)
-                        {
-                            faceName = entry.Key;
-                            foreach (int elementId in entry.Value)
-                            {
-                                element = _mesh.Elements[elementId];
-                                name = element.Id.ToString() + "_" + faceName;
-                                element2DId = nameElement2DId[name];
-                                component.Entries[name].Add(time, elementIdSize[element2DId]);
-                            }
-                        }
-                    }
-                }
-                // Filter
-                if (resultHistoryOutput.Filter1 != null) component.ApplyFilter(resultHistoryOutput.Filter1);
-                if (resultHistoryOutput.Filter2 != null) component.ApplyFilter(resultHistoryOutput.Filter2);
-                // Add component to field
-                historyResultField.Components.Add(component.Name, component);
-                //
-                historyResultSet = new HistoryResultSet(resultHistoryOutput.Name);
-                historyResultSet.Fields.Add(historyResultField.Name, historyResultField);
-            }
-            //
-            return historyResultSet;
-        }
-        private HistoryResultSet GetHistorySetFromElementVolume(ResultHistoryOutputFromElementSize resultHistoryOutput)
-        {
-            if (resultHistoryOutput.ElementSizeType != ElementSizeTypeEnum.Volume) throw new NotSupportedException();
-            // Collect element ids
-            int[] elementIds;
-            HistoryResultSet historyResultSet = null;
-            //
-            if (resultHistoryOutput.RegionType == RegionTypeEnum.ElementSetName)
-                elementIds = _mesh.ElementSets[resultHistoryOutput.RegionName].Labels;
-            else if (resultHistoryOutput.RegionType == RegionTypeEnum.Selection)
-                elementIds = resultHistoryOutput.CreationIds;
-            else throw new NotSupportedException();
-            //
-            if (elementIds != null)
-            {
-                int[] nodeIds = _mesh.GetNodeIdsFromElementIds(elementIds);
-                double[][] undeformedCoor = new double[nodeIds.Length][];
-                for (int i = 0; i < nodeIds.Length; i++) undeformedCoor[i] = _undeformedNodes[nodeIds[i]].Coor;
-                //
-                HistoryResultField historyResultField = new HistoryResultField(HOFieldNames.Volume);
-                HistoryResultComponent component = new HistoryResultComponent("EVOL");
-                // Prepare component entries
-                string name;
-                FeElement element;
-                Dictionary<int, FeElement> elements = new Dictionary<int, FeElement>();
-                for (int i = 0; i < elementIds.Length; i++)
-                {
-                    element = _mesh.Elements[elementIds[i]];
-                    elements.Add(element.Id, element);
-                    name = element.Id.ToString();
-                    component.Entries.Add(name, new HistoryResultEntries(name, false));
-                }
-                // Get all existing increments
-                Dictionary<int, int[]> existingStepIncrementIds = GetAllExistingIncrementIds();
-                string fieldName = GetPossibleDeformationFieldOutputNamesMap()[resultHistoryOutput.DeformationVariableName];
-                //
-                double time;
-                double[][] coor;
-                foreach (var existingStepEntry in existingStepIncrementIds)
-                {
-                    foreach (var incrementId in existingStepEntry.Value)
-                    {
-                        coor = new double[undeformedCoor.Length][];
-                        for (int i = 0; i < undeformedCoor.Length; i++) coor[i] = undeformedCoor[i].ToArray();
-                        ScaleNodeCoordinates(fieldName, 1, existingStepEntry.Key, incrementId, nodeIds, ref coor);
-                        Dictionary<int, FeNode> nodes = new Dictionary<int, FeNode>();
-                        for (int i = 0; i < nodeIds.Length; i++) nodes.Add(nodeIds[i], new FeNode(nodeIds[i], coor[i]));
-                        Dictionary<int, double> elementIdVolume = _mesh.ComputeVolumeArea(elements, nodes, typeof(FeElement3D));
-                        //
-                        time = GetIncrementTime(existingStepEntry.Key, incrementId);
-                        foreach (var entry in elementIdVolume)
-                        {
-                            name = entry.Key.ToString();
-                            component.Entries[name].Add(time, entry.Value);
-                        }
-                    }
-                }
-                // Filter
-                if (resultHistoryOutput.Filter1 != null) component.ApplyFilter(resultHistoryOutput.Filter1);
-                if (resultHistoryOutput.Filter2 != null) component.ApplyFilter(resultHistoryOutput.Filter2);
-                // Add component to field
-                historyResultField.Components.Add(component.Name, component);
-                //
-                historyResultSet = new HistoryResultSet(resultHistoryOutput.Name);
-                historyResultSet.Fields.Add(historyResultField.Name, historyResultField);
-            }
-            //
-            return historyResultSet;
-        }
         private HistoryResultSet GetHistorySetFromIntegration(ResultHistoryOutputFromIntegration resultHistoryOutput)
         {
             if (resultHistoryOutput.IntegralType == IntegralTypeEnum.Surface)
                 return GetHistorySetFromIntegrationBySurface(resultHistoryOutput);
             else if (resultHistoryOutput.IntegralType == IntegralTypeEnum.Volume)
                 return GetHistorySetFromIntegrationByVolume(resultHistoryOutput);
+            else if (resultHistoryOutput.IntegralType == IntegralTypeEnum.Line)
+                return GetHistorySetFromIntegrationByLine(resultHistoryOutput);
             else throw new NotSupportedException();
         }
         private HistoryResultSet GetHistorySetFromIntegrationBySurface(ResultHistoryOutputFromIntegration resultHistoryOutput)
@@ -4947,231 +4819,263 @@ namespace CaeResults
             if (resultHistoryOutput.IntegralType != IntegralTypeEnum.Surface) throw new NotSupportedException();
             // Collect face ids
             int[] faceIds = null;
-            HistoryResultSet historyResultSet = null;
-            //
             if (resultHistoryOutput.RegionType == RegionTypeEnum.SurfaceName)
                 faceIds = _mesh.Surfaces[resultHistoryOutput.RegionName].FaceIds;
             else if (resultHistoryOutput.RegionType == RegionTypeEnum.Selection)
                 faceIds = resultHistoryOutput.CreationIds;
             else throw new NotSupportedException();
             //
-            if (faceIds != null)
+            if (faceIds == null) return null;
+            //
+            int[] nodeIds;
+            Dictionary<FeFaceName, List<int>> elementSets;
+            _mesh.GetNodeIdsElementSetsFromFaceIds(faceIds, out nodeIds, out elementSets, out _, out _);
+            // Build one 2D integration element per element face
+            int element2DId = 1;
+            int[] elementNodeIds;
+            FeElement element;
+            FeElement element2D;
+            Dictionary<string, FeElement> namedElements = new Dictionary<string, FeElement>();
+            foreach (var entry in elementSets)
             {
-                int[] nodeIds;
-                Dictionary<FeFaceName, List<int>> elementSets;
-                _mesh.GetNodeIdsElementSetsFromFaceIds(faceIds, out nodeIds, out elementSets, out _, out _);
-                //
-                double[][] undeformedCoor = new double[nodeIds.Length][];
-                for (int i = 0; i < nodeIds.Length; i++) undeformedCoor[i] = _undeformedNodes[nodeIds[i]].Coor;
-                //
-                HistoryResultField historyResultField = new HistoryResultField(resultHistoryOutput.FieldName);
-                // Create history result components
-                List<HistoryResultComponent> components = new List<HistoryResultComponent>();
-                foreach (var componentName in resultHistoryOutput.ComponentNames)
-                    components.Add(new HistoryResultComponent(componentName));
-                // Prepare component entries
-                string name;
-                int element2DId = 1;
-                int[] elementNodeIds;
-                FeFaceName faceName;
-                FeElement element;
-                FeElement element2D;
-                Dictionary<string, int> nameElement2DId = new Dictionary<string, int>();
-                Dictionary<int, FeElement> elements = new Dictionary<int, FeElement>();
-                foreach (var entry in elementSets)
+                FeFaceName faceName = entry.Key;
+                foreach (int elementId in entry.Value)
                 {
-                    faceName = entry.Key;
-                    foreach (int elementId in entry.Value)
-                    {
-                        element = _mesh.Elements[elementId];
-                        elementNodeIds = element.GetNodeIdsFromFaceName(faceName);
-                        if (elementNodeIds.Length == 3) element2D = new LinearTriangleElement(element2DId, elementNodeIds);
-                        else if (elementNodeIds.Length == 4) element2D = new LinearQuadrilateralElement(element2DId, elementNodeIds);
-                        else if (elementNodeIds.Length == 6) element2D = new ParabolicTriangleElement(element2DId, elementNodeIds);
-                        else if (elementNodeIds.Length == 8) element2D = new ParabolicQuadrilateralElement(element2DId, elementNodeIds);
-                        else throw new NotSupportedException();
-                        elements.Add(element2DId, element2D);
-                        //
-                        name = element.Id.ToString() + "_" + faceName;
-                        foreach (var component in components) component.Entries.Add(name, new HistoryResultEntries(name, false));
-                        //
-                        nameElement2DId.Add(name, element2D.Id);
-                        element2DId++;
-                    }
+                    element = _mesh.Elements[elementId];
+                    elementNodeIds = element.GetNodeIdsFromFaceName(faceName);
+                    if (elementNodeIds.Length == 3) element2D = new LinearTriangleElement(element2DId, elementNodeIds);
+                    else if (elementNodeIds.Length == 4) element2D = new LinearQuadrilateralElement(element2DId, elementNodeIds);
+                    else if (elementNodeIds.Length == 6) element2D = new ParabolicTriangleElement(element2DId, elementNodeIds);
+                    else if (elementNodeIds.Length == 8) element2D = new ParabolicQuadrilateralElement(element2DId, elementNodeIds);
+                    else throw new NotSupportedException();
+                    namedElements.Add(element.Id.ToString() + "_" + faceName, element2D);
+                    element2DId++;
                 }
-                // Get all existing increments
-                Dictionary<int, int[]> existingStepIncrementIds = GetAllExistingIncrementIds();
-                string fieldName = GetPossibleDeformationFieldOutputNamesMap()[resultHistoryOutput.DeformationVariableName];
-                //
-                float[] values;
-                int resultNodeId;
-                Field field;
-                FieldData fieldData;
-                double integral;
-                double[][] deformedCoor;
-                Dictionary<int, FeNode> nodeIdNode = new Dictionary<int, FeNode>();
-                Dictionary<int, double> nodeIdValue = new Dictionary<int, double>();
-                //
-                foreach (var component in components)
-                {
-                    foreach (var existingStepEntry in existingStepIncrementIds)
-                    {
-                        foreach (var incrementId in existingStepEntry.Value)
-                        {
-                            fieldData = GetFieldData(resultHistoryOutput.FieldName, component.Name,
-                                                     existingStepEntry.Key, incrementId);
-                            field = GetField(fieldData);
-                            //
-                            if (field != null)
-                            {
-                                values = field.GetComponentValues(component.Name);
-                                if (values != null)
-                                {
-                                    deformedCoor = undeformedCoor.ToArray();
-                                    ScaleNodeCoordinates(resultHistoryOutput.DeformationVariableName, 1,
-                                                         existingStepEntry.Key, incrementId, nodeIds, ref deformedCoor);
-                                    // Get deformed node ids and their field values
-                                    nodeIdNode.Clear();
-                                    nodeIdValue.Clear();
-                                    for (int i = 0; i < nodeIds.Length; i++)
-                                    {
-                                        nodeIdNode.Add(nodeIds[i], new FeNode(nodeIds[i], deformedCoor[i]));
-                                        resultNodeId = _nodeIdsLookUp[nodeIds[i]];
-                                        nodeIdValue.Add(nodeIds[i], values[resultNodeId]);
-                                    }
-                                    //
-                                    foreach (var entry in elementSets)
-                                    {
-                                        faceName = entry.Key;
-                                        foreach (int elementId in entry.Value)
-                                        {
-                                            element = _mesh.Elements[elementId];
-                                            name = element.Id.ToString() + "_" + faceName;
-                                            element2DId = nameElement2DId[name];
-                                            element2D = elements[element2DId];
-                                            integral = (float)element2D.Integrate(nodeIdNode, nodeIdValue);
-                                            component.Entries[name].Add(fieldData.Time, integral);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    // Unit
-                    component.Unit = resultHistoryOutput.Unit;
-                    // Filter
-                    if (resultHistoryOutput.Filter1 != null) component.ApplyFilter(resultHistoryOutput.Filter1);
-                    if (resultHistoryOutput.Filter2 != null) component.ApplyFilter(resultHistoryOutput.Filter2);
-                    // Add component to field
-                    historyResultField.Components.Add(component.Name, component);
-                }
-                //
-                historyResultSet = new HistoryResultSet(resultHistoryOutput.Name);
-                historyResultSet.Fields.Add(historyResultField.Name, historyResultField);
             }
             //
-            return historyResultSet;
+            return BuildIntegrationHistorySet(resultHistoryOutput, nodeIds, namedElements);
         }
         private HistoryResultSet GetHistorySetFromIntegrationByVolume(ResultHistoryOutputFromIntegration resultHistoryOutput)
         {
             if (resultHistoryOutput.IntegralType != IntegralTypeEnum.Volume) throw new NotSupportedException();
             // Collect element ids
             int[] elementIds = null;
-            HistoryResultSet historyResultSet = null;
-            //
             if (resultHistoryOutput.RegionType == RegionTypeEnum.ElementSetName)
                 elementIds = _mesh.ElementSets[resultHistoryOutput.RegionName].Labels;
             else if (resultHistoryOutput.RegionType == RegionTypeEnum.Selection)
                 elementIds = resultHistoryOutput.CreationIds;
             //
-            if (elementIds != null)
+            if (elementIds == null) return null;
+            // The integration element is the element itself
+            int[] nodeIds = _mesh.GetNodeIdsFromElementIds(elementIds);
+            Dictionary<string, FeElement> namedElements = new Dictionary<string, FeElement>();
+            for (int i = 0; i < elementIds.Length; i++)
+                namedElements.Add(elementIds[i].ToString(), _mesh.Elements[elementIds[i]]);
+            //
+            return BuildIntegrationHistorySet(resultHistoryOutput, nodeIds, namedElements);
+        }
+        private HistoryResultSet GetHistorySetFromIntegrationByLine(ResultHistoryOutputFromIntegration resultHistoryOutput)
+        {
+            if (resultHistoryOutput.IntegralType != IntegralTypeEnum.Line) throw new NotSupportedException();
+            // The line region is a set of geometry edges (works for shell and solid parts - see Query -> Edge)
+            int[] geometryEdgeIds = null;
+            if (resultHistoryOutput.RegionType == RegionTypeEnum.Selection)
+                geometryEdgeIds = resultHistoryOutput.CreationIds;
+            else throw new NotSupportedException();
+            //
+            if (geometryEdgeIds == null) return null;
+            // Collect the unique mesh edge cells (node lists) of all selected geometry edges and build one
+            // beam integration element per edge cell. An edge cell has 2 nodes (linear) or 3 nodes
+            // (parabolic - ends first, mid last).
+            int element1DId = 1;
+            HashSet<int> nodeIdsHash = new HashSet<int>();
+            Dictionary<string, FeElement> namedElements = new Dictionary<string, FeElement>();
+            foreach (int geometryEdgeId in geometryEdgeIds)
             {
-                int[] nodeIds = _mesh.GetNodeIdsFromElementIds(elementIds);
-                double[][] undeformedCoor = new double[nodeIds.Length][];
-                for (int i = 0; i < nodeIds.Length; i++) undeformedCoor[i] = _undeformedNodes[nodeIds[i]].Coor;
+                int[] itemTypePartIds = FeMesh.GetItemTypePartIdsFromGeometryId(geometryEdgeId);
+                int localEdgeId = itemTypePartIds[0];
+                BasePart part = _mesh.GetPartFromId(itemTypePartIds[2]);
+                if (part == null || part.Visualization.EdgeCellIdsByEdge == null ||
+                    localEdgeId >= part.Visualization.EdgeCellIdsByEdge.Length) continue;
                 //
-                HistoryResultField historyResultField = new HistoryResultField(resultHistoryOutput.FieldName);
-                // Create history result components
-                List<HistoryResultComponent> components = new List<HistoryResultComponent>();
-                foreach (var componentName in resultHistoryOutput.ComponentNames)
-                    components.Add(new HistoryResultComponent(componentName));
-                // Prepare component entries
-                string name;
-                foreach (var component in components)
+                int[][] partEdgeCells = part.Visualization.EdgeCells;
+                foreach (int edgeCellId in part.Visualization.EdgeCellIdsByEdge[localEdgeId])
                 {
-                    for (int i = 0; i < elementIds.Length; i++)
-                    {
-                        name = elementIds[i].ToString();
-                        component.Entries.Add(name, new HistoryResultEntries(name, false));
-                    }
+                    int[] cellNodeIds = partEdgeCells[edgeCellId];
+                    // Unique name from the two edge end nodes
+                    int end1 = Math.Min(cellNodeIds[0], cellNodeIds[1]);
+                    int end2 = Math.Max(cellNodeIds[0], cellNodeIds[1]);
+                    string edgeName = end1.ToString() + "_" + end2.ToString();
+                    if (namedElements.ContainsKey(edgeName)) continue;
+                    //
+                    FeElement element1D;
+                    if (cellNodeIds.Length == 2) element1D = new LinearBeamElement(element1DId, cellNodeIds);
+                    else if (cellNodeIds.Length == 3) element1D = new ParabolicBeamElement(element1DId, cellNodeIds);
+                    else throw new NotSupportedException();
+                    namedElements.Add(edgeName, element1D);
+                    nodeIdsHash.UnionWith(cellNodeIds);
+                    element1DId++;
                 }
-                // Get all existing increments
-                Dictionary<int, int[]> existingStepIncrementIds = GetAllExistingIncrementIds();
-                string fieldName = GetPossibleDeformationFieldOutputNamesMap()[resultHistoryOutput.DeformationVariableName];
-                //
-                float[] values;
-                int resultNodeId;
-                Field field;
-                FieldData fieldData;
-                double integral;
-                double[][] deformedCoor;
-                FeElement element;
-                Dictionary<int, FeNode> nodeIdNode = new Dictionary<int, FeNode>();
-                Dictionary<int, double> nodeIdValue = new Dictionary<int, double>();
-                //
-                foreach (var component in components)
-                {
-                    foreach (var existingStepEntry in existingStepIncrementIds)
-                    {
-                        foreach (var incrementId in existingStepEntry.Value)
-                        {
-                            fieldData = GetFieldData(resultHistoryOutput.FieldName, component.Name,
-                                                     existingStepEntry.Key, incrementId);
-                            field = GetField(fieldData);
-                            //
-                            if (field != null)
-                            {
-                                values = field.GetComponentValues(component.Name);
-                                if (values != null)
-                                {
-                                    deformedCoor = undeformedCoor.ToArray();
-                                    ScaleNodeCoordinates(resultHistoryOutput.DeformationVariableName, 1,
-                                                         existingStepEntry.Key, incrementId, nodeIds, ref deformedCoor);
-                                    // Get deformed node ids and their field values
-                                    nodeIdNode.Clear();
-                                    nodeIdValue.Clear();
-                                    for (int i = 0; i < nodeIds.Length; i++)
-                                    {
-                                        nodeIdNode.Add(nodeIds[i], new FeNode(nodeIds[i], deformedCoor[i]));
-                                        resultNodeId = _nodeIdsLookUp[nodeIds[i]];
-                                        nodeIdValue.Add(nodeIds[i], values[resultNodeId]);
-                                    }
-                                    //
-                                    for (int i = 0; i < elementIds.Length; i++)
-                                    {
-                                        element = _mesh.Elements[elementIds[i]];
-                                        integral = (float)element.Integrate(nodeIdNode, nodeIdValue);
-                                        //
-                                        name = elementIds[i].ToString();
-                                        component.Entries[name].Add(fieldData.Time, integral);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    // Unit
-                    component.Unit = resultHistoryOutput.Unit;
-                    // Filter
-                    if (resultHistoryOutput.Filter1 != null) component.ApplyFilter(resultHistoryOutput.Filter1);
-                    if (resultHistoryOutput.Filter2 != null) component.ApplyFilter(resultHistoryOutput.Filter2);
-                    // Add component to field
-                    historyResultField.Components.Add(component.Name, component);
-                }
-                //
-                historyResultSet = new HistoryResultSet(resultHistoryOutput.Name);
-                historyResultSet.Fields.Add(historyResultField.Name, historyResultField);
             }
             //
+            return BuildIntegrationHistorySet(resultHistoryOutput, nodeIdsHash.ToArray(), namedElements);
+        }
+        // Shared integration compute core. The three integral types (line, surface, volume) only differ in how
+        // they collect the integration sub-elements (beam / face / element); this builds the history set from
+        // them for the selected integral result (geometry, field, or field by geometry).
+        private HistoryResultSet BuildIntegrationHistorySet(ResultHistoryOutputFromIntegration resultHistoryOutput,
+                                                            int[] nodeIds, Dictionary<string, FeElement> namedElements)
+        {
+            if (nodeIds == null || nodeIds.Length == 0 || namedElements.Count == 0) return null;
+            //
+            double[][] undeformedCoor = new double[nodeIds.Length][];
+            for (int i = 0; i < nodeIds.Length; i++) undeformedCoor[i] = _undeformedNodes[nodeIds[i]].Coor;
+            // Out-of-plane scaling (thickness / axisymmetric) for 2D output; None for 3D / a plain line
+            IntegrationScale scale = resultHistoryOutput.GetIntegrationScale();
+            Dictionary<int, int[]> existingStepIncrementIds = GetAllExistingIncrementIds();
+            // The mesh deformation variable is a user friendly name (Displacements, ...) which must be mapped
+            // to the deformation field output name (DISP, ...) used to deform the mesh in each increment
+            string deformationFieldName =
+                GetPossibleDeformationFieldOutputNamesMap()[resultHistoryOutput.DeformationVariableName];
+            //
+            if (resultHistoryOutput.IntegralResult == IntegralResultEnum.Geometry)
+                return GetIntegrationGeometrySet(resultHistoryOutput, nodeIds, undeformedCoor, namedElements,
+                                                 scale, existingStepIncrementIds, deformationFieldName);
+            else
+                return GetIntegrationFieldSet(resultHistoryOutput, nodeIds, undeformedCoor, namedElements,
+                                              scale, existingStepIncrementIds, deformationFieldName);
+        }
+        // Geometry: the (scaled) region measure - the integral of the unit field. Field independent, so a single
+        // component with one per-element entry (sum it to get the total length / area / volume).
+        private HistoryResultSet GetIntegrationGeometrySet(ResultHistoryOutputFromIntegration resultHistoryOutput,
+                                                           int[] nodeIds, double[][] undeformedCoor,
+                                                           Dictionary<string, FeElement> namedElements,
+                                                           IntegrationScale scale,
+                                                           Dictionary<int, int[]> existingStepIncrementIds,
+                                                           string deformationFieldName)
+        {
+            // Unit nodal values -> the integral of the unit field is the (scaled) region size
+            Dictionary<int, double> unitValue = new Dictionary<int, double>();
+            for (int i = 0; i < nodeIds.Length; i++) unitValue.Add(nodeIds[i], 1.0);
+            // The size is named generically since the cross section scaling changes its dimension: a scaled
+            // line integral returns an area (integral of t or of 2*pi*r), a scaled surface integral a volume
+            HistoryResultField historyResultField = new HistoryResultField("GEOMETRY");
+            HistoryResultComponent component = new HistoryResultComponent("SIZE");
+            foreach (var entry in namedElements) component.Entries.Add(entry.Key, new HistoryResultEntries(entry.Key, false));
+            //
+            double time;
+            double[][] deformedCoor;
+            Dictionary<int, FeNode> nodeIdNode = new Dictionary<int, FeNode>();
+            foreach (var existingStepEntry in existingStepIncrementIds)
+            {
+                foreach (var incrementId in existingStepEntry.Value)
+                {
+                    deformedCoor = undeformedCoor.ToArray();
+                    ScaleNodeCoordinates(deformationFieldName, 1,
+                                         existingStepEntry.Key, incrementId, nodeIds, ref deformedCoor);
+                    nodeIdNode.Clear();
+                    for (int i = 0; i < nodeIds.Length; i++)
+                        nodeIdNode.Add(nodeIds[i], new FeNode(nodeIds[i], deformedCoor[i]));
+                    //
+                    time = GetIncrementTime(existingStepEntry.Key, incrementId);
+                    foreach (var entry in namedElements)
+                        component.Entries[entry.Key].Add(time, entry.Value.Integrate(nodeIdNode, unitValue, scale));
+                }
+            }
+            component.Unit = resultHistoryOutput.Unit;
+            if (resultHistoryOutput.Filter1 != null) component.ApplyFilter(resultHistoryOutput.Filter1);
+            if (resultHistoryOutput.Filter2 != null) component.ApplyFilter(resultHistoryOutput.Filter2);
+            historyResultField.Components.Add(component.Name, component);
+            //
+            HistoryResultSet historyResultSet = new HistoryResultSet(resultHistoryOutput.Name);
+            historyResultSet.Fields.Add(historyResultField.Name, historyResultField);
+            return historyResultSet;
+        }
+        // Field: the field integral (integral of f * w) per element.
+        // Field by Geometry: each per-element entry divided by the region measure M = sum of element measures,
+        // so that summing the entries gives the (measure-weighted) region average of the field.
+        private HistoryResultSet GetIntegrationFieldSet(ResultHistoryOutputFromIntegration resultHistoryOutput,
+                                                        int[] nodeIds, double[][] undeformedCoor,
+                                                        Dictionary<string, FeElement> namedElements,
+                                                        IntegrationScale scale,
+                                                        Dictionary<int, int[]> existingStepIncrementIds,
+                                                        string deformationFieldName)
+        {
+            bool byGeometry = resultHistoryOutput.IntegralResult == IntegralResultEnum.FieldByGeometry;
+            // Unit nodal values are only needed for the region measure (denominator of the average)
+            Dictionary<int, double> unitValue = null;
+            if (byGeometry)
+            {
+                unitValue = new Dictionary<int, double>();
+                for (int i = 0; i < nodeIds.Length; i++) unitValue.Add(nodeIds[i], 1.0);
+            }
+            //
+            HistoryResultField historyResultField = new HistoryResultField(resultHistoryOutput.FieldName);
+            List<HistoryResultComponent> components = new List<HistoryResultComponent>();
+            foreach (var componentName in resultHistoryOutput.ComponentNames)
+                components.Add(new HistoryResultComponent(componentName));
+            foreach (var component in components)
+                foreach (var entry in namedElements)
+                    component.Entries.Add(entry.Key, new HistoryResultEntries(entry.Key, false));
+            //
+            float[] values;
+            int resultNodeId;
+            Field field;
+            FieldData fieldData;
+            double[][] deformedCoor;
+            Dictionary<int, FeNode> nodeIdNode = new Dictionary<int, FeNode>();
+            Dictionary<int, double> nodeIdValue = new Dictionary<int, double>();
+            //
+            foreach (var component in components)
+            {
+                foreach (var existingStepEntry in existingStepIncrementIds)
+                {
+                    foreach (var incrementId in existingStepEntry.Value)
+                    {
+                        fieldData = GetFieldData(resultHistoryOutput.FieldName, component.Name,
+                                                 existingStepEntry.Key, incrementId);
+                        field = GetField(fieldData);
+                        if (field == null) continue;
+                        values = field.GetComponentValues(component.Name);
+                        if (values == null) continue;
+                        //
+                        deformedCoor = undeformedCoor.ToArray();
+                        ScaleNodeCoordinates(deformationFieldName, 1,
+                                             existingStepEntry.Key, incrementId, nodeIds, ref deformedCoor);
+                        // Get deformed node ids and their field values
+                        nodeIdNode.Clear();
+                        nodeIdValue.Clear();
+                        for (int i = 0; i < nodeIds.Length; i++)
+                        {
+                            nodeIdNode.Add(nodeIds[i], new FeNode(nodeIds[i], deformedCoor[i]));
+                            resultNodeId = _nodeIdsLookUp[nodeIds[i]];
+                            nodeIdValue.Add(nodeIds[i], values[resultNodeId]);
+                        }
+                        // Region measure (denominator) for the field-by-geometry average
+                        double measureTotal = 0;
+                        if (byGeometry)
+                            foreach (var entry in namedElements)
+                                measureTotal += entry.Value.Integrate(nodeIdNode, unitValue, scale);
+                        //
+                        foreach (var entry in namedElements)
+                        {
+                            double integral = entry.Value.Integrate(nodeIdNode, nodeIdValue, scale);
+                            if (byGeometry) integral = measureTotal != 0 ? integral / measureTotal : 0;
+                            component.Entries[entry.Key].Add(fieldData.Time, integral);
+                        }
+                    }
+                }
+                // Unit
+                component.Unit = resultHistoryOutput.Unit;
+                // Filter
+                if (resultHistoryOutput.Filter1 != null) component.ApplyFilter(resultHistoryOutput.Filter1);
+                if (resultHistoryOutput.Filter2 != null) component.ApplyFilter(resultHistoryOutput.Filter2);
+                // Add component to field
+                historyResultField.Components.Add(component.Name, component);
+            }
+            //
+            HistoryResultSet historyResultSet = new HistoryResultSet(resultHistoryOutput.Name);
+            historyResultSet.Fields.Add(historyResultField.Name, historyResultField);
             return historyResultSet;
         }
         private HistoryResultField GetNodeCoordinatesHistoryResultField(int[] nodeIds, OutputNodeCoordinatesEnum nodeCoorType,
@@ -5698,6 +5602,10 @@ namespace CaeResults
         {
             try
             {
+                // Compatibility for version v2.6.0: convert a From Element Size output replaced by the replay
+                // of an old command history into the equivalent From Integration output of the geometry
+                if (resultHistoryOutput is ResultHistoryOutputFromElementSize rhofes)
+                    resultHistoryOutput = ConvertElementSizeToIntegration(rhofes);
                 // First try to create the historyResultSet to catch potential errors
                 HistoryResultSet historyResultSet = GetHistorySetFromResultHistoryOutput(resultHistoryOutput);  // compute it
                 //

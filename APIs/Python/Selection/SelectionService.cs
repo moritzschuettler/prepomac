@@ -283,9 +283,9 @@ namespace APIs.Python
         private static void ValidateTarget(string target)
         {
             if (target != "nodes" && target != "elements" && target != "surfaces" &&
-                target != "parts" && target != "geometry")
+                target != "edges" && target != "parts" && target != "geometry")
                 throw new PythonAPIException("The argument 'target' must be 'nodes', 'elements', 'surfaces', " +
-                                             "'parts', or 'geometry'.");
+                                             "'edges', 'parts', or 'geometry'.");
         }
         private static void ValidateSource(string source)
         {
@@ -301,6 +301,7 @@ namespace APIs.Python
                          (target == "elements" && (source == "elements" || source == "surfaces" ||
                                                    source == "parts")) ||
                          (target == "surfaces" && (source == "surfaces" || source == "parts")) ||
+                         (target == "edges" && source == "edges") ||
                          (target == "parts" && (source == "vertices" || source == "edges" ||
                                                 source == "surfaces" || source == "parts")) ||
                          (target == "geometry" && (source == "vertices" || source == "edges" ||
@@ -320,6 +321,7 @@ namespace APIs.Python
             if (target == "nodes") return vtkSelectItem.Node;
             if (target == "elements") return vtkSelectItem.Element;
             if (target == "surfaces") return vtkSelectItem.Surface;
+            if (target == "edges") return vtkSelectItem.GeometryEdge;
             if (target == "parts") return vtkSelectItem.Part;
             if (target == "geometry") return vtkSelectItem.Geometry;
             throw new PythonAPIException("Unsupported selection target '" + target + "'.");

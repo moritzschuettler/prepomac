@@ -57,6 +57,7 @@ namespace PrePoMax
         [OrderedDisplayName(2, 10, "Variables to output")]
         [CategoryAttribute("Data")]
         [DescriptionAttribute("Contact history variables")]
+        [Editor(typeof(UserControls.FlagsEnumEditorUIEditor), typeof(System.Drawing.Design.UITypeEditor))]
         public ViewContactHistoryVariable Variables
         {
             get

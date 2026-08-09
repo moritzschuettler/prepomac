@@ -22,7 +22,7 @@ using CaeGlobals;
 using DynamicTypeDescriptor;
 using CaeJob;
 
-namespace PrePoMax.Forms
+namespace UserControls
 {
     public partial class FrmGetDampingRatios : Form
     {

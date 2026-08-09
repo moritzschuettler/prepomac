@@ -601,7 +601,7 @@ namespace CaeMesh
         {
             double epsilon = GetDiagonal() * 1E-6;
             //
-            if (Math.Abs(MinZ) < epsilon && Math.Abs(MaxZ) < epsilon) return true;
+            if (Math.Abs(MaxZ - MinZ) < epsilon) return true;
             else return false;
         }
         public bool IsThinnInAnyDirection()

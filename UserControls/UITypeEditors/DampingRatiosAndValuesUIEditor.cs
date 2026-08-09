@@ -19,9 +19,9 @@ using System.Windows.Forms.Design;
 using CaeJob;
 
 
-namespace PrePoMax.Forms
+namespace UserControls
 {
-    class DampingRatiosAndValuesUIEditor : UITypeEditor
+    public class DampingRatiosAndValuesUIEditor : UITypeEditor
     {
         // Overrides                                                                                                                
         public override UITypeEditorEditStyle GetEditStyle(ITypeDescriptorContext context)
@@ -33,7 +33,7 @@ namespace PrePoMax.Forms
             var svc = (IWindowsFormsEditorService)provider.GetService(typeof(IWindowsFormsEditorService));
             if (svc != null)
             {
-                using (var frm = new FrmGetDampingRatios((List<DampingRatioAndRange>)value))
+                using (var frm = new UserControls.FrmGetDampingRatios((List<DampingRatioAndRange>)value))
                 {
                     if (svc.ShowDialog(frm) == DialogResult.OK)
                     {

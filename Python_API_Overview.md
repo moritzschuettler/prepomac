@@ -135,7 +135,7 @@ pmx.help()
 
 Possible `view` values are `"geometry"`, `"femodel"`, and `"results"`.
 
-Possible `target` values are `"nodes"`, `"elements"`, `"surfaces"`, `"parts"`, and `"geometry"`. Possible `source` values are `"nodes"`, `"elements"`, `"vertices"`, `"edges"`, `"surfaces"`, and `"parts"`.
+Possible `target` values are `"nodes"`, `"elements"`, `"surfaces"`, `"edges"`, `"parts"`, and `"geometry"`. Possible `source` values are `"nodes"`, `"elements"`, `"vertices"`, `"edges"`, `"surfaces"`, and `"parts"`.
 
 Nodes, elements, vertices, and parts use a list of IDs. Vertex IDs are the node IDs displayed by Query. Edge and surface IDs are 1-based within each part and use a part-to-ID mapping:
 
@@ -158,6 +158,7 @@ Supported conversions:
 | `nodes` | `nodes`, `vertices`, `edges`, `surfaces`, `parts` |
 | `elements` | `elements`, `surfaces`, `parts` |
 | `surfaces` | `surfaces`, `parts` |
+| `edges` | `edges` |
 | `parts` | `vertices`, `edges`, `surfaces`, `parts` |
 | `geometry` | `vertices`, `edges`, `surfaces`, `parts` |
 
@@ -803,8 +804,7 @@ Collection of result history outputs.
 | `contains(history_name)` | Checks whether the history output exists. |
 | `create_history_output_from_field(name, field_name, component_names, region)` | Creates a From Field draft using a node selection, node set, or surface. |
 | `create_history_output_from_equation(name, equation, unit="/")` | Creates a From History Output by Equation draft. |
-| `create_history_output_from_element_size(name, size_type, region, deformation_variable_name="Displacements")` | Creates an area or volume history-output draft. |
-| `create_history_output_from_integration(name, integral_type, field_name, component_names, region, deformation_variable_name="Displacements", unit="/")` | Creates a surface or volume integration draft. |
+| `create_history_output_from_integration(name, integral_type, field_name=None, component_names=None, region=None, integral_result="geometry", deformation_variable_name="Displacements", unit="/", cross_section="none", thickness=1.0)` | Creates a line, surface, or volume integration draft. `integral_result` is `"geometry"` (region size), `"field"` (field integral), or `"field_by_geometry"` (region average of the field); `field_name`/`component_names` are ignored for `"geometry"`. `cross_section` (`"none"`, `"thickness"`, or `"axisymmetric"`) applies the out-of-plane scaling for 2D output on line and volume integrals. |
 | `create_minimum_filter(return_value="column")` | Creates a minimum filter; `return_value` is `"row"` or `"column"`. |
 | `create_maximum_filter(return_value="column")` | Creates a maximum filter; `return_value` is `"row"` or `"column"`. |
 | `create_sum_filter(operate_on="columns")` | Creates a sum filter; `operate_on` is `"rows"` or `"columns"`. |
@@ -860,13 +860,57 @@ output = result.history_outputs.create_history_output_from_equation(
 result.history_outputs.add(output)
 ```
 
+Line integration integrates a field over geometry edges (works for both shell and solid parts).
+For 2D output (plane stress/strain or axisymmetric) set `cross_section` to apply the out-of-plane
+scaling; `"thickness"` additionally uses the `thickness` argument, while `"axisymmetric"` scales by
+`2*pi*r` (the radial coordinate is the X coordinate):
+
+```python
+edges = pmx.selection.create_by_ids(
+    view="results",
+    target="edges",
+    source="edges",
+    ids={1: [3, 4]}
+)
+
+output = result.history_outputs.create_history_output_from_integration(
+    name="Line_Force",
+    integral_type="line",
+    field_name="STRESS",
+    component_names=["S11"],
+    region=edges,
+    cross_section="thickness",
+    thickness=0.01,
+    unit="N"
+)
+result.history_outputs.add(output)
+```
+
+`integral_result` selects what the integral evaluates: `"geometry"` (the region size, integrating a unit
+field; the default), `"field"` (the field integral), or `"field_by_geometry"` (the region average of the
+field). All three produce per-element entries, so a Sum filter gives the region total, the region
+average, and the total size respectively. `field_name` and `component_names` are not needed for
+`"geometry"`. The geometry result is reported in a single `SIZE` component; note that the cross section
+scaling changes its dimension, so a scaled line integral returns an area and a scaled surface integral a
+volume:
+
+```python
+output = result.history_outputs.create_history_output_from_integration(
+    name="Surface_area",
+    integral_type="surface",
+    region=faces,
+    integral_result="geometry",
+    unit="mm2"
+)
+result.history_outputs.add(output)
+```
+
 The supported region combinations are:
 
 | History output | Mode | Selection target | Existing result region |
 | --- | --- | --- | --- |
 | From Field | All | `"nodes"` | Node set or surface |
-| From Element Size | `"area"` | `"surfaces"` | Surface |
-| From Element Size | `"volume"` | `"elements"` | Element set |
+| From Integration | `"line"` | `"edges"` | None (selection only) |
 | From Integration | `"surface"` | `"surfaces"` | Surface |
 | From Integration | `"volume"` | `"elements"` | Element set |
 | From Equation | All | None | None |

@@ -47,6 +47,7 @@ namespace PrePoMax
         [OrderedDisplayName(1, 10, "Variables to output")]
         [CategoryAttribute("Data")]
         [DescriptionAttribute("Section history variables")]
+        [Editor(typeof(UserControls.FlagsEnumEditorUIEditor), typeof(System.Drawing.Design.UITypeEditor))]
         public ViewSectionHistoryVariableEnum Variables
         {
             get

@@ -56,7 +56,7 @@ namespace PrePoMax.Settings
         // Vector plot
         [CategoryAttribute("Vector plot")]
         [OrderedDisplayName(0, 10, "Vector plot scale factor")]
-        [DescriptionAttribute("Set the vector plot arrow length scale factor.")]
+        [DescriptionAttribute("Set the overall scale factor for nodal point size, vector length, and arrowhead size.")]
         [TypeConverter(typeof(StringDoubleConverter))]
         [Id(1, 2)]
         public double VectorPlotScaleFactor
@@ -64,6 +64,29 @@ namespace PrePoMax.Settings
             get { return _postSettings.VectorPlotScaleFactor; }
             set { _postSettings.VectorPlotScaleFactor = value; }
         }
+        //
+        [CategoryAttribute("Vector plot")]
+        [OrderedDisplayName(1, 10, "Vector length scale factor")]
+        [DescriptionAttribute("Set an additional vector length scale factor without changing nodal point or arrowhead size.")]
+        [TypeConverter(typeof(StringDoubleConverter))]
+        [Id(2, 2)]
+        public double VectorPlotLengthScaleFactor
+        {
+            get { return _postSettings.VectorPlotLengthScaleFactor; }
+            set { _postSettings.VectorPlotLengthScaleFactor = value; }
+        }
+        //
+        [CategoryAttribute("Vector plot")]
+        [OrderedDisplayName(2, 10, "Vector plot density [%]")]
+        [DescriptionAttribute("Set the percentage of spatially distributed surface nodes used by the vector plot.")]
+        [TypeConverter(typeof(StringIntegerConverter))]
+        [Id(3, 2)]
+        public int VectorPlotDensity
+        {
+            get { return _postSettings.VectorPlotDensity; }
+            set { _postSettings.VectorPlotDensity = value; }
+        }
+
         // Limit values                                                         
         [CategoryAttribute("Limit values")]
         [OrderedDisplayName(0, 10, "Show min value and location")]

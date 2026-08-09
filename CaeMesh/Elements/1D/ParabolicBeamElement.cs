@@ -18,8 +18,12 @@ namespace CaeMesh
     [Serializable]
     public class ParabolicBeamElement : FeElement1D
     {
-        // Variables                                                                                                                
+        // Variables
         private static int vtkCellTypeInt = (int)vtkCellType.VTK_QUADRATIC_EDGE;
+        // Line integration - 2 point Gauss on [-1, 1]
+        private static readonly double _gp = 1.0 / Math.Sqrt(3.0);
+        private static readonly double[] _xi = new double[] { -_gp, _gp };
+        private static readonly double[] _w = new double[] { 1.0, 1.0 };
 
 
         // Properties                                                                                                               
@@ -92,6 +96,46 @@ namespace CaeMesh
         public override double[] GetCG(Dictionary<int, FeNode> nodes, out double length)
         {
             return GeometryTools.BeamCG(nodes[NodeIds[0]], nodes[NodeIds[1]], nodes[NodeIds[2]], out length);
+        }
+        // Integration
+        public override double Integrate(Dictionary<int, FeNode> nodes, Dictionary<int, double> nodalValues)
+        {
+            // Node ordering: n1, n2 - end nodes; n3 - mid node (g: n1 = -1, n2 = +1, n3 = 0)
+            return Integrate(nodes[NodeIds[0]], nodes[NodeIds[1]], nodes[NodeIds[2]],
+                             nodalValues[NodeIds[0]], nodalValues[NodeIds[1]], nodalValues[NodeIds[2]],
+                             IntegrationScale.None);
+        }
+        public override double Integrate(Dictionary<int, FeNode> nodes, Dictionary<int, double> nodalValues,
+                                         IntegrationScale scale)
+        {
+            return Integrate(nodes[NodeIds[0]], nodes[NodeIds[1]], nodes[NodeIds[2]],
+                             nodalValues[NodeIds[0]], nodalValues[NodeIds[1]], nodalValues[NodeIds[2]], scale);
+        }
+        private static double Integrate(FeNode n1, FeNode n2, FeNode n3, double u1, double u2, double u3,
+                                        IntegrationScale scale)
+        {
+            double integral = 0;
+            //
+            for (int gp = 0; gp < _w.Length; gp++)
+            {
+                double g = _xi[gp];
+                //
+                double u = Interpolate(u1, u2, u3, g);
+                //
+                double jNorm = GeometryTools.BeamJNorm(n1, n2, n3, g);
+                //
+                double weight = scale.IsUnity ? 1.0 : scale.GetWeight(Interpolate(n1.X, n2.X, n3.X, g));
+                //
+                integral += _w[gp] * u * jNorm * weight;
+            }
+            //
+            return integral;
+        }
+        private static double Interpolate(double u1, double u2, double u3, double g)
+        {
+            return 0.5 * g * (g - 1) * u1 +
+                   0.5 * g * (g + 1) * u2 +
+                   (1 - g * g) * u3;
         }
         //
         public override void Mirror()

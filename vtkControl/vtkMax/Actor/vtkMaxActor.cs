@@ -318,6 +318,7 @@ namespace vtkControl
             _geometry.SetPickable(data.Pickable ? 1 : 0);
             _geometry.GetProperty().SetLineWidth(data.LineWidth);
             //
+            _geometry.GetProperty().SetPointSize(data.NodeSize);
             _geometryProperty = _geometry.GetProperty();
             //
             _actorRepresentation = data.ActorRepresentation;

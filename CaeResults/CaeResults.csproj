@@ -91,7 +91,7 @@
     <Compile Include="HistoryOutputs\ResultHistoryOutputFromIntegration.cs" />
     <Compile Include="_Compatibility\v2.2.3\HistoryResultSetExporter.cs" />
     <Compile Include="HistoryOutputs\ResultHistoryOutput.cs" />
-    <Compile Include="HistoryOutputs\ResultHistoryOutputFromElementSize.cs" />
+    <Compile Include="_Compatibility\v2.6.0\ResultHistoryOutputFromElementSize.cs" />
     <Compile Include="HistoryOutputs\ResultHistoryOutputFromEquation.cs" />
     <Compile Include="HistoryOutputs\ResultHistoryOutputFromField.cs" />
     <Compile Include="Interpolator\CloudBasedInterpolator\CloudPoint.cs" />

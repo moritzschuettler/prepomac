@@ -103,7 +103,7 @@ namespace vtkControl
         {
             base.SetInteractor(renderer, renderWindowInteractor);
             //
-            _renderer.AddActor(_textActor);
+            if (_visibility) _renderer.AddActor(_textActor);
         }
         public override void RemoveInteractor()
         {

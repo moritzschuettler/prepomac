@@ -321,8 +321,11 @@ namespace vtkControl
         public override void SetInteractor(vtkRenderer renderer, vtkRenderWindowInteractor renderWindowInteractor)
         {
             // Arrow first
-            renderer.AddActor(_leaderActor2D);
-            renderer.AddActor(_headActor2D);
+            if (_visibility)
+            {
+                renderer.AddActor(_leaderActor2D);
+                renderer.AddActor(_headActor2D);
+            }
             // Box last
             base.SetInteractor(renderer, renderWindowInteractor);
         }

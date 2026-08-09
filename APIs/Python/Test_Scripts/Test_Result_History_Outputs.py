@@ -206,17 +206,19 @@ try:
         solid_element_set = find_solid_element_set(result)
         volume_region = solid_element_set if solid_element_set is not None else element_selection
 
-        output = history_outputs.create_history_output_from_element_size(
+        output = history_outputs.create_history_output_from_integration(
             name=ELEMENT_SIZE_NAME,
-            size_type="volume",
+            integral_type="volume",
             region=volume_region,
-            deformation_variable_name="Displacements"
+            integral_result="geometry",
+            deformation_variable_name="Displacements",
+            unit="/"
         )
         history_outputs.add(output)
         created_names.append(ELEMENT_SIZE_NAME)
         check(history_outputs.contains(ELEMENT_SIZE_NAME),
               "add() did not create the element-volume output.")
-        print("PASS: add From Element Size history output")
+        print("PASS: add From Integration history output of the geometry")
 
         output = history_outputs.create_history_output_from_integration(
             name=INTEGRATION_NAME,
@@ -224,6 +226,7 @@ try:
             field_name="STRESS",
             component_names=[stress_component],
             region=volume_region,
+            integral_result="field",
             deformation_variable_name="Displacements",
             unit="/"
         )
@@ -233,7 +236,7 @@ try:
               "add() did not create the volume-integration output.")
         print("PASS: add From Integration history output")
     else:
-        print("SKIP: element-size and volume-integration tests require a 3D element")
+        print("SKIP: geometry- and field-volume-integration tests require a 3D element")
 
     # REMOVE: remove the dependent equation first, then all remaining test outputs together.
     history_outputs.remove([EQUATION_NAME])

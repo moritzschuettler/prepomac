@@ -18,8 +18,13 @@ namespace CaeMesh
     [Serializable]
     public class LinearBeamElement : FeElement1D
     {
-        // Variables                                                                                                                
+        // Variables
         private static int vtkCellTypeInt = (int)vtkCellType.VTK_LINE;
+        // Line integration - 2 point Gauss on [-1, 1] (exact up to cubic integrands so that
+        // the future axisymmetric r-weighted integrand is captured accurately)
+        private static readonly double _gp = 1.0 / Math.Sqrt(3.0);
+        private static readonly double[] _xi = new double[] { -_gp, _gp };
+        private static readonly double[] _w = new double[] { 1.0, 1.0 };
 
 
         // Properties                                                                                                               
@@ -92,6 +97,51 @@ namespace CaeMesh
         public override double[] GetCG(Dictionary<int, FeNode> nodes, out double length)
         {
             return GeometryTools.BeamCG(nodes[NodeIds[0]], nodes[NodeIds[1]], out length);
+        }
+        // Integration
+        public override double Integrate(Dictionary<int, FeNode> nodes, Dictionary<int, double> nodalValues)
+        {
+            return Integrate(nodes[NodeIds[0]], nodes[NodeIds[1]],
+                             nodalValues[NodeIds[0]], nodalValues[NodeIds[1]], IntegrationScale.None);
+        }
+        public override double Integrate(Dictionary<int, FeNode> nodes, Dictionary<int, double> nodalValues,
+                                         IntegrationScale scale)
+        {
+            return Integrate(nodes[NodeIds[0]], nodes[NodeIds[1]],
+                             nodalValues[NodeIds[0]], nodalValues[NodeIds[1]], scale);
+        }
+        private static double Integrate(FeNode n1, FeNode n2, double u1, double u2, IntegrationScale scale)
+        {
+            double integral = 0;
+            //
+            for (int gp = 0; gp < _w.Length; gp++)
+            {
+                double g = _xi[gp];
+                //
+                double u = Interpolate(u1, u2, g);
+                //
+                double jNorm = JNorm(n1, n2);
+                //
+                double weight = scale.IsUnity ? 1.0 : scale.GetWeight(Interpolate(n1.X, n2.X, g));
+                //
+                integral += _w[gp] * u * jNorm * weight;
+            }
+            //
+            return integral;
+        }
+        private static double Interpolate(double u1, double u2, double g)
+        {
+            return 0.5 * (1 - g) * u1 +
+                   0.5 * (1 + g) * u2;
+        }
+        private static double JNorm(FeNode n1, FeNode n2)
+        {
+            // |dx/dg| for a linear beam is constant and equal to 0.5 * length
+            double xg = 0.5 * (n2.X - n1.X);
+            double yg = 0.5 * (n2.Y - n1.Y);
+            double zg = 0.5 * (n2.Z - n1.Z);
+            //
+            return Math.Sqrt(xg * xg + yg * yg + zg * zg);
         }
         //
         public override void Mirror()

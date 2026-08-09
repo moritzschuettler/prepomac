@@ -7,7 +7,7 @@
 // Author: Matej Borovinšek
 // Contributors:
 
-namespace PrePoMax.Forms
+namespace UserControls
 {
     partial class FrmGetDampingRatios
     {

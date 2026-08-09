@@ -26,10 +26,25 @@ namespace UserControls
         private const string ResidualFluxName = "Residual flux";
         private const string TemperatureCorrectionName = "Temperature correction";
         private const string ContactElementCountName = "Contact elements";
+        // Largest span (in decades) the percent (log) axis is allowed to show. Convergence data can
+        // legitimately span ~19 decades (e.g. 1e2 down to 1e-16), so this must be wide enough to show
+        // it all; but ZedGraph's log wheel-zoom becomes unstable past ~28 decades (the minimum
+        // suddenly jumps up by ~20 decades once it drops below ~1e-21). 24 keeps a safe margin below
+        // that while still showing the full data plus a few decades of zoom-out headroom.
+        private const double MaxConvergenceDecades = 24;
+        // Smallest value the percent (log) axis minimum may reach. ZedGraph's log PanScale overflows
+        // and inverts the axis (min > max) once the minimum is pushed below ~1e-20, so this floor
+        // (two decades of margin) is enforced on zoom, pan and auto-scaling alike.
+        private const double MinConvergenceValue = 1e-18;
         //
         private CalculixStatusData _statusData;
         private CalculixConvergenceData _convergenceData;
         private string _timeUnit;
+        // Cached reflection handle to ZedGraph's private "_isPanning" flag, used to bound the
+        // convergence log axis mid-pan (ZedGraph updates the pan continuously but only raises
+        // ZoomEvent on mouse-up). Null if the field is ever absent, in which case the mid-pan guard
+        // is skipped and only the mouse-up guard applies.
+        private System.Reflection.FieldInfo _isPanningField;
 
 
         // Constructors                                                                                                             
@@ -61,6 +76,7 @@ namespace UserControls
             pane.Y2Axis.Scale.Min = 0;
             pane.Y2Axis.Scale.MinAuto = false;
             _statusGraph.PointValueEvent += StatusGraph_PointValueEvent;
+            _statusGraph.ContextMenuBuilder += Graph_ContextMenuBuilder;
         }
 
         private void ConfigureConvergenceGraph()
@@ -83,6 +99,9 @@ namespace UserControls
             pane.XAxis.Scale.Min = 1;
             pane.XAxis.Scale.MinAuto = false;
             _convergenceGraph.PointValueEvent += ConvergenceGraph_PointValueEvent;
+            _convergenceGraph.ContextMenuBuilder += Graph_ContextMenuBuilder;
+            _convergenceGraph.ZoomEvent += Convergence_ZoomEvent;
+            _convergenceGraph.MouseMove += Convergence_MouseMove;
         }
 
         private void ConfigureGraphPane(GraphPane pane)
@@ -150,6 +169,7 @@ namespace UserControls
             pane.CurveList.Clear();
             bool incrementMaximumAuto = pane.YAxis.Scale.MaxAuto;
             bool iterationMaximumAuto = pane.Y2Axis.Scale.MaxAuto;
+            bool iterationStepAuto = pane.Y2Axis.Scale.MajorStepAuto;
 
             if (data == null || data.Count == 0)
             {
@@ -180,8 +200,12 @@ namespace UserControls
             }
 
             _statusGraph.AxisChange();
+            // Snap the iteration (right) axis ticks onto the increment-size (left) axis grid lines.
+            if (iterationMaximumAuto && data != null && data.Count > 0)
+                AlignY2ToYGridLines(pane, GetMaximum(data.IterationCounts));
             pane.YAxis.Scale.MaxAuto = incrementMaximumAuto;
             pane.Y2Axis.Scale.MaxAuto = iterationMaximumAuto;
+            pane.Y2Axis.Scale.MajorStepAuto = iterationStepAuto;
             _statusGraph.Invalidate();
         }
 
@@ -192,6 +216,8 @@ namespace UserControls
             pane.CurveList.Clear();
             pane.Y2Axis.IsVisible = false;
             bool contactMaximumAuto = pane.Y2Axis.Scale.MaxAuto;
+            bool contactStepAuto = pane.Y2Axis.Scale.MajorStepAuto;
+            bool percentMinimumAuto = pane.YAxis.Scale.MinAuto;
 
             if (data == null || data.Count == 0)
             {
@@ -222,7 +248,14 @@ namespace UserControls
             }
 
             _convergenceGraph.AxisChange();
+            // Keep the auto-scaled percent axis from ballooning down to an ultra-small outlier value.
+            if (percentMinimumAuto) CapConvergenceYAxisMin(pane);
+            // Snap the contact-element (right) axis ticks onto the percent (left) axis grid lines.
+            if (contactMaximumAuto && pane.Y2Axis.IsVisible && data != null && data.Count > 0)
+                AlignY2ToYGridLines(pane, GetMaximum(data.ContactElementCounts));
+            pane.YAxis.Scale.MinAuto = percentMinimumAuto;
             pane.Y2Axis.Scale.MaxAuto = contactMaximumAuto;
+            pane.Y2Axis.Scale.MajorStepAuto = contactStepAuto;
             _convergenceGraph.Invalidate();
         }
 
@@ -266,6 +299,232 @@ namespace UserControls
             double maximum = GetMaximum(values);
             if (maximum <= 0) return 1;
             else return Math.Ceiling(maximum) + 1;
+        }
+
+        // Aligns the secondary (right) Y axis so its major tick marks fall on the primary (left)
+        // Y axis major grid lines. Both axes share the same bottom (fraction 0 of the chart
+        // height), so giving one right-axis major step the same fractional height as one
+        // left-axis major step makes every right tick coincide with a left grid line. The right
+        // axis is linear and anchored at zero; its maximum is stretched to whatever the alignment
+        // requires, which is always at least the data maximum so no data point gets clipped.
+        private void AlignY2ToYGridLines(GraphPane pane, double dataMaximum)
+        {
+            // Drop any tick anchor left behind by a previous zoom re-alignment so the right axis
+            // falls back to the natural zero-anchored lattice for this round-number alignment.
+            pane.Y2Axis.Scale.BaseTic = PointPairBase.Missing;
+            if (dataMaximum <= 0) return;
+            //
+            Scale yScale = pane.YAxis.Scale;
+            // Left grid lines are evenly spaced in the axis transform space (value for a linear
+            // axis, log10(value) for a log axis), so the fractional spacing uses that same space.
+            double yRange = pane.YAxis.Type == AxisType.Log
+                            ? Math.Log10(yScale.Max) - Math.Log10(yScale.Min)
+                            : yScale.Max - yScale.Min;
+            if (yRange <= 0 || yScale.MajorStep <= 0) return;
+            // Fraction of the chart height spanned by one primary-axis major step.
+            double stepFraction = yScale.MajorStep / yRange;
+            // Nothing to align to when the primary axis shows no interior grid lines.
+            if (stepFraction <= 0 || stepFraction >= 1) return;
+            // Pick a nice right-axis step whose fractional height matches the grid, then stretch
+            // the right-axis maximum so that step spans exactly one grid interval.
+            double y2Step = GetNiceStepAtLeast(dataMaximum * stepFraction);
+            double y2Max = y2Step / stepFraction;
+            //
+            Scale y2Scale = pane.Y2Axis.Scale;
+            y2Scale.Min = 0;
+            y2Scale.MinAuto = false;
+            y2Scale.Max = y2Max;
+            y2Scale.MaxAuto = false;
+            y2Scale.MajorStep = y2Step;
+            y2Scale.MajorStepAuto = false;
+        }
+
+        // Smallest 1-2-5 x 10^k value greater than or equal to the given positive value.
+        private double GetNiceStepAtLeast(double value)
+        {
+            if (value <= 0) return 1;
+            double magnitude = Math.Pow(10, Math.Floor(Math.Log10(value)));
+            double normalized = value / magnitude;   // within [1, 10)
+            double nice;
+            if (normalized <= 1) nice = 1;
+            else if (normalized <= 2) nice = 2;
+            else if (normalized <= 5) nice = 5;
+            else nice = 10;
+            return nice * magnitude;
+        }
+
+        private void Convergence_ZoomEvent(ZedGraphControl sender, ZoomState oldState, ZoomState newState)
+        {
+            GraphPane pane = _convergenceGraph.GraphPane;
+            // Reject any zoom OR pan step that pushes the log axis outside its safe region: restore
+            // every axis to the pre-step state so navigation simply stops at the limit rather than
+            // distorting the plot or breaking the log axis. This fires for wheel/rubber-band zoom and
+            // for pan (HandlePanFinish raises ZoomEvent on mouse-up). Zoom-in and pan-up stay inside
+            // the region, so they are never rejected.
+            if (oldState != null && ConvergenceViewOutOfBounds(pane))
+            {
+                oldState.ApplyState(pane);
+                _convergenceGraph.Invalidate();
+                return;
+            }
+            if (pane.Y2Axis.IsVisible && _convergenceData != null && _convergenceData.Count > 0)
+            {
+                RealignY2OnZoom(pane, GetMaximum(_convergenceData.ContactElementCounts));
+                _convergenceGraph.Invalidate();
+            }
+        }
+
+        // Limits the auto-scaled percent (log) axis so an ultra-small converged value cannot stretch
+        // the range past the safe span or below the safe floor. The maximum stays data driven; only the
+        // minimum is lifted. Values below the resulting window clip to the bottom of the plot.
+        private void CapConvergenceYAxisMin(GraphPane pane)
+        {
+            Scale yScale = pane.YAxis.Scale;
+            if (yScale.Min <= 0 || yScale.Max <= 0) return;
+            double minimumLimit = Math.Max(MinConvergenceValue, yScale.Max / Math.Pow(10, MaxConvergenceDecades));
+            if (yScale.Min < minimumLimit)
+            {
+                yScale.Min = minimumLimit;
+                yScale.MinAuto = false;
+            }
+        }
+
+        private void Convergence_MouseMove(object sender, MouseEventArgs e)
+        {
+            // ZedGraph pans continuously during the drag (HandlePanDrag) but only raises ZoomEvent on
+            // mouse-up, and its PanScale has no bounds checking - so without intervening here the log
+            // axis overflows and inverts once the minimum passes ~1e-20, and the right-axis ticks drift
+            // off the (re-anchoring) log grid until release. Because the pan is incremental, clamping
+            // and re-aligning after each step keeps the minimum pinned at the floor and the axes in sync.
+            if (!IsConvergencePanning()) return;
+            //
+            GraphPane pane = _convergenceGraph.GraphPane;
+            bool changed = ClampConvergencePanMinimum(pane);
+            if (pane.Y2Axis.IsVisible && _convergenceData != null && _convergenceData.Count > 0)
+            {
+                RealignY2OnZoom(pane, GetMaximum(_convergenceData.ContactElementCounts));
+                changed = true;
+            }
+            if (changed) _convergenceGraph.Refresh();
+        }
+
+        private bool IsConvergencePanning()
+        {
+            if (_isPanningField == null)
+                _isPanningField = typeof(ZedGraphControl).GetField("_isPanning",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            return _isPanningField != null && (bool)_isPanningField.GetValue(_convergenceGraph);
+        }
+
+        // Pins the percent (log) axis minimum at the safe floor during a pan and shifts the linear right
+        // axis by the same amount, so panning down stops cleanly at the floor with both axes coupled
+        // instead of overflowing ZedGraph's log PanScale. Panning up needs no guard.
+        private bool ClampConvergencePanMinimum(GraphPane pane)
+        {
+            Scale yScale = pane.YAxis.Scale;
+            if (yScale.Min <= 0 || yScale.Max <= 0 || yScale.Min >= MinConvergenceValue) return false;
+            double logMin = Math.Log10(yScale.Min);
+            double logMax = Math.Log10(yScale.Max);
+            double shift = Math.Log10(MinConvergenceValue) - logMin;   // decades to shift the window up
+            yScale.Min = MinConvergenceValue;
+            yScale.Max = Math.Pow(10, logMax + shift);
+            yScale.MinAuto = false;
+            yScale.MaxAuto = false;
+            // Shift the coupled linear right axis by the same fraction of the plot height.
+            Scale y2Scale = pane.Y2Axis.Scale;
+            double span = logMax - logMin;
+            if (pane.Y2Axis.IsVisible && span > 0 && y2Scale.Max > y2Scale.Min)
+            {
+                double y2Shift = (shift / span) * (y2Scale.Max - y2Scale.Min);
+                y2Scale.Min += y2Shift;
+                y2Scale.Max += y2Shift;
+                y2Scale.MinAuto = false;
+                y2Scale.MaxAuto = false;
+            }
+            return true;
+        }
+
+        // True when the percent (log) axis has left the region where ZedGraph's log zoom/pan stays
+        // stable: an inverted or degenerate range (min >= max, the pan-overflow break state), a minimum
+        // pushed below the safe floor, or a span wide enough to destabilise wheel-zoom. The caller
+        // rejects such a step by restoring the pre-step state.
+        private bool ConvergenceViewOutOfBounds(GraphPane pane)
+        {
+            Scale yScale = pane.YAxis.Scale;
+            if (yScale.Min <= 0 || yScale.Max <= yScale.Min) return true;
+            if (yScale.Min < MinConvergenceValue) return true;
+            return Math.Log10(yScale.Max) - Math.Log10(yScale.Min) > MaxConvergenceDecades;
+        }
+
+        // Re-applies the right-axis grid-line alignment after a zoom or pan, when the left (log) axis
+        // may no longer start on a whole decade. ZedGraph re-anchors the log grid lines to
+        // Ceiling(log10(min)), so the lowest grid line sits a fraction phi above the axis bottom; the
+        // right axis tick anchor (BaseTic) is placed at that same fraction so every right tick keeps
+        // landing on a grid line. While zoomed off the decades the right labels are no longer round
+        // numbers - that is the accepted trade-off for staying aligned.
+        private void RealignY2OnZoom(GraphPane pane, double dataMaximum)
+        {
+            Scale yScale = pane.YAxis.Scale;
+            if (yScale.Min <= 0 || yScale.Max <= 0 || yScale.MajorStep <= 0) return;
+            double tMin = Math.Log10(yScale.Min);
+            double tMax = Math.Log10(yScale.Max);
+            double tRange = tMax - tMin;
+            if (tRange <= 0) return;
+            // The lowest whole decade at or above the axis minimum - ZedGraph's log base tick.
+            double baseTicLog = Math.Ceiling(tMin - 1e-9);
+            double phi = (baseTicLog - tMin) / tRange;         // fraction of the lowest grid line
+            double stepFraction = yScale.MajorStep / tRange;   // fractional grid spacing
+            if (phi < 0 || phi >= 1) return;                   // no interior grid line to align to
+            //
+            Scale y2Scale = pane.Y2Axis.Scale;
+            // Bottom grid line on the axis and the right axis still anchored at zero: this is the
+            // vertically un-zoomed case, so keep the tidy round-number alignment.
+            if (phi < 1e-6 && Math.Abs(y2Scale.Min) < 1e-9)
+            {
+                AlignY2ToYGridLines(pane, dataMaximum);
+                return;
+            }
+            // Zoomed off the decades: match the exact grid phase with the current right-axis range.
+            double y2Range = y2Scale.Max - y2Scale.Min;
+            if (y2Range <= 0) return;
+            y2Scale.MajorStep = stepFraction * y2Range;
+            y2Scale.MajorStepAuto = false;
+            y2Scale.BaseTic = y2Scale.Min + phi * y2Range;
+        }
+
+        private void Graph_ContextMenuBuilder(ZedGraphControl sender, ContextMenuStrip menuStrip, Point mousePt,
+                                              ZedGraphControl.ContextMenuObjectState objState)
+        {
+            // Replace the built-in "Set Scale to Default" item. The built-in reset flips every axis
+            // back to fully auto and redraws directly, bypassing the Y2 grid-line alignment; route it
+            // through our own reset instead so the alignment survives.
+            for (int i = 0; i < menuStrip.Items.Count; i++)
+            {
+                if (menuStrip.Items[i].Tag as string != "set_default") continue;
+                //
+                ToolStripMenuItem defaultItem = menuStrip.Items[i] as ToolStripMenuItem;
+                if (defaultItem == null) break;
+                ToolStripMenuItem newItem = new ToolStripMenuItem(defaultItem.Text) { Tag = "set_default" };
+                newItem.Click += (s, e) => RestoreDefaultScale(sender);
+                menuStrip.Items.RemoveAt(i);
+                menuStrip.Items.Insert(i, newItem);
+                break;
+            }
+        }
+
+        private void RestoreDefaultScale(ZedGraphControl graph)
+        {
+            graph.GraphPane.ZoomStack.Clear();
+            if (graph == _statusGraph)
+            {
+                ResetStatusScale();
+                SetStatusData(_statusData);
+            }
+            else if (graph == _convergenceGraph)
+            {
+                ResetConvergenceScale();
+                SetConvergenceData(_convergenceData);
+            }
         }
 
         private double GetMaximum(double[] values)

@@ -62,6 +62,7 @@ namespace PrePoMax
         [OrderedDisplayName(3, 10, "Variables to output")]
         [CategoryAttribute("Data")]
         [DescriptionAttribute("Contact field variables")]
+        [Editor(typeof(UserControls.FlagsEnumEditorUIEditor), typeof(System.Drawing.Design.UITypeEditor))]
         public ViewContactFieldVariable Variables 
         { 
             get

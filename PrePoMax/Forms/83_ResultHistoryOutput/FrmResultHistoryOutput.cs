@@ -14,6 +14,7 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeResults;
 using CaeGlobals;
+using CaeMesh;
 using System.Windows.Forms;
 using CaeModel;
 
@@ -38,8 +39,6 @@ namespace PrePoMax.Forms
                         new ViewResultHistoryOutputFromField(rhoff.DeepClone(), _controller.CurrentResult.ContainsComplexResults());
                 else if (value is ResultHistoryOutputFromEquation rhofe) _viewResultHistoryOutput =
                         new ViewResultHistoryOutputFromEquation(rhofe.DeepClone());
-                else if (value is ResultHistoryOutputFromElementSize rhofes) _viewResultHistoryOutput =
-                        new ViewResultHistoryOutputFromElementSize(rhofes.DeepClone());
                 else if (value is ResultHistoryOutputFromIntegration rhofi) _viewResultHistoryOutput =
                         new ViewResultHistoryOutputFromIntegration(rhofi.DeepClone());
                 else throw new NotImplementedException();
@@ -120,7 +119,6 @@ namespace PrePoMax.Forms
                 if (itemTag is ViewError) _viewResultHistoryOutput = null;
                 else if (itemTag is ViewResultHistoryOutputFromField vrhoff) _viewResultHistoryOutput = vrhoff;
                 else if (itemTag is ViewResultHistoryOutputFromEquation vrhofe) _viewResultHistoryOutput = vrhofe;
-                else if (itemTag is ViewResultHistoryOutputFromElementSize vrhofes) _viewResultHistoryOutput = vrhofes;
                 else if (itemTag is ViewResultHistoryOutputFromIntegration vrhofi) _viewResultHistoryOutput = vrhofi;
                 else throw new NotImplementedException();
                 //
@@ -149,16 +147,6 @@ namespace PrePoMax.Forms
             }
             else if (_viewResultHistoryOutput is ViewResultHistoryOutputFromEquation vrhofe)
             { }
-            else if (_viewResultHistoryOutput is ViewResultHistoryOutputFromElementSize vrhofes)
-            {
-                if (property == nameof(vrhofes.ElementSetName)) HighlightHistoryOutput();
-                else if (property == nameof(vrhofes.ElementSizeType))
-                {
-                    vrhofes.RegionType = RegionTypeEnum.Selection.ToString();
-                    ShowHideSelectionForm();
-                    _controller.ClearAllSelection();
-                }
-            }
             else if (_viewResultHistoryOutput is ViewResultHistoryOutputFromIntegration vrhofi)
             {
                 if (property == nameof(vrhofi.ElementSetName)) HighlightHistoryOutput();
@@ -185,6 +173,10 @@ namespace PrePoMax.Forms
             if (ResultHistoryOutput.RegionType == RegionTypeEnum.Selection &&
                 (ResultHistoryOutput.CreationIds == null || ResultHistoryOutput.CreationIds.Length == 0))
                 throw new CaeException("The history output selection must contain at least one item.");
+            // Check integration cross section thickness
+            if (ResultHistoryOutput is ResultHistoryOutputFromIntegration rhofiThickness &&
+                rhofiThickness.CrossSection == IntegrationScaleType.Thickness && rhofiThickness.Thickness <= 0)
+                throw new CaeException("The cross section thickness must be larger than zero.");
             // Check equation
             if (ResultHistoryOutput is ResultHistoryOutputFromEquation rhofe)
             {
@@ -291,19 +283,9 @@ namespace PrePoMax.Forms
                     // Populate
                     vrhofe.PopulateDropDownLists();
                 }
-                else if (_viewResultHistoryOutput is ViewResultHistoryOutputFromElementSize vrhofes)
-                {
-                    selectedId = 2;
-                    // Check
-                    string[] deformationVariableNames = FeResults.GetPossibleDeformationFieldOutputNamesMap().Keys.ToArray();
-                    CheckMissingValueRef(ref deformationVariableNames, vrhofes.DeformationVariableName,
-                                         s => { vrhofes.DeformationVariableName = s; });
-                    // Populate
-                    vrhofes.PopulateDropDownLists(elementSetNames, surfaceNames);
-                }
                 else if (_viewResultHistoryOutput is ViewResultHistoryOutputFromIntegration vrhofi)
                 {
-                    selectedId = 3;
+                    selectedId = 2;
                     // Check
                     string[] fieldNames = filedNameComponentNames.Keys.ToArray();
                     CheckMissingValueRef(ref fieldNames, vrhofi.FieldName, s => { vrhofi.FieldName = s; });
@@ -344,7 +326,7 @@ namespace PrePoMax.Forms
         // Methods                                                                                                                  
         private void PopulateListOfHistoryOutputs(string[] nodeSetNames, string[] elementSetNames, string[] surfaceNames,
                                                   Dictionary<string, string[]> filedNameComponentNames,
-                                                  Dictionary<int, int[]> stepIdStepIncrementIds) 
+                                                  Dictionary<int, int[]> stepIdStepIncrementIds)
         {
             ListViewItem item;
             FieldData fieldData = _controller.CurrentFieldData;
@@ -366,20 +348,11 @@ namespace PrePoMax.Forms
             vrhofe.PopulateDropDownLists();
             item.Tag = vrhofe;
             lvTypes.Items.Add(item);
-            // History output from element size
-            string defVar = FeResults.GetPossibleDeformationFieldOutputNamesMap().First().Key;
-            item = new ListViewItem("From Element Size");
-            ResultHistoryOutputFromElementSize rhofes =
-                new ResultHistoryOutputFromElementSize(GetHistoryOutputName("From_Element_Size"),
-                                                       ElementSizeTypeEnum.Area, "", RegionTypeEnum.Selection, defVar);
-            ViewResultHistoryOutputFromElementSize vrhofes = new ViewResultHistoryOutputFromElementSize(rhofes);
-            vrhofes.PopulateDropDownLists(elementSetNames, surfaceNames);
-            item.Tag = vrhofes;
-            lvTypes.Items.Add(item);
             // History output from integration
+            string defVar = FeResults.GetPossibleDeformationFieldOutputNamesMap().First().Key;
             item = new ListViewItem("From Integration");
             ResultHistoryOutputFromIntegration rhofi =
-                new ResultHistoryOutputFromIntegration(GetHistoryOutputName("From_Integration"), IntegralTypeEnum.Surface,
+                new ResultHistoryOutputFromIntegration(GetHistoryOutputName("From_Integration"), IntegralTypeEnum.Line,
                                                        "", RegionTypeEnum.Selection, fieldData.Name, null, defVar);
             ViewResultHistoryOutputFromIntegration vrhofi = new ViewResultHistoryOutputFromIntegration(rhofi);
             vrhofi.PopulateDropDownLists(elementSetNames, surfaceNames, filedNameComponentNames);
@@ -418,8 +391,7 @@ namespace PrePoMax.Forms
                 }
                 else if (ResultHistoryOutput is ResultHistoryOutputFromEquation)
                 { }
-                else if (ResultHistoryOutput is ResultHistoryOutputFromElementSize ||
-                         ResultHistoryOutput is ResultHistoryOutputFromIntegration)
+                else if (ResultHistoryOutput is ResultHistoryOutputFromIntegration)
                 {
                     if (ResultHistoryOutput.RegionType == RegionTypeEnum.ElementSetName ||
                         ResultHistoryOutput.RegionType == RegionTypeEnum.SurfaceName)
@@ -455,18 +427,27 @@ namespace PrePoMax.Forms
         {
             if (ResultHistoryOutput != null && ResultHistoryOutput.RegionType == RegionTypeEnum.Selection)
             {
+                // Reset the shell edge selection limits (used only by the line integral)
+                _controller.Selection.EnableShellEdgeFaceSelection = false;
+                _controller.Selection.LimitSelectionToShellEdges = false;
+                //
                 if (ResultHistoryOutput is null) { }
                 else if (ResultHistoryOutput is ResultHistoryOutputFromField) _controller.SetSelectItemToNode();
-                else if (ResultHistoryOutput is ResultHistoryOutputFromElementSize rhofes)
-                {
-                    if (rhofes.ElementSizeType == ElementSizeTypeEnum.Area) _controller.SetSelectItemToSurface();
-                    else if (rhofes.ElementSizeType == ElementSizeTypeEnum.Volume) _controller.SetSelectItemToElement();
-                    else throw new NotSupportedException();
-                }
                 else if (ResultHistoryOutput is ResultHistoryOutputFromIntegration rhofi)
                 {
-                    if (rhofi.IntegralType == IntegralTypeEnum.Surface) _controller.SetSelectItemToSurface();
-                    else if (rhofi.IntegralType == IntegralTypeEnum.Volume) _controller.SetSelectItemToElement();
+                    if (rhofi.IntegralType == IntegralTypeEnum.Line)
+                    {
+                        // Select geometry edges (works for shell and solid parts) - see Query -> Edge
+                        _controller.SetSelectItemToGeometryEdge();
+                    }
+                    else if (rhofi.IntegralType == IntegralTypeEnum.Surface)
+                    {
+                        _controller.SetSelectItemToSurface();
+                    }
+                    else if (rhofi.IntegralType == IntegralTypeEnum.Volume)
+                    {
+                        _controller.SetSelectItemToElement();
+                    }
                     else throw new NotSupportedException();
                 }
             }
@@ -478,7 +459,6 @@ namespace PrePoMax.Forms
             if (ResultHistoryOutput != null && ResultHistoryOutput.RegionType == RegionTypeEnum.Selection)
             {
                 if (ResultHistoryOutput is ResultHistoryOutputFromField ||
-                    ResultHistoryOutput is ResultHistoryOutputFromElementSize ||
                     ResultHistoryOutput is ResultHistoryOutputFromIntegration)
                 {
                     ResultHistoryOutput.CreationIds = ids;

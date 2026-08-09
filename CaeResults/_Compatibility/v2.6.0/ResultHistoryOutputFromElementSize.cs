@@ -18,6 +18,10 @@ using CaeGlobals;
 
 namespace CaeResults
 {
+    // Compatibility for version v2.6.0
+    // The From Element Size history output was replaced by the From Integration history output using the
+    // Geometry integral result. It can no longer be created, but existing definitions are still read and
+    // evaluated, and they can still be edited.
     [Serializable]
     public enum ElementSizeTypeEnum
     {

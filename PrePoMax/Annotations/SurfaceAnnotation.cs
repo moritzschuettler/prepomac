@@ -151,7 +151,7 @@ namespace PrePoMax
             if (showSurfaceAvg)
             {
                 if (text.Length > 0) text += Environment.NewLine;
-                text += string.Format("Avg: {0} {1}", avg.ToString(numberFormat), fieldUnit);
+                text += string.Format("Nodal avg: {0} {1}", avg.ToString(numberFormat), fieldUnit);
             }
             //
             if (IsTextOverridden) text = OverriddenText;
