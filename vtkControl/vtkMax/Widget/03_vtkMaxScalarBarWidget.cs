@@ -575,10 +575,13 @@ namespace vtkControl
         public override void SetInteractor(vtkRenderer renderer, vtkRenderWindowInteractor renderWindowInteractor)
         {
             base.SetInteractor(renderer, renderWindowInteractor);
-            _renderer.AddActor(_textActorFooter);
-            _renderer.AddActor(_textActorLabel);
-            _renderer.AddActor(_scalarBarColorsActor);
-            _renderer.AddActor(_scalarBarBorderActor);
+            if (_visibility)
+            {
+                _renderer.AddActor(_textActorFooter);
+                _renderer.AddActor(_textActorLabel);
+                _renderer.AddActor(_scalarBarColorsActor);
+                _renderer.AddActor(_scalarBarBorderActor);
+            }
         }
         public override void RemoveInteractor()
         {

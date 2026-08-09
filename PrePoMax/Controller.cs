@@ -16454,13 +16454,14 @@ namespace PrePoMax
                                 AnnotateWithColorLegend();
                                 _annotations.DrawAnnotations();
                                 //
+                                DrawModelSymbols();
+                                //
                                 DrawItemIds();
                                 //
                                 ApplySectionView();
                             }
                             catch { }
                         }
-                        DrawModelSymbols();
                         UpdateTreeSelection();
                     }
                     //

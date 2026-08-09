@@ -6133,8 +6133,21 @@ namespace vtkControl
                 if (pointSmoothing != (_renderWindow.GetPointSmoothing() == 1) ||
                     lineSmoothing != (_renderWindow.GetLineSmoothing() == 1))
                 {
-                    _renderWindow.Dispose();
+                    List<vtkMaxBorderWidget> widgets = new List<vtkMaxBorderWidget>();
+                    if (_scaleWidget != null) widgets.Add(_scaleWidget);
+                    if (_scalarBarWidget != null) widgets.Add(_scalarBarWidget);
+                    if (_colorBarWidget != null) widgets.Add(_colorBarWidget);
+                    if (_statusBlockWidget != null) widgets.Add(_statusBlockWidget);
+                    if (_probeWidget != null) widgets.Add(_probeWidget);
+                    if (_arrowWidgets != null) widgets.AddRange(_arrowWidgets.Values);
+
+                    // Widgets keep a reference to the interactor. Detach them before disposing it so
+                    // they never call through an invalid native VTK pointer after the window is rebuilt.
+                    foreach (vtkMaxBorderWidget widget in widgets) widget.RemoveInteractor();
+                    if (_coorSys != null) _coorSys.SetInteractor(null);
+                    _renderWindowInteractor.ModifiedEvt -= _renderWindowInteractor_ModifiedEvt;
                     _renderWindowInteractor.Dispose();
+                    _renderWindow.Dispose();
 
                     _renderWindow = vtkRenderWindow.New();
                     _renderWindow.SetParentId(this.Handle);
@@ -6152,14 +6165,11 @@ namespace vtkControl
                     _style.ResetRotationCenter();
 
                     _renderWindow.SetInteractor(_renderWindowInteractor);
+                    _renderWindowInteractor.ModifiedEvt += _renderWindowInteractor_ModifiedEvt;
 
                     _coorSys.SetInteractor(_renderWindowInteractor);
-                    //_scaleBarWidget.SetInteractor(_selectionRenderer, _renderWindowInteractor);
-                    //_scalarBarWidget.SetInteractor(_selectionRenderer, _renderWindowInteractor);
-                    //_statusBlockWidget.SetInteractor(_selectionRenderer, _renderWindowInteractor);
-                    //_minValueWidget.SetInteractor(_selectionRenderer, _renderWindowInteractor);
-                    //_maxValueWidget.SetInteractor(_selectionRenderer, _renderWindowInteractor);
-                    //_probeWidget.SetInteractor(_selectionRenderer, _renderWindowInteractor);
+                    foreach (vtkMaxBorderWidget widget in widgets)
+                        widget.SetInteractor(_widgetRenderer, _renderWindowInteractor);
 
                     if (_drawCoorSys) _coorSys.EnabledOn();
                     else _coorSys.EnabledOff();

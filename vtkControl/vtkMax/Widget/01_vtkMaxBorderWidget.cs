@@ -589,10 +589,13 @@ namespace vtkControl
             _renderWindowInteractor.GetRenderWindow().ModifiedEvt += renderWindow_ModifiedEvt;
             // Add widget
             if (_renderWindowInteractor.GetInteractorStyle() is vtkInteractorStyleControl visc) visc.AddVtkMaxWidget(this);
-            //
-            _renderer.AddActor(_backgroundActor);
-            _renderer.AddActor(_borderActor);
-            _highlight.AddToRenderer(_highlightRenderer);
+            // Restore only actors that were visible before an interactor replacement.
+            if (_visibility)
+            {
+                if (_backgroundVisibility && _backgroundActor != null) _renderer.AddActor(_backgroundActor);
+                if (_borderVisibility && _borderActor != null) _renderer.AddActor(_borderActor);
+                if (_highlightRenderer != null) _highlight.AddToRenderer(_highlightRenderer);
+            }
         }
         public void SetHighlightRenderer(vtkRenderer highlightRenderer)
         {
@@ -606,13 +609,20 @@ namespace vtkControl
         public virtual void RemoveInteractor()
         {
             // Dereference
-            if (_renderWindowInteractor != null && _renderWindowInteractor.GetRenderWindow() != null)
-                _renderWindowInteractor.GetRenderWindow().ModifiedEvt -= renderWindow_ModifiedEvt;
-            // Remove widget
-            if (_renderWindowInteractor.GetInteractorStyle() is vtkInteractorStyleControl visc) visc.RemoveVtkMaxWidget(this);
+            if (_renderWindowInteractor != null)
+            {
+                if (_renderWindowInteractor.GetRenderWindow() != null)
+                    _renderWindowInteractor.GetRenderWindow().ModifiedEvt -= renderWindow_ModifiedEvt;
+                // Remove widget
+                if (_renderWindowInteractor.GetInteractorStyle() is vtkInteractorStyleControl visc)
+                    visc.RemoveVtkMaxWidget(this);
+            }
             //
-            _renderer.RemoveActor(_backgroundActor);
-            _renderer.RemoveActor(_borderActor);
+            if (_renderer != null)
+            {
+                _renderer.RemoveActor(_backgroundActor);
+                _renderer.RemoveActor(_borderActor);
+            }
             if (_highlightRenderer != null) _highlight.RemoveFromRenderer(_highlightRenderer);
             // Pointers
             _renderWindowInteractor = null;
