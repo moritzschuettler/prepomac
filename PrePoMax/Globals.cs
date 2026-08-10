@@ -21,7 +21,7 @@ namespace PrePoMax
     public static class Globals
     {
         public static string HomePage = "https://prepomax.fs.um.si/";
-        public static string ReleaseCandidate = "RC1";
+        public static string ReleaseCandidate = "";
         //
         public static string ProgramName
         {

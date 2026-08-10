@@ -41,7 +41,8 @@ namespace PrePoMax
     public class Controller //: ISerializable
     {
         // Variables                                                                                                                
-        private const string ItemLabelsActorName = "Items";
+        private const string _itemLabelsActorName = "Items";
+        private const int _selectionDistanceInPixels = 7;   // the setting does not work as expected
         //
         [NonSerialized] protected FrmMain _form;
         [NonSerialized] protected SettingsContainer _settings;
@@ -12258,6 +12259,7 @@ namespace PrePoMax
             _form.SetCoorSysVisibility(gs.CoorSysVisibility);
             _form.SetScaleWidgetVisibility(gs.ScaleWidgetVisibility);
             _form.SetWidgetHighlightEnabled(gs.WidgetHighlightEnabled);
+            _form.SetSelectionDistance(_selectionDistanceInPixels);
             _form.SetLighting(gs.AmbientComponent, gs.DiffuseComponent, false);
             _form.SetSmoothing(gs.PointSmoothing, gs.LineSmoothing, false);
             // Color settings
@@ -16929,20 +16931,20 @@ namespace PrePoMax
             }
             //
             if (positions.Count > 0)
-                _form.AddLabelActor(ItemLabelsActorName, positions.ToArray(), labels.ToArray(), Color.Black,
+                _form.AddLabelActor(_itemLabelsActorName, positions.ToArray(), labels.ToArray(), Color.Black,
                                     fontScaleFactor, layer);
         }
         private void RedrawItemIds()
         {
             if (_showItemIds == ShowItemIdsEnum.None || _itemIdsSuppressed) return;
             //
-            _form.RemoveOverlayActors(new string[] { ItemLabelsActorName });
+            _form.RemoveOverlayActors(new string[] { _itemLabelsActorName });
             DrawItemIds();
         }
         private void SuppressItemIds()
         {
             _itemIdsSuppressed = true;
-            _form.RemoveOverlayActors(new string[] { ItemLabelsActorName });
+            _form.RemoveOverlayActors(new string[] { _itemLabelsActorName });
         }
         private void ResumeItemIds()
         {

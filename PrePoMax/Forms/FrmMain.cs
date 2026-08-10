@@ -10721,6 +10721,10 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.SetWidgetHighlightEnabled, enabled);
         }
+        public void SetSelectionDistance(int distanceInPixels)
+        {
+            InvokeIfRequired(_vtk.SetSelectionDistance, distanceInPixels);
+        }
         private void SetScaleWidgetUnit(UnitSystem unitSystem)
         {
             string unit = "";

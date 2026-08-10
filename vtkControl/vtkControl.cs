@@ -123,6 +123,7 @@ namespace vtkControl
         private vtkPointPicker _pointPicker;
         private vtkCellPicker _cellPicker;
         private vtkRenderedAreaPicker _areaPicker;
+        private int _selectionDistance;
         //
         private vtkMaxActor _mouseSelectionActorCurrent;
         private HashSet<int> _mouseSelectionAllIds;
@@ -349,7 +350,6 @@ namespace vtkControl
             _pointPicker.SetTolerance(0.01);
             //
             _cellPicker = vtkCellPicker.New();
-            _cellPicker.SetTolerance(0.01);
             //
             _areaPicker = vtkRenderedAreaPicker.New();
             _mouseSelectionActorCurrent = null;
@@ -1466,52 +1466,22 @@ namespace vtkControl
             // First pick
             if (pickedActor != null)
             {
-                p = _propPicker.GetPickPosition();      // this function sometimes gives strange values
+                p = GetPropPickerPickPosition(x, y);
                 cellId = GetGlobalCellIdClosestTo3DPoint(ref p, out _, out _);
             }
-            // Try some more picks
+            // If the exact pixel misses, pick geometry within a fixed screen-space tolerance.
             if (cellId == -1)
             {
-                int numOfLoops = 0;
-                int stepSize = 5;
+                int[] windowSize = _renderWindow.GetSize();
+                double windowDiagonal = Math.Sqrt(windowSize[0] * windowSize[0] + windowSize[1] * windowSize[1]);
+                _cellPicker.SetTolerance(windowDiagonal > 0 ? _selectionDistance / windowDiagonal : 0);
                 //
-                for (int i = 1; i <= numOfLoops; i++)   // try in a cross shape
+                _cellPicker.Pick(x, y, 0, _renderer);
+                pickedActor = _cellPicker.GetActor();
+                if (pickedActor != null)
                 {
-                    _propPicker.Pick(x + i * stepSize, y, 0, _renderer);
-                    pickedActor = _propPicker.GetActor();
-                    if (pickedActor != null)
-                    {
-                        p = _propPicker.GetPickPosition();  // this function sometimes gives strange values
-                        cellId = GetGlobalCellIdClosestTo3DPoint(ref p, out _, out _);
-                        if (cellId != -1) break;
-                    }
-                    //
-                    _propPicker.Pick(x - i * stepSize, y, 0, _renderer);
-                    pickedActor = _propPicker.GetActor();
-                    if (pickedActor != null)
-                    {
-                        p = _propPicker.GetPickPosition();  // this function sometimes gives strange values
-                        cellId = GetGlobalCellIdClosestTo3DPoint(ref p, out _, out _);
-                        if (cellId != -1) break;
-                    }
-                    //
-                    _propPicker.Pick(x, y + i * stepSize, 0, _renderer);
-                    pickedActor = _propPicker.GetActor();
-                    if (pickedActor != null)
-                    {
-                        p = _propPicker.GetPickPosition();  // this function sometimes gives strange values
-                        cellId = GetGlobalCellIdClosestTo3DPoint(ref p, out _, out _);
-                        if (cellId != -1) break;
-                    }
-                    //
-                    _propPicker.Pick(x, y - i * stepSize, 0, _renderer);
-                    pickedActor = _propPicker.GetActor();
-                    if (pickedActor != null)
-                    {
-                        p = _propPicker.GetPickPosition();  // this function sometimes gives strange values
-                        cellId = GetGlobalCellIdClosestTo3DPoint(ref p, out _, out _);
-                        if (cellId != -1) break;
-                    }
+                    p = _cellPicker.GetPickPosition();
+                    cellId = GetGlobalCellIdClosestTo3DPoint(ref p, out _, out _);
                 }
             }
             // Reset the actor visibility
@@ -1532,6 +1502,17 @@ namespace vtkControl
             }
             //
             return p;
+        }
+        private double[] GetPropPickerPickPosition(int x, int y)
+        {
+            // vtkPropPicker.GetPickPosition() reconstructs the point from the normal scene
+            // depth buffer, where non-pickable symbols can hide the selected model actor.
+            // Use the depth produced by the restricted hardware pick pass instead.
+            _renderer.SetDisplayPoint(x, y, _renderer.GetPickedZ());
+            _renderer.DisplayToWorld();
+            double[] worldPoint = _renderer.GetWorldPoint();
+            double w = worldPoint[3];
+            return new double[] { worldPoint[0] / w, worldPoint[1] / w, worldPoint[2] / w };
         }
 
         // Item selection - Point                                                                                                   
@@ -1678,7 +1659,11 @@ namespace vtkControl
         }
         public double GetSelectionPrecision()
         {
-            return vtkInteractorStyleControl.DisplayToWorldScale(_renderer, 7);
+            return vtkInteractorStyleControl.DisplayToWorldScale(_renderer, _selectionDistance);
+        }
+        public void SetSelectionDistance(int distanceInPixels)
+        {
+            _selectionDistance = Math.Max(1, distanceInPixels);
         }
 
         // Item selection - Frustum                                                                                                 
