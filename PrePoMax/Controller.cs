@@ -9677,6 +9677,9 @@ namespace PrePoMax
                 newConstraint.Name = GetConstraintNames().GetNextNumberedKey(newConstraint.Name);
                 if (newConstraint.MasterCreationData != null) newConstraint.MasterRegionType = RegionTypeEnum.Selection;
                 if (newConstraint.SlaveCreationData != null) newConstraint.SlaveRegionType = RegionTypeEnum.Selection;
+                if (newConstraint is CyclicSymmetry cyclicSymmetry &&
+                    cyclicSymmetry.CreationData != null)
+                    cyclicSymmetry.RegionType = RegionTypeEnum.Selection;
                 AddConstraint(newConstraint);
                 PlaceDuplicatedOrderedDictionaryItem(_model.Constraints, constraintName, newConstraint,
                                                      ViewGeometryModelResults.Model);
@@ -9727,7 +9730,7 @@ namespace PrePoMax
                     slaveNames.Add(tmp[1]);
                 }
                 // Collect mergeable constraints
-                if (_model.Constraints[name] is Tie tie)
+                if (_model.Constraints[name] is Tie tie && !(tie is CyclicSymmetry))
                 {
                     if (tie.MasterRegionType == RegionTypeEnum.SurfaceName && tie.MasterCreationData != null &&
                         tie.SlaveRegionType == RegionTypeEnum.SurfaceName && tie.SlaveCreationData != null)
@@ -9829,7 +9832,22 @@ namespace PrePoMax
         public void ActivateDeactivateConstraint(string constraintName, bool active)
         {
             Constraint constraint = _model.Constraints[constraintName];
-            constraint.Active = active;
+            if (active && constraint is CyclicSymmetry cyclicSymmetry)
+            {
+                bool oldActive = constraint.Active;
+                constraint.Active = true;
+                try
+                {
+                    _model.CheckCyclicSymmetryCompatibility(cyclicSymmetry, constraintName);
+                }
+                catch (Exception ex)
+                {
+                    constraint.Active = oldActive;
+                    MessageBoxes.ShowError(ex.Message);
+                    return;
+                }
+            }
+            else constraint.Active = active;
             //
             _form.UpdateTreeNode(ViewGeometryModelResults.Model, constraintName, constraint, null);
             //
@@ -9964,6 +9982,34 @@ namespace PrePoMax
             }
             else if (constraint is Tie tie)
             {
+                // Result expansion element set
+                if (tie is CyclicSymmetry cyclicSymmetry &&
+                    cyclicSymmetry.NumberOfGraphSectors > 1 &&
+                    cyclicSymmetry.RegionType == RegionTypeEnum.Selection)
+                {
+                    if (cyclicSymmetry.CreationData == null ||
+                        cyclicSymmetry.CreationIds == null ||
+                        cyclicSymmetry.CreationIds.Length == 0)
+                        throw new CaeException("The cyclic symmetry result expansion region selection must contain " +
+                                               "at least one item.");
+                    //
+                    name = FeMesh.GetNextFreeSelectionName(_model.Mesh.ElementSets,
+                                                           constraint.Name + "_Ngraph");
+                    FeElementSet elementSet = new FeElementSet(name, cyclicSymmetry.CreationIds, true);
+                    elementSet.CreationData = cyclicSymmetry.CreationData.DeepCopy(true, false);
+                    elementSet.Internal = true;
+                    elementSet.ParentMultiRegion = cyclicSymmetry;
+                    AddElementSet(elementSet);
+                    //
+                    cyclicSymmetry.RegionName = name;
+                    cyclicSymmetry.RegionType = RegionTypeEnum.ElementSetName;
+                }
+                // Clear the creation data if not used
+                else if (tie is CyclicSymmetry namedCyclicSymmetry)
+                {
+                    namedCyclicSymmetry.CreationData = null;
+                    namedCyclicSymmetry.CreationIds = null;
+                }
                 // Master Surface
                 if (tie.MasterRegionType == RegionTypeEnum.Selection)
                 {
@@ -10033,6 +10079,11 @@ namespace PrePoMax
             }
             else if (constraint is Tie tie)
             {
+                if (tie is CyclicSymmetry cyclicSymmetry &&
+                    cyclicSymmetry.CreationData != null &&
+                    cyclicSymmetry.RegionName != null &&
+                    cyclicSymmetry.RegionType == RegionTypeEnum.ElementSetName)
+                    RemoveElementSets(new string[] { cyclicSymmetry.RegionName }, false);
                 if (tie.MasterCreationData != null && tie.MasterRegionName != null)
                     RemoveSurfaces(new string[] { tie.MasterRegionName }, false);
                 if (tie.SlaveCreationData != null && tie.SlaveRegionName != null)
@@ -12655,6 +12706,48 @@ namespace PrePoMax
                 //
                 msg = unAssignedElementIds.Length + " finite elements are missing a section assignment. Continue?";
                 if (MessageBoxes.ShowWarningQuestionOKCancel(msg) == DialogResult.Cancel) return false;
+            }
+            // Check cyclic symmetry frequency settings
+            if (femSolver == FEMSolverEnum.Calculix)
+            {
+                CyclicSymmetry cyclicSymmetry = null;
+                bool containsAxisNodes = false;
+                foreach (var entry in _model.Constraints)
+                {
+                    if (entry.Value is CyclicSymmetry candidate && candidate.Active)
+                    {
+                        if (cyclicSymmetry == null) cyclicSymmetry = candidate;
+                        containsAxisNodes |= CyclicSymmetryContainsAxisNodes(candidate);
+                    }
+                }
+                if (cyclicSymmetry != null)
+                {
+                    try
+                    {
+                        _model.CheckCyclicSymmetryCompatibility(cyclicSymmetry, cyclicSymmetry.Name);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBoxes.ShowError(ex.Message);
+                        return false;
+                    }
+                    foreach (var step in _model.StepCollection.StepsList)
+                    {
+                        if (step.Active && step is FrequencyStep frequencyStep)
+                        {
+                            try
+                            {
+                                frequencyStep.CheckCyclicSymmetryModes(cyclicSymmetry.NumberOfSectors,
+                                                                       containsAxisNodes);
+                            }
+                            catch (Exception ex)
+                            {
+                                MessageBoxes.ShowError("Frequency step '" + step.Name + "': " + ex.Message);
+                                return false;
+                            }
+                        }
+                    }
+                }
             }
             // Check for reference points used by both rigid body and coupling constraints
             HashSet<string> rigidBodyReferencePointNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -17539,6 +17632,10 @@ namespace PrePoMax
                     count += DrawSurface(prefixName, tie.SlaveRegionName, slaveColor, layer, true, true, onlyVisible);
                     if (layer == vtkRendererLayer.Selection)
                         DrawSurfaceEdge(prefixName, tie.SlaveRegionName, slaveColor, layer, true, true, onlyVisible);
+                    //
+                    if (tie is CyclicSymmetry cyclicSymmetry)
+                        DrawCyclicSymmetryAxisSymbol(prefixName + Globals.NameSeparator + "Axis", cyclicSymmetry,
+                                                      masterColor, symbolSize, symbolLayer);
                 }
                 else throw new NotSupportedException();
             }
@@ -19826,21 +19923,23 @@ namespace PrePoMax
             _form.AddOrientedArrowsActor(data, symbolSize);
             _form.AddSphereActor(data, symbolSize);
         }
+        public void DrawCyclicSymmetryAxisSymbol(string prefixName, CyclicSymmetry cyclicSymmetry, Color color,
+                                                   int symbolSize, vtkRendererLayer layer)
+        {
+            double[] normal = cyclicSymmetry.GetAxisDirection();
+            double length = Math.Sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
+            if (double.IsNaN(length) || double.IsInfinity(length) || length <= 1E-12) return;
+            for (int i = 0; i < normal.Length; i++) normal[i] /= length;
+            DrawArrowSymbols(prefixName, new double[][] { cyclicSymmetry.GetAxisPoint() },
+                             new double[][] { normal }, color, symbolSize, layer, false, true);
+        }
         public void DrawCentrifLoadSymbol(string prefixName, CentrifLoad cfLoad, Color color, int symbolSize, 
                                           vtkRendererLayer layer)
         {
-            // Arrows
             double[] normal = new double[] { cfLoad.N1.Value, cfLoad.N2.Value, cfLoad.N3.Value };
-            //
-            vtkMaxActorData data = new vtkMaxActorData();
-            data.Name = prefixName;
-            data.Color = color;
-            data.Layer = layer;
-            data.Geometry.Nodes.Coor = new double[][] { new double[] { cfLoad.X.Value, cfLoad.Y.Value, cfLoad.Z.Value } };
-            data.Geometry.Nodes.Normals = new double[][] { normal };
-            ApplyLighting(data);
-            _form.AddOrientedDoubleArrowsActor(data, symbolSize);
-            _form.AddSphereActor(data, symbolSize);
+            double[] coor = new double[] { cfLoad.X.Value, cfLoad.Y.Value, cfLoad.Z.Value };
+            DrawArrowSymbols(prefixName, new double[][] { coor }, new double[][] { normal },
+                             color, symbolSize, layer, false, true);
         }
         public void DrawPreTensionLoadSymbols(string prefixName, PreTensionLoad ptLoad, double[][] symbolCoor, Color color,
                                               int symbolSize, vtkRendererLayer layer)
@@ -21658,6 +21757,45 @@ namespace PrePoMax
             }
             else throw new NotSupportedException();
         }
+        public bool CyclicSymmetryContainsAxisNodes(CyclicSymmetry cyclicSymmetry)
+        {
+            if (!_model.Mesh.Surfaces.TryGetValue(cyclicSymmetry.MasterRegionName, out FeSurface masterSurface) ||
+                !_model.Mesh.Surfaces.TryGetValue(cyclicSymmetry.SlaveRegionName, out FeSurface slaveSurface) ||
+                !_model.Mesh.NodeSets.TryGetValue(masterSurface.NodeSetName, out FeNodeSet masterNodeSet) ||
+                !_model.Mesh.NodeSets.TryGetValue(slaveSurface.NodeSetName, out FeNodeSet slaveNodeSet))
+                return false;
+            //
+            double[] axisPoint = cyclicSymmetry.GetAxisPoint();
+            double[] axisDirection = cyclicSymmetry.GetAxisDirection();
+            double axisLength = Math.Sqrt(axisDirection[0] * axisDirection[0] +
+                                          axisDirection[1] * axisDirection[1] +
+                                          axisDirection[2] * axisDirection[2]);
+            if (double.IsNaN(axisLength) || double.IsInfinity(axisLength) || axisLength <= 1E-12) return false;
+            // Use the same relative axis tolerance as the revolve-mesh geometry checks.
+            double tolerance = Math.Max(1E-12, 1E-6 * _model.Mesh.BoundingBox.GetDiagonal());
+            HashSet<int> nodeIds = new HashSet<int>(masterNodeSet.Labels);
+            nodeIds.UnionWith(slaveNodeSet.Labels);
+            foreach (int nodeId in nodeIds)
+            {
+                if (!_model.Mesh.Nodes.TryGetValue(nodeId, out FeNode node)) continue;
+                double x = node.X - axisPoint[0];
+                double y = node.Y - axisPoint[1];
+                double z = node.Z - axisPoint[2];
+                double cx = y * axisDirection[2] - z * axisDirection[1];
+                double cy = z * axisDirection[0] - x * axisDirection[2];
+                double cz = x * axisDirection[1] - y * axisDirection[0];
+                double distance = Math.Sqrt(cx * cx + cy * cy + cz * cz) / axisLength;
+                if (distance <= tolerance) return true;
+            }
+            return false;
+        }
+        public void HighlightCyclicSymmetryAxis(CyclicSymmetry cyclicSymmetry)
+        {
+            int symbolSize = _settings.Pre.SymbolSize;
+            string prefixName = "CONSTRAINT" + Globals.NameSeparator + cyclicSymmetry.Name +
+                                Globals.NameSeparator + "Axis";
+            DrawCyclicSymmetryAxisSymbol(prefixName, cyclicSymmetry, Color.Red, symbolSize, vtkRendererLayer.Selection);
+        }
         public void HighlightContactPair(string contactPairName)
         {
             ContactPair contactPair;
@@ -23014,6 +23152,8 @@ namespace PrePoMax
             float[] time = new float[numFrames];
             int[] stepId = new int[numFrames];
             int[] stepIncrementId = new int[numFrames];
+            int[] modeNumber = new int[numFrames];
+            int[] nodalDiameter = new int[numFrames];
             float[] animationScale = new float[numFrames];
             float ratio = 1f / (numFrames - 1);
             for (int i = 0; i < numFrames; i++)
@@ -23021,11 +23161,13 @@ namespace PrePoMax
                 time[i] = _currentFieldData.Time;
                 stepId[i] = _currentFieldData.StepId;
                 stepIncrementId[i] = _currentFieldData.StepIncrementId;
+                modeNumber[i] = _currentFieldData.ModeNumber;
+                nodalDiameter[i] = _currentFieldData.NodalDiameter;
                 animationScale[i] = i * ratio;
             }
             //
-             _form.SetAnimationFrameData(time, stepId, stepIncrementId, animationScale, allFramesScalarRange,
-                                         vtkMaxAnimationType.ScaleFactor);
+            _form.SetAnimationFrameData(time, stepId, stepIncrementId, modeNumber, nodalDiameter, animationScale,
+                                        allFramesScalarRange, vtkMaxAnimationType.ScaleFactor);
             //
             return result;
         }
@@ -23114,16 +23256,21 @@ namespace PrePoMax
             List<float> time = new List<float>();
             List<int> stepId = new List<int>();
             List<int> stepIncrementId = new List<int>();
+            List<int> modeNumber = new List<int>();
+            List<int> nodalDiameter = new List<int>();
             List<float> animationScale = new List<float>();
             foreach (FieldData frameFieldData in animationFieldData)
             {
                 time.Add(frameFieldData.Time);
                 stepId.Add(frameFieldData.StepId);
                 stepIncrementId.Add(frameFieldData.StepIncrementId);
+                modeNumber.Add(frameFieldData.ModeNumber);
+                nodalDiameter.Add(frameFieldData.NodalDiameter);
                 animationScale.Add(1);
             }
-            _form.SetAnimationFrameData(time.ToArray(), stepId.ToArray(), stepIncrementId.ToArray(), animationScale.ToArray(),
-                                        allFramesScalarRange, vtkMaxAnimationType.TimeIncrements);
+            _form.SetAnimationFrameData(time.ToArray(), stepId.ToArray(), stepIncrementId.ToArray(), modeNumber.ToArray(),
+                                        nodalDiameter.ToArray(), animationScale.ToArray(), allFramesScalarRange,
+                                        vtkMaxAnimationType.TimeIncrements);
             //
             numFrames = animationFieldData.Length;
             //
@@ -23283,16 +23430,20 @@ namespace PrePoMax
             float[] time = new float[numFrames];
             int[] stepId = new int[numFrames];
             int[] stepIncrementId = new int[numFrames];
+            int[] modeNumber = new int[numFrames];
+            int[] nodalDiameter = new int[numFrames];
             float[] animationScale = angles;
             for (int i = 0; i < numFrames; i++)
             {
                 time[i] = _currentFieldData.Time;
                 stepId[i] = _currentFieldData.StepId;
                 stepIncrementId[i] = _currentFieldData.StepIncrementId;
+                modeNumber[i] = _currentFieldData.ModeNumber;
+                nodalDiameter[i] = _currentFieldData.NodalDiameter;
             }
             //
-            _form.SetAnimationFrameData(time, stepId, stepIncrementId, animationScale, allFramesScalarRange,
-                                        vtkMaxAnimationType.Harmonic);
+            _form.SetAnimationFrameData(time, stepId, stepIncrementId, modeNumber, nodalDiameter, animationScale,
+                                        allFramesScalarRange, vtkMaxAnimationType.Harmonic);
             //
             return result;
         }
@@ -23426,9 +23577,13 @@ namespace PrePoMax
             //
             int stepNumber = _currentFieldData.StepId;
             int incrementNumber = _currentFieldData.StepIncrementId;
+            if (_currentFieldData.StepType == StepTypeEnum.Frequency && _currentFieldData.ModeNumber >= 0)
+                incrementNumber = _currentFieldData.ModeNumber;
+            int nodalDiameter = _currentFieldData.NodalDiameter;
             //
             _form.SetStatusBlock(Path.GetFileName(_allResults.CurrentResult.FileName), _allResults.CurrentResult.DateTime,
-                                 _currentFieldData.Time, unit, deformationVariable, scale, fieldType, stepNumber, incrementNumber);
+                                 _currentFieldData.Time, unit, deformationVariable, scale, fieldType, stepNumber, incrementNumber,
+                                 nodalDiameter);
         }
         private vtkMaxFieldDataType ConvertStepType(FieldData fieldData)
         {

@@ -23,15 +23,17 @@ namespace FileInOut.Output.Calculix
     {
         // Variables                                                                                                                
         private ModalDynamicsStep _step;
+        private bool _cyclicSymmetry;
 
 
         // Properties                                                                                                               
 
 
         // Constructor                                                                                                              
-        public CalModalDynamicsStep(ModalDynamicsStep step)
+        public CalModalDynamicsStep(ModalDynamicsStep step, bool cyclicSymmetry)
         {
             _step = step;
+            _cyclicSymmetry = cyclicSymmetry;
             OutputSolver = true;
             OutputNoAnalysis = true;
         }
@@ -43,7 +45,9 @@ namespace FileInOut.Output.Calculix
             string solver = !OutputSolver || _step.SolverType == SolverTypeEnum.Default ?
                 "" : ", Solver=" + _step.SolverType.GetDisplayedName();
             string steadyState = _step.SteadyState ? ", Steady state" : "";
-            return string.Format("*Modal dynamics{0}{1}{2}", solver, steadyState, Environment.NewLine);
+            string cyclicSymmetry = _cyclicSymmetry ? ", Cyclic symmetry" : "";
+            return string.Format("*Modal dynamics{0}{1}{2}{3}", solver, steadyState, cyclicSymmetry,
+                                 Environment.NewLine);
         }
         public override string GetDataString()
         {

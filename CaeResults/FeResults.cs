@@ -5319,6 +5319,9 @@ namespace CaeResults
             if (component.Unit != null) unit = component.Unit;
             else unit = GetHistoryUnitAbbreviation(field.Name, component.Name, -1, -1);
             string frequencyColumnName = PrepareFrequencyUnits(component);
+            bool hideTimeColumn = component.Name == HOFieldNames.EigenvalueOutput &&
+                                  component.Entries.ContainsKey(HOComponentNames.MODE) &&
+                                  component.Entries.ContainsKey(HOComponentNames.NODAL_DIAMETER);
             //
             string timeUnit = "[" + GetHistoryUnitAbbreviation("Time", null, -1, -1) + "]";
             string frequencyUnit = "[" + GetHistoryUnitAbbreviation("Frequency", null, -1, -1) + "]";
@@ -5333,19 +5336,22 @@ namespace CaeResults
             GetSortedTime(new HistoryResultComponent[] { component }, out sortedTime, out timeRowId, false);
             // Create the data array
             int numRow = sortedTime.Length;
-            int numCol = component.Entries.Count + 1; // +1 for the time column
+            int numCol = component.Entries.Count + (hideTimeColumn ? 0 : 1);
             columnNames = new string[numCol];
             rowBasedData = new object[numRow][];
             // Create rows
             for (int i = 0; i < numRow; i++) rowBasedData[i] = new object[numCol];
-            // Add time column name
-            if (frequencyColumnName != null) columnNames[0] = frequencyColumnName;
-            else if (set.Harmonic) columnNames[0] = "Angle " + angleUnit;
-            else columnNames[0] = "Time " + timeUnit + delimiter + "Frequency " + frequencyUnit;
-            // Fill the data array
-            for (int i = 0; i < sortedTime.Length; i++) rowBasedData[i][0] = sortedTime[i];
+            if (!hideTimeColumn)
+            {
+                // Add time column name
+                if (frequencyColumnName != null) columnNames[0] = frequencyColumnName;
+                else if (set.Harmonic) columnNames[0] = "Angle " + angleUnit;
+                else columnNames[0] = "Time " + timeUnit + delimiter + "Frequency " + frequencyUnit;
+                // Fill the data array
+                for (int i = 0; i < sortedTime.Length; i++) rowBasedData[i][0] = sortedTime[i];
+            }
             // Add data column
-            int col = 1;
+            int col = hideTimeColumn ? 0 : 1;
             int row;
             double[] timePoints;
             double[] values;
@@ -5379,10 +5385,13 @@ namespace CaeResults
             {
                 foreach (var entry in component.Entries)
                 {
-                    if (entry.Key == HOComponentNames.EIGENVALUE) entry.Value.Unit = _unitSystem.EigenvalueUnitAbbreviation;
+                    if (entry.Key == HOComponentNames.MODE) entry.Value.Unit = "/";
+                    else if (entry.Key == HOComponentNames.EIGENVALUE) entry.Value.Unit = _unitSystem.EigenvalueUnitAbbreviation;
+                    else if (entry.Key == HOComponentNames.NODAL_DIAMETER) entry.Value.Unit = "/";
                     else if (entry.Key == HOComponentNames.OMEGA) entry.Value.Unit = _unitSystem.RotationalSpeedUnitAbbreviation;
                     else if (entry.Key == HOComponentNames.FREQUENCY) entry.Value.Unit = _unitSystem.FrequencyUnitAbbreviation;
                     else if (entry.Key == HOComponentNames.FREQUENCY_IM) entry.Value.Unit = _unitSystem.RotationalSpeedUnitAbbreviation;
+                    else if (entry.Key == HOComponentNames.DIRECTION) entry.Value.Unit = "1:F, -1:B";
                     else throw new NotSupportedException();
                 }
                 columnName = "Mode";

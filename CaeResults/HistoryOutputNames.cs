@@ -190,6 +190,8 @@ namespace CaeResults
         public const string PAR_FACTOR_IM = "PAR_FACTOR_IM";
         public const string MODE = "MODE";
         public const string DIRECTION = "DIRECTION";
+        // Cyclic frequency
+        public const string NODAL_DIAMETER = "NODAL_DIAMETER";
         // Buckling
         public const string MODENUMBER = "MODE_NUMBER";
         public const string BUCKLINGFACTOR = "BUCKLING_FACTOR";

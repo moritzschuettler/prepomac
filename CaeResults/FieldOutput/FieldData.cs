@@ -33,6 +33,8 @@ namespace CaeResults
         // Variables                                                                                                                
         public string Component;
         public int GlobalIncrementId;
+        public int ModeNumber;
+        public int NodalDiameter;
         public int MethodId;
         public StepTypeEnum StepType;
         public float Time;
@@ -50,6 +52,8 @@ namespace CaeResults
             Name = name;
             Component = null;
             GlobalIncrementId = -1;
+            ModeNumber = -1;
+            NodalDiameter = -1;
             MethodId = -1;
             StepType = StepTypeEnum.None;
             Time = -1;
@@ -63,6 +67,8 @@ namespace CaeResults
             Name = name;
             Component = component;
             GlobalIncrementId = -1;
+            ModeNumber = -1;
+            NodalDiameter = -1;
             MethodId = -1;
             StepType = StepTypeEnum.None;
             Time = -1;
@@ -75,6 +81,8 @@ namespace CaeResults
         {
             Component = fieldData.Component;
             GlobalIncrementId = fieldData.GlobalIncrementId;
+            ModeNumber = fieldData.ModeNumber;
+            NodalDiameter = fieldData.NodalDiameter;
             MethodId = fieldData.MethodId;
             StepType = fieldData.StepType;
             Time = fieldData.Time;
@@ -104,6 +112,8 @@ namespace CaeResults
                     bw.Write(fieldData.Component);
                 }
                 bw.Write(fieldData.GlobalIncrementId);
+                bw.Write(fieldData.ModeNumber);
+                bw.Write(fieldData.NodalDiameter);
                 bw.Write(fieldData.MethodId);
                 bw.Write((int)fieldData.StepType);
                 bw.Write(fieldData.Time);
@@ -134,6 +144,11 @@ namespace CaeResults
                 if (componentExists == 1) fieldData.Component = br.ReadString();
                 //
                 fieldData.GlobalIncrementId = br.ReadInt32();
+                if (version >= 2_006_001)
+                {
+                    fieldData.ModeNumber = br.ReadInt32();
+                    fieldData.NodalDiameter = br.ReadInt32();
+                }
                 if (version >= 1_003_000) fieldData.MethodId = br.ReadInt32();
                 fieldData.StepType = (StepTypeEnum)br.ReadInt32();
                 fieldData.Time = br.ReadSingle();

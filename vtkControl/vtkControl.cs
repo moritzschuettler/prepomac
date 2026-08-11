@@ -6072,7 +6072,7 @@ namespace vtkControl
         }
         public void SetStatusBlock(string name, DateTime dateTime, float analysisTimeOrFrequency, string unit,
                                    string deformationVariable, float scaleFactor, vtkMaxFieldDataType fieldType, int stepNumber,
-                                   int incrementNumber)
+                                   int incrementNumber, int nodalDiameter)
         {
             if (_statusBlockWidget == null) return;
             _statusBlockWidget.Name = name;
@@ -6085,6 +6085,7 @@ namespace vtkControl
             _statusBlockWidget.AnimationScaleFactor = -1;
             _statusBlockWidget.StepNumber = stepNumber;
             _statusBlockWidget.IncrementNumber = incrementNumber;
+            _statusBlockWidget.NodalDiameter = nodalDiameter;
             if (_drawStatusBlock) _statusBlockWidget.VisibilityOn();
             else _statusBlockWidget.VisibilityOff();
         }
@@ -7348,12 +7349,14 @@ namespace vtkControl
                 _animationFrameData.ScaleFactor.Length > frameNumber) return _animationFrameData.ScaleFactor[frameNumber];
             else return float.NaN;
         }
-        public void SetAnimationFrameData(float[] time, int[] stepId, int[] stepIncrementId, float[] scale,
-                                          double[] allFramesScalarRange, vtkMaxAnimationType animationType)
+        public void SetAnimationFrameData(float[] time, int[] stepId, int[] stepIncrementId, int[] modeNumber,
+                                          int[] nodalDiameter, float[] scale, double[] allFramesScalarRange, vtkMaxAnimationType animationType)
         {
             _animationFrameData.Time = time;
             _animationFrameData.StepId = stepId;
             _animationFrameData.StepIncrementId = stepIncrementId;
+            _animationFrameData.ModeNumber = modeNumber;
+            _animationFrameData.NodalDiameter = nodalDiameter;
             _animationFrameData.ScaleFactor = scale;
             _animationFrameData.AllFramesScalarRange = allFramesScalarRange;
             _animationFrameData.AnimationType = animationType;
@@ -7366,7 +7369,11 @@ namespace vtkControl
             if (_statusBlockWidget != null && _animationFrameData != null)
             {
                 _statusBlockWidget.StepNumber = _animationFrameData.StepId[frameNumber];
-                _statusBlockWidget.IncrementNumber = _animationFrameData.StepIncrementId[frameNumber];
+                if (_animationFrameData.ModeNumber != null && _animationFrameData.ModeNumber[frameNumber] >= 0)
+                    _statusBlockWidget.IncrementNumber = _animationFrameData.ModeNumber[frameNumber];
+                else
+                    _statusBlockWidget.IncrementNumber = _animationFrameData.StepIncrementId[frameNumber];
+                _statusBlockWidget.NodalDiameter = _animationFrameData.NodalDiameter?[frameNumber] ?? -1;
                 _statusBlockWidget.AnalysisTime = _animationFrameData.Time[frameNumber];
                 _statusBlockWidget.AnimationScaleFactor = _animationFrameData.ScaleFactor[frameNumber];
                 _statusBlockWidget.AnimationType = _animationFrameData.AnimationType;

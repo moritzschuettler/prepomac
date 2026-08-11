@@ -146,6 +146,7 @@ namespace CaeResults
                 //
                 int len;
                 int stepId = -1;
+                int nodalDiameter = -1;
                 int incrementId = -1;
                 int eigenvalueNumber = -1;
                 string tmp;
@@ -174,13 +175,21 @@ namespace CaeResults
                             dataSetLines[0].ToUpper().StartsWith(_participationFactorsForModeKey) ||
                             dataSetLines[0] == _modalAssuranceCriteriumKey)
                         {
-                            if (stepKey == null) stepKey = _stepNumberKey + stepId;
-                            frequencyHistoryOutput.AppendSets(GetFrequencyDatDataSets(dataSetLines, stepId));
+                            if (dataSetLines[0] == _eigenvalueOutputKey)
+                            {
+                                nodalDiameter = GetCyclicNodalDiameter(dataSetLines);
+                                stepKey = GetFrequencyHistorySetName(stepId, nodalDiameter);
+                                timeFrequency = null;
+                            }
+                            else if (stepKey == null) stepKey = GetFrequencyHistorySetName(stepId, nodalDiameter);
+                            frequencyHistoryOutput.AppendSets(GetFrequencyDatDataSets(dataSetLines, stepId,
+                                                                                     nodalDiameter));
                         }
                         else if (dataSetLines[0] == _eigenmodeTurningDirectionKey)
                         {
-                            if (stepKey == null) stepKey = _stepNumberKey + stepId;
-                            frequencyHistoryOutput.AppendSets(GetComplexFrequencyTurningDirection(dataSetLines, stepId));
+                            if (stepKey == null) stepKey = GetFrequencyHistorySetName(stepId, nodalDiameter);
+                            frequencyHistoryOutput.AppendSets(GetComplexFrequencyTurningDirection(dataSetLines, stepId,
+                                                                                                  nodalDiameter));
                         }
                         // Buckling
                         else if (dataSetLines[0] == _bucklingFactorKey)
@@ -194,6 +203,10 @@ namespace CaeResults
                             len = _stepKey.Length;
                             tmp = dataSetLines[0].Substring(len, dataSetLines[0].Length - len);
                             stepId = int.Parse(tmp);
+                            nodalDiameter = -1;
+                            stepKey = null;
+                            timeFrequency = null;
+                            timeModeNumber = null;
                             //
                             eigenvalueNumber = -1;  // reset the eigenvalue number
                         }
@@ -272,6 +285,7 @@ namespace CaeResults
                 errors = errorsList.ToArray();
                 //
                 AddTotalEffectiveModalMassToMassRatio(frequencyHistoryOutput);
+                MergeCyclicFrequencyHistory(frequencyHistoryOutput);
                 allHistoryResults.AppendSets(frequencyHistoryOutput);
                 allHistoryResults.AppendSets(bucklingHistoryOutput);
                 //
@@ -354,6 +368,13 @@ namespace CaeResults
                     //
                     while (i < lines.Length && emptyLinesCounter <= 4)
                     {
+                        bool nextDataSet = nameKeyMap.Values.Any(
+                            key => lines[i].StartsWith(key, StringComparison.OrdinalIgnoreCase));
+                        if (nextDataSet)
+                        {
+                            i--;
+                            break;
+                        }
                         if (lines[i].Length == 0) emptyLinesCounter++;
                         else dataSet.Add(lines[i]);
                         i++;
@@ -867,7 +888,26 @@ namespace CaeResults
             }
             return newName;
         }
-        static private HistoryResults GetFrequencyDatDataSets(string[] dataSetLines, int stepId)
+        static private string GetFrequencyHistorySetName(int stepId, int nodalDiameter)
+        {
+            string setName = _stepNumberKey + stepId;
+            if (nodalDiameter >= 0) setName += "_ND_" + nodalDiameter;
+            return setName;
+        }
+        static private int GetCyclicNodalDiameter(string[] dataSetLines)
+        {
+            if (dataSetLines[0] != _eigenvalueOutputKey) return -1;
+            string[] tmp;
+            for (int i = 1; i < dataSetLines.Length; i++)
+            {
+                tmp = dataSetLines[i].Split(_spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
+                if (tmp.Length == 6 &&
+                    int.TryParse(tmp[0], out int nodalDiameter))
+                    return nodalDiameter;
+            }
+            return -1;
+        }
+        static private HistoryResults GetFrequencyDatDataSets(string[] dataSetLines, int stepId, int nodalDiameter)
         {
             int len;
             int firstDataRowId = 1;
@@ -878,6 +918,7 @@ namespace CaeResults
             string historyResultFieldName = HOFieldNames.Frequency;
             string[] tmp;
             string[] componentNames = null;
+            bool cyclicEigenvalueOutput = false;
             double time = 0;
             List<double[]> valuesList = null;
             double[] rowValues = null;
@@ -895,6 +936,15 @@ namespace CaeResults
                     entryName = HOFieldNames.EigenvalueOutput;
                     componentNames = new string[] { HOComponentNames.EIGENVALUE, HOComponentNames.OMEGA,
                                                     HOComponentNames.FREQUENCY, HOComponentNames.FREQUENCY_IM};
+                }
+                // Cyclic frequency
+                else if (tmp.Length == 6)
+                {
+                    entryName = HOFieldNames.EigenvalueOutput;
+                    componentNames = new string[] { HOComponentNames.NODAL_DIAMETER, HOComponentNames.EIGENVALUE,
+                                                    HOComponentNames.OMEGA, HOComponentNames.FREQUENCY,
+                                                    HOComponentNames.FREQUENCY_IM };
+                    cyclicEigenvalueOutput = true;
                 }
                 // Complex frequency                            
                 else if (tmp.Length == 4)
@@ -981,7 +1031,7 @@ namespace CaeResults
             }
             //
             HistoryResults historyResults = new HistoryResults("HistoryResults");
-            HistoryResultSet historyResultSet = new HistoryResultSet(_stepNumberKey + stepId);
+            HistoryResultSet historyResultSet = new HistoryResultSet(GetFrequencyHistorySetName(stepId, nodalDiameter));
             HistoryResultField historyResultField = new HistoryResultField(historyResultFieldName);
             HistoryResultComponent historyResultComponent = new HistoryResultComponent(entryName);
             HistoryResultComponent totalHistoryResultComponent = new HistoryResultComponent(totalEntryName);
@@ -996,6 +1046,12 @@ namespace CaeResults
                 {
                     rowValues = new double[tmp.Length];
                     for (int j = 0; j < rowValues.Length; j++) rowValues[j] = ParseStringToDouble(tmp[j]);
+                    if (cyclicEigenvalueOutput && rowValues.Length == 6)
+                    {
+                        double rowNodalDiameter = rowValues[0];
+                        rowValues[0] = rowValues[1];
+                        rowValues[1] = rowNodalDiameter;
+                    }
                     valuesList.Add(rowValues);
                 }
             }
@@ -1029,11 +1085,11 @@ namespace CaeResults
             //
             return historyResults;
         }
-        static private HistoryResults GetComplexFrequencyTurningDirection(string[] dataSetLines, int stepId)
+        static private HistoryResults GetComplexFrequencyTurningDirection(string[] dataSetLines, int stepId, int nodalDiameter)
         {
             string[] tmp;
             HistoryResults historyResults = new HistoryResults("HistoryResults");
-            HistoryResultSet historyResultSet = new HistoryResultSet(_stepNumberKey + stepId);
+            HistoryResultSet historyResultSet = new HistoryResultSet(GetFrequencyHistorySetName(stepId, nodalDiameter));
             HistoryResultField historyResultField = new HistoryResultField(HOFieldNames.Rotation);
             HistoryResultComponent hrcAxisDirection = new HistoryResultComponent(HOFieldNames.AxisDirection);
             HistoryResultComponent hrcTurningDirection = new HistoryResultComponent(HOFieldNames.TurningDirection);
@@ -1059,6 +1115,7 @@ namespace CaeResults
             // Direction
             historyResultEntries = new HistoryResultEntries(HOComponentNames.DIRECTION, false);
             int modeNumber;
+            string directionText;
             double direction;
             for (int i = 3; i < dataSetLines.Length; i++)
             {
@@ -1066,10 +1123,18 @@ namespace CaeResults
                 if (tmp.Length == 2)
                 {
                     int.TryParse(tmp[0], out modeNumber);
-                    if (tmp[1].Trim().ToUpper() == "F") direction = 1;
-                    else direction = -1;
-                    historyResultEntries.Add(modeNumber, direction);
+                    directionText = tmp[1];
                 }
+                else if (tmp.Length == 3)
+                {
+                    int.TryParse(tmp[1], out modeNumber);
+                    directionText = tmp[2];
+                }
+                else continue;
+                //
+                if (directionText.Trim().ToUpper() == "F") direction = 1;
+                else direction = -1;
+                historyResultEntries.Add(modeNumber, direction);
             }
             hrcTurningDirection.Entries.Add(historyResultEntries.Name, historyResultEntries);
             historyResultField.Components.Add(hrcTurningDirection.Name, hrcTurningDirection);
@@ -1808,8 +1873,8 @@ namespace CaeResults
             HistoryResultComponent effectiveModalMass;
             HistoryResultComponent totalModalMass;
             HistoryResultComponent totalMass;
-            HistoryResultComponent relativeEffectiveModalMass = new HistoryResultComponent(HOFieldNames.RelativeEffectiveModalMass);
-            HistoryResultComponent relativeTotalMass = new HistoryResultComponent(HOFieldNames.RelativeTotalEffectiveModalMass);
+            HistoryResultComponent relativeEffectiveModalMass;
+            HistoryResultComponent relativeTotalMass;
             string[] entryNames = new string[] { HOComponentNames.XCOMPONENT,
                                                  HOComponentNames.YCOMPONENT,
                                                  HOComponentNames.ZCOMPONENT,
@@ -1827,6 +1892,8 @@ namespace CaeResults
                             fieldEntry.Value.Components.TryGetValue(HOFieldNames.TotalEffectiveModalMass, out totalModalMass) &&
                             fieldEntry.Value.Components.TryGetValue(HOFieldNames.TotalEffectiveMass, out totalMass))
                         {
+                            relativeEffectiveModalMass = new HistoryResultComponent(HOFieldNames.RelativeEffectiveModalMass);
+                            relativeTotalMass = new HistoryResultComponent(HOFieldNames.RelativeTotalEffectiveModalMass);
                             foreach (var entryName in entryNames)
                             {
                                 effectiveModelMassValues = effectiveModalMass.Entries[entryName].Values.ToArray();
@@ -1858,6 +1925,180 @@ namespace CaeResults
                             fieldEntry.Value.Components.Add(relativeTotalMass.Name, relativeTotalMass);
                         }
                     }
+                }
+            }
+        }
+        static private void MergeCyclicFrequencyHistory(HistoryResults historyOutput)
+        {
+            const string nodalDiameterSeparator = "_ND_";
+            Dictionary<string, List<double[]>> spectrumRows = new Dictionary<string, List<double[]>>();
+            Dictionary<string, HistoryResultComponent> axisDirections =
+                new Dictionary<string, HistoryResultComponent>();
+            Dictionary<string, int> firstSetIndices = new Dictionary<string, int>();
+            HashSet<string> sourceSetNames = new HashSet<string>();
+            int setIndex = 0;
+            //
+            foreach (var setEntry in historyOutput.Sets)
+            {
+                int separatorIndex = setEntry.Key.LastIndexOf(nodalDiameterSeparator, StringComparison.Ordinal);
+                if (separatorIndex < 0)
+                {
+                    setIndex++;
+                    continue;
+                }
+                //
+                string baseSetName = setEntry.Key.Substring(0, separatorIndex);
+                string nodalDiameterText = setEntry.Key.Substring(separatorIndex + nodalDiameterSeparator.Length);
+                if (!int.TryParse(nodalDiameterText, out int setNodalDiameter) ||
+                    !setEntry.Value.Fields.TryGetValue(HOFieldNames.Frequency, out HistoryResultField frequencyField) ||
+                    !frequencyField.Components.TryGetValue(HOFieldNames.EigenvalueOutput,
+                                                           out HistoryResultComponent eigenvalueOutput) ||
+                    !eigenvalueOutput.Entries.TryGetValue(HOComponentNames.EIGENVALUE,
+                                                          out HistoryResultEntries eigenvalueEntries) ||
+                    !eigenvalueOutput.Entries.TryGetValue(HOComponentNames.OMEGA,
+                                                          out HistoryResultEntries omegaEntries) ||
+                    !eigenvalueOutput.Entries.TryGetValue(HOComponentNames.FREQUENCY,
+                                                          out HistoryResultEntries frequencyEntries) ||
+                    !eigenvalueOutput.Entries.TryGetValue(HOComponentNames.FREQUENCY_IM,
+                                                          out HistoryResultEntries frequencyImEntries))
+                {
+                    setIndex++;
+                    continue;
+                }
+                //
+                HistoryResultEntries nodalDiameterEntries = null;
+                eigenvalueOutput.Entries.TryGetValue(HOComponentNames.NODAL_DIAMETER, out nodalDiameterEntries);
+                //
+                Dictionary<double, double> turningDirections = new Dictionary<double, double>();
+                if (setEntry.Value.Fields.TryGetValue(HOFieldNames.Rotation, out HistoryResultField rotationField))
+                {
+                    if (!axisDirections.ContainsKey(baseSetName) &&
+                        rotationField.Components.TryGetValue(HOFieldNames.AxisDirection,
+                                                             out HistoryResultComponent axisDirection))
+                        axisDirections.Add(baseSetName, axisDirection);
+                    //
+                    if (rotationField.Components.TryGetValue(HOFieldNames.TurningDirection,
+                                                             out HistoryResultComponent turningDirection) &&
+                        turningDirection.Entries.TryGetValue(HOComponentNames.DIRECTION,
+                                                             out HistoryResultEntries directionEntries))
+                    {
+                        int directionCount = Math.Min(directionEntries.Time.Count, directionEntries.Values.Count);
+                        for (int i = 0; i < directionCount; i++)
+                            turningDirections[directionEntries.Time[i]] = directionEntries.Values[i];
+                    }
+                }
+                //
+                if (!spectrumRows.TryGetValue(baseSetName, out List<double[]> rows))
+                {
+                    rows = new List<double[]>();
+                    spectrumRows.Add(baseSetName, rows);
+                    firstSetIndices.Add(baseSetName, setIndex);
+                }
+                //
+                int rowCount = new int[] { eigenvalueEntries.Values.Count,
+                                           omegaEntries.Values.Count,
+                                           frequencyEntries.Values.Count,
+                                           frequencyImEntries.Values.Count,
+                                           frequencyEntries.Time.Count }.Min();
+                for (int i = 0; i < rowCount; i++)
+                {
+                    double mode = frequencyEntries.Time[i];
+                    double nodalDiameter = setNodalDiameter;
+                    if (nodalDiameterEntries != null && nodalDiameterEntries.Values.Count > i)
+                        nodalDiameter = nodalDiameterEntries.Values[i];
+                    //
+                    if (!turningDirections.TryGetValue(mode, out double direction)) direction = double.NaN;
+                    rows.Add(new double[] { nodalDiameter,
+                                            mode,
+                                            eigenvalueEntries.Values[i],
+                                            omegaEntries.Values[i],
+                                            frequencyEntries.Values[i],
+                                            frequencyImEntries.Values[i],
+                                            direction });
+                }
+                sourceSetNames.Add(setEntry.Key);
+                setIndex++;
+            }
+            //
+            if (spectrumRows.Count == 0) return;
+            //
+            foreach (string sourceSetName in sourceSetNames)
+            {
+                HistoryResultSet sourceSet = historyOutput.Sets[sourceSetName];
+                sourceSet.Fields.Remove(HOFieldNames.Frequency);
+                sourceSet.Fields.Remove(HOFieldNames.Rotation);
+            }
+            foreach (string sourceSetName in sourceSetNames)
+            {
+                if (historyOutput.Sets[sourceSetName].Fields.Count == 0)
+                    historyOutput.Sets.Remove(sourceSetName);
+            }
+            //
+            foreach (var spectrumEntry in spectrumRows.OrderBy(entry => firstSetIndices[entry.Key]))
+            {
+                List<double[]> rows = spectrumEntry.Value;
+                HistoryResultSet spectrumSet = new HistoryResultSet(spectrumEntry.Key);
+                HistoryResultField frequencyField = new HistoryResultField(HOFieldNames.Frequency);
+                HistoryResultComponent eigenvalueOutput =
+                    new HistoryResultComponent(HOFieldNames.EigenvalueOutput);
+                HistoryResultEntries modeEntries = new HistoryResultEntries(HOComponentNames.MODE, false);
+                HistoryResultEntries nodalDiameterEntries =
+                    new HistoryResultEntries(HOComponentNames.NODAL_DIAMETER, false);
+                HistoryResultEntries eigenvalueEntries =
+                    new HistoryResultEntries(HOComponentNames.EIGENVALUE, false);
+                HistoryResultEntries omegaEntries = new HistoryResultEntries(HOComponentNames.OMEGA, false);
+                HistoryResultEntries frequencyEntries =
+                    new HistoryResultEntries(HOComponentNames.FREQUENCY, false);
+                HistoryResultEntries frequencyImEntries =
+                    new HistoryResultEntries(HOComponentNames.FREQUENCY_IM, false);
+                HistoryResultEntries directionEntries =
+                    new HistoryResultEntries(HOComponentNames.DIRECTION, false);
+                bool hasTurningDirection = false;
+                //
+                for (int i = 0; i < rows.Count; i++)
+                {
+                    double resultId = i + 1;
+                    modeEntries.Add(resultId, rows[i][1]);
+                    nodalDiameterEntries.Add(resultId, rows[i][0]);
+                    eigenvalueEntries.Add(resultId, rows[i][2]);
+                    omegaEntries.Add(resultId, rows[i][3]);
+                    frequencyEntries.Add(resultId, rows[i][4]);
+                    frequencyImEntries.Add(resultId, rows[i][5]);
+                    directionEntries.Add(resultId, rows[i][6]);
+                    if (!double.IsNaN(rows[i][6])) hasTurningDirection = true;
+                }
+                //
+                eigenvalueOutput.Entries.Add(modeEntries.Name, modeEntries);
+                eigenvalueOutput.Entries.Add(nodalDiameterEntries.Name, nodalDiameterEntries);
+                eigenvalueOutput.Entries.Add(eigenvalueEntries.Name, eigenvalueEntries);
+                eigenvalueOutput.Entries.Add(omegaEntries.Name, omegaEntries);
+                eigenvalueOutput.Entries.Add(frequencyEntries.Name, frequencyEntries);
+                eigenvalueOutput.Entries.Add(frequencyImEntries.Name, frequencyImEntries);
+                if (hasTurningDirection) eigenvalueOutput.Entries.Add(directionEntries.Name, directionEntries);
+                frequencyField.Components.Add(eigenvalueOutput.Name, eigenvalueOutput);
+                spectrumSet.Fields.Add(frequencyField.Name, frequencyField);
+                //
+                if (axisDirections.TryGetValue(spectrumEntry.Key, out HistoryResultComponent axisDirection))
+                {
+                    HistoryResultField rotationField = new HistoryResultField(HOFieldNames.Rotation);
+                    rotationField.Components.Add(axisDirection.Name, axisDirection);
+                    spectrumSet.Fields.Add(rotationField.Name, rotationField);
+                }
+                //
+                if (historyOutput.Sets.TryGetValue(spectrumSet.Name, out HistoryResultSet existingSet))
+                {
+                    existingSet.AppendFields(spectrumSet);
+                }
+                else
+                {
+                    int insertIndex = 0;
+                    string sourcePrefix = spectrumSet.Name + nodalDiameterSeparator;
+                    foreach (var setEntry in historyOutput.Sets)
+                    {
+                        if (setEntry.Key.StartsWith(sourcePrefix, StringComparison.Ordinal)) break;
+                        insertIndex++;
+                    }
+                    historyOutput.Sets.Insert(insertIndex, spectrumSet.Name, spectrumSet);
                 }
             }
         }

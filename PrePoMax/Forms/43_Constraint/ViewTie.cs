@@ -89,7 +89,7 @@ namespace PrePoMax
 
 
         // Constructors                                                                                                             
-        public ViewTie(Tie tie)
+        public ViewTie(Tie tie, bool installProvider = true)
         {
             _tie = tie;
             // Master
@@ -102,15 +102,19 @@ namespace PrePoMax
             slaveRegionTypePropertyNamePairs.Add(RegionTypeEnum.SurfaceName, nameof(SlaveSurfaceName));
             //
             SetBase(tie, masterRegionTypePropertyNamePairs, slaveRegionTypePropertyNamePairs);
-            DynamicCustomTypeDescriptor = ProviderInstaller.Install(this);
             //
-            DynamicCustomTypeDescriptor.RenameBooleanPropertyToYesNo(nameof(Adjust));
+            if (installProvider) InstallProvider();
             //
             StringLengthDefaultConverter.SetInitialValue = Tie.InitialPositionTolerance.ToString();
         }
 
 
         // Methods                                                                                                                  
+        protected void InstallProvider()
+        {
+            DynamicCustomTypeDescriptor = ProviderInstaller.Install(this);
+            DynamicCustomTypeDescriptor.RenameBooleanPropertyToYesNo(nameof(Adjust));
+        }
         public override Constraint GetBase()
         {
             return _tie;

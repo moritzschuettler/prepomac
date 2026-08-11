@@ -23,15 +23,17 @@ namespace FileInOut.Output.Calculix
     {
         // Variables                                                                                                                
         private SteadyStateDynamicsStep _step;
+        private bool _cyclicSymmetry;
 
 
         // Properties                                                                                                               
 
 
         // Constructor                                                                                                              
-        public CalSteadyStateDynamicsStep(SteadyStateDynamicsStep step)
+        public CalSteadyStateDynamicsStep(SteadyStateDynamicsStep step, bool cyclicSymmetry)
         {
             _step = step;
+            _cyclicSymmetry = cyclicSymmetry;
             OutputSolver = true;
             OutputNoAnalysis = true;
         }
@@ -43,7 +45,9 @@ namespace FileInOut.Output.Calculix
             string solver = !OutputSolver || _step.SolverType == SolverTypeEnum.Default ?
                 "" : ", Solver=" + _step.SolverType.GetDisplayedName();
             string harmonic = _step.Harmonic ? "" : ", Harmonic=No";
-            return string.Format("*Steady state dynamics{0}{1}{2}", harmonic, solver, Environment.NewLine);
+            string cyclicSymmetry = _cyclicSymmetry ? ", Cyclic symmetry" : "";
+            return string.Format("*Steady state dynamics{0}{1}{2}{3}", harmonic, solver, cyclicSymmetry,
+                                 Environment.NewLine);
         }
         public override string GetDataString()
         {

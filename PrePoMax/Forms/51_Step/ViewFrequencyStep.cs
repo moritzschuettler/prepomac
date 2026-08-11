@@ -23,6 +23,7 @@ namespace PrePoMax
     {
         // Variables                                                                                                                
         private CaeModel.FrequencyStep _frequencyStep;
+        private bool _cyclicSymmetry;
 
 
         // Properties                                                                                                               
@@ -70,13 +71,39 @@ namespace PrePoMax
             get { return _frequencyStep.UpperFrequency; }
             set { _frequencyStep.UpperFrequency = value; }
         }
+        //
+        [CategoryAttribute("Cyclic symmetry")]
+        [OrderedDisplayName(0, 10, "Minimum nodal diameter")]
+        [DescriptionAttribute("Lowest cyclic symmetry mode number to compute. Default is 0.")]
+        [TypeConverter(typeof(StringIntegerDefaultConverter))]
+        [RefreshProperties(RefreshProperties.All)]
+        [Id(1, 2)]
+        public int CyclicSymmetryModeMin
+        {
+            get { return _frequencyStep.CyclicSymmetryModeMin; }
+            set { _frequencyStep.CyclicSymmetryModeMin = value; }
+        }
+        //
+        [CategoryAttribute("Cyclic symmetry")]
+        [OrderedDisplayName(1, 10, "Maximum nodal diameter")]
+        [DescriptionAttribute("Highest cyclic symmetry mode number to compute. Default is based on the number of sectors.")]
+        [TypeConverter(typeof(StringIntegerDefaultConverter))]
+        [RefreshProperties(RefreshProperties.All)]
+        [Id(2, 2)]
+        public int CyclicSymmetryModeMax
+        {
+            get { return _frequencyStep.CyclicSymmetryModeMax; }
+            set { _frequencyStep.CyclicSymmetryModeMax = value; }
+        }
 
 
         // Constructors                                                                                                             
-        public ViewFrequencyStep(CaeModel.FrequencyStep step, bool installProvider = true)
+        public ViewFrequencyStep(CaeModel.FrequencyStep step, bool installProvider = true,
+                                 bool cyclicSymmetry = false)
             : base(step)
         {
             _frequencyStep = step;
+            _cyclicSymmetry = cyclicSymmetry;
             //
             if (installProvider)
             {
@@ -101,6 +128,9 @@ namespace PrePoMax
         public override void UpdateVisibility()
         {
             base.UpdateVisibility();
+            //
+            _dctd.GetProperty(nameof(CyclicSymmetryModeMin)).SetIsBrowsable(_cyclicSymmetry);
+            _dctd.GetProperty(nameof(CyclicSymmetryModeMax)).SetIsBrowsable(_cyclicSymmetry);
         }
     }
 }

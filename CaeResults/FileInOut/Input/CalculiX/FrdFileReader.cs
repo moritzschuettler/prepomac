@@ -700,6 +700,8 @@ namespace CaeResults
             //
             string name;
             int globalIncrementId = -1;
+            int modeNumber = -1;
+            int nodalDiameter = -1;
             StepTypeEnum type = StepTypeEnum.Static;
             float time;
             int stepId;
@@ -719,7 +721,18 @@ namespace CaeResults
                 stepId = int.Parse(record[3]);
             }
             // Find 100C line - user field data
-            while (!lines[lineNum].TrimStart().StartsWith("100C", StringComparison.Ordinal)) lineNum++;
+            while (!lines[lineNum].TrimStart().StartsWith("100C", StringComparison.Ordinal))
+            {
+                record = lines[lineNum].Split(splitter, StringSplitOptions.RemoveEmptyEntries);
+                if (record.Length > 1)
+                {
+                    if (record[0] == "1PHID" && int.TryParse(record[1], out int parsedNodalDiameter))
+                        nodalDiameter = parsedNodalDiameter;
+                    else if (record[0] == "1PMODE" && int.TryParse(record[1], out int parsedModeNumber))
+                        modeNumber = parsedModeNumber;
+                }
+                lineNum++;
+            }
             //
             line = lines[lineNum++];
             int position = line.IndexOf("CL") + 2;                                                  // +2 for CL
@@ -753,9 +766,23 @@ namespace CaeResults
             else if (record.Length > 5 && record[5].Contains("MODAL"))
             {
                 type = StepTypeEnum.Frequency;
-                record = lines[lineNum - 2].Split(splitter, StringSplitOptions.RemoveEmptyEntries); // 1PMODE
-                int freqNum = int.Parse(record[1]);
-                stepIncrementId = freqNum;
+                if (modeNumber < 0)
+                {
+                    record = lines[lineNum - 2].Split(splitter, StringSplitOptions.RemoveEmptyEntries); // 1PMODE
+                    modeNumber = int.Parse(record[1]);
+                }
+                int freqNum = modeNumber;
+                // For cyclic frequency analyses PMODE restarts for every PHID. Use the
+                // globally increasing FRD increment to continue the numbering across
+                // PHIDs, while retaining PMODE for the first mode of each frequency step.
+                if (prevFieldData != null &&
+                    prevFieldData.StepType == StepTypeEnum.Frequency &&
+                    prevFieldData.StepId == stepId)
+                {
+                    stepIncrementId = prevFieldData.StepIncrementId +
+                                      globalIncrementId - prevFieldData.GlobalIncrementId;
+                }
+                else stepIncrementId = freqNum;
             }
             else if (type == StepTypeEnum.LastIterations)
             {
@@ -767,6 +794,8 @@ namespace CaeResults
             //
             fieldData = new FieldData(name);
             fieldData.GlobalIncrementId = globalIncrementId;
+            fieldData.ModeNumber = modeNumber;
+            fieldData.NodalDiameter = nodalDiameter;
             fieldData.StepType = type;
             fieldData.Time = time;
             fieldData.MethodId = methodId;

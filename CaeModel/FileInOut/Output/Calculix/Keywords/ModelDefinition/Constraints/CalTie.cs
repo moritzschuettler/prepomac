@@ -45,6 +45,7 @@ namespace FileInOut.Output.Calculix
             if (!double.IsNaN(_tie.PositionTolerance.Value))
                 sb.AppendFormat(", Position tolerance={0}", _tie.PositionTolerance.Value.ToCalculiX16String());
             if (!_tie.Adjust) sb.AppendFormat(", Adjust=No");
+            if (_tie is CyclicSymmetry) sb.Append(", Cyclic symmetry");
             sb.AppendLine();
             return sb.ToString();
         }

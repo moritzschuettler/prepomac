@@ -5649,6 +5649,10 @@ namespace PrePoMax
                 if (_controller.Model.Mesh == null) return;
                 // Data editor
                 ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmConstraint);
+                //
+                SinglePointDataEditor.ParentForm = _frmConstraint;
+                SinglePointDataEditor.Controller = _controller;
+                //
                 ShowForm(_frmConstraint, "Create Constraint", null);
             }
             catch (Exception ex)
@@ -5738,6 +5742,10 @@ namespace PrePoMax
         {
             // Data editor
             ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmConstraint);
+            //
+            SinglePointDataEditor.ParentForm = _frmConstraint;
+            SinglePointDataEditor.Controller = _controller;
+            //
             ShowForm(_frmConstraint, "Edit Constraint", constraintName);
         }
         private void DuplicateConstraints(string[] constraintNames)
@@ -9180,8 +9188,8 @@ namespace PrePoMax
 
         #region Mouse selection methods  ###########################################################################################
         public void _vtk_SelectPointOrArea(double[] pickedPoint, double[] selectionDirection,
-                                      double[][] planeParameters, bool completelyInside,
-                                      vtkSelectOperation selectOperation, string[] pickedPartNames)
+                                           double[][] planeParameters, bool completelyInside,
+                                           vtkSelectOperation selectOperation, string[] pickedPartNames)
         {
             //pickedPoint = null;
             //selectionDirection = null;
@@ -10805,10 +10813,11 @@ namespace PrePoMax
             InvokeIfRequired(_vtk.DrawStatusBlockBorder, drawBorder);
         }
         public void SetStatusBlock(string name, DateTime dateTime, float analysisTime, string unit, string deformationVariable,
-                                   float scaleFactor, vtkControl.vtkMaxFieldDataType fieldType, int stepNumber, int incrementNumber)
+                                   float scaleFactor, vtkControl.vtkMaxFieldDataType fieldType, int stepNumber,
+                                   int incrementNumber, int nodalDiameter)
         {
-            InvokeIfRequired(_vtk.SetStatusBlock, name, dateTime, analysisTime, unit, deformationVariable, scaleFactor,
-                             fieldType, stepNumber, incrementNumber);
+            InvokeIfRequired(() => _vtk.SetStatusBlock(name, dateTime, analysisTime, unit, deformationVariable, scaleFactor,
+                                                        fieldType, stepNumber, incrementNumber, nodalDiameter));
         }
         // General
         public void SetBackground(bool gradient, Color topColor, Color bottomColor, bool redraw)
@@ -11026,11 +11035,11 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.SetAnimationAcceleration, animationAcceleration);
         }
-        public void SetAnimationFrameData(float[] time, int[] stepId, int[] stepIncrementId, float[] scale,
-                                          double[] allFramesScalarRange, vtkMaxAnimationType animationType)
+        public void SetAnimationFrameData(float[] time, int[] stepId, int[] stepIncrementId, int[] modeNumber,
+                                          int[] nodalDiameter, float[] scale, double[] allFramesScalarRange, vtkMaxAnimationType animationType)
         {
-            InvokeIfRequired(_vtk.SetAnimationFrameData, time, stepId, stepIncrementId, scale, allFramesScalarRange,
-                             animationType);
+            InvokeIfRequired(_vtk.SetAnimationFrameData, time, stepId, stepIncrementId, modeNumber, nodalDiameter, scale,
+                             allFramesScalarRange, animationType);
         }
         public void SetAnimationFrame(int frameNum, bool scalarRangeFromAllFrames)
         {

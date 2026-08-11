@@ -41,7 +41,7 @@ namespace PrePoMax.Forms
                 else if (value is BoundaryDisplacementStep bds)
                     _viewStep = new ViewBoundaryDisplacementStep(bds.DeepClone());
                 else if (value is FrequencyStep fs)
-                    _viewStep = new ViewFrequencyStep(fs.DeepClone());
+                    _viewStep = new ViewFrequencyStep(fs.DeepClone(), true, IsCyclicSymmetryActive(out _));
                 else if (value is ComplexFrequencyStep cfs)
                     _viewStep = new ViewComplexFrequencyStep(cfs.DeepClone());
                 else if (value is BuckleStep bs)
@@ -134,6 +134,8 @@ namespace PrePoMax.Forms
             if (_viewStep == null) throw new CaeException("No step selected.");
             // Check if the name exists
             CheckName(_stepToEditName, Step.Name, _stepNames, "step");
+            if (Step is FrequencyStep frequencyStep && IsCyclicSymmetryActive(out _))
+                ValidateCyclicSymmetryModes(frequencyStep);
             // Create
             if (_stepToEditName == null)
             {
@@ -217,6 +219,7 @@ namespace PrePoMax.Forms
             bool addUncoupledTemDispStep = false;
             bool addCoupledTemDispStep = false;
             bool cannotAdd;
+            bool cyclicSymmetry = IsCyclicSymmetryActive(out _);
             //
             if (prevOrLastStep is SlipWearStep)
             {
@@ -304,7 +307,7 @@ namespace PrePoMax.Forms
                     item = new ListViewItem("Frequency Step");
                     FrequencyStep frequencyStep = new FrequencyStep(GetStepName());
                     frequencyStep.SolverType = defaultSolverType;
-                    item.Tag = new ViewFrequencyStep(frequencyStep);
+                    item.Tag = new ViewFrequencyStep(frequencyStep, true, cyclicSymmetry);
                     lvTypes.Items.Add(item);
                 }
                 if (addComplexFrequencyStep)
@@ -442,6 +445,37 @@ namespace PrePoMax.Forms
             }
             //
             return prevOrLastStep;
+        }
+        private bool IsCyclicSymmetryActive(out CyclicSymmetry cyclicSymmetry)
+        {
+            foreach (var entry in _controller.Model.Constraints)
+            {
+                if (entry.Value is CyclicSymmetry candidate && candidate.Active)
+                {
+                    cyclicSymmetry = candidate;
+                    return true;
+                }
+            }
+            cyclicSymmetry = null;
+            return false;
+        }
+        private void ValidateCyclicSymmetryModes(FrequencyStep frequencyStep)
+        {
+            CyclicSymmetry cyclicSymmetry = null;
+            bool containsAxisNodes = false;
+            foreach (var entry in _controller.Model.Constraints)
+            {
+                if (entry.Value is CyclicSymmetry candidate && candidate.Active)
+                {
+                    if (cyclicSymmetry == null) cyclicSymmetry = candidate;
+                    containsAxisNodes |= _controller.CyclicSymmetryContainsAxisNodes(candidate);
+                }
+            }
+            if (cyclicSymmetry != null)
+            {
+                _controller.Model.CheckCyclicSymmetryCompatibility(cyclicSymmetry, cyclicSymmetry.Name);
+                frequencyStep.CheckCyclicSymmetryModes(cyclicSymmetry.NumberOfSectors, containsAxisNodes);
+            }
         }
         private string GetStepName()
         {

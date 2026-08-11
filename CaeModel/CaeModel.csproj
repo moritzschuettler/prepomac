@@ -174,6 +174,7 @@
     <Compile Include="Steps\BoundaryConditions\DisplacementRotation.cs" />
     <Compile Include="Steps\BoundaryConditions\BoundaryCondition.cs" />
     <Compile Include="Constraints\Tie.cs" />
+    <Compile Include="Constraints\CyclicSymmetry.cs" />
     <Compile Include="Constraints\RigidBody.cs" />
     <Compile Include="Constraints\Coupling.cs" />
     <Compile Include="Constraints\KinematicCoupling.cs" />
@@ -217,7 +218,9 @@
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\FieldOutput\CalElFile.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\FieldOutput\CalNodeFile.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\CalFrequencyStep.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\Step\CalSelectCyclicSymmetryModes.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Constraints\CalTie.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Constraints\CalCyclicSymmetry.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Constraints\CalCoupling.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Constraints\CalKinematic.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Constraints\CalDistributing.cs" />

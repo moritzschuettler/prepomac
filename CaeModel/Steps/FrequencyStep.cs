@@ -13,7 +13,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.Serialization;
-
+using CaeGlobals;
 
 namespace CaeModel
 {
@@ -25,6 +25,8 @@ namespace CaeModel
         private double _lowerFrequency;         //ISerializable
         private double _upperFrequency;         //ISerializable
         private bool _storage;                  //ISerializable
+        private int _cyclicSymmetryModeMin;     //ISerializable
+        private int _cyclicSymmetryModeMax;     //ISerializable
 
 
         // Properties                                                                                                               
@@ -33,7 +35,7 @@ namespace CaeModel
             get { return _numOfFrequencies; }
             set 
             {
-                if (value <= 0) throw new Exception("The number of frequencies must be larger than 0.");
+                if (value <= 0) throw new CaeException("The number of frequencies must be larger than 0.");
                 _numOfFrequencies = value;
             }
         }
@@ -44,9 +46,9 @@ namespace CaeModel
             {
                 if (!double.IsNaN(value))
                 {
-                    if (value < 0) throw new Exception("The lower frequency value must be larger or equal to 0.");
+                    if (value < 0) throw new CaeException("The lower frequency value must be larger or equal to 0.");
                     if (!double.IsNaN(_upperFrequency) && value >= _upperFrequency && _upperFrequency != 0)
-                        throw new Exception("The lower frequency value must be smaller than the upper frequency value.");
+                        throw new CaeException("The lower frequency value must be smaller than the upper frequency value.");
                 }
                 _lowerFrequency = value;
             }
@@ -58,14 +60,38 @@ namespace CaeModel
             {
                 if (!double.IsNaN(value))
                 {
-                    if (value < 0) throw new Exception("The upper frequency value must be larger or equal to 0.");
+                    if (value < 0) throw new CaeException("The upper frequency value must be larger or equal to 0.");
                     if (!double.IsNaN(_lowerFrequency) && value <= _lowerFrequency && _lowerFrequency != 0)
-                        throw new Exception("The upper frequency value must be larger than the lower frequency value.");
+                        throw new CaeException("The upper frequency value must be larger than the lower frequency value.");
                 }
                 _upperFrequency = value;
             }
         }
         public bool Storage { get { return _storage; } set { _storage = value; } }
+        public int CyclicSymmetryModeMin
+        {
+            get { return _cyclicSymmetryModeMin; }
+            set
+            {
+                if (value != int.MinValue && value < 0)
+                    throw new CaeException("The minimum cyclic symmetry mode must be larger than or equal to 0.");
+                if (value != int.MinValue && _cyclicSymmetryModeMax != int.MinValue &&
+                    value > _cyclicSymmetryModeMax) _cyclicSymmetryModeMax = value;
+                _cyclicSymmetryModeMin = value;
+            }
+        }
+        public int CyclicSymmetryModeMax
+        {
+            get { return _cyclicSymmetryModeMax; }
+            set
+            {
+                if (value != int.MinValue && value < 0)
+                    throw new CaeException("The maximum cyclic symmetry mode must be larger than or equal to 0.");
+                if (value != int.MinValue && _cyclicSymmetryModeMin != int.MinValue &&
+                    value < _cyclicSymmetryModeMin) _cyclicSymmetryModeMin = value;
+                _cyclicSymmetryModeMax = value;
+            }
+        }
 
 
         // Constructors                                                                                                             
@@ -76,6 +102,8 @@ namespace CaeModel
             _lowerFrequency = double.NaN;
             _upperFrequency = double.NaN;
             _storage = false;
+            _cyclicSymmetryModeMin = int.MinValue;
+            _cyclicSymmetryModeMax = int.MinValue;
             //
             AddFieldOutput(new NodalFieldOutput("NF-Output-1", NodalFieldVariable.U));
             AddFieldOutput(new ElementFieldOutput("EF-Output-1", ElementFieldVariable.E | ElementFieldVariable.S));
@@ -84,6 +112,8 @@ namespace CaeModel
         public FrequencyStep(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
+            _cyclicSymmetryModeMin = int.MinValue;
+            _cyclicSymmetryModeMax = int.MinValue;
             foreach (SerializationEntry entry in info)
             {
                 switch (entry.Name)
@@ -96,12 +126,32 @@ namespace CaeModel
                         _upperFrequency = (double)entry.Value; break;
                     case "_storage":
                         _storage = (bool)entry.Value; break;
+                    case "_cyclicSymmetryModeMin":
+                        _cyclicSymmetryModeMin = (int)entry.Value; break;
+                    case "_cyclicSymmetryModeMax":
+                        _cyclicSymmetryModeMax = (int)entry.Value; break;
                 }
             }
         }
 
 
         // Methods                                                                                                                  
+        public void CheckCyclicSymmetryModes(int numberOfSectors, bool containsAxisNodes)
+        {
+            int highestMode = numberOfSectors / 2;
+            int minimumMode = _cyclicSymmetryModeMin == int.MinValue ? 0 : _cyclicSymmetryModeMin;
+            int maximumMode = _cyclicSymmetryModeMax == int.MinValue ? highestMode : _cyclicSymmetryModeMax;
+            //
+            if (minimumMode > highestMode || maximumMode > highestMode)
+                throw new CaeException("The cyclic symmetry nodal diameter must not exceed " + highestMode +
+                                       " for " + numberOfSectors + " sectors.");
+            if (containsAxisNodes &&
+                ((minimumMode == 0 && maximumMode != 0) ||
+                 (minimumMode == 1 && maximumMode != 1)))
+                throw new CaeException("The cyclic symmetry faces share nodes on the symmetry axis. Nodal diameter " +
+                                       "0 must be computed as 0 to 0 and nodal diameter 1 as 1 to 1 in separate " +
+                                       "frequency steps. Nodal diameters 2 and higher may be computed together.");
+        }
         public override bool IsPerturbationSupported()
         {
             return true;
@@ -154,6 +204,8 @@ namespace CaeModel
             info.AddValue("_lowerFrequency", _lowerFrequency, typeof(double));
             info.AddValue("_upperFrequency", _upperFrequency, typeof(double));
             info.AddValue("_storage", _storage, typeof(bool));
+            info.AddValue("_cyclicSymmetryModeMin", _cyclicSymmetryModeMin, typeof(int));
+            info.AddValue("_cyclicSymmetryModeMax", _cyclicSymmetryModeMax, typeof(int));
         }
     }
 }

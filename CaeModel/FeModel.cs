@@ -677,6 +677,25 @@ namespace CaeModel
                         && coupling.RegionType == RegionTypeEnum.SurfaceName
                         && _mesh.Surfaces.ContainsValidKey(coupling.RegionName);
             }
+            else if (constraint is CyclicSymmetry cyclicSymmetry)
+            {
+                FeSurface slaveSurface;
+                FeSurface masterSurface;
+                bool expansionRegionValid =
+                    cyclicSymmetry.NumberOfGraphSectors == 1 ||
+                    (cyclicSymmetry.RegionType == RegionTypeEnum.PartName &&
+                     _mesh.Parts.ContainsValidKey(cyclicSymmetry.RegionName)) ||
+                    (cyclicSymmetry.RegionType == RegionTypeEnum.ElementSetName &&
+                     _mesh.ElementSets.ContainsValidKey(cyclicSymmetry.RegionName));
+                valid = !_properties.ModelSpace.IsTwoD()
+                        && _mesh.Surfaces.TryGetValue(cyclicSymmetry.SlaveRegionName, out slaveSurface)
+                        && _mesh.Surfaces.TryGetValue(cyclicSymmetry.MasterRegionName, out masterSurface)
+                        && slaveSurface.Valid && masterSurface.Valid
+                        && _mesh.NodeSets.ContainsValidKey(slaveSurface.NodeSetName)
+                        && _mesh.NodeSets.ContainsValidKey(masterSurface.NodeSetName)
+                        && cyclicSymmetry.SlaveRegionName != cyclicSymmetry.MasterRegionName
+                        && expansionRegionValid;
+            }
             else if (constraint is Tie t)
             {
                 valid = _mesh.Surfaces.ContainsValidKey(t.SlaveRegionName) && _mesh.Surfaces.ContainsValidKey(t.MasterRegionName)
@@ -685,6 +704,41 @@ namespace CaeModel
             else throw new NotSupportedException();
             //
             return valid;
+        }
+        public void CheckCyclicSymmetryCompatibility(CyclicSymmetry cyclicSymmetry,
+                                                     string constraintNameToIgnore)
+        {
+            if (cyclicSymmetry == null || !cyclicSymmetry.Active) return;
+            //
+            foreach (var entry in _constraints)
+            {
+                if (string.Equals(entry.Key, constraintNameToIgnore, StringComparison.OrdinalIgnoreCase)) continue;
+                if (!(entry.Value is CyclicSymmetry other) || !other.Active) continue;
+                //
+                if (cyclicSymmetry.NumberOfSectors != other.NumberOfSectors)
+                    throw new CaeException("Active cyclic symmetry constraints '" + cyclicSymmetry.Name + "' and '" +
+                                           other.Name + "' must use the same number of sectors.");
+                // The axis direction is intentionally required to be co-directed. CalculiX requires all dependent
+                // surfaces to be on the same side when viewed along the cyclic symmetry axes.
+                Vec3D direction = new Vec3D(cyclicSymmetry.GetAxisDirection());
+                Vec3D otherDirection = new Vec3D(other.GetAxisDirection());
+                direction.Normalize();
+                otherDirection.Normalize();
+                if ((direction - otherDirection).Len > 1E-8)
+                    throw new CaeException("Active cyclic symmetry constraints '" + cyclicSymmetry.Name + "' and '" +
+                                           other.Name + "' must use the same axis direction.");
+                // Equivalent points may be defined anywhere along the common axis. Compare the perpendicular
+                // distance between the two axis lines using a tolerance scaled to the model size.
+                Vec3D point = new Vec3D(cyclicSymmetry.GetAxisPoint());
+                Vec3D otherPoint = new Vec3D(other.GetAxisPoint());
+                double modelSize = _mesh.BoundingBox.GetDiagonal();
+                if (double.IsNaN(modelSize) || double.IsInfinity(modelSize)) modelSize = 0;
+                double axisTolerance = Math.Max(1E-12, 1E-8 * modelSize);
+                double axisDistance = Vec3D.CrossProduct(otherPoint - point, direction).Len;
+                if (axisDistance > axisTolerance)
+                    throw new CaeException("Active cyclic symmetry constraints '" + cyclicSymmetry.Name + "' and '" +
+                                           other.Name + "' must use the same rotation axis.");
+            }
         }
         public bool IsBoundaryConditionRegionValid(BoundaryCondition bc)
         {
@@ -846,6 +900,8 @@ namespace CaeModel
                 return _mesh.ElementSets[multiRegion.RegionName].Valid;
             else if (multiRegion.RegionType == RegionTypeEnum.SurfaceName && _mesh.Surfaces.ContainsKey(multiRegion.RegionName))
                 return _mesh.Surfaces[multiRegion.RegionName].Valid;
+            else if (multiRegion.RegionType == RegionTypeEnum.PartName && _mesh.Parts.ContainsKey(multiRegion.RegionName))
+                return _mesh.Parts[multiRegion.RegionName].Valid;
             //
             return false;
         }

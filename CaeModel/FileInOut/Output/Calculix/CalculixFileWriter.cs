@@ -161,6 +161,8 @@ namespace FileInOut.Output
                                                  ref additionalElementSetNames, ref additionalSectionData,
                                                  ref additionalMaterials, ref additionalBoundaryConditions,
                                                  ref equationParameters);
+                Dictionary<string, string> cyclicSymmetryElementSetNames =
+                    PrepareCyclicSymmetryElementSets(model);
                 //
                 CalTitle title;
                 List<CalculixKeyword> keywords = new List<CalculixKeyword>();
@@ -219,7 +221,8 @@ namespace FileInOut.Output
                 // Constraints
                 title = new CalTitle("Constraints", "");
                 keywords.Add(title);
-                AppendConstraints(model, referencePoints, equationParameters, title);
+                AppendConstraints(model, referencePoints, equationParameters,
+                                  cyclicSymmetryElementSetNames, title);
                 // Surface interactions
                 title = new CalTitle("Surface interactions", "");
                 keywords.Add(title);
@@ -1604,8 +1607,36 @@ namespace FileInOut.Output
                 }
             }
         }
+        static private Dictionary<string, string> PrepareCyclicSymmetryElementSets(FeModel model)
+        {
+            Dictionary<string, string> elementSetNames = new Dictionary<string, string>();
+            foreach (var entry in model.Constraints)
+            {
+                if (entry.Value is CyclicSymmetry cyclicSymmetry && cyclicSymmetry.Active &&
+                    cyclicSymmetry.NumberOfGraphSectors > 1)
+                {
+                    if (string.IsNullOrWhiteSpace(cyclicSymmetry.RegionName))
+                        throw new CaeException("The result expansion region of cyclic symmetry constraint '" +
+                                               cyclicSymmetry.Name + "' is not defined.");
+                    //
+                    bool regionValid =
+                        (cyclicSymmetry.RegionType == RegionTypeEnum.PartName &&
+                         model.Mesh.Parts.ContainsValidKey(cyclicSymmetry.RegionName)) ||
+                        (cyclicSymmetry.RegionType == RegionTypeEnum.ElementSetName &&
+                         model.Mesh.ElementSets.ContainsValidKey(cyclicSymmetry.RegionName));
+                    if (!regionValid)
+                        throw new CaeException("The result expansion region of cyclic symmetry constraint '" +
+                                               cyclicSymmetry.Name + "' is not valid.");
+                    //
+                    elementSetNames.Add(cyclicSymmetry.Name, cyclicSymmetry.RegionName);
+                }
+            }
+            return elementSetNames;
+        }
         static private void AppendConstraints(FeModel model, Dictionary<string, CalReferencePoint> referencePoints,
-                                              List<double[]> equationParameters, CalculixKeyword parent)
+                                              List<double[]> equationParameters,
+                                              Dictionary<string, string> cyclicSymmetryElementSetNames,
+                                              CalculixKeyword parent)
         {
             if (model.Mesh != null)
             {
@@ -1633,6 +1664,16 @@ namespace FileInOut.Output
                                 calCoupling.AddKeyword(new CalDistributing(dc));
                             else throw new NotImplementedException();
                             parent.AddKeyword(calCoupling);
+                        }
+                        else if (entry.Value is CyclicSymmetry cyclicSymmetry)
+                        {
+                            CalTie calTie = new CalTie(cyclicSymmetry);
+                            cyclicSymmetryElementSetNames.TryGetValue(cyclicSymmetry.Name,
+                                                                      out string elementSetName);
+                            CalCyclicSymmetry calCyclicSymmetry =
+                                new CalCyclicSymmetry(cyclicSymmetry, elementSetName);
+                            calTie.AddKeyword(calCyclicSymmetry);
+                            parent.AddKeyword(calTie);
                         }
                         else if (entry.Value is Tie tie)
                         {
@@ -1742,6 +1783,8 @@ namespace FileInOut.Output
         {
             CalTitle title;
             HashSet<Type> loadTypes = model.StepCollection.GetAllLoadTypes();
+            bool cyclicSymmetry = model.Constraints.Any(entry => entry.Value.Active &&
+                                                                 entry.Value is CyclicSymmetry);
             //
             if (model.StepCollection.GetNumberOfActiveSteps() == 0 && model.StepCollection.OnlyCheckModel)
             {
@@ -1787,6 +1830,8 @@ namespace FileInOut.Output
                     {
                         CalFrequencyStep calFrequencyStep = new CalFrequencyStep(frequencyStep);
                         calStepHeader.AddKeyword(calFrequencyStep);
+                        if (cyclicSymmetry)
+                            calStepHeader.AddKeyword(new CalSelectCyclicSymmetryModes(frequencyStep));
                     }
                     else if (step is ComplexFrequencyStep complexFrequencyStep)
                     {
@@ -1800,7 +1845,7 @@ namespace FileInOut.Output
                     }
                     else if (step is ModalDynamicsStep modalStep)
                     {
-                        CalModalDynamicsStep calModalStep = new CalModalDynamicsStep(modalStep);
+                        CalModalDynamicsStep calModalStep = new CalModalDynamicsStep(modalStep, cyclicSymmetry);
                         calStepHeader.AddKeyword(calModalStep);
                         // Damping
                         if (modalStep.ModalDamping.DampingType != ModalDampingTypeEnum.Off)
@@ -1813,7 +1858,8 @@ namespace FileInOut.Output
                     }
                     else if (step is SteadyStateDynamicsStep steadyStep)
                     {
-                        CalSteadyStateDynamicsStep calSteadyStep = new CalSteadyStateDynamicsStep(steadyStep);
+                        CalSteadyStateDynamicsStep calSteadyStep =
+                            new CalSteadyStateDynamicsStep(steadyStep, cyclicSymmetry);
                         calStepHeader.AddKeyword(calSteadyStep);
                         // Damping
                         if (steadyStep.ModalDamping.DampingType != ModalDampingTypeEnum.Off)

@@ -765,6 +765,7 @@
     <Compile Include="Forms\31_ReferencePoint\ViewFeReferencePoint.cs" />
     <Compile Include="Forms\41_Material\ViewPlastic.cs" />
     <Compile Include="Forms\43_Constraint\ViewTie.cs" />
+    <Compile Include="Forms\43_Constraint\ViewCyclicSymmetry.cs" />
     <Compile Include="Forms\43_Constraint\ViewRigidBody.cs" />
     <Compile Include="Forms\43_Constraint\ViewKinematicCoupling.cs" />
     <Compile Include="Forms\43_Constraint\ViewDistributingCoupling.cs" />

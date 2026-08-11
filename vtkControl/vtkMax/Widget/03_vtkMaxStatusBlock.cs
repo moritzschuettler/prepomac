@@ -34,6 +34,7 @@ namespace vtkControl
         private vtkMaxAnimationType _animationType;
         private int _stepNumber;
         private int _incrementNumber;
+        private int _nodalDiameter;
         private bool _deformationScaleFactorTextClicked;
         private System.Drawing.Rectangle _deformationScaleFactorRect;
 
@@ -58,6 +59,7 @@ namespace vtkControl
         public vtkMaxAnimationType AnimationType { get { return _animationType; } set { _animationType = value; SetText(); } }
         public int StepNumber { get { return _stepNumber; } set { _stepNumber = value; SetText(); } }
         public int IncrementNumber { get { return _incrementNumber; } set { _incrementNumber = value; SetText(); } }
+        public int NodalDiameter { get { return _nodalDiameter; } set { _nodalDiameter = value; SetText(); } }
         public bool DeformationScaleFactorTextClicked
         {
             get { return _deformationScaleFactorTextClicked; }
@@ -76,6 +78,7 @@ namespace vtkControl
             _animationScaleFactor = -1;
             _deformationScaleFactor = 1;
             _fieldType = vtkMaxFieldDataType.Static;
+            _nodalDiameter = -1;
             _animationType = vtkMaxAnimationType.ScaleFactor;
         }
 
@@ -101,8 +104,10 @@ namespace vtkControl
             }
             else if (_fieldType == vtkMaxFieldDataType.Frequency)
             {
-                line2 = "Step: #" + _stepNumber + "   Mode: #" + _incrementNumber + "   Frequency: " +
-                        _analysisTime.ToString(_numberFormat) + " " + _analysisTimeUnit;
+                line2 = "Step: #" + _stepNumber + "   Mode: #" + _incrementNumber;
+                if (_nodalDiameter >= 0) line2 += "   Nodal diameter: " + _nodalDiameter;
+                line2 += "   Frequency: " + _analysisTime.ToString(_numberFormat) + " " +
+                         _analysisTimeUnit;
             }
             else if (_fieldType == vtkMaxFieldDataType.FrequencySensitivity)
             {

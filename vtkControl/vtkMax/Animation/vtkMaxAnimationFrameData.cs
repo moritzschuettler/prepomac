@@ -24,6 +24,8 @@ namespace vtkControl
         public float[] Time;
         public int[] StepId;
         public int[] StepIncrementId;
+        public int[] ModeNumber;
+        public int[] NodalDiameter;
         public float[] ScaleFactor;
         public double[] AllFramesScalarRange;
         public vtkMaxAnimationType AnimationType;
@@ -35,16 +37,18 @@ namespace vtkControl
 
         // Constructors                                                                                                             
         public vtkMaxAnimationFrameData()
-            : this(null, null, null, null, null, vtkMaxAnimationType.ScaleFactor)
+            : this(null, null, null, null, null, null, null, vtkMaxAnimationType.ScaleFactor)
         {
         }
 
-        public vtkMaxAnimationFrameData(float[] time, int[] stepId, int[] stepIncrementId, float[] scale, double[] scalarRange,
-                                        vtkMaxAnimationType animationType)
+        public vtkMaxAnimationFrameData(float[] time, int[] stepId, int[] stepIncrementId, int[] modeNumber,
+                                        int[] nodalDiameter, float[] scale, double[] scalarRange, vtkMaxAnimationType animationType)
         {
             Time = time;
             StepId = stepId;
             StepIncrementId = stepIncrementId;
+            ModeNumber = modeNumber;
+            NodalDiameter = nodalDiameter;
             ScaleFactor = scale;
             AllFramesScalarRange = scalarRange;
             AnimationType = animationType;

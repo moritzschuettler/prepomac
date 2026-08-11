@@ -46,6 +46,7 @@ namespace PrePoMax.Forms
                 else if (value is RigidBody rb) _viewConstraint = new ViewRigidBody(rb.DeepClone());
                 else if (value is KinematicCoupling kc) _viewConstraint = new ViewKinematicCoupling(kc.DeepClone());
                 else if (value is DistributingCoupling dc) _viewConstraint = new ViewDistributingCoupling(dc.DeepClone());
+                else if (value is CyclicSymmetry cs) _viewConstraint = new ViewCyclicSymmetry(cs.DeepClone());
                 else if (value is Tie tie) _viewConstraint = new ViewTie(tie.DeepClone());
                 else throw new NotImplementedException();
             }
@@ -174,6 +175,11 @@ namespace PrePoMax.Forms
                     _viewConstraint = vdc;
                     _controller.Selection.EnableShellEdgeFaceSelection = true;
                 }
+                else if (itemTag is ViewCyclicSymmetry vcs)
+                {
+                    _viewConstraint = vcs;
+                    _controller.Selection.EnableShellEdgeFaceSelection = false;
+                }
                 else if (itemTag is ViewTie vt)
                 {
                     _viewConstraint = vt;
@@ -205,6 +211,37 @@ namespace PrePoMax.Forms
             HighlightConstraint();
             //
             base.OnPropertyGridSelectedGridItemChanged();
+        }
+        protected override void OnPropertyGridPropertyValueChanged()
+        {
+            if (propertyGrid.SelectedGridItem != null &&
+                propertyGrid.SelectedGridItem.PropertyDescriptor != null)
+            {
+                string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
+                if (_viewConstraint is ViewCyclicSymmetry vcs)
+                {
+                    if (property == nameof(ViewCyclicSymmetry.NumberOfGraphSectors))
+                    {
+                        vcs.UpdateRegionVisibility();
+                        propertyGrid.Refresh();
+                        ShowHideSelectionForm();
+                        HighlightConstraint();
+                    }
+                    else if (property == nameof(ViewCyclicSymmetry.AffectedRegionType))
+                    {
+                        propertyGrid.Refresh();
+                        ShowHideSelectionForm();
+                        HighlightConstraint();
+                    }
+                    else if (property == nameof(ViewCyclicSymmetry.PartName) ||
+                             property == nameof(ViewCyclicSymmetry.ElementSetName))
+                    {
+                        HighlightConstraint();
+                    }
+                }
+            }
+            //
+            base.OnPropertyGridPropertyValueChanged();
         }
         protected override void OnApply(bool onOkAddNew)
         {
@@ -276,10 +313,46 @@ namespace PrePoMax.Forms
                 if (tie.SlaveRegionType == RegionTypeEnum.Selection &&
                     (tie.SlaveCreationIds == null || tie.SlaveCreationIds.Length == 0))
                     throw new CaeException("The tie slave region selection must contain at least one item.");
-                // Check for errors with constructor
+                // Check for errors with the appropriate constructor
                 bool twoD = _controller.Model.Properties.ModelSpace.IsTwoD();
-                var tmp = new Tie(tie.Name, tie.MasterRegionName, tie.MasterRegionType,
-                                  tie.SlaveRegionName, tie.SlaveRegionType, twoD);
+                if (tie is CyclicSymmetry cyclicSymmetry)
+                {
+                    if (twoD) throw new CaeException("Cyclic symmetry is supported only for 3D models.");
+                    if (cyclicSymmetry.NumberOfGraphSectors > 1)
+                    {
+                        if (cyclicSymmetry.RegionType == RegionTypeEnum.Selection)
+                        {
+                            if (cyclicSymmetry.CreationData == null ||
+                                cyclicSymmetry.CreationIds == null ||
+                                cyclicSymmetry.CreationIds.Length == 0)
+                                throw new CaeException("The cyclic symmetry result expansion region selection must " +
+                                                       "contain at least one item.");
+                        }
+                        else if (cyclicSymmetry.RegionType == RegionTypeEnum.PartName ||
+                                 cyclicSymmetry.RegionType == RegionTypeEnum.ElementSetName)
+                        {
+                            if (string.IsNullOrWhiteSpace(cyclicSymmetry.RegionName))
+                                throw new CaeException("The cyclic symmetry result expansion region must be defined.");
+                        }
+                        else throw new CaeException("The cyclic symmetry result expansion region type is not supported.");
+                    }
+                    var tmp = new CyclicSymmetry(cyclicSymmetry.Name, cyclicSymmetry.PositionTolerance.Value,
+                                                 cyclicSymmetry.Adjust, cyclicSymmetry.NumberOfSectors,
+                                                 cyclicSymmetry.NumberOfGraphSectors,
+                                                 cyclicSymmetry.CheckSectorAngle,
+                                                 cyclicSymmetry.GetAxisPoint(),
+                                                 cyclicSymmetry.GetAxisDirection(),
+                                                 cyclicSymmetry.MasterRegionName,
+                                                 cyclicSymmetry.MasterRegionType,
+                                                 cyclicSymmetry.SlaveRegionName,
+                                                 cyclicSymmetry.SlaveRegionType, false);
+                    _controller.Model.CheckCyclicSymmetryCompatibility(cyclicSymmetry, _constraintToEditName);
+                }
+                else
+                {
+                    var tmp = new Tie(tie.Name, tie.MasterRegionName, tie.MasterRegionType,
+                                      tie.SlaveRegionName, tie.SlaveRegionType, twoD);
+                }
             }
             // Create
             if (_constraintToEditName == null)
@@ -328,14 +401,21 @@ namespace PrePoMax.Forms
             string[] referencePointNames = _controller.GetModelReferencePointNames();
             string[] nodeSetNames = _controller.GetUserNodeSetNames();
             string[] surfaceNames = _controller.GetUserSurfaceNames();
+            string[] cyclicSurfaceNames = surfaceNames;
+            string[] partNames = _controller.GetModelPartNames();
+            string[] elementSetNames = _controller.GetUserElementSetNames();
             if (referencePointNames == null) referencePointNames = new string[0];
             if (nodeSetNames == null) nodeSetNames = new string[0];
             if (surfaceNames == null) surfaceNames = new string[0];
+            if (cyclicSurfaceNames == null) cyclicSurfaceNames = new string[0];
+            if (partNames == null) partNames = new string[0];
+            if (elementSetNames == null) elementSetNames = new string[0];
             //
             if (_constraintNames == null)
                 throw new CaeException("The constraint names must be defined first.");
             // Populate list view
-            PopulateListOfConstraints(referencePointNames, nodeSetNames, surfaceNames);
+            PopulateListOfConstraints(referencePointNames, nodeSetNames, surfaceNames, cyclicSurfaceNames,
+                                      partNames, elementSetNames);
             // Create new constraint
             if (_constraintToEditName == null)
             {
@@ -443,6 +523,29 @@ namespace PrePoMax.Forms
                     // Context menu strip
                     propertyGrid.ContextMenuStrip = null;
                 }
+                else if (_viewConstraint is ViewCyclicSymmetry vcs)
+                {
+                    selectedId = lvTypes.FindItemWithText("Cyclic Symmetry").Index;
+                    // Master
+                    if (vcs.MasterRegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
+                    else CheckMissingValueRef(ref cyclicSurfaceNames, vcs.MasterSurfaceName,
+                                              s => { vcs.MasterSurfaceName = s; });
+                    // Slave
+                    if (vcs.SlaveRegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
+                    else CheckMissingValueRef(ref cyclicSurfaceNames, vcs.SlaveSurfaceName,
+                                              s => { vcs.SlaveSurfaceName = s; });
+                    // Result expansion region
+                    if (vcs.AffectedRegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
+                    else if (vcs.AffectedRegionType == RegionTypeEnum.PartName.ToFriendlyString())
+                        CheckMissingValueRef(ref partNames, vcs.PartName, s => { vcs.PartName = s; });
+                    else if (vcs.AffectedRegionType == RegionTypeEnum.ElementSetName.ToFriendlyString())
+                        CheckMissingValueRef(ref elementSetNames, vcs.ElementSetName,
+                                             s => { vcs.ElementSetName = s; });
+                    else throw new NotSupportedException();
+                    //
+                    vcs.PopulateDropDownLists(cyclicSurfaceNames, partNames, elementSetNames);
+                    propertyGrid.ContextMenuStrip = cmsPropertyGrid;
+                }
                 else if (_viewConstraint is ViewTie vt)
                 {
                     selectedId = lvTypes.FindItemWithText("Tie").Index;
@@ -544,6 +647,17 @@ namespace PrePoMax.Forms
             }
             else if (constraint is Tie tie)
             {
+                if (tie is CyclicSymmetry cyclicSymmetry && cyclicSymmetry.CreationData != null)
+                {
+                    if (!_controller.Model.Mesh.ElementSets.ContainsValidKey(cyclicSymmetry.RegionName))
+                    {
+                        // Region invalid
+                        cyclicSymmetry.CreationData = null;
+                        cyclicSymmetry.CreationIds = null;
+                        _propertyItemChanged = true;
+                    }
+                    cyclicSymmetry.RegionType = RegionTypeEnum.Selection;
+                }
                 if (tie.MasterCreationData != null)
                 {
                     if (!_controller.Model.Mesh.Surfaces.ContainsValidKey(tie.MasterRegionName))
@@ -570,7 +684,9 @@ namespace PrePoMax.Forms
         }
 
         // Methods                                                                                                                  
-        private void PopulateListOfConstraints(string[] referencePointNames, string[] nodeSetNames, string[] surfaceNames)
+        private void PopulateListOfConstraints(string[] referencePointNames, string[] nodeSetNames,
+                                               string[] surfaceNames, string[] cyclicSurfaceNames,
+                                               string[] partNames, string[] elementSetNames)
         {
             Color color = _controller.Settings.Pre.ConstraintSymbolColor;
             bool twoD = _controller.Model.Properties.ModelSpace.IsTwoD();
@@ -651,6 +767,22 @@ namespace PrePoMax.Forms
             item.Tag = vt;
             vt.MasterColor = color;
             vt.SlaveColor = color;
+            lvTypes.Items.Add(item);
+            // Cyclic symmetry
+            item = new ListViewItem("Cyclic Symmetry");
+            if (twoD)
+                item.Tag = new ViewError("Cyclic symmetry is supported only for 3D models.");
+            else
+            {
+                CyclicSymmetry cyclicSymmetry =
+                    new CyclicSymmetry(GetConstraintName("Cyclic_Symmetry"), "", RegionTypeEnum.Selection,
+                                       "", RegionTypeEnum.Selection, false);
+                ViewCyclicSymmetry vcs = new ViewCyclicSymmetry(cyclicSymmetry);
+                vcs.PopulateDropDownLists(cyclicSurfaceNames, partNames, elementSetNames);
+                vcs.MasterColor = color;
+                vcs.SlaveColor = color;
+                item.Tag = vcs;
+            }
             lvTypes.Items.Add(item);
         }
         private string GetConstraintName(string namePrefix)
@@ -745,7 +877,16 @@ namespace PrePoMax.Forms
                     if (propertyGrid.SelectedGridItem == null || propertyGrid.SelectedGridItem.PropertyDescriptor == null) return;
                     string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
                     //
-                    if (property == nameof(ViewTie.MasterRegionType))
+                    if (tie is CyclicSymmetry affectedCyclicSymmetry &&
+                        affectedCyclicSymmetry.NumberOfGraphSectors > 1 &&
+                        (property == nameof(ViewCyclicSymmetry.AffectedRegionType) ||
+                         property == nameof(ViewCyclicSymmetry.PartName) ||
+                         property == nameof(ViewCyclicSymmetry.ElementSetName)))
+                    {
+                        HighlightRegion(affectedCyclicSymmetry.RegionType, affectedCyclicSymmetry.RegionName,
+                                        affectedCyclicSymmetry.CreationData, true, false);
+                    }
+                    else if (property == nameof(ViewTie.MasterRegionType))
                     {
                         // Master
                         HighlightRegion(tie.MasterRegionType, tie.MasterRegionName, tie.MasterCreationData, true, false);
@@ -762,6 +903,8 @@ namespace PrePoMax.Forms
                         // Slave
                         HighlightRegion(tie.SlaveRegionType, tie.SlaveRegionName, tie.SlaveCreationData, false, true);
                     }
+                    //
+                    if (tie is CyclicSymmetry cyclicSymmetry) _controller.HighlightCyclicSymmetryAxis(cyclicSymmetry);
                 }
                 else throw new NotSupportedException();
             }
@@ -776,6 +919,9 @@ namespace PrePoMax.Forms
                 _controller.HighlightSurface(regionName, useSecondaryHighlightColor);
             else if (regionType == RegionTypeEnum.ReferencePointName)
                 _controller.HighlightReferencePoint(regionName);
+            else if (regionType == RegionTypeEnum.PartName ||
+                     regionType == RegionTypeEnum.ElementSetName)
+                _controller.Highlight3DObjects(new object[] { regionName });
             else if (regionType == RegionTypeEnum.Selection)
             {
                 SetSelectItem();
@@ -816,7 +962,13 @@ namespace PrePoMax.Forms
                     ItemSetDataEditor.SelectionForm.ShowIfHidden(this.Owner);
                 else if (Constraint is Tie tie)
                 {
-                    if (property == nameof(ViewTie.MasterRegionType) && tie.MasterRegionType == RegionTypeEnum.Selection)
+                    if (tie is CyclicSymmetry cyclicSymmetry &&
+                        cyclicSymmetry.NumberOfGraphSectors > 1 &&
+                        property == nameof(ViewCyclicSymmetry.AffectedRegionType) &&
+                        cyclicSymmetry.RegionType == RegionTypeEnum.Selection)
+                        ItemSetDataEditor.SelectionForm.ShowIfHidden(this.Owner);
+                    else if (property == nameof(ViewTie.MasterRegionType) &&
+                             tie.MasterRegionType == RegionTypeEnum.Selection)
                         ItemSetDataEditor.SelectionForm.ShowIfHidden(this.Owner);
                     else if (property == nameof(ViewTie.SlaveRegionType) && tie.SlaveRegionType == RegionTypeEnum.Selection)
                         ItemSetDataEditor.SelectionForm.ShowIfHidden(this.Owner);
@@ -866,8 +1018,15 @@ namespace PrePoMax.Forms
             }
             else if (Constraint is Tie tie)
             {
-                if ((tie.MasterRegionType == RegionTypeEnum.Selection && property == nameof(ViewTie.MasterRegionType)) ||
-                    (tie.SlaveRegionType == RegionTypeEnum.Selection  && property == nameof(ViewTie.SlaveRegionType)))
+                if (tie is CyclicSymmetry cyclicSymmetry &&
+                    cyclicSymmetry.NumberOfGraphSectors > 1 &&
+                    property == nameof(ViewCyclicSymmetry.AffectedRegionType) &&
+                    cyclicSymmetry.RegionType == RegionTypeEnum.Selection)
+                    _controller.SetSelectItemToPart();
+                else if ((tie.MasterRegionType == RegionTypeEnum.Selection &&
+                          property == nameof(ViewTie.MasterRegionType)) ||
+                         (tie.SlaveRegionType == RegionTypeEnum.Selection &&
+                          property == nameof(ViewTie.SlaveRegionType)))
                     _controller.SetSelectItemToSurface();
                 else
                     _controller.SetSelectByToOff();
@@ -890,7 +1049,21 @@ namespace PrePoMax.Forms
             //
             if (Constraint != null)
             {
-                if (Constraint is PointSpring ps)
+                if (_viewConstraint is ViewCyclicSymmetry vcs &&
+                    propertyGrid.SelectedGridItem != null &&
+                    propertyGrid.SelectedGridItem.PropertyDescriptor != null &&
+                    propertyGrid.SelectedGridItem.PropertyDescriptor.Name == nameof(ViewCyclicSymmetry.AxisPointItemSet))
+                {
+                    if (ids != null && ids.Length == 1)
+                    {
+                        FeNode node = _controller.Model.Mesh.Nodes[ids[0]];
+                        vcs.X = new EquationString(node.X.ToString());
+                        vcs.Y = new EquationString(node.Y.ToString());
+                        vcs.Z = new EquationString(node.Z.ToString());
+                        changed = true;
+                    }
+                }
+                else if (Constraint is PointSpring ps)
                 {
                     if (ps.RegionType == RegionTypeEnum.Selection)
                     {
@@ -950,7 +1123,17 @@ namespace PrePoMax.Forms
                     if (propertyGrid.SelectedGridItem == null || propertyGrid.SelectedGridItem.PropertyDescriptor == null) return;
                     string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
                     //
-                    if (property == nameof(ViewTie.MasterRegionType) && tie.MasterRegionType == RegionTypeEnum.Selection)
+                    if (tie is CyclicSymmetry cyclicSymmetry &&
+                        cyclicSymmetry.NumberOfGraphSectors > 1 &&
+                        property == nameof(ViewCyclicSymmetry.AffectedRegionType) &&
+                        cyclicSymmetry.RegionType == RegionTypeEnum.Selection)
+                    {
+                        cyclicSymmetry.CreationIds = ids;
+                        cyclicSymmetry.CreationData = _controller.Selection.DeepCopy(true, false);
+                        changed = true;
+                    }
+                    else if (property == nameof(ViewTie.MasterRegionType) &&
+                             tie.MasterRegionType == RegionTypeEnum.Selection)
                     {
                         tie.MasterCreationIds = ids;
                         tie.MasterCreationData = _controller.Selection.DeepCopy(true, false);
@@ -967,6 +1150,8 @@ namespace PrePoMax.Forms
                 //
                 if (changed)
                 {
+                    Enabled = true; // must be first for the selection to work
+                    //
                     propertyGrid.Refresh();
                     //
                     _propertyItemChanged = true;
@@ -1021,7 +1206,17 @@ namespace PrePoMax.Forms
                 }
                 else if (constraint is Tie tie)
                 {
-                    if (property == nameof(ViewTie.MasterRegionType) && tie.MasterRegionType == RegionTypeEnum.Selection)
+                    if (tie is CyclicSymmetry cyclicSymmetry &&
+                        cyclicSymmetry.NumberOfGraphSectors > 1 &&
+                        property == nameof(ViewCyclicSymmetry.AffectedRegionType) &&
+                        cyclicSymmetry.RegionType == RegionTypeEnum.Selection)
+                    {
+                        if (cyclicSymmetry.CreationData != null)
+                            return cyclicSymmetry.CreationData.IsGeometryBased();
+                        else return true;
+                    }
+                    else if (property == nameof(ViewTie.MasterRegionType) &&
+                             tie.MasterRegionType == RegionTypeEnum.Selection)
                     {
                         if (tie.MasterCreationData != null) return tie.MasterCreationData.IsGeometryBased();
                         else return true;
@@ -1079,7 +1274,17 @@ namespace PrePoMax.Forms
                 }
                 else if (constraint is Tie tie)
                 {
-                    if (property == nameof(ViewTie.MasterRegionType) && tie.MasterRegionType == RegionTypeEnum.Selection)
+                    if (tie is CyclicSymmetry cyclicSymmetry &&
+                        cyclicSymmetry.NumberOfGraphSectors > 1 &&
+                        property == nameof(ViewCyclicSymmetry.AffectedRegionType) &&
+                        cyclicSymmetry.RegionType == RegionTypeEnum.Selection)
+                    {
+                        if (cyclicSymmetry.CreationData != null)
+                            return cyclicSymmetry.CreationData.IsGeometryIdBased(defaultMode);
+                        else return defaultMode;
+                    }
+                    else if (property == nameof(ViewTie.MasterRegionType) &&
+                             tie.MasterRegionType == RegionTypeEnum.Selection)
                     {
                         if (tie.MasterCreationData != null) return tie.MasterCreationData.IsGeometryIdBased(defaultMode);
                         else return defaultMode;
