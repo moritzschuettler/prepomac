@@ -5884,7 +5884,19 @@ namespace vtkControl
                 //
                 vtkMaxActor.FrustumCellLocator.SetDataSet(transformFilter.GetOutput());
             }
-
+            // Reconstruct the selected directional result component after geometry transformation.
+            vtkMaxActor.ApplyResultFieldTransformation(GetResultFieldTransformation(transform));
+        }
+        private static double[] GetResultFieldTransformation(vtkTransform transform)
+        {
+            vtkMatrix4x4 matrix = transform.GetMatrix();
+            double[] transformation = new double[9];
+            for (int row = 0; row < 3; row++)
+            {
+                for (int column = 0; column < 3; column++)
+                    transformation[3 * row + column] = matrix.GetElement(row, column);
+            }
+            return transformation;
         }
         private void TransformActor(vtkActor actor, vtkTransform transform)
         {
@@ -7139,7 +7151,8 @@ namespace vtkControl
             return minNode != null && maxNode != null;
         }
         public void UpdateActorScalarField(string actorName, float[] values, NodesExchangeData extremeNodes,
-                                           float[] frustumCellLocatorValues, bool update)
+                                           float[] frustumCellLocatorValues, ResultFieldExchangeData resultField,
+                                           ResultFieldExchangeData frustumResultField, bool update)
         {
             if (System.Diagnostics.Debugger.IsAttached && false)
             {
@@ -7159,7 +7172,8 @@ namespace vtkControl
                 frustumScalars.SetNumberOfValues(frustumCellLocatorValues.Length);
                 for (int i = 0; i < frustumCellLocatorValues.Length; i++) frustumScalars.SetValue(i, frustumCellLocatorValues[i]);
                 //
-                UpdateActorScalarField(actorName, scalars, frustumScalars, extremeNodes);
+                UpdateActorScalarField(actorName, scalars, frustumScalars, extremeNodes,
+                                       resultField, frustumResultField);
             }
             else
             {
@@ -7169,17 +7183,22 @@ namespace vtkControl
             if (update) UpdateScalarsAndRedraw();
         }
         private void UpdateActorScalarField(string actorName, vtkFloatArray scalars, vtkFloatArray frustumScalars,
-                                            NodesExchangeData extremeNodes)
+                                            NodesExchangeData extremeNodes, ResultFieldExchangeData resultField,
+                                            ResultFieldExchangeData frustumResultField)
         {
             vtkMaxActor actor = _actors[actorName];
             // Transformed copies
-            foreach (var copy in actor.Copies) UpdateActorScalarField(copy.Name, scalars, frustumScalars, extremeNodes);
+            foreach (var copy in actor.Copies)
+                UpdateActorScalarField(copy.Name, scalars, frustumScalars, extremeNodes,
+                                       resultField, frustumResultField);
             // Set scalars
             actor.GeometryMapper.GetInput().GetPointData().SetScalars(scalars);
             actor.MinNode = new vtkMaxExtreemeNode(extremeNodes.Ids[0], extremeNodes.Coor[0], extremeNodes.Values[0]);
             actor.MaxNode = new vtkMaxExtreemeNode(extremeNodes.Ids[1], extremeNodes.Coor[1], extremeNodes.Values[1]);
             // Set frustum scalars
             actor.FrustumCellLocator.GetDataSet().GetPointData().SetScalars(frustumScalars);
+            // Refresh the complete directional field and reconstruct this actor's selected component.
+            actor.UpdateResultFields(resultField, frustumResultField);
         }
 
         private void RemoveActorScalarField(string actorName)
@@ -7193,6 +7212,7 @@ namespace vtkControl
                 actor.GeometryMapper.GetInput().GetPointData().RemoveArray(Globals.ScalarArrayName);
                 actor.MinNode = null;
                 actor.MaxNode = null;
+                actor.UpdateResultFields(null, null);
                 // Remove frustum scalars
                 actor.FrustumCellLocator.GetDataSet().GetPointData().RemoveArray(Globals.ScalarArrayName);
                 //
@@ -7360,6 +7380,49 @@ namespace vtkControl
             _animationFrameData.ScaleFactor = scale;
             _animationFrameData.AllFramesScalarRange = allFramesScalarRange;
             _animationFrameData.AnimationType = animationType;
+            UpdateTransformedAnimationScalarRange();
+        }
+        private void UpdateTransformedAnimationScalarRange()
+        {
+            if (_animationFrameData?.AllFramesScalarRange == null ||
+                _animationFrameData.AllFramesScalarRange.Length != 2 || _transforms.Count == 0) return;
+            //
+            List<double[]> transformations = GetResultFieldTransformations();
+            double minimum = _animationFrameData.AllFramesScalarRange[0];
+            double maximum = _animationFrameData.AllFramesScalarRange[1];
+            bool found = false;
+            foreach (vtkMaxActor actor in _animationActors.Values)
+            {
+                if (!actor.VtkMaxActorVisible || !actor.ColorContours) continue;
+                if (actor.TryGetAnimationResultRange(transformations, out double actorMinimum,
+                                                      out double actorMaximum))
+                {
+                    if (actorMinimum < minimum) minimum = actorMinimum;
+                    if (actorMaximum > maximum) maximum = actorMaximum;
+                    found = true;
+                }
+            }
+            if (found) _animationFrameData.AllFramesScalarRange = new double[] { minimum, maximum };
+        }
+        private List<double[]> GetResultFieldTransformations()
+        {
+            List<double[]> transformations = new List<double[]>();
+            transformations.Add(ResultFieldExchangeData.IdentityTransformation());
+            foreach (var transformEntry in _transforms)
+            {
+                double[] incremental = GetResultFieldTransformation(transformEntry.Key);
+                double[][] existing = transformations.ToArray();
+                foreach (double[] existingTransformation in existing)
+                {
+                    double[] current = existingTransformation;
+                    for (int i = 1; i < transformEntry.Value; i++)
+                    {
+                        current = ResultFieldExchangeData.MultiplyTransformations(incremental, current);
+                        transformations.Add(current);
+                    }
+                }
+            }
+            return transformations;
         }
         //
         public void SetAnimationFrame(int frameNumber, bool scalarRangeFromAllFrames)

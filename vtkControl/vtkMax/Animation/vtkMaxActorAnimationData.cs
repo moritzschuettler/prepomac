@@ -25,6 +25,8 @@ namespace vtkControl
         private vtkMaxExtreemeNode _maxNode;
         private vtkPoints _locatorPoints;
         private vtkFloatArray _locatorValues;
+        private ResultFieldExchangeData _resultField;
+        private ResultFieldExchangeData _locatorResultField;
 
 
         // Properties                                                                                                               
@@ -36,10 +38,14 @@ namespace vtkControl
         public vtkMaxExtreemeNode MaxNode { get { return _maxNode; } set { _maxNode = value; } }
         public vtkPoints LocatorPoints { get { return _locatorPoints; } set { _locatorPoints = value; } }
         public vtkFloatArray LocatorValues { get { return _locatorValues; } set { _locatorValues = value; } }
+        public ResultFieldExchangeData ResultField { get { return _resultField; } }
+        public ResultFieldExchangeData LocatorResultField { get { return _locatorResultField; } }
 
         // Constructors                                                                                                             
         public vtkMaxActorAnimationData(double[][] nodes, double[][] modelEdgesNodes, float[] values,
-                                        NodesExchangeData extremeNodes, double[][] locatorNodes, float[] locatorValues)
+                                        NodesExchangeData extremeNodes, double[][] locatorNodes, float[] locatorValues,
+                                        ResultFieldExchangeData resultField,
+                                        ResultFieldExchangeData locatorResultField)
         {
             // Nodes
             _points = CreatePoints(nodes);
@@ -64,6 +70,9 @@ namespace vtkControl
             _locatorPoints = CreatePoints(locatorNodes);
             // Locator values
             _locatorValues = CreateValues(locatorValues);
+            // Complete result components used by transformed actor copies
+            _resultField = resultField;
+            _locatorResultField = locatorResultField;
         }
 
         private static vtkPoints CreatePoints(double[][] nodes)

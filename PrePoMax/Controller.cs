@@ -23618,7 +23618,9 @@ namespace PrePoMax
                         _allResults.CurrentResult.GetVisualizationNodesCellsAndValues(entry.Value, _currentFieldData);
                     //
                     _form.UpdateActorSurfaceScalarField(entry.Key, actorResultData.Nodes.Values, actorResultData.ExtremeNodes,
-                                                        locatorResultData.Nodes.Values, false);
+                                                        locatorResultData.Nodes.Values,
+                                                        actorResultData.Nodes.ResultField,
+                                                        locatorResultData.Nodes.ResultField, false);
                 }
             }
             // Annotations

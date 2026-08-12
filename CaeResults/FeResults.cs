@@ -2886,6 +2886,97 @@ namespace CaeResults
             }
             return values;
         }
+        private ResultFieldExchangeData GetResultFieldExchangeData(FieldData fieldData, int[] globalNodeIds)
+        {
+            if (fieldData == null || globalNodeIds == null || !fieldData.Valid) return null;
+            //
+            Field field = GetFieldForPlot(fieldData);
+            if (field == null || !field.ContainsComponent(fieldData.Component) ||
+                field.IsComponentInvariant(fieldData.Component)) return null;
+            // Components expressed in a result coordinate system move with that system and remain unchanged.
+            if (_resultFieldOutputs.ContainsKey(fieldData.Name) &&
+                _resultFieldOutputs[fieldData.Name] is ResultFieldOutputCoordinateSystemTransform) return null;
+            //
+            string[] componentNames;
+            ResultFieldTypeEnum resultFieldType;
+            if (field.DataType == DataTypeEnum.Vector)
+            {
+                componentNames = field.GetComponentNames().Where(name => !field.IsComponentInvariant(name)).ToArray();
+                if (componentNames.Length != 3) return null;
+                resultFieldType = ResultFieldTypeEnum.Vector;
+            }
+            else if (field.DataType == DataTypeEnum.Tensor)
+            {
+                if (!TryGetTensorComponentNames(field, out componentNames)) return null;
+                resultFieldType = ResultFieldTypeEnum.SymmetricTensor;
+            }
+            else return null;
+            //
+            int componentIndex = Array.IndexOf(componentNames, fieldData.Component);
+            if (componentIndex < 0) return null;
+            //
+            ResultFieldExchangeData resultField = new ResultFieldExchangeData();
+            resultField.Type = resultFieldType;
+            resultField.ComponentIndex = componentIndex;
+            resultField.ValueMode = ResultFieldValueModeEnum.Direct;
+            //
+            if (field.Complex && (_complexResultType == ComplexResultTypeEnum.Magnitude ||
+                                  _complexResultType == ComplexResultTypeEnum.Phase) &&
+                TryGetComplexComponentFields(fieldData, out Field realField, out Field imaginaryField))
+            {
+                resultField.ComponentValues = GetComponentValues(realField, componentNames, globalNodeIds, fieldData);
+                resultField.ImaginaryComponentValues = GetComponentValues(imaginaryField, componentNames,
+                                                                          globalNodeIds, fieldData);
+                resultField.ValueMode = _complexResultType == ComplexResultTypeEnum.Magnitude
+                    ? ResultFieldValueModeEnum.ComplexMagnitude : ResultFieldValueModeEnum.ComplexPhase;
+            }
+            else
+            {
+                resultField.ComponentValues = GetComponentValues(field, componentNames, globalNodeIds, fieldData);
+            }
+            return resultField.IsValid() ? resultField : null;
+        }
+        private bool TryGetComplexComponentFields(FieldData fieldData, out Field realField, out Field imaginaryField)
+        {
+            realField = null;
+            imaginaryField = null;
+            string[] complexNames = ComplexFieldNames.FirstOrDefault(names => names[0] == fieldData.Name);
+            if (complexNames == null) return false;
+            //
+            FieldData realFieldData = GetFieldData(complexNames[1], fieldData.Component,
+                                                   fieldData.StepId, fieldData.StepIncrementId);
+            FieldData imaginaryFieldData = GetFieldData(complexNames[2], fieldData.Component,
+                                                        fieldData.StepId, fieldData.StepIncrementId);
+            realField = GetField(realFieldData, false);
+            imaginaryField = GetField(imaginaryFieldData, false);
+            return realField != null && imaginaryField != null;
+        }
+        private float[][] GetComponentValues(Field field, string[] componentNames, int[] globalNodeIds,
+                                             FieldData fieldData)
+        {
+            float[][] componentValues = new float[componentNames.Length][];
+            if (fieldData.StepId == 1 && fieldData.StepIncrementId == 0)
+            {
+                for (int i = 0; i < componentValues.Length; i++)
+                    componentValues[i] = new float[globalNodeIds.Length];
+                return componentValues;
+            }
+            //
+            for (int i = 0; i < componentNames.Length; i++)
+            {
+                float[] allValues = field.GetComponentValues(componentNames[i]);
+                if (allValues == null) return null;
+                //
+                componentValues[i] = new float[globalNodeIds.Length];
+                for (int j = 0; j < globalNodeIds.Length; j++)
+                {
+                    if (!_nodeIdsLookUp.TryGetValue(globalNodeIds[j], out int localId) ||
+                        localId < 0 || localId >= allValues.Length) return null;
+                    componentValues[i][j] = allValues[localId];
+                }
+            }
+            return componentValues;
+        }
         public bool GetVectorValues(FieldData fieldData, int[] globalNodeIds, out double[][] vectors,
                                     out float[] magnitudes)
         {
@@ -5906,7 +5997,11 @@ namespace CaeResults
             _mesh.GetAllNodesAndCells(out pData.Nodes.Ids, out pData.Nodes.Coor, out pData.Cells.Ids,
                                       out pData.Cells.CellNodeIds, out pData.Cells.Types);
             if (!fData.Valid) pData.Nodes.Values = null;
-            else pData.Nodes.Values = GetValues(fData, pData.Nodes.Ids);
+            else
+            {
+                pData.Nodes.Values = GetValues(fData, pData.Nodes.Ids);
+                pData.Nodes.ResultField = GetResultFieldExchangeData(fData, pData.Nodes.Ids);
+            }
             return pData;
         }
         public PartExchangeData GetSetNodesCellsAndValues(FeGroup elementSet, FieldData fData)
@@ -5915,7 +6010,11 @@ namespace CaeResults
             _mesh.GetSetNodesAndCells(elementSet, out pData.Nodes.Ids, out pData.Nodes.Coor, out pData.Cells.Ids,
                                       out pData.Cells.CellNodeIds, out pData.Cells.Types);
             if (!fData.Valid) pData.Nodes.Values = null;
-            else pData.Nodes.Values = GetValues(fData, pData.Nodes.Ids);
+            else
+            {
+                pData.Nodes.Values = GetValues(fData, pData.Nodes.Ids);
+                pData.Nodes.ResultField = GetResultFieldExchangeData(fData, pData.Nodes.Ids);
+            }
             return pData;
         }
         public PartExchangeData GetVisualizationNodesCellsAndValues(BasePart part, FieldData fData)
@@ -5927,6 +6026,7 @@ namespace CaeResults
             else
             {
                 pData.Nodes.Values = GetValues(fData, pData.Nodes.Ids);
+                pData.Nodes.ResultField = GetResultFieldExchangeData(fData, pData.Nodes.Ids);
                 pData.ExtremeNodes = GetScaledExtremeValues(part.Name, fData, 1);
             }
             return pData;
@@ -6014,8 +6114,10 @@ namespace CaeResults
             else
             {
                 modelResultData.Nodes.Values = GetValues(fData, modelResultData.Nodes.Ids);
+                modelResultData.Nodes.ResultField = GetResultFieldExchangeData(fData, modelResultData.Nodes.Ids);
                 modelResultData.ExtremeNodes = GetExtremeValues(part.Name, fData);
                 locatorResultData.Nodes.Values = GetValues(fData, locatorResultData.Nodes.Ids);
+                locatorResultData.Nodes.ResultField = GetResultFieldExchangeData(fData, locatorResultData.Nodes.Ids);
             }
             // Aniumation
             modelResultData.NodesAnimation = new NodesExchangeData[numFrames];
@@ -6053,11 +6155,17 @@ namespace CaeResults
                 if (invariant) relativeScale = Math.Abs(relativeScale);
                 // Model
                 ScaleValues(relativeScale, modelResultData.Nodes.Values, out modelResultData.NodesAnimation[i].Values);
+                if (modelResultData.Nodes.ResultField != null)
+                    modelResultData.NodesAnimation[i].ResultField =
+                        modelResultData.Nodes.ResultField.WithScaleFactor(relativeScale);
                 // Locator
                 ScaleValuesAndGetExtreme(relativeScale, locatorResultData.Nodes.Ids,
                                          locatorResultData.NodesAnimation[i].Coor, locatorResultData.Nodes.Values,
                                          out locatorResultData.NodesAnimation[i].Values,
                                          out modelResultData.ExtremeNodesAnimation[i]);
+                if (locatorResultData.Nodes.ResultField != null)
+                    locatorResultData.NodesAnimation[i].ResultField =
+                        locatorResultData.Nodes.ResultField.WithScaleFactor(relativeScale);
             }
         }
         public void GetTimeIncrementAnimationData(BasePart part, FieldData fData, float scale,

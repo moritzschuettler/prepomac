@@ -49,6 +49,9 @@ namespace vtkControl
         protected vtkMaxActorAnimationData[] _animationData;
         protected Dictionary<int, int> _animationNodeIdToPointId;
         protected Dictionary<int, int> _animationLocatorNodeIdToPointId;
+        protected ResultFieldExchangeData _geometryResultField;
+        protected ResultFieldExchangeData _frustumResultField;
+        protected double[] _resultFieldTransformation;
         //
         protected bool _isAPart;
         protected vtkMaxActorRepresentation _actorRepresentation;
@@ -254,6 +257,9 @@ namespace vtkControl
             _frustumCellLocator = null;
             _sectionViewActor = null;
             _copies = new List<vtkMaxActor>();
+            _geometryResultField = null;
+            _frustumResultField = null;
+            _resultFieldTransformation = ResultFieldExchangeData.IdentityTransformation();
             //
             _isAPart = false;
             _actorRepresentation = vtkMaxActorRepresentation.Unknown;
@@ -338,6 +344,7 @@ namespace vtkControl
             _canHaveElementEdges = data.CanHaveElementEdges;
             _layer = data.Layer;
             //
+            InitializeResultFields(data);
             _memorySize = 0;
             //
             UpdateColor();
@@ -398,6 +405,7 @@ namespace vtkControl
             _canHaveElementEdges = data.CanHaveElementEdges;
             _layer = data.Layer;
             //
+            InitializeResultFields(data);
             _memorySize = 0;
             //
             UpdateColor();
@@ -484,6 +492,10 @@ namespace vtkControl
             _sectionViewActor = sourceActor.SectionViewActor;
             // transformed copies
             _copies = new List<vtkMaxActor>(sourceActor.Copies);
+            // Result field transformation data is immutable and shared by actor copies.
+            _geometryResultField = sourceActor._geometryResultField;
+            _frustumResultField = sourceActor._frustumResultField;
+            _resultFieldTransformation = (double[])sourceActor._resultFieldTransformation.Clone();
             //
             _isAPart = sourceActor.IsAPart;
             _actorRepresentation = sourceActor.ActorRepresentation;
@@ -508,8 +520,138 @@ namespace vtkControl
             UpdateColor();
         }
 
-
         // Methods                                                                                                                  
+        private void InitializeResultFields(vtkMaxActorData data)
+        {
+            _geometryResultField = GetCompatibleResultField(data?.Geometry?.Nodes?.ResultField,
+                                                             _geometryMapper?.GetInput()?.GetNumberOfPoints() ?? 0);
+            long numberOfLocatorPoints = _frustumCellLocator?.GetDataSet()?.GetNumberOfPoints() ?? 0;
+            _frustumResultField = GetCompatibleResultField(data?.CellLocator?.Nodes?.ResultField,
+                                                            numberOfLocatorPoints);
+            _resultFieldTransformation = ResultFieldExchangeData.IdentityTransformation();
+        }
+        private static ResultFieldExchangeData GetCompatibleResultField(ResultFieldExchangeData resultField,
+                                                                          long numberOfPoints)
+        {
+            if (resultField == null || !resultField.IsValid() ||
+                resultField.GetNumberOfValues() != numberOfPoints) return null;
+            return resultField;
+        }
+        public void UpdateResultFields(ResultFieldExchangeData geometryResultField,
+                                       ResultFieldExchangeData frustumResultField)
+        {
+            _geometryResultField = GetCompatibleResultField(geometryResultField,
+                                                             _geometryMapper?.GetInput()?.GetNumberOfPoints() ?? 0);
+            long numberOfLocatorPoints = _frustumCellLocator?.GetDataSet()?.GetNumberOfPoints() ?? 0;
+            _frustumResultField = GetCompatibleResultField(frustumResultField, numberOfLocatorPoints);
+            // Keep the actor's cumulative transformation and reconstruct the newly selected component.
+            if (_geometryResultField != null)
+            {
+                vtkPointSet pointSet = _geometryMapper.GetInput() as vtkPointSet;
+                float[] values = SetTransformedValues(pointSet, _geometryResultField);
+                UpdateResultExtremes(pointSet, values);
+            }
+            if (_frustumResultField != null && _frustumCellLocator != null)
+            {
+                vtkPointSet pointSet = _frustumCellLocator.GetDataSet() as vtkPointSet;
+                SetTransformedValues(pointSet, _frustumResultField);
+            }
+        }
+        public void ApplyResultFieldTransformation(double[] transformation)
+        {
+            // Store the geometry transformation even if the currently displayed field is invariant.
+            // A later component selection can then reconstruct its directional values correctly.
+            _resultFieldTransformation = ResultFieldExchangeData.MultiplyTransformations(transformation,
+                                                                                         _resultFieldTransformation);
+            if (_geometryResultField == null && _frustumResultField == null) return;
+            //
+            float[] geometryValues = null;
+            if (_geometryResultField != null)
+            {
+                vtkPointSet pointSet = _geometryMapper.GetInput() as vtkPointSet;
+                geometryValues = SetTransformedValues(pointSet, _geometryResultField);
+                UpdateResultExtremes(pointSet, geometryValues);
+            }
+            if (_frustumResultField != null && _frustumCellLocator != null)
+            {
+                vtkPointSet pointSet = _frustumCellLocator.GetDataSet() as vtkPointSet;
+                SetTransformedValues(pointSet, _frustumResultField);
+            }
+        }
+        internal bool TryGetAnimationResultRange(IEnumerable<double[]> transformations, out double minimum,
+                                                  out double maximum)
+        {
+            minimum = double.MaxValue;
+            maximum = -double.MaxValue;
+            if (_animationData == null || transformations == null) return false;
+            //
+            bool found = false;
+            foreach (vtkMaxActorAnimationData animationData in _animationData)
+            {
+                ResultFieldExchangeData resultField = animationData.ResultField;
+                if (resultField == null) continue;
+                foreach (double[] transformation in transformations)
+                {
+                    if (resultField.TryGetTransformedRange(transformation, out float min, out float max))
+                    {
+                        if (min < minimum) minimum = min;
+                        if (max > maximum) maximum = max;
+                        found = true;
+                    }
+                }
+            }
+            return found;
+        }
+        private float[] SetTransformedValues(vtkPointSet pointSet, ResultFieldExchangeData resultField)
+        {
+            if (pointSet == null) return null;
+            float[] values = resultField.GetTransformedValues(_resultFieldTransformation);
+            if (values == null || values.Length != pointSet.GetNumberOfPoints()) return null;
+            //
+            vtkFloatArray scalars = vtkFloatArray.New();
+            scalars.SetName(Globals.ScalarArrayName);
+            scalars.SetNumberOfValues(values.Length);
+            for (int i = 0; i < values.Length; i++) scalars.SetValue(i, values[i]);
+            pointSet.GetPointData().SetScalars(scalars);
+            return values;
+        }
+        private void UpdateResultExtremes(vtkPointSet pointSet, float[] values)
+        {
+            if (pointSet == null || values == null || values.Length == 0 ||
+                values.Length != pointSet.GetNumberOfPoints()) return;
+            //
+            int minIndex = -1;
+            int maxIndex = -1;
+            float minValue = float.MaxValue;
+            float maxValue = -float.MaxValue;
+            for (int i = 0; i < values.Length; i++)
+            {
+                float value = values[i];
+                if (float.IsNaN(value) || float.IsInfinity(value)) continue;
+                if (minIndex < 0 || value < minValue)
+                {
+                    minIndex = i;
+                    minValue = value;
+                }
+                if (maxIndex < 0 || value > maxValue)
+                {
+                    maxIndex = i;
+                    maxValue = value;
+                }
+            }
+            if (minIndex < 0)
+            {
+                _minNode = null;
+                _maxNode = null;
+                return;
+            }
+            //
+            vtkDataArray globalIds = pointSet.GetPointData().GetGlobalIds();
+            int minId = globalIds == null ? -1 : (int)globalIds.GetTuple1(minIndex);
+            int maxId = globalIds == null ? -1 : (int)globalIds.GetTuple1(maxIndex);
+            _minNode = new vtkMaxExtreemeNode(minId, pointSet.GetPoint(minIndex), minValue);
+            _maxNode = new vtkMaxExtreemeNode(maxId, pointSet.GetPoint(maxIndex), maxValue);
+        }
         public void CropWithCylinder(double r, string fileName)
         {
             vtkTransform transformCylinder = vtkTransform.New();
@@ -1810,7 +1952,9 @@ namespace vtkControl
                                                  data.Geometry.NodesAnimation[frameNumber].Values,
                                                  extremeNodes,
                                                  locatorNodes,
-                                                 locatorValues);
+                                                 locatorValues,
+                                                 data.Geometry.NodesAnimation[frameNumber].ResultField,
+                                                 data.CellLocator?.NodesAnimation?[frameNumber]?.ResultField);
                 if (computeNormals && animationData.Points != null)
                 {
                     geometryPointSet.SetPoints(animationData.Points);
@@ -1830,6 +1974,9 @@ namespace vtkControl
                 throw new Exception("The animation frame cannot be set.");
 
             vtkMaxActorAnimationData animationData = _animationData[frameNumber];
+            _geometryResultField = animationData.ResultField;
+            _frustumResultField = animationData.LocatorResultField;
+            _resultFieldTransformation = ResultFieldExchangeData.IdentityTransformation();
             // Actor points
             if (animationData.Points != null)
             {

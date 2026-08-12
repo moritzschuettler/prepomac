@@ -24,6 +24,7 @@ namespace CaeGlobals
         public double[][] Coor;
         public double[][] Normals;
         public float[] Values;
+        public ResultFieldExchangeData ResultField;
 
 
         // Constructors                                                                                                             
@@ -47,6 +48,7 @@ namespace CaeGlobals
                 for (int i = 0; i < Normals.Length; i++) Normals[i] = nodesExchangeData.Normals[i].ToArray();
             }
             if (nodesExchangeData.Values != null) Values = nodesExchangeData.Values.ToArray();
+            if (nodesExchangeData.ResultField != null) ResultField = nodesExchangeData.ResultField.DeepCopy();
         }
 
 
@@ -57,6 +59,7 @@ namespace CaeGlobals
             Coor = null;
             Normals = null;
             Values = null;
+            ResultField = null;
         }
         public NodesExchangeData DeepCopy()
         {

@@ -10603,9 +10603,13 @@ namespace PrePoMax
             return _vtk.AddAnimatedScalarFieldOnCells(actorData);
         }
         public void UpdateActorSurfaceScalarField(string actorName, float[] values, NodesExchangeData extremeNodes,
-                                                  float[] frustumCellLocatorValues, bool update)
+                                                  float[] frustumCellLocatorValues,
+                                                  ResultFieldExchangeData resultField,
+                                                  ResultFieldExchangeData frustumResultField, bool update)
         {
-            InvokeIfRequired(_vtk.UpdateActorScalarField, actorName, values, extremeNodes, frustumCellLocatorValues, update);
+            InvokeIfRequired(() => _vtk.UpdateActorScalarField(actorName, values, extremeNodes,
+                                                               frustumCellLocatorValues, resultField,
+                                                               frustumResultField, update));
         }
         public void UpdateActorColorContoursVisibility(string[] actorNames, bool colorContour)
         {
