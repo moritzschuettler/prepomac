@@ -26,6 +26,8 @@ namespace PrePoMax.Forms
     {
         // Variables                                                                                                                      
         private CircularPattern _circularPattern;
+        private PointSelectionMethodEnum _firstPointSelectionMethod;
+        private PointSelectionMethodEnum _secondPointSelectionMethod;
 
 
         // Properties                                                                                                               
@@ -45,10 +47,24 @@ namespace PrePoMax.Forms
         public double Angle { get { return _circularPattern.Angle; } set { _circularPattern.Angle = value; } }
         //
         [Category("Start axis point coordinates")]
-        [OrderedDisplayName(0, 10, "By selection")]
+        [OrderedDisplayName(0, 10, "Selection method")]
+        [DescriptionAttribute("Choose the selection method.")]
+        [Id(1, 2)]
+        public PointSelectionMethodEnum FirstPointSelectionMethod
+        {
+            get { return _firstPointSelectionMethod; }
+            set
+            {
+                _firstPointSelectionMethod = value;
+                SetPointSelectionMethod(_startPointItemSetData, _firstPointSelectionMethod);
+            }
+        }
+        //
+        [Category("Start axis point coordinates")]
+        [OrderedDisplayName(1, 10, "By selection")]
         [DescriptionAttribute("Use selection for the definition of the start point.")]
         [EditorAttribute(typeof(SinglePointDataEditor), typeof(UITypeEditor))]
-        [Id(1, 2)]
+        [Id(2, 2)]
         public ItemSetData FirstPointItemSet
         {
             get { return _startPointItemSetData; }
@@ -56,10 +72,10 @@ namespace PrePoMax.Forms
         }
         //
         [Category("Start axis point coordinates")]
-        [OrderedDisplayName(1, 10, "X")]
+        [OrderedDisplayName(2, 10, "X")]
         [Description("X coordinate of the first axis point.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(2, 2)]
+        [Id(3, 2)]
         public double FirstPointX
         {
             get { return _circularPattern.AxisFirstPoint[0]; }
@@ -67,10 +83,10 @@ namespace PrePoMax.Forms
         }
         //
         [Category("Start axis point coordinates")]
-        [OrderedDisplayName(2, 10, "Y")]
+        [OrderedDisplayName(3, 10, "Y")]
         [Description("Y coordinate of the first axis point.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(3, 2)]
+        [Id(4, 2)]
         public double FirstPointY
         {
             get { return _circularPattern.AxisFirstPoint[1]; }
@@ -78,10 +94,10 @@ namespace PrePoMax.Forms
         }
         //
         [Category("Start axis point coordinates")]
-        [OrderedDisplayName(3, 10, "Z")]
+        [OrderedDisplayName(4, 10, "Z")]
         [Description("Z coordinate of the first axis point.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(4, 2)]
+        [Id(5, 2)]
         public double FirstPointZ
         {
             get { return _circularPattern.AxisFirstPoint[2]; }
@@ -89,21 +105,35 @@ namespace PrePoMax.Forms
         }
         //
         [Category("End axis point coordinates")]
-        [OrderedDisplayName(0, 10, "By selection ")]    // must be a different name than for the first point !!!
-        [DescriptionAttribute("Use selection for the definition of the end point.")]
-        [EditorAttribute(typeof(SinglePointDataEditor), typeof(UITypeEditor))]
+        [OrderedDisplayName(0, 10, "Selection method ")]    // must be a different name than for the first point !!!
+        [DescriptionAttribute("Choose the selection method.")]
         [Id(1, 3)]
-        public ItemSetData SecondPointItemSet
+        public PointSelectionMethodEnum SecondPointSelectionMethod
         {
-            get { return _startPointItemSetData; }
-            set { _startPointItemSetData = value; }
+            get { return _secondPointSelectionMethod; }
+            set
+            {
+                _secondPointSelectionMethod = value;
+                SetPointSelectionMethod(_endPointItemSetData, _secondPointSelectionMethod);
+            }
         }
         //
         [Category("End axis point coordinates")]
-        [OrderedDisplayName(1, 10, "X")]
+        [OrderedDisplayName(1, 10, "By selection ")]    // must be a different name than for the first point !!!
+        [DescriptionAttribute("Use selection for the definition of the end point.")]
+        [EditorAttribute(typeof(SinglePointDataEditor), typeof(UITypeEditor))]
+        [Id(2, 3)]
+        public ItemSetData SecondPointItemSet
+        {
+            get { return _endPointItemSetData; }
+            set { _endPointItemSetData = value; }
+        }
+        //
+        [Category("End axis point coordinates")]
+        [OrderedDisplayName(2, 10, "X")]
         [Description("X coordinate of the second axis point.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(2, 3)]
+        [Id(3, 3)]
         public double SecondPointX
         {
             get { return _circularPattern.AxisSecondPoint[0]; }
@@ -111,10 +141,10 @@ namespace PrePoMax.Forms
         }
         //
         [Category("End axis point coordinates")]
-        [OrderedDisplayName(2, 10, "Y")]
+        [OrderedDisplayName(3, 10, "Y")]
         [Description("Y coordinate of the second axis point.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(3, 3)]
+        [Id(4, 3)]
         public double SecondPointY
         {
             get { return _circularPattern.AxisSecondPoint[1]; }
@@ -122,10 +152,10 @@ namespace PrePoMax.Forms
         }
         //
         [Category("End axis point coordinates")]
-        [OrderedDisplayName(3, 10, "Z")]
+        [OrderedDisplayName(4, 10, "Z")]
         [Description("Z coordinate of the second axis point.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(4, 3)]
+        [Id(5, 3)]
         public double SecondPointZ
         {
             get { return _circularPattern.AxisSecondPoint[2]; }

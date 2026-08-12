@@ -43,6 +43,19 @@ namespace PrePoMax.Forms
 
 
         // Methods                                                                                                                  
+        protected static void SetPointSelectionMethod(ItemSetData itemSetData,
+                                                      PointSelectionMethodEnum selectionMethod)
+        {
+            if (itemSetData == null) return;
+            //
+            if (selectionMethod == PointSelectionMethodEnum.OnPoint)
+                itemSetData.ToStringType = ItemSetDataToStringType.SelectSinglePoint;
+            else if (selectionMethod == PointSelectionMethodEnum.BetweenTwoPoints)
+                itemSetData.ToStringType = ItemSetDataToStringType.SelectTwoPoints;
+            else if (selectionMethod == PointSelectionMethodEnum.CircleCenter)
+                itemSetData.ToStringType = ItemSetDataToStringType.SelectThreePoints;
+            else throw new NotSupportedException();
+        }
         [Browsable(false)]
         public abstract Transformation Base { get; }
     }

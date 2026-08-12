@@ -26,6 +26,8 @@ namespace PrePoMax.Forms
     {
         // Variables                                                                                                                      
         private LinearPattern _linearPattern;
+        private PointSelectionMethodEnum _startPointSelectionMethod;
+        private PointSelectionMethodEnum _endPointSelectionMethod;
 
 
         // Properties                                                                                                               
@@ -38,10 +40,24 @@ namespace PrePoMax.Forms
         public int NumberOfItems { get { return _linearPattern.NumberOfItems; } set { _linearPattern.NumberOfItems = value; } }
         //
         [Category("Start point coordinates")]
-        [OrderedDisplayName(0, 10, "By selection")]
+        [OrderedDisplayName(0, 10, "Selection method")]
+        [DescriptionAttribute("Choose the selection method.")]
+        [Id(1, 2)]
+        public PointSelectionMethodEnum StartPointSelectionMethod
+        {
+            get { return _startPointSelectionMethod; }
+            set
+            {
+                _startPointSelectionMethod = value;
+                SetPointSelectionMethod(_startPointItemSetData, _startPointSelectionMethod);
+            }
+        }
+        //
+        [Category("Start point coordinates")]
+        [OrderedDisplayName(1, 10, "By selection")]
         [DescriptionAttribute("Use selection for the definition of the start point.")]
         [EditorAttribute(typeof(SinglePointDataEditor), typeof(UITypeEditor))]
-        [Id(1, 2)]
+        [Id(2, 2)]
         public ItemSetData StartPointItemSet
         {
             get { return _startPointItemSetData; }
@@ -49,57 +65,71 @@ namespace PrePoMax.Forms
         }
         //
         [Category("Start point coordinates")]
-        [OrderedDisplayName(1, 10, "X")]
+        [OrderedDisplayName(2, 10, "X")]
         [Description("X coordinate of the start point.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(2, 2)]
+        [Id(3, 2)]
         public double StartPointX { get { return _linearPattern.StartPoint[0]; } set { _linearPattern.StartPoint[0] = value; } }
         //
         [Category("Start point coordinates")]
-        [OrderedDisplayName(2, 10, "Y")]
+        [OrderedDisplayName(3, 10, "Y")]
         [Description("Y coordinate of the start point.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(3, 2)]
+        [Id(4, 2)]
         public double StartPointY { get { return _linearPattern.StartPoint[1]; } set { _linearPattern.StartPoint[1] = value; } }
         //
         [Category("Start point coordinates")]
-        [OrderedDisplayName(3, 10, "Z")]
+        [OrderedDisplayName(4, 10, "Z")]
         [Description("Z coordinate of the start point.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(4, 2)]
+        [Id(5, 2)]
         public double StartPointZ { get { return _linearPattern.StartPoint[2]; } set { _linearPattern.StartPoint[2] = value; } }
 
         //
         [Category("End point coordinates")]
-        [OrderedDisplayName(0, 10, "By selection ")]    // must be a different name than for the first point !!!
-        [DescriptionAttribute("Use selection for the definition of the end point.")]
-        [EditorAttribute(typeof(SinglePointDataEditor), typeof(UITypeEditor))]
+        [OrderedDisplayName(0, 10, "Selection method ")]    // must be a different name than for the first point !!!
+        [DescriptionAttribute("Choose the selection method.")]
         [Id(1, 3)]
-        public ItemSetData EndPointItemSet
+        public PointSelectionMethodEnum EndPointSelectionMethod
         {
-            get { return _startPointItemSetData; }
-            set { _startPointItemSetData = value; }
+            get { return _endPointSelectionMethod; }
+            set
+            {
+                _endPointSelectionMethod = value;
+                SetPointSelectionMethod(_endPointItemSetData, _endPointSelectionMethod);
+            }
         }
         //
         [Category("End point coordinates")]
-        [OrderedDisplayName(1, 10, "X")]
+        [OrderedDisplayName(1, 10, "By selection ")]    // must be a different name than for the first point !!!
+        [DescriptionAttribute("Use selection for the definition of the end point.")]
+        [EditorAttribute(typeof(SinglePointDataEditor), typeof(UITypeEditor))]
+        [Id(2, 3)]
+        public ItemSetData EndPointItemSet
+        {
+            get { return _endPointItemSetData; }
+            set { _endPointItemSetData = value; }
+        }
+        //
+        [Category("End point coordinates")]
+        [OrderedDisplayName(2, 10, "X")]
         [Description("X coordinate of the end point.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(2, 3)]
+        [Id(3, 3)]
         public double EndPointX { get { return _linearPattern.EndPoint[0]; } set { _linearPattern.EndPoint[0] = value; } }
         //
         [Category("End point coordinates")]
-        [OrderedDisplayName(2, 10, "Y")]
+        [OrderedDisplayName(3, 10, "Y")]
         [Description("Y coordinate of the end point.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(3, 3)]
+        [Id(4, 3)]
         public double EndPointY { get { return _linearPattern.EndPoint[1]; } set { _linearPattern.EndPoint[1] = value; } }
         //
         [Category("End point coordinates")]
-        [OrderedDisplayName(3, 10, "Z")]
+        [OrderedDisplayName(4, 10, "Z")]
         [Description("Z coordinate of the end point.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(4, 3)]
+        [Id(5, 3)]
         public double EndPointZ { get { return _linearPattern.EndPoint[2]; } set { _linearPattern.EndPoint[2] = value; } }
 
 

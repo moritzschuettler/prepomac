@@ -26,6 +26,7 @@ namespace PrePoMax.Forms
     {
         // Variables                                                                                                                      
         private Symmetry _symmetry;
+        private PointSelectionMethodEnum _symmetryPointSelectionMethod;
 
 
         // Properties                                                                                                               
@@ -38,10 +39,24 @@ namespace PrePoMax.Forms
         public SymmetryPlaneEnum SymmetryPlane { get { return _symmetry.SymmetryPlane; } set { _symmetry.SymmetryPlane = value; } }
         //
         [Category("Symmetry point coordinates")]
-        [OrderedDisplayName(0, 10, "By selection")]
+        [OrderedDisplayName(0, 10, "Selection method")]
+        [DescriptionAttribute("Choose the selection method.")]
+        [Id(1, 2)]
+        public PointSelectionMethodEnum SymmetryPointSelectionMethod
+        {
+            get { return _symmetryPointSelectionMethod; }
+            set
+            {
+                _symmetryPointSelectionMethod = value;
+                SetPointSelectionMethod(_startPointItemSetData, _symmetryPointSelectionMethod);
+            }
+        }
+        //
+        [Category("Symmetry point coordinates")]
+        [OrderedDisplayName(1, 10, "By selection")]
         [DescriptionAttribute("Use selection for the definition of the symmetry point.")]
         [EditorAttribute(typeof(SinglePointDataEditor), typeof(UITypeEditor))]
-        [Id(1, 2)]
+        [Id(2, 2)]
         public ItemSetData SymmetryPointItemSet
         {
             get { return _startPointItemSetData; }
@@ -49,24 +64,24 @@ namespace PrePoMax.Forms
         }
         //
         [Category("Symmetry point coordinates")]
-        [OrderedDisplayName(1, 10, "X")]
+        [OrderedDisplayName(2, 10, "X")]
         [Description("X coordinate of the symmetry point.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(2, 2)]
+        [Id(3, 2)]
         public double SymmetryPointX { get { return _symmetry.PointCoor[0]; } set { _symmetry.PointCoor[0] = value; } }
         //
         [Category("Symmetry point coordinates")]
-        [OrderedDisplayName(2, 10, "Y")]
+        [OrderedDisplayName(3, 10, "Y")]
         [Description("Y coordinate of the symmetry point.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(3, 2)]
+        [Id(4, 2)]
         public double SymmetryPointY { get { return _symmetry.PointCoor[1]; } set { _symmetry.PointCoor[1] = value; } }
         //
         [Category("Symmetry point coordinates")]
-        [OrderedDisplayName(3, 10, "Z")]
+        [OrderedDisplayName(4, 10, "Z")]
         [Description("Z coordinate of the symmetry point.")]
         [TypeConverter(typeof(StringLengthConverter))]
-        [Id(4, 2)]
+        [Id(5, 2)]
         public double SymmetryPointZ { get { return _symmetry.PointCoor[2]; } set { _symmetry.PointCoor[2] = value; } }
         
 

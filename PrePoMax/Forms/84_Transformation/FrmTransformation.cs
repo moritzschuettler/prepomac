@@ -265,64 +265,111 @@ namespace PrePoMax.Forms
         //
         public void PickedIds(int[] ids)
         {
-            this.Enabled = true;
+            if (ids == null || propertyGrid.SelectedObject == null || propertyGrid.SelectedGridItem == null) return;
             //
-            _controller.SetSelectByToOff();
-            _controller.ClearSelectionHistory();
+            Vec3D point = null;
+            bool finished = false;
+            string propertyName = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
             //
-            if (ids != null && ids.Length == 1)
+            if (propertyGrid.SelectedObject is ViewSymmetry vs &&
+                propertyName == nameof(vs.SymmetryPointItemSet))
             {
-                _propertyItemChanged = true;
-                //
-                float scale = _controller.GetScale();
-                Vec3D deformed = new Vec3D(_controller.GetScaledNode(scale, ids[0]).Coor);
-                //
-                if (propertyGrid.SelectedObject is ViewSymmetry vs)
+                finished = TryGetSelectedPoint(ids, vs.SymmetryPointSelectionMethod, out point);
+                if (finished)
                 {
-                    vs.SymmetryPointX = deformed.X;
-                    vs.SymmetryPointY = deformed.Y;
-                    vs.SymmetryPointZ = deformed.Z;
+                    vs.SymmetryPointX = point.X;
+                    vs.SymmetryPointY = point.Y;
+                    vs.SymmetryPointZ = point.Z;
                 }
-                else if (propertyGrid.SelectedObject is ViewLinearPattern vlp)
+            }
+            else if (propertyGrid.SelectedObject is ViewLinearPattern vlp)
+            {
+                if (propertyName == nameof(vlp.StartPointItemSet))
                 {
-                    string propertyName = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
-                    //
-                    if (propertyName == nameof(vlp.StartPointItemSet))
+                    finished = TryGetSelectedPoint(ids, vlp.StartPointSelectionMethod, out point);
+                    if (finished)
                     {
-                        vlp.StartPointX = deformed.X;
-                        vlp.StartPointY = deformed.Y;
-                        vlp.StartPointZ = deformed.Z;
-                    }
-                    else if (propertyName == nameof(vlp.EndPointItemSet))
-                    {
-                        vlp.EndPointX = deformed.X;
-                        vlp.EndPointY = deformed.Y;
-                        vlp.EndPointZ = deformed.Z;
+                        vlp.StartPointX = point.X;
+                        vlp.StartPointY = point.Y;
+                        vlp.StartPointZ = point.Z;
                     }
                 }
-                else if (propertyGrid.SelectedObject is ViewCircularPattern vcp)
+                else if (propertyName == nameof(vlp.EndPointItemSet))
                 {
-                    string propertyName = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
-                    //
-                    if (propertyName == nameof(vcp.FirstPointItemSet))
+                    finished = TryGetSelectedPoint(ids, vlp.EndPointSelectionMethod, out point);
+                    if (finished)
                     {
-                        vcp.FirstPointX = deformed.X;
-                        vcp.FirstPointY = deformed.Y;
-                        vcp.FirstPointZ = deformed.Z;
-                    }
-                    else if (propertyName == nameof(vcp.SecondPointItemSet))
-                    {
-                        vcp.SecondPointX = deformed.X;
-                        vcp.SecondPointY = deformed.Y;
-                        vcp.SecondPointZ = deformed.Z;
+                        vlp.EndPointX = point.X;
+                        vlp.EndPointY = point.Y;
+                        vlp.EndPointZ = point.Z;
                     }
                 }
-                else throw new NotSupportedException();
-                //
-                propertyGrid.Refresh();
+            }
+            else if (propertyGrid.SelectedObject is ViewCircularPattern vcp)
+            {
+                if (propertyName == nameof(vcp.FirstPointItemSet))
+                {
+                    finished = TryGetSelectedPoint(ids, vcp.FirstPointSelectionMethod, out point);
+                    if (finished)
+                    {
+                        vcp.FirstPointX = point.X;
+                        vcp.FirstPointY = point.Y;
+                        vcp.FirstPointZ = point.Z;
+                    }
+                }
+                else if (propertyName == nameof(vcp.SecondPointItemSet))
+                {
+                    finished = TryGetSelectedPoint(ids, vcp.SecondPointSelectionMethod, out point);
+                    if (finished)
+                    {
+                        vcp.SecondPointX = point.X;
+                        vcp.SecondPointY = point.Y;
+                        vcp.SecondPointZ = point.Z;
+                    }
+                }
             }
             //
-            HighlightNodes();
+            if (finished)
+            {
+                this.Enabled = true;
+                _controller.SetSelectByToOff();
+                _controller.ClearSelectionHistory();
+                //
+                _propertyItemChanged = true;
+                propertyGrid.Refresh();
+                HighlightNodes();
+            }
+        }
+        private bool TryGetSelectedPoint(int[] ids, PointSelectionMethodEnum selectionMethod, out Vec3D point)
+        {
+            point = null;
+            //
+            int requiredNumberOfPoints;
+            if (selectionMethod == PointSelectionMethodEnum.OnPoint) requiredNumberOfPoints = 1;
+            else if (selectionMethod == PointSelectionMethodEnum.BetweenTwoPoints) requiredNumberOfPoints = 2;
+            else if (selectionMethod == PointSelectionMethodEnum.CircleCenter) requiredNumberOfPoints = 3;
+            else throw new NotSupportedException();
+            //
+            if (ids.Length != requiredNumberOfPoints) return false;
+            //
+            float scale = _controller.GetScale();
+            Vec3D firstPoint = new Vec3D(_controller.GetScaledNode(scale, ids[0]).Coor);
+            if (requiredNumberOfPoints == 1)
+            {
+                point = firstPoint;
+                return true;
+            }
+            //
+            Vec3D secondPoint = new Vec3D(_controller.GetScaledNode(scale, ids[1]).Coor);
+            if (requiredNumberOfPoints == 2)
+            {
+                point = (firstPoint + secondPoint) * 0.5;
+                return true;
+            }
+            //
+            Vec3D thirdPoint = new Vec3D(_controller.GetScaledNode(scale, ids[2]).Coor);
+            Vec3D.GetCircle(firstPoint, secondPoint, thirdPoint, out double r, out point, out Vec3D axis);
+            return true;
         }
         private void HighlightNodes()
         {
