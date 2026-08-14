@@ -120,7 +120,7 @@ namespace PrePoMax.Forms
             if (_nodeSetToEditName == null)
             {
                 NodeSet = new FeNodeSet(GetNodeSetName(), null);
-                _controller.Selection.Clear();
+                _controller.ClearSelectionHistory();
             }
             // Edit existing nodeset
             else

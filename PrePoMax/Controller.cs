@@ -4871,28 +4871,8 @@ namespace PrePoMax
         }
 
         #endregion #################################################################################################################
-
         #region Mesh   #############################################################################################################
-        private class GeneratedMeshData
-        {
-            public GeometryPart GeometryPart;
-            public string MeshFileName;
-            public bool SmoothShaded;
-            public FeMesh Mesh;
-            public string[] RelatedPartNames;
-        }
-        private class MeshBatchPerformance
-        {
-            public double Generation;
-            public double Validation;
-            public double Removal;
-            public double Import;
-            public double Adjacency;
-            public double Drawing;
-            public double Finalization;
-            public double Total;
-        }
-        //
+        
         // COMMANDS ********************************************************************************
         public void CreateMeshCommand(string partName)
         {
@@ -5402,7 +5382,15 @@ namespace PrePoMax
                 return false;
             }
             //
-            string batchDirectory = Path.Combine(workDirectory, "MeshBatch_" + Guid.NewGuid().ToString("N"));
+            int counter = 1;
+            string batchDirectory;
+            do
+            {
+                string directoryName = $"MeshBatch_{counter++:D4}";
+                batchDirectory = Path.Combine(workDirectory, directoryName);
+            }
+            while (Directory.Exists(batchDirectory));
+            //string batchDirectory = Path.Combine(workDirectory, "MeshBatch_" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(batchDirectory);
             //
             try
@@ -17114,7 +17102,7 @@ namespace PrePoMax
             if (possibleCoor.Count == 0) return null;
             //
             double[][] coor = possibleCoor.ToArray();
-            int[] distributedIds = GetSpatiallyEquallyDistributedCoor(coor, 1, null);
+            int[] distributedIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(coor, 1, null);
             return coor[distributedIds[0]];
         }
         private void AddCellCenters(FeMesh mesh, VisualizationData visualization, int faceId,
@@ -17672,7 +17660,7 @@ namespace PrePoMax
                 // If all nodes are hidden
                 if (nodeCoor == null || nodeCoor.Length == 0) return;
                 // Ids go from 0 to Length
-                int[] visibleIds = GetSpatiallyEquallyDistributedCoor(nodeCoor, 3, nodeVisibilities);
+                int[] visibleIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(nodeCoor, 3, nodeVisibilities);
                 // Distributed nodes
                 distributedNodeCoor = new double[visibleIds.Length][];
                 for (int i = 0; i < visibleIds.Length; i++) distributedNodeCoor[i] = nodeCoor[visibleIds[i]];
@@ -17740,7 +17728,7 @@ namespace PrePoMax
                 // If all nodes are hidden
                 if (nodeCoor == null || nodeCoor.Length == 0) return;
                 // Ids go from 0 to Length
-                int[] visibleIds = GetSpatiallyEquallyDistributedCoor(nodeCoor, 3, nodeVisibilities);
+                int[] visibleIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(nodeCoor, 3, nodeVisibilities);
                 // Distributed nodes
                 distributedNodeCoor = new double[visibleIds.Length][];
                 for (int i = 0; i < visibleIds.Length; i++) distributedNodeCoor[i] = nodeCoor[visibleIds[i]];
@@ -17850,7 +17838,7 @@ namespace PrePoMax
                 }
             }
             //
-            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6, elementVisibilities.ToArray());
+            int[] distributedElementIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(allCoor.ToArray(), 6, elementVisibilities.ToArray());
             // Front shell face which is a S2 POS face works in the same way as a solid face
             // Back shell face which is a S1 NEG must be inverted
             int id;
@@ -18087,7 +18075,7 @@ namespace PrePoMax
                 RemoveSurfaceAndElementFacesFromModel(new string[] { surface.Name });
             }
             //
-            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 3, elementVisibilities.ToArray());
+            int[] distributedElementIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(allCoor.ToArray(), 3, elementVisibilities.ToArray());
             // Front shell face which is a S2 POS face works in the same way as a solid face
             // Back shell face which is a S1 NEG must be inverted
             int id;
@@ -18407,7 +18395,7 @@ namespace PrePoMax
             // Reduce the coor for cylindrical coordinate system
             if (coordinateSystem != null && coordinateSystem.Type == CoordinateSystemTypeEnum.Cylindrical)
             {
-                int[] distributedCoorIds = GetSpatiallyEquallyDistributedCoor(symbolCoor, 6, null);
+                int[] distributedCoorIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(symbolCoor, 6, null);
                 double[][] reducedCoor = new double[distributedCoorIds.Length][];
                 for (int i = 0; i < distributedCoorIds.Length; i++) reducedCoor[i] = symbolCoor[distributedCoorIds[i]];
                 symbolCoor = reducedCoor;
@@ -18688,7 +18676,7 @@ namespace PrePoMax
                 RemoveSurfaceAndElementFacesFromModel(new string[] { surface.Name });
             }
             //
-            int[] distributedCoorIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 3, elementVisibilities.ToArray());
+            int[] distributedCoorIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(allCoor.ToArray(), 3, elementVisibilities.ToArray());
             // Front shell face which is a S2 POS face works in the same way as a solid face
             // Back shell face which is a S1 NEG must be inverted
             int id;
@@ -19216,7 +19204,7 @@ namespace PrePoMax
                 // If all nodes are hidden
                 if (nodeCoor == null || nodeCoor.Length == 0) return;
                 // Ids go from 0 to Length
-                int[] distributedIds = GetSpatiallyEquallyDistributedCoor(nodeCoor, 6, nodeVisibilities);
+                int[] distributedIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(nodeCoor, 6, nodeVisibilities);
                 // Distributed nodes
                 distributedNodeCoor = new double[distributedIds.Length][];
                 for (int i = 0; i < distributedIds.Length; i++) distributedNodeCoor[i] = nodeCoor[distributedIds[i]];
@@ -19274,7 +19262,7 @@ namespace PrePoMax
                 // If all nodes are hidden
                 if (nodeCoor == null || nodeCoor.Length == 0) return;
                 // Ids go from 0 to Length
-                int[] distributedIds = GetSpatiallyEquallyDistributedCoor(nodeCoor, 6, nodeVisibilities);
+                int[] distributedIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(nodeCoor, 6, nodeVisibilities);
                 // Distributed nodes
                 distributedNodeCoor = new double[distributedIds.Length][];
                 for (int i = 0; i < distributedIds.Length; i++) distributedNodeCoor[i] = nodeCoor[distributedIds[i]];
@@ -19340,7 +19328,7 @@ namespace PrePoMax
                 }
             }
             //
-            int[] distributedCoorIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6, elementVisibilities.ToArray());
+            int[] distributedCoorIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(allCoor.ToArray(), 6, elementVisibilities.ToArray());
             // Front shell face which is a S2 POS face works in the same way as a solid face
             // Back shell face which is a S1 NEG must be inverted
             int id;
@@ -19407,7 +19395,7 @@ namespace PrePoMax
             // Compute max pressure on all coordinates
             double p;
             double maxPressure = 0;
-            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6, null);
+            int[] distributedElementIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(allCoor.ToArray(), 6, null);
             for (int i = 0; i < distributedElementIds.Length; i++)
             {
                 p = dLoad.GetPressureForPoint(_model, allCoor[distributedElementIds[i]]);
@@ -19415,7 +19403,7 @@ namespace PrePoMax
             }
             // Reduce all coordinates to only visible
             if (onlyVisible)
-                distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6, elementVisibilities.ToArray());
+                distributedElementIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(allCoor.ToArray(), 6, elementVisibilities.ToArray());
             // Front shell face which is a S2 POS face works in the same way as a solid face
             // Back shell face which is a S1 NEG must be inverted
             int id;
@@ -19489,7 +19477,7 @@ namespace PrePoMax
             // Compute max pressure on all coordinates
             double p;
             double maxPressure = 0;
-            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6, null);
+            int[] distributedElementIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(allCoor.ToArray(), 6, null);
             for (int i = 0; i < distributedElementIds.Length; i++)
             {
                 p = hpLoad.GetPressureForPoint(_model, allCoor[distributedElementIds[i]]);
@@ -19497,7 +19485,7 @@ namespace PrePoMax
             }
             // Reduce all coordinates to only visible
             if (onlyVisible)
-                distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6, elementVisibilities.ToArray());
+                distributedElementIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(allCoor.ToArray(), 6, elementVisibilities.ToArray());
             // Front shell face which is a S2 POS face works in the same way as a solid face
             // Back shell face which is a S1 NEG must be inverted
             int id;
@@ -19574,7 +19562,7 @@ namespace PrePoMax
             // Compute max pressure on all coordinates
             double p;
             double maxPressure = 0;
-            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6, null);
+            int[] distributedElementIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(allCoor.ToArray(), 6, null);
             for (int i = 0; i < distributedElementIds.Length; i++)
             {
                 p = ipLoad.GetPressureForPoint(_model, allCoor[distributedElementIds[i]]);
@@ -19582,7 +19570,7 @@ namespace PrePoMax
             }
             // Reduce all coordinates to only visible
             if (onlyVisible)
-                distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6, elementVisibilities.ToArray());
+                distributedElementIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(allCoor.ToArray(), 6, elementVisibilities.ToArray());
             // Front shell face which is a S2 POS face works in the same way as a solid face
             // Back shell face which is a S1 NEG must be inverted
             int id;
@@ -19650,7 +19638,7 @@ namespace PrePoMax
                     }
                 }
                 symbolCoor = allCoor.ToArray();
-                int[] distributedCoorIds = GetSpatiallyEquallyDistributedCoor(symbolCoor, 6, null);
+                int[] distributedCoorIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(symbolCoor, 6, null);
                 double[][] reducedCoor = new double[distributedCoorIds.Length][];
                 for (int i = 0; i < distributedCoorIds.Length; i++) reducedCoor[i] = symbolCoor[distributedCoorIds[i]];
                 symbolCoor = reducedCoor;
@@ -19707,7 +19695,7 @@ namespace PrePoMax
             double[] force;
             double forceMagnitude;
             double maxForceMagnitude = 0;
-            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6, null);
+            int[] distributedElementIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(allCoor.ToArray(), 6, null);
             double[][] forces;
             stLoad.GetForcesPerAreaAndDistancesForPoints(_model, allCoor.ToArray(), out _, out forces);
             //
@@ -19719,7 +19707,7 @@ namespace PrePoMax
             }
             // Reduce all coordinates to only visible
             if (onlyVisible)
-                distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6, elementVisibilities.ToArray());
+                distributedElementIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(allCoor.ToArray(), 6, elementVisibilities.ToArray());
             // Front shell face which is a S2 POS face works in the same way as a solid face
             // Back shell face which is a S1 NEG must be inverted
             int id;
@@ -19794,7 +19782,7 @@ namespace PrePoMax
             double[] force;
             double forceMagnitude;
             double maxForceMagnitude = 0;
-            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6, null);
+            int[] distributedElementIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(allCoor.ToArray(), 6, null);
             for (int i = 0; i < distributedElementIds.Length; i++)
             {
                 force = istLoad.GetForcePerAreaForPoint(allCoor[distributedElementIds[i]]);
@@ -19803,7 +19791,7 @@ namespace PrePoMax
             }
             // Reduce all coordinates to only visible
             if (onlyVisible)
-                distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6, elementVisibilities.ToArray());
+                distributedElementIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(allCoor.ToArray(), 6, elementVisibilities.ToArray());
             // Front shell face which is a S2 POS face works in the same way as a solid face
             // Back shell face which is a S1 NEG must be inverted
             int id;
@@ -19871,7 +19859,7 @@ namespace PrePoMax
                 }
             }
             //
-            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6, visible.ToArray());
+            int[] distributedElementIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(allCoor.ToArray(), 6, visible.ToArray());
             //
             int id;
             double[] faceNormal;
@@ -20005,7 +19993,7 @@ namespace PrePoMax
                 // If all nodes are hidden
                 if (nodeCoor == null || nodeCoor.Length == 0) return;
                 // Ids go from 0 to Length
-                int[] distributedIds = GetSpatiallyEquallyDistributedCoor(nodeCoor, 6, nodeVisibilities);
+                int[] distributedIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(nodeCoor, 6, nodeVisibilities);
                 // Distributed nodes
                 distributedNodeCoor = new double[distributedIds.Length][];
                 for (int i = 0; i < distributedIds.Length; i++) distributedNodeCoor[i] = nodeCoor[distributedIds[i]];
@@ -20056,7 +20044,7 @@ namespace PrePoMax
                 }
             }
             //
-            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 6, elementVisibilities.ToArray());
+            int[] distributedElementIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(allCoor.ToArray(), 6, elementVisibilities.ToArray());
             // Front shell face which is a S2 POS face works in the same way as a solid face
             // Back shell face which is a S1 NEG must be inverted
             int id;
@@ -20153,7 +20141,7 @@ namespace PrePoMax
                 }
             }
             //
-            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 3, elementVisibilities.ToArray());
+            int[] distributedElementIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(allCoor.ToArray(), 3, elementVisibilities.ToArray());
             // Front shell face which is a S2 POS face works in the same way as a solid face
             // Back shell face which is a S1 NEG must be inverted
             int id;
@@ -20218,7 +20206,7 @@ namespace PrePoMax
                 }
             }
             //
-            int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 3, elementVisibilities.ToArray());
+            int[] distributedElementIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(allCoor.ToArray(), 3, elementVisibilities.ToArray());
             // Front shell face which is a S2 POS face works in the same way as a solid face
             // Back shell face which is a S1 NEG must be inverted
             int id;
@@ -20256,195 +20244,6 @@ namespace PrePoMax
                 bool translate = false;
                 _form.AddOrientedFluxActor(data, symbolSize, false, translate);
             }
-        }
-        public int[] GetSpatiallyEquallyDistributedCoor(double[][] coor, int maxN, bool[] visible)
-        {
-            // Divide space into boxes and then find the coor closest to the box center
-            if (coor.Length <= 0) return null;
-            // Bounding box
-            BoundingBox box = new BoundingBox();
-            box.IncludeCoors(coor);
-            //
-            double max = Math.Max(box.MaxX - box.MinX, box.MaxY - box.MinY);
-            max = Math.Max(max, box.MaxZ - box.MinZ);
-            double maxDelta = max / maxN;
-            //
-            double n;
-            int[] xyz = new int[3];
-            //
-            if (maxDelta < 1) maxDelta = 1;
-            //
-            n = (box.MaxX - box.MinX) / maxDelta;
-            if (n < 1E-2) xyz[0] = 1;      // tiny
-            else if (n < 2) xyz[0] = 2;    // small
-            else xyz[0] = (int)n;          // normal
-            //
-            n = (box.MaxY - box.MinY) / maxDelta;
-            if (n < 1E-2) xyz[1] = 1;      // tiny
-            else if (n < 2) xyz[1] = 2;    // small
-            else xyz[1] = (int)n;          // normal
-            //
-            n = (box.MaxZ - box.MinZ) / maxDelta;
-            if (n < 1E-2) xyz[2] = 1;      // tiny
-            else if (n < 2) xyz[2] = 2;    // small
-            else xyz[2] = (int)n;          // normal
-            //
-            if (maxN == 1)
-            {
-                xyz[0] = 1;
-                xyz[1] = 1;
-                xyz[2] = 1;
-            }
-            //
-            return GetSpatiallyEquallyDistributedCoorSparse(coor, box, xyz, visible);
-        }
-        private int[] GetSpatiallyEquallyDistributedCoorByPercentage(double[][] coor, int percentage)
-        {
-            if (coor == null || coor.Length == 0 || percentage <= 0) return new int[0];
-            if (percentage >= 100) return Enumerable.Range(0, coor.Length).ToArray();
-            //
-            int targetCount = (int)Math.Ceiling(coor.Length * percentage / 100.0);
-            if (targetCount >= coor.Length) return Enumerable.Range(0, coor.Length).ToArray();
-            //
-            BoundingBox box = new BoundingBox();
-            box.IncludeCoors(coor);
-            int bestMaxN = 1;
-            int bestCount = int.MaxValue;
-            int bestDifference = int.MaxValue;
-            int low = 1;
-            int high = 1;
-            int count;
-            // First bracket the requested occupied-cell count. The sparse grid makes large
-            // subdivision counts safe because empty cells are never allocated.
-            while (true)
-            {
-                count = GetSpatialGridCellCount(coor, box, GetSpatialGridDivisions(box, high), null);
-                UpdateBestSpatialGrid(high, count, targetCount, ref bestMaxN, ref bestCount, ref bestDifference);
-                if (count >= targetCount || high >= coor.Length) break;
-                //
-                low = high + 1;
-                high = high > coor.Length / 2 ? coor.Length : 2 * high;
-            }
-            // Find the grid resolution whose occupied-cell count is closest to the requested percentage.
-            while (low <= high)
-            {
-                int mid = low + (high - low) / 2;
-                count = GetSpatialGridCellCount(coor, box, GetSpatialGridDivisions(box, mid), null);
-                UpdateBestSpatialGrid(mid, count, targetCount, ref bestMaxN, ref bestCount, ref bestDifference);
-                if (count < targetCount) low = mid + 1;
-                else if (count > targetCount) high = mid - 1;
-                else break;
-            }
-            //
-            return GetSpatiallyEquallyDistributedCoorSparse(coor, box, GetSpatialGridDivisions(box, bestMaxN), null);
-        }
-        private static void UpdateBestSpatialGrid(int maxN, int count, int targetCount, ref int bestMaxN,
-                                                  ref int bestCount, ref int bestDifference)
-        {
-            int difference = Math.Abs(count - targetCount);
-            if (difference < bestDifference ||
-                (difference == bestDifference && count < bestCount))
-            {
-                bestMaxN = maxN;
-                bestCount = count;
-                bestDifference = difference;
-            }
-        }
-        private static int[] GetSpatialGridDivisions(BoundingBox box, int maxN)
-        {
-            maxN = Math.Max(1, maxN);
-            double[] lengths = new double[] { box.MaxX - box.MinX,
-                                               box.MaxY - box.MinY,
-                                               box.MaxZ - box.MinZ };
-            double maxLength = Math.Max(lengths[0], Math.Max(lengths[1], lengths[2]));
-            int[] divisions = new int[] { 1, 1, 1 };
-            if (double.IsNaN(maxLength) || double.IsInfinity(maxLength) || maxLength <= 0) return divisions;
-            //
-            for (int i = 0; i < divisions.Length; i++)
-            {
-                if (lengths[i] > 1E-12 * maxLength)
-                    divisions[i] = Math.Max(1, (int)Math.Ceiling(maxN * lengths[i] / maxLength));
-            }
-            return divisions;
-        }
-        private int GetSpatialGridCellCount(double[][] coor, BoundingBox box, int[] n, bool[] visible)
-        {
-            GetSpatialGridParameters(box, n, out int nX, out int nY, out int nZ,
-                                     out double minX, out double minY, out double minZ,
-                                     out double deltaX, out double deltaY, out double deltaZ);
-            bool useVisibility = visible != null && visible.Length > 0;
-            HashSet<long> occupiedCells = new HashSet<long>();
-            for (int i = 0; i < coor.Length; i++)
-            {
-                if (useVisibility && (i >= visible.Length || !visible[i])) continue;
-                long cellId = GetSpatialGridCellId(coor[i], nX, nY, nZ, minX, minY, minZ,
-                                                   deltaX, deltaY, deltaZ, out _, out _, out _);
-                occupiedCells.Add(cellId);
-            }
-            return occupiedCells.Count;
-        }
-        private int[] GetSpatiallyEquallyDistributedCoorSparse(double[][] coor, BoundingBox box, int[] n, bool[] visible)
-        {
-            if (coor == null || coor.Length == 0) return null;
-            // Store only occupied cells. This avoids allocating nX*nY*nZ lists for points
-            // that usually lie on a surface or line rather than throughout the volume.
-            GetSpatialGridParameters(box, n, out int nX, out int nY, out int nZ,
-                                     out double minX, out double minY, out double minZ,
-                                     out double deltaX, out double deltaY, out double deltaZ);
-            bool useVisibility = visible != null && visible.Length > 0;
-            Dictionary<long, int> closestIds = new Dictionary<long, int>();
-            Dictionary<long, double> closestDistances = new Dictionary<long, double>();
-            for (int i = 0; i < coor.Length; i++)
-            {
-                if (useVisibility && (i >= visible.Length || !visible[i])) continue;
-                //
-                long cellId = GetSpatialGridCellId(coor[i], nX, nY, nZ, minX, minY, minZ,
-                                                   deltaX, deltaY, deltaZ,
-                                                   out int idX, out int idY, out int idZ);
-                double centerX = minX + (idX + 0.5) * deltaX;
-                double centerY = minY + (idY + 0.5) * deltaY;
-                double centerZ = minZ + (idZ + 0.5) * deltaZ;
-                double distance = Math.Pow(centerX - coor[i][0], 2) +
-                                  Math.Pow(centerY - coor[i][1], 2) +
-                                  Math.Pow(centerZ - coor[i][2], 2);
-                if (!closestDistances.TryGetValue(cellId, out double closestDistance) ||
-                    distance < closestDistance)
-                {
-                    closestIds[cellId] = i;
-                    closestDistances[cellId] = distance;
-                }
-            }
-            // Preserve the previous deterministic x/y/z cell traversal order.
-            long[] cellIds = closestIds.Keys.ToArray();
-            Array.Sort(cellIds);
-            int[] centerIds = new int[cellIds.Length];
-            for (int i = 0; i < cellIds.Length; i++) centerIds[i] = closestIds[cellIds[i]];
-            return centerIds;
-        }
-        private static void GetSpatialGridParameters(BoundingBox box, int[] n,
-                                                     out int nX, out int nY, out int nZ,
-                                                     out double minX, out double minY, out double minZ,
-                                                     out double deltaX, out double deltaY, out double deltaZ)
-        {
-            nX = Math.Max(1, n[0]);
-            nY = Math.Max(1, n[1]);
-            nZ = Math.Max(1, n[2]);
-            deltaX = box.MaxX != box.MinX ? ((box.MaxX - box.MinX) / nX) * 1.01 : 1;
-            deltaY = box.MaxY != box.MinY ? ((box.MaxY - box.MinY) / nY) * 1.01 : 1;
-            deltaZ = box.MaxZ != box.MinZ ? ((box.MaxZ - box.MinZ) / nZ) * 1.01 : 1;
-            minX = box.MinX - deltaX * 0.005;
-            minY = box.MinY - deltaY * 0.005;
-            minZ = box.MinZ - deltaZ * 0.005;
-        }
-        private static long GetSpatialGridCellId(double[] coor, int nX, int nY, int nZ,
-                                                 double minX, double minY, double minZ,
-                                                 double deltaX, double deltaY, double deltaZ,
-                                                 out int idX, out int idY, out int idZ)
-        {
-            idX = Math.Max(0, Math.Min(nX - 1, (int)Math.Floor((coor[0] - minX) / deltaX)));
-            idY = Math.Max(0, Math.Min(nY - 1, (int)Math.Floor((coor[1] - minY) / deltaY)));
-            idZ = Math.Max(0, Math.Min(nZ - 1, (int)Math.Floor((coor[2] - minZ) / deltaZ)));
-            return ((long)idX * nY + idY) * nZ + idZ;
         }
         // Defined field
         public void DrawAllDefinedFields(string stepName)
@@ -20574,7 +20373,7 @@ namespace PrePoMax
                     RemoveSurfaceAndElementFacesFromModel(new string[] { surface.Name });
                 }
                 //
-                int[] distributedElementIds = GetSpatiallyEquallyDistributedCoor(allCoor.ToArray(), 3, elementVisibilities.ToArray());
+                int[] distributedElementIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(allCoor.ToArray(), 3, elementVisibilities.ToArray());
                 // Front shell face which is a S2 POS face works in the same way as a solid face
                 // Back shell face which is a S1 NEG must be inverted
                 int id;
@@ -22562,7 +22361,8 @@ namespace PrePoMax
                         magnitudes[i] > maxMagnitude) maxMagnitude = magnitudes[i];
                 }
                 double[][] allNodeCoor = nodeCoor.ToArray();
-                int[] sampleIndices = GetVectorPlotSampleIndices(vectorNodeIds, allNodeCoor);
+                int[] sampleIndices = GetVectorPlotSampleIndices(vectorNodeIds, allNodeCoor,
+                                                                  GetExtremeValueIndices(colorValues));
                 vectorNodeIds = GetIndexedIds(vectorNodeIds, sampleIndices);
                 double[][] vectorNodeCoor = GetIndexedCoordinates(allNodeCoor, sampleIndices);
                 vectors = GetIndexedCoordinates(vectors, sampleIndices);
@@ -22572,9 +22372,7 @@ namespace PrePoMax
                 if (offset != null && (offset[0] != 0 || offset[1] != 0 || offset[2] != 0))
                 {
                     foreach (double[] coor in nodeCoor)
-                        boundingBox.IncludeCoorFast(new double[] { coor[0] - offset[0],
-                                                                  coor[1] - offset[1],
-                                                                  coor[2] - offset[2] });
+                        boundingBox.IncludeCoorFast(new double[] { coor[0] - offset[0], coor[1] - offset[1], coor[2] - offset[2] });
                 }
                 else boundingBox.IncludeCoors(allNodeCoor);
                 //
@@ -22666,7 +22464,8 @@ namespace PrePoMax
                         Math.Abs(values[i]) > maxAbsValue) maxAbsValue = Math.Abs(values[i]);
                 }
                 double[][] allNodeCoor = nodeCoor.ToArray();
-                int[] sampleIndices = GetVectorPlotSampleIndices(tensorNodeIds, allNodeCoor);
+                int[] sampleIndices = GetVectorPlotSampleIndices(tensorNodeIds, allNodeCoor,
+                                                                  GetExtremeValueIndices(values));
                 tensorNodeIds = GetIndexedIds(tensorNodeIds, sampleIndices);
                 double[][] tensorNodeCoor = GetIndexedCoordinates(allNodeCoor, sampleIndices);
                 directions = GetIndexedCoordinates(directions, sampleIndices);
@@ -22757,7 +22556,8 @@ namespace PrePoMax
                 UpdateAnimatedPlotMaximum(frames[i], _viewResultsType == ViewResultsTypeEnum.TensorPlot, ref maxValue);
             }
             int[] sampleIndices = GetVectorPlotSampleIndices(nodeIds,
-                GetIndexedCoordinates(resultData.Geometry.Nodes.Coor, sourceIndices));
+                GetIndexedCoordinates(resultData.Geometry.Nodes.Coor, sourceIndices),
+                GetExtremeValueIndices(frames));
             ApplyAnimatedPlotSampling(frames, sampleIndices);
             return CreateAnimatedPlotActorData(part, frames, resultData.Geometry.ExtremeNodesAnimation);
         }
@@ -22794,11 +22594,12 @@ namespace PrePoMax
                 UpdateAnimatedPlotMaximum(frames[i], _viewResultsType == ViewResultsTypeEnum.TensorPlot, ref maxValue);
             }
             int[] sampleIndices = GetVectorPlotSampleIndices(nodeIds,
-                GetIndexedCoordinates(resultData.Geometry.Nodes.Coor, sourceIndices));
+                GetIndexedCoordinates(resultData.Geometry.Nodes.Coor, sourceIndices),
+                GetExtremeValueIndices(frames));
             ApplyAnimatedPlotSampling(frames, sampleIndices);
             return CreateAnimatedPlotActorData(part, frames, resultData.Geometry.ExtremeNodesAnimation);
         }
-        private bool GetCurrentPlotFrameNodes(ResultPart part, FieldData fieldData, ref int[] sampleIndices,
+        private bool GetCurrentPlotFrameNodes(ResultPart part, FieldData fieldData,
                                               out NodesExchangeData nodes, out double maxValue)
         {
             nodes = null;
@@ -22828,11 +22629,6 @@ namespace PrePoMax
             if (nodes.Values == null) return false;
             //
             UpdateAnimatedPlotMaximum(nodes, _viewResultsType == ViewResultsTypeEnum.TensorPlot, ref maxValue);
-            if (sampleIndices == null) sampleIndices = GetVectorPlotSampleIndices(nodeIds, nodes.Coor);
-            nodes.Ids = GetIndexedIds(nodes.Ids, sampleIndices);
-            nodes.Coor = GetIndexedCoordinates(nodes.Coor, sampleIndices);
-            nodes.Normals = GetIndexedCoordinates(nodes.Normals, sampleIndices);
-            nodes.Values = GetIndexedValues(nodes.Values, sampleIndices);
             return true;
         }
         private vtkMaxActorData CreateAnimatedPlotActorData(ResultPart part, NodesExchangeData[] frames,
@@ -22905,7 +22701,8 @@ namespace PrePoMax
             if (double.IsNaN(diagonal) || double.IsInfinity(diagonal) || diagonal <= 0) diagonal = 1;
             return diagonal;
         }
-        private int[] GetVectorPlotSampleIndices(int[] nodeIds, double[][] fallbackCoordinates)
+        private int[] GetVectorPlotSampleIndices(int[] nodeIds, double[][] fallbackCoordinates,
+                                                 int[] protectedIndices)
         {
             if (nodeIds == null || nodeIds.Length == 0 || _settings.Post.VectorPlotDensity <= 0)
                 return new int[0];
@@ -22923,8 +22720,49 @@ namespace PrePoMax
                 else
                     samplingCoordinates[i] = new double[3];
             }
-            return GetSpatiallyEquallyDistributedCoorByPercentage(samplingCoordinates,
-                                                                  _settings.Post.VectorPlotDensity);
+            int targetCount = (int)Math.Ceiling(nodeIds.Length * _settings.Post.VectorPlotDensity / 100.0);
+            return SpatialPointSampler.GetSampleIndicesByCount(samplingCoordinates, targetCount,
+                                                              protectedIndices);
+        }
+        private static int[] GetExtremeValueIndices(float[] values)
+        {
+            if (values == null || values.Length == 0) return new int[0];
+            int minIndex = -1;
+            int maxIndex = -1;
+            float minValue = float.MaxValue;
+            float maxValue = -float.MaxValue;
+            for (int i = 0; i < values.Length; i++)
+            {
+                float value = values[i];
+                if (float.IsNaN(value) || float.IsInfinity(value)) continue;
+                if (value < minValue) { minValue = value; minIndex = i; }
+                if (value > maxValue) { maxValue = value; maxIndex = i; }
+            }
+            if (minIndex == -1) return new int[0];
+            else if (minIndex == maxIndex) return new int[] { minIndex };
+            else return new int[] { minIndex, maxIndex };
+        }
+        private static int[] GetExtremeValueIndices(NodesExchangeData[] frames)
+        {
+            if (frames == null || frames.Length == 0) return new int[0];
+            int minIndex = -1;
+            int maxIndex = -1;
+            float minValue = float.MaxValue;
+            float maxValue = -float.MaxValue;
+            foreach (NodesExchangeData frame in frames)
+            {
+                if (frame == null || frame.Values == null) continue;
+                for (int i = 0; i < frame.Values.Length; i++)
+                {
+                    float value = frame.Values[i];
+                    if (float.IsNaN(value) || float.IsInfinity(value)) continue;
+                    if (value < minValue) { minValue = value; minIndex = i; }
+                    if (value > maxValue) { maxValue = value; maxIndex = i; }
+                }
+            }
+            if (minIndex == -1) return new int[0];
+            else if (minIndex == maxIndex) return new int[] { minIndex };
+            else return new int[] { minIndex, maxIndex };
         }
         private static int[] GetIndexedIds(int[] ids, int[] indices)
         {
@@ -22934,9 +22772,10 @@ namespace PrePoMax
         }
         private static void ApplyAnimatedPlotSampling(NodesExchangeData[] frames, int[] sampleIndices)
         {
+            HashSet<NodesExchangeData> sampledFrames = new HashSet<NodesExchangeData>();
             foreach (NodesExchangeData frame in frames)
             {
-                if (frame == null) continue;
+                if (frame == null || !sampledFrames.Add(frame)) continue;
                 frame.Ids = GetIndexedIds(frame.Ids, sampleIndices);
                 frame.Coor = GetIndexedCoordinates(frame.Coor, sampleIndices);
                 frame.Normals = GetIndexedCoordinates(frame.Normals, sampleIndices);
@@ -23291,7 +23130,6 @@ namespace PrePoMax
             vtkMaxActorData existingData;
             Dictionary<ResultPart, vtkMaxActorData> partData = new Dictionary<ResultPart, vtkMaxActorData>();
             Dictionary<ResultPart, vtkMaxActorData> plotPartData = new Dictionary<ResultPart, vtkMaxActorData>();
-            Dictionary<ResultPart, int[]> plotPartSampleIndices = new Dictionary<ResultPart, int[]>();
             double animatedPlotMaxValue = 0;
             for (int i = 0; i < angles.Length; i++)
             {
@@ -23305,12 +23143,10 @@ namespace PrePoMax
                     if (entry.Value is ResultPart resultPart)
                     {
                         frameData = GetResultPartActorData(resultPart, _currentFieldData);
-                        plotPartSampleIndices.TryGetValue(resultPart, out int[] sampleIndices);
                         bool plotFrameAvailable =
-                            GetCurrentPlotFrameNodes(resultPart, _currentFieldData, ref sampleIndices,
+                            GetCurrentPlotFrameNodes(resultPart, _currentFieldData,
                                                      out NodesExchangeData plotFrameNodes,
                                                      out double framePlotMaxValue);
-                        if (sampleIndices != null) plotPartSampleIndices[resultPart] = sampleIndices;
                         if (framePlotMaxValue > animatedPlotMaxValue)
                             animatedPlotMaxValue = framePlotMaxValue;
                         //
@@ -23358,6 +23194,15 @@ namespace PrePoMax
                         }
                     }
                 }
+            }
+            // Use one stable sample for all harmonic angles and preserve the global extrema.
+            foreach (vtkMaxActorData plotData in plotPartData.Values)
+            {
+                NodesExchangeData[] frames = plotData.Geometry.NodesAnimation;
+                int[] sampleIndices = GetVectorPlotSampleIndices(frames[0].Ids, frames[0].Coor,
+                                                                  GetExtremeValueIndices(frames));
+                ApplyAnimatedPlotSampling(frames, sampleIndices);
+                plotData.Geometry.Nodes = frames[0];
             }
             // Start drawing
             _form.Clear3D();

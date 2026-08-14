@@ -5082,9 +5082,9 @@ namespace CaeResults
             historyResultSet.Fields.Add(historyResultField.Name, historyResultField);
             return historyResultSet;
         }
-        // Field: the field integral (integral of f * w) per element.
-        // Field by Geometry: each per-element entry divided by the region measure M = sum of element measures,
-        // so that summing the entries gives the (measure-weighted) region average of the field.
+        // Field: the field integral (integral of f * w) of each element separately.
+        // Field by Geometry: the region average of the field. The element integrals and the element measures
+        // are first summed over the whole region and only then divided, which yields a single value.
         private HistoryResultSet GetIntegrationFieldSet(ResultHistoryOutputFromIntegration resultHistoryOutput,
                                                         int[] nodeIds, double[][] undeformedCoor,
                                                         Dictionary<string, FeElement> namedElements,
@@ -5093,6 +5093,8 @@ namespace CaeResults
                                                         string deformationFieldName)
         {
             bool byGeometry = resultHistoryOutput.IntegralResult == IntegralResultEnum.FieldByGeometry;
+            // The region average is a single value and is stored in a single entry
+            string regionEntryName = "REGION AVERAGE";
             // Unit nodal values are only needed for the region measure (denominator of the average)
             Dictionary<int, double> unitValue = null;
             if (byGeometry)
@@ -5106,8 +5108,15 @@ namespace CaeResults
             foreach (var componentName in resultHistoryOutput.ComponentNames)
                 components.Add(new HistoryResultComponent(componentName));
             foreach (var component in components)
-                foreach (var entry in namedElements)
-                    component.Entries.Add(entry.Key, new HistoryResultEntries(entry.Key, false));
+            {
+                if (byGeometry)
+                    component.Entries.Add(regionEntryName, new HistoryResultEntries(regionEntryName, false));
+                else
+                {
+                    foreach (var entry in namedElements)
+                        component.Entries.Add(entry.Key, new HistoryResultEntries(entry.Key, false));
+                }
+            }
             //
             float[] values;
             int resultNodeId;
@@ -5142,17 +5151,27 @@ namespace CaeResults
                             resultNodeId = _nodeIdsLookUp[nodeIds[i]];
                             nodeIdValue.Add(nodeIds[i], values[resultNodeId]);
                         }
-                        // Region measure (denominator) for the field-by-geometry average
-                        double measureTotal = 0;
                         if (byGeometry)
-                            foreach (var entry in namedElements)
-                                measureTotal += entry.Value.Integrate(nodeIdNode, unitValue, scale);
-                        //
-                        foreach (var entry in namedElements)
                         {
-                            double integral = entry.Value.Integrate(nodeIdNode, nodeIdValue, scale);
-                            if (byGeometry) integral = measureTotal != 0 ? integral / measureTotal : 0;
-                            component.Entries[entry.Key].Add(fieldData.Time, integral);
+                            // Sum the element integrals and the element measures over the whole region and
+                            // divide the sums to get the measure weighted average of the field
+                            double integralTotal = 0;
+                            double measureTotal = 0;
+                            foreach (var entry in namedElements)
+                            {
+                                integralTotal += entry.Value.Integrate(nodeIdNode, nodeIdValue, scale);
+                                measureTotal += entry.Value.Integrate(nodeIdNode, unitValue, scale);
+                            }
+                            component.Entries[regionEntryName].Add(fieldData.Time,
+                                                                   measureTotal != 0 ? integralTotal / measureTotal : 0);
+                        }
+                        else
+                        {
+                            foreach (var entry in namedElements)
+                            {
+                                component.Entries[entry.Key].Add(fieldData.Time,
+                                                                 entry.Value.Integrate(nodeIdNode, nodeIdValue, scale));
+                            }
                         }
                     }
                 }

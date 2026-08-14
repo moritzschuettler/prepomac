@@ -335,6 +335,10 @@ namespace FileInOut.Input
                     if (!elementsToImport.HasFlag(ElementsToImport.Solid)) mesh.RemoveElementsByType<FeElement3D>();
                 }
                 //
+                // Recognize the face and the edge types from the mesh
+                mesh.DetectFaceTypes();
+                mesh.DetectEdgeTypes();
+                //
                 model.ImportMesh(mesh, model.GetReservedPartNames(), false, false);
                 // Add model items
                 foreach (var entry in referencePoints) model.Mesh.ReferencePoints.Add(entry.Key, entry.Value);
@@ -466,6 +470,10 @@ namespace FileInOut.Input
                 //
                 if (elementsToImport.HasFlag(ElementsToImport.Shell))
                     mesh.FixShellPartOrientation(geometryMesh, geometryPart);
+                //
+                // Recognize the face and the edge types from the mesh
+                mesh.DetectFaceTypes();
+                mesh.DetectEdgeTypes();
                 //
                 if (_errors.Count == 0) return mesh;
                 else return null;

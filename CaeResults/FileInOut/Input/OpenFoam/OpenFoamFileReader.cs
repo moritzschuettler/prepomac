@@ -84,6 +84,9 @@ namespace CaeResults
                         // Read results
                         FeResults result = new FeResults(fileName, unitSystem);
                         result.SetMesh(mesh, nodeIdsLookUp);
+                        // Recognize the face and the edge types from the mesh
+                        result.Mesh.DetectFaceTypes();
+                        result.Mesh.DetectEdgeTypes();
                         //
                         int globalIncrementId = 1;
                         int stepId = 1;
@@ -155,6 +158,9 @@ namespace CaeResults
                         // Read results
                         FeResults result = new FeResults(fileName, unitSystem);
                         result.SetMesh(mesh, nodeIdsLookUp);
+                        // Recognize the face and the edge types from the mesh
+                        result.Mesh.DetectFaceTypes();
+                        result.Mesh.DetectEdgeTypes();
                         //
                         int globalIncrementId = 1;
                         int stepId = 1;

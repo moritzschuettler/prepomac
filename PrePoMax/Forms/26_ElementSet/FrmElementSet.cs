@@ -123,7 +123,7 @@ namespace PrePoMax.Forms
             if (_elementSetToEditName == null)
             {
                 ElementSet = new FeElementSet(GetElementSetName(), null);
-                _controller.Selection.Clear();
+                _controller.ClearSelectionHistory();
             }
             else
             {

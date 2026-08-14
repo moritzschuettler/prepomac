@@ -1955,6 +1955,92 @@ namespace CaeMesh
             SplitVisualizationFacesByEdges(part);
             ComputeFaceAreas(part);
         }
+        /// <summary>
+        /// Recognizes the geometric type of the visualization faces of all parts from the mesh.
+        /// Call it after the visualization surfaces were renumbered.
+        /// </summary>
+        public void DetectFaceTypes(bool overwriteExistingTypes = true)
+        {
+            if (!FaceTypeRecognition.AutoDetect) return;
+            //
+            foreach (var entry in _parts) DetectPartFaceTypes(entry.Value, overwriteExistingTypes);
+        }
+        /// <summary>
+        /// Recognizes the geometric type of the visualization faces of a part from the mesh and returns
+        /// the parameters of the recognized surfaces (axis, radius, ...).
+        /// </summary>
+        public GeomFaceData[] DetectPartFaceTypes(BasePart part, bool overwriteExistingTypes = false)
+        {
+            VisualizationData vis = part.Visualization;
+            if (vis == null || vis.CellIdsByFace == null || vis.Cells == null) return null;      // wire parts
+            //
+            if (!overwriteExistingTypes && vis.FaceTypes != null &&
+                vis.FaceTypes.Length == vis.CellIdsByFace.Length) return null;
+            //
+            GeomFaceData[] faceData = new GeomFaceData[vis.CellIdsByFace.Length];
+            GeomFaceType[] faceTypes = FaceTypeRecognition.GetFaceTypes(vis, _nodes, faceData);
+            if (faceTypes == null) return null;
+            //
+            vis.FaceTypes = faceTypes;
+            //
+            return faceData;
+        }
+        /// <summary>
+        /// Recognizes the geometric type and the parameters of a single visualization face from the mesh.
+        /// </summary>
+        public GeomFaceData GetFaceData(int geometryFaceId)
+        {
+            int[] itemTypePartIds = GetItemTypePartIdsFromGeometryId(geometryFaceId);
+            GeometryType geomType = (GeometryType)itemTypePartIds[1];
+            if (!geomType.IsSurface()) throw new NotSupportedException();
+            //
+            VisualizationData vis = GetPartFromId(itemTypePartIds[2]).Visualization;
+            //
+            return FaceTypeRecognition.GetFaceData(vis, _nodes, itemTypePartIds[0]);
+        }
+        /// <summary>
+        /// Recognizes the geometric type of the visualization edges of all parts from the mesh.
+        /// Call it after the visualization edges were renumbered.
+        /// </summary>
+        public void DetectEdgeTypes(bool overwriteExistingTypes = true)
+        {
+            if (!EdgeTypeRecognition.AutoDetect) return;
+            //
+            foreach (var entry in _parts) DetectPartEdgeTypes(entry.Value, overwriteExistingTypes);
+        }
+        /// <summary>
+        /// Recognizes the geometric type of the visualization edges of a part from the mesh and returns
+        /// the parameters of the recognized curves (direction, radius, ...).
+        /// </summary>
+        public GeomCurveData[] DetectPartEdgeTypes(BasePart part, bool overwriteExistingTypes = false)
+        {
+            VisualizationData vis = part.Visualization;
+            if (vis == null || vis.EdgeCellIdsByEdge == null || vis.EdgeCells == null) return null;
+            //
+            if (!overwriteExistingTypes && vis.EdgeTypes != null &&
+                vis.EdgeTypes.Length == vis.EdgeCellIdsByEdge.Length) return null;
+            //
+            GeomCurveData[] edgeData = new GeomCurveData[vis.EdgeCellIdsByEdge.Length];
+            GeomCurveType[] edgeTypes = EdgeTypeRecognition.GetEdgeTypes(vis, _nodes, edgeData);
+            if (edgeTypes == null) return null;
+            //
+            vis.EdgeTypes = edgeTypes;
+            //
+            return edgeData;
+        }
+        /// <summary>
+        /// Recognizes the geometric type and the parameters of a single visualization edge from the mesh.
+        /// </summary>
+        public GeomCurveData GetEdgeData(int geometryEdgeId)
+        {
+            int[] itemTypePartIds = GetItemTypePartIdsFromGeometryId(geometryEdgeId);
+            GeometryType geomType = (GeometryType)itemTypePartIds[1];
+            if (!geomType.IsEdge()) throw new NotSupportedException();
+            //
+            VisualizationData vis = GetPartFromId(itemTypePartIds[2]).Visualization;
+            //
+            return EdgeTypeRecognition.GetEdgeData(vis, _nodes, itemTypePartIds[0]);
+        }
         private void SplitEdgesByVertices(BasePart part, HashSet<int> vertexNodeIds = null)
         {
             part.Visualization.EdgeCellIdsByEdge = null;
@@ -2020,6 +2106,9 @@ namespace CaeMesh
             // Use intersect if vertexNodeIds were 
             part.Visualization.VertexNodeIds = vertexNodeIds.ToArray();
             part.Visualization.EdgeCellIdsByEdge = edges.ToArray();
+            // The edges were redefined - the existing edge types can no longer be mapped to them
+            if (part.Visualization.EdgeTypes != null &&
+                part.Visualization.EdgeTypes.Length != edges.Count) part.Visualization.EdgeTypes = null;
         }
         private void ComputeEdgeLengths(BasePart part)
         {
@@ -2094,6 +2183,10 @@ namespace CaeMesh
                 part.Visualization.CellIdsByFace = visualizationFaces.ToArray();
                 part.Visualization.FaceEdgeIds = faceEdges.ToArray();
             }
+            // The faces were redefined - the existing face types can no longer be mapped to them
+            VisualizationData vis = part.Visualization;
+            if (vis.FaceTypes != null &&
+                (vis.CellIdsByFace == null || vis.FaceTypes.Length != vis.CellIdsByFace.Length)) vis.FaceTypes = null;
         }
         private void ComputeFaceAreas(BasePart part)
         {

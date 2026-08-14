@@ -164,7 +164,7 @@ namespace PrePoMax.Forms
             if (_surfaceToEditName == null)
             {
                 Surface = new FeSurface(GetSurfaceName());
-                _controller.Selection.Clear();                
+                _controller.ClearSelectionHistory();
             }
             // Edit existing surface
             else

@@ -172,7 +172,7 @@ namespace PrePoMax
         [CategoryAttribute("Axis direction components")]
         [OrderedDisplayName(0, 10, "N1")]
         [DescriptionAttribute("First component of the positive cyclic symmetry axis direction.")]
-        [TypeConverter(typeof(EquationDoubleConverter))]
+        [TypeConverter(typeof(EquationLengthConverter))]
         [Id(1, 7)]
         public EquationString N1
         {
@@ -183,7 +183,7 @@ namespace PrePoMax
         [CategoryAttribute("Axis direction components")]
         [OrderedDisplayName(1, 10, "N2")]
         [DescriptionAttribute("Second component of the positive cyclic symmetry axis direction.")]
-        [TypeConverter(typeof(EquationDoubleConverter))]
+        [TypeConverter(typeof(EquationLengthConverter))]
         [Id(2, 7)]
         public EquationString N2
         {
@@ -194,7 +194,7 @@ namespace PrePoMax
         [CategoryAttribute("Axis direction components")]
         [OrderedDisplayName(2, 10, "N3")]
         [DescriptionAttribute("Third component of the positive cyclic symmetry axis direction.")]
-        [TypeConverter(typeof(EquationDoubleConverter))]
+        [TypeConverter(typeof(EquationLengthConverter))]
         [Id(3, 7)]
         public EquationString N3
         {

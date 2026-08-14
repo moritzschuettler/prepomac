@@ -80,6 +80,10 @@ namespace FileInOut.Input
                 //
                 mesh.ComputeVolumeArea();
                 //
+                // Recognize the face and the edge types from the mesh
+                mesh.DetectFaceTypes();
+                mesh.DetectEdgeTypes();
+                //
                 return mesh;
             }
             //

@@ -84,6 +84,10 @@ namespace FileInOut.Input
                     if (!elementsToImport.HasFlag(ElementsToImport.Solid)) mesh.RemoveElementsByType<FeElement3D>();
                 }
                 //
+                // Recognize the face and the edge types from the mesh
+                mesh.DetectFaceTypes();
+                mesh.DetectEdgeTypes();
+                //
                 return mesh;
             }
             //

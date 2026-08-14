@@ -6212,6 +6212,8 @@ namespace vtkControl
         #endregion #################################################################################################################
 
         #region Scalar fields ######################################################################################################
+        private const int _numPointsPerLineArrow = 5;
+
         public void AddVectorFieldActor(vtkMaxActorData data, double maxMagnitude, double maxArrowLength, double arrowSize)
         {
             if (data?.Geometry?.Nodes?.Coor == null || data.Geometry.Nodes.Normals == null ||
@@ -6243,8 +6245,7 @@ namespace vtkControl
                 return;
             }
             //
-            const int numPointsPerArrow = 4;
-            int numArrowPoints = numPointsPerArrow * numArrows;
+            int numArrowPoints = _numPointsPerLineArrow * numArrows;
             int numPoints = numArrowPoints + numNodalPoints;
             float[] coordinates = new float[3 * numPoints];
             float[] values = new float[numPoints];
@@ -6271,57 +6272,12 @@ namespace vtkControl
                 double uz = vector[2] / vectorLength;
                 double shaftLength = maxArrowLength * vectorLength / maxMagnitude;
                 double[] origin = data.Geometry.Nodes.Coor[i];
-                double tx = origin[0] + shaftLength * ux;
-                double ty = origin[1] + shaftLength * uy;
-                double tz = origin[2] + shaftLength * uz;
-                //
-                // A stable vector perpendicular to the arrow direction.
-                double rx;
-                double ry;
-                double rz;
-                if (Math.Abs(uz) < 0.9)
-                {
-                    rx = 0;
-                    ry = 0;
-                    rz = 1;
-                }
-                else
-                {
-                    rx = 0;
-                    ry = 1;
-                    rz = 0;
-                }
-                double px = uy * rz - uz * ry;
-                double py = uz * rx - ux * rz;
-                double pz = ux * ry - uy * rx;
-                double perpendicularLength = Math.Sqrt(px * px + py * py + pz * pz);
-                px /= perpendicularLength;
-                py /= perpendicularLength;
-                pz /= perpendicularLength;
-                //
-                double bx = tx - headLength * ux;
-                double by = ty - headLength * uy;
-                double bz = tz - headLength * uz;
-                int pointId = numPointsPerArrow * arrowId;
-                int coordinateId = 3 * pointId;
-                coordinates[coordinateId] = (float)origin[0];
-                coordinates[coordinateId + 1] = (float)origin[1];
-                coordinates[coordinateId + 2] = (float)origin[2];
-                coordinates[coordinateId + 3] = (float)tx;
-                coordinates[coordinateId + 4] = (float)ty;
-                coordinates[coordinateId + 5] = (float)tz;
-                coordinates[coordinateId + 6] = (float)(bx + headHalfWidth * px);
-                coordinates[coordinateId + 7] = (float)(by + headHalfWidth * py);
-                coordinates[coordinateId + 8] = (float)(bz + headHalfWidth * pz);
-                coordinates[coordinateId + 9] = (float)(bx - headHalfWidth * px);
-                coordinates[coordinateId + 10] = (float)(by - headHalfWidth * py);
-                coordinates[coordinateId + 11] = (float)(bz - headHalfWidth * pz);
-                for (int j = 0; j < numPointsPerArrow; j++) values[pointId + j] = scalarValue;
-                //
-                AddLine(lines, pointId, pointId + 1);       // Shaft
-                AddLine(lines, pointId + 1, pointId + 2);   // Arrow head
-                AddLine(lines, pointId + 2, pointId + 3);   // Close the triangular arrow head
-                AddLine(lines, pointId + 3, pointId + 1);   // Arrow head
+                AddLineArrow(coordinates, values, lines, arrowId, scalarValue,
+                             origin[0], origin[1], origin[2],
+                             origin[0] + shaftLength * ux,
+                             origin[1] + shaftLength * uy,
+                             origin[2] + shaftLength * uz,
+                             headLength, headHalfWidth);
                 arrowId++;
             }
             //
@@ -6409,9 +6365,8 @@ namespace vtkControl
             }
             //
             const int numArrowsPerGlyph = 2;
-            const int numPointsPerArrow = 4;
             int numArrows = numArrowsPerGlyph * numGlyphs;
-            int numArrowPoints = numPointsPerArrow * numArrows;
+            int numArrowPoints = _numPointsPerLineArrow * numArrows;
             int numPoints = numArrowPoints + numNodalPoints;
             float[] coordinates = new float[3 * numPoints];
             float[] values = new float[numPoints];
@@ -6439,31 +6394,42 @@ namespace vtkControl
                 double ux = direction[0] / directionLength;
                 double uy = direction[1] / directionLength;
                 double uz = direction[2] / directionLength;
-                double halfLength = 0.5 * maxGlyphLength * Math.Abs(scalarValue) / maxAbsValue;
+                double halfShaftLength = 0.5 * maxGlyphLength * Math.Abs(scalarValue) / maxAbsValue;
                 double[] origin = data.Geometry.Nodes.Coor[i];
-                double leftX = origin[0] - halfLength * ux;
-                double leftY = origin[1] - halfLength * uy;
-                double leftZ = origin[2] - halfLength * uz;
-                double rightX = origin[0] + halfLength * ux;
-                double rightY = origin[1] + halfLength * uy;
-                double rightZ = origin[2] + halfLength * uz;
                 //
                 if (scalarValue > 0)
                 {
                     AddLineArrow(coordinates, values, lines, arrowId++, scalarValue,
-                                 origin[0], origin[1], origin[2], leftX, leftY, leftZ,
+                                 origin[0], origin[1], origin[2],
+                                 origin[0] - halfShaftLength * ux,
+                                 origin[1] - halfShaftLength * uy,
+                                 origin[2] - halfShaftLength * uz,
                                  headLength, headHalfWidth);
                     AddLineArrow(coordinates, values, lines, arrowId++, scalarValue,
-                                 origin[0], origin[1], origin[2], rightX, rightY, rightZ,
+                                 origin[0], origin[1], origin[2],
+                                 origin[0] + halfShaftLength * ux,
+                                 origin[1] + halfShaftLength * uy,
+                                 origin[2] + halfShaftLength * uz,
                                  headLength, headHalfWidth);
                 }
                 else
                 {
+                    double tailDistance = headLength + halfShaftLength;
                     AddLineArrow(coordinates, values, lines, arrowId++, scalarValue,
-                                 leftX, leftY, leftZ, origin[0], origin[1], origin[2],
+                                 origin[0] - tailDistance * ux,
+                                 origin[1] - tailDistance * uy,
+                                 origin[2] - tailDistance * uz,
+                                 origin[0] - headLength * ux,
+                                 origin[1] - headLength * uy,
+                                 origin[2] - headLength * uz,
                                  headLength, headHalfWidth);
                     AddLineArrow(coordinates, values, lines, arrowId++, scalarValue,
-                                 rightX, rightY, rightZ, origin[0], origin[1], origin[2],
+                                 origin[0] + tailDistance * ux,
+                                 origin[1] + tailDistance * uy,
+                                 origin[2] + tailDistance * uz,
+                                 origin[0] + headLength * ux,
+                                 origin[1] + headLength * uy,
+                                 origin[2] + headLength * uz,
                                  headLength, headHalfWidth);
                 }
             }
@@ -6563,8 +6529,7 @@ namespace vtkControl
         {
             int numSourceNodes = sourceNodes?.Coor?.Length ?? 0;
             int numArrowsPerNode = tensorGlyph ? 2 : 1;
-            const int numPointsPerArrow = 4;
-            int numArrowPoints = numPointsPerArrow * numArrowsPerNode * numSourceNodes;
+            int numArrowPoints = _numPointsPerLineArrow * numArrowsPerNode * numSourceNodes;
             int numPoints = numArrowPoints + numSourceNodes;
             NodesExchangeData glyphNodes = new NodesExchangeData();
             glyphNodes.Coor = new double[numPoints][];
@@ -6606,30 +6571,41 @@ namespace vtkControl
                 double uz = direction[2] / directionLength;
                 if (tensorGlyph)
                 {
-                    double halfLength = 0.5 * maxLength * Math.Abs(scalarValue) / maxValue;
-                    double leftX = origin[0] - halfLength * ux;
-                    double leftY = origin[1] - halfLength * uy;
-                    double leftZ = origin[2] - halfLength * uz;
-                    double rightX = origin[0] + halfLength * ux;
-                    double rightY = origin[1] + halfLength * uy;
-                    double rightZ = origin[2] + halfLength * uz;
+                    double halfShaftLength = 0.5 * maxLength * Math.Abs(scalarValue) / maxValue;
                     int arrowId = numArrowsPerNode * i;
                     if (scalarValue > 0)
                     {
                         SetLineArrow(glyphNodes.Coor, glyphNodes.Values, arrowId, scalarValue,
-                                     origin[0], origin[1], origin[2], leftX, leftY, leftZ,
+                                     origin[0], origin[1], origin[2],
+                                     origin[0] - halfShaftLength * ux,
+                                     origin[1] - halfShaftLength * uy,
+                                     origin[2] - halfShaftLength * uz,
                                      headLength, headHalfWidth);
                         SetLineArrow(glyphNodes.Coor, glyphNodes.Values, arrowId + 1, scalarValue,
-                                     origin[0], origin[1], origin[2], rightX, rightY, rightZ,
+                                     origin[0], origin[1], origin[2],
+                                     origin[0] + halfShaftLength * ux,
+                                     origin[1] + halfShaftLength * uy,
+                                     origin[2] + halfShaftLength * uz,
                                      headLength, headHalfWidth);
                     }
                     else
                     {
+                        double tailDistance = headLength + halfShaftLength;
                         SetLineArrow(glyphNodes.Coor, glyphNodes.Values, arrowId, scalarValue,
-                                     leftX, leftY, leftZ, origin[0], origin[1], origin[2],
+                                     origin[0] - tailDistance * ux,
+                                     origin[1] - tailDistance * uy,
+                                     origin[2] - tailDistance * uz,
+                                     origin[0] - headLength * ux,
+                                     origin[1] - headLength * uy,
+                                     origin[2] - headLength * uz,
                                      headLength, headHalfWidth);
                         SetLineArrow(glyphNodes.Coor, glyphNodes.Values, arrowId + 1, scalarValue,
-                                     rightX, rightY, rightZ, origin[0], origin[1], origin[2],
+                                     origin[0] + tailDistance * ux,
+                                     origin[1] + tailDistance * uy,
+                                     origin[2] + tailDistance * uz,
+                                     origin[0] + headLength * ux,
+                                     origin[1] + headLength * uy,
+                                     origin[2] + headLength * uz,
                                      headLength, headHalfWidth);
                     }
                 }
@@ -6649,8 +6625,8 @@ namespace vtkControl
         private static void SetDegenerateLineArrow(double[][] coordinates, float[] values, int arrowId,
                                                    float scalarValue, double[] origin)
         {
-            int pointId = 4 * arrowId;
-            for (int i = 0; i < 4; i++)
+            int pointId = _numPointsPerLineArrow * arrowId;
+            for (int i = 0; i < _numPointsPerLineArrow; i++)
             {
                 coordinates[pointId + i] = new double[] { origin[0], origin[1], origin[2] };
                 values[pointId + i] = scalarValue;
@@ -6658,16 +6634,16 @@ namespace vtkControl
         }
         private static void SetLineArrow(double[][] coordinates, float[] values, int arrowId, float scalarValue,
                                          double startX, double startY, double startZ,
-                                         double endX, double endY, double endZ,
+                                         double headBaseX, double headBaseY, double headBaseZ,
                                          double headLength, double headHalfWidth)
         {
-            double ux = endX - startX;
-            double uy = endY - startY;
-            double uz = endZ - startZ;
-            double length = Math.Sqrt(ux * ux + uy * uy + uz * uz);
-            ux /= length;
-            uy /= length;
-            uz /= length;
+            double ux = headBaseX - startX;
+            double uy = headBaseY - startY;
+            double uz = headBaseZ - startZ;
+            double shaftLength = Math.Sqrt(ux * ux + uy * uy + uz * uz);
+            ux /= shaftLength;
+            uy /= shaftLength;
+            uz /= shaftLength;
             //
             double rx = 0;
             double ry = Math.Abs(uz) < 0.9 ? 0 : 1;
@@ -6680,19 +6656,20 @@ namespace vtkControl
             py /= perpendicularLength;
             pz /= perpendicularLength;
             //
-            double baseX = endX - headLength * ux;
-            double baseY = endY - headLength * uy;
-            double baseZ = endZ - headLength * uz;
-            int pointId = 4 * arrowId;
+            double tipX = headBaseX + headLength * ux;
+            double tipY = headBaseY + headLength * uy;
+            double tipZ = headBaseZ + headLength * uz;
+            int pointId = _numPointsPerLineArrow * arrowId;
             coordinates[pointId] = new double[] { startX, startY, startZ };
-            coordinates[pointId + 1] = new double[] { endX, endY, endZ };
-            coordinates[pointId + 2] = new double[] { baseX + headHalfWidth * px,
-                                                      baseY + headHalfWidth * py,
-                                                      baseZ + headHalfWidth * pz };
-            coordinates[pointId + 3] = new double[] { baseX - headHalfWidth * px,
-                                                      baseY - headHalfWidth * py,
-                                                      baseZ - headHalfWidth * pz };
-            for (int i = 0; i < 4; i++) values[pointId + i] = scalarValue;
+            coordinates[pointId + 1] = new double[] { headBaseX, headBaseY, headBaseZ };
+            coordinates[pointId + 2] = new double[] { tipX, tipY, tipZ };
+            coordinates[pointId + 3] = new double[] { headBaseX + headHalfWidth * px,
+                                                      headBaseY + headHalfWidth * py,
+                                                      headBaseZ + headHalfWidth * pz };
+            coordinates[pointId + 4] = new double[] { headBaseX - headHalfWidth * px,
+                                                      headBaseY - headHalfWidth * py,
+                                                      headBaseZ - headHalfWidth * pz };
+            for (int i = 0; i < _numPointsPerLineArrow; i++) values[pointId + i] = scalarValue;
         }
         private static vtkPolyData CreateAnimatedGlyphPolyData(NodesExchangeData nodes, int numArrows, int numNodalPoints)
         {
@@ -6723,15 +6700,15 @@ namespace vtkControl
             lines.Allocate(12L * numArrows, 1000);
             for (int arrowId = 0; arrowId < numArrows; arrowId++)
             {
-                int pointId = 4 * arrowId;
+                int pointId = _numPointsPerLineArrow * arrowId;
                 AddLine(lines, pointId, pointId + 1);
-                AddLine(lines, pointId + 1, pointId + 2);
                 AddLine(lines, pointId + 2, pointId + 3);
-                AddLine(lines, pointId + 3, pointId + 1);
+                AddLine(lines, pointId + 3, pointId + 4);
+                AddLine(lines, pointId + 4, pointId + 2);
             }
             vtkCellArray vertices = vtkCellArray.New();
             vertices.Allocate(2L * numNodalPoints, 1000);
-            int firstNodalPointId = 4 * numArrows;
+            int firstNodalPointId = _numPointsPerLineArrow * numArrows;
             for (int i = 0; i < numNodalPoints; i++)
             {
                 vertices.InsertNextCell(1);
@@ -6794,16 +6771,16 @@ namespace vtkControl
         }
         private static void AddLineArrow(float[] coordinates, float[] values, vtkCellArray lines, int arrowId,
                                          float scalarValue, double startX, double startY, double startZ,
-                                         double endX, double endY, double endZ, double headLength,
+                                         double headBaseX, double headBaseY, double headBaseZ, double headLength,
                                          double headHalfWidth)
         {
-            double ux = endX - startX;
-            double uy = endY - startY;
-            double uz = endZ - startZ;
-            double length = Math.Sqrt(ux * ux + uy * uy + uz * uz);
-            ux /= length;
-            uy /= length;
-            uz /= length;
+            double ux = headBaseX - startX;
+            double uy = headBaseY - startY;
+            double uz = headBaseZ - startZ;
+            double shaftLength = Math.Sqrt(ux * ux + uy * uy + uz * uz);
+            ux /= shaftLength;
+            uy /= shaftLength;
+            uz /= shaftLength;
             //
             double rx;
             double ry;
@@ -6828,29 +6805,32 @@ namespace vtkControl
             py /= perpendicularLength;
             pz /= perpendicularLength;
             //
-            double baseX = endX - headLength * ux;
-            double baseY = endY - headLength * uy;
-            double baseZ = endZ - headLength * uz;
-            int pointId = 4 * arrowId;
+            double tipX = headBaseX + headLength * ux;
+            double tipY = headBaseY + headLength * uy;
+            double tipZ = headBaseZ + headLength * uz;
+            int pointId = _numPointsPerLineArrow * arrowId;
             int coordinateId = 3 * pointId;
             coordinates[coordinateId] = (float)startX;
             coordinates[coordinateId + 1] = (float)startY;
             coordinates[coordinateId + 2] = (float)startZ;
-            coordinates[coordinateId + 3] = (float)endX;
-            coordinates[coordinateId + 4] = (float)endY;
-            coordinates[coordinateId + 5] = (float)endZ;
-            coordinates[coordinateId + 6] = (float)(baseX + headHalfWidth * px);
-            coordinates[coordinateId + 7] = (float)(baseY + headHalfWidth * py);
-            coordinates[coordinateId + 8] = (float)(baseZ + headHalfWidth * pz);
-            coordinates[coordinateId + 9] = (float)(baseX - headHalfWidth * px);
-            coordinates[coordinateId + 10] = (float)(baseY - headHalfWidth * py);
-            coordinates[coordinateId + 11] = (float)(baseZ - headHalfWidth * pz);
-            for (int i = 0; i < 4; i++) values[pointId + i] = scalarValue;
+            coordinates[coordinateId + 3] = (float)headBaseX;
+            coordinates[coordinateId + 4] = (float)headBaseY;
+            coordinates[coordinateId + 5] = (float)headBaseZ;
+            coordinates[coordinateId + 6] = (float)tipX;
+            coordinates[coordinateId + 7] = (float)tipY;
+            coordinates[coordinateId + 8] = (float)tipZ;
+            coordinates[coordinateId + 9] = (float)(headBaseX + headHalfWidth * px);
+            coordinates[coordinateId + 10] = (float)(headBaseY + headHalfWidth * py);
+            coordinates[coordinateId + 11] = (float)(headBaseZ + headHalfWidth * pz);
+            coordinates[coordinateId + 12] = (float)(headBaseX - headHalfWidth * px);
+            coordinates[coordinateId + 13] = (float)(headBaseY - headHalfWidth * py);
+            coordinates[coordinateId + 14] = (float)(headBaseZ - headHalfWidth * pz);
+            for (int i = 0; i < _numPointsPerLineArrow; i++) values[pointId + i] = scalarValue;
             //
             AddLine(lines, pointId, pointId + 1);
-            AddLine(lines, pointId + 1, pointId + 2);
             AddLine(lines, pointId + 2, pointId + 3);
-            AddLine(lines, pointId + 3, pointId + 1);
+            AddLine(lines, pointId + 3, pointId + 4);
+            AddLine(lines, pointId + 4, pointId + 2);
         }
         private static void AddLine(vtkCellArray lines, int pointId1, int pointId2)
         {

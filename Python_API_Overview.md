@@ -888,8 +888,10 @@ result.history_outputs.add(output)
 
 `integral_result` selects what the integral evaluates: `"geometry"` (the region size, integrating a unit
 field; the default), `"field"` (the field integral), or `"field_by_geometry"` (the region average of the
-field). All three produce per-element entries, so a Sum filter gives the region total, the region
-average, and the total size respectively. `field_name` and `component_names` are not needed for
+field). `"geometry"` and `"field"` report one entry per element, so a Sum filter gives the total size
+and the region total; `"field_by_geometry"` instead sums the element integrals and the element measures
+over the whole region and divides the sums, so it returns a single `REGION` entry that is already the
+measure-weighted average (no Sum filter needed). `field_name` and `component_names` are not needed for
 `"geometry"`. The geometry result is reported in a single `SIZE` component; note that the cross section
 scaling changes its dimension, so a scaled line integral returns an area and a scaled surface integral a
 volume:

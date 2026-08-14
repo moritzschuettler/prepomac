@@ -186,6 +186,9 @@ namespace CaeResults
                         elementSet = new FeElementSet(_massMaterialName, materialIdElementIds[_massMaterialId].ToArray());
                         result.Mesh.AddElementSet(elementSet);
                     }
+                    // Recognize the face and the edge types from the mesh
+                    result.Mesh.DetectFaceTypes();
+                    result.Mesh.DetectEdgeTypes();
                     //
                     return result;
                 }

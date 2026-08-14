@@ -88,6 +88,11 @@ namespace FileInOut.Input
                 //    part.Name = namePrefix;
                 //    mesh.Parts.Add(part.Name, part);
                 //}
+                //
+                // Recognize the face and the edge types from the mesh
+                mesh.DetectFaceTypes();
+                mesh.DetectEdgeTypes();
+                //
                 return mesh;
             }
             //

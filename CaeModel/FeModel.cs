@@ -1267,6 +1267,10 @@ namespace CaeModel
             }
             mesh.Parts.Clear();
             for (int i = 0; i < partNames.Length; i++) mesh.Parts.Add(importedParts[i].Name, importedParts[i]);
+            // Splitting, merging and revolving the mesh redefines the visualization faces and edges of the
+            // affected parts - recognize the types of the parts which lost them
+            mesh.DetectFaceTypes(false);
+            mesh.DetectEdgeTypes(false);
             //
             return mesh;
         }
@@ -1510,6 +1514,9 @@ namespace CaeModel
                 }
             }
             _mesh.RenumberPartVisualizationEdges(part, edgeIdNodeIds);
+            // Recognize the face and the edge types from the mesh
+            if (FaceTypeRecognition.AutoDetect) _mesh.DetectPartFaceTypes(part, true);
+            if (EdgeTypeRecognition.AutoDetect) _mesh.DetectPartEdgeTypes(part, true);
             //
             _mesh.RemoveElementsByType<FeElement1D>();
             //

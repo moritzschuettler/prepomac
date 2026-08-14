@@ -78,7 +78,7 @@ namespace CaeMesh
                 _cellIdsByFace = value;
                 if (_cellIdsByFace != null)
                 {
-                    // sort ids for binary search
+                    // Sort ids for binary search
                     for (int i = 0; i < _cellIdsByFace.Length; i++) Array.Sort(_cellIdsByFace[i]);
                 }
             }
@@ -550,12 +550,17 @@ namespace CaeMesh
             // Types
             if (_faceTypes != null)
             {
-                GeomFaceType[] newFaceTypes = new GeomFaceType[_faceTypes.Length];
-                for (int i = 0; i < orderedSurfaceIds.Length; i++)
+                // The types can only be renumbered when they belong to the current surfaces
+                if (_faceTypes.Length == orderedSurfaceIds.Length)
                 {
-                    newFaceTypes[i] = _faceTypes[orderedSurfaceIds[i]];
+                    GeomFaceType[] newFaceTypes = new GeomFaceType[_faceTypes.Length];
+                    for (int i = 0; i < orderedSurfaceIds.Length; i++)
+                    {
+                        newFaceTypes[i] = _faceTypes[orderedSurfaceIds[i]];
+                    }
+                    _faceTypes = newFaceTypes;
                 }
-                _faceTypes = newFaceTypes;
+                else _faceTypes = null;
             }
             // Edges
             int[][] newFaceEdgeIds = new int[_faceEdgeIds.Length][];
@@ -604,12 +609,17 @@ namespace CaeMesh
             // Types
             if (_edgeTypes != null)
             {
-                GeomCurveType[] newEdgeTypes = new GeomCurveType[_edgeTypes.Length];
-                for (int i = 0; i < orderedEdgeIds.Length; i++)
+                // The types can only be renumbered when they belong to the current edges
+                if (_edgeTypes.Length == orderedEdgeIds.Length)
                 {
-                    newEdgeTypes[i] = _edgeTypes[orderedEdgeIds[i]];
+                    GeomCurveType[] newEdgeTypes = new GeomCurveType[_edgeTypes.Length];
+                    for (int i = 0; i < orderedEdgeIds.Length; i++)
+                    {
+                        newEdgeTypes[i] = _edgeTypes[orderedEdgeIds[i]];
+                    }
+                    _edgeTypes = newEdgeTypes;
                 }
-                _edgeTypes = newEdgeTypes;
+                else _edgeTypes = null;
             }
         }
         public HashSet<int> GetNodeIdsForEdgeId(int edgeId)

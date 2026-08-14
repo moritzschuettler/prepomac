@@ -52,6 +52,10 @@ namespace FileInOut.Input
                 //
                 FeMesh mesh = new FeMesh(nodes, elements, MeshRepresentation.Mesh, null, null, false, ImportOptions.DetectEdges);
                 //
+                // Recognize the face and the edge types from the mesh
+                mesh.DetectFaceTypes();
+                mesh.DetectEdgeTypes();
+                //
                 return mesh;
             }
             //
