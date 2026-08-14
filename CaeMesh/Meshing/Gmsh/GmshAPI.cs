@@ -33,6 +33,10 @@ namespace CaeMesh
         private string _error;
         private Thread _thread;
         private int _currentLogLine;
+        private int _parameterizationULineCount;
+        private int _parameterizationVLineCount;
+        private const int _parameterizationLinePointCount = 11;
+        private const int _parameterizationLineSubdivisionCount = 2;
 
 
         // Properties                                                                                                               
@@ -68,6 +72,15 @@ namespace CaeMesh
         }
         public string GetCoordinatesFromParameterization()
         {
+            return GetCoordinatesFromParameterization(3, 3);
+        }
+        public string GetCoordinatesFromParameterization(int uLineCount, int vLineCount)
+        {
+            if (uLineCount < 1) throw new ArgumentOutOfRangeException("uLineCount");
+            if (vLineCount < 1) throw new ArgumentOutOfRangeException("vLineCount");
+            _parameterizationULineCount = uLineCount;
+            _parameterizationVLineCount = vLineCount;
+            //
             return RunInBackground(GetCoordinatesFromParameterizationBackground);
         }
         //
@@ -1233,43 +1246,22 @@ namespace CaeMesh
                 Tuple<int, int>[] surfaceDimTags;
                 Gmsh.Model.GetEntities(out surfaceDimTags, 2);
                 //
-                int n = 5;
-                int pointCount;
                 int count = 0;
                 int tag;
-                double[] coor1D;
                 double[] minBounds;
                 double[] maxBounds;
-                double[] parametricCoor1D;
-                _gmshData.Coor = new double[surfaceDimTags.Length][][];
+                _gmshData.ParameterizationLinesU = new double[surfaceDimTags.Length][][][];
+                _gmshData.ParameterizationLinesV = new double[surfaceDimTags.Length][][][];
                 foreach (var entry in surfaceDimTags)
                 {
                     tag = entry.Item2;
                     //
                     Gmsh.Model.GetParametrizationBounds(2, tag, out minBounds, out maxBounds);
                     //
-                    pointCount = 0;
-                    parametricCoor1D = new double[n * n * 2];
-                    //
-                    double du = (maxBounds[0] - minBounds[0]) / (n - 1);
-                    double dv = (maxBounds[1] - minBounds[1]) / (n - 1);
-                    //
-                    for (int u = 0; u < n; u++)
-                    {
-                        for (int v = 0; v < n; v++)
-                        {
-                            parametricCoor1D[pointCount++] = minBounds[0] + du * u;
-                            parametricCoor1D[pointCount++] = minBounds[1] + dv * v;
-                        }
-                    }
-                    //
-                    Gmsh.Model.GetValue(2, tag, parametricCoor1D, out coor1D);
-                    //
-                    _gmshData.Coor[count] = new double[coor1D.Length / 3][];
-                    for (int i = 0; i < _gmshData.Coor[count].Length; i++)
-                    {
-                        _gmshData.Coor[count][i] = new double[] { coor1D[3 * i], coor1D[3 * i + 1], coor1D[3 * i + 2] };
-                    }
+                    _gmshData.ParameterizationLinesU[count] =
+                        GetParameterizationLines(tag, true, _parameterizationULineCount, minBounds, maxBounds);
+                    _gmshData.ParameterizationLinesV[count] =
+                        GetParameterizationLines(tag, false, _parameterizationVLineCount, minBounds, maxBounds);
                     count += 1;
                 }
                 _error = null;
@@ -1278,6 +1270,121 @@ namespace CaeMesh
             {
                 _error = ex.Message;
             }
+        }
+        private double[][][] GetParameterizationLines(int tag, bool constantU, int lineCount,
+                                                      double[] minBounds, double[] maxBounds)
+        {
+            List<double[][]> lines = new List<double[][]>();
+            double fixedMin = constantU ? minBounds[0] : minBounds[1];
+            double fixedMax = constantU ? maxBounds[0] : maxBounds[1];
+            double variableMin = constantU ? minBounds[1] : minBounds[0];
+            double variableMax = constantU ? maxBounds[1] : maxBounds[0];
+            double fixedStep = (fixedMax - fixedMin) / (lineCount + 1);
+            double variableStep = (variableMax - variableMin) / (_parameterizationLinePointCount - 1);
+            //
+            double fixedCoor;
+            double variableCoor;
+            double[] parametricCoor;
+            double[] previousParametricCoor;
+            bool inside;
+            bool previousInside;
+            List<double[]> parametricLine;
+            for (int lineIndex = 0; lineIndex < lineCount; lineIndex++)
+            {
+                fixedCoor = fixedMin + fixedStep * (lineIndex + 1);
+                previousParametricCoor = null;
+                previousInside = false;
+                parametricLine = null;
+                //
+                for (int pointIndex = 0; pointIndex < _parameterizationLinePointCount; pointIndex++)
+                {
+                    variableCoor = variableMin + variableStep * pointIndex;
+                    if (constantU) parametricCoor = new double[] { fixedCoor, variableCoor };
+                    else parametricCoor = new double[] { variableCoor, fixedCoor };
+                    inside = Gmsh.Model.IsInside(2, tag, parametricCoor, true) > 0;
+                    //
+                    if (inside)
+                    {
+                        if (!previousInside)
+                        {
+                            parametricLine = new List<double[]>();
+                            if (previousParametricCoor != null)
+                            {
+                                parametricLine.Add(GetInsideBoundaryParameterization(tag, parametricCoor,
+                                                                                    previousParametricCoor));
+                            }
+                        }
+                        parametricLine.Add(parametricCoor);
+                    }
+                    else if (previousInside)
+                    {
+                        parametricLine.Add(GetInsideBoundaryParameterization(tag, previousParametricCoor,
+                                                                            parametricCoor));
+                        AddParameterizationLine(tag, parametricLine, lines);
+                        parametricLine = null;
+                    }
+                    //
+                    previousParametricCoor = parametricCoor;
+                    previousInside = inside;
+                }
+                if (parametricLine != null) AddParameterizationLine(tag, parametricLine, lines);
+            }
+            return lines.ToArray();
+        }
+        private double[] GetInsideBoundaryParameterization(int tag, double[] insideCoor, double[] outsideCoor)
+        {
+            insideCoor = insideCoor.ToArray();
+            outsideCoor = outsideCoor.ToArray();
+            double[] middleCoor = new double[2];
+            for (int i = 0; i < 30; i++)
+            {
+                middleCoor[0] = 0.5 * (insideCoor[0] + outsideCoor[0]);
+                middleCoor[1] = 0.5 * (insideCoor[1] + outsideCoor[1]);
+                if (Gmsh.Model.IsInside(2, tag, middleCoor, true) > 0)
+                {
+                    insideCoor[0] = middleCoor[0];
+                    insideCoor[1] = middleCoor[1];
+                }
+                else
+                {
+                    outsideCoor[0] = middleCoor[0];
+                    outsideCoor[1] = middleCoor[1];
+                }
+            }
+            return insideCoor;
+        }
+        private void AddParameterizationLine(int tag, List<double[]> parametricLine, List<double[][]> lines)
+        {
+            if (parametricLine.Count < 2) return;
+            //
+            int pointCount = (parametricLine.Count - 1) * _parameterizationLineSubdivisionCount + 1;
+            double[] parametricCoor = new double[2 * pointCount];
+            int count = 0;
+            double ratio;
+            for (int i = 0; i < parametricLine.Count - 1; i++)
+            {
+                for (int j = 0; j < _parameterizationLineSubdivisionCount; j++)
+                {
+                    ratio = j / (double)_parameterizationLineSubdivisionCount;
+                    parametricCoor[2 * count] = parametricLine[i][0] * (1 - ratio) +
+                                                parametricLine[i + 1][0] * ratio;
+                    parametricCoor[2 * count + 1] = parametricLine[i][1] * (1 - ratio) +
+                                                    parametricLine[i + 1][1] * ratio;
+                    count++;
+                }
+            }
+            parametricCoor[2 * count] = parametricLine[parametricLine.Count - 1][0];
+            parametricCoor[2 * count + 1] = parametricLine[parametricLine.Count - 1][1];
+            //
+            double[] coor1D;
+            Gmsh.Model.GetValue(2, tag, parametricCoor, out coor1D);
+            //
+            double[][] coor = new double[coor1D.Length / 3][];
+            for (int i = 0; i < coor.Length; i++)
+            {
+                coor[i] = new double[] { coor1D[3 * i], coor1D[3 * i + 1], coor1D[3 * i + 2] };
+            }
+            lines.Add(coor);
         }
         // Tools                                                                                                                    
         private void RenumberGmshDataByCoor()

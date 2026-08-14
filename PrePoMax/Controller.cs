@@ -3279,7 +3279,7 @@ namespace PrePoMax
             _form.SetRotationPoint(rotationPoint);
         }
         // Parameterization
-        public void ViewParameterization()
+        public void ViewParameterization(int uLineCount = 3, int vLineCount = 3)
         {
             string workDirectory = _settings.GetWorkDirectory();
             //
@@ -3306,11 +3306,13 @@ namespace PrePoMax
                     File.WriteAllText(brepFileName, gp.CADFileData);
                     //
                     GmshAPI gmsh = new GmshAPI(gmshData, _form.WriteDataToOutput);
-                    string error = gmsh.GetCoordinatesFromParameterization();
+                    string error = gmsh.GetCoordinatesFromParameterization(uLineCount, vLineCount);
+                    if (error != null) throw new CaeException(error);
                     //
-                    for (int i = 0; i < gmshData.Coor.Length; i++)
+                    for (int i = 0; i < gmshData.ParameterizationLinesU.Length; i++)
                     {
-                        DrawNodes(gp.Name + "par" + i, gmshData.Coor[i], Color.Red, vtkRendererLayer.Selection);
+                        DrawParameterizationLines(gp.Name + "parU" + i, gmshData.ParameterizationLinesU[i], Color.Red);
+                        DrawParameterizationLines(gp.Name + "parV" + i, gmshData.ParameterizationLinesV[i], Color.Blue);
                     }
                 }
             }
@@ -3318,6 +3320,42 @@ namespace PrePoMax
             ResumeExplodedViews(false);
             //
             _form.Invalidate();
+        }
+        private void DrawParameterizationLines(string name, double[][][] lines, Color color)
+        {
+            List<double[]> nodeCoor = new List<double[]>();
+            List<int[]> cells = new List<int[]>();
+            List<int> cellTypes = new List<int>();
+            int lineType = (int)vtkCellType.VTK_LINE;
+            int offset;
+            foreach (double[][] line in lines)
+            {
+                if (line == null || line.Length < 2) continue;
+                //
+                offset = nodeCoor.Count;
+                nodeCoor.AddRange(line);
+                for (int i = 0; i < line.Length - 1; i++)
+                {
+                    cells.Add(new int[] { offset + i, offset + i + 1 });
+                    cellTypes.Add(lineType);
+                }
+            }
+            if (cells.Count == 0) return;
+            //
+            vtkMaxActorData data = new vtkMaxActorData();
+            data.Name = name;
+            data.Color = color;
+            data.Layer = vtkRendererLayer.Base;
+            data.LineWidth = 1;
+            data.Pickable = false;
+            data.DrawOnGeometry = true;
+            data.SectionViewPossible = false;
+            data.Geometry.Nodes.Coor = nodeCoor.ToArray();
+            data.Geometry.Cells.CellNodeIds = cells.ToArray();
+            data.Geometry.Cells.Types = cellTypes.ToArray();
+            //
+            ApplyLighting(data);
+            _form.Add3DCells(data);
         }
 
         #endregion ################################################################################################################

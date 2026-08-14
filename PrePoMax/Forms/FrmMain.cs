@@ -11512,10 +11512,10 @@ namespace PrePoMax
                 //TestGmshReadMesh();
                 //TestDefeature();
                 //AnimateRotation();
-                //TestParameterization();
+                TestParameterization();
                 //TestImportedStLoad();
                 //Test3MF();
-                TestPython();
+                //TestPython();
             }
             catch
             {
@@ -11696,9 +11696,9 @@ namespace PrePoMax
         {
             _controller.Defeature(null);
         }
-        private void TestParameterization()
+        private void TestParameterization(int uLineCount = 3, int vLineCount = 3)
         {
-            _controller.ViewParameterization();
+            _controller.ViewParameterization(uLineCount, vLineCount);
             _vtk.Invalidate();
         }
         private void TestSuperposition()

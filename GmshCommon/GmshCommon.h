@@ -329,6 +329,13 @@ namespace GmshCommon {
                 max = gcnew array<double>((int)max_native.size());
                 if ((int)max_native.size() > 0) Marshal::Copy(IntPtr(max_native.data()), max, 0, (int)max_native.size());
             }
+            static int IsInside(int dim, int tag, array<double>^ coord, System::Boolean parametric)
+            {
+                std::vector<double> coord_native(coord->Length);
+                if (coord->Length > 0) Marshal::Copy(coord, 0, IntPtr(&coord_native[0]), coord->Length);
+                //
+                return gmsh::model::isInside(dim, tag, coord_native, parametric);
+            }
             // Orthogonal projection of a batch of points onto a model entity.
             // `coord' is [p1x, p1y, p1z, p2x, ...]; `closestCoord' has the same layout and
             // `parametricCoord' returns t (dim == 1) or u, v concatenated (dim == 2).

@@ -53,7 +53,8 @@ namespace CaeMesh
         // Defeature
         public int[] SurfaceIds;
         // Parameterization
-        public double[][][] Coor;
+        public double[][][][] ParameterizationLinesU;
+        public double[][][][] ParameterizationLinesV;
         //
         public double StlFeatureAngleDeg;
 
