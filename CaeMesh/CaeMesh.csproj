@@ -111,6 +111,15 @@
     <Compile Include="Meshing\Gmsh\Enums\GmshOptimizeFirstOrderSolidEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshAlgorithmMesh3DEnum.cs" />
     <Compile Include="Meshing\Gmsh\SweepMethods.cs" />
+    <Compile Include="Meshing\Gmsh\Sweep\GmshElementType.cs" />
+    <Compile Include="Meshing\Gmsh\Sweep\SweepBlock.cs" />
+    <Compile Include="Meshing\Gmsh\Sweep\SweepMeshData.cs" />
+    <Compile Include="Meshing\Gmsh\Sweep\SweepLaplacian.cs" />
+    <Compile Include="Meshing\Gmsh\Sweep\SweepLayerMorph.cs" />
+    <Compile Include="Meshing\Gmsh\Sweep\SweepProjector.cs" />
+    <Compile Include="Meshing\Gmsh\Sweep\SweepQuality.cs" />
+    <Compile Include="Meshing\Gmsh\Sweep\SweepSmoother.cs" />
+    <Compile Include="Meshing\Gmsh\Sweep\LayeredMeshBuilder.cs" />
     <Compile Include="Meshing\Gmsh\RevolveMethods.cs" />
     <Compile Include="Meshing\Gmsh\Mesher\GmshSurface.cs" />
     <Compile Include="Meshing\Gmsh\Mesher\GmshEdge.cs" />
@@ -125,6 +134,7 @@
     <Compile Include="Meshing\Gmsh\SetupItems\GmshSetupItem.cs" />
     <Compile Include="Meshing\Gmsh\SetupItems\ExtrudeMesh.cs" />
     <Compile Include="Meshing\Gmsh\Enums\ElementSizeTypeEnum.cs" />
+    <Compile Include="Meshing\Gmsh\Enums\SweepBiasTypeEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshAlgorithmRecombinationEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshAlgorithmMesh2DEnum.cs" />
     <Compile Include="Meshing\Common\MeshSetupItem.cs" />

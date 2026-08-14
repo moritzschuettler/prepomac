@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -24,8 +24,9 @@ namespace CaeMesh
     public class SweepMesh : GmshSetupItem, ISerializable
     {
         // Variables                                                                                                                
-        private int _numberOfLayerSmoothSteps;                          // ISerializable
         private int _numberOfGlobalSmoothSteps;                         // ISerializable
+        private SweepBiasTypeEnum _biasType;                            // ISerializable
+        private double _biasFactor;                                     // ISerializable
         private double[] _direction;                                    // ISerializable
         private double[] _sweepCenter;                                  // ISerializable
         private int[] _sideSurfaceIds;                                  // ISerializable
@@ -33,15 +34,6 @@ namespace CaeMesh
 
 
         // Properties                                                                                                               
-        public int NumberOfLayerSmoothSteps
-        {
-            get { return _numberOfLayerSmoothSteps; }
-            set
-            {
-                _numberOfLayerSmoothSteps = value;
-                if (_numberOfLayerSmoothSteps < 0) _numberOfLayerSmoothSteps = 0;
-            }
-        }
         public int NumberOfGlobalSmoothSteps
         {
             get { return _numberOfGlobalSmoothSteps; }
@@ -49,6 +41,19 @@ namespace CaeMesh
             {
                 _numberOfGlobalSmoothSteps = value;
                 if (_numberOfGlobalSmoothSteps < 0) _numberOfGlobalSmoothSteps = 0;
+            }
+        }
+        public SweepBiasTypeEnum BiasType { get { return _biasType; } set { _biasType = value; } }
+        public double BiasFactor
+        {
+            get { return _biasFactor; }
+            set
+            {
+                _biasFactor = value;
+                // A geometric progression ratio must be positive; the direction of the grading is
+                // handled per edge, not by the sign
+                if (_biasFactor < 1E-3) _biasFactor = 1E-3;
+                else if (_biasFactor > 1E3) _biasFactor = 1E3;
             }
         }
         public double[] Direction { get { return _direction; } set { _direction = value; } }
@@ -76,9 +81,13 @@ namespace CaeMesh
                 switch (entry.Name)
                 {
                     case "_numberOfLayerSmoothSteps":
-                        _numberOfLayerSmoothSteps = (int)entry.Value; break;
+                        break;  // Removed - the layer interior is no longer built by smoothing
                     case "_numberOfGlobalSmoothSteps":
                         _numberOfGlobalSmoothSteps = (int)entry.Value; break;
+                    case "_biasType":
+                        _biasType = (SweepBiasTypeEnum)entry.Value; break;
+                    case "_biasFactor":
+                        _biasFactor = (double)entry.Value; break;
                     case "_direction":
                         _direction = (double[])entry.Value; break;
                     case "_sweepCenter":
@@ -99,8 +108,11 @@ namespace CaeMesh
         {
             base.Reset();
             //
-            _numberOfLayerSmoothSteps = 20;
-            _numberOfGlobalSmoothSteps = 5;
+            // The layer interior comes out of the morph already smooth; extra relaxation only
+            // erodes the grading the source mesh carries, so it is off unless it is asked for
+            _numberOfGlobalSmoothSteps = 0;
+            _biasType = SweepBiasTypeEnum.None;
+            _biasFactor = 1;
             _direction = null;
             _sweepCenter = null;
             _sideSurfaceIds = null;
@@ -110,20 +122,24 @@ namespace CaeMesh
         {
             base.CopyFrom(sweepMesh);
             //
-            _numberOfLayerSmoothSteps = sweepMesh._numberOfLayerSmoothSteps;
             _numberOfGlobalSmoothSteps = sweepMesh._numberOfGlobalSmoothSteps;
-            if (_direction != null) _direction = sweepMesh._direction.ToArray();
-            if (_sweepCenter != null) _sweepCenter = sweepMesh._sweepCenter.ToArray();
-            if (_sideSurfaceIds != null) sweepMesh._sideSurfaceIds.ToArray();
-            if (_layerGroupEdgeIds != null)
+            _biasType = sweepMesh._biasType;
+            _biasFactor = sweepMesh._biasFactor;
+            // The guards belong on the source: a null field here is exactly the case that has to be
+            // filled in, and a null field there is the case that must not be dereferenced
+            _direction = sweepMesh._direction?.ToArray();
+            _sweepCenter = sweepMesh._sweepCenter?.ToArray();
+            _sideSurfaceIds = sweepMesh._sideSurfaceIds?.ToArray();
+            _layerGroupEdgeIds = null;
+            if (sweepMesh._layerGroupEdgeIds != null)
             {
-                sweepMesh._layerGroupEdgeIds = new int[_layerGroupEdgeIds.Length][][];
-                for (int i = 0; i < _layerGroupEdgeIds.Length; i++)
+                _layerGroupEdgeIds = new int[sweepMesh._layerGroupEdgeIds.Length][][];
+                for (int i = 0; i < sweepMesh._layerGroupEdgeIds.Length; i++)
                 {
-                    sweepMesh._layerGroupEdgeIds[i] = new int[_layerGroupEdgeIds[i].Length][];
-                    for (int j = 0; j < _layerGroupEdgeIds[i].Length; j++)
+                    _layerGroupEdgeIds[i] = new int[sweepMesh._layerGroupEdgeIds[i].Length][];
+                    for (int j = 0; j < sweepMesh._layerGroupEdgeIds[i].Length; j++)
                     {
-                        _layerGroupEdgeIds[i][j] = _layerGroupEdgeIds[i][j].ToArray();
+                        _layerGroupEdgeIds[i][j] = sweepMesh._layerGroupEdgeIds[i][j].ToArray();
                     }
                 }
             }
@@ -133,8 +149,9 @@ namespace CaeMesh
         {
             base.GetObjectData(info, context);
             // Using typeof() works also for null fields
-            info.AddValue("_numberOfLayerSmoothSteps", _numberOfLayerSmoothSteps, typeof(int));
             info.AddValue("_numberOfGlobalSmoothSteps", _numberOfGlobalSmoothSteps, typeof(int));
+            info.AddValue("_biasType", _biasType, typeof(SweepBiasTypeEnum));
+            info.AddValue("_biasFactor", _biasFactor, typeof(double));
             info.AddValue("_direction", _direction, typeof(double[]));
             info.AddValue("_sweepCenter", _sweepCenter, typeof(double[]));
             info.AddValue("_sideSurfaceIds", _sideSurfaceIds, typeof(int[]));

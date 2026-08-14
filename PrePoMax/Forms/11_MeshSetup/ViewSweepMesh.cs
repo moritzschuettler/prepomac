@@ -29,22 +29,39 @@ namespace PrePoMax.Forms
 
         // Properties                                                                                                               
         [CategoryAttribute("Mesh smoothing")]
-        [OrderedDisplayName(0, 10, "Layer smooth steps")]
-        [DescriptionAttribute("Enter the number of Laplacian smooth steps for the generation of the next sweep layers.")]
+        [OrderedDisplayName(0, 10, "Global smooth steps")]
+        [DescriptionAttribute("Enter the number of Laplacian smooth steps for the final global mesh smoothing. " +
+                              "The sweep layers are already smooth without it, so leave it at 0 unless the target " +
+                              "surface is strongly inclined or curved.")]
         [Id(1, 10)]
-        public int NumberOfLayerSmoothSteps
-        {
-            get { return _sweepMesh.NumberOfLayerSmoothSteps; }
-            set { _sweepMesh.NumberOfLayerSmoothSteps = value; }
-        }
-        [CategoryAttribute("Mesh smoothing")]
-        [OrderedDisplayName(1, 10, "Global smooth steps")]
-        [DescriptionAttribute("Enter the number of Laplacian smooth steps for the final global mesh smoothing.")]
-        [Id(2, 10)]
         public int NumberOfGlobalSmoothSteps
         {
             get { return _sweepMesh.NumberOfGlobalSmoothSteps; }
             set { _sweepMesh.NumberOfGlobalSmoothSteps = value; }
+        }
+        //
+        [CategoryAttribute("Layer grading")]
+        [OrderedDisplayName(0, 10, "Bias type")]
+        [DescriptionAttribute("Select how the element layers are distributed along the sweep direction. " +
+                              "Progression grades the layers from the source surface towards the target surface; " +
+                              "Bump refines towards both of them.")]
+        [Id(1, 11)]
+        public SweepBiasTypeEnum BiasType
+        {
+            get { return _sweepMesh.BiasType; }
+            set { _sweepMesh.BiasType = value; UpdateVisibility(); }
+        }
+        [CategoryAttribute("Layer grading")]
+        [OrderedDisplayName(1, 10, "Bias factor")]
+        [DescriptionAttribute("Enter the grading factor. For Progression it is the ratio between two consecutive " +
+                              "layer thicknesses: a value larger than 1 makes the layers grow towards the target " +
+                              "surface, a value smaller than 1 makes them shrink. For Bump it controls how strongly " +
+                              "the layers are refined towards both surfaces.")]
+        [Id(2, 11)]
+        public double BiasFactor
+        {
+            get { return _sweepMesh.BiasFactor; }
+            set { _sweepMesh.BiasFactor = value; }
         }
 
 
@@ -68,7 +85,13 @@ namespace PrePoMax.Forms
         }
 
 
-        // Methods                                                                                                                  
+        // Methods
+        public override void UpdateVisibility()
+        {
+            base.UpdateVisibility();
+            //
+            _dctd.GetProperty(nameof(BiasFactor)).SetIsBrowsable(_sweepMesh.BiasType != SweepBiasTypeEnum.None);
+        }
         public override MeshSetupItem GetBase()
         {
             return _sweepMesh;

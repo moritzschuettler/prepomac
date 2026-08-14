@@ -144,7 +144,7 @@ namespace GmshCommon {
                 gmsh::model::getEntitiesForPhysicalGroup(dim, tag, tags);
                 //
                 array<int>^ entities = gcnew array<int>((int)tags.size());
-                Marshal::Copy(IntPtr(tags.data()), entities, 0, entities->Length);
+                if ((int)tags.size() > 0) Marshal::Copy(IntPtr(tags.data()), entities, 0, entities->Length);
                 //
                 return entities;
             }
@@ -155,7 +155,7 @@ namespace GmshCommon {
             static int AddPhysicalGroup(int dim, array<int>^ tags, int tag, System::String^ name)
             {
                 std::vector<int> ntags(tags->Length);
-                Marshal::Copy(tags, 0, IntPtr(ntags.data()), tags->Length);
+                if (tags->Length > 0) Marshal::Copy(tags, 0, IntPtr(ntags.data()), tags->Length);
 
                 return gmsh::model::addPhysicalGroup(dim, ntags, tag, msclr::interop::marshal_as<std::string>(name));
             }
@@ -274,40 +274,45 @@ namespace GmshCommon {
                 [System::Runtime::InteropServices::Out] array<double>^% coord)
             {
                 std::vector<double> parametricCoord_native(parametricCoord->Length);
-                Marshal::Copy(parametricCoord, 0, IntPtr(&parametricCoord_native[0]), parametricCoord->Length);
+                if (parametricCoord->Length > 0)
+                    Marshal::Copy(parametricCoord, 0, IntPtr(&parametricCoord_native[0]), parametricCoord->Length);
                 //
                 std::vector<double> coord_native;
                 //
                 gmsh::model::getValue(dim, tag, parametricCoord_native, coord_native);
                 //
                 coord = gcnew array<double>((int)coord_native.size());
-                Marshal::Copy(IntPtr(coord_native.data()), coord, 0, (int)coord_native.size());
+                if ((int)coord_native.size() > 0)
+                    Marshal::Copy(IntPtr(coord_native.data()), coord, 0, (int)coord_native.size());
             }
             static void GetNormal(int tag, array<double>^ parametricCoord,
                 [System::Runtime::InteropServices::Out] array<double>^% normals)
             {
                 std::vector<double> parametricCoord_native(parametricCoord->Length);
-                Marshal::Copy(parametricCoord, 0, IntPtr(&parametricCoord_native[0]), parametricCoord->Length);
+                if (parametricCoord->Length > 0)
+                    Marshal::Copy(parametricCoord, 0, IntPtr(&parametricCoord_native[0]), parametricCoord->Length);
                 //
                 std::vector<double> normals_native;
                 //
                 gmsh::model::getNormal(tag, parametricCoord_native, normals_native);
                 //
                 normals = gcnew array<double>((int)normals_native.size());
-                Marshal::Copy(IntPtr(normals_native.data()), normals, 0, (int)normals_native.size());
+                if ((int)normals_native.size() > 0)
+                    Marshal::Copy(IntPtr(normals_native.data()), normals, 0, (int)normals_native.size());
             }
             static void GetParametrization(int dim, int tag, array<double>^ coord,
                 [System::Runtime::InteropServices::Out] array<double>^% parametricCoord)
             {
                 std::vector<double> coord_native(coord->Length);
-                Marshal::Copy(coord, 0, IntPtr(&coord_native[0]), coord->Length);
+                if (coord->Length > 0) Marshal::Copy(coord, 0, IntPtr(&coord_native[0]), coord->Length);
                 //
                 std::vector<double> parametricCoord_native;
                 //
                 gmsh::model::getParametrization(dim, tag, coord_native, parametricCoord_native);
                 //
                 parametricCoord = gcnew array<double>((int)parametricCoord_native.size());
-                Marshal::Copy(IntPtr(parametricCoord_native.data()), parametricCoord, 0, (int)parametricCoord_native.size());
+                if ((int)parametricCoord_native.size() > 0)
+                    Marshal::Copy(IntPtr(parametricCoord_native.data()), parametricCoord, 0, (int)parametricCoord_native.size());
             }
             static void GetParametrizationBounds(int dim, int tag,
                 [System::Runtime::InteropServices::Out] array<double>^% min,
@@ -319,10 +324,33 @@ namespace GmshCommon {
                 gmsh::model::getParametrizationBounds(dim, tag, min_native, max_native);
                 //
                 min = gcnew array<double>((int)min_native.size());
-                Marshal::Copy(IntPtr(min_native.data()), min, 0, (int)min_native.size());
+                if ((int)min_native.size() > 0) Marshal::Copy(IntPtr(min_native.data()), min, 0, (int)min_native.size());
                 //
                 max = gcnew array<double>((int)max_native.size());
-                Marshal::Copy(IntPtr(max_native.data()), max, 0, (int)max_native.size());
+                if ((int)max_native.size() > 0) Marshal::Copy(IntPtr(max_native.data()), max, 0, (int)max_native.size());
+            }
+            // Orthogonal projection of a batch of points onto a model entity.
+            // `coord' is [p1x, p1y, p1z, p2x, ...]; `closestCoord' has the same layout and
+            // `parametricCoord' returns t (dim == 1) or u, v concatenated (dim == 2).
+            static void GetClosestPoint(int dim, int tag, array<double>^ coord,
+                [System::Runtime::InteropServices::Out] array<double>^% closestCoord,
+                [System::Runtime::InteropServices::Out] array<double>^% parametricCoord)
+            {
+                std::vector<double> coord_native(coord->Length);
+                if (coord->Length > 0) Marshal::Copy(coord, 0, IntPtr(&coord_native[0]), coord->Length);
+                //
+                std::vector<double> closestCoord_native;
+                std::vector<double> parametricCoord_native;
+                //
+                gmsh::model::getClosestPoint(dim, tag, coord_native, closestCoord_native, parametricCoord_native);
+                //
+                closestCoord = gcnew array<double>((int)closestCoord_native.size());
+                if (closestCoord_native.size() > 0)
+                    Marshal::Copy(IntPtr(closestCoord_native.data()), closestCoord, 0, (int)closestCoord_native.size());
+                //
+                parametricCoord = gcnew array<double>((int)parametricCoord_native.size());
+                if (parametricCoord_native.size() > 0)
+                    Marshal::Copy(IntPtr(parametricCoord_native.data()), parametricCoord, 0, (int)parametricCoord_native.size());
             }
             //                                                                                                                      
             ref class Geo
@@ -339,7 +367,7 @@ namespace GmshCommon {
                 static int AddVolume(array<int>^ shellTags, int tag)
                 {
                     std::vector<int> nShellTags(shellTags->Length);
-                    Marshal::Copy(shellTags, 0, IntPtr(nShellTags.data()), shellTags->Length);
+                    if (shellTags->Length > 0) Marshal::Copy(shellTags, 0, IntPtr(nShellTags.data()), shellTags->Length);
 
                     return gmsh::model::geo::addVolume(nShellTags, tag);
                 }
@@ -350,7 +378,8 @@ namespace GmshCommon {
                 static int AddSurfaceLoop(array<int>^ surfaceTags, int tag)
                 {
                     std::vector<int> nSurfaceTags(surfaceTags->Length);
-                    Marshal::Copy(surfaceTags, 0, IntPtr(nSurfaceTags.data()), surfaceTags->Length);
+                    if (surfaceTags->Length > 0)
+                        Marshal::Copy(surfaceTags, 0, IntPtr(nSurfaceTags.data()), surfaceTags->Length);
 
                     return gmsh::model::geo::addSurfaceLoop(nSurfaceTags, tag);
                 }
@@ -387,7 +416,8 @@ namespace GmshCommon {
                 static void AffineTransform(array<double>^ affineTransform, array<array<int>^>^ dimTags)
                 {
                     std::vector<double> af(affineTransform->Length);
-                    Marshal::Copy(affineTransform, 0, IntPtr(&af[0]), affineTransform->Length);
+                    if (affineTransform->Length > 0)
+                        Marshal::Copy(affineTransform, 0, IntPtr(&af[0]), affineTransform->Length);
 
                     //std::vector<int> dt(dimTags->Length);
                     //Marshal::Copy(dimTags, 0, IntPtr(&dt[0]), dimTags->Length);
@@ -412,19 +442,36 @@ namespace GmshCommon {
                 static void AddNodes(int dim, int tag, array<IntPtr>^ nodeTags, array<double>^ coordinates)
                 {
                     std::vector<size_t> nnodeTags(nodeTags->Length);
-                    Marshal::Copy(nodeTags, 0, IntPtr(nnodeTags.data()), nodeTags->Length);
+                    if (nodeTags->Length > 0) Marshal::Copy(nodeTags, 0, IntPtr(nnodeTags.data()), nodeTags->Length);
 
                     std::vector<double> coord(coordinates->Length);
-                    Marshal::Copy(coordinates, 0, IntPtr(coord.data()), coordinates->Length);
+                    if (coordinates->Length > 0) Marshal::Copy(coordinates, 0, IntPtr(coord.data()), coordinates->Length);
 
                     gmsh::model::mesh::addNodes(dim, tag, nnodeTags, coord);
+                }
+                // Overload carrying parametric coordinates - needed when nodes are classified on a
+                // surface and second order midside nodes must be placed on the geometry.
+                static void AddNodes(int dim, int tag, array<IntPtr>^ nodeTags, array<double>^ coordinates,
+                    array<double>^ parametricCoordinates)
+                {
+                    std::vector<size_t> nnodeTags(nodeTags->Length);
+                    if (nodeTags->Length > 0) Marshal::Copy(nodeTags, 0, IntPtr(nnodeTags.data()), nodeTags->Length);
+
+                    std::vector<double> coord(coordinates->Length);
+                    if (coordinates->Length > 0) Marshal::Copy(coordinates, 0, IntPtr(coord.data()), coordinates->Length);
+
+                    std::vector<double> parametricCoord(parametricCoordinates->Length);
+                    if (parametricCoordinates->Length > 0)
+                        Marshal::Copy(parametricCoordinates, 0, IntPtr(parametricCoord.data()), parametricCoordinates->Length);
+
+                    gmsh::model::mesh::addNodes(dim, tag, nnodeTags, coord, parametricCoord);
                 }
                 static void AddFaces(int faceType, array<IntPtr>^ faceTags, array<IntPtr>^ faceNodes)
                 {
                     std::vector<size_t> nFaceTags(faceTags->Length), nFaceNodes(faceNodes->Length);
 
-                    Marshal::Copy(faceTags, 0, IntPtr(nFaceTags.data()), faceTags->Length);
-                    Marshal::Copy(faceNodes, 0, IntPtr(nFaceNodes.data()), faceNodes->Length);
+                    if (faceTags->Length > 0) Marshal::Copy(faceTags, 0, IntPtr(nFaceTags.data()), faceTags->Length);
+                    if (faceNodes->Length > 0) Marshal::Copy(faceNodes, 0, IntPtr(nFaceNodes.data()), faceNodes->Length);
 
                     gmsh::model::mesh::addFaces(faceType, nFaceTags, nFaceNodes);
                 }
@@ -432,20 +479,23 @@ namespace GmshCommon {
                     array<array<IntPtr>^>^ elementTags, array <array<IntPtr>^>^ nodeTags)
                 {
                     std::vector<int> nElementTypes(elementTypes->Length);
-                    Marshal::Copy(elementTypes, 0, IntPtr(nElementTypes.data()), elementTypes->Length);
+                    if (elementTypes->Length > 0)
+                        Marshal::Copy(elementTypes, 0, IntPtr(nElementTypes.data()), elementTypes->Length);
 
                     std::vector < std::vector<size_t>> nElementTags(elementTags->Length);
                     for (int i = 0; i < elementTags->Length; ++i)
                     {
                         nElementTags[i] = std::vector<size_t>(elementTags[i]->Length);
-                        Marshal::Copy(elementTags[i], 0, IntPtr(nElementTags[i].data()), elementTags[i]->Length);
+                        if (elementTags[i]->Length > 0)
+                            Marshal::Copy(elementTags[i], 0, IntPtr(nElementTags[i].data()), elementTags[i]->Length);
                     }
 
                     std::vector < std::vector<size_t>> nNodeTags(nodeTags->Length);
                     for (int i = 0; i < nodeTags->Length; ++i)
                     {
                         nNodeTags[i] = std::vector<size_t>(nodeTags[i]->Length);
-                        Marshal::Copy(nodeTags[i], 0, IntPtr(nNodeTags[i].data()), nodeTags[i]->Length);
+                        if (nodeTags[i]->Length > 0)
+                            Marshal::Copy(nodeTags[i], 0, IntPtr(nNodeTags[i].data()), nodeTags[i]->Length);
                     }
 
                     gmsh::model::mesh::addElements(dim, tag, nElementTypes, nElementTags, nNodeTags);
@@ -478,10 +528,11 @@ namespace GmshCommon {
 
 
                     localCoord = gcnew array<double>((int)nLocalCoord.size());
-                    Marshal::Copy(IntPtr(nLocalCoord.data()), localCoord, 0, (int)nLocalCoord.size());
+                    if ((int)nLocalCoord.size() > 0)
+                        Marshal::Copy(IntPtr(nLocalCoord.data()), localCoord, 0, (int)nLocalCoord.size());
 
                     weights = gcnew array<double>((int)nWeights.size());
-                    Marshal::Copy(IntPtr(nWeights.data()), weights, 0, (int)nWeights.size());
+                    if ((int)nWeights.size() > 0) Marshal::Copy(IntPtr(nWeights.data()), weights, 0, (int)nWeights.size());
                 }
                 static void GetElementTypes([System::Runtime::InteropServices::Out] array<int>^% types, int dim)
                 {
@@ -497,7 +548,7 @@ namespace GmshCommon {
                     gmsh::model::mesh::getElementTypes(nTypes, dim, tag);
 
                     types = gcnew array<int>((int)nTypes.size());
-                    Marshal::Copy(IntPtr(nTypes.data()), types, 0, (int)nTypes.size());
+                    if ((int)nTypes.size() > 0) Marshal::Copy(IntPtr(nTypes.data()), types, 0, (int)nTypes.size());
                 }
                 static void GetNodes([System::Runtime::InteropServices::Out] array<IntPtr>^% nodeTags,
                     [System::Runtime::InteropServices::Out] array<double>^% coord,
@@ -562,6 +613,12 @@ namespace GmshCommon {
 
 
                 }
+                static void GetMaxNodeTag([System::Runtime::InteropServices::Out] IntPtr% maxTag)
+                {
+                    size_t maxTag_native;
+                    gmsh::model::mesh::getMaxNodeTag(maxTag_native);
+                    maxTag = IntPtr((int)maxTag_native);
+                }
                 static void GetMaxElementTag([System::Runtime::InteropServices::Out] IntPtr% maxTag)
                 {
                     size_t maxTag_native;
@@ -572,7 +629,8 @@ namespace GmshCommon {
                     [System::Runtime::InteropServices::Out] array<double>^% elementsQuality, System::String^ qualityName)
                 {
                     std::vector<size_t> elementTags_native(elementTags->Length);
-                    Marshal::Copy(elementTags, 0, IntPtr(elementTags_native.data()), elementTags->Length);
+                    if (elementTags->Length > 0)
+                        Marshal::Copy(elementTags, 0, IntPtr(elementTags_native.data()), elementTags->Length);
                     // Preallocate
                     std::vector<double> elementsQuality_native(elementTags->Length);
                     //
@@ -581,7 +639,8 @@ namespace GmshCommon {
                     gmsh::model::mesh::getElementQualities(elementTags_native, elementsQuality_native, qualityName_native);
                     //
                     elementsQuality = gcnew array<double>((int)elementsQuality_native.size());
-                    Marshal::Copy(IntPtr(elementsQuality_native.data()), elementsQuality, 0, (int)elementsQuality_native.size());
+                    if ((int)elementsQuality_native.size() > 0)
+                        Marshal::Copy(IntPtr(elementsQuality_native.data()), elementsQuality, 0, (int)elementsQuality_native.size());
                 }
                 static void GetElements(
                     [System::Runtime::InteropServices::Out] array<int>^% elementTypes,
@@ -618,7 +677,8 @@ namespace GmshCommon {
                     for (int i = 0; i < (int)elementTagsN.size(); ++i)
                     {
                         elementTags[i] = gcnew array<IntPtr>((int)elementTagsN[i].size());
-                        Marshal::Copy(IntPtr(elementTagsN[i].data()), elementTags[i], 0, (int)elementTagsN[i].size());
+                        if ((int)elementTagsN[i].size() > 0)
+                            Marshal::Copy(IntPtr(elementTagsN[i].data()), elementTags[i], 0, (int)elementTagsN[i].size());
 
                         //for (int j = 0; j < elementTagsN[i].size(); ++j)
                         //	elementTags[i][j] = static_cast<long>(elementTagsN[i][j]);
@@ -632,7 +692,8 @@ namespace GmshCommon {
                     for (int i = 0; i < (int)nodeTagsN.size(); ++i)
                     {
                         nodeTags[i] = gcnew array<IntPtr>((int)nodeTagsN[i].size());
-                        Marshal::Copy(IntPtr(nodeTagsN[i].data()), nodeTags[i], 0, (int)nodeTagsN[i].size());
+                        if ((int)nodeTagsN[i].size() > 0)
+                            Marshal::Copy(IntPtr(nodeTagsN[i].data()), nodeTags[i], 0, (int)nodeTagsN[i].size());
 
                         //for (int j = 0; j < nodeTagsN[i].size(); ++j)
                         //{
@@ -668,13 +729,14 @@ namespace GmshCommon {
                     gmsh::model::mesh::getAllFaces(dim, face_tags, face_nodes);
 
                     faceTags = gcnew array<IntPtr>((int)face_tags.size());
-                    Marshal::Copy(IntPtr(face_tags.data()), faceTags, 0, (int)face_tags.size());
+                    if ((int)face_tags.size() > 0) Marshal::Copy(IntPtr(face_tags.data()), faceTags, 0, (int)face_tags.size());
 
                     //for (int i = 0; i < face_tags.size(); ++i)
                     //	faceTags[i] = static_cast<long>(face_tags[i]);
 
                     faceNodes = gcnew array<IntPtr>((int)face_nodes.size());
-                    Marshal::Copy(IntPtr(face_nodes.data()), faceNodes, 0, (int)face_nodes.size());
+                    if ((int)face_nodes.size() > 0)
+                        Marshal::Copy(IntPtr(face_nodes.data()), faceNodes, 0, (int)face_nodes.size());
 
                     //for (int i = 0; i < face_nodes.size(); ++i)
                     //	faceNodes[i] = static_cast<long>(face_nodes[i]);
@@ -685,7 +747,7 @@ namespace GmshCommon {
                     [System::Runtime::InteropServices::Out] array<double>^% coord)
                 {
                     std::vector<double> nLocalCoord(localCoord->Length), nJacobians, nDeterminants, nCoord;
-                    Marshal::Copy(localCoord, 0, IntPtr(nLocalCoord.data()), localCoord->Length);
+                    if (localCoord->Length > 0) Marshal::Copy(localCoord, 0, IntPtr(nLocalCoord.data()), localCoord->Length);
 
                     gmsh::model::mesh::getJacobians(elementType, nLocalCoord, nJacobians, nDeterminants, nCoord, tag);
 
@@ -693,9 +755,11 @@ namespace GmshCommon {
                     determinants = gcnew array<double>((int)nDeterminants.size());
                     coord = gcnew array<double>((int)nCoord.size());
 
-                    Marshal::Copy(IntPtr(nJacobians.data()), jacobians, 0, (int)nJacobians.size());
-                    Marshal::Copy(IntPtr(nDeterminants.data()), determinants, 0, (int)nDeterminants.size());
-                    Marshal::Copy(IntPtr(nCoord.data()), coord, 0, (int)nCoord.size());
+                    if ((int)nJacobians.size() > 0)
+                        Marshal::Copy(IntPtr(nJacobians.data()), jacobians, 0, (int)nJacobians.size());
+                    if ((int)nDeterminants.size() > 0)
+                        Marshal::Copy(IntPtr(nDeterminants.data()), determinants, 0, (int)nDeterminants.size());
+                    if ((int)nCoord.size() > 0) Marshal::Copy(IntPtr(nCoord.data()), coord, 0, (int)nCoord.size());
                 }
                 static void Recombine()
                 {
@@ -724,7 +788,7 @@ namespace GmshCommon {
                 static void SetCompound(int dim, array<int>^ tags)
                 {
                     std::vector<int> tags_native(tags->Length);
-                    Marshal::Copy(tags, 0, IntPtr(tags_native.data()), tags->Length);
+                    if (tags->Length > 0) Marshal::Copy(tags, 0, IntPtr(tags_native.data()), tags->Length);
                     //
                     gmsh::model::mesh::setCompound(dim, tags_native);
                 }
@@ -753,7 +817,8 @@ namespace GmshCommon {
                     std::string arrangement_native = msclr::interop::marshal_as<std::string>(arrangement);
                     //
                     std::vector<int> cornerTags_native(cornerTags->Length);
-                    Marshal::Copy(cornerTags, 0, IntPtr(cornerTags_native.data()), cornerTags->Length);
+                    if (cornerTags->Length > 0)
+                        Marshal::Copy(cornerTags, 0, IntPtr(cornerTags_native.data()), cornerTags->Length);
                     //
                     gmsh::model::mesh::setTransfiniteSurface(tag, arrangement_native, cornerTags_native);
                 }
@@ -764,7 +829,8 @@ namespace GmshCommon {
                 static void SetTransfiniteVolume(int tag, array<int>^ cornerTags)
                 {
                     std::vector<int> cornerTags_native(cornerTags->Length);
-                    Marshal::Copy(cornerTags, 0, IntPtr(cornerTags_native.data()), cornerTags->Length);
+                    if (cornerTags->Length > 0)
+                        Marshal::Copy(cornerTags, 0, IntPtr(cornerTags_native.data()), cornerTags->Length);
                     //
                     gmsh::model::mesh::setTransfiniteVolume(tag, cornerTags_native);
                 }
@@ -820,7 +886,8 @@ namespace GmshCommon {
                     gmsh::model::mesh::getSizes(dimTags_native, sizes_native);
                     //
                     sizes = gcnew array<double>((int)sizes_native.size());
-                    Marshal::Copy(IntPtr(sizes_native.data()), sizes, 0, (int)sizes_native.size());
+                    if ((int)sizes_native.size() > 0)
+                        Marshal::Copy(IntPtr(sizes_native.data()), sizes, 0, (int)sizes_native.size());
                 }
                 //
                 ref class Field
@@ -844,10 +911,11 @@ namespace GmshCommon {
                     gmsh::vectorpair outDimTags_native;
                     //
                     std::vector<int> numElements_native(numElements->Length);
-                    Marshal::Copy(numElements, 0, IntPtr(numElements_native.data()), numElements->Length);
+                    if (numElements->Length > 0)
+                        Marshal::Copy(numElements, 0, IntPtr(numElements_native.data()), numElements->Length);
                     //
                     std::vector<double> heights_native(heights->Length);
-                    Marshal::Copy(heights, 0, IntPtr(heights_native.data()), heights->Length);
+                    if (heights->Length > 0) Marshal::Copy(heights, 0, IntPtr(heights_native.data()), heights->Length);
                     //
                     gmsh::model::occ::extrude(dimTags_native, dx, dy, dz, outDimTags_native, numElements_native, heights_native, recombine);
                     //
@@ -867,10 +935,11 @@ namespace GmshCommon {
                     gmsh::vectorpair outDimTags_native;
                     //
                     std::vector<int> numElements_native(numElements->Length);
-                    Marshal::Copy(numElements, 0, IntPtr(numElements_native.data()), numElements->Length);
+                    if (numElements->Length > 0)
+                        Marshal::Copy(numElements, 0, IntPtr(numElements_native.data()), numElements->Length);
                     //
                     std::vector<double> heights_native(heights->Length);
-                    Marshal::Copy(heights, 0, IntPtr(heights_native.data()), heights->Length);
+                    if (heights->Length > 0) Marshal::Copy(heights, 0, IntPtr(heights_native.data()), heights->Length);
                     //
                     gmsh::model::occ::revolve(dimTags_native, x, y, z, ax, ay, az, angle, outDimTags_native,
                         numElements_native, heights_native, recombine);
@@ -926,10 +995,12 @@ namespace GmshCommon {
                     bool removeVolume)
                 {
                     std::vector<int> volumeTags_native(volumeTags->Length);
-                    Marshal::Copy(volumeTags, 0, IntPtr(volumeTags_native.data()), volumeTags->Length);
+                    if (volumeTags->Length > 0)
+                        Marshal::Copy(volumeTags, 0, IntPtr(volumeTags_native.data()), volumeTags->Length);
                     //
                     std::vector<int> surfaceTags_native(surfaceTags->Length);
-                    Marshal::Copy(surfaceTags, 0, IntPtr(surfaceTags_native.data()), surfaceTags->Length);
+                    if (surfaceTags->Length > 0)
+                        Marshal::Copy(surfaceTags, 0, IntPtr(surfaceTags_native.data()), surfaceTags->Length);
                     //
                     gmsh::vectorpair outDimTags_native;
                     //
@@ -1107,10 +1178,11 @@ namespace GmshCommon {
                     std::vector<int> pointTags_native(pointTags->Length), multiplicities_native(multiplicities->Length);
                     std::vector<double> weights_native(weights->Length), knots_native(knots->Length);
 
-                    Marshal::Copy(pointTags, 0, IntPtr(pointTags_native.data()), pointTags->Length);
-                    Marshal::Copy(weights, 0, IntPtr(weights_native.data()), weights->Length);
-                    Marshal::Copy(knots, 0, IntPtr(knots_native.data()), knots->Length);
-                    Marshal::Copy(multiplicities, 0, IntPtr(multiplicities_native.data()), multiplicities->Length);
+                    if (pointTags->Length > 0) Marshal::Copy(pointTags, 0, IntPtr(pointTags_native.data()), pointTags->Length);
+                    if (weights->Length > 0) Marshal::Copy(weights, 0, IntPtr(weights_native.data()), weights->Length);
+                    if (knots->Length > 0) Marshal::Copy(knots, 0, IntPtr(knots_native.data()), knots->Length);
+                    if (multiplicities->Length > 0)
+                        Marshal::Copy(multiplicities, 0, IntPtr(multiplicities_native.data()), multiplicities->Length);
 
 
                     return gmsh::model::occ::addBSpline(pointTags_native, tag, degree, weights_native, knots_native, multiplicities_native);
@@ -1120,8 +1192,8 @@ namespace GmshCommon {
                     std::vector<int> pointTags_native(pointTags->Length);
                     std::vector<double> weights_native(weights->Length);
 
-                    Marshal::Copy(pointTags, 0, IntPtr(pointTags_native.data()), pointTags->Length);
-                    Marshal::Copy(weights, 0, IntPtr(weights_native.data()), weights->Length);
+                    if (pointTags->Length > 0) Marshal::Copy(pointTags, 0, IntPtr(pointTags_native.data()), pointTags->Length);
+                    if (weights->Length > 0) Marshal::Copy(weights, 0, IntPtr(weights_native.data()), weights->Length);
 
                     return gmsh::model::occ::addBSpline(pointTags_native, tag, degree, weights_native);
                 }
@@ -1133,7 +1205,7 @@ namespace GmshCommon {
                 {
                     std::vector<int> curveTags_native(curveTags->Length);
 
-                    Marshal::Copy(curveTags, 0, IntPtr(curveTags_native.data()), curveTags->Length);
+                    if (curveTags->Length > 0) Marshal::Copy(curveTags, 0, IntPtr(curveTags_native.data()), curveTags->Length);
 
                     return gmsh::model::occ::addCurveLoop(curveTags_native, tag);
                 }
@@ -1145,7 +1217,7 @@ namespace GmshCommon {
                 {
                     std::vector<int> wireTags_native(wireTags->Length);
 
-                    Marshal::Copy(wireTags, 0, IntPtr(wireTags_native.data()), wireTags->Length);
+                    if (wireTags->Length > 0) Marshal::Copy(wireTags, 0, IntPtr(wireTags_native.data()), wireTags->Length);
 
                     return gmsh::model::occ::addPlaneSurface(wireTags_native, tag);
                 }
@@ -1158,13 +1230,15 @@ namespace GmshCommon {
                         wireTags_native(wireTags->Length);
                     std::vector<double> weights_native(weights->Length), knotsU_native(knotsU->Length), knotsV_native(knotsV->Length);
 
-                    Marshal::Copy(pointTags, 0, IntPtr(pointTags_native.data()), pointTags->Length);
-                    Marshal::Copy(weights, 0, IntPtr(weights_native.data()), weights->Length);
-                    Marshal::Copy(knotsU, 0, IntPtr(knotsU_native.data()), knotsU->Length);
-                    Marshal::Copy(knotsV, 0, IntPtr(knotsV_native.data()), knotsV->Length);
-                    Marshal::Copy(multiplicitiesU, 0, IntPtr(multiplicitiesU_native.data()), multiplicitiesU->Length);
-                    Marshal::Copy(multiplicitiesV, 0, IntPtr(multiplicitiesV_native.data()), multiplicitiesV->Length);
-                    Marshal::Copy(wireTags, 0, IntPtr(wireTags_native.data()), wireTags->Length);
+                    if (pointTags->Length > 0) Marshal::Copy(pointTags, 0, IntPtr(pointTags_native.data()), pointTags->Length);
+                    if (weights->Length > 0) Marshal::Copy(weights, 0, IntPtr(weights_native.data()), weights->Length);
+                    if (knotsU->Length > 0) Marshal::Copy(knotsU, 0, IntPtr(knotsU_native.data()), knotsU->Length);
+                    if (knotsV->Length > 0) Marshal::Copy(knotsV, 0, IntPtr(knotsV_native.data()), knotsV->Length);
+                    if (multiplicitiesU->Length > 0)
+                        Marshal::Copy(multiplicitiesU, 0, IntPtr(multiplicitiesU_native.data()), multiplicitiesU->Length);
+                    if (multiplicitiesV->Length > 0)
+                        Marshal::Copy(multiplicitiesV, 0, IntPtr(multiplicitiesV_native.data()), multiplicitiesV->Length);
+                    if (wireTags->Length > 0) Marshal::Copy(wireTags, 0, IntPtr(wireTags_native.data()), wireTags->Length);
 
                     return gmsh::model::occ::addBSplineSurface(pointTags_native, numPointsU, tag, degreeU, degreeV, weights_native,
                         knotsU_native, knotsV_native,
@@ -1179,9 +1253,9 @@ namespace GmshCommon {
                         wireTags_native(wireTags->Length);
                     std::vector<double> weights_native(weights->Length);
 
-                    Marshal::Copy(pointTags, 0, IntPtr(pointTags_native.data()), pointTags->Length);
-                    Marshal::Copy(weights, 0, IntPtr(weights_native.data()), weights->Length);
-                    Marshal::Copy(wireTags, 0, IntPtr(wireTags_native.data()), wireTags->Length);
+                    if (pointTags->Length > 0) Marshal::Copy(pointTags, 0, IntPtr(pointTags_native.data()), pointTags->Length);
+                    if (weights->Length > 0) Marshal::Copy(weights, 0, IntPtr(weights_native.data()), weights->Length);
+                    if (wireTags->Length > 0) Marshal::Copy(wireTags, 0, IntPtr(wireTags_native.data()), wireTags->Length);
 
                     return gmsh::model::occ::addBSplineSurface(pointTags_native, numPointsU, tag, degreeU, degreeV, weights_native,
                         std::vector<double>(), std::vector<double>(),
@@ -1194,8 +1268,8 @@ namespace GmshCommon {
                     std::vector<int> pointTags_native(pointTags->Length);
                     std::vector<double> weights_native(weights->Length);
 
-                    Marshal::Copy(pointTags, 0, IntPtr(pointTags_native.data()), pointTags->Length);
-                    Marshal::Copy(weights, 0, IntPtr(weights_native.data()), weights->Length);
+                    if (pointTags->Length > 0) Marshal::Copy(pointTags, 0, IntPtr(pointTags_native.data()), pointTags->Length);
+                    if (weights->Length > 0) Marshal::Copy(weights, 0, IntPtr(weights_native.data()), weights->Length);
 
                     return gmsh::model::occ::addBSplineSurface(pointTags_native, numPointsU, tag, degreeU, degreeV, weights_native,
                         std::vector<double>(), std::vector<double>(),
@@ -1204,7 +1278,7 @@ namespace GmshCommon {
                 static int AddWire(array<int>^ curveTags, int tag, bool checkClosed)
                 {
                     std::vector<int> curveTags_native(curveTags->Length);
-                    Marshal::Copy(curveTags, 0, IntPtr(curveTags_native.data()), curveTags->Length);
+                    if (curveTags->Length > 0) Marshal::Copy(curveTags, 0, IntPtr(curveTags_native.data()), curveTags->Length);
 
                     return gmsh::model::occ::addWire(curveTags_native, tag, checkClosed);
                 }
@@ -1215,7 +1289,8 @@ namespace GmshCommon {
                 static int AddSurfaceLoop(array<int>^ surfaceTags, int tag)
                 {
                     std::vector<int> nSurfaceTags(surfaceTags->Length);
-                    Marshal::Copy(surfaceTags, 0, IntPtr(nSurfaceTags.data()), surfaceTags->Length);
+                    if (surfaceTags->Length > 0)
+                        Marshal::Copy(surfaceTags, 0, IntPtr(nSurfaceTags.data()), surfaceTags->Length);
 
                     return gmsh::model::occ::addSurfaceLoop(nSurfaceTags, tag);
                 }
@@ -1226,7 +1301,7 @@ namespace GmshCommon {
                 static int AddVolume(array<int>^ shellTags, int tag)
                 {
                     std::vector<int> nShellTags(shellTags->Length);
-                    Marshal::Copy(shellTags, 0, IntPtr(nShellTags.data()), shellTags->Length);
+                    if (shellTags->Length > 0) Marshal::Copy(shellTags, 0, IntPtr(nShellTags.data()), shellTags->Length);
 
                     return gmsh::model::occ::addVolume(nShellTags, tag);
                 }

@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -152,7 +152,7 @@ namespace CaeMesh
                     // PrepareData
                     PrepareData(gsi);
                     // Mesh size
-                    SetMeshSizes(gsi.AlgorithmMesh2D);
+                    SetMeshSizes(gsi);
                     // 2D meshing algorithm
                     Gmsh.Option.SetNumber("Mesh.Algorithm", (int)gsi.AlgorithmMesh2D);
                     // 3D meshing algorithm
@@ -211,6 +211,8 @@ namespace CaeMesh
                 // Revolving a surface that touches the axis can create duplicate nodes on collapsed edges.
                 // Merge them after all mesh operations and before exporting, so visualization topology sees merged nodes.
                 if (!_gmshData.Preview && gsi is RevolveMesh) Gmsh.Model.Mesh.RemoveDuplicateNodes();
+                // Quality of the mesh that is about to be written, for every setup item type
+                if (!_gmshData.Preview) ReportMeshQuality();
                 // Output
                 Gmsh.Write(_gmshData.InpFileName);
                 //Gmsh.Write(@"c:\Temp\mesh.mesh");
@@ -228,8 +230,35 @@ namespace CaeMesh
                 _error = ex.Message;
             }
         }
-        private void SetMeshSizes(GmshAlgorithmMesh2DEnum algorithm2D)
+        private void SetMeshSizes(GmshSetupItem gmshSetupItem)
         {
+            GmshAlgorithmMesh2DEnum algorithm2D = gmshSetupItem.AlgorithmMesh2D;
+            // Sweep layer grading. The grading is applied to the wall edges that follow the sweep
+            // direction; the boundary sweep lines are read straight off that wall grid and the layer
+            // morph carries the resulting spacing into the interior, so nothing downstream has to
+            // know about it.
+            SweepBiasTypeEnum biasType = SweepBiasTypeEnum.None;
+            double biasFactor = 1;
+            HashSet<int> sweepEdgeIds = new HashSet<int>();
+            HashSet<int> sweepSourceVertexIds = new HashSet<int>();
+            if (gmshSetupItem is SweepMesh sweepMesh && sweepMesh.BiasType != SweepBiasTypeEnum.None &&
+                _gmshData.EdgeIdsBySweepLayer != null)
+            {
+                biasType = sweepMesh.BiasType;
+                biasFactor = sweepMesh.BiasFactor;
+                foreach (var sweepLayerEdgeIds in _gmshData.EdgeIdsBySweepLayer)
+                    sweepEdgeIds.UnionWith(sweepLayerEdgeIds);
+                //
+                Dictionary<int, int[]> surfaceIdVertexIds;
+                GetSurfaceItems(out _, out surfaceIdVertexIds);
+                int[] sourceVertexIds;
+                for (int i = 0; i < sweepMesh.CreationIds.Length; i++)
+                {
+                    int sourceSurfaceId = FeMesh.GetItemIdFromGeometryId(sweepMesh.CreationIds[i]) + 1;
+                    if (surfaceIdVertexIds.TryGetValue(sourceSurfaceId, out sourceVertexIds))
+                        sweepSourceVertexIds.UnionWith(sourceVertexIds);
+                }
+            }
             // Mesh size
             //Tuple<int, int>[] surfaceDimTags;
             //Gmsh.GetEntities(out surfaceDimTags, 2);
@@ -290,7 +319,10 @@ namespace CaeMesh
                 _gmshData.EdgeIdNumElements[edgeId] = numOfElements;
                 //
                 numOfNodes = numOfElements + 1;
-                Gmsh.Model.Mesh.SetTransfiniteCurve(edgeId, numOfNodes);
+                if (biasType != SweepBiasTypeEnum.None && sweepEdgeIds.Contains(edgeId))
+                    SetGradedTransfiniteCurve(edgeId, numOfNodes, biasType, biasFactor, sweepSourceVertexIds);
+                else
+                    Gmsh.Model.Mesh.SetTransfiniteCurve(edgeId, numOfNodes);
             }
             //
             Synchronize(); // must be here for mesh refinement
@@ -512,7 +544,16 @@ namespace CaeMesh
             targetSurfaceIds.UnionWith(surfaceIdVertexIds.Keys);
             targetSurfaceIds.ExceptWith(sourceSurfaceIds);
             targetSurfaceIds.ExceptWith(sideSurfaceIds);
-            if (targetSurfaceIds.Count != 1) throw new NotSupportedException();
+            // The mesh is built by projecting onto every target surface and keeping the nearest hit,
+            // so a target that is split into several faces is allowed
+            if (targetSurfaceIds.Count < 1)
+                throw new CaeException("No sweep target surface could be determined.");
+            // The volume the solid elements are classified on
+            Tuple<int, int>[] volumeDimTags;
+            Gmsh.Model.GetEntities(out volumeDimTags, 3);
+            if (volumeDimTags.Length != 1)
+                throw new CaeException("The sweep mesh setup item requires a part with a single volume.");
+            int volumeId = volumeDimTags[0].Item2;
             // Set source surfaces
             if (recombine)
             {
@@ -529,7 +570,7 @@ namespace CaeMesh
             //
             GenerateMesh(2);
             // Remove the volume and the target surface mesh
-            List<Tuple<int, int>> toRemoveDimTags = new List<Tuple<int, int>>() { new Tuple<int, int>(3, 1) };  // volume
+            List<Tuple<int, int>> toRemoveDimTags = new List<Tuple<int, int>>() { new Tuple<int, int>(3, volumeId) };
             foreach (var targetSurfaceId in targetSurfaceIds) toRemoveDimTags.Add(new Tuple<int, int>(2, targetSurfaceId));
             //
             Gmsh.Model.Mesh.Clear(toRemoveDimTags.ToArray());
@@ -553,8 +594,8 @@ namespace CaeMesh
             else
             {
                 SweepMethods.CreateSweepMesh(sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds,
-                                             sweepMesh.NumberOfLayerSmoothSteps, sweepMesh.NumberOfGlobalSmoothSteps,
-                                             surfaceIdEdgeIds, surfaceIdVertexIds);
+                                             sweepMesh.NumberOfGlobalSmoothSteps, surfaceIdEdgeIds, volumeId,
+                                             _writeOutput);
             }
         }
         //
@@ -621,6 +662,130 @@ namespace CaeMesh
                 }
             }
             return false;
+        }
+        /// <summary>
+        /// Reports the quality of the finished mesh, whatever produced it.
+        ///
+        /// The measure is gmsh's own minSICN, the signed inverse condition number: 1 for an ideal
+        /// element, 0 for a degenerate one and negative for an inverted one. The sweep additionally
+        /// refuses to emit inverted elements, because it builds those elements itself; a mesh that
+        /// came out of gmsh is only reported on, since rejecting it would throw away a mesh the
+        /// mesher considers acceptable.
+        /// </summary>
+        private void ReportMeshQuality()
+        {
+            try
+            {
+                int[] elementTypes;
+                IntPtr[][] elementTags;
+                IntPtr[][] nodeTags;
+                string elementKind = "solid";
+                Gmsh.Model.Mesh.GetElements(out elementTypes, out elementTags, out nodeTags, 3, -1);
+                if (elementTags.Length == 0)
+                {
+                    Gmsh.Model.Mesh.GetElements(out elementTypes, out elementTags, out nodeTags, 2, -1);
+                    elementKind = "shell";
+                }
+                //
+                int count = 0;
+                for (int i = 0; i < elementTags.Length; i++) count += elementTags[i].Length;
+                if (count == 0) return;
+                //
+                int index = 0;
+                IntPtr[] allElementTags = new IntPtr[count];
+                for (int i = 0; i < elementTags.Length; i++)
+                {
+                    Array.Copy(elementTags[i], 0, allElementTags, index, elementTags[i].Length);
+                    index += elementTags[i].Length;
+                }
+                //
+                double[] qualities;
+                Gmsh.Model.Mesh.GetElementQualities(allElementTags, out qualities, "minSICN");
+                if (qualities == null || qualities.Length != count) return;
+                //
+                double sum = 0;
+                double minimum = double.MaxValue;
+                int numInvalid = 0;
+                for (int i = 0; i < qualities.Length; i++)
+                {
+                    if (qualities[i] < minimum) minimum = qualities[i];
+                    sum += qualities[i];
+                    if (qualities[i] <= 0) numInvalid++;
+                }
+                //
+                _writeOutput?.Invoke("Number of " + elementKind + " elements: " + count);
+                _writeOutput?.Invoke("Element quality (min SICN): min " + Math.Round(minimum, 4) +
+                                     ", average " + Math.Round(sum / count, 4));
+                if (numInvalid > 0)
+                    _writeOutput?.Invoke("Warning: " + numInvalid + " inverted or degenerate element/s.");
+            }
+            catch (Exception ex)
+            {
+                _writeOutput?.Invoke("The mesh quality could not be evaluated: " + ex.Message);
+            }
+        }
+        private static void SetGradedTransfiniteCurve(int edgeId, int numOfNodes, SweepBiasTypeEnum biasType,
+                                                      double biasFactor, HashSet<int> sourceVertexIds)
+        {
+            if (biasType == SweepBiasTypeEnum.Bump)
+            {
+                // A bump is symmetric about the middle of the curve, so its direction is irrelevant
+                Gmsh.Model.Mesh.SetTransfiniteCurve(edgeId, numOfNodes, "Bump", biasFactor);
+                return;
+            }
+            // A geometric progression runs from the parametric start of the curve. An edge that runs
+            // from the target surface back to the source gets the reciprocal ratio, which is the same
+            // distribution walked the other way, so every wall ends up graded from the source surface
+            // towards the target one.
+            double coefficient = biasFactor;
+            if (!CurveStartsOnSurfaceVertex(edgeId, sourceVertexIds)) coefficient = 1 / biasFactor;
+            //
+            Gmsh.Model.Mesh.SetTransfiniteCurve(edgeId, numOfNodes, "Progression", coefficient);
+        }
+        /// <summary>
+        /// Whether the parametric start of a curve is one of the given vertices. The start is found
+        /// by evaluating the curve at its lower parameter bound and taking the nearer of the two end
+        /// vertices, rather than by relying on the sign convention of GetBoundary.
+        /// </summary>
+        private static bool CurveStartsOnSurfaceVertex(int edgeId, HashSet<int> vertexIds)
+        {
+            double[] minParameter;
+            double[] maxParameter;
+            Gmsh.Model.GetParametrizationBounds(1, edgeId, out minParameter, out maxParameter);
+            if (minParameter == null || minParameter.Length < 1) return true;
+            //
+            double[] startCoor;
+            Gmsh.Model.GetValue(1, edgeId, new double[] { minParameter[0] }, out startCoor);
+            if (startCoor == null || startCoor.Length < 3) return true;
+            //
+            Tuple<int, int>[] vertexDimTags;
+            Gmsh.Model.GetBoundary(new Tuple<int, int>[] { new Tuple<int, int>(1, edgeId) }, out vertexDimTags,
+                                   false, false, false);
+            //
+            int nearestVertexId = -1;
+            double nearestDistance = double.MaxValue;
+            foreach (var vertexDimTag in vertexDimTags)
+            {
+                if (vertexDimTag.Item1 != 0) continue;
+                //
+                int vertexId = Math.Abs(vertexDimTag.Item2);
+                double[] coor;
+                Gmsh.Model.GetValue(0, vertexId, new double[0], out coor);
+                if (coor == null || coor.Length < 3) continue;
+                //
+                double distance = Math.Pow(coor[0] - startCoor[0], 2) +
+                                  Math.Pow(coor[1] - startCoor[1], 2) +
+                                  Math.Pow(coor[2] - startCoor[2], 2);
+                if (distance < nearestDistance)
+                {
+                    nearestDistance = distance;
+                    nearestVertexId = vertexId;
+                }
+            }
+            // A closed curve has no distinct start vertex; leave its grading as it comes
+            if (nearestVertexId < 0) return true;
+            //
+            return vertexIds.Contains(nearestVertexId);
         }
         public static void GetSurfaceItems(out Dictionary<int, int[]> surfaceIdEdgeIds,
                                             out Dictionary<int, int[]> surfaceIdVertexIds)
