@@ -10,6 +10,7 @@
 using CaeGlobals;
 using CaeJob;
 using CaeMesh;
+using CaeMesh.Meshing;
 using CaeModel;
 using CaeResults;
 using FileInOut.Output;
@@ -38,7 +39,7 @@ using vtkControl;
 namespace PrePoMax
 {
     [Serializable]
-    public class Controller //: ISerializable
+    public partial class Controller //: ISerializable
     {
         // Variables                                                                                                                
         private const string _itemLabelsActorName = "Items";
@@ -629,6 +630,7 @@ namespace PrePoMax
             //
             ClearModel();
             ClearResults();
+            ClearPlotWorkspace();
             // Selection
             SetSelectByToDefault();
             _geometrySelectMode = GeometrySelectModeEnum.SelectLocation;
@@ -854,6 +856,7 @@ namespace PrePoMax
             InitializeNewCommands(tmp._commands);
             // Annotations
             _annotations = new AnnotationContainer(tmp._annotations, this);
+            LoadPlotWorkspace(tmp);
             // Jobs
             if (data[1] is OrderedDictionary<string, AnalysisJob> od) _jobs = od;
             // Settings
@@ -5060,6 +5063,7 @@ namespace PrePoMax
             int numElements;
             gmshData.VertexNodeIdMeshSize = new Dictionary<int, double>();
             gmshData.EdgeIdNumElements = new Dictionary<int, int>();
+            gmshData.EdgeIdBias = new Dictionary<int, EdgeBias>();
             foreach (var localMeshSize in localMeshSizes)
             {
                 foreach (int geometryId in localMeshSize.CreationIds)
@@ -5087,6 +5091,17 @@ namespace PrePoMax
                         numElements = localMeshSize.GetNumberOfElements(length, minH, maxH);
                         //
                         gmshData.EdgeIdNumElements[FeMesh.GmshTopologyId(itemId, partId)] = numElements;
+                        // Grading only applies to an explicit edge selection - a surface or part
+                        // selection has no single direction to grade along
+                        if (localMeshSize.BiasType != SweepBiasTypeEnum.None)
+                        {
+                            gmshData.EdgeIdBias[FeMesh.GmshTopologyId(itemId, partId)] = new EdgeBias
+                            {
+                                BiasType = localMeshSize.BiasType,
+                                BiasFactor = localMeshSize.BiasFactor,
+                                Reversed = localMeshSize.Reversed
+                            };
+                        }
                     }
                     else if (geometryType.IsSurface())
                     {
@@ -12568,8 +12583,24 @@ namespace PrePoMax
         }
         public double[] GetBoundingBox()
         {
+            FeMesh mesh = DisplayedMesh;
+            if (mesh == null) return new double[6];
+            //
+            BoundingBox boundingBox = new BoundingBox();
+            bool includedPart = false;
+            foreach (BasePart part in mesh.Parts.Values)
+            {
+                if (part.Visible)
+                {
+                    boundingBox.IncludeBox(part.BoundingBox);
+                    includedPart = true;
+                }
+            }
             // xMin, xMax, yMin, yMax, zMin, zMax
-            return _form.GetBoundingBox();
+            if (!includedPart) return new double[6];
+            else return new double[] { boundingBox.MinX, boundingBox.MaxX,
+                                       boundingBox.MinY, boundingBox.MaxY,
+                                       boundingBox.MinZ, boundingBox.MaxZ };
         }
         #endregion   ###############################################################################################################
 
@@ -13185,10 +13216,19 @@ namespace PrePoMax
         }
         public void RunHistoryPostprocessing()
         {
-            if (_settings.General.RunHistoryPostprocessing == RunPostProcessingEnum.Yes ||
-                (_settings.General.RunHistoryPostprocessing == RunPostProcessingEnum.Ask &&
-                _commands.GetNumberOfPostprocessCommands() > 0 &&
-                MessageBoxes.ShowQuestionYesNo("Postprocessing", "Run postprocessing commands?") == DialogResult.Yes))
+            bool postprocessCommandsExist = false;
+            bool runPostprocessing = _settings.General.RunHistoryPostprocessing == RunPostProcessingEnum.Yes;
+            //
+            if (!runPostprocessing)
+            {
+                postprocessCommandsExist = _commands.GetNumberOfPostprocessCommands() > 0;
+                //
+                if (_settings.General.RunHistoryPostprocessing == RunPostProcessingEnum.Ask && postprocessCommandsExist)
+                    runPostprocessing = MessageBoxes.ShowQuestionYesNo("Postprocessing",
+                                                                      "Run postprocessing commands?") == DialogResult.Yes;
+            }
+            //
+            if (runPostprocessing)
             {
                 bool result = _commands.RunHistoryPostprocessing();
                 //
@@ -13196,6 +13236,7 @@ namespace PrePoMax
                     MessageBoxes.ShowWarning("Not all post-processing commands were successfully executed. " +
                                              "Please see the output window for more details.");
             }
+            else _commands.SetPostprocessingDeclined(postprocessCommandsExist);
         }
         //
         private void UpdateCurrentFieldData()
@@ -13955,6 +13996,11 @@ namespace PrePoMax
             CReplaceResultFieldOutput comm = new CReplaceResultFieldOutput(oldResultFieldOutputName, resultFieldOutput);
             _commands.AddAndExecute(comm);
         }
+        public void DuplicateResultFieldOutputsCommand(string[] resultFieldOutputNames)
+        {
+            CDuplicateResultFieldOutputs comm = new CDuplicateResultFieldOutputs(resultFieldOutputNames);
+            _commands.AddAndExecute(comm);
+        }
         public void ExportResultFieldOutputCommand(string fileName, string resultName, FieldData fieldData)
         {
             CExportResultFieldOutputToCsv comm = new CExportResultFieldOutputToCsv(fileName, resultName, fieldData);
@@ -14029,6 +14075,17 @@ namespace PrePoMax
             resultFieldOutput.Name = newResultFieldOutputName;
             ReplaceResultFieldOutput(oldResultFieldOutputName, resultFieldOutput);
         }
+        public void DuplicateResultFieldOutputs(string[] resultFieldOutputNames)
+        {
+            ResultFieldOutput newResultFieldOutput;
+            foreach (var name in resultFieldOutputNames)
+            {
+                newResultFieldOutput = GetResultFieldOutput(name).DeepClone();
+                newResultFieldOutput.Name = NamedClass.GetNameWithoutLastValue(newResultFieldOutput.Name);
+                newResultFieldOutput.Name = GetResultFieldOutputNames().GetNextNumberedKey(newResultFieldOutput.Name);
+                AddResultFieldOutput(newResultFieldOutput);
+            }
+        }
         private void SetFieldAndComponent(ResultFieldOutput resultFieldOutput)
         {
             string[] components = _allResults.CurrentResult.GetFieldComponentNames(resultFieldOutput.Name);
@@ -14082,6 +14139,11 @@ namespace PrePoMax
         public void ReplaceResultHistoryOutputCommand(string oldResultHistoryOutputName, ResultHistoryOutput resultHistoryOutput)
         {
             CReplaceResultHistoryOutput comm = new CReplaceResultHistoryOutput(oldResultHistoryOutputName, resultHistoryOutput);
+            _commands.AddAndExecute(comm);
+        }
+        public void DuplicateResultHistoryOutputsCommand(string[] resultHistoryOutputNames)
+        {
+            CDuplicateResultHistoryOutputs comm = new CDuplicateResultHistoryOutputs(resultHistoryOutputNames);
             _commands.AddAndExecute(comm);
         }
         public void ExportResultHistoryOutputCommand(ExportHistoryResultSetFileProperties properties)
@@ -14172,6 +14234,17 @@ namespace PrePoMax
             _form.UpdateTreeNode(ViewGeometryModelResults.Results, oldResultHistoryOutputName, resultHistoryOutput, null);
             //
             FeResultsUpdate(UpdateType.Check);
+        }
+        public void DuplicateResultHistoryOutputs(string[] resultHistoryOutputNames)
+        {
+            ResultHistoryOutput newResultHistoryOutput;
+            foreach (var name in resultHistoryOutputNames)
+            {
+                newResultHistoryOutput = GetResultHistoryOutput(name).DeepClone();
+                newResultHistoryOutput.Name = NamedClass.GetNameWithoutLastValue(newResultHistoryOutput.Name);
+                newResultHistoryOutput.Name = GetHistoryResultSetNames().GetNextNumberedKey(newResultHistoryOutput.Name);
+                AddResultHistoryOutput(newResultHistoryOutput);
+            }
         }
         // Remove
         public void RemoveResultHistoryOutputs(string[] historyOutputNames)
@@ -21752,6 +21825,82 @@ namespace PrePoMax
                     }
                 }
             }
+            else if (resultHistoryOutput is ResultHistoryOutputFromAffineFit rhoaf) HighlightAffineFitRegion(rhoaf);
+        }
+        public void HighlightAffineFitRegion(ResultHistoryOutputFromAffineFit resultHistoryOutput)
+        {
+            FeResults currentResult = CurrentResult;
+            if (currentResult == null || currentResult.Mesh == null) return;
+            //
+            FeMesh mesh = currentResult.Mesh;
+            Dictionary<int, FeNode> undeformedNodes = currentResult.UndeformedNodes;
+            if (undeformedNodes == null || undeformedNodes.Count == 0) return;
+            //
+            double planeZ = undeformedNodes.Values.First().Z;
+            // Center point - secondary selection color
+            double[] centerCoor = new double[] { resultHistoryOutput.CenterX, resultHistoryOutput.CenterY, planeZ };
+            HighlightNodes(new double[][] { centerCoor }, true);
+            // Outer radius circle, and the inner taper start circle if it differs from the outer one
+            HighlightConnectedLines(GetAffineFitCirclePoints(resultHistoryOutput.CenterX, resultHistoryOutput.CenterY,
+                resultHistoryOutput.Radius, planeZ), true);
+            //
+            if (resultHistoryOutput.TaperStartFraction < 1)
+            {
+                double taperRadius = resultHistoryOutput.TaperStartFraction * resultHistoryOutput.Radius;
+                HighlightConnectedLines(GetAffineFitCirclePoints(resultHistoryOutput.CenterX, resultHistoryOutput.CenterY,
+                    taperRadius, planeZ), true);
+            }
+            // Accepted fit points, evaluated on the undeformed geometry - primary selection color
+            List<AffineFitPoint> points =
+                AffineFitCalculator.BuildFitPoints(mesh, undeformedNodes, resultHistoryOutput, out _, out _);
+            if (points.Count == 0) return;
+            //
+            if (resultHistoryOutput.PointSource == AffineFitPointSourceEnum.Nodes)
+            {
+                double[][] nodeCoor = new double[points.Count][];
+                for (int i = 0; i < points.Count; i++)
+                {
+                    FeNode node = undeformedNodes[points[i].NodeIds[0]];
+                    nodeCoor[i] = new double[] { node.X, node.Y, node.Z };
+                }
+                HighlightNodes(nodeCoor, false);
+            }
+            else
+            {
+                double[][][] cellEdges = new double[points.Count][][];
+                double[][] centroidCoor = new double[points.Count][];
+                for (int i = 0; i < points.Count; i++)
+                {
+                    AffineFitPoint point = points[i];
+                    double[][] loop = new double[point.NodeIds.Length + 1][];
+                    for (int j = 0; j < point.NodeIds.Length; j++)
+                    {
+                        FeNode node = undeformedNodes[point.NodeIds[j]];
+                        loop[j] = new double[] { node.X, node.Y, node.Z };
+                    }
+                    loop[point.NodeIds.Length] = loop[0];
+                    cellEdges[i] = loop;
+                    centroidCoor[i] = new double[] { point.RefX, point.RefY, planeZ };
+                }
+                HighlightConnectedEdges(cellEdges, false);
+                HighlightNodes(centroidCoor, false);
+            }
+        }
+        private double[][] GetAffineFitCirclePoints(double centerX, double centerY, double radius, double z)
+        {
+            int circleSegmentCount = 96;
+            double[][] circlePoints = new double[circleSegmentCount + 1][];
+            for (int i = 0; i <= circleSegmentCount; i++)
+            {
+                double angle = 2 * Math.PI * i / circleSegmentCount;
+                circlePoints[i] = new double[]
+                {
+                    centerX + radius * Math.Cos(angle),
+                    centerY + radius * Math.Sin(angle),
+                    z
+                };
+            }
+            return circlePoints;
         }
         public void HighlightConnectedLines(double[][] lineNodeCoor, bool useSecondaryHighlightColor = false)
         {

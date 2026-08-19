@@ -56,11 +56,14 @@ namespace CaeResults
         }
 
 
-        // Static methods                                                                                                           
-
-
         // Methods                                                                                                                  
-        
+        public string GetDisplayName()
+        {
+            if (this == null) return "";
+            return this.SetName + "." + this.FieldName + "." + this.ComponentName;
+        }
+
+
         // ISerialization
         public new void GetObjectData(SerializationInfo info, StreamingContext context)
         {

@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -104,7 +104,8 @@ namespace CaeMesh.Sweep
             //
             int numLayers = data.NumLayers;
             int[][] sourceElements = data.SourceElements;
-            int[] nodes = new int[8];
+            SweepQualityBuffers buffers = new SweepQualityBuffers();
+            int[] nodes = buffers.Nodes;
             List<IntPtr> wedgeTags = new List<IntPtr>();
             List<IntPtr> wedgeNodes = new List<IntPtr>();
             List<IntPtr> hexaTags = new List<IntPtr>();
@@ -115,7 +116,7 @@ namespace CaeMesh.Sweep
                 for (int e = 0; e < sourceElements.Length; e++)
                 {
                     int n = sourceElements[e].Length;
-                    SweepQuality.GetElementNodes(data, e, bottom, flip, nodes);
+                    SweepQuality.FillOrientedElementNodes(data, e, bottom, buffers);
                     //
                     if (n == 3)
                     {
@@ -142,7 +143,7 @@ namespace CaeMesh.Sweep
             {
                 int n = sourceElements[e].Length;
                 int surfaceId = elementSurfaceIds[e];
-                SweepQuality.GetElementNodes(data, e, numLayers - 2, flip, nodes);
+                bool elementFlipped = SweepQuality.FillOrientedElementNodes(data, e, numLayers - 2, buffers);
                 // The face of a positively oriented element formed by its second group of nodes has
                 // an outward normal in that node order; the face formed by the first group has an
                 // outward normal in the reverse order. The target layer is the second group unless
@@ -161,7 +162,7 @@ namespace CaeMesh.Sweep
                 else capNodes = nodesBySurface[surfaceId];
                 //
                 tags.Add((IntPtr)nextElementTag++);
-                if (flip)
+                if (elementFlipped)
                 {
                     for (int i = n - 1; i >= 0; i--) capNodes.Add(data.NodeTags[nodes[i]]);
                 }

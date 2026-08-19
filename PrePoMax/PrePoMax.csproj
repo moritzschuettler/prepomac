@@ -108,6 +108,9 @@
   <ItemGroup>
     <Compile Include="Common\GeneratedMeshData.cs" />
     <Compile Include="Common\MeshBatchPerformance.cs" />
+    <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutputFromExtractedEntry.cs" />
+    <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutputFromMergedHistories.cs" />
+    <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutputXY.cs" />
     <Compile Include="Python\Commands\ControllerPythonCommandGateway.cs" />
     <Compile Include="Python\Commands\ControllerPythonSelectionGateway.cs" />
     <Compile Include="Python\Engine\PythonConsoleResult.cs" />
@@ -119,6 +122,7 @@
     <Compile Include="CommandLine\CommandLineOptions.cs" />
     <Compile Include="Commands\0000_File\CExportResultFieldOutputToCsv.cs" />
     <Compile Include="Commands\0000_File\CExportResultHistoryOutputToCsv.cs" />
+    <Compile Include="Commands\0000_File\CExportPlotDataToCsv.cs" />
     <Compile Include="Commands\0000_File\CExportTo3mf.cs" />
     <Compile Include="Commands\0000_File\CExportToStl.cs" />
     <Compile Include="Commands\0000_File\CExportCADGeometryPartsAsBrep.cs" />
@@ -252,15 +256,21 @@
     <Compile Include="Commands\0110_Results\01_Mesh\01_Part\CSetTransparencyForResultParts.cs" />
     <Compile Include="Commands\0110_Results\01_Mesh\01_Part\CShowResultParts.cs" />
     <Compile Include="Commands\0110_Results\02_FieldOutput\CAddResultFieldOutput.cs" />
+    <Compile Include="Commands\0110_Results\02_FieldOutput\CDuplicateResultFieldOutputs.cs" />
     <Compile Include="Commands\0110_Results\02_FieldOutput\CRemoveResultFieldOutputComponents.cs" />
     <Compile Include="Commands\0110_Results\02_FieldOutput\CRemoveResultFieldOutputs.cs" />
     <Compile Include="Commands\0110_Results\02_FieldOutput\CReplaceResultFieldOutput.cs" />
     <Compile Include="Commands\_Compatibility\v2.2.3\CExportResultHistoryOutput.cs" />
     <Compile Include="Commands\0110_Results\03_HistoryOutput\CAddResultHistoryOutput.cs" />
+    <Compile Include="Commands\0110_Results\03_HistoryOutput\CDuplicateResultHistoryOutputs.cs" />
     <Compile Include="Commands\0110_Results\03_HistoryOutput\CRemoveResultHistoryFields.cs" />
     <Compile Include="Commands\0110_Results\03_HistoryOutput\CRemoveResultHistoryComponents.cs" />
     <Compile Include="Commands\0110_Results\03_HistoryOutput\CRemoveResultHistoryOutputs.cs" />
     <Compile Include="Commands\0110_Results\03_HistoryOutput\CReplaceResultHisotryOutput.cs" />
+    <Compile Include="Commands\0110_Results\04_Plot\CAddHistoryOutputToNewPlot.cs" />
+    <Compile Include="Commands\0110_Results\04_Plot\CAddHistoryOutputToPlot.cs" />
+    <Compile Include="Commands\0110_Results\04_Plot\CRemovePlot.cs" />
+    <Compile Include="Commands\0110_Results\03_HistoryOutput\CCombineHistoryOutputs.cs" />
     <Compile Include="Commands\_Compatibility\v1.4.1\CAddMeshingParameters.cs" />
     <Compile Include="Commands\_Compatibility\v1.4.1\CAddMeshRefinement.cs" />
     <Compile Include="Commands\0040_Meshing\CCreateMesh.cs" />
@@ -370,6 +380,9 @@
     <Compile Include="Commands\_Compatibility\v2.1.0\CShowReferencePoints.cs" />
     <Compile Include="Commands\_Compatibility\v2.2.0\CDeleteStlPartFacesCommand.cs" />
     <Compile Include="Controller.cs" />
+    <Compile Include="Controller.Plotting.cs" />
+    <Compile Include="Controller.HistoryOutputTables.cs" />
+    <Compile Include="Plotting\PlotWorkspace.cs" />
     <Compile Include="Enums\ShowItemIdsEnum.cs" />
     <Compile Include="Enums\ViewGeometryModelResults.cs" />
     <Compile Include="Enums\AnnotateWithColorEnum.cs" />
@@ -680,6 +693,8 @@
     </Compile>
     <Compile Include="Forms\00_Common\FileExporter\ViewExportHistoryResultSetFileProperties.cs" />
     <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutputFromIntegration.cs" />
+    <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutputFromAffineFit.cs" />
+    <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutputFromTable.cs" />
     <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutputFromEquation.cs" />
     <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutputFromField.cs" />
     <Compile Include="Forms\83_ResultHistoryOutput\ViewResultHistoryOutput.cs" />
@@ -836,6 +851,10 @@
       <DependentUpon>FrmAnimation.cs</DependentUpon>
     </Compile>
     <Compile Include="Forms\FrmMain.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\FrmMain.Plotting.cs">
+      <DependentUpon>FrmMain.cs</DependentUpon>
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Forms\FrmMain.Designer.cs">

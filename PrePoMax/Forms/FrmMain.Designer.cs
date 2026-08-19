@@ -152,6 +152,7 @@ namespace PrePoMax
             this.tsmiView = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiViewSidePanels = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiPythonScriptEditor = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiPlotPanel = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSidePanelAdvisor = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItem6 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiStandardViews = new System.Windows.Forms.ToolStripMenuItem();
@@ -568,11 +569,14 @@ namespace PrePoMax
             this.tsmiDeleteAnnotation = new System.Windows.Forms.ToolStripMenuItem();
             this.cmsResultWidget = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.tsmiEditLegendValue = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiResultWidgetSettings = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiResultWidgetSeparator1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiSetMaxColor = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiMaxColorVisible = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiResultWidgetSeparator2 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiSetMinColor = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiMinColorVisible = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiResultWidgetSettings = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiResultWidgetSeparator3 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiResetLegend = new System.Windows.Forms.ToolStripMenuItem();
             this.statusStripMain = new System.Windows.Forms.StatusStrip();
             this.tspbProgress = new System.Windows.Forms.ToolStripProgressBar();
@@ -588,9 +592,6 @@ namespace PrePoMax
             this.tsmiClearOutputTextbox = new System.Windows.Forms.ToolStripMenuItem();
             this.timerTest = new System.Windows.Forms.Timer(this.components);
             this.timerOutput = new System.Windows.Forms.Timer(this.components);
-            this.tsmiResultWidgetSeparator1 = new System.Windows.Forms.ToolStripSeparator();
-            this.tsmiResultWidgetSeparator2 = new System.Windows.Forms.ToolStripSeparator();
-            this.tsmiResultWidgetSeparator3 = new System.Windows.Forms.ToolStripSeparator();
             this.tsFile.SuspendLayout();
             this.tsViews.SuspendLayout();
             this.tsSymbols.SuspendLayout();
@@ -1666,6 +1667,7 @@ namespace PrePoMax
             // 
             this.tsmiViewSidePanels.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsmiPythonScriptEditor,
+            this.tsmiPlotPanel,
             this.tsmiSidePanelAdvisor});
             this.tsmiViewSidePanels.Name = "tsmiViewSidePanels";
             this.tsmiViewSidePanels.Size = new System.Drawing.Size(236, 22);
@@ -1677,6 +1679,13 @@ namespace PrePoMax
             this.tsmiPythonScriptEditor.Size = new System.Drawing.Size(179, 22);
             this.tsmiPythonScriptEditor.Text = "Python Script Editor";
             this.tsmiPythonScriptEditor.Click += new System.EventHandler(this.tsmiPythonScriptEditor_Click);
+            // 
+            // tsmiPlotPanel
+            // 
+            this.tsmiPlotPanel.Name = "tsmiPlotPanel";
+            this.tsmiPlotPanel.Size = new System.Drawing.Size(179, 22);
+            this.tsmiPlotPanel.Text = "Plot";
+            this.tsmiPlotPanel.Click += new System.EventHandler(this.tsmiPlotPanel_Click);
             // 
             // tsmiSidePanelAdvisor
             // 
@@ -4624,39 +4633,39 @@ namespace PrePoMax
             // tsmiCreateResultHistoryOutput
             // 
             this.tsmiCreateResultHistoryOutput.Name = "tsmiCreateResultHistoryOutput";
-            this.tsmiCreateResultHistoryOutput.Size = new System.Drawing.Size(108, 22);
+            this.tsmiCreateResultHistoryOutput.Size = new System.Drawing.Size(123, 22);
             this.tsmiCreateResultHistoryOutput.Text = "Create";
             this.tsmiCreateResultHistoryOutput.Click += new System.EventHandler(this.tsmiCreateResultHistoryOutput_Click);
             // 
             // tsmiEditResultHistoryOutput
             // 
             this.tsmiEditResultHistoryOutput.Name = "tsmiEditResultHistoryOutput";
-            this.tsmiEditResultHistoryOutput.Size = new System.Drawing.Size(108, 22);
+            this.tsmiEditResultHistoryOutput.Size = new System.Drawing.Size(123, 22);
             this.tsmiEditResultHistoryOutput.Text = "Edit";
             this.tsmiEditResultHistoryOutput.Click += new System.EventHandler(this.tsmiEditResultHistoryOutput_Click);
             // 
             // tsmiDividerResultHistoryOutput1
             // 
             this.tsmiDividerResultHistoryOutput1.Name = "tsmiDividerResultHistoryOutput1";
-            this.tsmiDividerResultHistoryOutput1.Size = new System.Drawing.Size(105, 6);
+            this.tsmiDividerResultHistoryOutput1.Size = new System.Drawing.Size(120, 6);
             // 
             // tsmiExportResultHistoryOutput
             // 
             this.tsmiExportResultHistoryOutput.Name = "tsmiExportResultHistoryOutput";
-            this.tsmiExportResultHistoryOutput.Size = new System.Drawing.Size(108, 22);
+            this.tsmiExportResultHistoryOutput.Size = new System.Drawing.Size(123, 22);
             this.tsmiExportResultHistoryOutput.Text = "Export";
             this.tsmiExportResultHistoryOutput.Click += new System.EventHandler(this.tsmiExportResultHistoryOutput_Click);
             // 
             // tsmiDividerResultHistoryOutput2
             // 
             this.tsmiDividerResultHistoryOutput2.Name = "tsmiDividerResultHistoryOutput2";
-            this.tsmiDividerResultHistoryOutput2.Size = new System.Drawing.Size(105, 6);
+            this.tsmiDividerResultHistoryOutput2.Size = new System.Drawing.Size(120, 6);
             // 
             // tsmiDeleteResultHistoryOutput
             // 
             this.tsmiDeleteResultHistoryOutput.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteResultHistoryOutput.Name = "tsmiDeleteResultHistoryOutput";
-            this.tsmiDeleteResultHistoryOutput.Size = new System.Drawing.Size(108, 22);
+            this.tsmiDeleteResultHistoryOutput.Size = new System.Drawing.Size(123, 22);
             this.tsmiDeleteResultHistoryOutput.Text = "Delete";
             this.tsmiDeleteResultHistoryOutput.Click += new System.EventHandler(this.tsmiDeleteResultHistoryOutput_Click);
             // 
@@ -4941,21 +4950,33 @@ namespace PrePoMax
             this.tsmiResultWidgetSeparator3,
             this.tsmiResetLegend});
             this.cmsResultWidget.Name = "cmsResultWidget";
-            this.cmsResultWidget.Size = new System.Drawing.Size(181, 198);
+            this.cmsResultWidget.Size = new System.Drawing.Size(163, 176);
             this.cmsResultWidget.Closed += new System.Windows.Forms.ToolStripDropDownClosedEventHandler(this.cmsViewportWidget_Closed);
             // 
             // tsmiEditLegendValue
             // 
             this.tsmiEditLegendValue.Name = "tsmiEditLegendValue";
-            this.tsmiEditLegendValue.Size = new System.Drawing.Size(180, 22);
+            this.tsmiEditLegendValue.Size = new System.Drawing.Size(162, 22);
             this.tsmiEditLegendValue.Text = "Edit";
             this.tsmiEditLegendValue.Click += new System.EventHandler(this.tsmiEditLegendValue_Click);
+            // 
+            // tsmiResultWidgetSettings
+            // 
+            this.tsmiResultWidgetSettings.Name = "tsmiResultWidgetSettings";
+            this.tsmiResultWidgetSettings.Size = new System.Drawing.Size(162, 22);
+            this.tsmiResultWidgetSettings.Text = "Settings";
+            this.tsmiResultWidgetSettings.Click += new System.EventHandler(this.tsmiResultWidgetSettings_Click);
+            // 
+            // tsmiResultWidgetSeparator1
+            // 
+            this.tsmiResultWidgetSeparator1.Name = "tsmiResultWidgetSeparator1";
+            this.tsmiResultWidgetSeparator1.Size = new System.Drawing.Size(159, 6);
             // 
             // tsmiSetMaxColor
             // 
             this.tsmiSetMaxColor.Image = global::PrePoMax.Properties.Resources.Color_palette;
             this.tsmiSetMaxColor.Name = "tsmiSetMaxColor";
-            this.tsmiSetMaxColor.Size = new System.Drawing.Size(180, 22);
+            this.tsmiSetMaxColor.Size = new System.Drawing.Size(162, 22);
             this.tsmiSetMaxColor.Text = "Set max color";
             this.tsmiSetMaxColor.Click += new System.EventHandler(this.tsmiSetMaxColor_Click);
             // 
@@ -4963,15 +4984,20 @@ namespace PrePoMax
             // 
             this.tsmiMaxColorVisible.CheckOnClick = true;
             this.tsmiMaxColorVisible.Name = "tsmiMaxColorVisible";
-            this.tsmiMaxColorVisible.Size = new System.Drawing.Size(180, 22);
+            this.tsmiMaxColorVisible.Size = new System.Drawing.Size(162, 22);
             this.tsmiMaxColorVisible.Text = "Max color visible";
             this.tsmiMaxColorVisible.Click += new System.EventHandler(this.tsmiMaxColorVisible_Click);
+            // 
+            // tsmiResultWidgetSeparator2
+            // 
+            this.tsmiResultWidgetSeparator2.Name = "tsmiResultWidgetSeparator2";
+            this.tsmiResultWidgetSeparator2.Size = new System.Drawing.Size(159, 6);
             // 
             // tsmiSetMinColor
             // 
             this.tsmiSetMinColor.Image = global::PrePoMax.Properties.Resources.Color_palette;
             this.tsmiSetMinColor.Name = "tsmiSetMinColor";
-            this.tsmiSetMinColor.Size = new System.Drawing.Size(180, 22);
+            this.tsmiSetMinColor.Size = new System.Drawing.Size(162, 22);
             this.tsmiSetMinColor.Text = "Set min color";
             this.tsmiSetMinColor.Click += new System.EventHandler(this.tsmiSetMinColor_Click);
             // 
@@ -4979,21 +5005,19 @@ namespace PrePoMax
             // 
             this.tsmiMinColorVisible.CheckOnClick = true;
             this.tsmiMinColorVisible.Name = "tsmiMinColorVisible";
-            this.tsmiMinColorVisible.Size = new System.Drawing.Size(180, 22);
+            this.tsmiMinColorVisible.Size = new System.Drawing.Size(162, 22);
             this.tsmiMinColorVisible.Text = "Min color visible";
             this.tsmiMinColorVisible.Click += new System.EventHandler(this.tsmiMinColorVisible_Click);
             // 
-            // tsmiResultWidgetSettings
+            // tsmiResultWidgetSeparator3
             // 
-            this.tsmiResultWidgetSettings.Name = "tsmiResultWidgetSettings";
-            this.tsmiResultWidgetSettings.Size = new System.Drawing.Size(180, 22);
-            this.tsmiResultWidgetSettings.Text = "Settings";
-            this.tsmiResultWidgetSettings.Click += new System.EventHandler(this.tsmiResultWidgetSettings_Click);
+            this.tsmiResultWidgetSeparator3.Name = "tsmiResultWidgetSeparator3";
+            this.tsmiResultWidgetSeparator3.Size = new System.Drawing.Size(159, 6);
             // 
             // tsmiResetLegend
             // 
             this.tsmiResetLegend.Name = "tsmiResetLegend";
-            this.tsmiResetLegend.Size = new System.Drawing.Size(180, 22);
+            this.tsmiResetLegend.Size = new System.Drawing.Size(162, 22);
             this.tsmiResetLegend.Text = "Reset";
             this.tsmiResetLegend.Click += new System.EventHandler(this.tsmiResetLegend_Click);
             // 
@@ -5156,21 +5180,6 @@ namespace PrePoMax
             // timerOutput
             // 
             this.timerOutput.Tick += new System.EventHandler(this.timerOutput_Tick);
-            // 
-            // tsmiResultWidgetSeparator1
-            // 
-            this.tsmiResultWidgetSeparator1.Name = "tsmiResultWidgetSeparator1";
-            this.tsmiResultWidgetSeparator1.Size = new System.Drawing.Size(177, 6);
-            // 
-            // tsmiResultWidgetSeparator2
-            // 
-            this.tsmiResultWidgetSeparator2.Name = "tsmiResultWidgetSeparator2";
-            this.tsmiResultWidgetSeparator2.Size = new System.Drawing.Size(177, 6);
-            // 
-            // tsmiResultWidgetSeparator3
-            // 
-            this.tsmiResultWidgetSeparator3.Name = "tsmiResultWidgetSeparator3";
-            this.tsmiResultWidgetSeparator3.Size = new System.Drawing.Size(177, 6);
             // 
             // FrmMain
             // 
@@ -5764,6 +5773,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripSeparator tsmiDividerResultFieldOutput2;
         private System.Windows.Forms.ToolStripMenuItem tsmiViewSidePanels;
         private System.Windows.Forms.ToolStripMenuItem tsmiPythonScriptEditor;
+        private System.Windows.Forms.ToolStripMenuItem tsmiPlotPanel;
         private System.Windows.Forms.ToolStripSeparator toolStripMenuItem6;
         private System.Windows.Forms.ToolStripButton tsbArrangeAnnotations;
         private System.Windows.Forms.ToolStripMenuItem tsmiArrangeAnnotations;

@@ -173,9 +173,6 @@ namespace PrePoMax
                 DynamicCustomTypeDescriptor.GetProperty(nameof(NodeSetName)).SetIsBrowsable(byValue);
                 DynamicCustomTypeDescriptor.GetProperty(nameof(SurfaceName)).SetIsBrowsable(byValue);
             }
-            //
-            DynamicCustomTypeDescriptor.GetProperty(nameof(DistributionName)).SetIsBrowsable(byValue);
-            DynamicCustomTypeDescriptor.GetProperty(nameof(AmplitudeName)).SetIsBrowsable(byValue);
         }
     }
 }

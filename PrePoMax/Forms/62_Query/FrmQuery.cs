@@ -60,6 +60,7 @@ namespace PrePoMax.Forms
                 if (lvQueries.SelectedItem != null)
                 {
                     UpdateQueryNumberFormat();
+                    double[] boundingBox = null;
                     switch (lvQueries.SelectedItem.Text)
                     {
                         case "Vertex/Node":
@@ -96,7 +97,7 @@ namespace PrePoMax.Forms
                         case "Bounding box size":
                             _controller.SelectBy = vtkSelectBy.Default;
                             _controller.Selection.SelectItem = vtkSelectItem.None;
-                            OutputBoundingBox();
+                            boundingBox = OutputBoundingBox();
                             _numOfNodesToSelect = -1;
                             break;
                         case "Distance":
@@ -119,6 +120,8 @@ namespace PrePoMax.Forms
                     }
                     _coorNodesToDraw = null;
                     _controller.ClearSelectionHistoryAndCallSelectionChanged();
+                    // Add the box only after clearing the previous selection so it remains visible.
+                    if (boundingBox != null) HighlightBoundingBox(boundingBox);
                 }
             }
             catch { }
@@ -493,10 +496,11 @@ namespace PrePoMax.Forms
             Form_WriteDataToOutput(data);
             Form_WriteDataToOutput("");
         }
-        private void OutputBoundingBox()
+        private double[] OutputBoundingBox()
         {
             double[] bb = _controller.GetBoundingBox();
             double[] size = new double[] { bb[1] - bb[0], bb[3] - bb[2], bb[5] - bb[4] };
+            double[] center = GetBoundingBoxCenter(bb);
             string lenUnit = _controller.GetLengthUnit();
             string lenUnitInBrackets = string.Format("[{0}]", lenUnit);
             //
@@ -516,10 +520,41 @@ namespace PrePoMax.Forms
             data = string.Format("{0,16}{1,8}{2,16}{3,16}, {4,16}, {5,16}", "Max".PadRight(16), lenUnitInBrackets,
                                  "x, y, z:", FormatQueryValue(bb[1]), FormatQueryValue(bb[3]), FormatQueryValue(bb[5]));
             Form_WriteDataToOutput(data);
+            data = string.Format("{0,16}{1,8}{2,16}{3,16}, {4,16}, {5,16}", "Center".PadRight(16), lenUnitInBrackets,
+                                 "x, y, z:", FormatQueryValue(center[0]), FormatQueryValue(center[1]),
+                                 FormatQueryValue(center[2]));
+            Form_WriteDataToOutput(data);
             data = string.Format("{0,16}{1,8}{2,16}{3,16}, {4,16}, {5,16}", "Size".PadRight(16), lenUnitInBrackets,
                                  "x, y, z:", FormatQueryValue(size[0]), FormatQueryValue(size[1]),
                                  FormatQueryValue(size[2]));
             Form_WriteDataToOutput(data);
+            //
+            return bb;
+        }
+        private void HighlightBoundingBox(double[] bb)
+        {
+            double[][] corners = new double[][]
+            {
+                new double[] { bb[0], bb[2], bb[4] },
+                new double[] { bb[1], bb[2], bb[4] },
+                new double[] { bb[1], bb[3], bb[4] },
+                new double[] { bb[0], bb[3], bb[4] },
+                new double[] { bb[0], bb[2], bb[5] },
+                new double[] { bb[1], bb[2], bb[5] },
+                new double[] { bb[1], bb[3], bb[5] },
+                new double[] { bb[0], bb[3], bb[5] }
+            };
+            // One connected traversal covers all twelve edges; repeated edges overlap exactly.
+            int[] path = new int[] { 0, 1, 2, 3, 0, 4, 5, 6, 7, 4, 5, 1, 2, 6, 7, 3 };
+            double[][] lineCoor = new double[path.Length][];
+            for (int i = 0; i < path.Length; i++) lineCoor[i] = corners[path[i]];
+            //
+            _controller.HighlightConnectedLines(lineCoor);
+            _controller.HighlightNodes(new double[][] { GetBoundingBoxCenter(bb) });
+        }
+        private double[] GetBoundingBoxCenter(double[] bb)
+        {
+            return new double[] { 0.5 * (bb[0] + bb[1]), 0.5 * (bb[2] + bb[3]), 0.5 * (bb[4] + bb[5]) };
         }
         public void TwoNodesPicked(int nodeId1, int nodeId2)
         {

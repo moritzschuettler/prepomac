@@ -250,7 +250,8 @@ namespace CaeResults
             //
             foreach (string name in _resultHistoryOutputs.Keys.ToArray())
             {
-                if (_resultHistoryOutputs[name] is ResultHistoryOutputFromElementSize rhofes)
+                if (_resultHistoryOutputs.TryGetValue(name, out ResultHistoryOutput rho) && 
+                    rho is ResultHistoryOutputFromElementSize rhofes)
                     _resultHistoryOutputs[name] = ConvertElementSizeToIntegration(rhofes);
             }
         }
@@ -703,6 +704,34 @@ namespace CaeResults
                             }
                         }
                     }
+                    else if (rho is ResultHistoryOutputFromMergedHistories rhofmh)
+                    {
+                        valid &= rhofmh.GetSources().Length >= 2;
+                        valid &= AreHistorySourcesValid(rhofmh.Source1, rhofmh.Source2, rhofmh.Source3, rhofmh.Source4);
+                    }
+                    else if (rho is ResultHistoryOutputFromExtractedEntry rhofee)
+                    {
+                        valid &= rhofee.Source != null && AreHistorySourcesValid(rhofee.Source);
+                        if (valid)
+                            valid &= !string.IsNullOrEmpty(rhofee.EntryName) &&
+                                     GetHistoryResultEntry(rhofee.Source.SetName, rhofee.Source.FieldName,
+                                                           rhofee.Source.ComponentName, rhofee.EntryName) != null;
+                    }
+                    else if (rho is ResultHistoryOutputXY rhoxy)
+                    {
+                        valid &= rhoxy.XSource != null && rhoxy.YSource != null;
+                        valid &= AreHistorySourcesValid(rhoxy.XSource, rhoxy.YSource);
+                    }
+                    else if (rho is ResultHistoryOutputFromTable rhoft)
+                    {
+                        valid &= rhoft.IsDataValid();
+                    }
+                    else if (rho is ResultHistoryOutputFromAffineFit)
+                    {
+                        // Fixed to the DISP field - only needs to check that the analysis produced displacements
+                        names = new HashSet<string>(GetVisibleFieldNames());
+                        valid &= names.Contains(FOFieldNames.Disp);
+                    }
                     else throw new NotSupportedException();
                 }
                 //
@@ -719,6 +748,22 @@ namespace CaeResults
                 item.Valid = validity;
                 items.Add(new Tuple<NamedClass, string>(item, null));
             }
+        }
+        private bool AreHistorySourcesValid(params HistoryResultData[] sources)
+        {
+            ResultHistoryOutput parentResultHistoryOutput;
+            foreach (HistoryResultData source in sources)
+            {
+                if (source == null) continue;
+                //
+                if (string.IsNullOrEmpty(source.SetName) || string.IsNullOrEmpty(source.FieldName) ||
+                    string.IsNullOrEmpty(source.ComponentName)) return false;
+                if (GetHistoryResultComponent(source.SetName, source.FieldName, source.ComponentName) == null) return false;
+                // Check the parent for validity - it was checked before by the independency sequence
+                if (_resultHistoryOutputs.TryGetValue(source.SetName, out parentResultHistoryOutput) &&
+                    !parentResultHistoryOutput.Valid) return false;
+            }
+            return true;
         }
         public void Preprocess()
         {
@@ -4666,9 +4711,29 @@ namespace CaeResults
             {
                 historyResultSet = GetHistorySetFromEquation(rhofe);
             }
+            else if (resultHistoryOutput is ResultHistoryOutputFromMergedHistories rhofmh)
+            {
+                historyResultSet = DerivedHistorySetBuilder.CreateMergedSet(this, rhofmh);
+            }
+            else if (resultHistoryOutput is ResultHistoryOutputFromExtractedEntry rhofee)
+            {
+                historyResultSet = DerivedHistorySetBuilder.CreateExtractedSet(this, rhofee);
+            }
+            else if (resultHistoryOutput is ResultHistoryOutputXY rhoxy)
+            {
+                historyResultSet = DerivedHistorySetBuilder.CreateXYSet(this, rhoxy);
+            }
+            else if (resultHistoryOutput is ResultHistoryOutputFromTable rhoft)
+            {
+                historyResultSet = GetHistorySetFromTable(rhoft);
+            }
             else if (resultHistoryOutput is ResultHistoryOutputFromIntegration rhofi)
             {
                 historyResultSet = GetHistorySetFromIntegration(rhofi);
+            }
+            else if (resultHistoryOutput is ResultHistoryOutputFromAffineFit rhoaf)
+            {
+                historyResultSet = GetHistorySetFromAffineFit(rhoaf);
             }
             else throw new NotSupportedException();
             //
@@ -4794,6 +4859,222 @@ namespace CaeResults
             }
             //
             return historyResultSet;
+        }
+        private HistoryResultSet GetHistorySetFromAffineFit(ResultHistoryOutputFromAffineFit resultHistoryOutput)
+        {
+            OrderedDictionary<string, HistoryResultComponent> components =
+                new OrderedDictionary<string, HistoryResultComponent>("Components");
+            AddAffineFitComponent(components, "F", new string[] { "F11", "F12", "F21", "F22" }, "/");
+            AddAffineFitComponent(components, "E", new string[] { "Exx", "Eyy", "Exy" }, "/");
+            AddAffineFitComponent(components, "S", new string[] { "Sxx", "Syy", "Sxy" }, _unitSystem.PressureUnitAbbreviation);
+            AddAffineFitComponent(components, "ELoading", new string[] { "ELL", "ETT", "ELT" }, "/");
+            AddAffineFitComponent(components, "EPrincipal", new string[] { "E1", "E2" }, "/");
+            AddAffineFitComponent(components, "PrincipalAngle", new string[] { "1" }, StringAngleDegConverter.GetUnitAbbreviation());
+            AddAffineFitComponent(components, "NuLT", new string[] { "1" }, "/");
+            AddAffineFitComponent(components, "ResidualRms", new string[] { "1" }, _unitSystem.LengthUnitAbbreviation);
+            AddAffineFitComponent(components, "ResidualRmsNormalized", new string[] { "1" }, "/");
+            AddAffineFitComponent(components, "PointCount", new string[] { "1" }, "/");
+            AddAffineFitComponent(components, "RejectedByArea", new string[] { "1" }, "/");
+            AddAffineFitComponent(components, "RejectedOutsideRadius", new string[] { "1" }, "/");
+            AddAffineFitComponent(components, "ConditionNumberM", new string[] { "1" }, "/");
+            //
+            if (resultHistoryOutput.RadiusSweepStepCount > 1)
+                EvaluateAffineFitRadiusSweep(resultHistoryOutput, components);
+            else
+                EvaluateAffineFitOverTime(resultHistoryOutput, components);
+            //
+            HistoryResultField historyResultField = new HistoryResultField(ResultHistoryOutputFromAffineFit.FieldName);
+            foreach (var entry in components) historyResultField.Components.Add(entry.Key, entry.Value);
+            //
+            HistoryResultSet historyResultSet = new HistoryResultSet(resultHistoryOutput.Name);
+            historyResultSet.Fields.Add(historyResultField.Name, historyResultField);
+            //
+            return historyResultSet;
+        }
+        // Evaluates once per existing step/increment at the fixed Radius, as a normal history output over time.
+        private void EvaluateAffineFitOverTime(ResultHistoryOutputFromAffineFit resultHistoryOutput,
+                                               OrderedDictionary<string, HistoryResultComponent> components)
+        {
+            List<AffineFitPoint> points = AffineFitCalculator.BuildFitPoints(_mesh, _undeformedNodes, resultHistoryOutput,
+                out int rejectedByArea, out int rejectedOutsideRadius);
+            if (points.Count < 3)
+                throw new CaeException("The selected region contains fewer than 3 valid points. Increase the " +
+                                        "radius or relax the cell area tolerance.");
+            //
+            Dictionary<int, int[]> existingStepIncrementIds = GetExistingIncrementIds(FOFieldNames.Disp,
+                FOComponentNames.U1, resultHistoryOutput.StepId, resultHistoryOutput.StepIncrementId);
+            //
+            foreach (var stepEntry in existingStepIncrementIds)
+            {
+                foreach (int incrementId in stepEntry.Value)
+                {
+                    if (!TryGetAffineFitDisplacements(stepEntry.Key, incrementId, out float[] u1Values,
+                        out float[] u2Values, out FieldData fieldData1)) continue;
+                    //
+                    AffineFitResult result = AffineFitCalculator.Evaluate(points, _nodeIdsLookUp, u1Values, u2Values,
+                        _undeformedNodes, resultHistoryOutput.StrainMeasure,
+                        resultHistoryOutput.LoadingDirectionX, resultHistoryOutput.LoadingDirectionY,
+                        resultHistoryOutput.Radius);
+                    //
+                    double sxx = double.NaN, syy = double.NaN, sxy = double.NaN;
+                    if (TryGetAffineFitStresses(stepEntry.Key, incrementId, out float[] s11Values,
+                        out float[] s22Values, out float[] s12Values))
+                    {
+                        AffineFitCalculator.ComputeRegionAverageStress(_mesh, _undeformedNodes, _nodeIdsLookUp,
+                            s11Values, s22Values, s12Values, resultHistoryOutput.CenterX, resultHistoryOutput.CenterY,
+                            resultHistoryOutput.Radius, resultHistoryOutput.TaperStartFraction, out sxx, out syy, out sxy);
+                    }
+                    //
+                    AddAffineFitResultValues(components, fieldData1.Time, result, sxx, syy, sxy, rejectedByArea,
+                        rejectedOutsideRadius);
+                }
+            }
+        }
+        // Evaluates at a single fixed step/increment (the last one, unless one is pinned), sweeping the radius
+        // from Radius/N to Radius in N equal steps, and saves the result against radius instead of time - a
+        // convergence study of the measurement region size.
+        private void EvaluateAffineFitRadiusSweep(ResultHistoryOutputFromAffineFit resultHistoryOutput,
+                                                  OrderedDictionary<string, HistoryResultComponent> components)
+        {
+            int[] stepIds = GetAllStepIds();
+            if (stepIds.Length == 0)
+                throw new CaeException("The radius sweep needs at least one existing increment of the DISP field.");
+            int stepId = resultHistoryOutput.StepId != -1 ? resultHistoryOutput.StepId : stepIds.Last();
+            //
+            int[] stepIncrementIds = GetStepIncrementIds(stepId);
+            if (stepIncrementIds.Length == 0)
+                throw new CaeException("The radius sweep needs at least one existing increment of the DISP field.");
+            int incrementId = resultHistoryOutput.StepIncrementId != -1 ? resultHistoryOutput.StepIncrementId
+                                                                        : stepIncrementIds.Last();
+            //
+            if (!TryGetAffineFitDisplacements(stepId, incrementId, out float[] u1Values, out float[] u2Values, out _))
+                throw new CaeException("The DISP field does not exist at the selected step/increment for the radius sweep.");
+            //
+            bool haveStress = TryGetAffineFitStresses(stepId, incrementId, out float[] s11Values, out float[] s22Values,
+                out float[] s12Values);
+            //
+            int validSampleCount = 0;
+            for (int i = 1; i <= resultHistoryOutput.RadiusSweepStepCount; i++)
+            {
+                double sweepRadius = resultHistoryOutput.Radius * i / resultHistoryOutput.RadiusSweepStepCount;
+                ResultHistoryOutputFromAffineFit sweepSettings = resultHistoryOutput.DeepClone();
+                sweepSettings.Radius = sweepRadius;
+                //
+                List<AffineFitPoint> points = AffineFitCalculator.BuildFitPoints(_mesh, _undeformedNodes, sweepSettings,
+                    out int rejectedByArea, out int rejectedOutsideRadius);
+                if (points.Count < 3) continue;
+                //
+                AffineFitResult result = AffineFitCalculator.Evaluate(points, _nodeIdsLookUp, u1Values, u2Values,
+                    _undeformedNodes, resultHistoryOutput.StrainMeasure,
+                    resultHistoryOutput.LoadingDirectionX, resultHistoryOutput.LoadingDirectionY, sweepRadius);
+                //
+                double sxx = double.NaN, syy = double.NaN, sxy = double.NaN;
+                if (haveStress)
+                {
+                    AffineFitCalculator.ComputeRegionAverageStress(_mesh, _undeformedNodes, _nodeIdsLookUp,
+                        s11Values, s22Values, s12Values, resultHistoryOutput.CenterX, resultHistoryOutput.CenterY,
+                        sweepRadius, resultHistoryOutput.TaperStartFraction, out sxx, out syy, out sxy);
+                }
+                //
+                AddAffineFitResultValues(components, sweepRadius, result, sxx, syy, sxy, rejectedByArea,
+                    rejectedOutsideRadius);
+                validSampleCount++;
+            }
+            if (validSampleCount == 0)
+                throw new CaeException("None of the radius sweep steps contained at least 3 valid points. Increase " +
+                                        "the radius or the number of steps.");
+        }
+        private bool TryGetAffineFitDisplacements(int stepId, int incrementId, out float[] u1Values,
+                                                  out float[] u2Values, out FieldData fieldData1)
+        {
+            u1Values = null;
+            u2Values = null;
+            fieldData1 = GetFieldData(FOFieldNames.Disp, FOComponentNames.U1, stepId, incrementId);
+            FieldData fieldData2 = GetFieldData(FOFieldNames.Disp, FOComponentNames.U2, stepId, incrementId);
+            Field field1 = GetField(fieldData1);
+            Field field2 = GetField(fieldData2);
+            if (field1 == null || field2 == null) return false;
+            //
+            u1Values = field1.GetComponentValues(FOComponentNames.U1);
+            u2Values = field2.GetComponentValues(FOComponentNames.U2);
+            return u1Values != null && u2Values != null;
+        }
+        private bool TryGetAffineFitStresses(int stepId, int incrementId, out float[] s11Values,
+                                             out float[] s22Values, out float[] s12Values)
+        {
+            s11Values = null;
+            s22Values = null;
+            s12Values = null;
+            FieldData fieldData1 = GetFieldData(FOFieldNames.Stress, FOComponentNames.S11, stepId, incrementId);
+            FieldData fieldData2 = GetFieldData(FOFieldNames.Stress, FOComponentNames.S22, stepId, incrementId);
+            FieldData fieldData3 = GetFieldData(FOFieldNames.Stress, FOComponentNames.S12, stepId, incrementId);
+            Field field1 = GetField(fieldData1);
+            Field field2 = GetField(fieldData2);
+            Field field3 = GetField(fieldData3);
+            if (field1 == null || field2 == null || field3 == null) return false;
+            //
+            s11Values = field1.GetComponentValues(FOComponentNames.S11);
+            s22Values = field2.GetComponentValues(FOComponentNames.S22);
+            s12Values = field3.GetComponentValues(FOComponentNames.S12);
+            return s11Values != null && s22Values != null && s12Values != null;
+        }
+        private void AddAffineFitResultValues(OrderedDictionary<string, HistoryResultComponent> components,
+                                              double time, AffineFitResult result, double sxx, double syy,
+                                              double sxy, int rejectedByArea, int rejectedOutsideRadius)
+        {
+            AddAffineFitValue(components, "F", "F11", time, result.F11);
+            AddAffineFitValue(components, "F", "F12", time, result.F12);
+            AddAffineFitValue(components, "F", "F21", time, result.F21);
+            AddAffineFitValue(components, "F", "F22", time, result.F22);
+            AddAffineFitValue(components, "E", "Exx", time, result.Exx);
+            AddAffineFitValue(components, "E", "Eyy", time, result.Eyy);
+            AddAffineFitValue(components, "E", "Exy", time, result.Exy);
+            AddAffineFitValue(components, "S", "Sxx", time, sxx);
+            AddAffineFitValue(components, "S", "Syy", time, syy);
+            AddAffineFitValue(components, "S", "Sxy", time, sxy);
+            AddAffineFitValue(components, "ELoading", "ELL", time, result.ELL);
+            AddAffineFitValue(components, "ELoading", "ETT", time, result.ETT);
+            AddAffineFitValue(components, "ELoading", "ELT", time, result.ELT);
+            AddAffineFitValue(components, "EPrincipal", "E1", time, result.E1);
+            AddAffineFitValue(components, "EPrincipal", "E2", time, result.E2);
+            AddAffineFitValue(components, "PrincipalAngle", "1", time, result.PrincipalAngleRad * 180.0 / Math.PI);
+            AddAffineFitValue(components, "NuLT", "1", time, result.NuLT);
+            AddAffineFitValue(components, "ResidualRms", "1", time, result.ResidualRms);
+            AddAffineFitValue(components, "ResidualRmsNormalized", "1", time, result.ResidualRmsNormalized);
+            AddAffineFitValue(components, "PointCount", "1", time, result.PointCount);
+            AddAffineFitValue(components, "RejectedByArea", "1", time, rejectedByArea);
+            AddAffineFitValue(components, "RejectedOutsideRadius", "1", time, rejectedOutsideRadius);
+            AddAffineFitValue(components, "ConditionNumberM", "1", time, result.ConditionNumberM);
+        }
+        private void AddAffineFitComponent(OrderedDictionary<string, HistoryResultComponent> components,
+                                           string componentName, string[] entryNames, string unit)
+        {
+            HistoryResultComponent component = new HistoryResultComponent(componentName);
+            component.Unit = unit;
+            foreach (string entryName in entryNames)
+            {
+                HistoryResultEntries entries = new HistoryResultEntries(entryName, false);
+                component.Entries.Add(entries.Name, entries);
+            }
+            components.Add(component.Name, component);
+        }
+        private void AddAffineFitValue(OrderedDictionary<string, HistoryResultComponent> components,
+                                       string componentName, string entryName, double time, double value)
+        {
+            HistoryResultEntries entries = components[componentName].Entries[entryName];
+            entries.Time.Add(time);
+            entries.Values.Add(value);
+        }
+        private HistoryResultSet GetHistorySetFromTable(ResultHistoryOutputFromTable resultHistoryOutput)
+        {
+            resultHistoryOutput.CheckData();
+            //
+            string[] yColumnNames = new string[resultHistoryOutput.NumberOfYColumns];
+            for (int column = 0; column < yColumnNames.Length; column++)
+                yColumnNames[column] = resultHistoryOutput.GetYColumnName(column);
+            //
+            return DerivedHistorySetBuilder.BuildSet(resultHistoryOutput, resultHistoryOutput.YAxisUnit, yColumnNames,
+                                                     resultHistoryOutput.DataPoints);
         }
         private HistoryResultSet GetHistorySetFromEquation(ResultHistoryOutputFromEquation resultHistoryOutput)
         {
@@ -5337,6 +5618,12 @@ namespace CaeResults
         {
             return _resultHistoryOutputs[resultHistoryOutputName];
         }
+        public ResultHistoryOutput GetResultHistoryOutputOrNull(string resultHistoryOutputName)
+        {
+            ResultHistoryOutput resultHistoryOutput;
+            if (_resultHistoryOutputs.TryGetValue(resultHistoryOutputName, out resultHistoryOutput)) return resultHistoryOutput;
+            return null;
+        }
         public HistoryResultSet GetHistoryResultSet(string setName)
         {
             HistoryResultSet set = null;
@@ -5419,6 +5706,30 @@ namespace CaeResults
             }
             return historyOutputs;
         }
+        public HistoryResultData[] GetHistoryResultComponents()
+        {
+            List<HistoryResultData> historyData = new List<HistoryResultData>();
+            foreach (var setEntry in _history.Sets)
+            {
+                foreach (var fieldEntry in setEntry.Value.Fields)
+                {
+                    foreach (var componentEntry in fieldEntry.Value.Components)
+                    {
+                        if (componentEntry.Value.Entries.Count > 0)
+                            historyData.Add(new HistoryResultData(setEntry.Key, fieldEntry.Key, componentEntry.Key));
+                    }
+                }
+            }
+            return historyData.ToArray();
+        }
+        // Returns null for the history outputs whose abscissa is the analysis time
+        public string GetHistoryXAxisUnit(ResultHistoryOutput resultHistoryOutput)
+        {
+            if (resultHistoryOutput is ResultHistoryOutputFromTable rhoft) return rhoft.XAxisUnit ?? "";
+            else if (resultHistoryOutput is ResultHistoryOutputXY rhoxy)
+                return DerivedHistorySetBuilder.GetSourceUnit(this, rhoxy.XSource);
+            return null;
+        }
         public void GetHistoryOutputData(HistoryResultData historyData, out string[] columnNames, out object[][] rowBasedData,
                                          bool forCsv)
         {
@@ -5439,11 +5750,26 @@ namespace CaeResults
             string delimiter;
             if (forCsv) delimiter = " ";
             else delimiter = Environment.NewLine;
-            // Sorted time
+            // Table and XY history outputs are row-oriented and may intentionally contain duplicate X values.
+            bool preserveTableRows = _resultHistoryOutputs.TryGetValue(historyData.SetName,
+                out ResultHistoryOutput resultHistoryOutput) &&
+                (resultHistoryOutput is ResultHistoryOutputFromTable || resultHistoryOutput is ResultHistoryOutputXY);
+            string xAxisUnit = GetHistoryXAxisUnit(resultHistoryOutput);
+            // Row sequence
             double[] sortedTime;
             Dictionary<double, int> timeRowId;
-            // Do not sort the time points
-            GetSortedTime(new HistoryResultComponent[] { component }, out sortedTime, out timeRowId, false);
+            if (preserveTableRows)
+            {
+                HistoryResultEntries firstEntry = component.Entries.First().Value;
+                int count = Math.Min(firstEntry.Time.Count, firstEntry.Values.Count);
+                sortedTime = firstEntry.Time.Take(count).ToArray();
+                timeRowId = null;
+            }
+            else
+            {
+                // Do not sort the time points
+                GetSortedTime(new HistoryResultComponent[] { component }, out sortedTime, out timeRowId, false);
+            }
             // Create the data array
             int numRow = sortedTime.Length;
             int numCol = component.Entries.Count + (hideTimeColumn ? 0 : 1);
@@ -5454,7 +5780,10 @@ namespace CaeResults
             if (!hideTimeColumn)
             {
                 // Add time column name
-                if (frequencyColumnName != null) columnNames[0] = frequencyColumnName;
+                if (xAxisUnit != null)
+                    columnNames[0] = ResultHistoryOutputFromTable.XAxisName +
+                                     (xAxisUnit.Length == 0 ? "" : delimiter + "[" + xAxisUnit + "]");
+                else if (frequencyColumnName != null) columnNames[0] = frequencyColumnName;
                 else if (set.Harmonic) columnNames[0] = "Angle " + angleUnit;
                 else columnNames[0] = "Time " + timeUnit + delimiter + "Frequency " + frequencyUnit;
                 // Fill the data array
@@ -5479,9 +5808,10 @@ namespace CaeResults
                 row = 0;
                 timePoints = entry.Value.Time.ToArray();
                 values = entry.Value.Values.ToArray();
-                for (int i = 0; i < timePoints.Length; i++)
+                int count = Math.Min(timePoints.Length, values.Length);
+                for (int i = 0; i < count; i++)
                 {
-                    row = timeRowId[timePoints[i]];
+                    row = preserveTableRows ? i : timeRowId[timePoints[i]];
                     rowBasedData[row][col] = values[i];
                 }
                 col++;

@@ -10,6 +10,7 @@
 using CaeGlobals;
 using CaeMesh;
 using CaeMesh.Meshing;
+using CaeMesh.Sweep;
 using GmshCommon;
 using System;
 using System.Collections;
@@ -246,32 +247,6 @@ namespace CaeMesh
         private void SetMeshSizes(GmshSetupItem gmshSetupItem)
         {
             GmshAlgorithmMesh2DEnum algorithm2D = gmshSetupItem.AlgorithmMesh2D;
-            // Sweep layer grading. The grading is applied to the wall edges that follow the sweep
-            // direction; the boundary sweep lines are read straight off that wall grid and the layer
-            // morph carries the resulting spacing into the interior, so nothing downstream has to
-            // know about it.
-            SweepBiasTypeEnum biasType = SweepBiasTypeEnum.None;
-            double biasFactor = 1;
-            HashSet<int> sweepEdgeIds = new HashSet<int>();
-            HashSet<int> sweepSourceVertexIds = new HashSet<int>();
-            if (gmshSetupItem is SweepMesh sweepMesh && sweepMesh.BiasType != SweepBiasTypeEnum.None &&
-                _gmshData.EdgeIdsBySweepLayer != null)
-            {
-                biasType = sweepMesh.BiasType;
-                biasFactor = sweepMesh.BiasFactor;
-                foreach (var sweepLayerEdgeIds in _gmshData.EdgeIdsBySweepLayer)
-                    sweepEdgeIds.UnionWith(sweepLayerEdgeIds);
-                //
-                Dictionary<int, int[]> surfaceIdVertexIds;
-                GetSurfaceItems(out _, out surfaceIdVertexIds);
-                int[] sourceVertexIds;
-                for (int i = 0; i < sweepMesh.CreationIds.Length; i++)
-                {
-                    int sourceSurfaceId = FeMesh.GetItemIdFromGeometryId(sweepMesh.CreationIds[i]) + 1;
-                    if (surfaceIdVertexIds.TryGetValue(sourceSurfaceId, out sourceVertexIds))
-                        sweepSourceVertexIds.UnionWith(sourceVertexIds);
-                }
-            }
             // Mesh size
             //Tuple<int, int>[] surfaceDimTags;
             //Gmsh.GetEntities(out surfaceDimTags, 2);
@@ -332,10 +307,7 @@ namespace CaeMesh
                 _gmshData.EdgeIdNumElements[edgeId] = numOfElements;
                 //
                 numOfNodes = numOfElements + 1;
-                if (biasType != SweepBiasTypeEnum.None && sweepEdgeIds.Contains(edgeId))
-                    SetGradedTransfiniteCurve(edgeId, numOfNodes, biasType, biasFactor, sweepSourceVertexIds);
-                else
-                    Gmsh.Model.Mesh.SetTransfiniteCurve(edgeId, numOfNodes);
+                ApplyTransfiniteCurve(edgeId, numOfNodes, null);
             }
             //
             Synchronize(); // must be here for mesh refinement
@@ -572,13 +544,29 @@ namespace CaeMesh
             {
                 foreach (var sourceSurfaceId in sourceSurfaceIds) Gmsh.Model.Mesh.SetRecombine(2, sourceSurfaceId);
             }
-            // Set side surfaces
-            foreach (var sideSurfaceId in sideSurfaceIds)
+            // Set side surfaces. A wall whose side is built from several edges - which is what a
+            // split source face produces - needs its four corners nominated by hand, and needs the
+            // element counts on its opposite sides reconciled first.
+            List<SweepWall> walls = SweepWallTopology.Classify(sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds,
+                                                               surfaceIdEdgeIds);
+            //
+            int[] sourceVertexIdsOfSurface;
+            HashSet<int> sourceVertexIds = new HashSet<int>();
+            foreach (var sourceSurfaceId in sourceSurfaceIds)
             {
-                //Gmsh.Model.Mesh.SetAlgorithm(2, sideSurfaceId, (int)GmshAlgorithmMesh2DEnum.FrontalDelaunay);
-                Gmsh.Model.Mesh.SetRecombine(2, sideSurfaceId);
-                Gmsh.Model.Mesh.SetTransfiniteSurface(sideSurfaceId, "AlternateLeft");
-                //Gmsh.Model.Mesh.SetSmoothing(2, sideSurfaceId, 100); // smoothing
+                if (surfaceIdVertexIds.TryGetValue(sourceSurfaceId, out sourceVertexIdsOfSurface))
+                    sourceVertexIds.UnionWith(sourceVertexIdsOfSurface);
+            }
+            // Layer counts, grading, and the cross-sweep reconciliation, all measured from a 1D mesh
+            PrepareWallEdges(walls, sourceVertexIds);
+            //
+            foreach (var wall in walls)
+            {
+                Gmsh.Model.Mesh.SetRecombine(2, wall.SurfaceId);
+                //
+                int[] corners = wall.HasCompositeSide ? SweepWallTopology.GetCorners(wall) : null;
+                if (corners != null) Gmsh.Model.Mesh.SetTransfiniteSurface(wall.SurfaceId, "AlternateLeft", corners);
+                else Gmsh.Model.Mesh.SetTransfiniteSurface(wall.SurfaceId, "AlternateLeft");
             }
             //
             GenerateMesh(2);
@@ -587,7 +575,9 @@ namespace CaeMesh
             foreach (var targetSurfaceId in targetSurfaceIds) toRemoveDimTags.Add(new Tuple<int, int>(2, targetSurfaceId));
             //
             Gmsh.Model.Mesh.Clear(toRemoveDimTags.ToArray());
-            // Optimize first order
+            // Optimize first order. This reaches the walls as well as the source surfaces, because
+            // gmsh ignores the entity list for the 2D relocation methods; Laplace 2D is the only one
+            // of the three that leaves a transfinite wall alone.
             if (sweepMesh.OptimizeFirstOrderShell != GmshOptimizeFirstOrderShellEnum.None)
             {
                 Tuple<int, int>[] dimTags = new Tuple<int, int>[0];
@@ -677,6 +667,133 @@ namespace CaeMesh
             return false;
         }
         /// <summary>
+        /// Fixes the element counts on every edge of every wall, immediately before the walls are
+        /// meshed.
+        ///
+        /// This has to happen here rather than in SetMeshSizes, because SetTransfiniteSurfaces runs
+        /// in between and reassigns the edges that follow the sweep direction from its own averaged
+        /// edge groups. That silently discarded the layer grading, and it produces nothing at all
+        /// for a wall that is neither 3 nor 4 sided, which is what a split source face creates.
+        ///
+        /// Two constraints are imposed:
+        ///
+        ///   - Every direction edge within the same sweep-direction ring (`_gmshData.EdgeIdsBySweepLayer`)
+        ///     gets the same number of elements, since they are the same sweep lines viewed one ring
+        ///     apart. Different rings are free to disagree - there is no physical constraint between
+        ///     them - so a body whose walls are already split along the sweep direction gets a
+        ///     non-monotonic layer stack for free, one count per ring, with no piecewise transfinite
+        ///     law needed. The layer grading is applied here too, so that nothing can overwrite it
+        ///     afterwards.
+        ///   - The two cross-sweep sides of each wall are made to agree. gmsh raises an error rather
+        ///     than falling back when a transfinite surface has different node counts on opposite
+        ///     sides, and the sweep needs the agreement in any case: the source and target boundary
+        ///     loops must carry the same number of nodes for the sweep lines to pair up. The source
+        ///     side wins, because that is the mesh the user is tuning, and the target side is
+        ///     redistributed to match in proportion to the lengths of its edges.
+        ///
+        /// Counts the user did not pin down are read back from a one dimensional mesh rather than
+        /// predicted, which is the approach SetTransfiniteSurfaces already takes.
+        /// </summary>
+        private void PrepareWallEdges(List<SweepWall> walls, HashSet<int> sourceVertexIds)
+        {
+            HashSet<int> directionEdgeIds = new HashSet<int>();
+            foreach (var wall in walls) directionEdgeIds.UnionWith(wall.DirectionEdgeIds);
+            //
+            GenerateMesh(1);
+            // Group the direction edges by sweep ring. A direction edge not covered by any ring -
+            // older data, or none computed - falls back into one group of its own, so it is still
+            // handled, just without the per-ring guarantee.
+            List<HashSet<int>> ringGroups = new List<HashSet<int>>();
+            HashSet<int> unassigned = new HashSet<int>(directionEdgeIds);
+            if (_gmshData.EdgeIdsBySweepLayer != null)
+            {
+                foreach (var ring in _gmshData.EdgeIdsBySweepLayer)
+                {
+                    HashSet<int> ringDirectionEdgeIds = new HashSet<int>(ring);
+                    ringDirectionEdgeIds.IntersectWith(directionEdgeIds);
+                    if (ringDirectionEdgeIds.Count == 0) continue;
+                    ringGroups.Add(ringDirectionEdgeIds);
+                    unassigned.ExceptWith(ringDirectionEdgeIds);
+                }
+            }
+            if (unassigned.Count > 0) ringGroups.Add(unassigned);
+            // How many element layers each ring has. A count the user pinned down on any of the
+            // ring's direction edges wins; otherwise the meshed counts decide. Measured while the 1D
+            // mesh from GenerateMesh(1) above is still there.
+            Dictionary<HashSet<int>, int> ringLayerElements = new Dictionary<HashSet<int>, int>();
+            foreach (var ringEdgeIds in ringGroups)
+                ringLayerElements[ringEdgeIds] = ResolveRingLayerElements(ringEdgeIds);
+            // The two cross-sweep sides of every wall, also measured while the 1D mesh is still there
+            int sourceElements;
+            Dictionary<int, int> targetEdgeIdNumOfElements = new Dictionary<int, int>();
+            foreach (var wall in walls)
+            {
+                if (wall.SourceEdgeIds.Length == 0 || wall.TargetEdgeIds.Length == 0) continue;
+                //
+                sourceElements = 0;
+                foreach (var edgeId in wall.SourceEdgeIds)
+                    sourceElements += SweepWallTopology.GetElementCount(edgeId);
+                //
+                double[] lengths = SweepWallTopology.GetEdgeLengths(wall.TargetEdgeIds);
+                int[] targetElements = SweepWallTopology.DistributeElements(sourceElements, lengths);
+                for (int i = 0; i < wall.TargetEdgeIds.Length; i++)
+                    targetEdgeIdNumOfElements[wall.TargetEdgeIds[i]] = targetElements[i];
+            }
+            //
+            Gmsh.Model.Mesh.Clear();    // must clear the mesh before the constraints are changed
+            //
+            foreach (var ringEdgeIds in ringGroups)
+            {
+                int layerElements = ringLayerElements[ringEdgeIds];
+                foreach (var edgeId in ringEdgeIds)
+                {
+                    _gmshData.EdgeIdNumElements[edgeId] = layerElements;
+                    ApplyTransfiniteCurve(edgeId, layerElements + 1, sourceVertexIds);
+                }
+            }
+            foreach (var entry in targetEdgeIdNumOfElements)
+            {
+                _gmshData.EdgeIdNumElements[entry.Key] = entry.Value;
+                ApplyTransfiniteCurve(entry.Key, entry.Value + 1, sourceVertexIds);
+            }
+        }
+        /// <summary>
+        /// The single call site every SetTransfiniteCurve constraint in the sweep/transfinite
+        /// pipeline goes through, so a LocalMeshSize grading on an edge cannot be silently discarded
+        /// by whichever call happens to run last for that edge.
+        /// </summary>
+        private void ApplyTransfiniteCurve(int edgeId, int numOfNodes, HashSet<int> sourceVertexIds)
+        {
+            EdgeBias bias;
+            if (_gmshData.EdgeIdBias != null && _gmshData.EdgeIdBias.TryGetValue(edgeId, out bias))
+                SetGradedTransfiniteCurve(edgeId, numOfNodes, bias.BiasType, bias.BiasFactor, bias.Reversed, sourceVertexIds);
+            else
+                Gmsh.Model.Mesh.SetTransfiniteCurve(edgeId, numOfNodes);
+        }
+        private int ResolveRingLayerElements(HashSet<int> ringEdgeIds)
+        {
+            int numOfElements;
+            int layerElements = 0;
+            int measuredSum = 0;
+            int measuredCount = 0;
+            foreach (var edgeId in ringEdgeIds)
+            {
+                if (_gmshData.EdgeIdNumElements.TryGetValue(edgeId, out numOfElements))
+                {
+                    if (numOfElements > layerElements) layerElements = numOfElements;
+                }
+                else
+                {
+                    measuredSum += SweepWallTopology.GetElementCount(edgeId);
+                    measuredCount++;
+                }
+            }
+            if (layerElements <= 0 && measuredCount > 0)
+                layerElements = (int)Math.Round((double)measuredSum / measuredCount, 0, MidpointRounding.AwayFromZero);
+            if (layerElements < 1) layerElements = 1;
+            return layerElements;
+        }
+        /// <summary>
         /// Reports the quality of the finished mesh, whatever produced it.
         ///
         /// The measure is gmsh's own minSICN, the signed inverse condition number: 1 for an ideal
@@ -737,9 +854,20 @@ namespace CaeMesh
                 _writeOutput?.Invoke("The mesh quality could not be evaluated: " + ex.Message);
             }
         }
+        /// <summary>
+        /// sourceVertexIds is the sweep source surface's vertices, used to auto-orient a direction
+        /// edge's grading towards the target regardless of the curve's own parametrization; pass null
+        /// for a plain LocalMeshSize edge with no such preference, where the curve's own parametric
+        /// start is the "forward" direction the editor's arrow shows. Either way, reversed flips it.
+        /// </summary>
         private static void SetGradedTransfiniteCurve(int edgeId, int numOfNodes, SweepBiasTypeEnum biasType,
-                                                      double biasFactor, HashSet<int> sourceVertexIds)
+                                                      double biasFactor, bool reversed, HashSet<int> sourceVertexIds)
         {
+            if (biasType == SweepBiasTypeEnum.None)
+            {
+                Gmsh.Model.Mesh.SetTransfiniteCurve(edgeId, numOfNodes);
+                return;
+            }
             if (biasType == SweepBiasTypeEnum.Bump)
             {
                 // A bump is symmetric about the middle of the curve, so its direction is irrelevant
@@ -749,9 +877,10 @@ namespace CaeMesh
             // A geometric progression runs from the parametric start of the curve. An edge that runs
             // from the target surface back to the source gets the reciprocal ratio, which is the same
             // distribution walked the other way, so every wall ends up graded from the source surface
-            // towards the target one.
-            double coefficient = biasFactor;
-            if (!CurveStartsOnSurfaceVertex(edgeId, sourceVertexIds)) coefficient = 1 / biasFactor;
+            // towards the target one. reversed flips whichever direction that resolves to.
+            bool forward = sourceVertexIds == null || CurveStartsOnSurfaceVertex(edgeId, sourceVertexIds);
+            if (reversed) forward = !forward;
+            double coefficient = forward ? biasFactor : 1 / biasFactor;
             //
             Gmsh.Model.Mesh.SetTransfiniteCurve(edgeId, numOfNodes, "Progression", coefficient);
         }
@@ -1070,7 +1199,7 @@ namespace CaeMesh
                         if (avgNumOfNodes < 3) avgNumOfNodes = 3;
                     }
                     //
-                    Gmsh.Model.Mesh.SetTransfiniteCurve(edgeNodeFromGroup.Value.Id, avgNumOfNodes);
+                    ApplyTransfiniteCurve(edgeNodeFromGroup.Value.Id, avgNumOfNodes, null);
                     edgeIdNumOfNodes[edgeNodeFromGroup.Value.Id] = avgNumOfNodes;
                 }
             }
@@ -1090,11 +1219,16 @@ namespace CaeMesh
                             count++;
                         }
                     }
+                    // A sweep layer whose edges all sit on faces that are neither 3 nor 4 sided -
+                    // which is what a split source face produces - contributes nothing here. Without
+                    // the guard the average is 0/0, and the resulting node count collapses the whole
+                    // sweep direction to a single element. The sweep sets these edges itself later.
+                    if (count == 0) continue;
                     avgNumOfNodes = (int)Math.Round((double)sum / count, 0, MidpointRounding.AwayFromZero);
                     //
                     foreach (var sweepEdgeId in layer)
                     {
-                        Gmsh.Model.Mesh.SetTransfiniteCurve(sweepEdgeId, avgNumOfNodes);
+                        ApplyTransfiniteCurve(sweepEdgeId, avgNumOfNodes, null);
                     }
                 }
             }

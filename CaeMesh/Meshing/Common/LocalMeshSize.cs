@@ -14,6 +14,7 @@ using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 using CaeGlobals;
+using CaeMesh.Meshing;
 using DynamicTypeDescriptor;
 
 namespace CaeMesh
@@ -31,24 +32,42 @@ namespace CaeMesh
     [Serializable]
     public class LocalMeshSize : MeshSetupItem, ISerializable
     {
-        // Variables                                                                                                                
+        // Variables
         private LocalMeshSizeTypeEnum _type;    //ISerializable
         private double _meshSize;               //ISerializable
         private int _numOfElements;             //ISerializable
+        private SweepBiasTypeEnum _biasType;    //ISerializable
+        private double _biasFactor;             //ISerializable
+        private bool _reversed;                 //ISerializable
 
 
-        // Properties                                                                                                               
+        // Properties
         public LocalMeshSizeTypeEnum Type { get { return _type; } set { _type = value; } }
-        public double MeshSize 
+        public double MeshSize
         {
-            get { return _meshSize; } 
+            get { return _meshSize; }
             set
             {
                 _meshSize = value;
                 if (_meshSize < 1E-10) _meshSize = 1E-10;
-            } 
+            }
         }
         public int NumOfElements { get { return _numOfElements; } set { _numOfElements = value < 1 ? 1 : value; } }
+        public SweepBiasTypeEnum BiasType { get { return _biasType; } set { _biasType = value; } }
+        public double BiasFactor
+        {
+            get { return _biasFactor; }
+            set
+            {
+                _biasFactor = value;
+                // A geometric progression ratio must be positive; the direction of the grading is
+                // handled by Reversed, not by the sign
+                if (_biasFactor < 1E-3) _biasFactor = 1E-3;
+                else if (_biasFactor > 1E3) _biasFactor = 1E3;
+            }
+        }
+        /// <summary>Flips which end of the edge the grading starts from, relative to the direction shown by the editor's arrow.</summary>
+        public bool Reversed { get { return _reversed; } set { _reversed = value; } }
 
 
         // Constructors                                                                                                             
@@ -65,6 +84,9 @@ namespace CaeMesh
             _type = localMeshSize.Type;
             _meshSize = localMeshSize._meshSize;
             _numOfElements = localMeshSize._numOfElements;
+            _biasType = localMeshSize._biasType;
+            _biasFactor = localMeshSize._biasFactor;
+            _reversed = localMeshSize._reversed;
         }
         public LocalMeshSize(FeMeshRefinement meshRefinement)
             : this("tmpName")
@@ -89,6 +111,12 @@ namespace CaeMesh
                         _meshSize = (double)entry.Value; break;
                     case "_numOfElements":
                         _numOfElements = (int)entry.Value; break;
+                    case "_biasType":
+                        _biasType = (SweepBiasTypeEnum)entry.Value; break;
+                    case "_biasFactor":
+                        _biasFactor = (double)entry.Value; break;
+                    case "_reversed":
+                        _reversed = (bool)entry.Value; break;
                     default:
                         break;
                 }
@@ -104,6 +132,9 @@ namespace CaeMesh
             _type = LocalMeshSizeTypeEnum.ElementSize;
             _meshSize = 1;
             _numOfElements = 2;
+            _biasType = SweepBiasTypeEnum.None;
+            _biasFactor = 1;
+            _reversed = false;
         }
         public int GetNumberOfElements(double edgeLength, double minH, double maxH)
         {
@@ -158,6 +189,9 @@ namespace CaeMesh
             info.AddValue("_type", _type, typeof(LocalMeshSizeTypeEnum));
             info.AddValue("_meshSize", _meshSize, typeof(double));
             info.AddValue("_numOfElements", _numOfElements, typeof(int));
+            info.AddValue("_biasType", _biasType, typeof(SweepBiasTypeEnum));
+            info.AddValue("_biasFactor", _biasFactor, typeof(double));
+            info.AddValue("_reversed", _reversed, typeof(bool));
         }
     }
 }

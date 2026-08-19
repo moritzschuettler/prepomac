@@ -57,6 +57,7 @@ namespace PrePoMax.Commands
         private string _historyFileNameBin;
         private ViewGeometryModelResults _previousView;
         private List<string> _errors;
+        private bool _postprocessingDeclined;
 
 
         // Properties                                                                                                               
@@ -84,6 +85,7 @@ namespace PrePoMax.Commands
             _historyFileNameBin = Path.Combine(Application.StartupPath, Globals.HistoryFileName);
             _previousView = ViewGeometryModelResults.Geometry;
             _errors = null;
+            _postprocessingDeclined = false;
             //
             WriteToFile();
         }
@@ -152,11 +154,23 @@ namespace PrePoMax.Commands
         }
         private void AddCommand(Command command)
         {
+            // Remove the post-processing commands the user declined to regenerate
+            if (_postprocessingDeclined && command is PostprocessCommand) RemoveDeclinedPostprocessingCommands();
             // Remove old commands
             if (_currPositionIndex < _commands.Count - 1)
                 _commands.RemoveRange(_currPositionIndex + 1, _commands.Count - _currPositionIndex - 1);
             //
             _commands.Add(command);
+        }
+        private bool RemoveCommand(Command command)
+        {
+            int index = _commands.IndexOf(command);
+            if (index < 0) return false;
+            //
+            _commands.RemoveAt(index);
+            if (index <= _currPositionIndex) _currPositionIndex--;
+            //
+            return true;
         }
         private void CheckModelChanged(Command command)
         {
@@ -551,12 +565,25 @@ namespace PrePoMax.Commands
         }
         public bool RunHistoryPostprocessing()
         {
+            _postprocessingDeclined = false;
+            //
             List<Command> reducedCommands = GetReducedPostprocessingCommands(true);
             // Run commands
             return AddAndExecute(reducedCommands);
         }
+        public void SetPostprocessingDeclined(bool postprocessingDeclined)
+        {
+            _postprocessingDeclined = postprocessingDeclined;
+        }
+        private void RemoveDeclinedPostprocessingCommands()
+        {
+            _postprocessingDeclined = false;
+            //
+            GetReducedPostprocessingCommands(true);
+        }
         public List<Command> GetReducedPostprocessingCommands(bool removeUnnecessaryCommands = false)
         {
+            bool commandsRemoved = false;
             string currentAnalysisName = null;
             string lastAnalysisName = null;
             List<Command> commandsList;
@@ -610,7 +637,8 @@ namespace PrePoMax.Commands
                 // Remove previous/unnecessary run commands in commands history
                 foreach (var command in runCommandsList)
                 {
-                    if (removeUnnecessaryCommands && count++ < runCommandsList.Count - 1) _commands.Remove(command);
+                    if (removeUnnecessaryCommands && count++ < runCommandsList.Count - 1)
+                        commandsRemoved |= RemoveCommand(command);
                 }
                 // Find last open results command
                 foreach (var command in postprocessCommandsList)
@@ -620,7 +648,8 @@ namespace PrePoMax.Commands
                 // Remove all postprocess commands except the last open result command from the commands history
                 foreach (var command in postprocessCommandsList)
                 {
-                    if (removeUnnecessaryCommands && command != lastOpenResultsCommand) _commands.Remove(command);
+                    if (removeUnnecessaryCommands && command != lastOpenResultsCommand)
+                        commandsRemoved |= RemoveCommand(command);
                 }
                 // Add necessary commands
                 foreach (var command in postprocessCommandsList)
@@ -629,6 +658,12 @@ namespace PrePoMax.Commands
                     else if (command is CSetCurrentResults) { }
                     else reducedCommands.Add(command);
                 }
+            }
+            // Update the history after the command removal
+            if (commandsRemoved)
+            {
+                WriteToFile();
+                OnEnableDisableUndoRedo();
             }
             // Return commands
             return reducedCommands;

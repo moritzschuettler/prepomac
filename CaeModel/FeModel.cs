@@ -2022,11 +2022,28 @@ namespace CaeModel
                             {
                                 if (sideSurfaceIds.Length > 0)
                                 {
-                                    // Are all side surfaces 4-sided
+                                    // Can all side surfaces be reduced to 4 sides? A side surface may
+                                    // carry more than 4 edges when the source or the target face has
+                                    // been split, since the split puts an extra vertex partway along
+                                    // one of its sides. What matters is that it still has exactly two
+                                    // edges following the sweep direction, so its four corners can be
+                                    // nominated to the transfinite algorithm.
                                     bool fourSided = true;
+                                    HashSet<int> sourceEdgeIds = vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIds.ToArray());
+                                    HashSet<int> targetEdgeIds = vis.GetEdgeIdsForSurfaceIds(targetSurfaceIds);
                                     foreach (var surfaceId in sideSurfaceIds)
                                     {
-                                        if (vis.FaceEdgeIds[surfaceId].Length != 4 && !vis.IsSurfaceACylinderLike(surfaceId, out _))
+                                        if (vis.IsSurfaceACylinderLike(surfaceId, out _)) continue;
+                                        //
+                                        int numDirectionEdges = 0;
+                                        int numCrossEdges = 0;
+                                        foreach (var edgeId in vis.FaceEdgeIds[surfaceId])
+                                        {
+                                            if (sourceEdgeIds.Contains(edgeId) || targetEdgeIds.Contains(edgeId))
+                                                numCrossEdges++;
+                                            else numDirectionEdges++;
+                                        }
+                                        if (numDirectionEdges != 2 || numCrossEdges < 2)
                                         {
                                             fourSided = false;
                                             break;
@@ -2124,7 +2141,9 @@ namespace CaeModel
                                         }
                                         sweepMesh.LayerGroupEdgeIds = layerGroupEdgeIds;
                                     }
-                                    else error = "The sweep side surfaces are not 4-sided surfaces.";
+                                    else error = "A sweep side surface could not be reduced to 4 sides. Each side " +
+                                                 "surface must have exactly 2 edges following the sweep direction; " +
+                                                 "the source and target sides may be split into any number of edges.";
                                 }
                                 else error = "The sweep side surfaces do not form a closed loop.";
                             }

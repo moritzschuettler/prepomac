@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -70,6 +70,28 @@ namespace CaeMesh.Sweep
                 nodes[i] = data.Index(lower, element[i]);
                 nodes[n + i] = data.Index(upper, element[i]);
             }
+        }
+        /// <summary>
+        /// Fills the buffer with one solid element, wound so that its volume is positive, and
+        /// reports whether the two layers had to be swapped to get there.
+        ///
+        /// The decision is taken per element rather than once for the whole block. A block-wide
+        /// decision assumes every source element is wound the same way, which is true of a plain
+        /// 2D mesh but not of one that a pattern based algorithm such as the quasi-structured quad
+        /// has rewritten: there the minority of oppositely wound quads would each come out as an
+        /// inverted solid.
+        /// </summary>
+        public static bool FillOrientedElementNodes(SweepMeshData data, int elementIndex, int bottomLayer,
+                                                    SweepQualityBuffers buffers)
+        {
+            int numSourceNodes = data.SourceElements[elementIndex].Length;
+            GetElementNodes(data, elementIndex, bottomLayer, false, buffers.Nodes);
+            if (SignedVolume(data.Coords, buffers, numSourceNodes) < 0)
+            {
+                GetElementNodes(data, elementIndex, bottomLayer, true, buffers.Nodes);
+                return true;
+            }
+            return false;
         }
         /// <summary>
         /// Decides once for the whole block whether the source element winding produces solid
@@ -168,7 +190,7 @@ namespace CaeMesh.Sweep
                 int numSourceNodes = data.SourceElements[e].Length;
                 for (int bottom = firstLayer; bottom <= lastLayer; bottom++)
                 {
-                    GetElementNodes(data, e, bottom, flip, buffers.Nodes);
+                    FillOrientedElementNodes(data, e, bottom, buffers);
                     double value = ScaledJacobian(data.Coords, buffers, numSourceNodes);
                     if (value < minimum) minimum = value;
                 }
@@ -192,7 +214,7 @@ namespace CaeMesh.Sweep
                 int numSourceNodes = data.SourceElements[e].Length;
                 for (int bottom = 0; bottom < data.NumLayers - 1; bottom++)
                 {
-                    GetElementNodes(data, e, bottom, flip, buffers.Nodes);
+                    FillOrientedElementNodes(data, e, bottom, buffers);
                     double value = ScaledJacobian(data.Coords, buffers, numSourceNodes);
                     if (value < minimum) minimum = value;
                     if (value > maximum) maximum = value;

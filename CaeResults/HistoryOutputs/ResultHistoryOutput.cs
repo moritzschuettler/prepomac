@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -52,6 +52,24 @@ namespace CaeResults
             _creationData = null;
             _filter1 = new HistoryResultFilter();
             _filter2 = new HistoryResultFilter();
+        }
+
+
+        // Static methods                                                                                                           
+        protected static HistoryResultData CloneHistorySource(HistoryResultData source)
+        {
+            if (source == null) return null;
+            return new HistoryResultData(source.SetName, source.FieldName, source.ComponentName);
+        }
+        protected static string[] GetHistoryParentNames(params HistoryResultData[] sources)
+        {
+            List<string> parentNames = new List<string>();
+            foreach (HistoryResultData source in sources)
+            {
+                if (source != null && !string.IsNullOrEmpty(source.SetName) && !parentNames.Contains(source.SetName))
+                    parentNames.Add(source.SetName);
+            }
+            return parentNames.ToArray();
         }
 
 

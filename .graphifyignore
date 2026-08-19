@@ -1,0 +1,9 @@
+# Third-party Gmsh SDK - don't pollute the PrePoMax architecture graph
+GmshCommon/GmshLib/deps/
+
+# Local settings that Graphify cannot turn into nodes
+settings.json
+settings.local.json
+
+# Tooling for the extractor itself, not part of the application
+.graphify/

@@ -372,6 +372,7 @@ namespace UserControls
         {
             InitializeComponent();
             AssembleTreeContextMenu();
+            InitializePlotContextMenu();
             //
             cltvGeometry.IsNodeRenameable = CanRename;
             cltvModel.IsNodeRenameable = CanRename;
@@ -1520,6 +1521,7 @@ namespace UserControls
             visible = hasActionNodes && menuFields.Preview == n;
             tsmiPreview.Visible = visible;
             oneAboveVisible |= visible;
+            PreparePlotContextMenu(actionNodes, ref oneAboveVisible);
             // Geometry                                             
             visible = menuFields.CompoundPart == n && n > 1;
             tsmiSpaceCompoundPart.Visible = visible && oneAboveVisible;
@@ -4430,6 +4432,8 @@ namespace UserControls
             else if (node.Tag is AnalysisJob) return true;
             else if (node.TreeView == cltvResults && node.Tag is FeReferencePoint) return true;
             else if (node.TreeView == cltvResults && node.Tag is CoordinateSystem) return true;
+            else if (node.TreeView == cltvResults && node.Tag is ResultFieldOutput) return true;
+            else if (node.TreeView == cltvResults && node.Tag is ResultHistoryOutput) return true;
             else return false;
         }
         private bool CanPropagate(TreeNode node)

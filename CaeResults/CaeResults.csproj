@@ -89,6 +89,13 @@
     <Compile Include="FileInOut\Input\CalculiX\DatFileReader.cs" />
     <Compile Include="FileInOut\Input\CalculiX\FrdFileReader.cs" />
     <Compile Include="HistoryOutputs\ResultHistoryOutputFromIntegration.cs" />
+    <Compile Include="HistoryOutputs\ResultHistoryOutputFromTable.cs" />
+    <Compile Include="HistoryOutputs\ResultHistoryOutputFromMergedHistories.cs" />
+    <Compile Include="HistoryOutputs\ResultHistoryOutputFromExtractedEntry.cs" />
+    <Compile Include="HistoryOutputs\ResultHistoryOutputXY.cs" />
+    <Compile Include="HistoryOutputs\ResultHistoryOutputFromAffineFit.cs" />
+    <Compile Include="HistoryOutputs\AffineFitCalculator.cs" />
+    <Compile Include="HistoryOutputs\DerivedHistorySetBuilder.cs" />
     <Compile Include="_Compatibility\v2.2.3\HistoryResultSetExporter.cs" />
     <Compile Include="HistoryOutputs\ResultHistoryOutput.cs" />
     <Compile Include="_Compatibility\v2.6.0\ResultHistoryOutputFromElementSize.cs" />

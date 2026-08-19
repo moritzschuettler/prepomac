@@ -21,7 +21,16 @@ namespace CaeMesh
         public double Size;
         public double[] Location;
     }
-    
+
+    /// <summary>The grading a LocalMeshSize item requests on one edge.</summary>
+    [Serializable]
+    public struct EdgeBias
+    {
+        public SweepBiasTypeEnum BiasType;
+        public double BiasFactor;
+        public bool Reversed;
+    }
+
     [Serializable]
     public class GmshData
     {
@@ -42,6 +51,7 @@ namespace CaeMesh
         // Mesh size
         public Dictionary<int, double> VertexNodeIdMeshSize;
         public Dictionary<int, int> EdgeIdNumElements;
+        public Dictionary<int, EdgeBias> EdgeIdBias;
         // Sweep
         public HashSet<int>[] EdgeIdsBySweepLayer;
         // Normals

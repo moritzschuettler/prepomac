@@ -25,8 +25,6 @@ namespace CaeMesh
     {
         // Variables                                                                                                                
         private int _numberOfGlobalSmoothSteps;                         // ISerializable
-        private SweepBiasTypeEnum _biasType;                            // ISerializable
-        private double _biasFactor;                                     // ISerializable
         private double[] _direction;                                    // ISerializable
         private double[] _sweepCenter;                                  // ISerializable
         private int[] _sideSurfaceIds;                                  // ISerializable
@@ -41,19 +39,6 @@ namespace CaeMesh
             {
                 _numberOfGlobalSmoothSteps = value;
                 if (_numberOfGlobalSmoothSteps < 0) _numberOfGlobalSmoothSteps = 0;
-            }
-        }
-        public SweepBiasTypeEnum BiasType { get { return _biasType; } set { _biasType = value; } }
-        public double BiasFactor
-        {
-            get { return _biasFactor; }
-            set
-            {
-                _biasFactor = value;
-                // A geometric progression ratio must be positive; the direction of the grading is
-                // handled per edge, not by the sign
-                if (_biasFactor < 1E-3) _biasFactor = 1E-3;
-                else if (_biasFactor > 1E3) _biasFactor = 1E3;
             }
         }
         public double[] Direction { get { return _direction; } set { _direction = value; } }
@@ -85,9 +70,9 @@ namespace CaeMesh
                     case "_numberOfGlobalSmoothSteps":
                         _numberOfGlobalSmoothSteps = (int)entry.Value; break;
                     case "_biasType":
-                        _biasType = (SweepBiasTypeEnum)entry.Value; break;
+                        break;  // Removed - grading now lives on LocalMeshSize
                     case "_biasFactor":
-                        _biasFactor = (double)entry.Value; break;
+                        break;  // Removed - grading now lives on LocalMeshSize
                     case "_direction":
                         _direction = (double[])entry.Value; break;
                     case "_sweepCenter":
@@ -111,8 +96,6 @@ namespace CaeMesh
             // The layer interior comes out of the morph already smooth; extra relaxation only
             // erodes the grading the source mesh carries, so it is off unless it is asked for
             _numberOfGlobalSmoothSteps = 0;
-            _biasType = SweepBiasTypeEnum.None;
-            _biasFactor = 1;
             _direction = null;
             _sweepCenter = null;
             _sideSurfaceIds = null;
@@ -123,8 +106,6 @@ namespace CaeMesh
             base.CopyFrom(sweepMesh);
             //
             _numberOfGlobalSmoothSteps = sweepMesh._numberOfGlobalSmoothSteps;
-            _biasType = sweepMesh._biasType;
-            _biasFactor = sweepMesh._biasFactor;
             // The guards belong on the source: a null field here is exactly the case that has to be
             // filled in, and a null field there is the case that must not be dereferenced
             _direction = sweepMesh._direction?.ToArray();
@@ -150,8 +131,6 @@ namespace CaeMesh
             base.GetObjectData(info, context);
             // Using typeof() works also for null fields
             info.AddValue("_numberOfGlobalSmoothSteps", _numberOfGlobalSmoothSteps, typeof(int));
-            info.AddValue("_biasType", _biasType, typeof(SweepBiasTypeEnum));
-            info.AddValue("_biasFactor", _biasFactor, typeof(double));
             info.AddValue("_direction", _direction, typeof(double[]));
             info.AddValue("_sweepCenter", _sweepCenter, typeof(double[]));
             info.AddValue("_sideSurfaceIds", _sideSurfaceIds, typeof(int[]));

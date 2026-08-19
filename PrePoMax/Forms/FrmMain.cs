@@ -218,6 +218,16 @@ namespace PrePoMax
         {
             // Initialize               
             InitializeComponent();
+            ToolStripMenuItem duplicateResultFieldOutputMenuItem = new ToolStripMenuItem();
+            duplicateResultFieldOutputMenuItem.Name = "tsmiDuplicateResultFieldOutput";
+            duplicateResultFieldOutputMenuItem.Text = "Duplicate";
+            duplicateResultFieldOutputMenuItem.Click += tsmiDuplicateResultFieldOutput_Click;
+            tsmiResultFieldOutput.DropDownItems.Insert(2, duplicateResultFieldOutputMenuItem);
+            ToolStripMenuItem duplicateResultHistoryOutputMenuItem = new ToolStripMenuItem();
+            duplicateResultHistoryOutputMenuItem.Name = "tsmiDuplicateResultHistoryOutput";
+            duplicateResultHistoryOutputMenuItem.Text = "Duplicate";
+            duplicateResultHistoryOutputMenuItem.Click += tsmiDuplicateResultHistoryOutput_Click;
+            tsmiResultHistoryOutput.DropDownItems.Insert(2, duplicateResultHistoryOutputMenuItem);
             //SettingsContainer settings = new SettingsContainer();
             //settings.LoadFromFile();
             //if (settings.General.Maximized)
@@ -326,6 +336,10 @@ namespace PrePoMax
                 _modelTree.ClearSelectionEvent += Clear3DSelection;
                 _modelTree.CreateEvent += ModelTree_CreateEvent;
                 _modelTree.EditEvent += ModelTree_EditEvent;
+                _modelTree.AddHistoryOutputToPlotEvent += ModelTree_AddHistoryOutputToPlot;
+                _modelTree.AddHistoryOutputToNewPlotEvent += ModelTree_AddHistoryOutputToNewPlot;
+                _modelTree.CanAddHistoryOutputToPlot = CanAddHistoryOutputToPlot;
+                _modelTree.CanAddHistoryOutputToNewPlot = CanAddHistoryOutputToNewPlot;
                 _modelTree.RenameEvent += ModelTree_RenameEvent;
                 _modelTree.SetPartColorEvent += ModelTree_SetPartColorEvent;
                 _modelTree.ResetPartColorEvent += ModelTree_ResetPartColorEvent;
@@ -602,13 +616,12 @@ namespace PrePoMax
                 if (_cmdOptions.ShowGui == "Yes") _controller.Settings.General.ApplyFormSize(this);
             }
             //
-            if (!Debugger.IsAttached)
-            {
-                tsmiTest.Visible = false;
-                tsmiPythonScriptEditor.Visible = false;
-                tsmiCropStlPartWithCylinder.Visible = false;
-                tsmiCropStlPartWithCube.Visible = false;
-            }
+#if !DEBUG
+            tsmiTest.Visible = false;
+            tsmiPythonScriptEditor.Visible = false;
+            tsmiCropStlPartWithCylinder.Visible = false;
+            tsmiCropStlPartWithCube.Visible = false;
+#endif
         }
         //
         private async void FrmMain_Shown(object sender, EventArgs e)
@@ -1170,6 +1183,8 @@ namespace PrePoMax
             {
                 ApplyActionOnItems<FeReferencePoint>(items, DuplicateResultReferencePoints);
                 ApplyActionOnItems<CoordinateSystem>(items, DuplicateResultCoordinateSystems);
+                ApplyActionOnItems<ResultFieldOutput>(items, DuplicateResultFieldOutputs);
+                ApplyActionOnItems<ResultHistoryOutput>(items, DuplicateResultHistoryOutputs);
             }
         }
         private void ModelTree_PropagateEvent(NamedClass[] items, string[] stepNames)
@@ -2708,6 +2723,7 @@ namespace PrePoMax
             tsmiSidePanelAdvisor.Checked = sidePanel is AdvisorPanel;
             tsmiHelpAdvisor.Checked = tsmiSidePanelAdvisor.Checked;
             tsmiPythonScriptEditor.Checked = sidePanel is PythonPanel;
+            tsmiPlotPanel.Checked = sidePanel is PlotPanel;
             //
             Control parent = splitContainer1.Panel2;
             // First remove the splitContainer2
@@ -2728,7 +2744,7 @@ namespace PrePoMax
             splitContainer3.Panel2.Controls.Add(_visibleSidePanel);
             _visibleSidePanel.Dock = DockStyle.Fill;
             _visibleSidePanel.UpdateDesign();
-            _visibleSidePanel.AutoScroll = true;
+            _visibleSidePanel.AutoScroll = !(sidePanel is PlotPanel);
         }
         private void HideSidePanel()
         {
@@ -8898,6 +8914,17 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
+        private void tsmiDuplicateResultFieldOutput_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Field Outputs", _controller.GetResultFieldOutputs(), DuplicateResultFieldOutputs);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
         private void tsmiExportResultFieldOutput_Click(object sender, EventArgs e)
         {
             try
@@ -8940,6 +8967,10 @@ namespace PrePoMax
         {
             ShowForm(_frmResultFieldOutput, "Edit Field Output", resultFieldOutputName);
         }
+        private void DuplicateResultFieldOutputs(string[] resultFieldOutputNames)
+        {
+            _controller.DuplicateResultFieldOutputsCommand(resultFieldOutputNames);
+        }
         public void DeleteResultFieldOutputs(string[] fieldOutputNames)
         {
             if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected field outputs?" + Environment.NewLine
@@ -8976,6 +9007,18 @@ namespace PrePoMax
             try
             {
                 SelectOneEntity("History Outputs", _controller.GetResultHistoryOutputs(), EditResultHistoryOutput);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiDuplicateResultHistoryOutput_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("History Outputs", _controller.GetResultHistoryOutputs(),
+                                       DuplicateResultHistoryOutputs);
             }
             catch (Exception ex)
             {
@@ -9027,6 +9070,10 @@ namespace PrePoMax
         {
             ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmResultHistoryOutput);
             ShowForm(_frmResultHistoryOutput, "Edit History Output", resultHistoryOutputName);
+        }
+        private void DuplicateResultHistoryOutputs(string[] resultHistoryOutputNames)
+        {
+            _controller.DuplicateResultHistoryOutputsCommand(resultHistoryOutputNames);
         }
         public void DeleteResultHistoryOutputs(string[] resultHistoryOutputNames)
         {
@@ -11966,5 +12013,3 @@ namespace PrePoMax
         
     }
 }
-
-
