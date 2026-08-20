@@ -39,6 +39,8 @@
             this.llKimm = new System.Windows.Forms.LinkLabel();
             this.llSmartDo = new System.Windows.Forms.LinkLabel();
             this.lCopyRight = new System.Windows.Forms.Label();
+            this.label1 = new System.Windows.Forms.Label();
+            this.llCapgemini = new System.Windows.Forms.LinkLabel();
             this.SuspendLayout();
             // 
             // labProgramName
@@ -87,7 +89,7 @@
             // llClose
             // 
             this.llClose.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
-            this.llClose.Location = new System.Drawing.Point(554, 356);
+            this.llClose.Location = new System.Drawing.Point(543, 399);
             this.llClose.Name = "llClose";
             this.llClose.Size = new System.Drawing.Size(45, 20);
             this.llClose.TabIndex = 5;
@@ -153,6 +155,29 @@
             this.lCopyRight.Text = "Copyright © 2016-2026 Matej Borovinšek";
             this.lCopyRight.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             // 
+            // label1
+            // 
+            this.label1.BackColor = System.Drawing.Color.Transparent;
+            this.label1.Font = new System.Drawing.Font("Segoe UI", 15.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
+            this.label1.Location = new System.Drawing.Point(3, 366);
+            this.label1.Name = "label1";
+            this.label1.Size = new System.Drawing.Size(585, 33);
+            this.label1.TabIndex = 11;
+            this.label1.Text = "Technology Contributors";
+            this.label1.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // llCapgemini
+            // 
+            this.llCapgemini.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
+            this.llCapgemini.Location = new System.Drawing.Point(4, 399);
+            this.llCapgemini.Name = "llCapgemini";
+            this.llCapgemini.Size = new System.Drawing.Size(584, 20);
+            this.llCapgemini.TabIndex = 12;
+            this.llCapgemini.TabStop = true;
+            this.llCapgemini.Text = "Capgemini NL — Bidirectional Mesh Converter";
+            this.llCapgemini.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.llCapgemini.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.llCapgemini_LinkClicked);
+            // 
             // FrmSplash
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -161,11 +186,13 @@
             this.BackgroundImage = global::PrePoMax.Properties.Resources.Splash_02;
             this.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.CancelButton = this.llClose;
-            this.ClientSize = new System.Drawing.Size(600, 380);
+            this.ClientSize = new System.Drawing.Size(600, 420);
+            this.Controls.Add(this.llClose);
+            this.Controls.Add(this.llCapgemini);
+            this.Controls.Add(this.label1);
             this.Controls.Add(this.lCopyRight);
             this.Controls.Add(this.llKimm);
             this.Controls.Add(this.lSponsors);
-            this.Controls.Add(this.llClose);
             this.Controls.Add(this.llHomePage);
             this.Controls.Add(this.panel1);
             this.Controls.Add(this.labProgramName);
@@ -174,8 +201,8 @@
             this.Controls.Add(this.lHelp);
             this.DoubleBuffered = true;
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
-            this.MaximumSize = new System.Drawing.Size(600, 380);
-            this.MinimumSize = new System.Drawing.Size(600, 380);
+            this.MaximumSize = new System.Drawing.Size(600, 420);
+            this.MinimumSize = new System.Drawing.Size(600, 420);
             this.Name = "FrmSplash";
             this.ShowInTaskbar = false;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
@@ -198,5 +225,7 @@
         private System.Windows.Forms.LinkLabel llKimm;
         private System.Windows.Forms.LinkLabel llSmartDo;
         private System.Windows.Forms.Label lCopyRight;
+        private System.Windows.Forms.Label label1;
+        private System.Windows.Forms.LinkLabel llCapgemini;
     }
 }

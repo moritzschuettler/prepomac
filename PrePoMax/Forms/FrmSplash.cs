@@ -23,7 +23,7 @@ namespace PrePoMax.Forms
     public partial class FrmSplash : Form
     {
         private Size _collapsedSize = new Size(600, 280);
-        private Size _expandedSize = new Size(600, 380);
+        private Size _expandedSize = new Size(600, 420);
         public FrmSplash()
         {
             InitializeComponent();
@@ -77,6 +77,11 @@ namespace PrePoMax.Forms
         private void llSmartDo_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
             System.Diagnostics.Process.Start("https://www.smartdo.co/");
+        }
+
+        private void llCapgemini_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            System.Diagnostics.Process.Start("https://www.capgemini.com/");
         }
     }
 }
