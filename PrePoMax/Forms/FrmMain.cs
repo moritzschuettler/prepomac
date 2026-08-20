@@ -344,6 +344,9 @@ namespace PrePoMax
                 _modelTree.DuplicateEvent += ModelTree_DuplicateEvent;
                 _modelTree.PropagateEvent += ModelTree_PropagateEvent;
                 _modelTree.PreviewEvent += ModelTree_PreviewEvent;
+                _modelTree.AddHistoryOutputsToPlotEvent += AddHistoryOutputsToPlot;
+                _modelTree.AddHistoryOutputsToNewPlotEvent += AddHistoryOutputsToNewPlot;
+                _modelTree.CanAddHistoryOutputToNewPlot = CanAddHistoryOutputToNewPlot;
                 _modelTree.CreateCompoundPart += CreateAndImportCompoundPart;
                 _modelTree.SwapPartGeometries += SwapPartGeometries;
                 _modelTree.PreviewEdgeMesh += PreviewEdgeMeshAsync;
@@ -2719,7 +2722,7 @@ namespace PrePoMax
             tsmiSidePanelAdvisor.Checked = sidePanel is AdvisorPanel;
             tsmiHelpAdvisor.Checked = tsmiSidePanelAdvisor.Checked;
             tsmiPythonScriptEditor.Checked = sidePanel is PythonPanel;
-            tsmiPlotPanel.Checked = sidePanel is PlotPanel;
+            tsmiXYPlotPanel.Checked = sidePanel is XYPlotPanel;
             //
             Control parent = splitContainer1.Panel2;
             // First remove the splitContainer2
@@ -2740,7 +2743,7 @@ namespace PrePoMax
             splitContainer3.Panel2.Controls.Add(_visibleSidePanel);
             _visibleSidePanel.Dock = DockStyle.Fill;
             _visibleSidePanel.UpdateDesign();
-            _visibleSidePanel.AutoScroll = !(sidePanel is PlotPanel);
+            _visibleSidePanel.AutoScroll = !(sidePanel is XYPlotPanel);
         }
         private void HideSidePanel()
         {

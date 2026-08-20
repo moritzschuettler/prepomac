@@ -9,7 +9,7 @@
 
 namespace UserControls
 {
-    partial class PlotPanel
+    partial class XYPlotPanel
     {
         /// <summary>
         /// Required designer variable.
@@ -43,11 +43,8 @@ namespace UserControls
             this.labTitle = new System.Windows.Forms.Label();
             this.btnClose = new System.Windows.Forms.Button();
             this.splitContainer = new System.Windows.Forms.SplitContainer();
-            this.zedGraph = new ZedGraph.ZedGraphControl();
+            this.tlpPlots = new System.Windows.Forms.TableLayoutPanel();
             this.dgvData = new UserControls.DataGridViewCopyPaste();
-            this.Column1 = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.Column2 = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.Column3 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.panHeader.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer)).BeginInit();
             this.splitContainer.Panel1.SuspendLayout();
@@ -78,7 +75,7 @@ namespace UserControls
             this.labTitle.Name = "labTitle";
             this.labTitle.Size = new System.Drawing.Size(459, 25);
             this.labTitle.TabIndex = 0;
-            this.labTitle.Text = "Plot";
+            this.labTitle.Text = "XY Plot";
             this.labTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.labTitle.UseCompatibleTextRendering = true;
             //
@@ -103,13 +100,14 @@ namespace UserControls
             // splitContainer
             //
             this.splitContainer.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.splitContainer.FixedPanel = System.Windows.Forms.FixedPanel.Panel2;
             this.splitContainer.Location = new System.Drawing.Point(0, 35);
             this.splitContainer.Name = "splitContainer";
             this.splitContainer.Orientation = System.Windows.Forms.Orientation.Horizontal;
             //
             // splitContainer.Panel1
             //
-            this.splitContainer.Panel1.Controls.Add(this.zedGraph);
+            this.splitContainer.Panel1.Controls.Add(this.tlpPlots);
             this.splitContainer.Panel1MinSize = 100;
             //
             // splitContainer.Panel2
@@ -121,21 +119,18 @@ namespace UserControls
             this.splitContainer.SplitterWidth = 6;
             this.splitContainer.TabIndex = 1;
             //
-            // zedGraph
+            // tlpPlots
             //
-            this.zedGraph.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.zedGraph.Location = new System.Drawing.Point(0, 0);
-            this.zedGraph.Name = "zedGraph";
-            this.zedGraph.ScrollGrace = 0D;
-            this.zedGraph.ScrollMaxX = 0D;
-            this.zedGraph.ScrollMaxY = 0D;
-            this.zedGraph.ScrollMaxY2 = 0D;
-            this.zedGraph.ScrollMinX = 0D;
-            this.zedGraph.ScrollMinY = 0D;
-            this.zedGraph.ScrollMinY2 = 0D;
-            this.zedGraph.Size = new System.Drawing.Size(500, 340);
-            this.zedGraph.TabIndex = 0;
-            this.zedGraph.UseExtendedPrintDialog = true;
+            this.tlpPlots.BackColor = System.Drawing.SystemColors.Control;
+            this.tlpPlots.ColumnCount = 1;
+            this.tlpPlots.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tlpPlots.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tlpPlots.Location = new System.Drawing.Point(0, 0);
+            this.tlpPlots.Name = "tlpPlots";
+            this.tlpPlots.RowCount = 1;
+            this.tlpPlots.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tlpPlots.Size = new System.Drawing.Size(500, 340);
+            this.tlpPlots.TabIndex = 0;
             //
             // dgvData
             //
@@ -146,10 +141,6 @@ namespace UserControls
             this.dgvData.AlternatingRowsDefaultCellStyle = dataGridViewCellStyle1;
             this.dgvData.ClipboardCopyMode = System.Windows.Forms.DataGridViewClipboardCopyMode.EnableAlwaysIncludeHeaderText;
             this.dgvData.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.dgvData.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
-            this.Column1,
-            this.Column2,
-            this.Column3});
             dataGridViewCellStyle2.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
             dataGridViewCellStyle2.BackColor = System.Drawing.SystemColors.Window;
             dataGridViewCellStyle2.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
@@ -169,25 +160,7 @@ namespace UserControls
             this.dgvData.StartPlotAtZero = false;
             this.dgvData.TabIndex = 0;
             //
-            // Column1
-            //
-            this.Column1.HeaderText = "Column1";
-            this.Column1.Name = "Column1";
-            this.Column1.ReadOnly = true;
-            //
-            // Column2
-            //
-            this.Column2.HeaderText = "Column2";
-            this.Column2.Name = "Column2";
-            this.Column2.ReadOnly = true;
-            //
-            // Column3
-            //
-            this.Column3.HeaderText = "Column3";
-            this.Column3.Name = "Column3";
-            this.Column3.ReadOnly = true;
-            //
-            // PlotPanel
+            // XYPlotPanel
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
@@ -195,7 +168,7 @@ namespace UserControls
             this.Controls.Add(this.splitContainer);
             this.Controls.Add(this.panHeader);
             this.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.Name = "PlotPanel";
+            this.Name = "XYPlotPanel";
             this.Size = new System.Drawing.Size(500, 600);
             this.panHeader.ResumeLayout(false);
             this.splitContainer.Panel1.ResumeLayout(false);
@@ -213,10 +186,7 @@ namespace UserControls
         private System.Windows.Forms.Label labTitle;
         private System.Windows.Forms.Button btnClose;
         private System.Windows.Forms.SplitContainer splitContainer;
-        private ZedGraph.ZedGraphControl zedGraph;
+        private System.Windows.Forms.TableLayoutPanel tlpPlots;
         private UserControls.DataGridViewCopyPaste dgvData;
-        private System.Windows.Forms.DataGridViewTextBoxColumn Column1;
-        private System.Windows.Forms.DataGridViewTextBoxColumn Column2;
-        private System.Windows.Forms.DataGridViewTextBoxColumn Column3;
     }
 }

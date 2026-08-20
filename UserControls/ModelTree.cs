@@ -49,6 +49,8 @@ namespace UserControls
         public int Propagate;
         public int Preview;
         //
+        public int AddToPlot;
+        //
         public int CompoundPart;
         public int SwapParts;
         //
@@ -324,6 +326,9 @@ namespace UserControls
         public event Action<NamedClass[], string[]> DuplicateEvent;
         public event Action<NamedClass[], string[]> PropagateEvent;
         public event Action<NamedClass[], string[]> PreviewEvent;
+        public event Action<HistoryResultData[]> AddHistoryOutputsToPlotEvent;
+        public event Action<HistoryResultData[]> AddHistoryOutputsToNewPlotEvent;
+        public Func<bool> CanAddHistoryOutputToNewPlot;
         public event Action<string[]> CreateCompoundPart;
         public event Action<string[]> SwapPartGeometries;
         public event Func<string[], MeshSetupItem, Task> PreviewEdgeMesh;
@@ -1520,6 +1525,12 @@ namespace UserControls
             visible = hasActionNodes && menuFields.Preview == n;
             tsmiPreview.Visible = visible;
             oneAboveVisible |= visible;
+            // Add to plot
+            visible = hasActionNodes && menuFields.AddToPlot == n;
+            tsmiSpaceAddToPlot.Visible = visible && oneAboveVisible;
+            tsmiAddToPlot.Visible = visible;
+            tsmiAddToNewPlot.Visible = visible;
+            oneAboveVisible |= visible;
             // Geometry                                             
             visible = menuFields.CompoundPart == n && n > 1;
             tsmiSpaceCompoundPart.Visible = visible && oneAboveVisible;
@@ -1636,6 +1647,9 @@ namespace UserControls
                 menuFields.Types.Contains(typeof(CompoundGeometryPart))) enabled = true;
             else enabled = menuFields.Edit == 1;
             tsmiEdit.Enabled = enabled;
+            // Add to plot
+            tsmiAddToPlot.Enabled = true;
+            tsmiAddToNewPlot.Enabled = CanAddHistoryOutputToNewPlot == null || CanAddHistoryOutputToNewPlot();
             // Mesh
             tsmiCreateMesh.Enabled = true;
             // Copy part
@@ -1701,6 +1715,8 @@ namespace UserControls
             if (item != null && CanPropagate(node)) menuFields.Propagate++;
             //Propagate
             if (item != null && CanPreview(node)) menuFields.Preview++;
+            // Add to plot
+            if (item != null && item is HistoryResultData) menuFields.AddToPlot++;
             // Geometry part - Geometry
             if (item != null && item is GeometryPart && GetActiveTree() == cltvGeometry)
             {
@@ -2222,6 +2238,41 @@ namespace UserControls
             {
                 ExceptionTools.Show(this, ex);
             }
+        }
+        private void tsmiAddToPlot_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                HistoryResultData[] historyData = GetSelectedHistoryResultData();
+                if (historyData.Length > 0) AddHistoryOutputsToPlotEvent?.Invoke(historyData);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiAddToNewPlot_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                HistoryResultData[] historyData = GetSelectedHistoryResultData();
+                if (historyData.Length > 0) AddHistoryOutputsToNewPlotEvent?.Invoke(historyData);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private HistoryResultData[] GetSelectedHistoryResultData()
+        {
+            TreeNode[] nodes = GetSelectedNodesIncludingGroupItems(GetActiveTree());
+            List<HistoryResultData> historyData = new List<HistoryResultData>();
+            foreach (TreeNode node in nodes)
+            {
+                if (node.Tag is HistoryResultData data) historyData.Add(data);
+                else return new HistoryResultData[0];
+            }
+            return historyData.ToArray();
         }
         private void tsmiPreview_Click(object sender, EventArgs e)
         {

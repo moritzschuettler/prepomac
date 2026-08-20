@@ -152,7 +152,7 @@ namespace PrePoMax
             this.tsmiView = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiViewSidePanels = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiPythonScriptEditor = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiPlotPanel = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiXYPlotPanel = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSidePanelAdvisor = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItem6 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiStandardViews = new System.Windows.Forms.ToolStripMenuItem();
@@ -1667,7 +1667,7 @@ namespace PrePoMax
             // 
             this.tsmiViewSidePanels.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsmiPythonScriptEditor,
-            this.tsmiPlotPanel,
+            this.tsmiXYPlotPanel,
             this.tsmiSidePanelAdvisor});
             this.tsmiViewSidePanels.Name = "tsmiViewSidePanels";
             this.tsmiViewSidePanels.Size = new System.Drawing.Size(236, 22);
@@ -1680,12 +1680,12 @@ namespace PrePoMax
             this.tsmiPythonScriptEditor.Text = "Python Script Editor";
             this.tsmiPythonScriptEditor.Click += new System.EventHandler(this.tsmiPythonScriptEditor_Click);
             // 
-            // tsmiPlotPanel
+            // tsmiXYPlotPanel
             // 
-            this.tsmiPlotPanel.Name = "tsmiPlotPanel";
-            this.tsmiPlotPanel.Size = new System.Drawing.Size(179, 22);
-            this.tsmiPlotPanel.Text = "Plot";
-            this.tsmiPlotPanel.Click += new System.EventHandler(this.tsmiPlotPanel_Click);
+            this.tsmiXYPlotPanel.Name = "tsmiXYPlotPanel";
+            this.tsmiXYPlotPanel.Size = new System.Drawing.Size(179, 22);
+            this.tsmiXYPlotPanel.Text = "XY Plot";
+            this.tsmiXYPlotPanel.Click += new System.EventHandler(this.tsmiXYPlotPanel_Click);
             // 
             // tsmiSidePanelAdvisor
             // 
@@ -5773,7 +5773,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripSeparator tsmiDividerResultFieldOutput2;
         private System.Windows.Forms.ToolStripMenuItem tsmiViewSidePanels;
         private System.Windows.Forms.ToolStripMenuItem tsmiPythonScriptEditor;
-        private System.Windows.Forms.ToolStripMenuItem tsmiPlotPanel;
+        private System.Windows.Forms.ToolStripMenuItem tsmiXYPlotPanel;
         private System.Windows.Forms.ToolStripSeparator toolStripMenuItem6;
         private System.Windows.Forms.ToolStripButton tsbArrangeAnnotations;
         private System.Windows.Forms.ToolStripMenuItem tsmiArrangeAnnotations;

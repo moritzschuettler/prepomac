@@ -127,6 +127,9 @@ namespace UserControls
             this.tsmiDuplicate = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiPropagate = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiPreview = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiSpaceAddToPlot = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiAddToPlot = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiAddToNewPlot = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSpaceCompoundPart = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiCompoundPart = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSwapPartGeometries = new System.Windows.Forms.ToolStripMenuItem();
@@ -206,6 +209,9 @@ namespace UserControls
             this.tsmiDuplicate,
             this.tsmiPropagate,
             this.tsmiPreview,
+            this.tsmiSpaceAddToPlot,
+            this.tsmiAddToPlot,
+            this.tsmiAddToNewPlot,
             this.tsmiSpaceCompoundPart,
             this.tsmiCompoundPart,
             this.tsmiSwapPartGeometries,
@@ -281,6 +287,25 @@ namespace UserControls
             this.tsmiPreview.Size = new System.Drawing.Size(211, 22);
             this.tsmiPreview.Text = "Preview";
             this.tsmiPreview.Click += new System.EventHandler(this.tsmiPreview_Click);
+            // 
+            // tsmiSpaceAddToPlot
+            // 
+            this.tsmiSpaceAddToPlot.Name = "tsmiSpaceAddToPlot";
+            this.tsmiSpaceAddToPlot.Size = new System.Drawing.Size(208, 6);
+            // 
+            // tsmiAddToPlot
+            // 
+            this.tsmiAddToPlot.Name = "tsmiAddToPlot";
+            this.tsmiAddToPlot.Size = new System.Drawing.Size(211, 22);
+            this.tsmiAddToPlot.Text = "Add to Plot";
+            this.tsmiAddToPlot.Click += new System.EventHandler(this.tsmiAddToPlot_Click);
+            // 
+            // tsmiAddToNewPlot
+            // 
+            this.tsmiAddToNewPlot.Name = "tsmiAddToNewPlot";
+            this.tsmiAddToNewPlot.Size = new System.Drawing.Size(211, 22);
+            this.tsmiAddToNewPlot.Text = "Add to New Plot";
+            this.tsmiAddToNewPlot.Click += new System.EventHandler(this.tsmiAddToNewPlot_Click);
             // 
             // tsmiSpaceCompoundPart
             // 
@@ -1192,6 +1217,9 @@ namespace UserControls
         private System.Windows.Forms.ToolStripMenuItem tsmiSearchContactPairs;
         private System.Windows.Forms.ToolStripMenuItem tsmiQuery;
         private System.Windows.Forms.ToolStripMenuItem tsmiPreview;
+        private System.Windows.Forms.ToolStripSeparator tsmiSpaceAddToPlot;
+        private System.Windows.Forms.ToolStripMenuItem tsmiAddToPlot;
+        private System.Windows.Forms.ToolStripMenuItem tsmiAddToNewPlot;
         private System.Windows.Forms.ToolStripMenuItem tsmiCheckModel;
         private System.Windows.Forms.ToolStripMenuItem tsmiEditStepControls;
         private System.Windows.Forms.ToolStripMenuItem tsmiSetColor;
