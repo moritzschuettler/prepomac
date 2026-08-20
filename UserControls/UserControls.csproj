@@ -79,9 +79,6 @@
     <Compile Include="Forms\FrmPropertyDataListView.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Forms\FrmPlotData.cs">
-      <SubType>Form</SubType>
-    </Compile>
     <Compile Include="GroupBoxes\CollapsableGroupBox.cs">
       <SubType>Component</SubType>
     </Compile>
@@ -125,16 +122,11 @@
     <Compile Include="ListView\MyListView.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="Plotting\PlotRowControl.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="Plotting\PlotStackControl.cs">
-      <SubType>Component</SubType>
-    </Compile>
-    <Compile Include="Plotting\PlotViewData.cs" />
-    <Compile Include="Plotting\PlotDataExporter.cs" />
     <Compile Include="SidePanel\PlotPanel.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="SidePanel\PlotPanel.Designer.cs">
+      <DependentUpon>PlotPanel.cs</DependentUpon>
     </Compile>
     <Compile Include="SidePanel\PythonPanel.cs">
       <SubType>UserControl</SubType>
@@ -220,10 +212,6 @@
       <DependentUpon>MenuStripFocus.cs</DependentUpon>
     </Compile>
     <Compile Include="ModelTree.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="ModelTree.Plotting.cs">
-      <DependentUpon>ModelTree.cs</DependentUpon>
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Trees\OrderedDictionaryTreeLayoutChange.cs" />

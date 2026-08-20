@@ -2,6 +2,7 @@
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 
+using CaeGlobals;
 using CaeResults;
 using System;
 using System.Collections.Generic;
@@ -12,6 +13,41 @@ namespace PrePoMax
 {
     public partial class Controller
     {
+        private sealed class HistoryEntryData
+        {
+            public FeResults Result;
+            public HistoryResultField Field;
+            public HistoryResultComponent Component;
+            public HistoryResultEntries Entry;
+
+            public HistoryEntryData(FeResults result, HistoryResultField field,
+                                    HistoryResultComponent component, HistoryResultEntries entry)
+            {
+                Result = result;
+                Field = field;
+                Component = component;
+                Entry = entry;
+            }
+        }
+        public HistoryResultData[] GetResultHistoryComponents()
+        {
+            FeResults result = CurrentResult;
+            return result == null ? new HistoryResultData[0] : result.GetHistoryResultComponents();
+        }
+        private void GetHistoryComponent(HistoryResultData source, out FeResults result, out HistoryResultSet set,
+                                         out HistoryResultField field, out HistoryResultComponent component)
+        {
+            if (source == null) throw new ArgumentNullException("source");
+            result = CurrentResult;
+            if (result == null)
+                throw new CaeException("There is no current result for the selected history output.");
+
+            set = result.GetHistoryResultSet(source.SetName);
+            field = result.GetHistoryResultField(source.SetName, source.FieldName);
+            component = result.GetHistoryResultComponent(source.SetName, source.FieldName, source.ComponentName);
+            if (set == null || field == null || component == null)
+                throw new CaeException("The history output '" + source + "' cannot be found.");
+        }
         public HistoryResultData[] GetExtractableHistoryComponents()
         {
             return GetResultHistoryComponents().Where(data => GetHistoryEntryNames(data).Length > 0).ToArray();
@@ -81,7 +117,7 @@ namespace PrePoMax
             HistoryResultSet set;
             HistoryResultField field;
             HistoryResultComponent component;
-            GetHistoryComponent(CreateHistorySeriesSource(source), out result, out set, out field, out component);
+            GetHistoryComponent(source, out result, out set, out field, out component);
 
             List<HistoryEntryData> entries = new List<HistoryEntryData>();
             foreach (HistoryResultEntries entry in component.Entries.Values)

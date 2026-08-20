@@ -372,7 +372,6 @@ namespace UserControls
         {
             InitializeComponent();
             AssembleTreeContextMenu();
-            InitializePlotContextMenu();
             //
             cltvGeometry.IsNodeRenameable = CanRename;
             cltvModel.IsNodeRenameable = CanRename;
@@ -1521,7 +1520,6 @@ namespace UserControls
             visible = hasActionNodes && menuFields.Preview == n;
             tsmiPreview.Visible = visible;
             oneAboveVisible |= visible;
-            PreparePlotContextMenu(actionNodes, ref oneAboveVisible);
             // Geometry                                             
             visible = menuFields.CompoundPart == n && n > 1;
             tsmiSpaceCompoundPart.Visible = visible && oneAboveVisible;

@@ -630,7 +630,6 @@ namespace PrePoMax
             //
             ClearModel();
             ClearResults();
-            ClearPlotWorkspace();
             // Selection
             SetSelectByToDefault();
             _geometrySelectMode = GeometrySelectModeEnum.SelectLocation;
@@ -856,7 +855,6 @@ namespace PrePoMax
             InitializeNewCommands(tmp._commands);
             // Annotations
             _annotations = new AnnotationContainer(tmp._annotations, this);
-            LoadPlotWorkspace(tmp);
             // Jobs
             if (data[1] is OrderedDictionary<string, AnalysisJob> od) _jobs = od;
             // Settings

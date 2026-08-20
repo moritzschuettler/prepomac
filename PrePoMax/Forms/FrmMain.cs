@@ -336,10 +336,6 @@ namespace PrePoMax
                 _modelTree.ClearSelectionEvent += Clear3DSelection;
                 _modelTree.CreateEvent += ModelTree_CreateEvent;
                 _modelTree.EditEvent += ModelTree_EditEvent;
-                _modelTree.AddHistoryOutputToPlotEvent += ModelTree_AddHistoryOutputToPlot;
-                _modelTree.AddHistoryOutputToNewPlotEvent += ModelTree_AddHistoryOutputToNewPlot;
-                _modelTree.CanAddHistoryOutputToPlot = CanAddHistoryOutputToPlot;
-                _modelTree.CanAddHistoryOutputToNewPlot = CanAddHistoryOutputToNewPlot;
                 _modelTree.RenameEvent += ModelTree_RenameEvent;
                 _modelTree.SetPartColorEvent += ModelTree_SetPartColorEvent;
                 _modelTree.ResetPartColorEvent += ModelTree_ResetPartColorEvent;
