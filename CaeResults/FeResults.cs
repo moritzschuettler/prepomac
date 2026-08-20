@@ -299,6 +299,7 @@ namespace CaeResults
             info.AddValue("_complexAngleDeg", _complexAngleDeg, typeof(float));
         }
 
+
         // Static methods                                                                                                           
         public static void WriteToFileStream(FeResults results, FileStream fileStream, CompressionLevel compressionLevel)
         {
@@ -800,14 +801,38 @@ namespace CaeResults
         {
             _mesh.Nodes = _undeformedNodes;
             string[] addedPartNames = _mesh.AddPartsFromMesh(mesh, partNames, null, null, false);
+            // Add the node ids without results to the lookup
+            foreach (var partName in addedPartNames)
+            {
+                foreach (var nodeId in _mesh.Parts[partName].NodeLabels)
+                {
+                    if (!_nodeIdsLookUp.ContainsKey(nodeId)) _nodeIdsLookUp.Add(nodeId, -1);
+                }
+            }
+            //
             InitializeUndeformedNodes();
             return addedPartNames;
         }
         public string[] RemoveParts(string[] partNames)
         {
+            // Save node ids
+            Dictionary<string, int[]> partNameNodeIds = new Dictionary<string, int[]>();
+            foreach (var partName in partNames) partNameNodeIds.Add(partName, _mesh.Parts[partName].NodeLabels);
+            //
             _mesh.Nodes = _undeformedNodes;
             string[] removedPartNames;
             _mesh.RemoveParts(partNames, out removedPartNames, false);
+            // Remove the node ids no longer used by any part from the lookup
+            int[] nodeIds;
+            foreach (var partName in removedPartNames)
+            {
+                nodeIds = partNameNodeIds[partName];
+                foreach (var nodeId in nodeIds)
+                {
+                    if (!_mesh.Nodes.ContainsKey(nodeId)) _nodeIdsLookUp.Remove(nodeId);
+                }
+            }
+            //
             InitializeUndeformedNodes();
             return removedPartNames;
         }
@@ -822,6 +847,36 @@ namespace CaeResults
             _scale = -1;
             _stepId = -1;
             _stepIncrementId = -1;
+        }
+        private bool TryGetResultNodeId(int nodeId, out int resultNodeId)
+        {
+            return _nodeIdsLookUp.TryGetValue(nodeId, out resultNodeId) && resultNodeId >= 0;
+        }
+        private bool TryGetResultNodeIds(int[] nodeIds, out int[] resultNodeIds)
+        {
+            resultNodeIds = new int[nodeIds.Length];
+            for (int i = 0; i < nodeIds.Length; i++)
+            {
+                if (!TryGetResultNodeId(nodeIds[i], out resultNodeIds[i])) return false;
+            }
+            return true;
+        }
+        private int GetFirstResultNodeId()
+        {
+            foreach (var entry in _nodeIdsLookUp)
+            {
+                if (entry.Value >= 0) return entry.Key;
+            }
+            return -1;
+        }
+        private int GetNumOfResultNodes()
+        {
+            int numOfResultNodes = 0;
+            foreach (var entry in _nodeIdsLookUp)
+            {
+                if (entry.Value >= 0) numOfResultNodes++;
+            }
+            return numOfResultNodes;
         }
         public void AddResults(FeResults results)
         {
@@ -1009,7 +1064,7 @@ namespace CaeResults
                 {
                     node1 = entry.Value;
                     node2 = results2._undeformedNodes[node1.Id];
-                    id = results1._nodeIdsLookUp[node1.Id];
+                    if (!results1.TryGetResultNodeId(node1.Id, out id)) continue;
                     //
                     diff[0][id] = (float)(node1.X - node2.X);
                     diff[1][id] = (float)(node1.Y - node2.Y);
@@ -1070,7 +1125,7 @@ namespace CaeResults
                             {
                                 node = _undeformedNodes[nodeId];
                                 // Result parts
-                                if (_nodeIdsLookUp.TryGetValue(node.Id, out resultNodeId))
+                                if (TryGetResultNodeId(node.Id, out resultNodeId))
                                 {
                                     deformedNode = new FeNode(node.Id,
                                                               node.X + offset[0] + _scale * deformations[0][resultNodeId],
@@ -1154,13 +1209,20 @@ namespace CaeResults
                     //
                     foreach (var nodeId in part.NodeLabels)
                     {
-                        resultNodeId = _nodeIdsLookUp[nodeId];
                         node = _undeformedNodes[nodeId];
-                        //
-                        deformedNode = new FeNode(node.Id,
-                                                  node.X + offset[0] + scale * deformations[0][resultNodeId],
-                                                  node.Y + offset[1] + scale * deformations[1][resultNodeId],
-                                                  node.Z + offset[2] + scale * deformations[2][resultNodeId]);
+                        // Result parts
+                        if (TryGetResultNodeId(nodeId, out resultNodeId))
+                        {
+                            deformedNode = new FeNode(node.Id,
+                                                      node.X + offset[0] + scale * deformations[0][resultNodeId],
+                                                      node.Y + offset[1] + scale * deformations[1][resultNodeId],
+                                                      node.Z + offset[2] + scale * deformations[2][resultNodeId]);
+                        }
+                        // Geometry parts
+                        else
+                        {
+                            deformedNode = new FeNode(node.Id, node.X + offset[0], node.Y + offset[1], node.Z + offset[2]);
+                        }
                         _mesh.Nodes[deformedNode.Id] = deformedNode;
                     }
                 }
@@ -2898,7 +2960,7 @@ namespace CaeResults
                     for (int i = 0; i < globalNodeIds.Length; i++)
                     {
                         globalId = globalNodeIds[i];
-                        if (_nodeIdsLookUp.TryGetValue(globalId, out localId) && localId >= 0 && localId < allValues.Length)
+                        if (TryGetResultNodeId(globalId, out localId) && localId < allValues.Length)
                             values[i] = allValues[localId];
                         else
                             return null;
@@ -3015,8 +3077,8 @@ namespace CaeResults
                 componentValues[i] = new float[globalNodeIds.Length];
                 for (int j = 0; j < globalNodeIds.Length; j++)
                 {
-                    if (!_nodeIdsLookUp.TryGetValue(globalNodeIds[j], out int localId) ||
-                        localId < 0 || localId >= allValues.Length) return null;
+                    if (!TryGetResultNodeId(globalNodeIds[j], out int localId) ||
+                        localId >= allValues.Length) return null;
                     componentValues[i][j] = allValues[localId];
                 }
             }
@@ -3436,7 +3498,7 @@ namespace CaeResults
             {
                 if (fieldData.StepId == 1)          // first step / zero increment
                 {
-                    minId = _nodeIdsLookUp.Keys.First();
+                    minId = GetFirstResultNodeId();
                     maxId = minId;
                     nodesData.Ids[0] = minId;
                     nodesData.Ids[1] = maxId;
@@ -3474,7 +3536,7 @@ namespace CaeResults
                         nodesData.Values[0] = float.MaxValue;
                         nodesData.Values[1] = -float.MaxValue;
                         // Get first value
-                        if (_nodeIdsLookUp.TryGetValue(basePart.NodeLabels[0], out id) && id < values.Length)
+                        if (TryGetResultNodeId(basePart.NodeLabels[0], out id) && id < values.Length)
                         {
                             value = values[id];
                             if (!float.IsNaN(value))
@@ -3489,7 +3551,7 @@ namespace CaeResults
                         //
                         foreach (var nodeId in basePart.NodeLabels)
                         {
-                            if (_nodeIdsLookUp.TryGetValue(nodeId, out id) && id < values.Length)
+                            if (TryGetResultNodeId(nodeId, out id) && id < values.Length)
                             {
                                 value = values[id];
                                 if (!float.IsNaN(value))
@@ -3736,7 +3798,7 @@ namespace CaeResults
             foreach (var entry in _undeformedNodes)
             {
                 node = entry.Value;
-                resultNodeId = _nodeIdsLookUp[node.Id];
+                if (!TryGetResultNodeId(node.Id, out resultNodeId)) continue;
                 //
                 sb.AppendLine();
                 sb.AppendFormat("{0}, {1}, {2}", node.X, node.Y, node.Z);
@@ -3937,13 +3999,21 @@ namespace CaeResults
             Parallel.ForEach(nodeNeighbours, entry =>
             {
                 var localNeighbours = new HashSet<int>();
-                foreach (var neighbourId in entry.Value) localNeighbours.Add(_nodeIdsLookUp[neighbourId]);
-                nodeNeighboursConcu[_nodeIdsLookUp[entry.Key]] = localNeighbours;
+                foreach (var neighbourId in entry.Value)
+                {
+                    if (TryGetResultNodeId(neighbourId, out int localNeighbourId))
+                        localNeighbours.Add(localNeighbourId);
+                }
+                if (TryGetResultNodeId(entry.Key, out int localNodeId))
+                    nodeNeighboursConcu[localNodeId] = localNeighbours;
             });
             Dictionary<int, HashSet<int>> nodeNeighboursLocal = new Dictionary<int, HashSet<int>>(nodeNeighboursConcu);
             // Create inverse node id look up
-            int[] inverseNodeIdsLookUp = new int[_nodeIdsLookUp.Count];
-            foreach (var item in _nodeIdsLookUp) inverseNodeIdsLookUp[item.Value] = item.Key;
+            int[] inverseNodeIdsLookUp = new int[GetNumOfResultNodes()];
+            foreach (var item in _nodeIdsLookUp)
+            {
+                if (item.Value >= 0) inverseNodeIdsLookUp[item.Value] = item.Key;
+            }
             // Iterate
             for (int iterations = 0; iterations < filter.NumberOfIterations; iterations++)
             {
@@ -4004,21 +4074,22 @@ namespace CaeResults
                                 foreach (int nb in neighbours)
                                 {
                                     if (nb == nodeId) continue;
+                                    if (!TryGetResultNodeId(nb, out int neighbourResultNodeId)) continue;
                                     //
                                     n2 = new Vec3D(_undeformedNodes[nb].Coor);
                                     //
                                     float d = (float)(n1 - n2).Len2;
                                     float w = (float)(1.0 / (Math.Pow(d, power) + eps));
                                     //
-                                    weightedSum += w * values[i][_nodeIdsLookUp[nb]];
+                                    weightedSum += w * values[i][neighbourResultNodeId];
                                     weightSum += w;
                                 }
                                 //
-                                if (weightSum > 0)
+                                if (weightSum > 0 && TryGetResultNodeId(nodeId, out int resultNodeId))
                                 {
                                     float neighbourAverage = weightedSum / weightSum;
-                                    nodeId = _nodeIdsLookUp[nodeId];
-                                    filteredValues[i][nodeId] = (float)((1.0 - alpha) * values[i][nodeId] + alpha * neighbourAverage);
+                                    filteredValues[i][resultNodeId] =
+                                        (float)((1.0 - alpha) * values[i][resultNodeId] + alpha * neighbourAverage);
                                 }
                                 else filteredValues[i][j] = values[i][j];
                             }
@@ -4039,32 +4110,20 @@ namespace CaeResults
                     {
                         if (cell.Length == 6)
                         {
-                            int n0 = _nodeIdsLookUp[cell[0]];
-                            int n1 = _nodeIdsLookUp[cell[1]];
-                            int n2 = _nodeIdsLookUp[cell[2]];
-                            int n3 = _nodeIdsLookUp[cell[3]];
-                            int n4 = _nodeIdsLookUp[cell[4]];
-                            int n5 = _nodeIdsLookUp[cell[5]];
+                            if (!TryGetResultNodeIds(cell, out int[] n)) continue;
                             //
-                            values[i][n3] = (values[i][n0] + values[i][n1]) / 2;
-                            values[i][n4] = (values[i][n1] + values[i][n2]) / 2;
-                            values[i][n5] = (values[i][n2] + values[i][n0]) / 2;
+                            values[i][n[3]] = (values[i][n[0]] + values[i][n[1]]) / 2;
+                            values[i][n[4]] = (values[i][n[1]] + values[i][n[2]]) / 2;
+                            values[i][n[5]] = (values[i][n[2]] + values[i][n[0]]) / 2;
                         }
                         else if (cell.Length == 8)
                         {
-                            int n0 = _nodeIdsLookUp[cell[0]];
-                            int n1 = _nodeIdsLookUp[cell[1]];
-                            int n2 = _nodeIdsLookUp[cell[2]];
-                            int n3 = _nodeIdsLookUp[cell[3]];
-                            int n4 = _nodeIdsLookUp[cell[4]];
-                            int n5 = _nodeIdsLookUp[cell[5]];
-                            int n6 = _nodeIdsLookUp[cell[6]];
-                            int n7 = _nodeIdsLookUp[cell[7]];
+                            if (!TryGetResultNodeIds(cell, out int[] n)) continue;
                             //
-                            values[i][n4] = (values[i][n0] + values[i][n1]) / 2;
-                            values[i][n5] = (values[i][n1] + values[i][n2]) / 2;
-                            values[i][n6] = (values[i][n2] + values[i][n3]) / 2;
-                            values[i][n7] = (values[i][n3] + values[i][n0]) / 2;
+                            values[i][n[4]] = (values[i][n[0]] + values[i][n[1]]) / 2;
+                            values[i][n[5]] = (values[i][n[1]] + values[i][n[2]]) / 2;
+                            values[i][n[6]] = (values[i][n[2]] + values[i][n[3]]) / 2;
+                            values[i][n[7]] = (values[i][n[3]] + values[i][n[0]]) / 2;
                         }
                     }
                 }
@@ -4128,7 +4187,7 @@ namespace CaeResults
                                 //
                                 foreach (var nodeId in part.NodeLabels)
                                 {
-                                    resultsNodeId = _nodeIdsLookUp[nodeId];
+                                    if (!TryGetResultNodeId(nodeId, out resultsNodeId)) continue;
                                     if (limits[resultsNodeId] != 0)
                                         limits[resultsNodeId] = Math.Min(limits[resultsNodeId], itemLimit);
                                     else limits[resultsNodeId] = itemLimit;
@@ -4154,7 +4213,7 @@ namespace CaeResults
                                 //
                                 foreach (var nodeId in _mesh.GetNodeIdsFromElementSet(elementSet))
                                 {
-                                    resultsNodeId = _nodeIdsLookUp[nodeId];
+                                    if (!TryGetResultNodeId(nodeId, out resultsNodeId)) continue;
                                     if (limits[resultsNodeId] != 0)
                                         limits[resultsNodeId] = Math.Min(limits[resultsNodeId], itemLimit);
                                     else limits[resultsNodeId] = itemLimit;
@@ -4345,7 +4404,7 @@ namespace CaeResults
                     foreach (var entry in _undeformedNodes)
                     {
                         node = entry.Value;
-                        resultNodeId = _nodeIdsLookUp[node.Id];
+                        if (!TryGetResultNodeId(node.Id, out resultNodeId)) continue;
                         // Node coordinates
                         coor = node.Coor;
                         // Coordinate system directions at node
@@ -4372,7 +4431,7 @@ namespace CaeResults
                     foreach (var entry in _undeformedNodes)
                     {
                         node = entry.Value;
-                        resultNodeId = _nodeIdsLookUp[node.Id];
+                        if (!TryGetResultNodeId(node.Id, out resultNodeId)) continue;
                         // Node coordinates
                         coor = node.Coor;
                         // Coordinate system directions at node
@@ -4816,7 +4875,7 @@ namespace CaeResults
                                         for (int i = 0; i < nodeIds.Length; i++)
                                         {
                                             name = nodeIds[i].ToString();
-                                            resultNodeId = _nodeIdsLookUp[nodeIds[i]];
+                                            if (!TryGetResultNodeId(nodeIds[i], out resultNodeId)) continue;
                                             component.Entries[name].Add(fieldData.Time, values[resultNodeId]);
                                         }
                                     }
@@ -5428,8 +5487,8 @@ namespace CaeResults
                         nodeIdValue.Clear();
                         for (int i = 0; i < nodeIds.Length; i++)
                         {
+                            if (!TryGetResultNodeId(nodeIds[i], out resultNodeId)) continue;
                             nodeIdNode.Add(nodeIds[i], new FeNode(nodeIds[i], deformedCoor[i]));
-                            resultNodeId = _nodeIdsLookUp[nodeIds[i]];
                             nodeIdValue.Add(nodeIds[i], values[resultNodeId]);
                         }
                         if (byGeometry)
@@ -5538,7 +5597,7 @@ namespace CaeResults
                     for (int i = 0; i < nodeIds.Length; i++)
                     {
                         name = nodeIds[i].ToString();
-                        resultNodeId = _nodeIdsLookUp[nodeIds[i]];
+                        if (!TryGetResultNodeId(nodeIds[i], out resultNodeId)) continue;
                         resultNode = _undeformedNodes[nodeIds[i]];
                         //
                         if (nodeCoorType == OutputNodeCoordinatesEnum.Undeformed)
@@ -5600,7 +5659,7 @@ namespace CaeResults
                         for (int j = 0; j < nodeIds.Length; j++)
                         {
                             name = nodeIds[j].ToString();
-                            resultNodeId = _nodeIdsLookUp[nodeIds[j]];
+                            if (!TryGetResultNodeId(nodeIds[j], out resultNodeId)) continue;
                             historyResultComponent.Entries[name].Add(i, values[resultNodeId]);
                         }
                     }
@@ -6606,7 +6665,7 @@ namespace CaeResults
                     {
                         int resultNodeId;
                         // Scale only result parts
-                        if (_nodeIdsLookUp.TryGetValue(globalNodeIds[i], out resultNodeId))
+                        if (TryGetResultNodeId(globalNodeIds[i], out resultNodeId))
                         {
                             for (int j = 0; j < 3; j++)
                             {
@@ -6854,14 +6913,20 @@ namespace CaeResults
             //
             if (slidingDistanceAll != null)
             {
-                float[] coefficients = new float[_nodeIdsLookUp.Count()]; 
+                float[] coefficients = new float[GetNumOfResultNodes()];
                 if (nodeIdCoefficient != null)
                 {
-                    foreach (var entry in _nodeIdsLookUp) coefficients[entry.Value] = (float)nodeIdCoefficient[entry.Key];
+                    foreach (var entry in _nodeIdsLookUp)
+                    {
+                        if (entry.Value >= 0) coefficients[entry.Value] = (float)nodeIdCoefficient[entry.Key];
+                    }
                 }
                 else
                 {
-                    foreach (var entry in _nodeIdsLookUp) coefficients[entry.Value] = 0;
+                    foreach (var entry in _nodeIdsLookUp)
+                    {
+                        if (entry.Value >= 0) coefficients[entry.Value] = 0;
+                    }
                 }
                 //
                 float dh;
@@ -6949,7 +7014,7 @@ namespace CaeResults
                             {
                                 foreach (var entry in nodeIdZeroDisplacements)
                                 {
-                                    id = _nodeIdsLookUp[entry.Key];
+                                    if (!TryGetResultNodeId(entry.Key, out id)) continue;
                                     if (entry.Value[0]) normal.X = 0;
                                     else normal.X = normalN1Values[id];
                                     if (entry.Value[1]) normal.Y = 0;
@@ -7093,8 +7158,9 @@ namespace CaeResults
                     foreach (var nodeId in sourceNodeIds)
                     {
                         // Source point
+                        if (!TryGetResultNodeId(nodeId, out int sourceResultNodeId)) continue;
                         coor = _undeformedNodes[nodeId].Coor;
-                        value = values[_nodeIdsLookUp[nodeId]];
+                        value = values[sourceResultNodeId];
                         //
                         // Transform - rotate for alpha
                         rotatedCoor = new double[3];
@@ -7109,9 +7175,10 @@ namespace CaeResults
                     destinationNodeIds = destinationNodeSet.Labels;
                     foreach (var nodeId in destinationNodeIds)
                     {
+                        if (!TryGetResultNodeId(nodeId, out int destinationResultNodeId)) continue;
                         cloudInterpolator.InterpolateAt(_undeformedNodes[nodeId].Coor,
                                                         CloudInterpolatorEnum.ClosestPoint, 0, out distance, out result);
-                        values[_nodeIdsLookUp[nodeId]] = (float)result[0];
+                        values[destinationResultNodeId] = (float)result[0];
                     }
                 }
             }
@@ -7153,10 +7220,11 @@ namespace CaeResults
                     foreach (var nodeId in sourceNodeIds)
                     {
                         // Source point
+                        if (!TryGetResultNodeId(nodeId, out int sourceResultNodeId)) continue;
                         coor = _undeformedNodes[nodeId].Coor;
-                        vector = new double[] { comp1[_nodeIdsLookUp[nodeId]],
-                                                comp2[_nodeIdsLookUp[nodeId]],
-                                                comp3[_nodeIdsLookUp[nodeId]]};
+                        vector = new double[] { comp1[sourceResultNodeId],
+                                                comp2[sourceResultNodeId],
+                                                comp3[sourceResultNodeId]};
                         // Transform - rotate for alpha
                         rotatedCoor = new double[3];
                         rotatedCoor[0] = coor[0] * Math.Cos(angle) - coor[1] * Math.Sin(angle);
@@ -7174,11 +7242,12 @@ namespace CaeResults
                     destinationNodeIds = destinationNodeSet.Labels;
                     foreach (var nodeId in destinationNodeIds)
                     {
+                        if (!TryGetResultNodeId(nodeId, out int destinationResultNodeId)) continue;
                         cloudInterpolator.InterpolateAt(_undeformedNodes[nodeId].Coor,
                                                         CloudInterpolatorEnum.ClosestPoint, 0, out distance, out result);
-                        comp1[_nodeIdsLookUp[nodeId]] = (float)result[0];
-                        comp2[_nodeIdsLookUp[nodeId]] = (float)result[1];
-                        comp3[_nodeIdsLookUp[nodeId]] = (float)result[2];
+                        comp1[destinationResultNodeId] = (float)result[0];
+                        comp2[destinationResultNodeId] = (float)result[1];
+                        comp3[destinationResultNodeId] = (float)result[2];
                     }
                 }
             }
@@ -7197,6 +7266,8 @@ namespace CaeResults
             //
             foreach (var entry in _nodeIdsLookUp)
             {
+                if (entry.Value < 0) continue;
+                //
                 xyz[0] = component1[entry.Value];
                 xyz[1] = component2[entry.Value];
                 xyz[2] = component3[entry.Value];
@@ -7426,7 +7497,7 @@ namespace CaeResults
             int locNodeId;
             foreach (var entry in globalVectors)
             {
-                locNodeId = _nodeIdsLookUp[entry.Key];
+                if (!TryGetResultNodeId(entry.Key, out locNodeId)) continue;
                 component1[locNodeId] = (float)entry.Value[0];
                 component2[locNodeId] = (float)entry.Value[1];
                 component3[locNodeId] = (float)entry.Value[2];
@@ -7461,6 +7532,8 @@ namespace CaeResults
             {
                 foreach (var entry in _nodeIdsLookUp)
                 {
+                    if (entry.Value < 0) continue;
+                    //
                     xyz[0] = vectors[0][entry.Value];
                     xyz[1] = vectors[1][entry.Value];
                     xyz[2] = vectors[2][entry.Value];
@@ -7763,6 +7836,7 @@ namespace CaeResults
             AvgData avgDataClone;
             Dictionary<int, double> averagedNodalValues;
             Dictionary<double, float[]> timeValues = new Dictionary<double, float[]>();
+            int numOfResultNodes = GetNumOfResultNodes();
             for (int i = 0; i < sortedTime.Length; i++)
             {
                 avgDataClone = new AvgData(avgData);
@@ -7777,11 +7851,12 @@ namespace CaeResults
                     }
                 }
                 //
-                averagedValues = new float[_nodeIdsLookUp.Count];
+                averagedValues = new float[numOfResultNodes];
                 averagedNodalValues = avgDataClone.GetAveragedValues(areaAverage);
                 foreach (var entry in averagedNodalValues)
                 {
-                    averagedValues[_nodeIdsLookUp[entry.Key]] = (float)entry.Value;
+                    if (TryGetResultNodeId(entry.Key, out int resultNodeId))
+                        averagedValues[resultNodeId] = (float)entry.Value;
                 }
                 timeValues.Add(sortedTime[i], averagedValues);
             }
@@ -7946,8 +8021,12 @@ namespace CaeResults
             int[] nodeIds = null;
             if (_mesh.NodeSets.TryGetValue("Node_Set-1", out nodeSet))
             {
-                nodeIds = new int[nodeSet.Labels.Length];
-                for (int i = 0; i < nodeSet.Labels.Length; i++) nodeIds[i] = _nodeIdsLookUp[nodeSet.Labels[i]];
+                List<int> resultNodeIds = new List<int>();
+                foreach (var label in nodeSet.Labels)
+                {
+                    if (TryGetResultNodeId(label, out int resultNodeId)) resultNodeIds.Add(resultNodeId);
+                }
+                nodeIds = resultNodeIds.ToArray();
                 Array.Sort(nodeIds);
             }
             //

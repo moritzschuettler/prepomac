@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -157,6 +157,10 @@ namespace CaeResults
             }
             return accepted;
         }
+        private static bool TryGetResultNodeId(Dictionary<int, int> nodeIdsLookUp, int nodeId, out int resultNodeId)
+        {
+            return nodeIdsLookUp.TryGetValue(nodeId, out resultNodeId) && resultNodeId >= 0;
+        }
         private static double GetTaperWeight(double dist, double radius, double taperStart)
         {
             if (dist > radius) return 0;
@@ -221,13 +225,19 @@ namespace CaeResults
                     if (weight <= 0) continue;
                     //
                     double elemS11 = 0, elemS22 = 0, elemS12 = 0;
+                    bool allNodesHaveResults = true;
                     foreach (int nodeId in elementNodeIds)
                     {
-                        int resultId = nodeIdsLookUp[nodeId];
+                        if (!TryGetResultNodeId(nodeIdsLookUp, nodeId, out int resultId))
+                        {
+                            allNodesHaveResults = false;
+                            break;
+                        }
                         elemS11 += s11Values[resultId];
                         elemS22 += s22Values[resultId];
                         elemS12 += s12Values[resultId];
                     }
+                    if (!allNodesHaveResults) continue;
                     elemS11 /= elementNodeIds.Length;
                     elemS22 /= elementNodeIds.Length;
                     elemS12 /= elementNodeIds.Length;
@@ -397,24 +407,48 @@ namespace CaeResults
                 //
                 if (p.NodeIds.Length == 1)
                 {
-                    int resultId = nodeIdsLookUp[p.NodeIds[0]];
-                    defX[i] = p.RefX + u1Values[resultId];
-                    defY[i] = p.RefY + u2Values[resultId];
+                    if (TryGetResultNodeId(nodeIdsLookUp, p.NodeIds[0], out int resultId))
+                    {
+                        defX[i] = p.RefX + u1Values[resultId];
+                        defY[i] = p.RefY + u2Values[resultId];
+                    }
+                    // A point without results is dropped from the fit by zeroing its weight
+                    else
+                    {
+                        defX[i] = p.RefX;
+                        defY[i] = p.RefY;
+                        weight[i] = 0;
+                    }
                 }
                 else
                 {
                     double[] dxs = new double[p.NodeIds.Length];
                     double[] dys = new double[p.NodeIds.Length];
+                    bool allNodesHaveResults = true;
                     for (int j = 0; j < p.NodeIds.Length; j++)
                     {
                         FeNode node = undeformedNodes[p.NodeIds[j]];
-                        int resultId = nodeIdsLookUp[p.NodeIds[j]];
+                        if (!TryGetResultNodeId(nodeIdsLookUp, p.NodeIds[j], out int resultId))
+                        {
+                            allNodesHaveResults = false;
+                            break;
+                        }
                         dxs[j] = node.X + u1Values[resultId];
                         dys[j] = node.Y + u2Values[resultId];
                     }
-                    ShoelaceAreaAndCentroid(dxs, dys, out _, out double cx, out double cy, out _);
-                    defX[i] = cx;
-                    defY[i] = cy;
+                    if (allNodesHaveResults)
+                    {
+                        ShoelaceAreaAndCentroid(dxs, dys, out _, out double cx, out double cy, out _);
+                        defX[i] = cx;
+                        defY[i] = cy;
+                    }
+                    // A point without results is dropped from the fit by zeroing its weight
+                    else
+                    {
+                        defX[i] = p.RefX;
+                        defY[i] = p.RefY;
+                        weight[i] = 0;
+                    }
                 }
             }
             //
