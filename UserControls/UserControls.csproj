@@ -226,7 +226,7 @@
       <DependentUpon>ModelTree.cs</DependentUpon>
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="OrderedDictionaryTreeLayoutChange.cs" />
+    <Compile Include="Trees\OrderedDictionaryTreeLayoutChange.cs" />
     <Compile Include="ModelTree.Designer.cs">
       <DependentUpon>ModelTree.cs</DependentUpon>
     </Compile>
@@ -249,10 +249,10 @@
     <Compile Include="Trees\CodersLabTreeView.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="ToolStripFocus.cs">
+    <Compile Include="ToolStrip\ToolStripFocus.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="ToolStripFocus.Designer.cs">
+    <Compile Include="ToolStrip\ToolStripFocus.Designer.cs">
       <DependentUpon>ToolStripFocus.cs</DependentUpon>
     </Compile>
     <Compile Include="Trees\Extensions.cs" />
