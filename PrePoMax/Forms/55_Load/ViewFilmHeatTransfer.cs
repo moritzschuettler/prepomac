@@ -128,7 +128,8 @@ namespace PrePoMax
         {
             List<string> names = new List<string>() { Amplitude.DefaultAmplitudeName };
             names.AddRange(amplitudeNames);
-            DynamicCustomTypeDescriptor.PopulateProperty(nameof(CoefficientAmplitudeName), names.ToArray(), false, 2);
+            DynamicCustomTypeDescriptor.PopulateOptionalProperty(nameof(CoefficientAmplitudeName), names.ToArray(),
+                                                                 false, 2);
         }
     }
 }

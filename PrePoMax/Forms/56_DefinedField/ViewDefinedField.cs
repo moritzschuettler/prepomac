@@ -79,7 +79,7 @@ namespace PrePoMax
         {
             List<string> names = new List<string>() { CaeModel.Amplitude.DefaultAmplitudeName };
             names.AddRange(amplitudeNames);
-            DynamicCustomTypeDescriptor.PopulateProperty(nameof(AmplitudeName), names.ToArray(), false, 2);
+            DynamicCustomTypeDescriptor.PopulateOptionalProperty(nameof(AmplitudeName), names.ToArray(), false, 2);
         }
     }
 }

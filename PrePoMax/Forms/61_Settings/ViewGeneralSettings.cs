@@ -149,6 +149,15 @@ namespace PrePoMax.Settings
             get { return _generalSettings.RunHistoryPostprocessing; }
             set { _generalSettings.RunHistoryPostprocessing = value; }
         }
+        //
+        [Category("Property editor")]
+        [OrderedDisplayName(0, 10, "Show all properties")]
+        [Description("Select yes to always show the amplitude, coordinate system and distribution selection properties.")]
+        public bool ShowAllProperties
+        {
+            get { return _generalSettings.ShowAllProperties; }
+            set { _generalSettings.ShowAllProperties = value; }
+        }
 
 
         // Constructors                                                                                                             
@@ -164,6 +173,7 @@ namespace PrePoMax.Settings
             _dctd.RenameBooleanPropertyToYesNo(nameof(OpenLastFile));
             _dctd.RenameBooleanPropertyToYesNo(nameof(SaveResultsInPmx));
             _dctd.RenameBooleanPropertyToYesNo(nameof(SplitPeriodicFaces));
+            _dctd.RenameBooleanPropertyToYesNo(nameof(ShowAllProperties));
             // Add unit system types as description strings
             List<string> descriptions = new List<string>();
             foreach (UnitSystemType unitSystemType in Enum.GetValues(typeof(UnitSystemType)))

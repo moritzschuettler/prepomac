@@ -102,7 +102,7 @@ namespace PrePoMax
         {
             List<string> names = new List<string>() { Distribution.DefaultDistributionName };
             names.AddRange(distributionNames);
-            DynamicCustomTypeDescriptor.PopulateProperty(nameof(DistributionName), names.ToArray(), false, 2);
+            DynamicCustomTypeDescriptor.PopulateOptionalProperty(nameof(DistributionName), names.ToArray(), false, 2);
         }
     }
 }

@@ -12343,6 +12343,7 @@ namespace PrePoMax
 
             // General settings
             CaeMesh.Globals.EdgeAngle = _settings.General.EdgeAngle;
+            DynamicTypeDescriptor.DynamicCustomTypeDescriptor.ShowAllProperties = _settings.General.ShowAllProperties;
             // Graphics settings
             GraphicsSettings gs = _settings.Graphics;
             _form.SetBackground(gs.BackgroundType == BackgroundType.Gradient, gs.TopColor, gs.BottomColor, false);

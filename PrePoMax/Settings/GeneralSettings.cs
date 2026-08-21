@@ -49,6 +49,8 @@ namespace PrePoMax
         private double _edgeAngle;
         // Post-processing
         private RunPostProcessingEnum _runHistoryPostprocessing;
+        // Property editor
+        private bool _showAllProperties;
         //
         private LinkedList<string> _recentFiles;
         private List<string> _materialLibraryFiles;
@@ -89,6 +91,7 @@ namespace PrePoMax
             get { return _runHistoryPostprocessing; }
             set { _runHistoryPostprocessing = value; }
         }
+        public bool ShowAllProperties { get { return _showAllProperties; } set { _showAllProperties = value; } }
 
 
         // Constructors                                                                                                             
@@ -112,6 +115,7 @@ namespace PrePoMax
             _numOfSplitFaces = 2;
             _edgeAngle = 30;
             _runHistoryPostprocessing = RunPostProcessingEnum.Ask;
+            _showAllProperties = true;
             //
             ResetFormSize();
         }

@@ -1339,6 +1339,7 @@ namespace DynamicTypeDescriptor
         private PropertyDescriptorList m_pdl = new PropertyDescriptorList();
         private object m_instance = null;
         private Hashtable m_hashRM = new Hashtable();
+        public static bool ShowAllProperties = true;
         public DynamicCustomTypeDescriptor(ICustomTypeDescriptor ctd, object instance)
           : base(ctd)
         {
@@ -1638,6 +1639,11 @@ namespace DynamicTypeDescriptor
                 StandardValueAttribute sva = new StandardValueAttribute(name);
                 cpd.StatandardValues.Add(sva);
             }
+        }
+        public void PopulateOptionalProperty(string propertyName, string[] values, bool addBlankIfEmpty = true,
+                                             int numOfItemsToBeBrowsable = 1)
+        {
+            PopulateProperty(propertyName, values, addBlankIfEmpty, ShowAllProperties ? 1 : numOfItemsToBeBrowsable);
         }
         public CustomPropertyDescriptor GetProperty<T>(Expression<Func<T>> propertyLambda)
         {
