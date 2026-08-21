@@ -7,8 +7,10 @@
 // Author: Matej Borovinšek
 // Contributors:
 
+using CaeGlobals;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Windows.Forms;
 using ZedGraph;
 
@@ -18,7 +20,11 @@ namespace UserControls
     {
         // Variables                                                                                                                
         private const int _maxPlotCount = 4;
+        private static readonly Color _highlightColor = Color.FromArgb(214, 227, 245);
+        private static readonly Color _highlightHeaderColor = Color.LightSteelBlue;
         private int _columnCount;
+        private bool _sharedXValues;
+        private bool _splitterDistanceInitialized;
         private List<XYPlot> _plots;
         private XYPlot _selectedPlot;
 
@@ -55,8 +61,17 @@ namespace UserControls
             InitializeComponent();
             //
             _columnCount = 1;
+            _sharedXValues = true;
+            _splitterDistanceInitialized = false;
             _plots = new List<XYPlot>();
             _selectedPlot = null;
+            //
+            dgvData.EnableHeadersVisualStyles = false;
+            InitializeToolTips();
+            //
+            splitContainer.SizeChanged += splitContainer_SizeChanged;
+            dgvData.ColumnHeaderMouseClick += dgvData_ColumnHeaderMouseClick;
+            dgvData.ColumnHeaderMouseDoubleClick += dgvData_ColumnHeaderMouseDoubleClick;
             //
             AddPlot();
         }
@@ -93,6 +108,42 @@ namespace UserControls
             {
             }
         }
+        private void btnSaveAs_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                XYPlot plot = _selectedPlot;
+                if (plot == null && _plots.Count > 0) plot = _plots[0];
+                //
+                if (plot != null) plot.SaveAsImage();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void btnSigleColumn_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                ColumnCount = 1;
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void btnDoubleColumn_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                ColumnCount = 2;
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
         private void Plot_CloseButtonPressed(XYPlot plot)
         {
             RemovePlot(plot);
@@ -101,13 +152,74 @@ namespace UserControls
         {
             SelectPlot(plot);
         }
-        private void Plot_CurvesChanged(XYPlot plot)
+        private void Plot_Changed(XYPlot plot)
         {
             if (plot == _selectedPlot) FillDataGrid(plot);
+        }
+        private void dgvData_ColumnHeaderMouseDoubleClick(object sender, DataGridViewCellMouseEventArgs e)
+        {
+            try
+            {
+                if (_selectedPlot == null) return;
+                //
+                int curveId = GetCurveIdFromColumnId(e.ColumnIndex);
+                CurveList curves = _selectedPlot.Pane.CurveList;
+                //
+                if (curveId >= 0 && curveId < curves.Count) _selectedPlot.EditCurve(curves[curveId]);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void Plot_CurveSelected(XYPlot plot)
+        {
+            if (plot == _selectedPlot) HighlightDataGridColumns(plot);
+        }
+        private void splitContainer_SizeChanged(object sender, EventArgs e)
+        {
+            InitializeSplitterDistance();
+        }
+        private void dgvData_ColumnHeaderMouseClick(object sender, DataGridViewCellMouseEventArgs e)
+        {
+            try
+            {
+                if (_selectedPlot == null) return;
+                //
+                int curveId = GetCurveIdFromColumnId(e.ColumnIndex);
+                CurveList curves = _selectedPlot.Pane.CurveList;
+                //
+                if (curveId >= 0 && curveId < curves.Count) _selectedPlot.SelectedCurve = curves[curveId];
+                else
+                {
+                    _selectedPlot.SelectedCurve = null;
+                    dgvData.ClearSelection();
+                }
+            }
+            catch
+            {
+            }
         }
 
 
         // Methods                                                                                                                  
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            //
+            InitializeSplitterDistance();
+        }
+        private void InitializeSplitterDistance()
+        {
+            if (_splitterDistanceInitialized || !Visible || !IsHandleCreated) return;
+            //
+            int distance = splitContainer.Height / 2;
+            if (distance < splitContainer.Panel1MinSize ||
+                distance > splitContainer.Height - splitContainer.Panel2MinSize - splitContainer.SplitterWidth) return;
+            //
+            splitContainer.SplitterDistance = distance;
+            _splitterDistanceInitialized = true;
+        }
         public XYPlot AddPlot()
         {
             if (_plots.Count >= _maxPlotCount) return null;
@@ -115,7 +227,8 @@ namespace UserControls
             XYPlot plot = new XYPlot();
             plot.CloseButtonPressedEvent += Plot_CloseButtonPressed;
             plot.SelectedEvent += Plot_Selected;
-            plot.CurvesChangedEvent += Plot_CurvesChanged;
+            plot.PlotChangedEvent += Plot_Changed;
+            plot.CurveSelectedEvent += Plot_CurveSelected;
             //
             _plots.Add(plot);
             ArrangePlots();
@@ -129,7 +242,8 @@ namespace UserControls
             //
             plot.CloseButtonPressedEvent -= Plot_CloseButtonPressed;
             plot.SelectedEvent -= Plot_Selected;
-            plot.CurvesChangedEvent -= Plot_CurvesChanged;
+            plot.PlotChangedEvent -= Plot_Changed;
+            plot.CurveSelectedEvent -= Plot_CurveSelected;
             //
             tlpPlots.Controls.Remove(plot);
             if (_selectedPlot == plot) _selectedPlot = null;
@@ -188,6 +302,19 @@ namespace UserControls
             tlpPlots.ResumeLayout(true);
             //
             UpdateCloseButtons();
+            UpdateColumnButtons();
+        }
+        private void InitializeToolTips()
+        {
+            ttText.SetToolTip(btnSaveAs, "Save plot image as");
+            ttText.SetToolTip(btnSigleColumn, "Arrange the plots in a single column");
+            ttText.SetToolTip(btnDoubleColumn, "Arrange the plots in two columns");
+            ttText.SetToolTip(btnClose, "Close XY plot panel");
+        }
+        private void UpdateColumnButtons()
+        {
+            btnSigleColumn.Enabled = _plots.Count > 1;
+            btnDoubleColumn.Enabled = _plots.Count > 1;
         }
         private void UpdateCloseButtons()
         {
@@ -208,7 +335,9 @@ namespace UserControls
             CurveList curves = pane.CurveList;
             if (curves.Count == 0) return;
             //
-            if (HaveEqualXValues(curves))
+            _sharedXValues = HaveEqualXValues(curves);
+            //
+            if (_sharedXValues)
             {
                 AddDataGridColumn(GetAxisTitle(pane.XAxis.Title.Text, "X"));
                 for (int i = 0; i < curves.Count; i++) AddDataGridColumn(GetCurveName(curves[i], i));
@@ -258,6 +387,34 @@ namespace UserControls
                 }
                 dgvData.Rows.AddRange(rows);
             }
+            //
+            dgvData.ClearSelection();
+            //
+            HighlightDataGridColumns(plot);
+        }
+        private void HighlightDataGridColumns(XYPlot plot)
+        {
+            if (plot == null) return;
+            //
+            int selectedCurveId = plot.SelectedCurve == null ? -1 : plot.Pane.CurveList.IndexOf(plot.SelectedCurve);
+            //
+            bool highlight;
+            DataGridViewColumn column;
+            for (int i = 0; i < dgvData.Columns.Count; i++)
+            {
+                column = dgvData.Columns[i];
+                highlight = selectedCurveId >= 0 && GetCurveIdFromColumnId(i) == selectedCurveId;
+                //
+                column.DefaultCellStyle.BackColor = highlight ? _highlightColor : Color.Empty;
+                column.HeaderCell.Style.BackColor = highlight ? _highlightHeaderColor : Color.Empty;
+            }
+        }
+        private int GetCurveIdFromColumnId(int columnId)
+        {
+            if (columnId < 0) return -1;
+            //
+            if (_sharedXValues) return columnId - 1;
+            else return columnId / 2;
         }
         private void AddDataGridColumn(string headerText)
         {
@@ -287,6 +444,9 @@ namespace UserControls
         }
         private string GetCurveName(CurveItem curve, int curveId)
         {
+            XYPlotCurveSettings settings = curve.Tag as XYPlotCurveSettings;
+            if (settings != null && settings.Name.Length > 0) return settings.Name;
+            //
             if (curve.Label == null || string.IsNullOrEmpty(curve.Label.Text)) return "Curve " + (curveId + 1);
             return curve.Label.Text;
         }

@@ -34,7 +34,6 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using UserControls;
 using vtkControl;
-using static System.ComponentModel.Design.ObjectSelectorEditor;
 
 
 namespace PrePoMax
@@ -344,9 +343,9 @@ namespace PrePoMax
                 _modelTree.DuplicateEvent += ModelTree_DuplicateEvent;
                 _modelTree.PropagateEvent += ModelTree_PropagateEvent;
                 _modelTree.PreviewEvent += ModelTree_PreviewEvent;
-                _modelTree.AddHistoryOutputsToPlotEvent += AddHistoryOutputsToPlot;
-                _modelTree.AddHistoryOutputsToNewPlotEvent += AddHistoryOutputsToNewPlot;
-                _modelTree.CanAddHistoryOutputToNewPlot = CanAddHistoryOutputToNewPlot;
+                _modelTree.AddItemsToPlotEvent += AddItemsToPlot;
+                _modelTree.AddItemsToNewPlotEvent += AddItemsToNewPlot;
+                _modelTree.CanAddItemsToNewPlot = CanAddItemsToNewPlot;
                 _modelTree.CreateCompoundPart += CreateAndImportCompoundPart;
                 _modelTree.SwapPartGeometries += SwapPartGeometries;
                 _modelTree.PreviewEdgeMesh += PreviewEdgeMeshAsync;
@@ -970,7 +969,7 @@ namespace PrePoMax
             if (this != ActiveForm) return;
             if (tbOutput.Focused) return;
             if (_modelTree.ContainsFocus) return;
-            if (_visibleSidePanel != null && _visibleSidePanel.Focused) return;
+            if (_visibleSidePanel != null && _visibleSidePanel.ContainsFocus) return;
             //
             Keys key = (Keys)vKey;
             if (viewportTextEditor.Visible)

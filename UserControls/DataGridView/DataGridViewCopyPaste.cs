@@ -47,6 +47,15 @@ namespace UserControls
         public bool EnableCutMenu { get { return tsmiCut.Enabled; } set { tsmiCut.Enabled = value; } }
         public bool EnablePasteMenu { get { return tsmiPaste.Enabled; } set { tsmiPaste.Enabled = value; } }
         public bool EnablePlotMenu { get { return tsmiPlot.Enabled; } set { tsmiPlot.Enabled = value; } }
+        public bool ShowPlotMenu
+        {
+            get { return tsmiPlot.Visible; }
+            set
+            {
+                tsmiPlot.Visible = value;
+                tssDivider1.Visible = value;
+            }
+        }
         public bool StartPlotAtZero
         {
             get { return frmDiagramView.StartPlotAtZero; }

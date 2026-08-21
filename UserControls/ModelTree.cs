@@ -326,9 +326,9 @@ namespace UserControls
         public event Action<NamedClass[], string[]> DuplicateEvent;
         public event Action<NamedClass[], string[]> PropagateEvent;
         public event Action<NamedClass[], string[]> PreviewEvent;
-        public event Action<HistoryResultData[]> AddHistoryOutputsToPlotEvent;
-        public event Action<HistoryResultData[]> AddHistoryOutputsToNewPlotEvent;
-        public Func<bool> CanAddHistoryOutputToNewPlot;
+        public event Action<NamedClass[]> AddItemsToPlotEvent;
+        public event Action<NamedClass[]> AddItemsToNewPlotEvent;
+        public Func<bool> CanAddItemsToNewPlot;
         public event Action<string[]> CreateCompoundPart;
         public event Action<string[]> SwapPartGeometries;
         public event Func<string[], MeshSetupItem, Task> PreviewEdgeMesh;
@@ -1649,7 +1649,7 @@ namespace UserControls
             tsmiEdit.Enabled = enabled;
             // Add to plot
             tsmiAddToPlot.Enabled = true;
-            tsmiAddToNewPlot.Enabled = CanAddHistoryOutputToNewPlot == null || CanAddHistoryOutputToNewPlot();
+            tsmiAddToNewPlot.Enabled = CanAddItemsToNewPlot == null || CanAddItemsToNewPlot();
             // Mesh
             tsmiCreateMesh.Enabled = true;
             // Copy part
@@ -1716,7 +1716,7 @@ namespace UserControls
             //Propagate
             if (item != null && CanPreview(node)) menuFields.Preview++;
             // Add to plot
-            if (item != null && item is HistoryResultData) menuFields.AddToPlot++;
+            if (item != null && (item is HistoryResultData || item is Amplitude)) menuFields.AddToPlot++;
             // Geometry part - Geometry
             if (item != null && item is GeometryPart && GetActiveTree() == cltvGeometry)
             {
@@ -2243,8 +2243,8 @@ namespace UserControls
         {
             try
             {
-                HistoryResultData[] historyData = GetSelectedHistoryResultData();
-                if (historyData.Length > 0) AddHistoryOutputsToPlotEvent?.Invoke(historyData);
+                NamedClass[] items = GetSelectedPlotItems();
+                if (items.Length > 0) AddItemsToPlotEvent?.Invoke(items);
             }
             catch (Exception ex)
             {
@@ -2255,24 +2255,24 @@ namespace UserControls
         {
             try
             {
-                HistoryResultData[] historyData = GetSelectedHistoryResultData();
-                if (historyData.Length > 0) AddHistoryOutputsToNewPlotEvent?.Invoke(historyData);
+                NamedClass[] items = GetSelectedPlotItems();
+                if (items.Length > 0) AddItemsToNewPlotEvent?.Invoke(items);
             }
             catch (Exception ex)
             {
                 ExceptionTools.Show(this, ex);
             }
         }
-        private HistoryResultData[] GetSelectedHistoryResultData()
+        private NamedClass[] GetSelectedPlotItems()
         {
             TreeNode[] nodes = GetSelectedNodesIncludingGroupItems(GetActiveTree());
-            List<HistoryResultData> historyData = new List<HistoryResultData>();
+            List<NamedClass> items = new List<NamedClass>();
             foreach (TreeNode node in nodes)
             {
-                if (node.Tag is HistoryResultData data) historyData.Add(data);
-                else return new HistoryResultData[0];
+                if (node.Tag is HistoryResultData || node.Tag is Amplitude) items.Add((NamedClass)node.Tag);
+                else return new NamedClass[0];
             }
-            return historyData.ToArray();
+            return items.ToArray();
         }
         private void tsmiPreview_Click(object sender, EventArgs e)
         {

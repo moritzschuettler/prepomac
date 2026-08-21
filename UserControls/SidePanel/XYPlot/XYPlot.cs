@@ -7,6 +7,7 @@
 // Author: Matej Borovinšek
 // Contributors:
 
+using CaeGlobals;
 using System;
 using System.Drawing;
 using System.Windows.Forms;
@@ -17,7 +18,7 @@ namespace UserControls
     public partial class XYPlot : UserControl
     {
         // Variables                                                                                                                
-        private const float _fontSize = 12;
+
         private static readonly Color[] _curveColors = new Color[]
         {
             Color.FromArgb(31, 119, 180), Color.FromArgb(214, 39, 40),
@@ -26,8 +27,14 @@ namespace UserControls
             Color.FromArgb(140, 86, 75), Color.FromArgb(227, 119, 194)
         };
         private const float _curveWidth = 2;
-        private const float _selectedCurveWidth = 4;
+        private const float _selectedCurveWidthIncrement = 2;
         private const int _dimmedCurveAlpha = 60;
+        private const double _curveHitTolerance = 8;
+        private static readonly string[] _hiddenMenuItemTags = new string[] { "save_as", "page_setup", "print" };
+        private const float _pointSymbolSize = 6;
+        private bool _showPointSymbols;
+        private float _fontSize;
+        private string _fontFamily;
         private bool _closeButtonEnabled;
         private CurveItem _selectedCurve;
         private bool _highlighted;
@@ -39,6 +46,17 @@ namespace UserControls
         public ZedGraphControl Graph { get { return zedGraph; } }
         public GraphPane Pane { get { return zedGraph.GraphPane; } }
         public CurveItem SelectedCurve { get { return _selectedCurve; } set { SelectCurve(value); } }
+        public bool ShowPointSymbols
+        {
+            get { return _showPointSymbols; }
+            set
+            {
+                if (value == _showPointSymbols) return;
+                _showPointSymbols = value;
+                UpdateCurveStyles();
+                zedGraph.Invalidate();
+            }
+        }
         public string XAxisTitle
         {
             get { return zedGraph.GraphPane.XAxis.Title.Text; }
@@ -75,7 +93,8 @@ namespace UserControls
         // Events                                                                                                                   
         public event Action<XYPlot> CloseButtonPressedEvent;
         public event Action<XYPlot> SelectedEvent;
-        public event Action<XYPlot> CurvesChangedEvent;
+        public event Action<XYPlot> PlotChangedEvent;
+        public event Action<XYPlot> CurveSelectedEvent;
 
 
         // Constructors                                                                                                             
@@ -88,6 +107,9 @@ namespace UserControls
             SetStyle(ControlStyles.ResizeRedraw, true);
             //
             _closeButtonEnabled = true;
+            _showPointSymbols = true;
+            _fontSize = 12;
+            _fontFamily = "Segoe UI";
             _selectedCurve = null;
             _highlighted = false;
             _borderColor = SystemColors.ControlDark;
@@ -95,8 +117,9 @@ namespace UserControls
             //
             InitializeGraphPane();
             //
-            zedGraph.MouseDown += Child_MouseDown;
             panPlot.MouseDown += Child_MouseDown;
+            zedGraph.MouseDownEvent += ZedGraph_MouseDownEvent;
+            zedGraph.DoubleClickEvent += ZedGraph_DoubleClickEvent;
             zedGraph.ContextMenuBuilder += ZedGraph_ContextMenuBuilder;
             //
             MouseEnter += Child_MouseEnter;
@@ -114,16 +137,38 @@ namespace UserControls
             try
             {
                 SelectedEvent?.Invoke(this);
-                //
-                if (sender == zedGraph)
-                {
-                    zedGraph.Focus();
-                    SelectCurve(GetCurveAtPoint(e.Location));
-                }
             }
             catch
             {
             }
+        }
+        private bool ZedGraph_MouseDownEvent(ZedGraphControl sender, MouseEventArgs e)
+        {
+            try
+            {
+                SelectedEvent?.Invoke(this);
+                //
+                zedGraph.Focus();
+                SelectCurve(GetCurveAtPoint(e.Location));
+            }
+            catch
+            {
+            }
+            return false;
+        }
+        private bool ZedGraph_DoubleClickEvent(ZedGraphControl sender, MouseEventArgs e)
+        {
+            try
+            {
+                CurveItem curve = GetCurveAtPoint(e.Location);
+                if (curve != null) EditCurve(curve);
+                else EditPlot();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+            return true;
         }
         private void Child_MouseEnter(object sender, EventArgs e)
         {
@@ -161,24 +206,37 @@ namespace UserControls
             {
                 SelectedEvent?.Invoke(this);
                 //
+                RemoveHiddenMenuItems(menuStrip);
+                //
                 if (zedGraph.GraphPane.CurveList.Count == 0) return;
                 //
-                int index = 0;
+                int index = menuStrip.Items.Count;
+                menuStrip.Items.Insert(index++, new ToolStripSeparator());
+                //
                 CurveItem curve = GetCurveAtPoint(mousePt);
                 if (curve != null)
                 {
-                    ToolStripMenuItem tsmiDeleteCurve = new ToolStripMenuItem("Delete Curve: " + curve.Label.Text);
+                    ToolStripMenuItem tsmiDeleteCurve = new ToolStripMenuItem("Delete Curve");
                     tsmiDeleteCurve.Tag = curve;
                     tsmiDeleteCurve.Click += DeleteCurve_Click;
                     menuStrip.Items.Insert(index++, tsmiDeleteCurve);
                 }
+                //
                 ToolStripMenuItem tsmiDeleteAllCurves = new ToolStripMenuItem("Delete All Curves");
                 tsmiDeleteAllCurves.Click += DeleteAllCurves_Click;
                 menuStrip.Items.Insert(index++, tsmiDeleteAllCurves);
-                menuStrip.Items.Insert(index++, new ToolStripSeparator());
             }
             catch
             {
+            }
+        }
+        private void RemoveHiddenMenuItems(ContextMenuStrip menuStrip)
+        {
+            string tag;
+            for (int i = menuStrip.Items.Count - 1; i >= 0; i--)
+            {
+                tag = menuStrip.Items[i].Tag as string;
+                if (tag != null && Array.IndexOf(_hiddenMenuItemTags, tag) >= 0) menuStrip.Items.RemoveAt(i);
             }
         }
         private void DeleteCurve_Click(object sender, EventArgs e)
@@ -239,12 +297,8 @@ namespace UserControls
             pane.Legend.Position = LegendPos.TopCenter;
             pane.Legend.Border.IsVisible = false;
             pane.Legend.Fill = new Fill(Color.White);
-            pane.Legend.FontSpec.Size = _fontSize;
             //
-            pane.XAxis.Title.FontSpec.Size = _fontSize;
-            pane.XAxis.Scale.FontSpec.Size = _fontSize;
-            pane.YAxis.Title.FontSpec.Size = _fontSize;
-            pane.YAxis.Scale.FontSpec.Size = _fontSize;
+            UpdateFonts();
             //
             pane.XAxis.MajorGrid.IsVisible = true;
             pane.XAxis.MajorGrid.Color = Color.Gainsboro;
@@ -259,7 +313,13 @@ namespace UserControls
             //
             Color color = _curveColors[pane.CurveList.Count % _curveColors.Length];
             LineItem curve = pane.AddCurve(curveName, xValues, yValues, color, SymbolType.None);
-            curve.Line.Width = _curveWidth;
+            //
+            XYPlotCurveSettings settings = new XYPlotCurveSettings();
+            settings.Name = curveName;
+            curve.Label.Text = GetSingleLineName(curveName);
+            settings.Color = color;
+            settings.LineWidth = _curveWidth;
+            curve.Tag = settings;
             //
             UpdateCurveStyles();
             //
@@ -280,6 +340,8 @@ namespace UserControls
             UpdateCurveStyles();
             //
             zedGraph.Invalidate();
+            //
+            CurveSelectedEvent?.Invoke(this);
         }
         private void UpdateCurveStyles()
         {
@@ -287,18 +349,173 @@ namespace UserControls
             //
             bool selected;
             int alpha;
+            XYPlotCurveSettings settings;
             foreach (CurveItem item in pane.CurveList)
             {
                 if (!(item is LineItem lineItem)) continue;
                 //
+                settings = GetCurveSettings(item);
                 selected = item == _selectedCurve;
                 alpha = _selectedCurve == null || selected ? 255 : _dimmedCurveAlpha;
                 //
-                lineItem.Line.Width = selected ? _selectedCurveWidth : _curveWidth;
-                lineItem.Line.Color = Color.FromArgb(alpha, lineItem.Line.Color);
+                lineItem.IsVisible = settings.Visible;
+                lineItem.Line.Width = selected ? settings.LineWidth + _selectedCurveWidthIncrement : settings.LineWidth;
+                lineItem.Line.Style = settings.GetDashStyle();
+                lineItem.Line.Color = Color.FromArgb(alpha, settings.Color);
+                //
+                lineItem.Symbol.Type = _showPointSymbols ? SymbolType.Circle : SymbolType.None;
+                lineItem.Symbol.Size = _pointSymbolSize;
+                lineItem.Symbol.Border.Color = lineItem.Line.Color;
+                lineItem.Symbol.Fill = new Fill(lineItem.Line.Color);
+                //
                 if (lineItem.Label.FontSpec == null) lineItem.Label.FontSpec = new FontSpec(pane.Legend.FontSpec);
+                UpdateFont(lineItem.Label.FontSpec);
                 lineItem.Label.FontSpec.IsBold = selected;
             }
+        }
+        private void UpdateFonts()
+        {
+            GraphPane pane = zedGraph.GraphPane;
+            //
+            UpdateFont(pane.Legend.FontSpec);
+            UpdateFont(pane.XAxis.Title.FontSpec);
+            UpdateFont(pane.XAxis.Scale.FontSpec);
+            UpdateFont(pane.YAxis.Title.FontSpec);
+            UpdateFont(pane.YAxis.Scale.FontSpec);
+        }
+        private void UpdateFont(FontSpec fontSpec)
+        {
+            fontSpec.Family = _fontFamily;
+            fontSpec.Size = _fontSize;
+        }
+        private string GetSingleLineName(string name)
+        {
+            if (name == null) return "";
+            return name.Replace(Environment.NewLine, " ").Replace("\n", " ").Replace("\r", " ");
+        }
+        private XYPlotCurveSettings GetCurveSettings(CurveItem curve)
+        {
+            XYPlotCurveSettings settings = curve.Tag as XYPlotCurveSettings;
+            if (settings == null)
+            {
+                settings = new XYPlotCurveSettings();
+                settings.Name = curve.Label == null ? "" : curve.Label.Text;
+                if (curve is LineItem lineItem)
+                {
+                    settings.Color = lineItem.Line.Color;
+                    settings.LineWidth = lineItem.Line.Width;
+                    settings.SetDashStyle(lineItem.Line.Style);
+                }
+                settings.Visible = curve.IsVisible;
+                curve.Tag = settings;
+            }
+            return settings;
+        }
+        public void EditCurve(CurveItem curve)
+        {
+            if (curve == null || !zedGraph.GraphPane.CurveList.Contains(curve)) return;
+            //
+            XYPlotCurveSettings originalSettings = new XYPlotCurveSettings(GetCurveSettings(curve));
+            XYPlotCurveSettings editedSettings = new XYPlotCurveSettings(originalSettings);
+            //
+            using (FrmXYPlotSettings frmSettings = new FrmXYPlotSettings())
+            {
+                if (frmSettings.ShowSettings(this, editedSettings, "Curve Settings",
+                                             () => ApplyCurveSettings(curve, editedSettings)) != DialogResult.OK)
+                {
+                    ApplyCurveSettings(curve, originalSettings);
+                }
+            }
+        }
+        private void ApplyCurveSettings(CurveItem curve, XYPlotCurveSettings settings)
+        {
+            XYPlotCurveSettings curveSettings = GetCurveSettings(curve);
+            curveSettings.CopyFrom(settings);
+            //
+            curve.Label.Text = GetSingleLineName(curveSettings.Name);
+            //
+            UpdateCurveStyles();
+            zedGraph.GraphPane.AxisChange();
+            zedGraph.Invalidate();
+            //
+            PlotChangedEvent?.Invoke(this);
+        }
+        public void EditPlot()
+        {
+            XYPlotSettings originalSettings = GetPlotSettings();
+            XYPlotSettings editedSettings = new XYPlotSettings(originalSettings);
+            //
+            using (FrmXYPlotSettings frmSettings = new FrmXYPlotSettings())
+            {
+                if (frmSettings.ShowSettings(this, editedSettings, "Plot Settings",
+                                             () => ApplyPlotSettings(editedSettings)) != DialogResult.OK)
+                {
+                    ApplyPlotSettings(originalSettings);
+                }
+            }
+        }
+        private XYPlotSettings GetPlotSettings()
+        {
+            GraphPane pane = zedGraph.GraphPane;
+            //
+            XYPlotSettings settings = new XYPlotSettings();
+            settings.XAxisTitle = pane.XAxis.Title.Text;
+            settings.XAxisAutoScale = pane.XAxis.Scale.MinAuto && pane.XAxis.Scale.MaxAuto;
+            settings.XAxisMin = pane.XAxis.Scale.Min;
+            settings.XAxisMax = pane.XAxis.Scale.Max;
+            settings.YAxisTitle = pane.YAxis.Title.Text;
+            settings.YAxisAutoScale = pane.YAxis.Scale.MinAuto && pane.YAxis.Scale.MaxAuto;
+            settings.YAxisMin = pane.YAxis.Scale.Min;
+            settings.YAxisMax = pane.YAxis.Scale.Max;
+            settings.ShowLegend = pane.Legend.IsVisible;
+            settings.SetLegendPos(pane.Legend.Position);
+            settings.ShowPointSymbols = _showPointSymbols;
+            settings.SetFontFamilyName(_fontFamily);
+            settings.FontSize = _fontSize;
+            //
+            return settings;
+        }
+        private void ApplyPlotSettings(XYPlotSettings settings)
+        {
+            GraphPane pane = zedGraph.GraphPane;
+            //
+            pane.XAxis.Title.Text = settings.XAxisTitle;
+            pane.YAxis.Title.Text = settings.YAxisTitle;
+            pane.Legend.IsVisible = settings.ShowLegend;
+            pane.Legend.Position = settings.GetLegendPos();
+            _showPointSymbols = settings.ShowPointSymbols;
+            _fontFamily = settings.GetFontFamilyName();
+            _fontSize = settings.FontSize;
+            //
+            UpdateFonts();
+            UpdateCurveStyles();
+            // The axis ranges must be set after the automatic ranges are recomputed
+            pane.AxisChange();
+            //
+            if (settings.XAxisAutoScale)
+            {
+                pane.XAxis.Scale.MinAuto = true;
+                pane.XAxis.Scale.MaxAuto = true;
+            }
+            else
+            {
+                pane.XAxis.Scale.Min = settings.XAxisMin;
+                pane.XAxis.Scale.Max = settings.XAxisMax;
+            }
+            if (settings.YAxisAutoScale)
+            {
+                pane.YAxis.Scale.MinAuto = true;
+                pane.YAxis.Scale.MaxAuto = true;
+            }
+            else
+            {
+                pane.YAxis.Scale.Min = settings.YAxisMin;
+                pane.YAxis.Scale.Max = settings.YAxisMax;
+            }
+            //
+            zedGraph.Invalidate();
+            //
+            PlotChangedEvent?.Invoke(this);
         }
         private CurveItem GetCurveAtPoint(Point mousePt)
         {
@@ -315,11 +532,75 @@ namespace UserControls
                 }
             }
             //
-            CurveItem curve;
-            int pointIndex;
-            if (pane.FindNearestPoint(mousePt, out curve, out pointIndex)) return curve;
+            return GetNearestCurveToPoint(pane, mousePt);
+        }
+        private CurveItem GetNearestCurveToPoint(GraphPane pane, Point mousePt)
+        {
+            CurveItem nearestCurve = null;
+            double distance;
+            double minDistance = _curveHitTolerance;
             //
-            return null;
+            try
+            {
+                PointF current;
+                PointF previous = PointF.Empty;
+                bool previousValid;
+                Axis yAxis;
+                foreach (CurveItem curve in pane.CurveList)
+                {
+                    if (!curve.IsVisible || curve.Points == null) continue;
+                    //
+                    yAxis = curve.IsY2Axis ? (Axis)pane.Y2Axis : pane.YAxis;
+                    previousValid = false;
+                    for (int i = 0; i < curve.Points.Count; i++)
+                    {
+                        PointPair point = curve.Points[i];
+                        if (point.IsInvalid)
+                        {
+                            previousValid = false;
+                            continue;
+                        }
+                        current = new PointF(pane.XAxis.Scale.Transform(point.X), yAxis.Scale.Transform(point.Y));
+                        //
+                        if (previousValid) distance = GetDistanceToSegment(mousePt, previous, current);
+                        else distance = GetDistanceToPoint(mousePt, current);
+                        //
+                        if (distance < minDistance)
+                        {
+                            minDistance = distance;
+                            nearestCurve = curve;
+                        }
+                        //
+                        previous = current;
+                        previousValid = true;
+                    }
+                }
+            }
+            catch
+            {
+                return null;
+            }
+            //
+            return nearestCurve;
+        }
+        private double GetDistanceToPoint(PointF point1, PointF point2)
+        {
+            double dx = point1.X - point2.X;
+            double dy = point1.Y - point2.Y;
+            return Math.Sqrt(dx * dx + dy * dy);
+        }
+        private double GetDistanceToSegment(PointF point, PointF start, PointF end)
+        {
+            double dx = end.X - start.X;
+            double dy = end.Y - start.Y;
+            double lengthSquare = dx * dx + dy * dy;
+            if (lengthSquare <= 0) return GetDistanceToPoint(point, start);
+            //
+            double t = ((point.X - start.X) * dx + (point.Y - start.Y) * dy) / lengthSquare;
+            if (t < 0) t = 0;
+            else if (t > 1) t = 1;
+            //
+            return GetDistanceToPoint(point, new PointF((float)(start.X + t * dx), (float)(start.Y + t * dy)));
         }
         public void RemoveCurve(CurveItem curve)
         {
@@ -359,7 +640,11 @@ namespace UserControls
             //
             zedGraph.Invalidate();
             //
-            CurvesChangedEvent?.Invoke(this);
+            PlotChangedEvent?.Invoke(this);
+        }
+        public void SaveAsImage()
+        {
+            zedGraph.SaveAs();
         }
         public void Clear()
         {

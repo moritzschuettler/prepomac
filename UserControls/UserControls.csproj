@@ -122,16 +122,26 @@
     <Compile Include="ListView\MyListView.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="SidePanel\XYPlot.cs">
+    <Compile Include="SidePanel\XYPlot\FrmXYPlotSettings.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="SidePanel\XYPlot\IXYPlotSettings.cs" />
+    <Compile Include="SidePanel\XYPlot\XYPlotLegendPositionEnum.cs" />
+    <Compile Include="SidePanel\XYPlot\XYPlotLineStyleEnum.cs" />
+    <Compile Include="SidePanel\XYPlot\XYPlotFontFamilyEnum.cs" />
+    <Compile Include="SidePanel\XYPlot\XYPlotSettingsTools.cs" />
+    <Compile Include="SidePanel\XYPlot\XYPlotCurveSettings.cs" />
+    <Compile Include="SidePanel\XYPlot\XYPlotSettings.cs" />
+    <Compile Include="SidePanel\XYPlot\XYPlot.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="SidePanel\XYPlot.Designer.cs">
+    <Compile Include="SidePanel\XYPlot\XYPlot.Designer.cs">
       <DependentUpon>XYPlot.cs</DependentUpon>
     </Compile>
-    <Compile Include="SidePanel\XYPlotPanel.cs">
+    <Compile Include="SidePanel\XYPlot\XYPlotPanel.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="SidePanel\XYPlotPanel.Designer.cs">
+    <Compile Include="SidePanel\XYPlot\XYPlotPanel.Designer.cs">
       <DependentUpon>XYPlotPanel.cs</DependentUpon>
     </Compile>
     <Compile Include="SidePanel\PythonPanel.cs">
@@ -323,7 +333,7 @@
     <EmbeddedResource Include="SidePanel\PythonPanel.resx">
       <DependentUpon>PythonPanel.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="SidePanel\XYPlotPanel.resx">
+    <EmbeddedResource Include="SidePanel\XYPlot\XYPlotPanel.resx">
       <DependentUpon>XYPlotPanel.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="TextBoxes\AutoScrollTextBox.resx">
@@ -517,6 +527,8 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="License-LGPL.txt" />
+    <None Include="Resources\Double_column.ico" />
+    <None Include="Resources\Single_column.ico" />
     <None Include="Resources\Propagate.ico" />
     <None Include="Resources\Delete.ico" />
     <None Include="Resources\Active1.ico" />
