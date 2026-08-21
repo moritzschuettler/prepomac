@@ -69,10 +69,6 @@ namespace CaeMesh
                         break;  // Removed - the layer interior is no longer built by smoothing
                     case "_numberOfGlobalSmoothSteps":
                         _numberOfGlobalSmoothSteps = (int)entry.Value; break;
-                    case "_biasType":
-                        break;  // Removed - grading now lives on LocalMeshSize
-                    case "_biasFactor":
-                        break;  // Removed - grading now lives on LocalMeshSize
                     case "_direction":
                         _direction = (double[])entry.Value; break;
                     case "_sweepCenter":

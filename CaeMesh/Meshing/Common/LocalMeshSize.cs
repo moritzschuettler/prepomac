@@ -36,9 +36,6 @@ namespace CaeMesh
         private LocalMeshSizeTypeEnum _type;    //ISerializable
         private double _meshSize;               //ISerializable
         private int _numOfElements;             //ISerializable
-        private SweepBiasTypeEnum _biasType;    //ISerializable
-        private double _biasFactor;             //ISerializable
-        private bool _reversed;                 //ISerializable
 
 
         // Properties
@@ -53,21 +50,6 @@ namespace CaeMesh
             }
         }
         public int NumOfElements { get { return _numOfElements; } set { _numOfElements = value < 1 ? 1 : value; } }
-        public SweepBiasTypeEnum BiasType { get { return _biasType; } set { _biasType = value; } }
-        public double BiasFactor
-        {
-            get { return _biasFactor; }
-            set
-            {
-                _biasFactor = value;
-                // A geometric progression ratio must be positive; the direction of the grading is
-                // handled by Reversed, not by the sign
-                if (_biasFactor < 1E-3) _biasFactor = 1E-3;
-                else if (_biasFactor > 1E3) _biasFactor = 1E3;
-            }
-        }
-        /// <summary>Flips which end of the edge the grading starts from, relative to the direction shown by the editor's arrow.</summary>
-        public bool Reversed { get { return _reversed; } set { _reversed = value; } }
 
 
         // Constructors                                                                                                             
@@ -84,9 +66,6 @@ namespace CaeMesh
             _type = localMeshSize.Type;
             _meshSize = localMeshSize._meshSize;
             _numOfElements = localMeshSize._numOfElements;
-            _biasType = localMeshSize._biasType;
-            _biasFactor = localMeshSize._biasFactor;
-            _reversed = localMeshSize._reversed;
         }
         public LocalMeshSize(FeMeshRefinement meshRefinement)
             : this("tmpName")
@@ -111,12 +90,6 @@ namespace CaeMesh
                         _meshSize = (double)entry.Value; break;
                     case "_numOfElements":
                         _numOfElements = (int)entry.Value; break;
-                    case "_biasType":
-                        _biasType = (SweepBiasTypeEnum)entry.Value; break;
-                    case "_biasFactor":
-                        _biasFactor = (double)entry.Value; break;
-                    case "_reversed":
-                        _reversed = (bool)entry.Value; break;
                     default:
                         break;
                 }
@@ -132,9 +105,6 @@ namespace CaeMesh
             _type = LocalMeshSizeTypeEnum.ElementSize;
             _meshSize = 1;
             _numOfElements = 2;
-            _biasType = SweepBiasTypeEnum.None;
-            _biasFactor = 1;
-            _reversed = false;
         }
         public int GetNumberOfElements(double edgeLength, double minH, double maxH)
         {
@@ -150,13 +120,17 @@ namespace CaeMesh
             }
             else if (_type == LocalMeshSizeTypeEnum.NumberOfElements)
             {
-                int minNumElements = (int)Math.Round(edgeLength / maxH, 0, MidpointRounding.AwayFromZero);
-                int maxNumElements = (int)Math.Round(edgeLength / minH, 0, MidpointRounding.AwayFromZero);
-                if (minNumElements < 1) minNumElements = 1;
-                //
-                if (_numOfElements < minNumElements) return minNumElements;
-                else if (_numOfElements > maxNumElements) return maxNumElements;
-                else return _numOfElements;
+                // The global maximum size must not force more elements onto the edge than were asked
+                // for; an explicit count is the whole point of this type. Only the global minimum
+                // size limits it, and a minimum of zero means no limit at all
+                int numElements = _numOfElements;
+                if (minH > 0)
+                {
+                    int maxNumElements = (int)Math.Round(edgeLength / minH, 0, MidpointRounding.AwayFromZero);
+                    if (numElements > maxNumElements) numElements = maxNumElements;
+                }
+                if (numElements < 1) numElements = 1;
+                return numElements;
             }
             else throw new NotSupportedException();
         }
@@ -172,7 +146,6 @@ namespace CaeMesh
             {
                 double size = edgeLength / _numOfElements;
                 if (size < minH) return minH;
-                else if (size > maxH) return maxH;
                 else return size;
             }
             else throw new NotSupportedException();
@@ -189,9 +162,6 @@ namespace CaeMesh
             info.AddValue("_type", _type, typeof(LocalMeshSizeTypeEnum));
             info.AddValue("_meshSize", _meshSize, typeof(double));
             info.AddValue("_numOfElements", _numOfElements, typeof(int));
-            info.AddValue("_biasType", _biasType, typeof(SweepBiasTypeEnum));
-            info.AddValue("_biasFactor", _biasFactor, typeof(double));
-            info.AddValue("_reversed", _reversed, typeof(bool));
         }
     }
 }

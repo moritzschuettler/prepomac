@@ -5061,7 +5061,6 @@ namespace PrePoMax
             int numElements;
             gmshData.VertexNodeIdMeshSize = new Dictionary<int, double>();
             gmshData.EdgeIdNumElements = new Dictionary<int, int>();
-            gmshData.EdgeIdBias = new Dictionary<int, EdgeBias>();
             foreach (var localMeshSize in localMeshSizes)
             {
                 foreach (int geometryId in localMeshSize.CreationIds)
@@ -5089,17 +5088,6 @@ namespace PrePoMax
                         numElements = localMeshSize.GetNumberOfElements(length, minH, maxH);
                         //
                         gmshData.EdgeIdNumElements[FeMesh.GmshTopologyId(itemId, partId)] = numElements;
-                        // Grading only applies to an explicit edge selection - a surface or part
-                        // selection has no single direction to grade along
-                        if (localMeshSize.BiasType != SweepBiasTypeEnum.None)
-                        {
-                            gmshData.EdgeIdBias[FeMesh.GmshTopologyId(itemId, partId)] = new EdgeBias
-                            {
-                                BiasType = localMeshSize.BiasType,
-                                BiasFactor = localMeshSize.BiasFactor,
-                                Reversed = localMeshSize.Reversed
-                            };
-                        }
                     }
                     else if (geometryType.IsSurface())
                     {

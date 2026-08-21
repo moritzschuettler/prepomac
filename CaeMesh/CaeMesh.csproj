@@ -135,7 +135,6 @@
     <Compile Include="Meshing\Gmsh\SetupItems\GmshSetupItem.cs" />
     <Compile Include="Meshing\Gmsh\SetupItems\ExtrudeMesh.cs" />
     <Compile Include="Meshing\Gmsh\Enums\ElementSizeTypeEnum.cs" />
-    <Compile Include="Meshing\Gmsh\Enums\SweepBiasTypeEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshAlgorithmRecombinationEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshAlgorithmMesh2DEnum.cs" />
     <Compile Include="Meshing\Common\MeshSetupItem.cs" />

@@ -307,7 +307,7 @@ namespace CaeMesh
                 _gmshData.EdgeIdNumElements[edgeId] = numOfElements;
                 //
                 numOfNodes = numOfElements + 1;
-                ApplyTransfiniteCurve(edgeId, numOfNodes, null);
+                Gmsh.Model.Mesh.SetTransfiniteCurve(edgeId, numOfNodes);
             }
             //
             Synchronize(); // must be here for mesh refinement
@@ -550,15 +550,8 @@ namespace CaeMesh
             List<SweepWall> walls = SweepWallTopology.Classify(sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds,
                                                                surfaceIdEdgeIds);
             //
-            int[] sourceVertexIdsOfSurface;
-            HashSet<int> sourceVertexIds = new HashSet<int>();
-            foreach (var sourceSurfaceId in sourceSurfaceIds)
-            {
-                if (surfaceIdVertexIds.TryGetValue(sourceSurfaceId, out sourceVertexIdsOfSurface))
-                    sourceVertexIds.UnionWith(sourceVertexIdsOfSurface);
-            }
-            // Layer counts, grading, and the cross-sweep reconciliation, all measured from a 1D mesh
-            PrepareWallEdges(walls, sourceVertexIds);
+            // Layer counts and the cross-sweep reconciliation, both measured from a 1D mesh
+            PrepareWallEdges(walls);
             //
             foreach (var wall in walls)
             {
@@ -682,8 +675,7 @@ namespace CaeMesh
         ///     apart. Different rings are free to disagree - there is no physical constraint between
         ///     them - so a body whose walls are already split along the sweep direction gets a
         ///     non-monotonic layer stack for free, one count per ring, with no piecewise transfinite
-        ///     law needed. The layer grading is applied here too, so that nothing can overwrite it
-        ///     afterwards.
+        ///     law needed.
         ///   - The two cross-sweep sides of each wall are made to agree. gmsh raises an error rather
         ///     than falling back when a transfinite surface has different node counts on opposite
         ///     sides, and the sweep needs the agreement in any case: the source and target boundary
@@ -694,7 +686,7 @@ namespace CaeMesh
         /// Counts the user did not pin down are read back from a one dimensional mesh rather than
         /// predicted, which is the approach SetTransfiniteSurfaces already takes.
         /// </summary>
-        private void PrepareWallEdges(List<SweepWall> walls, HashSet<int> sourceVertexIds)
+        private void PrepareWallEdges(List<SweepWall> walls)
         {
             HashSet<int> directionEdgeIds = new HashSet<int>();
             foreach (var wall in walls) directionEdgeIds.UnionWith(wall.DirectionEdgeIds);
@@ -748,27 +740,14 @@ namespace CaeMesh
                 foreach (var edgeId in ringEdgeIds)
                 {
                     _gmshData.EdgeIdNumElements[edgeId] = layerElements;
-                    ApplyTransfiniteCurve(edgeId, layerElements + 1, sourceVertexIds);
+                    Gmsh.Model.Mesh.SetTransfiniteCurve(edgeId, layerElements + 1);
                 }
             }
             foreach (var entry in targetEdgeIdNumOfElements)
             {
                 _gmshData.EdgeIdNumElements[entry.Key] = entry.Value;
-                ApplyTransfiniteCurve(entry.Key, entry.Value + 1, sourceVertexIds);
+                Gmsh.Model.Mesh.SetTransfiniteCurve(entry.Key, entry.Value + 1);
             }
-        }
-        /// <summary>
-        /// The single call site every SetTransfiniteCurve constraint in the sweep/transfinite
-        /// pipeline goes through, so a LocalMeshSize grading on an edge cannot be silently discarded
-        /// by whichever call happens to run last for that edge.
-        /// </summary>
-        private void ApplyTransfiniteCurve(int edgeId, int numOfNodes, HashSet<int> sourceVertexIds)
-        {
-            EdgeBias bias;
-            if (_gmshData.EdgeIdBias != null && _gmshData.EdgeIdBias.TryGetValue(edgeId, out bias))
-                SetGradedTransfiniteCurve(edgeId, numOfNodes, bias.BiasType, bias.BiasFactor, bias.Reversed, sourceVertexIds);
-            else
-                Gmsh.Model.Mesh.SetTransfiniteCurve(edgeId, numOfNodes);
         }
         private int ResolveRingLayerElements(HashSet<int> ringEdgeIds)
         {
@@ -853,81 +832,6 @@ namespace CaeMesh
             {
                 _writeOutput?.Invoke("The mesh quality could not be evaluated: " + ex.Message);
             }
-        }
-        /// <summary>
-        /// sourceVertexIds is the sweep source surface's vertices, used to auto-orient a direction
-        /// edge's grading towards the target regardless of the curve's own parametrization; pass null
-        /// for a plain LocalMeshSize edge with no such preference, where the curve's own parametric
-        /// start is the "forward" direction the editor's arrow shows. Either way, reversed flips it.
-        /// </summary>
-        private static void SetGradedTransfiniteCurve(int edgeId, int numOfNodes, SweepBiasTypeEnum biasType,
-                                                      double biasFactor, bool reversed, HashSet<int> sourceVertexIds)
-        {
-            if (biasType == SweepBiasTypeEnum.None)
-            {
-                Gmsh.Model.Mesh.SetTransfiniteCurve(edgeId, numOfNodes);
-                return;
-            }
-            if (biasType == SweepBiasTypeEnum.Bump)
-            {
-                // A bump is symmetric about the middle of the curve, so its direction is irrelevant
-                Gmsh.Model.Mesh.SetTransfiniteCurve(edgeId, numOfNodes, "Bump", biasFactor);
-                return;
-            }
-            // A geometric progression runs from the parametric start of the curve. An edge that runs
-            // from the target surface back to the source gets the reciprocal ratio, which is the same
-            // distribution walked the other way, so every wall ends up graded from the source surface
-            // towards the target one. reversed flips whichever direction that resolves to.
-            bool forward = sourceVertexIds == null || CurveStartsOnSurfaceVertex(edgeId, sourceVertexIds);
-            if (reversed) forward = !forward;
-            double coefficient = forward ? biasFactor : 1 / biasFactor;
-            //
-            Gmsh.Model.Mesh.SetTransfiniteCurve(edgeId, numOfNodes, "Progression", coefficient);
-        }
-        /// <summary>
-        /// Whether the parametric start of a curve is one of the given vertices. The start is found
-        /// by evaluating the curve at its lower parameter bound and taking the nearer of the two end
-        /// vertices, rather than by relying on the sign convention of GetBoundary.
-        /// </summary>
-        private static bool CurveStartsOnSurfaceVertex(int edgeId, HashSet<int> vertexIds)
-        {
-            double[] minParameter;
-            double[] maxParameter;
-            Gmsh.Model.GetParametrizationBounds(1, edgeId, out minParameter, out maxParameter);
-            if (minParameter == null || minParameter.Length < 1) return true;
-            //
-            double[] startCoor;
-            Gmsh.Model.GetValue(1, edgeId, new double[] { minParameter[0] }, out startCoor);
-            if (startCoor == null || startCoor.Length < 3) return true;
-            //
-            Tuple<int, int>[] vertexDimTags;
-            Gmsh.Model.GetBoundary(new Tuple<int, int>[] { new Tuple<int, int>(1, edgeId) }, out vertexDimTags,
-                                   false, false, false);
-            //
-            int nearestVertexId = -1;
-            double nearestDistance = double.MaxValue;
-            foreach (var vertexDimTag in vertexDimTags)
-            {
-                if (vertexDimTag.Item1 != 0) continue;
-                //
-                int vertexId = Math.Abs(vertexDimTag.Item2);
-                double[] coor;
-                Gmsh.Model.GetValue(0, vertexId, new double[0], out coor);
-                if (coor == null || coor.Length < 3) continue;
-                //
-                double distance = Math.Pow(coor[0] - startCoor[0], 2) +
-                                  Math.Pow(coor[1] - startCoor[1], 2) +
-                                  Math.Pow(coor[2] - startCoor[2], 2);
-                if (distance < nearestDistance)
-                {
-                    nearestDistance = distance;
-                    nearestVertexId = vertexId;
-                }
-            }
-            // A closed curve has no distinct start vertex; leave its grading as it comes
-            if (nearestVertexId < 0) return true;
-            //
-            return vertexIds.Contains(nearestVertexId);
         }
         public static void GetSurfaceItems(out Dictionary<int, int[]> surfaceIdEdgeIds,
                                             out Dictionary<int, int[]> surfaceIdVertexIds)
@@ -1199,7 +1103,7 @@ namespace CaeMesh
                         if (avgNumOfNodes < 3) avgNumOfNodes = 3;
                     }
                     //
-                    ApplyTransfiniteCurve(edgeNodeFromGroup.Value.Id, avgNumOfNodes, null);
+                    Gmsh.Model.Mesh.SetTransfiniteCurve(edgeNodeFromGroup.Value.Id, avgNumOfNodes);
                     edgeIdNumOfNodes[edgeNodeFromGroup.Value.Id] = avgNumOfNodes;
                 }
             }
@@ -1228,7 +1132,7 @@ namespace CaeMesh
                     //
                     foreach (var sweepEdgeId in layer)
                     {
-                        ApplyTransfiniteCurve(sweepEdgeId, avgNumOfNodes, null);
+                        Gmsh.Model.Mesh.SetTransfiniteCurve(sweepEdgeId, avgNumOfNodes);
                     }
                 }
             }
@@ -1544,16 +1448,19 @@ namespace CaeMesh
             if (_gmshData.EdgeIdNumElements != null)
             {
                 int edgeId;
+                int numOfUnmappedEdges = 0;
                 Dictionary<int, int> edgeIdNumElements = new Dictionary<int, int>();
                 foreach (var entry in _gmshData.EdgeIdNumElements)
                 {
                     if (netgenEdgeIdGmshEdgeId.TryGetValue(entry.Key, out edgeId))
                         edgeIdNumElements[edgeId] = entry.Value;
-                    else if (Debugger.IsAttached)
-                    {
-                        // Other part
-                        //Debugger.Break();
-                    }
+                    else numOfUnmappedEdges++;  // an edge of a part that is not being meshed
+                }
+                // The unmapped edges are silently dropped, so report the count the user can check against
+                if (_gmshData.EdgeIdNumElements.Count > 0)
+                {
+                    _writeOutput?.Invoke("Local mesh size: " + edgeIdNumElements.Count + " edge/s constrained, " +
+                                         numOfUnmappedEdges + " edge/s not on the meshed part.");
                 }
                 _gmshData.EdgeIdNumElements = edgeIdNumElements;
             }
