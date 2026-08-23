@@ -181,6 +181,7 @@ Collection of loaded result files.
 | --- | --- |
 | `len(pmx.results)` | Number of loaded results. |
 | `current` | Returns the currently selected `Result`. |
+| `history_outputs` | Returns history outputs for the currently selected result. |
 | `field_outputs` | Returns field outputs for the currently selected result. |
 | `get_names()` | Returns result names as `StringList`. |
 | `set_current(result_name)` | Sets the current result through command history and returns it. |
@@ -805,13 +806,21 @@ Collection of result history outputs.
 | `create_history_output_from_field(name, field_name, component_names, region)` | Creates a From Field draft using a node selection, node set, or surface. |
 | `create_history_output_from_equation(name, equation, unit="/")` | Creates a From History Output by Equation draft. |
 | `create_history_output_from_integration(name, integral_type, field_name=None, component_names=None, region=None, integral_result="geometry", deformation_variable_name="Displacements", unit="/", cross_section="none", thickness=1.0)` | Creates a line, surface, or volume integration draft. `integral_result` is `"geometry"` (region size), `"field"` (field integral), or `"field_by_geometry"` (region average of the field); `field_name`/`component_names` are ignored for `"geometry"`. `cross_section` (`"none"`, `"thickness"`, or `"axisymmetric"`) applies the out-of-plane scaling for 2D output on line and volume integrals. |
+| `create_history_output_from_merged_histories(name, source1, source2, source3=None, source4=None)` | Creates a From Merged Histories draft that merges two to four history components into one history output. |
+| `create_history_output_from_extracted_entry(name, source, entry_name)` | Creates a From Extracted Entry draft that copies one named entry of a history component into its own history output. |
+| `create_history_output_xy(name, x_source, y_source)` | Creates an XY draft that plots the entries of the Y history component against the values of the X history component. |
+| `create_history_output_from_table(name, data_points, y_column_names=None, x_axis_unit="/", y_axis_unit="/")` | Creates a From Table draft from user-defined data. Every row holds the X value followed by one value per Y column. |
 | `create_minimum_filter(return_value="column")` | Creates a minimum filter; `return_value` is `"row"` or `"column"`. |
 | `create_maximum_filter(return_value="column")` | Creates a maximum filter; `return_value` is `"row"` or `"column"`. |
 | `create_sum_filter(operate_on="columns")` | Creates a sum filter; `operate_on` is `"rows"` or `"columns"`. |
 | `create_average_filter(operate_on="columns")` | Creates an average filter; `operate_on` is `"rows"` or `"columns"`. |
 | `add(output)` | Validates and adds a draft using command history. |
 | `replace(old_name, output)` | Validates and replaces a result history-output definition. |
+| `duplicate(history_output_names)` | Duplicates user-defined history outputs using command history. Solver-generated history outputs cannot be duplicated. |
 | `remove(history_output_names)` | Removes history outputs using command history. |
+| `remove_fields(history_output_name, field_names)` | Removes fields from a history output using command history. |
+| `remove_components(history_output_name, field_name, component_names)` | Removes components from a history-output field using command history. |
+| `export_to_csv(file_name, history_output_names, delimiter=",")` | Exports all fields and components of the selected history outputs to CSV using command history. |
 
 
 Creation examples:
@@ -907,6 +916,74 @@ output = result.history_outputs.create_history_output_from_integration(
 result.history_outputs.add(output)
 ```
 
+`create_history_output_from_merged_histories`, `create_history_output_from_extracted_entry`, and
+`create_history_output_xy` build a new history output from history components that already exist in the result.
+Each source argument is either a `HistoryComponent` object or a list of three strings
+`[history_output_name, field_name, component_name]`:
+
+```python
+history_output = result.history_outputs["Node_DISP"]
+source = history_output.fields["DISP"].components["U1"]
+same_source = ["Node_DISP", "DISP", "U1"]
+```
+
+Merging collects the entries of two to four history components into a single history output. All merged entries
+must use the same unit and must share a common reference time; entries of the later sources are interpolated to
+the times of the first source. Each source may be used only once:
+
+```python
+output = result.history_outputs.create_history_output_from_merged_histories(
+    name="Merged_reactions",
+    source1=["Node_set_1_FORC", "FORC", "F1"],
+    source2=["Node_set_2_FORC", "FORC", "F1"]
+)
+result.history_outputs.add(output)
+```
+
+Extraction copies a single named entry of a history component into its own history output. The entry must exist
+in the source component and must contain finite data:
+
+```python
+component = result.history_outputs["Node_DISP"].fields["DISP"].components["U1"]
+output = result.history_outputs.create_history_output_from_extracted_entry(
+    name="Node_5_U1",
+    source=component,
+    entry_name=str(component.get_entry_names()[0])
+)
+result.history_outputs.add(output)
+```
+
+An XY output replaces the time axis with the values of another history component. The X component must contain
+exactly one entry, all entries of the Y component must use the same unit, and both sources must share a common
+reference time:
+
+```python
+output = result.history_outputs.create_history_output_xy(
+    name="Force_vs_displacement",
+    x_source=["Node_DISP", "DISP", "U1"],
+    y_source=["Node_FORC", "FORC", "F1"]
+)
+result.history_outputs.add(output)
+```
+
+A table output needs no result data at all. The number of Y columns is taken from the row length, all rows must
+contain the same number of values, every value must be finite, and the Y-column names must be unique. When
+`y_column_names` is omitted, the columns are named `Y1`, `Y2`, ...:
+
+```python
+output = result.history_outputs.create_history_output_from_table(
+    name="Measured_curve",
+    data_points=[[0.0, 0.0, 0.0], [1.0, 12.5, 11.0], [2.0, 24.0, 23.5]],
+    y_column_names=["Test_1", "Test_2"],
+    x_axis_unit="mm",
+    y_axis_unit="N"
+)
+result.history_outputs.add(output)
+```
+
+All four output types produce a single `Table.Values` field component whose entries are the Y columns, and they
+accept `filter1`/`filter2` like every other history-output draft.
+
 The supported region combinations are:
 
 | History output | Mode | Selection target | Existing result region |
@@ -916,6 +993,10 @@ The supported region combinations are:
 | From Integration | `"surface"` | `"surfaces"` | Surface |
 | From Integration | `"volume"` | `"elements"` | Element set |
 | From Equation | All | None | None |
+| From Merged Histories | All | None | None |
+| From Extracted Entry | All | None | None |
+| XY | All | None | None |
+| From Table | All | None | None |
 
 Possible deformation variable names are `"Displacements"`, `"Forces"`, `"Surface Normals"`, `"Wear Depths"`, `"Mesh Deformation"`, `"Disp&Def"`, and `"Disp&Def&Depth"`.
 
@@ -936,18 +1017,139 @@ Base object for history-output definitions that have not yet been added to the r
 | Member | Description |
 | --- | --- |
 | `name` | History output name. |
-| `region` | Integrated selection or read-only result mesh region; `None` for equation drafts. |
+| `region` | Integrated selection or read-only result mesh region; `None` for the equation, merged, extracted, XY, and table drafts. |
 | `filter1` | Optional first `HistoryOutputFilter`. |
 | `filter2` | Optional second `HistoryOutputFilter`; requires `filter1`. |
 
+### `HistoryOutputFromMergedHistoriesDraft`
+
+From Merged Histories draft. Adds to `HistoryOutputDraft`:
+
+| Member | Description |
+| --- | --- |
+| `sources` | Merged source components as `"history_output_name.field_name.component_name"` strings. |
+
+### `HistoryOutputFromExtractedEntryDraft`
+
+From Extracted Entry draft. Adds to `HistoryOutputDraft`:
+
+| Member | Description |
+| --- | --- |
+| `source` | Source component as `"history_output_name.field_name.component_name"`. |
+| `entry_name` | Name of the extracted history entry. |
+
+### `HistoryOutputXYDraft`
+
+XY draft. Adds to `HistoryOutputDraft`:
+
+| Member | Description |
+| --- | --- |
+| `x_source` | X component as `"history_output_name.field_name.component_name"`. |
+| `y_source` | Y component as `"history_output_name.field_name.component_name"`. |
+
+### `HistoryOutputFromTableDraft`
+
+From Table draft. Adds to `HistoryOutputDraft`:
+
+| Member | Description |
+| --- | --- |
+| `data_points` | Table rows, each holding the X value followed by one value per Y column. |
+| `y_column_names` | Y-column names. |
+| `number_of_y_columns` | Number of Y columns. |
+| `x_axis_unit` | User-defined X-axis unit. |
+| `y_axis_unit` | User-defined unit shared by all Y columns. |
+
 ### `HistoryOutput`
 
-Single history output.
+Base representation of a history output. The `history_outputs` collection holds both the history outputs produced
+by the solver and those defined by the user, so `is_user_defined` tells the two apart. Looking a user-defined
+output up by name returns the matching type-specific object below; solver-generated outputs and From Affine Fit
+outputs return this base object.
 
 | Member | Description |
 | --- | --- |
 | `name` | History output name. |
 | `fields` | History fields in the output. |
+| `is_user_defined` | `True` when the output was defined by the user instead of produced by the solver. |
+| `type_name` | C# history output definition type, or `None` for a solver-generated output. |
+| `filter1` | First `HistoryOutputFilter`, or `None` when disabled or the output is solver-generated. |
+| `filter2` | Second `HistoryOutputFilter`, or `None` when disabled or the output is solver-generated. |
+
+Reading a definition back:
+
+```python
+history_output = result.history_outputs["Edge_DISP"]
+if history_output.is_user_defined and history_output.type_name == "ResultHistoryOutputFromField":
+    print(history_output.field_name, list(history_output.component_names), history_output.region_type)
+```
+
+### `HistoryOutputFromField`
+
+| Member | Description |
+| --- | --- |
+| `field_name` | Source field name. |
+| `component_names` | Selected field component names. |
+| `region_type` | `"selection"`, `"node_set"`, or `"surface"`. |
+| `region_name` | Region name, or `None` when the region is a selection. |
+| `complex_result_type` | Complex result representation. |
+| `complex_angle_deg` | Complex result angle in degrees. |
+| `step_id` | Result step ID, or `None` when all steps are used. |
+| `increment_id` | Result increment ID, or `None` when all increments are used. |
+| `harmonic` | Whether harmonic oscillations are included. |
+| `output_node_coordinates` | `"off"`, `"undeformed"`, or `"deformed"`. |
+
+### `HistoryOutputFromEquation`
+
+| Member | Description |
+| --- | --- |
+| `equation` | Validated history-output equation. |
+| `unit` | User-defined result unit. |
+| `component_name` | Generated component name, always `VALUE`. |
+
+### `HistoryOutputFromIntegration`
+
+| Member | Description |
+| --- | --- |
+| `integral_type` | `"line"`, `"surface"`, or `"volume"`. |
+| `integral_result` | `"geometry"`, `"field"`, or `"field_by_geometry"`. |
+| `field_name` | Source field name. |
+| `component_names` | Selected field component names. |
+| `region_type` | `"selection"`, `"element_set"`, or `"surface"`. |
+| `region_name` | Region name, or `None` when the region is a selection. |
+| `deformation_variable_name` | Deformation variable name. |
+| `unit` | User-defined result unit. |
+| `cross_section` | `"none"`, `"thickness"`, or `"axisymmetric"`. |
+| `thickness` | Out-of-plane thickness used when `cross_section` is `"thickness"`. |
+
+### `HistoryOutputFromMergedHistories`
+
+| Member | Description |
+| --- | --- |
+| `sources` | Merged source components as `"history_output_name.field_name.component_name"` strings. |
+
+### `HistoryOutputFromExtractedEntry`
+
+| Member | Description |
+| --- | --- |
+| `source` | Source component as `"history_output_name.field_name.component_name"`. |
+| `entry_name` | Name of the extracted history entry. |
+
+### `HistoryOutputXY`
+
+| Member | Description |
+| --- | --- |
+| `x_source` | X component as `"history_output_name.field_name.component_name"`. |
+| `y_source` | Y component as `"history_output_name.field_name.component_name"`. |
+
+### `HistoryOutputFromTable`
+
+| Member | Description |
+| --- | --- |
+| `data_points` | Table rows, each holding the X value followed by one value per Y column. |
+| `y_column_names` | Y-column names. |
+| `number_of_y_columns` | Number of Y columns. |
+| `x_axis_unit` | User-defined X-axis unit. |
+| `y_axis_unit` | User-defined unit shared by all Y columns. |
 
 ### `HistoryFields`
 

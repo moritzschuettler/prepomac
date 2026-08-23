@@ -27,6 +27,10 @@ namespace APIs.Python
         public string name { get { return _componentName; } }
         [PythonAPI("The named entries in this history component. Integration point entries use elementId_intPointId names.", Returns = "HistoryEntries")]
         public ResultHistoryOutputEntriesAPI entries { get { return _entries; } }
+        //
+        internal string HistoryOutputName { get { return _historyOutputName; } }
+        internal string FieldName { get { return _fieldName; } }
+        internal string ComponentName { get { return _componentName; } }
 
 
         // Constructors

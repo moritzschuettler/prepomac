@@ -12,6 +12,7 @@ using CaeMesh;
 using CaeResults;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace APIs.Python
@@ -88,6 +89,67 @@ namespace APIs.Python
             return new ResultHistoryOutputFromIntegrationDraftAPI(name, type, resultType, fieldName, components, region,
                                                                    deformationVariableName, unit, scale, thickness);
         }
+        public ResultHistoryOutputFromMergedHistoriesDraftAPI CreateFromMergedHistories(string name, object source1,
+                                                                                        object source2, object source3,
+                                                                                        object source4)
+        {
+            ValidateNameSyntax(name);
+            if (source3 == null && source4 != null)
+                throw new PythonAPIException("The argument 'source4' cannot be used without 'source3'.");
+            List<HistoryResultData> sources = new List<HistoryResultData>();
+            sources.Add(ParseHistorySource(source1, "source1"));
+            sources.Add(ParseHistorySource(source2, "source2"));
+            if (source3 != null) sources.Add(ParseHistorySource(source3, "source3"));
+            if (source4 != null) sources.Add(ParseHistorySource(source4, "source4"));
+            ValidateUniqueHistorySources(sources);
+            return new ResultHistoryOutputFromMergedHistoriesDraftAPI(name, sources.ToArray());
+        }
+        public ResultHistoryOutputFromExtractedEntryDraftAPI CreateFromExtractedEntry(string name, object source,
+                                                                                      string entryName)
+        {
+            ValidateNameSyntax(name);
+            HistoryResultData historySource = ParseHistorySource(source, "source");
+            ValidateRequiredString(entryName, "entry_name");
+            return new ResultHistoryOutputFromExtractedEntryDraftAPI(name, historySource, entryName);
+        }
+        public ResultHistoryOutputXYDraftAPI CreateXY(string name, object xSource, object ySource)
+        {
+            ValidateNameSyntax(name);
+            HistoryResultData x = ParseHistorySource(xSource, "x_source");
+            HistoryResultData y = ParseHistorySource(ySource, "y_source");
+            return new ResultHistoryOutputXYDraftAPI(name, x, y);
+        }
+        public ResultHistoryOutputFromTableDraftAPI CreateFromTable(string name, object dataPoints,
+                                                                    object yColumnNames, string xAxisUnit,
+                                                                    string yAxisUnit)
+        {
+            ValidateNameSyntax(name);
+            double[][] rows = PythonDoubleListConverter.ToDoubleArray2D(dataPoints, "data_points");
+            if (rows.Length == 0)
+                throw new PythonAPIException("The argument 'data_points' must contain at least one row.");
+            if (rows[0].Length < 2)
+                throw new PythonAPIException("Each row in 'data_points' must contain the X value and at least one " +
+                                             "Y value.");
+            foreach (double[] row in rows)
+            {
+                if (row.Length != rows[0].Length)
+                    throw new PythonAPIException("All rows in 'data_points' must contain the same number of values.");
+            }
+            int numberOfYColumns = rows[0].Length - 1;
+            string[] columnNames;
+            if (yColumnNames == null) columnNames = GetDefaultYColumnNames(numberOfYColumns);
+            else
+            {
+                columnNames = PythonStringListConverter.ToStringArray(yColumnNames, "y_column_names");
+                ValidateStringList(columnNames, "y_column_names");
+                if (columnNames.Length != numberOfYColumns)
+                    throw new PythonAPIException("The argument 'y_column_names' must contain " + numberOfYColumns +
+                                                 " names to match the 'data_points' columns.");
+            }
+            if (xAxisUnit == null) throw new PythonAPIException("The argument 'x_axis_unit' must not be None.");
+            if (yAxisUnit == null) throw new PythonAPIException("The argument 'y_axis_unit' must not be None.");
+            return new ResultHistoryOutputFromTableDraftAPI(name, rows, columnNames, xAxisUnit, yAxisUnit);
+        }
         public string AddHistoryOutput(string resultName, ResultHistoryOutputDraftAPI output)
         {
             if (output == null) throw new PythonAPIException("The argument 'output' must not be None.");
@@ -111,6 +173,91 @@ namespace APIs.Python
             EnsureCommandsAvailable();
             _commandGateway.ReplaceResultHistoryOutput(oldName, historyOutput);
             return historyOutput.Name;
+        }
+        public void DuplicateHistoryOutputs(string resultName, object historyOutputNames)
+        {
+            string[] names = PythonStringListConverter.ToStringArray(historyOutputNames, "history_output_names");
+            ValidateStringList(names, "history_output_names");
+            FeResults result = ResolveCurrentResult(resultName);
+            foreach (string name in names)
+            {
+                // Only user-defined history outputs carry a definition that can be duplicated
+                if (result.GetResultHistoryOutputOrNull(name) == null)
+                    throw new PythonAPIException("The history output '" + name +
+                                                 "' is not a user-defined history output and cannot be duplicated.");
+            }
+            EnsureCommandsAvailable();
+            _commandGateway.DuplicateResultHistoryOutputs(names);
+        }
+        public void ExportHistoryOutputsToCsv(string resultName, string fileName, object historyOutputNames,
+                                              string delimiter)
+        {
+            ValidateRequiredString(fileName, "file_name");
+            ValidateRequiredString(delimiter, "delimiter");
+            string[] names = PythonStringListConverter.ToStringArray(historyOutputNames, "history_output_names");
+            ValidateStringList(names, "history_output_names");
+            string fullFileName;
+            try
+            {
+                fullFileName = Path.GetFullPath(fileName);
+            }
+            catch (Exception ex)
+            {
+                throw new PythonAPIException("The argument 'file_name' is invalid: " + ex.Message);
+            }
+            string directoryName = Path.GetDirectoryName(fullFileName);
+            if (!Directory.Exists(directoryName))
+                throw new PythonAPIException("The export directory '" + directoryName + "' does not exist.");
+            FeResults result = ResolveCurrentResult(resultName);
+            foreach (string name in names) ResolveHistorySet(result, name);
+            EnsureCommandsAvailable();
+            _commandGateway.ExportResultHistoryOutput(fullFileName, names, delimiter);
+        }
+        public void RemoveHistoryFields(string resultName, string historyOutputName, object fieldNames)
+        {
+            ValidateRequiredString(historyOutputName, "history_output_name");
+            string[] names = PythonStringListConverter.ToStringArray(fieldNames, "field_names");
+            ValidateStringList(names, "field_names");
+            FeResults result = ResolveCurrentResult(resultName);
+            HistoryResultSet set = ResolveHistorySet(result, historyOutputName);
+            foreach (string name in names)
+            {
+                if (!set.Fields.ContainsKey(name))
+                    throw new PythonAPIException("The history field '" + name + "' does not exist in history output '" +
+                                                 historyOutputName + "'.");
+            }
+            EnsureCommandsAvailable();
+            _commandGateway.RemoveResultHistoryFields(historyOutputName, names);
+        }
+        public void RemoveHistoryComponents(string resultName, string historyOutputName, string fieldName,
+                                            object componentNames)
+        {
+            ValidateRequiredString(historyOutputName, "history_output_name");
+            ValidateRequiredString(fieldName, "field_name");
+            string[] names = PythonStringListConverter.ToStringArray(componentNames, "component_names");
+            ValidateStringList(names, "component_names");
+            FeResults result = ResolveCurrentResult(resultName);
+            HistoryResultSet set = ResolveHistorySet(result, historyOutputName);
+            HistoryResultField field;
+            if (!set.Fields.TryGetValue(fieldName, out field))
+                throw new PythonAPIException("The history field '" + fieldName + "' does not exist in history output '" +
+                                             historyOutputName + "'.");
+            foreach (string name in names)
+            {
+                if (!field.Components.ContainsKey(name))
+                    throw new PythonAPIException("The history component '" + name + "' does not exist in field '" +
+                                                 fieldName + "'.");
+            }
+            EnsureCommandsAvailable();
+            _commandGateway.RemoveResultHistoryComponents(historyOutputName, fieldName, names);
+        }
+        private static HistoryResultSet ResolveHistorySet(FeResults result, string historyOutputName)
+        {
+            HistoryResultSet set;
+            if (!result.GetHistory().Sets.TryGetValue(historyOutputName, out set))
+                throw new PythonAPIException("The history output '" + historyOutputName +
+                                             "' does not exist in the current result.");
+            return set;
         }
         public void RemoveHistoryOutputs(string resultName, object historyOutputNames)
         {
@@ -141,6 +288,12 @@ namespace APIs.Python
                 ValidateFromEquation(result, fromEquation, replacedName);
             else if (output is ResultHistoryOutputFromIntegration fromIntegration)
                 ValidateFromIntegration(result, fromIntegration);
+            else if (output is ResultHistoryOutputFromMergedHistories fromMergedHistories)
+                ValidateFromMergedHistories(result, fromMergedHistories, replacedName);
+            else if (output is ResultHistoryOutputFromExtractedEntry fromExtractedEntry)
+                ValidateFromExtractedEntry(result, fromExtractedEntry, replacedName);
+            else if (output is ResultHistoryOutputXY xy) ValidateXY(result, xy, replacedName);
+            else if (output is ResultHistoryOutputFromTable fromTable) ValidateFromTable(fromTable);
             else throw new PythonAPIException("The result history output type '" + output.GetType().Name +
                                               "' is not supported.");
         }
@@ -190,6 +343,121 @@ namespace APIs.Python
             ValidateDeformationField(result, output.DeformationVariableName);
             if (output.Unit == null) throw new PythonAPIException("The integration unit must not be None.");
             ValidateCrossSection(output.IntegralType, output.CrossSection, output.Thickness);
+        }
+        private static void ValidateFromMergedHistories(FeResults result,
+                                                       ResultHistoryOutputFromMergedHistories output,
+                                                       string replacedName)
+        {
+            HistoryResultData[] sources = output.GetSources();
+            if (sources.Length < 2)
+                throw new PythonAPIException("At least two history sources are required for merging.");
+            ValidateHistorySourcesExist(result, sources);
+            try
+            {
+                DerivedHistorySetBuilder.CreateMergedSet(result, output);
+            }
+            catch (CaeException ex)
+            {
+                throw new PythonAPIException(ex.Message);
+            }
+            ValidateHistorySourceDependencies(result, output, replacedName);
+        }
+        private static void ValidateFromExtractedEntry(FeResults result, ResultHistoryOutputFromExtractedEntry output,
+                                                       string replacedName)
+        {
+            ValidateRequiredString(output.EntryName, "entry_name");
+            ValidateHistorySourcesExist(result, new HistoryResultData[] { output.Source });
+            try
+            {
+                DerivedHistorySetBuilder.CreateExtractedSet(result, output);
+            }
+            catch (CaeException ex)
+            {
+                throw new PythonAPIException(ex.Message);
+            }
+            ValidateHistorySourceDependencies(result, output, replacedName);
+        }
+        private static void ValidateXY(FeResults result, ResultHistoryOutputXY output, string replacedName)
+        {
+            ValidateHistorySourcesExist(result, new HistoryResultData[] { output.XSource, output.YSource });
+            try
+            {
+                DerivedHistorySetBuilder.CreateXYSet(result, output);
+            }
+            catch (CaeException ex)
+            {
+                throw new PythonAPIException(ex.Message);
+            }
+            ValidateHistorySourceDependencies(result, output, replacedName);
+        }
+        private static void ValidateFromTable(ResultHistoryOutputFromTable output)
+        {
+            try
+            {
+                output.CheckData();
+            }
+            catch (CaeException ex)
+            {
+                throw new PythonAPIException(ex.Message);
+            }
+        }
+        private static void ValidateHistorySourcesExist(FeResults result, HistoryResultData[] sources)
+        {
+            foreach (HistoryResultData source in sources)
+            {
+                if (source == null) throw new PythonAPIException("The history source must not be None.");
+                if (result.GetHistoryResultComponent(source.SetName, source.FieldName, source.ComponentName) == null)
+                    throw new PythonAPIException("The history source '" + source.GetDisplayName() +
+                                                 "' does not exist in the current result.");
+            }
+        }
+        private static void ValidateHistorySourceDependencies(FeResults result, ResultHistoryOutput output,
+                                                              string replacedName)
+        {
+            if (result.AreResultHistoryOutputsInCyclicDependance(replacedName, output))
+                throw new PythonAPIException("The selected history sources create a cyclic dependency.");
+        }
+        private static HistoryResultData ParseHistorySource(object source, string argumentName)
+        {
+            if (source == null) throw new PythonAPIException("The argument '" + argumentName + "' must not be None.");
+            ResultHistoryOutputComponentAPI component = source as ResultHistoryOutputComponentAPI;
+            if (component != null)
+                return new HistoryResultData(component.HistoryOutputName, component.FieldName,
+                                             component.ComponentName);
+            string[] names;
+            try
+            {
+                names = PythonStringListConverter.ToStringArray(source, argumentName);
+            }
+            catch (PythonAPIException)
+            {
+                throw InvalidHistorySource(argumentName);
+            }
+            if (names.Length != 3) throw InvalidHistorySource(argumentName);
+            foreach (string name in names) ValidateRequiredString(name, argumentName + " item");
+            return new HistoryResultData(names[0], names[1], names[2]);
+        }
+        private static PythonAPIException InvalidHistorySource(string argumentName)
+        {
+            return new PythonAPIException("The argument '" + argumentName + "' must be a HistoryComponent or a list " +
+                                          "of three strings [history_output_name, field_name, component_name].");
+        }
+        private static void ValidateUniqueHistorySources(List<HistoryResultData> sources)
+        {
+            HashSet<string> names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (HistoryResultData source in sources)
+            {
+                if (!names.Add(source.GetDisplayName()))
+                    throw new PythonAPIException("The history source '" + source.GetDisplayName() +
+                                                 "' is selected more than once.");
+            }
+        }
+        private static string[] GetDefaultYColumnNames(int numberOfYColumns)
+        {
+            string[] columnNames = new string[numberOfYColumns];
+            for (int column = 0; column < numberOfYColumns; column++)
+                columnNames[column] = ResultHistoryOutputFromTable.YAxisName + (column + 1);
+            return columnNames;
         }
         private static void ValidateRegion(FeResults result, ResultHistoryOutput output, string selectionTarget,
                                            params RegionTypeEnum[] namedRegionTypes)

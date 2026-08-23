@@ -82,6 +82,30 @@ namespace APIs.Python
             return new ResultHistoryOutputEntryDataAPI(entry.Name, entry.Time.ToArray(), entry.Values.ToArray(),
                                            GetUnit(component, entry));
         }
+        public ResultHistoryOutputAPI CreateAPI(string resultName, string historyOutputName)
+        {
+            ResultHistoryOutput historyOutput = ResolveDefinitionOrNull(resultName, historyOutputName);
+            if (historyOutput is ResultHistoryOutputFromField)
+                return new ResultHistoryOutputFromFieldAPI(resultName, historyOutputName, this);
+            if (historyOutput is ResultHistoryOutputFromEquation)
+                return new ResultHistoryOutputFromEquationAPI(resultName, historyOutputName, this);
+            if (historyOutput is ResultHistoryOutputFromIntegration)
+                return new ResultHistoryOutputFromIntegrationAPI(resultName, historyOutputName, this);
+            if (historyOutput is ResultHistoryOutputFromMergedHistories)
+                return new ResultHistoryOutputFromMergedHistoriesAPI(resultName, historyOutputName, this);
+            if (historyOutput is ResultHistoryOutputFromExtractedEntry)
+                return new ResultHistoryOutputFromExtractedEntryAPI(resultName, historyOutputName, this);
+            if (historyOutput is ResultHistoryOutputXY)
+                return new ResultHistoryOutputXYAPI(resultName, historyOutputName, this);
+            if (historyOutput is ResultHistoryOutputFromTable)
+                return new ResultHistoryOutputFromTableAPI(resultName, historyOutputName, this);
+            return new ResultHistoryOutputAPI(resultName, historyOutputName, this);
+        }
+        public ResultHistoryOutput ResolveDefinitionOrNull(string resultName, string historyOutputName)
+        {
+            FeResults result = _resolver.ResolveResult(resultName);
+            return result.GetResultHistoryOutputOrNull(historyOutputName);
+        }
         public HistoryResults ResolveHistory(string resultName)
         {
             FeResults result = _resolver.ResolveResult(resultName);

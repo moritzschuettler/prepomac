@@ -40,7 +40,7 @@ namespace APIs.Python
             get
             {
                 _dataService.ResolveHistoryOutput(_resultName, historyOutputName);
-                return new ResultHistoryOutputAPI(_resultName, historyOutputName, _dataService);
+                return _dataService.CreateAPI(_resultName, historyOutputName);
             }
         }
         public int __len__()
@@ -129,6 +129,58 @@ namespace APIs.Python
                                                   cross_section, thickness);
         }
 
+        [PythonAPI("Creates a From Merged Histories draft that merges two to four history components into a " +
+                   "single history output. Each source is a HistoryComponent or a list of three strings " +
+                   "[history_output_name, field_name, component_name]. All merged entries must share the same unit " +
+                   "and a common reference time. This does not modify the result.",
+                   Arguments = "name: str, source1: HistoryComponent or list[str], " +
+                               "source2: HistoryComponent or list[str], " +
+                               "source3: HistoryComponent or list[str] = None, " +
+                               "source4: HistoryComponent or list[str] = None",
+                   Returns = "HistoryOutputFromMergedHistoriesDraft")]
+        public ResultHistoryOutputFromMergedHistoriesDraftAPI create_history_output_from_merged_histories(
+            string name, object source1, object source2, object source3 = null, object source4 = null)
+        {
+            return _service.CreateFromMergedHistories(name, source1, source2, source3, source4);
+        }
+
+        [PythonAPI("Creates a From Extracted Entry draft that extracts one named entry of a history component into " +
+                   "a separate history output. The source is a HistoryComponent or a list of three strings " +
+                   "[history_output_name, field_name, component_name]. This does not modify the result.",
+                   Arguments = "name: str, source: HistoryComponent or list[str], entry_name: str",
+                   Returns = "HistoryOutputFromExtractedEntryDraft")]
+        public ResultHistoryOutputFromExtractedEntryDraftAPI create_history_output_from_extracted_entry(
+            string name, object source, string entry_name)
+        {
+            return _service.CreateFromExtractedEntry(name, source, entry_name);
+        }
+
+        [PythonAPI("Creates an XY draft that plots the entries of the Y history component against the values of " +
+                   "the X history component. Each source is a HistoryComponent or a list of three strings " +
+                   "[history_output_name, field_name, component_name]. The X component must contain exactly one " +
+                   "entry, and the sources must share a common reference time. This does not modify the result.",
+                   Arguments = "name: str, x_source: HistoryComponent or list[str], " +
+                               "y_source: HistoryComponent or list[str]",
+                   Returns = "HistoryOutputXYDraft")]
+        public ResultHistoryOutputXYDraftAPI create_history_output_xy(string name, object x_source, object y_source)
+        {
+            return _service.CreateXY(name, x_source, y_source);
+        }
+
+        [PythonAPI("Creates a From Table draft from user-defined data. Every row of data_points holds the X value " +
+                   "followed by one value per Y column, and all rows must be of equal length. The number of Y " +
+                   "columns is taken from the row length; y_column_names defaults to 'Y1', 'Y2', ... " +
+                   "This does not modify the result.",
+                   Arguments = "name: str, data_points: list[list[float]], y_column_names: list[str] = None, " +
+                               "x_axis_unit: str = '/', y_axis_unit: str = '/'",
+                   Returns = "HistoryOutputFromTableDraft")]
+        public ResultHistoryOutputFromTableDraftAPI create_history_output_from_table(
+            string name, object data_points, object y_column_names = null, string x_axis_unit = "/",
+            string y_axis_unit = "/")
+        {
+            return _service.CreateFromTable(name, data_points, y_column_names, x_axis_unit, y_axis_unit);
+        }
+
         [PythonAPI("Creates a minimum history-output filter. Possible return_value values are 'row' and 'column'.",
                    Arguments = "return_value: str = 'column'", Returns = "HistoryOutputFilter")]
         public ResultHistoryOutputFilterAPI create_minimum_filter(string return_value = "column")
@@ -173,11 +225,43 @@ namespace APIs.Python
             return this[name];
         }
 
+        [PythonAPI("Validates and duplicates user-defined result history outputs using command history. " +
+                   "Solver-generated history outputs cannot be duplicated.",
+                   Arguments = "history_output_names: list[str]", Returns = "None")]
+        public void duplicate(object history_output_names)
+        {
+            _service.DuplicateHistoryOutputs(_resultName, history_output_names);
+        }
+
         [PythonAPI("Validates and removes result history outputs using command history.",
                    Arguments = "history_output_names: list[str]", Returns = "None")]
         public void remove(object history_output_names)
         {
             _service.RemoveHistoryOutputs(_resultName, history_output_names);
+        }
+
+        [PythonAPI("Validates and removes fields from a result history output using command history.",
+                   Arguments = "history_output_name: str, field_names: list[str]", Returns = "None")]
+        public void remove_fields(string history_output_name, object field_names)
+        {
+            _service.RemoveHistoryFields(_resultName, history_output_name, field_names);
+        }
+
+        [PythonAPI("Validates and removes components from a result history-output field using command history.",
+                   Arguments = "history_output_name: str, field_name: str, component_names: list[str]",
+                   Returns = "None")]
+        public void remove_components(string history_output_name, string field_name, object component_names)
+        {
+            _service.RemoveHistoryComponents(_resultName, history_output_name, field_name, component_names);
+        }
+
+        [PythonAPI("Validates and exports all fields and components of the selected result history outputs to CSV " +
+                   "using command history.",
+                   Arguments = "file_name: str, history_output_names: list[str], delimiter: str = ','",
+                   Returns = "None")]
+        public void export_to_csv(string file_name, object history_output_names, string delimiter = ",")
+        {
+            _service.ExportHistoryOutputsToCsv(_resultName, file_name, history_output_names, delimiter);
         }
 
         public override string ToString()

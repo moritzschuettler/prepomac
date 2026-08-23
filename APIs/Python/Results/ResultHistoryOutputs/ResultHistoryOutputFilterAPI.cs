@@ -36,6 +36,11 @@ namespace APIs.Python
 
 
         // Methods
+        internal static ResultHistoryOutputFilterAPI FromBase(HistoryResultFilter filter)
+        {
+            if (filter == null || filter.Type == HistoryResultFilterTypeEnum.None) return null;
+            return new ResultHistoryOutputFilterAPI(filter.Type, filter.Option);
+        }
         internal HistoryResultFilter CreateBase()
         {
             HistoryResultFilter filter = new HistoryResultFilter();

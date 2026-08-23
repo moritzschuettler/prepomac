@@ -58,9 +58,30 @@ namespace PrePoMax.Python
         {
             _controller.ReplaceResultHistoryOutputCommand(oldResultHistoryOutputName, resultHistoryOutput);
         }
+        public void DuplicateResultHistoryOutputs(string[] resultHistoryOutputNames)
+        {
+            _controller.DuplicateResultHistoryOutputsCommand(resultHistoryOutputNames);
+        }
+        public void ExportResultHistoryOutput(string fileName, string[] resultHistoryOutputNames, string delimiter)
+        {
+            ExportHistoryResultSetFileProperties properties = new ExportHistoryResultSetFileProperties();
+            properties.FileName = fileName;
+            properties.HistoryOutputNames = resultHistoryOutputNames;
+            properties.Delimiter = delimiter;
+            _controller.ExportResultHistoryOutputCommand(properties);
+        }
         public void RemoveResultHistoryOutputs(string[] resultHistoryOutputNames)
         {
             _controller.RemoveResultHistoryOutputsCommand(resultHistoryOutputNames);
+        }
+        public void RemoveResultHistoryFields(string historyOutputName, string[] fieldNames)
+        {
+            _controller.RemoveResultHistoryFieldsCommand(historyOutputName, fieldNames);
+        }
+        public void RemoveResultHistoryComponents(string historyOutputName, string fieldName,
+                                                  string[] componentNames)
+        {
+            _controller.RemoveResultHistoryFieldsCommand(historyOutputName, fieldName, componentNames);
         }
     }
 }

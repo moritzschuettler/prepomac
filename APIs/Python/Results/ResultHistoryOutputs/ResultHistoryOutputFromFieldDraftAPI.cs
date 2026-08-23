@@ -100,7 +100,7 @@ namespace APIs.Python
             if (value == "angle_at_min") return ComplexResultTypeEnum.AngleAtMin;
             throw new PythonAPIException("Unsupported complex_result_type '" + value + "'.");
         }
-        private static string FormatComplexResultType(ComplexResultTypeEnum value)
+        internal static string FormatComplexResultType(ComplexResultTypeEnum value)
         {
             if (value == ComplexResultTypeEnum.Real) return "real";
             if (value == ComplexResultTypeEnum.Imaginary) return "imaginary";
@@ -121,7 +121,7 @@ namespace APIs.Python
             throw new PythonAPIException("The output_node_coordinates value must be 'off', 'undeformed', or " +
                                          "'deformed'.");
         }
-        private static string FormatOutputNodeCoordinates(OutputNodeCoordinatesEnum value)
+        internal static string FormatOutputNodeCoordinates(OutputNodeCoordinatesEnum value)
         {
             if (value == OutputNodeCoordinatesEnum.Off) return "off";
             if (value == OutputNodeCoordinatesEnum.Undeformed) return "undeformed";

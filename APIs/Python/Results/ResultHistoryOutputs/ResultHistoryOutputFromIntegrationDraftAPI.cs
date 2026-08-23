@@ -85,19 +85,19 @@ namespace APIs.Python
             if (_integralType == IntegralTypeEnum.Surface) return "surfaces";
             return "elements";
         }
-        private static string IntegralTypeToString(IntegralTypeEnum integralType)
+        internal static string IntegralTypeToString(IntegralTypeEnum integralType)
         {
             if (integralType == IntegralTypeEnum.Line) return "line";
             if (integralType == IntegralTypeEnum.Surface) return "surface";
             return "volume";
         }
-        private static string IntegralResultToString(IntegralResultEnum integralResult)
+        internal static string IntegralResultToString(IntegralResultEnum integralResult)
         {
             if (integralResult == IntegralResultEnum.Geometry) return "geometry";
             if (integralResult == IntegralResultEnum.FieldByGeometry) return "field_by_geometry";
             return "field";
         }
-        private static string CrossSectionToString(IntegrationScaleType crossSection)
+        internal static string CrossSectionToString(IntegrationScaleType crossSection)
         {
             if (crossSection == IntegrationScaleType.Thickness) return "thickness";
             if (crossSection == IntegrationScaleType.Axisymmetric) return "axisymmetric";

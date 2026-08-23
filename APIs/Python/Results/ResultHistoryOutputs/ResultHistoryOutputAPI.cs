@@ -7,13 +7,16 @@
 // Author: Matej Borovinšek
 // Contributors:
 
+using CaeGlobals;
+using CaeResults;
+
 namespace APIs.Python
 {
     public class ResultHistoryOutputAPI : BaseAPI
     {
         // Variables
-        private readonly string _resultName;
-        private readonly string _historyOutputName;
+        protected readonly string _resultName;
+        protected readonly string _historyOutputName;
         private readonly ResultHistoryOutputDataService _resultHistoryService;
         private readonly ResultHistoryOutputFieldsAPI _fields;
 
@@ -23,10 +26,44 @@ namespace APIs.Python
         public string name { get { return _historyOutputName; } }
         [PythonAPI("The fields in this history output.", Returns = "HistoryFields")]
         public ResultHistoryOutputFieldsAPI fields { get { return _fields; } }
+        [PythonAPI("Whether the history output was defined by the user instead of produced by the solver.",
+                   Returns = "bool")]
+        public bool is_user_defined { get { return ResolveOrNull() != null; } }
+        [PythonAPI("The history output definition type, or None for a solver-generated history output.",
+                   Returns = "str or None")]
+        public string type_name
+        {
+            get
+            {
+                ResultHistoryOutput historyOutput = ResolveOrNull();
+                return historyOutput != null ? historyOutput.GetType().Name : null;
+            }
+        }
+        [PythonAPI("The first history-output filter, or None when it is disabled or the output is solver-generated.",
+                   Returns = "HistoryOutputFilter or None")]
+        public ResultHistoryOutputFilterAPI filter1
+        {
+            get
+            {
+                ResultHistoryOutput historyOutput = ResolveOrNull();
+                return historyOutput == null ? null : ResultHistoryOutputFilterAPI.FromBase(historyOutput.Filter1);
+            }
+        }
+        [PythonAPI("The second history-output filter, or None when it is disabled or the output is solver-generated.",
+                   Returns = "HistoryOutputFilter or None")]
+        public ResultHistoryOutputFilterAPI filter2
+        {
+            get
+            {
+                ResultHistoryOutput historyOutput = ResolveOrNull();
+                return historyOutput == null ? null : ResultHistoryOutputFilterAPI.FromBase(historyOutput.Filter2);
+            }
+        }
 
 
         // Constructors
-        internal ResultHistoryOutputAPI(string resultName, string historyOutputName, ResultHistoryOutputDataService resultHistoryService)
+        internal ResultHistoryOutputAPI(string resultName, string historyOutputName,
+                                        ResultHistoryOutputDataService resultHistoryService)
         {
             _resultName = resultName;
             _historyOutputName = historyOutputName;
@@ -36,6 +73,31 @@ namespace APIs.Python
 
 
         // Methods
+        protected ResultHistoryOutput ResolveOrNull()
+        {
+            return _resultHistoryService.ResolveDefinitionOrNull(_resultName, _historyOutputName);
+        }
+        protected ResultHistoryOutput Resolve()
+        {
+            ResultHistoryOutput historyOutput = ResolveOrNull();
+            if (historyOutput == null)
+                throw new PythonAPIException("The history output '" + _historyOutputName +
+                                             "' is not a user-defined history output.");
+            return historyOutput;
+        }
+        protected static string FormatRegionType(RegionTypeEnum regionType)
+        {
+            if (regionType == RegionTypeEnum.Selection) return "selection";
+            if (regionType == RegionTypeEnum.NodeSetName) return "node_set";
+            if (regionType == RegionTypeEnum.ElementSetName) return "element_set";
+            if (regionType == RegionTypeEnum.SurfaceName) return "surface";
+            return "none";
+        }
+        protected static string FormatRegionName(ResultHistoryOutput historyOutput)
+        {
+            if (string.IsNullOrEmpty(historyOutput.RegionName)) return null;
+            return historyOutput.RegionName;
+        }
         public override string ToString()
         {
             return "HistoryOutput(name='" + _historyOutputName + "', fields=" +

@@ -29,6 +29,8 @@ namespace APIs.Python
                 return new ResultAPI(_resolver, resultName, _resultFieldOutputService, _resultHistoryOutputService);
             }
         }
+        [PythonAPI("Result history outputs for the currently selected result.", Returns = "HistoryOutputs")]
+        public ResultHistoryOutputsAPI history_outputs { get { return current.history_outputs; } }
         [PythonAPI("User-defined field outputs for the currently selected result.", Returns = "FieldOutputs")]
         public ResultFieldOutputsAPI field_outputs { get { return current.field_outputs; } }
 

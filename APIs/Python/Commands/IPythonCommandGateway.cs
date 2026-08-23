@@ -21,6 +21,10 @@ namespace APIs.Python
         void RemoveResultFieldOutputComponents(string fieldOutputName, string[] componentNames);
         void AddResultHistoryOutput(ResultHistoryOutput resultHistoryOutput);
         void ReplaceResultHistoryOutput(string oldResultHistoryOutputName, ResultHistoryOutput resultHistoryOutput);
+        void DuplicateResultHistoryOutputs(string[] resultHistoryOutputNames);
+        void ExportResultHistoryOutput(string fileName, string[] resultHistoryOutputNames, string delimiter);
         void RemoveResultHistoryOutputs(string[] resultHistoryOutputNames);
+        void RemoveResultHistoryFields(string historyOutputName, string[] fieldNames);
+        void RemoveResultHistoryComponents(string historyOutputName, string fieldName, string[] componentNames);
     }
 }
