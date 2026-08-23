@@ -162,6 +162,7 @@ namespace vtkControl
 
         // Getters
         public bool IsBoxSelectionActive { get { return _boxSelection; } }
+        public bool NavigationAllowed { get { return !_animating && this.GetState() == VTKIS_NONE; } }
 
 
         // Callbacks
@@ -560,40 +561,7 @@ namespace vtkControl
             if (this.GetState() == VTKIS_NONE)
             {
                 int[] clickPos = this.GetInteractor().GetEventPosition();
-                this.FindPokedRenderer(clickPos[0], clickPos[1]);
-                vtkRenderer renderer = this.GetCurrentRenderer();
-                //
-                double[] worldPos = DisplayToWorld(renderer, new double[] { clickPos[0], clickPos[1] });
-                //
-                vtkRenderWindowInteractor rwi = this.GetInteractor();
-                double ctrlKeyFactor = rwi.GetControlKey();
-                if (ctrlKeyFactor == 0) ctrlKeyFactor = 1;
-                else ctrlKeyFactor = 0.2;
-                //
-                vtkCamera camera = renderer.GetActiveCamera();
-                double factor = Math.Pow(1.1, this._motionFactor * ctrlKeyFactor * 0.2 * this.GetMouseWheelMotionFactor());
-                //factor = 1;
-                camera.SetParallelScale(camera.GetParallelScale() * factor);
-
-                double[] worldPosAfter = DisplayToWorld(renderer, new double[] { clickPos[0], clickPos[1] });
-
-                PanCamera(camera, worldPosAfter, worldPos);
-
-                // Box selection
-                if (_boxSelection) DrawBoxSelection(_x, _y);
-
-                // Widgets - mouse wheel scrolled
-                foreach (vtkMaxBorderWidget widget in _widgets)
-                {
-                    widget.MouseWheelScrolled();
-                }
-                if (ZoomChangedEvent != null) ZoomChangedEvent();
-
-                this.GetInteractor().Modified();
-                // A wheel zoom may reposition projected widgets; restore the hover at the
-                // unchanged pointer position after all widget geometry has been updated.
-                UpdateWidgetHighlights(clickPos[0], clickPos[1]);
-                this.GetInteractor().Render();
+                ZoomAtDisplayPoint(GetMouseWheelZoomFactor(), clickPos[0], clickPos[1]);
             }            
         }
         void vtkInteractorStyleControl_MouseWheelBackwardEvt(vtkObject sender, vtkObjectEventArgs e)
@@ -604,41 +572,16 @@ namespace vtkControl
             if (this.GetState() == VTKIS_NONE)
             {
                 int[] clickPos = this.GetInteractor().GetEventPosition();
-                this.FindPokedRenderer(clickPos[0], clickPos[1]);
-                vtkRenderer renderer = this.GetCurrentRenderer();
-                //
-                double[] worldPos = DisplayToWorld(renderer, new double[] { clickPos[0], clickPos[1] });
-                //
-                vtkRenderWindowInteractor rwi = this.GetInteractor();
-                double ctrlKeyFactor = rwi.GetControlKey();
-                if (ctrlKeyFactor == 0) ctrlKeyFactor = 1;
-                else ctrlKeyFactor = 0.2;
-                //
-                vtkCamera camera = renderer.GetActiveCamera();
-                double factor = Math.Pow(1.1, this._motionFactor * ctrlKeyFactor * 0.2 * this.GetMouseWheelMotionFactor());
-                //factor = 1.00;
-                camera.SetParallelScale(camera.GetParallelScale() / factor);
-
-                double[] worldPosAfter = DisplayToWorld(renderer, new double[] { clickPos[0], clickPos[1] });
-
-                PanCamera(camera, worldPosAfter, worldPos);
-
-                // Box selection
-                if (_boxSelection) DrawBoxSelection(_x, _y);
-
-                // Widgets - mouse wheel scrolled
-                foreach (vtkMaxBorderWidget widget in _widgets)
-                {
-                    widget.MouseWheelScrolled();
-                }
-                if (ZoomChangedEvent != null) ZoomChangedEvent();
-
-                this.GetInteractor().Modified();
-                // A wheel zoom may reposition projected widgets; restore the hover at the
-                // unchanged pointer position after all widget geometry has been updated.
-                UpdateWidgetHighlights(clickPos[0], clickPos[1]);
-                this.GetInteractor().Render();                
+                ZoomAtDisplayPoint(1 / GetMouseWheelZoomFactor(), clickPos[0], clickPos[1]);
             }
+        }
+        private double GetMouseWheelZoomFactor()
+        {
+            double ctrlKeyFactor = this.GetInteractor().GetControlKey();
+            if (ctrlKeyFactor == 0) ctrlKeyFactor = 1;
+            else ctrlKeyFactor = 0.2;
+            //
+            return Math.Pow(1.1, this._motionFactor * ctrlKeyFactor * 0.2 * this.GetMouseWheelMotionFactor());
         }
         //
         private void VtkInteractorStyleControl_KeyPressEvt(vtkObject sender, vtkObjectEventArgs e)
@@ -857,6 +800,20 @@ namespace vtkControl
             // Must update since zoom can also change
             _rotationCenterDisplay = WorldToDisplay(renderer, _rotationCenterWorld);
         }
+        public void StartMultiTouchGesture(int x, int y)
+        {
+            if (_animating) return;
+            //
+            ClearWidgetHighlightsInternal();
+            CancelBoxSelection();
+            //
+            this.FindPokedRenderer(x, y);
+            if (this.GetCurrentRenderer() == null) return;
+            //
+            UpdateRotationCenterDisplay();
+            //
+            this.GetInteractor().Modified();
+        }
         public static double[] WorldToDisplay(vtkRenderer renderer, double[] worldPos)
         {
             IntPtr posOutPtr = Marshal.AllocHGlobal(2 * 8);
@@ -932,6 +889,30 @@ namespace vtkControl
             //
             AdjustCameraDistanceAndClipping();
         }
+        public void PanByDisplayDelta(double dx, double dy, bool render = true)
+        {
+            vtkRenderer renderer = this.GetCurrentRenderer();
+            if (renderer == null) return;
+            //
+            int[] size = renderer.GetSize();
+            double[] basePos = new double[] { size[0] / 2.0, size[1] / 2.0 };
+            double[] newPickPoint = DisplayToWorld(renderer, new double[] { basePos[0] + dx, basePos[1] + dy });
+            double[] oldPickPoint = DisplayToWorld(renderer, basePos);
+            //
+            vtkCamera camera = renderer.GetActiveCamera();
+            PanCamera(camera, newPickPoint, oldPickPoint);
+            //
+            vtkRenderWindowInteractor rwi = this.GetInteractor();
+            if (rwi.GetLightFollowCamera() == 1) renderer.UpdateLightsGeometryToFollowCamera();
+            // Widgets - Pan
+            foreach (vtkMaxBorderWidget widget in _widgets)
+            {
+                widget.MousePan((int)dx, (int)dy);
+            }
+            //
+            rwi.Modified();
+            if (render) rwi.Render();
+        }
         // Zoom on mouse move - slow zooming
         public override void Zoom()
         {
@@ -959,6 +940,36 @@ namespace vtkControl
             rwi.Modified();
             rwi.Render();
         }
+        public void ZoomAtDisplayPoint(double parallelScaleFactor, int x, int y, bool render = true)
+        {
+            this.FindPokedRenderer(x, y);
+            vtkRenderer renderer = this.GetCurrentRenderer();
+            if (renderer == null) return;
+            //
+            double[] displayPos = new double[] { x, y };
+            double[] worldPos = DisplayToWorld(renderer, displayPos);
+            //
+            vtkCamera camera = renderer.GetActiveCamera();
+            camera.SetParallelScale(camera.GetParallelScale() * parallelScaleFactor);
+            //
+            double[] worldPosAfter = DisplayToWorld(renderer, displayPos);
+            PanCamera(camera, worldPosAfter, worldPos);
+            // Box selection
+            if (_boxSelection) DrawBoxSelection(_x, _y);
+            // Widgets - mouse wheel scrolled
+            foreach (vtkMaxBorderWidget widget in _widgets)
+            {
+                widget.MouseWheelScrolled();
+            }
+            //
+            if (ZoomChangedEvent != null) ZoomChangedEvent();
+            //
+            this.GetInteractor().Modified();
+            // A zoom may reposition projected widgets; restore the hover at the
+            // unchanged pointer position after all widget geometry has been updated.
+            UpdateWidgetHighlights(x, y);
+            if (render) this.GetInteractor().Render();
+        }
         //
         public override void Rotate()
         {
@@ -971,15 +982,19 @@ namespace vtkControl
             int dx = clickPos[0] - rwi.GetLastEventPosition()[0];
             int dy = clickPos[1] - rwi.GetLastEventPosition()[1];
             //
+            RotateByDisplayDelta(dx, dy);
+        }
+        public void RotateByDisplayDelta(double dx, double dy, bool render = true)
+        {
             double delta_elevation = -20.0 / 500;
             double delta_azimuth = -20.0 / 500;
             //
             double rxf = dx * delta_azimuth * this._motionFactor;
             double ryf = dy * delta_elevation * this._motionFactor;
             //
-            Rotate(rxf, ryf);
+            Rotate(rxf, ryf, 0, render);
         }
-        public void Rotate(double azimuthAngle, double elevationAngle, double rollAngle = 0)
+        public void Rotate(double azimuthAngle, double elevationAngle, double rollAngle = 0, bool render = true)
         {
             vtkRenderer renderer = this.GetCurrentRenderer();
             if (renderer == null) return;
@@ -1015,7 +1030,7 @@ namespace vtkControl
                 widget.MouseRotate(azimuthAngle, elevationAngle);
             }
             rwi.Modified();
-            rwi.Render();
+            if (render) rwi.Render();
         }
         //
         private void SelectOnMouseMove(int x, int y)

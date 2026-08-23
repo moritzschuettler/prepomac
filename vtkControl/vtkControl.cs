@@ -138,6 +138,8 @@ namespace vtkControl
         private bool _drawCameraPath;
         private List<double[]> _positions;
         private List<double[]> _focalPoints;
+        // Trackpad
+        private TrackpadNavigation _trackpadNavigation;
         // Caption actors
         private vtkActor _captionTmpActor;
         private bool _captionActorAddedToBase;
@@ -259,6 +261,7 @@ namespace vtkControl
 
 
         // Getters
+        public TrackpadNavigation TrackpadNavigation { get { return _trackpadNavigation; } }
         public bool IsBoxSelectionActive
         {
             get
@@ -317,6 +320,7 @@ namespace vtkControl
             _widgetHighlightEnabled = true;
             _edgesVisibility = vtkEdgesVisibility.ElementEdges;
             _colorSpectrum = new vtkMaxColorSpectrum();
+            _trackpadNavigation = new TrackpadNavigation();
             //
             _actors = new Dictionary<string, vtkMaxActor>();
             _selectedActors = new List<vtkMaxActor>();
@@ -462,6 +466,58 @@ namespace vtkControl
                 Form_WidgetPicked(e, Keys.None, aw.GetName(), aw.GetRectangle());
             }
         }
+
+        // Trackpad                                                                                                                 
+        private const int WM_MOUSEWHEEL = 0x020A;
+        private const int WM_MOUSEHWHEEL = 0x020E;
+        private const int MK_SHIFT = 0x0004;
+        private const int MK_CONTROL = 0x0008;
+        //
+        protected override void WndProc(ref Message m)
+        {
+            if ((m.Msg == WM_MOUSEWHEEL || m.Msg == WM_MOUSEHWHEEL) && HandleTrackpadWheel(ref m)) return;
+            //
+            base.WndProc(ref m);
+        }
+        private bool HandleTrackpadWheel(ref Message m)
+        {
+            if (_trackpadNavigation == null || !_trackpadNavigation.Enabled) return false;
+            if (_style == null || _renderer == null) return false;
+            //
+            int wParam = unchecked((int)m.WParam.ToInt64());
+            double wheelDelta = (short)((wParam >> 16) & 0xFFFF);
+            bool control = (wParam & MK_CONTROL) != 0;
+            bool shift = (wParam & MK_SHIFT) != 0;
+            // The wheel messages carry screen coordinates and are sent to the focused window,
+            // so the viewport must be hit tested before the gesture is consumed
+            int lParam = m.LParam.ToInt32();
+            System.Drawing.Point screenPos = new System.Drawing.Point((short)(lParam & 0xFFFF),
+                                                                      (short)((lParam >> 16) & 0xFFFF));
+            System.Drawing.Point clientPos = PointToClient(screenPos);
+            if (!ClientRectangle.Contains(clientPos)) return false;
+            //
+            int x = clientPos.X;
+            int y = ClientRectangle.Height - 1 - clientPos.Y;
+            //
+            double dragX = 0;
+            double dragY = 0;
+            double zoomFactor = 1;
+            //
+            if (control)
+            {
+                if (m.Msg == WM_MOUSEWHEEL) zoomFactor = TrackpadNavigation.WheelDeltaToZoomFactor(wheelDelta);
+            }
+            else
+            {
+                if (m.Msg == WM_MOUSEWHEEL) dragY = TrackpadNavigation.WheelDeltaToPixels(wheelDelta);
+                else dragX = TrackpadNavigation.WheelDeltaToPixels(wheelDelta);
+            }
+            //
+            _trackpadNavigation.Apply(_style, dragX, dragY, zoomFactor, x, y, shift);
+            //
+            return true;
+        }
+
 
         // Mouse Events - Style                                                                                                     
         public void Pick(int x1, int y1, bool boxSelection, int x2, int y2)
