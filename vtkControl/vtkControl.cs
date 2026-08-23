@@ -475,14 +475,25 @@ namespace vtkControl
         //
         protected override void WndProc(ref Message m)
         {
-            if ((m.Msg == WM_MOUSEWHEEL || m.Msg == WM_MOUSEHWHEEL) && HandleTrackpadWheel(ref m)) return;
+            if (m.Msg == WM_MOUSEWHEEL || m.Msg == WM_MOUSEHWHEEL)
+            {
+                bool handled = HandleTrackpadWheel(ref m);
+                System.Diagnostics.Debug.WriteLine("Trackpad: msg = 0x" + m.Msg.ToString("X3") + ", enabled = " +
+                                                   (_trackpadNavigation != null && _trackpadNavigation.Enabled) +
+                                                   ", handled = " + handled);
+                if (handled) return;
+            }
             //
             base.WndProc(ref m);
         }
         private bool HandleTrackpadWheel(ref Message m)
         {
             if (_trackpadNavigation == null || !_trackpadNavigation.Enabled) return false;
-            if (_style == null || _renderer == null) return false;
+            if (_style == null || _renderer == null)
+            {
+                System.Diagnostics.Debug.WriteLine("Trackpad: style or renderer is null");
+                return false;
+            }
             //
             int wParam = unchecked((int)m.WParam.ToInt64());
             double wheelDelta = (short)((wParam >> 16) & 0xFFFF);
@@ -490,11 +501,16 @@ namespace vtkControl
             bool shift = (wParam & MK_SHIFT) != 0;
             // The wheel messages carry screen coordinates and are sent to the focused window,
             // so the viewport must be hit tested before the gesture is consumed
-            int lParam = m.LParam.ToInt32();
+            long lParam = m.LParam.ToInt64();
             System.Drawing.Point screenPos = new System.Drawing.Point((short)(lParam & 0xFFFF),
                                                                       (short)((lParam >> 16) & 0xFFFF));
             System.Drawing.Point clientPos = PointToClient(screenPos);
-            if (!ClientRectangle.Contains(clientPos)) return false;
+            if (!ClientRectangle.Contains(clientPos))
+            {
+                System.Diagnostics.Debug.WriteLine("Trackpad: outside the viewport - client = " + clientPos +
+                                                   ", rectangle = " + ClientRectangle);
+                return false;
+            }
             //
             int x = clientPos.X;
             int y = ClientRectangle.Height - 1 - clientPos.Y;
@@ -512,6 +528,10 @@ namespace vtkControl
                 if (m.Msg == WM_MOUSEWHEEL) dragY = TrackpadNavigation.WheelDeltaToPixels(wheelDelta);
                 else dragX = TrackpadNavigation.WheelDeltaToPixels(wheelDelta);
             }
+            //
+            System.Diagnostics.Debug.WriteLine("Trackpad: delta = " + wheelDelta + ", control = " + control +
+                                               ", shift = " + shift + ", drag = " + dragX + " " + dragY +
+                                               ", zoom = " + zoomFactor);
             //
             _trackpadNavigation.Apply(_style, dragX, dragY, zoomFactor, x, y, shift);
             //

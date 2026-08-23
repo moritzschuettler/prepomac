@@ -41,6 +41,7 @@ namespace vtkControl
         public TrackpadNavigation()
         {
             _enabled = GetEnvironmentFlag("PREPOMAX_TRACKPAD", false);
+            _enabled = true;
             _twoFingerDragPans = GetEnvironmentFlag("PREPOMAX_TRACKPAD_DRAG_PANS", false);
             _invertZoom = GetEnvironmentFlag("PREPOMAX_TRACKPAD_INVERT_ZOOM", false);
             _orbitSensitivity = GetEnvironmentValue("PREPOMAX_TRACKPAD_ORBIT", 1);
