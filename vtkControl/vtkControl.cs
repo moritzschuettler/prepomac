@@ -140,6 +140,9 @@ namespace vtkControl
         private List<double[]> _focalPoints;
         // Trackpad
         private TrackpadNavigation _trackpadNavigation;
+        private double _rotateSensitivity;
+        private double _zoomSensitivity;
+        private bool _invertZoom;
         private double _trackpadDragX;
         private double _trackpadDragY;
         private double _trackpadZoom;
@@ -265,6 +268,32 @@ namespace vtkControl
             if (selectableActors != null) _selectableActorsFilter = new HashSet<string>(selectableActors);
             else _selectableActorsFilter = null;
         }
+        public void SetNavigationSensitivity(double rotateSensitivity, double zoomSensitivity, bool invertZoom)
+        {
+            _rotateSensitivity = rotateSensitivity;
+            _zoomSensitivity = zoomSensitivity;
+            _invertZoom = invertZoom;
+            //
+            ApplyNavigationSensitivity();
+        }
+        public void SetTrackpadNavigation(bool enabled, bool useWheelFallback, bool twoFingerDragPans,
+                                          double panSensitivity, bool invertX, bool invertY)
+        {
+            _trackpadNavigation.Enabled = enabled;
+            _trackpadNavigation.UseWheelFallback = useWheelFallback;
+            _trackpadNavigation.TwoFingerDragPans = twoFingerDragPans;
+            _trackpadNavigation.PanSensitivity = panSensitivity;
+            _trackpadNavigation.InvertX = invertX;
+            _trackpadNavigation.InvertY = invertY;
+        }
+        private void ApplyNavigationSensitivity()
+        {
+            if (_style == null) return;
+            //
+            _style.RotateSensitivity = _rotateSensitivity;
+            _style.ZoomSensitivity = _zoomSensitivity;
+            _style.InvertZoom = _invertZoom;
+        }
         public void StartBoxZoom()
         {
             _style.BoxZoomEnabled = true;
@@ -332,6 +361,9 @@ namespace vtkControl
             _edgesVisibility = vtkEdgesVisibility.ElementEdges;
             _colorSpectrum = new vtkMaxColorSpectrum();
             _trackpadNavigation = new TrackpadNavigation();
+            _rotateSensitivity = 1;
+            _zoomSensitivity = 1;
+            _invertZoom = false;
             _trackpadZoom = 1;
             _trackpadGestureEndTimer = new Timer();
             _trackpadGestureEndTimer.Interval = 250;
@@ -510,7 +542,7 @@ namespace vtkControl
             if (_gestureRecognizer.Active || _trackpadGestureEndTimer.Enabled) return true;
             // With a touchpad present the contacts are the only source of gestures, which leaves
             // the mouse wheel free to keep zooming the way it always has
-            if (_precisionTouchpad.Found) return false;
+            if (_precisionTouchpad.Found || !_trackpadNavigation.UseWheelFallback) return false;
             //
             return HandleTrackpadWheel(ref m);
         }
@@ -522,24 +554,16 @@ namespace vtkControl
         }
         private void vtkControl_HandleCreated(object sender, EventArgs e)
         {
-            bool registered = _precisionTouchpad.Register(Handle);
-            TrackpadTrace.Write("touchpad found = " + _precisionTouchpad.Found + ", raw input registered = " +
-                                registered + ", enabled = " + _trackpadNavigation.Enabled);
+            _precisionTouchpad.Register(Handle);
         }
         private void HandleRawInput(IntPtr rawInputHandle)
         {
             if (_trackpadNavigation == null || !_trackpadNavigation.Enabled) return;
-            if (!_precisionTouchpad.Found || _style == null || _renderer == null)
-            {
-                TrackpadTrace.Write("raw input dropped - found = " + _precisionTouchpad.Found +
-                                    ", style = " + (_style != null) + ", renderer = " + (_renderer != null));
-                return;
-            }
+            if (!_precisionTouchpad.Found || _style == null || _renderer == null) return;
             // Raw input arrives even while another application is in front - no form of this
             // application is active in that case, whichever of them the user was last working in
             if (Form.ActiveForm == null)
             {
-                if (_gestureRecognizer.Active) TrackpadTrace.Write("gesture cancelled - the application is not active");
                 _gestureRecognizer.End();
                 return;
             }
@@ -610,18 +634,12 @@ namespace vtkControl
             _trackpadPending = false;
             _trackpadGestureActive = true;
             //
-            TrackpadTrace.Write("apply drag = " + dragX + " " + dragY + ", zoom = " + zoom);
-            //
             _trackpadNavigation.Apply(_style, dragX, dragY, zoom, _trackpadCenterX, _trackpadCenterY, _trackpadShift);
         }
         private bool HandleTrackpadWheel(ref Message m)
         {
             if (_trackpadNavigation == null || !_trackpadNavigation.Enabled) return false;
-            if (_style == null || _renderer == null)
-            {
-                System.Diagnostics.Debug.WriteLine("Trackpad: style or renderer is null");
-                return false;
-            }
+            if (_style == null || _renderer == null) return false;
             //
             int wParam = unchecked((int)m.WParam.ToInt64());
             double wheelDelta = (short)((wParam >> 16) & 0xFFFF);
@@ -633,12 +651,7 @@ namespace vtkControl
             System.Drawing.Point screenPos = new System.Drawing.Point((short)(lParam & 0xFFFF),
                                                                       (short)((lParam >> 16) & 0xFFFF));
             System.Drawing.Point clientPos = PointToClient(screenPos);
-            if (!ClientRectangle.Contains(clientPos))
-            {
-                System.Diagnostics.Debug.WriteLine("Trackpad: outside the viewport - client = " + clientPos +
-                                                   ", rectangle = " + ClientRectangle);
-                return false;
-            }
+            if (!ClientRectangle.Contains(clientPos)) return false;
             //
             int x = clientPos.X;
             int y = ClientRectangle.Height - 1 - clientPos.Y;
@@ -2045,6 +2058,7 @@ namespace vtkControl
             _coorSys.InteractiveOff();  // must be after enabled ???
             // Interactor style
             _style = vtkInteractorStyleControl.New();
+            ApplyNavigationSensitivity();
             _style.SetWidgetHighlightEnabled(_widgetHighlightEnabled);
             _style.AutoAdjustCameraClippingRangeOn();
             _style.SetDefaultRenderer(_renderer);

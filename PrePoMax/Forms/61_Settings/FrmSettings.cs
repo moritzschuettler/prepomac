@@ -58,6 +58,8 @@ namespace PrePoMax.Forms
                         _viewSettings.Add(entry.Key, new ViewNumberFormatSettings(nfs.DeepClone()));
                     else if (entry.Value is GraphicsSettings grs)
                         _viewSettings.Add(entry.Key, new ViewGraphicsSettings(grs.DeepClone()));
+                    else if (entry.Value is NavigationSettings nas)
+                        _viewSettings.Add(entry.Key, new ViewNavigationSettings(nas.DeepClone()));
                     else if (entry.Value is ColorSettings cos)
                         _viewSettings.Add(entry.Key, new ViewColorSettings(cos.DeepClone()));
                     else if (entry.Value is AnnotationSettings wis)

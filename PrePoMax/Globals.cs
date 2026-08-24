@@ -69,6 +69,7 @@ namespace PrePoMax
         public static string GeneralSettingsName = "General";
         public static string NumberFormatSettingsName = "Number formatting";
         public static string GraphicsSettingsName = "Graphics";
+        public static string NavigationSettingsName = "Navigation";
         public static string ColorSettingsName = "Default Colors";
         public static string AnnotationSettingsName = "Annotations";
         public static string MeshingSettingsName = "Meshing";

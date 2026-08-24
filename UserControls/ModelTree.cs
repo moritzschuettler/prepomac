@@ -1932,8 +1932,7 @@ namespace UserControls
         }
         public void cltv_KeyDown(object sender, KeyEventArgs e)
         {
-            Debug.WriteLine(e.KeyData);
-
+            //Debug.WriteLine(e.KeyData);
             CodersLabTreeView tree = sender as CodersLabTreeView ?? GetActiveTree();
             // Let the native tree label editor consume Enter and Escape. Processing the
             // model-tree shortcuts here can act on the rebuilt tree after a rename.

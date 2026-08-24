@@ -105,6 +105,9 @@ namespace vtkControl
         public const int VTKIS_ANIM_ON = 1;
         //
         private double _motionFactor;
+        private double _rotateSensitivity;
+        private double _zoomSensitivity;
+        private bool _invertZoom;
         private double[] _rotationCenterWorld;
         private double[] _rotationCenterDisplay;
         private int[] _clickPos;
@@ -158,6 +161,9 @@ namespace vtkControl
             }
         }
         public bool Animating { get { return _animating; } set { _animating = value; } }
+        public double RotateSensitivity { get { return _rotateSensitivity; } set { _rotateSensitivity = value; } }
+        public double ZoomSensitivity { get { return _zoomSensitivity; } set { _zoomSensitivity = value; } }
+        public bool InvertZoom { get { return _invertZoom; } set { _invertZoom = value; } }
 
 
         // Getters
@@ -185,6 +191,9 @@ namespace vtkControl
         public vtkInteractorStyleControl()
         {
             _motionFactor = 10.0;
+            _rotateSensitivity = 1;
+            _zoomSensitivity = 1;
+            _invertZoom = false;
             _rotationCenterWorld = null;
             _animating = false;
             _selectionTimer = new System.Windows.Threading.DispatcherTimer();
@@ -945,6 +954,7 @@ namespace vtkControl
             double factor = rwi.GetLastEventPosition()[1] - clickPos[1];
             if (factor < 0) factor = Math.Pow(1.001, factor);
             else factor = Math.Pow(1 / 1.001, -factor);
+            factor = Math.Pow(factor, _zoomSensitivity);
             //
             camera.SetParallelScale(camera.GetParallelScale() * factor);
             // Widgets - mouse wheel scrolled
@@ -967,8 +977,11 @@ namespace vtkControl
             double[] displayPos = new double[] { x, y };
             double[] worldPos = DisplayToWorld(renderer, displayPos);
             //
+            double factor = Math.Pow(parallelScaleFactor, _zoomSensitivity);
+            if (_invertZoom) factor = 1 / factor;
+            //
             vtkCamera camera = renderer.GetActiveCamera();
-            camera.SetParallelScale(camera.GetParallelScale() * parallelScaleFactor);
+            camera.SetParallelScale(camera.GetParallelScale() * factor);
             //
             double[] worldPosAfter = DisplayToWorld(renderer, displayPos);
             PanCamera(camera, worldPosAfter, worldPos);
@@ -1007,8 +1020,8 @@ namespace vtkControl
             double delta_elevation = -20.0 / 500;
             double delta_azimuth = -20.0 / 500;
             //
-            double rxf = dx * delta_azimuth * this._motionFactor;
-            double ryf = dy * delta_elevation * this._motionFactor;
+            double rxf = dx * delta_azimuth * this._motionFactor * _rotateSensitivity;
+            double ryf = dy * delta_elevation * this._motionFactor * _rotateSensitivity;
             //
             Rotate(rxf, ryf, 0, render);
         }

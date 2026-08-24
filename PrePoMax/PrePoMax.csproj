@@ -816,6 +816,7 @@
     <Compile Include="Forms\61_Settings\ViewGeneralSettings.cs" />
     <Compile Include="Forms\61_Settings\ViewPreSettings.cs" />
     <Compile Include="Forms\61_Settings\ViewGraphicsSettings.cs" />
+    <Compile Include="Forms\61_Settings\ViewNavigationSettings.cs" />
     <Compile Include="Forms\61_Settings\ViewPostSettings.cs" />
     <Compile Include="Forms\61_Settings\ViewSettings.cs" />
     <Compile Include="Forms\62_Query\FrmQuery.cs">
@@ -897,6 +898,7 @@
     <Compile Include="Settings\UnitSystemSettings.cs" />
     <Compile Include="Settings\GeneralSettings.cs" />
     <Compile Include="Settings\GraphicsSettings.cs" />
+    <Compile Include="Settings\NavigationSettings.cs" />
     <Compile Include="Forms\61_Settings\IReset.cs" />
     <Compile Include="Settings\StatusBlockSettings.cs" />
     <Compile Include="Settings\LegendSettings.cs" />

@@ -10877,6 +10877,16 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.SetLighting, ambient, diffuse, redraw);
         }
+        public void SetNavigationSensitivity(double rotateSensitivity, double zoomSensitivity, bool invertZoom)
+        {
+            InvokeIfRequired(() => _vtk.SetNavigationSensitivity(rotateSensitivity, zoomSensitivity, invertZoom));
+        }
+        public void SetTrackpadNavigation(bool enabled, bool useWheelFallback, bool twoFingerDragPans,
+                                          double panSensitivity, bool invertX, bool invertY)
+        {
+            InvokeIfRequired(() => _vtk.SetTrackpadNavigation(enabled, useWheelFallback, twoFingerDragPans,
+                                                              panSensitivity, invertX, invertY));
+        }
         public void SetSmoothing(bool pointSmoothing, bool lineSmoothing, bool redraw)
         {
             InvokeIfRequired(_vtk.SetSmoothing, pointSmoothing, lineSmoothing, redraw);

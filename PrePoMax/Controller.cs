@@ -109,10 +109,13 @@ namespace PrePoMax
             {
                 try
                 {
+                    Color[] previousColorTable = CaeMesh.Globals.ColorTable;
+                    //
                     _settings.Set(value, _currentView, _currentFieldData);
                     _settings.SaveToFile();
                     //
                     ApplySettings();
+                    UpdatePartColorsFromColorTable(previousColorTable);
                     // Redraw model with new settings
                     Redraw();
                 }
@@ -12341,6 +12344,12 @@ namespace PrePoMax
             _form.SetSelectionDistance(_selectionDistanceInPixels);
             _form.SetLighting(gs.AmbientComponent, gs.DiffuseComponent, false);
             _form.SetSmoothing(gs.PointSmoothing, gs.LineSmoothing, false);
+            // Navigation settings
+            NavigationSettings ns = _settings.Navigation;
+            _form.SetNavigationSensitivity(ns.RotateSensitivity, ns.ZoomSensitivity, ns.InvertZoom);
+            _form.SetTrackpadNavigation(ns.GesturesEnabled, ns.UseWheelFallback,
+                                        ns.TwoFingerDrag == TwoFingerDragEnum.Pan, ns.PanSensitivity,
+                                        ns.InvertX, ns.InvertY);
             // Color settings
             CaeMesh.Globals.ColorTable = _settings.Color.ColorTable;
             // Pre-processing settings
@@ -12379,6 +12388,45 @@ namespace PrePoMax
                     }
                     else throw new NotSupportedException();
                 }
+            }
+        }
+        private void UpdatePartColorsFromColorTable(Color[] previousColorTable)
+        {
+            if (previousColorTable == null || previousColorTable == CaeMesh.Globals.ColorTable) return;
+            //
+            if (_model != null)
+            {
+                UpdatePartColorsFromColorTable(_model.Geometry, previousColorTable,
+                                               ViewGeometryModelResults.Geometry);
+                UpdatePartColorsFromColorTable(_model.Mesh, previousColorTable, ViewGeometryModelResults.Model);
+                //
+                if (_model.Geometry != null) UpdateCompoundTransparency();
+            }
+            if (_allResults != null && _allResults.CurrentResult != null)
+                UpdatePartColorsFromColorTable(_allResults.CurrentResult.Mesh, previousColorTable,
+                                               ViewGeometryModelResults.Results);
+        }
+        private void UpdatePartColorsFromColorTable(FeMesh mesh, Color[] previousColorTable,
+                                                    ViewGeometryModelResults view)
+        {
+            if (mesh == null) return;
+            //
+            byte alpha;
+            Color previousColor;
+            //
+            foreach (var entry in mesh.Parts)
+            {
+                if (entry.Value is CompoundGeometryPart) continue;
+                //
+                previousColor = previousColorTable[(entry.Value.PartId - 1) % previousColorTable.Length];
+                if (entry.Value.Color.R != previousColor.R || entry.Value.Color.G != previousColor.G ||
+                    entry.Value.Color.B != previousColor.B) continue;
+                //
+                alpha = entry.Value.Color.A;
+                mesh.SetPartColorFromColorTable(entry.Value);
+                entry.Value.Color = Color.FromArgb(alpha, entry.Value.Color);
+                //
+                _form.UpdateTreeNode(view, entry.Key, entry.Value, null, false);
             }
         }
 

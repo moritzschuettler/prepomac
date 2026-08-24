@@ -29,93 +29,123 @@ namespace PrePoMax.Settings
 
         // Properties                                                                                                               
         [CategoryAttribute("General")]
-        [OrderedDisplayName(0, 10, "Color 1")]
+        [OrderedDisplayName(0, 20, "Color palette")]
+        [DescriptionAttribute("Select the color palette to fill in the ten colors. " +
+                              "Each color can then be changed individually, which switches the palette to Custom.")]
+        public ColorPaletteEnum ColorPalette
+        {
+            get { return _colorSettings.ColorPalette; }
+            set
+            {
+                _colorSettings.ColorPalette = value;
+                _colorSettings.ApplyColorPalette();
+                UpdateVisibilities();
+            }
+        }
+        //
+        [CategoryAttribute("General")]
+        [OrderedDisplayName(1, 20, "Saturation")]
+        [DescriptionAttribute("Set the saturation of the palette colors in percent. A value of 100 keeps the " +
+                              "original palette colors, lower values wash them out and brighten them and higher " +
+                              "values make them more vivid. Values from 10 to 200 are allowed.")]
+        public double Saturation
+        {
+            get { return _colorSettings.Saturation; }
+            set
+            {
+                _colorSettings.Saturation = value;
+                _colorSettings.ApplyColorPalette();
+            }
+        }
+        //
+        [CategoryAttribute("General")]
+        [OrderedDisplayName(2, 20, "Color 1")]
         [DescriptionAttribute("Select the first color.")]
         public Color Color1
         {
             get { return _colorSettings.ColorTable[0]; }
-            set { _colorSettings.ColorTable[0] = value; }
+            set { SetTableColor(0, value); }
         }
         //
         [CategoryAttribute("General")]
-        [OrderedDisplayName(1, 10, "Color 2")]
+        [OrderedDisplayName(3, 20, "Color 2")]
         [DescriptionAttribute("Select the second color.")]
         public Color Color2
         {
             get { return _colorSettings.ColorTable[1]; }
-            set { _colorSettings.ColorTable[1] = value; }
+            set { SetTableColor(1, value); }
         }
         //
         [CategoryAttribute("General")]
-        [OrderedDisplayName(2, 10, "Color 3")]
+        [OrderedDisplayName(4, 20, "Color 3")]
         [DescriptionAttribute("Select the third color.")]
         public Color Color3
         {
             get { return _colorSettings.ColorTable[2]; }
-            set { _colorSettings.ColorTable[2] = value; }
+            set { SetTableColor(2, value); }
         }
         //
         [CategoryAttribute("General")]
-        [OrderedDisplayName(3, 10, "Color 4")]
+        [OrderedDisplayName(5, 20, "Color 4")]
         [DescriptionAttribute("Select the fourth color.")]
         public Color Color4
         {
             get { return _colorSettings.ColorTable[3]; }
-            set { _colorSettings.ColorTable[3] = value; }
+            set { SetTableColor(3, value); }
         }
         //
         [CategoryAttribute("General")]
-        [OrderedDisplayName(4, 10, "Color 5")]
+        [OrderedDisplayName(6, 20, "Color 5")]
         [DescriptionAttribute("Select the fifth color.")]
         public Color Color5
         {
             get { return _colorSettings.ColorTable[4]; }
-            set { _colorSettings.ColorTable[4] = value; }
+            set { SetTableColor(4, value); }
         }
         //
         [CategoryAttribute("General")]
-        [OrderedDisplayName(5, 10, "Color 6")]
+        [OrderedDisplayName(7, 20, "Color 6")]
         [DescriptionAttribute("Select the sixth color.")]
         public Color Color6
         {
             get { return _colorSettings.ColorTable[5]; }
-            set { _colorSettings.ColorTable[5] = value; }
+            set { SetTableColor(5, value); }
         }
         //
         [CategoryAttribute("General")]
-        [OrderedDisplayName(6, 10, "Color 7")]
+        [OrderedDisplayName(8, 20, "Color 7")]
         [DescriptionAttribute("Select the seventh color.")]
         public Color Color7
         {
             get { return _colorSettings.ColorTable[6]; }
-            set { _colorSettings.ColorTable[6] = value; }
+            set { SetTableColor(6, value); }
         }
         //
         [CategoryAttribute("General")]
-        [OrderedDisplayName(7, 10, "Color 8")]
+        [OrderedDisplayName(9, 20, "Color 8")]
         [DescriptionAttribute("Select the eight color.")]
         public Color Color8
         {
             get { return _colorSettings.ColorTable[7]; }
-            set { _colorSettings.ColorTable[7] = value; }
+            set { SetTableColor(7, value); }
         }
         //
         [CategoryAttribute("General")]
-        [OrderedDisplayName(8, 10, "Color 9")]
+        [OrderedDisplayName(10, 20, "Color 9")]
         [DescriptionAttribute("Select the ninth color.")]
         public Color Color9
         {
             get { return _colorSettings.ColorTable[8]; }
-            set { _colorSettings.ColorTable[8] = value; }
+            set { SetTableColor(8, value); }
         }
         //
         [CategoryAttribute("General")]
-        [OrderedDisplayName(9, 10, "Color 10")]
+        [OrderedDisplayName(11, 20, "Color 10")]
         [DescriptionAttribute("Select the tenth color.")]
         public Color Color10
         {
             get { return _colorSettings.ColorTable[9]; }
-            set { _colorSettings.ColorTable[9] = value; }
+            set { SetTableColor(9, value); }
         }
         //
         [CategoryAttribute("Face orientation")]
@@ -142,6 +172,8 @@ namespace PrePoMax.Settings
         {
             _colorSettings = colorSettings;
             _dctd = ProviderInstaller.Install(this);
+            //
+            UpdateVisibilities();
         }
 
 
@@ -154,6 +186,19 @@ namespace PrePoMax.Settings
         public void Reset()
         {
             _colorSettings.Reset();
+            //
+            UpdateVisibilities();
+        }
+        public void UpdateVisibilities()
+        {
+            bool visible = _colorSettings.ColorPalette != ColorPaletteEnum.Custom;
+            _dctd.GetProperty(nameof(Saturation)).SetIsBrowsable(visible);
+        }
+        private void SetTableColor(int colorId, Color color)
+        {
+            _colorSettings.SetTableColor(colorId, color);
+            //
+            UpdateVisibilities();
         }
     }
 

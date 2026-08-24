@@ -26,6 +26,7 @@ namespace PrePoMax
         private GeneralSettings _general;
         private NumberFormatSettings _numberFormat;
         private GraphicsSettings _graphics;
+        private NavigationSettings _navigation;
         private ColorSettings _color;
         private AnnotationSettings _annotations;
         private MeshingSettings _meshing;
@@ -40,6 +41,7 @@ namespace PrePoMax
         public GeneralSettings General { get { return _general; } set { _general = value; } }
         public NumberFormatSettings NumberFormat { get { return _numberFormat; } set { _numberFormat = value; } }
         public GraphicsSettings Graphics { get { return _graphics; } set { _graphics = value; } }
+        public NavigationSettings Navigation { get { return _navigation; } set { _navigation = value; } }
         public ColorSettings Color { get { return _color; } set { _color = value; } }
         public AnnotationSettings Annotations { get { return _annotations; } set { _annotations = value; } }
         public MeshingSettings Meshing { get { return _meshing; } set { _meshing = value; } }
@@ -70,6 +72,7 @@ namespace PrePoMax
             _general = new GeneralSettings();
             _numberFormat = new NumberFormatSettings();
             _graphics = new GraphicsSettings();
+            _navigation = new NavigationSettings();
             _color = new ColorSettings();
             _annotations = new AnnotationSettings();
             _meshing = new MeshingSettings();
@@ -84,6 +87,7 @@ namespace PrePoMax
             _general.Reset();
             _numberFormat.Reset();
             _graphics.Reset();
+            _navigation.Reset();
             _color.Reset();
             _annotations.Reset();
             _meshing.Reset();
@@ -145,6 +149,7 @@ namespace PrePoMax
             _general = clone._general;
             _numberFormat = clone._numberFormat;
             _graphics = clone._graphics;
+            _navigation = clone._navigation;
             _color = clone._color;
             _annotations = clone._annotations;
             _meshing = clone._meshing;
@@ -160,6 +165,7 @@ namespace PrePoMax
             items.Add(Globals.GeneralSettingsName, _general);
             items.Add(Globals.NumberFormatSettingsName, _numberFormat);
             items.Add(Globals.GraphicsSettingsName, _graphics);
+            items.Add(Globals.NavigationSettingsName, _navigation);
             items.Add(Globals.ColorSettingsName, _color);
             items.Add(Globals.AnnotationSettingsName, _annotations);
             items.Add(Globals.MeshingSettingsName, _meshing);
@@ -185,6 +191,10 @@ namespace PrePoMax
                 _post = (PostSettings)items[Globals.PostSettingsName];
                 _legend = (LegendSettings)items[Globals.LegendSettingsName];
                 _statusBlock = (StatusBlockSettings)items[Globals.StatusBlockSettingsName];
+                // Added after the settings file format was already in use
+                ISettings navigation;
+                if (items.TryGetValue(Globals.NavigationSettingsName, out navigation))
+                    _navigation = (NavigationSettings)navigation;
             }
             catch
             {
