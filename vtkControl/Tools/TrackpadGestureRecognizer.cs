@@ -19,8 +19,13 @@ namespace vtkControl
         // the deltas so that the smoothing lags behind the fingers without losing any of the motion
         private const double _smoothing = 0.6;
         private const double _minSpreadMm = 5;
+        // The contacts need a few reports to settle after the second finger lands, and a tracking
+        // glitch shows up as a jump no finger could have made - both rebase instead of moving the camera
+        private const int _settleReports = 3;
+        private const double _maxReportTravelMm = 8;
         //
         private bool _active;
+        private int _reportsSinceStart;
         private int _firstId;
         private int _secondId;
         private double _centroidX;
@@ -72,7 +77,20 @@ namespace vtkControl
                 _centroidY = centroidY;
                 _spread = spread;
                 _active = true;
+                _reportsSinceStart = 0;
                 if (!wasActive && GestureStarted != null) GestureStarted();
+                return;
+            }
+            //
+            _reportsSinceStart++;
+            double travelX = centroidX - _centroidX;
+            double travelY = centroidY - _centroidY;
+            if (_reportsSinceStart <= _settleReports ||
+                Math.Sqrt(travelX * travelX + travelY * travelY) > _maxReportTravelMm)
+            {
+                _centroidX = centroidX;
+                _centroidY = centroidY;
+                _spread = spread;
                 return;
             }
             //
