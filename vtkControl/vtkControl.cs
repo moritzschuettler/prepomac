@@ -535,21 +535,17 @@ namespace vtkControl
                                     ", style = " + (_style != null) + ", renderer = " + (_renderer != null));
                 return;
             }
-            // Raw input arrives even while another application is in front
-            Form form = FindForm();
-            if (form == null || form != Form.ActiveForm)
+            // Raw input arrives even while another application is in front - no form of this
+            // application is active in that case, whichever of them the user was last working in
+            if (Form.ActiveForm == null)
             {
-                TrackpadTrace.Write("raw input dropped - the form is not active");
+                if (_gestureRecognizer.Active) TrackpadTrace.Write("gesture cancelled - the application is not active");
                 _gestureRecognizer.End();
                 return;
             }
             // A two finger gesture leaves the pointer where the last single finger movement put it,
             // so hit testing it once at the start keeps the gesture bound to the viewport throughout
-            if (!_gestureRecognizer.Active && !ClientRectangle.Contains(PointToClient(Cursor.Position)))
-            {
-                TrackpadTrace.Write("raw input dropped - the pointer is outside the viewport");
-                return;
-            }
+            if (!_gestureRecognizer.Active && !ClientRectangle.Contains(PointToClient(Cursor.Position))) return;
             //
             _gestureRecognizer.Update(_precisionTouchpad.GetContacts(rawInputHandle));
         }

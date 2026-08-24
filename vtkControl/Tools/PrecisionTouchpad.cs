@@ -34,7 +34,7 @@ namespace vtkControl
         // Field offsets into the native HIDP_CAPS and HIDP_VALUE_CAPS structures
         private const int CAPS_SIZE = 64;
         private const int CAPS_NUMBER_INPUT_VALUE_CAPS = 48;
-        private const int VALUE_CAPS_SIZE = 76;
+        private const int VALUE_CAPS_SIZE = 72;
         private const int VALUE_CAPS_USAGE_PAGE = 0;
         private const int VALUE_CAPS_LINK_COLLECTION = 6;
         private const int VALUE_CAPS_IS_RANGE = 12;
