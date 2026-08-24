@@ -379,19 +379,20 @@ namespace vtkControl
         private static extern bool RegisterRawInputDevices(RAWINPUTDEVICE[] rawInputDevices, uint numDevices,
                                                            uint size);
         [DllImport("user32.dll", SetLastError = true)]
-        private static extern uint GetRawInputDeviceList(RAWINPUTDEVICELIST[] rawInputDeviceList, ref uint numDevices,
-                                                         uint size);
+        private static extern uint GetRawInputDeviceList([In, Out] RAWINPUTDEVICELIST[] rawInputDeviceList,
+                                                         ref uint numDevices, uint size);
         [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        private static extern int GetRawInputDeviceInfo(IntPtr device, int command, byte[] data, ref int size);
+        private static extern int GetRawInputDeviceInfo(IntPtr device, int command, [In, Out] byte[] data,
+                                                        ref int size);
         [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
         private static extern int GetRawInputDeviceInfo(IntPtr device, int command, IntPtr data, ref int size);
         [DllImport("user32.dll", SetLastError = true)]
-        private static extern int GetRawInputData(IntPtr rawInput, int command, byte[] data, ref int size,
+        private static extern int GetRawInputData(IntPtr rawInput, int command, [In, Out] byte[] data, ref int size,
                                                   int headerSize);
         [DllImport("hid.dll")]
-        private static extern int HidP_GetCaps(IntPtr preparsedData, byte[] capabilities);
+        private static extern int HidP_GetCaps(IntPtr preparsedData, [In, Out] byte[] capabilities);
         [DllImport("hid.dll")]
-        private static extern int HidP_GetValueCaps(int reportType, byte[] valueCaps, ref ushort length,
+        private static extern int HidP_GetValueCaps(int reportType, [In, Out] byte[] valueCaps, ref ushort length,
                                                     IntPtr preparsedData);
         [DllImport("hid.dll")]
         private static extern int HidP_GetUsageValue(int reportType, ushort usagePage, ushort linkCollection,
@@ -399,8 +400,8 @@ namespace vtkControl
                                                      byte[] report, int reportLength);
         [DllImport("hid.dll")]
         private static extern int HidP_GetUsages(int reportType, ushort usagePage, ushort linkCollection,
-                                                 ushort[] usageList, ref int usageLength, IntPtr preparsedData,
-                                                 byte[] report, int reportLength);
+                                                 [In, Out] ushort[] usageList, ref int usageLength,
+                                                 IntPtr preparsedData, byte[] report, int reportLength);
         [DllImport("hid.dll")]
         private static extern int HidP_MaxUsageListLength(int reportType, ushort usagePage, IntPtr preparsedData);
     }
