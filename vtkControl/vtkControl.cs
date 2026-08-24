@@ -140,6 +140,15 @@ namespace vtkControl
         private List<double[]> _focalPoints;
         // Trackpad
         private TrackpadNavigation _trackpadNavigation;
+        private double _trackpadDragX;
+        private double _trackpadDragY;
+        private double _trackpadZoom;
+        private int _trackpadCenterX;
+        private int _trackpadCenterY;
+        private bool _trackpadShift;
+        private bool _trackpadPending;
+        private bool _trackpadGestureActive;
+        private Timer _trackpadGestureEndTimer;
         // Caption actors
         private vtkActor _captionTmpActor;
         private bool _captionActorAddedToBase;
@@ -321,9 +330,14 @@ namespace vtkControl
             _edgesVisibility = vtkEdgesVisibility.ElementEdges;
             _colorSpectrum = new vtkMaxColorSpectrum();
             _trackpadNavigation = new TrackpadNavigation();
+            _trackpadZoom = 1;
+            _trackpadGestureEndTimer = new Timer();
+            _trackpadGestureEndTimer.Interval = 250;
+            _trackpadGestureEndTimer.Tick += trackpadGestureEndTimer_Tick;
             if (LicenseManager.UsageMode != LicenseUsageMode.Designtime)
             {
                 Application.AddMessageFilter(this);
+                Application.Idle += Application_Idle;
                 Disposed += vtkControl_Disposed;
             }
             //
@@ -484,15 +498,48 @@ namespace vtkControl
         {
             if (m.Msg != WM_MOUSEWHEEL && m.Msg != WM_MOUSEHWHEEL) return false;
             //
-            bool handled = HandleTrackpadWheel(ref m);
-            System.Diagnostics.Debug.WriteLine("Trackpad: msg = 0x" + m.Msg.ToString("X3") + ", enabled = " +
-                                               (_trackpadNavigation != null && _trackpadNavigation.Enabled) +
-                                               ", handled = " + handled);
-            return handled;
+            return HandleTrackpadWheel(ref m);
         }
         private void vtkControl_Disposed(object sender, EventArgs e)
         {
             Application.RemoveMessageFilter(this);
+            Application.Idle -= Application_Idle;
+            _trackpadGestureEndTimer.Stop();
+            _trackpadGestureEndTimer.Dispose();
+        }
+        // A diagonal gesture arrives as two interleaved message streams - vertical and horizontal -
+        // so the deltas are accumulated and turned into a single camera update once the queue drains
+        private void Application_Idle(object sender, EventArgs e)
+        {
+            FlushTrackpadGesture();
+        }
+        private void trackpadGestureEndTimer_Tick(object sender, EventArgs e)
+        {
+            _trackpadGestureEndTimer.Stop();
+            FlushTrackpadGesture();
+            //
+            if (_trackpadGestureActive)
+            {
+                _trackpadGestureActive = false;
+                if (_style != null) _style.EndMultiTouchGesture();
+            }
+        }
+        private void FlushTrackpadGesture()
+        {
+            if (!_trackpadPending) return;
+            //
+            double dragX = _trackpadDragX;
+            double dragY = _trackpadDragY;
+            double zoom = _trackpadZoom;
+            _trackpadDragX = 0;
+            _trackpadDragY = 0;
+            _trackpadZoom = 1;
+            _trackpadPending = false;
+            _trackpadGestureActive = true;
+            //
+            System.Diagnostics.Debug.WriteLine("Trackpad: drag = " + dragX + " " + dragY + ", zoom = " + zoom);
+            //
+            _trackpadNavigation.Apply(_style, dragX, dragY, zoom, _trackpadCenterX, _trackpadCenterY, _trackpadShift);
         }
         private bool HandleTrackpadWheel(ref Message m)
         {
@@ -537,11 +584,16 @@ namespace vtkControl
                 else dragX = TrackpadNavigation.WheelDeltaToPixels(wheelDelta);
             }
             //
-            System.Diagnostics.Debug.WriteLine("Trackpad: delta = " + wheelDelta + ", control = " + control +
-                                               ", shift = " + shift + ", drag = " + dragX + " " + dragY +
-                                               ", zoom = " + zoomFactor);
+            _trackpadDragX += dragX;
+            _trackpadDragY += dragY;
+            _trackpadZoom *= zoomFactor;
+            _trackpadCenterX = x;
+            _trackpadCenterY = y;
+            _trackpadShift = shift;
+            _trackpadPending = true;
             //
-            _trackpadNavigation.Apply(_style, dragX, dragY, zoomFactor, x, y, shift);
+            _trackpadGestureEndTimer.Stop();
+            _trackpadGestureEndTimer.Start();
             //
             return true;
         }

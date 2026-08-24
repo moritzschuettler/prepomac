@@ -47,9 +47,9 @@ namespace vtkControl
             _enabled = GetEnvironmentFlag("PREPOMAX_TRACKPAD", false);
             _enabled = true;
             _twoFingerDragPans = GetEnvironmentFlag("PREPOMAX_TRACKPAD_DRAG_PANS", false);
-            _invertZoom = GetEnvironmentFlag("PREPOMAX_TRACKPAD_INVERT_ZOOM", false);
+            _invertZoom = GetEnvironmentFlag("PREPOMAX_TRACKPAD_INVERT_ZOOM", true);
             _invertX = GetEnvironmentFlag("PREPOMAX_TRACKPAD_INVERT_X", true);
-            _invertY = GetEnvironmentFlag("PREPOMAX_TRACKPAD_INVERT_Y", false);
+            _invertY = GetEnvironmentFlag("PREPOMAX_TRACKPAD_INVERT_Y", true);
             _orbitSensitivity = GetEnvironmentValue("PREPOMAX_TRACKPAD_ORBIT", 1);
             _panSensitivity = GetEnvironmentValue("PREPOMAX_TRACKPAD_PAN", 1);
             _zoomSensitivity = GetEnvironmentValue("PREPOMAX_TRACKPAD_ZOOM", 1);
@@ -77,7 +77,8 @@ namespace vtkControl
             bool drag = dragPixelsX != 0 || dragPixelsY != 0;
             if (!zoom && !drag) return;
             //
-            style.StartMultiTouchGesture(zoomCenterX, zoomCenterY);
+            bool pan = shiftPressed ^ _twoFingerDragPans;
+            style.StartMultiTouchGesture(zoomCenterX, zoomCenterY, drag && !pan);
             //
             if (zoom)
             {
@@ -87,7 +88,7 @@ namespace vtkControl
             }
             if (drag)
             {
-                if (shiftPressed ^ _twoFingerDragPans)
+                if (pan)
                     style.PanByDisplayDelta(dragPixelsX * _panSensitivity, dragPixelsY * _panSensitivity);
                 else
                     style.RotateByDisplayDelta(dragPixelsX * _orbitSensitivity, dragPixelsY * _orbitSensitivity);

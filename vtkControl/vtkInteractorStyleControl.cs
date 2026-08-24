@@ -800,7 +800,7 @@ namespace vtkControl
             // Must update since zoom can also change
             _rotationCenterDisplay = WorldToDisplay(renderer, _rotationCenterWorld);
         }
-        public void StartMultiTouchGesture(int x, int y)
+        public void StartMultiTouchGesture(int x, int y, bool showRotationCenter)
         {
             if (_animating) return;
             //
@@ -808,11 +808,29 @@ namespace vtkControl
             CancelBoxSelection();
             //
             this.FindPokedRenderer(x, y);
-            if (this.GetCurrentRenderer() == null) return;
+            vtkRenderer renderer = this.GetCurrentRenderer();
+            if (renderer == null) return;
             //
             UpdateRotationCenterDisplay();
             //
+            if (showRotationCenter)
+            {
+                if (_centerAnnotationActor == null) AddAnnotationForCenter3D(this.GetInteractor(), renderer);
+            }
+            else RemoveAnnotationForCenter(renderer);
+            //
             this.GetInteractor().Modified();
+        }
+        public void EndMultiTouchGesture()
+        {
+            vtkRenderer renderer = this.GetCurrentRenderer();
+            if (renderer == null) return;
+            //
+            RemoveAnnotationForCenter(renderer);
+            //
+            vtkRenderWindowInteractor rwi = this.GetInteractor();
+            rwi.Modified();
+            rwi.Render();
         }
         public static double[] WorldToDisplay(vtkRenderer renderer, double[] worldPos)
         {
