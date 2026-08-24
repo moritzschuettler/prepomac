@@ -523,23 +523,33 @@ namespace vtkControl
         private void vtkControl_HandleCreated(object sender, EventArgs e)
         {
             bool registered = _precisionTouchpad.Register(Handle);
-            System.Diagnostics.Debug.WriteLine("Trackpad: touchpad found = " + _precisionTouchpad.Found +
-                                               ", raw input registered = " + registered);
+            TrackpadTrace.Write("touchpad found = " + _precisionTouchpad.Found + ", raw input registered = " +
+                                registered + ", enabled = " + _trackpadNavigation.Enabled);
         }
         private void HandleRawInput(IntPtr rawInputHandle)
         {
             if (_trackpadNavigation == null || !_trackpadNavigation.Enabled) return;
-            if (!_precisionTouchpad.Found || _style == null || _renderer == null) return;
+            if (!_precisionTouchpad.Found || _style == null || _renderer == null)
+            {
+                TrackpadTrace.Write("raw input dropped - found = " + _precisionTouchpad.Found +
+                                    ", style = " + (_style != null) + ", renderer = " + (_renderer != null));
+                return;
+            }
             // Raw input arrives even while another application is in front
             Form form = FindForm();
             if (form == null || form != Form.ActiveForm)
             {
+                TrackpadTrace.Write("raw input dropped - the form is not active");
                 _gestureRecognizer.End();
                 return;
             }
             // A two finger gesture leaves the pointer where the last single finger movement put it,
             // so hit testing it once at the start keeps the gesture bound to the viewport throughout
-            if (!_gestureRecognizer.Active && !ClientRectangle.Contains(PointToClient(Cursor.Position))) return;
+            if (!_gestureRecognizer.Active && !ClientRectangle.Contains(PointToClient(Cursor.Position)))
+            {
+                TrackpadTrace.Write("raw input dropped - the pointer is outside the viewport");
+                return;
+            }
             //
             _gestureRecognizer.Update(_precisionTouchpad.GetContacts(rawInputHandle));
         }
@@ -604,7 +614,7 @@ namespace vtkControl
             _trackpadPending = false;
             _trackpadGestureActive = true;
             //
-            System.Diagnostics.Debug.WriteLine("Trackpad: drag = " + dragX + " " + dragY + ", zoom = " + zoom);
+            TrackpadTrace.Write("apply drag = " + dragX + " " + dragY + ", zoom = " + zoom);
             //
             _trackpadNavigation.Apply(_style, dragX, dragY, zoom, _trackpadCenterX, _trackpadCenterY, _trackpadShift);
         }

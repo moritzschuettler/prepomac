@@ -119,7 +119,11 @@ namespace vtkControl
             if (reportSize <= 0 || reportCount <= 0) return null;
             //
             TouchpadDevice device = GetDevice(deviceHandle);
-            if (device == null) return null;
+            if (device == null)
+            {
+                TrackpadTrace.Write("no usable touchpad device for this report");
+                return null;
+            }
             //
             _contacts.Clear();
             byte[] report = new byte[reportSize];
@@ -130,6 +134,9 @@ namespace vtkControl
                 Buffer.BlockCopy(_rawInputBuffer, offset, report, 0, reportSize);
                 AddContactsFromReport(device, report);
             }
+            //
+            TrackpadTrace.Write("report size " + reportSize + " x " + reportCount + " - contacts = " +
+                                _contacts.Count);
             //
             return _contacts.ToArray();
         }
@@ -194,6 +201,7 @@ namespace vtkControl
             RAWINPUTDEVICELIST[] list = new RAWINPUTDEVICELIST[count];
             if (GetRawInputDeviceList(list, ref count, (uint)listSize) == uint.MaxValue) return false;
             //
+            TrackpadTrace.Write("raw input devices = " + count);
             for (int i = 0; i < count; i++)
             {
                 if (list[i].Type != RIM_TYPEHID) continue;
@@ -201,13 +209,26 @@ namespace vtkControl
                 byte[] info = new byte[32];
                 int size = info.Length;
                 BitConverter.GetBytes(size).CopyTo(info, 0);
-                if (GetRawInputDeviceInfo(list[i].Device, RIDI_DEVICEINFO, info, ref size) <= 0) continue;
+                if (GetRawInputDeviceInfo(list[i].Device, RIDI_DEVICEINFO, info, ref size) <= 0)
+                {
+                    TrackpadTrace.Write("  hid device " + i + " - device info failed");
+                    continue;
+                }
                 // RID_DEVICE_INFO: cbSize, dwType, then the HID union at offset 8
                 if (BitConverter.ToInt32(info, 4) != RIM_TYPEHID) continue;
-                if (BitConverter.ToUInt16(info, 20) == USAGE_PAGE_DIGITIZER &&
-                    BitConverter.ToUInt16(info, 22) == USAGE_TOUCH_PAD) return true;
+                //
+                ushort usagePage = BitConverter.ToUInt16(info, 20);
+                ushort usage = BitConverter.ToUInt16(info, 22);
+                TrackpadTrace.Write("  hid device " + i + " - usage page 0x" + usagePage.ToString("X2") +
+                                    ", usage 0x" + usage.ToString("X2"));
+                if (usagePage == USAGE_PAGE_DIGITIZER && usage == USAGE_TOUCH_PAD)
+                {
+                    TrackpadTrace.Write("  precision touchpad found");
+                    return true;
+                }
             }
             //
+            TrackpadTrace.Write("no precision touchpad among the raw input devices");
             return false;
         }
 
@@ -225,23 +246,30 @@ namespace vtkControl
             {
                 int size = 0;
                 if (GetRawInputDeviceInfo(deviceHandle, RIDI_PREPARSEDDATA, null, ref size) != 0 || size <= 0)
+                {
+                    TrackpadTrace.Write("preparsed data size query failed");
                     return null;
+                }
                 //
                 IntPtr preparsedData = Marshal.AllocHGlobal(size);
                 if (GetRawInputDeviceInfo(deviceHandle, RIDI_PREPARSEDDATA, preparsedData, ref size) <= 0)
                 {
+                    TrackpadTrace.Write("preparsed data query failed");
                     Marshal.FreeHGlobal(preparsedData);
                     return null;
                 }
                 //
                 byte[] caps = new byte[CAPS_SIZE];
-                if (HidP_GetCaps(preparsedData, caps) != HIDP_STATUS_SUCCESS)
+                int status = HidP_GetCaps(preparsedData, caps);
+                if (status != HIDP_STATUS_SUCCESS)
                 {
+                    TrackpadTrace.Write("HidP_GetCaps failed with 0x" + status.ToString("X8"));
                     Marshal.FreeHGlobal(preparsedData);
                     return null;
                 }
                 //
                 ushort valueCapsLength = BitConverter.ToUInt16(caps, CAPS_NUMBER_INPUT_VALUE_CAPS);
+                TrackpadTrace.Write("input value caps = " + valueCapsLength);
                 if (valueCapsLength == 0)
                 {
                     Marshal.FreeHGlobal(preparsedData);
@@ -249,9 +277,10 @@ namespace vtkControl
                 }
                 //
                 byte[] valueCaps = new byte[valueCapsLength * VALUE_CAPS_SIZE];
-                if (HidP_GetValueCaps(HIDP_INPUT, valueCaps, ref valueCapsLength, preparsedData) !=
-                    HIDP_STATUS_SUCCESS)
+                status = HidP_GetValueCaps(HIDP_INPUT, valueCaps, ref valueCapsLength, preparsedData);
+                if (status != HIDP_STATUS_SUCCESS)
                 {
+                    TrackpadTrace.Write("HidP_GetValueCaps failed with 0x" + status.ToString("X8"));
                     Marshal.FreeHGlobal(preparsedData);
                     return null;
                 }
@@ -281,6 +310,7 @@ namespace vtkControl
                 }
                 if (linkCollections.Count == 0)
                 {
+                    TrackpadTrace.Write("no contact collection carries an x axis");
                     Marshal.FreeHGlobal(preparsedData);
                     return null;
                 }
@@ -288,8 +318,8 @@ namespace vtkControl
                 int usageListLength = HidP_MaxUsageListLength(HIDP_INPUT, USAGE_PAGE_DIGITIZER, preparsedData);
                 if (usageListLength <= 0) usageListLength = 16;
                 //
-                System.Diagnostics.Debug.WriteLine("Trackpad: contact collections = " + linkCollections.Count +
-                                                   ", mm per unit = " + mmPerUnitX + " " + mmPerUnitY);
+                TrackpadTrace.Write("contact collections = " + linkCollections.Count + ", mm per unit = " +
+                                    mmPerUnitX + " " + mmPerUnitY + ", usage list = " + usageListLength);
                 //
                 TouchpadDevice device = new TouchpadDevice();
                 device.PreparsedData = preparsedData;
