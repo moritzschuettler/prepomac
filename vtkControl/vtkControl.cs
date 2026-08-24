@@ -53,7 +53,7 @@ namespace vtkControl
     /// an instance of a vtkRenderWindow.
     /// </summary>
     [ComVisible(true), ClassInterface(ClassInterfaceType.AutoDual)]
-    public partial class vtkControl : UserControl
+    public partial class vtkControl : UserControl, IMessageFilter
     {
         int countError;
         // Variables                                                                                                                        
@@ -321,6 +321,11 @@ namespace vtkControl
             _edgesVisibility = vtkEdgesVisibility.ElementEdges;
             _colorSpectrum = new vtkMaxColorSpectrum();
             _trackpadNavigation = new TrackpadNavigation();
+            if (LicenseManager.UsageMode != LicenseUsageMode.Designtime)
+            {
+                Application.AddMessageFilter(this);
+                Disposed += vtkControl_Disposed;
+            }
             //
             _actors = new Dictionary<string, vtkMaxActor>();
             _selectedActors = new List<vtkMaxActor>();
@@ -473,18 +478,21 @@ namespace vtkControl
         private const int MK_SHIFT = 0x0004;
         private const int MK_CONTROL = 0x0008;
         //
-        protected override void WndProc(ref Message m)
+        // VTK creates its own child window and its Win32 interactor consumes WM_MOUSEWHEEL inside it,
+        // so the message never reaches this control and has to be taken from the message pump instead
+        public bool PreFilterMessage(ref Message m)
         {
-            if (m.Msg == WM_MOUSEWHEEL || m.Msg == WM_MOUSEHWHEEL)
-            {
-                bool handled = HandleTrackpadWheel(ref m);
-                System.Diagnostics.Debug.WriteLine("Trackpad: msg = 0x" + m.Msg.ToString("X3") + ", enabled = " +
-                                                   (_trackpadNavigation != null && _trackpadNavigation.Enabled) +
-                                                   ", handled = " + handled);
-                if (handled) return;
-            }
+            if (m.Msg != WM_MOUSEWHEEL && m.Msg != WM_MOUSEHWHEEL) return false;
             //
-            base.WndProc(ref m);
+            bool handled = HandleTrackpadWheel(ref m);
+            System.Diagnostics.Debug.WriteLine("Trackpad: msg = 0x" + m.Msg.ToString("X3") + ", enabled = " +
+                                               (_trackpadNavigation != null && _trackpadNavigation.Enabled) +
+                                               ", handled = " + handled);
+            return handled;
+        }
+        private void vtkControl_Disposed(object sender, EventArgs e)
+        {
+            Application.RemoveMessageFilter(this);
         }
         private bool HandleTrackpadWheel(ref Message m)
         {

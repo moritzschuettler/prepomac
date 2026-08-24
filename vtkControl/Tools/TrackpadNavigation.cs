@@ -23,6 +23,8 @@ namespace vtkControl
         private bool _enabled;
         private bool _twoFingerDragPans;
         private bool _invertZoom;
+        private bool _invertX;
+        private bool _invertY;
         private double _orbitSensitivity;
         private double _panSensitivity;
         private double _zoomSensitivity;
@@ -32,6 +34,8 @@ namespace vtkControl
         public bool Enabled { get { return _enabled; } set { _enabled = value; } }
         public bool TwoFingerDragPans { get { return _twoFingerDragPans; } set { _twoFingerDragPans = value; } }
         public bool InvertZoom { get { return _invertZoom; } set { _invertZoom = value; } }
+        public bool InvertX { get { return _invertX; } set { _invertX = value; } }
+        public bool InvertY { get { return _invertY; } set { _invertY = value; } }
         public double OrbitSensitivity { get { return _orbitSensitivity; } set { _orbitSensitivity = value; } }
         public double PanSensitivity { get { return _panSensitivity; } set { _panSensitivity = value; } }
         public double ZoomSensitivity { get { return _zoomSensitivity; } set { _zoomSensitivity = value; } }
@@ -44,6 +48,8 @@ namespace vtkControl
             _enabled = true;
             _twoFingerDragPans = GetEnvironmentFlag("PREPOMAX_TRACKPAD_DRAG_PANS", false);
             _invertZoom = GetEnvironmentFlag("PREPOMAX_TRACKPAD_INVERT_ZOOM", false);
+            _invertX = GetEnvironmentFlag("PREPOMAX_TRACKPAD_INVERT_X", true);
+            _invertY = GetEnvironmentFlag("PREPOMAX_TRACKPAD_INVERT_Y", false);
             _orbitSensitivity = GetEnvironmentValue("PREPOMAX_TRACKPAD_ORBIT", 1);
             _panSensitivity = GetEnvironmentValue("PREPOMAX_TRACKPAD_PAN", 1);
             _zoomSensitivity = GetEnvironmentValue("PREPOMAX_TRACKPAD_ZOOM", 1);
@@ -63,6 +69,9 @@ namespace vtkControl
                           double zoomFactor, int zoomCenterX, int zoomCenterY, bool shiftPressed)
         {
             if (style == null || !style.NavigationAllowed) return;
+            //
+            if (_invertX) dragPixelsX = -dragPixelsX;
+            if (_invertY) dragPixelsY = -dragPixelsY;
             //
             bool zoom = zoomFactor != 1;
             bool drag = dragPixelsX != 0 || dragPixelsY != 0;
