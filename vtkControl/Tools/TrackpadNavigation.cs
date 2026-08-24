@@ -19,7 +19,7 @@ namespace vtkControl
         public const double WheelDeltaPerNotch = 120.0;
         private const double _pixelsPerNotch = 40.0;
         private const double _zoomPerNotch = 1.15;
-        private const double _pixelsPerMm = 80.0;
+        private const double _pixelsPerMm = 10.0;
         //
         private bool _enabled;
         private bool _twoFingerDragPans;

@@ -64,6 +64,7 @@ namespace vtkControl
         private byte[] _rawInputBuffer;
         private Dictionary<IntPtr, TouchpadDevice> _devices;
         private List<TouchContact> _contacts;
+        private int _tracedContactCount;
 
 
         // Properties
@@ -77,6 +78,7 @@ namespace vtkControl
             _rawInputBuffer = new byte[1024];
             _devices = new Dictionary<IntPtr, TouchpadDevice>();
             _contacts = new List<TouchContact>();
+            _tracedContactCount = -1;
             //
             _found = FindTouchpadDevice();
         }
@@ -135,8 +137,12 @@ namespace vtkControl
                 AddContactsFromReport(device, report);
             }
             //
-            TrackpadTrace.Write("report size " + reportSize + " x " + reportCount + " - contacts = " +
-                                _contacts.Count);
+            if (_contacts.Count != _tracedContactCount)
+            {
+                _tracedContactCount = _contacts.Count;
+                TrackpadTrace.Write("report size " + reportSize + " x " + reportCount + " - contacts = " +
+                                    _contacts.Count);
+            }
             //
             return _contacts.ToArray();
         }

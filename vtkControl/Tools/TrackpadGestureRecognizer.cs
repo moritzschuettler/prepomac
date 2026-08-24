@@ -23,6 +23,9 @@ namespace vtkControl
         // glitch shows up as a jump no finger could have made - both rebase instead of moving the camera
         private const int _settleReports = 3;
         private const double _maxReportTravelMm = 8;
+        // Fingers never hold a perfectly constant distance, so the spread has to move by a real
+        // amount before it counts as a pinch - without it a rotation slowly zooms as well
+        private const double _spreadDeadbandMm = 0.5;
         //
         private bool _active;
         private int _reportsSinceStart;
@@ -31,6 +34,7 @@ namespace vtkControl
         private double _centroidX;
         private double _centroidY;
         private double _spread;
+        private double _zoomReferenceSpread;
 
 
         // Properties
@@ -76,6 +80,7 @@ namespace vtkControl
                 _centroidX = centroidX;
                 _centroidY = centroidY;
                 _spread = spread;
+                _zoomReferenceSpread = spread;
                 _active = true;
                 _reportsSinceStart = 0;
                 if (!wasActive && GestureStarted != null) GestureStarted();
@@ -91,19 +96,26 @@ namespace vtkControl
                 _centroidX = centroidX;
                 _centroidY = centroidY;
                 _spread = spread;
+                _zoomReferenceSpread = spread;
                 return;
             }
             //
             double previousX = _centroidX;
             double previousY = _centroidY;
-            double previousSpread = _spread;
             //
             _centroidX += _smoothing * (centroidX - _centroidX);
             _centroidY += _smoothing * (centroidY - _centroidY);
             _spread += _smoothing * (spread - _spread);
+            // The deadband rebases instead of discarding, so a slow pinch still arrives in full
+            double spreadRatio = 1;
+            if (Math.Abs(_spread - _zoomReferenceSpread) > _spreadDeadbandMm)
+            {
+                spreadRatio = _spread / _zoomReferenceSpread;
+                _zoomReferenceSpread = _spread;
+            }
             //
             if (GestureUpdated != null)
-                GestureUpdated(_centroidX - previousX, _centroidY - previousY, _spread / previousSpread);
+                GestureUpdated(_centroidX - previousX, _centroidY - previousY, spreadRatio);
         }
         public void End()
         {
