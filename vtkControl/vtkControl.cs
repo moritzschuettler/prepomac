@@ -149,6 +149,8 @@ namespace vtkControl
         private bool _trackpadPending;
         private bool _trackpadGestureActive;
         private Timer _trackpadGestureEndTimer;
+        private PrecisionTouchpad _precisionTouchpad;
+        private TrackpadGestureRecognizer _gestureRecognizer;
         // Caption actors
         private vtkActor _captionTmpActor;
         private bool _captionActorAddedToBase;
@@ -334,10 +336,15 @@ namespace vtkControl
             _trackpadGestureEndTimer = new Timer();
             _trackpadGestureEndTimer.Interval = 250;
             _trackpadGestureEndTimer.Tick += trackpadGestureEndTimer_Tick;
+            _precisionTouchpad = new PrecisionTouchpad();
+            _gestureRecognizer = new TrackpadGestureRecognizer();
+            _gestureRecognizer.GestureUpdated += gestureRecognizer_GestureUpdated;
+            _gestureRecognizer.GestureEnded += gestureRecognizer_GestureEnded;
             if (LicenseManager.UsageMode != LicenseUsageMode.Designtime)
             {
                 Application.AddMessageFilter(this);
                 Application.Idle += Application_Idle;
+                HandleCreated += vtkControl_HandleCreated;
                 Disposed += vtkControl_Disposed;
             }
             //
@@ -491,14 +498,72 @@ namespace vtkControl
         private const int WM_MOUSEHWHEEL = 0x020E;
         private const int MK_SHIFT = 0x0004;
         private const int MK_CONTROL = 0x0008;
+        private const int WM_INPUT = 0x00FF;
         //
         // VTK creates its own child window and its Win32 interactor consumes WM_MOUSEWHEEL inside it,
         // so the message never reaches this control and has to be taken from the message pump instead
         public bool PreFilterMessage(ref Message m)
         {
             if (m.Msg != WM_MOUSEWHEEL && m.Msg != WM_MOUSEHWHEEL) return false;
+            if (_trackpadNavigation == null || !_trackpadNavigation.Enabled) return false;
+            // While the contacts drive the camera the synthesised scrolling, its inertia included, is dropped
+            if (_gestureRecognizer.Active || _trackpadGestureEndTimer.Enabled) return true;
+            // With a touchpad present the contacts are the only source of gestures, which leaves
+            // the mouse wheel free to keep zooming the way it always has
+            if (_precisionTouchpad.Found) return false;
             //
             return HandleTrackpadWheel(ref m);
+        }
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == WM_INPUT) HandleRawInput(m.LParam);
+            //
+            base.WndProc(ref m);
+        }
+        private void vtkControl_HandleCreated(object sender, EventArgs e)
+        {
+            bool registered = _precisionTouchpad.Register(Handle);
+            System.Diagnostics.Debug.WriteLine("Trackpad: touchpad found = " + _precisionTouchpad.Found +
+                                               ", raw input registered = " + registered);
+        }
+        private void HandleRawInput(IntPtr rawInputHandle)
+        {
+            if (_trackpadNavigation == null || !_trackpadNavigation.Enabled) return;
+            if (!_precisionTouchpad.Found || _style == null || _renderer == null) return;
+            // Raw input arrives even while another application is in front
+            Form form = FindForm();
+            if (form == null || form != Form.ActiveForm)
+            {
+                _gestureRecognizer.End();
+                return;
+            }
+            // A two finger gesture leaves the pointer where the last single finger movement put it,
+            // so hit testing it once at the start keeps the gesture bound to the viewport throughout
+            if (!_gestureRecognizer.Active && !ClientRectangle.Contains(PointToClient(Cursor.Position))) return;
+            //
+            _gestureRecognizer.Update(_precisionTouchpad.GetContacts(rawInputHandle));
+        }
+        private void gestureRecognizer_GestureUpdated(double dragXMm, double dragYMm, double spreadRatio)
+        {
+            // The touchpad y axis grows downwards while the display coordinates grow upwards, and fingers
+            // moving apart have to make the model larger, which means a smaller parallel scale
+            _trackpadDragX += TrackpadNavigation.MmToPixels(dragXMm);
+            _trackpadDragY -= TrackpadNavigation.MmToPixels(dragYMm);
+            _trackpadZoom /= spreadRatio;
+            //
+            System.Drawing.Point clientPos = PointToClient(Cursor.Position);
+            _trackpadCenterX = clientPos.X;
+            _trackpadCenterY = ClientRectangle.Height - 1 - clientPos.Y;
+            _trackpadShift = (ModifierKeys & Keys.Shift) == Keys.Shift;
+            _trackpadPending = true;
+            //
+            _trackpadGestureEndTimer.Stop();
+            _trackpadGestureEndTimer.Start();
+        }
+        private void gestureRecognizer_GestureEnded()
+        {
+            FlushTrackpadGesture();
+            EndTrackpadGesture();
         }
         private void vtkControl_Disposed(object sender, EventArgs e)
         {
@@ -517,12 +582,14 @@ namespace vtkControl
         {
             _trackpadGestureEndTimer.Stop();
             FlushTrackpadGesture();
+            EndTrackpadGesture();
+        }
+        private void EndTrackpadGesture()
+        {
+            if (!_trackpadGestureActive) return;
             //
-            if (_trackpadGestureActive)
-            {
-                _trackpadGestureActive = false;
-                if (_style != null) _style.EndMultiTouchGesture();
-            }
+            _trackpadGestureActive = false;
+            if (_style != null) _style.EndMultiTouchGesture();
         }
         private void FlushTrackpadGesture()
         {
@@ -576,12 +643,12 @@ namespace vtkControl
             //
             if (control)
             {
-                if (m.Msg == WM_MOUSEWHEEL) zoomFactor = TrackpadNavigation.WheelDeltaToZoomFactor(wheelDelta);
+                if (m.Msg == WM_MOUSEWHEEL) zoomFactor = 1 / TrackpadNavigation.WheelDeltaToZoomFactor(wheelDelta);
             }
             else
             {
-                if (m.Msg == WM_MOUSEWHEEL) dragY = TrackpadNavigation.WheelDeltaToPixels(wheelDelta);
-                else dragX = TrackpadNavigation.WheelDeltaToPixels(wheelDelta);
+                if (m.Msg == WM_MOUSEWHEEL) dragY = -TrackpadNavigation.WheelDeltaToPixels(wheelDelta);
+                else dragX = -TrackpadNavigation.WheelDeltaToPixels(wheelDelta);
             }
             //
             _trackpadDragX += dragX;

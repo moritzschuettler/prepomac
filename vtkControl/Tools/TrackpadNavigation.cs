@@ -19,6 +19,7 @@ namespace vtkControl
         public const double WheelDeltaPerNotch = 120.0;
         private const double _pixelsPerNotch = 40.0;
         private const double _zoomPerNotch = 1.15;
+        private const double _pixelsPerMm = 12.0;
         //
         private bool _enabled;
         private bool _twoFingerDragPans;
@@ -47,9 +48,9 @@ namespace vtkControl
             _enabled = GetEnvironmentFlag("PREPOMAX_TRACKPAD", false);
             _enabled = true;
             _twoFingerDragPans = GetEnvironmentFlag("PREPOMAX_TRACKPAD_DRAG_PANS", false);
-            _invertZoom = GetEnvironmentFlag("PREPOMAX_TRACKPAD_INVERT_ZOOM", true);
-            _invertX = GetEnvironmentFlag("PREPOMAX_TRACKPAD_INVERT_X", true);
-            _invertY = GetEnvironmentFlag("PREPOMAX_TRACKPAD_INVERT_Y", true);
+            _invertZoom = GetEnvironmentFlag("PREPOMAX_TRACKPAD_INVERT_ZOOM", false);
+            _invertX = GetEnvironmentFlag("PREPOMAX_TRACKPAD_INVERT_X", false);
+            _invertY = GetEnvironmentFlag("PREPOMAX_TRACKPAD_INVERT_Y", false);
             _orbitSensitivity = GetEnvironmentValue("PREPOMAX_TRACKPAD_ORBIT", 1);
             _panSensitivity = GetEnvironmentValue("PREPOMAX_TRACKPAD_PAN", 1);
             _zoomSensitivity = GetEnvironmentValue("PREPOMAX_TRACKPAD_ZOOM", 1);
@@ -57,6 +58,10 @@ namespace vtkControl
 
 
         // Methods
+        public static double MmToPixels(double mm)
+        {
+            return mm * _pixelsPerMm;
+        }
         public static double WheelDeltaToPixels(double wheelDelta)
         {
             return wheelDelta / WheelDeltaPerNotch * _pixelsPerNotch;

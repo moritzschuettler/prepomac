@@ -85,6 +85,8 @@
     <Compile Include="SectionViewProperites.cs" />
     <Compile Include="Tools\Extensions.cs" />
     <Compile Include="Tools\QuaternionHelper.cs" />
+    <Compile Include="Tools\PrecisionTouchpad.cs" />
+    <Compile Include="Tools\TrackpadGestureRecognizer.cs" />
     <Compile Include="Tools\TrackpadNavigation.cs" />
     <Compile Include="Enums\vtkCellType.cs" />
     <Compile Include="vtkControl.cs">
