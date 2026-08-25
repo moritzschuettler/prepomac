@@ -16,6 +16,9 @@ namespace CaeResults
     public class ResultHistoryOutputXY : ResultHistoryOutput
     {
         // Variables                                                                                                                
+        public const string FieldName = "XY";
+        public const string ComponentName = "VALUE";
+
         private HistoryResultData _xSource;
         private HistoryResultData _ySource;
 

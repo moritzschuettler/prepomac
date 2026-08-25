@@ -150,7 +150,7 @@ namespace PrePoMax
             _showMinValueLocation = false;
             _showMaxValueLocation = true;
             //
-            _maxHistoryEntriesToShow = 100;
+            _maxHistoryEntriesToShow = 1000;
         }
         
     }

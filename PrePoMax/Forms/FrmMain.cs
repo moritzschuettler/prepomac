@@ -2690,6 +2690,7 @@ namespace PrePoMax
                         _pythonPanel = new PythonPanel();
                         _pythonPanel.ExecuteCommand += PythonPanel_ExecuteCommand;
                         _pythonPanel.ExecuteScript += PythonPanel_ExecuteScript;
+                        _pythonPanel.RecordAndExecuteScript += PythonPanel_RecordAndExecuteScript;
                         _pythonPanel.AutocompleteRequested += PythonPanel_AutocompleteRequested;
                         _pythonPanel.CloseButtonPressedEvent += tsmiPythonScriptEditor_Click;
                     }
@@ -2770,6 +2771,14 @@ namespace PrePoMax
         private void PythonPanel_ExecuteScript(object sender, PythonTextBoxCommandEventArgs e)
         {
             PythonEngineResult result = PythonEngineManager.ExecuteScript(e.Command);
+            //
+            e.Output = result.Output;
+            e.Error = result.Error;
+            e.NeedMoreInput = result.NeedMoreInput;
+        }
+        private void PythonPanel_RecordAndExecuteScript(object sender, PythonTextBoxCommandEventArgs e)
+        {
+            PythonEngineResult result = _controller.RunPythonScriptCommand(e.Command);
             //
             e.Output = result.Output;
             e.Error = result.Error;

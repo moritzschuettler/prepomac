@@ -17,6 +17,9 @@ namespace CaeResults
     public class ResultHistoryOutputFromMergedHistories : ResultHistoryOutput
     {
         // Variables                                                                                                                
+        public const string FieldName = "MERGED";
+        public const string ComponentName = "VALUE";
+
         private HistoryResultData _source1;
         private HistoryResultData _source2;
         private HistoryResultData _source3;

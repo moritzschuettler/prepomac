@@ -16,6 +16,7 @@ using CaeResults;
 using FileInOut.Output;
 using PrePoMax.Commands;
 using PrePoMax.Forms;
+using PrePoMax.Python;
 using System;
 using System.Collections;
 using System.Collections.Concurrent;
@@ -13224,6 +13225,34 @@ namespace PrePoMax
         #endregion #################################################################################################################
 
         #region Results  ###########################################################################################################
+        public PythonEngineResult RunPythonScriptCommand(string script)
+        {
+            CRunPythonScript comm = new CRunPythonScript(script);
+            try
+            {
+                _commands.AddAndExecute(comm);
+            }
+            catch
+            {
+                if (comm.ExecutionResult != null) return comm.ExecutionResult;
+                else throw;
+            }
+            //
+            return comm.ExecutionResult;
+        }
+        public PythonEngineResult RunPythonScript(string script)
+        {
+            _commands.BeginCommandRecordingSuppression();
+            try
+            {
+                return PythonEngineManager.ExecuteScriptInNewScope(script, _allResults, this);
+            }
+            finally
+            {
+                _commands.EndCommandRecordingSuppression();
+            }
+        }
+        //
         public void OpenResultsCommand(string jobName)
         {
             COpenResults comm = new COpenResults(jobName);

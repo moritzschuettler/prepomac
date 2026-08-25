@@ -20,6 +20,17 @@ The root object available in the Python console is `pmx`.
 - Methods that construct Python-side drafts or specifications start with `create_` and do not modify PrePoMax.
 - Collection `add(...)` methods perform validation and make the command-recorded database change.
 
+## Script execution and regeneration
+
+- **Run script** and **Run selection** execute in the shared interactive Python scope. State-changing API calls are recorded
+  as individual PrePoMax commands.
+- **Record and Run** stores the complete editor source as one postprocessing command and then executes it. Commands invoked
+  by that script still use the normal controller command path, but they are not added to history a second time.
+- Recorded scripts run in a fresh scope containing a new `pmx`, `__name__ = "__main__"`, and `__file__ = "<string>"`.
+  They cannot depend on variables or imports left in the interactive console by earlier work.
+- A recorded script is added to history only when it completes without an error. Regeneration executes the embedded source
+  at the same position in the postprocessing history.
+
 ## Typical access path
 
 ```python

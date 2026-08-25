@@ -82,6 +82,13 @@ namespace PrePoMax.Python
         {
             Initialize();
             //
+            using (Py.GIL())
+            {
+                SetPrePoMaxAPI(_scope, results, controller);
+            }
+        }
+        private static void SetPrePoMaxAPI(PyDict scope, ResultsCollection results, Controller controller)
+        {
             IPythonCommandGateway commandGateway = controller != null
                                                    ? new ControllerPythonCommandGateway(controller)
                                                    : null;
@@ -90,12 +97,9 @@ namespace PrePoMax.Python
                                                        : null;
             PrePoMaxAPI pmx = new PrePoMaxAPI(results, commandGateway, selectionGateway);
             //
-            using (Py.GIL())
+            using (PyObject pmxObject = pmx.ToPython())
             {
-                PyObject pmxObject = pmx.ToPython();
-                _scope.SetItem("pmx", pmxObject);
-
-                pmxObject.Dispose();
+                scope.SetItem("pmx", pmxObject);
             }
         }
         public static PythonEngineResult PushLine(string line)
@@ -177,68 +181,89 @@ namespace PrePoMax.Python
         public static PythonEngineResult ExecuteScript(string code)
         {
             Initialize();
-
-            PythonEngineResult result = new PythonEngineResult();
-
+            //
             using (Py.GIL())
             {
-                dynamic io = Py.Import("io");
-                dynamic sys = Py.Import("sys");
-                dynamic stdout = io.StringIO();
-                dynamic stderr = io.StringIO();
-                PyObject oldStdout = sys.stdout;
-                PyObject oldStderr = sys.stderr;
-
-                try
-                {
-                    sys.stdout = stdout;
-                    sys.stderr = stderr;
-                    //
-                    ExecuteCompiledScriptWithTraceback(code);
-                    //
-                    result.Output = stdout.getvalue().ToString();
-                    result.Error = stderr.getvalue().ToString();
-                    result.NeedMoreInput = false;
-                }
-                catch (PythonException ex)
-                {
-                    result.Output = stdout.getvalue().ToString();
-                    result.Error = stderr.getvalue().ToString();
-                    string scriptError = GetScriptErrorFromScope();
-
-                    if (!string.IsNullOrEmpty(scriptError))
-                        AppendError(result, scriptError);
-                    else
-                        AppendError(result, FormatPythonException(ex));
-
-                    result.NeedMoreInput = false;
-                }
-                catch (Exception ex)
-                {
-                    result.Output = stdout.getvalue().ToString();
-                    result.Error = stderr.getvalue().ToString();
-                    string scriptError = GetScriptErrorFromScope();
-
-                    if (!string.IsNullOrEmpty(scriptError))
-                        AppendError(result, scriptError);
-                    else
-                        AppendError(result, ex.ToString());
-
-                    result.NeedMoreInput = false;
-                }
-                finally
-                {
-                    ClearScriptHelperVariables();
-                    sys.stdout = oldStdout;
-                    sys.stderr = oldStderr;
-                    oldStdout.Dispose();
-                    oldStderr.Dispose();
-                }
+                return ExecuteScript(code, _scope);
             }
-
+        }
+        public static PythonEngineResult ExecuteScriptInNewScope(string code, ResultsCollection results,
+                                                                 Controller controller)
+        {
+            Initialize();
+            //
+            using (Py.GIL())
+            using (PyDict scope = new PyDict())
+            {
+                using (PyObject mainName = new PyString("__main__"))
+                using (PyObject fileName = new PyString("<string>"))
+                {
+                    scope.SetItem("__name__", mainName);
+                    scope.SetItem("__file__", fileName);
+                }
+                SetPrePoMaxAPI(scope, results, controller);
+                return ExecuteScript(code, scope);
+            }
+        }
+        private static PythonEngineResult ExecuteScript(string code, PyDict scope)
+        {
+            PythonEngineResult result = new PythonEngineResult();
+            dynamic io = Py.Import("io");
+            dynamic sys = Py.Import("sys");
+            dynamic stdout = io.StringIO();
+            dynamic stderr = io.StringIO();
+            PyObject oldStdout = sys.stdout;
+            PyObject oldStderr = sys.stderr;
+            //
+            try
+            {
+                sys.stdout = stdout;
+                sys.stderr = stderr;
+                //
+                ExecuteCompiledScriptWithTraceback(code, scope);
+                //
+                result.Output = stdout.getvalue().ToString();
+                result.Error = stderr.getvalue().ToString();
+                result.NeedMoreInput = false;
+            }
+            catch (PythonException ex)
+            {
+                result.Output = stdout.getvalue().ToString();
+                result.Error = stderr.getvalue().ToString();
+                string scriptError = GetScriptErrorFromScope(scope);
+                //
+                if (!string.IsNullOrEmpty(scriptError))
+                    AppendError(result, scriptError);
+                else
+                    AppendError(result, FormatPythonException(ex));
+                //
+                result.NeedMoreInput = false;
+            }
+            catch (Exception ex)
+            {
+                result.Output = stdout.getvalue().ToString();
+                result.Error = stderr.getvalue().ToString();
+                string scriptError = GetScriptErrorFromScope(scope);
+                //
+                if (!string.IsNullOrEmpty(scriptError))
+                    AppendError(result, scriptError);
+                else
+                    AppendError(result, ex.ToString());
+                //
+                result.NeedMoreInput = false;
+            }
+            finally
+            {
+                ClearScriptHelperVariables(scope);
+                sys.stdout = oldStdout;
+                sys.stderr = oldStderr;
+                oldStdout.Dispose();
+                oldStderr.Dispose();
+            }
+            //
             return result;
         }
-        private static void ExecuteCompiledScriptWithTraceback(string code)
+        private static void ExecuteCompiledScriptWithTraceback(string code, PyDict scope)
         {
             using (PyObject builtins = Py.Import("builtins"))
             using (PyObject compileFunc = builtins.GetAttr("compile"))
@@ -249,19 +274,19 @@ namespace PrePoMax.Python
             using (PyObject traceback = Py.Import("traceback"))
             using (PyObject emptyError = new PyString(""))
             {
-                _scope.SetItem(ScriptCompiledVariable, compiled);
-                _scope.SetItem(ScriptErrorVariable, emptyError);
-                _scope.SetItem(ScriptScopeVariable, _scope);
-                _scope.SetItem(ScriptTracebackVariable, traceback);
-
-                PythonEngine.Exec(ScriptExecutionWrapper, null, _scope);
+                scope.SetItem(ScriptCompiledVariable, compiled);
+                scope.SetItem(ScriptErrorVariable, emptyError);
+                scope.SetItem(ScriptScopeVariable, scope);
+                scope.SetItem(ScriptTracebackVariable, traceback);
+                //
+                PythonEngine.Exec(ScriptExecutionWrapper, null, scope);
             }
         }
-        private static string GetScriptErrorFromScope()
+        private static string GetScriptErrorFromScope(PyDict scope)
         {
-            if (_scope == null || !_scope.HasKey(ScriptErrorVariable)) return "";
-
-            using (PyObject error = _scope.GetItem(ScriptErrorVariable))
+            if (scope == null || !scope.HasKey(ScriptErrorVariable)) return "";
+            //
+            using (PyObject error = scope.GetItem(ScriptErrorVariable))
             {
                 return error.ToString();
             }
@@ -303,14 +328,14 @@ namespace PrePoMax.Python
             if (!result.Error.EndsWith("\n"))
                 result.Error += Environment.NewLine;
         }
-        private static void ClearScriptHelperVariables()
+        private static void ClearScriptHelperVariables(PyDict scope)
         {
-            if (_scope == null) return;
-
+            if (scope == null) return;
+            //
             foreach (string variable in ScriptHelperVariables)
             {
-                if (_scope.HasKey(variable))
-                    _scope.DelItem(variable);
+                if (scope.HasKey(variable))
+                    scope.DelItem(variable);
             }
         }
         // Autocompletion method for the Python console

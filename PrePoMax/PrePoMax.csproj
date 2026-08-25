@@ -230,6 +230,7 @@
     <Compile Include="Commands\0110_Results\00_Base\CRemoveCurrentResults.cs" />
     <Compile Include="Commands\0110_Results\00_Base\CSetCurrentResults.cs" />
     <Compile Include="Commands\0110_Results\00_Base\COpenResults.cs" />
+    <Compile Include="Commands\0110_Results\CRunPythonScript.cs" />
     <Compile Include="Commands\0110_Results\01_Mesh\01_Part\CResetColorForResultParts.cs" />
     <Compile Include="Commands\0110_Results\01_Mesh\01_Part\CSetColorContoursForResultPartsCommand.cs" />
     <Compile Include="Commands\0110_Results\01_Mesh\01_Part\CSetColorForResultParts.cs" />

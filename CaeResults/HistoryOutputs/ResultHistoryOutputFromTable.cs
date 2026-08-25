@@ -12,8 +12,8 @@ namespace CaeResults
     public class ResultHistoryOutputFromTable : ResultHistoryOutput
     {
         // Properties                                                                                                               
-        public const string FieldName = "Table";
-        public const string ComponentName = "Values";
+        public const string FieldName = "TABLE";
+        public const string ComponentName = "VALUE";
         public const string XAxisName = "X";
         public const string YAxisName = "Y";
 

@@ -5132,7 +5132,9 @@ namespace CaeResults
             for (int column = 0; column < yColumnNames.Length; column++)
                 yColumnNames[column] = resultHistoryOutput.GetYColumnName(column);
             //
-            return DerivedHistorySetBuilder.BuildSet(resultHistoryOutput, resultHistoryOutput.YAxisUnit, yColumnNames,
+            return DerivedHistorySetBuilder.BuildSet(resultHistoryOutput, ResultHistoryOutputFromTable.FieldName,
+                                                     ResultHistoryOutputFromTable.ComponentName,
+                                                     resultHistoryOutput.YAxisUnit, yColumnNames,
                                                      resultHistoryOutput.DataPoints);
         }
         private HistoryResultSet GetHistorySetFromEquation(ResultHistoryOutputFromEquation resultHistoryOutput)

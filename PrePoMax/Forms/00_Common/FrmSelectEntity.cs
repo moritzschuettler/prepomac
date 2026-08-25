@@ -199,24 +199,40 @@ namespace PrePoMax.Forms
         }
         private void PreSelectEntityNames()
         {
-            dgvNames.Rows.Clear();
-            int rowId;
-            foreach (var entity in _entitiesToSelect)
-            {
-                rowId = dgvNames.Rows.Add(new object[] { entity.Name });
-                dgvNames.Rows[rowId].Cells[dgvNames.Columns[0].Name].Tag = entity;
-            }
             // Detach event
             dgvNames.SelectionChanged -= dgvNames_SelectionChanged;
-            dgvNames.ClearSelection();
-            foreach (DataGridViewRow row in dgvNames.Rows)
+            dgvNames.SuspendLayout();
+            try
             {
-                // setting row.selected = false in SingleSelection mode clears the selected row which has selection = true
-                row.Selected = _preSelectedEntities.Contains(row.Cells[dgvNames.Columns[0].Name].Value);
-                if (dgvNames.SelectedRows.Count > 0 && !MultiSelect) break;
+                dgvNames.Rows.Clear();
+                if (_entitiesToSelect.Length > 0)
+                {
+                    DataGridViewRow[] rows = new DataGridViewRow[_entitiesToSelect.Length];
+                    for (int i = 0; i < _entitiesToSelect.Length; i++)
+                    {
+                        DataGridViewRow row = new DataGridViewRow();
+                        row.CreateCells(dgvNames, _entitiesToSelect[i].Name);
+                        row.Cells[0].Tag = _entitiesToSelect[i];
+                        rows[i] = row;
+                    }
+                    dgvNames.Rows.AddRange(rows);
+                }
+                //
+                dgvNames.ClearSelection();
+                HashSet<string> preSelectedEntities = new HashSet<string>(_preSelectedEntities);
+                foreach (DataGridViewRow row in dgvNames.Rows)
+                {
+                    // setting row.selected = false in SingleSelection mode clears the selected row which has selection = true
+                    row.Selected = preSelectedEntities.Contains((string)row.Cells[0].Value);
+                    if (dgvNames.SelectedRows.Count > 0 && !MultiSelect) break;
+                }
             }
-            // Reattach event
-            dgvNames.SelectionChanged += dgvNames_SelectionChanged;
+            finally
+            {
+                dgvNames.ResumeLayout(false);
+                // Reattach event
+                dgvNames.SelectionChanged += dgvNames_SelectionChanged;
+            }
             //
             dgvNames_SelectionChanged(null, null);
         }

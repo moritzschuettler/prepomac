@@ -527,6 +527,9 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="License-LGPL.txt" />
+    <None Include="Resources\RecordAndRun.ico" />
+    <None Include="Resources\RunSelection.ico" />
+    <None Include="Resources\RecordAndRun1.ico" />
     <None Include="Resources\Double_column.ico" />
     <None Include="Resources\Single_column.ico" />
     <None Include="Resources\Propagate.ico" />

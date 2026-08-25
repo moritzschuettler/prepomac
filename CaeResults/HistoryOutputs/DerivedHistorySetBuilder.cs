@@ -101,7 +101,9 @@ namespace CaeResults
             if (rows.Count == 0)
                 throw new CaeException("The selected history outputs have no finite points within their common time range.");
             //
-            return BuildSet(resultHistoryOutput, yUnit, GetUniqueColumnNames(entryNames, entrySourceNames), rows);
+            return BuildSet(resultHistoryOutput, ResultHistoryOutputFromMergedHistories.FieldName,
+                            ResultHistoryOutputFromMergedHistories.ComponentName, yUnit,
+                            GetUniqueColumnNames(entryNames, entrySourceNames), rows);
         }
         public static HistoryResultSet CreateExtractedSet(FeResults results,
                                                           ResultHistoryOutputFromExtractedEntry resultHistoryOutput)
@@ -125,8 +127,9 @@ namespace CaeResults
             }
             if (rows.Count == 0) throw new CaeException("The selected history entry contains no finite data.");
             //
-            return BuildSet(resultHistoryOutput, GetHistoryEntryUnit(results, field, component, entry),
-                            new string[] { entry.Name }, rows);
+            return BuildSet(resultHistoryOutput, ResultHistoryOutputFromExtractedEntry.FieldName,
+                            ResultHistoryOutputFromExtractedEntry.ComponentName,
+                            GetHistoryEntryUnit(results, field, component, entry), new string[] { entry.Name }, rows);
         }
         public static HistoryResultSet CreateXYSet(FeResults results, ResultHistoryOutputXY resultHistoryOutput)
         {
@@ -182,14 +185,16 @@ namespace CaeResults
                     throw new CaeException("All selected Y entries must use the same unit.");
             }
             //
-            return BuildSet(resultHistoryOutput, yUnit, yEntries.Select(entry => entry.Key).ToArray(), rows);
+            return BuildSet(resultHistoryOutput, ResultHistoryOutputXY.FieldName, ResultHistoryOutputXY.ComponentName,
+                            yUnit, yEntries.Select(entry => entry.Key).ToArray(), rows);
         }
         // The rows are X first and one value per Y column - the same layout as the user defined table
-        public static HistoryResultSet BuildSet(ResultHistoryOutput resultHistoryOutput, string yAxisUnit,
-                                                string[] yColumnNames, IList<double[]> rows)
+        public static HistoryResultSet BuildSet(ResultHistoryOutput resultHistoryOutput, string fieldName,
+                                                string componentName, string yAxisUnit, string[] yColumnNames,
+                                                IList<double[]> rows)
         {
-            HistoryResultField field = new HistoryResultField(ResultHistoryOutputFromTable.FieldName);
-            HistoryResultComponent component = new HistoryResultComponent(ResultHistoryOutputFromTable.ComponentName);
+            HistoryResultField field = new HistoryResultField(fieldName);
+            HistoryResultComponent component = new HistoryResultComponent(componentName);
             for (int column = 0; column < yColumnNames.Length; column++)
             {
                 HistoryResultEntries entries = new HistoryResultEntries(yColumnNames[column], false);

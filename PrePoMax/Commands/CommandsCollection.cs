@@ -58,6 +58,7 @@ namespace PrePoMax.Commands
         private ViewGeometryModelResults _previousView;
         private List<string> _errors;
         private bool _postprocessingDeclined;
+        [NonSerialized] private int _commandRecordingSuppressionCount;
 
 
         // Properties                                                                                                               
@@ -86,6 +87,7 @@ namespace PrePoMax.Commands
             _previousView = ViewGeometryModelResults.Geometry;
             _errors = null;
             _postprocessingDeclined = false;
+            _commandRecordingSuppressionCount = 0;
             //
             WriteToFile();
         }
@@ -106,11 +108,27 @@ namespace PrePoMax.Commands
         // Methods                                                                                                                  
         public bool AddAndExecute(Command command)
         {
+            if (_commandRecordingSuppressionCount > 0) return ExecuteCommandWithoutRecording(command);
+            //
             return ExecuteCommand(command, true);
         }
         public bool AddAndExecute(Command command, bool executeSynchronous)
         {
+            if (_commandRecordingSuppressionCount > 0)
+                return ExecuteCommandWithoutRecording(command, executeSynchronous);
+            //
             return ExecuteCommand(command, true, executeSynchronous);
+        }
+        public void BeginCommandRecordingSuppression()
+        {
+            _commandRecordingSuppressionCount++;
+        }
+        public void EndCommandRecordingSuppression()
+        {
+            if (_commandRecordingSuppressionCount <= 0)
+                throw new InvalidOperationException("Command recording suppression is not active.");
+            //
+            _commandRecordingSuppressionCount--;
         }
         public bool AddAndExecute(List<Command> commands)
         {
@@ -233,6 +251,16 @@ namespace PrePoMax.Commands
                 ExecuteCommandWithTimer(command, false, executeSynchronous);
                 WriteToFile();  // repeat the write in order to save the hash
             }
+            //
+            return result;
+        }
+        private bool ExecuteCommandWithoutRecording(Command command, bool executeSynchronous = false)
+        {
+            // Write to form
+            WriteToOutput(command);
+            //
+            bool result = ExecuteCommandWithTimer(command, false, executeSynchronous);
+            if (result) CheckModelChanged(command);
             //
             return result;
         }

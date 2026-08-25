@@ -37,6 +37,7 @@ namespace UserControls
         public event Action<object, EventArgs> CloseButtonPressedEvent;
         public event EventHandler<PythonTextBoxCommandEventArgs> ExecuteCommand;
         public event EventHandler<PythonTextBoxCommandEventArgs> ExecuteScript;
+        public event EventHandler<PythonTextBoxCommandEventArgs> RecordAndExecuteScript;
         public event EventHandler<PythonTextBoxAutocompleteEventArgs> AutocompleteRequested;
 
 
@@ -46,6 +47,7 @@ namespace UserControls
             DoubleBuffered = true;
             //
             InitializeComponent();
+            btnRecordAndRun.Click += btnRecordAndRun_Click;
             //
             pctbPythonConsole.ExecuteCommand += PythonConsole_ExecuteCommand;
             pctbPythonConsole.AutocompleteRequested += PythonConsole_AutocompleteRequested;
@@ -53,6 +55,7 @@ namespace UserControls
             petbPythonEditor.RunScriptRequested += PythonEditor_RunScriptRequested;
             petbPythonEditor.RunSelectionRequested += PythonEditor_RunSelectionRequested;
             petbPythonEditor.ModifiedChanged += PythonEditor_ModifiedChanged;
+            petbPythonEditor.ScriptTextChanged += PythonEditor_ScriptTextChanged;
             //
             InitializeToolTips();
             UpdateTitle();
@@ -178,11 +181,22 @@ namespace UserControls
                 CaeGlobals.ExceptionTools.Show(this, ex);
             }
         }
-        private void btnRunSelected_Click(object sender, EventArgs e)
+        private void btnRunSelection_Click(object sender, EventArgs e)
         {
             try
             {
                 petbPythonEditor.RunSelection();
+            }
+            catch (Exception ex)
+            {
+                CaeGlobals.ExceptionTools.Show(this, ex);
+            }
+        }
+        private void btnRecordAndRun_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                ExecuteEditorScript(petbPythonEditor.ScriptText, 0, true);
             }
             catch (Exception ex)
             {
@@ -216,6 +230,10 @@ namespace UserControls
         private void PythonEditor_ModifiedChanged(object sender, EventArgs e)
         {
             UpdateTitle();
+            UpdateButtonState();
+        }
+        private void PythonEditor_ScriptTextChanged(object sender, EventArgs e)
+        {
             UpdateButtonState();
         }
 
@@ -322,7 +340,8 @@ namespace UserControls
             ttText.SetToolTip(btnUndo, "Undo");
             ttText.SetToolTip(btnRedo, "Redo");
             ttText.SetToolTip(btnRun, "Run script");
-            ttText.SetToolTip(btnRunSelected, "Run selection");
+            ttText.SetToolTip(btnRunSelection, "Run selection");
+            ttText.SetToolTip(btnRecordAndRun, "Record script into command history and run");
             ttText.SetToolTip(btnClose, "Close Python panel");
         }
         private void NewScript()
@@ -458,13 +477,14 @@ namespace UserControls
             btnUndo.Enabled = petbPythonEditor.CanUndo;
             btnRedo.Enabled = petbPythonEditor.CanRedo;
             btnRun.Enabled = !string.IsNullOrWhiteSpace(petbPythonEditor.ScriptText);
+            btnRecordAndRun.Enabled = btnRun.Enabled;
         }
         private string GetDefaultScriptText()
         {
             return "#PrePoMax Python Script" + Environment.NewLine +
                    "#The PrePoMax object is available as 'pmx'" + Environment.NewLine;
         }
-        private void ExecuteEditorScript(string script, int errorLineOffset)
+        private void ExecuteEditorScript(string script, int errorLineOffset, bool record = false)
         {
             if (string.IsNullOrWhiteSpace(script)) return;
 
@@ -474,7 +494,8 @@ namespace UserControls
 
             try
             {
-                ExecuteScript?.Invoke(petbPythonEditor, args);
+                if (record) RecordAndExecuteScript?.Invoke(petbPythonEditor, args);
+                else ExecuteScript?.Invoke(petbPythonEditor, args);
             }
             catch (Exception ex)
             {

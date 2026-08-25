@@ -16,6 +16,9 @@ namespace CaeResults
     public class ResultHistoryOutputFromExtractedEntry : ResultHistoryOutput
     {
         // Variables                                                                                                                
+        public const string FieldName = "EXTRACTED";
+        public const string ComponentName = "VALUE";
+
         private HistoryResultData _source;
         private string _entryName;
 

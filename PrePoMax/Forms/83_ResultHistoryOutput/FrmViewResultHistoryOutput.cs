@@ -59,54 +59,61 @@ namespace PrePoMax
         // Methods                                                                                                                  
         public void SetData(string[] columnNames, object[][] rowBasedData)
         {
-            dgvHistory.Rows.Clear();
-            dgvHistory.Columns.Clear();
-            //
-            DataGridViewTextBoxCell cell;
-            cell = new DataGridViewTextBoxCell();
-            DataGridViewColumn column;
-            int maxNumCol = _controller.Settings.Post.MaxHistoryEntriesToShow;
-            if (maxNumCol < 1)
-                throw new NotSupportedException("The maximum number of history output entries to show is too small." +
-                                                " Use Tools -> Settings to increase it.");
-            //
-            if (columnNames == null) return;
-            //
-            if (columnNames.Length > maxNumCol + 1)
+            DataGridViewColumnHeadersHeightSizeMode columnHeadersHeightSizeMode = dgvHistory.ColumnHeadersHeightSizeMode;
+            dgvHistory.SuspendLayout();
+            try
             {
-                CaeGlobals.MessageBoxes.ShowWarning("Only first " + maxNumCol + " columns of " + (columnNames.Length - 1) +
-                                                    " will be displayed." + Environment.NewLine+
-                                                    " Use Settings → Post-processing to increase this value.");
+                dgvHistory.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+                dgvHistory.Rows.Clear();
+                dgvHistory.Columns.Clear();
+                //
+                int maxNumCol = _controller.Settings.Post.MaxHistoryEntriesToShow;
+                if (maxNumCol < 1)
+                    throw new NotSupportedException("The maximum number of history output entries to show is too small." +
+                                                    " Use Tools -> Settings to increase it.");
+                //
+                if (columnNames == null) return;
+                //
+                if (columnNames.Length > maxNumCol + 1)
+                {
+                    CaeGlobals.MessageBoxes.ShowWarning("Only first " + maxNumCol + " columns of " +
+                                                        (columnNames.Length - 1) + " will be displayed." +
+                                                        Environment.NewLine +
+                                                        " Use Settings → Post-processing to increase this value.");
+                }
+                //
+                int columnCount = Math.Min(columnNames.Length, maxNumCol + 1);
+                DataGridViewColumn[] columns = new DataGridViewColumn[columnCount];
+                for (int i = 0; i < columnCount; i++)
+                {
+                    DataGridViewTextBoxColumn column = new DataGridViewTextBoxColumn();
+                    column.HeaderText = columnNames[i];
+                    column.FillWeight = 1;
+                    column.HeaderCell.Style.Alignment = DataGridViewContentAlignment.BottomCenter;
+                    column.SortMode = DataGridViewColumnSortMode.Automatic;
+                    column.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
+                    columns[i] = column;
+                }
+                dgvHistory.Columns.AddRange(columns);
+                //
+                if (rowBasedData.Length > 0)
+                {
+                    DataGridViewRow[] rows = new DataGridViewRow[rowBasedData.Length];
+                    for (int i = 0; i < rowBasedData.Length; i++)
+                    {
+                        DataGridViewRow row = new DataGridViewRow();
+                        row.CreateCells(dgvHistory, rowBasedData[i]);
+                        rows[i] = row;
+                    }
+                    dgvHistory.Rows.AddRange(rows);
+                }
+                dgvHistory.AutoResizeColumns(DataGridViewAutoSizeColumnsMode.AllCells);
             }
-            //
-            for (int i = 0; i < Math.Min(columnNames.Length, maxNumCol + 1); i++)
+            finally
             {
-                column = new DataGridViewColumn(cell);
-                column.HeaderText = columnNames[i];
-                column.FillWeight = 1;
-                column.HeaderCell.Style.Alignment = DataGridViewContentAlignment.BottomCenter;
-                // Enable sorting
-                column.SortMode = DataGridViewColumnSortMode.Automatic;
-                // Auto size
-                column.AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells;
-                // Add
-                dgvHistory.Columns.Add(column);
+                dgvHistory.ColumnHeadersHeightSizeMode = columnHeadersHeightSizeMode;
+                dgvHistory.ResumeLayout(false);
             }
-            //
-            if (rowBasedData.Length <= 0) return;
-            foreach (var row in rowBasedData) dgvHistory.Rows.Add(row);
-            // Remove column auto sizing
-            int width;
-            for (int i = 0; i <= dgvHistory.Columns.Count - 1; i++)
-            {
-                width = dgvHistory.Columns[i].Width;
-                // Remove AutoSizing:
-                dgvHistory.Columns[i].AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
-                dgvHistory.Columns[i].Width = width;
-                break;
-            }
-            //
-            return;
         }
     }
 }

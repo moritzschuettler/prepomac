@@ -433,6 +433,16 @@ namespace UserControls.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap RecordAndRun {
+            get {
+                object obj = ResourceManager.GetObject("RecordAndRun", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap Redo {
             get {
                 object obj = ResourceManager.GetObject("Redo", resourceCulture);
@@ -483,9 +493,9 @@ namespace UserControls.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap RunSelected {
+        internal static System.Drawing.Bitmap RunSelection {
             get {
-                object obj = ResourceManager.GetObject("RunSelected", resourceCulture);
+                object obj = ResourceManager.GetObject("RunSelection", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

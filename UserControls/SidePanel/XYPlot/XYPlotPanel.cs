@@ -326,71 +326,81 @@ namespace UserControls
         }
         private void FillDataGrid(XYPlot plot)
         {
-            dgvData.Rows.Clear();
-            dgvData.Columns.Clear();
-            //
-            if (plot == null) return;
-            //
-            GraphPane pane = plot.Pane;
-            CurveList curves = pane.CurveList;
-            if (curves.Count == 0) return;
-            //
-            _sharedXValues = HaveEqualXValues(curves);
-            //
-            if (_sharedXValues)
+            DataGridViewColumnHeadersHeightSizeMode columnHeadersHeightSizeMode = dgvData.ColumnHeadersHeightSizeMode;
+            dgvData.SuspendLayout();
+            try
             {
-                AddDataGridColumn(GetAxisTitle(pane.XAxis.Title.Text, "X"));
-                for (int i = 0; i < curves.Count; i++) AddDataGridColumn(GetCurveName(curves[i], i));
+                dgvData.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+                dgvData.Rows.Clear();
+                dgvData.Columns.Clear();
+                //
+                if (plot == null) return;
+                //
+                GraphPane pane = plot.Pane;
+                CurveList curves = pane.CurveList;
+                if (curves.Count == 0) return;
+                //
+                _sharedXValues = HaveEqualXValues(curves);
+                //
+                int columnCount = _sharedXValues ? curves.Count + 1 : 2 * curves.Count;
+                DataGridViewColumn[] columns = new DataGridViewColumn[columnCount];
+                if (_sharedXValues)
+                {
+                    columns[0] = GetDataGridColumn(GetAxisTitle(pane.XAxis.Title.Text, "X"), 0);
+                    for (int i = 0; i < curves.Count; i++)
+                        columns[i + 1] = GetDataGridColumn(GetCurveName(curves[i], i), i + 1);
+                }
+                else
+                {
+                    for (int i = 0; i < curves.Count; i++)
+                    {
+                        string curveName = GetCurveName(curves[i], i);
+                        columns[2 * i] = GetDataGridColumn(curveName + " - " +
+                                                          GetAxisTitle(pane.XAxis.Title.Text, "X"), 2 * i);
+                        columns[2 * i + 1] = GetDataGridColumn(curveName + " - " +
+                                                              GetAxisTitle(pane.YAxis.Title.Text, "Y"), 2 * i + 1);
+                    }
+                }
+                dgvData.Columns.AddRange(columns);
                 //
                 int rowCount = 0;
                 for (int i = 0; i < curves.Count; i++)
                     if (curves[i].Points.Count > rowCount) rowCount = curves[i].Points.Count;
                 //
-                DataGridViewRow[] rows = new DataGridViewRow[rowCount];
-                for (int i = 0; i < rowCount; i++)
+                if (rowCount > 0)
                 {
-                    object[] values = new object[curves.Count + 1];
-                    for (int j = 0; j < curves.Count; j++)
+                    DataGridViewRow[] rows = new DataGridViewRow[rowCount];
+                    for (int i = 0; i < rowCount; i++)
                     {
-                        if (i >= curves[j].Points.Count) continue;
-                        if (j == 0) values[0] = curves[j].Points[i].X;
-                        values[j + 1] = curves[j].Points[i].Y;
+                        object[] values = new object[columnCount];
+                        for (int j = 0; j < curves.Count; j++)
+                        {
+                            if (i >= curves[j].Points.Count) continue;
+                            if (_sharedXValues)
+                            {
+                                if (j == 0) values[0] = curves[j].Points[i].X;
+                                values[j + 1] = curves[j].Points[i].Y;
+                            }
+                            else
+                            {
+                                values[2 * j] = curves[j].Points[i].X;
+                                values[2 * j + 1] = curves[j].Points[i].Y;
+                            }
+                        }
+                        rows[i] = GetDataGridRow(values);
                     }
-                    rows[i] = GetDataGridRow(values);
+                    dgvData.Rows.AddRange(rows);
                 }
-                dgvData.Rows.AddRange(rows);
+                //
+                dgvData.ClearSelection();
+                //
+                HighlightDataGridColumns(plot);
             }
-            else
+            finally
             {
-                for (int i = 0; i < curves.Count; i++)
-                {
-                    string curveName = GetCurveName(curves[i], i);
-                    AddDataGridColumn(curveName + " - " + GetAxisTitle(pane.XAxis.Title.Text, "X"));
-                    AddDataGridColumn(curveName + " - " + GetAxisTitle(pane.YAxis.Title.Text, "Y"));
-                }
-                //
-                int rowCount = 0;
-                for (int i = 0; i < curves.Count; i++)
-                    if (curves[i].Points.Count > rowCount) rowCount = curves[i].Points.Count;
-                //
-                DataGridViewRow[] rows = new DataGridViewRow[rowCount];
-                for (int i = 0; i < rowCount; i++)
-                {
-                    object[] values = new object[2 * curves.Count];
-                    for (int j = 0; j < curves.Count; j++)
-                    {
-                        if (i >= curves[j].Points.Count) continue;
-                        values[2 * j] = curves[j].Points[i].X;
-                        values[2 * j + 1] = curves[j].Points[i].Y;
-                    }
-                    rows[i] = GetDataGridRow(values);
-                }
-                dgvData.Rows.AddRange(rows);
+                dgvData.ColumnHeadersHeightSizeMode = columnHeadersHeightSizeMode;
+                dgvData.ResumeLayout(false);
             }
-            //
-            dgvData.ClearSelection();
-            //
-            HighlightDataGridColumns(plot);
         }
         private void HighlightDataGridColumns(XYPlot plot)
         {
@@ -416,15 +426,17 @@ namespace UserControls
             if (_sharedXValues) return columnId - 1;
             else return columnId / 2;
         }
-        private void AddDataGridColumn(string headerText)
+        private DataGridViewColumn GetDataGridColumn(string headerText, int columnId)
         {
             DataGridViewTextBoxColumn column = new DataGridViewTextBoxColumn();
-            column.Name = "col" + dgvData.Columns.Count;
+            column.Name = "col" + columnId;
             column.HeaderText = headerText;
+            column.FillWeight = 1;
             column.ReadOnly = true;
             column.SortMode = DataGridViewColumnSortMode.NotSortable;
+            column.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
             column.DefaultCellStyle.Format = "G12";
-            dgvData.Columns.Add(column);
+            return column;
         }
         private DataGridViewRow GetDataGridRow(object[] values)
         {

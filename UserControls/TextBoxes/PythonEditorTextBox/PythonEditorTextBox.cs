@@ -55,6 +55,7 @@ namespace UserControls
 
         // Events                                                                                                                   
         public event EventHandler ModifiedChanged;
+        public event EventHandler ScriptTextChanged;
         public event EventHandler RunScriptRequested;
         public event EventHandler RunSelectionRequested;
         public event EventHandler<PythonTextBoxAutocompleteEventArgs> AutocompleteRequested;
@@ -270,7 +271,7 @@ namespace UserControls
             _undoMenuItem.Image = Properties.Resources.Undo;
             _redoMenuItem.Image = Properties.Resources.Redo;
             _runMenuItem.Image = Properties.Resources.Run;
-            _runSelectionMenuItem.Image = Properties.Resources.RunSelected;
+            _runSelectionMenuItem.Image = Properties.Resources.RunSelection;
 
             menu.Items.Add(_undoMenuItem);
             menu.Items.Add(_redoMenuItem);
@@ -535,6 +536,7 @@ namespace UserControls
                 ClearErrorLine();
 
             UpdateModifiedState();
+            ScriptTextChanged?.Invoke(this, EventArgs.Empty);
         }
         private void PythonEditorTextBox_TextChangedDelayed(object sender, FastColoredTextBoxNS.TextChangedEventArgs e)
         {

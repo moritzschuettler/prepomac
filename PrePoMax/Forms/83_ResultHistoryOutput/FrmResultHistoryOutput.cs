@@ -27,6 +27,7 @@ namespace PrePoMax.Forms
     class FrmResultHistoryOutput : UserControls.FrmPropertyDataListView, IFormBase, IFormItemSetDataParent, IFormHighlight
     {
         // Variables                                                                                                                
+        private const int TableColumnWidth = 100;
         private string[] _resultHistoryOutputSetNames;
         private string _resultHistoryOutputToEditName;
         private ViewResultHistoryOutput _viewResultHistoryOutput;
@@ -83,7 +84,7 @@ namespace PrePoMax.Forms
                 _pages[i++] = tabPage;
             }
             //
-            dgvData.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dgvData.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
             dgvData.EnableCutMenu = true;
             dgvData.EnablePasteMenu = true;
             dgvData.EnablePlotMenu = true;
@@ -777,10 +778,13 @@ namespace PrePoMax.Forms
                 }
             }
             //
-            ClearTableGrid();
-            _updatingTable = true;
+            DataGridViewColumnHeadersHeightSizeMode columnHeadersHeightSizeMode = dgvData.ColumnHeadersHeightSizeMode;
+            dgvData.SuspendLayout();
             try
             {
+                dgvData.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+                ClearTableGrid();
+                _updatingTable = true;
                 DataTable table = new DataTable();
                 for (int i = 0; i < columnCount; i++)
                     table.Columns.Add("Column" + i, typeof(double));
@@ -815,6 +819,8 @@ namespace PrePoMax.Forms
             finally
             {
                 _updatingTable = false;
+                dgvData.ColumnHeadersHeightSizeMode = columnHeadersHeightSizeMode;
+                dgvData.ResumeLayout(false);
             }
         }
         private void SetTableColumn(int index, string title)
@@ -823,7 +829,8 @@ namespace PrePoMax.Forms
             column.HeaderText = title;
             column.SortMode = DataGridViewColumnSortMode.NotSortable;
             column.HeaderCell.Style.Alignment = DataGridViewContentAlignment.BottomCenter;
-            column.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+            column.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
+            column.Width = TableColumnWidth;
             column.Tag = new StringDoubleConverter();
         }
         private static string GetTableColumnTitle(string name, string unit, string defaultName)
