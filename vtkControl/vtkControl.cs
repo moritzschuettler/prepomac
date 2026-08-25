@@ -143,6 +143,7 @@ namespace vtkControl
         private double _rotateSensitivity;
         private double _zoomSensitivity;
         private bool _invertZoom;
+        private bool _smoothZoom;
         private double _trackpadDragX;
         private double _trackpadDragY;
         private double _trackpadZoom;
@@ -268,11 +269,12 @@ namespace vtkControl
             if (selectableActors != null) _selectableActorsFilter = new HashSet<string>(selectableActors);
             else _selectableActorsFilter = null;
         }
-        public void SetNavigationSensitivity(double rotateSensitivity, double zoomSensitivity, bool invertZoom)
+        public void SetNavigationSensitivity(double rotateSensitivity, double zoomSensitivity, bool invertZoom, bool smoothZoom)
         {
             _rotateSensitivity = rotateSensitivity;
             _zoomSensitivity = zoomSensitivity;
             _invertZoom = invertZoom;
+            _smoothZoom = smoothZoom;
             //
             ApplyNavigationSensitivity();
         }
@@ -293,6 +295,7 @@ namespace vtkControl
             _style.RotateSensitivity = _rotateSensitivity;
             _style.ZoomSensitivity = _zoomSensitivity;
             _style.InvertZoom = _invertZoom;
+            _style.SmoothZoom = _smoothZoom;
         }
         public void StartBoxZoom()
         {
@@ -364,6 +367,7 @@ namespace vtkControl
             _rotateSensitivity = 1;
             _zoomSensitivity = 1;
             _invertZoom = false;
+            _smoothZoom = true;
             _trackpadZoom = 1;
             _trackpadGestureEndTimer = new Timer();
             _trackpadGestureEndTimer.Interval = 250;

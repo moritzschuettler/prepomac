@@ -12347,7 +12347,7 @@ namespace PrePoMax
             _form.SetSmoothing(gs.PointSmoothing, gs.LineSmoothing, false);
             // Navigation settings
             NavigationSettings ns = _settings.Navigation;
-            _form.SetNavigationSensitivity(ns.RotateSensitivity, ns.ZoomSensitivity, ns.InvertZoom);
+            _form.SetNavigationSensitivity(ns.RotateSensitivity, ns.ZoomSensitivity, ns.InvertZoom, ns.SmoothZoom);
             _form.SetTrackpadNavigation(ns.GesturesEnabled, ns.UseWheelFallback,
                                         ns.TwoFingerDrag == TwoFingerDragEnum.Pan, ns.PanSensitivity,
                                         ns.InvertX, ns.InvertY);

@@ -52,6 +52,17 @@ namespace PrePoMax.Settings
             set { _navigationSettings.InvertZoom = value; }
         }
         //
+        [CategoryAttribute("Common")]
+        [OrderedDisplayName(3, 10, "Smooth zoom")]
+        [DescriptionAttribute("Set the mouse wheel to reach the new zoom level over a few frames " +
+                              "instead of in a single jump. The smoothing is skipped for a model that " +
+                              "is too large to be redrawn quickly.")]
+        public bool SmoothZoom
+        {
+            get { return _navigationSettings.SmoothZoom; }
+            set { _navigationSettings.SmoothZoom = value; }
+        }
+        //
         // Trackpad                                                                                 
         [CategoryAttribute("Trackpad")]
         [OrderedDisplayName(0, 10, "Two finger gestures")]
@@ -113,6 +124,7 @@ namespace PrePoMax.Settings
             _dctd = ProviderInstaller.Install(this);
             //
             _dctd.RenameBooleanProperty(nameof(InvertZoom), "Reversed", "Normal");
+            _dctd.RenameBooleanProperty(nameof(SmoothZoom), "On", "Off");
             _dctd.RenameBooleanProperty(nameof(InvertX), "Reversed", "Normal");
             _dctd.RenameBooleanProperty(nameof(InvertY), "Reversed", "Normal");
             //

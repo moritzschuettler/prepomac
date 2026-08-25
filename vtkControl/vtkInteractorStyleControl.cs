@@ -10,6 +10,7 @@
 using Kitware.VTK;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -108,6 +109,19 @@ namespace vtkControl
         private double _rotateSensitivity;
         private double _zoomSensitivity;
         private bool _invertZoom;
+        // Smooth zoom
+        private const int SmoothZoomIntervalMilliseconds = 15;
+        private const double SmoothZoomApproachRatio = 0.4;
+        private const double SmoothZoomMinLogFactor = 0.005;
+        private const double SmoothZoomMaxFrameMilliseconds = 30;
+        private bool _smoothZoom;
+        private double _smoothZoomRemainingFactor;
+        private int _smoothZoomX;
+        private int _smoothZoomY;
+        private bool _smoothZoomStepping;
+        private double _smoothZoomFrameMilliseconds;
+        private System.Windows.Threading.DispatcherTimer _smoothZoomTimer;
+        //
         private double[] _rotationCenterWorld;
         private double[] _rotationCenterDisplay;
         private int[] _clickPos;
@@ -160,10 +174,27 @@ namespace vtkControl
                 if (!_boxZoomEnabled) BoxZoomEnded?.Invoke();
             }
         }
-        public bool Animating { get { return _animating; } set { _animating = value; } }
+        public bool Animating
+        {
+            get { return _animating; }
+            set
+            {
+                _animating = value;
+                if (_animating) FinishSmoothZoom();
+            }
+        }
         public double RotateSensitivity { get { return _rotateSensitivity; } set { _rotateSensitivity = value; } }
         public double ZoomSensitivity { get { return _zoomSensitivity; } set { _zoomSensitivity = value; } }
         public bool InvertZoom { get { return _invertZoom; } set { _invertZoom = value; } }
+        public bool SmoothZoom
+        {
+            get { return _smoothZoom; }
+            set
+            {
+                _smoothZoom = value;
+                if (!_smoothZoom) FinishSmoothZoom();
+            }
+        }
 
 
         // Getters
@@ -194,6 +225,13 @@ namespace vtkControl
             _rotateSensitivity = 1;
             _zoomSensitivity = 1;
             _invertZoom = false;
+            _smoothZoom = true;
+            _smoothZoomRemainingFactor = 1;
+            _smoothZoomStepping = false;
+            _smoothZoomFrameMilliseconds = 0;
+            _smoothZoomTimer = new System.Windows.Threading.DispatcherTimer();
+            _smoothZoomTimer.Interval = new TimeSpan(0, 0, 0, 0, SmoothZoomIntervalMilliseconds);
+            _smoothZoomTimer.Tick += _smoothZoomTimer_Tick;
             _rotationCenterWorld = null;
             _animating = false;
             _selectionTimer = new System.Windows.Threading.DispatcherTimer();
@@ -236,6 +274,7 @@ namespace vtkControl
         {
             MouseInteractionEvent?.Invoke();
             if (_animating) return;
+            FinishSmoothZoom();
             //
             vtkRenderWindowInteractor rwi = this.GetInteractor();
             //
@@ -358,6 +397,7 @@ namespace vtkControl
         {
             MouseInteractionEvent?.Invoke();
             if (_animating) return;
+            FinishSmoothZoom();
             ClearWidgetHighlightsInternal();
             // Cancel box selection
             CancelBoxSelection();
@@ -463,6 +503,7 @@ namespace vtkControl
         {
             MouseInteractionEvent?.Invoke();
             if (_animating) return;
+            FinishSmoothZoom();
             //
             vtkRenderWindowInteractor rwi = this.GetInteractor();
             int x = rwi.GetEventPosition()[0];
@@ -570,7 +611,7 @@ namespace vtkControl
             if (this.GetState() == VTKIS_NONE)
             {
                 int[] clickPos = this.GetInteractor().GetEventPosition();
-                ZoomAtDisplayPoint(GetMouseWheelZoomFactor(), clickPos[0], clickPos[1]);
+                ZoomAtDisplayPointSmooth(GetMouseWheelZoomFactor(), clickPos[0], clickPos[1]);
             }            
         }
         void vtkInteractorStyleControl_MouseWheelBackwardEvt(vtkObject sender, vtkObjectEventArgs e)
@@ -581,7 +622,7 @@ namespace vtkControl
             if (this.GetState() == VTKIS_NONE)
             {
                 int[] clickPos = this.GetInteractor().GetEventPosition();
-                ZoomAtDisplayPoint(1 / GetMouseWheelZoomFactor(), clickPos[0], clickPos[1]);
+                ZoomAtDisplayPointSmooth(1 / GetMouseWheelZoomFactor(), clickPos[0], clickPos[1]);
             }
         }
         private double GetMouseWheelZoomFactor()
@@ -596,6 +637,7 @@ namespace vtkControl
         private void VtkInteractorStyleControl_KeyPressEvt(vtkObject sender, vtkObjectEventArgs e)
         {
             if (_animating) return;
+            FinishSmoothZoom();
             //
             vtkRenderer renderer = this.GetCurrentRenderer();
             if (renderer == null) return;
@@ -812,6 +854,7 @@ namespace vtkControl
         public void StartMultiTouchGesture(int x, int y, bool showRotationCenter)
         {
             if (_animating) return;
+            FinishSmoothZoom();
             //
             ClearWidgetHighlightsInternal();
             CancelBoxSelection();
@@ -1000,6 +1043,73 @@ namespace vtkControl
             // unchanged pointer position after all widget geometry has been updated.
             UpdateWidgetHighlights(x, y);
             if (render) this.GetInteractor().Render();
+        }
+        // The mouse wheel notch is large enough that an immediate jump breaks the optical flow of the
+        // model, so the notches accumulate into a target the camera then approaches over a few frames
+        public void ZoomAtDisplayPointSmooth(double parallelScaleFactor, int x, int y)
+        {
+            _smoothZoomX = x;
+            _smoothZoomY = y;
+            _smoothZoomRemainingFactor *= parallelScaleFactor;
+            //
+            if (!_smoothZoom || _smoothZoomFrameMilliseconds > SmoothZoomMaxFrameMilliseconds)
+            {
+                FinishSmoothZoom();
+                return;
+            }
+            // A mouse move selection left pending by the move that preceded the wheel would otherwise
+            // pick against a camera that is still moving
+            if (!_smoothZoomTimer.IsEnabled) _selectionTimer.Stop();
+            //
+            _smoothZoomTimer.Start();
+        }
+        public void FinishSmoothZoom()
+        {
+            _smoothZoomTimer.Stop();
+            ApplyRemainingSmoothZoom();
+        }
+        private void _smoothZoomTimer_Tick(object sender, EventArgs e)
+        {
+            // Rendering pumps the message loop, which can deliver the next tick before this one returns
+            if (_smoothZoomStepping) return;
+            _smoothZoomStepping = true;
+            //
+            double logRemainingFactor = Math.Log(_smoothZoomRemainingFactor);
+            // The scene has no level of detail path, so the smoothing steps out of the way as soon as
+            // a single frame no longer fits the budget
+            if (Math.Abs(logRemainingFactor) < SmoothZoomMinLogFactor ||
+                _smoothZoomFrameMilliseconds > SmoothZoomMaxFrameMilliseconds)
+            {
+                _smoothZoomTimer.Stop();
+                ApplyRemainingSmoothZoom();
+                // The hover selection was held back for the duration and settles on the final camera
+                _selectionTimer.Stop();
+                _selectionTimer.Start();
+            }
+            else
+            {
+                // A constant ratio per frame is what reads as a uniform speed under a parallel projection
+                double stepFactor = Math.Exp(logRemainingFactor * SmoothZoomApproachRatio);
+                _smoothZoomRemainingFactor /= stepFactor;
+                ZoomAtDisplayPointTimed(stepFactor, _smoothZoomX, _smoothZoomY);
+            }
+            //
+            _smoothZoomStepping = false;
+        }
+        private void ApplyRemainingSmoothZoom()
+        {
+            if (_smoothZoomRemainingFactor == 1) return;
+            //
+            double parallelScaleFactor = _smoothZoomRemainingFactor;
+            _smoothZoomRemainingFactor = 1;
+            ZoomAtDisplayPointTimed(parallelScaleFactor, _smoothZoomX, _smoothZoomY);
+        }
+        private void ZoomAtDisplayPointTimed(double parallelScaleFactor, int x, int y)
+        {
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            ZoomAtDisplayPoint(parallelScaleFactor, x, y);
+            stopwatch.Stop();
+            _smoothZoomFrameMilliseconds = stopwatch.Elapsed.TotalMilliseconds;
         }
         //
         public override void Rotate()

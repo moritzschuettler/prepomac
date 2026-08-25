@@ -51,6 +51,7 @@ namespace PrePoMax
         private bool _invertX;
         private bool _invertY;
         private bool _invertZoom;
+        private bool _smoothZoom;
 
 
         // Properties                                                                                                               
@@ -78,6 +79,7 @@ namespace PrePoMax
         public bool InvertX { get { return _invertX; } set { _invertX = value; } }
         public bool InvertY { get { return _invertY; } set { _invertY = value; } }
         public bool InvertZoom { get { return _invertZoom; } set { _invertZoom = value; } }
+        public bool SmoothZoom { get { return _smoothZoom; } set { _smoothZoom = value; } }
         //
         public bool GesturesEnabled { get { return _trackpadGestures != TrackpadGesturesEnum.Off; } }
         public bool UseWheelFallback { get { return _trackpadGestures == TrackpadGesturesEnum.On; } }
@@ -107,6 +109,7 @@ namespace PrePoMax
             _invertX = false;
             _invertY = false;
             _invertZoom = false;
+            _smoothZoom = true;
         }
         private static double LimitSensitivity(double value)
         {

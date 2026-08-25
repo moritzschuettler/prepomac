@@ -10886,9 +10886,9 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.SetLighting, ambient, diffuse, redraw);
         }
-        public void SetNavigationSensitivity(double rotateSensitivity, double zoomSensitivity, bool invertZoom)
+        public void SetNavigationSensitivity(double rotateSensitivity, double zoomSensitivity, bool invertZoom, bool smoothZoom)
         {
-            InvokeIfRequired(() => _vtk.SetNavigationSensitivity(rotateSensitivity, zoomSensitivity, invertZoom));
+            InvokeIfRequired(() => _vtk.SetNavigationSensitivity(rotateSensitivity, zoomSensitivity, invertZoom, smoothZoom));
         }
         public void SetTrackpadNavigation(bool enabled, bool useWheelFallback, bool twoFingerDragPans,
                                           double panSensitivity, bool invertX, bool invertY)
