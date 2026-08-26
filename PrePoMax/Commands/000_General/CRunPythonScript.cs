@@ -14,7 +14,7 @@ using System;
 namespace PrePoMax.Commands
 {
     [Serializable]
-    class CRunPythonScript : PostprocessCommand
+    class CRunPythonScript : GeneralCommand
     {
         // Variables                                                                                                                
         private string _script;
@@ -52,4 +52,3 @@ namespace PrePoMax.Commands
         }
     }
 }
-

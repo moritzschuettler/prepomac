@@ -1676,21 +1676,21 @@ namespace PrePoMax
             // tsmiPythonScriptEditor
             // 
             this.tsmiPythonScriptEditor.Name = "tsmiPythonScriptEditor";
-            this.tsmiPythonScriptEditor.Size = new System.Drawing.Size(179, 22);
+            this.tsmiPythonScriptEditor.Size = new System.Drawing.Size(180, 22);
             this.tsmiPythonScriptEditor.Text = "Python Script Editor";
             this.tsmiPythonScriptEditor.Click += new System.EventHandler(this.tsmiPythonScriptEditor_Click);
             // 
             // tsmiXYPlotPanel
             // 
             this.tsmiXYPlotPanel.Name = "tsmiXYPlotPanel";
-            this.tsmiXYPlotPanel.Size = new System.Drawing.Size(179, 22);
+            this.tsmiXYPlotPanel.Size = new System.Drawing.Size(180, 22);
             this.tsmiXYPlotPanel.Text = "XY Plot";
             this.tsmiXYPlotPanel.Click += new System.EventHandler(this.tsmiXYPlotPanel_Click);
             // 
             // tsmiSidePanelAdvisor
             // 
             this.tsmiSidePanelAdvisor.Name = "tsmiSidePanelAdvisor";
-            this.tsmiSidePanelAdvisor.Size = new System.Drawing.Size(179, 22);
+            this.tsmiSidePanelAdvisor.Size = new System.Drawing.Size(180, 22);
             this.tsmiSidePanelAdvisor.Text = "Advisor";
             this.tsmiSidePanelAdvisor.Click += new System.EventHandler(this.tsmiAdvisor_Click);
             // 
@@ -4633,39 +4633,39 @@ namespace PrePoMax
             // tsmiCreateResultHistoryOutput
             // 
             this.tsmiCreateResultHistoryOutput.Name = "tsmiCreateResultHistoryOutput";
-            this.tsmiCreateResultHistoryOutput.Size = new System.Drawing.Size(123, 22);
+            this.tsmiCreateResultHistoryOutput.Size = new System.Drawing.Size(108, 22);
             this.tsmiCreateResultHistoryOutput.Text = "Create";
             this.tsmiCreateResultHistoryOutput.Click += new System.EventHandler(this.tsmiCreateResultHistoryOutput_Click);
             // 
             // tsmiEditResultHistoryOutput
             // 
             this.tsmiEditResultHistoryOutput.Name = "tsmiEditResultHistoryOutput";
-            this.tsmiEditResultHistoryOutput.Size = new System.Drawing.Size(123, 22);
+            this.tsmiEditResultHistoryOutput.Size = new System.Drawing.Size(108, 22);
             this.tsmiEditResultHistoryOutput.Text = "Edit";
             this.tsmiEditResultHistoryOutput.Click += new System.EventHandler(this.tsmiEditResultHistoryOutput_Click);
             // 
             // tsmiDividerResultHistoryOutput1
             // 
             this.tsmiDividerResultHistoryOutput1.Name = "tsmiDividerResultHistoryOutput1";
-            this.tsmiDividerResultHistoryOutput1.Size = new System.Drawing.Size(120, 6);
+            this.tsmiDividerResultHistoryOutput1.Size = new System.Drawing.Size(105, 6);
             // 
             // tsmiExportResultHistoryOutput
             // 
             this.tsmiExportResultHistoryOutput.Name = "tsmiExportResultHistoryOutput";
-            this.tsmiExportResultHistoryOutput.Size = new System.Drawing.Size(123, 22);
+            this.tsmiExportResultHistoryOutput.Size = new System.Drawing.Size(108, 22);
             this.tsmiExportResultHistoryOutput.Text = "Export";
             this.tsmiExportResultHistoryOutput.Click += new System.EventHandler(this.tsmiExportResultHistoryOutput_Click);
             // 
             // tsmiDividerResultHistoryOutput2
             // 
             this.tsmiDividerResultHistoryOutput2.Name = "tsmiDividerResultHistoryOutput2";
-            this.tsmiDividerResultHistoryOutput2.Size = new System.Drawing.Size(120, 6);
+            this.tsmiDividerResultHistoryOutput2.Size = new System.Drawing.Size(105, 6);
             // 
             // tsmiDeleteResultHistoryOutput
             // 
             this.tsmiDeleteResultHistoryOutput.Image = global::PrePoMax.Properties.Resources.Delete;
             this.tsmiDeleteResultHistoryOutput.Name = "tsmiDeleteResultHistoryOutput";
-            this.tsmiDeleteResultHistoryOutput.Size = new System.Drawing.Size(123, 22);
+            this.tsmiDeleteResultHistoryOutput.Size = new System.Drawing.Size(108, 22);
             this.tsmiDeleteResultHistoryOutput.Text = "Delete";
             this.tsmiDeleteResultHistoryOutput.Click += new System.EventHandler(this.tsmiDeleteResultHistoryOutput_Click);
             // 

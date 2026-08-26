@@ -41,10 +41,11 @@ namespace UserControls
             this.labTitle = new System.Windows.Forms.Label();
             this.panBackground = new System.Windows.Forms.Panel();
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
-            this.btnRecordAndRun = new UserControls.MenuStyleButton();
             this.petbPythonEditor = new UserControls.PythonEditorTextBox();
             this.pctbPythonConsole = new UserControls.PythonConsoleTextBox();
             this.ttText = new System.Windows.Forms.ToolTip(this.components);
+            this.btnHelp = new UserControls.MenuStyleButton();
+            this.btnRecordAndRun = new UserControls.MenuStyleButton();
             this.btnSaveAs = new UserControls.MenuStyleButton();
             this.btnRunSelection = new UserControls.MenuStyleButton();
             this.btnRun = new UserControls.MenuStyleButton();
@@ -68,9 +69,9 @@ namespace UserControls
             this.labTitle.BackColor = System.Drawing.SystemColors.Control;
             this.labTitle.Font = new System.Drawing.Font("Segoe UI Semibold", 9F);
             this.labTitle.ForeColor = System.Drawing.SystemColors.ControlText;
-            this.labTitle.Location = new System.Drawing.Point(231, 5);
+            this.labTitle.Location = new System.Drawing.Point(256, 5);
             this.labTitle.Name = "labTitle";
-            this.labTitle.Size = new System.Drawing.Size(528, 25);
+            this.labTitle.Size = new System.Drawing.Size(503, 25);
             this.labTitle.TabIndex = 19;
             this.labTitle.Text = "Python Script Editor";
             this.labTitle.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -95,6 +96,7 @@ namespace UserControls
             // 
             // splitContainer1.Panel1
             // 
+            this.splitContainer1.Panel1.Controls.Add(this.btnHelp);
             this.splitContainer1.Panel1.Controls.Add(this.btnRecordAndRun);
             this.splitContainer1.Panel1.Controls.Add(this.btnSaveAs);
             this.splitContainer1.Panel1.Controls.Add(this.btnRunSelection);
@@ -115,18 +117,6 @@ namespace UserControls
             this.splitContainer1.SplitterDistance = 454;
             this.splitContainer1.TabIndex = 21;
             // 
-            // btnRecordAndRun
-            // 
-            this.btnRecordAndRun.BackColor = System.Drawing.Color.White;
-            this.btnRecordAndRun.FlatAppearance.BorderColor = System.Drawing.SystemColors.Control;
-            this.btnRecordAndRun.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnRecordAndRun.Image = global::UserControls.Properties.Resources.RecordAndRun;
-            this.btnRecordAndRun.Location = new System.Drawing.Point(206, 5);
-            this.btnRecordAndRun.Name = "btnRecordAndRun";
-            this.btnRecordAndRun.Size = new System.Drawing.Size(25, 25);
-            this.btnRecordAndRun.TabIndex = 29;
-            this.btnRecordAndRun.UseVisualStyleBackColor = false;
-            // 
             // petbPythonEditor
             // 
             this.petbPythonEditor.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
@@ -146,6 +136,32 @@ namespace UserControls
             this.pctbPythonConsole.Name = "pctbPythonConsole";
             this.pctbPythonConsole.Size = new System.Drawing.Size(779, 123);
             this.pctbPythonConsole.TabIndex = 20;
+            // 
+            // btnHelp
+            // 
+            this.btnHelp.BackColor = System.Drawing.Color.White;
+            this.btnHelp.FlatAppearance.BorderColor = System.Drawing.SystemColors.Control;
+            this.btnHelp.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnHelp.Image = global::UserControls.Properties.Resources.Help;
+            this.btnHelp.Location = new System.Drawing.Point(231, 5);
+            this.btnHelp.Name = "btnHelp";
+            this.btnHelp.Size = new System.Drawing.Size(25, 25);
+            this.btnHelp.TabIndex = 30;
+            this.btnHelp.UseVisualStyleBackColor = false;
+            this.btnHelp.Click += new System.EventHandler(this.btnHelp_Click);
+            // 
+            // btnRecordAndRun
+            // 
+            this.btnRecordAndRun.BackColor = System.Drawing.Color.White;
+            this.btnRecordAndRun.FlatAppearance.BorderColor = System.Drawing.SystemColors.Control;
+            this.btnRecordAndRun.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnRecordAndRun.Image = global::UserControls.Properties.Resources.RecordAndRun;
+            this.btnRecordAndRun.Location = new System.Drawing.Point(206, 5);
+            this.btnRecordAndRun.Name = "btnRecordAndRun";
+            this.btnRecordAndRun.Size = new System.Drawing.Size(25, 25);
+            this.btnRecordAndRun.TabIndex = 29;
+            this.btnRecordAndRun.UseVisualStyleBackColor = false;
+            this.btnRecordAndRun.Click += new System.EventHandler(this.btnRecordAndRun_Click);
             // 
             // btnSaveAs
             // 
@@ -306,5 +322,6 @@ namespace UserControls
         private System.Windows.Forms.ToolTip ttText;
         private MenuStyleButton btnSaveAs;
         private MenuStyleButton btnRecordAndRun;
+        private MenuStyleButton btnHelp;
     }
 }

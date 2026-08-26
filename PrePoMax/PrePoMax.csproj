@@ -230,7 +230,7 @@
     <Compile Include="Commands\0110_Results\00_Base\CRemoveCurrentResults.cs" />
     <Compile Include="Commands\0110_Results\00_Base\CSetCurrentResults.cs" />
     <Compile Include="Commands\0110_Results\00_Base\COpenResults.cs" />
-    <Compile Include="Commands\0110_Results\CRunPythonScript.cs" />
+    <Compile Include="Commands\000_General\CRunPythonScript.cs" />
     <Compile Include="Commands\0110_Results\01_Mesh\01_Part\CResetColorForResultParts.cs" />
     <Compile Include="Commands\0110_Results\01_Mesh\01_Part\CSetColorContoursForResultPartsCommand.cs" />
     <Compile Include="Commands\0110_Results\01_Mesh\01_Part\CSetColorForResultParts.cs" />
@@ -241,6 +241,7 @@
     <Compile Include="Commands\0110_Results\01_Mesh\07_ReferencePoint\CReplaceResultReferencePoint.cs" />
     <Compile Include="Commands\0110_Results\01_Mesh\07_ReferencePoint\CShowResultReferencePoints.cs" />
     <Compile Include="Commands\00_Base\AnalysisCommand.cs" />
+    <Compile Include="Commands\00_Base\GeneralCommand.cs" />
     <Compile Include="Commands\00_Base\PostprocessCommand.cs" />
     <Compile Include="Commands\00_Base\PreprocessCommand.cs" />
     <Compile Include="Commands\0110_Results\01_Mesh\08_CoordinateSystem\CAddResultCoordinateSystem.cs" />
@@ -1117,6 +1118,8 @@
     <None Include="..\.editorconfig">
       <Link>.editorconfig</Link>
     </None>
+    <None Include="Build\PythonApiHelp.targets" />
+    <None Include="Help\Python\Python_API_Overview.css" />
     <None Include="packages.config" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
@@ -1290,6 +1293,7 @@
     </BootstrapperPackage>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Import Project="Build\PythonApiHelp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

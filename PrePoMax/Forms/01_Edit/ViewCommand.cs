@@ -46,6 +46,7 @@ namespace PrePoMax.Settings
             get
             {
                 if (_command is IFileCommand) return "File";
+                else if (_command is GeneralCommand) return "General";
                 else if (_command is PreprocessCommand) return "Pre-process";
                 else if (_command is AnalysisCommand) return "Analysis";
                 else if (_command is PostprocessCommand) return "Post-process";

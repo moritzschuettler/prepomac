@@ -727,7 +727,22 @@ namespace PrePoMax.Commands
         {
             if (IsUndoPossible)
             {
+                bool generalCommandAffected = _commands[_currPositionIndex] is GeneralCommand;
+                //
                 _currPositionIndex--;
+                if (!generalCommandAffected)
+                {
+                    for (int i = 0; i <= _currPositionIndex; i++)
+                    {
+                        if (_commands[i] is GeneralCommand)
+                        {
+                            generalCommandAffected = true;
+                            break;
+                        }
+                    }
+                }
+                if (generalCommandAffected) regenerateType = RegenerateTypeEnum.All;
+                //
                 ExecuteAllCommands(false, false, regenerateType);   // also rewrites history
                 //
                 OnEnableDisableUndoRedo();

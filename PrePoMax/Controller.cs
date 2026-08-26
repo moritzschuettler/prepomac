@@ -1671,6 +1671,7 @@ namespace PrePoMax
             ViewGeometryModelResults newView;
             Command lastCommand = _commands.GetLastExecutedCommand(RegenerateTypeEnum.All);
             if (lastCommand is null || lastCommand is SaveCommand) newView = prevView;
+            else if (lastCommand is GeneralCommand) newView = _currentView;
             else if (lastCommand is PreprocessCommand) newView = ViewGeometryModelResults.Model;
             else if (lastCommand is AnalysisCommand) newView = ViewGeometryModelResults.Model;
             else if (lastCommand is PostprocessCommand) newView = ViewGeometryModelResults.Results;
@@ -2773,6 +2774,7 @@ namespace PrePoMax
             //
             ViewGeometryModelResults newView;
             if (command is null || command is SaveCommand) newView = prevView;
+            else if (command is GeneralCommand) newView = _currentView;
             else if (command is PreprocessCommand)
             {
                 if (_model != null && _model.Mesh != null && _model.Mesh.Parts != null && _model.Mesh.Parts.Count > 0)

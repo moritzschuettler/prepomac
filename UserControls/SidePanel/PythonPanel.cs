@@ -10,8 +10,9 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Drawing;
 using System.Data;
+using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -47,7 +48,6 @@ namespace UserControls
             DoubleBuffered = true;
             //
             InitializeComponent();
-            btnRecordAndRun.Click += btnRecordAndRun_Click;
             //
             pctbPythonConsole.ExecuteCommand += PythonConsole_ExecuteCommand;
             pctbPythonConsole.AutocompleteRequested += PythonConsole_AutocompleteRequested;
@@ -203,6 +203,15 @@ namespace UserControls
                 CaeGlobals.ExceptionTools.Show(this, ex);
             }
         }
+        private void btnHelp_Click(object sender, EventArgs e)
+        {
+            string fileName = Path.Combine(Application.StartupPath, "Help", "Python", "Python_API_Overview.html");
+            //
+            Process.Start(new ProcessStartInfo(fileName)
+            {
+                UseShellExecute = true
+            });
+        }
         //
         private void PythonConsole_AutocompleteRequested(object sender, PythonTextBoxAutocompleteEventArgs e)
         {
@@ -342,6 +351,7 @@ namespace UserControls
             ttText.SetToolTip(btnRun, "Run script");
             ttText.SetToolTip(btnRunSelection, "Run selection");
             ttText.SetToolTip(btnRecordAndRun, "Record script into command history and run");
+            ttText.SetToolTip(btnHelp, "Help");
             ttText.SetToolTip(btnClose, "Close Python panel");
         }
         private void NewScript()
