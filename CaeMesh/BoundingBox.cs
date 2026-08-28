@@ -599,8 +599,8 @@ namespace CaeMesh
         }
         public bool Is2D()
         {
-            double epsilon = GetDiagonal() * 1E-6;
             //
+            double epsilon = GetDiagonal() * 1E-6;
             if (Math.Abs(MaxZ - MinZ) < epsilon) return true;
             else return false;
         }

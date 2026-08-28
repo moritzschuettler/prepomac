@@ -10,6 +10,7 @@
 using System;
 using System.ComponentModel;
 using CaeGlobals;
+using DynamicTypeDescriptor;
 
 namespace PrePoMax.Settings
 {
@@ -18,6 +19,7 @@ namespace PrePoMax.Settings
     {
         // Variables
         private NumberFormatSettings _numberFormatSettings;
+        private DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Number formatting
@@ -44,6 +46,7 @@ namespace PrePoMax.Settings
         public ViewNumberFormatSettings(NumberFormatSettings numberFormatSettings)
         {
             _numberFormatSettings = numberFormatSettings;
+            _dctd = ProviderInstaller.Install(this);
         }
 
 

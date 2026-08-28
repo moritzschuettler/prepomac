@@ -140,8 +140,8 @@ namespace PrePoMax.Python
                     sys.stdout = oldStdout;
                     sys.stderr = oldStderr;
 
-                    oldStdout.Dispose();
-                    oldStderr.Dispose();
+                    if (oldStdout != null) oldStdout.Dispose();
+                    if (oldStderr != null) oldStderr.Dispose();
                 }
             }
         }
@@ -173,8 +173,8 @@ namespace PrePoMax.Python
                 {
                     sys.stdout = oldStdout;
                     sys.stderr = oldStderr;
-                    oldStdout.Dispose();
-                    oldStderr.Dispose();
+                    if (oldStdout != null) oldStdout.Dispose();
+                    if (oldStderr != null) oldStderr.Dispose();
                 }
             }
         }
@@ -257,8 +257,8 @@ namespace PrePoMax.Python
                 ClearScriptHelperVariables(scope);
                 sys.stdout = oldStdout;
                 sys.stderr = oldStderr;
-                oldStdout.Dispose();
-                oldStderr.Dispose();
+                if (oldStdout != null) oldStdout.Dispose();
+                if (oldStderr != null) oldStderr.Dispose();
             }
             //
             return result;
@@ -425,7 +425,6 @@ namespace PrePoMax.Python
         }
     }
 }
-
 
 
 

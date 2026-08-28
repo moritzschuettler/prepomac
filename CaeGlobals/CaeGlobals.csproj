@@ -203,6 +203,7 @@
     <Compile Include="UnitSystem\StringToInteger\StringIntegerEmptyConverter.cs" />
     <Compile Include="UnitSystem\StringToInteger\StringIntegerDefaultConverter.cs" />
     <Compile Include="UnitSystem\StringToInteger\StringIntegerConverter.cs" />
+    <Compile Include="UnitSystem\StringToInteger\StringIntegerPercentConverter.cs" />
     <Compile Include="UnitSystem\StringToDouble\StringFrequencyConverter.cs" />
     <Compile Include="UnitSystem\EquationToString\EquationToString.cs" />
     <Compile Include="UnitSystem\EquationToString\EquationLengthDefaultConverter.cs" />

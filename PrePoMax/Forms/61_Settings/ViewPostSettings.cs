@@ -77,9 +77,9 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Vector plot")]
-        [OrderedDisplayName(2, 10, "Vector plot density [%]")]
+        [OrderedDisplayName(2, 10, "Vector plot density")]
         [DescriptionAttribute("Set the percentage of spatially distributed surface nodes used by the vector plot.")]
-        [TypeConverter(typeof(StringIntegerConverter))]
+        [TypeConverter(typeof(StringIntegerPercentConverter))]
         [Id(3, 2)]
         public int VectorPlotDensity
         {

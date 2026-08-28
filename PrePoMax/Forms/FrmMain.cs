@@ -1487,6 +1487,8 @@ namespace PrePoMax
                 // Tools menu
                 tsmiParameters.Enabled = false;
                 tsmiQuery.Enabled = false;
+                tsmiArrangeAnnotations.Enabled = false;
+                tsmiRemoveAnnotations.Enabled = false;
                 tsmiFind.Enabled = false;
                 // Results menu
                 foreach (ToolStripItem item in tsmiResults.DropDownItems) item.Enabled = false;
@@ -8007,8 +8009,10 @@ namespace PrePoMax
                 {
                     if (_frmNewModel.ModelSpace.IsTwoD())
                     {
-                        if ((_controller.Model.Geometry != null && !_controller.Model.Geometry.BoundingBox.Is2D())
-                            || (_controller.Model.Mesh != null && !_controller.Model.Mesh.BoundingBox.Is2D()))
+                        FeMesh geometry = _controller.Model.Geometry;
+                        FeMesh mesh = _controller.Model.Mesh;
+                        if ((geometry != null && geometry.Nodes.Count > 0 && !geometry.BoundingBox.Is2D()) ||
+                            (mesh != null && mesh.Nodes.Count > 0 && !mesh.BoundingBox.Is2D()))
                             throw new CaeException("Use of the 2D model space is not possible. The geometry or the mesh " +
                                                    "do not contain 2D geometry in x-y plane.");
                     }
