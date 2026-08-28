@@ -908,12 +908,18 @@ namespace CaeModel
         //
         public int[] GetSectionAssignments(out Dictionary<int, int> elementIdSectionId)
         {
+            return GetSectionAssignments(out elementIdSectionId, out _);
+        }
+        public int[] GetSectionAssignments(out Dictionary<int, int> elementIdSectionId, out List<Section> assignedSections)
+        {
             int sectionId = 0;
             elementIdSectionId = new Dictionary<int, int>();
+            // The section id is the index in assignedSections; mass and inactive sections are skipped and get no id
+            assignedSections = new List<Section>();
             //
             foreach (var entry in _sections)
             {
-                if (entry.Value is MassSection) continue;
+                if (entry.Value is MassSection || !entry.Value.Active) continue;
                 //
                 if (entry.Value.RegionType == RegionTypeEnum.PartName)
                 {
@@ -962,6 +968,7 @@ namespace CaeModel
                 }
                 else throw new NotSupportedException();
                 //
+                assignedSections.Add(entry.Value);
                 sectionId++;
             }
             // Not assigned
@@ -989,17 +996,23 @@ namespace CaeModel
         public void GetMaterialAssignments(out Dictionary<int, int> elementIdMaterialId)
         {
             // Get element section ids
+            List<Section> assignedSections;
             Dictionary<int, int> elementIdSectionId;
-            GetSectionAssignments(out elementIdSectionId);
+            GetSectionAssignments(out elementIdSectionId, out assignedSections);
             // Get material ids
             int count = 0;
             Dictionary<string, int> materialId = new Dictionary<string, int>();
             foreach (var entry in _materials) materialId.Add(entry.Value.Name, count++);
             // Get a map of section materials
-            count = 0;
+            int id;
             Dictionary<int, int> sectionIdMaterialId = new Dictionary<int, int>();
             sectionIdMaterialId.Add(-1, -1);    // add missing section
-            foreach (var entry in _sections) sectionIdMaterialId.Add(count++, materialId[entry.Value.MaterialName]);
+            for (int i = 0; i < assignedSections.Count; i++)
+            {
+                if (assignedSections[i].MaterialName == null ||
+                    !materialId.TryGetValue(assignedSections[i].MaterialName, out id)) id = -1;
+                sectionIdMaterialId.Add(i, id);
+            }
             // Use the map
             elementIdMaterialId = new Dictionary<int, int>();
             foreach (var entry in elementIdSectionId) elementIdMaterialId.Add(entry.Key, sectionIdMaterialId[entry.Value]);
@@ -1090,16 +1103,17 @@ namespace CaeModel
         public void GetSectionThicknessAssignments(out Dictionary<int, int> elementIdSectionThicknessId)
         {
             // Get element section ids
+            List<Section> assignedSections;
             Dictionary<int, int> elementIdSectionId;
-            GetSectionAssignments(out elementIdSectionId);
+            GetSectionAssignments(out elementIdSectionId, out assignedSections);
             // Get thicknesses
             int count = 0;
             double thickness;
             List<int> sectionIds;
             Dictionary<double, List<int>> thicknessSectionIds = new Dictionary<double, List<int>>();
-            foreach (var entry in _sections)
+            foreach (var section in assignedSections)
             {
-                thickness = GetSectionThickness(entry.Value);
+                thickness = GetSectionThickness(section);
                 //
                 if (thicknessSectionIds.TryGetValue(thickness, out sectionIds)) sectionIds.Add(count);
                 else thicknessSectionIds.Add(thickness, new List<int>() { count });
@@ -1131,6 +1145,229 @@ namespace CaeModel
             else if (section is ShellSection shs) return shs.Thickness.Value;
             else if (section is MembraneSection ms) return ms.Thickness.Value;
             else return -1;
+        }
+        public bool TryComputePartMassProperties(BasePart part, out double mass, out double[] centerOfMass,
+                                                 out string[] warnings)
+        {
+            List<Section> assignedSections;
+            Dictionary<int, int> elementIdSectionId;
+            GetSectionAssignments(out elementIdSectionId, out assignedSections);
+            //
+            mass = 0;
+            double[] firstMoment = new double[3];
+            List<string> warningList = new List<string>();
+            AddElementMassProperties(part.Labels, elementIdSectionId, assignedSections, ref mass, firstMoment, warningList);
+            //
+            warnings = warningList.ToArray();
+            centerOfMass = GetCenterOfMass(mass, firstMoment);
+            return mass > 0;
+        }
+        public bool TryComputeModelMassProperties(out double mass, out double[] centerOfMass, out string[] warnings)
+        {
+            List<Section> assignedSections;
+            Dictionary<int, int> elementIdSectionId;
+            GetSectionAssignments(out elementIdSectionId, out assignedSections);
+            // Only active parts are analysed
+            List<int> elementIds = new List<int>();
+            foreach (var entry in _mesh.Parts) if (entry.Value.Active) elementIds.AddRange(entry.Value.Labels);
+            //
+            mass = 0;
+            double[] firstMoment = new double[3];
+            List<string> warningList = new List<string>();
+            AddElementMassProperties(elementIds.ToArray(), elementIdSectionId, assignedSections, ref mass, firstMoment,
+                                     warningList);
+            AddMassSectionMassProperties(ref mass, firstMoment, warningList);
+            //
+            warnings = warningList.ToArray();
+            centerOfMass = GetCenterOfMass(mass, firstMoment);
+            return mass > 0;
+        }
+        private double[] GetCenterOfMass(double mass, double[] firstMoment)
+        {
+            if (mass <= 0) return null;
+            //
+            return new double[] { firstMoment[0] / mass, firstMoment[1] / mass, firstMoment[2] / mass };
+        }
+        private void AddElementMassProperties(int[] elementIds, Dictionary<int, int> elementIdSectionId,
+                                              List<Section> assignedSections, ref double mass, double[] firstMoment,
+                                              List<string> warnings)
+        {
+            int sectionId;
+            int missingSectionCount = 0;
+            int unsupportedElementCount = 0;
+            double density;
+            double thickness;
+            double elementSize;
+            double elementMass;
+            double[] cg;
+            Section section;
+            FeElement element;
+            bool axisymmetric = _properties.ModelSpace == ModelSpaceEnum.Axisymmetric;
+            HashSet<string> offsetSectionNames = new HashSet<string>();
+            HashSet<string> missingDensitySectionNames = new HashSet<string>();
+            HashSet<string> temperatureDependentMaterialNames = new HashSet<string>();
+            //
+            foreach (int elementId in elementIds)
+            {
+                if (!elementIdSectionId.TryGetValue(elementId, out sectionId) || sectionId < 0)
+                {
+                    missingSectionCount++;
+                    continue;
+                }
+                section = assignedSections[sectionId];
+                if (!TryGetSectionDensity(section, out density, temperatureDependentMaterialNames))
+                {
+                    missingDensitySectionNames.Add(section.Name);
+                    continue;
+                }
+                //
+                element = _mesh.Elements[elementId];
+                cg = element.GetCG(_mesh.Nodes, out elementSize);
+                //
+                if (element is FeElement3D) elementMass = density * elementSize;
+                else if (element is FeElement2D)
+                {
+                    // The axisymmetric quantities are defined for the full revolution - the same as for the pressure loads
+                    if (axisymmetric) elementMass = density * elementSize * 2 * Math.PI * cg[0];
+                    else
+                    {
+                        thickness = GetSectionThickness(section);
+                        if (thickness < 0)
+                        {
+                            unsupportedElementCount++;
+                            continue;
+                        }
+                        elementMass = density * elementSize * thickness;
+                        // The offset moves the reference surface which cannot be accounted for on curved parts
+                        if (section is ShellSection shs && shs.Offset.Value != 0) offsetSectionNames.Add(section.Name);
+                        else if (section is MembraneSection mes && mes.Offset.Value != 0) offsetSectionNames.Add(section.Name);
+                    }
+                }
+                else
+                {
+                    unsupportedElementCount++;
+                    continue;
+                }
+                //
+                mass += elementMass;
+                // The revolved body has its center of mass on the axis of revolution
+                if (axisymmetric) firstMoment[1] += elementMass * cg[1];
+                else
+                {
+                    firstMoment[0] += elementMass * cg[0];
+                    firstMoment[1] += elementMass * cg[1];
+                    firstMoment[2] += elementMass * cg[2];
+                }
+            }
+            //
+            if (missingSectionCount > 0)
+                warnings.Add("Warning: " + missingSectionCount + " elements are missing a section assignment and are " +
+                             "excluded from the mass.");
+            if (unsupportedElementCount > 0)
+                warnings.Add("Warning: " + unsupportedElementCount + " elements are of an unsupported type and are " +
+                             "excluded from the mass.");
+            if (missingDensitySectionNames.Count > 0)
+                warnings.Add("Warning: No density is defined for the material of the section(s): " +
+                             string.Join(", ", missingDensitySectionNames) + ". The elements are excluded from the mass.");
+            if (temperatureDependentMaterialNames.Count > 0)
+                warnings.Add("Warning: The first density value is used for the temperature dependent material(s): " +
+                             string.Join(", ", temperatureDependentMaterialNames) + ".");
+            if (offsetSectionNames.Count > 0)
+                warnings.Add("Warning: The offset is ignored in the mass computation of the section(s): " +
+                             string.Join(", ", offsetSectionNames) + ".");
+        }
+        private void AddMassSectionMassProperties(ref double mass, double[] firstMoment, List<string> warnings)
+        {
+            double nodalMass;
+            double[] coor;
+            FeNodeSet nodeSet;
+            FeSurface surface;
+            FeReferencePoint referencePoint;
+            Dictionary<int, double> nodalValues;
+            HashSet<string> invalidSectionNames = new HashSet<string>();
+            //
+            foreach (var entry in _sections)
+            {
+                if (!(entry.Value is MassSection ms) || !ms.Active) continue;
+                //
+                if (ms is PointMassSection pms)
+                {
+                    // The mass is added to each node of the region
+                    if (pms.RegionType == RegionTypeEnum.NodeSetName &&
+                        _mesh.NodeSets.TryGetValue(pms.RegionName, out nodeSet))
+                    {
+                        foreach (int nodeId in nodeSet.Labels)
+                            AddPointMass(pms.Mass.Value, _mesh.Nodes[nodeId].Coor, ref mass, firstMoment);
+                    }
+                    else if (pms.RegionType == RegionTypeEnum.ReferencePointName &&
+                             _mesh.ReferencePoints.TryGetValue(pms.RegionName, out referencePoint))
+                    {
+                        AddPointMass(pms.Mass.Value, referencePoint.Coor(), ref mass, firstMoment);
+                    }
+                    else invalidSectionNames.Add(pms.Name);
+                }
+                else if (ms is DistributedMassSection dms)
+                {
+                    // The mass is distributed over the region
+                    if (dms.RegionType == RegionTypeEnum.SurfaceName &&
+                        _mesh.Surfaces.TryGetValue(dms.RegionName, out surface) && surface.NodeSetName != null)
+                    {
+                        double area = 0;
+                        nodalValues = null;
+                        // The distribution needs the section thicknesses of the shell edge faces
+                        try { GetDistributedNodalValuesFromSurface(surface.Name, out nodalValues, out area); }
+                        catch { area = 0; }
+                        //
+                        if (nodalValues != null && area > 0)
+                        {
+                            foreach (var nodalEntry in nodalValues)
+                            {
+                                nodalMass = nodalEntry.Value / area * dms.Mass.Value;
+                                coor = _mesh.Nodes[nodalEntry.Key].Coor;
+                                AddPointMass(nodalMass, coor, ref mass, firstMoment);
+                            }
+                        }
+                        else invalidSectionNames.Add(dms.Name);
+                    }
+                    else invalidSectionNames.Add(dms.Name);
+                }
+                else throw new NotSupportedException();
+            }
+            //
+            if (invalidSectionNames.Count > 0)
+                warnings.Add("Warning: The region is not defined for the mass section(s): " +
+                             string.Join(", ", invalidSectionNames) + ". They are excluded from the mass.");
+        }
+        private void AddPointMass(double pointMass, double[] coor, ref double mass, double[] firstMoment)
+        {
+            mass += pointMass;
+            firstMoment[0] += pointMass * coor[0];
+            firstMoment[1] += pointMass * coor[1];
+            firstMoment[2] += pointMass * coor[2];
+        }
+        private bool TryGetSectionDensity(Section section, out double density,
+                                          HashSet<string> temperatureDependentMaterialNames)
+        {
+            density = 0;
+            //
+            Material material;
+            if (section.MaterialName == null || !_materials.TryGetValue(section.MaterialName, out material)) return false;
+            //
+            foreach (var property in material.Properties)
+            {
+                if (property is Density den)
+                {
+                    if (den.DensityTemp.Length > 1) temperatureDependentMaterialNames.Add(material.Name);
+                    density = den.DensityTemp[0][0].Value;
+                    return true;
+                }
+                else if (property is ElasticWithDensity ewd)
+                {
+                    density = ewd.Density.Value;
+                    return true;
+                }
+            }
+            return false;
         }
         //
         public void UpdateUserKeywordStates(bool remove, out int suppresedCount, out int unsuppresedCount)
@@ -2724,13 +2961,14 @@ namespace CaeModel
             double thickness;
             double area = 0;
             FeElement element;
+            List<Section> assignedSections;
             Dictionary<int, int> elementIdSectionId;
             Dictionary<int, double> sectionIdThickness = new Dictionary<int, double>();
             // Get element thicknesses
-            GetSectionAssignments(out elementIdSectionId);
-            foreach (var entry in _sections)
+            GetSectionAssignments(out elementIdSectionId, out assignedSections);
+            foreach (var section in assignedSections)
             {
-                thickness = entry.Value.Thickness.Value;
+                thickness = section.Thickness.Value;
                 sectionIdThickness.Add(sectionId++, thickness);
             }
             //
@@ -2799,17 +3037,18 @@ namespace CaeModel
         public CLoad[] GetNodalCLoadsFromSurfaceTractionByDistribution(STLoad load)
         {
             Distribution distribution = _distributions[load.DistributionName];
+            List<Section> assignedSections;
             Dictionary<int, int> elementIdSectionId;
-            double[] sectionIdThickness = new double[_sections.Count];
             // Get element thicknesses
-            GetSectionAssignments(out elementIdSectionId);
+            GetSectionAssignments(out elementIdSectionId, out assignedSections);
             //
             int sectionId = 0;
             double thickness;
             string surfaceName = load.SurfaceName;
-            foreach (var entry in _sections)
+            double[] sectionIdThickness = new double[assignedSections.Count];
+            foreach (var section in assignedSections)
             {
-                thickness = entry.Value.Thickness.Value;
+                thickness = section.Thickness.Value;
                 sectionIdThickness[sectionId++] = thickness;
             }
             // Surface
@@ -2962,13 +3201,14 @@ namespace CaeModel
             double thickness;
             double[] equValue;
             FeElement element;
+            List<Section> assignedSections;
             Dictionary<int, int> elementIdSectionId;
             Dictionary<int, double> sectionIdThickness = new Dictionary<int, double>();
             // Get element thicknesses
-            GetSectionAssignments(out elementIdSectionId);
-            foreach (var entry in _sections)
+            GetSectionAssignments(out elementIdSectionId, out assignedSections);
+            foreach (var section in assignedSections)
             {
-                thickness = entry.Value.Thickness.Value;
+                thickness = section.Thickness.Value;
                 sectionIdThickness.Add(sectionId++, thickness);
             }
             //
@@ -3005,17 +3245,18 @@ namespace CaeModel
         }
         public CLoad[] GetNodalCLoadsFromImportedSurfaceTraction(ImportedSTLoad load)
         {
+            List<Section> assignedSections;
             Dictionary<int, int> elementIdSectionId;
-            double[] sectionIdThickness = new double[_sections.Count];
             // Get element thicknesses
-            GetSectionAssignments(out elementIdSectionId);
+            GetSectionAssignments(out elementIdSectionId, out assignedSections);
             //
             int sectionId = 0;
             double thickness;
             string surfaceName = load.SurfaceName;
-            foreach (var entry in _sections)
+            double[] sectionIdThickness = new double[assignedSections.Count];
+            foreach (var section in assignedSections)
             {
-                thickness = entry.Value.Thickness.Value;
+                thickness = section.Thickness.Value;
                 sectionIdThickness[sectionId++] = thickness;
             }
             // Surface
@@ -3121,17 +3362,18 @@ namespace CaeModel
         }
         public CLoad[] GetNodalCLoadsFromVariablePressureLoad(VariablePressure load)
         {
+            List<Section> assignedSections;
             Dictionary<int, int> elementIdSectionId;
-            double[] sectionIdThickness = new double[_sections.Count];
             // Get element thicknesses
-            GetSectionAssignments(out elementIdSectionId);
+            GetSectionAssignments(out elementIdSectionId, out assignedSections);
             //
             int sectionId = 0;
             double thickness;
             string surfaceName = load.SurfaceName;
-            foreach (var entry in _sections)
+            double[] sectionIdThickness = new double[assignedSections.Count];
+            foreach (var section in assignedSections)
             {
-                thickness = entry.Value.Thickness.Value;
+                thickness = section.Thickness.Value;
                 sectionIdThickness[sectionId++] = thickness;
             }
             // Surface

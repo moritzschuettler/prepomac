@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -45,6 +45,7 @@ namespace PrePoMax
         private bool _showPartNumberOfElements;
         private bool _showPartNumberOfNodes;
         private bool _showPartVolumeArea;
+        private bool _showPartMass;
 
 
         // Properties                                                                                                               
@@ -84,6 +85,7 @@ namespace PrePoMax
         }
         public bool ShowPartNumberOfNodes { get { return _showPartNumberOfNodes; } set { _showPartNumberOfNodes = value; } }
         public bool ShowPartVolumeArea { get { return _showPartVolumeArea; } set { _showPartVolumeArea = value; } }
+        public bool ShowPartMass { get { return _showPartMass; } set { _showPartMass = value; } }
 
 
         // Constructors                                                                                                             
@@ -120,6 +122,7 @@ namespace PrePoMax
             _showPartNumberOfElements = true;
             _showPartNumberOfNodes = true;
             _showPartVolumeArea = true;
+            _showPartMass = true;
         }
     }
 }

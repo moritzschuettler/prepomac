@@ -50,7 +50,11 @@ namespace PrePoMax
             bool showPartNumberOfElements = Controller.Settings.Annotations.ShowPartNumberOfElements;
             bool showPartNumberOfNodes = Controller.Settings.Annotations.ShowPartNumberOfNodes;
             bool showPartVolumeArea = Controller.Settings.Annotations.ShowPartVolumeArea;
-            if (!showPartId && !showPartType && !showPartNumberOfElements && !showPartNumberOfNodes && !showPartVolumeArea)
+            // The mass is computed from the sections which exist only in the model
+            bool showPartMass = Controller.Settings.Annotations.ShowPartMass &&
+                                Controller.CurrentView == ViewGeometryModelResults.Model;
+            if (!showPartId && !showPartType && !showPartNumberOfElements && !showPartNumberOfNodes &&
+                !showPartVolumeArea && !showPartMass)
                 showPartName = true;
             // Item name
             string elementsName = "Number of elements:";
@@ -89,6 +93,15 @@ namespace PrePoMax
                     volumeArea = string.Format("Part volume: {0} {1}", value.ToString(numberFormat), volumeUnit);
                 else volumeArea = string.Format("Part area: {0} {1}", value.ToString(numberFormat), areaUnit);
             }
+            // Mass
+            string partMass = null;
+            if (showPartMass)
+            {
+                double mass;
+                if (Controller.TryGetPartMass(part, out mass, out _, out _))
+                    partMass = string.Format("Part mass: {0} {1}", mass.ToString(numberFormat), Controller.GetMassUnit());
+                else partMass = "Part mass: not available";
+            }
             //
             text = "";
             //
@@ -114,6 +127,11 @@ namespace PrePoMax
             {
                 if (text.Length > 0) text += Environment.NewLine;
                 text += volumeArea;
+            }
+            if (showPartMass)
+            {
+                if (text.Length > 0) text += Environment.NewLine;
+                text += partMass;
             }
             if (showPartNumberOfElements)
             {

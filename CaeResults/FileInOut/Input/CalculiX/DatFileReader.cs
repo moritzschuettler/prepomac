@@ -770,6 +770,8 @@ namespace CaeResults
                                 //      1655  9.342906E-09
                                 lines[0] = lines[0].Replace("(element, energy)", "(Id,ELKE)");
                                 lines[0] = lines[0].Replace("(element,energy)", "(Id,ELKE)");
+                                lines[0] = lines[0].Replace("(elem, energy)", "(Id,ELKE)");
+                                lines[0] = lines[0].Replace("(elem,energy)", "(Id,ELKE)");
                             }
                             else if (entry.Key == HOFieldNames.TotalKineticEnergy)
                             {

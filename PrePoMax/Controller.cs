@@ -12694,6 +12694,31 @@ namespace PrePoMax
             //
             return unit;
         }
+        public string GetMassUnit()
+        {
+            // The mass is computed from the sections which exist only in the model
+            return _model.UnitSystem.MassUnitAbbreviation;
+        }
+        public bool TryGetPartMass(BasePart part, out double mass, out double[] centerOfMass, out string[] warnings)
+        {
+            mass = 0;
+            centerOfMass = null;
+            warnings = null;
+            //
+            if (_currentView != ViewGeometryModelResults.Model || _model == null) return false;
+            //
+            return _model.TryComputePartMassProperties(part, out mass, out centerOfMass, out warnings);
+        }
+        public bool TryGetModelMass(out double mass, out double[] centerOfMass, out string[] warnings)
+        {
+            mass = 0;
+            centerOfMass = null;
+            warnings = null;
+            //
+            if (_currentView != ViewGeometryModelResults.Model || _model == null) return false;
+            //
+            return _model.TryComputeModelMassProperties(out mass, out centerOfMass, out warnings);
+        }
         public double[] GetBoundingBox()
         {
             FeMesh mesh = DisplayedMesh;

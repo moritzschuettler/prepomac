@@ -61,6 +61,7 @@ namespace PrePoMax.Forms
                 {
                     UpdateQueryNumberFormat();
                     double[] boundingBox = null;
+                    double[] centerOfMass = null;
                     switch (lvQueries.SelectedItem.Text)
                     {
                         case "Vertex/Node":
@@ -91,7 +92,7 @@ namespace PrePoMax.Forms
                         case "Assembly":
                             _controller.SelectBy = vtkSelectBy.Default;
                             _controller.Selection.SelectItem = vtkSelectItem.None;
-                            OutputAssemblyData();
+                            centerOfMass = OutputAssemblyData();
                             _numOfNodesToSelect = -1;
                             break;
                         case "Bounding box size":
@@ -120,8 +121,9 @@ namespace PrePoMax.Forms
                     }
                     _coorNodesToDraw = null;
                     _controller.ClearSelectionHistoryAndCallSelectionChanged();
-                    // Add the box only after clearing the previous selection so it remains visible.
+                    // Add the box and the center of mass only after clearing the previous selection so they remain visible.
                     if (boundingBox != null) HighlightBoundingBox(boundingBox);
+                    if (centerOfMass != null) _controller.HighlightNodes(new double[][] { centerOfMass });
                 }
             }
             catch { }
@@ -449,6 +451,12 @@ namespace PrePoMax.Forms
                                      FormatQueryValue(value2 - value1));
                 Form_WriteDataToOutput(data);
             }
+            // Mass
+            double mass;
+            double[] centerOfMass;
+            string[] warnings;
+            bool massComputed = _controller.TryGetPartMass(part, out mass, out centerOfMass, out warnings);
+            OutputMassData(massComputed, mass, centerOfMass, warnings);
             // Mesh
             string elementsName = "Number of elements:";
             string nodesName = "Number of nodes:";
@@ -470,10 +478,10 @@ namespace PrePoMax.Forms
             //
             _controller.Annotations.AddPartAnnotation(part.Name);
         }
-        private void OutputAssemblyData()
+        private double[] OutputAssemblyData()
         {
             FeMesh mesh = _controller.DisplayedMesh;
-            if (mesh == null) return;
+            if (mesh == null) return null;
             double[] bb = _controller.GetBoundingBox();
             double[] size = new double[] { bb[1] - bb[0], bb[3] - bb[2], bb[5] - bb[4] };
             //
@@ -482,6 +490,12 @@ namespace PrePoMax.Forms
             Form_WriteDataToOutput(data);
             data = string.Format("Number of parts: {0}", mesh.Parts.Count);
             Form_WriteDataToOutput(data);
+            // Mass
+            double mass;
+            double[] centerOfMass;
+            string[] warnings;
+            bool massComputed = _controller.TryGetModelMass(out mass, out centerOfMass, out warnings);
+            OutputMassData(massComputed, mass, centerOfMass, warnings);
             // Item name
             string elementsName = "Number of elements:";
             string nodesName = "Number of nodes:";
@@ -495,6 +509,43 @@ namespace PrePoMax.Forms
             data = string.Format("{0} {1}", nodesName, mesh.Nodes.Count);
             Form_WriteDataToOutput(data);
             Form_WriteDataToOutput("");
+            //
+            if (massComputed) return centerOfMass;
+            else return null;
+        }
+        private void OutputMassData(bool massComputed, double mass, double[] centerOfMass, string[] warnings)
+        {
+            // The sections needed for the mass computation exist only in the model
+            if (_controller.CurrentView != ViewGeometryModelResults.Model) return;
+            //
+            string data;
+            string massUnit = "[" + _controller.GetMassUnit() + "]";
+            string lengthUnit = "[" + _controller.GetLengthUnit() + "]";
+            //
+            if (massComputed)
+            {
+                data = string.Format("{0,16}{1,8}{2,16}{3,16}", "Mass".PadRight(16), massUnit, "m:",
+                                     FormatQueryValue(mass));
+                Form_WriteDataToOutput(data);
+                //
+                if (centerOfMass != null)
+                {
+                    data = string.Format("{0,16}{1,8}{2,16}{3,16}, {4,16}, {5,16}", "Center of mass".PadRight(16),
+                                         lengthUnit, "x, y, z:", FormatQueryValue(centerOfMass[0]),
+                                         FormatQueryValue(centerOfMass[1]), FormatQueryValue(centerOfMass[2]));
+                    Form_WriteDataToOutput(data);
+                }
+            }
+            else
+            {
+                data = string.Format("{0,16}{1,8}{2,16}{3,16}", "Mass".PadRight(16), massUnit, "m:", "not available");
+                Form_WriteDataToOutput(data);
+            }
+            //
+            if (warnings != null)
+            {
+                foreach (string warning in warnings) Form_WriteDataToOutput(warning);
+            }
         }
         private double[] OutputBoundingBox()
         {

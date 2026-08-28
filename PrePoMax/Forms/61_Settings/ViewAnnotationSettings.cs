@@ -173,7 +173,17 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Part annotation")]
-        [OrderedDisplayName(4, 10, "Show number of elements")]
+        [OrderedDisplayName(4, 10, "Show mass")]
+        [DescriptionAttribute("Show part mass in the annotation. The mass is computed from the section and material " +
+                              "definitions and is shown in the model only.")]
+        public bool ShowPartMass
+        {
+            get { return _annotationSettings.ShowPartMass; }
+            set { _annotationSettings.ShowPartMass = value; }
+        }
+        //
+        [CategoryAttribute("Part annotation")]
+        [OrderedDisplayName(5, 10, "Show number of elements")]
         [DescriptionAttribute("Show part number of elements in the annotation.")]
         public bool ShowPartNumberOfElements
         {
@@ -182,7 +192,7 @@ namespace PrePoMax.Settings
         }
         //
         [CategoryAttribute("Part annotation")]
-        [OrderedDisplayName(5, 10, "Show number of nodes")]
+        [OrderedDisplayName(6, 10, "Show number of nodes")]
         [DescriptionAttribute("Show part number of nodes in the annotation.")]
         public bool ShowPartNumberOfNodes
         {
@@ -217,6 +227,7 @@ namespace PrePoMax.Settings
             _dctd.RenameBooleanPropertyToYesNo(nameof(ShowPartNumberOfElements));
             _dctd.RenameBooleanPropertyToYesNo(nameof(ShowPartNumberOfNodes));
             _dctd.RenameBooleanPropertyToYesNo(nameof(ShowPartVolumeArea));
+            _dctd.RenameBooleanPropertyToYesNo(nameof(ShowPartMass));
         }
 
 
