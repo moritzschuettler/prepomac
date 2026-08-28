@@ -74,6 +74,16 @@
     <Compile Include="Enums\MeshRepresentation.cs" />
     <Compile Include="ContactSearch\ContactSearch.cs" />
     <Compile Include="Extensions.cs" />
+    <Compile Include="ExplodedView\DisassemblyContactGraph.cs" />
+    <Compile Include="ExplodedView\DisassemblyDirectionResolver.cs" />
+    <Compile Include="ExplodedView\DisassemblyExplodedViewCache.cs" />
+    <Compile Include="ExplodedView\DisassemblyExplodedViewLayout.cs" />
+    <Compile Include="ExplodedView\ExplodedViewCellGrid.cs" />
+    <Compile Include="ExplodedView\ExplodedViewDirectionCandidate.cs" />
+    <Compile Include="ExplodedView\ExplodedViewCluster.cs" />
+    <Compile Include="ExplodedView\ExplodedViewFace.cs" />
+    <Compile Include="ExplodedView\ExplodedViewInterface.cs" />
+    <Compile Include="ExplodedView\ExplodedViewStagedOffsets.cs" />
     <Compile Include="FaceTypeRecognition\EdgeTypeRecognition.cs" />
     <Compile Include="FaceTypeRecognition\FaceTypeRecognition.cs" />
     <Compile Include="FaceTypeRecognition\GeomCurveData.cs" />

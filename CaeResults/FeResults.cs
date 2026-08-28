@@ -2100,6 +2100,8 @@ namespace CaeResults
                         break;
                     case HOFieldNames.InternalEnergy:
                     case HOFieldNames.TotalInternalEnergy:
+                    case HOFieldNames.KineticEnergy:
+                    case HOFieldNames.TotalKineticEnergy:
                     case HOFieldNames.ContactPrintEnergy:
                     case HOFieldNames.ContactSpringEnergy:
                         unitConverter = new StringEnergyConverter();

@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -110,6 +110,7 @@ namespace PrePoMax
         public static string FromAbaqus = "FromAbaqus";
         // Graphics
         public static int BeamNodeSize = 5;
+        public static int ExplodedViewStepTimeMs = 400;
         // slection
         public static uint MaxSelectionBufferSizeMB = 200;
     }

@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -48,6 +48,7 @@ namespace CaeMesh
         [NonSerialized] private Octree.PointOctree<int> _octree;                    // Deep copy
         [NonSerialized] private Dictionary<string, double[]> _partOffsets;          // Deep copy
         [NonSerialized] private Dictionary<int, HashSet<int>> _nodeIdElementIds;    // Deep copy
+        [NonSerialized] private DisassemblyExplodedViewCache _disassemblyExplodedViewCache;
         //
         private MeshRepresentation _meshRepresentation;                             //ISerializable
         private OrderedDictionary<string, MeshSetupItem> _meshSetupItems;           //ISerializable
@@ -4089,88 +4090,111 @@ namespace CaeMesh
         }
         
         // Exploded view
-        public Dictionary<string, double[]> GetExplodedViewOffsets_(int explodedType, double scaleFactor, string[] partNames = null)
+        public DisassemblyContactGraph GetDisassemblyContactGraph(double tolerance = -1, string[] partNames = null)
         {
+            if (partNames == null) partNames = _parts.Keys.ToArray();
             //
-            // https://stackoverflow.com/questions/3265986/an-algorithm-to-space-out-overlapping-rectangles
+            List<List<BasePart>> allConnectedParts = GetAllConnectedParts(partNames);
+            if (allConnectedParts.Count == 0) return null;
+            //
+            if (tolerance <= 0)
+            {
+                List<BoundingBox> boundingBoxes = new List<BoundingBox>();
+                foreach (var connectedParts in allConnectedParts)
+                {
+                    foreach (var connectedPart in connectedParts) boundingBoxes.Add(connectedPart.BoundingBox);
+                }
+                tolerance = DisassemblyContactGraph.GetDefaultTolerance(boundingBoxes);
+            }
+            //
+            return DisassemblyContactGraph.Create(this, allConnectedParts, tolerance);
+        }
+        public DisassemblyExplodedViewLayout GetDisassemblyExplodedViewLayout(int explodedDirection = 0,
+                                                                             double tolerance = -1,
+                                                                             string[] partNames = null)
+        {
+            DisassemblyContactGraph graph = GetDisassemblyContactGraph(tolerance, partNames);
+            if (graph == null) return null;
+            //
+            return DisassemblyExplodedViewLayout.Create(graph, explodedDirection);
+        }
+        /// <summary>
+        /// The offsets of the disassembly method, or null when the model gives it nothing to work with and
+        /// the caller has to fall back to another method
+        /// </summary>
+        private Dictionary<string, double[]> GetDisassemblyExplodedViewOffsets(int explodedDirection,
+                                                                               double scaleFactor, double tolerance,
+                                                                               bool sequential, string[] partNames)
+        {
+            UpdateDisassemblyExplodedViewCache(explodedDirection, tolerance, partNames);
+            //
+            return _disassemblyExplodedViewCache.GetPartOffsets(scaleFactor, sequential);
+        }
+        /// <summary>
+        /// The number of steps the sequential disassembly explosion is taken in, which is the number of the
+        /// assembly levels. One means that a sequential explosion is the same as a simultaneous one.
+        /// </summary>
+        public int GetExplodedViewStepCount(int explodedMethod, int explodedDirection, double tolerance,
+                                            string[] partNames = null)
+        {
+            if (explodedMethod != 0) return 1;      // Disassembly
             //
             if (partNames == null) partNames = _parts.Keys.ToArray();
-            // Get connected part names
-            List<List<BasePart>> allConnectedParts = GetAllConnectedParts(partNames);
-            // Get bounding boxes of the selected parts
-            int count = 0;
-            BoundingBox box;
-            List<BoundingBox> nonIntersectingBBs = new List<BoundingBox>();
-            BoundingBox[] boxes = new BoundingBox[allConnectedParts.Count];
-            foreach (var connectedParts in allConnectedParts)
-            {
-                boxes[count] = new BoundingBox();
-                foreach (var connectedPart in connectedParts) boxes[count].IncludeBox(connectedPart.BoundingBox);
-                //
-                boxes[count].Scale(1.2);
-                boxes[count].Tag = connectedParts;
-                count++;
-            }
-            Array.Sort(boxes, new BoundingBoxVolumeComparer());
-            // Add the largest box
-            BoundingBox globalBox = new BoundingBox();
-            nonIntersectingBBs.Add(boxes[0]);
-            globalBox.IncludeBox(boxes[0]);
+            UpdateDisassemblyExplodedViewCache(explodedDirection, tolerance, partNames);
             //
-            Vec3D center;
-            Vec3D offset;
-            Vec3D direction;
-            List<BasePart> parts;
-            Dictionary<string, double[]> partOffsets = new Dictionary<string, double[]>();
-            for (int i = 1; i < boxes.Length; i++)
-            {
-                box = boxes[i];
-                center = new Vec3D(globalBox.GetCenter());
-                offset = new Vec3D();
-                direction = new Vec3D(box.GetCenter()) - center;
-                // Set the offset type
-                if (explodedType == 1) direction.Y = direction.Z = 0;
-                else if (explodedType == 2) direction.X = direction.Z = 0;
-                else if (explodedType == 3) direction.X = direction.Y = 0;
-                else if (explodedType == 4) direction.Z = 0;
-                else if (explodedType == 5) direction.Y = 0;
-                else if (explodedType == 6) direction.X = 0;
-                // Fix the 0 length direction
-                if (direction.Len2 < 1E-6 * globalBox.GetDiagonal()) direction.Coor = new double[] { 1, 1, 1 };
-                // Set the offset type
-                if (explodedType == 1) direction.Y = direction.Z = 0;
-                else if (explodedType == 2) direction.X = direction.Z = 0;
-                else if (explodedType == 3) direction.X = direction.Y = 0;
-                else if (explodedType == 4) direction.Z = 0;
-                else if (explodedType == 5) direction.Y = 0;
-                else if (explodedType == 6) direction.X = 0;
-                //
-                direction.Normalize();
-                direction *= (0.01 * globalBox.GetDiagonal());
-                //
-                count = 0;
-                while (box.Intersects(nonIntersectingBBs) && count++ < 10000)
-                {
-                    box.AddOffset(direction.Coor);
-                    offset += direction;
-                }
-                nonIntersectingBBs.Add(box);
-                globalBox.IncludeBox(box);
-                // Compound parts
-                parts = (List<BasePart>)box.Tag;
-                foreach (var part in parts) partOffsets.Add(part.Name, (offset * scaleFactor).Coor);
-            }
+            return _disassemblyExplodedViewCache.StepCount;
+        }
+        private void UpdateDisassemblyExplodedViewCache(int explodedDirection, double tolerance, string[] partNames)
+        {
+            string[] sortedPartNames = partNames.OrderBy(partName => partName, StringComparer.Ordinal).ToArray();
+            double[] partState = DisassemblyExplodedViewCache.GetPartState(this, sortedPartNames);
             //
-            return partOffsets;
+            if (_disassemblyExplodedViewCache == null ||
+                !_disassemblyExplodedViewCache.IsValidFor(explodedDirection, tolerance, sortedPartNames, partState))
+            {
+                _disassemblyExplodedViewCache =
+                    new DisassemblyExplodedViewCache(explodedDirection, tolerance, sortedPartNames, partState,
+                                                     GetDisassemblyStagedOffsets(explodedDirection, tolerance,
+                                                                                 partNames));
+            }
+        }
+        private ExplodedViewStagedOffsets GetDisassemblyStagedOffsets(int explodedDirection, double tolerance,
+                                                                      string[] partNames)
+        {
+            try
+            {
+                DisassemblyContactGraph graph = GetDisassemblyContactGraph(tolerance, partNames);
+                if (graph == null || graph.Clusters.Length < 2 || graph.Interfaces.Length == 0) return null;
+                //
+                DisassemblyExplodedViewLayout layout = DisassemblyExplodedViewLayout.Create(graph, explodedDirection);
+                if (layout == null) return null;
+                //
+                return layout.GetStagedOffsets();
+            }
+            catch
+            {
+                return null;
+            }
         }
         public Dictionary<string, double[]> GetExplodedViewOffsets(int explodedMethod, double[] centerPoint,
                                                                    int explodedDirection, double scaleFactor,
+                                                                   double tolerance, bool sequential,
                                                                    string[] partNames = null)
         {
             //
             // https://stackoverflow.com/questions/3265986/an-algorithm-to-space-out-overlapping-rectangles
             //
             if (partNames == null) partNames = _parts.Keys.ToArray();
+            //
+            if (explodedMethod == 0)        // Disassembly
+            {
+                Dictionary<string, double[]> disassemblyOffsets =
+                    GetDisassemblyExplodedViewOffsets(explodedDirection, scaleFactor, tolerance, sequential,
+                                                      partNames);
+                if (disassemblyOffsets != null) return disassemblyOffsets;
+                // Fall back to the assembly center method
+                explodedMethod = 1;
+            }
             // Get connected part names
             List<List<BasePart>> allConnectedParts = GetAllConnectedParts(partNames);
             // Get bounding boxes of the selected parts
@@ -4186,9 +4210,9 @@ namespace CaeMesh
             }
             // Compute BB offsets
             double[][] offsets;
-            if (explodedMethod == 0)        // Default
+            if (explodedMethod == 1)        // Assembly center
                 offsets = BoundingBox.GetExplodedBBOffsets(explodedDirection, scaleFactor, boxes);
-            else if (explodedMethod == 1)   // Center point
+            else if (explodedMethod == 2)   // Center point
                 offsets = BoundingBox.GetExplodedBBbyCPOffsets(centerPoint, explodedDirection, scaleFactor, boxes);
             else
                 throw new NotSupportedException();

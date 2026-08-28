@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -2961,6 +2961,10 @@ namespace PrePoMax
         {
             return _explodedViews.GetCurrentExplodedViewParameters();
         }
+        public double GetLastUsedExplodedViewScaleFactor()
+        {
+            return _explodedViews.GetLastUsedScaleFactor();
+        }
         public void PreviewExplodedView(ExplodedViewParameters parameters, bool animate,
                                         Dictionary<string, double[]> partOffsets = null,
                                         int timeMs = 500)
@@ -2974,7 +2978,7 @@ namespace PrePoMax
                 partOffsets = mesh.GetExplodedViewOffsets((int)parameters.Method, parameters.Center,
                                                           (int)parameters.Direction,
                                                           parameters.ScaleFactor * parameters.Magnification,
-                                                          partNames);
+                                                          parameters.Tolerance, parameters.Sequential, partNames);
             }
             //
             _animating = animate;
@@ -2982,6 +2986,66 @@ namespace PrePoMax
             _animating = false;
             //
             _form.SetExplodedViewStatus(true);
+        }
+        public bool IsSequentialExplodedView(ExplodedViewParameters parameters)
+        {
+            return parameters.Method == ExplodedViewMethodEnum.Disassembly && parameters.Sequential;
+        }
+        /// <summary>
+        /// Animates the explosion one assembly level after the other by stopping at the scale factor at
+        /// which each level finishes coming off. Each stop is a normal animated preview of its own, so the
+        /// level that moves carries everything mounted on it along and the next level only starts once it
+        /// arrived.
+        /// </summary>
+        public void PreviewExplodedViewSequence(ExplodedViewParameters parameters, double fromScaleFactor,
+                                                double toScaleFactor)
+        {
+            FeMesh mesh = DisplayedMesh;
+            if (mesh == null) return;
+            //
+            int stepCount = mesh.GetExplodedViewStepCount((int)parameters.Method, (int)parameters.Direction,
+                                                          parameters.Tolerance);
+            List<double> scaleFactors = GetExplodedViewSequenceScaleFactors(fromScaleFactor, toScaleFactor, stepCount);
+            //
+            _animating = true;
+            foreach (double scaleFactor in scaleFactors)
+            {
+                Dictionary<string, double[]> partOffsets =
+                    mesh.GetExplodedViewOffsets((int)parameters.Method, parameters.Center, (int)parameters.Direction,
+                                                scaleFactor, parameters.Tolerance, parameters.Sequential);
+                //
+                _form.PreviewExplodedView(partOffsets, true, Globals.ExplodedViewStepTimeMs);
+            }
+            _animating = false;
+            //
+            _form.SetExplodedViewStatus(true);
+        }
+        /// <summary>
+        /// The scale factors at which the animation stops: the level boundaries that lie between the two
+        /// ends, in the order they are passed, followed by the end itself
+        /// </summary>
+        private static List<double> GetExplodedViewSequenceScaleFactors(double fromScaleFactor, double toScaleFactor,
+                                                                        int stepCount)
+        {
+            List<double> scaleFactors = new List<double>();
+            //
+            if (stepCount > 1)
+            {
+                double min = Math.Min(fromScaleFactor, toScaleFactor);
+                double max = Math.Max(fromScaleFactor, toScaleFactor);
+                //
+                for (int i = 1; i <= stepCount; i++)
+                {
+                    double scaleFactor = (double)i / stepCount;
+                    if (scaleFactor > min && scaleFactor < max) scaleFactors.Add(scaleFactor);
+                }
+                //
+                if (toScaleFactor < fromScaleFactor) scaleFactors.Reverse();
+            }
+            //
+            scaleFactors.Add(toScaleFactor);
+            //
+            return scaleFactors;
         }
         public void ApplyExplodedView(ExplodedViewParameters parameters, string[] partNames = null, bool update = true)
         {
@@ -2997,7 +3061,7 @@ namespace PrePoMax
             Dictionary<string, double[]> partOffsets;
             partOffsets = mesh.GetExplodedViewOffsets((int)parameters.Method, parameters.Center,
                                                       (int)parameters.Direction, parameters.ScaleFactor * parameters.Magnification,
-                                                      partNames);
+                                                      parameters.Tolerance, parameters.Sequential, partNames);
             mesh.ApplyExplodedView(partOffsets);
             //
             _form.SetExplodedViewStatus(true);
@@ -3079,7 +3143,7 @@ namespace PrePoMax
                     mesh.GetExplodedViewOffsets((int)parameters.Method, parameters.Center,
                                                 (int)parameters.Direction,
                                                 parameters.ScaleFactor * parameters.Magnification,
-                                                partNames);
+                                                parameters.Tolerance, parameters.Sequential, partNames);
                 mesh.ApplyExplodedView(partOffsets);
                 //
                 ClearSelectionBuffer();
@@ -3135,8 +3199,15 @@ namespace PrePoMax
                 Dictionary<string, double[]> partOffsets = RemoveExplodedView(true);   // redraws scene // Highlight
                 Clear3DSelection();
                 PreviewExplodedView(parameters, false, partOffsets, timeMs);
-                parameters.ScaleFactor = 0;
-                PreviewExplodedView(parameters, animate, null, timeMs);
+                if (animate && IsSequentialExplodedView(parameters))
+                {
+                    PreviewExplodedViewSequence(parameters, parameters.ScaleFactor * parameters.Magnification, 0);
+                }
+                else
+                {
+                    parameters.ScaleFactor = 0;
+                    PreviewExplodedView(parameters, animate, null, timeMs);
+                }
                 //
                 _form.SetExplodedViewStatus(false);
             }
@@ -3148,8 +3219,12 @@ namespace PrePoMax
                 {
                     Clear3DSelection();
                     ExplodedViewParameters parameters = _explodedViews.GetCurrentExplodedViewParameters().DeepClone();
+                    // The toolbar button always explodes by the same amount, while the form keeps the scale
+                    // factor the exploded view was last applied with
                     parameters.ScaleFactor = 0.5;
-                    PreviewExplodedView(parameters, animate, null, timeMs);
+                    if (animate && IsSequentialExplodedView(parameters))
+                        PreviewExplodedViewSequence(parameters, 0, parameters.ScaleFactor * parameters.Magnification);
+                    else PreviewExplodedView(parameters, animate, null, timeMs);
                     ApplyExplodedView(parameters);  // Highlight
                 }
             }

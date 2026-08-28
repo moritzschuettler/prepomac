@@ -81,7 +81,7 @@ namespace PrePoMax
         //
         [CategoryAttribute("Data")]
         [OrderedDisplayName(3, 10, "Totals")]
-        [DescriptionAttribute("The parameter totals only applies to whole element variables (ELSE, EVOL).")]
+        [DescriptionAttribute("The parameter totals applies only to whole element variables (ELSE, ELKE, EVOL, EBHE).")]
         public TotalsTypeEnum TotalsType { get { return _historyOutput.TotalsType; } set { _historyOutput.TotalsType = value; } }
         //
         public override bool Global { get { return _historyOutput.Global; } set { _historyOutput.Global = value; } }

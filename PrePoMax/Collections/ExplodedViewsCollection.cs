@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace PrePoMax
 {
@@ -23,6 +24,7 @@ namespace PrePoMax
         private ExplodedViewParameters _geometryExplodedViewParameters;
         private ExplodedViewParameters _modelExplodedViewParameters;
         private Dictionary<string, ExplodedViewParameters> _resultNameExplodedViewParameters;
+        private ExplodedViewParameters _lastUsedParameters;
 
 
         // Properties                                                                                                               
@@ -35,6 +37,9 @@ namespace PrePoMax
             _controller = controller;
             ClearModelExplodedViews();
             _resultNameExplodedViewParameters = new Dictionary<string, ExplodedViewParameters>();
+            //
+            _lastUsedParameters = new ExplodedViewParameters();
+            _lastUsedParameters.ScaleFactor = 0.5;
         }
 
 
@@ -63,11 +68,28 @@ namespace PrePoMax
             _resultNameExplodedViewParameters.TryGetValue(name, out parameters);
             return parameters;
         }
+        /// <summary>
+        /// The parameters of the applied exploded view, or the settings that were last applied when there
+        /// is none. The scale factor of the remembered settings is reset to -1, which is what the callers
+        /// use to recognize that no exploded view is applied.
+        /// </summary>
         public ExplodedViewParameters GetCurrentExplodedViewParameters()
         {
             ExplodedViewParameters parameters = GetCurrentExplodedViewParametersNull();
-            if (parameters == null) parameters = new ExplodedViewParameters();
+            if (parameters == null)
+            {
+                parameters = _lastUsedParameters.DeepClone();
+                parameters.ScaleFactor = -1;
+            }
             return parameters;
+        }
+        /// <summary>
+        /// The scale factor the exploded view was last applied with, used as the starting position when it
+        /// is turned on again
+        /// </summary>
+        public double GetLastUsedScaleFactor()
+        {
+            return _lastUsedParameters.ScaleFactor;
         }
         private ExplodedViewParameters GetCurrentExplodedViewParametersNull()
         {
@@ -86,7 +108,11 @@ namespace PrePoMax
         {
             ExplodedViewParameters evp;
             if (parameters.ScaleFactor == -1) evp = null;
-            else evp = parameters;
+            else
+            {
+                evp = parameters;
+                _lastUsedParameters = parameters.DeepClone();
+            }
             //
             if (_controller.CurrentView == ViewGeometryModelResults.Geometry) _geometryExplodedViewParameters = evp;
             else if (_controller.CurrentView == ViewGeometryModelResults.Model) _modelExplodedViewParameters = evp;

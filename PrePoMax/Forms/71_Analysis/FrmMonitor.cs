@@ -29,6 +29,7 @@ namespace PrePoMax.Forms
         private Controller _controller;
         private string _plottedStatusData;
         private string _plottedConvergenceData;
+        private int _plottedEnergyRevision;
 
         // Properties                                                                                                               
 
@@ -115,6 +116,7 @@ namespace PrePoMax.Forms
             _job = _controller.GetJob(jobName);
             _job.DataOutputEvent += UpdateOutput;
             analysisProgressView.SetTimeUnit(_controller.Model.UnitSystem.TimeUnitAbbreviation);
+            analysisProgressView.SetEnergyUnit(_controller.Model.UnitSystem.EnergyUnitAbbreviation);
             //
             //if (_job.FEMSolver == FEMSolverEnum.Calculix) btnResults.Enabled = true;
             //else if (_job.FEMSolver == FEMSolverEnum.Abaqus) btnResults.Enabled = false;
@@ -123,6 +125,7 @@ namespace PrePoMax.Forms
             UpdateProgress();
             _plottedStatusData = null;
             _plottedConvergenceData = null;
+            _plottedEnergyRevision = -1;
             analysisProgressView.ClearData();
             //
             tbOutput.Text = _job.GetAllOutputData();
@@ -179,6 +182,13 @@ namespace PrePoMax.Forms
             {
                 analysisProgressView.SetConvergenceData(CalculixMonitorDataParser.ParseConvergence(convergenceData));
                 _plottedConvergenceData = convergenceData;
+            }
+            //
+            CalculixEnergyData energyData = _job.GetEnergyData();
+            if (energyData.Revision != _plottedEnergyRevision)
+            {
+                analysisProgressView.SetEnergyData(energyData);
+                _plottedEnergyRevision = energyData.Revision;
             }
         }
         public void UpdateProgress()

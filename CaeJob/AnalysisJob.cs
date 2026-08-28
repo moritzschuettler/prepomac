@@ -84,6 +84,7 @@ namespace CaeJob
         [NonSerialized] private object _tag;
         [NonSerialized] private bool _useBackgroundWorker;
         [NonSerialized] private double _prevWatchMilliseconds;
+        [NonSerialized] private CalculixEnergyOutputParser _energyOutputParser;
 
 
         // Properties                                                                                                               
@@ -208,6 +209,7 @@ namespace CaeJob
             _watch = null;
             _sbOutput = null;
             _sbAllOutput = null;
+            _energyOutputParser = new CalculixEnergyOutputParser();
             _onlyCheckModel = false;
         }
         public AnalysisJob(SerializationInfo info, StreamingContext context)
@@ -256,6 +258,7 @@ namespace CaeJob
                         break;
                 }
             }
+            _energyOutputParser = new CalculixEnergyOutputParser();
         }
 
         // Event handlers                                                                                                           
@@ -325,6 +328,9 @@ namespace CaeJob
                 //
                 if (_sbAllOutput == null) _sbAllOutput = new StringBuilder();
                 _sbAllOutput.Clear();
+                //
+                if (_energyOutputParser == null) _energyOutputParser = new CalculixEnergyOutputParser();
+                else _energyOutputParser.Reset();
             }
             //
             AppendDataToOutput(DateTime.Now + Environment.NewLine);
@@ -473,6 +479,7 @@ namespace CaeJob
             //Console.WriteLine($"  Peak virtual memory usage  : {_peakVirtualMem / 1024 / 1024}");
             //
             Timer_Tick(null, null);
+            if (_energyOutputParser != null) _energyOutputParser.Complete();
             SendDataToOutput();
             //
             JobStatusChanged?.Invoke(_name, _jobStatus);
@@ -695,6 +702,15 @@ namespace CaeJob
                 return null;
             }
         }
+        public CalculixEnergyData GetEnergyData()
+        {
+            if (_myLock == null) _myLock = new object();
+            lock (_myLock)
+            {
+                if (_energyOutputParser == null) _energyOutputParser = new CalculixEnergyOutputParser();
+                return _energyOutputParser.GetData();
+            }
+        }
         private void SendDataToOutput()
         {
             if (_myLock == null) _myLock = new object();
@@ -723,6 +739,11 @@ namespace CaeJob
             {
                 Application.DoEvents();
                 _sbOutput.AppendLine(data);
+                if (_femSolver == FEMSolverEnum.Calculix)
+                {
+                    if (_energyOutputParser == null) _energyOutputParser = new CalculixEnergyOutputParser();
+                    _energyOutputParser.AppendLine(data);
+                }
             }
             //
             if (_watch.ElapsedMilliseconds - _prevWatchMilliseconds > 1000)
@@ -831,6 +852,7 @@ namespace CaeJob
             _statusFileContents = "";
             _convergenceFileLength = 0;
             _convergenceFileContents = "";
+            if (_energyOutputParser != null) _energyOutputParser.Reset();
         }
         //
         public static bool IsAdministrator()

@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -31,10 +31,17 @@ namespace PrePoMax
     [Serializable]
     public enum ExplodedViewMethodEnum
     {
-        [StandardValue("Default", "Default exploded view method.")]
-        Default = 0,
-        [StandardValue("Center point", "Center point exploded view method.")]
-        CenterPoint = 1
+        [StandardValue("Disassembly", "Disassembly direction exploded view method. Each part is moved the " +
+                                      "way it would be taken off: along the normal of the mating face or " +
+                                      "along the axis of the bore that holds it.")]
+        Disassembly = 0,
+        [StandardValue("Assembly center", "Assembly center exploded view method. Each part is moved away " +
+                                          "from the center of the assembly until it clears the parts that " +
+                                          "are already spaced out.")]
+        AssemblyCenter = 1,
+        [StandardValue("Center point", "Center point exploded view method. Each part is moved away from the " +
+                                       "entered point, the further the further away it already is.")]
+        CenterPoint = 2
     }
     //
     [Serializable]
@@ -46,6 +53,8 @@ namespace PrePoMax
         private ExplodedViewDirectionEnum _explodedViewDirection;
         private double _scaleFactor;
         private double _magnification;
+        private double _tolerance;
+        private bool _sequential;
 
 
         // Properties                                                                                                               
@@ -65,6 +74,15 @@ namespace PrePoMax
         }
         public double ScaleFactor { get { return _scaleFactor; } set { _scaleFactor = value; } }
         public double Magnification { get { return _magnification; } set { _magnification = value; } }
+        /// <summary>
+        /// The distance below which two part faces are considered to be in contact by the disassembly
+        /// method; zero means the automatic value
+        /// </summary>
+        public double Tolerance { get { return _tolerance; } set { _tolerance = value; } }
+        /// <summary>
+        /// Move the parts one level of the assembly after the other instead of all of them at the same time
+        /// </summary>
+        public bool Sequential { get { return _sequential; } set { _sequential = value; } }
         
 
         // Constructors                                                                                                             
@@ -77,11 +95,13 @@ namespace PrePoMax
         // Methods                                                                                                                  
         public void Reset()
         {
-            _explodedViewMethod = ExplodedViewMethodEnum.Default;
+            _explodedViewMethod = ExplodedViewMethodEnum.Disassembly;
             _center = new double[3];
             _explodedViewDirection = ExplodedViewDirectionEnum.XYZ;
             _scaleFactor = -1;
             _magnification = 2;
+            _tolerance = 0;
+            _sequential = true;
         }
     }
 }

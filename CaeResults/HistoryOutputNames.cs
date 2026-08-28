@@ -84,6 +84,8 @@ namespace CaeResults
         public const string TotalVolume = "TOTAL_VOLUME";                                               //_
         public const string InternalEnergy = "INTERNAL_ENERGY";                                         //_
         public const string TotalInternalEnergy = "TOTAL_INTERNAL_ENERGY";                              //_
+        public const string KineticEnergy = "KINETIC_ENERGY";                                           //_
+        public const string TotalKineticEnergy = "TOTAL_KINETIC_ENERGY";                                //_
         // Thermal
         public const string HeatFlux = "HEAT_FLUX";                                                     //_
         public const string BodyHeating = "BODY_HEATING";                                               //_

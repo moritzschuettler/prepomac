@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -110,8 +110,7 @@ namespace CaeMesh
             foreach (var box in boxes) bb.IncludeBox(box);
             return bb.GetCenter();
         }
-        public static double[][] GetExplodedBBOffsets(int explodedDirection, double scaleFactor, BoundingBox[] boxes,
-                                                      BoundingBox[] fixedBoxes = null)
+        public static double[][] GetExplodedBBOffsets(int explodedDirection, double scaleFactor, BoundingBox[] boxes)
         {
             //
             // https://stackoverflow.com/questions/3265986/an-algorithm-to-space-out-overlapping-rectangles
@@ -125,30 +124,19 @@ namespace CaeMesh
             // Sort by size
             Array.Sort(boxes, new BoundingBoxVolumeComparer());
             //
-            int firstBoxId = 0;
             BoundingBox globalBox = new BoundingBox();
             double[][] offsets = new double[boxes.Length][];
             List<BoundingBox> nonIntersectingBBs = new List<BoundingBox>();
-            // Add fixed boxes
-            if (fixedBoxes != null && fixedBoxes.Length > 0)
-            {
-                nonIntersectingBBs.AddRange(fixedBoxes);
-                foreach (var fixedBox in fixedBoxes) globalBox.IncludeBox(fixedBox);
-            }
-            else
-            {
-                // Add the largest box
-                firstBoxId = 1;
-                globalBox.IncludeBox(boxes[0]);
-                nonIntersectingBBs.Add(boxes[0]);
-                offsets[(int)boxes[0].Tag] = new double[] { 0, 0, 0 };
-            }
+            // Add the largest box
+            globalBox.IncludeBox(boxes[0]);
+            nonIntersectingBBs.Add(boxes[0]);
+            offsets[(int)boxes[0].Tag] = new double[] { 0, 0, 0 };
             int count;
             Vec3D center;
             Vec3D offset;
             Vec3D direction;
             BoundingBox box;
-            for (int i = firstBoxId; i < boxes.Length; i++)
+            for (int i = 1; i < boxes.Length; i++)
             {
                 box = boxes[i];
                 center = new Vec3D(globalBox.GetCenter());
@@ -573,6 +561,21 @@ namespace CaeMesh
             return true;
         }
         //
+        /// <summary>
+        /// The interval the box covers when it is projected onto a unit direction
+        /// </summary>
+        public void GetProjection(double[] direction, out double min, out double max)
+        {
+            double center = 0.5 * (direction[0] * (MinX + MaxX) +
+                                   direction[1] * (MinY + MaxY) +
+                                   direction[2] * (MinZ + MaxZ));
+            double extent = 0.5 * (Math.Abs(direction[0]) * (MaxX - MinX) +
+                                   Math.Abs(direction[1]) * (MaxY - MinY) +
+                                   Math.Abs(direction[2]) * (MaxZ - MinZ));
+            //
+            min = center - extent;
+            max = center + extent;
+        }
         public double[] GetCenter()
         {
             return new double[] { (MinX + MaxX) / 2, (MinY + MaxY) / 2, (MinZ + MaxZ) / 2 };

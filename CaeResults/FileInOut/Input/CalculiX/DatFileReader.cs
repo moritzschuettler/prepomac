@@ -122,6 +122,8 @@ namespace CaeResults
             { HOFieldNames.TotalVolume, HOFieldNames.TotalVolume.Replace('_', ' ')},
             { HOFieldNames.InternalEnergy, HOFieldNames.InternalEnergy.Replace('_', ' ')},
             { HOFieldNames.TotalInternalEnergy, HOFieldNames.TotalInternalEnergy.Replace('_', ' ')},
+            { HOFieldNames.KineticEnergy, HOFieldNames.KineticEnergy.Replace('_', ' ')},
+            { HOFieldNames.TotalKineticEnergy, HOFieldNames.TotalKineticEnergy.Replace('_', ' ')},
             // Thermal                                                              
             { HOFieldNames.HeatFlux, HOFieldNames.HeatFlux.Replace('_', ' ')},
             { HOFieldNames.BodyHeating, HOFieldNames.BodyHeating.Replace('_', ' ')},
@@ -761,6 +763,20 @@ namespace CaeResults
                                 //        3.249095E-04
                                 lines[0] = lines[0].Replace("total internal energy for set",
                                                             "total internal energy (SE) for set");
+                            }
+                            else if (entry.Key == HOFieldNames.KineticEnergy)
+                            {
+                                //kinetic energy (element, energy) for set SOLID_PART-1 and time  0.1000000E+01
+                                //      1655  9.342906E-09
+                                lines[0] = lines[0].Replace("(element, energy)", "(Id,ELKE)");
+                                lines[0] = lines[0].Replace("(element,energy)", "(Id,ELKE)");
+                            }
+                            else if (entry.Key == HOFieldNames.TotalKineticEnergy)
+                            {
+                                //total kinetic energy for set SOLID_PART-1 and time  0.1000000E+01
+                                //        3.249095E-04
+                                lines[0] = lines[0].Replace("total kinetic energy for set",
+                                                            "total kinetic energy (KE) for set");
                             }
                             else if (entry.Key == HOFieldNames.Volume)
                             {

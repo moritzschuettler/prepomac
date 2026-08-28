@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -40,7 +40,8 @@ namespace PrePoMax.Forms
         {
             _cancelParam = parameters.DeepClone();
             //
-            if (parameters.ScaleFactor == -1) parameters.ScaleFactor = 0.5;   // -1 stands for disabled scale factor
+            // -1 stands for disabled scale factor
+            if (parameters.ScaleFactor == -1) parameters.ScaleFactor = _controller.GetLastUsedExplodedViewScaleFactor();
             _viewExplodedViewParameters.Parameters = parameters.DeepClone();
             //
             UpdateScrollbarPosition(false);
@@ -221,7 +222,7 @@ namespace PrePoMax.Forms
         {
             _controller.ClearSelectionHistory();
             //
-            if (_viewExplodedViewParameters.Method == ExplodedViewMethodEnum.Default) { }
+            if (_viewExplodedViewParameters.Method == ExplodedViewMethodEnum.AssemblyCenter) { }
             else if (_viewExplodedViewParameters.Method == ExplodedViewMethodEnum.CenterPoint)
             {
                 double[][] _coorNodesToDraw = new double[1][];

@@ -10,6 +10,7 @@
 using CaeJob;
 using System;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Globalization;
 using System.Windows.Forms;
 using ZedGraph;
@@ -26,6 +27,14 @@ namespace UserControls
         private const string ResidualFluxName = "Residual flux";
         private const string TemperatureCorrectionName = "Temperature correction";
         private const string ContactElementCountName = "Contact elements";
+        private const string TotalEnergyName = "Total energy";
+        private const string InternalEnergyName = "Internal energy";
+        private const string KineticEnergyName = "Kinetic energy";
+        private const string EnergyReferenceName = "Initial energy + net work";
+        private const string ContactEnergyName = "Contact energy";
+        private const string FrictionEnergyName = "Friction energy";
+        private const string RelativeBalanceName = "Energy balance";
+        private const string MassScalingRelativeBalanceName = "Energy balance with mass scaling";
         // Largest span (in decades) the percent (log) axis is allowed to show. Convergence data can
         // legitimately span ~19 decades (e.g. 1e2 down to 1e-16), so this must be wide enough to show
         // it all; but ZedGraph's log wheel-zoom becomes unstable past ~28 decades (the minimum
@@ -39,7 +48,13 @@ namespace UserControls
         //
         private CalculixStatusData _statusData;
         private CalculixConvergenceData _convergenceData;
+        private CalculixEnergyData _energyData;
         private string _timeUnit;
+        private string _energyUnit;
+        private TabControl _detailTabControl;
+        private TabPage _convergenceTabPage;
+        private TabPage _energyTabPage;
+        private ZedGraphControl _energyGraph;
         // Cached reflection handle to ZedGraph's private "_isPanning" flag, used to bound the
         // convergence log axis mid-pan (ZedGraph updates the pan continuously but only raises
         // ZoomEvent on mouse-up). Null if the field is ever absent, in which case the mid-pan guard
@@ -51,14 +66,48 @@ namespace UserControls
         public AnalysisProgressView()
         {
             _timeUnit = "";
+            _energyUnit = "";
             InitializeComponent();
+            InitializeDetailTabs();
             ConfigureStatusGraph();
             ConfigureConvergenceGraph();
+            ConfigureEnergyGraph();
             ClearData();
         }
 
 
         // Methods                                                                                                                  
+        private void InitializeDetailTabs()
+        {
+            _tableLayoutPanel.Controls.Remove(_convergenceGraph);
+            //
+            _detailTabControl = new TabControl();
+            _detailTabControl.Dock = DockStyle.Fill;
+            _detailTabControl.Margin = new Padding(3, 2, 3, 3);
+            _detailTabControl.Name = "tabControlProgressDetails";
+            //
+            _convergenceTabPage = new TabPage("Convergence");
+            _convergenceTabPage.Padding = new Padding(3);
+            _convergenceTabPage.UseVisualStyleBackColor = true;
+            _convergenceGraph.Dock = DockStyle.Fill;
+            _convergenceGraph.Margin = new Padding(0);
+            _convergenceTabPage.Controls.Add(_convergenceGraph);
+            //
+            _energyGraph = new ZedGraphControl();
+            _energyGraph.Dock = DockStyle.Fill;
+            _energyGraph.IsShowPointValues = true;
+            _energyGraph.Margin = new Padding(0);
+            _energyGraph.Name = "zedGraphEnergy";
+            _energyGraph.UseExtendedPrintDialog = true;
+            _energyTabPage = new TabPage("Energy");
+            _energyTabPage.Padding = new Padding(3);
+            _energyTabPage.UseVisualStyleBackColor = true;
+            _energyTabPage.Controls.Add(_energyGraph);
+            //
+            _detailTabControl.TabPages.Add(_convergenceTabPage);
+            _tableLayoutPanel.Controls.Add(_detailTabControl, 0, 1);
+        }
+
         private void ConfigureStatusGraph()
         {
             GraphPane pane = _statusGraph.GraphPane;
@@ -104,6 +153,22 @@ namespace UserControls
             _convergenceGraph.MouseMove += Convergence_MouseMove;
         }
 
+        private void ConfigureEnergyGraph()
+        {
+            GraphPane pane = _energyGraph.GraphPane;
+            ConfigureGraphPane(pane);
+            pane.Title.Text = "Energy";
+            UpdateEnergyUnitLabels();
+            pane.Y2Axis.Title.Text = "Energy balance [%]";
+            pane.Y2Axis.IsVisible = false;
+            pane.Y2Axis.Title.FontSpec.Size = 12;
+            pane.Y2Axis.Scale.FontSpec.Size = 12;
+            pane.XAxis.Scale.Min = 0;
+            pane.XAxis.Scale.MinAuto = false;
+            _energyGraph.PointValueEvent += EnergyGraph_PointValueEvent;
+            _energyGraph.ContextMenuBuilder += Graph_ContextMenuBuilder;
+        }
+
         private void ConfigureGraphPane(GraphPane pane)
         {
             pane.IsFontsScaled = false;
@@ -132,6 +197,7 @@ namespace UserControls
         {
             _statusData = null;
             _convergenceData = null;
+            _energyData = null;
             //
             GraphPane statusPane = _statusGraph.GraphPane;
             statusPane.CurveList.Clear();
@@ -145,6 +211,14 @@ namespace UserControls
             convergencePane.Title.Text = "Convergence - waiting for data";
             ResetConvergenceScale();
             _convergenceGraph.Invalidate();
+            //
+            GraphPane energyPane = _energyGraph.GraphPane;
+            energyPane.CurveList.Clear();
+            energyPane.Y2Axis.IsVisible = false;
+            energyPane.Title.Text = "Energy - waiting for data";
+            ResetEnergyScale();
+            _energyGraph.Invalidate();
+            UpdateDetailTabs();
         }
 
         public void SetTimeUnit(string timeUnit)
@@ -152,6 +226,14 @@ namespace UserControls
             _timeUnit = timeUnit ?? "";
             UpdateTimeUnitLabels();
             _statusGraph.Invalidate();
+            _energyGraph.Invalidate();
+        }
+
+        public void SetEnergyUnit(string energyUnit)
+        {
+            _energyUnit = energyUnit ?? "";
+            UpdateEnergyUnitLabels();
+            _energyGraph.Invalidate();
         }
 
         private void UpdateTimeUnitLabels()
@@ -160,6 +242,13 @@ namespace UserControls
             GraphPane pane = _statusGraph.GraphPane;
             pane.XAxis.Title.Text = "Total analysis time" + unit;
             pane.YAxis.Title.Text = "Increment size" + unit;
+            _energyGraph.GraphPane.XAxis.Title.Text = "Total analysis time" + unit;
+        }
+
+        private void UpdateEnergyUnitLabels()
+        {
+            string unit = _energyUnit.Length > 0 ? " [" + _energyUnit + "]" : "";
+            _energyGraph.GraphPane.YAxis.Title.Text = "Energy" + unit;
         }
 
         public void SetStatusData(CalculixStatusData data)
@@ -257,6 +346,119 @@ namespace UserControls
             pane.Y2Axis.Scale.MaxAuto = contactMaximumAuto;
             pane.Y2Axis.Scale.MajorStepAuto = contactStepAuto;
             _convergenceGraph.Invalidate();
+            UpdateDetailTabs();
+        }
+
+        public void SetEnergyData(CalculixEnergyData data)
+        {
+            _energyData = data;
+            GraphPane pane = _energyGraph.GraphPane;
+            pane.CurveList.Clear();
+            pane.Y2Axis.IsVisible = false;
+            //
+            if (data == null || data.Count == 0)
+            {
+                pane.Title.Text = "Energy - waiting for data";
+            }
+            else
+            {
+                pane.Title.Text = "Energy";
+                AddLinearCurve(pane, TotalEnergyName, data.TotalTimes, data.TotalEnergies, Color.Black, false);
+                AddLinearCurve(pane, InternalEnergyName, data.TotalTimes, data.InternalEnergies,
+                               Color.DodgerBlue, false);
+                AddLinearCurve(pane, KineticEnergyName, data.TotalTimes, data.KineticEnergies,
+                               Color.DarkOrange, false);
+                LineItem referenceCurve = AddLinearCurve(pane, EnergyReferenceName, data.TotalTimes,
+                                                         GetEnergyReference(data), Color.ForestGreen, false);
+                if (referenceCurve != null) referenceCurve.Line.Style = DashStyle.Dash;
+                AddLinearCurve(pane, ContactEnergyName, data.TotalTimes, data.ContactEnergies,
+                               Color.MediumVioletRed, true);
+                AddLinearCurve(pane, FrictionEnergyName, data.TotalTimes, data.FrictionEnergies,
+                               Color.SaddleBrown, true);
+                //
+                LineItem relativeBalanceCurve = AddLinearCurve(pane, RelativeBalanceName, data.TotalTimes,
+                                                                data.RelativeBalances, Color.DarkViolet, false);
+                if (relativeBalanceCurve != null)
+                {
+                    relativeBalanceCurve.IsY2Axis = true;
+                    pane.Y2Axis.IsVisible = true;
+                }
+                LineItem massScalingBalanceCurve = AddLinearCurve(pane, MassScalingRelativeBalanceName,
+                                                                   data.TotalTimes,
+                                                                   data.MassScalingRelativeBalances,
+                                                                   Color.Firebrick, false);
+                if (massScalingBalanceCurve != null)
+                {
+                    massScalingBalanceCurve.IsY2Axis = true;
+                    massScalingBalanceCurve.Line.Style = DashStyle.Dash;
+                    pane.Y2Axis.IsVisible = true;
+                }
+            }
+            //
+            _energyGraph.AxisChange();
+            _energyGraph.Invalidate();
+            UpdateDetailTabs();
+        }
+
+        private LineItem AddLinearCurve(GraphPane pane, string name, double[] x, double[] y, Color color,
+                                        bool requireNonZeroValue)
+        {
+            if (requireNonZeroValue)
+            {
+                if (!ContainsNonZeroFiniteValue(y)) return null;
+            }
+            else if (!ContainsFiniteValue(y)) return null;
+            //
+            PointPairList points = new PointPairList();
+            int count = Math.Min(x.Length, y.Length);
+            for (int i = 0; i < count; i++)
+            {
+                double xValue = x[i];
+                double yValue = y[i];
+                if (IsFinite(xValue) && IsFinite(yValue)) points.Add(new PointPair(xValue, yValue, 0, i));
+                else points.Add(new PointPair(i, PointPairBase.Missing, 0, i));
+            }
+            //
+            LineItem curve = pane.AddCurve(name, points, color, SymbolType.Circle);
+            ConfigureCurve(curve);
+            return curve;
+        }
+
+        private double[] GetEnergyReference(CalculixEnergyData data)
+        {
+            double[] reference = new double[data.Count];
+            for (int i = 0; i < reference.Length; i++)
+            {
+                if (!IsFinite(data.InitialEnergies[i])) reference[i] = double.NaN;
+                else if (IsFinite(data.NetWorks[i])) reference[i] = data.InitialEnergies[i] + data.NetWorks[i];
+                else reference[i] = data.InitialEnergies[i];
+            }
+            return reference;
+        }
+
+        private void UpdateDetailTabs()
+        {
+            bool hasConvergenceData = _convergenceData != null && _convergenceData.Count > 0;
+            bool hasEnergyData = _energyData != null && _energyData.Count > 0;
+            TabPage selectedTab = _detailTabControl.SelectedTab;
+            //
+            _detailTabControl.TabPages.Clear();
+            if (!hasConvergenceData && !hasEnergyData)
+            {
+                _detailTabControl.TabPages.Add(_convergenceTabPage);
+            }
+            else
+            {
+                if (hasConvergenceData) _detailTabControl.TabPages.Add(_convergenceTabPage);
+                if (hasEnergyData) _detailTabControl.TabPages.Add(_energyTabPage);
+            }
+            //
+            if (selectedTab != null && _detailTabControl.TabPages.Contains(selectedTab))
+                _detailTabControl.SelectedTab = selectedTab;
+            else if (hasEnergyData && !hasConvergenceData)
+                _detailTabControl.SelectedTab = _energyTabPage;
+            else if (_detailTabControl.TabPages.Count > 0)
+                _detailTabControl.SelectedIndex = 0;
         }
 
         private void AddLogCurve(GraphPane pane, string name, double[] x, double[] y, Color color)
@@ -525,6 +727,11 @@ namespace UserControls
                 ResetConvergenceScale();
                 SetConvergenceData(_convergenceData);
             }
+            else if (graph == _energyGraph)
+            {
+                ResetEnergyScale();
+                SetEnergyData(_energyData);
+            }
         }
 
         private double GetMaximum(double[] values)
@@ -544,6 +751,29 @@ namespace UserControls
                 if (value > 0 && !double.IsInfinity(value) && !double.IsNaN(value)) return true;
             }
             return false;
+        }
+
+        private bool ContainsFiniteValue(double[] values)
+        {
+            foreach (double value in values)
+            {
+                if (IsFinite(value)) return true;
+            }
+            return false;
+        }
+
+        private bool ContainsNonZeroFiniteValue(double[] values)
+        {
+            foreach (double value in values)
+            {
+                if (IsFinite(value) && value != 0) return true;
+            }
+            return false;
+        }
+
+        private bool IsFinite(double value)
+        {
+            return !double.IsNaN(value) && !double.IsInfinity(value);
         }
 
         private string StatusGraph_PointValueEvent(ZedGraphControl sender, GraphPane pane, CurveItem curve, int index)
@@ -595,6 +825,44 @@ namespace UserControls
                                  curve.Label.Text, value, percentage ? "%" : "");
         }
 
+        private string EnergyGraph_PointValueEvent(ZedGraphControl sender, GraphPane pane, CurveItem curve, int index)
+        {
+            if (_energyData == null || index < 0 || index >= curve.Points.Count) return "";
+            int dataIndex = index;
+            if (curve.Points[index].Tag is int originalIndex) dataIndex = originalIndex;
+            if (dataIndex < 0 || dataIndex >= _energyData.Count) return "";
+            //
+            double value;
+            bool percentage = false;
+            if (curve.Label.Text == TotalEnergyName) value = _energyData.TotalEnergies[dataIndex];
+            else if (curve.Label.Text == InternalEnergyName) value = _energyData.InternalEnergies[dataIndex];
+            else if (curve.Label.Text == KineticEnergyName) value = _energyData.KineticEnergies[dataIndex];
+            else if (curve.Label.Text == EnergyReferenceName)
+            {
+                value = _energyData.InitialEnergies[dataIndex];
+                if (IsFinite(_energyData.NetWorks[dataIndex])) value += _energyData.NetWorks[dataIndex];
+            }
+            else if (curve.Label.Text == ContactEnergyName) value = _energyData.ContactEnergies[dataIndex];
+            else if (curve.Label.Text == FrictionEnergyName) value = _energyData.FrictionEnergies[dataIndex];
+            else if (curve.Label.Text == RelativeBalanceName)
+            {
+                value = _energyData.RelativeBalances[dataIndex];
+                percentage = true;
+            }
+            else
+            {
+                value = _energyData.MassScalingRelativeBalances[dataIndex];
+                percentage = true;
+            }
+            //
+            string timeUnit = _timeUnit.Length > 0 ? " " + _timeUnit : "";
+            string valueUnit = percentage ? "%" : (_energyUnit.Length > 0 ? " " + _energyUnit : "");
+            return string.Format(CultureInfo.CurrentCulture,
+                                 "Step {0}\nTotal time: {1:G6}{2}\n{3}: {4:G6}{5}",
+                                 _energyData.Steps[dataIndex], _energyData.TotalTimes[dataIndex], timeUnit,
+                                 curve.Label.Text, value, valueUnit);
+        }
+
         private void ResetStatusScale()
         {
             GraphPane pane = _statusGraph.GraphPane;
@@ -619,6 +887,18 @@ namespace UserControls
             pane.YAxis.Scale.MaxAuto = true;
             pane.Y2Axis.Scale.Min = 0;
             pane.Y2Axis.Scale.MinAuto = false;
+            pane.Y2Axis.Scale.MaxAuto = true;
+        }
+
+        private void ResetEnergyScale()
+        {
+            GraphPane pane = _energyGraph.GraphPane;
+            pane.XAxis.Scale.Min = 0;
+            pane.XAxis.Scale.MinAuto = false;
+            pane.XAxis.Scale.MaxAuto = true;
+            pane.YAxis.Scale.MinAuto = true;
+            pane.YAxis.Scale.MaxAuto = true;
+            pane.Y2Axis.Scale.MinAuto = true;
             pane.Y2Axis.Scale.MaxAuto = true;
         }
     }
